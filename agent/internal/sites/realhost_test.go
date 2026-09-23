@@ -12,7 +12,14 @@ package sites
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
+	"math/big"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"io"
@@ -103,6 +110,27 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 	if strings.Contains(string(b), "ssl_certificate") {
 		t.Fatal("failed change was not rolled back")
 	}
+	// With real certificate files the HTTPS configuration passes nginx -t.
+	live := "/etc/letsencrypt/live/php.whacp.test"
+	os.MkdirAll(live, 0o755)
+	t.Cleanup(func() { os.RemoveAll(live) })
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "php.whacp.test"}, DNSNames: []string{"php.whacp.test"}, NotBefore: time.Now(), NotAfter: time.Now().Add(24 * time.Hour)}
+	der, _ := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	kb, _ := x509.MarshalECPrivateKey(key)
+	os.WriteFile(live+"/fullchain.pem", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0o644)
+	os.WriteFile(live+"/privkey.pem", pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: kb}), 0o600)
+	good := bad
+	good.ForceHTTPS, good.HSTS = true, true
+	if _, err := m.Apply(ctx, good); err != nil {
+		var ae *actions.Error
+		errors.As(err, &ae)
+		t.Fatalf("https apply: %v %+v", err, ae)
+	}
+	if out, err := r.real.Run(ctx, "nginx", "-t"); err != nil {
+		t.Fatalf("real nginx -t failed with HTTPS: %s", out)
+	}
+
 	// Idempotent re-apply.
 	if res, err := m.Apply(ctx, specs[1]); err != nil || len(res.Changed) != 0 {
 		t.Fatalf("re-apply changed %v (%v)", res, err)

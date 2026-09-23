@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
+	"time"
 )
 
 // Handler executes an action with raw JSON parameters.
@@ -25,6 +26,9 @@ type Action struct {
 	Description string
 	Mutating    bool
 	Handler     Handler
+	// Timeout overrides the default action timeout (e.g. certificate
+	// issuance); zero uses the default.
+	Timeout time.Duration
 }
 
 // Error is a user-safe failure with a stable code.

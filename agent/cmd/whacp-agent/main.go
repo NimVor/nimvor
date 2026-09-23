@@ -138,7 +138,8 @@ func run() int {
 		ConnContext:       srv.ConnContext,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      cfg.ActionTimeout.Duration + 10*time.Second,
+		// Some actions (certificate issuance) may run up to 10 minutes.
+		WriteTimeout:      cfg.ActionTimeout.Duration + 10*time.Minute,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    64 << 10,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),

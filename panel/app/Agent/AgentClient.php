@@ -37,7 +37,7 @@ class AgentClient
      *
      * @param array<string, mixed> $params
      */
-    public function call(string $action, array $params = []): mixed
+    public function call(string $action, array $params = [], ?int $timeoutSeconds = null): mixed
     {
         if (!preg_match(self::ACTION_PATTERN, $action)) {
             throw new \InvalidArgumentException("Invalid agent action name {$action}");
@@ -45,7 +45,7 @@ class AgentClient
         $body = $params === [] ? '{}' : json_encode($params, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         $started = microtime(true);
         try {
-            $response = $this->transport->request('POST', '/v1/actions/' . $action, $body, $this->token(), $this->timeoutSeconds);
+            $response = $this->transport->request('POST', '/v1/actions/' . $action, $body, $this->token(), $timeoutSeconds ?? $this->timeoutSeconds);
         } catch (AgentException $e) {
             $this->logger->warning('agent unreachable', ['action' => $action, 'code' => $e->errorCode(), 'reason' => $e->reason()]);
             throw $e;

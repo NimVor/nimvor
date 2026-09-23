@@ -164,7 +164,11 @@ func (s *Server) action(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), s.ActionTimeout)
+	timeout := s.ActionTimeout
+	if act.Timeout > timeout {
+		timeout = act.Timeout
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), timeout)
 	defer cancel()
 	data, err := act.Handler(ctx, json.RawMessage(body))
 	elapsed := time.Since(start)

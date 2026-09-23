@@ -57,7 +57,7 @@ func New(t *testing.T) *Host {
 	}
 	passwd := fmt.Sprintf("root:x:0:0:root:/root:/bin/bash\nwww-data:x:%d:%d:www-data:/var/www:/usr/sbin/nologin\nexample:x:%d:%d::/var/www/example.com:/usr/sbin/nologin\n", webUID, webGID, h.UID, h.GID)
 	os.WriteFile(filepath.Join(base, "etc/passwd"), []byte(passwd), 0o644)
-	for _, d := range []string{"run/php", "var/lib/whacp-agent", "home/whacp", "var/backups/whacp", "etc/cron.d", "etc/systemd/system", "etc/ssh/sshd_config.d", "etc/fail2ban/jail.d"} {
+	for _, d := range []string{"run/php", "var/lib/whacp-agent", "home/whacp", "var/backups/whacp", "etc/cron.d", "etc/systemd/system", "etc/ssh/sshd_config.d", "etc/fail2ban/jail.d", "etc/letsencrypt/renewal-hooks/deploy", "var/www"} {
 		os.MkdirAll(filepath.Join(base, d), 0o755)
 	}
 	h.Runner = &execx.FakeRunner{Handler: h.handle, Unavailable: map[string]bool{}}

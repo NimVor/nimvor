@@ -51,6 +51,9 @@ type Paths struct {
 	SystemdUnitDirs     []string `json:"systemd_unit_dirs"`
 }
 
+// LiveDir is where certbot keeps current certificates.
+func (m Managed) LiveDir() string { return "/etc/letsencrypt/live" }
+
 // Platform is implemented per distribution family.
 type Platform interface {
 	Info() OSInfo
