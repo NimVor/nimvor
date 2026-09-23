@@ -30,16 +30,7 @@ func (c Client) Dump(ctx context.Context, name, dest string, log io.Writer) (int
 		return 0, err
 	}
 	defer os.Remove(tmp)
-	gz := gzip.NewWriter(f)
-	args := c.args("--single-transaction", "--quick", "--routines", "--triggers", "--events", "--hex-blob", "--no-tablespaces", "--", name)
-	// mysqldump shares the client flags except --batch/--raw/--skip-column-names.
-	args = filterArgs(args, "--batch", "--skip-column-names", "--raw")
-	fmt.Fprintf(log, "Dumping database %s…\n", name)
-	if errOut, err := e.Runner.RunWith(ctx, "mysqldump", execx.Opts{Stdout: gz, Output: log, Timeout: -1}, args...); err != nil {
-		f.Close()
-		return 0, fmt.Errorf("mysqldump failed: %s", strings.TrimSpace(string(errOut)))
-	}
-	if err := gz.Close(); err != nil {
+	if err := c.DumpTo(ctx, name, f, log); err != nil {
 		f.Close()
 		return 0, err
 	}
@@ -54,6 +45,28 @@ func (c Client) Dump(ctx context.Context, name, dest string, log io.Writer) (int
 	info, _ := os.Stat(real)
 	fmt.Fprintf(log, "Wrote %s (%d bytes)\n", dest, info.Size())
 	return info.Size(), nil
+}
+
+// DumpTo streams a gzip-compressed dump of name to w.
+func (c Client) DumpTo(ctx context.Context, name string, w io.Writer, log io.Writer) error {
+	gz := gzip.NewWriter(w)
+	args := c.args("--single-transaction", "--quick", "--routines", "--triggers", "--events", "--hex-blob", "--no-tablespaces", "--", name)
+	// mysqldump shares the client flags except --batch/--raw/--skip-column-names.
+	args = filterArgs(args, "--batch", "--skip-column-names", "--raw")
+	fmt.Fprintf(log, "Dumping database %s…\n", name)
+	if errOut, err := c.Env.Runner.RunWith(ctx, "mysqldump", execx.Opts{Stdout: gz, Output: log, Timeout: -1}, args...); err != nil {
+		return fmt.Errorf("mysqldump failed: %s", strings.TrimSpace(string(errOut)))
+	}
+	return gz.Close()
+}
+
+// ImportFrom loads SQL read from r (plain text) into name.
+func (c Client) ImportFrom(ctx context.Context, name string, r io.Reader, log io.Writer) error {
+	args := filterArgs(c.args("--", name), "--skip-column-names", "--raw")
+	if _, err := c.Env.Runner.RunWith(ctx, "mysql", execx.Opts{Stdin: r, Output: log, Timeout: -1}, args...); err != nil {
+		return fmt.Errorf("import failed")
+	}
+	return nil
 }
 
 // Import loads a .sql or .sql.gz file into name.
@@ -77,11 +90,7 @@ func (c Client) Import(ctx context.Context, name, source string, log io.Writer) 
 		r = gz
 	}
 	fmt.Fprintf(log, "Importing %s into %s…\n", source, name)
-	args := filterArgs(c.args("--", name), "--skip-column-names", "--raw")
-	if _, err := c.Env.Runner.RunWith(ctx, "mysql", execx.Opts{Stdin: r, Output: log, Timeout: -1}, args...); err != nil {
-		return fmt.Errorf("import failed")
-	}
-	return nil
+	return c.ImportFrom(ctx, name, r, log)
 }
 
 func filterArgs(args []string, drop ...string) []string {

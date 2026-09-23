@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"github.com/mchkhawarshahzad/whacp/agent/internal/backup"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/cronmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/dbmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/deploy"
@@ -27,6 +28,7 @@ func All() []Module {
 		workers.Register,
 		deploy.Register,
 		redismgr.Register,
+		backup.Register,
 		phpmgr.Register,
 		services.Register,
 	}

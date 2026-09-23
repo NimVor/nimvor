@@ -91,6 +91,7 @@ var defaultCandidates = map[string][]string{
 	"shutdown":        {"/usr/sbin/shutdown", "/sbin/shutdown"},
 	"composer":        {"/usr/local/bin/composer", "/usr/bin/composer"},
 	"sh":              {"/bin/sh", "/usr/bin/sh"},
+	"tar":             {"/usr/bin/tar", "/bin/tar"},
 }
 
 // Versioned PHP binaries are resolved on demand ("php8.3", "php-fpm8.3").
@@ -219,9 +220,10 @@ func checkArgs(id string, o Opts, args []string) error {
 			return fmt.Errorf("invalid environment entry for %s", id)
 		}
 	}
-	// A shell is only ever started as an unprivileged account.
-	if id == "sh" && (o.As == nil || o.As.UID < 1000 || o.As.GID < 1000) {
-		return fmt.Errorf("%w: the shell may only run as an unprivileged account", ErrNotAllowed)
+	// A shell, and tar (which reads and writes website files), only ever
+	// run as an unprivileged account.
+	if (id == "sh" || id == "tar") && (o.As == nil || o.As.UID < 1000 || o.As.GID < 1000) {
+		return fmt.Errorf("%w: %s may only run as an unprivileged account", ErrNotAllowed, id)
 	}
 	return nil
 }
@@ -301,6 +303,10 @@ func (f *FakeRunner) RunWith(_ context.Context, id string, o Opts, args ...strin
 	if !ok {
 		if f.Handler != nil {
 			s, err := f.Handler(id, o, args)
+			if o.Stdout != nil {
+				io.WriteString(o.Stdout, s)
+				return nil, err
+			}
 			if o.Output != nil {
 				io.WriteString(o.Output, s)
 			}

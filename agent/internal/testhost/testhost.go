@@ -83,6 +83,10 @@ func (h *Host) handle(id string, o execx.Opts, args []string) (string, error) {
 		}
 	}
 	switch {
+	case id == "tar" && strings.Contains(key, " -cf - "):
+		return "TAR-DATA:" + args[1], nil
+	case id == "mysqldump":
+		return "-- dump of " + args[len(args)-1] + "\n", nil
 	case key == "nginx -v":
 		return "nginx version: nginx/1.24.0 (Ubuntu)", nil
 	case id == "systemctl" && len(args) > 0 && args[0] == "is-active":
