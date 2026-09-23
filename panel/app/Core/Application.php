@@ -111,6 +111,7 @@ final class Application
             $c->get(Logger::class),
             $cfg->int('agent.timeout', 30),
         ));
+        $c->set(\WhaCP\Security\Crypto::class, static fn () => new \WhaCP\Security\Crypto($cfg->string('security.key_file')));
         $c->set(ErrorHandler::class, static fn (Container $c) => new ErrorHandler(
             $c->get(Logger::class),
             $c->get(View::class),

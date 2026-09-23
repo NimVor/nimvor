@@ -130,7 +130,7 @@ func AptInstall(ctx context.Context, env *host.Env, log io.Writer, pkgs []string
 			return err
 		}
 	}
-	opts := execx.Opts{Output: log, Timeout: 0}
+	opts := execx.Opts{Output: log, Timeout: -1}
 	if _, err := env.Runner.RunWith(ctx, "apt-get", opts, "update", "-q"); err != nil {
 		return fmt.Errorf("apt-get update failed")
 	}

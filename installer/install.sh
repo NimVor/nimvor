@@ -212,6 +212,15 @@ if [[ ! -f $CONF_DIR/agent.token ]]; then
 else
     ok "keeping existing agent token"
 fi
+if [[ ! -f $CONF_DIR/panel.key ]]; then
+    if [[ $DRY_RUN -eq 1 ]]; then
+        echo "    [dry-run] generate $CONF_DIR/panel.key"
+    else
+        (umask 077; openssl rand -base64 32 > "$CONF_DIR/panel.key")
+        chown root:whacp "$CONF_DIR/panel.key"
+        chmod 0640 "$CONF_DIR/panel.key"
+    fi
+fi
 if [[ ! -f $CONF_DIR/agent.json ]]; then
     run install -m 0640 -o root -g whacp "$SRC_DIR/installer/config/agent.json" "$CONF_DIR/agent.json"
 fi

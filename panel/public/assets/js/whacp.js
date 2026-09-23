@@ -145,6 +145,16 @@
         if (k) { applyKind(k); }
     });
 
+    // Copy-to-clipboard buttons: data-wcp-copy="<selector>".
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-wcp-copy]');
+        if (!b) { return; }
+        var src = document.querySelector(b.getAttribute('data-wcp-copy'));
+        if (src && navigator.clipboard) {
+            navigator.clipboard.writeText(src.textContent.trim()).then(function () { WhaCP.toast('Copied to the clipboard.', 'success'); });
+        }
+    });
+
     // Auto-submit selects.
     document.addEventListener('change', function (e) {
         if (e.target.matches('[data-wcp-autosubmit]')) { e.target.form.submit(); }

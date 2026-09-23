@@ -45,5 +45,7 @@ return [
         'login_max_per_ip' => 10,
         'login_max_per_user' => 5,
         'login_window_seconds' => 900,
+        // Secret-encryption key (created automatically when missing).
+        'key_file' => $storage . '/data/panel.key',
     ],
 ];

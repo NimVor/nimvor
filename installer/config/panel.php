@@ -23,5 +23,6 @@ return [
     'security' => [
         // Add your reverse proxy address here if you put one in front.
         'trusted_proxies' => [],
+        'key_file' => '/etc/whacp/panel.key',
     ],
 ];

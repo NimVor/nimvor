@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"github.com/mchkhawarshahzad/whacp/agent/internal/dbmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/services"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sites"
@@ -11,6 +12,7 @@ import (
 func All() []Module {
 	return []Module{
 		sites.Register,
+		dbmgr.Register,
 		phpmgr.Register,
 		services.Register,
 	}

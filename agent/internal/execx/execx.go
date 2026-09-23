@@ -37,11 +37,16 @@ type Credential struct {
 
 // Opts customises a single run.
 type Opts struct {
-	Stdin   io.Reader
-	Env     []string // extra KEY=value entries
-	Dir     string
-	As      *Credential
-	Output  io.Writer // receives combined output as it is produced
+	Stdin  io.Reader
+	Env    []string // extra KEY=value entries
+	Dir    string
+	As     *Credential
+	Output io.Writer // receives combined output as it is produced
+	// Stdout, when set, receives raw standard output (not captured); the
+	// returned bytes and Output then only contain standard error.
+	Stdout io.Writer
+	// Timeout overrides the runner default; a negative value disables the
+	// per-command timeout (the caller's context still applies).
 	Timeout time.Duration
 }
 
@@ -163,7 +168,7 @@ func (r *SystemRunner) RunWith(ctx context.Context, id string, o Opts, args ...s
 		return nil, err
 	}
 	timeout := r.timeout
-	if o.Timeout > 0 {
+	if o.Timeout != 0 {
 		timeout = o.Timeout
 	}
 	if timeout > 0 {
@@ -195,6 +200,9 @@ func (r *SystemRunner) RunWith(ctx context.Context, id string, o Opts, args ...s
 	}
 	cmd.Stdout = w
 	cmd.Stderr = w
+	if o.Stdout != nil {
+		cmd.Stdout = o.Stdout
+	}
 	cmd.WaitDelay = 5 * time.Second
 	err = cmd.Run()
 	return buf.Bytes(), err
@@ -299,6 +307,10 @@ func (f *FakeRunner) RunWith(_ context.Context, id string, o Opts, args ...strin
 			return []byte(s), err
 		}
 		return nil, fmt.Errorf("%w: %s", ErrUnavailable, id)
+	}
+	if o.Stdout != nil {
+		io.WriteString(o.Stdout, out)
+		return nil, nil
 	}
 	if o.Output != nil {
 		io.WriteString(o.Output, out)
