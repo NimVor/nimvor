@@ -46,6 +46,7 @@ type SSLBinding struct {
 	Status        string    `json:"status"`
 	LetsEncrypt   bool      `json:"lets_encrypt"`
 	CoversDomain  bool      `json:"covers_domain"`
+	Names         []string  `json:"names"`
 	Error         string    `json:"error,omitempty"`
 }
 
@@ -275,6 +276,7 @@ func Correlate(root filesystem.Root, ng nginx.Result, phpRes php.Result, now tim
 				Status:        c.Status(),
 				LetsEncrypt:   c.LetsEncrypt,
 				CoversDomain:  c.Error == "" && c.Covers(primary),
+				Names:         c.DNSNames,
 				Error:         c.Error,
 			}
 		}

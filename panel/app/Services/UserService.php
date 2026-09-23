@@ -28,9 +28,10 @@ final class UserService
     /**
      * @param array<string, mixed> $input
      */
-    public function create(array $input): int
+    public function create(array $input, ?int $actorId = null): int
     {
         $data = $this->validate($input, null);
+        $this->assertCanAssign($actorId, $data['role_id']);
         $id = $this->users->create([
             'username' => $data['username'],
             'email' => $data['email'],
@@ -52,6 +53,10 @@ final class UserService
     {
         $existing = $this->users->find($id) ?? throw new UserFacingException('The user no longer exists.', status: 404);
         $data = $this->validate($input + ['username' => $existing['username']], $id);
+        if ($data['role_id'] !== (int) $existing['role_id']) {
+            $this->assertCanAssign($actorId, $data['role_id']);
+            $this->assertCanAssign($actorId, (int) $existing['role_id']);
+        }
 
         if ($id === $actorId && !$data['is_active']) {
             throw new ValidationException(['is_active' => 'You cannot disable your own account.']);
@@ -112,6 +117,24 @@ final class UserService
         }
         $this->users->updatePassword($id, $this->hasher->hash($new));
         $this->audit->record('user.password_change', 'user', (string) $id, AuditLogger::SUCCESS);
+    }
+
+    /**
+     * A user may only hand out (or take away) a role whose permissions they
+     * hold themselves, so nobody can escalate beyond their own rights.
+     * The CLI (no actor) is trusted.
+     */
+    private function assertCanAssign(?int $actorId, int $roleId): void
+    {
+        if ($actorId === null) {
+            return;
+        }
+        $actor = $this->users->find($actorId);
+        $mine = $actor === null ? [] : $this->roles->permissionsFor((int) $actor['role_id']);
+        $missing = array_diff($this->roles->permissionsFor($roleId), $mine);
+        if ($missing !== []) {
+            throw new ValidationException(['role_id' => 'You cannot assign a role with permissions you do not have yourself.']);
+        }
     }
 
     /**

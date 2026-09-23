@@ -1,5 +1,17 @@
 package platform
 
+// Locations used by other control panels that keep their own Nginx and PHP
+// builds (aaPanel under /www/server, custom builds under /usr/local and /opt).
+var (
+	otherPanelNginx = []string{"/www/server/nginx/conf/nginx.conf", "/usr/local/nginx/conf/nginx.conf"}
+	// includeRoots bound where Nginx "include" directives may be followed.
+	// HestiaCP includes per-user vhosts from /home/<user>/conf/web.
+	includeRoots          = []string{"/etc/nginx", "/www/server", "/usr/local/nginx", "/usr/local/hestia", "/home", "/opt"}
+	otherPanelPHPBinaries = []string{"/www/server/php/[0-9][0-9]/bin/php", "/opt/php[0-9][0-9]/bin/php"}
+	otherPanelFPMBinaries = []string{"/www/server/php/[0-9][0-9]/sbin/php-fpm", "/opt/php[0-9][0-9]/sbin/php-fpm"}
+	otherPanelPools       = []string{"/www/server/php/[0-9][0-9]/etc/php-fpm.conf", "/opt/php[0-9][0-9]/etc/php-fpm.d/*.conf"}
+)
+
 // debianFamily covers Ubuntu and Debian (and unknown systems as a fallback).
 type debianFamily struct{ info OSInfo }
 
@@ -7,25 +19,26 @@ func (d debianFamily) Info() OSInfo { return d.info }
 
 func (d debianFamily) Paths() Paths {
 	return Paths{
-		NginxMainConfig:   "/etc/nginx/nginx.conf",
-		NginxSitesAvail:   "/etc/nginx/sites-available",
-		NginxSitesEnabled: "/etc/nginx/sites-enabled",
-		NginxConfD:        "/etc/nginx/conf.d",
-		NginxIncludeRoots: []string{"/etc/nginx"},
-		PHPBinaryGlobs:    []string{"/usr/bin/php[0-9].[0-9]", "/usr/bin/php[0-9].[0-9][0-9]"},
-		PHPFPMBinaryGlobs: []string{"/usr/sbin/php-fpm[0-9].[0-9]", "/usr/sbin/php-fpm[0-9].[0-9][0-9]"},
-		PHPFPMPoolGlobs:   []string{"/etc/php/*/fpm/pool.d/*.conf"},
-		PHPIniGlobs:       []string{"/etc/php/*/fpm/php.ini"},
-		LetsEncryptDir:    "/etc/letsencrypt",
-		MySQLConfigs:      []string{"/etc/mysql/my.cnf", "/etc/mysql/mariadb.conf.d/50-server.cnf", "/etc/mysql/mysql.conf.d/mysqld.cnf"},
-		MySQLDataDir:      "/var/lib/mysql",
-		RedisConfigs:      []string{"/etc/redis/redis.conf"},
-		SystemCrontab:     "/etc/crontab",
-		CronDDir:          "/etc/cron.d",
-		UserCrontabDir:    "/var/spool/cron/crontabs",
-		PasswdFile:        "/etc/passwd",
-		UFWConfig:         "/etc/ufw/ufw.conf",
-		SystemdUnitDirs:   []string{"/etc/systemd/system", "/lib/systemd/system", "/usr/lib/systemd/system"},
+		NginxMainConfig:     "/etc/nginx/nginx.conf",
+		NginxMainCandidates: otherPanelNginx,
+		NginxSitesAvail:     "/etc/nginx/sites-available",
+		NginxSitesEnabled:   "/etc/nginx/sites-enabled",
+		NginxConfD:          "/etc/nginx/conf.d",
+		NginxIncludeRoots:   includeRoots,
+		PHPBinaryGlobs:      append([]string{"/usr/bin/php[0-9].[0-9]", "/usr/bin/php[0-9].[0-9][0-9]"}, otherPanelPHPBinaries...),
+		PHPFPMBinaryGlobs:   append([]string{"/usr/sbin/php-fpm[0-9].[0-9]", "/usr/sbin/php-fpm[0-9].[0-9][0-9]"}, otherPanelFPMBinaries...),
+		PHPFPMPoolGlobs:     append([]string{"/etc/php/*/fpm/pool.d/*.conf"}, otherPanelPools...),
+		PHPIniGlobs:         []string{"/etc/php/*/fpm/php.ini"},
+		LetsEncryptDir:      "/etc/letsencrypt",
+		MySQLConfigs:        []string{"/etc/mysql/my.cnf", "/etc/mysql/mariadb.conf.d/50-server.cnf", "/etc/mysql/mysql.conf.d/mysqld.cnf"},
+		MySQLDataDir:        "/var/lib/mysql",
+		RedisConfigs:        []string{"/etc/redis/redis.conf"},
+		SystemCrontab:       "/etc/crontab",
+		CronDDir:            "/etc/cron.d",
+		UserCrontabDir:      "/var/spool/cron/crontabs",
+		PasswdFile:          "/etc/passwd",
+		UFWConfig:           "/etc/ufw/ufw.conf",
+		SystemdUnitDirs:     []string{"/etc/systemd/system", "/lib/systemd/system", "/usr/lib/systemd/system"},
 	}
 }
 
@@ -45,22 +58,23 @@ func (r rhelFamily) Info() OSInfo { return r.info }
 
 func (r rhelFamily) Paths() Paths {
 	return Paths{
-		NginxMainConfig:   "/etc/nginx/nginx.conf",
-		NginxConfD:        "/etc/nginx/conf.d",
-		NginxIncludeRoots: []string{"/etc/nginx"},
-		PHPBinaryGlobs:    []string{"/usr/bin/php", "/opt/remi/php[0-9][0-9]/root/usr/bin/php"},
-		PHPFPMBinaryGlobs: []string{"/usr/sbin/php-fpm", "/opt/remi/php[0-9][0-9]/root/usr/sbin/php-fpm"},
-		PHPFPMPoolGlobs:   []string{"/etc/php-fpm.d/*.conf", "/etc/opt/remi/php[0-9][0-9]/php-fpm.d/*.conf"},
-		PHPIniGlobs:       []string{"/etc/php.ini"},
-		LetsEncryptDir:    "/etc/letsencrypt",
-		MySQLConfigs:      []string{"/etc/my.cnf", "/etc/my.cnf.d/mariadb-server.cnf"},
-		MySQLDataDir:      "/var/lib/mysql",
-		RedisConfigs:      []string{"/etc/redis/redis.conf", "/etc/redis.conf"},
-		SystemCrontab:     "/etc/crontab",
-		CronDDir:          "/etc/cron.d",
-		UserCrontabDir:    "/var/spool/cron",
-		PasswdFile:        "/etc/passwd",
-		SystemdUnitDirs:   []string{"/etc/systemd/system", "/usr/lib/systemd/system"},
+		NginxMainConfig:     "/etc/nginx/nginx.conf",
+		NginxMainCandidates: otherPanelNginx,
+		NginxConfD:          "/etc/nginx/conf.d",
+		NginxIncludeRoots:   includeRoots,
+		PHPBinaryGlobs:      []string{"/usr/bin/php", "/opt/remi/php[0-9][0-9]/root/usr/bin/php"},
+		PHPFPMBinaryGlobs:   []string{"/usr/sbin/php-fpm", "/opt/remi/php[0-9][0-9]/root/usr/sbin/php-fpm"},
+		PHPFPMPoolGlobs:     []string{"/etc/php-fpm.d/*.conf", "/etc/opt/remi/php[0-9][0-9]/php-fpm.d/*.conf"},
+		PHPIniGlobs:         []string{"/etc/php.ini"},
+		LetsEncryptDir:      "/etc/letsencrypt",
+		MySQLConfigs:        []string{"/etc/my.cnf", "/etc/my.cnf.d/mariadb-server.cnf"},
+		MySQLDataDir:        "/var/lib/mysql",
+		RedisConfigs:        []string{"/etc/redis/redis.conf", "/etc/redis.conf"},
+		SystemCrontab:       "/etc/crontab",
+		CronDDir:            "/etc/cron.d",
+		UserCrontabDir:      "/var/spool/cron",
+		PasswdFile:          "/etc/passwd",
+		SystemdUnitDirs:     []string{"/etc/systemd/system", "/usr/lib/systemd/system"},
 	}
 }
 

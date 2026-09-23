@@ -10,7 +10,7 @@ $groups = [
     ],
     'Hosting' => [
         ['Websites', 'globe2', 'websites', P::WEBSITES_VIEW, '/websites'],
-        ['Domains', 'signpost-split', null, null, ''],
+        ['Domains', 'signpost-split', 'domains', P::WEBSITES_VIEW, '/domains'],
         ['Databases', 'database', 'databases', P::DATABASES_VIEW, '/databases'],
         ['PHP', 'filetype-php', 'php', P::PHP_VIEW, '/php'],
         ['Applications', 'grid-3x3-gap', null, null, ''],
@@ -35,7 +35,7 @@ $groups = [
         ['Discovery', 'binoculars', 'discovery', P::WEBSITES_VIEW, '/discovery'],
     ],
     'Administration' => [
-        ['Panel users', 'person-gear', 'users', P::USERS_VIEW, '/users'],
+        ['Users & roles', 'person-gear', 'users', P::USERS_VIEW, '/users'],
         ['Settings', 'sliders', 'settings', P::SETTINGS_VIEW, '/settings'],
         ['Audit log', 'list-check', 'audit', P::AUDIT_VIEW, '/audit'],
         ['Plugins', 'plug', null, null, ''],

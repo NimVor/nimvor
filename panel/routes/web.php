@@ -7,7 +7,9 @@ use WhaCP\Http\Controllers\AuthController;
 use WhaCP\Http\Controllers\DashboardController;
 use WhaCP\Http\Controllers\DiscoveryController;
 use WhaCP\Http\Controllers\HealthController;
+use WhaCP\Http\Controllers\DomainsController;
 use WhaCP\Http\Controllers\ProfileController;
+use WhaCP\Http\Controllers\RolesController;
 use WhaCP\Http\Controllers\ServerController;
 use WhaCP\Http\Controllers\SettingsController;
 use WhaCP\Http\Controllers\UsersController;
@@ -29,6 +31,7 @@ return static function (Router $r): void {
     // Hosting inventory (read-only discovery)
     $r->get('/websites', [WebsitesController::class, 'index'], ['name' => 'websites', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/websites/{id}', [WebsitesController::class, 'show'], ['name' => 'websites.show', 'permission' => P::WEBSITES_VIEW]);
+    $r->get('/domains', [DomainsController::class, 'index'], ['name' => 'domains', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/php', [DiscoveryController::class, 'php'], ['name' => 'php', 'permission' => P::PHP_VIEW]);
     $r->get('/databases', [DiscoveryController::class, 'databases'], ['name' => 'databases', 'permission' => P::DATABASES_VIEW]);
     $r->get('/ssl', [DiscoveryController::class, 'ssl'], ['name' => 'ssl', 'permission' => P::SSL_VIEW]);
@@ -48,6 +51,11 @@ return static function (Router $r): void {
     $r->get('/users/{id}/edit', [UsersController::class, 'edit'], ['name' => 'users.edit', 'permission' => P::USERS_MANAGE]);
     $r->post('/users/{id}', [UsersController::class, 'update'], ['name' => 'users.update', 'permission' => P::USERS_MANAGE]);
     $r->post('/users/{id}/delete', [UsersController::class, 'destroy'], ['name' => 'users.delete', 'permission' => P::USERS_MANAGE]);
+    $r->get('/roles/new', [RolesController::class, 'create'], ['name' => 'roles.create', 'permission' => P::ROLES_MANAGE]);
+    $r->post('/roles', [RolesController::class, 'store'], ['name' => 'roles.store', 'permission' => P::ROLES_MANAGE]);
+    $r->get('/roles/{id}/edit', [RolesController::class, 'edit'], ['name' => 'roles.edit', 'permission' => P::USERS_VIEW]);
+    $r->post('/roles/{id}', [RolesController::class, 'update'], ['name' => 'roles.update', 'permission' => P::ROLES_MANAGE]);
+    $r->post('/roles/{id}/delete', [RolesController::class, 'destroy'], ['name' => 'roles.delete', 'permission' => P::ROLES_MANAGE]);
     $r->get('/settings', [SettingsController::class, 'index'], ['name' => 'settings', 'permission' => P::SETTINGS_VIEW]);
     $r->post('/settings', [SettingsController::class, 'update'], ['name' => 'settings.update', 'permission' => P::SETTINGS_MANAGE]);
     $r->get('/audit', [AuditLogController::class, 'index'], ['name' => 'audit', 'permission' => P::AUDIT_VIEW]);

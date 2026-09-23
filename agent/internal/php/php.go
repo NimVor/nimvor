@@ -48,7 +48,7 @@ type Result struct {
 }
 
 var versionInName = regexp.MustCompile(`(\d+)\.(\d+)`)
-var remiVersion = regexp.MustCompile(`/php(\d)(\d+)/`)
+var remiVersion = regexp.MustCompile(`/php/?(\d)(\d+)/`)
 
 // Discover finds PHP versions and pools.
 func Discover(root filesystem.Root, paths platform.Paths) Result {

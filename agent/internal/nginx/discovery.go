@@ -84,10 +84,12 @@ func (d Discoverer) Discover(ctx context.Context) Result {
 		Warnings:     []string{},
 		IncludeRoots: d.Paths.NginxIncludeRoots,
 	}
-	if !d.Root.Exists(d.Paths.NginxMainConfig) {
+	mainConf := d.mainConfig(ctx)
+	if mainConf == "" {
 		res.Warnings = append(res.Warnings, "Nginx main configuration not found at "+d.Paths.NginxMainConfig)
 		return res
 	}
+	res.MainConfig = mainConf
 	res.Installed = true
 	if d.Runner != nil && d.Runner.Available("nginx") {
 		if out, err := d.Runner.Run(ctx, "nginx", "-v"); err == nil || len(out) > 0 {
@@ -97,12 +99,13 @@ func (d Discoverer) Discover(ctx context.Context) Result {
 
 	l := &loader{
 		root:    d.Root,
-		prefix:  filepath.Dir(d.Paths.NginxMainConfig),
+		prefix:  filepath.Dir(mainConf),
 		allowed: d.Paths.NginxIncludeRoots,
 		seen:    map[string]bool{},
 	}
-	main := l.load(d.Paths.NginxMainConfig, 0)
+	main := l.load(mainConf, 0)
 	enabled := collectServers(main, true)
+	upstreams := collectUpstreams(main)
 
 	// Sites that exist in sites-available without being enabled.
 	enabledFiles := map[string]bool{}
@@ -135,9 +138,70 @@ func (d Discoverer) Discover(ctx context.Context) Result {
 	}
 
 	res.VHosts = append(enabled, disabled...)
+	for i := range res.VHosts {
+		resolveUpstreams(&res.VHosts[i], upstreams)
+	}
 	res.Files = l.files
 	res.Warnings = append(res.Warnings, l.warnings...)
 	return res
+}
+
+var confPathRe = regexp.MustCompile(`--conf-path=(\S+)`)
+
+// mainConfig finds nginx.conf: the path compiled into the binary (nginx -V)
+// wins, then the platform default, then other panels' locations.
+func (d Discoverer) mainConfig(ctx context.Context) string {
+	if d.Runner != nil && d.Runner.Available("nginx") {
+		if out, _ := d.Runner.Run(ctx, "nginx", "-V"); len(out) > 0 {
+			if m := confPathRe.FindStringSubmatch(string(out)); m != nil && d.Root.Exists(m[1]) {
+				return m[1]
+			}
+		}
+	}
+	for _, c := range append([]string{d.Paths.NginxMainConfig}, d.Paths.NginxMainCandidates...) {
+		if c != "" && d.Root.Exists(c) {
+			return c
+		}
+	}
+	return ""
+}
+
+// collectUpstreams maps upstream names to their first server address.
+func collectUpstreams(dirs []Directive) map[string]string {
+	out := map[string]string{}
+	for _, d := range dirs {
+		if d.Name != "http" || !d.HasBlock {
+			continue
+		}
+		for _, in := range d.Block {
+			if in.Name != "upstream" || len(in.Args) != 1 || !in.HasBlock {
+				continue
+			}
+			for _, s := range in.Block {
+				if s.Name == "server" && len(s.Args) > 0 {
+					out[in.Args[0]] = s.Args[0]
+					break
+				}
+			}
+		}
+	}
+	return out
+}
+
+// resolveUpstreams replaces "fastcgi_pass name" / "proxy_pass http://name"
+// with the upstream's first server so PHP-FPM pools can be matched.
+func resolveUpstreams(v *VHost, ups map[string]string) {
+	if addr, ok := ups[v.FastCGIPass]; ok {
+		v.FastCGIPass = addr
+	}
+	for _, scheme := range []string{"http://", "https://"} {
+		if name, ok := strings.CutPrefix(v.ProxyPass, scheme); ok {
+			host := strings.SplitN(name, "/", 2)[0]
+			if addr, ok := ups[host]; ok {
+				v.ProxyPass = scheme + addr + strings.TrimPrefix(name, host)
+			}
+		}
+	}
 }
 
 var versionRe = regexp.MustCompile(`nginx/([0-9][0-9.]*)`)

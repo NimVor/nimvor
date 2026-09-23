@@ -24,6 +24,7 @@ final class Permissions
     public const DISCOVERY_RUN = 'discovery.run';
     public const USERS_VIEW = 'users.view';
     public const USERS_MANAGE = 'users.manage';
+    public const ROLES_MANAGE = 'roles.manage';
     public const SETTINGS_VIEW = 'settings.view';
     public const SETTINGS_MANAGE = 'settings.manage';
     public const AUDIT_VIEW = 'audit.view';
@@ -44,6 +45,7 @@ final class Permissions
             self::DISCOVERY_RUN => ['label' => 'Run server discovery', 'group' => 'Hosting'],
             self::USERS_VIEW => ['label' => 'View panel users', 'group' => 'Administration'],
             self::USERS_MANAGE => ['label' => 'Create, edit and delete panel users', 'group' => 'Administration'],
+            self::ROLES_MANAGE => ['label' => 'Create and edit custom roles', 'group' => 'Administration'],
             self::SETTINGS_VIEW => ['label' => 'View settings', 'group' => 'Administration'],
             self::SETTINGS_MANAGE => ['label' => 'Change settings', 'group' => 'Administration'],
             self::AUDIT_VIEW => ['label' => 'View audit log', 'group' => 'Administration'],

@@ -27,25 +27,28 @@ type OSInfo struct {
 
 // Paths lists well-known locations for a distribution.
 type Paths struct {
-	NginxMainConfig   string   `json:"nginx_main_config"`
-	NginxSitesAvail   string   `json:"nginx_sites_available"`
-	NginxSitesEnabled string   `json:"nginx_sites_enabled"`
-	NginxConfD        string   `json:"nginx_conf_d"`
-	NginxIncludeRoots []string `json:"nginx_include_roots"`
-	PHPBinaryGlobs    []string `json:"php_binary_globs"`
-	PHPFPMBinaryGlobs []string `json:"php_fpm_binary_globs"`
-	PHPFPMPoolGlobs   []string `json:"php_fpm_pool_globs"`
-	PHPIniGlobs       []string `json:"php_ini_globs"`
-	LetsEncryptDir    string   `json:"letsencrypt_dir"`
-	MySQLConfigs      []string `json:"mysql_configs"`
-	MySQLDataDir      string   `json:"mysql_data_dir"`
-	RedisConfigs      []string `json:"redis_configs"`
-	SystemCrontab     string   `json:"system_crontab"`
-	CronDDir          string   `json:"cron_d_dir"`
-	UserCrontabDir    string   `json:"user_crontab_dir"`
-	PasswdFile        string   `json:"passwd_file"`
-	UFWConfig         string   `json:"ufw_config"`
-	SystemdUnitDirs   []string `json:"systemd_unit_dirs"`
+	NginxMainConfig string `json:"nginx_main_config"`
+	// NginxMainCandidates are tried in order when NginxMainConfig is absent
+	// (other control panels install Nginx in their own prefix).
+	NginxMainCandidates []string `json:"nginx_main_candidates"`
+	NginxSitesAvail     string   `json:"nginx_sites_available"`
+	NginxSitesEnabled   string   `json:"nginx_sites_enabled"`
+	NginxConfD          string   `json:"nginx_conf_d"`
+	NginxIncludeRoots   []string `json:"nginx_include_roots"`
+	PHPBinaryGlobs      []string `json:"php_binary_globs"`
+	PHPFPMBinaryGlobs   []string `json:"php_fpm_binary_globs"`
+	PHPFPMPoolGlobs     []string `json:"php_fpm_pool_globs"`
+	PHPIniGlobs         []string `json:"php_ini_globs"`
+	LetsEncryptDir      string   `json:"letsencrypt_dir"`
+	MySQLConfigs        []string `json:"mysql_configs"`
+	MySQLDataDir        string   `json:"mysql_data_dir"`
+	RedisConfigs        []string `json:"redis_configs"`
+	SystemCrontab       string   `json:"system_crontab"`
+	CronDDir            string   `json:"cron_d_dir"`
+	UserCrontabDir      string   `json:"user_crontab_dir"`
+	PasswdFile          string   `json:"passwd_file"`
+	UFWConfig           string   `json:"ufw_config"`
+	SystemdUnitDirs     []string `json:"systemd_unit_dirs"`
 }
 
 // Platform is implemented per distribution family.

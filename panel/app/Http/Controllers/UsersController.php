@@ -44,7 +44,7 @@ final class UsersController extends Controller
     {
         $input = $request->all();
         try {
-            $id = $this->service->create($input);
+            $id = $this->service->create($input, $this->userId($request));
         } catch (ValidationException $e) {
             return $this->backWithErrors('/users/new', $e, $input);
         }
