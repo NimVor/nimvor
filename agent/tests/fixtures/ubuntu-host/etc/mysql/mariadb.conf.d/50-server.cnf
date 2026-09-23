@@ -1,0 +1,6 @@
+[mysqld]
+datadir = /var/lib/mysql
+socket = /run/mysqld/mysqld.sock
+bind-address = 127.0.0.1
+port = 3306
+password = must-not-leak

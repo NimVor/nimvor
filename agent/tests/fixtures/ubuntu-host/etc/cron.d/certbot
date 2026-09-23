@@ -1,0 +1,1 @@
+0 */12 * * * root test -x /usr/bin/certbot && certbot -q renew

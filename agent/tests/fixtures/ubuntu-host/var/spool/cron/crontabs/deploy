@@ -1,0 +1,5 @@
+# m h dom mon dow command
+MAILTO=""
+*/5 * * * * php /var/www/shop.example.com/artisan schedule:run
+30 2 * * * mysqldump -u backup -pS3cretPass shop_db > /home/deploy/shop.sql
+@daily curl -s "https://hooks.example.net/ping?token=abc123def"

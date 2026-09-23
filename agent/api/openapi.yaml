@@ -1,0 +1,181 @@
+openapi: 3.1.0
+info:
+  title: WhaCP Agent API
+  version: 0.4.0
+  summary: Local, authenticated API of the privileged WhaCP agent.
+  description: |
+    The agent listens on a Unix socket (default `/run/whacp/agent.sock`,
+    mode 0660, group `whacp`). Every request must carry the shared bearer
+    token from `/etc/whacp/agent.token`, and the connecting process must be
+    root or the panel user (checked with SO_PEERCRED).
+
+    The agent exposes **named actions only**. There is no endpoint that runs
+    commands or reads arbitrary files. In this release every action is
+    read-only; actions that would modify the server are refused with
+    `write_disabled` unless `allow_write_actions` is enabled.
+
+    All responses use the same envelope. Error messages are safe to show to
+    users; internal details are written to the agent log only.
+  license:
+    name: MIT
+servers:
+  - url: http://agent
+    description: Unix socket (use curl --unix-socket /run/whacp/agent.sock)
+security:
+  - bearer: []
+paths:
+  /v1/health:
+    get:
+      summary: Liveness check
+      operationId: health
+      responses:
+        '200':
+          description: Agent is healthy
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status: { type: string, const: ok }
+                          version: { type: string }
+                          uptime_seconds: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/actions/{action}:
+    post:
+      summary: Execute a named action
+      operationId: executeAction
+      parameters:
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$'
+            enum:
+              - agent.actions
+              - system.info
+              - system.metrics
+              - system.metrics_history
+              - services.status
+              - discovery.websites
+              - discovery.nginx
+              - discovery.php
+              - discovery.databases
+              - discovery.certificates
+              - discovery.redis
+              - discovery.cron
+              - discovery.users
+              - discovery.firewall
+              - discovery.inventory
+      requestBody:
+        required: false
+        description: Action parameters. Unknown fields are rejected. The built-in read-only actions take none (send `{}` or an empty body).
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Action succeeded; `data` holds the action result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Modifying action refused (`write_disabled`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '404':
+          description: Unknown action (`unknown_action`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '405':
+          description: Only POST is allowed.
+        '422':
+          description: Invalid parameters or body (`invalid_params`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '500':
+          description: Internal failure (`internal_error`); see the agent log for the request ID.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '504':
+          description: Action exceeded `action_timeout` (`timeout`).
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+  responses:
+    Unauthorized:
+      description: Missing/invalid token or disallowed local user.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+  schemas:
+    Envelope:
+      type: object
+      required: [success, action, message, request_id]
+      properties:
+        success: { type: boolean }
+        action: { type: string, examples: [discovery.websites] }
+        message: { type: string, examples: [OK] }
+        data:
+          description: Action-specific result (present on success).
+        error: { $ref: '#/components/schemas/Error' }
+        request_id: { type: string, description: Correlates with the agent log. }
+        duration_ms: { type: number }
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [unauthorized, unknown_action, write_disabled, invalid_params, internal_error, timeout, method_not_allowed, not_found]
+        message: { type: string }
+    Website:
+      type: object
+      description: One website correlated from Nginx server blocks, PHP-FPM pools and certificates (discovery.websites).
+      properties:
+        id: { type: string, description: Stable identifier derived from the primary domain and enabled state. }
+        domain: { type: string }
+        aliases: { type: array, items: { type: string } }
+        enabled: { type: boolean, description: Present in the active Nginx configuration. }
+        kind: { type: string, enum: [php, proxy, static, redirect, other] }
+        document_root: { type: string }
+        document_root_exists: { type: boolean }
+        php:
+          type: [object, 'null']
+          properties:
+            version: { type: string }
+            pool: { type: string }
+            listen: { type: string }
+            user: { type: string }
+            resolved: { type: boolean, description: True when a PHP-FPM pool listens on the FastCGI address. }
+        ssl:
+          type: [object, 'null']
+          properties:
+            cert_file: { type: string }
+            issuer: { type: string }
+            not_after: { type: string, format: date-time }
+            days_remaining: { type: integer }
+            status: { type: string, enum: [valid, expiring, expired, error] }
+            lets_encrypt: { type: boolean }
+            covers_domain: { type: boolean }
+        https: { type: boolean }
+        https_redirect: { type: boolean }
+        proxy_pass: { type: string }
+        listen: { type: array, items: { type: string } }
+        config_files: { type: array, items: { type: string } }
+        access_logs: { type: array, items: { type: string } }
+        error_logs: { type: array, items: { type: string } }
+        managed_by: { type: string, description: 'Heuristic hint (aaPanel, FASTPANEL, HestiaCP, CyberPanel, WhaCP).' }
