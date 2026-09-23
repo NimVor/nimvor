@@ -1,0 +1,13 @@
+{
+  "socket_path": "/run/whacp/agent.sock",
+  "socket_mode": "0660",
+  "socket_group": "whacp",
+  "token_file": "/etc/whacp/agent.token",
+  "root_dir": "/",
+  "proc_dir": "/proc",
+  "log_level": "info",
+  "metrics_interval": "5s",
+  "metrics_history": 180,
+  "action_timeout": "30s",
+  "allow_write_actions": false
+}
