@@ -25,8 +25,8 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 )
 
-// maxBody bounds request bodies (1 MiB).
-const maxBody = 1 << 20
+// maxBody bounds request bodies (4 MiB: file-manager upload chunks).
+const maxBody = 4 << 20
 
 // Envelope is the uniform response format.
 type Envelope struct {

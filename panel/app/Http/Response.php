@@ -6,6 +6,9 @@ namespace WhaCP\Http;
 
 final class Response
 {
+    /** @var (\Closure(): void)|null */
+    private ?\Closure $stream = null;
+
     /** @param array<string, string> $headers */
     public function __construct(
         private string $body = '',
@@ -24,6 +27,19 @@ final class Response
     {
         $body = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         return new self($body, $status, ['Content-Type' => 'application/json; charset=utf-8', 'Cache-Control' => 'no-store']);
+    }
+
+    /**
+     * Streamed response (large downloads); $writer echoes the body.
+     *
+     * @param \Closure(): void $writer
+     * @param array<string, string> $headers
+     */
+    public static function stream(\Closure $writer, array $headers): self
+    {
+        $r = new self('', 200, $headers);
+        $r->stream = $writer;
+        return $r;
     }
 
     public static function redirect(string $location, int $status = 303): self
@@ -75,6 +91,13 @@ final class Response
             foreach ($this->headers as $name => $value) {
                 header($name . ': ' . str_replace(["\r", "\n"], '', $value), true);
             }
+        }
+        if ($this->stream !== null) {
+            while (ob_get_level() > 0) {
+                ob_end_flush();
+            }
+            ($this->stream)();
+            return;
         }
         echo $this->body;
     }

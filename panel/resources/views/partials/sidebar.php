@@ -14,7 +14,6 @@ $groups = [
         ['Databases', 'database', 'databases', P::DATABASES_VIEW, '/databases'],
         ['PHP', 'filetype-php', 'php', P::PHP_VIEW, '/php'],
         ['Applications', 'grid-3x3-gap', null, null, ''],
-        ['Files', 'folder2-open', null, null, ''],
         ['Cron Jobs', 'clock-history', 'cron', P::CRON_VIEW, '/cron'],
         ['Workers', 'gear-wide-connected', null, null, ''],
         ['SSL', 'shield-lock', 'ssl', P::SSL_VIEW, '/ssl'],
@@ -22,7 +21,7 @@ $groups = [
     'Operations' => [
         ['Backups', 'archive', null, null, ''],
         ['Monitoring', 'activity', null, null, ''],
-        ['Logs', 'journal-text', null, null, ''],
+        ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs'],
     ],
     'Security' => [
         ['Security', 'shield-check', null, null, ''],

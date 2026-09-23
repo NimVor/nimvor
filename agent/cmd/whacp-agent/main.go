@@ -139,10 +139,10 @@ func run() int {
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		// Some actions (certificate issuance) may run up to 10 minutes.
-		WriteTimeout:      cfg.ActionTimeout.Duration + 10*time.Minute,
-		IdleTimeout:       60 * time.Second,
-		MaxHeaderBytes:    64 << 10,
-		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),
+		WriteTimeout:   cfg.ActionTimeout.Duration + 10*time.Minute,
+		IdleTimeout:    60 * time.Second,
+		MaxHeaderBytes: 64 << 10,
+		ErrorLog:       slog.NewLogLogger(log.Handler(), slog.LevelWarn),
 	}
 
 	errCh := make(chan error, 1)

@@ -202,3 +202,7 @@ a .wcp-count-card { color: var(--bs-body-color); }
 .wcp-joblog { height: 22rem; }
 .wcp-tabs { margin-bottom: 1rem; flex-wrap: nowrap; overflow-x: auto; }
 .wcp-tabs .nav-link { white-space: nowrap; }
+textarea.form-control.wcp-editor { min-height: 65vh; font-size: .82rem; resize: vertical; tab-size: 4; }
+.wcp-fm-name { cursor: pointer; }
+.wcp-fm-name i { width: 1.2rem; display: inline-block; }
+.wcp-logview { height: 60vh; max-height: none; font-size: .75rem; }
