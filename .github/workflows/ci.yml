@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  agent:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: gofmt
+        run: test -z "$(gofmt -l agent)" || (gofmt -l agent; exit 1)
+      - name: vet
+        run: cd agent && go vet ./...
+      - name: test
+        run: cd agent && go test -race ./...
+      - name: build
+        run: make build
+
+  panel:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        php: ['8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, curl, mbstring
+          coverage: none
+      - run: cd panel && composer install --no-interaction --no-progress
+      - run: make lint
+      - run: cd panel && vendor/bin/phpunit
+
+  smoke:
+    runs-on: ubuntu-24.04
+    needs: [agent, panel]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, curl, mbstring
+      - run: cd panel && composer install --no-interaction --no-progress
+      - run: tests/integration/smoke.sh

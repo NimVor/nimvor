@@ -1,0 +1,17 @@
+# Build output
+/dist/
+/.dev/
+
+# PHP
+/panel/vendor/
+/panel/storage/data/*
+/panel/storage/logs/*
+/panel/storage/sessions/*
+/panel/storage/.phpunit.cache/
+!/panel/storage/**/.gitkeep
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
