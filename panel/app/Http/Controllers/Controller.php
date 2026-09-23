@@ -1,0 +1,65 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WhaCP\Http\Controllers;
+
+use WhaCP\Http\Request;
+use WhaCP\Http\Response;
+use WhaCP\Http\Session\SessionInterface;
+use WhaCP\Support\ValidationException;
+use WhaCP\View\View;
+
+abstract class Controller
+{
+    public function __construct(
+        protected readonly View $view,
+        protected readonly SessionInterface $session,
+    ) {
+    }
+
+    /** @param array<string, mixed> $data */
+    protected function render(string $template, array $data = [], int $status = 200): Response
+    {
+        return Response::html($this->view->render($template, $data), $status);
+    }
+
+    /** @return array<string, mixed> */
+    protected function user(Request $request): array
+    {
+        /** @var array<string, mixed> */
+        return $request->attribute('user', []);
+    }
+
+    protected function userId(Request $request): int
+    {
+        return (int) ($this->user($request)['id'] ?? 0);
+    }
+
+    protected function redirectWithSuccess(string $to, string $message): Response
+    {
+        $this->session->flash('success', $message);
+        return Response::redirect($to);
+    }
+
+    protected function redirectWithError(string $to, string $message): Response
+    {
+        $this->session->flash('error', $message);
+        return Response::redirect($to);
+    }
+
+    /**
+     * Redirect back to a form with validation errors and the old input
+     * (passwords are never flashed back).
+     *
+     * @param array<string, mixed> $input
+     */
+    protected function backWithErrors(string $to, ValidationException $e, array $input): Response
+    {
+        unset($input['password'], $input['password_confirmation'], $input['current_password'], $input['_token']);
+        $this->session->flash('errors', $e->errors());
+        $this->session->flash('old', $input);
+        $this->session->flash('error', $e->getMessage());
+        return Response::redirect($to);
+    }
+}

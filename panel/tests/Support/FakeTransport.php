@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WhaCP\Tests\Support;
+
+use WhaCP\Agent\AgentHttpResponse;
+use WhaCP\Agent\AgentTransport;
+use WhaCP\Agent\AgentUnavailableException;
+
+/**
+ * Agent transport returning canned responses keyed by path.
+ */
+final class FakeTransport implements AgentTransport
+{
+    /** @var array<string, AgentHttpResponse> */
+    public array $responses = [];
+
+    /** @var list<array{method: string, path: string, body: ?string, token: string}> */
+    public array $requests = [];
+
+    public bool $down = false;
+
+    /** @param array<string, mixed> $data */
+    public function succeed(string $action, mixed $data): void
+    {
+        $this->responses['/v1/actions/' . $action] = new AgentHttpResponse(200, (string) json_encode([
+            'success' => true, 'action' => $action, 'message' => 'OK', 'data' => $data, 'request_id' => 'test',
+        ]));
+    }
+
+    public function fail(string $action, int $status, string $code, string $message): void
+    {
+        $this->responses['/v1/actions/' . $action] = new AgentHttpResponse($status, (string) json_encode([
+            'success' => false, 'action' => $action, 'message' => $message, 'error' => ['code' => $code, 'message' => $message], 'request_id' => 'rid42',
+        ]));
+    }
+
+    public function request(string $method, string $path, ?string $body, string $token, int $timeoutSeconds): AgentHttpResponse
+    {
+        $this->requests[] = ['method' => $method, 'path' => $path, 'body' => $body, 'token' => $token];
+        if ($this->down) {
+            throw new AgentUnavailableException('The WhaCP agent is not reachable.', 'socket missing', 'start it', 'agent_unavailable');
+        }
+        return $this->responses[$path] ?? new AgentHttpResponse(404, (string) json_encode([
+            'success' => false, 'error' => ['code' => 'unknown_action', 'message' => 'nope'],
+        ]));
+    }
+}

@@ -1,0 +1,155 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * WhaCP panel command-line tool.
+ *
+ *   bin/whacp migrate                     Apply database migrations and sync roles
+ *   bin/whacp user:create <username> <email> [--role=admin]
+ *                                         Create a user (password read from stdin or prompted)
+ *   bin/whacp user:password <username>    Reset a user's password
+ *   bin/whacp users:count                 Print the number of panel users
+ *   bin/whacp agent:check                 Check connectivity with the agent
+ *   bin/whacp discovery:run               Run read-only discovery and store a snapshot
+ */
+
+use WhaCP\Agent\AgentClient;
+use WhaCP\Agent\AgentException;
+use WhaCP\Core\Application;
+use WhaCP\Repositories\RoleRepository;
+use WhaCP\Repositories\UserRepository;
+use WhaCP\Security\PasswordHasher;
+use WhaCP\Services\AuditLogger;
+use WhaCP\Services\DiscoveryService;
+use WhaCP\Services\UserService;
+use WhaCP\Support\ValidationException;
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+
+$args = array_slice($argv, 1);
+$command = array_shift($args) ?? 'help';
+$options = [];
+$positional = [];
+foreach ($args as $arg) {
+    if (preg_match('/^--([a-z-]+)=(.*)$/', $arg, $m)) {
+        $options[$m[1]] = $m[2];
+    } else {
+        $positional[] = $arg;
+    }
+}
+
+function out(string $msg): void
+{
+    fwrite(STDOUT, $msg . PHP_EOL);
+}
+
+function fail(string $msg, int $code = 1): never
+{
+    fwrite(STDERR, 'Error: ' . $msg . PHP_EOL);
+    exit($code);
+}
+
+function readPassword(string $prompt): string
+{
+    if (!stream_isatty(STDIN)) {
+        return rtrim((string) fgets(STDIN), "\r\n");
+    }
+    fwrite(STDOUT, $prompt);
+    $hasStty = shell_exec('command -v stty') !== null;
+    if ($hasStty) {
+        system('stty -echo');
+    }
+    $value = rtrim((string) fgets(STDIN), "\r\n");
+    if ($hasStty) {
+        system('stty echo');
+    }
+    fwrite(STDOUT, PHP_EOL);
+    return $value;
+}
+
+$app = Application::fromEnvironment();
+$c = $app->container;
+/** @var AuditLogger $audit */
+$audit = $c->get(AuditLogger::class);
+$audit->setActor(null, 'cli:' . (function_exists('posix_getpwuid') ? (posix_getpwuid(posix_geteuid())['name'] ?? 'unknown') : 'unknown'));
+
+switch ($command) {
+    case 'migrate':
+        $app->migrate();
+        out('Database is up to date.');
+        break;
+
+    case 'user:create':
+        [$username, $email] = $positional + [null, null];
+        if ($username === null || $email === null) {
+            fail('usage: bin/whacp user:create <username> <email> [--role=admin|operator|viewer]');
+        }
+        $app->migrate();
+        $role = $c->get(RoleRepository::class)->findByName($options['role'] ?? 'admin') ?? fail('unknown role');
+        $password = readPassword('Password: ');
+        $confirm = stream_isatty(STDIN) ? readPassword('Confirm password: ') : $password;
+        try {
+            $id = $c->get(UserService::class)->create([
+                'username' => $username,
+                'email' => $email,
+                'password' => $password,
+                'password_confirmation' => $confirm,
+                'role_id' => $role['id'],
+                'is_active' => true,
+            ]);
+        } catch (ValidationException $e) {
+            foreach ($e->errors() as $field => $error) {
+                fwrite(STDERR, "  {$field}: {$error}" . PHP_EOL);
+            }
+            fail('user was not created');
+        }
+        out("Created user #{$id} ({$username}) with role {$role['name']}.");
+        break;
+
+    case 'user:password':
+        $username = $positional[0] ?? fail('usage: bin/whacp user:password <username>');
+        $user = $c->get(UserRepository::class)->findForAuth($username) ?? fail('user not found');
+        $hasher = $c->get(PasswordHasher::class);
+        $password = readPassword('New password: ');
+        if (($weak = $hasher->weakness($password, $username)) !== null) {
+            fail($weak);
+        }
+        if (stream_isatty(STDIN) && readPassword('Confirm password: ') !== $password) {
+            fail('passwords do not match');
+        }
+        $c->get(UserRepository::class)->updatePassword((int) $user['id'], $hasher->hash($password));
+        $audit->record('user.password_reset', 'user', (string) $user['id'], AuditLogger::SUCCESS, ['via' => 'cli']);
+        out('Password updated. Existing sessions of this user are now invalid.');
+        break;
+
+    case 'users:count':
+        out((string) $c->get(UserRepository::class)->count());
+        break;
+
+    case 'agent:check':
+        try {
+            $health = $c->get(AgentClient::class)->health();
+            out('Agent OK — version ' . ($health['data']['version'] ?? '?'));
+        } catch (AgentException $e) {
+            fail($e->getMessage() . ' ' . $e->reason() . ' ' . $e->remedy());
+        }
+        break;
+
+    case 'discovery:run':
+        try {
+            $result = $c->get(DiscoveryService::class)->run(null);
+            out('Discovery stored: ' . count(DiscoveryService::websites($result['data'])) . ' website(s).');
+        } catch (AgentException $e) {
+            fail($e->getMessage() . ' ' . $e->remedy());
+        }
+        break;
+
+    default:
+        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  agent:check\n  discovery:run");
+}

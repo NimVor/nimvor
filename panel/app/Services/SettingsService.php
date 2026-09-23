@@ -1,0 +1,131 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WhaCP\Services;
+
+use WhaCP\Repositories\SettingRepository;
+use WhaCP\Support\ValidationException;
+
+/**
+ * Typed, validated panel settings stored in SQLite.
+ */
+final class SettingsService
+{
+    /** @var array<string, mixed>|null */
+    private ?array $cache = null;
+
+    public function __construct(
+        private readonly SettingRepository $repository,
+        private readonly AuditLogger $audit,
+    ) {
+    }
+
+    /**
+     * Setting definitions: type, default, constraints and labels.
+     *
+     * @return array<string, array{type: string, default: mixed, label: string, help: string, min?: int, max?: int, max_length?: int}>
+     */
+    public static function definitions(): array
+    {
+        return [
+            'panel_name' => [
+                'type' => 'string', 'default' => 'WhaCP', 'max_length' => 60,
+                'label' => 'Panel name', 'help' => 'Shown in the header and browser title.',
+            ],
+            'session_idle_minutes' => [
+                'type' => 'int', 'default' => 30, 'min' => 5, 'max' => 1440,
+                'label' => 'Session idle timeout (minutes)', 'help' => 'Users are signed out after this period of inactivity.',
+            ],
+            'discovery_cache_seconds' => [
+                'type' => 'int', 'default' => 300, 'min' => 0, 'max' => 86400,
+                'label' => 'Discovery cache (seconds)', 'help' => 'How long a discovery snapshot is reused before the agent is asked again. 0 always asks the agent.',
+            ],
+            'dashboard_refresh_seconds' => [
+                'type' => 'int', 'default' => 10, 'min' => 3, 'max' => 300,
+                'label' => 'Dashboard refresh interval (seconds)', 'help' => 'How often the dashboard polls live metrics.',
+            ],
+            'ssl_warning_days' => [
+                'type' => 'int', 'default' => 14, 'min' => 1, 'max' => 90,
+                'label' => 'Certificate warning threshold (days)', 'help' => 'Certificates expiring within this many days are highlighted.',
+            ],
+        ];
+    }
+
+    public function get(string $key): mixed
+    {
+        $defs = self::definitions();
+        if (!isset($defs[$key])) {
+            throw new \InvalidArgumentException("Unknown setting {$key}");
+        }
+        $this->cache ??= $this->repository->all();
+        return $this->cache[$key] ?? $defs[$key]['default'];
+    }
+
+    public function int(string $key): int
+    {
+        return (int) $this->get($key);
+    }
+
+    public function string(string $key): string
+    {
+        return (string) $this->get($key);
+    }
+
+    /** @return array<string, mixed> */
+    public function all(): array
+    {
+        $out = [];
+        foreach (array_keys(self::definitions()) as $key) {
+            $out[$key] = $this->get($key);
+        }
+        return $out;
+    }
+
+    /**
+     * Validate and persist settings. Unknown keys are ignored.
+     *
+     * @param array<string, mixed> $input
+     */
+    public function update(array $input, ?int $userId): void
+    {
+        $errors = [];
+        $clean = [];
+        foreach (self::definitions() as $key => $def) {
+            if (!array_key_exists($key, $input)) {
+                continue;
+            }
+            $raw = $input[$key];
+            if ($def['type'] === 'int') {
+                $v = filter_var($raw, FILTER_VALIDATE_INT);
+                if ($v === false || $v < ($def['min'] ?? PHP_INT_MIN) || $v > ($def['max'] ?? PHP_INT_MAX)) {
+                    $errors[$key] = sprintf('Enter a whole number between %d and %d.', $def['min'] ?? 0, $def['max'] ?? 0);
+                    continue;
+                }
+                $clean[$key] = $v;
+            } else {
+                $v = is_scalar($raw) ? trim((string) $raw) : '';
+                if ($v === '' || mb_strlen($v) > ($def['max_length'] ?? 255) || preg_match('/[\x00-\x1F\x7F]/u', $v)) {
+                    $errors[$key] = sprintf('Enter between 1 and %d printable characters.', $def['max_length'] ?? 255);
+                    continue;
+                }
+                $clean[$key] = $v;
+            }
+        }
+        if ($errors !== []) {
+            throw new ValidationException($errors);
+        }
+        $before = $this->all();
+        $changed = [];
+        foreach ($clean as $key => $value) {
+            if ($before[$key] !== $value) {
+                $this->repository->set($key, $value, $userId);
+                $changed[$key] = ['from' => $before[$key], 'to' => $value];
+            }
+        }
+        $this->cache = null;
+        if ($changed !== []) {
+            $this->audit->record('settings.update', 'settings', 'panel', AuditLogger::SUCCESS, ['changed' => $changed]);
+        }
+    }
+}
