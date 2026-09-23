@@ -90,6 +90,11 @@ final class View
         return $this->router->url($name, $params, $query);
     }
 
+    public function hasRoute(string $name): bool
+    {
+        return $this->router->has($name);
+    }
+
     public function csrfToken(): string
     {
         return $this->csrf->token();

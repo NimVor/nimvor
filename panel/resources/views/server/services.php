@@ -11,7 +11,7 @@
     <?php else: ?>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0 wcp-table">
-                <thead><tr><th>Service</th><th>State</th><th>Boot</th><th>PID</th><th>Memory</th><th>Since</th></tr></thead>
+                <thead><tr><th>Service</th><th>State</th><th>Boot</th><th>PID</th><th>Memory</th><th>Since</th><th></th></tr></thead>
                 <tbody>
                 <?php foreach ($services as $s): ?>
                     <tr>
@@ -21,11 +21,27 @@
                         <td><?= (int) $s['main_pid'] > 0 ? (int) $s['main_pid'] : '—' ?></td>
                         <td><?= e(format_bytes($s['memory_bytes'] ?? null)) ?></td>
                         <td class="small"><?= e($s['active_since'] !== null ? time_ago((string) $s['active_since']) : '—') ?></td>
+                        <td class="text-end text-nowrap">
+                            <?php if ($this->can(\WhaCP\Security\Permissions::SERVICES_MANAGE) && !preg_match('/^(whacp-agent|ssh|sshd)\.service$/', (string) $s['unit'])): ?>
+                                <?php $running = $s['active_state'] === 'active'; ?>
+                                <form method="post" action="<?= e($this->url('services.control')) ?>" class="d-inline-flex gap-1" data-wcp-busy>
+                                    <?= $this->csrfField() ?>
+                                    <input type="hidden" name="unit" value="<?= e($s['unit']) ?>">
+                                    <?php if ($running): ?>
+                                        <button class="btn btn-sm btn-outline-secondary" name="op" value="reload" title="Reload"><i class="bi bi-arrow-repeat"></i></button>
+                                        <button class="btn btn-sm btn-outline-secondary" name="op" value="restart" title="Restart"><i class="bi bi-arrow-clockwise"></i></button>
+                                        <button class="btn btn-sm btn-outline-danger" name="op" value="stop" title="Stop"><i class="bi bi-stop-fill"></i></button>
+                                    <?php else: ?>
+                                        <button class="btn btn-sm btn-outline-success" name="op" value="start" title="Start"><i class="bi bi-play-fill"></i></button>
+                                    <?php endif; ?>
+                                </form>
+                            <?php endif; ?>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
     <?php endif; ?>
-    <div class="card-footer small text-body-secondary"><i class="bi bi-lock me-1"></i>Start, stop and restart actions will be added with write support.</div>
+    <div class="card-footer small text-body-secondary">Nginx is always tested with <code>nginx -t</code> before it is reloaded or restarted. SSH and the agent cannot be stopped from the panel.</div>
 </div>

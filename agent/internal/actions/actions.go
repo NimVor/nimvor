@@ -31,7 +31,25 @@ type Action struct {
 type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+	// Details holds redacted technical output (e.g. from nginx -t) that
+	// helps an operator; it never contains stack traces.
+	Details string `json:"details,omitempty"`
 	Status  int    `json:"-"`
+}
+
+// Failed is an operational failure that is safe to explain to the user.
+func Failed(msg, details string) *Error {
+	return &Error{Code: "failed", Message: msg, Details: details, Status: http.StatusConflict}
+}
+
+// Conflict reports that the request collides with existing state.
+func Conflict(msg string) *Error {
+	return &Error{Code: "conflict", Message: msg, Status: http.StatusConflict}
+}
+
+// NotFound reports a missing object.
+func NotFound(msg string) *Error {
+	return &Error{Code: "not_found", Message: msg, Status: http.StatusNotFound}
 }
 
 func (e *Error) Error() string { return e.Code + ": " + e.Message }

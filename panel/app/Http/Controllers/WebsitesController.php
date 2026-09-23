@@ -22,20 +22,42 @@ final class WebsitesController extends Controller
         SessionInterface $session,
         private readonly DiscoveryService $discovery,
         private readonly SettingsService $settings,
+        private readonly \WhaCP\Repositories\WebsiteRepository $managed,
+        private readonly \WhaCP\Services\ServerContext $server,
     ) {
         parent::__construct($view, $session);
     }
 
     public function index(Request $request): Response
     {
+        $user = $this->user($request);
+        $managed = $this->managed->all($this->server->id(), $user);
+        $q = mb_strtolower(trim((string) $request->query('q', '')));
+        if ($q !== '') {
+            $managed = array_values(array_filter($managed, static fn (array $s): bool => str_contains(mb_strtolower($s['domain'] . ' ' . implode(' ', $s['aliases'])), $q)));
+        }
+        // Hosting customers only see their own (managed) websites.
+        if (!\WhaCP\Hosting\Scope::isAll($user)) {
+            return $this->render('websites/index', ['managed' => $managed, 'sites' => [], 'total' => 0, 'q' => $q, 'status' => '', 'discoveredAt' => null, 'catchAll' => 0, 'warnings' => [], 'warnDays' => $this->settings->int('ssl_warning_days')]);
+        }
         try {
             $inventory = $this->discovery->inventory(false, $this->userId($request));
         } catch (AgentException $e) {
             return $this->render('discovery/unavailable', ['title' => 'Websites', 'error' => $e]);
         }
-        $sites = DiscoveryService::websites($inventory['data']);
+        // Sites created by WhaCP are listed as managed, not as discovered.
+        $sites = array_values(array_filter(
+            DiscoveryService::websites($inventory['data']),
+            static function (array $s): bool {
+                foreach ((array) ($s['config_files'] ?? []) as $f) {
+                    if (str_starts_with(basename((string) $f), 'whacp-')) {
+                        return false;
+                    }
+                }
+                return true;
+            },
+        ));
 
-        $q = mb_strtolower(trim((string) $request->query('q', '')));
         $status = (string) $request->query('status', '');
         $filtered = array_values(array_filter($sites, static function (array $s) use ($q, $status): bool {
             if ($q !== '') {
@@ -54,6 +76,7 @@ final class WebsitesController extends Controller
         }));
 
         return $this->render('websites/index', [
+            'managed' => $managed,
             'sites' => $filtered,
             'total' => count($sites),
             'q' => $q,

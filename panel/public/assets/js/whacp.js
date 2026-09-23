@@ -130,6 +130,21 @@
         if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
     });
 
+    // Show only the fields that belong to the selected website type.
+    function applyKind(select) {
+        var kind = select.value;
+        document.querySelectorAll('[data-wcp-kind]').forEach(function (el) {
+            el.classList.toggle('d-none', el.getAttribute('data-wcp-kind') !== kind);
+        });
+    }
+    document.addEventListener('change', function (e) {
+        if (e.target.matches('[data-wcp-toggle-kind]')) { applyKind(e.target); }
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+        var k = document.querySelector('[data-wcp-toggle-kind]');
+        if (k) { applyKind(k); }
+    });
+
     // Auto-submit selects.
     document.addEventListener('change', function (e) {
         if (e.target.matches('[data-wcp-autosubmit]')) { e.target.form.submit(); }
@@ -143,4 +158,55 @@
         });
     };
     document.addEventListener('DOMContentLoaded', function () { WhaCP.applyWidths(); });
+
+    // Background job viewer: polls /jobs/<id> and streams the log.
+    WhaCP.showJob = function (jobId) {
+        var modalEl = document.getElementById('wcp-job');
+        if (!modalEl || !/^[a-f0-9]{16}$/.test(jobId)) { return; }
+        var logEl = modalEl.querySelector('[data-wcp-job-log]');
+        var statusEl = modalEl.querySelector('[data-wcp-job-status]');
+        var reloadBtn = modalEl.querySelector('[data-wcp-job-reload]');
+        logEl.textContent = '';
+        reloadBtn.classList.add('d-none');
+        var offset = 0;
+        var stopped = false;
+        var classes = { queued: 'text-bg-secondary', running: 'text-bg-info', succeeded: 'text-bg-success', failed: 'text-bg-danger' };
+        function setStatus(s) {
+            statusEl.textContent = s;
+            statusEl.className = 'badge ms-2 ' + (classes[s] || 'text-bg-secondary');
+        }
+        function poll() {
+            if (stopped) { return; }
+            WhaCP.fetchJson('/jobs/' + jobId + '?offset=' + offset).then(function (res) {
+                if (res.log) {
+                    logEl.textContent += res.log;
+                    logEl.scrollTop = logEl.scrollHeight;
+                }
+                offset = res.offset || offset;
+                setStatus(res.job ? res.job.status : 'unknown');
+                if (res.done) {
+                    reloadBtn.classList.remove('d-none');
+                    WhaCP.toast(res.job.status === 'succeeded' ? 'Task completed.' : 'Task failed. See the log for details.', res.job.status === 'succeeded' ? 'success' : 'danger');
+                    return;
+                }
+                setTimeout(poll, 1000);
+            }).catch(function (err) {
+                logEl.textContent += '\n[panel] ' + err.message + '\n';
+                setTimeout(poll, 3000);
+            });
+        }
+        modalEl.addEventListener('hidden.bs.modal', function () { stopped = true; }, { once: true });
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        setStatus('queued');
+        poll();
+    };
+    document.addEventListener('click', function (e) {
+        var t = e.target.closest('[data-wcp-job-open]');
+        if (t) { e.preventDefault(); WhaCP.showJob(t.getAttribute('data-wcp-job-open')); }
+        if (e.target.closest('[data-wcp-job-reload]')) { window.location.reload(); }
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+        var auto = document.querySelector('[data-wcp-autojob]');
+        if (auto) { WhaCP.showJob(auto.getAttribute('data-wcp-autojob')); }
+    });
 })();

@@ -90,7 +90,7 @@ final class AgentAndDiscoveryTest extends DatabaseTestCase
         $this->transport->succeed('discovery.inventory', $inventory);
         $settings = new SettingsService(new SettingRepository($this->db), $this->audit);
         $snapshots = new DiscoverySnapshotRepository($this->db);
-        $svc = new DiscoveryService($this->client(), $snapshots, $settings, $this->audit);
+        $svc = new DiscoveryService($this->client(), $snapshots, $settings, $this->audit, new SettingRepository($this->db));
 
         $first = $svc->inventory(false, null);
         self::assertFalse($first['from_cache']);
@@ -112,7 +112,7 @@ final class AgentAndDiscoveryTest extends DatabaseTestCase
     {
         $this->transport->down = true;
         $settings = new SettingsService(new SettingRepository($this->db), $this->audit);
-        $svc = new DiscoveryService($this->client(), new DiscoverySnapshotRepository($this->db), $settings, $this->audit);
+        $svc = new DiscoveryService($this->client(), new DiscoverySnapshotRepository($this->db), $settings, $this->audit, new SettingRepository($this->db));
         $this->expectException(AgentUnavailableException::class);
         $svc->inventory(false, null);
     }

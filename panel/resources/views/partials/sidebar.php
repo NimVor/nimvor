@@ -48,9 +48,14 @@ $groups = [
         <img src="<?= e($this->asset('assets/img/logo.svg')) ?>" alt="" width="28" height="28">
         <span><?= e($panel_name ?? 'WhaCP') ?></span>
     </a>
-    <div class="wcp-mode-pill" title="Discovery is read-only. WhaCP does not modify the server in this release.">
-        <i class="bi bi-eye"></i> Read-only mode
-    </div>
+    <?php $st = isset($agent_status) && is_callable($agent_status) ? $agent_status() : null; ?>
+    <?php if ($st === null): ?>
+        <div class="wcp-mode-pill is-offline" title="The WhaCP agent is not reachable."><i class="bi bi-plug"></i> Agent offline</div>
+    <?php elseif (empty($st['write_enabled'])): ?>
+        <div class="wcp-mode-pill" title="The agent is in read-only mode: WhaCP observes the server but does not change it."><i class="bi bi-eye"></i> Read-only mode</div>
+    <?php else: ?>
+        <div class="wcp-mode-pill is-write" title="The agent may apply changes. Every change is validated, backed up and audited."><i class="bi bi-pencil-square"></i> Write mode</div>
+    <?php endif; ?>
     <div class="wcp-nav">
         <?php foreach ($groups as $group => $items): ?>
             <?php

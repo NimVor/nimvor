@@ -3,8 +3,43 @@
 /** @var list<array<string, mixed>> $sites */
 ?>
 <?php $this->start(); ?>Websites<?php $this->end('title'); ?>
-<?php $this->start(); ?><?= (int) $total ?> existing website(s) discovered on this server<?php $this->end('subtitle'); ?>
+<?php $this->start(); ?><?= count($managed) ?> managed by WhaCP<?= $discoveredAt !== null ? ' · ' . (int) $total . ' other website(s) found on this server' : '' ?><?php $this->end('subtitle'); ?>
+<?php if ($this->can(\WhaCP\Security\Permissions::WEBSITES_MANAGE)): ?>
+    <?php $this->start(); ?><a class="btn btn-sm btn-primary" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1"></i>New website</a><?php $this->end('actions'); ?>
+<?php endif; ?>
 
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-stars me-1"></i>Managed by WhaCP</div>
+    <?php if ($managed === []): ?>
+        <div class="card-body text-center py-4 text-body-secondary wcp-empty">
+            <i class="bi bi-globe2 display-6"></i>
+            <p class="mt-2 mb-0">No WhaCP-managed websites yet.<?php if ($this->can(\WhaCP\Security\Permissions::WEBSITES_MANAGE)): ?> <a href="<?= e($this->url('sites.create')) ?>">Create the first one</a>.<?php endif; ?></p>
+        </div>
+    <?php else: ?>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 wcp-table">
+                <thead><tr><th>Domain</th><th>Status</th><th>Type</th><th>HTTPS</th><th>User</th><th class="d-none d-lg-table-cell">Owner</th><th></th></tr></thead>
+                <tbody>
+                <?php foreach ($managed as $m): ?>
+                    <tr>
+                        <td><a class="fw-semibold" href="<?= e($this->url('sites.show', ['id' => (int) $m['id']])) ?>"><?= e($m['domain']) ?></a>
+                            <?php if ($m['aliases'] !== []): ?><div class="small text-body-secondary">+ <?= e(implode(', ', array_slice($m['aliases'], 0, 3))) ?></div><?php endif; ?></td>
+                        <td><?= $m['status'] === 'error' ? $this->statusBadge('error') : ($m['enabled'] ? $this->statusBadge('enabled') : $this->statusBadge('disabled')) ?></td>
+                        <td><span class="badge text-bg-light border"><?= e($m['kind']) ?><?= $m['kind'] === 'php' ? ' ' . e($m['php_version']) : '' ?></span></td>
+                        <td><?= $m['https'] ? $this->statusBadge('valid', 'on') : '<span class="text-body-secondary">off</span>' ?></td>
+                        <td><code class="small"><?= e($m['system_user']) ?></code></td>
+                        <td class="d-none d-lg-table-cell small"><?= e($m['owner_name'] ?? '—') ?></td>
+                        <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.show', ['id' => (int) $m['id']])) ?>">Manage</a></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
+
+<?php if ($discoveredAt === null) { return; } ?>
+<h2 class="h6 text-body-secondary mb-2"><i class="bi bi-binoculars me-1"></i>Other websites on this server (read-only)</h2>
 <?= $this->partial('partials/discovery_bar', ['discoveredAt' => $discoveredAt]) ?>
 
 <?php foreach ($warnings as $w): ?>

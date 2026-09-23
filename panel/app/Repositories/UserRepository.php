@@ -8,7 +8,7 @@ use WhaCP\Database\Connection;
 
 final class UserRepository
 {
-    private const COLUMNS = 'u.id, u.username, u.email, u.display_name, u.role_id, u.is_active, u.last_login_at, u.last_login_ip, u.password_changed_at, u.created_at, u.updated_at, r.name AS role_name, r.label AS role_label';
+    private const COLUMNS = 'u.id, u.username, u.email, u.display_name, u.role_id, u.is_active, u.last_login_at, u.last_login_ip, u.password_changed_at, u.created_at, u.updated_at, r.name AS role_name, r.label AS role_label, r.scope AS role_scope, u.parent_id';
 
     public function __construct(private readonly Connection $db)
     {

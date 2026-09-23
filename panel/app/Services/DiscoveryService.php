@@ -21,7 +21,14 @@ final class DiscoveryService
         private readonly DiscoverySnapshotRepository $snapshots,
         private readonly SettingsService $settings,
         private readonly AuditLogger $audit,
+        private readonly \WhaCP\Repositories\SettingRepository $state,
     ) {
+    }
+
+    /** Force the next inventory() call to ask the agent (after a change). */
+    public function invalidate(): void
+    {
+        $this->state->set('_discovery_invalidated_at', gmdate('c'), null);
     }
 
     /**
@@ -34,7 +41,10 @@ final class DiscoveryService
     {
         $latest = $this->snapshots->latest();
         $ttl = $this->settings->int('discovery_cache_seconds');
-        if (!$refresh && $latest !== null && strtotime($latest['created_at']) >= time() - $ttl) {
+        $invalidated = (string) ($this->state->all()['_discovery_invalidated_at'] ?? '');
+        $fresh = $latest !== null && strtotime($latest['created_at']) >= time() - $ttl
+            && ($invalidated === '' || strtotime($latest['created_at']) > strtotime($invalidated));
+        if (!$refresh && $fresh) {
             return ['data' => $latest['data'], 'created_at' => $latest['created_at'], 'from_cache' => true];
         }
         return $this->run($userId, $refresh);

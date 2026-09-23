@@ -75,14 +75,20 @@ class AgentClient
         $message = (string) ($json['error']['message'] ?? 'The agent reported an error.');
         $this->logger->warning('agent action failed', ['action' => $action, 'status' => $response->status, 'code' => $code, 'request_id' => $json['request_id'] ?? '']);
 
+        $details = (string) ($json['error']['details'] ?? '');
+        $status = $response->status >= 400 ? $response->status : 502;
+        // Operational errors are already written for humans by the agent.
+        if (in_array($code, ['failed', 'conflict', 'invalid_params', 'not_found'], true)) {
+            throw new AgentException($message, '', '', $code, $status, null, $details);
+        }
         [$title, $remedy] = match ($code) {
             'unauthorized' => ['The panel could not authenticate with the WhaCP agent.', 'Verify that the panel and agent use the same token file and that the panel user may read it.'],
-            'write_disabled' => ['This action is disabled on the agent.', 'WhaCP is running in read-only discovery mode. Modifying actions will be enabled in a later release.'],
+            'write_disabled' => ['This server is in read-only mode.', 'The agent runs in read-only mode; enable write mode (see docs/installation, "Enabling write mode") to manage websites, databases and services.'],
             'unknown_action' => ['The agent does not support this action.', 'Upgrade the agent so that it matches the panel version.'],
             'timeout' => ['The action took too long to complete.', 'Try again; if it keeps failing, check the agent log.'],
             default => ['The WhaCP agent could not complete the request.', 'Check the agent log (journalctl -u whacp-agent) for request ' . ($json['request_id'] ?? '') . '.'],
         };
-        throw new AgentException($title, $message, $remedy, $code, $response->status >= 400 ? $response->status : 502);
+        throw new AgentException($title, $message, $remedy, $code, $status, null, $details);
     }
 
     private function token(): string

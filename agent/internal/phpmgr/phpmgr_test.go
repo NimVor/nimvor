@@ -1,0 +1,49 @@
+package phpmgr
+
+import (
+	"context"
+	"encoding/json"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+)
+
+func TestParseAvailable(t *testing.T) {
+	got := ParseAvailable("php8.3-fpm - server-side\nphp8.10-fpm - x\nphp7.4-fpm - old\nphp8.3-fpm - dup\n")
+	if !reflect.DeepEqual(got, []string{"7.4", "8.3", "8.10"}) {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestInstallRunsAptAsJob(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	a, _ := r.Lookup("php.install")
+	res, err := a.Handler(context.Background(), json.RawMessage(`{"version":"8.4","extensions":["curl"]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := res.(map[string]any)["job_id"].(string)
+	j, _ := h.Env.Jobs.Wait(context.Background(), id)
+	if j.Status != "succeeded" || !h.Runner.Called("apt-get install -y -q --no-install-recommends -o Dpkg::Options::=--force-confold -- php8.4-fpm php8.4-cli php8.4-curl") {
+		t.Fatalf("job %+v calls %v", j, h.Runner.Calls)
+	}
+	if _, err := a.Handler(context.Background(), json.RawMessage(`{"version":"8.4","extensions":["curl;rm"]}`)); err == nil {
+		t.Fatal("bad extension accepted")
+	}
+}
+
+func TestDisableRefusedWhileInUse(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	a, _ := r.Lookup("php.set_enabled")
+	_, err := a.Handler(context.Background(), json.RawMessage(`{"version":"8.3","enabled":false}`))
+	if err == nil || !strings.Contains(err.Error(), "example.com") {
+		t.Fatalf("err = %v", err)
+	}
+}

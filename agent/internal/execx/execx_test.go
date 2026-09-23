@@ -31,3 +31,22 @@ func TestLimitedBuffer(t *testing.T) {
 		t.Fatalf("buffer = %q (n=%d)", b.String(), n)
 	}
 }
+
+func TestShellOnlyAsUnprivilegedUser(t *testing.T) {
+	r := &SystemRunner{paths: map[string]string{"sh": "/bin/sh"}}
+	for _, o := range []Opts{{}, {As: &Credential{UID: 0, GID: 0}}, {As: &Credential{UID: 33, GID: 33}}} {
+		if _, err := r.RunWith(context.Background(), "sh", o, "-c", "id"); !errors.Is(err, ErrNotAllowed) {
+			t.Errorf("shell as %+v: %v", o.As, err)
+		}
+	}
+}
+
+func TestVersionedPHPIDs(t *testing.T) {
+	r := &SystemRunner{paths: map[string]string{}}
+	if _, err := r.resolve("php8.3; id"); !errors.Is(err, ErrNotAllowed) {
+		t.Errorf("injected id: %v", err)
+	}
+	if _, err := r.resolve("php-fpm8.3"); errors.Is(err, ErrNotAllowed) {
+		t.Errorf("php-fpm8.3 should be allowlisted: %v", err)
+	}
+}

@@ -60,6 +60,37 @@ type Platform interface {
 	CoreServices() []string
 	// PHPFPMUnitPatterns returns globs for per-version PHP-FPM unit files.
 	PHPFPMUnitPatterns() []string
+	// Managed returns where WhaCP writes the files it owns.
+	Managed() Managed
+	// PHPPackages returns packages that install PHP-FPM version v with the
+	// given extensions (e.g. "mysql", "curl").
+	PHPPackages(v string, exts []string) []string
+}
+
+// Managed describes the layout of WhaCP-owned configuration.
+type Managed struct {
+	// NginxAvailable holds generated site files; NginxEnabled holds the
+	// symlinks Nginx actually includes.
+	NginxAvailable string `json:"nginx_available"`
+	NginxEnabled   string `json:"nginx_enabled"`
+	// PHPPoolDir returns the pool directory for a version (%s = version).
+	PHPPoolDir string `json:"php_pool_dir"`
+	// PHPSocketDir is where per-site FPM sockets are created.
+	PHPSocketDir string `json:"php_socket_dir"`
+	// PHPFPMUnit is the unit name pattern (%s = version).
+	PHPFPMUnit string `json:"php_fpm_unit"`
+	// PHPFPMBinary is the FPM binary command ID pattern (%s = version).
+	PHPFPMBinary string   `json:"php_fpm_binary"`
+	WebUser      string   `json:"web_user"`
+	NginxUnit    string   `json:"nginx_unit"`
+	CronDir      string   `json:"cron_dir"`
+	UnitDir      string   `json:"unit_dir"`
+	ACMERoot     string   `json:"acme_root"`
+	SSHDropIn    string   `json:"ssh_drop_in"`
+	Fail2banJail string   `json:"fail2ban_jail"`
+	MySQLUnit    []string `json:"mysql_units"`
+	RedisUnit    string   `json:"redis_unit"`
+	RedisConfig  string   `json:"redis_config"`
 }
 
 // supportedUbuntu lists the Ubuntu releases WhaCP officially targets.

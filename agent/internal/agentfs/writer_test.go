@@ -1,0 +1,87 @@
+package agentfs
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+)
+
+func newWriter(t *testing.T) (Writer, string) {
+	t.Helper()
+	base := t.TempDir()
+	os.MkdirAll(filepath.Join(base, "etc/nginx/sites-available"), 0o755)
+	os.MkdirAll(filepath.Join(base, "home/whacp"), 0o755)
+	root, _ := filesystem.NewRoot(base)
+	return Writer{Root: root, Policy: Policy{Patterns: []string{"/etc/nginx/sites-available/whacp-*.conf", "/home/whacp/**"}}}, base
+}
+
+func TestPolicy(t *testing.T) {
+	p := Policy{Patterns: []string{"/etc/nginx/sites-available/whacp-*.conf", "/home/whacp/**"}}
+	for _, ok := range []string{"/etc/nginx/sites-available/whacp-a.com.conf", "/home/whacp", "/home/whacp/a.com/public_html/x"} {
+		if !p.Allows(ok) {
+			t.Errorf("%s refused", ok)
+		}
+	}
+	for _, bad := range []string{"/etc/nginx/sites-available/default", "/etc/nginx/sites-available/whacp-a/../../passwd", "/home/whacpx/a", "/etc/passwd", "relative/whacp-x.conf", "/etc/nginx/sites-available/sub/whacp-a.conf"} {
+		if p.Allows(bad) {
+			t.Errorf("%s allowed", bad)
+		}
+	}
+}
+
+func TestWriteFileAtomicAndIdempotent(t *testing.T) {
+	w, base := newWriter(t)
+	p := "/etc/nginx/sites-available/whacp-a.com.conf"
+	changed, err := w.WriteFile(p, []byte("one"), 0o644, Keep)
+	if err != nil || !changed {
+		t.Fatalf("first write: %v %v", changed, err)
+	}
+	changed, err = w.WriteFile(p, []byte("one"), 0o644, Keep)
+	if err != nil || changed {
+		t.Fatalf("identical write should be a no-op: %v %v", changed, err)
+	}
+	if _, err := w.WriteFile("/etc/nginx/sites-available/default", []byte("x"), 0o644, Keep); !errors.Is(err, ErrNotPermitted) {
+		t.Fatalf("unmanaged file written: %v", err)
+	}
+	entries, _ := os.ReadDir(filepath.Join(base, "etc/nginx/sites-available"))
+	if len(entries) != 1 {
+		t.Fatalf("temp files left behind: %v", entries)
+	}
+}
+
+func TestSymlinkInsideUserSubtreeIsRefused(t *testing.T) {
+	w, base := newWriter(t)
+	os.MkdirAll(filepath.Join(base, "home/whacp/a.com"), 0o755)
+	os.Symlink("/etc", filepath.Join(base, "home/whacp/a.com/evil"))
+	if _, err := w.WriteFile("/home/whacp/a.com/evil/passwd", []byte("x"), 0o644, Keep); !errors.Is(err, ErrNotPermitted) {
+		t.Fatalf("write through symlink: %v", err)
+	}
+	os.Symlink(filepath.Join(base, "etc/hostname"), filepath.Join(base, "home/whacp/a.com/link"))
+	if _, err := w.WriteFile("/home/whacp/a.com/link", []byte("x"), 0o644, Keep); !errors.Is(err, ErrNotPermitted) {
+		t.Fatalf("write onto symlink: %v", err)
+	}
+}
+
+func TestSnapshotRestore(t *testing.T) {
+	w, _ := newWriter(t)
+	p := "/etc/nginx/sites-available/whacp-b.conf"
+	w.WriteFile(p, []byte("old"), 0o640, Keep)
+	st, _ := w.Snapshot(p)
+	w.WriteFile(p, []byte("new"), 0o644, Keep)
+	if err := w.Restore(p, st); err != nil {
+		t.Fatal(err)
+	}
+	st2, _ := w.Snapshot(p)
+	if string(st2.Data) != "old" || st2.Mode != 0o640 {
+		t.Fatalf("restore: %q %v", st2.Data, st2.Mode)
+	}
+	if err := w.Restore(p, State{}); err != nil {
+		t.Fatal(err)
+	}
+	if st3, _ := w.Snapshot(p); st3.Exists {
+		t.Fatal("restore to non-existent should delete")
+	}
+}

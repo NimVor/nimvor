@@ -22,6 +22,7 @@ final class Authenticate implements Middleware
         private readonly Authorizer $authorizer,
         private readonly AuditLogger $audit,
         private readonly View $view,
+        private readonly \WhaCP\Services\AgentStatus $agentStatus,
     ) {
     }
 
@@ -32,6 +33,9 @@ final class Authenticate implements Middleware
         $this->view->setPermissionChecker(fn (string $p): bool => $this->authorizer->can($user, $p));
         if ($user !== null) {
             $this->audit->setActor((int) $user['id'], (string) $user['username']);
+            if (!$request->wantsJson()) {
+                $this->view->share('agent_status', fn () => $this->agentStatus->get());
+            }
         }
 
         /** @var Route|null $route */

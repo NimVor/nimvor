@@ -49,6 +49,31 @@ abstract class Controller
     }
 
     /**
+     * Redirect with a user-facing error (and technical details from the
+     * agent, e.g. nginx -t output, when available).
+     */
+    protected function redirectWithFailure(string $to, \WhaCP\Support\UserFacingException $e): Response
+    {
+        $msg = $e->getMessage();
+        if ($e->reason() !== '') {
+            $msg .= ' ' . $e->reason();
+        }
+        if ($e->remedy() !== '') {
+            $msg .= ' ' . $e->remedy();
+        }
+        $this->session->flash('error', $msg);
+        if ($e instanceof \WhaCP\Agent\AgentException && $e->details() !== '') {
+            $this->session->flash('details', $e->details());
+        }
+        return Response::redirect($to);
+    }
+
+    protected function flashJob(string $jobId): void
+    {
+        $this->session->flash('job', $jobId);
+    }
+
+    /**
      * Redirect back to a form with validation errors and the old input
      * (passwords are never flashed back).
      *

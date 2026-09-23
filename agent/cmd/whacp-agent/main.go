@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -21,7 +22,10 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/discovery"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logging"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/modules"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/monitoring"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/server"
@@ -80,8 +84,30 @@ func run() int {
 	collector := monitoring.NewCollector(cfg.ProcDir, cfg.MetricsInterval.Duration, cfg.MetricsHistory, log)
 	go collector.Run(ctx)
 
-	runner := execx.NewSystemRunner(15 * time.Second)
+	var runner execx.Runner = execx.NewSystemRunner(15 * time.Second)
+	if cfg.SimulateCommands {
+		log.Warn("simulate_commands is on: no system tool will be executed (development mode)")
+		runner = &execx.SimRunner{Base: cfg.RootDir, Log: os.Stderr}
+	}
+	stateReal, _ := root.Path(cfg.StateDir)
+	jobDir := filepath.Join(stateReal, "jobs")
+	if cfg.AllowWriteActions {
+		if err := os.MkdirAll(stateReal, 0o700); err != nil {
+			log.Error("cannot create state directory", "dir", cfg.StateDir, "error", err)
+			return 1
+		}
+	} else {
+		// Read-only mode: the filesystem is read-only except /run/whacp.
+		jobDir = filepath.Join(filepath.Dir(cfg.SocketPath), "jobs")
+	}
+	jobManager, err := jobs.NewManager(jobDir, cfg.MaxJobs, 2*time.Hour, log)
+	if err != nil {
+		log.Error("cannot create job directory", "dir", jobDir, "error", err)
+		return 1
+	}
+	env := host.New(cfg, root, plat, runner, jobManager, log)
 	registry := actions.NewRegistry(cfg.AllowWriteActions)
+	modules.Register(registry, env, version, cfg.AllowWriteActions, modules.All()...)
 	actions.RegisterBuiltin(registry, actions.Deps{
 		Version:   version,
 		ProcDir:   cfg.ProcDir,

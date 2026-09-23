@@ -6,14 +6,24 @@
 #
 #   scripts/dev.sh            start agent + panel (Ctrl-C stops both)
 #   DEV_ROOT=/ scripts/dev.sh inspect this machine instead of the fixture
+#   DEV_WRITE=1 scripts/dev.sh write mode against a disposable copy of the
+#                              fixture in .dev/root (system tools are not run
+#                              against your machine: see .dev/root)
 
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEV="$ROOT/.dev"
 PORT="${DEV_PORT:-8090}"
 FIXTURE="${DEV_ROOT:-$ROOT/agent/tests/fixtures/ubuntu-host}"
+WRITE="${DEV_WRITE:-0}"
 
 mkdir -p "$DEV"
+if [[ $WRITE == 1 ]]; then
+    if [[ ${DEV_ROOT:-} == / ]]; then echo "DEV_WRITE with DEV_ROOT=/ is refused; use a disposable machine and the installer." >&2; exit 1; fi
+    rm -rf "$DEV/root" && cp -a "$FIXTURE" "$DEV/root"
+    mkdir -p "$DEV/root"/{home/whacp,var/lib/whacp-agent,var/backups/whacp,run/php,etc/cron.d,etc/systemd/system}
+    FIXTURE="$DEV/root"
+fi
 [[ -f $DEV/token ]] || (umask 077; openssl rand -hex 32 > "$DEV/token")
 cat > "$DEV/agent.json" <<JSON
 {
@@ -21,6 +31,9 @@ cat > "$DEV/agent.json" <<JSON
   "socket_group": "",
   "token_file": "$DEV/token",
   "root_dir": "$FIXTURE",
+  "allow_write_actions": $([[ $WRITE == 1 ]] && echo true || echo false),
+  "simulate_commands": $([[ $WRITE == 1 ]] && echo true || echo false),
+  "state_dir": "/var/lib/whacp-agent",
   "log_level": "debug",
   "metrics_interval": "3s"
 }
@@ -43,7 +56,7 @@ echo "Building agent…"
 export WHACP_CONFIG="$DEV/panel.php"
 php "$ROOT/panel/bin/whacp" migrate
 if [[ $(php "$ROOT/panel/bin/whacp" users:count) == 0 ]]; then
-    echo "dev-password-change-me" | php "$ROOT/panel/bin/whacp" user:create admin admin@localhost --role=admin
+    echo "dev-password-change-me" | php "$ROOT/panel/bin/whacp" user:create admin admin@example.com --role=admin
     echo "Created dev user: admin / dev-password-change-me"
 fi
 

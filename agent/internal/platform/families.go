@@ -1,5 +1,7 @@
 package platform
 
+import "strings"
+
 // Locations used by other control panels that keep their own Nginx and PHP
 // builds (aaPanel under /www/server, custom builds under /usr/local and /opt).
 var (
@@ -50,6 +52,35 @@ func (d debianFamily) PHPFPMUnitPatterns() []string {
 	return []string{"php*-fpm.service"}
 }
 
+func (d debianFamily) Managed() Managed {
+	return Managed{
+		NginxAvailable: "/etc/nginx/sites-available",
+		NginxEnabled:   "/etc/nginx/sites-enabled",
+		PHPPoolDir:     "/etc/php/%s/fpm/pool.d",
+		PHPSocketDir:   "/run/php",
+		PHPFPMUnit:     "php%s-fpm.service",
+		PHPFPMBinary:   "php-fpm%s",
+		WebUser:        "www-data",
+		NginxUnit:      "nginx.service",
+		CronDir:        "/etc/cron.d",
+		UnitDir:        "/etc/systemd/system",
+		ACMERoot:       "/var/www/whacp-acme",
+		SSHDropIn:      "/etc/ssh/sshd_config.d/99-whacp.conf",
+		Fail2banJail:   "/etc/fail2ban/jail.d/whacp.local",
+		MySQLUnit:      []string{"mariadb.service", "mysql.service"},
+		RedisUnit:      "redis-server.service",
+		RedisConfig:    "/etc/redis/redis.conf",
+	}
+}
+
+func (d debianFamily) PHPPackages(v string, exts []string) []string {
+	pkgs := []string{"php" + v + "-fpm", "php" + v + "-cli"}
+	for _, e := range exts {
+		pkgs = append(pkgs, "php"+v+"-"+e)
+	}
+	return pkgs
+}
+
 // rhelFamily covers AlmaLinux, Rocky Linux and other RHEL derivatives.
 // It is a scaffold: paths are defined, but the family is not yet supported.
 type rhelFamily struct{ info OSInfo }
@@ -84,4 +115,35 @@ func (r rhelFamily) CoreServices() []string {
 
 func (r rhelFamily) PHPFPMUnitPatterns() []string {
 	return []string{"php-fpm.service", "php[0-9][0-9]-php-fpm.service"}
+}
+
+// Managed for RHEL is a scaffold (the family is not yet supported).
+func (r rhelFamily) Managed() Managed {
+	return Managed{
+		NginxAvailable: "/etc/nginx/whacp-available",
+		NginxEnabled:   "/etc/nginx/conf.d",
+		PHPPoolDir:     "/etc/opt/remi/php%s/php-fpm.d",
+		PHPSocketDir:   "/run/php-fpm",
+		PHPFPMUnit:     "php%s-php-fpm.service",
+		PHPFPMBinary:   "php-fpm%s",
+		WebUser:        "nginx",
+		NginxUnit:      "nginx.service",
+		CronDir:        "/etc/cron.d",
+		UnitDir:        "/etc/systemd/system",
+		ACMERoot:       "/var/www/whacp-acme",
+		SSHDropIn:      "/etc/ssh/sshd_config.d/99-whacp.conf",
+		Fail2banJail:   "/etc/fail2ban/jail.d/whacp.local",
+		MySQLUnit:      []string{"mariadb.service", "mysqld.service"},
+		RedisUnit:      "redis.service",
+		RedisConfig:    "/etc/redis/redis.conf",
+	}
+}
+
+func (r rhelFamily) PHPPackages(v string, exts []string) []string {
+	n := strings.ReplaceAll(v, ".", "")
+	pkgs := []string{"php" + n + "-php-fpm", "php" + n + "-php-cli"}
+	for _, e := range exts {
+		pkgs = append(pkgs, "php"+n+"-php-"+e)
+	}
+	return pkgs
 }

@@ -25,6 +25,7 @@ final class DiscoveryController extends Controller
         private readonly DiscoveryService $discovery,
         private readonly DiscoverySnapshotRepository $snapshots,
         private readonly SettingsService $settings,
+        private readonly \WhaCP\Agent\AgentClient $agent,
     ) {
         parent::__construct($view, $session);
     }
@@ -39,6 +40,19 @@ final class DiscoveryController extends Controller
 
     public function php(Request $request): Response
     {
+        $available = [];
+        $services = [];
+        if ($this->view->can(\WhaCP\Security\Permissions::PHP_MANAGE)) {
+            try {
+                $available = (array) $this->agent->call('php.available');
+                foreach ((array) $this->agent->call('services.status') as $svc) {
+                    $services[(string) $svc['unit']] = $svc;
+                }
+            } catch (AgentException) {
+            }
+        }
+        $this->view->share('php_available', $available);
+        $this->view->share('php_services', $services);
         return $this->page($request, 'discovery/php', 'PHP', static function (array $inv): array {
             $usage = [];
             foreach (DiscoveryService::websites($inv) as $site) {

@@ -88,6 +88,11 @@ final class Router
         return (string) $url;
     }
 
+    public function has(string $name): bool
+    {
+        return isset($this->named[$name]);
+    }
+
     /** @return list<Route> */
     public function routes(): array
     {

@@ -12,6 +12,10 @@ use WhaCP\Http\Controllers\ProfileController;
 use WhaCP\Http\Controllers\RolesController;
 use WhaCP\Http\Controllers\ServerController;
 use WhaCP\Http\Controllers\SettingsController;
+use WhaCP\Http\Controllers\SitesController;
+use WhaCP\Http\Controllers\JobsController;
+use WhaCP\Http\Controllers\PhpController;
+use WhaCP\Http\Controllers\ServicesController;
 use WhaCP\Http\Controllers\UsersController;
 use WhaCP\Http\Controllers\WebsitesController;
 use WhaCP\Http\Router;
@@ -30,9 +34,22 @@ return static function (Router $r): void {
 
     // Hosting inventory (read-only discovery)
     $r->get('/websites', [WebsitesController::class, 'index'], ['name' => 'websites', 'permission' => P::WEBSITES_VIEW]);
+    $r->get('/websites/new', [SitesController::class, 'create'], ['name' => 'sites.create', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/websites/new', [SitesController::class, 'store'], ['name' => 'sites.store', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}', [SitesController::class, 'show'], ['name' => 'sites.show', 'permission' => P::WEBSITES_VIEW]);
+    $r->get('/sites/{id}/settings', [SitesController::class, 'edit'], ['name' => 'sites.edit', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/settings', [SitesController::class, 'update'], ['name' => 'sites.update', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/toggle', [SitesController::class, 'toggle'], ['name' => 'sites.toggle', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/restart-php', [SitesController::class, 'restartPhp'], ['name' => 'sites.restart_php', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/reapply', [SitesController::class, 'reapply'], ['name' => 'sites.reapply', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/delete', [SitesController::class, 'destroy'], ['name' => 'sites.delete', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/jobs/{id}', [JobsController::class, 'show'], ['name' => 'jobs.show']);
     $r->get('/websites/{id}', [WebsitesController::class, 'show'], ['name' => 'websites.show', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/domains', [DomainsController::class, 'index'], ['name' => 'domains', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/php', [DiscoveryController::class, 'php'], ['name' => 'php', 'permission' => P::PHP_VIEW]);
+    $r->post('/php/install', [PhpController::class, 'install'], ['name' => 'php.install', 'permission' => P::PHP_MANAGE]);
+    $r->post('/php/{version}/toggle', [PhpController::class, 'toggle'], ['name' => 'php.toggle', 'permission' => P::PHP_MANAGE]);
+    $r->get('/php/{version}/modules', [PhpController::class, 'modules'], ['name' => 'php.modules', 'permission' => P::PHP_VIEW]);
     $r->get('/databases', [DiscoveryController::class, 'databases'], ['name' => 'databases', 'permission' => P::DATABASES_VIEW]);
     $r->get('/ssl', [DiscoveryController::class, 'ssl'], ['name' => 'ssl', 'permission' => P::SSL_VIEW]);
     $r->get('/cron', [DiscoveryController::class, 'cron'], ['name' => 'cron', 'permission' => P::CRON_VIEW]);
@@ -42,6 +59,7 @@ return static function (Router $r): void {
     // Server
     $r->get('/server', [ServerController::class, 'index'], ['name' => 'server', 'permission' => P::SERVER_VIEW]);
     $r->get('/services', [ServerController::class, 'services'], ['name' => 'services', 'permission' => P::SERVICES_VIEW]);
+    $r->post('/services/control', [ServicesController::class, 'control'], ['name' => 'services.control', 'permission' => P::SERVICES_MANAGE]);
     $r->get('/system-users', [ServerController::class, 'systemUsers'], ['name' => 'system_users', 'permission' => P::SYSTEM_USERS_VIEW]);
 
     // Administration

@@ -39,18 +39,18 @@ final class RoleRepository
         return $this->db->fetchAll('SELECT name, label, grp FROM permissions ORDER BY grp, name');
     }
 
-    public function create(string $name, string $label, string $description): int
+    public function create(string $name, string $label, string $description, string $scope = 'all'): int
     {
         $this->db->run(
-            'INSERT INTO roles (name, label, description, is_system, created_at) VALUES (?, ?, ?, 0, ?)',
-            [$name, $label, $description, gmdate('c')]
+            'INSERT INTO roles (name, label, description, is_system, scope, created_at) VALUES (?, ?, ?, 0, ?, ?)',
+            [$name, $label, $description, $scope, gmdate('c')]
         );
         return $this->db->lastInsertId();
     }
 
-    public function update(int $id, string $label, string $description): void
+    public function update(int $id, string $label, string $description, string $scope = 'all'): void
     {
-        $this->db->run('UPDATE roles SET label = ?, description = ? WHERE id = ? AND is_system = 0', [$label, $description, $id]);
+        $this->db->run('UPDATE roles SET label = ?, description = ?, scope = ? WHERE id = ? AND is_system = 0', [$label, $description, $scope, $id]);
     }
 
     public function delete(int $id): void
@@ -105,9 +105,9 @@ final class RoleRepository
 
             foreach (Permissions::defaultRoles() as $roleName => $role) {
                 $db->run(
-                    'INSERT INTO roles (name, label, description, is_system, created_at) VALUES (?, ?, ?, 1, ?)
-                     ON CONFLICT(name) DO UPDATE SET label = excluded.label, description = excluded.description, is_system = 1',
-                    [$roleName, $role['label'], $role['description'], gmdate('c')]
+                    'INSERT INTO roles (name, label, description, is_system, scope, created_at) VALUES (?, ?, ?, 1, ?, ?)
+                     ON CONFLICT(name) DO UPDATE SET label = excluded.label, description = excluded.description, is_system = 1, scope = excluded.scope',
+                    [$roleName, $role['label'], $role['description'], $role['scope'], gmdate('c')]
                 );
                 $roleId = (int) $db->scalar('SELECT id FROM roles WHERE name = ?', [$roleName]);
                 $grants = $role['permissions'] === ['*'] ? $names : $role['permissions'];

@@ -136,6 +136,8 @@ final class Application
             $view->share('current_path', $request->path());
             $view->share('flash_success', $session->pullFlash('success'));
             $view->share('flash_error', $session->pullFlash('error'));
+            $view->share('flash_details', $session->pullFlash('details'));
+            $view->share('flash_job', $session->pullFlash('job'));
             $view->share('errors', $session->pullFlash('errors', []));
             $view->share('old', $session->pullFlash('old', []));
             $view->share('app_version', $this->config->string('app.version'));

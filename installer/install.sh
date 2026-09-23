@@ -21,6 +21,10 @@
 # Usage (from a source checkout or release archive):
 #   sudo ./installer/install.sh [--install-deps] [--admin-user=NAME] [--admin-email=EMAIL]
 #                               [--port=8090] [--dry-run] [--yes] [--reinstall] [--force-unsupported]
+#                               [--enable-writes]
+#
+# --enable-writes switches the agent from read-only discovery to write mode
+# (manage websites, databases, certificates, …). Without it WhaCP only observes.
 
 set -Eeuo pipefail
 umask 027
@@ -39,6 +43,7 @@ DRY_RUN=0
 ASSUME_YES=0
 REINSTALL=0
 FORCE_UNSUPPORTED=0
+ENABLE_WRITES=0
 SUPPORTED_UBUNTU=("22.04" "24.04" "26.04")
 
 log()  { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
@@ -66,6 +71,7 @@ for arg in "$@"; do
         --yes|-y) ASSUME_YES=1 ;;
         --reinstall) REINSTALL=1 ;;
         --force-unsupported) FORCE_UNSUPPORTED=1 ;;
+        --enable-writes) ENABLE_WRITES=1 ;;
         --admin-user=*) ADMIN_USER="${arg#*=}" ;;
         --admin-email=*) ADMIN_EMAIL="${arg#*=}" ;;
         --port=*) PORT="${arg#*=}" ;;
@@ -223,6 +229,20 @@ else
     sed "s/127.0.0.1:8090/127.0.0.1:${PORT}/" "$SRC_DIR/installer/systemd/whacp-panel.service" > /etc/systemd/system/whacp-panel.service
     chmod 0644 /etc/systemd/system/whacp-panel.service
 fi
+if [[ $ENABLE_WRITES -eq 1 ]]; then
+    log "Enabling write mode"
+    cat <<'NOTE'
+    In write mode WhaCP creates websites, users, databases and certificates and
+    reloads services. It never edits configuration it did not create, validates
+    every change (nginx -t, php-fpm -t, sshd -t) and rolls back on failure.
+NOTE
+    confirm "Enable write mode?" || die "aborted (run again without --enable-writes for read-only mode)"
+    run install -d -m 0755 /etc/systemd/system/whacp-agent.service.d
+    run install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent-write-mode.conf" /etc/systemd/system/whacp-agent.service.d/10-write-mode.conf
+    run sed -i 's/"allow_write_actions": false/"allow_write_actions": true/' "$CONF_DIR/agent.json"
+    run install -d -m 0700 -o root -g root /var/lib/whacp-agent /var/backups/whacp
+    run install -d -m 0755 -o root -g root /home/whacp /var/www/whacp-acme
+fi
 run systemctl daemon-reload
 
 log "Initialising the panel database"
@@ -230,7 +250,7 @@ run runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/
 
 run systemctl enable --now whacp-agent.service
 run systemctl enable --now whacp-panel.service
-if [[ $REINSTALL -eq 1 ]]; then
+if [[ $REINSTALL -eq 1 || $ENABLE_WRITES -eq 1 ]]; then
     run systemctl restart whacp-agent.service whacp-panel.service
 fi
 
@@ -262,8 +282,9 @@ fi
 
 cat <<EOF
 
-WhaCP is installed in read-only discovery mode. Nothing in your existing
-Nginx, PHP, database, SSL or cron configuration was changed.
+WhaCP is installed ($([[ $ENABLE_WRITES -eq 1 ]] && echo "write mode" || echo "read-only discovery mode")).
+Nothing in your existing Nginx, PHP, database, SSL or cron configuration was
+changed. WhaCP only ever edits files it creates itself (named whacp-*).
 
 Open the panel through an SSH tunnel from your workstation:
 

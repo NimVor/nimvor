@@ -48,6 +48,25 @@ type Config struct {
 	// AllowWriteActions gates every action that modifies the server.
 	// It is false by default: the current release is read-only.
 	AllowWriteActions bool `json:"allow_write_actions"`
+	// SitesRoot is where WhaCP-managed websites live (<sites_root>/<domain>).
+	SitesRoot string `json:"sites_root"`
+	// StateDir holds configuration backups, job logs, keys and the trash.
+	StateDir string `json:"state_dir"`
+	// BackupDir is the local backup destination.
+	BackupDir string `json:"backup_dir"`
+	// WebUser is the account Nginx workers run as (default from the OS).
+	WebUser string `json:"web_user"`
+	// ListenTCP optionally exposes the API over TLS for a remote WhaCP
+	// master (multi-server). Empty disables it.
+	ListenTCP string `json:"listen_tcp"`
+	// TLSCert / TLSKey are used for ListenTCP (generated when missing).
+	TLSCert string `json:"tls_cert"`
+	TLSKey  string `json:"tls_key"`
+	// MaxJobs bounds concurrently running background jobs.
+	MaxJobs int `json:"max_jobs"`
+	// SimulateCommands replaces every system tool with a simulation. For
+	// development against a fixture tree only; refused when root_dir is "/".
+	SimulateCommands bool `json:"simulate_commands"`
 }
 
 // Duration is a time.Duration that unmarshals from a Go duration string.
@@ -85,6 +104,12 @@ func Default() Config {
 		MetricsInterval: Duration{5 * time.Second},
 		MetricsHistory:  180,
 		ActionTimeout:   Duration{30 * time.Second},
+		SitesRoot:       "/home/whacp",
+		StateDir:        "/var/lib/whacp-agent",
+		BackupDir:       "/var/backups/whacp",
+		TLSCert:         "/etc/whacp/agent-tls.crt",
+		TLSKey:          "/etc/whacp/agent-tls.key",
+		MaxJobs:         2,
 	}
 }
 
@@ -123,6 +148,17 @@ func (c Config) Validate() error {
 	}
 	if _, err := c.SocketFileMode(); err != nil {
 		return err
+	}
+	for name, p := range map[string]string{"sites_root": c.SitesRoot, "state_dir": c.StateDir, "backup_dir": c.BackupDir} {
+		if !filepath.IsAbs(p) || filepath.Clean(p) == "/" {
+			return fmt.Errorf("%s must be an absolute path other than /", name)
+		}
+	}
+	if c.SimulateCommands && filepath.Clean(c.RootDir) == "/" {
+		return errors.New("simulate_commands requires a root_dir other than /")
+	}
+	if c.MaxJobs < 1 || c.MaxJobs > 16 {
+		return errors.New("max_jobs must be between 1 and 16")
 	}
 	if c.MetricsInterval.Duration < time.Second {
 		return errors.New("metrics_interval must be at least 1s")
