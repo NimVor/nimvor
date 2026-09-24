@@ -16,6 +16,21 @@ $canManage = $this->can(P::WEBSITES_MANAGE);
     <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i>The Nginx configuration for this website is missing on the server. Use <strong>Re-apply configuration</strong> to recreate it.</div>
 <?php endif; ?>
 
+<?php if (!empty($import)): ?>
+    <?php if ($import['status'] === 'running'): ?>
+        <div class="alert alert-info small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Importing from <code><?= e($import['source']) ?></code>. The old website keeps serving visitors until the switch. Reload this page to see the result.</div>
+    <?php elseif ($import['status'] === 'succeeded'): ?>
+        <div class="alert alert-secondary small d-flex flex-wrap align-items-center gap-2">
+            <span class="me-auto"><i class="bi bi-box-arrow-in-down me-1"></i>Imported from <code><?= e($import['source']) ?></code> on <?= e(substr((string) $import['created_at'], 0, 10)) ?>. The original files and configuration are kept.</span>
+            <?php if ($this->can(P::IMPORT_RUN)): ?>
+                <form method="post" action="<?= e($this->url('sites.import.undo', ['id' => $site['id']])) ?>" data-wcp-confirm="Undo the import? The original configuration will serve <?= e($site['domain']) ?> again, and the WhaCP copy (files in <?= e($site['root']) ?>, its account and settings) will be deleted. Changes made since the import are lost.">
+                    <?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Undo import</button>
+                </form>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+<?php endif; ?>
+
 <div class="row g-3">
     <div class="col-lg-7">
         <div class="card mb-3">

@@ -11,6 +11,9 @@ $php = $site['php'] ?? null;
 <?php if (!empty($site['enabled'])): ?>
     <a class="btn btn-sm btn-outline-primary" href="<?= e((!empty($site['https']) ? 'https://' : 'http://') . $site['domain']) ?>" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i> Open</a>
 <?php endif; ?>
+<?php if ($this->can(\WhaCP\Security\Permissions::IMPORT_RUN) && empty($site['managed_by'])): ?>
+    <a class="btn btn-sm btn-primary" href="<?= e($this->url('websites.import', ['id' => $site['id']])) ?>"><i class="bi bi-box-arrow-in-down"></i> Import into WhaCP</a>
+<?php endif; ?>
 <?php $this->end('actions'); ?>
 
 <?= $this->partial('partials/discovery_bar', ['discoveredAt' => $discoveredAt]) ?>

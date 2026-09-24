@@ -78,6 +78,13 @@ func (m *Manager) handleApply(ctx context.Context, p json.RawMessage) (any, erro
 // Apply converges the server to the spec. Running it twice with the same
 // spec changes nothing the second time.
 func (m *Manager) Apply(ctx context.Context, s Spec) (*Result, error) {
+	return m.ApplyIgnoring(ctx, s, nil)
+}
+
+// ApplyIgnoring is Apply for importing a website: vhost files listed in
+// ignore (the old configuration being replaced) do not count as conflicts.
+// It is not reachable through sites.apply.
+func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*Result, error) {
 	e := m.Env
 	if err := s.Normalize(e.Cfg.SitesRoot, e.Cfg.StateDir); err != nil {
 		return nil, host.Invalid(err)
@@ -92,7 +99,7 @@ func (m *Manager) Apply(ctx context.Context, s Spec) (*Result, error) {
 			}
 		}
 	}
-	if err := m.checkConflicts(ctx, s); err != nil {
+	if err := m.checkConflicts(ctx, s, ignore); err != nil {
 		return nil, err
 	}
 	if err := e.PrecheckNginx(ctx); err != nil {
@@ -217,15 +224,19 @@ func (m *Manager) reload(ctx context.Context, fpm map[string]bool) error {
 
 // checkConflicts refuses hostnames already served by configuration that
 // WhaCP does not manage, or by another WhaCP site.
-func (m *Manager) checkConflicts(ctx context.Context, s Spec) error {
+func (m *Manager) checkConflicts(ctx context.Context, s Spec, ignore []string) error {
 	ng := m.Env.Discovery.Nginx(ctx)
 	mine := "whacp-" + s.Domain + ".conf"
+	skip := map[string]bool{}
+	for _, f := range ignore {
+		skip[f] = true
+	}
 	want := map[string]bool{}
 	for _, n := range s.Names() {
 		want[n] = true
 	}
 	for _, v := range ng.VHosts {
-		if filepath.Base(v.File) == mine {
+		if filepath.Base(v.File) == mine || skip[v.File] {
 			continue
 		}
 		for _, n := range v.ServerNames {

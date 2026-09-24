@@ -31,6 +31,7 @@ final class SitesController extends Controller
         private readonly ServerContext $server,
         private readonly AgentClient $agent,
         private readonly UserRepository $users,
+        private readonly \WhaCP\Services\ImportService $imports,
         private readonly JobTracker $jobs,
     ) {
         parent::__construct($view, $session);
@@ -76,6 +77,10 @@ final class SitesController extends Controller
         if ($site === null) {
             return $this->notFound();
         }
+        if (!$this->imports->refresh($site)) {
+            return $this->redirectWithError('/websites', 'The import of ' . $site['domain'] . ' failed; the old website is unchanged. See the job log for details.');
+        }
+        $site = $this->site($request, $id) ?? $site;
         $inspect = null;
         $inspectError = null;
         try {
@@ -89,7 +94,22 @@ final class SitesController extends Controller
             'inspectError' => $inspectError,
             'jobs' => $this->jobs->recentFor('website', (string) $site['id']),
             'tab' => 'overview',
+            'import' => $this->imports->importOf((int) $site['id']),
         ]);
+    }
+
+    public function undoImport(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        try {
+            $this->imports->undo($site);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/sites/' . (int) $id, $e);
+        }
+        return $this->redirectWithSuccess('/websites', 'Import undone: the original configuration serves ' . $site['domain'] . ' again, and the WhaCP copy was removed.');
     }
 
     public function edit(Request $request, string $id): Response

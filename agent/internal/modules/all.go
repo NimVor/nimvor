@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"github.com/mchkhawarshahzad/whacp/agent/internal/adopt"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/apps"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/backup"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/cronmgr"
@@ -37,6 +38,7 @@ func All() []Module {
 		sysmgr.Register,
 		usage.Register,
 		apps.Register,
+		adopt.Register,
 		phpmgr.Register,
 		services.Register,
 	}

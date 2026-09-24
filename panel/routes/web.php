@@ -13,6 +13,7 @@ use WhaCP\Http\Controllers\DashboardController;
 use WhaCP\Http\Controllers\DatabasesController;
 use WhaCP\Http\Controllers\DiscoveryController;
 use WhaCP\Http\Controllers\HealthController;
+use WhaCP\Http\Controllers\ImportController;
 use WhaCP\Http\Controllers\DomainsController;
 use WhaCP\Http\Controllers\FilesController;
 use WhaCP\Http\Controllers\ProfileController;
@@ -111,6 +112,9 @@ return static function (Router $r): void {
     $r->get('/logs/tail', [LogsController::class, 'tail'], ['name' => 'logs.tail', 'permission' => P::LOGS_VIEW]);
     $r->get('/logs/download', [LogsController::class, 'download'], ['name' => 'logs.download', 'permission' => P::LOGS_VIEW]);
     $r->get('/jobs/{id}', [JobsController::class, 'show'], ['name' => 'jobs.show']);
+    $r->get('/websites/{id}/import', [ImportController::class, 'preview'], ['name' => 'websites.import', 'permission' => P::IMPORT_RUN]);
+    $r->post('/websites/{id}/import', [ImportController::class, 'run'], ['name' => 'websites.import.run', 'permission' => P::IMPORT_RUN]);
+    $r->post('/sites/{id}/import/undo', [SitesController::class, 'undoImport'], ['name' => 'sites.import.undo', 'permission' => P::IMPORT_RUN]);
     $r->get('/websites/{id}', [WebsitesController::class, 'show'], ['name' => 'websites.show', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/domains', [DomainsController::class, 'index'], ['name' => 'domains', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/php', [DiscoveryController::class, 'php'], ['name' => 'php', 'permission' => P::PHP_VIEW]);

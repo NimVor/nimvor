@@ -79,10 +79,16 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 		{Domain: "static.whacp.test", User: "whacptest1", Kind: "static", Enabled: true},
 		{Domain: "proxy.whacp.test", User: "whacptest2", CreateUser: true, Kind: "proxy", ProxyPass: "http://127.0.0.1:3000", Enabled: true},
 	}
+	const live = "/etc/letsencrypt/live/php.whacp.test"
 	t.Cleanup(func() {
+		// Delete the sites before their certificate: once it is gone the
+		// configuration no longer passes nginx -t and deletion is refused.
 		for _, s := range specs {
-			m.handleDelete(ctx, []byte(`{"domain":"`+s.Domain+`","user":"`+s.User+`","remove_files":true,"remove_user":true}`))
+			if _, err := m.handleDelete(ctx, []byte(`{"domain":"`+s.Domain+`","user":"`+s.User+`","remove_files":true,"remove_user":true}`)); err != nil {
+				t.Errorf("cleanup of %s: %v", s.Domain, err)
+			}
 		}
+		os.RemoveAll(live)
 		os.RemoveAll("/home/whacp-test")
 	})
 	for _, s := range specs {
@@ -111,9 +117,7 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 		t.Fatal("failed change was not rolled back")
 	}
 	// With real certificate files the HTTPS configuration passes nginx -t.
-	live := "/etc/letsencrypt/live/php.whacp.test"
 	os.MkdirAll(live, 0o755)
-	t.Cleanup(func() { os.RemoveAll(live) })
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "php.whacp.test"}, DNSNames: []string{"php.whacp.test"}, NotBefore: time.Now(), NotAfter: time.Now().Add(24 * time.Hour)}
 	der, _ := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
