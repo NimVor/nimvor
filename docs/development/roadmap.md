@@ -10,23 +10,32 @@ proven on real servers.
 | — | 1 | Panel: auth, sessions, RBAC, dashboard shell, users, settings, audit, SQLite | ✅ done |
 | v0.2.0 | 2 | Agent: systemd service, secure socket, auth, health, CPU/RAM/disk, OS & services | ✅ done |
 | v0.3.0 | 3 | Server dashboard connected to the agent | ✅ done |
-| v0.4.0 | 4 | Read-only discovery: sites, domains, PHP, FPM, SSL, databases | ✅ done — **validate on a real server next** |
-| v0.5.0 | 5 | Website management: create/edit/enable/disable/delete, Nginx templates, `nginx -t` gate | next |
-| v0.6.0 | 6–7 | PHP management and pools; MySQL/MariaDB databases, users, privileges | |
-| v0.7.0 | 8–10 | Let's Encrypt; secure file manager; log viewer with live tail | |
-| v0.8.0 | 11–13 | Cron; systemd workers; Git deployment with webhooks | |
-| v0.9.0 | 14–17 | Redis; backups (local, then providers); security (firewall, Fail2ban, SSH); monitoring | |
-| — | 18–19 | Package management; server actions (reboot, updates, hostname, timezone) | |
-| — | 20–21 | Multi-server (agent registration, mTLS, heartbeats); hosting users, plans, quotas | |
-| — | 22–24 | Public REST API + OpenAPI; plugins; application installers (WordPress, Laravel, …) | |
-| — | 25–27 | Production installer, upgrade system with rollback, opt-in migration/import from other panels | |
-| v1.0.0 | 28 | Production hardening: security, permission, upgrade, backup/restore and failure-recovery audits | |
+| v0.4.0 | 4 | Read-only discovery: sites, domains, PHP, FPM, SSL, databases | ✅ done |
+| v0.5.0 | 5–7 | Websites with `nginx -t` gate; PHP versions and pools; databases, users, privileges | ✅ done |
+| v0.5.0 | 8–10 | Let's Encrypt; secure file manager; log viewer with live tail | ✅ done |
+| v0.5.0 | 11–13 | Cron; systemd workers; Git deployment with webhooks | ✅ done |
+| v0.5.0 | 14–17 | Redis; encrypted backups with S3 storage; firewall/SSH/Fail2ban with auto-rollback; monitoring and alerts | ✅ done |
+| v0.5.0 | 18–19 | Package management; server actions (reboot, updates, hostname, timezone) | ✅ done |
+| v0.5.0 | 20–21 | Multi-server over pinned TLS; hosting users, resellers, plans, quotas | ✅ done |
+| v0.5.0 | 22–24 | REST API + OpenAPI; plugins; WordPress and Laravel installers | ✅ done |
+| v0.5.0 | 25–27 | Production installer, upgrades with rollback, import of existing websites | ✅ done |
+| v0.5.0 | 28 | Hardening: two-factor sign-in, `doctor` self-checks, API contract tests | ✅ done |
+| v1.0.0 | — | Field validation (below) | next |
 
-## Before v0.5.0 starts
+## Before v1.0.0
 
-- Install v0.4 on a development server that hosts real sites (including ones
-  managed by another panel) and compare discovery with reality.
-- Fix every discrepancy with a new fixture case.
-- Design the website-management action set (`website.create`, `website.enable`,
-  `website.disable`, `nginx.reload`) with backup/validate/rollback, and the
-  narrow `ReadWritePaths` each action needs.
+- Install on development servers that host real sites (including ones
+  managed by another panel) in read-only mode; compare discovery with
+  reality and turn every discrepancy into a fixture case.
+- Exercise write mode end to end on fresh Ubuntu 22.04, 24.04 and 26.04
+  VMs: create, import, back up, restore, upgrade and roll back.
+- Independent security review of the agent action catalogue
+  (`agent/api/openapi.yaml`, `x-whacp-actions`) and the panel's
+  authorization (`Permissions.php`, owner scoping).
+- Restore drill: restore a server backup onto a new VM.
+- Publish signed release archives with a prebuilt agent and `vendor/`.
+
+## Later
+
+- More application installers and backup providers; RHEL-family platform;
+  WebAuthn security keys; per-role enforcement of two-factor sign-in.

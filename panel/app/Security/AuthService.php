@@ -20,6 +20,10 @@ final class AuthService
     private const FINGERPRINT_KEY = '_auth_fp';
     private const LOGIN_AT_KEY = '_auth_login_at';
     private const ACTIVITY_KEY = '_auth_last_activity';
+    private const PENDING_KEY = '_auth_2fa_pending';
+    /** Seconds allowed between the password and the second factor. */
+    private const PENDING_TTL = 300;
+    private const PENDING_TRIES = 5;
 
     /** A real Argon2id hash of a random, discarded value (same cost as user hashes). */
     private const DUMMY_HASH = '$argon2id$v=19$m=65536,t=4,p=1$dVkvM1B6dzNvTFI1bW40Rg$4ObwPqsBPsJMDj4LO19/WrcHGZflXqksE8+8FUXeSAc';
@@ -39,6 +43,7 @@ final class AuthService
         private readonly int $idleTimeout = 1800,
         private readonly int $absoluteTimeout = 43200,
         ?callable $clock = null,
+        private readonly ?TwoFactor $twoFactor = null,
     ) {
         $this->clock = $clock ?? time(...);
     }
@@ -73,10 +78,27 @@ final class AuthService
             $hash = $this->hasher->hash($password);
             $this->users->updatePassword($id, $hash);
         }
+        if ($this->twoFactor?->enabled($id)) {
+            // Password is right; the session is not signed in until the
+            // second factor is given.
+            $this->session->regenerate();
+            $this->session->set(self::PENDING_KEY, ['id' => $id, 'username' => $username, 'fp' => self::fingerprint($hash), 'at' => ($this->clock)(), 'tries' => 0]);
+            $this->audit->record('auth.login', 'user', (string) $id, AuditLogger::SUCCESS, ['step' => 'password', 'two_factor' => 'required'], $id, (string) $row['username']);
+            return null;
+        }
+        $this->finishLogin($row, $hash, $username, $ip, []);
+        return null;
+    }
+
+    /** @param array<string, mixed> $row @param array<string, mixed> $details */
+    private function finishLogin(array $row, string $hash, string $username, string $ip, array $details): void
+    {
+        $id = (int) $row['id'];
         $this->throttle->recordSuccess($username, $ip);
         $this->users->recordLogin($id, $ip);
 
         $this->session->regenerate();
+        $this->session->remove(self::PENDING_KEY);
         $now = ($this->clock)();
         $this->session->set(self::USER_KEY, $id);
         $this->session->set(self::FINGERPRINT_KEY, self::fingerprint($hash));
@@ -84,8 +106,64 @@ final class AuthService
         $this->session->set(self::ACTIVITY_KEY, $now);
         $this->user = false;
 
-        $this->audit->record('auth.login', 'user', (string) $id, AuditLogger::SUCCESS, [], $id, (string) $row['username']);
+        $this->audit->record('auth.login', 'user', (string) $id, AuditLogger::SUCCESS, $details, $id, (string) $row['username']);
+    }
+
+    /** Whether a sign-in is waiting for its second factor. */
+    public function pendingTwoFactor(): bool
+    {
+        $p = $this->session->get(self::PENDING_KEY);
+        if (!is_array($p)) {
+            return false;
+        }
+        if (($this->clock)() - (int) $p['at'] > self::PENDING_TTL) {
+            $this->session->remove(self::PENDING_KEY);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Complete a sign-in with an authenticator or recovery code. Returns a
+     * user-facing error, or null when signed in.
+     */
+    public function completeTwoFactor(string $code, string $ip): ?string
+    {
+        if (!$this->pendingTwoFactor() || $this->twoFactor === null) {
+            return 'Your sign-in expired. Enter your password again.';
+        }
+        /** @var array{id: int, username: string, fp: string, at: int, tries: int} $p */
+        $p = $this->session->get(self::PENDING_KEY);
+        $retry = $this->throttle->retryAfter($p['username'], $ip);
+        if ($retry > 0) {
+            $this->session->remove(self::PENDING_KEY);
+            return sprintf('Too many failed attempts. Try again in %d minute(s).', (int) ceil($retry / 60));
+        }
+        $id = (int) $p['id'];
+        $user = $this->users->find($id);
+        $hash = $this->users->passwordHash($id);
+        if ($user === null || $hash === null || (int) $user['is_active'] !== 1 || !hash_equals($p['fp'], self::fingerprint($hash))) {
+            $this->session->remove(self::PENDING_KEY);
+            return 'Your sign-in expired. Enter your password again.';
+        }
+        $method = $this->twoFactor->verify($id, $code);
+        if ($method === null) {
+            $this->throttle->recordFailure($p['username'], $ip);
+            $this->audit->record('auth.login', 'user', (string) $id, AuditLogger::FAILURE, ['reason' => 'bad_two_factor_code'], $id, (string) $user['username']);
+            if (++$p['tries'] >= self::PENDING_TRIES) {
+                $this->session->remove(self::PENDING_KEY);
+                return 'Too many wrong codes. Enter your password again.';
+            }
+            $this->session->set(self::PENDING_KEY, $p);
+            return 'That code is not valid. Check the time on your phone and try again.';
+        }
+        $this->finishLogin($user, $hash, $p['username'], $ip, ['two_factor' => $method]);
         return null;
+    }
+
+    public function cancelTwoFactor(): void
+    {
+        $this->session->remove(self::PENDING_KEY);
     }
 
     public function logout(): void

@@ -44,6 +44,8 @@ return static function (Router $r): void {
     // Public
     $r->get('/login', [AuthController::class, 'show'], ['name' => 'login', 'auth' => false]);
     $r->post('/login', [AuthController::class, 'login'], ['name' => 'login.submit', 'auth' => false]);
+    $r->get('/login/two-factor', [AuthController::class, 'twoFactor'], ['name' => 'login.two_factor', 'auth' => false]);
+    $r->post('/login/two-factor', [AuthController::class, 'verifyTwoFactor'], ['name' => 'login.two_factor.submit', 'auth' => false]);
     $r->get('/healthz', [HealthController::class, 'show'], ['name' => 'health', 'auth' => false]);
     // Signed Git push webhooks (authenticated by HMAC/token, not a session).
     $r->post('/hooks/deploy/{token}', [DeployController::class, 'webhook'], ['name' => 'hooks.deploy', 'auth' => false, 'csrf' => false]);
@@ -178,6 +180,7 @@ return static function (Router $r): void {
 
     // Administration
     $r->get('/users', [UsersController::class, 'index'], ['name' => 'users', 'permission' => P::USERS_VIEW]);
+    $r->post('/users/{id}/two-factor/reset', [UsersController::class, 'resetTwoFactor'], ['name' => 'users.2fa.reset', 'permission' => P::USERS_MANAGE]);
     $r->get('/users/new', [UsersController::class, 'create'], ['name' => 'users.create', 'permission' => P::USERS_MANAGE]);
     $r->post('/users', [UsersController::class, 'store'], ['name' => 'users.store', 'permission' => P::USERS_MANAGE]);
     $r->get('/users/{id}/edit', [UsersController::class, 'edit'], ['name' => 'users.edit', 'permission' => P::USERS_MANAGE]);
@@ -218,6 +221,10 @@ return static function (Router $r): void {
     // Own account (any signed-in user)
     $r->get('/profile', [ProfileController::class, 'show'], ['name' => 'profile']);
     $r->post('/profile/password', [ProfileController::class, 'password'], ['name' => 'profile.password']);
+    $r->post('/profile/two-factor/setup', [ProfileController::class, 'twoFactorSetup'], ['name' => 'profile.2fa.setup']);
+    $r->post('/profile/two-factor/enable', [ProfileController::class, 'twoFactorEnable'], ['name' => 'profile.2fa.enable']);
+    $r->post('/profile/two-factor/disable', [ProfileController::class, 'twoFactorDisable'], ['name' => 'profile.2fa.disable']);
+    $r->post('/profile/two-factor/recovery', [ProfileController::class, 'twoFactorRecovery'], ['name' => 'profile.2fa.recovery']);
     $r->post('/profile/tokens', [ApiTokensController::class, 'store'], ['name' => 'tokens.store', 'permission' => P::API_TOKENS]);
     $r->post('/profile/tokens/{id}/revoke', [ApiTokensController::class, 'revoke'], ['name' => 'tokens.revoke', 'permission' => P::API_TOKENS]);
 };

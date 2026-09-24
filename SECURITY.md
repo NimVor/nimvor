@@ -23,6 +23,8 @@ observes (Nginx, PHP, MariaDB, …) unless WhaCP makes them exploitable.
 ## Design summary
 
 The security model is documented in [docs/security](docs/security/README.md):
-local-only agent socket with token and peer-UID checks, a fixed action
-catalogue with a write gate, a sandboxed read-only agent service, strict
-CSP, CSRF protection, throttled logins and a complete audit log.
+local-only agent socket with token and peer-UID checks (or pinned TLS 1.3
+for remote servers), a fixed, reviewed action catalogue with a write gate,
+validate-before-reload with automatic rollback, a sandboxed agent in
+read-only mode, strict CSP, CSRF protection, throttled logins with optional
+two-factor sign-in, and a complete audit log.

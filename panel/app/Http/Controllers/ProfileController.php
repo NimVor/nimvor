@@ -15,6 +15,8 @@ use WhaCP\View\View;
 
 final class ProfileController extends Controller
 {
+    private const SETUP_KEY = '_2fa_setup_secret';
+
     public function __construct(
         View $view,
         SessionInterface $session,
@@ -22,6 +24,10 @@ final class ProfileController extends Controller
         private readonly AuthService $auth,
         private readonly Authorizer $authorizer,
         private readonly \WhaCP\Services\ApiTokenService $tokens,
+        private readonly \WhaCP\Security\TwoFactor $twoFactor,
+        private readonly \WhaCP\Security\PasswordHasher $hasher,
+        private readonly \WhaCP\Repositories\UserRepository $userRepo,
+        private readonly \WhaCP\Services\AuditLogger $audit,
     ) {
         parent::__construct($view, $session);
     }
@@ -34,6 +40,9 @@ final class ProfileController extends Controller
             'permissions' => $this->authorizer->permissions((int) $user['role_id']),
             'tokens' => $this->tokens->forUser((int) $user['id']),
             'newToken' => $this->session->pullFlash('api_token'),
+            'twoFactor' => $this->twoFactor->status((int) $user['id']),
+            'setupSecret' => $this->session->get(self::SETUP_KEY),
+            'recoveryCodes' => $this->session->pullFlash('recovery_codes'),
         ]);
     }
 
@@ -53,5 +62,68 @@ final class ProfileController extends Controller
         // Keep this session valid; every other session is invalidated.
         $this->auth->refreshFingerprint($id);
         return $this->redirectWithSuccess('/profile', 'Password changed. Other sessions have been signed out.');
+    }
+
+    private function passwordOk(int $id, Request $request): bool
+    {
+        $hash = $this->userRepo->passwordHash($id);
+        $password = $request->input('current_password', '');
+        return $hash !== null && is_string($password) && $this->hasher->verify($password, $hash);
+    }
+
+    public function twoFactorSetup(Request $request): Response
+    {
+        if ($this->twoFactor->enabled($this->userId($request))) {
+            return $this->redirectWithError('/profile', 'Two-factor sign-in is already on.');
+        }
+        $this->session->set(self::SETUP_KEY, \WhaCP\Security\TwoFactor::newSecret());
+        return Response::redirect('/profile#two-factor');
+    }
+
+    public function twoFactorEnable(Request $request): Response
+    {
+        $id = $this->userId($request);
+        $secret = $this->session->get(self::SETUP_KEY);
+        if (!is_string($secret)) {
+            return $this->redirectWithError('/profile', 'Start the setup again.');
+        }
+        if (!$this->passwordOk($id, $request)) {
+            return $this->redirectWithError('/profile#two-factor', 'Your current password is not correct.');
+        }
+        $code = $request->input('code', '');
+        $codes = $this->twoFactor->enable($id, $secret, is_string($code) ? $code : '');
+        if ($codes === null) {
+            return $this->redirectWithError('/profile#two-factor', 'That code is not valid. Check that your phone shows the right time and try the newest code.');
+        }
+        $this->session->remove(self::SETUP_KEY);
+        $this->session->flash('recovery_codes', $codes);
+        $this->audit->record('user.two_factor_enabled', 'user', (string) $id, \WhaCP\Services\AuditLogger::SUCCESS);
+        return $this->redirectWithSuccess('/profile#two-factor', 'Two-factor sign-in is on.');
+    }
+
+    public function twoFactorDisable(Request $request): Response
+    {
+        $id = $this->userId($request);
+        if (!$this->passwordOk($id, $request)) {
+            return $this->redirectWithError('/profile#two-factor', 'Your current password is not correct.');
+        }
+        $this->twoFactor->disable($id);
+        $this->session->remove(self::SETUP_KEY);
+        $this->audit->record('user.two_factor_disabled', 'user', (string) $id, \WhaCP\Services\AuditLogger::SUCCESS);
+        return $this->redirectWithSuccess('/profile#two-factor', 'Two-factor sign-in is off.');
+    }
+
+    public function twoFactorRecovery(Request $request): Response
+    {
+        $id = $this->userId($request);
+        if (!$this->twoFactor->enabled($id)) {
+            return $this->redirectWithError('/profile', 'Two-factor sign-in is off.');
+        }
+        if (!$this->passwordOk($id, $request)) {
+            return $this->redirectWithError('/profile#two-factor', 'Your current password is not correct.');
+        }
+        $this->session->flash('recovery_codes', $this->twoFactor->regenerateRecovery($id));
+        $this->audit->record('user.two_factor_recovery', 'user', (string) $id, \WhaCP\Services\AuditLogger::SUCCESS);
+        return $this->redirectWithSuccess('/profile#two-factor', 'New recovery codes created; the old ones no longer work.');
     }
 }

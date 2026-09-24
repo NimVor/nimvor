@@ -1,7 +1,9 @@
 # Installation
 
-> This release is **read-only**: it inventories the server and never changes
-> it. It is safe to install next to an existing panel.
+> By default WhaCP installs **read-only**: it inventories the server and
+> never changes it, so it is safe next to an existing panel. Write mode
+> (`--enable-writes`) lets it manage websites, databases, certificates,
+> the firewall and more.
 
 ## Requirements
 
@@ -22,7 +24,47 @@ sudo ./installer/install.sh --admin-user=admin --admin-email=you@example.com
 
 Options: `--install-deps` (apt-install missing PHP packages, opt-in),
 `--port=8090`, `--yes`, `--reinstall` (replace program files, keep config and
-data), `--force-unsupported`.
+data), `--force-unsupported`, `--enable-writes` (see below).
+
+### Write mode
+
+```bash
+sudo ./installer/install.sh --enable-writes --admin-user=admin --admin-email=you@example.com
+```
+
+This sets `allow_write_actions: true` in `/etc/whacp/agent.json` and adds
+`/etc/systemd/system/whacp-agent.service.d/10-write-mode.conf`, which lifts
+the read-only filesystem sandbox (packages, users, services and the firewall
+cannot be managed without it). It also creates `/home/whacp` (websites),
+`/var/lib/whacp-agent` (state, 0700) and `/var/backups/whacp` (0700).
+To go back to read-only: remove the drop-in, set `allow_write_actions` to
+`false`, `systemctl daemon-reload && systemctl restart whacp-agent`.
+
+Even in write mode WhaCP only writes files it created, validates every
+configuration before reloading (e.g. `nginx -t`), keeps the previous version
+and rolls back on failure. Existing websites stay untouched until you
+**import** them (Websites → a discovered site → *Import into WhaCP*).
+
+### Scheduler
+
+`whacp-scheduler.timer` runs `bin/whacp schedule:run` every minute:
+monitoring samples and alerts, scheduled backups and retention, remote
+server heartbeats. `bin/whacp doctor` warns when it has not run recently.
+
+### Remote servers
+
+On each additional server install only the agent, reachable by the panel's
+IP over TLS:
+
+```bash
+sudo ./installer/install.sh --agent-only --enable-writes \
+     --remote-access=0.0.0.0:8443 --allow-from=203.0.113.10
+```
+
+The installer prints the address, the certificate pin (`sha256//…`) and the
+token; add them under *All servers* in the panel. The panel refuses to send
+the token to a peer whose key does not match the pin. Open the port in the
+firewall for the panel's address only.
 
 ### What the installer changes
 
@@ -32,7 +74,8 @@ data), `--force-unsupported`.
 | `/opt/whacp/panel` | panel files (root:whacp, not writable by the panel) |
 | `/etc/whacp/{agent.json,panel.php,agent.token}` | configuration (0640 root:whacp) |
 | `/var/lib/whacp`, `/var/log/whacp` | panel database, sessions, log |
-| `/etc/systemd/system/whacp-{agent,panel}.service` | services |
+| `/etc/systemd/system/whacp-{agent,panel,scheduler}.service`, `whacp-scheduler.timer` | services |
+| `/opt/whacp/plugins` | plugins installed by an administrator (none enabled by default) |
 | user/group `whacp` | panel identity, agent socket group |
 
 It does **not** touch Nginx, PHP-FPM, MySQL/MariaDB, Redis, certificates, cron,
@@ -71,10 +114,31 @@ server {
 ## Verify
 
 ```bash
-systemctl status whacp-agent whacp-panel
-sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp agent:check
+systemctl status whacp-agent whacp-panel whacp-scheduler.timer
+sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp doctor
 curl -s http://127.0.0.1:8090/healthz
 ```
+
+`doctor` checks PHP, the file modes of the key, token, database and
+sessions, the database schema and integrity, the agent (reachable, same
+version) and the scheduler. It exits with 1 when something fails.
+
+## Upgrade
+
+From the new source tree or release archive:
+
+```bash
+sudo ./installer/upgrade.sh           # asks for confirmation; --yes to skip
+sudo ./installer/upgrade.sh --list    # upgrade backups (the last three are kept)
+sudo ./installer/upgrade.sh --rollback
+```
+
+The upgrade checks the new agent against the current configuration, backs up
+program files, units, `/etc/whacp` and the panel database, swaps the files,
+migrates and restarts, then verifies the agent, the panel and `/healthz`.
+Any failure restores the previous version automatically. Websites keep
+running; only WhaCP's own services restart. Downgrades need
+`--allow-downgrade`.
 
 ## Uninstall
 

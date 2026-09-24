@@ -24,6 +24,8 @@ final class UsersController extends Controller
         private readonly UserService $service,
         private readonly \WhaCP\Services\PlanService $plans,
         private readonly \WhaCP\Services\PlanLimits $limits,
+        private readonly \WhaCP\Security\TwoFactor $twoFactor,
+        private readonly \WhaCP\Services\AuditLogger $audit,
     ) {
         parent::__construct($view, $session);
     }
@@ -73,7 +75,7 @@ final class UsersController extends Controller
         if ($user === null || !\WhaCP\Services\UserService::canManage($this->user($request), $user)) {
             return $this->redirectWithError('/users', 'The user no longer exists.');
         }
-        return $this->render('users/form', ['editUser' => $user, 'roles' => $this->assignableRoles($request), 'plans' => $this->plans->visible($this->user($request)), 'usage' => $this->limits->usage((int) $user['id'])]);
+        return $this->render('users/form', ['editUser' => $user, 'roles' => $this->assignableRoles($request), 'plans' => $this->plans->visible($this->user($request)), 'usage' => $this->limits->usage((int) $user['id']), 'twoFactor' => $this->twoFactor->status((int) $user['id'])]);
     }
 
     public function update(Request $request, string $id): Response
@@ -98,5 +100,16 @@ final class UsersController extends Controller
             return $this->redirectWithError('/users', trim($e->getMessage() . ' ' . $e->remedy()));
         }
         return $this->redirectWithSuccess('/users', 'User deleted.');
+    }
+
+    public function resetTwoFactor(Request $request, string $id): Response
+    {
+        $user = $this->users->find((int) $id);
+        if ($user === null || !UserService::canManage($this->user($request), $user)) {
+            return $this->redirectWithError('/users', 'The user no longer exists.');
+        }
+        $this->twoFactor->disable((int) $user['id']);
+        $this->audit->record('user.two_factor_reset', 'user', (string) $user['id'], \WhaCP\Services\AuditLogger::SUCCESS, ['username' => $user['username']]);
+        return $this->redirectWithSuccess('/users/' . (int) $user['id'] . '/edit', 'Two-factor sign-in is off for ' . $user['username'] . '. Ask them to turn it on again.');
     }
 }

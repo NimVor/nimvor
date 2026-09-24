@@ -35,6 +35,48 @@
                 </form>
             </div>
         </div>
+        <div class="card mt-3" id="two-factor">
+            <div class="card-header"><i class="bi bi-phone me-1"></i>Two-factor sign-in</div>
+            <div class="card-body">
+                <?php if (!empty($recoveryCodes)): ?>
+                    <div class="alert alert-warning">
+                        <div class="fw-semibold mb-1">Save these recovery codes now — they are not shown again.</div>
+                        <p class="small mb-2">Each code signs you in once if you lose your phone.</p>
+                        <pre class="mb-2 user-select-all" data-wcp-recovery><?= e(implode("\n", (array) $recoveryCodes)) ?></pre>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-copy="[data-wcp-recovery]"><i class="bi bi-clipboard"></i> Copy</button>
+                    </div>
+                <?php endif; ?>
+                <?php if (!empty($twoFactor)): ?>
+                    <p class="small"><?= $this->statusBadge('valid', 'on') ?> since <?= e(substr((string) $twoFactor['enabled_at'], 0, 10)) ?> · <?= (int) $twoFactor['recovery_left'] ?> recovery codes left.</p>
+                    <form method="post" class="row g-2 align-items-end" data-wcp-busy>
+                        <?= $this->csrfField() ?>
+                        <div class="col-sm-6"><label class="form-label small" for="tf-pass">Current password</label><input class="form-control form-control-sm" id="tf-pass" type="password" name="current_password" autocomplete="current-password" required></div>
+                        <div class="col-sm-6 d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-secondary" formaction="<?= e($this->url('profile.2fa.recovery')) ?>">New recovery codes</button>
+                            <button class="btn btn-sm btn-outline-danger" formaction="<?= e($this->url('profile.2fa.disable')) ?>">Turn off</button>
+                        </div>
+                    </form>
+                <?php elseif (is_string($setupSecret ?? null)): ?>
+                    <?php $uri = \WhaCP\Security\TwoFactor::uri($setupSecret, (string) $profile['username']); ?>
+                    <ol class="small ps-3">
+                        <li>In your authenticator app (e.g. Aegis, Google Authenticator, 1Password), add an account with this key, or open the link on your phone:
+                            <div class="my-2"><code class="fs-6 user-select-all" data-wcp-2fa-key><?= e(trim(chunk_split($setupSecret, 4, ' '))) ?></code>
+                                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-wcp-copy="[data-wcp-2fa-key]"><i class="bi bi-clipboard"></i></button></div>
+                            <a class="small" href="<?= e($uri) ?>">Open in authenticator app</a> · time-based, 6 digits, 30 seconds</li>
+                        <li>Enter the code it shows and your password.</li>
+                    </ol>
+                    <form method="post" action="<?= e($this->url('profile.2fa.enable')) ?>" class="row g-2 align-items-end" data-wcp-busy>
+                        <?= $this->csrfField() ?>
+                        <div class="col-sm-4"><label class="form-label small" for="tf-code">Code</label><input class="form-control form-control-sm font-monospace" id="tf-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required></div>
+                        <div class="col-sm-5"><label class="form-label small" for="tf-pass">Current password</label><input class="form-control form-control-sm" id="tf-pass" type="password" name="current_password" autocomplete="current-password" required></div>
+                        <div class="col-sm-3"><button class="btn btn-sm btn-primary w-100">Turn on</button></div>
+                    </form>
+                <?php else: ?>
+                    <p class="small text-body-secondary">Ask for a code from an authenticator app on your phone in addition to your password when signing in.</p>
+                    <form method="post" action="<?= e($this->url('profile.2fa.setup')) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-primary">Set up two-factor sign-in</button></form>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 </div>
 

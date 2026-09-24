@@ -14,6 +14,8 @@ declare(strict_types=1);
  *   bin/whacp agent:check                 Check connectivity with the agent
  *   bin/whacp discovery:run               Run read-only discovery and store a snapshot
  *   bin/whacp schedule:run                Record metrics and alerts, start due backups, apply retention
+ *   bin/whacp user:2fa-reset <username>   Turn off two-factor sign-in for a user (lost phone)
+ *   bin/whacp doctor                      Check the installation (exit code 1 on failures)
  */
 
 use WhaCP\Agent\AgentClient;
@@ -129,6 +131,22 @@ switch ($command) {
         out('Password updated. Existing sessions of this user are now invalid.');
         break;
 
+    case 'user:2fa-reset':
+        $username = $positional[0] ?? fail('usage: bin/whacp user:2fa-reset <username>');
+        $user = $c->get(UserRepository::class)->findForAuth($username) ?? fail('user not found');
+        $c->get(\WhaCP\Security\TwoFactor::class)->disable((int) $user['id']);
+        $audit->record('user.two_factor_reset', 'user', (string) $user['id'], AuditLogger::SUCCESS, ['via' => 'cli']);
+        out('Two-factor sign-in is off for ' . $user['username'] . '.');
+        break;
+
+    case 'doctor':
+        $failed = false;
+        foreach ($c->get(\WhaCP\Services\Doctor::class)->run() as $r) {
+            $failed = $failed || $r['status'] === \WhaCP\Services\Doctor::FAIL;
+            out(sprintf('[%-4s] %-24s %s', strtoupper($r['status']), $r['check'], $r['detail']));
+        }
+        exit($failed ? 1 : 0);
+
     case 'users:count':
         out((string) $c->get(UserRepository::class)->count());
         break;
@@ -174,9 +192,10 @@ switch ($command) {
             }
         }
         $context->force(null);
+        $c->get(\WhaCP\Repositories\SettingRepository::class)->set(\WhaCP\Services\Doctor::SCHEDULER_KEY, gmdate('c'), null);
         flock($lock, LOCK_UN);
         break;
 
     default:
-        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  agent:check\n  discovery:run\n  schedule:run");
+        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  agent:check\n  discovery:run\n  schedule:run\n  doctor");
 }

@@ -147,6 +147,8 @@ final class Application
                 $c->get(AuditLogger::class),
                 $settings->int('session_idle_minutes') * 60,
                 $cfg->int('session.absolute_lifetime', 43200),
+                null,
+                $c->get(\WhaCP\Security\TwoFactor::class),
             );
         });
         $c->set(AgentTransport::class, static fn (Container $c) => new \WhaCP\Agent\RoutingTransport(

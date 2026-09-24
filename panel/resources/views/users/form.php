@@ -61,8 +61,23 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
             </div>
         </div>
     </div>
-    <?php if (!empty($usage)): ?>
+    <?php if (!$isNew): ?>
         <div class="col-lg-5 col-xl-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-phone me-1"></i>Two-factor sign-in</div>
+                <div class="card-body small">
+                    <?php if (!empty($twoFactor)): ?>
+                        <p>On since <?= e(substr((string) $twoFactor['enabled_at'], 0, 10)) ?> · <?= (int) $twoFactor['recovery_left'] ?> recovery codes left.</p>
+                        <form method="post" action="<?= e($this->url('users.2fa.reset', ['id' => $editUser['id']])) ?>" data-wcp-confirm="Turn off two-factor sign-in for <?= e($editUser['username']) ?>? Do this only after confirming their identity, e.g. when they lost their phone and recovery codes.">
+                            <?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Reset two-factor sign-in</button>
+                        </form>
+                    <?php else: ?>
+                        <p class="mb-0 text-body-secondary">Off. Users turn it on from their own profile.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+    <?php endif; ?>
+    <?php if (!$isNew && !empty($usage)): ?>
             <div class="card">
                 <div class="card-header"><i class="bi bi-speedometer me-1"></i>Usage</div>
                 <ul class="list-group list-group-flush small">
@@ -75,6 +90,8 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
                 </ul>
                 <div class="card-footer small text-body-secondary">Includes the customers of a reseller.</div>
             </div>
+    <?php endif; ?>
+    <?php if (!$isNew): ?>
         </div>
     <?php endif; ?>
 </div>

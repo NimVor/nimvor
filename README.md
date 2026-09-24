@@ -6,40 +6,53 @@ WhaCP is a free, MIT-licensed control panel for VPS and dedicated servers. It is
 built around one rule: **a control panel has root-level consequences, so every
 privileged operation must be explicit, validated, audited and reversible.**
 
-> **Status: v0.4.0-dev — read-only discovery release.**
-> WhaCP can be installed next to an existing production setup (including one
-> managed by another panel) and will inventory it **without changing anything**.
-> Write operations (creating sites, issuing certificates, …) start in v0.5.0.
+> **Status: v0.5.0 — feature-complete preview (all 28 roadmap phases built).**
+> Every feature is covered by unit, HTTP and real-service tests, but WhaCP has
+> not yet been validated on a wide range of production servers. Install it in
+> read-only mode first (the default): it inventories the server **without
+> changing anything**. Turn on write mode with `--enable-writes` when you are
+> ready to let WhaCP manage websites.
 
 ## What works today
 
-| Area | Status |
-|------|--------|
-| Panel: sign-in, sessions, CSRF, brute-force throttling | ✅ |
-| Role-based access control (Administrator, Operator, Viewer) | ✅ |
-| Panel users, settings, audit log, profile / password change | ✅ |
-| Go agent over an authenticated Unix socket (token + peer UID) | ✅ |
-| Live dashboard: CPU, RAM, disk, load, network, uptime, services | ✅ |
-| Server page: OS, kernel, CPU, disks, interfaces, timezone, firewall state | ✅ |
-| **Read-only discovery** of websites (Nginx), PHP versions & FPM pools, SSL certificates, MySQL/MariaDB databases, Redis, cron jobs, system accounts, systemd services | ✅ |
-| Discovery snapshots with change checksum and history | ✅ |
-| Installer (loopback panel, hardened systemd units) | ✅ early |
-| Website/PHP/DB/SSL management, file manager, logs, backups, … | planned — see [roadmap](docs/development/roadmap.md) |
+| Area | Features |
+|------|----------|
+| Panel | sign-in with Argon2id, throttling and optional **two-factor (TOTP) with recovery codes**; CSRF, strict CSP; roles (Administrator, Operator, Viewer, Reseller, Hosting customer) and custom roles; audit log; settings |
+| Agent | Go service with named actions only, Unix socket (token + peer UID) or pinned TLS 1.3 for remote servers; write gate; allowlisted binaries, no shell |
+| Dashboard & monitoring | live CPU/RAM/disk/load/network, services, history, alerts (disk, memory, load, certificates, agent down) with webhooks |
+| Discovery | read-only inventory of Nginx sites, PHP/FPM, certificates, MySQL/MariaDB, Redis, cron, accounts, firewall, sites managed by other panels |
+| **Import** | take over a discovered website: files are copied, Nginx switches in one validated reload, the old config is kept and the import can be undone |
+| Websites | PHP, static and reverse-proxy sites; aliases, redirects, per-site PHP-FPM pools; `nginx -t` gate and automatic rollback |
+| PHP | install versions, per-site settings |
+| Databases | MySQL/MariaDB databases, users and grants |
+| SSL | Let's Encrypt issue/renew, custom certificates, HTTPS redirect, HSTS |
+| Files & logs | sandboxed file manager, log viewer with live tail |
+| Automation | cron jobs, systemd workers (queues), Git deployment with webhooks |
+| Redis | settings, password, ACL users |
+| Backups | encrypted (AES-256-GCM) site and server backups, S3-compatible storage, schedules, retention, restore |
+| Security | UFW firewall, SSH hardening, Fail2ban — every change auto-rolls back unless confirmed; security audit |
+| Server | packages and updates, hostname, timezone, reboot |
+| Hosting | multiple servers, plans and quotas, resellers and customers |
+| Integration | REST API with personal tokens (OpenAPI), plugins, one-click WordPress and Laravel |
+| Operations | installer, upgrades with automatic rollback, `bin/whacp doctor` self-checks |
 
 ## Architecture in one picture
 
 ```text
- Browser ──HTTPS/SSH tunnel──▶ WhaCP Panel (PHP 8.3+, MVC, SQLite)
+ Browser ──HTTPS/SSH tunnel──▶ WhaCP Panel (PHP 8.3+, MVC, SQLite)      REST API /api/v1 (tokens)
                                    │  never runs shell commands
                                    │  POST /v1/actions/<name>  (bearer token)
-                                   ▼
-                     /run/whacp/agent.sock  (0660 root:whacp, SO_PEERCRED check)
-                                   │
-                                   ▼
-                     WhaCP Agent (Go, systemd, read-only sandbox)
-                       ├─ OS abstraction (Ubuntu/Debian, RHEL family scaffold)
-                       ├─ Nginx parser · PHP-FPM · SSL · MySQL/MariaDB · Redis
-                       ├─ cron · users · firewall · systemd · metrics collector
+                    ┌──────────────┴──────────────────────────┐
+                    ▼                                         ▼
+   /run/whacp/agent.sock (0660 root:whacp,        remote servers: TLS 1.3, pinned
+   SO_PEERCRED check)                             public key, client IP allowlist
+                    │                                         │
+                    ▼                                         ▼
+                     WhaCP Agent (Go, systemd; read-only sandbox unless write mode)
+                       ├─ named actions only · write gate · jobs for long work
+                       ├─ Detect → Back up → Validate → Apply → Verify → Roll back
+                       ├─ Nginx · PHP-FPM · SSL · MySQL/MariaDB · Redis · backups
+                       ├─ cron · workers · Git · UFW · SSH · Fail2ban · packages
                        └─ fixed allowlist of binaries, no shell, secrets redacted
 ```
 
@@ -60,7 +73,7 @@ The dev agent inspects the bundled fixture server in
 Redis, certbot, cron). Run `DEV_ROOT=/ scripts/dev.sh` to inspect your own
 machine instead (read-only; some files need root to be visible).
 
-## Install on a server (read-only discovery)
+## Install on a server
 
 Supported: Ubuntu 22.04, 24.04 and 26.04 LTS with systemd.
 
@@ -71,15 +84,19 @@ sudo ./installer/install.sh --admin-user=admin --admin-email=you@example.com
 ssh -L 8090:127.0.0.1:8090 your-server         # then open http://127.0.0.1:8090
 ```
 
-The installer never edits Nginx, PHP-FPM, database, firewall or SSH
-configuration and never reloads existing services. Details:
+By default WhaCP is **read-only**: the installer never edits Nginx, PHP-FPM,
+database, firewall or SSH configuration and never reloads existing services.
+Add `--enable-writes` to let WhaCP manage the server. Upgrade later with
+`sudo ./installer/upgrade.sh` (automatic rollback on failure). Details:
 [docs/installation](docs/installation/README.md).
 
 ## Tests
 
 ```bash
 make lint test     # gofmt, go vet, go test -race, php -l, PHPUnit (unit/integration/HTTP)
-make smoke         # end-to-end: agent + panel + login + discovery on the fixture server
+make smoke         # end-to-end: agent + panel + login + discovery + remote TLS agent + doctor
+# Agent tests against real services (nginx, php-fpm, MariaDB, Redis, UFW, …) in a disposable VM/container:
+cd agent && sudo go test -tags realhost ./...
 ```
 
 ## Repository layout
@@ -87,10 +104,11 @@ make smoke         # end-to-end: agent + panel + login + discovery on the fixtur
 ```text
 agent/        Go agent (cmd/, internal/<domain>/, api/openapi.yaml, tests/fixtures)
 panel/        PHP control plane (app/, config/, public/, routes/, resources/, tests/)
-installer/    install.sh, uninstall.sh, systemd units, default configuration
+installer/    install.sh, upgrade.sh, uninstall.sh, systemd units, default configuration
+plugins/      example plugin (see docs/plugins)
 docs/         architecture, installation, administration, agent, security, api, plugins, development, troubleshooting
 scripts/      developer tooling (dev.sh)
-tests/        cross-component integration tests (smoke.sh)
+tests/        cross-component integration tests (smoke.sh, upgrade.sh)
 storage/      notes on where runtime state lives
 ```
 

@@ -19,32 +19,35 @@ privileges.
 | `metrics_interval` | `5s` | collector sampling period |
 | `metrics_history` | `180` | samples kept in memory (15 min at 5 s) |
 | `action_timeout` | `30s` | per-action deadline |
-| `allow_write_actions` | `false` | gate for modifying actions (none exist yet) |
+| `allow_write_actions` | `false` | gate for modifying actions |
+| `sites_root` | `/home/whacp` | where WhaCP websites live |
+| `state_dir` | `/var/lib/whacp-agent` | backups of changed files, jobs, pending security changes, import records |
+| `backup_dir` | `/var/backups/whacp` | local backup archives |
+| `web_user` | platform default (`www-data`) | Nginx worker account |
+| `max_jobs` | `2` | concurrent background jobs |
+| `listen_tcp` | empty | `host:port` for remote access over TLS 1.3 |
+| `tls_cert`, `tls_key` | `/etc/whacp/agent-tls.{crt,key}` | created on first start when missing; `whacp-agent -pin` prints the pin |
+| `allowed_clients` | empty | IPs/networks allowed on `listen_tcp` (required when it is set) |
+| `simulate_commands` | `false` | development only: log commands instead of running them |
 
 Unknown keys are rejected so typos do not silently fall back to defaults.
 Check a configuration with `whacp-agent -config /etc/whacp/agent.json -check-config`.
 
 ## Actions
 
-| Action | Returns |
-|--------|---------|
-| `agent.actions` | the action catalogue |
-| `system.info` | OS, kernel, CPU, interfaces, timezone, uptime, agent version |
-| `system.metrics` | latest CPU/memory/disk/load/network sample |
-| `system.metrics_history` | recent samples for charts |
-| `services.status` | core services and PHP-FPM units (systemd) |
-| `discovery.websites` | websites correlated from Nginx + PHP-FPM + certificates |
-| `discovery.nginx` | raw virtual hosts and files read |
-| `discovery.php` | PHP versions, default CLI version, FPM pools |
-| `discovery.databases` | MySQL/MariaDB engine, version, schemas and sizes |
-| `discovery.certificates` | certbot lineages with expiry and key permission check |
-| `discovery.redis` | Redis version and config summary (password never returned) |
-| `discovery.cron` | system and user cron jobs (secrets redacted) |
-| `discovery.users` | accounts from `/etc/passwd` (shadow never read) |
-| `discovery.firewall` | UFW/firewalld/nftables detection |
-| `discovery.inventory` | all of the above in one snapshot |
+Read-only actions (always available) include `agent.actions`,
+`system.info`, `system.metrics`, `services.status` and the `discovery.*`
+family (`discovery.inventory` returns everything in one snapshot).
+Modifying actions — `sites.*`, `php.*`, `db.*`, `ssl.*`, `files.*`,
+`cron.*`, `workers.*`, `deploy.*`, `redis.*`, `backup.*`, `firewall.*`,
+`ssh.*`, `fail2ban.*`, `security.*`, `packages.*`, `server.*`, `apps.*`,
+`adopt.*` — are refused with `write_disabled` unless write mode is on.
+Long-running ones return a `job_id`; follow it with `jobs.get`/`jobs.log`.
 
-The full contract is in [`agent/api/openapi.yaml`](../../agent/api/openapi.yaml).
+The complete, test-verified catalogue with a description of every action
+and whether it modifies the server is in
+[`agent/api/openapi.yaml`](../../agent/api/openapi.yaml) (`x-whacp-actions`).
+`agent.actions` returns the same list from a running agent.
 
 ```bash
 sudo curl -s --unix-socket /run/whacp/agent.sock \
@@ -73,15 +76,26 @@ Limits: 2 MiB per file, 2000 included files, depth 10, 50 nested blocks.
 `CAP_CHOWN` (socket ownership), sets `ProtectSystem=strict` so the entire
 filesystem is read-only except `/run/whacp`, and applies `NoNewPrivileges`,
 a system-call filter, `MemoryDenyWriteExecute`, `RestrictAddressFamilies`
-(Unix + netlink) and memory/task limits. When write actions arrive, each one
-will add the narrowest possible `ReadWritePaths` entry.
+(Unix + netlink) and memory/task limits.
+
+Write mode (`10-write-mode.conf`) lifts the filesystem sandbox because
+installing packages, creating accounts and managing the firewall touch most
+of the system. Safety then rests on the agent: the file writer only accepts
+an allowlist of WhaCP-owned paths (its configuration files, the sites root,
+state and backup directories), every configuration change is validated
+before reload and rolled back on failure, and commands for a website run
+as that website's unprivileged account.
 
 ## Command execution
 
-`execx.SystemRunner` can run exactly: `systemctl`, `nginx`, `mysqld`,
-`mariadbd`, `redis-server` — resolved to absolute paths at start-up, with a
-minimal environment, no shell, a timeout and a 1 MiB output cap. Today they
-are used only for `systemctl show` and `--version`/`-v` queries.
+`execx.SystemRunner` runs only allowlisted binaries (systemd tools, `nginx`,
+MySQL/MariaDB clients, Redis, account tools, `certbot`, `git`,
+`ssh-keygen`, APT/dpkg, `ufw`, `fail2ban-client`, `sshd -t`,
+`hostnamectl`, `timedatectl`, `shutdown`, `composer`, `tar`, `sh`), resolved
+to absolute paths at start-up, with a minimal environment, arguments passed
+as a list (never through a shell), a timeout and an output cap. `sh` and
+`tar` may only run as an unprivileged account (UID ≥ 1000), e.g. a
+website's deploy hook.
 
 ## OS support
 

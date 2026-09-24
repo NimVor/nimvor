@@ -46,6 +46,35 @@ final class AuthController extends Controller
             $this->session->flash('old', ['username' => $username]);
             return Response::redirect('/login');
         }
+        if ($this->auth->pendingTwoFactor()) {
+            return Response::redirect('/login/two-factor');
+        }
+        $this->csrf->rotate();
+        return Response::redirect('/');
+    }
+
+    public function twoFactor(Request $request): Response
+    {
+        if (!$this->auth->pendingTwoFactor()) {
+            return Response::redirect('/login');
+        }
+        return Response::html($this->view->render('auth/two_factor', [], 'layouts/minimal'));
+    }
+
+    public function verifyTwoFactor(Request $request): Response
+    {
+        if ($request->input('cancel') === '1') {
+            $this->auth->cancelTwoFactor();
+            return Response::redirect('/login');
+        }
+        /** @var list<string> $proxies */
+        $proxies = (array) $this->config->get('security.trusted_proxies', []);
+        $code = $request->input('code', '');
+        $error = $this->auth->completeTwoFactor(is_string($code) ? mb_substr($code, 0, 40) : '', $request->ip($proxies));
+        if ($error !== null) {
+            $this->session->flash('error', $error);
+            return Response::redirect($this->auth->pendingTwoFactor() ? '/login/two-factor' : '/login');
+        }
         $this->csrf->rotate();
         return Response::redirect('/');
     }

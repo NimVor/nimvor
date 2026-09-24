@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: WhaCP Agent API
-  version: 0.4.0
+  version: 0.5.0
   summary: Local, authenticated API of the privileged WhaCP agent.
   description: |
     The agent listens on a Unix socket (default `/run/whacp/agent.sock`,
@@ -10,9 +10,14 @@ info:
     root or the panel user (checked with SO_PEERCRED).
 
     The agent exposes **named actions only**. There is no endpoint that runs
-    commands or reads arbitrary files. In this release every action is
-    read-only; actions that would modify the server are refused with
-    `write_disabled` unless `allow_write_actions` is enabled.
+    commands or reads arbitrary files. Actions that modify the server
+    (`mutating: true` in `x-whacp-actions`) are refused with
+    `write_disabled` unless `allow_write_actions` is enabled. Long-running
+    actions return `{job_id}`; follow them with `jobs.get` and `jobs.log`.
+
+    With `listen_tcp` set, the same API is served over TLS 1.3 to the
+    addresses in `allowed_clients`; clients pin the certificate's public key
+    (`whacp-agent -pin`).
 
     All responses use the same envelope. Error messages are safe to show to
     users; internal details are written to the agent log only.
@@ -57,24 +62,120 @@ paths:
             type: string
             pattern: '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$'
             enum:
+              # BEGIN generated enum (do not edit; see internal/modules/openapi_test.go)
+              - adopt.preview
+              - adopt.run
+              - adopt.undo
               - agent.actions
+              - agent.status
+              - apps.install
+              - backup.create
+              - backup.delete
+              - backup.download
+              - backup.inspect
+              - backup.key_info
+              - backup.list
+              - backup.remote_test
+              - backup.restore
+              - backup.server
+              - cron.apply
+              - cron.run
+              - db.create
+              - db.drop
+              - db.dump
+              - db.grant
+              - db.import
+              - db.overview
+              - db.user_create
+              - db.user_drop
+              - db.user_password
+              - deploy.key
+              - deploy.run
+              - discovery.certificates
+              - discovery.cron
+              - discovery.databases
+              - discovery.firewall
+              - discovery.inventory
+              - discovery.nginx
+              - discovery.php
+              - discovery.redis
+              - discovery.users
+              - discovery.websites
+              - fail2ban.configure
+              - fail2ban.status
+              - fail2ban.unban
+              - files.chmod
+              - files.copy
+              - files.delete
+              - files.download
+              - files.list
+              - files.mkdir
+              - files.read
+              - files.rename
+              - files.search
+              - files.upload
+              - files.write
+              - firewall.rule_add
+              - firewall.rule_delete
+              - firewall.set_enabled
+              - firewall.status
+              - jobs.get
+              - jobs.list
+              - jobs.log
+              - logs.download
+              - logs.sources
+              - logs.tail
+              - packages.install
+              - packages.list
+              - packages.refresh
+              - packages.updates
+              - packages.upgrade
+              - php.available
+              - php.install
+              - php.modules
+              - php.set_enabled
+              - redis.acl_del
+              - redis.acl_set
+              - redis.configure
+              - redis.flush
+              - redis.info
+              - redis.password
+              - security.audit
+              - security.confirm
+              - security.pending
+              - security.undo
+              - server.reboot
+              - server.reboot_cancel
+              - server.set_hostname
+              - server.set_timezone
+              - server.settings
+              - server.timezones
+              - services.control
+              - services.status
+              - sites.apply
+              - sites.delete
+              - sites.inspect
+              - sites.list
+              - sites.usage
+              - ssh.configure
+              - ssh.status
+              - ssl.custom
+              - ssl.delete
+              - ssl.inspect
+              - ssl.issue
+              - ssl.renew
+              - ssl.renewal_status
               - system.info
               - system.metrics
               - system.metrics_history
-              - services.status
-              - discovery.websites
-              - discovery.nginx
-              - discovery.php
-              - discovery.databases
-              - discovery.certificates
-              - discovery.redis
-              - discovery.cron
-              - discovery.users
-              - discovery.firewall
-              - discovery.inventory
+              - workers.apply
+              - workers.remove
+              - workers.restart
+              - workers.status
+              # END generated enum
       requestBody:
         required: false
-        description: Action parameters. Unknown fields are rejected. The built-in read-only actions take none (send `{}` or an empty body).
+        description: Action parameters. Unknown fields are rejected. Actions without parameters accept `{}` or an empty body.
         content:
           application/json:
             schema:
@@ -179,3 +280,115 @@ components:
         access_logs: { type: array, items: { type: string } }
         error_logs: { type: array, items: { type: string } }
         managed_by: { type: string, description: 'Heuristic hint (aaPanel, FASTPANEL, HestiaCP, CyberPanel, WhaCP).' }
+x-whacp-actions:
+  # BEGIN generated catalog (do not edit; see internal/modules/openapi_test.go)
+  adopt.preview: { mutating: false, description: "Plan the import of an existing website into WhaCP (read-only)." }
+  adopt.run: { mutating: true, description: "Import an existing website into WhaCP (job)." }
+  adopt.undo: { mutating: true, description: "Undo an import: re-enable the old configuration and disable the WhaCP website." }
+  agent.actions: { mutating: false, description: "List the actions this agent supports." }
+  agent.status: { mutating: false, description: "Agent version, write mode and managed layout." }
+  apps.install: { mutating: true, description: "Install WordPress or Laravel into a website (job)." }
+  backup.create: { mutating: true, description: "Back up website files and databases (job)." }
+  backup.delete: { mutating: true, description: "Delete a backup (and its remote copy when remote is given)." }
+  backup.download: { mutating: false, description: "Read a chunk of a stored backup file (base64)." }
+  backup.inspect: { mutating: false, description: "The manifest of one backup." }
+  backup.key_info: { mutating: false, description: "Fingerprint of the backup encryption key (never the key)." }
+  backup.list: { mutating: false, description: "Backups stored on this server for a website (or kind=server)." }
+  backup.remote_test: { mutating: false, description: "Check that remote storage credentials work (lists the prefix)." }
+  backup.restore: { mutating: true, description: "Restore website files and/or databases from a backup (job)." }
+  backup.server: { mutating: true, description: "Archive the server configuration (nginx, PHP, MySQL, Redis, certificates, WhaCP) (job)." }
+  cron.apply: { mutating: true, description: "Write the complete cron schedule of a website." }
+  cron.run: { mutating: true, description: "Run a cron command now as the website user (job)." }
+  db.create: { mutating: true, description: "Create a database (utf8mb4)." }
+  db.drop: { mutating: true, description: "Drop a database (requires confirm = name)." }
+  db.dump: { mutating: true, description: "Dump a database to a gzip file in the backup directory (job)." }
+  db.grant: { mutating: true, description: "Grant or revoke a privilege set on one database." }
+  db.import: { mutating: true, description: "Import a .sql or .sql.gz file into a database (job)." }
+  db.overview: { mutating: false, description: "Databases, sizes, users and grants (live from the server)." }
+  db.user_create: { mutating: true, description: "Create a database user." }
+  db.user_drop: { mutating: true, description: "Drop a database user." }
+  db.user_password: { mutating: true, description: "Change a database user's password." }
+  deploy.key: { mutating: true, description: "Create (if needed) and return the website's SSH deploy key." }
+  deploy.run: { mutating: true, description: "Clone or update a Git repository and run post-deploy commands (job)." }
+  discovery.certificates: { mutating: false, description: "Let's Encrypt certificates managed by certbot." }
+  discovery.cron: { mutating: false, description: "System and user cron jobs (secrets redacted)." }
+  discovery.databases: { mutating: false, description: "MySQL/MariaDB installation and schemas." }
+  discovery.firewall: { mutating: false, description: "Detected firewall and whether it is enabled." }
+  discovery.inventory: { mutating: false, description: "Complete read-only inventory of the server." }
+  discovery.nginx: { mutating: false, description: "Raw Nginx virtual host discovery." }
+  discovery.php: { mutating: false, description: "Installed PHP versions and PHP-FPM pools." }
+  discovery.redis: { mutating: false, description: "Redis installation and configuration summary." }
+  discovery.users: { mutating: false, description: "Local system accounts." }
+  discovery.websites: { mutating: false, description: "Existing websites correlated from Nginx, PHP-FPM and certificates." }
+  fail2ban.configure: { mutating: true, description: "Write the WhaCP jail file, test it and reload fail2ban." }
+  fail2ban.status: { mutating: false, description: "fail2ban jails and banned addresses." }
+  fail2ban.unban: { mutating: true, description: "Unban an IP address from a jail." }
+  files.chmod: { mutating: true, description: "Change permissions of a file or folder." }
+  files.copy: { mutating: true, description: "Copy a file or folder." }
+  files.delete: { mutating: true, description: "Delete files or folders." }
+  files.download: { mutating: false, description: "Read a chunk of a website file (base64)." }
+  files.list: { mutating: false, description: "List a folder of a website." }
+  files.mkdir: { mutating: true, description: "Create a folder." }
+  files.read: { mutating: false, description: "Open a text file of a website." }
+  files.rename: { mutating: true, description: "Rename or move a file or folder." }
+  files.search: { mutating: false, description: "Find files by name in a website." }
+  files.upload: { mutating: true, description: "Upload a file chunk (base64)." }
+  files.write: { mutating: true, description: "Save a text file." }
+  firewall.rule_add: { mutating: true, description: "Add a UFW rule (auto-reverted unless confirmed)." }
+  firewall.rule_delete: { mutating: true, description: "Delete a UFW rule (auto-reverted unless confirmed)." }
+  firewall.set_enabled: { mutating: true, description: "Enable or disable UFW (auto-reverted unless confirmed)." }
+  firewall.status: { mutating: false, description: "UFW state, defaults and rules." }
+  jobs.get: { mutating: false, description: "Status of a background job." }
+  jobs.list: { mutating: false, description: "Recent background jobs, optionally for one target." }
+  jobs.log: { mutating: false, description: "Log output of a background job from an offset." }
+  logs.download: { mutating: false, description: "Read a chunk of a log file (base64)." }
+  logs.sources: { mutating: false, description: "Available log sources (server-wide or for one website)." }
+  logs.tail: { mutating: false, description: "Last lines of a log, or new lines since an offset/cursor." }
+  packages.install: { mutating: true, description: "Install an allowlisted component (job)." }
+  packages.list: { mutating: false, description: "Installable components and their versions." }
+  packages.refresh: { mutating: true, description: "Refresh the package index (apt-get update) (job)." }
+  packages.updates: { mutating: false, description: "Pending package updates (from the last package index refresh)." }
+  packages.upgrade: { mutating: true, description: "Install all pending updates, keeping existing configuration files (job)." }
+  php.available: { mutating: false, description: "PHP versions offered by the configured package repositories." }
+  php.install: { mutating: true, description: "Install a PHP version (FPM, CLI and common extensions) with the package manager." }
+  php.modules: { mutating: false, description: "Loaded modules of a PHP version." }
+  php.set_enabled: { mutating: true, description: "Start and enable, or stop and disable, the FPM service of a PHP version." }
+  redis.acl_del: { mutating: true, description: "Remove a Redis ACL user." }
+  redis.acl_set: { mutating: true, description: "Create or update a Redis user limited to a key prefix (per-website isolation)." }
+  redis.configure: { mutating: true, description: "Set maxmemory and eviction policy (persisted with CONFIG REWRITE)." }
+  redis.flush: { mutating: true, description: "Delete all keys of one database (requires confirm)." }
+  redis.info: { mutating: false, description: "Version, memory, clients, keyspace and ACL users of the local Redis." }
+  redis.password: { mutating: true, description: "Set or clear the default user's password." }
+  security.audit: { mutating: false, description: "Security checks with findings and remedies (read-only)." }
+  security.confirm: { mutating: true, description: "Keep a firewall/SSH change (otherwise it is rolled back automatically)." }
+  security.pending: { mutating: false, description: "The security change awaiting confirmation, if any." }
+  security.undo: { mutating: true, description: "Roll back the pending firewall/SSH change now." }
+  server.reboot: { mutating: true, description: "Schedule a restart (requires the host name as confirmation)." }
+  server.reboot_cancel: { mutating: true, description: "Cancel a scheduled restart." }
+  server.set_hostname: { mutating: true, description: "Change the host name." }
+  server.set_timezone: { mutating: true, description: "Change the time zone." }
+  server.settings: { mutating: false, description: "Host name, time zone, clock synchronisation and restart state." }
+  server.timezones: { mutating: false, description: "Available time zones." }
+  services.control: { mutating: true, description: "Start, stop, restart, reload, enable or disable an allowlisted service." }
+  services.status: { mutating: false, description: "Status of core services and PHP-FPM units." }
+  sites.apply: { mutating: true, description: "Create or update a WhaCP website (Nginx, PHP-FPM pool, directories, system user)." }
+  sites.delete: { mutating: true, description: "Remove a WhaCP website's configuration; optionally move its files to the trash." }
+  sites.inspect: { mutating: false, description: "State of a WhaCP website on disk." }
+  sites.list: { mutating: false, description: "WhaCP-managed websites present on this server." }
+  sites.usage: { mutating: false, description: "Disk use of website directories (read-only)." }
+  ssh.configure: { mutating: true, description: "Harden the SSH server (validated with sshd -t, auto-reverted unless confirmed)." }
+  ssh.status: { mutating: false, description: "Effective SSH server settings and key-based access." }
+  ssl.custom: { mutating: true, description: "Install an uploaded certificate and private key after validating them." }
+  ssl.delete: { mutating: true, description: "Delete a certbot certificate that no WhaCP site uses any more." }
+  ssl.inspect: { mutating: false, description: "Details of a certificate file used by a site." }
+  ssl.issue: { mutating: true, description: "Issue or expand a Let's Encrypt certificate (webroot)." }
+  ssl.renew: { mutating: true, description: "Force renewal of a certbot certificate and reload Nginx." }
+  ssl.renewal_status: { mutating: false, description: "Whether automatic certificate renewal is active." }
+  system.info: { mutating: false, description: "Operating system, kernel, CPU, network interfaces and uptime." }
+  system.metrics: { mutating: false, description: "Latest CPU, memory, disk, load and network sample." }
+  system.metrics_history: { mutating: false, description: "Recent metrics history for charts." }
+  workers.apply: { mutating: true, description: "Create or update a worker service and start/stop it." }
+  workers.remove: { mutating: true, description: "Stop and remove a worker service." }
+  workers.restart: { mutating: true, description: "Restart a running worker service." }
+  workers.status: { mutating: false, description: "State of worker services." }
+  # END generated catalog
