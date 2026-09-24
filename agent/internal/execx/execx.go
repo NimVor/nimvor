@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -257,6 +258,7 @@ type FakeRunner struct {
 	Handler func(id string, o Opts, args []string) (string, error)
 	// Unavailable marks command IDs as not installed.
 	Unavailable map[string]bool
+	mu          sync.Mutex
 }
 
 // Available reports true if any output is registered for id (or a handler exists).
@@ -285,6 +287,8 @@ func (f *FakeRunner) RunWith(_ context.Context, id string, o Opts, args ...strin
 	if err := checkArgs(id, o, args); err != nil {
 		return nil, err
 	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	key := strings.TrimSpace(id + " " + strings.Join(args, " "))
 	f.Calls = append(f.Calls, key)
 	f.Opts = append(f.Opts, o)
@@ -326,6 +330,8 @@ func (f *FakeRunner) RunWith(_ context.Context, id string, o Opts, args ...strin
 
 // Called reports whether a call with this exact key was made.
 func (f *FakeRunner) Called(key string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	for _, c := range f.Calls {
 		if c == key {
 			return true

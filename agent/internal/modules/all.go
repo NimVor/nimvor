@@ -9,9 +9,11 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/redismgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/security"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/services"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sites"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sslmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/sysmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/workers"
 )
 
@@ -29,6 +31,8 @@ func All() []Module {
 		deploy.Register,
 		redismgr.Register,
 		backup.Register,
+		security.Register,
+		sysmgr.Register,
 		phpmgr.Register,
 		services.Register,
 	}

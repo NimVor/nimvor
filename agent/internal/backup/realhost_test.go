@@ -58,7 +58,9 @@ func TestRealHostBackupRestore(t *testing.T) {
 		}
 	}
 	mysql("CREATE DATABASE IF NOT EXISTS whacp_bk; CREATE TABLE IF NOT EXISTS whacp_bk.t (v TEXT); DELETE FROM whacp_bk.t; INSERT INTO whacp_bk.t VALUES ('héllo');")
-	t.Cleanup(func() { exec.Command("mysql", "-e", "DROP DATABASE IF EXISTS whacp_bk; DROP DATABASE IF EXISTS whacp_bk2").Run() })
+	t.Cleanup(func() {
+		exec.Command("mysql", "-e", "DROP DATABASE IF EXISTS whacp_bk; DROP DATABASE IF EXISTS whacp_bk2").Run()
+	})
 
 	var buf bytes.Buffer
 	m, err := s.CreateSite(context.Background(), SiteRequest{Domain: "rt.test", User: "whacprtbk", Root: root, Files: true, Databases: []string{"whacp_bk"}, Encrypt: true}, cred, &buf)
