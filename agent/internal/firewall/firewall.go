@@ -1,7 +1,7 @@
-// Package firewall reports firewall state (read-only).
+// Package firewall reports firewall state for discovery (read-only).
 //
-// Firewall changes are intentionally not implemented yet; see
-// docs/security for the planned backup/validate/apply/verify/rollback flow.
+// Firewall changes live in package security (UFW rules with automatic
+// rollback unless confirmed).
 package firewall
 
 import (

@@ -5,6 +5,10 @@
 #
 #   sudo ./installer/uninstall.sh            remove program files and services, keep data
 #   sudo ./installer/uninstall.sh --purge    also remove /etc/whacp, /var/lib/whacp, /var/log/whacp and the whacp user
+#
+# Websites, databases, certificates and accounts created through WhaCP keep
+# running; so do backups (/var/backups/whacp) and the agent state with the
+# backup key (/var/lib/whacp-agent), which are only listed, never deleted.
 
 set -Eeuo pipefail
 
@@ -21,6 +25,9 @@ for svc in whacp-scheduler whacp-panel whacp-agent; do
     systemctl disable --now "$svc.service" 2>/dev/null || true
     rm -f "/etc/systemd/system/$svc.service"
 done
+# Drop-ins (write mode, remote access) must go too: a later read-only
+# install would otherwise inherit the lifted sandbox.
+rm -rf /etc/systemd/system/whacp-agent.service.d
 systemctl daemon-reload
 rm -f /usr/local/bin/whacp-agent
 rm -rf /opt/whacp
@@ -34,3 +41,7 @@ if [[ $PURGE -eq 1 ]]; then
 else
     echo "Kept /etc/whacp, /var/lib/whacp and /var/log/whacp (use --purge to remove)."
 fi
+for d in /var/backups/whacp /var/lib/whacp-agent; do
+    [[ -d $d ]] && echo "Kept $d (backups / backup key and change history). Remove it yourself when no longer needed."
+done
+exit 0
