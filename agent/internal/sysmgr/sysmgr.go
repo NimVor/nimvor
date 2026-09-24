@@ -125,8 +125,11 @@ func keyValues(b []byte) map[string]string {
 // Read returns the current settings.
 func Read(ctx context.Context, env *host.Env) Settings {
 	s := Settings{}
-	if b, err := env.Root.ReadFile("/etc/hostname"); err == nil {
-		s.Hostname = strings.TrimSpace(string(b))
+	for _, p := range []string{"/etc/hostname", "/proc/sys/kernel/hostname"} {
+		if b, err := env.Root.ReadFile(p); err == nil && strings.TrimSpace(string(b)) != "" {
+			s.Hostname = strings.TrimSpace(string(b))
+			break
+		}
 	}
 	if b, err := env.Runner.Run(ctx, "timedatectl", "show"); err == nil {
 		kv := keyValues(b)

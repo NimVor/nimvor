@@ -271,6 +271,16 @@ func TestAudit(t *testing.T) {
 	if got["firewall"] != "pass" || got["ssh_password"] != "warn" || got["updates"] != "fail" || got["fail2ban"] != "pass" {
 		t.Fatalf("audit = %+v", got)
 	}
+	// Unreadable data is never reported as passing.
+	h.Runner.Outputs["sshd -T"] = ""
+	h.Runner.Outputs["fail2ban-client status"] = "Status\n`- Jail list:\t\n"
+	got = map[string]string{}
+	for _, c := range Audit(context.Background(), h.Env) {
+		got[c.ID] = c.Status
+	}
+	if got["ssh"] != "info" || got["ssh_password"] != "" || got["fail2ban"] != "warn" {
+		t.Fatalf("audit with missing data = %+v", got)
+	}
 }
 
 func TestActionsRegistered(t *testing.T) {

@@ -1,5 +1,5 @@
 [Unit]
-Description=WhaCP scheduler (scheduled backups and retention)
+Description=WhaCP scheduler (metrics, alerts, scheduled backups and retention)
 Documentation=https://github.com/mchkhawarshahzad/WhaCP/tree/main/docs
 After=whacp-agent.service
 

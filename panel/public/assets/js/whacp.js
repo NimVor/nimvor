@@ -151,8 +151,24 @@
         if (!b) { return; }
         var src = document.querySelector(b.getAttribute('data-wcp-copy'));
         if (src && navigator.clipboard) {
-            navigator.clipboard.writeText(src.textContent.trim()).then(function () { WhaCP.toast('Copied to the clipboard.', 'success'); });
+            navigator.clipboard.writeText((src.matches('input, textarea') ? src.value : src.textContent).trim()).then(function () { WhaCP.toast('Copied to the clipboard.', 'success'); });
         }
+    });
+
+    // Countdowns to an ISO deadline: data-wcp-countdown="2026-01-01T00:00:00Z".
+    // The page reloads when the deadline passes (e.g. a change was undone).
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-wcp-countdown]').forEach(function (el) {
+            var end = Date.parse(el.getAttribute('data-wcp-countdown'));
+            if (isNaN(end)) { return; }
+            var tick = function () {
+                var s = Math.max(0, Math.round((end - Date.now()) / 1000));
+                el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+                if (s === 0) { clearInterval(timer); setTimeout(function () { window.location.reload(); }, 3000); }
+            };
+            var timer = setInterval(tick, 1000);
+            tick();
+        });
     });
 
     // Auto-submit selects.

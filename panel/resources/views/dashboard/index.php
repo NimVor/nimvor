@@ -9,6 +9,15 @@ $sys = $info['system'] ?? [];
 <?php $this->start(); ?>Dashboard<?php $this->end('title'); ?>
 <?php $this->start(); ?><?= e($sys['hostname'] ?? 'Server overview') ?><?php $this->end('subtitle'); ?>
 
+<?php if (!empty($alerts)): ?>
+    <div class="alert alert-<?= in_array('critical', array_column($alerts, 'severity'), true) ? 'danger' : 'warning' ?> d-flex align-items-start gap-2" role="alert">
+        <i class="bi bi-bell-fill mt-1"></i>
+        <div class="me-auto"><strong><?= count($alerts) ?> active alert<?= count($alerts) === 1 ? '' : 's' ?>:</strong>
+            <?= e(implode(' · ', array_slice(array_column($alerts, 'message'), 0, 3))) ?><?= count($alerts) > 3 ? ' …' : '' ?></div>
+        <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('monitoring')) ?>">Details</a>
+    </div>
+<?php endif; ?>
+
 <?php if ($agentError !== null): ?>
     <?= $this->partial('partials/agent_error', ['error' => $agentError]) ?>
 <?php endif; ?>

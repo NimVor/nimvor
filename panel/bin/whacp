@@ -13,7 +13,7 @@ declare(strict_types=1);
  *   bin/whacp users:count                 Print the number of panel users
  *   bin/whacp agent:check                 Check connectivity with the agent
  *   bin/whacp discovery:run               Run read-only discovery and store a snapshot
- *   bin/whacp schedule:run                Start due scheduled backups and apply retention
+ *   bin/whacp schedule:run                Record metrics and alerts, start due backups, apply retention
  */
 
 use WhaCP\Agent\AgentClient;
@@ -157,6 +157,9 @@ switch ($command) {
         if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
             out('Another scheduler pass is running.');
             break;
+        }
+        foreach ($c->get(\WhaCP\Services\MonitoringService::class)->run() as $line) {
+            out($line);
         }
         foreach ($c->get(\WhaCP\Services\BackupScheduler::class)->run() as $line) {
             out($line);

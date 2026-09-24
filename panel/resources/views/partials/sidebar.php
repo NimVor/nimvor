@@ -21,16 +21,16 @@ $groups = [
     ],
     'Operations' => [
         ['Backups', 'archive', 'backups', P::BACKUPS_VIEW, '/backups'],
-        ['Monitoring', 'activity', null, null, ''],
+        ['Monitoring', 'activity', 'monitoring', P::MONITORING_VIEW, '/monitoring'],
         ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs'],
     ],
     'Security' => [
-        ['Security', 'shield-check', null, null, ''],
-        ['Firewall', 'bricks', null, null, ''],
+        ['Security', 'shield-check', 'security', P::SECURITY_VIEW, '/security'],
     ],
     'Server' => [
         ['Server', 'hdd-rack', 'server', P::SERVER_VIEW, '/server'],
         ['Services', 'cpu', 'services', P::SERVICES_VIEW, '/services'],
+        ['Packages', 'box-seam', 'packages', P::PACKAGES_MANAGE, '/packages'],
         ['System accounts', 'people', 'system_users', P::SYSTEM_USERS_VIEW, '/system-users'],
         ['Discovery', 'binoculars', 'discovery', P::WEBSITES_VIEW, '/discovery'],
     ],

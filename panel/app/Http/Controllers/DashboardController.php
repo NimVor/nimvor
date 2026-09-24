@@ -24,6 +24,7 @@ final class DashboardController extends Controller
         private readonly DiscoveryService $discovery,
         private readonly SettingsService $settings,
         private readonly AuditLogRepository $audit,
+        private readonly \WhaCP\Services\MonitoringService $monitoring,
     ) {
         parent::__construct($view, $session);
     }
@@ -47,6 +48,7 @@ final class DashboardController extends Controller
             'agentError' => $agentError,
             'refreshSeconds' => $this->settings->int('dashboard_refresh_seconds'),
             'recentAudit' => $this->view->can(Permissions::AUDIT_VIEW) ? $this->audit->recent(6) : [],
+            'alerts' => $this->view->can(Permissions::MONITORING_VIEW) ? $this->monitoring->openAlerts() : [],
         ]);
     }
 

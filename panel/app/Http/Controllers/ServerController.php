@@ -32,10 +32,19 @@ final class ServerController extends Controller
         } catch (AgentException $e) {
             return $this->render('discovery/unavailable', ['title' => 'Server', 'error' => $e]);
         }
+        $settings = null;
+        $timezones = [];
+        try {
+            $settings = (array) $this->agent->call('server.settings');
+            $timezones = (array) $this->agent->call('server.timezones');
+        } catch (AgentException) {
+        }
         return $this->render('server/index', [
             'info' => (array) $info,
             'metrics' => (array) $metrics,
             'firewall' => (array) $firewall,
+            'settings' => $settings,
+            'timezones' => $timezones,
         ]);
     }
 

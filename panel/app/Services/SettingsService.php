@@ -34,7 +34,7 @@ final class SettingsService
                 'label' => 'Panel name', 'help' => 'Shown in the header and browser title.',
             ],
             'panel_url' => [
-                'type' => 'string', 'default' => '', 'max_length' => 200,
+                'type' => 'url', 'default' => '', 'max_length' => 200,
                 'label' => 'Public panel URL', 'help' => 'e.g. https://panel.example.com. Used for Git webhook URLs; when empty the address you are browsing is used.',
             ],
             'session_idle_minutes' => [
@@ -48,6 +48,22 @@ final class SettingsService
             'dashboard_refresh_seconds' => [
                 'type' => 'int', 'default' => 10, 'min' => 3, 'max' => 300,
                 'label' => 'Dashboard refresh interval (seconds)', 'help' => 'How often the dashboard polls live metrics.',
+            ],
+            'alert_disk_percent' => [
+                'type' => 'int', 'default' => 90, 'min' => 50, 'max' => 99,
+                'label' => 'Disk usage alert (%)', 'help' => 'Alert when any disk is fuller than this.',
+            ],
+            'alert_memory_percent' => [
+                'type' => 'int', 'default' => 95, 'min' => 50, 'max' => 100,
+                'label' => 'Memory usage alert (%)', 'help' => 'Alert when memory use stays above this for two samples in a row.',
+            ],
+            'alert_load_per_core' => [
+                'type' => 'int', 'default' => 2, 'min' => 1, 'max' => 20,
+                'label' => 'Load alert (per CPU core)', 'help' => 'Alert when the 1-minute load exceeds this many times the number of cores.',
+            ],
+            'alert_webhook_url' => [
+                'type' => 'url', 'default' => '', 'max_length' => 500,
+                'label' => 'Alert webhook URL', 'help' => 'Optional https:// URL that receives alerts as JSON ({"text": …}); works with Slack, Mattermost, Discord (/slack) and ntfy.',
             ],
             'ssl_warning_days' => [
                 'type' => 'int', 'default' => 14, 'min' => 1, 'max' => 90,
@@ -104,6 +120,16 @@ final class SettingsService
                 $v = filter_var($raw, FILTER_VALIDATE_INT);
                 if ($v === false || $v < ($def['min'] ?? PHP_INT_MIN) || $v > ($def['max'] ?? PHP_INT_MAX)) {
                     $errors[$key] = sprintf('Enter a whole number between %d and %d.', $def['min'] ?? 0, $def['max'] ?? 0);
+                    continue;
+                }
+                $clean[$key] = $v;
+            } elseif ($def['type'] === 'url') {
+                // Optional; https only (plain http only for this machine).
+                $v = is_scalar($raw) ? rtrim(trim((string) $raw), '/') : '';
+                $ok = $v === '' || (mb_strlen($v) <= ($def['max_length'] ?? 255) && filter_var($v, FILTER_VALIDATE_URL) !== false
+                    && preg_match('#^(https://|http://(localhost|127\.0\.0\.1)(:\d+)?(/|$))#i', $v) && !preg_match('/[\s"\'<>]/', $v));
+                if (!$ok) {
+                    $errors[$key] = 'Enter an https:// address, or leave it empty.';
                     continue;
                 }
                 $clean[$key] = $v;

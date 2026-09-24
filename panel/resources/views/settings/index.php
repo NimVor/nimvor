@@ -16,12 +16,14 @@ $canEdit = $this->can(\WhaCP\Security\Permissions::SETTINGS_MANAGE);
                             <?= $this->partial('partials/field', [
                                 'name' => $key,
                                 'label' => $def['label'],
-                                'type' => $def['type'] === 'int' ? 'number' : 'text',
+                                'type' => ['int' => 'number', 'url' => 'url'][$def['type']] ?? 'text',
                                 'value' => (string) ($old[$key] ?? $values[$key]),
                                 'help' => $def['help'],
                                 'attrs' => $def['type'] === 'int'
                                     ? ['min' => (string) $def['min'], 'max' => (string) $def['max'], 'required' => 'required']
-                                    : ['maxlength' => (string) ($def['max_length'] ?? 255), 'required' => 'required'],
+                                    : ($def['type'] === 'url'
+                                        ? ['maxlength' => (string) ($def['max_length'] ?? 255), 'placeholder' => 'https://']
+                                        : ['maxlength' => (string) ($def['max_length'] ?? 255), 'required' => 'required']),
                             ]) ?>
                         <?php endforeach; ?>
                         <?php if ($canEdit): ?>

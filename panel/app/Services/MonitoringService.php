@@ -1,0 +1,204 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WhaCP\Services;
+
+use WhaCP\Agent\AgentClient;
+use WhaCP\Agent\AgentException;
+use WhaCP\Database\Connection;
+use WhaCP\Support\Logger;
+
+/**
+ * Stores a metrics sample on every scheduler pass (kept 30 days),
+ * evaluates alert rules and notifies an optional webhook when an alert
+ * opens or resolves.
+ *
+ * Rules: disk, memory, load, service down, agent unreachable,
+ * certificate expiring, backup failed.
+ */
+final class MonitoringService
+{
+    private const RETENTION_DAYS = 30;
+
+    /** @var \Closure(string, string): bool|null test hook for webhook delivery */
+    public ?\Closure $sender = null;
+
+    public function __construct(
+        private readonly Connection $db,
+        private readonly AgentClient $agent,
+        private readonly SettingsService $settings,
+        private readonly ServerContext $server,
+        private readonly Logger $log,
+    ) {
+    }
+
+    /**
+     * One monitoring pass. Returns log lines.
+     *
+     * @return list<string>
+     */
+    public function run(?int $now = null): array
+    {
+        $now ??= time();
+        $firing = []; // key => [rule, subject, severity, message]
+        try {
+            $m = (array) $this->agent->call('system.metrics');
+            $info = (array) $this->agent->call('system.info');
+            $cores = max(1, (int) ($info['system']['cpu']['cores'] ?? 1));
+            $disks = (array) ($m['disks'] ?? []);
+            $maxDisk = 0.0;
+            foreach ($disks as $d) {
+                $d = (array) $d;
+                $pct = (float) ($d['used_percent'] ?? 0);
+                $maxDisk = max($maxDisk, $pct);
+                if ($pct >= $this->settings->int('alert_disk_percent')) {
+                    $mp = (string) ($d['mount_point'] ?? $d['mount'] ?? '?');
+                    $firing['disk:' . $mp] = ['disk', $mp, $pct >= 98 ? 'critical' : 'warning', sprintf('Disk %s is %.0f%% full.', $mp, $pct)];
+                }
+            }
+            $rx = $tx = 0.0;
+            foreach ((array) ($m['network'] ?? []) as $n) {
+                $rx += (float) ((array) $n)['rx_bytes_per_sec'];
+                $tx += (float) ((array) $n)['tx_bytes_per_sec'];
+            }
+            $mem = (float) ($m['memory']['used_percent'] ?? 0);
+            $load = (float) ($m['load']['load1'] ?? 0);
+            $this->db->run(
+                'INSERT INTO metric_samples (server_id, taken_at, cpu, mem, disk, load1, rx_bps, tx_bps) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [$this->server->id(), $now, (float) ($m['cpu_percent'] ?? 0), $mem, $maxDisk, $load, $rx, $tx]
+            );
+            $prevMem = (float) $this->db->scalar('SELECT mem FROM metric_samples WHERE server_id = ? AND taken_at < ? ORDER BY taken_at DESC LIMIT 1', [$this->server->id(), $now]);
+            if ($mem >= $this->settings->int('alert_memory_percent') && $prevMem >= $this->settings->int('alert_memory_percent')) {
+                $firing['memory'] = ['memory', '', 'warning', sprintf('Memory use is %.0f%%.', $mem)];
+            }
+            if ($load > $cores * $this->settings->int('alert_load_per_core')) {
+                $firing['load'] = ['load', '', 'warning', sprintf('Load average %.2f on %d core(s).', $load, $cores)];
+            }
+            foreach ((array) $this->agent->call('services.status') as $svc) {
+                $svc = (array) $svc;
+                $enabled = ($svc['unit_file_state'] ?? '') === 'enabled';
+                if ($enabled && in_array($svc['active_state'] ?? '', ['failed', 'inactive'], true)) {
+                    $firing['service:' . $svc['unit']] = ['service', (string) $svc['unit'], 'critical', $svc['unit'] . ' is ' . $svc['active_state'] . '.'];
+                }
+            }
+            $warnDays = $this->settings->int('ssl_warning_days');
+            foreach ((array) $this->agent->call('discovery.certificates') as $c) {
+                $cert = (array) ((array) $c)['certificate'];
+                $days = (int) ($cert['days_remaining'] ?? 999);
+                if ($days <= $warnDays) {
+                    $name = (string) ((array) $c)['name'];
+                    $firing['certificate:' . $name] = ['certificate', $name, $days <= 3 ? 'critical' : 'warning', $days < 0 ? "Certificate {$name} has expired." : "Certificate {$name} expires in {$days} day(s)."];
+                }
+            }
+        } catch (AgentException $e) {
+            $firing['agent'] = ['agent', '', 'critical', 'The WhaCP agent is not reachable: ' . $e->getMessage()];
+            // Nothing could be measured: keep agent-based alerts open instead
+            // of reporting them as resolved.
+            foreach ($this->db->fetchAll("SELECT * FROM alerts WHERE server_id = ? AND resolved_at IS NULL AND rule IN ('disk', 'memory', 'load', 'service', 'certificate')", [$this->server->id()]) as $a) {
+                $firing[] = [(string) $a['rule'], (string) $a['subject'], (string) $a['severity'], (string) $a['message']];
+            }
+        }
+        foreach ($this->db->fetchAll("SELECT domain, kind, error FROM backups WHERE server_id = ? AND status = 'failed' AND created_at > ?", [$this->server->id(), gmdate('c', $now - 86400)]) as $b) {
+            $what = $b['kind'] === 'server' ? 'server configuration' : (string) $b['domain'];
+            $firing['backup:' . $what] = ['backup', $what, 'warning', "Backup of {$what} failed: " . mb_substr((string) $b['error'], 0, 150)];
+        }
+        $log = $this->reconcile($firing, $now);
+        $this->db->run('DELETE FROM metric_samples WHERE taken_at < ?', [$now - self::RETENTION_DAYS * 86400]);
+        $this->db->run('DELETE FROM alerts WHERE resolved_at IS NOT NULL AND resolved_at < ?', [gmdate('c', $now - 90 * 86400)]);
+        return $log;
+    }
+
+    /**
+     * Open new alerts, refresh firing ones and resolve the rest.
+     *
+     * @param array<string, array{0: string, 1: string, 2: string, 3: string}> $firing
+     * @return list<string>
+     */
+    private function reconcile(array $firing, int $now): array
+    {
+        $log = [];
+        $ts = gmdate('c', $now);
+        $open = [];
+        foreach ($this->db->fetchAll('SELECT * FROM alerts WHERE server_id = ? AND resolved_at IS NULL', [$this->server->id()]) as $a) {
+            $open[$a['rule'] . ($a['subject'] !== '' ? ':' . $a['subject'] : '')] = $a;
+        }
+        // Key alerts by rule and subject (the array keys above are only for de-duplication).
+        $byKey = [];
+        foreach ($firing as [$rule, $subject, $severity, $message]) {
+            $byKey[$rule . ($subject !== '' ? ':' . $subject : '')] = [$rule, $subject, $severity, $message];
+        }
+        $firing = $byKey;
+        foreach ($firing as $key => [$rule, $subject, $severity, $message]) {
+            if (isset($open[$key])) {
+                $this->db->run('UPDATE alerts SET last_seen = ?, message = ?, severity = ? WHERE id = ?', [$ts, $message, $severity, (int) $open[$key]['id']]);
+                continue;
+            }
+            $this->db->run('INSERT INTO alerts (server_id, rule, subject, severity, message, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)', [$this->server->id(), $rule, $subject, $severity, $message, $ts, $ts]);
+            $log[] = 'Alert: ' . $message;
+            $this->notify(($severity === 'critical' ? '🔴 ' : '🟠 ') . $message);
+        }
+        foreach ($open as $key => $a) {
+            if (!isset($firing[$key])) {
+                $this->db->run('UPDATE alerts SET resolved_at = ? WHERE id = ?', [$ts, (int) $a['id']]);
+                $log[] = 'Resolved: ' . $a['message'];
+                $this->notify('✅ Resolved: ' . $a['message']);
+            }
+        }
+        return $log;
+    }
+
+    private function notify(string $text): void
+    {
+        $url = $this->settings->string('alert_webhook_url');
+        if ($url === '') {
+            return;
+        }
+        $host = gethostname() ?: 'server';
+        $body = (string) json_encode(['text' => "[WhaCP {$host}] " . $text], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($this->sender !== null) {
+            ($this->sender)($url, $body);
+            return;
+        }
+        $ctx = stream_context_create(['http' => [
+            'method' => 'POST', 'header' => "Content-Type: application/json\r\nUser-Agent: WhaCP\r\n", 'content' => $body,
+            'timeout' => 5, 'ignore_errors' => true, 'follow_location' => 0,
+        ]]);
+        if (@file_get_contents($url, false, $ctx) === false) {
+            $this->log->warning('alert webhook failed', ['url' => parse_url($url, PHP_URL_HOST)]);
+        }
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function openAlerts(): array
+    {
+        return $this->db->fetchAll("SELECT * FROM alerts WHERE server_id = ? AND resolved_at IS NULL ORDER BY CASE severity WHEN 'critical' THEN 0 ELSE 1 END, first_seen", [$this->server->id()]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function recentAlerts(int $limit = 50): array
+    {
+        return $this->db->fetchAll('SELECT * FROM alerts WHERE server_id = ? AND resolved_at IS NOT NULL ORDER BY resolved_at DESC LIMIT ?', [$this->server->id(), $limit]);
+    }
+
+    /**
+     * Samples averaged into at most $buckets points for a chart.
+     *
+     * @return list<array{t: int, cpu: float, mem: float, disk: float, load1: float, rx: float, tx: float}>
+     */
+    public function series(int $seconds, int $buckets = 120, ?int $now = null): array
+    {
+        $now ??= time();
+        $from = $now - $seconds;
+        $size = max(1, intdiv($seconds, $buckets));
+        $rows = $this->db->fetchAll(
+            'SELECT (taken_at - :from) / :size AS b, MIN(taken_at) AS t, AVG(cpu) AS cpu, AVG(mem) AS mem, MAX(disk) AS disk, AVG(load1) AS load1, AVG(rx_bps) AS rx, AVG(tx_bps) AS tx
+             FROM metric_samples WHERE server_id = :server AND taken_at >= :from GROUP BY b ORDER BY b',
+            ['from' => $from, 'size' => $size, 'server' => $this->server->id()]
+        );
+        return array_map(static fn (array $r): array => [
+            't' => (int) $r['t'], 'cpu' => (float) $r['cpu'], 'mem' => (float) $r['mem'], 'disk' => (float) $r['disk'],
+            'load1' => (float) $r['load1'], 'rx' => (float) $r['rx'], 'tx' => (float) $r['tx'],
+        ], $rows);
+    }
+}

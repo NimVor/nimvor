@@ -22,8 +22,11 @@ use WhaCP\Http\Controllers\SitesController;
 use WhaCP\Http\Controllers\SslController;
 use WhaCP\Http\Controllers\JobsController;
 use WhaCP\Http\Controllers\LogsController;
+use WhaCP\Http\Controllers\MonitoringController;
 use WhaCP\Http\Controllers\PhpController;
 use WhaCP\Http\Controllers\RedisController;
+use WhaCP\Http\Controllers\SecurityController;
+use WhaCP\Http\Controllers\SystemController;
 use WhaCP\Http\Controllers\ServicesController;
 use WhaCP\Http\Controllers\UsersController;
 use WhaCP\Http\Controllers\WebsitesController;
@@ -95,6 +98,7 @@ return static function (Router $r): void {
     $r->post('/backups/storages/{storage}/delete', [BackupsController::class, 'deleteStorage'], ['name' => 'backups.storages.delete', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/schedules', [BackupsController::class, 'storeServerSchedule'], ['name' => 'backups.schedules.store', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/schedules/{schedule}/delete', [BackupsController::class, 'deleteServerSchedule'], ['name' => 'backups.schedules.delete', 'permission' => P::BACKUPS_MANAGE]);
+    $r->get('/monitoring', [MonitoringController::class, 'index'], ['name' => 'monitoring', 'permission' => P::MONITORING_VIEW]);
     $r->get('/logs', [LogsController::class, 'index'], ['name' => 'logs', 'permission' => P::LOGS_VIEW]);
     $r->get('/logs/tail', [LogsController::class, 'tail'], ['name' => 'logs.tail', 'permission' => P::LOGS_VIEW]);
     $r->get('/logs/download', [LogsController::class, 'download'], ['name' => 'logs.download', 'permission' => P::LOGS_VIEW]);
@@ -131,6 +135,28 @@ return static function (Router $r): void {
     $r->get('/server', [ServerController::class, 'index'], ['name' => 'server', 'permission' => P::SERVER_VIEW]);
     $r->get('/services', [ServerController::class, 'services'], ['name' => 'services', 'permission' => P::SERVICES_VIEW]);
     $r->post('/services/control', [ServicesController::class, 'control'], ['name' => 'services.control', 'permission' => P::SERVICES_MANAGE]);
+    $r->get('/packages', [SystemController::class, 'packages'], ['name' => 'packages', 'permission' => P::PACKAGES_MANAGE]);
+    $r->post('/packages/install', [SystemController::class, 'install'], ['name' => 'packages.install', 'permission' => P::PACKAGES_MANAGE]);
+    $r->post('/packages/refresh', [SystemController::class, 'refresh'], ['name' => 'packages.refresh', 'permission' => P::PACKAGES_MANAGE]);
+    $r->post('/packages/upgrade', [SystemController::class, 'upgrade'], ['name' => 'packages.upgrade', 'permission' => P::PACKAGES_MANAGE]);
+    $r->post('/server/hostname', [SystemController::class, 'hostname'], ['name' => 'server.hostname', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/server/timezone', [SystemController::class, 'timezone'], ['name' => 'server.timezone', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/server/reboot', [SystemController::class, 'reboot'], ['name' => 'server.reboot', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/server/reboot/cancel', [SystemController::class, 'cancelReboot'], ['name' => 'server.reboot_cancel', 'permission' => P::SERVER_MANAGE]);
+
+    // Security
+    $r->get('/security', [SecurityController::class, 'index'], ['name' => 'security', 'permission' => P::SECURITY_VIEW]);
+    $r->get('/security/firewall', [SecurityController::class, 'firewall'], ['name' => 'security.firewall', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/firewall/rules', [SecurityController::class, 'addRule'], ['name' => 'security.firewall.add', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/firewall/rules/delete', [SecurityController::class, 'deleteRule'], ['name' => 'security.firewall.delete', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/firewall/toggle', [SecurityController::class, 'toggleFirewall'], ['name' => 'security.firewall.toggle', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/ssh', [SecurityController::class, 'ssh'], ['name' => 'security.ssh', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/ssh', [SecurityController::class, 'configureSsh'], ['name' => 'security.ssh.configure', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/fail2ban', [SecurityController::class, 'fail2ban'], ['name' => 'security.fail2ban', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/fail2ban', [SecurityController::class, 'configureFail2ban'], ['name' => 'security.fail2ban.configure', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/fail2ban/unban', [SecurityController::class, 'unban'], ['name' => 'security.fail2ban.unban', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/confirm', [SecurityController::class, 'confirm'], ['name' => 'security.confirm', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/undo', [SecurityController::class, 'undo'], ['name' => 'security.undo', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/system-users', [ServerController::class, 'systemUsers'], ['name' => 'system_users', 'permission' => P::SYSTEM_USERS_VIEW]);
 
     // Administration

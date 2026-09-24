@@ -76,4 +76,55 @@ $mem = $metrics['memory'] ?? [];
         </div>
     </div>
 </div>
-<p class="small text-body-secondary mt-3"><i class="bi bi-lock me-1"></i>Server actions (reboot, updates, hostname changes) are not available in the read-only release.</p>
+<?php if ($settings !== null): ?>
+<?php $canManage = $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE); ?>
+<div class="card mt-3">
+    <div class="card-header"><i class="bi bi-gear me-1"></i>Server settings</div>
+    <div class="card-body">
+        <?php if (!empty($settings['scheduled_reboot'])): ?>
+            <div class="alert alert-warning d-flex align-items-center gap-2"><i class="bi bi-arrow-clockwise"></i>
+                <div class="me-auto">A restart is scheduled for <?= e(substr((string) $settings['scheduled_reboot'], 0, 16)) ?> UTC.</div>
+                <?php if ($canManage): ?><form method="post" action="<?= e($this->url('server.reboot_cancel')) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary">Cancel restart</button></form><?php endif; ?>
+            </div>
+        <?php elseif (!empty($settings['reboot_required'])): ?>
+            <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>A restart is required to finish installing updates<?= !empty($settings['reboot_required_by']) ? ' (' . e(implode(', ', (array) $settings['reboot_required_by'])) . ')' : '' ?>.</div>
+        <?php endif; ?>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <form method="post" action="<?= e($this->url('server.hostname')) ?>">
+                    <?= $this->csrfField() ?>
+                    <label class="form-label" for="s-host">Host name</label>
+                    <div class="input-group input-group-sm"><input class="form-control" id="s-host" name="hostname" value="<?= e($settings['hostname'] ?? '') ?>"<?= $canManage ? '' : ' disabled' ?>><?php if ($canManage): ?><button class="btn btn-outline-primary">Save</button><?php endif; ?></div>
+                </form>
+            </div>
+            <div class="col-md-4">
+                <form method="post" action="<?= e($this->url('server.timezone')) ?>">
+                    <?= $this->csrfField() ?>
+                    <label class="form-label" for="s-tz">Time zone</label>
+                    <div class="input-group input-group-sm">
+                        <select class="form-select" id="s-tz" name="timezone"<?= $canManage ? '' : ' disabled' ?>>
+                            <?php foreach ($timezones ?: [$settings['timezone'] ?? 'UTC'] as $tz): ?><option<?= $tz === ($settings['timezone'] ?? '') ? ' selected' : '' ?>><?= e($tz) ?></option><?php endforeach; ?>
+                        </select>
+                        <?php if ($canManage): ?><button class="btn btn-outline-primary">Save</button><?php endif; ?>
+                    </div>
+                    <div class="form-text">Clock sync: <?= !empty($settings['ntp_synchronized']) ? 'synchronised' : (!empty($settings['ntp_enabled']) ? 'enabled, not yet synchronised' : 'off') ?></div>
+                </form>
+            </div>
+            <?php if ($canManage && empty($settings['scheduled_reboot'])): ?>
+                <div class="col-md-4">
+                    <form method="post" action="<?= e($this->url('server.reboot')) ?>">
+                        <?= $this->csrfField() ?>
+                        <label class="form-label" for="s-reboot">Restart the server</label>
+                        <div class="input-group input-group-sm">
+                            <select class="form-select" name="minutes" aria-label="When"><option value="1">in 1 minute</option><option value="5">in 5 minutes</option><option value="30">in 30 minutes</option><option value="60">in 1 hour</option></select>
+                            <input class="form-control" id="s-reboot" name="confirm" placeholder="type <?= e($settings['hostname'] ?? '') ?>" autocomplete="off" required>
+                            <button class="btn btn-outline-danger">Restart</button>
+                        </div>
+                        <div class="form-text">Logged-in users are warned; you can cancel until then.</div>
+                    </form>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+<?php endif; ?>

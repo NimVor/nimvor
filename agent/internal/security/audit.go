@@ -36,7 +36,7 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 		add(Check{ID: "firewall", Title: "Firewall", Status: "pass", Severity: "high", Detail: fmt.Sprintf("UFW is active with %d rules (default incoming: %s).", len(fw.Rules), fw.Incoming)})
 	}
 
-	if ssh, err := SSHEffective(ctx, env); err != nil {
+	if ssh, err := SSHEffective(ctx, env); err != nil || ssh["permitrootlogin"] == "" || ssh["passwordauthentication"] == "" {
 		add(Check{ID: "ssh", Title: "SSH server", Status: "info", Severity: "low", Detail: "The SSH configuration could not be read."})
 	} else {
 		switch ssh["permitrootlogin"] {
@@ -58,6 +58,8 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 		add(Check{ID: "fail2ban", Title: "Brute-force protection", Status: "warn", Severity: "medium", Detail: "fail2ban is not installed.", Remedy: "Install fail2ban and enable the sshd jail."})
 	case !f2b.Running:
 		add(Check{ID: "fail2ban", Title: "Brute-force protection", Status: "warn", Severity: "medium", Detail: "fail2ban is installed but not running.", Remedy: "Start fail2ban under Services."})
+	case len(f2b.Jails) == 0:
+		add(Check{ID: "fail2ban", Title: "Brute-force protection", Status: "warn", Severity: "medium", Detail: "fail2ban is running but no jail is active.", Remedy: "Enable the sshd jail under Security → Fail2ban."})
 	default:
 		names := []string{}
 		for _, j := range f2b.Jails {
