@@ -20,7 +20,7 @@ $groups = [
         ['SSL', 'shield-lock', 'ssl', P::SSL_VIEW, '/ssl'],
     ],
     'Operations' => [
-        ['Backups', 'archive', null, null, ''],
+        ['Backups', 'archive', 'backups', P::BACKUPS_VIEW, '/backups'],
         ['Monitoring', 'activity', null, null, ''],
         ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs'],
     ],

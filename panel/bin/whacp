@@ -13,6 +13,7 @@ declare(strict_types=1);
  *   bin/whacp users:count                 Print the number of panel users
  *   bin/whacp agent:check                 Check connectivity with the agent
  *   bin/whacp discovery:run               Run read-only discovery and store a snapshot
+ *   bin/whacp schedule:run                Start due scheduled backups and apply retention
  */
 
 use WhaCP\Agent\AgentClient;
@@ -150,6 +151,19 @@ switch ($command) {
         }
         break;
 
+    case 'schedule:run':
+        // Run by whacp-scheduler.timer; one pass at a time.
+        $lock = fopen(sys_get_temp_dir() . '/whacp-schedule.lock', 'c');
+        if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
+            out('Another scheduler pass is running.');
+            break;
+        }
+        foreach ($c->get(\WhaCP\Services\BackupScheduler::class)->run() as $line) {
+            out($line);
+        }
+        flock($lock, LOCK_UN);
+        break;
+
     default:
-        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  agent:check\n  discovery:run");
+        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  agent:check\n  discovery:run\n  schedule:run");
 }

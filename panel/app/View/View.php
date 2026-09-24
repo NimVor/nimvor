@@ -128,7 +128,7 @@ final class View
     public function statusBadge(string $status, ?string $label = null): string
     {
         $class = match ($status) {
-            'active', 'running', 'valid', 'enabled', 'success', 'ok', 'yes' => 'text-bg-success',
+            'active', 'running', 'valid', 'enabled', 'success', 'ok', 'yes', 'succeeded', 'completed' => 'text-bg-success',
             'expiring', 'warning', 'reloading', 'activating', 'denied' => 'text-bg-warning',
             'failed', 'expired', 'error', 'failure', 'inactive', 'dead' => 'text-bg-danger',
             default => 'text-bg-secondary',

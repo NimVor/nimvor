@@ -232,6 +232,8 @@ ok "$CONF_DIR"
 # --------------------------------------------------------- 7. services ----
 log "Installing systemd services"
 run install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent.service" /etc/systemd/system/whacp-agent.service
+run install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.service" /etc/systemd/system/whacp-scheduler.service
+run install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.timer" /etc/systemd/system/whacp-scheduler.timer
 if [[ $DRY_RUN -eq 1 ]]; then
     echo "    [dry-run] install whacp-panel.service (port $PORT)"
 else
@@ -259,6 +261,7 @@ run runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/
 
 run systemctl enable --now whacp-agent.service
 run systemctl enable --now whacp-panel.service
+run systemctl enable --now whacp-scheduler.timer
 if [[ $REINSTALL -eq 1 || $ENABLE_WRITES -eq 1 ]]; then
     run systemctl restart whacp-agent.service whacp-panel.service
 fi
