@@ -29,6 +29,18 @@ func setup(t *testing.T, added string) (*testhost.Host, *Service) {
 	return h, NewService(h.Env)
 }
 
+// waitRollback waits (through the guard's lock) until no change is pending.
+func waitRollback(t *testing.T, s *Service) {
+	t.Helper()
+	for i := 0; i < 100; i++ {
+		if s.guard.Current() == nil {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("pending change was not rolled back")
+}
+
 func TestParseAddedAndCanonical(t *testing.T) {
 	rules := ParseAdded("Added user rules:\nufw allow 22/tcp\nufw allow from 10.0.0.0/8 to any port 3306 proto tcp comment 'db access'\nufw limit OpenSSH\n", 22)
 	if len(rules) != 3 || !rules[0].SSH || rules[1].SSH || !rules[2].SSH {
@@ -86,7 +98,7 @@ func TestAddRuleRollsBackUnlessConfirmed(t *testing.T) {
 	if _, err := s.AddRule(ctx, RuleInput{Action: "allow", Port: "9090"}); err == nil {
 		t.Error("a second change was accepted while one is pending")
 	}
-	time.Sleep(300 * time.Millisecond)
+	waitRollback(t, s)
 	if !h.Runner.Called("ufw --force delete allow proto tcp from any to any port 8080") {
 		t.Fatalf("not rolled back: %v", h.Runner.Calls)
 	}
@@ -128,8 +140,10 @@ func TestPendingRollbackSurvivesRestart(t *testing.T) {
 	b, _ := os.ReadFile(f)
 	b = []byte(strings.Replace(string(b), `"deadline":"2026`, `"deadline":"2000`, 1))
 	os.WriteFile(f, b, 0o600)
-	NewGuard(h.Env)
-	time.Sleep(100 * time.Millisecond)
+	g := NewGuard(h.Env)
+	for i := 0; i < 100 && g.Current() != nil; i++ {
+		time.Sleep(20 * time.Millisecond)
+	}
 	if !h.Runner.Called("ufw disable") {
 		t.Fatalf("expired change not rolled back at startup: %v", h.Runner.Calls)
 	}
@@ -196,7 +210,7 @@ func TestConfigureSSH(t *testing.T) {
 	if p.Kind != "ssh" {
 		t.Fatal(p)
 	}
-	time.Sleep(300 * time.Millisecond)
+	waitRollback(t, s)
 	if h.Exists("etc/ssh/sshd_config.d/00-whacp.conf") {
 		t.Error("unconfirmed SSH change not rolled back")
 	}
