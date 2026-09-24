@@ -170,7 +170,8 @@ final class Request
     public function wantsJson(): bool
     {
         return str_contains($this->header('accept'), 'application/json')
-            || $this->header('x-requested-with') === 'XMLHttpRequest';
+            || $this->header('x-requested-with') === 'XMLHttpRequest'
+            || str_starts_with($this->path, '/api/');
     }
 
     public function isSafeMethod(): bool

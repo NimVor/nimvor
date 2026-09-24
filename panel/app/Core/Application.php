@@ -162,6 +162,9 @@ final class Application
 
     public function handle(Request $request): Response
     {
+        if (str_starts_with($request->path(), '/api/')) {
+            return $this->handleApi($request);
+        }
         try {
             /** @var SessionInterface $session */
             $session = $this->container->get(SessionInterface::class);
@@ -195,6 +198,24 @@ final class Application
                 $this->container->get(Authenticate::class),
             ];
             return $this->run($pipeline, $request);
+        } catch (Throwable $e) {
+            return (new SecurityHeaders())->process($request, fn () => $this->errorHandler()->handle($e, $request));
+        }
+    }
+
+    /**
+     * REST API: no session, no cookies, no CSRF; bearer tokens only.
+     */
+    private function handleApi(Request $request): Response
+    {
+        try {
+            /** @var AuditLogger $audit */
+            $audit = $this->container->get(AuditLogger::class);
+            $audit->setRequest($request, (array) $this->config->get('security.trusted_proxies', []));
+            return $this->run([
+                $this->container->get(SecurityHeaders::class),
+                $this->container->get(\WhaCP\Http\Middleware\ApiAuthenticate::class),
+            ], $request);
         } catch (Throwable $e) {
             return (new SecurityHeaders())->process($request, fn () => $this->errorHandler()->handle($e, $request));
         }

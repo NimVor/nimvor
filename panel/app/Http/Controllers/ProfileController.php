@@ -21,6 +21,7 @@ final class ProfileController extends Controller
         private readonly UserService $users,
         private readonly AuthService $auth,
         private readonly Authorizer $authorizer,
+        private readonly \WhaCP\Services\ApiTokenService $tokens,
     ) {
         parent::__construct($view, $session);
     }
@@ -31,6 +32,8 @@ final class ProfileController extends Controller
         return $this->render('profile/show', [
             'profile' => $user,
             'permissions' => $this->authorizer->permissions((int) $user['role_id']),
+            'tokens' => $this->tokens->forUser((int) $user['id']),
+            'newToken' => $this->session->pullFlash('api_token'),
         ]);
     }
 

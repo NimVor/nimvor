@@ -32,6 +32,8 @@ use WhaCP\Http\Controllers\SystemController;
 use WhaCP\Http\Controllers\ServicesController;
 use WhaCP\Http\Controllers\UsersController;
 use WhaCP\Http\Controllers\WebsitesController;
+use WhaCP\Http\Controllers\Api\ApiController;
+use WhaCP\Http\Controllers\ApiTokensController;
 use WhaCP\Http\Router;
 use WhaCP\Security\Permissions as P;
 
@@ -185,7 +187,27 @@ return static function (Router $r): void {
     $r->post('/settings', [SettingsController::class, 'update'], ['name' => 'settings.update', 'permission' => P::SETTINGS_MANAGE]);
     $r->get('/audit', [AuditLogController::class, 'index'], ['name' => 'audit', 'permission' => P::AUDIT_VIEW]);
 
+    // REST API v1 (bearer tokens; see resources/api/openapi.yaml)
+    $r->get('/api/v1/openapi.yaml', [ApiController::class, 'openapi'], ['name' => 'api.openapi', 'auth' => false]);
+    $r->get('/api/v1/me', [ApiController::class, 'me'], ['name' => 'api.me']);
+    $r->get('/api/v1/server', [ApiController::class, 'serverInfo'], ['name' => 'api.server', 'permission' => P::SERVER_VIEW]);
+    $r->get('/api/v1/websites', [ApiController::class, 'listWebsites'], ['name' => 'api.websites', 'permission' => P::WEBSITES_VIEW]);
+    $r->post('/api/v1/websites', [ApiController::class, 'createWebsite'], ['name' => 'api.websites.create', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/api/v1/websites/{id}', [ApiController::class, 'showWebsite'], ['name' => 'api.websites.show', 'permission' => P::WEBSITES_VIEW]);
+    $r->add('DELETE', '/api/v1/websites/{id}', [ApiController::class, 'deleteWebsite'], ['name' => 'api.websites.delete', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/api/v1/websites/{id}/enable', [ApiController::class, 'enableWebsite'], ['name' => 'api.websites.enable', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/api/v1/websites/{id}/disable', [ApiController::class, 'disableWebsite'], ['name' => 'api.websites.disable', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/api/v1/websites/{id}/ssl', [ApiController::class, 'issueSsl'], ['name' => 'api.websites.ssl', 'permission' => P::SSL_MANAGE]);
+    $r->get('/api/v1/websites/{id}/backups', [ApiController::class, 'listBackups'], ['name' => 'api.backups', 'permission' => P::BACKUPS_VIEW]);
+    $r->post('/api/v1/websites/{id}/backups', [ApiController::class, 'createBackup'], ['name' => 'api.backups.create', 'permission' => P::BACKUPS_MANAGE]);
+    $r->post('/api/v1/websites/{id}/deploy', [ApiController::class, 'deployWebsite'], ['name' => 'api.deploy', 'permission' => P::DEPLOY_MANAGE]);
+    $r->get('/api/v1/databases', [ApiController::class, 'listDatabases'], ['name' => 'api.databases', 'permission' => P::DATABASES_VIEW]);
+    $r->post('/api/v1/databases', [ApiController::class, 'createDatabase'], ['name' => 'api.databases.create', 'permission' => P::DATABASES_MANAGE]);
+    $r->get('/api/v1/jobs/{id}', [ApiController::class, 'job'], ['name' => 'api.jobs']);
+
     // Own account (any signed-in user)
     $r->get('/profile', [ProfileController::class, 'show'], ['name' => 'profile']);
     $r->post('/profile/password', [ProfileController::class, 'password'], ['name' => 'profile.password']);
+    $r->post('/profile/tokens', [ApiTokensController::class, 'store'], ['name' => 'tokens.store', 'permission' => P::API_TOKENS]);
+    $r->post('/profile/tokens/{id}/revoke', [ApiTokensController::class, 'revoke'], ['name' => 'tokens.revoke', 'permission' => P::API_TOKENS]);
 };
