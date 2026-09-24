@@ -77,6 +77,47 @@ for secret in super-secret-redis-password S3cretPass abc123def must-not-leak; do
 done
 pass "no secrets rendered"
 
+# Remote server: a second agent listening on TLS, reached through the
+# panel's pinned transport (no socket), and a wrong pin must be refused.
+RPORT="${SMOKE_REMOTE_PORT:-18443}"
+(umask 077; openssl rand -hex 32 > "$WORK/token2")
+cat > "$WORK/agent2.json" <<JSON
+{"socket_path":"$WORK/agent2.sock","socket_group":"","token_file":"$WORK/token2","root_dir":"$FIXTURE","metrics_interval":"1s",
+ "listen_tcp":"127.0.0.1:$RPORT","allowed_clients":["127.0.0.1"],"tls_cert":"$WORK/agent2.crt","tls_key":"$WORK/agent2.key"}
+JSON
+PIN=$("$WORK/whacp-agent" -config "$WORK/agent2.json" -pin)
+[[ $PIN == sha256//* ]] || fail "no pin printed: $PIN"
+"$WORK/whacp-agent" -config "$WORK/agent2.json" > "$WORK/agent2.log" 2>&1 & PIDS+=($!)
+for _ in $(seq 1 50); do curl -sk -o /dev/null "https://127.0.0.1:$RPORT/v1/health" && break; sleep 0.1; done
+cat > "$WORK/remote.php" <<'PHP'
+<?php
+require $argv[1] . '/panel/vendor/autoload.php';
+$app = WhaCP\Core\Application::fromEnvironment();
+$c = $app->container;
+$c->get(WhaCP\Services\AuditLogger::class)->setActor(null, 'smoke');
+$svc = $c->get(WhaCP\Services\ServerService::class);
+try {
+    $svc->add(['name' => 'bad-pin', 'url' => $argv[2], 'pin' => 'sha256//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'token' => $argv[4]]);
+    fwrite(STDERR, "wrong pin accepted\n");
+    exit(1);
+} catch (WhaCP\Agent\AgentException $e) {
+    if ($e->errorCode() !== 'agent_pin_mismatch') { fwrite(STDERR, 'unexpected: ' . $e->errorCode() . "\n"); exit(1); }
+}
+$id = $svc->add(['name' => 'remote', 'url' => $argv[2], 'pin' => $argv[3], 'token' => $argv[4]]);
+$ctx = $c->get(WhaCP\Services\ServerContext::class);
+$ctx->force($id);
+$info = $c->get(WhaCP\Agent\AgentClient::class)->call('system.info');
+$ctx->force(1);
+echo $id, ' ', $info['agent_version'] ?? '?', "\n";
+PHP
+rejected_before=$(grep -c "rejected request with invalid token" "$WORK/agent2.log" || true)
+out=$(php "$WORK/remote.php" "$ROOT" "https://127.0.0.1:$RPORT" "$PIN" "$(cat "$WORK/token2")") || fail "remote server: $out"
+[[ $out == "2 "* ]] || fail "remote server: $out"
+pass "remote agent over pinned TLS (wrong pin refused before sending the token)"
+rejected_after=$(grep -c "rejected request with invalid token" "$WORK/agent2.log" || true)
+[[ $rejected_before == "$rejected_after" ]] || fail "a request reached the agent during the wrong-pin attempt"
+pass "no token sent to an unpinned peer"
+
 # The fixture must be byte-for-byte unchanged (discovery is read-only).
 [[ $(fixture_sum) == "$BEFORE" ]] || fail "fixture tree was modified"
 pass "fixture server unchanged (contents, modes and mtimes)"

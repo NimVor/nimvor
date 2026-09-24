@@ -42,6 +42,7 @@ func run() int {
 	cfgPath := flag.String("config", config.DefaultPath, "path to the agent configuration file")
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	checkConfig := flag.Bool("check-config", false, "validate the configuration and token, then exit")
+	showPin := flag.Bool("pin", false, "print the TLS public-key pin for remote panels (creates the certificate if needed), then exit")
 	flag.Parse()
 
 	if *showVersion {
@@ -63,6 +64,16 @@ func run() int {
 	}
 	if *checkConfig {
 		fmt.Println("configuration OK")
+		return 0
+	}
+	if *showPin {
+		cert, err := server.LoadOrCreateCert(cfg.TLSCert, cfg.TLSKey)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "certificate error:", err)
+			return 1
+		}
+		pin, _ := server.Pin(cert)
+		fmt.Println(pin)
 		return 0
 	}
 
@@ -145,9 +156,40 @@ func run() int {
 		ErrorLog:       slog.NewLogLogger(log.Handler(), slog.LevelWarn),
 	}
 
-	errCh := make(chan error, 1)
+	errCh := make(chan error, 2)
 	go func() { errCh <- httpSrv.Serve(ln) }()
 	log.Info("listening", "socket", cfg.SocketPath)
+
+	// Optional remote access for a WhaCP panel on another server: TLS 1.3
+	// with a pinned self-signed certificate, an address allowlist and a
+	// lockout after repeated bad tokens, in addition to the bearer token.
+	var tcpSrv *http.Server
+	if cfg.ListenTCP != "" {
+		cert, err := server.LoadOrCreateCert(cfg.TLSCert, cfg.TLSKey)
+		if err != nil {
+			log.Error("cannot load TLS certificate", "error", err)
+			return 1
+		}
+		nets, _ := server.ParseCIDRs(cfg.AllowedClients)
+		policy := &server.ClientPolicy{Allowed: nets, MaxFailures: 10, Window: 10 * time.Minute}
+		tln, err := server.ListenTLS(cfg.ListenTCP, cert)
+		if err != nil {
+			log.Error("cannot listen", "address", cfg.ListenTCP, "error", err)
+			return 1
+		}
+		tcpSrv = &http.Server{
+			Handler:           policy.Guard(srv.Handler()),
+			ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      cfg.ActionTimeout.Duration + 10*time.Minute,
+			IdleTimeout:       60 * time.Second,
+			MaxHeaderBytes:    64 << 10,
+			ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),
+		}
+		go func() { errCh <- tcpSrv.Serve(tln) }()
+		pin, _ := server.Pin(cert)
+		log.Info("listening for remote panels", "address", cfg.ListenTCP, "pin", pin, "allowed_clients", cfg.AllowedClients)
+	}
 
 	select {
 	case <-ctx.Done():
@@ -160,6 +202,9 @@ func run() int {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = httpSrv.Shutdown(shutdownCtx)
+	if tcpSrv != nil {
+		_ = tcpSrv.Shutdown(shutdownCtx)
+	}
 	_ = os.Remove(cfg.SocketPath)
 	log.Info("stopped")
 	return 0

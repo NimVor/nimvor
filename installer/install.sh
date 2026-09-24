@@ -22,9 +22,15 @@
 #   sudo ./installer/install.sh [--install-deps] [--admin-user=NAME] [--admin-email=EMAIL]
 #                               [--port=8090] [--dry-run] [--yes] [--reinstall] [--force-unsupported]
 #                               [--enable-writes]
+#                               [--agent-only --remote-access=0.0.0.0:8443 --allow-from=PANEL_IP[,...]]
 #
 # --enable-writes switches the agent from read-only discovery to write mode
 # (manage websites, databases, certificates, …). Without it WhaCP only observes.
+#
+# --agent-only installs just the agent on a server that another WhaCP panel
+# will manage; --remote-access exposes it over TLS (pinned self-signed
+# certificate) to the addresses given with --allow-from. The installer
+# prints the address, pin and token to enter under "All servers" in the panel.
 
 set -Eeuo pipefail
 umask 027
@@ -44,6 +50,9 @@ ASSUME_YES=0
 REINSTALL=0
 FORCE_UNSUPPORTED=0
 ENABLE_WRITES=0
+AGENT_ONLY=0
+REMOTE_ACCESS=""
+ALLOW_FROM=""
 SUPPORTED_UBUNTU=("22.04" "24.04" "26.04")
 
 log()  { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
@@ -75,13 +84,21 @@ for arg in "$@"; do
         --admin-user=*) ADMIN_USER="${arg#*=}" ;;
         --admin-email=*) ADMIN_EMAIL="${arg#*=}" ;;
         --port=*) PORT="${arg#*=}" ;;
-        -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
+        --agent-only) AGENT_ONLY=1 ;;
+        --remote-access=*) REMOTE_ACCESS="${arg#*=}" ;;
+        --allow-from=*) ALLOW_FROM="${arg#*=}" ;;
+        -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
         *) die "unknown option: $arg" ;;
     esac
 done
 
 [[ $PORT =~ ^[0-9]+$ ]] && (( PORT >= 1024 && PORT <= 65535 )) || die "--port must be between 1024 and 65535"
 [[ -z $ADMIN_USER || $ADMIN_USER =~ ^[a-z][a-z0-9._-]{2,31}$ ]] || die "--admin-user is not a valid username"
+if [[ -n $REMOTE_ACCESS ]]; then
+    [[ $REMOTE_ACCESS =~ ^([0-9.]+|\[[0-9a-fA-F:]+\]):[0-9]{1,5}$ ]] || die "--remote-access must be ADDRESS:PORT, e.g. 0.0.0.0:8443"
+    [[ -n $ALLOW_FROM ]] || die "--remote-access requires --allow-from=<panel server IP>"
+    [[ $ALLOW_FROM =~ ^[0-9a-fA-F:./,]+$ ]] || die "--allow-from takes IP addresses or networks separated by commas"
+fi
 
 # ---------------------------------------------------------------- 1. OS ----
 log "Detecting operating system"
@@ -106,7 +123,9 @@ command -v systemctl >/dev/null || die "systemd is required"
 log "Checking requirements"
 missing_pkgs=()
 php_ok=0
-if command -v php >/dev/null; then
+if [[ $AGENT_ONLY -eq 1 ]]; then
+    php_ok=1 # the panel is not installed on this server
+elif command -v php >/dev/null; then
     if php -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);'; then
         php_ok=1
         ok "PHP $(php -r 'echo PHP_VERSION;')"
@@ -145,7 +164,7 @@ if [[ -e $PREFIX || -e $CONF_DIR ]]; then
         die "WhaCP is already installed in $PREFIX. Upgrades are not supported yet; use --reinstall to replace the program files."
     fi
 fi
-if command -v ss >/dev/null && ss -ltn "sport = :$PORT" | grep -q LISTEN; then
+if [[ $AGENT_ONLY -eq 0 ]] && command -v ss >/dev/null && ss -ltn "sport = :$PORT" | grep -q LISTEN; then
     if ! systemctl is-active --quiet whacp-panel 2>/dev/null; then
         die "port $PORT is already in use; choose another with --port="
     fi
@@ -167,7 +186,7 @@ else
 fi
 ok "$AGENT_SRC"
 
-[[ -f $SRC_DIR/panel/vendor/autoload.php ]] || {
+[[ $AGENT_ONLY -eq 1 || -f $SRC_DIR/panel/vendor/autoload.php ]] || {
     command -v composer >/dev/null || die "panel/vendor is missing and composer is not installed (run 'composer install --no-dev' in panel/)"
     log "Installing panel PHP dependencies"
     (cd "$SRC_DIR/panel" && run composer install --no-dev --no-interaction --optimize-autoloader -q)
@@ -186,16 +205,18 @@ run install -d -m 0750 -o whacp -g whacp "$DATA_DIR" "$DATA_DIR/sessions" "$LOG_
 
 log "Installing files"
 run install -m 0755 -o root -g root "$AGENT_SRC" "$BIN"
-run rm -rf "$PREFIX/panel.new"
-run mkdir -p "$PREFIX/panel.new"
-run cp -a "$SRC_DIR/panel/app" "$SRC_DIR/panel/bin" "$SRC_DIR/panel/config" "$SRC_DIR/panel/database" \
-    "$SRC_DIR/panel/public" "$SRC_DIR/panel/resources" "$SRC_DIR/panel/routes" "$SRC_DIR/panel/vendor" \
-    "$SRC_DIR/panel/composer.json" "$PREFIX/panel.new/"
-run chown -R root:whacp "$PREFIX/panel.new"
-run chmod -R u=rwX,g=rX,o= "$PREFIX/panel.new"
-run chmod 0750 "$PREFIX/panel.new/bin/whacp"
-if [[ -d $PREFIX/panel ]]; then run mv "$PREFIX/panel" "$PREFIX/panel.old.$(date +%s)"; fi
-run mv "$PREFIX/panel.new" "$PREFIX/panel"
+if [[ $AGENT_ONLY -eq 0 ]]; then
+    run rm -rf "$PREFIX/panel.new"
+    run mkdir -p "$PREFIX/panel.new"
+    run cp -a "$SRC_DIR/panel/app" "$SRC_DIR/panel/bin" "$SRC_DIR/panel/config" "$SRC_DIR/panel/database" \
+        "$SRC_DIR/panel/public" "$SRC_DIR/panel/resources" "$SRC_DIR/panel/routes" "$SRC_DIR/panel/vendor" \
+        "$SRC_DIR/panel/composer.json" "$PREFIX/panel.new/"
+    run chown -R root:whacp "$PREFIX/panel.new"
+    run chmod -R u=rwX,g=rX,o= "$PREFIX/panel.new"
+    run chmod 0750 "$PREFIX/panel.new/bin/whacp"
+    if [[ -d $PREFIX/panel ]]; then run mv "$PREFIX/panel" "$PREFIX/panel.old.$(date +%s)"; fi
+    run mv "$PREFIX/panel.new" "$PREFIX/panel"
+fi
 ok "panel in $PREFIX/panel, agent in $BIN"
 
 # ------------------------------------------------------ 6. configuration ----
@@ -224,8 +245,21 @@ fi
 if [[ ! -f $CONF_DIR/agent.json ]]; then
     run install -m 0640 -o root -g whacp "$SRC_DIR/installer/config/agent.json" "$CONF_DIR/agent.json"
 fi
-if [[ ! -f $CONF_DIR/panel.php ]]; then
+if [[ $AGENT_ONLY -eq 0 && ! -f $CONF_DIR/panel.php ]]; then
     run install -m 0640 -o root -g whacp "$SRC_DIR/installer/config/panel.php" "$CONF_DIR/panel.php"
+fi
+if [[ -n $REMOTE_ACCESS ]]; then
+    clients=$(printf '%s' "$ALLOW_FROM" | awk -F, '{for (i = 1; i <= NF; i++) printf "%s\"%s\"", (i > 1 ? ", " : ""), $i}')
+    if grep -q '"listen_tcp": ""' "$CONF_DIR/agent.json" 2>/dev/null; then
+        run sed -i "s|\"listen_tcp\": \"\"|\"listen_tcp\": \"${REMOTE_ACCESS}\"|; s|\"allowed_clients\": \\[\\]|\"allowed_clients\": [${clients}]|" "$CONF_DIR/agent.json"
+    else
+        warn "$CONF_DIR/agent.json already sets listen_tcp or predates it; set listen_tcp and allowed_clients there by hand"
+    fi
+    run install -d -m 0755 /etc/systemd/system/whacp-agent.service.d
+    run install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent-remote.conf" /etc/systemd/system/whacp-agent.service.d/20-remote.conf
+    if [[ $DRY_RUN -eq 0 ]]; then
+        AGENT_PIN=$("$BIN" -config "$CONF_DIR/agent.json" -pin)
+    fi
 fi
 ok "$CONF_DIR"
 
@@ -234,7 +268,9 @@ log "Installing systemd services"
 run install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent.service" /etc/systemd/system/whacp-agent.service
 run install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.service" /etc/systemd/system/whacp-scheduler.service
 run install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.timer" /etc/systemd/system/whacp-scheduler.timer
-if [[ $DRY_RUN -eq 1 ]]; then
+if [[ $AGENT_ONLY -eq 1 ]]; then
+    :
+elif [[ $DRY_RUN -eq 1 ]]; then
     echo "    [dry-run] install whacp-panel.service (port $PORT)"
 else
     sed "s/127.0.0.1:8090/127.0.0.1:${PORT}/" "$SRC_DIR/installer/systemd/whacp-panel.service" > /etc/systemd/system/whacp-panel.service
@@ -256,18 +292,20 @@ NOTE
 fi
 run systemctl daemon-reload
 
-log "Initialising the panel database"
-run runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" migrate
-
 run systemctl enable --now whacp-agent.service
-run systemctl enable --now whacp-panel.service
-run systemctl enable --now whacp-scheduler.timer
-if [[ $REINSTALL -eq 1 || $ENABLE_WRITES -eq 1 ]]; then
-    run systemctl restart whacp-agent.service whacp-panel.service
+if [[ $AGENT_ONLY -eq 0 ]]; then
+    log "Initialising the panel database"
+    run runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" migrate
+    run systemctl enable --now whacp-panel.service
+    run systemctl enable --now whacp-scheduler.timer
+fi
+if [[ $REINSTALL -eq 1 || $ENABLE_WRITES -eq 1 || -n $REMOTE_ACCESS ]]; then
+    run systemctl restart whacp-agent.service
+    [[ $AGENT_ONLY -eq 1 ]] || run systemctl restart whacp-panel.service
 fi
 
 # ---------------------------------------------------- 8. administrator ----
-if [[ $DRY_RUN -eq 0 ]]; then
+if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
     users=$(runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" users:count 2>/dev/null || echo 0)
     if [[ $users == 0 ]]; then
         log "Creating the first administrator"
@@ -286,10 +324,32 @@ log "Running health checks"
 if [[ $DRY_RUN -eq 0 ]]; then
     for _ in 1 2 3 4 5 6 7 8 9 10; do [[ -S /run/whacp/agent.sock ]] && break; sleep 1; done
     systemctl is-active --quiet whacp-agent && ok "whacp-agent is running" || warn "whacp-agent is not running: journalctl -u whacp-agent"
+fi
+if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
     runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" agent:check && ok "panel can reach the agent" || warn "panel cannot reach the agent"
     for _ in 1 2 3 4 5; do curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null 2>&1 && break; sleep 1; done
     curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null && ok "panel answers on 127.0.0.1:${PORT}" || warn "panel is not answering: journalctl -u whacp-panel"
     runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" discovery:run || warn "initial discovery failed"
+fi
+
+if [[ $AGENT_ONLY -eq 1 ]]; then
+    cat <<EOF
+
+The WhaCP agent is installed ($([[ $ENABLE_WRITES -eq 1 ]] && echo "write mode" || echo "read-only discovery mode")).
+EOF
+    if [[ -n $REMOTE_ACCESS ]]; then
+        cat <<EOF
+Connect it from your WhaCP panel under "All servers" with:
+
+    Agent address:   https://$(hostname -I 2>/dev/null | awk '{print $1}'):${REMOTE_ACCESS##*:}
+    Certificate pin: ${AGENT_PIN:-run: whacp-agent -pin}
+    Agent token:     $(cat "$CONF_DIR/agent.token" 2>/dev/null)
+
+Only ${ALLOW_FROM} may connect. Allow the port in the firewall for that
+address only, e.g.: ufw allow from ${ALLOW_FROM%%,*} to any port ${REMOTE_ACCESS##*:} proto tcp
+EOF
+    fi
+    exit 0
 fi
 
 cat <<EOF

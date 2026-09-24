@@ -22,13 +22,19 @@ final class DiscoveryService
         private readonly SettingsService $settings,
         private readonly AuditLogger $audit,
         private readonly \WhaCP\Repositories\SettingRepository $state,
+        private readonly ?ServerContext $server = null,
     ) {
+    }
+
+    private function serverId(): int
+    {
+        return $this->server?->id() ?? 1;
     }
 
     /** Force the next inventory() call to ask the agent (after a change). */
     public function invalidate(): void
     {
-        $this->state->set('_discovery_invalidated_at', gmdate('c'), null);
+        $this->state->set('_discovery_invalidated_at:' . $this->serverId(), gmdate('c'), null);
     }
 
     /**
@@ -39,9 +45,9 @@ final class DiscoveryService
      */
     public function inventory(bool $refresh = false, ?int $userId = null): array
     {
-        $latest = $this->snapshots->latest();
+        $latest = $this->snapshots->latest($this->serverId());
         $ttl = $this->settings->int('discovery_cache_seconds');
-        $invalidated = (string) ($this->state->all()['_discovery_invalidated_at'] ?? '');
+        $invalidated = (string) ($this->state->all()['_discovery_invalidated_at:' . $this->serverId()] ?? '');
         $fresh = $latest !== null && strtotime($latest['created_at']) >= time() - $ttl
             && ($invalidated === '' || strtotime($latest['created_at']) > strtotime($invalidated));
         if (!$refresh && $fresh) {
@@ -60,9 +66,9 @@ final class DiscoveryService
         $data = $this->agent->call('discovery.inventory');
         $data = is_array($data) ? $data : [];
         $count = count($data['websites']['websites'] ?? []);
-        $this->snapshots->store($data, $count, $userId);
+        $this->snapshots->store($data, $count, $userId, 20, $this->serverId());
         if ($manual) {
-            $this->audit->record('discovery.run', 'server', 'local', AuditLogger::SUCCESS, ['websites' => $count]);
+            $this->audit->record('discovery.run', 'server', (string) $this->serverId(), AuditLogger::SUCCESS, ['websites' => $count]);
         }
         return ['data' => $data, 'created_at' => gmdate('c'), 'from_cache' => false];
     }

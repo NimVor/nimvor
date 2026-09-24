@@ -13,9 +13,9 @@ final class DiscoverySnapshotRepository
     }
 
     /** @return array{id: int, created_at: string, created_by: ?int, website_count: int, checksum: string, data: array<string, mixed>}|null */
-    public function latest(): ?array
+    public function latest(int $serverId = 1): ?array
     {
-        $row = $this->db->fetch('SELECT * FROM discovery_snapshots ORDER BY id DESC LIMIT 1');
+        $row = $this->db->fetch('SELECT * FROM discovery_snapshots WHERE server_id = ? ORDER BY id DESC LIMIT 1', [$serverId]);
         if ($row === null) {
             return null;
         }
@@ -31,27 +31,27 @@ final class DiscoverySnapshotRepository
     }
 
     /** @param array<string, mixed> $data */
-    public function store(array $data, int $websiteCount, ?int $userId, int $keep = 20): int
+    public function store(array $data, int $websiteCount, ?int $userId, int $keep = 20, int $serverId = 1): int
     {
         $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $this->db->run(
-            'INSERT INTO discovery_snapshots (created_at, created_by, website_count, checksum, data) VALUES (?, ?, ?, ?, ?)',
-            [gmdate('c'), $userId, $websiteCount, hash('sha256', $json), $json]
+            'INSERT INTO discovery_snapshots (server_id, created_at, created_by, website_count, checksum, data) VALUES (?, ?, ?, ?, ?, ?)',
+            [$serverId, gmdate('c'), $userId, $websiteCount, hash('sha256', $json), $json]
         );
         $id = $this->db->lastInsertId();
         $this->db->run(
-            'DELETE FROM discovery_snapshots WHERE id NOT IN (SELECT id FROM discovery_snapshots ORDER BY id DESC LIMIT ?)',
-            [$keep]
+            'DELETE FROM discovery_snapshots WHERE server_id = ? AND id NOT IN (SELECT id FROM discovery_snapshots WHERE server_id = ? ORDER BY id DESC LIMIT ?)',
+            [$serverId, $serverId, $keep]
         );
         return $id;
     }
 
     /** @return list<array<string, mixed>> */
-    public function history(int $limit = 20): array
+    public function history(int $limit = 20, int $serverId = 1): array
     {
         return $this->db->fetchAll(
-            'SELECT s.id, s.created_at, s.website_count, s.checksum, u.username FROM discovery_snapshots s LEFT JOIN users u ON u.id = s.created_by ORDER BY s.id DESC LIMIT ?',
-            [$limit]
+            'SELECT s.id, s.created_at, s.website_count, s.checksum, u.username FROM discovery_snapshots s LEFT JOIN users u ON u.id = s.created_by WHERE s.server_id = ? ORDER BY s.id DESC LIMIT ?',
+            [$serverId, $limit]
         );
     }
 }

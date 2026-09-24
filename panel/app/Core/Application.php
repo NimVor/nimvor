@@ -135,7 +135,12 @@ final class Application
                 $cfg->int('session.absolute_lifetime', 43200),
             );
         });
-        $c->set(AgentTransport::class, static fn () => new UnixSocketTransport($cfg->string('agent.socket')));
+        $c->set(AgentTransport::class, static fn (Container $c) => new \WhaCP\Agent\RoutingTransport(
+            new UnixSocketTransport($cfg->string('agent.socket')),
+            $c->get(\WhaCP\Services\ServerContext::class),
+            $c->get(Connection::class),
+            $c->get(\WhaCP\Security\Crypto::class),
+        ));
         $c->set(AgentClient::class, static fn (Container $c) => new AgentClient(
             $c->get(AgentTransport::class),
             $cfg->string('agent.token_file'),

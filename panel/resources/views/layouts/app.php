@@ -32,6 +32,15 @@ $pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('ti
             </div>
             <div class="wcp-topbar-actions">
                 <?= $this->section('actions') ?>
+                <?php $sw = isset($server_switcher) && is_callable($server_switcher) ? $server_switcher() : null; ?>
+                <?php if ($sw !== null && count($sw['servers']) > 1): ?>
+                    <form method="post" action="<?= e($this->url('servers.switch')) ?>" class="d-flex">
+                        <?= $this->csrfField() ?>
+                        <select class="form-select form-select-sm" name="server_id" data-wcp-autosubmit aria-label="Server">
+                            <?php foreach ($sw['servers'] as $srv): ?><option value="<?= (int) $srv['id'] ?>"<?= (int) $srv['id'] === $sw['current'] ? ' selected' : '' ?>><?= e($srv['name']) ?></option><?php endforeach; ?>
+                        </select>
+                    </form>
+                <?php endif; ?>
                 <button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-theme-toggle aria-label="Toggle dark mode">
                     <i class="bi bi-circle-half"></i>
                 </button>

@@ -26,6 +26,7 @@ final class DiscoveryController extends Controller
         private readonly DiscoverySnapshotRepository $snapshots,
         private readonly SettingsService $settings,
         private readonly \WhaCP\Agent\AgentClient $agent,
+        private readonly \WhaCP\Services\ServerContext $server,
     ) {
         parent::__construct($view, $session);
     }
@@ -34,7 +35,7 @@ final class DiscoveryController extends Controller
     {
         return $this->page($request, 'discovery/index', 'Discovery', fn (array $inv): array => [
             'inventory' => $inv,
-            'history' => $this->snapshots->history(10),
+            'history' => $this->snapshots->history(10, $this->server->id()),
         ]);
     }
 

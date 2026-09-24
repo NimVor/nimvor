@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,6 +63,9 @@ type Config struct {
 	// TLSCert / TLSKey are used for ListenTCP (generated when missing).
 	TLSCert string `json:"tls_cert"`
 	TLSKey  string `json:"tls_key"`
+	// AllowedClients lists the addresses/networks allowed to use
+	// ListenTCP (required when ListenTCP is set).
+	AllowedClients []string `json:"allowed_clients"`
 	// MaxJobs bounds concurrently running background jobs.
 	MaxJobs int `json:"max_jobs"`
 	// SimulateCommands replaces every system tool with a simulation. For
@@ -156,6 +160,24 @@ func (c Config) Validate() error {
 	}
 	if c.SimulateCommands && filepath.Clean(c.RootDir) == "/" {
 		return errors.New("simulate_commands requires a root_dir other than /")
+	}
+	if c.ListenTCP != "" {
+		if _, _, err := net.SplitHostPort(c.ListenTCP); err != nil {
+			return fmt.Errorf("listen_tcp must be host:port: %v", err)
+		}
+		if len(c.AllowedClients) == 0 {
+			return errors.New("listen_tcp requires allowed_clients (the panel server's address)")
+		}
+		for _, a := range c.AllowedClients {
+			if net.ParseIP(a) == nil {
+				if _, _, err := net.ParseCIDR(a); err != nil {
+					return fmt.Errorf("allowed_clients: %q is not an address or network", a)
+				}
+			}
+		}
+		if !filepath.IsAbs(c.TLSCert) || !filepath.IsAbs(c.TLSKey) {
+			return errors.New("tls_cert and tls_key must be absolute")
+		}
 	}
 	if c.MaxJobs < 1 || c.MaxJobs > 16 {
 		return errors.New("max_jobs must be between 1 and 16")

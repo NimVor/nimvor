@@ -18,6 +18,8 @@ use WhaCP\View\View;
 final class Authenticate implements Middleware
 {
     public function __construct(
+        private readonly \WhaCP\Services\ServerContext $serverContext,
+        private readonly \WhaCP\Database\Connection $db,
         private readonly AuthService $auth,
         private readonly Authorizer $authorizer,
         private readonly AuditLogger $audit,
@@ -35,6 +37,10 @@ final class Authenticate implements Middleware
             $this->audit->setActor((int) $user['id'], (string) $user['username']);
             if (!$request->wantsJson()) {
                 $this->view->share('agent_status', fn () => $this->agentStatus->get());
+                $this->view->share('server_switcher', fn (): array => [
+                    'current' => $this->serverContext->id(),
+                    'servers' => $this->db->fetchAll('SELECT id, name FROM servers ORDER BY id'),
+                ]);
             }
         }
 

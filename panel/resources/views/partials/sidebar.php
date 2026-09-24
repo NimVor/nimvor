@@ -29,6 +29,7 @@ $groups = [
     ],
     'Server' => [
         ['Server', 'hdd-rack', 'server', P::SERVER_VIEW, '/server'],
+        ['All servers', 'diagram-3', 'servers', P::SERVERS_MANAGE, '/servers'],
         ['Services', 'cpu', 'services', P::SERVICES_VIEW, '/services'],
         ['Packages', 'box-seam', 'packages', P::PACKAGES_MANAGE, '/packages'],
         ['System accounts', 'people', 'system_users', P::SYSTEM_USERS_VIEW, '/system-users'],

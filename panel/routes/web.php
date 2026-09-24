@@ -26,6 +26,7 @@ use WhaCP\Http\Controllers\MonitoringController;
 use WhaCP\Http\Controllers\PhpController;
 use WhaCP\Http\Controllers\RedisController;
 use WhaCP\Http\Controllers\SecurityController;
+use WhaCP\Http\Controllers\ServersController;
 use WhaCP\Http\Controllers\SystemController;
 use WhaCP\Http\Controllers\ServicesController;
 use WhaCP\Http\Controllers\UsersController;
@@ -157,6 +158,11 @@ return static function (Router $r): void {
     $r->post('/security/fail2ban/unban', [SecurityController::class, 'unban'], ['name' => 'security.fail2ban.unban', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/confirm', [SecurityController::class, 'confirm'], ['name' => 'security.confirm', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/undo', [SecurityController::class, 'undo'], ['name' => 'security.undo', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/servers', [ServersController::class, 'index'], ['name' => 'servers', 'permission' => P::SERVERS_MANAGE]);
+    $r->post('/servers', [ServersController::class, 'store'], ['name' => 'servers.store', 'permission' => P::SERVERS_MANAGE]);
+    $r->post('/servers/{id}/check', [ServersController::class, 'check'], ['name' => 'servers.check', 'permission' => P::SERVERS_MANAGE]);
+    $r->post('/servers/{id}/delete', [ServersController::class, 'destroy'], ['name' => 'servers.delete', 'permission' => P::SERVERS_MANAGE]);
+    $r->post('/servers/switch', [ServersController::class, 'switch'], ['name' => 'servers.switch']);
     $r->get('/system-users', [ServerController::class, 'systemUsers'], ['name' => 'system_users', 'permission' => P::SYSTEM_USERS_VIEW]);
 
     // Administration
