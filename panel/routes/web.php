@@ -25,6 +25,7 @@ use WhaCP\Http\Controllers\LogsController;
 use WhaCP\Http\Controllers\MonitoringController;
 use WhaCP\Http\Controllers\PhpController;
 use WhaCP\Http\Controllers\PlansController;
+use WhaCP\Http\Controllers\PluginsController;
 use WhaCP\Http\Controllers\RedisController;
 use WhaCP\Http\Controllers\SecurityController;
 use WhaCP\Http\Controllers\ServersController;
@@ -178,6 +179,8 @@ return static function (Router $r): void {
     $r->get('/plans', [PlansController::class, 'index'], ['name' => 'plans', 'permission' => P::PLANS_MANAGE]);
     $r->post('/plans', [PlansController::class, 'store'], ['name' => 'plans.store', 'permission' => P::PLANS_MANAGE]);
     $r->post('/plans/{id}/delete', [PlansController::class, 'destroy'], ['name' => 'plans.delete', 'permission' => P::PLANS_MANAGE]);
+    $r->get('/admin/plugins', [PluginsController::class, 'index'], ['name' => 'plugins', 'permission' => P::PLUGINS_MANAGE]);
+    $r->post('/admin/plugins/{name}/toggle', [PluginsController::class, 'toggle'], ['name' => 'plugins.toggle', 'permission' => P::PLUGINS_MANAGE]);
     $r->get('/roles/new', [RolesController::class, 'create'], ['name' => 'roles.create', 'permission' => P::ROLES_MANAGE]);
     $r->post('/roles', [RolesController::class, 'store'], ['name' => 'roles.store', 'permission' => P::ROLES_MANAGE]);
     $r->get('/roles/{id}/edit', [RolesController::class, 'edit'], ['name' => 'roles.edit', 'permission' => P::USERS_VIEW]);

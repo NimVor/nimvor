@@ -62,6 +62,37 @@ final class View
         return $this->renderFile($layout, $data + ['content' => $content]);
     }
 
+    /**
+     * Render a template from another directory (a plugin's views) inside
+     * the panel layout, with the same helpers as core templates.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function renderExternal(string $directory, string $template, array $data = []): string
+    {
+        if (!preg_match('#^[a-z0-9_-]+$#', $template)) {
+            throw new RuntimeException('Invalid template name');
+        }
+        $file = realpath($directory . '/' . $template . '.php');
+        $dir = realpath($directory);
+        if ($file === false || $dir === false || !str_starts_with($file, $dir . '/')) {
+            throw new RuntimeException("Template {$template} not found");
+        }
+        $this->sections = [];
+        $content = (function (string $__file, array $__data): string {
+            extract($__data + $this->shared, EXTR_SKIP);
+            ob_start();
+            try {
+                include $__file;
+            } catch (\Throwable $e) {
+                ob_end_clean();
+                throw $e;
+            }
+            return (string) ob_get_clean();
+        })($file, $data);
+        return $this->renderFile('layouts/app', $data + ['content' => $content]);
+    }
+
     /** @param array<string, mixed> $data */
     public function partial(string $template, array $data = []): string
     {

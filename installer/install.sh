@@ -218,6 +218,15 @@ if [[ $AGENT_ONLY -eq 0 ]]; then
     run mv "$PREFIX/panel.new" "$PREFIX/panel"
 fi
 ok "panel in $PREFIX/panel, agent in $BIN"
+if [[ $AGENT_ONLY -eq 0 ]]; then
+    # Plugins are installed here by administrators (see docs/plugins).
+    run install -d -m 0755 -o root -g root "$PREFIX/plugins"
+    if [[ ! -e $PREFIX/plugins/example-status ]]; then
+        run cp -a "$SRC_DIR/plugins/example-status" "$PREFIX/plugins/"
+        run chown -R root:root "$PREFIX/plugins/example-status"
+        run chmod -R u=rwX,go=rX "$PREFIX/plugins/example-status"
+    fi
+fi
 
 # ------------------------------------------------------ 6. configuration ----
 log "Writing configuration"

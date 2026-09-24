@@ -42,6 +42,17 @@ final class Router
         return $route;
     }
 
+    /** Remove every route under a path prefix (used when a plugin fails to boot). */
+    public function disable(string $prefix): void
+    {
+        $this->routes = array_values(array_filter($this->routes, static fn (Route $r): bool => !str_starts_with($r->pattern, $prefix)));
+        foreach ($this->named as $name => $r) {
+            if (str_starts_with($r->pattern, $prefix)) {
+                unset($this->named[$name]);
+            }
+        }
+    }
+
     /** @param array{0: class-string, 1: string} $handler @param array{name?: string, permission?: string|null, auth?: bool, csrf?: bool} $options */
     public function get(string $pattern, array $handler, array $options = []): Route
     {

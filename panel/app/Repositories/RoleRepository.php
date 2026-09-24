@@ -101,7 +101,9 @@ final class RoleRepository
             }
             $names = array_keys($catalogue);
             $placeholders = implode(',', array_fill(0, count($names), '?'));
-            $db->run("DELETE FROM permissions WHERE name NOT IN ({$placeholders})", $names);
+            // Plugin permissions (plugin.<name>.*) are managed by the plugin manager.
+            $db->run("DELETE FROM permissions WHERE name NOT IN ({$placeholders}) AND name NOT LIKE 'plugin.%'", $names);
+            $pluginPerms = array_column($db->fetchAll("SELECT name FROM permissions WHERE name LIKE 'plugin.%'"), 'name');
 
             foreach (Permissions::defaultRoles() as $roleName => $role) {
                 $db->run(
@@ -110,7 +112,7 @@ final class RoleRepository
                     [$roleName, $role['label'], $role['description'], $role['scope'], gmdate('c')]
                 );
                 $roleId = (int) $db->scalar('SELECT id FROM roles WHERE name = ?', [$roleName]);
-                $grants = $role['permissions'] === ['*'] ? $names : $role['permissions'];
+                $grants = $role['permissions'] === ['*'] ? array_merge($names, $pluginPerms) : $role['permissions'];
                 $db->run('DELETE FROM role_permissions WHERE role_id = ?', [$roleId]);
                 foreach ($grants as $perm) {
                     $db->run(

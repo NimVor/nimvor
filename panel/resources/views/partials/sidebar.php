@@ -40,7 +40,7 @@ $groups = [
         ['Plans', 'card-checklist', 'plans', P::PLANS_MANAGE, '/plans'],
         ['Settings', 'sliders', 'settings', P::SETTINGS_VIEW, '/settings'],
         ['Audit log', 'list-check', 'audit', P::AUDIT_VIEW, '/audit'],
-        ['Plugins', 'plug', null, null, ''],
+        ['Plugins', 'plug', 'plugins', P::PLUGINS_MANAGE, '/admin/plugins'],
         ['API', 'braces', null, null, ''],
     ],
 ];
@@ -79,6 +79,15 @@ $groups = [
                 <?php endif; ?>
             <?php endforeach; ?>
         <?php endforeach; ?>
+        <?php
+        $pluginItems = isset($plugin_nav) && is_callable($plugin_nav) ? array_filter($plugin_nav(), fn (array $i): bool => $this->can($i['permission'])) : [];
+        ?>
+        <?php if ($pluginItems !== []): ?>
+            <div class="wcp-nav-group">Plugins</div>
+            <?php foreach ($pluginItems as $i): ?>
+                <a class="wcp-nav-link<?= $this->isActive($i['url']) ? ' active' : '' ?>" href="<?= e($i['url']) ?>"><i class="bi bi-<?= e($i['icon']) ?>"></i><span><?= e($i['label']) ?></span></a>
+            <?php endforeach; ?>
+        <?php endif; ?>
     </div>
 </nav>
 <div class="wcp-sidebar-backdrop" data-wcp-toggle="sidebar"></div>

@@ -26,6 +26,8 @@ abstract class HttpTestCase extends TestCase
     protected ArraySession $session;
     protected FakeTransport $agent;
     protected Application $app;
+    /** @var array<string, mixed> extra configuration for makeApp() */
+    protected array $config = [];
 
     protected function setUp(): void
     {
@@ -42,10 +44,7 @@ abstract class HttpTestCase extends TestCase
 
     protected function tearDown(): void
     {
-        foreach (glob($this->dir . '/*') ?: [] as $f) {
-            @unlink($f);
-        }
-        @rmdir($this->dir);
+        exec('rm -rf ' . escapeshellarg($this->dir));
     }
 
     protected function makeApp(): Application
@@ -56,7 +55,7 @@ abstract class HttpTestCase extends TestCase
             'log' => ['file' => $this->dir . '/panel.log'],
             'agent' => ['token_file' => $this->dir . '/token'],
             'security' => ['key_file' => $this->dir . '/panel.key'],
-        ]));
+        ], $this->config));
         $app = new Application($cfg);
         $app->container->instance(SessionInterface::class, $this->session);
         $app->container->instance(AgentTransport::class, $this->agent);

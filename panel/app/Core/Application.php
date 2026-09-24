@@ -105,9 +105,23 @@ final class Application
             $cfg->string('session.path'),
             $cfg->bool('session.secure_cookie', true),
         ));
-        $c->set(Router::class, function (): Router {
+        $c->set(\WhaCP\Plugins\PluginManager::class, static fn (Container $c) => new \WhaCP\Plugins\PluginManager(
+            $cfg->string('plugins.path', self::basePath('../plugins')),
+            $c->get(\WhaCP\Repositories\SettingRepository::class),
+            $c->get(Connection::class),
+            $c->get(Logger::class),
+            $c,
+        ));
+        $c->set(Router::class, function (Container $c) use ($cfg): Router {
             $router = new Router();
             (require self::basePath('routes/web.php'))($router);
+            if ($cfg->bool('plugins.enabled', true)) {
+                try {
+                    $c->get(\WhaCP\Plugins\PluginManager::class)->boot($router);
+                } catch (Throwable $e) {
+                    $c->get(Logger::class)->error('plugins could not be loaded', ['error' => $e->getMessage()]);
+                }
+            }
             return $router;
         });
         $c->set(View::class, static fn (Container $c) => new View(
@@ -186,6 +200,7 @@ final class Application
             $view->share('errors', $session->pullFlash('errors', []));
             $view->share('old', $session->pullFlash('old', []));
             $view->share('app_version', $this->config->string('app.version'));
+            $view->share('plugin_nav', fn (): array => $this->container->get(\WhaCP\Plugins\PluginManager::class)->nav());
             try {
                 $view->share('panel_name', $this->container->get(SettingsService::class)->string('panel_name'));
             } catch (Throwable) {
