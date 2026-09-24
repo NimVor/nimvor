@@ -25,6 +25,18 @@ final class WorkersController extends SiteController
         parent::__construct($view, $session, $sites, $server);
     }
 
+    /** All workers on the server the user can see. */
+    public function index(Request $request): Response
+    {
+        $rows = [];
+        foreach ($this->sites->all($this->server->id(), $this->user($request)) as $site) {
+            foreach ($this->workers->forSite($site) as $w) {
+                $rows[] = $w + ['domain' => $site['domain'], 'website_id' => (int) $site['id']];
+            }
+        }
+        return $this->render('workers/index', ['workers' => $rows, 'status' => $this->workers->status($rows)]);
+    }
+
     public function show(Request $request, string $id): Response
     {
         $site = $this->site($request, $id);

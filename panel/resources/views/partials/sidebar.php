@@ -15,7 +15,8 @@ $groups = [
         ['PHP', 'filetype-php', 'php', P::PHP_VIEW, '/php'],
         ['Applications', 'grid-3x3-gap', null, null, ''],
         ['Cron Jobs', 'clock-history', 'cron', P::CRON_VIEW, '/cron'],
-        ['Workers', 'gear-wide-connected', null, null, ''],
+        ['Workers', 'gear-wide-connected', 'workers', P::WORKERS_MANAGE, '/workers'],
+        ['Redis', 'lightning', 'redis', P::REDIS_MANAGE, '/redis'],
         ['SSL', 'shield-lock', 'ssl', P::SSL_VIEW, '/ssl'],
     ],
     'Operations' => [
