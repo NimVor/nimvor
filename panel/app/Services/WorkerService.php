@@ -22,6 +22,7 @@ final class WorkerService
         private readonly AgentClient $agent,
         private readonly AuditLogger $audit,
         private readonly ServerContext $server,
+        private readonly ?PlanLimits $limits = null,
     ) {
     }
 
@@ -139,6 +140,7 @@ final class WorkerService
         $now = gmdate('c');
         $previous = $id === null ? null : $this->find($site, $id);
         if ($id === null) {
+            $this->limits?->assertCanCreate('workers', $site['owner_id'] === null ? null : (int) $site['owner_id']);
             $slug = $this->slug($site, $v['name']);
             $this->db->run(
                 'INSERT INTO workers (server_id, website_id, slug, name, directory, command, env, restart, memory_mb, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',

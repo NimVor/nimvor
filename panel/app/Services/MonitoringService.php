@@ -30,7 +30,51 @@ final class MonitoringService
         private readonly SettingsService $settings,
         private readonly ServerContext $server,
         private readonly Logger $log,
+        private readonly ?PlanLimits $limits = null,
     ) {
+    }
+
+    /**
+     * Measure website disk use (at most hourly) and return quota alerts.
+     *
+     * @return list<array{0: string, 1: string, 2: string, 3: string}>
+     */
+    private function quotas(int $now): array
+    {
+        $sites = $this->db->fetchAll('SELECT id, domain FROM websites WHERE server_id = ?', [$this->server->id()]);
+        $last = (string) $this->db->scalar('SELECT MIN(measured_at) FROM website_usage u JOIN websites w ON w.id = u.website_id WHERE w.server_id = ?', [$this->server->id()]);
+        $measured = (int) $this->db->scalar('SELECT COUNT(*) FROM website_usage u JOIN websites w ON w.id = u.website_id WHERE w.server_id = ?', [$this->server->id()]);
+        if ($sites !== [] && ($measured < count($sites) || strtotime($last) < $now - 3600)) {
+            $byDomain = array_column($sites, 'id', 'domain');
+            try {
+                $rows = (array) $this->agent->call('sites.usage', ['domains' => array_keys($byDomain)], 300);
+            } catch (AgentException $e) {
+                $this->log->warning('disk usage measurement failed', ['error' => $e->getMessage()]);
+                $rows = [];
+            }
+            foreach ($rows as $r) {
+                $r = (array) $r;
+                if (!empty($r['not_found']) || !isset($byDomain[$r['domain']])) {
+                    continue;
+                }
+                $this->db->run(
+                    'INSERT INTO website_usage (website_id, bytes, files, measured_at) VALUES (?, ?, ?, ?) ON CONFLICT (website_id) DO UPDATE SET bytes = excluded.bytes, files = excluded.files, measured_at = excluded.measured_at',
+                    [(int) $byDomain[$r['domain']], (int) $r['bytes'], (int) $r['files'], gmdate('c', $now)]
+                );
+            }
+        }
+        $out = [];
+        if ($this->limits === null) {
+            return $out;
+        }
+        foreach ($this->db->fetchAll('SELECT u.id, u.username, p.disk_quota_mb FROM users u JOIN plans p ON p.id = u.plan_id WHERE p.disk_quota_mb > 0') as $u) {
+            $owners = array_merge([(int) $u['id']], array_map('intval', array_column($this->db->fetchAll('SELECT id FROM users WHERE parent_id = ?', [(int) $u['id']]), 'id')));
+            $used = $this->limits->count('disk_mb', $owners);
+            if ($used > (int) $u['disk_quota_mb']) {
+                $out[] = ['quota', (string) $u['username'], 'warning', sprintf('%s uses %d MB of a %d MB disk quota.', $u['username'], $used, (int) $u['disk_quota_mb'])];
+            }
+        }
+        return $out;
     }
 
     /**
@@ -82,6 +126,9 @@ final class MonitoringService
                     $firing['service:' . $svc['unit']] = ['service', (string) $svc['unit'], 'critical', $svc['unit'] . ' is ' . $svc['active_state'] . '.'];
                 }
             }
+            foreach ($this->quotas($now) as $q) {
+                $firing[] = $q;
+            }
             $warnDays = $this->settings->int('ssl_warning_days');
             foreach ((array) $this->agent->call('discovery.certificates') as $c) {
                 $cert = (array) ((array) $c)['certificate'];
@@ -95,7 +142,7 @@ final class MonitoringService
             $firing['agent'] = ['agent', '', 'critical', 'The WhaCP agent is not reachable: ' . $e->getMessage()];
             // Nothing could be measured: keep agent-based alerts open instead
             // of reporting them as resolved.
-            foreach ($this->db->fetchAll("SELECT * FROM alerts WHERE server_id = ? AND resolved_at IS NULL AND rule IN ('disk', 'memory', 'load', 'service', 'certificate')", [$this->server->id()]) as $a) {
+            foreach ($this->db->fetchAll("SELECT * FROM alerts WHERE server_id = ? AND resolved_at IS NULL AND rule IN ('disk', 'memory', 'load', 'service', 'certificate', 'quota')", [$this->server->id()]) as $a) {
                 $firing[] = [(string) $a['rule'], (string) $a['subject'], (string) $a['severity'], (string) $a['message']];
             }
         }

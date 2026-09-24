@@ -37,6 +37,7 @@ $groups = [
     ],
     'Administration' => [
         ['Users & roles', 'person-gear', 'users', P::USERS_VIEW, '/users'],
+        ['Plans', 'card-checklist', 'plans', P::PLANS_MANAGE, '/plans'],
         ['Settings', 'sliders', 'settings', P::SETTINGS_VIEW, '/settings'],
         ['Audit log', 'list-check', 'audit', P::AUDIT_VIEW, '/audit'],
         ['Plugins', 'plug', null, null, ''],

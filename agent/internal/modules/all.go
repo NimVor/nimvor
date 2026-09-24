@@ -14,6 +14,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sites"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sslmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sysmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/usage"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/workers"
 )
 
@@ -33,6 +34,7 @@ func All() []Module {
 		backup.Register,
 		security.Register,
 		sysmgr.Register,
+		usage.Register,
 		phpmgr.Register,
 		services.Register,
 	}

@@ -154,7 +154,7 @@ final class Permissions
                 'label' => 'Reseller',
                 'description' => 'Manages their own customers and those customers\' websites within plan limits.',
                 'scope' => 'own',
-                'permissions' => array_merge(self::HOSTING_SELF, [self::USERS_VIEW, self::USERS_MANAGE]),
+                'permissions' => array_merge(self::HOSTING_SELF, [self::USERS_VIEW, self::USERS_MANAGE, self::PLANS_MANAGE]),
             ],
             'customer' => [
                 'label' => 'Hosting customer',

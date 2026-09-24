@@ -8,7 +8,7 @@
 <div class="card mb-3">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0 wcp-table">
-            <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
+            <thead><tr><th>User</th><th>Role</th><th>Plan</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
             <tbody>
             <?php foreach ($users as $u): ?>
                 <tr>
@@ -18,6 +18,7 @@
                         <div class="small text-body-secondary"><?= e($u['display_name'] !== '' ? $u['display_name'] . ' · ' : '') ?><?= e($u['email']) ?></div>
                     </td>
                     <td><?= e($u['role_label']) ?></td>
+                    <td class="small"><?= e($u['plan_name'] ?? '—') ?></td>
                     <td><?= (int) $u['is_active'] === 1 ? $this->statusBadge('active') : $this->statusBadge('inactive', 'disabled') ?></td>
                     <td class="small"><?= e(time_ago($u['last_login_at'])) ?><?php if (!empty($u['last_login_ip'])): ?><div class="text-body-secondary"><?= e($u['last_login_ip']) ?></div><?php endif; ?></td>
                     <td class="text-end text-nowrap">

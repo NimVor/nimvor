@@ -22,7 +22,38 @@ final class UserService
         private readonly RoleRepository $roles,
         private readonly PasswordHasher $hasher,
         private readonly AuditLogger $audit,
+        private readonly ?PlanService $plans = null,
+        private readonly ?PlanLimits $limits = null,
     ) {
+    }
+
+    /**
+     * Resellers (scope "own") may only manage their own customers.
+     *
+     * @param array<string, mixed>|null $actor
+     * @param array<string, mixed> $target
+     */
+    public static function canManage(?array $actor, array $target): bool
+    {
+        if ($actor === null || ($actor['role_scope'] ?? 'all') === 'all') {
+            return true;
+        }
+        return (int) ($target['parent_id'] ?? 0) === (int) $actor['id'];
+    }
+
+    /**
+     * Plan to store for a user (validated against what the actor may assign).
+     *
+     * @param array<string, mixed>|null $actor
+     * @param array<string, mixed> $input
+     */
+    private function planInput(?array $actor, array $input): ?int
+    {
+        $planId = filter_var($input['plan_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        if ($actor !== null && $this->plans !== null) {
+            $this->plans->assertAssignable($actor, $planId);
+        }
+        return $planId;
     }
 
     /**
@@ -32,6 +63,17 @@ final class UserService
     {
         $data = $this->validate($input, null);
         $this->assertCanAssign($actorId, $data['role_id']);
+        $actor = $actorId === null ? null : $this->users->find($actorId);
+        $parentId = null;
+        if ($actor !== null && ($actor['role_scope'] ?? 'all') === 'own') {
+            // Resellers create customers: no user management of their own.
+            if (in_array(\WhaCP\Security\Permissions::USERS_MANAGE, $this->roles->permissionsFor($data['role_id']), true)) {
+                throw new ValidationException(['role_id' => 'You can only create hosting customers.']);
+            }
+            $this->limits?->assertCanCreate('customers', (int) $actor['id']);
+            $parentId = (int) $actor['id'];
+        }
+        $planId = $this->planInput($actor, $input);
         $id = $this->users->create([
             'username' => $data['username'],
             'email' => $data['email'],
@@ -40,8 +82,11 @@ final class UserService
             'role_id' => $data['role_id'],
             'is_active' => $data['is_active'],
         ]);
+        if ($parentId !== null || $planId !== null) {
+            $this->users->setOwnership($id, $parentId, $planId);
+        }
         $this->audit->record('user.create', 'user', (string) $id, AuditLogger::SUCCESS, [
-            'username' => $data['username'], 'role_id' => $data['role_id'],
+            'username' => $data['username'], 'role_id' => $data['role_id'], 'parent_id' => $parentId, 'plan_id' => $planId,
         ]);
         return $id;
     }
@@ -52,6 +97,10 @@ final class UserService
     public function update(int $id, array $input, int $actorId): void
     {
         $existing = $this->users->find($id) ?? throw new UserFacingException('The user no longer exists.', status: 404);
+        $actor = $this->users->find($actorId);
+        if (!self::canManage($actor, $existing)) {
+            throw new UserFacingException('The user no longer exists.', status: 404);
+        }
         $data = $this->validate($input + ['username' => $existing['username']], $id);
         if ($data['role_id'] !== (int) $existing['role_id']) {
             $this->assertCanAssign($actorId, $data['role_id']);
@@ -77,6 +126,9 @@ final class UserService
         if ($data['password'] !== '') {
             $this->users->updatePassword($id, $this->hasher->hash($data['password']));
         }
+        if (array_key_exists('plan_id', $input)) {
+            $this->users->setOwnership($id, $existing['parent_id'] === null ? null : (int) $existing['parent_id'], $this->planInput($actor, $input));
+        }
         $this->audit->record('user.update', 'user', (string) $id, AuditLogger::SUCCESS, [
             'username' => $existing['username'],
             'role_changed' => (int) $existing['role_id'] !== $data['role_id'],
@@ -88,6 +140,9 @@ final class UserService
     public function delete(int $id, int $actorId): void
     {
         $existing = $this->users->find($id) ?? throw new UserFacingException('The user no longer exists.', status: 404);
+        if (!self::canManage($this->users->find($actorId), $existing)) {
+            throw new UserFacingException('The user no longer exists.', status: 404);
+        }
         if ($id === $actorId) {
             throw new UserFacingException('You cannot delete your own account.', 'Deleting the account you are signed in with would lock you out.', 'Ask another administrator to remove it.');
         }

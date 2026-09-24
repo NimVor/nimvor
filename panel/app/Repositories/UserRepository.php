@@ -8,7 +8,7 @@ use WhaCP\Database\Connection;
 
 final class UserRepository
 {
-    private const COLUMNS = 'u.id, u.username, u.email, u.display_name, u.role_id, u.is_active, u.last_login_at, u.last_login_ip, u.password_changed_at, u.created_at, u.updated_at, r.name AS role_name, r.label AS role_label, r.scope AS role_scope, u.parent_id';
+    private const COLUMNS = 'u.id, u.username, u.email, u.display_name, u.role_id, u.is_active, u.last_login_at, u.last_login_ip, u.password_changed_at, u.created_at, u.updated_at, r.name AS role_name, r.label AS role_label, r.scope AS role_scope, u.parent_id, u.plan_id';
 
     public function __construct(private readonly Connection $db)
     {
@@ -18,6 +18,26 @@ final class UserRepository
     public function all(): array
     {
         return $this->db->fetchAll('SELECT ' . self::COLUMNS . ' FROM users u JOIN roles r ON r.id = u.role_id ORDER BY u.username');
+    }
+
+    /**
+     * Users an actor may manage: everyone for server-wide roles, only
+     * their own customers for resellers.
+     *
+     * @param array<string, mixed> $actor
+     * @return list<array<string, mixed>>
+     */
+    public function manageableBy(array $actor): array
+    {
+        if (($actor['role_scope'] ?? 'all') === 'all') {
+            return $this->db->fetchAll('SELECT ' . self::COLUMNS . ', p.name AS plan_name FROM users u JOIN roles r ON r.id = u.role_id LEFT JOIN plans p ON p.id = u.plan_id ORDER BY u.username');
+        }
+        return $this->db->fetchAll('SELECT ' . self::COLUMNS . ', p.name AS plan_name FROM users u JOIN roles r ON r.id = u.role_id LEFT JOIN plans p ON p.id = u.plan_id WHERE u.parent_id = ? ORDER BY u.username', [(int) $actor['id']]);
+    }
+
+    public function setOwnership(int $id, ?int $parentId, ?int $planId): void
+    {
+        $this->db->run('UPDATE users SET parent_id = ?, plan_id = ? WHERE id = ?', [$parentId, $planId, $id]);
     }
 
     /** @return array<string, mixed>|null */

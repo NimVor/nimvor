@@ -22,14 +22,27 @@ final class UsersController extends Controller
         private readonly UserRepository $users,
         private readonly RoleRepository $roles,
         private readonly UserService $service,
+        private readonly \WhaCP\Services\PlanService $plans,
+        private readonly \WhaCP\Services\PlanLimits $limits,
     ) {
         parent::__construct($view, $session);
+    }
+
+    /** @return list<array<string, mixed>> roles the actor may hand out */
+    private function assignableRoles(Request $request): array
+    {
+        $mine = $this->roles->permissionsFor((int) ($this->user($request)['role_id'] ?? 0));
+        $own = \WhaCP\Hosting\Scope::isAll($this->user($request));
+        return array_values(array_filter($this->roles->all(), function (array $r) use ($mine, $own): bool {
+            $perms = $this->roles->permissionsFor((int) $r['id']);
+            return array_diff($perms, $mine) === [] && ($own || !in_array(\WhaCP\Security\Permissions::USERS_MANAGE, $perms, true));
+        }));
     }
 
     public function index(Request $request): Response
     {
         return $this->render('users/index', [
-            'users' => $this->users->all(),
+            'users' => $this->users->manageableBy($this->user($request)),
             'roles' => $this->roles->all(),
             'currentUserId' => $this->userId($request),
         ]);
@@ -37,7 +50,7 @@ final class UsersController extends Controller
 
     public function create(Request $request): Response
     {
-        return $this->render('users/form', ['editUser' => null, 'roles' => $this->roles->all()]);
+        return $this->render('users/form', ['editUser' => null, 'roles' => $this->assignableRoles($request), 'plans' => $this->plans->visible($this->user($request))]);
     }
 
     public function store(Request $request): Response
@@ -47,6 +60,8 @@ final class UsersController extends Controller
             $id = $this->service->create($input, $this->userId($request));
         } catch (ValidationException $e) {
             return $this->backWithErrors('/users/new', $e, $input);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/users', $e);
         }
         $user = $this->users->find($id);
         return $this->redirectWithSuccess('/users', 'User "' . ($user['username'] ?? '') . '" was created.');
@@ -55,10 +70,10 @@ final class UsersController extends Controller
     public function edit(Request $request, string $id): Response
     {
         $user = $this->users->find((int) $id);
-        if ($user === null) {
+        if ($user === null || !\WhaCP\Services\UserService::canManage($this->user($request), $user)) {
             return $this->redirectWithError('/users', 'The user no longer exists.');
         }
-        return $this->render('users/form', ['editUser' => $user, 'roles' => $this->roles->all()]);
+        return $this->render('users/form', ['editUser' => $user, 'roles' => $this->assignableRoles($request), 'plans' => $this->plans->visible($this->user($request)), 'usage' => $this->limits->usage((int) $user['id'])]);
     }
 
     public function update(Request $request, string $id): Response

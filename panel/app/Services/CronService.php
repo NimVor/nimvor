@@ -31,6 +31,7 @@ final class CronService
         private readonly Connection $db,
         private readonly AgentClient $agent,
         private readonly AuditLogger $audit,
+        private readonly ?PlanLimits $limits = null,
     ) {
     }
 
@@ -129,6 +130,7 @@ final class CronService
             if (count($before) >= 200) {
                 throw new ValidationException(['command' => 'A website can have at most 200 cron jobs.']);
             }
+            $this->limits?->assertCanCreate('cron_jobs', $site['owner_id'] === null ? null : (int) $site['owner_id']);
             $this->db->run(
                 'INSERT INTO cron_jobs (website_id, server_id, schedule, command, description, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                 [(int) $site['id'], (int) $site['server_id'], $v['schedule'], $v['command'], $v['description'], $v['enabled'] ? 1 : 0, $now, $now]
