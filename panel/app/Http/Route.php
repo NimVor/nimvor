@@ -18,6 +18,9 @@ final class Route
         public readonly ?string $name,
         public readonly ?string $permission,
         public readonly bool $requiresAuth,
+        // Only machine endpoints that authenticate each request themselves
+        // (signed webhooks) may opt out of CSRF protection.
+        public readonly bool $requiresCsrf = true,
     ) {
         // {id} matches one path segment of safe characters.
         $quoted = preg_quote($pattern, '#');

@@ -33,6 +33,10 @@ final class SettingsService
                 'type' => 'string', 'default' => 'WhaCP', 'max_length' => 60,
                 'label' => 'Panel name', 'help' => 'Shown in the header and browser title.',
             ],
+            'panel_url' => [
+                'type' => 'string', 'default' => '', 'max_length' => 200,
+                'label' => 'Public panel URL', 'help' => 'e.g. https://panel.example.com. Used for Git webhook URLs; when empty the address you are browsing is used.',
+            ],
             'session_idle_minutes' => [
                 'type' => 'int', 'default' => 30, 'min' => 5, 'max' => 1440,
                 'label' => 'Session idle timeout (minutes)', 'help' => 'Users are signed out after this period of inactivity.',

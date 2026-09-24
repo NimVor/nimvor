@@ -199,6 +199,24 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"removed": unit}, nil
 	}})
 
+	r.Register(actions.Action{Name: "workers.restart", Mutating: true, Description: "Restart a running worker service.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Slug string `json:"slug"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := validate.Slug("slug", in.Slug); err != nil {
+			return nil, host.Invalid(err)
+		}
+		if !env.Root.Exists(unitPath(in.Slug)) {
+			return nil, actions.NotFound("The worker service does not exist.")
+		}
+		if err := env.Systemctl(ctx, "restart", Unit(in.Slug)); err != nil {
+			return nil, actions.Failed("The worker did not restart. Check its log.", err.Error())
+		}
+		return map[string]any{"active": env.UnitActive(ctx, Unit(in.Slug))}, nil
+	}})
 	r.Register(actions.Action{Name: "workers.status", Description: "State of worker services.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Slugs []string `json:"slugs"`

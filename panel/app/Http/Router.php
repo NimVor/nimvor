@@ -19,7 +19,7 @@ final class Router
 
     /**
      * @param array{0: class-string, 1: string} $handler
-     * @param array{name?: string, permission?: string|null, auth?: bool} $options
+     * @param array{name?: string, permission?: string|null, auth?: bool, csrf?: bool} $options
      */
     public function add(string $method, string $pattern, array $handler, array $options = []): Route
     {
@@ -30,6 +30,7 @@ final class Router
             $options['name'] ?? null,
             $options['permission'] ?? null,
             $options['auth'] ?? true,
+            $options['csrf'] ?? true,
         );
         $this->routes[] = $route;
         if ($route->name !== null) {
@@ -41,13 +42,13 @@ final class Router
         return $route;
     }
 
-    /** @param array{0: class-string, 1: string} $handler @param array{name?: string, permission?: string|null, auth?: bool} $options */
+    /** @param array{0: class-string, 1: string} $handler @param array{name?: string, permission?: string|null, auth?: bool, csrf?: bool} $options */
     public function get(string $pattern, array $handler, array $options = []): Route
     {
         return $this->add('GET', $pattern, $handler, $options);
     }
 
-    /** @param array{0: class-string, 1: string} $handler @param array{name?: string, permission?: string|null, auth?: bool} $options */
+    /** @param array{0: class-string, 1: string} $handler @param array{name?: string, permission?: string|null, auth?: bool, csrf?: bool} $options */
     public function post(string $pattern, array $handler, array $options = []): Route
     {
         return $this->add('POST', $pattern, $handler, $options);

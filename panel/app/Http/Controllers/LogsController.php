@@ -28,6 +28,7 @@ final class LogsController extends Controller
         private readonly WebsiteRepository $sites,
         private readonly ServerContext $server,
         private readonly Config $config,
+        private readonly \WhaCP\Database\Connection $db,
     ) {
         parent::__construct($view, $session);
     }
@@ -46,7 +47,7 @@ final class LogsController extends Controller
             $error = $e;
         }
         $sources[] = ['id' => 'panel', 'label' => 'WhaCP panel log', 'group' => 'WhaCP', 'kind' => 'file'];
-        return $this->render('logs/index', ['sources' => $sources, 'agentError' => $error, 'site' => null]);
+        return $this->render('logs/index', ['sources' => $sources, 'agentError' => $error, 'site' => null, 'initialSource' => (string) $request->query('source', '')]);
     }
 
     public function site(Request $request, string $id): Response
@@ -62,7 +63,10 @@ final class LogsController extends Controller
         } catch (AgentException $e) {
             $error = $e;
         }
-        return $this->render('logs/site', ['sources' => $sources, 'agentError' => $error, 'site' => $site, 'tab' => 'logs']);
+        foreach ($this->db->fetchAll('SELECT name, slug FROM workers WHERE website_id = ? ORDER BY id', [(int) $site['id']]) as $w) {
+            $sources[] = ['id' => 'journal:whacp-worker-' . $w['slug'] . '.service', 'label' => 'Worker: ' . $w['name'], 'group' => 'Workers', 'kind' => 'journal'];
+        }
+        return $this->render('logs/site', ['sources' => $sources, 'agentError' => $error, 'site' => $site, 'tab' => 'logs', 'initialSource' => (string) $request->query('source', '')]);
     }
 
     private function allowed(Request $request, string $source): bool
@@ -74,6 +78,13 @@ final class LogsController extends Controller
             }
             $site = $this->sites->findByDomain($this->server->id(), $m[1]);
             return $site !== null && $this->sites->find($this->server->id(), (int) $site['id'], $user) !== null;
+        }
+        if (preg_match('/^journal:whacp-worker-([a-z0-9-]+)\.service$/', $source, $m)) {
+            if (Scope::isAll($user)) {
+                return true;
+            }
+            $siteId = $this->db->scalar('SELECT website_id FROM workers WHERE server_id = ? AND slug = ?', [$this->server->id(), $m[1]]);
+            return $siteId !== null && $this->sites->find($this->server->id(), (int) $siteId, $user) !== null;
         }
         return Scope::isAll($user);
     }

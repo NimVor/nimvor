@@ -97,6 +97,12 @@ final class Request
         return is_scalar($v) ? trim((string) $v) : $default;
     }
 
+    /** The unparsed request body (at most 1 MiB), e.g. for webhook signatures. */
+    public function rawBody(): string
+    {
+        return $this->rawBody;
+    }
+
     /** @return array<string, mixed> */
     public function all(): array
     {

@@ -25,7 +25,8 @@ final class VerifyCsrfToken implements Middleware
 
     public function process(Request $request, callable $next): Response
     {
-        if ($request->isSafeMethod()) {
+        $route = $request->attribute('route');
+        if ($request->isSafeMethod() || ($route instanceof \WhaCP\Http\Route && !$route->requiresCsrf && !$route->requiresAuth)) {
             return $next($request);
         }
         $token = $request->header('x-csrf-token');

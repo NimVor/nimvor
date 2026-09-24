@@ -119,7 +119,7 @@ final class WebsiteService
             $this->restore($site);
             throw $e;
         }
-        $this->audit->record($auditAction, 'website', (string) $id, AuditLogger::SUCCESS, ['domain' => $site['domain'], 'changes' => $this->diff($site, $fields)]);
+        $this->audit->record($auditAction, 'website', (string) $id, AuditLogger::SUCCESS, ['domain' => $site['domain'], 'changes' => $this->diff($site, $fields)]);        $this->events->dispatch('website.updated', ['website' => $this->sites->find((int) $site['server_id'], $id, null)]);
     }
 
     /** @param array<string, mixed> $site */

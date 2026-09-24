@@ -77,7 +77,7 @@ func Resolve(env *host.Env, id string) (Source, error) {
 		s.path, s.Label, s.Group = p, filepath.Base(p), "System"
 	case "journal":
 		unit := safePart(parts, 1)
-		if validate.Unit("unit", unit) != nil || (!services.Allowed(unit) && unit != "whacp-agent.service" && unit != "certbot.service") {
+		if validate.Unit("unit", unit) != nil || (!services.Allowed(unit) && unit != "whacp-agent.service" && unit != "certbot.service" && !strings.HasPrefix(unit, "whacp-worker-")) {
 			return s, actions.InvalidParams("source: this unit's journal is not available")
 		}
 		s.Kind, s.unit, s.Label, s.Group = "journal", unit, unit, "Services"

@@ -6,7 +6,7 @@
             <?php if ($sources === []): ?><option value="">No logs yet</option><?php endif; ?>
             <?php $group = null; foreach ($sources as $s): ?>
                 <?php if (($s['group'] ?? '') !== $group): ?><?php if ($group !== null): ?></optgroup><?php endif; $group = $s['group'] ?? ''; ?><optgroup label="<?= e($group) ?>"><?php endif; ?>
-                <option value="<?= e($s['id']) ?>"><?= e($s['label']) ?><?= isset($s['size']) && $s['kind'] === 'file' && isset($s['exists']) ? ' (' . e(format_bytes((int) $s['size'])) . ')' : '' ?></option>
+                <option value="<?= e($s['id']) ?>"<?= ($initialSource ?? '') === $s['id'] ? ' selected' : '' ?>><?= e($s['label']) ?><?= isset($s['size']) && $s['kind'] === 'file' && isset($s['exists']) ? ' (' . e(format_bytes((int) $s['size'])) . ')' : '' ?></option>
             <?php endforeach; ?>
             <?php if ($group !== null): ?></optgroup><?php endif; ?>
         </select>

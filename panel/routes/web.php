@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use WhaCP\Http\Controllers\AuditLogController;
 use WhaCP\Http\Controllers\AuthController;
+use WhaCP\Http\Controllers\CronController;
+use WhaCP\Http\Controllers\DeployController;
+use WhaCP\Http\Controllers\WorkersController;
 use WhaCP\Http\Controllers\DashboardController;
 use WhaCP\Http\Controllers\DatabasesController;
 use WhaCP\Http\Controllers\DiscoveryController;
@@ -30,6 +33,8 @@ return static function (Router $r): void {
     $r->get('/login', [AuthController::class, 'show'], ['name' => 'login', 'auth' => false]);
     $r->post('/login', [AuthController::class, 'login'], ['name' => 'login.submit', 'auth' => false]);
     $r->get('/healthz', [HealthController::class, 'show'], ['name' => 'health', 'auth' => false]);
+    // Signed Git push webhooks (authenticated by HMAC/token, not a session).
+    $r->post('/hooks/deploy/{token}', [DeployController::class, 'webhook'], ['name' => 'hooks.deploy', 'auth' => false, 'csrf' => false]);
     $r->post('/logout', [AuthController::class, 'logout'], ['name' => 'logout']);
 
     // Overview
@@ -58,6 +63,21 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/files/upload', [FilesController::class, 'upload'], ['name' => 'sites.files.upload', 'permission' => P::FILES_MANAGE]);
     $r->get('/sites/{id}/files/download', [FilesController::class, 'download'], ['name' => 'sites.files.download', 'permission' => P::FILES_MANAGE]);
     $r->get('/sites/{id}/logs', [LogsController::class, 'site'], ['name' => 'sites.logs', 'permission' => P::LOGS_VIEW]);
+    $r->get('/sites/{id}/cron', [CronController::class, 'show'], ['name' => 'sites.cron', 'permission' => P::CRON_VIEW]);
+    $r->post('/sites/{id}/cron', [CronController::class, 'store'], ['name' => 'sites.cron.store', 'permission' => P::CRON_MANAGE]);
+    $r->post('/sites/{id}/cron/{job}/toggle', [CronController::class, 'toggle'], ['name' => 'sites.cron.toggle', 'permission' => P::CRON_MANAGE]);
+    $r->post('/sites/{id}/cron/{job}/run', [CronController::class, 'run'], ['name' => 'sites.cron.run', 'permission' => P::CRON_MANAGE]);
+    $r->post('/sites/{id}/cron/{job}/delete', [CronController::class, 'delete'], ['name' => 'sites.cron.delete', 'permission' => P::CRON_MANAGE]);
+    $r->get('/sites/{id}/workers', [WorkersController::class, 'show'], ['name' => 'sites.workers', 'permission' => P::WORKERS_MANAGE]);
+    $r->post('/sites/{id}/workers', [WorkersController::class, 'store'], ['name' => 'sites.workers.store', 'permission' => P::WORKERS_MANAGE]);
+    $r->post('/sites/{id}/workers/{worker}/toggle', [WorkersController::class, 'toggle'], ['name' => 'sites.workers.toggle', 'permission' => P::WORKERS_MANAGE]);
+    $r->post('/sites/{id}/workers/{worker}/restart', [WorkersController::class, 'restart'], ['name' => 'sites.workers.restart', 'permission' => P::WORKERS_MANAGE]);
+    $r->post('/sites/{id}/workers/{worker}/delete', [WorkersController::class, 'delete'], ['name' => 'sites.workers.delete', 'permission' => P::WORKERS_MANAGE]);
+    $r->get('/sites/{id}/git', [DeployController::class, 'show'], ['name' => 'sites.git', 'permission' => P::DEPLOY_MANAGE]);
+    $r->post('/sites/{id}/git', [DeployController::class, 'configure'], ['name' => 'sites.git.configure', 'permission' => P::DEPLOY_MANAGE]);
+    $r->post('/sites/{id}/git/deploy', [DeployController::class, 'run'], ['name' => 'sites.git.deploy', 'permission' => P::DEPLOY_MANAGE]);
+    $r->post('/sites/{id}/git/rotate', [DeployController::class, 'rotate'], ['name' => 'sites.git.rotate', 'permission' => P::DEPLOY_MANAGE]);
+    $r->post('/sites/{id}/git/remove', [DeployController::class, 'remove'], ['name' => 'sites.git.remove', 'permission' => P::DEPLOY_MANAGE]);
     $r->get('/logs', [LogsController::class, 'index'], ['name' => 'logs', 'permission' => P::LOGS_VIEW]);
     $r->get('/logs/tail', [LogsController::class, 'tail'], ['name' => 'logs.tail', 'permission' => P::LOGS_VIEW]);
     $r->get('/logs/download', [LogsController::class, 'download'], ['name' => 'logs.download', 'permission' => P::LOGS_VIEW]);

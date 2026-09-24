@@ -59,6 +59,37 @@ final class Application
         return new self(Config::load(self::basePath('config/app.php'), $override));
     }
 
+    /**
+     * Core listeners that keep dependent server objects in step with
+     * websites. Services are resolved lazily, when the event fires.
+     */
+    private static function registerListeners(\WhaCP\Support\Events $events, Container $c): void
+    {
+        $events->on('website.deleting', static function (array $p) use ($c): void {
+            $site = (array) $p['website'];
+            $c->get(\WhaCP\Services\WorkerService::class)->removeAll($site);
+            try {
+                $c->get(\WhaCP\Services\CronService::class)->removeFromServer($site);
+            } catch (\WhaCP\Agent\AgentException $e) {
+                $c->get(Logger::class)->warning('cron cleanup failed', ['domain' => $site['domain'], 'error' => $e->getMessage()]);
+            }
+        });
+        $events->on('website.updated', static function (array $p) use ($c): void {
+            $site = $p['website'] ?? null;
+            if (!is_array($site)) {
+                return;
+            }
+            $workers = $c->get(\WhaCP\Services\WorkerService::class);
+            foreach ($workers->forSite($site) as $w) {
+                try {
+                    $workers->apply($site, $w); // stops workers while the website is disabled
+                } catch (\WhaCP\Agent\AgentException $e) {
+                    $c->get(Logger::class)->warning('worker re-apply failed', ['worker' => $w['slug'], 'error' => $e->getMessage()]);
+                }
+            }
+        });
+    }
+
     private function register(): void
     {
         $c = $this->container;
@@ -112,6 +143,11 @@ final class Application
             $cfg->int('agent.timeout', 30),
         ));
         $c->set(\WhaCP\Security\Crypto::class, static fn () => new \WhaCP\Security\Crypto($cfg->string('security.key_file')));
+        $c->set(\WhaCP\Support\Events::class, static function (Container $c): \WhaCP\Support\Events {
+            $events = new \WhaCP\Support\Events();
+            self::registerListeners($events, $c);
+            return $events;
+        });
         $c->set(ErrorHandler::class, static fn (Container $c) => new ErrorHandler(
             $c->get(Logger::class),
             $c->get(View::class),
