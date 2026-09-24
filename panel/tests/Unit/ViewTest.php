@@ -55,6 +55,6 @@ final class ViewTest extends TestCase
         $this->view->setPermissionChecker(static fn (): bool => true);
         $html = $this->view->partial('partials/sidebar');
         self::assertStringContainsString('href="/websites"', $html);
-        self::assertStringContainsString('is-planned', $html);
+        self::assertStringNotContainsString('is-planned', $html, 'every sidebar entry is implemented');
     }
 }

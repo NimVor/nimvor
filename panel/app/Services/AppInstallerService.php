@@ -1,0 +1,181 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WhaCP\Services;
+
+use WhaCP\Agent\AgentClient;
+use WhaCP\Agent\AgentException;
+use WhaCP\Database\Connection;
+use WhaCP\Repositories\DatabaseRepository;
+use WhaCP\Security\Crypto;
+use WhaCP\Support\UserFacingException;
+use WhaCP\Support\ValidationException;
+
+/**
+ * One-click applications. The panel creates the database and its user,
+ * then the agent installs the application as the website account.
+ * WordPress is installed from the command line with a generated admin
+ * password (shown once), so its web installer is never left open.
+ */
+final class AppInstallerService
+{
+    public const APPS = [
+        'wordpress' => ['title' => 'WordPress', 'description' => 'Blog and website builder. Installed into the document root with a new database and an administrator account.'],
+        'laravel' => ['title' => 'Laravel', 'description' => 'PHP framework skeleton via Composer, with the database configured in .env. The website is served from <folder>/public.'],
+    ];
+
+    public function __construct(
+        private readonly Connection $db,
+        private readonly AgentClient $agent,
+        private readonly DatabaseService $databases,
+        private readonly DatabaseRepository $dbRepo,
+        private readonly WebsiteService $websites,
+        private readonly \WhaCP\Repositories\WebsiteRepository $sites,
+        private readonly AuditLogger $audit,
+        private readonly ServerContext $server,
+    ) {
+    }
+
+    /** @param array<string, mixed> $site */
+    public static function relativeDocroot(array $site): string
+    {
+        $root = rtrim((string) $site['root'], '/') . '/';
+        $doc = (string) $site['document_root'];
+        return str_starts_with($doc, $root) ? substr($doc, strlen($root)) : 'public_html';
+    }
+
+    /**
+     * @param array<string, mixed> $site
+     * @param array<string, mixed> $input
+     * @param array<string, mixed> $actor
+     * @return array{job: string, admin_user?: string, admin_password?: string}
+     */
+    public function install(array $site, string $app, array $input, array $actor): array
+    {
+        if (!isset(self::APPS[$app])) {
+            throw new UserFacingException('Unknown application.');
+        }
+        if ($site['kind'] !== 'php' || $site['php_version'] === '') {
+            throw new UserFacingException(self::APPS[$app]['title'] . ' needs a PHP website.', '', 'Change the website type to PHP under Settings first.');
+        }
+        $errors = [];
+        $params = [
+            'app' => $app, 'domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root'],
+            'php_version' => $site['php_version'], 'url' => ($site['https'] ? 'https://' : 'http://') . $site['domain'],
+        ];
+        $adminPassword = null;
+        if ($app === 'wordpress') {
+            $params['path'] = self::relativeDocroot($site);
+            $params['title'] = trim((string) ($input['title'] ?? '')) ?: $site['domain'];
+            $params['admin_user'] = trim((string) ($input['admin_user'] ?? 'admin'));
+            $params['admin_email'] = trim((string) ($input['admin_email'] ?? ''));
+            if (!preg_match('/^[A-Za-z0-9._@-]{3,60}$/', $params['admin_user'])) {
+                $errors['admin_user'] = 'Use 3–60 letters, digits or . _ @ -';
+            }
+            if (!filter_var($params['admin_email'], FILTER_VALIDATE_EMAIL)) {
+                $errors['admin_email'] = 'Enter the administrator\'s email address.';
+            }
+            if (mb_strlen($params['title']) > 100) {
+                $errors['title'] = 'Keep the title under 100 characters.';
+            }
+            $adminPassword = Crypto::password(20);
+            $params['admin_password'] = $adminPassword;
+        } else {
+            $params['path'] = trim((string) ($input['path'] ?? 'app'), " /");
+            if (!preg_match('#^[A-Za-z0-9._-]{1,60}$#', $params['path']) || in_array($params['path'], ['logs', 'tmp', 'backups', '.ssh', '.', '..'], true)) {
+                $errors['path'] = 'Choose a new folder name, e.g. app.';
+            }
+            $params['migrate'] = filter_var($input['migrate'] ?? false, FILTER_VALIDATE_BOOL);
+        }
+        if ($errors !== []) {
+            throw new ValidationException($errors);
+        }
+
+        // A database and user for the application (password kept encrypted
+        // so it can be looked up later under Databases).
+        $base = substr(preg_replace('/[^a-z0-9]/', '', strtolower(explode('.', (string) $site['domain'])[0])) ?: 'site', 0, 10) . ($app === 'wordpress' ? '_wp' : '_app');
+        $created = null;
+        for ($i = 0; $i < 10 && $created === null; $i++) {
+            $name = $i === 0 ? $base : $base . $i;
+            try {
+                $created = $this->databases->create(['name' => $name, 'create_user' => true, 'username' => $name, 'store_password' => true, 'website_id' => (int) $site['id']], $actor);
+            } catch (ValidationException $e) {
+                if (!isset($e->errors()['name']) && !isset($e->errors()['username'])) {
+                    throw $e;
+                }
+            }
+        }
+        if ($created === null) {
+            throw new UserFacingException('No free database name was found for the application.');
+        }
+        $database = $this->dbRepo->database($this->server->id(), (int) $created['database_id'], null);
+        $params['db'] = ['name' => $database['name'], 'user' => $created['user'], 'password' => $created['password'], 'host' => 'localhost'];
+
+        try {
+            $res = (array) $this->agent->call('apps.install', $params);
+        } catch (AgentException $e) {
+            // Nothing was installed: remove the database we just created.
+            try {
+                $this->databases->drop((array) $database, (string) $database['name']);
+                foreach ($this->dbRepo->users($this->server->id(), $actor) as $u) {
+                    if ($u['username'] === $created['user']) {
+                        $this->databases->dropUser($u);
+                    }
+                }
+            } catch (\Throwable) {
+            }
+            throw $e;
+        }
+        $job = (string) $res['job_id'];
+        $this->db->run(
+            'INSERT INTO app_installs (website_id, app, path, database_id, admin_user, job_id, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [(int) $site['id'], $app, $params['path'], (int) $database['id'], $params['admin_user'] ?? '', $job, (int) $actor['id'], gmdate('c')]
+        );
+        $this->audit->record('app.install', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'app' => $app, 'path' => $params['path'], 'database' => $database['name']]);
+        $out = ['job' => $job];
+        if ($adminPassword !== null) {
+            $out += ['admin_user' => $params['admin_user'], 'admin_password' => $adminPassword];
+        }
+        return $out;
+    }
+
+    /**
+     * Update running installations; point Laravel sites at public/ once done.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function refresh(array $site): void
+    {
+        foreach ($this->db->fetchAll("SELECT * FROM app_installs WHERE website_id = ? AND status = 'running'", [(int) $site['id']]) as $i) {
+            try {
+                $job = (array) $this->agent->call('jobs.get', ['id' => $i['job_id']]);
+            } catch (AgentException $e) {
+                if ($e->errorCode() === 'not_found') {
+                    $this->db->run("UPDATE app_installs SET status = 'unknown', finished_at = ? WHERE id = ?", [gmdate('c'), (int) $i['id']]);
+                }
+                continue;
+            }
+            $status = (string) ($job['status'] ?? '');
+            if ($status !== 'succeeded' && $status !== 'failed') {
+                continue;
+            }
+            $this->db->run('UPDATE app_installs SET status = ?, error = ?, finished_at = ? WHERE id = ?', [$status, mb_substr((string) ($job['error'] ?? ''), 0, 500), gmdate('c'), (int) $i['id']]);
+            if ($status === 'succeeded' && $i['app'] === 'laravel') {
+                $fresh = $this->sites->find((int) $site['server_id'], (int) $site['id'], null);
+                if ($fresh !== null) {
+                    $this->websites->patch($fresh, ['document_root' => rtrim((string) $fresh['root'], '/') . '/' . $i['path'] . '/public'], 'app.document_root');
+                }
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $site
+     * @return list<array<string, mixed>>
+     */
+    public function history(array $site): array
+    {
+        return $this->db->fetchAll('SELECT a.*, d.name AS database_name FROM app_installs a LEFT JOIN databases d ON d.id = a.database_id WHERE a.website_id = ? ORDER BY a.id DESC', [(int) $site['id']]);
+    }
+}
