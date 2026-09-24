@@ -161,7 +161,7 @@ if [[ -e $PREFIX || -e $CONF_DIR ]]; then
     if [[ $REINSTALL -eq 1 ]]; then
         confirm "WhaCP is already installed. Reinstall files (configuration, token and database are kept)?" || die "aborted"
     else
-        die "WhaCP is already installed in $PREFIX. Upgrades are not supported yet; use --reinstall to replace the program files."
+        die "WhaCP is already installed in $PREFIX. To upgrade, run installer/upgrade.sh (it backs up, migrates and rolls back on failure)."
     fi
 fi
 if [[ $AGENT_ONLY -eq 0 ]] && command -v ss >/dev/null && ss -ltn "sport = :$PORT" | grep -q LISTEN; then
@@ -179,7 +179,7 @@ if [[ -x $SRC_DIR/dist/whacp-agent ]]; then
 elif command -v go >/dev/null; then
     log "Building agent from source"
     run mkdir -p "$SRC_DIR/dist"
-    (cd "$SRC_DIR/agent" && run env CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$SRC_DIR/dist/whacp-agent" ./cmd/whacp-agent)
+    (cd "$SRC_DIR/agent" && run env CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$(cat "$SRC_DIR/VERSION")" -o "$SRC_DIR/dist/whacp-agent" ./cmd/whacp-agent)
     AGENT_SRC=$SRC_DIR/dist/whacp-agent
 else
     die "no prebuilt agent (dist/whacp-agent) and Go is not installed to build it"
@@ -210,7 +210,7 @@ if [[ $AGENT_ONLY -eq 0 ]]; then
     run mkdir -p "$PREFIX/panel.new"
     run cp -a "$SRC_DIR/panel/app" "$SRC_DIR/panel/bin" "$SRC_DIR/panel/config" "$SRC_DIR/panel/database" \
         "$SRC_DIR/panel/public" "$SRC_DIR/panel/resources" "$SRC_DIR/panel/routes" "$SRC_DIR/panel/vendor" \
-        "$SRC_DIR/panel/composer.json" "$PREFIX/panel.new/"
+        "$SRC_DIR/panel/composer.json" "$SRC_DIR/VERSION" "$PREFIX/panel.new/"
     run chown -R root:whacp "$PREFIX/panel.new"
     run chmod -R u=rwX,g=rX,o= "$PREFIX/panel.new"
     run chmod 0750 "$PREFIX/panel.new/bin/whacp"

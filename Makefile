@@ -2,9 +2,9 @@
 
 GO      ?= go
 PHP     ?= php
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+VERSION ?= $(shell cat VERSION 2>/dev/null || echo dev)
 
-.PHONY: all build test test-agent test-panel lint smoke dev clean
+.PHONY: all build test test-agent test-panel lint smoke upgrade-test dev clean
 
 all: lint test
 
@@ -24,10 +24,13 @@ test-panel: panel/vendor/autoload.php
 lint: panel/vendor/autoload.php
 	@test -z "$$(cd agent && gofmt -l .)" || (echo "gofmt needed:"; cd agent && gofmt -l .; exit 1)
 	cd panel && find app bin config database public resources routes tests -name '*.php' -print0 | xargs -0 -n1 -P4 $(PHP) -l > /dev/null
-	for f in installer/install.sh installer/uninstall.sh scripts/dev.sh tests/integration/smoke.sh; do bash -n $$f || exit 1; done
+	for f in installer/install.sh installer/upgrade.sh installer/uninstall.sh scripts/dev.sh tests/integration/smoke.sh tests/integration/upgrade.sh; do bash -n $$f || exit 1; done
 
 smoke: panel/vendor/autoload.php
 	tests/integration/smoke.sh
+
+upgrade-test: panel/vendor/autoload.php
+	tests/integration/upgrade.sh
 
 dev:
 	scripts/dev.sh

@@ -32,7 +32,7 @@ import (
 )
 
 // version is set at build time with -ldflags "-X main.version=...".
-var version = "0.4.0-dev"
+var version = "0.5.0-dev"
 
 func main() {
 	os.Exit(run())

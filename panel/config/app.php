@@ -14,7 +14,15 @@ $storage = dirname(__DIR__) . '/storage';
 return [
     'app' => [
         'name' => 'WhaCP',
-        'version' => '0.4.0-dev',
+        // From the VERSION file (copied next to the panel by the installer).
+        'version' => (static function (): string {
+            foreach ([dirname(__DIR__) . '/VERSION', dirname(__DIR__, 2) . '/VERSION'] as $f) {
+                if (is_file($f)) {
+                    return trim((string) file_get_contents($f));
+                }
+            }
+            return 'dev';
+        })(),
         'env' => 'production',
         // Never enable on a reachable server: adds exception details to error pages.
         'debug' => false,
