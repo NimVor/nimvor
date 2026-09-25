@@ -17,6 +17,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -223,22 +224,10 @@ func (r *SystemRunner) RunWith(ctx context.Context, id string, o Opts, args ...s
 	switch {
 	case o.As != nil && r.transient():
 		// The agent never changes its own credentials: PID 1 starts the
-		// command as the account in a transient, confined unit (see
-		// TransientArgs). Under the agent's NoNewPrivileges=yes sandbox
-		// the agent cannot switch UIDs itself (F-16).
-		unit := transientUnit()
-		cmd = exec.CommandContext(ctx, r.paths["systemd-run"], TransientArgs(unit, bin, dir, env, *o.As, timeout, args)...)
-		cmd.Env = baseEnv
-		cmd.Cancel = func() error {
-			// Stopping systemd-run alone would leave the unit running.
-			if sc, ok := r.paths["systemctl"]; ok {
-				stop := exec.Command(sc, "stop", "--no-block", unit)
-				stop.Env = baseEnv
-				_ = stop.Run()
-			}
-			return cmd.Process.Kill()
-		}
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+		// command as the account in a transient, confined unit. Under the
+		// agent's NoNewPrivileges=yes sandbox it could not switch UIDs
+		// itself (F-16).
+		return r.runTransient(ctx, bin, dir, env, o, timeout, args)
 	case o.As != nil:
 		// No systemd (development containers): switch credentials in the
 		// child directly.
@@ -288,13 +277,14 @@ func transientUnit() string {
 
 // transientHardening confines commands run as a website account: no
 // capabilities at all, no privilege gain through setuid binaries, the
-// system read-only, a private /tmp and no kernel or clock changes.
+// system read-only and no kernel or clock changes. /tmp is the host's, as
+// for the site's PHP-FPM pool and cron jobs (a private one would hide
+// paths callers pass in).
 var transientHardening = []string{
 	"NoNewPrivileges=yes",
 	"CapabilityBoundingSet=",
 	"RestrictSUIDSGID=yes",
 	"ProtectSystem=full",
-	"PrivateTmp=yes",
 	"ProtectKernelTunables=yes",
 	"ProtectKernelModules=yes",
 	"ProtectKernelLogs=yes",
@@ -307,11 +297,19 @@ var transientHardening = []string{
 }
 
 // TransientArgs builds the systemd-run arguments that start bin as the
-// account: standard input, output and error are the caller's (--pipe),
-// and systemd-run exits with the command's status.
-func TransientArgs(unit, bin, dir string, env []string, as Credential, timeout time.Duration, args []string) []string {
-	a := []string{"--quiet", "--pipe", "--wait", "--collect", "--service-type=exec", "--unit=" + unit,
+// account. Standard input, output and error are named pipes that PID 1
+// opens itself (stdin "" means none): passing the agent's descriptors over
+// D-Bus (--pipe) is refused by SELinux on RHEL. systemd-run --wait exits
+// with the command's status.
+func TransientArgs(unit, bin, dir string, env []string, as Credential, timeout time.Duration, stdin, stdout, stderr string, args []string) []string {
+	a := []string{"--quiet", "--wait", "--collect", "--service-type=exec", "--unit=" + unit,
 		fmt.Sprintf("--uid=%d", as.UID), fmt.Sprintf("--gid=%d", as.GID), "--working-directory=" + dir}
+	if stdin == "" {
+		a = append(a, "--property=StandardInput=null")
+	} else {
+		a = append(a, "--property=StandardInput=file:"+stdin)
+	}
+	a = append(a, "--property=StandardOutput=file:"+stdout, "--property=StandardError=file:"+stderr)
 	if len(as.Groups) > 0 {
 		g := make([]string, len(as.Groups))
 		for i, id := range as.Groups {
@@ -334,6 +332,107 @@ func TransientArgs(unit, bin, dir string, env []string, as Credential, timeout t
 		a = append(a, strings.ReplaceAll(arg, "$", "$$"))
 	}
 	return a
+}
+
+// RunDir holds the named pipes of commands run as other accounts (the
+// agent's runtime directory, root only).
+var RunDir = "/run/whacp"
+
+// runTransient runs bin as o.As in a transient unit, streaming standard
+// input and output through named pipes in RunDir.
+func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []string, o Opts, timeout time.Duration, args []string) ([]byte, error) {
+	if err := os.MkdirAll(RunDir, 0o750); err != nil {
+		return nil, err
+	}
+	tmp, err := os.MkdirTemp(RunDir, "run-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(tmp)
+	in, out, errp := "", filepath.Join(tmp, "out"), filepath.Join(tmp, "err")
+	if o.Stdin != nil {
+		in = filepath.Join(tmp, "in")
+	}
+	for _, f := range []string{in, out, errp} {
+		if f != "" {
+			if err := syscall.Mkfifo(f, 0o600); err != nil {
+				return nil, err
+			}
+		}
+	}
+	var buf limitedBuffer
+	buf.limit = maxOutput
+	var w io.Writer = &buf
+	if o.Output != nil {
+		w = io.MultiWriter(&buf, o.Output)
+	}
+	w = &lockedWriter{w: w}
+	stdout := w
+	if o.Stdout != nil {
+		stdout = o.Stdout
+	}
+	unit := transientUnit()
+	cmd := exec.CommandContext(ctx, r.paths["systemd-run"], TransientArgs(unit, bin, dir, env, *o.As, timeout, in, out, errp, args)...)
+	cmd.Env = baseEnv
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Stdout, cmd.Stderr = w, w // systemd-run's own messages
+	cmd.Cancel = func() error {
+		// Stopping systemd-run alone would leave the unit running.
+		if sc, ok := r.paths["systemctl"]; ok {
+			stop := exec.Command(sc, "stop", "--no-block", unit)
+			stop.Env = baseEnv
+			_ = stop.Run()
+		}
+		return cmd.Process.Kill()
+	}
+	cmd.WaitDelay = 5 * time.Second
+	var wg sync.WaitGroup
+	copyFrom := func(path string, dst io.Writer) {
+		defer wg.Done()
+		if f, err := os.OpenFile(path, os.O_RDONLY, 0); err == nil {
+			io.Copy(dst, f)
+			f.Close()
+		}
+	}
+	wg.Add(2)
+	go copyFrom(out, stdout)
+	go copyFrom(errp, w)
+	if in != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if f, err := os.OpenFile(in, os.O_WRONLY, 0); err == nil {
+				io.Copy(f, o.Stdin)
+				f.Close()
+			}
+		}()
+	}
+	runErr := cmd.Run()
+	// If the unit never opened a pipe (it failed to start), release the
+	// goroutine still waiting to open the other end.
+	for _, f := range []string{out, errp} {
+		if p, err := os.OpenFile(f, os.O_WRONLY|syscall.O_NONBLOCK, 0); err == nil {
+			p.Close()
+		}
+	}
+	if in != "" {
+		if p, err := os.OpenFile(in, os.O_RDONLY|syscall.O_NONBLOCK, 0); err == nil {
+			p.Close()
+		}
+	}
+	wg.Wait()
+	return buf.Bytes(), runErr
+}
+
+type lockedWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (l *lockedWriter) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(p)
 }
 
 func checkArgs(id string, o Opts, args []string) error {

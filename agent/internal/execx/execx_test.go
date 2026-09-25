@@ -68,9 +68,10 @@ func TestAllowlistHasPlatformTools(t *testing.T) {
 // arguments reach the program unchanged (F-16).
 func TestTransientArgs(t *testing.T) {
 	a := TransientArgs("whacp-run-x.service", "/bin/sh", "/home/whacp/a.test", []string{"HOME=/home/whacp/a.test"},
-		Credential{UID: 1001, GID: 1002}, 90*time.Second, []string{"-c", "echo $HOME 100%"})
+		Credential{UID: 1001, GID: 1002}, 90*time.Second, "", "/run/whacp/r/out", "/run/whacp/r/err", []string{"-c", "echo $HOME 100%"})
 	s := strings.Join(a, "\n")
-	for _, want := range []string{"--uid=1001", "--gid=1002", "--pipe", "--wait", "--working-directory=/home/whacp/a.test",
+	for _, want := range []string{"--uid=1001", "--gid=1002", "--wait", "--property=StandardInput=null",
+		"--property=StandardOutput=file:/run/whacp/r/out", "--property=StandardError=file:/run/whacp/r/err", "--working-directory=/home/whacp/a.test",
 		"--property=NoNewPrivileges=yes", "--property=CapabilityBoundingSet=", "--property=RestrictSUIDSGID=yes",
 		"--property=RuntimeMaxSec=90", "--setenv=HOME=/home/whacp/a.test"} {
 		if !strings.Contains(s, want+"\n") && !strings.HasSuffix(s, want) {
