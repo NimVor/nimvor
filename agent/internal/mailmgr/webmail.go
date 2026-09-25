@@ -90,6 +90,31 @@ var webmailProbe = func(ctx context.Context, hostname string) error {
 	return last
 }
 
+// roundcubeDefaults is the distribution's defaults.inc.php (Debian keeps it
+// in /etc/roundcube, some RHEL packages in the program's config folder).
+func (e env) roundcubeDefaults() string {
+	for _, p := range []string{e.M.RoundcubeDefaults, e.M.RoundcubeDir + "/config/defaults.inc.php"} {
+		if e.Root.Exists(p) {
+			return p
+		}
+	}
+	return e.M.RoundcubeDefaults
+}
+
+// roundcubeLayout describes where the installed Roundcube looks for its
+// configuration (error details when it does not start).
+func (e env) roundcubeLayout() string {
+	out := e.Describe(e.M.RoundcubeDefaults, e.M.RoundcubeDir+"/config/defaults.inc.php", e.M.WebmailDir+"/defaults.inc.php", e.M.WebmailDir+"/config.inc.php")
+	if b, err := e.Root.ReadFile(e.M.RoundcubeDir + "/program/include/iniset.php"); err == nil {
+		for _, l := range strings.Split(string(b), "\n") {
+			if strings.Contains(l, "CONFIG_DIR") {
+				out += "iniset.php: " + strings.TrimSpace(l) + "\n"
+			}
+		}
+	}
+	return out
+}
+
 func (e env) webmailPath() string { return e.M.WebmailDir + "/webmail.json" }
 
 func (e env) loadWebmail() Webmail {
@@ -245,7 +270,8 @@ func (e env) renderWebmailPool() string {
 		"user = " + webmailUser + "\ngroup = " + webmailUser + "\n" +
 		"listen = " + e.webmailSocket() + "\nlisten.owner = " + e.M.WebUser + "\nlisten.group = " + e.M.WebUser + "\nlisten.mode = 0660\n" +
 		"pm = ondemand\npm.max_children = 10\npm.process_idle_timeout = 10s\npm.max_requests = 500\nchdir = /\ncatch_workers_output = yes\n" +
-		"env[ROUNDCUBE_CONFIG_DIR] = " + e.M.WebmailDir + "\n" +
+		// Roundcube 1.5 appends file names to it without a separator.
+		"env[ROUNDCUBE_CONFIG_DIR] = " + e.M.WebmailDir + "/\n" +
 		// Roundcube's libraries come from the distribution (PEAR and others).
 		"php_value[include_path] = .:/usr/share/php:/usr/share/pear\n" +
 		"php_admin_value[open_basedir] = " + basedir + "\n" +
@@ -397,7 +423,7 @@ func registerWebmail(r *actions.Registry, e env) {
 		set.Mkdir(e.M.WebmailData+"/temp", 0o750, own)
 		set.Mkdir(e.M.WebmailData+"/logs", 0o750, own)
 		set.Mkdir(e.M.ACMERoot, 0o755, agentfs.RootOwner)
-		set.Write(e.M.WebmailDir+"/defaults.inc.php", []byte("<?php\n// "+webmailHeader+"\ninclude '"+e.M.RoundcubeDefaults+"';\n"), 0o644, agentfs.RootOwner)
+		set.Write(e.M.WebmailDir+"/defaults.inc.php", []byte("<?php\n// "+webmailHeader+"\ninclude '"+e.roundcubeDefaults()+"';\n"), 0o644, agentfs.RootOwner)
 		set.Write(e.M.WebmailDir+"/config.inc.php", []byte(renderRoundcube(e.M.WebmailData, key)), 0o640, agentfs.Owner{UID: 0, GID: acct.GID})
 		if cert == e.M.WebmailDir+"/tls.crt" && !e.Root.Exists(cert) {
 			c, k, err := selfSigned(in.Hostname)
@@ -459,14 +485,14 @@ func registerWebmail(r *actions.Registry, e env) {
 		// run as the webmail account so it owns the file.
 		out, err := e.Runner.RunWith(ctx, "php"+v, execx.Opts{
 			As:  &execx.Credential{UID: uint32(acct.UID), GID: uint32(acct.GID), Home: e.M.WebmailData},
-			Env: []string{"ROUNDCUBE_CONFIG_DIR=" + e.M.WebmailDir},
+			Env: []string{"ROUNDCUBE_CONFIG_DIR=" + e.M.WebmailDir + "/"},
 		}, "-d", "error_reporting=E_ALL & ~E_DEPRECATED", e.M.RoundcubeDir+"/bin/updatedb.sh", "--package=roundcube", "--dir="+e.M.RoundcubeDir+"/SQL")
 		if err != nil {
 			if strings.Contains(string(out), "Cannot redeclare function") {
 				// e.g. Roundcube 1.6.11 with PHP 8.5, which added array_first().
 				return fail("The installed Roundcube package does not work with PHP "+v+" yet. Install an update of the package when the distribution provides one, or choose another installed PHP version.", errors.New(host.Output(out)))
 			}
-			return fail("Roundcube's database could not be created or upgraded.", errors.New(host.Output(out)))
+			return fail("Roundcube's database could not be created or upgraded.", errors.New(host.Output(out)+"\n"+e.roundcubeLayout()))
 		}
 		if err := e.ReloadFPM(ctx, v); err != nil {
 			return fail("PHP-FPM did not load the webmail pool.", err)
