@@ -17,9 +17,9 @@ privileged operation must be explicit, validated, audited and reversible.**
 
 | Area | Features |
 |------|----------|
-| Panel | sign-in with Argon2id, throttling and optional **two-factor (TOTP) with recovery codes**; CSRF, strict CSP; roles (Administrator, Operator, Viewer, Reseller, Hosting customer) and custom roles; audit log; settings |
+| Panel | sign-in with Argon2id, throttling, **two-factor (TOTP, QR setup, recovery codes, can be required per role)** and email password reset; CSRF, strict CSP; roles (Administrator, Operator, Viewer, Reseller, Hosting customer) and custom roles; audit log; settings |
 | Agent | Go service with named actions only, Unix socket (token + peer UID) or pinned TLS 1.3 for remote servers; write gate; allowlisted binaries, no shell |
-| Dashboard & monitoring | live CPU/RAM/disk/load/network, services, history, alerts (disk, memory, load, certificates, agent down) with webhooks |
+| Dashboard & monitoring | live CPU/RAM/disk/load/network, services, history, alerts (disk, memory, load, certificates, agent down) by email and webhook |
 | Discovery | read-only inventory of Nginx sites, PHP/FPM, certificates, MySQL/MariaDB, Redis, cron, accounts, firewall, sites managed by other panels |
 | **Import** | take over a discovered website: files are copied, Nginx switches in one validated reload, the old config is kept and the import can be undone |
 | Websites | PHP, static and reverse-proxy sites; aliases, redirects, per-site PHP-FPM pools; `nginx -t` gate and automatic rollback |
@@ -29,7 +29,7 @@ privileged operation must be explicit, validated, audited and reversible.**
 | Files & logs | sandboxed file manager, log viewer with live tail |
 | Automation | cron jobs, systemd workers (queues), Git deployment with webhooks |
 | Redis | settings, password, ACL users |
-| Backups | encrypted (AES-256-GCM) site and server backups, S3-compatible storage, schedules, retention, restore |
+| Backups | encrypted (AES-256-GCM) site and server backups, S3-compatible storage, schedules, retention, restore (server configuration by component, with rollback) |
 | Security | UFW firewall, SSH hardening, Fail2ban — every change auto-rolls back unless confirmed; security audit |
 | Server | packages and updates, hostname, timezone, reboot |
 | Hosting | multiple servers, plans and quotas, resellers and customers |

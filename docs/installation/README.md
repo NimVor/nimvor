@@ -15,6 +15,21 @@
 - To build from source: Go ≥ 1.22 and Composer (or ship `dist/whacp-agent`
   and `panel/vendor`).
 
+## Release archives
+
+Tagged releases publish `whacp-<version>-linux-{amd64,arm64}.tar.gz` with a
+prebuilt agent and the panel's dependencies, so neither Go nor Composer is
+needed. Verify before installing:
+
+```bash
+sha256sum -c SHA256SUMS --ignore-missing
+gh attestation verify whacp-<version>-linux-amd64.tar.gz --repo mchkhawarshahzad/WhaCP
+tar -xzf whacp-<version>-linux-amd64.tar.gz && cd whacp-<version>
+```
+
+Archives are reproducible (`scripts/release.sh` on the tagged commit gives
+identical files).
+
 ## Install
 
 ```bash

@@ -6,7 +6,8 @@
 |--------|------------|
 | Remote attacker reaches the panel | Loopback-only listener by default; SSH tunnel or TLS proxy required |
 | Password guessing | Argon2id, 12-char minimum, per-user and per-IP throttling, uniform error messages, timing-equalised verification |
-| Stolen password | Optional TOTP two-factor sign-in (secret encrypted at rest, codes single-use, recovery codes hashed); password and second factor must be completed within 5 minutes and 5 tries |
+| Password reset abuse | Same answer for every account, 256-bit single-use tokens stored as hashes, 30-minute expiry, per-account and per-IP limits, links only from the configured panel URL (no Host-header poisoning), two-factor still required |
+| Stolen password | Optional (or per-role required) TOTP two-factor sign-in (secret encrypted at rest, codes single-use, recovery codes hashed); password and second factor must be completed within 5 minutes and 5 tries |
 | Stolen API token | Tokens are stored as hashes, scoped read or read/write, expire, can be revoked, act with the owner's permissions; use is audited |
 | Session theft / fixation | HttpOnly + SameSite cookies (Secure behind TLS), strict session mode, ID regeneration on login, idle and absolute timeouts, invalidation on password change |
 | CSRF | Synchronizer token on every non-GET request (form field or `X-CSRF-Token`), rotated at login |
@@ -20,6 +21,7 @@
 | Bad configuration takes sites down | Generated from structured templates, validated (`nginx -t`, `php-fpm -t`, `sshd -t`) before reload, previous version restored on failure |
 | Tenant reaches another tenant | Owner scoping on every query for *own*-scope roles; reseller limits aggregate their customers; file manager confined to the website root with symlink checks; per-site PHP-FPM pools and system accounts |
 | Malicious plugin upload | Plugins cannot be uploaded through the web; they are installed on disk by an administrator, refused if group/world-writable or containing symlinks, and must be enabled explicitly |
+| Restoring a bad or crafted server backup | Checksum verified, safety backup first, extraction confined to a root-only staging folder (no absolute/`..` paths, nothing written below symlinks, set-id bits dropped), validate before reload, automatic rollback; firewall/SSH/WhaCP settings never restored in place |
 | Leaked backups | AES-256-GCM encryption with a per-server key; remote storage credentials encrypted with the panel key |
 | Path traversal | `filesystem.Root` rejects `..`, resolves symlinks inside the root; Nginx includes limited to `/etc/nginx`; router parameters restricted to `[A-Za-z0-9_.-]` |
 | Secret leakage | Cron commands, logs and audit details are redacted; Redis/MySQL passwords never returned; private keys never read; `/etc/shadow` never read |

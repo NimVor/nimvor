@@ -58,6 +58,19 @@ until the agent runs with `allow_write_actions` (`install.sh --enable-writes`).
   scheduler; the agent's OpenAPI action list is generated from and verified
   against the registry in tests.
 
+### Added after the phase work
+- QR code for two-factor setup (built-in encoder), per-role two-factor
+  requirement; server switcher and job visibility follow resource scope.
+- Email: SMTP settings, alert emails, forgotten-password links.
+- Restore of server configuration backups by component, with safety
+  backup, validation and rollback; extract-only mode.
+- CI job running every real-service test as root (nginx, PHP-FPM,
+  MariaDB, Redis, UFW, SSH, Fail2ban, WordPress, Laravel); agent unit tests
+  pass without root; reproducible release archives with provenance.
+
+### Fixed
+- `uninstall.sh` left the agent's write-mode drop-in behind.
+
 ## [0.4.0]
 
 Phases 0–4: foundation, panel, agent, server dashboard and read-only discovery.

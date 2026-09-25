@@ -32,10 +32,12 @@ proven on real servers.
 - Independent security review of the agent action catalogue
   (`agent/api/openapi.yaml`, `x-whacp-actions`) and the panel's
   authorization (`Permissions.php`, owner scoping).
-- Restore drill: restore a server backup onto a new VM.
-- Publish signed release archives with a prebuilt agent and `vendor/`.
+- Restore drill on a new VM (the component restore itself is covered by a
+  real-host test in CI).
+- Tag the first release (archives, checksums and provenance are built by
+  the Release workflow).
 
 ## Later
 
 - More application installers and backup providers; RHEL-family platform;
-  WebAuthn security keys; per-role enforcement of two-factor sign-in.
+  WebAuthn security keys.

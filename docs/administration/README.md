@@ -25,13 +25,34 @@ demote the last one. Users cannot delete or disable themselves.
 - Throttling: 5 failures per username or 10 per IP in 15 minutes lock sign-in.
 - Sessions end after the idle timeout (setting) or 12 hours, and immediately
   when the user's password changes or the account is disabled.
-- **Two-factor sign-in:** each user can turn it on under *Profile* with any
-  TOTP authenticator app (6 digits, 30 s). A code works once; the previous
+- **Two-factor sign-in:** each user can turn it on under *Profile* by
+  scanning the QR code with any TOTP authenticator app (6 digits, 30 s).
+  Administrators can require it per role (*Users & roles → role → Sign-in
+  policy*); members without it can then only reach their profile until they
+  set it up. A code works once; the previous
   and next codes are accepted for clock drift. Ten single-use recovery codes
   are shown once. Five wrong codes end the attempt and count towards the
   sign-in throttle. Administrators can reset a user's two-factor sign-in on
   the user's edit page (after verifying who is asking), or with
   `bin/whacp user:2fa-reset <username>`.
+
+## Forgotten passwords
+
+When email is set up (*Settings → Email*) and the public panel URL is set,
+the sign-in page offers *Forgot your password?*. The answer is the same
+whether or not the account exists; the link is single-use, valid for 30
+minutes, limited to three per account and ten per address per hour, and
+never built from the request's host name. Two-factor sign-in is still
+required afterwards. Without email, reset passwords with
+`bin/whacp user:password`.
+
+## Email
+
+*Settings → Email* configures SMTP (TLS on 465 or STARTTLS on 587, with
+certificate verification; unencrypted only to a relay on this server). The
+password is stored encrypted. Alerts go to the addresses under *Send
+alerts to* in addition to the optional webhook. *Send test message to me*
+checks the settings.
 
 ## Settings
 
@@ -76,6 +97,24 @@ sudo -u whacp -E php /opt/whacp/panel/bin/whacp discovery:run
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp schedule:run   # normally run by whacp-scheduler.timer
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp doctor
 ```
+
+## Restoring server configuration
+
+*Backups → server backup → Restore* (needs *Reboot, update and configure
+the server*) restores selected parts: Nginx, PHP, MySQL/MariaDB settings,
+Redis, certificates, Fail2ban and system cron jobs. The backup's checksum is
+verified, a safety backup of the current configuration is taken, each part
+replaces its folder as a whole, Nginx and PHP-FPM are validated before
+anything reloads, and the previous folders come back if validation or a
+service restart fails. Firewall, SSH, systemd units and `/etc/whacp` are
+never restored automatically; *Extract for review only* unpacks the whole
+backup into `/var/lib/whacp-agent/restore/` (root only) to copy from by
+hand.
+
+**Restore drill on a new server:** install WhaCP with `--enable-writes`,
+copy the old backup key to `/var/lib/whacp-agent/backup.key` (mode 0600),
+add the remote storage and restore the server backup, then the website
+backups.
 
 ## Importing existing websites
 
