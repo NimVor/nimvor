@@ -1,4 +1,4 @@
-package ftpmgr
+package shacrypt
 
 import (
 	"strings"

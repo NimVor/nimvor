@@ -27,10 +27,10 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
 )
 
 func remoteEnv(t *testing.T) (*host.Env, *actions.Registry, Service) {
@@ -161,7 +161,7 @@ func TestRealHostFTPSBackup(t *testing.T) {
 
 	exec.Command("useradd", "-m", "-u", "2892", "-s", "/usr/sbin/nologin", "whacpftp").Run()
 	t.Cleanup(func() { exec.Command("userdel", "-r", "whacpftp").Run() })
-	line := fmt.Sprintf("whacpftp:%s:2892:2892::/home/whacpftp/./::::::::::::\n", ftpmgr.HashPassword("Ftp-Pa55word-123"))
+	line := fmt.Sprintf("whacpftp:%s:2892:2892::/home/whacpftp/./::::::::::::\n", shacrypt.HashPassword("Ftp-Pa55word-123"))
 	os.WriteFile(filepath.Join(dir, "users.passwd"), []byte(line), 0o600)
 	if out, err := exec.Command("pure-pw", "mkdb", filepath.Join(dir, "users.pdb"), "-f", filepath.Join(dir, "users.passwd")).CombinedOutput(); err != nil {
 		t.Fatalf("pure-pw: %s", out)

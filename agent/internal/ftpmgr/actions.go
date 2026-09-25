@@ -18,6 +18,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
 )
 
 type configureReq struct {
@@ -317,7 +318,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			if err := validPassword(in.Password); err != nil {
 				return nil, actions.InvalidParams(err.Error())
 			}
-			acct.hash = HashPassword(in.Password)
+			acct.hash = shacrypt.HashPassword(in.Password)
 		case idx >= 0:
 			if list[idx].UID != u.UID {
 				return nil, actions.Conflict("an FTP account named " + in.Name + " belongs to another website")

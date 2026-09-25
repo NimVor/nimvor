@@ -29,6 +29,10 @@ var Components = map[string]string{
 	"memcached":           "Memcached cache server",
 	"pure-ftpd":           "FTP server (FTPS accounts for websites)",
 	"bind9":               "DNS server (BIND) for hosted zones",
+	"postfix":             "Mail server (SMTP)",
+	"dovecot-imapd":       "Mailbox server (IMAP)",
+	"dovecot-lmtpd":       "Mail delivery to mailboxes (LMTP)",
+	"opendkim":            "DKIM signing of outgoing mail",
 	"certbot":             "Let's Encrypt client",
 	"ufw":                 "Firewall",
 	"fail2ban":            "Brute-force protection",
@@ -211,18 +215,28 @@ func Register(r *actions.Registry, env *host.Env) {
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})
-	r.Register(actions.Action{Name: "packages.install", Mutating: true, Description: "Install an allowlisted component (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "packages.install", Mutating: true, Description: "Install allowlisted components: name, or names for several at once (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
-			Name string `json:"name"`
+			Name  string   `json:"name"`
+			Names []string `json:"names"`
 		}
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
 		}
-		if _, ok := Components[in.Name]; !ok {
-			return nil, actions.InvalidParams("name: not an installable component")
+		names := in.Names
+		if in.Name != "" {
+			names = append([]string{in.Name}, names...)
+		}
+		if len(names) == 0 || len(names) > 10 {
+			return nil, actions.InvalidParams("give 1–10 component names")
+		}
+		for _, n := range names {
+			if _, ok := Components[n]; !ok {
+				return nil, actions.InvalidParams("name: " + n + " is not an installable component")
+			}
 		}
 		j := env.Jobs.Start("packages.install", "server:packages", func(ctx context.Context, log io.Writer) (any, error) {
-			return nil, phpmgr.AptInstall(ctx, env, log, []string{in.Name})
+			return nil, phpmgr.AptInstall(ctx, env, log, names)
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})

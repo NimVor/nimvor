@@ -79,6 +79,11 @@ func (d debianFamily) Managed() Managed {
 		DNSZoneDir:      "/etc/bind/whacp",
 		DNSUser:         "bind",
 		DNSUnit:         "named.service",
+		MailDir:         "/etc/whacp-mail",
+		VmailDir:        "/var/vmail",
+		PostfixDir:      "/etc/postfix",
+		DovecotAuthConf: "/etc/dovecot/conf.d/10-auth.conf",
+		DovecotDropIn:   "/etc/dovecot/conf.d/99-whacp.conf",
 	}
 }
 
@@ -154,6 +159,11 @@ func (r rhelFamily) Managed() Managed {
 		DNSZoneDir:      "/var/named/whacp",
 		DNSUser:         "named",
 		DNSUnit:         "named.service",
+		MailDir:         "/etc/whacp-mail",
+		VmailDir:        "/var/vmail",
+		PostfixDir:      "/etc/postfix",
+		DovecotAuthConf: "/etc/dovecot/conf.d/10-auth.conf",
+		DovecotDropIn:   "/etc/dovecot/conf.d/99-whacp.conf",
 	}
 }
 

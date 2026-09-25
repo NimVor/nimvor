@@ -8,6 +8,7 @@ $tabs = [
     ['settings', 'Settings', 'sites.edit', P::WEBSITES_MANAGE, 'sliders'],
     ['ssl', 'SSL', 'sites.ssl', P::SSL_VIEW, 'shield-lock'],
     ['dns', 'DNS', 'sites.dns', P::DNS_MANAGE, 'signpost'],
+    ['mail', 'Email', 'sites.mail', P::MAIL_MANAGE, 'envelope'],
     ['databases', 'Databases', 'sites.databases', P::DATABASES_VIEW, 'database'],
     ['files', 'Files', 'sites.files', P::FILES_MANAGE, 'folder2-open'],
     ['ftp', 'FTP / SFTP', 'sites.ftp', P::FTP_MANAGE, 'hdd-network'],

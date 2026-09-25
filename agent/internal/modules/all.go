@@ -11,6 +11,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/files"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/mailmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/mcmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/redismgr"
@@ -39,6 +40,7 @@ func All() []Module {
 		mcmgr.Register,
 		ftpmgr.Register,
 		dnsmgr.Register,
+		mailmgr.Register,
 		backup.Register,
 		security.Register,
 		sysmgr.Register,

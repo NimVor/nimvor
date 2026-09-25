@@ -331,3 +331,4 @@ textarea.form-control.wcp-editor { min-height: 65vh; font-size: .82rem; resize: 
     .wcp-db-side { width: auto; max-height: 30vh; border-right: 0; border-bottom: 1px solid var(--wcp-card-border); }
 }
 .wcp-popover-form { z-index: 5; width: 18rem; }
+.wcp-narrow { max-width: 36rem; }

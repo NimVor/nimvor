@@ -120,6 +120,35 @@ device files and entries that would leave the target folder, drops set-id
 bits, is limited to 50,000 entries and 8 GiB, and keeps existing files
 unless *Replace files that already exist* is ticked.
 
+## Email
+
+*Email* hosts mailboxes on this server with Postfix (SMTP), Dovecot (IMAP)
+and OpenDKIM. An administrator installs the packages and sets email up once
+with the mail server's host name (the name MX records point to; its reverse
+DNS should match). Setting up changes Postfix's `main.cf` and `master.cf`
+with `postconf` and turns off Dovecot's sign-in for system accounts (only
+WhaCP mailboxes can sign in), after confirmation and with backups; WhaCP's
+own Dovecot settings are a drop-in file and OpenDKIM runs from WhaCP's own
+unit and configuration. Postfix is checked with `postfix check`, Dovecot
+with `doveconf`, the services are restarted and ports 25, 587 and 993 must
+answer, otherwise everything is restored. A Let's Encrypt certificate for
+the host name is used when present, otherwise a self-signed one.
+
+For a domain (customers: their own websites' domains) WhaCP creates a DKIM
+key and lists the DNS records to publish — MX, SPF, DKIM and DMARC — which
+can be added to the domain's zone on this panel with one click. Mailboxes
+have a password (stored as a SHA-512 crypt hash; a generated one is shown
+once) and an optional quota; aliases forward to one or more addresses, and
+`*` catches all other addresses of the domain. Deleting a mailbox moves its
+mail to the agent's trash folder.
+
+Mail apps use the full address as user name, IMAP on port 993 (TLS) and
+SMTP submission on port 587 (STARTTLS, sign-in required). Port 25 accepts
+mail for hosted domains only and offers no sign-in; only this machine may
+relay. Signed-in users can send only as their own address or an alias that
+delivers to them. Outgoing mail is DKIM-signed. Spam filtering and webmail
+are not included. Dovecot 2.3 (Ubuntu 22.04 and 24.04) is supported.
+
 ## DNS
 
 *DNS* serves zones from this server's BIND. An administrator installs BIND

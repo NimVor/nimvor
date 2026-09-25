@@ -18,6 +18,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
 )
 
 // SFTP access for a website's own system user. OpenSSH confines it with
@@ -220,7 +221,7 @@ func applySFTP(ctx context.Context, env *host.Env, st sftpState, changedUser str
 	}
 	// Password: set (hashed) or lock password logins for the account.
 	if u, on := st.Users[changedUser]; on && u.PasswordLogin && password != "" {
-		out, perr := env.Runner.RunWith(ctx, "chpasswd", execx.Opts{Stdin: strings.NewReader(changedUser + ":" + HashPassword(password) + "\n")}, "-e")
+		out, perr := env.Runner.RunWith(ctx, "chpasswd", execx.Opts{Stdin: strings.NewReader(changedUser + ":" + shacrypt.HashPassword(password) + "\n")}, "-e")
 		if perr != nil {
 			applied.Rollback()
 			return actions.Failed("The SFTP password could not be set.", host.Output(out))

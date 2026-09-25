@@ -1,4 +1,8 @@
-package ftpmgr
+// Package shacrypt implements SHA-512 crypt ("$6$", Drepper's
+// specification), the password hash pure-ftpd, Dovecot and the system
+// (chpasswd -e) accept. Passwords are hashed in the agent so they are never
+// written or passed anywhere in clear text.
+package shacrypt
 
 import (
 	"crypto/rand"
@@ -6,10 +10,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-// SHA-512 crypt ("$6$", Drepper's specification), the password hash both
-// pure-ftpd and the system (chpasswd -e) accept. Passwords are hashed in
-// the agent so they are never written or passed anywhere in clear text.
 
 const cryptAlphabet = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 

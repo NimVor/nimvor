@@ -18,6 +18,7 @@ $groups = [
         ['Redis', 'lightning', 'redis', P::REDIS_MANAGE, '/redis'],
         ['Memcached', 'memory', 'memcached', P::REDIS_MANAGE, '/memcached'],
         ['DNS', 'signpost', 'dns', P::DNS_MANAGE, '/dns'],
+        ['Email', 'envelope', 'mail', P::MAIL_MANAGE, '/mail'],
         ['SSL', 'shield-lock', 'ssl', P::SSL_VIEW, '/ssl'],
     ],
     'Operations' => [

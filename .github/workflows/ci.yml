@@ -58,8 +58,10 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y -q 'mysql-server*' 'mysql-client*' 'mysql-common' || true
           sudo rm -rf /var/lib/mysql /etc/mysql
           sudo apt-get update -q
+          echo "postfix postfix/main_mailer_type select Internet Site" | sudo debconf-set-selections
+          echo "postfix postfix/mailname string ci.whacp.test" | sudo debconf-set-selections
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
-            nginx mariadb-server mariadb-client redis-server memcached pure-ftpd bind9 bind9utils ufw fail2ban openssh-server git \
+            nginx mariadb-server mariadb-client redis-server memcached pure-ftpd bind9 bind9utils postfix dovecot-imapd dovecot-lmtpd opendkim ufw fail2ban openssh-server git \
             php8.3-cli php8.3-fpm php8.3-mysql php8.3-sqlite3 php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip
           command -v composer || { curl -fsSL https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer; }
           sudo systemctl start mariadb redis-server memcached nginx php8.3-fpm ssh named

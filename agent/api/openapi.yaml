@@ -144,6 +144,14 @@ paths:
               - logs.download
               - logs.sources
               - logs.tail
+              - mail.alias_delete
+              - mail.alias_save
+              - mail.configure
+              - mail.domain_add
+              - mail.domain_remove
+              - mail.mailbox_delete
+              - mail.mailbox_save
+              - mail.status
               - memcached.configure
               - memcached.flush
               - memcached.status
@@ -390,10 +398,18 @@ x-whacp-actions:
   logs.download: { mutating: false, description: "Read a chunk of a log file (base64)." }
   logs.sources: { mutating: false, description: "Available log sources (server-wide or for one website)." }
   logs.tail: { mutating: false, description: "Last lines of a log, or new lines since an offset/cursor." }
+  mail.alias_delete: { mutating: true, description: "Delete an alias." }
+  mail.alias_save: { mutating: true, description: "Create or change an alias (forwarder): source address, or @domain for a catch-all, to up to 50 destinations." }
+  mail.configure: { mutating: true, description: "Set up Postfix, Dovecot and OpenDKIM for WhaCP's mail domains (changes Postfix's main.cf/master.cf with postconf and disables Dovecot's system-account login; requires confirm_edit_package_config). Validated, restarted, checked on ports 25, 587 and 993, rolled back on failure." }
+  mail.domain_add: { mutating: true, description: "Host email for a domain and create its DKIM key; returns the DNS records to publish." }
+  mail.domain_remove: { mutating: true, description: "Stop hosting email for a domain (confirm = domain; its mailboxes and aliases must be removed first)." }
+  mail.mailbox_delete: { mutating: true, description: "Delete a mailbox (confirm = address); its mail is moved to the agent's trash folder, or kept in place with keep_mail." }
+  mail.mailbox_save: { mutating: true, description: "Create a mailbox or change its password or quota (the password is stored as a SHA-512 crypt hash)." }
+  mail.status: { mutating: false, description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases." }
   memcached.configure: { mutating: true, description: "Set Memcached's memory, connection limit and (loopback) listen addresses in its package configuration file after explicit confirmation; restarts and verifies, rolls back on failure." }
   memcached.flush: { mutating: true, description: "Remove every item from Memcached (requires confirm)." }
   memcached.status: { mutating: false, description: "Whether Memcached is installed and running, its settings and statistics." }
-  packages.install: { mutating: true, description: "Install an allowlisted component (job)." }
+  packages.install: { mutating: true, description: "Install allowlisted components: name, or names for several at once (job)." }
   packages.list: { mutating: false, description: "Installable components and their versions." }
   packages.refresh: { mutating: true, description: "Refresh the package index (apt-get update) (job)." }
   packages.updates: { mutating: false, description: "Pending package updates (from the last package index refresh)." }

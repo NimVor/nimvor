@@ -111,6 +111,14 @@ type Managed struct {
 	DNSZoneDir  string `json:"dns_zone_dir"`
 	DNSUser     string `json:"dns_user"`
 	DNSUnit     string `json:"dns_unit"`
+	// Email: WhaCP's own files (MailDir), mail storage (VmailDir), the
+	// Postfix and Dovecot package files changed after confirmation, and
+	// WhaCP's Dovecot drop-in.
+	MailDir         string `json:"mail_dir"`
+	VmailDir        string `json:"vmail_dir"`
+	PostfixDir      string `json:"postfix_dir"`
+	DovecotAuthConf string `json:"dovecot_auth_conf"`
+	DovecotDropIn   string `json:"dovecot_drop_in"`
 }
 
 // supportedUbuntu lists the Ubuntu releases WhaCP officially targets.
