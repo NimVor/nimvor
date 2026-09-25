@@ -81,7 +81,7 @@ abstract class Controller
      */
     protected function backWithErrors(string $to, ValidationException $e, array $input): Response
     {
-        unset($input['password'], $input['password_confirmation'], $input['current_password'], $input['_token'], $input['secret_key'], $input['private_key'], $input['client_secret']);
+        unset($input['password'], $input['password_confirmation'], $input['current_password'], $input['_token'], $input['secret_key'], $input['private_key'], $input['client_secret'], $input['sftp_password']);
         $this->session->flash('errors', $e->errors());
         $this->session->flash('old', $input);
         $this->session->flash('error', $e->getMessage());

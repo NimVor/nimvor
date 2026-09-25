@@ -97,6 +97,13 @@ type Managed struct {
 	// Memcached: Debian's option file (-m 64 …) or RHEL's sysconfig file.
 	MemcachedConfig string `json:"memcached_config"`
 	MemcachedUnit   string `json:"memcached_unit"`
+	// FTPDir holds WhaCP's own pure-ftpd configuration, account list and
+	// certificate (the distribution's pure-ftpd configuration is not used).
+	FTPDir string `json:"ftp_dir"`
+	// SFTPDropIn holds the per-website SFTP Match blocks; SFTPKeysDir the
+	// root-owned authorized keys of website accounts.
+	SFTPDropIn  string `json:"sftp_drop_in"`
+	SFTPKeysDir string `json:"sftp_keys_dir"`
 }
 
 // supportedUbuntu lists the Ubuntu releases WhaCP officially targets.

@@ -41,6 +41,7 @@ final class Permissions
     public const WORKERS_MANAGE = 'workers.manage';
     public const DEPLOY_MANAGE = 'deploy.manage';
     public const REDIS_MANAGE = 'redis.manage';
+    public const FTP_MANAGE = 'ftp.manage';
     public const BACKUPS_VIEW = 'backups.view';
     public const BACKUPS_MANAGE = 'backups.manage';
     public const APPS_INSTALL = 'apps.install';
@@ -82,6 +83,7 @@ final class Permissions
             self::WORKERS_MANAGE => ['label' => 'Manage background workers', 'group' => 'Hosting'],
             self::DEPLOY_MANAGE => ['label' => 'Manage Git deployments', 'group' => 'Hosting'],
             self::REDIS_MANAGE => ['label' => 'Manage Redis and Memcached', 'group' => 'Hosting'],
+            self::FTP_MANAGE => ['label' => 'Manage FTP accounts and SFTP access of websites', 'group' => 'Hosting'],
             self::BACKUPS_VIEW => ['label' => 'View backups', 'group' => 'Hosting'],
             self::BACKUPS_MANAGE => ['label' => 'Create, restore and delete backups', 'group' => 'Hosting'],
             self::APPS_INSTALL => ['label' => 'Install applications', 'group' => 'Hosting'],
@@ -115,7 +117,7 @@ final class Permissions
         self::DASHBOARD_VIEW, self::WEBSITES_VIEW, self::WEBSITES_MANAGE, self::PHP_VIEW,
         self::DATABASES_VIEW, self::DATABASES_MANAGE, self::SSL_VIEW, self::SSL_MANAGE,
         self::FILES_MANAGE, self::LOGS_VIEW, self::CRON_VIEW, self::CRON_MANAGE, self::WORKERS_MANAGE,
-        self::DEPLOY_MANAGE, self::BACKUPS_VIEW, self::BACKUPS_MANAGE, self::APPS_INSTALL, self::API_TOKENS,
+        self::DEPLOY_MANAGE, self::BACKUPS_VIEW, self::BACKUPS_MANAGE, self::APPS_INSTALL, self::API_TOKENS, self::FTP_MANAGE,
     ];
 
     /**

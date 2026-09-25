@@ -82,6 +82,8 @@ var defaultCandidates = map[string][]string{
 	"git":             {"/usr/bin/git"},
 	"ssh-keygen":      {"/usr/bin/ssh-keygen"},
 	"ssh-keyscan":     {"/usr/bin/ssh-keyscan"},
+	"pure-pw":         {"/usr/bin/pure-pw", "/usr/sbin/pure-pw"},
+	"chpasswd":        {"/usr/sbin/chpasswd"},
 	"curl":            {"/usr/bin/curl"},
 	"apt-get":         {"/usr/bin/apt-get"},
 	"dpkg-query":      {"/usr/bin/dpkg-query"},

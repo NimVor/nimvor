@@ -129,6 +129,11 @@ paths:
               - firewall.rule_delete
               - firewall.set_enabled
               - firewall.status
+              - ftp.account_delete
+              - ftp.account_save
+              - ftp.configure
+              - ftp.disable
+              - ftp.status
               - jobs.get
               - jobs.list
               - jobs.log
@@ -169,6 +174,7 @@ paths:
               - server.timezones
               - services.control
               - services.status
+              - sftp.configure
               - sites.apply
               - sites.delete
               - sites.inspect
@@ -365,6 +371,11 @@ x-whacp-actions:
   firewall.rule_delete: { mutating: true, description: "Delete a UFW rule (auto-reverted unless confirmed)." }
   firewall.set_enabled: { mutating: true, description: "Enable or disable UFW (auto-reverted unless confirmed)." }
   firewall.status: { mutating: false, description: "UFW state, defaults and rules." }
+  ftp.account_delete: { mutating: true, description: "Delete an FTP account (files are kept)." }
+  ftp.account_save: { mutating: true, description: "Create or change an FTP account of a website: chrooted to the website folder (or a sub-folder), files owned by the website's user. The password is stored as a SHA-512 crypt hash." }
+  ftp.configure: { mutating: true, description: "Set up or change WhaCP's FTP server (its own pure-ftpd unit and configuration; TLS required by default). Stopping another running FTP server needs confirm_replace_service. Restarts, verifies and rolls back on failure." }
+  ftp.disable: { mutating: true, description: "Stop and disable WhaCP's FTP service (accounts are kept)." }
+  ftp.status: { mutating: false, description: "FTP server state, settings, certificate and accounts (optionally of one website user); SFTP-enabled website users." }
   jobs.get: { mutating: false, description: "Status of a background job." }
   jobs.list: { mutating: false, description: "Recent background jobs, optionally for one target." }
   jobs.log: { mutating: false, description: "Log output of a background job from an offset." }
@@ -405,6 +416,7 @@ x-whacp-actions:
   server.timezones: { mutating: false, description: "Available time zones." }
   services.control: { mutating: true, description: "Start, stop, restart, reload, enable or disable an allowlisted service." }
   services.status: { mutating: false, description: "Status of core services and PHP-FPM units." }
+  sftp.configure: { mutating: true, description: "Turn SFTP access on or off for a website's system user: confined to the websites root (starting in its folder), SFTP only, with keys and/or a password. Validated with sshd -t, verified with sshd -T, rolled back on failure." }
   sites.apply: { mutating: true, description: "Create or update a WhaCP website (Nginx, PHP-FPM pool, directories, system user)." }
   sites.delete: { mutating: true, description: "Remove a WhaCP website's configuration; optionally move its files to the trash." }
   sites.inspect: { mutating: false, description: "State of a WhaCP website on disk." }

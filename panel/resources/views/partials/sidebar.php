@@ -32,6 +32,7 @@ $groups = [
         ['All servers', 'diagram-3', 'servers', P::SERVERS_MANAGE, '/servers'],
         ['Services', 'cpu', 'services', P::SERVICES_VIEW, '/services'],
         ['Packages', 'box-seam', 'packages', P::PACKAGES_MANAGE, '/packages'],
+        ['FTP server', 'hdd-network', 'ftp', P::SERVER_MANAGE, '/ftp'],
         ['System accounts', 'people', 'system_users', P::SYSTEM_USERS_VIEW, '/system-users'],
         ['Discovery', 'binoculars', 'discovery', P::WEBSITES_VIEW, '/discovery'],
     ],

@@ -14,7 +14,7 @@ import (
 // controllable lists unit patterns WhaCP may operate on.
 var controllable = []string{
 	"nginx.service", "php*-fpm.service", "php*-php-fpm.service", "mariadb.service", "mysql.service", "mysqld.service",
-	"redis-server.service", "redis.service", "memcached.service", "cron.service", "crond.service", "fail2ban.service", "ssh.service", "sshd.service",
+	"redis-server.service", "redis.service", "memcached.service", "whacp-ftpd.service", "cron.service", "crond.service", "fail2ban.service", "ssh.service", "sshd.service",
 	"whacp-worker-*.service", "whacp-panel.service",
 }
 

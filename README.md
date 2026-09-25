@@ -27,6 +27,7 @@ privileged operation must be explicit, validated, audited and reversible.**
 | Databases | MySQL/MariaDB databases, users and grants; web database browser (rows, structure, SQL console) confined to one database |
 | SSL | Let's Encrypt issue/renew, custom certificates, HTTPS redirect, HSTS |
 | Files & logs | full-screen file manager (folder tree, multi-select, drag-and-drop uploads, full-page editor, permissions, zip/tar.gz compress and safe extract), log viewer with live tail |
+| FTP & SFTP | per-website FTPS accounts (pure-ftpd, chrooted, quotas, TLS required) and SFTP for the website user (OpenSSH chroot, keys and/or password, no shell) |
 | Automation | cron jobs, systemd workers (queues), Git deployment with webhooks |
 | Redis & Memcached | Redis settings, password, per-site ACL users and a key browser (all types, binary-safe, per-site prefix); Memcached install, stats, settings, flush |
 | Backups | encrypted (AES-256-GCM) site and server backups, S3-compatible, SFTP, FTPS, Google Drive or local-disk storage, schedules, retention, restore (server configuration by component, with rollback) |

@@ -72,6 +72,9 @@ func (d debianFamily) Managed() Managed {
 		RedisConfig:     "/etc/redis/redis.conf",
 		MemcachedConfig: "/etc/memcached.conf",
 		MemcachedUnit:   "memcached.service",
+		FTPDir:          "/etc/whacp-ftp",
+		SFTPDropIn:      "/etc/ssh/sshd_config.d/50-whacp-sftp.conf",
+		SFTPKeysDir:     "/etc/ssh/whacp-keys",
 	}
 }
 
@@ -140,6 +143,9 @@ func (r rhelFamily) Managed() Managed {
 		RedisConfig:     "/etc/redis/redis.conf",
 		MemcachedConfig: "/etc/sysconfig/memcached",
 		MemcachedUnit:   "memcached.service",
+		FTPDir:          "/etc/whacp-ftp",
+		SFTPDropIn:      "/etc/ssh/sshd_config.d/50-whacp-sftp.conf",
+		SFTPKeysDir:     "/etc/ssh/whacp-keys",
 	}
 }
 

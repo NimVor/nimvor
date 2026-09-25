@@ -15,6 +15,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/users"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
@@ -361,6 +362,10 @@ func (m *Manager) handleDelete(ctx context.Context, p json.RawMessage) (any, err
 	res := map[string]any{"domain": in.Domain, "removed": applied.Changed, "backup": applied.Backup}
 	var warnings []string
 
+	// FTP accounts and SFTP access of the website go with it.
+	if err := ftpmgr.RemoveSite(ctx, e, in.Domain); err != nil {
+		warnings = append(warnings, "FTP/SFTP access could not be removed: "+errText(err))
+	}
 	root := filepath.Join(e.Cfg.SitesRoot, in.Domain)
 	if in.RemoveFiles && e.Root.Exists(root) {
 		trash := filepath.Join(e.Cfg.StateDir, "trash")

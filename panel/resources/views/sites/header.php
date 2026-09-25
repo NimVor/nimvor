@@ -9,6 +9,7 @@ $tabs = [
     ['ssl', 'SSL', 'sites.ssl', P::SSL_VIEW, 'shield-lock'],
     ['databases', 'Databases', 'sites.databases', P::DATABASES_VIEW, 'database'],
     ['files', 'Files', 'sites.files', P::FILES_MANAGE, 'folder2-open'],
+    ['ftp', 'FTP / SFTP', 'sites.ftp', P::FTP_MANAGE, 'hdd-network'],
     ['logs', 'Logs', 'sites.logs', P::LOGS_VIEW, 'journal-text'],
     ['cron', 'Cron', 'sites.cron', P::CRON_VIEW, 'clock-history'],
     ['workers', 'Workers', 'sites.workers', P::WORKERS_MANAGE, 'gear-wide-connected'],

@@ -33,6 +33,8 @@ type Host struct {
 	// FailFrom delays a Fail entry until the n-th matching call (1-based).
 	FailFrom map[string]int
 	counts   map[string]int
+	// Respond, when set, answers calls first (ok=false falls through).
+	Respond func(id string, args []string) (out string, err error, ok bool)
 	// NextUID is assigned to accounts created with useradd.
 	NextUID int
 	UID     int
@@ -82,6 +84,11 @@ func (h *Host) handle(id string, o execx.Opts, args []string) (string, error) {
 			if h.counts[prefix] >= h.FailFrom[prefix] {
 				return msg, fmt.Errorf("exit status 1")
 			}
+		}
+	}
+	if h.Respond != nil {
+		if out, err, ok := h.Respond(id, args); ok {
+			return out, err
 		}
 	}
 	switch {

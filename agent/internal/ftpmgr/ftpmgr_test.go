@@ -1,0 +1,294 @@
+package ftpmgr
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+)
+
+type fixture struct {
+	h *testhost.Host
+	r *actions.Registry
+}
+
+func setup(t *testing.T) *fixture {
+	t.Helper()
+	h := testhost.New(t)
+	// A website account: home is <sites_root>/<domain>.
+	f, _ := os.OpenFile(filepath.Join(h.Base, "etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
+	fmt.Fprintf(f, "shop:x:%d:%d::/home/whacp/shop.test:/usr/sbin/nologin\n", h.UID, h.GID)
+	f.Close()
+	for _, d := range []string{"home/whacp/shop.test/public_html/uploads", "home/whacp/blog.test/public_html", "usr/sbin"} {
+		os.MkdirAll(filepath.Join(h.Base, d), 0o755)
+	}
+	os.WriteFile(filepath.Join(h.Base, "usr/sbin/pure-ftpd"), []byte("#!/bin/true\n"), 0o755)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	probe = func(context.Context, string) error { return nil }
+	t.Cleanup(func() { probe = func(context.Context, string) error { return nil } })
+	return &fixture{h: h, r: r}
+}
+
+func (f *fixture) call(t *testing.T, name string, params any) (map[string]any, error) {
+	t.Helper()
+	a, err := f.r.Lookup(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal(params)
+	res, err := a.Handler(context.Background(), b)
+	if err != nil {
+		return nil, err
+	}
+	out, _ := json.Marshal(res)
+	var m map[string]any
+	json.Unmarshal(out, &m)
+	return m, nil
+}
+
+func (f *fixture) must(t *testing.T, name string, params any) map[string]any {
+	t.Helper()
+	m, err := f.call(t, name, params)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	return m
+}
+
+func code(err error) string {
+	var ae *actions.Error
+	if errors.As(err, &ae) {
+		return ae.Code
+	}
+	return ""
+}
+
+func called(f *fixture, prefix string) bool {
+	for _, c := range f.h.Runner.Calls {
+		if strings.HasPrefix(c, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestConfigureNeedsConfirmationToReplaceAnotherServer(t *testing.T) {
+	f := setup(t)
+	// The test host reports every unit as active, so pure-ftpd/vsftpd look busy.
+	if _, err := f.call(t, "ftp.configure", map[string]any{}); code(err) != "conflict" {
+		t.Fatalf("err = %v", err)
+	}
+	if f.h.Exists("etc/whacp-ftp/pure-ftpd.conf") {
+		t.Fatal("configuration written without confirmation")
+	}
+	res := f.must(t, "ftp.configure", map[string]any{"confirm_replace_service": true, "passive_min": 50000, "passive_max": 50100})
+	conf := f.h.Read("etc/whacp-ftp/pure-ftpd.conf")
+	for _, want := range []string{"ChrootEveryone         yes", "TLS                    2", "PassivePortRange       50000 50100", "PureDB                 /etc/whacp-ftp/accounts.pdb", "NoAnonymous            yes"} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("config lacks %q:\n%s", want, conf)
+		}
+	}
+	if !strings.Contains(f.h.Read("etc/systemd/system/whacp-ftpd.service"), "ExecStart=/usr/sbin/pure-ftpd /etc/whacp-ftp/pure-ftpd.conf") {
+		t.Fatal("unit not written")
+	}
+	info, err := os.Stat(filepath.Join(f.h.Base, "etc/whacp-ftp/pure-ftpd.pem"))
+	if err != nil || info.Mode().Perm() != 0o600 || !strings.Contains(f.h.Read("etc/whacp-ftp/pure-ftpd.pem"), "BEGIN CERTIFICATE") {
+		t.Fatalf("certificate: %v %v", info, err)
+	}
+	for _, c := range []string{"pure-pw mkdb /etc/whacp-ftp/accounts.pdb -f /etc/whacp-ftp/accounts.passwd", "systemctl stop -- pure-ftpd.service", "systemctl disable -- vsftpd.service", "systemctl enable -- whacp-ftpd.service", "systemctl restart -- whacp-ftpd.service"} {
+		if !called(f, c) {
+			t.Errorf("missing call %q in %v", c, f.h.Runner.Calls)
+		}
+	}
+	if res["certificate"] == nil || Parse(conf).PassiveMin != 50000 {
+		t.Fatalf("result = %+v", res)
+	}
+	// The certificate is kept on later changes.
+	cert := f.h.Read("etc/whacp-ftp/pure-ftpd.pem")
+	f.must(t, "ftp.configure", map[string]any{"confirm_replace_service": true, "tls": "optional"})
+	if f.h.Read("etc/whacp-ftp/pure-ftpd.pem") != cert || !strings.Contains(f.h.Read("etc/whacp-ftp/pure-ftpd.conf"), "TLS                    1") {
+		t.Fatal("certificate replaced or TLS not changed")
+	}
+	for _, bad := range []map[string]any{{"passive_min": 80, "passive_max": 90}, {"tls": "none"}, {"passive_ip": "not-an-ip"}, {"max_clients": 0}} {
+		bad["confirm_replace_service"] = true
+		if _, err := f.call(t, "ftp.configure", bad); code(err) != "invalid_params" {
+			t.Errorf("%v accepted: %v", bad, err)
+		}
+	}
+}
+
+func TestConfigureRollsBackWhenTheServerDoesNotAnswer(t *testing.T) {
+	f := setup(t)
+	probe = func(context.Context, string) error { return errors.New("connection refused") }
+	_, err := f.call(t, "ftp.configure", map[string]any{"confirm_replace_service": true})
+	if code(err) != "failed" || f.h.Exists("etc/whacp-ftp/pure-ftpd.conf") || f.h.Exists("etc/systemd/system/whacp-ftpd.service") {
+		t.Fatalf("err = %v; files kept", err)
+	}
+	if !called(f, "systemctl start -- pure-ftpd.service") {
+		t.Fatal("the replaced FTP server was not started again")
+	}
+}
+
+func TestAccounts(t *testing.T) {
+	f := setup(t)
+	if _, err := f.call(t, "ftp.account_save", map[string]any{"name": "a", "user": "shop", "password": "long-enough-pw"}); code(err) != "conflict" {
+		t.Fatalf("before setup: %v", err)
+	}
+	f.must(t, "ftp.configure", map[string]any{"confirm_replace_service": true})
+	f.must(t, "ftp.account_save", map[string]any{"name": "Dev@Shop.test", "user": "shop", "dir": "public_html", "password": "long-enough-pw", "quota_mb": 500})
+	line := strings.TrimSpace(f.h.Read("etc/whacp-ftp/accounts.passwd"))
+	fields := strings.Split(line, ":")
+	if len(fields) != 18 || fields[0] != "dev@shop.test" || !strings.HasPrefix(fields[1], "$6$rounds=100000$") || fields[5] != "/home/whacp/shop.test/public_html/./" || fields[12] != "524288000" {
+		t.Fatalf("passwd line = %q", line)
+	}
+	if strings.Contains(line, "long-enough-pw") {
+		t.Fatal("clear-text password stored")
+	}
+	hash := fields[1]
+	// Update without a password keeps the hash.
+	f.must(t, "ftp.account_save", map[string]any{"name": "dev@shop.test", "user": "shop", "dir": "public_html/uploads"})
+	fields = strings.Split(strings.TrimSpace(f.h.Read("etc/whacp-ftp/accounts.passwd")), ":")
+	if fields[1] != hash || fields[5] != "/home/whacp/shop.test/public_html/uploads/./" || fields[12] != "" {
+		t.Fatalf("update = %v", fields)
+	}
+	os.Symlink("/etc", filepath.Join(f.h.Base, "home/whacp/shop.test/etc"))
+	for _, bad := range []map[string]any{
+		{"name": "new", "user": "shop"},                                                    // no password
+		{"name": "x y", "user": "shop", "password": "long-enough-pw"},                      // bad name
+		{"name": "x", "user": "shop", "password": "short"},                                 // short password
+		{"name": "x", "user": "shop", "dir": "../blog.test", "password": "long-enough-pw"}, // outside (becomes shop.test/blog.test)
+		{"name": "x", "user": "shop", "dir": "etc", "password": "long-enough-pw"},          // symlink
+		{"name": "x", "user": "root", "password": "long-enough-pw"},                        // not a website user
+		{"name": "x", "user": "example", "password": "long-enough-pw"},                     // home outside the sites root
+	} {
+		if _, err := f.call(t, "ftp.account_save", bad); err == nil {
+			t.Errorf("%v accepted", bad)
+		}
+	}
+	st := f.must(t, "ftp.status", map[string]any{"user": "shop"})
+	if accts := st["accounts"].([]any); len(accts) != 1 || accts[0].(map[string]any)["dir"] != "/home/whacp/shop.test/public_html/uploads" {
+		t.Fatalf("status accounts = %+v", st["accounts"])
+	}
+	if strings.Contains(fmt.Sprint(st), "$6$") {
+		t.Fatal("status exposes password hashes")
+	}
+	f.must(t, "ftp.account_save", map[string]any{"name": "second", "user": "shop", "password": "long-enough-pw"})
+	f.must(t, "ftp.account_delete", map[string]any{"name": "second"})
+	if _, err := f.call(t, "ftp.account_delete", map[string]any{"name": "second"}); code(err) != "not_found" {
+		t.Fatalf("second delete: %v", err)
+	}
+	// A failing database rebuild restores the previous list.
+	f.h.Fail["pure-pw mkdb"] = "cannot write"
+	before := f.h.Read("etc/whacp-ftp/accounts.passwd")
+	if _, err := f.call(t, "ftp.account_save", map[string]any{"name": "third", "user": "shop", "password": "long-enough-pw"}); err == nil {
+		t.Fatal("expected failure")
+	}
+	if f.h.Read("etc/whacp-ftp/accounts.passwd") != before {
+		t.Fatal("accounts not restored")
+	}
+	delete(f.h.Fail, "pure-pw mkdb")
+	// Deleting the website removes its accounts.
+	if err := RemoveSite(context.Background(), f.h.Env, "shop.test"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(f.h.Read("etc/whacp-ftp/accounts.passwd")) != "" {
+		t.Fatalf("accounts left: %q", f.h.Read("etc/whacp-ftp/accounts.passwd"))
+	}
+}
+
+const testKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl laptop"
+
+func sshd(f *fixture, rootAfter map[string]string) {
+	calls := 0
+	f.h.Respond = func(id string, args []string) (string, error, bool) {
+		if id != "sshd" || len(args) < 3 || args[0] != "-T" {
+			return "", nil, false
+		}
+		if strings.Contains(args[2], "user=root,") {
+			calls++
+			cfg := map[string]string{"chrootdirectory": "none", "forcecommand": "none", "x11forwarding": "no", "passwordauthentication": "no"}
+			if calls > 1 {
+				for k, v := range rootAfter {
+					cfg[k] = v
+				}
+			}
+			var b strings.Builder
+			for k, v := range cfg {
+				b.WriteString(k + " " + v + "\n")
+			}
+			return b.String(), nil, true
+		}
+		return "chrootdirectory /home/whacp\nforcecommand internal-sftp -d /shop.test -u 0027\n", nil, true
+	}
+}
+
+func TestSFTP(t *testing.T) {
+	f := setup(t)
+	sshd(f, nil)
+	for _, bad := range []map[string]any{
+		{"user": "shop", "enabled": true},                                              // no key, no password
+		{"user": "shop", "enabled": true, "password_login": true},                      // password login without password
+		{"user": "shop", "enabled": true, "keys": []string{`command="sh" ` + testKey}}, // options
+		{"user": "shop", "enabled": true, "keys": []string{"ssh-ed25519 notbase64!"}},
+		{"user": "shop", "enabled": true, "keys": []string{"ssh-rsa AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"}}, // type mismatch
+		{"user": "root", "enabled": true, "keys": []string{testKey}},
+	} {
+		if _, err := f.call(t, "sftp.configure", bad); err == nil {
+			t.Errorf("%v accepted", bad)
+		}
+	}
+	res := f.must(t, "sftp.configure", map[string]any{"user": "shop", "enabled": true, "keys": []string{testKey, testKey}})
+	if res["start_dir"] != "/shop.test" || res["keys"].(float64) != 1 {
+		t.Fatalf("result = %+v", res)
+	}
+	drop := f.h.Read("etc/ssh/sshd_config.d/50-whacp-sftp.conf")
+	for _, want := range []string{"Match User shop\n", "ChrootDirectory /home/whacp\n", "ForceCommand internal-sftp -d /shop.test -u 0027\n", "AuthorizedKeysFile /etc/ssh/whacp-keys/%u\n", "PasswordAuthentication no\n", "AllowTcpForwarding no\n", "PermitTTY no\n"} {
+		if !strings.Contains(drop, want) {
+			t.Errorf("drop-in lacks %q:\n%s", want, drop)
+		}
+	}
+	if strings.TrimSpace(f.h.Read("etc/ssh/whacp-keys/shop")) != testKey {
+		t.Fatalf("keys = %q", f.h.Read("etc/ssh/whacp-keys/shop"))
+	}
+	if !called(f, "sshd -t") || !called(f, "systemctl reload -- ssh") || !called(f, "usermod --lock -- shop") {
+		t.Fatalf("calls = %v", f.h.Runner.Calls)
+	}
+	st := f.must(t, "ftp.status", map[string]any{"user": "shop"})
+	if s := st["sftp"].([]any); len(s) != 1 || s[0].(map[string]any)["keys"].([]any)[0].(map[string]any)["fingerprint"] == "" {
+		t.Fatalf("status sftp = %+v", st["sftp"])
+	}
+	// A password is set hashed through chpasswd.
+	f.must(t, "sftp.configure", map[string]any{"user": "shop", "enabled": true, "password_login": true, "password": "another-long-pw"})
+	if !called(f, "chpasswd -e") || !strings.Contains(f.h.Read("etc/ssh/sshd_config.d/50-whacp-sftp.conf"), "PasswordAuthentication yes") {
+		t.Fatal("password login not enabled")
+	}
+	// Disabling removes the block and the key file.
+	f.must(t, "sftp.configure", map[string]any{"user": "shop", "enabled": false})
+	if strings.Contains(f.h.Read("etc/ssh/sshd_config.d/50-whacp-sftp.conf"), "Match") || f.h.Exists("etc/ssh/whacp-keys/shop") {
+		t.Fatal("SFTP not removed")
+	}
+}
+
+func TestSFTPRollsBackWhenOtherUsersWouldBeAffected(t *testing.T) {
+	f := setup(t)
+	sshd(f, map[string]string{"x11forwarding": "yes"})
+	_, err := f.call(t, "sftp.configure", map[string]any{"user": "shop", "enabled": true, "keys": []string{testKey}})
+	var ae *actions.Error
+	if !errors.As(err, &ae) || !strings.Contains(ae.Message+ae.Details, "x11forwarding") {
+		t.Fatalf("err = %+v", err)
+	}
+	if f.h.Exists("etc/ssh/sshd_config.d/50-whacp-sftp.conf") || f.h.Exists("etc/ssh/whacp-keys/shop") || f.h.Exists("var/lib/whacp-agent/sftp.json") {
+		t.Fatal("changes not rolled back")
+	}
+	if called(f, "systemctl reload") {
+		t.Fatal("sshd reloaded after a failed validation")
+	}
+}

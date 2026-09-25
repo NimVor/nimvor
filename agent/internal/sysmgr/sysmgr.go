@@ -27,6 +27,7 @@ var Components = map[string]string{
 	"mariadb-server":      "MariaDB database server",
 	"redis-server":        "Redis cache server",
 	"memcached":           "Memcached cache server",
+	"pure-ftpd":           "FTP server (FTPS accounts for websites)",
 	"certbot":             "Let's Encrypt client",
 	"ufw":                 "Firewall",
 	"fail2ban":            "Brute-force protection",

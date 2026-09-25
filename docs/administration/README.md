@@ -111,6 +111,32 @@ device files and entries that would leave the target folder, drops set-id
 bits, is limited to 50,000 entries and 8 GiB, and keeps existing files
 unless *Replace files that already exist* is ticked.
 
+## FTP and SFTP
+
+*Server → FTP server* installs pure-ftpd and runs it from WhaCP's own unit
+(`whacp-ftpd.service`) and configuration (`/etc/whacp-ftp`); the
+distribution's pure-ftpd configuration is never edited. If another FTP
+server (the distribution's pure-ftpd, vsftpd or ProFTPD) is running, WhaCP
+stops and disables it only after you confirm. TLS is required by default
+(a self-signed certificate is created; clients check its SHA-256
+fingerprint, shown in the panel); plain FTP can be allowed explicitly. With
+the firewall on, port 21 and the passive range are opened. The service is
+restarted, checked to answer on port 21 and rolled back otherwise.
+
+On a website's *FTP / SFTP* tab, its owner adds FTP accounts named
+`<name>@<domain>`, each confined (chroot) to the website folder or a
+sub-folder, optionally with a quota. Files are created as the website's
+user. Passwords are stored as SHA-512 crypt hashes; a generated password is
+shown once. Accounts are removed with the website.
+
+*SFTP access* lets the website's own system user in over SSH for file
+transfer only: OpenSSH confines it to the websites folder (made `0711`, so
+other websites cannot be listed) starting in its own folder, with no shell,
+forwarding or TTY. Public keys are kept in root-owned files outside the
+website; password login is optional. The SSH configuration is validated
+with `sshd -t`, and WhaCP verifies with `sshd -T` that the change applies to
+that user only before reloading; otherwise it is rolled back.
+
 ## Database browser
 
 *Databases → Browse* opens a full-page browser for one database: tables
