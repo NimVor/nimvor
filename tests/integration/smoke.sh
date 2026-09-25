@@ -47,7 +47,7 @@ php "$ROOT/panel/bin/whacp" migrate >/dev/null
 echo "correct-horse-staple-42" | php "$ROOT/panel/bin/whacp" user:create smoke smoke@example.test >/dev/null
 php "$ROOT/panel/bin/whacp" agent:check >/dev/null || fail "panel cannot reach agent"
 doctor=$(php "$ROOT/panel/bin/whacp" doctor) || fail "doctor reports failures: $doctor"
-grep -q '^\[OK  \] Agent ' <<<"$doctor" || fail "doctor: agent check: $doctor"
+grep -q '^\[PASS\] Agent ' <<<"$doctor" || fail "doctor: agent check: $doctor"
 pass "doctor self-checks"
 pass "panel CLI reaches agent"
 
