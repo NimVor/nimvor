@@ -21,13 +21,13 @@ cp -r /etc/systemd/system/whacp-agent.service.d /etc/systemd/system/whacp-probe.
 run() {
     systemctl daemon-reload
     systemctl start whacp-probe.service >/dev/null 2>&1
-    journalctl -u whacp-probe.service --no-pager -o cat -n 20 --since "-5s" | grep -E 'RESULT|^Cap|NoNewPrivs|Seccomp' | tr '\n' ' '
-    echo
+    local inv; inv=$(systemctl show -p InvocationID --value whacp-probe.service)
+    journalctl "_SYSTEMD_INVOCATION_ID=$inv" --no-pager -o cat | grep -E 'RESULT|NoNewPrivs|Seccomp:'
 }
 echo "--- exact clone"; run
-for p in NoNewPrivileges=no RestrictNamespaces=no LockPersonality=no SystemCallArchitectures= RestrictAddressFamilies= SystemCallErrorNumber= PrivateTmp=no ProtectClock=no ProtectHostname=no ProtectKernelLogs=no ProtectControlGroups=no RestrictRealtime=no UMask=0022 Group= TasksMax=infinity MemoryMax=infinity Nice=0 RuntimeDirectory= 'CapabilityBoundingSet=~'; do
+for p in NoNewPrivileges=no RestrictNamespaces=no LockPersonality=no SystemCallArchitectures= RestrictAddressFamilies= ProtectClock=no ProtectHostname=no ProtectKernelLogs=no RestrictRealtime=no; do
     printf '[Service]\n%s\n' "$p" > /etc/systemd/system/whacp-probe.service.d/99-probe.conf
-    printf -- '--- with %s: ' "$p"; run
+    echo "--- with $p"; run
 done
 rm -rf /etc/systemd/system/whacp-probe.service /etc/systemd/system/whacp-probe.service.d; systemctl daemon-reload
 userdel -r whacpprobe >/dev/null 2>&1 || true

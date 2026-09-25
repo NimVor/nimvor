@@ -1,5 +1,7 @@
 // Command probe runs tar as another account exactly like the agent does
-// (execx.SystemRunner.RunWith with a Credential). Used by sandbox-probe.sh.
+// (execx.SystemRunner.RunWith with a Credential), then with each
+// credential step alone, to show which one the sandbox refuses. Used by
+// sandbox-probe.sh.
 package main
 
 import (
@@ -8,6 +10,7 @@ import (
 	"os/exec"
 	"os/user"
 	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -20,30 +23,34 @@ func main() {
 	uid, _ := strconv.Atoi(u.Uid)
 	gid, _ := strconv.Atoi(u.Gid)
 	b, _ := os.ReadFile("/proc/self/status")
-	for _, l := range splitLines(string(b)) {
-		if len(l) > 3 && (l[:3] == "Cap" || l[:6] == "NoNewP" || l[:7] == "Seccomp") {
+	for _, l := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(l, "Cap") || strings.HasPrefix(l, "NoNewPrivs") || strings.HasPrefix(l, "Seccomp") {
 			fmt.Println(l)
 		}
 	}
-	c := exec.Command("/usr/bin/tar", "-cf", "-", ".")
-	c.Dir = u.HomeDir
-	c.Env = []string{"PATH=/usr/bin:/bin", "HOME=" + u.HomeDir}
-	c.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}, Setsid: true}
-	out, err := c.Output()
-	fmt.Printf("RESULT err=%v bytes=%d\n", err, len(out))
-	if err != nil {
+	try := func(name string, attr *syscall.SysProcAttr, dir string) bool {
+		c := exec.Command("/usr/bin/tar", "-cf", "-", ".")
+		c.Dir = dir
+		c.Env = []string{"PATH=/usr/bin:/bin", "HOME=" + u.HomeDir}
+		c.SysProcAttr = attr
+		out, err := c.Output()
+		fmt.Printf("RESULT %s err=%v bytes=%d\n", name, err, len(out))
+		return err == nil
+	}
+	ok := try("agent", &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}, Setsid: true}, u.HomeDir)
+	try("no-setsid", &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}}, u.HomeDir)
+	try("no-setgroups", &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid), NoSetGroups: true}}, u.HomeDir)
+	try("gid-only", &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: 0, Gid: uint32(gid)}}, "/")
+	try("uid-only", &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: uint32(uid), Gid: 0}}, "/")
+	try("dir-root", &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}}, "/")
+	for _, bin := range []string{"/usr/bin/true", "/bin/sh"} {
+		c := exec.Command(bin, "-c", "true")
+		c.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}}
+		fmt.Printf("RESULT exec-%s err=%v\n", bin, c.Run())
+	}
+	out, err := exec.Command("/usr/bin/setpriv", "--reuid="+u.Uid, "--regid="+u.Gid, "--clear-groups", "/usr/bin/tar", "--version").CombinedOutput()
+	fmt.Printf("RESULT setpriv err=%v out=%.60q\n", err, out)
+	if !ok {
 		os.Exit(1)
 	}
-}
-
-func splitLines(s string) []string {
-	var out []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\n' {
-			out = append(out, s[start:i])
-			start = i + 1
-		}
-	}
-	return out
 }
