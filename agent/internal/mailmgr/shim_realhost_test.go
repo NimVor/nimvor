@@ -52,9 +52,8 @@ func testSendmailShim(t *testing.T, env *host.Env, must func(string, any) map[st
 	gid, _ := strconv.Atoi(u.Gid)
 	// Its own mailbox, so other checks' message counts are unaffected.
 	must("mail.mailbox_save", map[string]any{"address": "shim@rt-mail.test", "password": "Shim-mail-pass-1"})
-	t.Cleanup(func() {
-		must("mail.mailbox_delete", map[string]any{"address": "shim@rt-mail.test", "confirm": "shim@rt-mail.test"})
-	})
+	// Removed before the test goes on (the domain is removed later).
+	defer must("mail.mailbox_delete", map[string]any{"address": "shim@rt-mail.test", "confirm": "shim@rt-mail.test"})
 	maildir := filepath.Join(env.M.VmailDir, "rt-mail.test/shim/Maildir")
 	script := `printf 'To: shim@rt-mail.test\nBcc: shim@rt-mail.test\nSubject: from a deploy hook\n\nsent with sendmail -t -i\n' | sendmail -t -i`
 	out, err := env.Runner.RunWith(context.Background(), "sh", execx.Opts{As: &execx.Credential{UID: uint32(uid), GID: uint32(gid), Home: home}, Dir: home}, "-c", script)
