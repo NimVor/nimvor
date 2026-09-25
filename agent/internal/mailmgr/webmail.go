@@ -21,6 +21,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/logging"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
@@ -78,7 +79,7 @@ var webmailProbe = func(ctx context.Context, hostname string) error {
 			if resp.StatusCode == http.StatusOK && strings.Contains(string(body), "rcmloginuser") {
 				return nil
 			}
-			err = fmt.Errorf("HTTP %d without the sign-in form: %.300s", resp.StatusCode, body)
+			err = fmt.Errorf("HTTP %d without the sign-in form: %.600s", resp.StatusCode, pageText(body))
 		}
 		last = err
 		select {
@@ -88,6 +89,35 @@ var webmailProbe = func(ctx context.Context, hostname string) error {
 		}
 	}
 	return last
+}
+
+var (
+	pageScripts = regexp.MustCompile(`(?is)<(script|style)[^>]*>.*?</(script|style)>`)
+	pageTags    = regexp.MustCompile(`(?s)<[^>]*>`)
+)
+
+// pageText is the visible text of an HTML page, for error details.
+func pageText(body []byte) string {
+	t := pageTags.ReplaceAllString(pageScripts.ReplaceAllString(string(body), " "), " ")
+	return strings.Join(strings.Fields(t), " ")
+}
+
+// webmailLogs is the end of Roundcube's and its pool's error logs.
+func (e env) webmailLogs() string {
+	var b strings.Builder
+	for _, f := range []string{"errors.log", "php-error.log"} {
+		p := e.M.WebmailData + "/logs/" + f
+		data, err := e.Root.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+		if len(lines) > 15 {
+			lines = lines[len(lines)-15:]
+		}
+		fmt.Fprintf(&b, "%s:\n%s\n", p, strings.Join(lines, "\n"))
+	}
+	return logging.Redact(b.String())
 }
 
 // roundcubeDefaults is the distribution's defaults.inc.php (Debian keeps it
@@ -546,7 +576,7 @@ func registerWebmail(r *actions.Registry, e env) {
 		}
 		if !e.Cfg.SimulateCommands && e.UnitActive(ctx, e.M.NginxUnit) {
 			if err := webmailProbe(ctx, in.Hostname); err != nil {
-				return fail("The webmail sign-in page did not load.", err)
+				return fail("The webmail sign-in page did not load.", errors.New(err.Error()+"\n"+e.webmailLogs()))
 			}
 		}
 		notes := []string{"Users sign in at https://" + in.Hostname + "/ with their full email address and mailbox password."}
