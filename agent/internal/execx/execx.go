@@ -10,6 +10,8 @@ package execx
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -206,20 +208,49 @@ func (r *SystemRunner) RunWith(ctx context.Context, id string, o Opts, args ...s
 		ctx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
-	cmd := exec.CommandContext(ctx, bin, args...)
-	cmd.Env = []string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "SYSTEMD_PAGER=", "SYSTEMD_COLORS=0", "DEBIAN_FRONTEND=noninteractive"}
+	env := append([]string{}, baseEnv...)
 	home := "/root"
 	if o.As != nil {
 		home = o.As.Home
-		cmd.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: o.As.UID, Gid: o.As.GID, Groups: o.As.Groups}, Setsid: true}
-	} else {
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	}
-	cmd.Env = append(cmd.Env, "HOME="+home)
-	cmd.Env = append(cmd.Env, o.Env...)
-	cmd.Dir = "/"
+	env = append(env, "HOME="+home)
+	env = append(env, o.Env...)
+	dir := "/"
 	if o.Dir != "" {
-		cmd.Dir = o.Dir
+		dir = o.Dir
+	}
+	var cmd *exec.Cmd
+	switch {
+	case o.As != nil && r.transient():
+		// The agent never changes its own credentials: PID 1 starts the
+		// command as the account in a transient, confined unit (see
+		// TransientArgs). Under the agent's NoNewPrivileges=yes sandbox
+		// the agent cannot switch UIDs itself (F-16).
+		unit := transientUnit()
+		cmd = exec.CommandContext(ctx, r.paths["systemd-run"], TransientArgs(unit, bin, dir, env, *o.As, timeout, args)...)
+		cmd.Env = baseEnv
+		cmd.Cancel = func() error {
+			// Stopping systemd-run alone would leave the unit running.
+			if sc, ok := r.paths["systemctl"]; ok {
+				stop := exec.Command(sc, "stop", "--no-block", unit)
+				stop.Env = baseEnv
+				_ = stop.Run()
+			}
+			return cmd.Process.Kill()
+		}
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	case o.As != nil:
+		// No systemd (development containers): switch credentials in the
+		// child directly.
+		cmd = exec.CommandContext(ctx, bin, args...)
+		cmd.Env = env
+		cmd.Dir = dir
+		cmd.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: o.As.UID, Gid: o.As.GID, Groups: o.As.Groups}, Setsid: true}
+	default:
+		cmd = exec.CommandContext(ctx, bin, args...)
+		cmd.Env = env
+		cmd.Dir = dir
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	}
 	cmd.Stdin = o.Stdin
 	var buf limitedBuffer
@@ -236,6 +267,73 @@ func (r *SystemRunner) RunWith(ctx context.Context, id string, o Opts, args ...s
 	cmd.WaitDelay = 5 * time.Second
 	err = cmd.Run()
 	return buf.Bytes(), err
+}
+
+var baseEnv = []string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "SYSTEMD_PAGER=", "SYSTEMD_COLORS=0", "DEBIAN_FRONTEND=noninteractive"}
+
+// transient reports whether commands as other accounts go through PID 1.
+func (r *SystemRunner) transient() bool {
+	if _, ok := r.paths["systemd-run"]; !ok {
+		return false
+	}
+	_, err := os.Stat("/run/systemd/system")
+	return err == nil
+}
+
+func transientUnit() string {
+	var b [8]byte
+	_, _ = rand.Read(b[:])
+	return "whacp-run-" + hex.EncodeToString(b[:]) + ".service"
+}
+
+// transientHardening confines commands run as a website account: no
+// capabilities at all, no privilege gain through setuid binaries, the
+// system read-only, a private /tmp and no kernel or clock changes.
+var transientHardening = []string{
+	"NoNewPrivileges=yes",
+	"CapabilityBoundingSet=",
+	"RestrictSUIDSGID=yes",
+	"ProtectSystem=full",
+	"PrivateTmp=yes",
+	"ProtectKernelTunables=yes",
+	"ProtectKernelModules=yes",
+	"ProtectKernelLogs=yes",
+	"ProtectControlGroups=yes",
+	"ProtectClock=yes",
+	"RestrictRealtime=yes",
+	"LockPersonality=yes",
+	"KillMode=control-group",
+	"TimeoutStopSec=5",
+}
+
+// TransientArgs builds the systemd-run arguments that start bin as the
+// account: standard input, output and error are the caller's (--pipe),
+// and systemd-run exits with the command's status.
+func TransientArgs(unit, bin, dir string, env []string, as Credential, timeout time.Duration, args []string) []string {
+	a := []string{"--quiet", "--pipe", "--wait", "--collect", "--service-type=exec", "--unit=" + unit,
+		fmt.Sprintf("--uid=%d", as.UID), fmt.Sprintf("--gid=%d", as.GID), "--working-directory=" + dir}
+	if len(as.Groups) > 0 {
+		g := make([]string, len(as.Groups))
+		for i, id := range as.Groups {
+			g[i] = fmt.Sprint(id)
+		}
+		a = append(a, "--property=SupplementaryGroups="+strings.Join(g, " "))
+	}
+	for _, p := range transientHardening {
+		a = append(a, "--property="+p)
+	}
+	if timeout > 0 {
+		a = append(a, fmt.Sprintf("--property=RuntimeMaxSec=%d", int((timeout+time.Second-1)/time.Second)))
+	}
+	for _, e := range env {
+		a = append(a, "--setenv="+e)
+	}
+	a = append(a, "--", bin)
+	for _, arg := range args {
+		// systemd expands $VAR in command lines; "$$" is a literal "$".
+		a = append(a, strings.ReplaceAll(arg, "$", "$$"))
+	}
+	return a
 }
 
 func checkArgs(id string, o Opts, args []string) error {

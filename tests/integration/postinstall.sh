@@ -115,6 +115,20 @@ waitfor 60 "database restored" sh -c "[ \"\$(mysql -N -e 'SELECT v FROM \`$DB\`.
 waitfor 20 "restored site served" sh -c "curl --noproxy '*' -fsS -H 'Host: $DOMAIN' http://127.0.0.1/index.php | grep -q '^e2e-ok-'"
 pass "restore brought back the file and the database row; the site is served"
 
+# Cron "run now": the command runs as the website's account, with no
+# capabilities, and cannot write outside what that account may write.
+CSRF_FROM=/sites/$SITE/cron
+post "/sites/$SITE/cron" "schedule=0 0 1 1 *" "command=cd $ROOT && { id -u; grep ^CapEff /proc/self/status; } > cron-ran.txt; touch /etc/whacp-cron-escape 2>/dev/null; true" description=e2e enabled=1 >/dev/null
+JOB=$(php -r '$d = new PDO("sqlite:/var/lib/whacp/whacp.sqlite"); $s = $d->prepare("SELECT MAX(id) FROM cron_jobs WHERE website_id = ?"); $s->execute([$argv[1]]); echo (string) $s->fetchColumn();' "$SITE")
+[[ -n $JOB ]] || fail "cron job not created: $(flash /sites/$SITE/cron)"
+post "/sites/$SITE/cron/$JOB/run" >/dev/null
+waitfor 60 "cron job ran" test -s "$ROOT/cron-ran.txt"
+[[ $(head -1 "$ROOT/cron-ran.txt") == "$(id -u "$OWNER")" ]] || fail "cron ran as uid $(head -1 "$ROOT/cron-ran.txt"), not $OWNER"
+[[ $(stat -c %U "$ROOT/cron-ran.txt") == "$OWNER" ]] || fail "cron output owned by $(stat -c %U "$ROOT/cron-ran.txt")"
+grep -q 'CapEff:[[:space:]]*0000000000000000' "$ROOT/cron-ran.txt" || fail "cron command had capabilities: $(cat "$ROOT/cron-ran.txt")"
+[[ ! -e /etc/whacp-cron-escape ]] || { rm -f /etc/whacp-cron-escape; fail "cron command wrote to /etc"; }
+pass "cron \"run now\" ran as $OWNER without capabilities and could not write to /etc"
+
 # Clean up through the panel.
 CSRF_FROM=/sites/$SITE/settings
 post "/sites/$SITE/delete" "confirm_domain=$DOMAIN" remove_files=1 remove_user=1 >/dev/null
