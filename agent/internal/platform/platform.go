@@ -94,6 +94,9 @@ type Managed struct {
 	MySQLUnit    []string `json:"mysql_units"`
 	RedisUnit    string   `json:"redis_unit"`
 	RedisConfig  string   `json:"redis_config"`
+	// Memcached: Debian's option file (-m 64 …) or RHEL's sysconfig file.
+	MemcachedConfig string `json:"memcached_config"`
+	MemcachedUnit   string `json:"memcached_unit"`
 }
 
 // supportedUbuntu lists the Ubuntu releases WhaCP officially targets.

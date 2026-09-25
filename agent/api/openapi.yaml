@@ -128,6 +128,9 @@ paths:
               - logs.download
               - logs.sources
               - logs.tail
+              - memcached.configure
+              - memcached.flush
+              - memcached.status
               - packages.install
               - packages.list
               - packages.refresh
@@ -142,6 +145,10 @@ paths:
               - redis.configure
               - redis.flush
               - redis.info
+              - redis.key_delete
+              - redis.key_edit
+              - redis.key_get
+              - redis.keys
               - redis.password
               - security.audit
               - security.confirm
@@ -350,6 +357,9 @@ x-whacp-actions:
   logs.download: { mutating: false, description: "Read a chunk of a log file (base64)." }
   logs.sources: { mutating: false, description: "Available log sources (server-wide or for one website)." }
   logs.tail: { mutating: false, description: "Last lines of a log, or new lines since an offset/cursor." }
+  memcached.configure: { mutating: true, description: "Set Memcached's memory, connection limit and (loopback) listen addresses in its package configuration file after explicit confirmation; restarts and verifies, rolls back on failure." }
+  memcached.flush: { mutating: true, description: "Remove every item from Memcached (requires confirm)." }
+  memcached.status: { mutating: false, description: "Whether Memcached is installed and running, its settings and statistics." }
   packages.install: { mutating: true, description: "Install an allowlisted component (job)." }
   packages.list: { mutating: false, description: "Installable components and their versions." }
   packages.refresh: { mutating: true, description: "Refresh the package index (apt-get update) (job)." }
@@ -364,6 +374,10 @@ x-whacp-actions:
   redis.configure: { mutating: true, description: "Set maxmemory and eviction policy (persisted with CONFIG REWRITE)." }
   redis.flush: { mutating: true, description: "Delete all keys of one database (requires confirm)." }
   redis.info: { mutating: false, description: "Version, memory, clients, keyspace and ACL users of the local Redis." }
+  redis.key_delete: { mutating: true, description: "Delete Redis keys." }
+  redis.key_edit: { mutating: true, description: "Create or change a Redis key (set, hash/list/set/sorted-set elements, TTL, rename)." }
+  redis.key_get: { mutating: false, description: "Read one Redis key (strings up to 1 MiB, collections up to 500 elements)." }
+  redis.keys: { mutating: false, description: "List keys of a Redis database (SCAN, optionally limited to a key prefix)." }
   redis.password: { mutating: true, description: "Set or clear the default user's password." }
   security.audit: { mutating: false, description: "Security checks with findings and remedies (read-only)." }
   security.confirm: { mutating: true, description: "Keep a firewall/SSH change (otherwise it is rolled back automatically)." }

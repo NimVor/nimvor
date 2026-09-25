@@ -16,6 +16,7 @@ $groups = [
         ['Cron Jobs', 'clock-history', 'cron', P::CRON_VIEW, '/cron'],
         ['Workers', 'gear-wide-connected', 'workers', P::WORKERS_MANAGE, '/workers'],
         ['Redis', 'lightning', 'redis', P::REDIS_MANAGE, '/redis'],
+        ['Memcached', 'memory', 'memcached', P::REDIS_MANAGE, '/memcached'],
         ['SSL', 'shield-lock', 'ssl', P::SSL_VIEW, '/ssl'],
     ],
     'Operations' => [

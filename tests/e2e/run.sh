@@ -15,6 +15,15 @@ DEV=$!
 trap 'kill -- -$DEV 2>/dev/null; true' EXIT
 for _ in $(seq 1 120); do curl -sf -o /dev/null "$E2E_BASE/login" && break; sleep 1; done
 curl -sf -o /dev/null "$E2E_BASE/login" || { tail -30 "$E2E_OUT/dev.log"; exit 1; }
+# A throwaway Redis for the key browser, using the fixture's password.
+if command -v redis-server >/dev/null; then
+    redis-server --port 6390 --bind 127.0.0.1 --save '' --appendonly no --daemonize no \
+        --requirepass super-secret-redis-password > "$E2E_OUT/redis.log" 2>&1 &
+    REDIS=$!
+    trap 'kill -- -$DEV 2>/dev/null; kill $REDIS 2>/dev/null; true' EXIT
+    sed -i -e 's/^port .*/port 6390/' -e '/^unixsocket /d' "$ROOT/.dev/root/etc/redis/redis.conf"
+    export E2E_REDIS=1
+fi
 export NODE_PATH="${NODE_PATH:-$(npm root -g)}"
 for t in "$ROOT"/tests/e2e/*.js; do
     echo "== $(basename "$t")"

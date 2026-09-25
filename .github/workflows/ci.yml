@@ -59,10 +59,10 @@ jobs:
           sudo rm -rf /var/lib/mysql /etc/mysql
           sudo apt-get update -q
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
-            nginx mariadb-server mariadb-client redis-server ufw fail2ban openssh-server git \
+            nginx mariadb-server mariadb-client redis-server memcached ufw fail2ban openssh-server git \
             php8.3-cli php8.3-fpm php8.3-mysql php8.3-sqlite3 php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip
           command -v composer || { curl -fsSL https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer; }
-          sudo systemctl start mariadb redis-server nginx php8.3-fpm ssh
+          sudo systemctl start mariadb redis-server memcached nginx php8.3-fpm ssh
           sudo ufw allow 22/tcp
           sudo ufw --force enable
           sudo systemctl restart fail2ban
@@ -91,8 +91,9 @@ jobs:
           php-version: '8.3'
           extensions: pdo_sqlite, curl, mbstring, sodium
       - run: cd panel && composer install --no-interaction --no-progress
-      - name: Install Playwright
+      - name: Install Playwright and Redis
         run: |
+          sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends redis-server
           cd tests/e2e
           npm install --no-save --no-package-lock playwright@1.56.1
           npx playwright install --with-deps chromium

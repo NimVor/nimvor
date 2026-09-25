@@ -151,6 +151,7 @@ func (c Client) setAndPersist(ctx context.Context, pairs ...string) error {
 
 // Register adds Redis actions.
 func Register(r *actions.Registry, env *host.Env) {
+	registerBrowser(r, env)
 	c := Client{Env: env}
 	r.Register(actions.Action{Name: "redis.info", Description: "Version, memory, clients, keyspace and ACL users of the local Redis.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		if !env.Runner.Available("redis-cli") {

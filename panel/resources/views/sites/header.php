@@ -13,6 +13,7 @@ $tabs = [
     ['cron', 'Cron', 'sites.cron', P::CRON_VIEW, 'clock-history'],
     ['workers', 'Workers', 'sites.workers', P::WORKERS_MANAGE, 'gear-wide-connected'],
     ['git', 'Git', 'sites.git', P::DEPLOY_MANAGE, 'git'],
+    ['redis', 'Redis', 'sites.redis', P::WEBSITES_MANAGE, 'lightning'],
     ['backups', 'Backups', 'sites.backups', P::BACKUPS_VIEW, 'archive'],
     ['apps', 'Apps', 'sites.apps', P::APPS_INSTALL, 'grid-3x3-gap'],
 ];

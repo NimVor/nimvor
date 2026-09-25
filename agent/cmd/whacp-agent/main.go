@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/discovery"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
@@ -117,6 +118,11 @@ func run() int {
 		return 1
 	}
 	env := host.New(cfg, root, plat, runner, jobManager, log)
+	if cfg.SimulateCommands {
+		// Development against a copy of the fixture, usually without root:
+		// files are owned by the current user instead of root/site accounts.
+		env.Writer.Owners = agentfs.SelfOwners()
+	}
 	registry := actions.NewRegistry(cfg.AllowWriteActions)
 	modules.Register(registry, env, version, cfg.AllowWriteActions, modules.All()...)
 	actions.RegisterBuiltin(registry, actions.Deps{

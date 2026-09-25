@@ -283,3 +283,22 @@ textarea.form-control.wcp-editor { min-height: 65vh; font-size: .82rem; resize: 
 .wcp-fe-text { flex: 1; border: 0; resize: none; padding: .75rem; font: .85rem/1.5 var(--bs-font-monospace); tab-size: 4; background: var(--bs-body-bg); color: var(--bs-body-color); outline: none; white-space: pre; overflow: auto; }
 .wcp-fe-text[wrap="soft"] { white-space: pre-wrap; }
 .wcp-fe-status { display: flex; align-items: center; padding: .3rem .75rem; border-top: 1px solid var(--wcp-card-border); }
+
+/* ---- Redis key browser ---- */
+.wcp-rb { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bs-body-bg); border: 1px solid var(--wcp-card-border); border-radius: .5rem; }
+.wcp-rb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .5rem .75rem; border-bottom: 1px solid var(--wcp-card-border); }
+.wcp-rb-search { width: auto; flex: 1 1 20rem; max-width: 42rem; }
+.wcp-rb-prefix { max-width: 12rem; }
+.wcp-rb-body { flex: 1; min-height: 0; display: flex; }
+.wcp-rb-keys { width: 24rem; min-width: 14rem; border-right: 1px solid var(--wcp-card-border); overflow: auto; resize: horizontal; }
+.wcp-rb-key { display: flex; align-items: center; cursor: pointer; font-size: .85rem; padding: .35rem .6rem; }
+.wcp-rb-detail { flex: 1; min-width: 0; overflow: auto; display: flex; flex-direction: column; }
+.wcp-rb-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; padding: .6rem .75rem; border-bottom: 1px solid var(--wcp-card-border); }
+.wcp-rb-content { padding: .75rem; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.wcp-rb-text { flex: 1; min-height: 16rem; font-size: .85rem; white-space: pre; }
+.wcp-rb-cell { max-width: 32rem; white-space: pre-wrap; word-break: break-all; }
+@media (max-width: 767.98px) {
+    .wcp-rb-body { flex-direction: column; }
+    .wcp-rb-keys { width: auto; max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--wcp-card-border); }
+}
+.wcp-rb-key.active .text-body-secondary { color: inherit !important; opacity: .85; }

@@ -16,6 +16,7 @@ $misses = (int) ($stats['keyspace_misses'] ?? 0);
 ?>
 <?php $this->start(); ?>Redis<?php $this->end('title'); ?>
 <?php $this->start(); ?>In-memory cache and queue server<?php $this->end('subtitle'); ?>
+<?php $this->start(); ?><?php if ($agentError === null): ?><a class="btn btn-sm btn-primary" href="<?= e($this->url('redis.browser')) ?>"><i class="bi bi-search"></i> Browse keys</a><?php endif; ?><?php $this->end('actions'); ?>
 <?= $this->partial('partials/secret', ['secret' => $secret]) ?>
 <?php if ($agentError !== null): ?>
     <?= $this->partial('partials/agent_error', ['error' => $agentError]) ?>

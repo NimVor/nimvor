@@ -111,6 +111,22 @@ device files and entries that would leave the target folder, drops set-id
 bits, is limited to 50,000 entries and 8 GiB, and keeps existing files
 unless *Replace files that already exist* is ticked.
 
+## Redis and Memcached
+
+*Redis → Browse keys* scans a database with a glob pattern and shows every
+type (strings up to 1 MiB, the first 500 elements of collections, recent
+stream entries); keys and values can be created, edited, given a TTL,
+renamed and deleted. Binary data is shown as base64 and not edited. On a
+website, *Redis* opens the same browser limited to that website's key
+prefix (`<account>:`), which is also what its Redis ACL user may access.
+
+*Memcached* installs the package, shows hits, memory, items, evictions and
+connections, flushes the cache, and changes memory, connection limit and
+listen addresses. The configuration file belongs to the package, so WhaCP
+edits it only after you tick the confirmation; it keeps a backup, restarts
+Memcached, checks it answers and otherwise restores the old file. Only
+loopback addresses are accepted: Memcached has no authentication.
+
 ## Restoring server configuration
 
 *Backups → server backup → Restore* (needs *Reboot, update and configure

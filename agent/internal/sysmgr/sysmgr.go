@@ -26,6 +26,7 @@ var Components = map[string]string{
 	"nginx":               "Web server",
 	"mariadb-server":      "MariaDB database server",
 	"redis-server":        "Redis cache server",
+	"memcached":           "Memcached cache server",
 	"certbot":             "Let's Encrypt client",
 	"ufw":                 "Firewall",
 	"fail2ban":            "Brute-force protection",

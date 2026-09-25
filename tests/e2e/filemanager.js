@@ -22,7 +22,9 @@ const OUT = process.env.E2E_OUT || '/tmp';
   await page.selectOption('#f-kind', 'static');
   await Promise.all([page.waitForNavigation(), page.click('form button[type=submit].btn-primary')]);
   step('site created: ' + page.url());
-  const siteId = page.url().match(/sites\/(\d+)/)[1];
+  const m = page.url().match(/sites\/(\d+)/);
+  if (!m) { throw new Error('website not created: ' + (await page.locator('.alert, .invalid-feedback').allTextContents()).join(' | ')); }
+  const siteId = m[1];
 
   await page.goto(`${BASE}/sites/${siteId}/files`);
   await page.waitForSelector('[data-fm-rows] tr[data-path]');

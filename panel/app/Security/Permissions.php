@@ -81,7 +81,7 @@ final class Permissions
             self::CRON_MANAGE => ['label' => 'Manage cron jobs', 'group' => 'Hosting'],
             self::WORKERS_MANAGE => ['label' => 'Manage background workers', 'group' => 'Hosting'],
             self::DEPLOY_MANAGE => ['label' => 'Manage Git deployments', 'group' => 'Hosting'],
-            self::REDIS_MANAGE => ['label' => 'Manage Redis', 'group' => 'Hosting'],
+            self::REDIS_MANAGE => ['label' => 'Manage Redis and Memcached', 'group' => 'Hosting'],
             self::BACKUPS_VIEW => ['label' => 'View backups', 'group' => 'Hosting'],
             self::BACKUPS_MANAGE => ['label' => 'Create, restore and delete backups', 'group' => 'Hosting'],
             self::APPS_INSTALL => ['label' => 'Install applications', 'group' => 'Hosting'],
