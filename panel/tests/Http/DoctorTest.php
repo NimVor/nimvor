@@ -35,6 +35,19 @@ final class DoctorTest extends HttpTestCase
         self::assertSame(Doctor::OK, $r['Scheduler']['status']);
     }
 
+    public function testMissingKey(): void
+    {
+        $this->agent->responses['/v1/health'] = new \WhaCP\Agent\AgentHttpResponse(200, (string) json_encode(['success' => true, 'data' => ['version' => '0.5.0'], 'request_id' => 't']));
+        $cfg = $this->app->container->get(\WhaCP\Core\Config::class);
+        $key = (string) $cfg->get('security.key_file');
+        if (is_file($key)) {
+            self::markTestSkipped('the configured key exists');
+        }
+        self::assertSame(Doctor::WARN, $this->checks()['Panel encryption key']['status'], 'not created yet');
+        $this->app->container->get(\WhaCP\Database\Connection::class)->run("INSERT INTO servers (name, kind, url, token_enc, created_at) VALUES ('edge', 'remote', 'https://192.0.2.1:8443', 'v1:x', '2026-01-01')");
+        self::assertSame(Doctor::FAIL, $this->checks()['Panel encryption key']['status'], 'secrets stored without their key');
+    }
+
     public function testPermissionRules(): void
     {
         $f = $this->dir . '/secret';

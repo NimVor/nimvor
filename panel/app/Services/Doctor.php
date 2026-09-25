@@ -45,12 +45,31 @@ final class Doctor
         $add($this->config->get('app.debug') ? self::WARN : self::OK, 'Debug mode', $this->config->get('app.debug') ? 'on — error pages show internals; turn it off' : 'off');
         $add($this->config->get('session.secure_cookie') ? self::OK : self::WARN, 'Secure session cookie', $this->config->get('session.secure_cookie') ? 'on' : 'off — only acceptable behind a TLS proxy on localhost');
 
+        $key = (string) $this->config->get('security.key_file');
+        if ($key !== '' && !file_exists($key)) {
+            // Created on first use; losing it makes stored secrets unreadable.
+            $secrets = 0;
+            foreach (['servers' => 'token_enc', 'database_users' => 'password_enc', 'git_repositories' => 'webhook_secret_enc', 'backup_storages' => 'config_enc'] as $table => $col) {
+                try {
+                    $secrets += (int) $this->db->scalar("SELECT COUNT(*) FROM {$table} WHERE {$col} <> ''");
+                } catch (\Throwable) {
+                    // table not created yet
+                }
+            }
+            $secrets += (int) $this->db->scalar("SELECT COUNT(*) FROM settings WHERE key = 'mail.password' AND value NOT IN ('\"\"', '')");
+            $add($secrets > 0 ? self::FAIL : self::WARN, 'Panel encryption key', $secrets > 0
+                ? $key . ' is missing, but encrypted secrets are stored — restore the key from a backup'
+                : $key . ' does not exist yet (created when the first secret is stored)');
+        }
         foreach ([
-            'Panel encryption key' => [(string) $this->config->get('security.key_file'), false],
+            'Panel encryption key' => [$key, false],
             'Agent token' => [(string) $this->config->get('agent.token_file'), false],
             'Panel database' => [(string) $this->config->get('database.path'), false],
             'Session folder' => [(string) $this->config->get('session.path'), true],
         ] as $name => [$path, $dir]) {
+            if ($name === 'Panel encryption key' && $path !== '' && !file_exists($path)) {
+                continue;
+            }
             [$status, $detail] = self::permissions($path, $dir);
             $add($status, $name, $detail);
         }

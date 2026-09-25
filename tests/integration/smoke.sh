@@ -23,7 +23,8 @@ cat > "$WORK/agent.json" <<JSON
 JSON
 cat > "$WORK/panel.php" <<PHP
 <?php return ['database'=>['path'=>'$WORK/db.sqlite'],'log'=>['file'=>'$WORK/panel.log'],
-'session'=>['path'=>'$WORK/sessions','secure_cookie'=>false],'agent'=>['socket'=>'$WORK/agent.sock','token_file'=>'$WORK/token']];
+'session'=>['path'=>'$WORK/sessions','secure_cookie'=>false],'agent'=>['socket'=>'$WORK/agent.sock','token_file'=>'$WORK/token'],
+'security'=>['key_file'=>'$WORK/panel.key']];
 PHP
 export WHACP_CONFIG="$WORK/panel.php"
 
