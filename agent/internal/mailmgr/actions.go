@@ -79,6 +79,7 @@ func (e env) installed() map[string]bool {
 		"dovecot":  e.Root.Exists("/usr/sbin/dovecot"),
 		"imap":     e.Root.Exists("/usr/lib/dovecot/imap"),
 		"lmtp":     e.Root.Exists("/usr/lib/dovecot/lmtp"),
+		"sieve":    e.Root.Exists("/usr/lib/dovecot/modules/lib90_sieve_plugin.so") || e.Root.Exists("/usr/lib64/dovecot/lib90_sieve_plugin.so"),
 		"opendkim": e.Root.Exists("/usr/sbin/opendkim"),
 	}
 }
@@ -226,11 +227,16 @@ func Register(r *actions.Registry, he *host.Env) {
 		defer mu.Unlock()
 		for name, ok := range e.installed() {
 			if !ok {
-				return nil, actions.Conflict("The mail packages are not complete (" + name + " is missing). Install postfix, dovecot-imapd, dovecot-lmtpd and opendkim first.")
+				return nil, actions.Conflict("The mail packages are not complete (" + name + " is missing). Install postfix, dovecot-imapd, dovecot-lmtpd, dovecot-sieve and opendkim first.")
 			}
 		}
-		if out, err := e.Runner.Run(ctx, "dovecot", "--version"); err == nil && !strings.HasPrefix(strings.TrimSpace(string(out)), "2.3.") && !he.Cfg.SimulateCommands {
-			return nil, actions.Conflict("WhaCP supports Dovecot 2.3; this server has " + strings.TrimSpace(string(out)) + ".")
+		v24 := false
+		if out, err := e.Runner.Run(ctx, "dovecot", "--version"); err == nil {
+			ver := strings.TrimSpace(string(out))
+			if !strings.HasPrefix(ver, "2.3.") && !strings.HasPrefix(ver, "2.4.") && !he.Cfg.SimulateCommands {
+				return nil, actions.Conflict("WhaCP supports Dovecot 2.3 and 2.4; this server has " + ver + ".")
+			}
+			v24 = dovecotV24(ver)
 		}
 		if !e.configured() && !in.Confirm {
 			return nil, actions.Conflict("WhaCP changes Postfix's main.cf and master.cf (with postconf) and turns off Dovecot's login for system accounts in " + he.M.DovecotAuthConf + ". Confirm to continue; backups are kept.")
@@ -240,6 +246,7 @@ func Register(r *actions.Registry, he *host.Env) {
 			return nil, actions.Failed("The mail data could not be read.", err.Error())
 		}
 		d.Hostname = in.Hostname
+		d.Dovecot24 = v24
 		// vmail owns all mailboxes.
 		if _, err := he.LookupUser("vmail"); err != nil {
 			if err := e.run(ctx, "useradd", "--system", "--home-dir", e.M.VmailDir, "--no-create-home", "--shell", "/usr/sbin/nologin", "--user-group", "--comment", "WhaCP mailboxes", "--", "vmail"); err != nil {
@@ -288,7 +295,9 @@ func Register(r *actions.Registry, he *host.Env) {
 			set.Write(t.key, k, 0o600, agentfs.RootOwner)
 		}
 		e.writeData(set, d)
-		set.Write(he.M.DovecotDropIn, []byte(renderDovecot(dir, e.M.VmailDir, vmail.UID, in.Hostname, t, hasIPv6())), 0o644, agentfs.RootOwner)
+		set.Write(he.M.DovecotDropIn, []byte(renderDovecot(dovecotParams{Dir: dir, Vmail: e.M.VmailDir, Hostname: in.Hostname, VmailUID: vmail.UID, TLS: t, IPv6: hasIPv6(), V24: v24})), 0o644, agentfs.RootOwner)
+		set.Mkdir(dir+"/sieve", 0o755, agentfs.RootOwner)
+		set.Write(dir+"/sieve/spam.sieve", []byte(SpamSieve), 0o644, agentfs.RootOwner)
 		if b, err := he.Root.ReadFile(he.M.DovecotAuthConf); err == nil {
 			if changed, ok := disableSystemAuth(string(b)); ok {
 				set.Write(he.M.DovecotAuthConf, []byte(changed), 0o644, agentfs.Keep)
@@ -297,6 +306,10 @@ func Register(r *actions.Registry, he *host.Env) {
 		set.Write(dir+"/opendkim.conf", []byte(renderDKIMConf(dir)), 0o644, agentfs.RootOwner)
 		set.Write(filepath.Join(he.M.UnitDir, DKIMUnit), []byte(renderDKIMUnit(dir)), 0o644, agentfs.RootOwner)
 		applied, err := set.Commit(func() error {
+			// Compiled once here: Dovecot cannot write next to the script.
+			if err := e.run(ctx, "sievec", dir+"/sieve/spam.sieve"); err != nil {
+				return err
+			}
 			if out, err := he.Runner.Run(ctx, "doveconf", "-n"); err != nil {
 				return fmt.Errorf("doveconf: %s", host.Output(out))
 			}
@@ -343,11 +356,19 @@ func Register(r *actions.Registry, he *host.Env) {
 				tls         bool
 			}{{"127.0.0.1:25", "220", false}, {"127.0.0.1:587", "220", false}, {"127.0.0.1:993", "* OK", true}, {fmt.Sprintf("127.0.0.1:%d", dkimPort), "", false}} {
 				if p.greet == "" {
-					c, err := net.DialTimeout("tcp", p.addr, 5*time.Second)
+					// A Type=simple unit is "started" before it listens.
+					var err error
+					for i := 0; i < 40; i++ {
+						var c net.Conn
+						if c, err = net.DialTimeout("tcp", p.addr, 2*time.Second); err == nil {
+							c.Close()
+							break
+						}
+						time.Sleep(250 * time.Millisecond)
+					}
 					if err != nil {
 						return fail("OpenDKIM does not listen.", err)
 					}
-					c.Close()
 					continue
 				}
 				if err := probe(ctx, p.addr, p.greet, p.tls); err != nil {

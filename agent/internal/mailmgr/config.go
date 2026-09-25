@@ -16,10 +16,32 @@ const dkimPort = 8891
 // tls names the certificate files Postfix and Dovecot use.
 type tls struct{ cert, key string }
 
-func renderDovecot(dir, vmail string, vmailUID int, hostname string, t tls, ipv6 bool) string {
+// dovecotParams are the values WhaCP's Dovecot drop-in needs.
+type dovecotParams struct {
+	Dir, Vmail, Hostname string
+	VmailUID             int
+	TLS                  tls
+	IPv6                 bool
+	// V24 selects Dovecot 2.4's configuration syntax (2.3 otherwise).
+	V24 bool
+}
+
+// SpamSieve files messages the spam filter marked into Junk; it runs before
+// any personal filters.
+const SpamSieve = `require ["fileinto", "mailbox"];
+if header :contains "X-Spam" "Yes" {
+  fileinto :create "Junk";
+  stop;
+}
+`
+
+func renderDovecot(p dovecotParams) string {
 	listen := "*, ::"
-	if !ipv6 {
+	if !p.IPv6 {
 		listen = "*"
+	}
+	if p.V24 {
+		return renderDovecot24(p, listen)
 	}
 	return fmt.Sprintf(`# Managed by WhaCP (email). Do not edit: changes are overwritten.
 protocols = imap lmtp
@@ -52,13 +74,74 @@ protocol imap {
 }
 protocol lmtp {
   postmaster_address = postmaster@%[6]s
+  mail_plugins = $mail_plugins sieve
 }
 plugin {
   quota = maildir:User quota
   quota_rule = *:storage=0
   quota_grace = 10%%%%
+  sieve_before = %[1]s/sieve/spam.sieve
+}
+%[8]s`, p.Dir, p.Vmail, p.VmailUID, p.TLS.cert, p.TLS.key, p.Hostname, listen, dovecotCommon())
 }
 
+func renderDovecot24(p dovecotParams, listen string) string {
+	return fmt.Sprintf(`# Managed by WhaCP (email). Do not edit: changes are overwritten.
+protocols = imap lmtp
+listen = %[6]s
+mail_driver = maildir
+mail_path = ~/Maildir
+mail_inbox_path = ~/Maildir
+mail_uid = vmail
+mail_gid = vmail
+first_valid_uid = %[2]d
+last_valid_uid = %[2]d
+auth_allow_cleartext = no
+auth_mechanisms = plain login
+ssl = required
+ssl_server_cert_file = %[3]s
+ssl_server_key_file = %[4]s
+ssl_min_protocol = TLSv1.2
+
+passdb passwd-file {
+  passwd_file_path = %[1]s/users
+  default_password_scheme = SHA512-CRYPT
+  auth_username_format = %%{user | lower}
+}
+userdb passwd-file {
+  passwd_file_path = %[1]s/users
+  auth_username_format = %%{user | lower}
+}
+
+mail_plugins {
+  quota = yes
+}
+protocol imap {
+  mail_plugins {
+    imap_quota = yes
+  }
+}
+protocol lmtp {
+  postmaster_address = postmaster@%[5]s
+  # The distribution's default keeps only the local part (system users).
+  auth_username_format = %%{user | lower}
+  mail_plugins {
+    sieve = yes
+  }
+}
+quota "User quota" {
+  driver = count
+}
+sieve_script whacp-spam {
+  type = before
+  path = %[1]s/sieve/spam.sieve
+}
+%[7]s`, p.Dir, p.VmailUID, p.TLS.cert, p.TLS.key, p.Hostname, listen, dovecotCommon())
+}
+
+// dovecotCommon holds the parts both versions write the same way.
+func dovecotCommon() string {
+	return `
 namespace inbox {
   inbox = yes
   mailbox Drafts {
@@ -99,7 +182,13 @@ service auth {
     group = postfix
   }
 }
-`, dir, vmail, vmailUID, t.cert, t.key, hostname, listen)
+`
+}
+
+// dovecotV24 reports whether "dovecot --version" output is 2.4 or later.
+func dovecotV24(version string) bool {
+	v := strings.TrimSpace(version)
+	return !strings.HasPrefix(v, "2.3.") && !strings.HasPrefix(v, "2.2.")
 }
 
 // hasIPv6 reports whether this machine can listen on IPv6.

@@ -61,17 +61,38 @@ func TestDisableSystemAuth(t *testing.T) {
 	if _, again := disableSystemAuth(out); again {
 		t.Fatal("not idempotent")
 	}
-	conf := renderDovecot("/etc/whacp-mail", "/var/vmail", 5000, "mail.example.com", tls{"/c", "/k"}, false)
-	for _, want := range []string{"listen = *\n", "first_valid_uid = 5000", "args = scheme=SHA512-CRYPT username_format=%Lu /etc/whacp-mail/users", "home=/var/vmail/%Ld/%Ln", "ssl = required", "quota_grace = 10%%", "port = 0", "postmaster_address = postmaster@mail.example.com"} {
+	p := dovecotParams{Dir: "/etc/whacp-mail", Vmail: "/var/vmail", VmailUID: 5000, Hostname: "mail.example.com", TLS: tls{"/c", "/k"}}
+	conf := renderDovecot(p)
+	for _, want := range []string{"listen = *\n", "first_valid_uid = 5000", "args = scheme=SHA512-CRYPT username_format=%Lu /etc/whacp-mail/users", "home=/var/vmail/%Ld/%Ln", "ssl = required", "ssl_cert = </c\n", "quota_grace = 10%%", "port = 0", "postmaster_address = postmaster@mail.example.com", "sieve_before = /etc/whacp-mail/sieve/spam.sieve", "mail_plugins = $mail_plugins sieve", "special_use = \\Junk"} {
 		if !strings.Contains(conf, want) {
-			t.Errorf("dovecot conf lacks %q", want)
+			t.Errorf("2.3 conf lacks %q", want)
 		}
+	}
+	p.V24, p.IPv6 = true, true
+	conf = renderDovecot(p)
+	for _, want := range []string{"listen = *, ::\n", "mail_driver = maildir\n", "mail_inbox_path = ~/Maildir\n", "auth_allow_cleartext = no", "ssl_server_cert_file = /c\n", "passwd_file_path = /etc/whacp-mail/users", "default_password_scheme = SHA512-CRYPT", "auth_username_format = %{user | lower}", "quota \"User quota\" {", "sieve_script whacp-spam {", "type = before", "sieve = yes"} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("2.4 conf lacks %q", want)
+		}
+	}
+	if strings.Contains(conf, "mail_location") || strings.Contains(conf, "disable_plaintext_auth") || strings.Contains(conf, "%L") {
+		t.Error("2.4 conf uses 2.3 settings")
+	}
+	if !dovecotV24("2.4.2 (0962ed2104)") || dovecotV24("2.3.21 (47349e2482)") {
+		t.Error("version detection")
+	}
+	d := newData()
+	d.Dovecot24 = true
+	d.Domains["e.test"] = Domain{Selector: "s"}
+	d.Mailboxes["a@e.test"] = Mailbox{Hash: "$6$x", QuotaMB: 100}
+	if !strings.HasSuffix(strings.TrimSpace(d.render("/m", "/v")["users"]), "::userdb_quota_storage_size=100M") {
+		t.Errorf("2.4 users = %s", d.render("/m", "/v")["users"])
 	}
 }
 
 func setup(t *testing.T) (*testhost.Host, *actions.Registry) {
 	h := testhost.New(t)
-	for _, f := range []string{"usr/sbin/postfix", "usr/sbin/dovecot", "usr/sbin/opendkim", "usr/lib/dovecot/imap", "usr/lib/dovecot/lmtp"} {
+	for _, f := range []string{"usr/sbin/postfix", "usr/sbin/dovecot", "usr/sbin/opendkim", "usr/lib/dovecot/imap", "usr/lib/dovecot/lmtp", "usr/lib/dovecot/modules/lib90_sieve_plugin.so"} {
 		os.MkdirAll(filepath.Join(h.Base, filepath.Dir(f)), 0o755)
 		os.WriteFile(filepath.Join(h.Base, f), nil, 0o755)
 	}

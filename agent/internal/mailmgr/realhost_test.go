@@ -120,7 +120,8 @@ func TestRealHostMail(t *testing.T) {
 			time.Sleep(250 * time.Millisecond)
 		}
 		out, _ := exec.Command("postqueue", "-p").CombinedOutput()
-		t.Fatalf("mail not delivered to %s; queue:\n%s", maildir, out)
+		tree, _ := exec.Command("find", env.M.VmailDir, "-maxdepth", "6").CombinedOutput()
+		t.Fatalf("mail not delivered to %s; queue:\n%s\nstorage:\n%s", maildir, out, tree)
 		return nil
 	}
 
@@ -155,6 +156,28 @@ func TestRealHostMail(t *testing.T) {
 	}
 	if err := inbound("nobody@rt-mail.test", "x"); err == nil {
 		t.Fatal("mail for an unknown mailbox accepted")
+	}
+	// Mail the spam filter flagged goes to Junk (Sieve).
+	c0, err := smtp.Dial("127.0.0.1:25")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c0.Hello("sender.example")
+	c0.Mail("spammer@example.net")
+	c0.Rcpt("alice@rt-mail.test")
+	w0, _ := c0.Data()
+	io.WriteString(w0, "Subject: cheap\r\nX-Spam: Yes\r\n\r\nspam body\r\n")
+	w0.Close()
+	c0.Quit()
+	junk := filepath.Join(env.M.VmailDir, "rt-mail.test/alice/Maildir/.Junk")
+	for i := 0; i < 60; i++ {
+		if files, _ := filepath.Glob(filepath.Join(junk, "*", "*")); len(files) > 0 {
+			break
+		}
+		if i == 59 {
+			t.Fatal("flagged message not filed into Junk")
+		}
+		time.Sleep(250 * time.Millisecond)
 	}
 	files := waitMail(1)
 	if b, _ := os.ReadFile(files[0]); !strings.Contains(string(b), "inbound test") {

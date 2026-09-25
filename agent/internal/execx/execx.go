@@ -92,6 +92,7 @@ var defaultCandidates = map[string][]string{
 	"doveconf":        {"/usr/bin/doveconf"},
 	"doveadm":         {"/usr/bin/doveadm"},
 	"dovecot":         {"/usr/sbin/dovecot"},
+	"sievec":          {"/usr/bin/sievec"},
 	"curl":            {"/usr/bin/curl"},
 	"apt-get":         {"/usr/bin/apt-get"},
 	"dpkg-query":      {"/usr/bin/dpkg-query"},

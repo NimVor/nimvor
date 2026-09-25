@@ -25,7 +25,9 @@ import (
 
 // Data is WhaCP's mail configuration.
 type Data struct {
-	Hostname  string              `json:"hostname"`
+	Hostname string `json:"hostname"`
+	// Dovecot24 selects Dovecot 2.4's user-file fields.
+	Dovecot24 bool                `json:"dovecot24,omitempty"`
 	Domains   map[string]Domain   `json:"domains"`
 	Mailboxes map[string]Mailbox  `json:"mailboxes"`
 	Aliases   map[string][]string `json:"aliases"`
@@ -126,6 +128,9 @@ func (d Data) render(dir, vmail string) files {
 		quota := ""
 		if m.QuotaMB > 0 {
 			quota = fmt.Sprintf("userdb_quota_rule=*:storage=%dM", m.QuotaMB)
+			if d.Dovecot24 {
+				quota = fmt.Sprintf("userdb_quota_storage_size=%dM", m.QuotaMB)
+			}
 		}
 		// user:password:uid:gid:gecos:home:shell:extra
 		fmt.Fprintf(&users, "%s:{SHA512-CRYPT}%s::::%s/%s/%s::%s\n", addr, m.Hash, vmail, dom, local, quota)

@@ -20,7 +20,7 @@ use WhaCP\View\View;
 
 final class MailController extends Controller
 {
-    public const PACKAGES = ['postfix', 'dovecot-imapd', 'dovecot-lmtpd', 'opendkim'];
+    public const PACKAGES = ['postfix', 'dovecot-imapd', 'dovecot-lmtpd', 'dovecot-sieve', 'opendkim'];
 
     public function __construct(
         View $view,
