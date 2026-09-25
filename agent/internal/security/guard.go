@@ -1,4 +1,4 @@
-// Package security manages the firewall (UFW), fail2ban and the SSH
+// Package security manages the firewall (UFW or firewalld), fail2ban and the SSH
 // server, and audits the server's security posture.
 //
 // Changes that could lock an administrator out (firewall rules, enabling
@@ -43,8 +43,10 @@ type Pending struct {
 	Kind        string        `json:"kind"` // firewall, ssh
 	Summary     string        `json:"summary"`
 	Deadline    time.Time     `json:"deadline"`
-	UFW         [][]string    `json:"ufw,omitempty"`   // inverse ufw commands, run in order
-	Files       []FileRestore `json:"files,omitempty"` // restored before Reload
+	UFW         [][]string    `json:"ufw,omitempty"`      // inverse ufw commands, run in order
+	Commands    [][]string    `json:"commands,omitempty"` // inverse firewalld commands (tool first)
+	Units       [][2]string   `json:"units,omitempty"`    // systemctl verb and unit, run in order
+	Files       []FileRestore `json:"files,omitempty"`    // restored before Reload
 	ReloadUnits []string      `json:"reload_units,omitempty"`
 }
 
@@ -187,6 +189,12 @@ func (g *Guard) rollback() error {
 		if err != nil {
 			keep(fmt.Errorf("ufw %v: %s", args, host.Output(out)))
 		}
+	}
+	if len(p.Commands) > 0 {
+		keep(runFirewalld(ctx, g.env, p.Commands))
+	}
+	for _, u := range p.Units {
+		keep(g.env.Systemctl(ctx, u[0], u[1]))
 	}
 	for _, f := range p.Files {
 		if !f.Existed {

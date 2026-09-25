@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
 )
 
 // Check is one audit finding.
@@ -18,8 +19,6 @@ type Check struct {
 	Detail   string `json:"detail"`
 	Remedy   string `json:"remedy,omitempty"`
 }
-
-var securityUpgrade = regexp.MustCompile(`(?m)^Inst \S+ .*-security`)
 
 // Audit inspects the server and returns findings (read-only).
 func Audit(ctx context.Context, env *host.Env) []Check {
@@ -68,9 +67,14 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 		add(Check{ID: "fail2ban", Title: "Brute-force protection", Status: "pass", Severity: "medium", Detail: "fail2ban jails: " + strings.Join(names, ", ") + "."})
 	}
 
-	if env.Runner.Available("apt-get") {
-		if o, err := env.Runner.Run(ctx, "apt-get", "-s", "-o", "Debug::NoLocking=1", "upgrade"); err == nil {
-			n := len(securityUpgrade.FindAll(o, -1))
+	if pkgs.Available(env) {
+		if ups, err := pkgs.Updates(ctx, env); err == nil {
+			n := 0
+			for _, u := range ups {
+				if u.Security {
+					n++
+				}
+			}
 			if n > 0 {
 				add(Check{ID: "updates", Title: "Security updates", Status: "fail", Severity: "high", Detail: fmt.Sprintf("%d security update(s) are waiting.", n), Remedy: "Install updates under Server → Packages."})
 			} else {
@@ -78,14 +82,17 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 			}
 		}
 	}
-	auto := false
-	if b, err := env.Root.ReadFile("/etc/apt/apt.conf.d/20auto-upgrades"); err == nil {
+	auto, remedy := false, "Run dpkg-reconfigure -plow unattended-upgrades."
+	if env.Platform.PackageManager() == "dnf" {
+		remedy = "Install dnf-automatic (Server → Packages), set upgrade_type = security in /etc/dnf/automatic.conf and run systemctl enable --now dnf-automatic-install.timer."
+		auto = env.UnitActive(ctx, "dnf-automatic-install.timer") || env.UnitActive(ctx, "dnf-automatic.timer")
+	} else if b, err := env.Root.ReadFile("/etc/apt/apt.conf.d/20auto-upgrades"); err == nil {
 		auto = regexp.MustCompile(`Unattended-Upgrade\s+"1"`).Match(b)
 	}
 	if auto {
-		add(Check{ID: "auto_updates", Title: "Automatic security updates", Status: "pass", Severity: "medium", Detail: "unattended-upgrades is enabled."})
+		add(Check{ID: "auto_updates", Title: "Automatic security updates", Status: "pass", Severity: "medium", Detail: "Updates are installed automatically."})
 	} else {
-		add(Check{ID: "auto_updates", Title: "Automatic security updates", Status: "warn", Severity: "medium", Detail: "Security updates are not installed automatically.", Remedy: "Run dpkg-reconfigure -plow unattended-upgrades."})
+		add(Check{ID: "auto_updates", Title: "Automatic security updates", Status: "warn", Severity: "medium", Detail: "Security updates are not installed automatically.", Remedy: remedy})
 	}
 	if env.Root.Exists("/var/run/reboot-required") || env.Root.Exists("/run/reboot-required") {
 		add(Check{ID: "reboot", Title: "Restart required", Status: "warn", Severity: "medium", Detail: "Updated system components are only used after a restart.", Remedy: "Restart the server at a quiet time under Server."})

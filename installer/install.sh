@@ -107,15 +107,20 @@ log "Detecting operating system"
 # shellcheck disable=SC1091
 . /etc/os-release
 supported=0
+PKG=apt
+MAJOR=${VERSION_ID%%.*}
 if [[ ${ID:-} == ubuntu ]]; then
     for v in "${SUPPORTED_UBUNTU[@]}"; do [[ ${VERSION_ID:-} == "$v" ]] && supported=1; done
+elif [[ ${ID:-} =~ ^(almalinux|rocky|rhel)$ ]]; then
+    PKG=dnf
+    [[ $MAJOR == 9 || $MAJOR == 10 ]] && supported=1
 fi
 if [[ $supported -eq 1 ]]; then
     ok "${PRETTY_NAME}"
 elif [[ $FORCE_UNSUPPORTED -eq 1 ]]; then
     warn "${PRETTY_NAME:-unknown OS} is not supported; continuing because of --force-unsupported"
 else
-    die "${PRETTY_NAME:-unknown OS} is not supported (Ubuntu 22.04/24.04/26.04). Use --force-unsupported to try anyway."
+    die "${PRETTY_NAME:-unknown OS} is not supported (Ubuntu 22.04/24.04/26.04, AlmaLinux/Rocky Linux/RHEL 9 and 10). Use --force-unsupported to try anyway."
 fi
 command -v systemctl >/dev/null || die "systemd is required"
 
@@ -129,8 +134,12 @@ elif command -v php >/dev/null; then
     if php -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);'; then
         php_ok=1
         ok "PHP $(php -r 'echo PHP_VERSION;')"
-        # extension -> Ubuntu package (sodium and openssl ship in php-common)
-        declare -A ext_pkg=([pdo_sqlite]=php-sqlite3 [curl]=php-curl [mbstring]=php-mbstring [sodium]=php-common [openssl]=php-common)
+        # extension -> package (Ubuntu: sodium and openssl ship in php-common)
+        if [[ $PKG == dnf ]]; then
+            declare -A ext_pkg=([pdo_sqlite]=php-pdo [curl]=php-common [mbstring]=php-mbstring [sodium]=php-sodium [openssl]=php-common)
+        else
+            declare -A ext_pkg=([pdo_sqlite]=php-sqlite3 [curl]=php-curl [mbstring]=php-mbstring [sodium]=php-common [openssl]=php-common)
+        fi
         for ext in pdo_sqlite curl mbstring sodium openssl; do
             if php -m | grep -qi "^${ext}$"; then ok "php extension ${ext}"; else missing_pkgs+=("${ext_pkg[$ext]}"); fi
         done
@@ -139,21 +148,39 @@ elif command -v php >/dev/null; then
     fi
 fi
 if [[ $php_ok -eq 0 ]]; then
-    missing_pkgs+=(php-cli php-sqlite3 php-curl php-mbstring)
+    if [[ $PKG == dnf ]]; then
+        missing_pkgs+=(php-cli php-pdo php-mbstring php-sodium)
+    else
+        missing_pkgs+=(php-cli php-sqlite3 php-curl php-mbstring)
+    fi
 fi
 command -v openssl >/dev/null || missing_pkgs+=(openssl)
 command -v curl >/dev/null || missing_pkgs+=(curl)
+# SELinux labels for what WhaCP sets up (semanage).
+if [[ $PKG == dnf ]] && ! command -v semanage >/dev/null; then missing_pkgs+=(policycoreutils-python-utils); fi
 
 if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
-    if [[ $INSTALL_DEPS -eq 1 ]]; then
+    if [[ $INSTALL_DEPS -eq 1 && $PKG == dnf ]]; then
+        # EPEL and Remi provide PHP versions for websites (and PHP 8.3 for
+        # the panel on 9, whose own PHP is older).
+        log "Enabling the EPEL and Remi repositories"
+        run dnf install -y -q epel-release
+        rpm -q remi-release >/dev/null 2>&1 || run dnf install -y -q "https://rpms.remirepo.net/enterprise/remi-release-${MAJOR}.rpm"
+        if [[ $MAJOR == 9 && $php_ok -eq 0 ]]; then
+            run dnf module reset -y -q php
+            run dnf module enable -y -q php:remi-8.3
+        fi
+        log "Installing dependencies: ${missing_pkgs[*]}"
+        run dnf install -y -q "${missing_pkgs[@]}"
+    elif [[ $INSTALL_DEPS -eq 1 ]]; then
         log "Installing dependencies: ${missing_pkgs[*]}"
         run apt-get update -q
         run env DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends "${missing_pkgs[@]}"
     else
-        die "missing packages: ${missing_pkgs[*]}. Install them (apt-get install ${missing_pkgs[*]}) or re-run with --install-deps."
+        die "missing packages: ${missing_pkgs[*]}. Install them ($PKG install ${missing_pkgs[*]}) or re-run with --install-deps."
     fi
 fi
-if [[ ${VERSION_ID:-} == "22.04" && $php_ok -eq 0 ]]; then
+if [[ ${ID:-} == ubuntu && ${VERSION_ID:-} == "22.04" && $php_ok -eq 0 ]]; then
     warn "Ubuntu 22.04 ships PHP 8.1; WhaCP's panel needs PHP >= 8.3 (e.g. from a PHP PPA). Existing sites are unaffected: the panel only uses the CLI binary."
 fi
 
@@ -357,8 +384,13 @@ Connect it from your WhaCP panel under "All servers" with:
     Agent token:     $(cat "$CONF_DIR/agent.token" 2>/dev/null)
 
 Only ${ALLOW_FROM} may connect. Allow the port in the firewall for that
-address only, e.g.: ufw allow from ${ALLOW_FROM%%,*} to any port ${REMOTE_ACCESS##*:} proto tcp
+address only, e.g.:
 EOF
+        if [[ $PKG == dnf ]]; then
+            echo "    firewall-cmd --permanent --add-rich-rule='rule family=\"ipv4\" source address=\"${ALLOW_FROM%%,*}\" port port=\"${REMOTE_ACCESS##*:}\" protocol=\"tcp\" accept' && firewall-cmd --reload"
+        else
+            echo "    ufw allow from ${ALLOW_FROM%%,*} to any port ${REMOTE_ACCESS##*:} proto tcp"
+        fi
     fi
     exit 0
 fi

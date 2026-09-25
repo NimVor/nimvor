@@ -18,3 +18,5 @@
 
 # Browser tests
 /tests/e2e/node_modules/
+.vm/
+realhost.test

@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
 
@@ -24,6 +24,17 @@ var extRe = regexp.MustCompile(`^[a-z][a-z0-9-]{1,30}$`)
 // Register adds PHP actions.
 func Register(r *actions.Registry, env *host.Env) {
 	r.Register(actions.Action{Name: "php.available", Description: "PHP versions offered by the configured package repositories.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		if env.Platform.PackageManager() == "dnf" {
+			// Remi's parallel versions: php83-php-fpm.x86_64 …
+			out, err := env.Runner.Run(ctx, "dnf", "-q", "--cacheonly", "list", "php[0-9][0-9]-php-fpm")
+			if err != nil {
+				// No metadata cached yet.
+				if out, err = env.Runner.Run(ctx, "dnf", "-q", "list", "php[0-9][0-9]-php-fpm"); err != nil {
+					return []string{}, nil
+				}
+			}
+			return ParseAvailableRemi(string(out)), nil
+		}
 		out, err := env.Runner.Run(ctx, "apt-cache", "search", "--names-only", `^php[0-9]+\.[0-9]+-fpm$`)
 		if err != nil {
 			return []string{}, nil
@@ -65,11 +76,11 @@ func Register(r *actions.Registry, env *host.Env) {
 				return nil, actions.InvalidParams("extensions: invalid name " + e)
 			}
 		}
-		pkgs := env.Platform.PHPPackages(in.Version, in.Extensions)
+		packages := env.Platform.PHPPackages(in.Version, in.Extensions)
 		j := env.Jobs.Start("php.install", "php:"+in.Version, func(ctx context.Context, log io.Writer) (any, error) {
-			return nil, AptInstall(ctx, env, log, pkgs)
+			return nil, pkgs.InstallNative(ctx, env, log, packages)
 		})
-		return map[string]any{"job_id": j.ID, "packages": pkgs}, nil
+		return map[string]any{"job_id": j.ID, "packages": packages}, nil
 	}})
 	r.Register(actions.Action{Name: "php.set_enabled", Mutating: true, Description: "Start and enable, or stop and disable, the FPM service of a PHP version.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
@@ -82,7 +93,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := validate.PHPVersion("version", in.Version); err != nil {
 			return nil, host.Invalid(err)
 		}
-		unit := fmt.Sprintf(env.M.PHPFPMUnit, in.Version)
+		unit := env.M.FPMUnit(in.Version)
 		if !in.Enabled {
 			if users := SitesUsing(ctx, env, in.Version); len(users) > 0 {
 				return nil, actions.Conflict(fmt.Sprintf("PHP %s is still used by: %s. Move those websites to another version first.", in.Version, strings.Join(users, ", ")))
@@ -122,25 +133,6 @@ func SitesUsing(ctx context.Context, env *host.Env, v string) []string {
 	return out
 }
 
-// AptInstall refreshes package lists and installs packages, streaming the
-// output to log.
-func AptInstall(ctx context.Context, env *host.Env, log io.Writer, pkgs []string) error {
-	for _, p := range pkgs {
-		if err := validate.Package("package", p); err != nil {
-			return err
-		}
-	}
-	opts := execx.Opts{Output: log, Timeout: -1}
-	if _, err := env.Runner.RunWith(ctx, "apt-get", opts, "update", "-q"); err != nil {
-		return fmt.Errorf("apt-get update failed")
-	}
-	args := append([]string{"install", "-y", "-q", "--no-install-recommends", "-o", "Dpkg::Options::=--force-confold", "--"}, pkgs...)
-	if _, err := env.Runner.RunWith(ctx, "apt-get", opts, args...); err != nil {
-		return fmt.Errorf("apt-get install failed; see the log above")
-	}
-	return nil
-}
-
 var availRe = regexp.MustCompile(`(?m)^php([0-9]+\.[0-9]+)-fpm\b`)
 
 // ParseAvailable extracts versions from apt-cache search output.
@@ -151,6 +143,24 @@ func ParseAvailable(out string) []string {
 		if !seen[m[1]] {
 			seen[m[1]] = true
 			vs = append(vs, m[1])
+		}
+	}
+	sort.Slice(vs, func(i, j int) bool { return versionLess(vs[i], vs[j]) })
+	return vs
+}
+
+var remiAvailRe = regexp.MustCompile(`(?m)^php([0-9])([0-9]+)-php-fpm\.`)
+
+// ParseAvailableRemi extracts versions from `dnf list` output of Remi's
+// php83-php-fpm style packages.
+func ParseAvailableRemi(out string) []string {
+	seen := map[string]bool{}
+	var vs []string
+	for _, m := range remiAvailRe.FindAllStringSubmatch(out, -1) {
+		v := m[1] + "." + m[2]
+		if !seen[v] {
+			seen[v] = true
+			vs = append(vs, v)
 		}
 	}
 	sort.Slice(vs, func(i, j int) bool { return versionLess(vs[i], vs[j]) })

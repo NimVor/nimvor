@@ -20,8 +20,9 @@ type Rule struct {
 	SSH    bool     `json:"ssh"` // allows the SSH port
 }
 
-// FirewallStatus is the state of UFW.
+// FirewallStatus is the state of the firewall.
 type FirewallStatus struct {
+	Backend   string `json:"backend"` // ufw or firewalld
 	Installed bool   `json:"installed"`
 	Active    bool   `json:"active"`
 	Incoming  string `json:"default_incoming"`
@@ -123,7 +124,10 @@ func sshPort(ctx context.Context, env *host.Env) int {
 
 // Firewall reads UFW state.
 func Firewall(ctx context.Context, env *host.Env) (FirewallStatus, error) {
-	st := FirewallStatus{Installed: env.Runner.Available("ufw"), Rules: []Rule{}}
+	if useFirewalld(env) {
+		return firewalldStatus(ctx, env)
+	}
+	st := FirewallStatus{Backend: "ufw", Installed: env.Runner.Available("ufw"), Rules: []Rule{}}
 	if !st.Installed {
 		return st, nil
 	}
@@ -284,6 +288,9 @@ func (s *Service) AddRule(ctx context.Context, in RuleInput) (*Pending, error) {
 	if err := s.guard.Busy(); err != nil {
 		return nil, err
 	}
+	if useFirewalld(s.env) {
+		return s.firewalldAdd(ctx, in)
+	}
 	st, err := Firewall(ctx, s.env)
 	if err != nil {
 		return nil, actions.Failed("The firewall state could not be read.", err.Error())
@@ -312,6 +319,9 @@ func (s *Service) AddRule(ctx context.Context, in RuleInput) (*Pending, error) {
 func (s *Service) DeleteRule(ctx context.Context, spec string) (*Pending, error) {
 	if err := s.guard.Busy(); err != nil {
 		return nil, err
+	}
+	if useFirewalld(s.env) {
+		return s.firewalldDelete(ctx, spec)
 	}
 	st, err := Firewall(ctx, s.env)
 	if err != nil {
@@ -344,6 +354,9 @@ func (s *Service) DeleteRule(ctx context.Context, spec string) (*Pending, error)
 func (s *Service) SetEnabled(ctx context.Context, enabled bool) (*Pending, error) {
 	if err := s.guard.Busy(); err != nil {
 		return nil, err
+	}
+	if useFirewalld(s.env) {
+		return s.firewalldSetEnabled(ctx, enabled)
 	}
 	st, err := Firewall(ctx, s.env)
 	if err != nil {

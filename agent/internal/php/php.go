@@ -4,6 +4,7 @@ package php
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -75,7 +76,9 @@ func Discover(root filesystem.Root, paths platform.Paths) Result {
 			if v := versionFromPath(m); v != "" {
 				ver := get(v)
 				ver.FPMBinary = m
-				ver.FPMService = "php" + v + "-fpm.service"
+				if paths.PHPFPMService != "" {
+					ver.FPMService = fmt.Sprintf(paths.PHPFPMService, platform.PHPTag(paths.PHPCompact, v))
+				}
 			}
 		}
 	}

@@ -23,6 +23,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/services"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
@@ -67,10 +68,10 @@ func Resolve(env *host.Env, id string) (Source, error) {
 		if len(parts) != 2 || validate.PHPVersion("v", parts[1]) != nil {
 			return s, actions.InvalidParams("source: invalid PHP log")
 		}
-		s.path, s.Label, s.Group = "/var/log/php"+parts[1]+"-fpm.log", "PHP "+parts[1]+" FPM", "PHP"
+		paths := env.Platform.Paths()
+		s.path, s.Label, s.Group = fmt.Sprintf(paths.PHPFPMLog, platform.PHPTag(paths.PHPCompact, parts[1])), "PHP "+parts[1]+" FPM", "PHP"
 	case "system":
-		files := map[string]string{"auth": "/var/log/auth.log", "syslog": "/var/log/syslog", "mysql": "/var/log/mysql/error.log", "fail2ban": "/var/log/fail2ban.log", "ufw": "/var/log/ufw.log", "letsencrypt": "/var/log/letsencrypt/letsencrypt.log"}
-		p, ok := files[safePart(parts, 1)]
+		p, ok := env.Platform.Paths().SystemLogs[safePart(parts, 1)]
 		if !ok {
 			return s, actions.InvalidParams("source: unknown system log")
 		}
@@ -114,11 +115,16 @@ func Sources(ctx context.Context, env *host.Env, domain string) []Source {
 		for _, v := range env.Discovery.PHP().Versions {
 			ids = append(ids, "php:"+v.Version)
 		}
-		for _, k := range []string{"auth", "syslog", "mysql", "fail2ban", "ufw", "letsencrypt"} {
-			ids = append(ids, "system:"+k)
+		for _, k := range []string{"auth", "syslog", "mail", "mysql", "fail2ban", "ufw", "letsencrypt"} {
+			if _, ok := env.Platform.Paths().SystemLogs[k]; ok {
+				ids = append(ids, "system:"+k)
+			}
 		}
-		for _, u := range []string{"whacp-agent.service", "nginx.service", "mariadb.service", "mysql.service", "redis-server.service", "cron.service", "fail2ban.service", "ssh.service"} {
-			ids = append(ids, "journal:"+u)
+		ids = append(ids, "journal:whacp-agent.service")
+		for _, u := range env.Platform.CoreServices() {
+			if u != "whacp-agent.service" && u != "whacp-panel.service" && u != "ufw.service" && u != "firewalld.service" {
+				ids = append(ids, "journal:"+u)
+			}
 		}
 	}
 	out := []Source{}

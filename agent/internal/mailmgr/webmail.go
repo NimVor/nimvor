@@ -22,6 +22,8 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
 
@@ -108,21 +110,33 @@ func (e env) webmailSocket() string {
 	return filepath.Join(e.M.PHPSocketDir, webmailPool+".sock")
 }
 func (e env) webmailPoolFile(v string) string {
-	return filepath.Join(fmt.Sprintf(e.M.PHPPoolDir, v), webmailPool+".conf")
+	return filepath.Join(e.M.PoolDir(v), webmailPool+".conf")
 }
 
 // fpmVersions lists installed PHP-FPM versions, newest first.
 func (e env) fpmVersions() []string {
-	matches, _ := e.Root.Glob("/usr/sbin/php-fpm[0-9]*")
 	var vs []string
-	for _, m := range matches {
-		v := strings.TrimPrefix(filepath.Base(m), "php-fpm")
-		if validate.PHPVersion("v", v) == nil {
-			vs = append(vs, v)
+	for _, v := range e.Discovery.PHP().Versions {
+		if v.FPMBinary != "" && validate.PHPVersion("v", v.Version) == nil {
+			vs = append(vs, v.Version)
 		}
 	}
 	sort.Slice(vs, func(i, j int) bool { return phpmgr.VersionLess(vs[j], vs[i]) })
 	return vs
+}
+
+// webmailInstallPackages are the packages (this system's names) that
+// install Roundcube: Debian's packages, or on RHEL EPEL's roundcubemail
+// with the extensions for Remi's PHP (the newest installed, else 8.3).
+func (e env) webmailInstallPackages() []string {
+	if e.Platform.PackageManager() != "dnf" {
+		return webmailPackages
+	}
+	v := "8.3"
+	if vs := e.fpmVersions(); len(vs) > 0 {
+		v = vs[0]
+	}
+	return append([]string{"roundcubemail"}, e.Platform.PHPPackages(v, []string{"pdo", "intl", "mbstring", "xml"})...)
 }
 
 // webmailPHP picks the PHP version to run Roundcube: the requested one,
@@ -225,13 +239,15 @@ func (e env) renderWebmailPool() string {
 	d := e.M.WebmailData
 	basedir := strings.Join([]string{
 		filepath.Dir(e.M.RoundcubePublic) + "/", e.M.RoundcubeDir + "/", filepath.Dir(e.M.RoundcubeDefaults) + "/",
-		e.M.WebmailDir + "/", d + "/", "/usr/share/php/", "/dev/urandom",
+		e.M.WebmailDir + "/", d + "/", "/usr/share/php/", "/usr/share/pear/", "/dev/urandom",
 	}, ":")
 	return "; " + webmailHeader + "\n\n[" + webmailPool + "]\n" +
 		"user = " + webmailUser + "\ngroup = " + webmailUser + "\n" +
 		"listen = " + e.webmailSocket() + "\nlisten.owner = " + e.M.WebUser + "\nlisten.group = " + e.M.WebUser + "\nlisten.mode = 0660\n" +
 		"pm = ondemand\npm.max_children = 10\npm.process_idle_timeout = 10s\npm.max_requests = 500\nchdir = /\ncatch_workers_output = yes\n" +
 		"env[ROUNDCUBE_CONFIG_DIR] = " + e.M.WebmailDir + "\n" +
+		// Roundcube's libraries come from the distribution (PEAR and others).
+		"php_value[include_path] = .:/usr/share/php:/usr/share/pear\n" +
 		"php_admin_value[open_basedir] = " + basedir + "\n" +
 		"php_admin_value[upload_tmp_dir] = " + d + "/temp\nphp_admin_value[session.save_path] = " + d + "/temp\nphp_admin_value[sys_temp_dir] = " + d + "/temp\n" +
 		"php_admin_value[error_log] = " + d + "/logs/php-error.log\nphp_admin_flag[log_errors] = on\nphp_admin_flag[display_errors] = off\n" +
@@ -283,7 +299,7 @@ func (e env) webmailStatus(ctx context.Context) map[string]any {
 	w := e.loadWebmail()
 	running := false
 	if w.Enabled && w.PHP != "" {
-		running = e.UnitActive(ctx, fmt.Sprintf(e.M.PHPFPMUnit, w.PHP)) && e.Root.Exists(e.webmailVhost())
+		running = e.UnitActive(ctx, e.M.FPMUnit(w.PHP)) && e.Root.Exists(e.webmailVhost())
 	}
 	return map[string]any{"installed": e.roundcubeInstalled(), "enabled": w.Enabled, "hostname": w.Hostname, "php": w.PHP, "running": running}
 }
@@ -294,18 +310,21 @@ func registerWebmail(r *actions.Registry, e env) {
 		if err := host.Decode(raw, &struct{}{}); err != nil {
 			return nil, err
 		}
-		if !e.Runner.Available("apt-get") || !e.Runner.Available("debconf-set-selections") {
-			return nil, actions.Conflict("Installing webmail is supported on Ubuntu and Debian (apt). On this system, install Roundcube with the package manager.")
+		if !pkgs.Available(e.Env) {
+			return nil, actions.Conflict("The package manager is not available on this system; install Roundcube yourself.")
 		}
+		packages := e.webmailInstallPackages()
 		j := e.Jobs.Start("mail.webmail_install", "mail:webmail", func(ctx context.Context, log io.Writer) (any, error) {
-			// Roundcube's package would otherwise ask (or default) to set
-			// up a MySQL database of its own.
-			if _, err := e.Runner.RunWith(ctx, "debconf-set-selections", execx.Opts{Stdin: strings.NewReader("roundcube-core roundcube/dbconfig-install boolean false\n"), Output: log}); err != nil {
-				return nil, errors.New("could not preset the Roundcube package's questions")
+			if e.Platform.PackageManager() == "apt" {
+				// Roundcube's package would otherwise ask (or default) to set
+				// up a MySQL database of its own.
+				if _, err := e.Runner.RunWith(ctx, "debconf-set-selections", execx.Opts{Stdin: strings.NewReader("roundcube-core roundcube/dbconfig-install boolean false\n"), Output: log}); err != nil {
+					return nil, errors.New("could not preset the Roundcube package's questions")
+				}
 			}
-			return map[string]any{"packages": webmailPackages}, phpmgr.AptInstall(ctx, e.Env, log, webmailPackages)
+			return map[string]any{"packages": packages}, pkgs.InstallNative(ctx, e.Env, log, packages)
 		})
-		return map[string]any{"job_id": j.ID, "packages": webmailPackages}, nil
+		return map[string]any{"job_id": j.ID, "packages": packages}, nil
 	}})
 
 	r.Register(actions.Action{Name: "mail.webmail_configure", Mutating: true, Description: "Turn webmail (Roundcube) on for a host name, or off. WhaCP writes Roundcube's configuration in its own folder, runs it in its own PHP-FPM pool and account, creates or upgrades its SQLite database and serves it with its own Nginx site over HTTPS (Let's Encrypt certificate for the host name when present, otherwise self-signed). Validated with nginx -t and php-fpm -t, checked by loading the sign-in page, rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
@@ -346,8 +365,8 @@ func registerWebmail(r *actions.Registry, e env) {
 		if err != nil {
 			return nil, err
 		}
-		if !e.Root.IsDir(fmt.Sprintf(e.M.PHPPoolDir, v)) && !e.Cfg.SimulateCommands {
-			return nil, actions.Conflict("PHP " + v + " has no FPM pool folder (" + fmt.Sprintf(e.M.PHPPoolDir, v) + ").")
+		if !e.Root.IsDir(e.M.PoolDir(v)) && !e.Cfg.SimulateCommands {
+			return nil, actions.Conflict("PHP " + v + " has no FPM pool folder (" + e.M.PoolDir(v) + ").")
 		}
 		if err := e.PrecheckNginx(ctx); err != nil {
 			return nil, err
@@ -389,6 +408,15 @@ func registerWebmail(r *actions.Registry, e env) {
 			set.Write(certKey, k, 0o600, agentfs.RootOwner)
 		}
 		set.Write(e.webmailPoolFile(v), []byte(e.renderWebmailPool()), 0o644, agentfs.RootOwner)
+		if e.M.PHPSocketTmpfiles != "" {
+			set.Write(e.M.PHPSocketTmpfiles, []byte("# Managed by WhaCP: PHP-FPM sockets of websites.\nd "+e.M.PHPSocketDir+" 0755 root root -\n"), 0o644, agentfs.RootOwner)
+			if !e.Root.Exists(e.M.PHPSocketDir) {
+				set.Mkdir(e.M.PHPSocketDir, 0o755, agentfs.RootOwner)
+			}
+		}
+		if !e.Root.Exists(e.M.NginxAvailable) {
+			set.Mkdir(e.M.NginxAvailable, 0o755, agentfs.RootOwner)
+		}
 		if prev.PHP != "" && prev.PHP != v {
 			set.Remove(e.webmailPoolFile(prev.PHP))
 		}
@@ -418,6 +446,14 @@ func registerWebmail(r *actions.Registry, e env) {
 			applied.Rollback()
 			reload()
 			return nil, actions.Failed(msg+" The previous configuration was restored.", cause.Error())
+		}
+		// SELinux: PHP-FPM (as the web server) writes Roundcube's data and
+		// connects to IMAP and submission.
+		if err := selinux.Label(ctx, e.Env, e.M.WebmailData, "httpd_sys_rw_content_t"); err != nil {
+			return fail("Roundcube's data folder could not be labelled for SELinux.", err)
+		}
+		if err := selinux.Boolean(ctx, e.Env, "httpd_can_network_connect"); err != nil {
+			return fail("SELinux does not let the web server connect to the mail server.", err)
 		}
 		// Creates the database, or upgrades it after a Roundcube update;
 		// run as the webmail account so it owns the file.

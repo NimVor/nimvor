@@ -8,6 +8,7 @@ package platform
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"strings"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
@@ -39,17 +40,39 @@ type Paths struct {
 	PHPFPMBinaryGlobs   []string `json:"php_fpm_binary_globs"`
 	PHPFPMPoolGlobs     []string `json:"php_fpm_pool_globs"`
 	PHPIniGlobs         []string `json:"php_ini_globs"`
-	LetsEncryptDir      string   `json:"letsencrypt_dir"`
-	MySQLConfigs        []string `json:"mysql_configs"`
-	MySQLDataDir        string   `json:"mysql_data_dir"`
-	RedisConfigs        []string `json:"redis_configs"`
-	SystemCrontab       string   `json:"system_crontab"`
-	CronDDir            string   `json:"cron_d_dir"`
-	UserCrontabDir      string   `json:"user_crontab_dir"`
-	PasswdFile          string   `json:"passwd_file"`
-	UFWConfig           string   `json:"ufw_config"`
-	SystemdUnitDirs     []string `json:"systemd_unit_dirs"`
+	// PHPFPMService is the FPM unit name pattern (%s = PHPTag of the version).
+	PHPFPMService  string   `json:"php_fpm_service"`
+	PHPCompact     bool     `json:"php_compact"`
+	LetsEncryptDir string   `json:"letsencrypt_dir"`
+	MySQLConfigs   []string `json:"mysql_configs"`
+	MySQLDataDir   string   `json:"mysql_data_dir"`
+	RedisConfigs   []string `json:"redis_configs"`
+	SystemCrontab  string   `json:"system_crontab"`
+	CronDDir       string   `json:"cron_d_dir"`
+	UserCrontabDir string   `json:"user_crontab_dir"`
+	PasswdFile     string   `json:"passwd_file"`
+	UFWConfig      string   `json:"ufw_config"`
+	// SystemLogs maps log names (auth, syslog, mysql, …) to files.
+	SystemLogs map[string]string `json:"system_logs"`
+	// PHPFPMLog is the FPM log of a version (%s = PHPTag).
+	PHPFPMLog       string   `json:"php_fpm_log"`
+	SystemdUnitDirs []string `json:"systemd_unit_dirs"`
 }
+
+// PHPTag is how a PHP version ("8.3") appears in paths and unit names:
+// unchanged, or without the dot when compact ("83"). Globs pass through.
+func PHPTag(compact bool, v string) string {
+	if compact {
+		return strings.ReplaceAll(v, ".", "")
+	}
+	return v
+}
+
+// PoolDir is the FPM pool folder of PHP version v ("*" for a glob).
+func (m Managed) PoolDir(v string) string { return fmt.Sprintf(m.PHPPoolDir, PHPTag(m.PHPCompact, v)) }
+
+// FPMUnit is the FPM service of PHP version v.
+func (m Managed) FPMUnit(v string) string { return fmt.Sprintf(m.PHPFPMUnit, PHPTag(m.PHPCompact, v)) }
 
 // LiveDir is where certbot keeps current certificates.
 func (m Managed) LiveDir() string { return "/etc/letsencrypt/live" }
@@ -57,6 +80,11 @@ func (m Managed) LiveDir() string { return "/etc/letsencrypt/live" }
 // Platform is implemented per distribution family.
 type Platform interface {
 	Info() OSInfo
+	// PackageManager is "apt" or "dnf".
+	PackageManager() string
+	// PackageName maps a package name as WhaCP knows it (Debian's) to this
+	// distribution's; ok is false when it has no equivalent.
+	PackageName(name string) (pkg string, ok bool)
 	Paths() Paths
 	// CoreServices returns systemd units WhaCP monitors by default.
 	// Units that do not exist on the host are filtered out later.
@@ -80,10 +108,17 @@ type Managed struct {
 	PHPPoolDir string `json:"php_pool_dir"`
 	// PHPSocketDir is where per-site FPM sockets are created.
 	PHPSocketDir string `json:"php_socket_dir"`
+	// PHPSocketTmpfiles, when set, is WhaCP's tmpfiles.d entry that
+	// recreates PHPSocketDir at boot (no PHP package does on RHEL with
+	// Remi's parallel versions).
+	PHPSocketTmpfiles string `json:"php_socket_tmpfiles,omitempty"`
 	// PHPFPMUnit is the unit name pattern (%s = version).
 	PHPFPMUnit string `json:"php_fpm_unit"`
 	// PHPFPMBinary is the FPM binary command ID pattern (%s = version).
-	PHPFPMBinary string   `json:"php_fpm_binary"`
+	PHPFPMBinary string `json:"php_fpm_binary"`
+	// PHPCompact writes versions without the dot in PHPPoolDir and
+	// PHPFPMUnit (Remi's "php83" on RHEL; "8.3" on Debian).
+	PHPCompact   bool     `json:"php_compact"`
 	WebUser      string   `json:"web_user"`
 	NginxUnit    string   `json:"nginx_unit"`
 	CronDir      string   `json:"cron_dir"`
@@ -133,6 +168,13 @@ type Managed struct {
 
 // supportedUbuntu lists the Ubuntu releases WhaCP officially targets.
 var supportedUbuntu = map[string]bool{"22.04": true, "24.04": true, "26.04": true}
+
+// supportedRHEL lists the RHEL-compatible distributions and major
+// releases WhaCP targets.
+var (
+	supportedRHEL      = map[string]bool{"almalinux": true, "rocky": true, "rhel": true}
+	supportedRHELMajor = map[string]bool{"9": true, "10": true}
+)
 
 // Detect inspects os-release under root and returns the matching Platform.
 // Unknown systems fall back to the Debian family layout with Supported=false.
@@ -187,7 +229,8 @@ func ParseOSRelease(data []byte) OSInfo {
 		info.ID = "unknown"
 	}
 	info.Family = family(info)
-	info.Supported = info.ID == "ubuntu" && supportedUbuntu[info.VersionID]
+	major, _, _ := strings.Cut(info.VersionID, ".")
+	info.Supported = (info.ID == "ubuntu" && supportedUbuntu[info.VersionID]) || (supportedRHEL[info.ID] && supportedRHELMajor[major])
 	return info
 }
 

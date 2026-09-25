@@ -24,7 +24,9 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/changeset"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/fw"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
 )
 
@@ -77,8 +79,8 @@ func (e env) installed() map[string]bool {
 	return map[string]bool{
 		"postfix":  e.Root.Exists("/usr/sbin/postfix"),
 		"dovecot":  e.Root.Exists("/usr/sbin/dovecot"),
-		"imap":     e.Root.Exists("/usr/lib/dovecot/imap"),
-		"lmtp":     e.Root.Exists("/usr/lib/dovecot/lmtp"),
+		"imap":     e.Root.Exists("/usr/lib/dovecot/imap") || e.Root.Exists("/usr/libexec/dovecot/imap"),
+		"lmtp":     e.Root.Exists("/usr/lib/dovecot/lmtp") || e.Root.Exists("/usr/libexec/dovecot/lmtp"),
 		"sieve":    e.Root.Exists("/usr/lib/dovecot/modules/lib90_sieve_plugin.so") || e.Root.Exists("/usr/lib64/dovecot/lib90_sieve_plugin.so"),
 		"opendkim": e.Root.Exists("/usr/sbin/opendkim"),
 	}
@@ -231,7 +233,7 @@ func Register(r *actions.Registry, he *host.Env) {
 		defer mu.Unlock()
 		for name, ok := range e.installed() {
 			if !ok {
-				return nil, actions.Conflict("The mail packages are not complete (" + name + " is missing). Install postfix, dovecot-imapd, dovecot-lmtpd, dovecot-sieve and opendkim first.")
+				return nil, actions.Conflict("The mail packages are not complete (" + name + " is missing). Install Postfix, Dovecot (IMAP, LMTP and Sieve) and OpenDKIM under Server → Packages first.")
 			}
 		}
 		v24 := false
@@ -344,6 +346,10 @@ func Register(r *actions.Registry, he *host.Env) {
 			he.Systemctl(ctx, "restart", "postfix.service")
 			return nil, actions.Failed(msg+" The previous configuration was restored.", cause.Error())
 		}
+		// SELinux: Dovecot stores mail under VmailDir.
+		if err := selinux.Label(ctx, he, e.M.VmailDir, "mail_spool_t"); err != nil {
+			return fail("The mail storage could not be labelled for SELinux.", err)
+		}
 		if err := he.DaemonReload(ctx); err != nil {
 			return fail("systemd could not load the DKIM service.", err)
 		}
@@ -381,14 +387,7 @@ func Register(r *actions.Registry, he *host.Env) {
 			}
 		}
 		notes := []string{}
-		if out, err := he.Runner.Run(ctx, "ufw", "status"); err == nil && strings.Contains(string(out), "Status: active") {
-			for _, port := range []string{"25", "587", "993"} {
-				he.Runner.Run(ctx, "ufw", "allow", port+"/tcp", "comment", "whacp: mail")
-			}
-			notes = append(notes, "Firewall: opened ports 25, 587 and 993.")
-		} else {
-			notes = append(notes, "If a firewall protects this server, allow TCP 25, 587 and 993.")
-		}
+		notes = append(notes, fw.Open(ctx, he, "mail", "25/tcp", "587/tcp", "993/tcp"))
 		if t.cert == dir+"/tls.crt" {
 			notes = append(notes, "A self-signed certificate is used; issue a Let's Encrypt certificate for "+in.Hostname+" and set up email again to use it.")
 		}

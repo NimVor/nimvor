@@ -91,6 +91,8 @@ type Fail2banSettings struct {
 	FindMinutes   int      `json:"find_minutes"`
 	MaxRetry      int      `json:"max_retry"`
 	IgnoreAddress []string `json:"ignore"`
+	// Journal reads logs from the systemd journal (RHEL: no auth log file).
+	Journal bool `json:"-"`
 }
 
 // Render produces jail.d/whacp.local.
@@ -113,6 +115,9 @@ func (s Fail2banSettings) Render() (string, error) {
 	var b strings.Builder
 	b.WriteString("# Managed by WhaCP (Security → Fail2ban). Do not edit: changes are overwritten.\n")
 	fmt.Fprintf(&b, "[DEFAULT]\nbantime = %dm\nfindtime = %dm\nmaxretry = %d\nignoreip = %s\n", s.BanMinutes, s.FindMinutes, s.MaxRetry, strings.Join(ignore, " "))
+	if s.Journal {
+		b.WriteString("backend = systemd\n")
+	}
 	for _, j := range jails {
 		if _, ok := Jails[j]; !ok {
 			return "", fmt.Errorf("unknown jail %q", j)
@@ -129,8 +134,9 @@ func (s Fail2banSettings) Render() (string, error) {
 func (s *Service) ConfigureFail2ban(ctx context.Context, in Fail2banSettings) error {
 	env := s.env
 	if !env.Runner.Available("fail2ban-client") {
-		return actions.Failed("fail2ban is not installed.", "Install it from Packages or with apt install fail2ban.")
+		return actions.Failed("fail2ban is not installed.", "Install it under Server → Packages.")
 	}
+	in.Journal = env.Platform.PackageManager() == "dnf"
 	body, err := in.Render()
 	if err != nil {
 		return actions.InvalidParams(err.Error())

@@ -6,8 +6,10 @@ package sysmgr
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 	"regexp"
 	"sort"
 	"strconv"
@@ -15,9 +17,8 @@ import (
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
 )
 
 // Components are the packages WhaCP offers to install (PHP versions are
@@ -56,53 +57,19 @@ var Components = map[string]string{
 
 // Package is the state of one component.
 type Package struct {
-	Name        string `json:"name"`
+	Name string `json:"name"`
+	// Package is this system's package name (e.g. redis on RHEL).
+	Package     string `json:"package"`
 	Description string `json:"description"`
 	Installed   bool   `json:"installed"`
 	Version     string `json:"version,omitempty"`
 }
 
 // Upgrade is one pending update.
-type Upgrade struct {
-	Name     string `json:"name"`
-	Current  string `json:"current"`
-	New      string `json:"new"`
-	Security bool   `json:"security"`
-}
-
-var instRe = regexp.MustCompile(`(?m)^Inst (\S+) (?:\[([^\]]+)\] )?\((\S+) ([^)]*)\)`)
+type Upgrade = pkgs.Upgrade
 
 // ParseUpgrades parses `apt-get -s upgrade` output.
-func ParseUpgrades(out string) []Upgrade {
-	ups := []Upgrade{}
-	for _, m := range instRe.FindAllStringSubmatch(out, -1) {
-		ups = append(ups, Upgrade{Name: m[1], Current: m[2], New: m[3], Security: strings.Contains(m[4], "-security")})
-	}
-	sort.Slice(ups, func(i, j int) bool {
-		if ups[i].Security != ups[j].Security {
-			return ups[i].Security
-		}
-		return ups[i].Name < ups[j].Name
-	})
-	return ups
-}
-
-// Installed returns name → version for installed packages among names.
-func Installed(ctx context.Context, env *host.Env, names []string) map[string]string {
-	out := map[string]string{}
-	if len(names) == 0 || !env.Runner.Available("dpkg-query") {
-		return out
-	}
-	// dpkg-query exits 1 when some names are unknown but still prints the rest.
-	b, _ := env.Runner.Run(ctx, "dpkg-query", append([]string{"-W", "-f=${Package}\t${db:Status-Abbrev}\t${Version}\n", "--"}, names...)...)
-	for _, l := range strings.Split(string(b), "\n") {
-		f := strings.Split(l, "\t")
-		if len(f) == 3 && strings.HasPrefix(f[1], "ii") {
-			out[f[0]] = f[2]
-		}
-	}
-	return out
-}
+func ParseUpgrades(out string) []Upgrade { return pkgs.ParseUpgrades(out) }
 
 var (
 	hostnameRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$`)
@@ -165,6 +132,13 @@ func Read(ctx context.Context, env *host.Env) Settings {
 			break
 		}
 	}
+	// RHEL: needs-restarting -r exits 1 when a restart is required.
+	if !s.RebootNeeded && env.Platform.PackageManager() == "dnf" && env.Runner.Available("needs-restarting") {
+		if _, err := env.Runner.Run(ctx, "needs-restarting", "-r"); err != nil {
+			var exit *exec.ExitError
+			s.RebootNeeded = errors.As(err, &exit) && exit.ExitCode() == 1
+		}
+	}
 	return s
 }
 
@@ -180,26 +154,28 @@ func Register(r *actions.Registry, env *host.Env) {
 	r.Register(actions.Action{Name: "packages.list", Description: "Installable components and their versions.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		names := make([]string, 0, len(Components))
 		for n := range Components {
-			names = append(names, n)
+			if _, ok := env.Platform.PackageName(n); ok {
+				names = append(names, n)
+			}
 		}
 		sort.Strings(names)
-		inst := Installed(ctx, env, names)
+		inst := pkgs.Installed(ctx, env, names)
 		out := make([]Package, 0, len(names))
 		for _, n := range names {
 			v, ok := inst[n]
-			out = append(out, Package{Name: n, Description: Components[n], Installed: ok, Version: v})
+			native, _ := env.Platform.PackageName(n)
+			out = append(out, Package{Name: n, Package: native, Description: Components[n], Installed: ok, Version: v})
 		}
 		return out, nil
 	}})
 	r.Register(actions.Action{Name: "packages.updates", Description: "Pending package updates (from the last package index refresh).", Timeout: 2 * time.Minute, Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
-		if !env.Runner.Available("apt-get") {
-			return nil, actions.Failed("apt-get is not available on this system.", "")
+		if !pkgs.Available(env) {
+			return nil, actions.Failed("The package manager is not available on this system.", "")
 		}
-		out, err := env.Runner.RunWith(ctx, "apt-get", execx.Opts{Timeout: 2 * time.Minute}, "-s", "-o", "Debug::NoLocking=1", "upgrade")
+		ups, err := pkgs.Updates(ctx, env)
 		if err != nil {
-			return nil, actions.Failed("The update check failed.", host.Output(out))
+			return nil, actions.Failed("The update check failed.", err.Error())
 		}
-		ups := ParseUpgrades(string(out))
 		sec := 0
 		for _, u := range ups {
 			if u.Security {
@@ -208,12 +184,9 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"updates": ups, "count": len(ups), "security": sec}, nil
 	}})
-	r.Register(actions.Action{Name: "packages.refresh", Mutating: true, Description: "Refresh the package index (apt-get update) (job).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "packages.refresh", Mutating: true, Description: "Refresh the package index (apt-get update or dnf makecache) (job).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		j := env.Jobs.Start("packages.refresh", "server:packages", func(ctx context.Context, log io.Writer) (any, error) {
-			if _, err := env.Runner.RunWith(ctx, "apt-get", execx.Opts{Output: log, Timeout: -1}, "update", "-q"); err != nil {
-				return nil, fmt.Errorf("apt-get update failed")
-			}
-			return nil, nil
+			return nil, pkgs.Refresh(ctx, env, log)
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})
@@ -236,21 +209,19 @@ func Register(r *actions.Registry, env *host.Env) {
 			if _, ok := Components[n]; !ok {
 				return nil, actions.InvalidParams("name: " + n + " is not an installable component")
 			}
+			if _, ok := env.Platform.PackageName(n); !ok {
+				return nil, actions.Conflict(n + " is not available on this operating system.")
+			}
 		}
 		j := env.Jobs.Start("packages.install", "server:packages", func(ctx context.Context, log io.Writer) (any, error) {
-			return nil, phpmgr.AptInstall(ctx, env, log, names)
+			return nil, pkgs.Install(ctx, env, log, names)
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})
 	r.Register(actions.Action{Name: "packages.upgrade", Mutating: true, Description: "Install all pending updates, keeping existing configuration files (job).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		j := env.Jobs.Start("packages.upgrade", "server:packages", func(ctx context.Context, log io.Writer) (any, error) {
-			opts := execx.Opts{Output: log, Timeout: -1}
-			if _, err := env.Runner.RunWith(ctx, "apt-get", opts, "update", "-q"); err != nil {
-				return nil, fmt.Errorf("apt-get update failed")
-			}
-			// "upgrade" never removes packages; confold keeps local config edits.
-			if _, err := env.Runner.RunWith(ctx, "apt-get", opts, "upgrade", "-y", "-q", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold"); err != nil {
-				return nil, fmt.Errorf("apt-get upgrade failed; see the log above")
+			if err := pkgs.UpgradeAll(ctx, env, log); err != nil {
+				return nil, err
 			}
 			s := Read(ctx, env)
 			if s.RebootNeeded {

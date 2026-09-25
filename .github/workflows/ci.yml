@@ -80,6 +80,60 @@ jobs:
           test "${PIPESTATUS[0]}" -eq 0
           ! grep -q -- '--- SKIP' realhost.log || { grep -- '--- SKIP' -A1 realhost.log; exit 1; }
 
+  # The same real-host tests on AlmaLinux 9 in a KVM virtual machine (SELinux
+  # enforcing, firewalld, Remi's PHP), then the installer.
+  realhost-alma:
+    runs-on: ubuntu-24.04
+    needs: [agent, panel]
+    timeout-minutes: 60
+    env:
+      VM_WORK: ${{ github.workspace }}/.vm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, curl, mbstring, sodium
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
+      - name: Boot AlmaLinux 9
+        run: tests/rhel/vm.sh boot 9
+      - name: Build agent, test binaries and panel dependencies
+        run: |
+          (cd panel && composer install --no-dev --no-interaction --no-progress --optimize-autoloader)
+          mkdir -p dist
+          (cd agent && CGO_ENABLED=0 go build -trimpath -o ../dist/whacp-agent ./cmd/whacp-agent)
+          cd agent
+          for d in $(grep -rl 'go:build realhost' internal | xargs -n1 dirname | sort -u); do
+            CGO_ENABLED=0 go test -c -tags realhost -o "$d/realhost.test" "./$d"
+          done
+          cd .. && tar --exclude=.git --exclude=.vm -czf /tmp/whacp.tgz .
+      - name: Install services in the VM
+        run: |
+          tests/rhel/vm.sh put /tmp/whacp.tgz /root/whacp.tgz
+          tests/rhel/vm.sh ssh 'mkdir -p /root/whacp && tar -xzf /root/whacp.tgz -C /root/whacp'
+          tests/rhel/vm.sh ssh 'bash /root/whacp/tests/rhel/setup.sh'
+      - name: Real-host tests (AlmaLinux)
+        run: |
+          tests/rhel/vm.sh ssh 'cd /root/whacp/agent && for t in $(find internal -name realhost.test | sort); do
+              echo "=== $t"; (cd "$(dirname "$t")" && CI=1 WHACP_NETWORK=1 timeout 900 ./realhost.test -test.run RealHost -test.count=1 -test.v)
+            done > /root/realhost.log 2>&1; cat /root/realhost.log'
+          tests/rhel/vm.sh ssh '! grep -E -e "--- (SKIP|FAIL)" -e "^(FAIL|panic)" /root/realhost.log'
+      - name: Installer (AlmaLinux)
+        if: always()
+        run: |
+          tests/rhel/vm.sh ssh 'cd /root/whacp && installer/install.sh --install-deps --yes --enable-writes --admin-user=admin --admin-email=admin@whacp.test'
+          tests/rhel/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp agent:check'
+      - name: SELinux denials
+        if: always()
+        run: tests/rhel/vm.sh ssh 'ausearch -m avc,user_avc -ts boot -i 2>/dev/null | tail -150 || echo "no denials"'
+
   # Browser tests (Playwright/Chromium) against a write-mode dev instance.
   e2e:
     runs-on: ubuntu-24.04

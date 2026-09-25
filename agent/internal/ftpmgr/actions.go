@@ -17,7 +17,9 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/fw"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
 )
 
@@ -243,6 +245,10 @@ func Register(r *actions.Registry, env *host.Env) {
 			env.Systemctl(ctx, "stop", u)
 			env.Systemctl(ctx, "disable", u)
 		}
+		// SELinux: the FTP server works in websites' folders.
+		if err := selinux.Boolean(ctx, env, "ftpd_full_access"); err != nil {
+			return fail("SELinux does not let the FTP server use websites' files.", err)
+		}
 		if err := env.Systemctl(ctx, "enable", Unit); err != nil {
 			return fail("The FTP service could not be enabled.", err)
 		}
@@ -255,20 +261,10 @@ func Register(r *actions.Registry, env *host.Env) {
 			}
 		}
 		notes := []string{}
-		if ufwActive(ctx, env) {
-			rng := fmt.Sprintf("%d:%d/tcp", in.PassiveMin, in.PassiveMax)
-			if old.PassiveMin != in.PassiveMin || old.PassiveMax != in.PassiveMax {
-				env.Runner.Run(ctx, "ufw", "delete", "allow", fmt.Sprintf("%d:%d/tcp", old.PassiveMin, old.PassiveMax))
-			}
-			for _, rule := range [][]string{{"allow", "21/tcp", "comment", "whacp: FTP"}, {"allow", rng, "comment", "whacp: FTP passive"}} {
-				if out, err := env.Runner.Run(ctx, "ufw", rule...); err != nil {
-					notes = append(notes, "Firewall rule "+rule[1]+" could not be added: "+host.Output(out))
-				}
-			}
-			notes = append(notes, "Firewall: opened 21/tcp and "+rng+".")
-		} else {
-			notes = append(notes, fmt.Sprintf("If a firewall protects this server, allow TCP 21 and %d–%d.", in.PassiveMin, in.PassiveMax))
+		if old.PassiveMin != in.PassiveMin || old.PassiveMax != in.PassiveMax {
+			fw.Close(ctx, env, fw.Port(fmt.Sprintf("%d:%d/tcp", old.PassiveMin, old.PassiveMax)))
 		}
+		notes = append(notes, fw.Open(ctx, env, "FTP", "21/tcp", fw.Port(fmt.Sprintf("%d:%d/tcp", in.PassiveMin, in.PassiveMax))))
 		return map[string]any{"settings": in.Settings, "stopped": others, "notes": notes, "certificate": certInfo(env, p), "changed": applied.Changed}, nil
 	}})
 

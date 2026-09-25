@@ -313,9 +313,3 @@ var probe = func(ctx context.Context, addr string) error {
 	}
 	return last
 }
-
-// ufwActive reports whether ufw is enabled.
-func ufwActive(ctx context.Context, env *host.Env) bool {
-	out, err := env.Runner.Run(ctx, "ufw", "status")
-	return err == nil && strings.Contains(string(out), "Status: active")
-}

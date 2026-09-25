@@ -14,6 +14,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/fw"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 )
 
@@ -82,7 +83,8 @@ func renderList(p paths, zones []zoneInfo) string {
 			transfer = strings.Join(z.Secondaries, "; ") + ";"
 			notify = "yes"
 		}
-		fmt.Fprintf(&b, "zone \"%s\" {\n\ttype master;\n\tfile \"%s\";\n\tallow-transfer { %s };\n\tnotify %s;\n", z.Name, p.zoneFile(z.Name), transfer, notify)
+		// allow-query: RHEL's named.conf answers only localhost by default.
+		fmt.Fprintf(&b, "zone \"%s\" {\n\ttype master;\n\tfile \"%s\";\n\tallow-query { any; };\n\tallow-transfer { %s };\n\tnotify %s;\n", z.Name, p.zoneFile(z.Name), transfer, notify)
 		if len(z.Secondaries) > 0 {
 			fmt.Fprintf(&b, "\talso-notify { %s };\n", transfer)
 		}
@@ -90,6 +92,14 @@ func renderList(p paths, zones []zoneInfo) string {
 	}
 	return b.String()
 }
+
+// RHEL's named.conf listens on loopback only (a caching resolver for this
+// machine); hosting zones needs every address.
+var listenLocalRe = regexp.MustCompile(`(?m)^(\s*listen-on(?:-v6)?\s+port\s+53\s*)\{\s*(?:127\.0\.0\.1|::1);\s*\};`)
+
+func localOnly(conf string) bool { return listenLocalRe.MatchString(conf) }
+
+func openListen(conf string) string { return listenLocalRe.ReplaceAllString(conf, "${1}{ any; };") }
 
 func dnsOwner(env *host.Env) agentfs.Owner {
 	if u, err := env.LookupUser(env.M.DNSUser); err == nil {
@@ -164,11 +174,15 @@ func Register(r *actions.Registry, env *host.Env) {
 		mu.Lock()
 		defer mu.Unlock()
 		if !installed(env) {
-			return nil, actions.Conflict("BIND is not installed. Install it under Server → Packages (bind9) first.")
+			return nil, actions.Conflict("BIND is not installed. Install BIND under Server → Packages first.")
 		}
 		already := configured(env, p)
 		if !already && !in.Confirm {
-			return nil, actions.Conflict("WhaCP adds one include line to " + p.conf + " (a file of the BIND package). Confirm to continue; a backup is kept.")
+			msg := "WhaCP adds one include line to " + p.conf + " (a file of the BIND package)"
+			if b, err := env.Root.ReadFile(p.conf); err == nil && localOnly(string(b)) {
+				msg += " and makes BIND listen on all addresses instead of only this machine"
+			}
+			return nil, actions.Conflict(msg + ". Confirm to continue; a backup is kept.")
 		}
 		owner := dnsOwner(env)
 		set := env.Changes("dns")
@@ -185,7 +199,7 @@ func Register(r *actions.Registry, env *host.Env) {
 					mode = fi.Mode().Perm()
 				}
 			}
-			content := strings.TrimRight(string(b), "\n") + "\n\n" + p.includeLine() + "\n"
+			content := strings.TrimRight(openListen(string(b)), "\n") + "\n\n" + p.includeLine() + "\n"
 			set.Write(p.conf, []byte(content), mode, agentfs.Keep)
 		}
 		applied, err := set.Commit(func() error { return checkconf(ctx, env) })
@@ -217,15 +231,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			return nil, actions.Failed("BIND did not load the configuration; the previous files were restored.", startErr.Error())
 		}
 		notes := []string{}
-		if out, err := env.Runner.Run(ctx, "ufw", "status"); err == nil && strings.Contains(string(out), "Status: active") {
-			if out, err := env.Runner.Run(ctx, "ufw", "allow", "53", "comment", "whacp: DNS"); err != nil {
-				notes = append(notes, "The firewall rule for port 53 could not be added: "+host.Output(out))
-			} else {
-				notes = append(notes, "Firewall: opened port 53 (TCP and UDP).")
-			}
-		} else {
-			notes = append(notes, "If a firewall protects this server, allow port 53 over TCP and UDP.")
-		}
+		notes = append(notes, fw.Open(ctx, env, "DNS", "53/tcp", "53/udp"))
 		return map[string]any{"configured": true, "changed": applied.Changed, "notes": notes}, nil
 	}})
 

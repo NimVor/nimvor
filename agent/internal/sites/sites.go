@@ -16,6 +16,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/users"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
@@ -45,7 +46,7 @@ func (m *Manager) layout(s Spec) Layout {
 		WebUser:   e.M.WebUser,
 	}
 	if s.PHPVersion != "" {
-		l.PoolFile = filepath.Join(fmt.Sprintf(e.M.PHPPoolDir, s.PHPVersion), name)
+		l.PoolFile = filepath.Join(e.M.PoolDir(s.PHPVersion), name)
 	}
 	return l
 }
@@ -140,10 +141,31 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 	if newDocroot {
 		dirs.Write(filepath.Join(s.DocumentRoot, "index.html"), []byte(DefaultIndex(s.Domain)), 0o644, agentfs.Owner{UID: u.UID, GID: web.GID})
 	}
+	if !e.Root.Exists(e.M.NginxAvailable) {
+		dirs.Mkdir(e.M.NginxAvailable, 0o755, agentfs.RootOwner)
+	}
+	if s.PHPVersion != "" && e.M.PHPSocketTmpfiles != "" {
+		// The socket folder is on a tmpfs: recreated at every boot.
+		dirs.Write(e.M.PHPSocketTmpfiles, []byte("# Managed by WhaCP: PHP-FPM sockets of websites.\nd "+e.M.PHPSocketDir+" 0755 root root -\n"), 0o644, agentfs.RootOwner)
+		if !e.Root.Exists(e.M.PHPSocketDir) {
+			dirs.Mkdir(e.M.PHPSocketDir, 0o755, agentfs.RootOwner)
+		}
+	}
 	dirsApplied, err := dirs.Apply()
 	if err != nil {
 		rollbackUser()
 		return nil, host.FailWithValidation("Could not prepare the website directories", err)
+	}
+	// SELinux: Nginx and PHP-FPM may read and write websites' files (as on
+	// systems without it, file permissions decide), and proxy to backends.
+	if err := selinux.Rule(ctx, e, e.Cfg.SitesRoot, "httpd_sys_rw_content_t"); err == nil {
+		err = selinux.Restore(ctx, e, s.Root)
+		if err == nil && s.Kind == "proxy" {
+			err = selinux.Boolean(ctx, e, "httpd_can_network_connect")
+		}
+		if err != nil {
+			e.Log.Warn("selinux", "err", err)
+		}
 	}
 
 	// 3. Configuration, validated before anything is reloaded.
@@ -284,18 +306,25 @@ func (m *Manager) ensureUser(ctx context.Context, s Spec) (users.User, bool, err
 	return u, true, nil
 }
 
-var poolVersionRe = regexp.MustCompile(`/([0-9]+\.[0-9]+)/`)
+var (
+	poolVersionRe = regexp.MustCompile(`/([0-9]+\.[0-9]+)/`)
+	// Remi: /etc/opt/remi/php83/php-fpm.d/
+	remiPoolVersionRe = regexp.MustCompile(`/php([0-9])([0-9]+)/`)
+)
 
 func versionOfPool(p string) string {
 	if mm := poolVersionRe.FindStringSubmatch(p); mm != nil {
 		return mm[1]
+	}
+	if mm := remiPoolVersionRe.FindStringSubmatch(p); mm != nil {
+		return mm[1] + "." + mm[2]
 	}
 	return ""
 }
 
 // poolFiles lists existing pool files for a domain across PHP versions.
 func (m *Manager) poolFiles(domain string) []string {
-	matches, _ := m.Env.Root.Glob(filepath.Join(fmt.Sprintf(m.Env.M.PHPPoolDir, "*"), "whacp-"+domain+".conf"))
+	matches, _ := m.Env.Root.Glob(filepath.Join(m.Env.M.PoolDir("*"), "whacp-"+domain+".conf"))
 	return matches
 }
 
@@ -387,7 +416,7 @@ var poolUserRe = regexp.MustCompile(`(?m)^user = (\S+)$`)
 // sitesUsing returns WhaCP sites whose pool runs as user.
 func (m *Manager) sitesUsing(user string) []string {
 	var out []string
-	matches, _ := m.Env.Root.Glob(filepath.Join(fmt.Sprintf(m.Env.M.PHPPoolDir, "*"), "whacp-*.conf"))
+	matches, _ := m.Env.Root.Glob(filepath.Join(m.Env.M.PoolDir("*"), "whacp-*.conf"))
 	for _, f := range matches {
 		b, err := m.Env.Root.ReadFile(f)
 		if err != nil {

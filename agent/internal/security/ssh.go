@@ -12,6 +12,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 )
 
 // SSHEffective returns `sshd -T` as key → value (keys lower-case).
@@ -155,13 +156,24 @@ func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, e
 	pending := Pending{Kind: "ssh", Summary: fmt.Sprintf("SSH: port %d, root login %s, passwords %s", in.Port, in.PermitRootLogin, yesNo(in.PasswordAuthentication))}
 	// Open the new port first if the firewall is active.
 	if in.Port != oldPort {
-		if fw, err := Firewall(ctx, env); err == nil && fw.Active {
+		if fw, err := Firewall(ctx, env); err == nil && fw.Active && fw.Backend == "firewalld" {
+			item := "--port=" + strconv.Itoa(in.Port) + "/tcp"
+			if err := runFirewalld(ctx, env, firewalldCmds(true, addOrRemove(item, true))); err != nil {
+				return nil, err
+			}
+			pending.Commands = append(pending.Commands, firewalldCmds(true, addOrRemove(item, false))...)
+		} else if err == nil && fw.Active {
 			args := []string{"limit", "proto", "tcp", "from", "any", "to", "any", "port", strconv.Itoa(in.Port), "comment", "whacp: SSH"}
 			if err := s.ufw(ctx, args...); err != nil {
 				return nil, err
 			}
 			pending.UFW = append(pending.UFW, append([]string{"--force", "delete"}, withoutComment(args)...))
 		}
+	}
+	// SELinux lets sshd listen only on ports labelled for it.
+	if err := selinux.Port(ctx, env, "ssh_port_t", in.Port); err != nil {
+		undoFirewallNow(ctx, env, pending)
+		return nil, actions.Failed("SELinux does not allow SSH on port "+strconv.Itoa(in.Port)+".", err.Error())
 	}
 	pending.Files = []FileRestore{snapshot(env, env.M.SSHDropIn)}
 	unit := sshUnit(env)
@@ -171,6 +183,7 @@ func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, e
 		for _, a := range pending.UFW {
 			_, _ = env.Runner.Run(ctx, "ufw", a...)
 		}
+		_ = runFirewalld(ctx, env, pending.Commands)
 	}
 	set := env.Changes("ssh")
 	set.Write(env.M.SSHDropIn, []byte(in.Render()), 0o644, agentfs.RootOwner)
@@ -212,4 +225,13 @@ func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, e
 		return nil, actions.Failed("The SSH server could not be reloaded; the previous settings were restored.", err.Error())
 	}
 	return s.guard.Start(pending)
+}
+
+// undoFirewallNow reverts firewall rules added for a change that stopped
+// before it was applied.
+func undoFirewallNow(ctx context.Context, env *host.Env, p Pending) {
+	for _, a := range p.UFW {
+		_, _ = env.Runner.Run(ctx, "ufw", a...)
+	}
+	_ = runFirewalld(ctx, env, p.Commands)
 }

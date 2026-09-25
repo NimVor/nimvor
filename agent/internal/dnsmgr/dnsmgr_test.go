@@ -250,3 +250,17 @@ func TestConfigureRollsBackWhenCheckconfFails(t *testing.T) {
 		t.Fatal("include line left behind")
 	}
 }
+
+func TestOpenListen(t *testing.T) {
+	rhel := "options {\n\tlisten-on port 53 { 127.0.0.1; };\n\tlisten-on-v6 port 53 { ::1; };\n\tallow-query     { localhost; };\n};\n"
+	if !localOnly(rhel) {
+		t.Fatal("RHEL default not detected")
+	}
+	got := openListen(rhel)
+	if got != "options {\n\tlisten-on port 53 { any; };\n\tlisten-on-v6 port 53 { any; };\n\tallow-query     { localhost; };\n};\n" {
+		t.Fatalf("got %q", got)
+	}
+	if localOnly(got) || localOnly("options {\n\tlisten-on port 53 { 192.0.2.1; };\n};\n") {
+		t.Fatal("custom addresses are left alone")
+	}
+}

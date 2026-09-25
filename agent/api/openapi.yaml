@@ -417,7 +417,7 @@ x-whacp-actions:
   memcached.status: { mutating: false, description: "Whether Memcached is installed and running, its settings and statistics." }
   packages.install: { mutating: true, description: "Install allowlisted components: name, or names for several at once (job)." }
   packages.list: { mutating: false, description: "Installable components and their versions." }
-  packages.refresh: { mutating: true, description: "Refresh the package index (apt-get update) (job)." }
+  packages.refresh: { mutating: true, description: "Refresh the package index (apt-get update or dnf makecache) (job)." }
   packages.updates: { mutating: false, description: "Pending package updates (from the last package index refresh)." }
   packages.upgrade: { mutating: true, description: "Install all pending updates, keeping existing configuration files (job)." }
   php.available: { mutating: false, description: "PHP versions offered by the configured package repositories." }

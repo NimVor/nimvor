@@ -148,12 +148,15 @@ func (r *SystemRunner) resolve(id string) (string, error) {
 	}
 	switch {
 	case phpID.MatchString(id):
-		if p := firstExecutable([]string{"/usr/bin/" + id}); p != "" {
+		// Debian: /usr/bin/php8.3; RHEL with Remi: /opt/remi/php83/root/usr/bin/php.
+		remi := "/opt/remi/php" + strings.ReplaceAll(strings.TrimPrefix(id, "php"), ".", "") + "/root/usr"
+		if p := firstExecutable([]string{"/usr/bin/" + id, remi + "/bin/php"}); p != "" {
 			return p, nil
 		}
 		return "", fmt.Errorf("%w: %s", ErrUnavailable, id)
 	case phpFPMID.MatchString(id):
-		if p := firstExecutable([]string{"/usr/sbin/" + id}); p != "" {
+		remi := "/opt/remi/php" + strings.ReplaceAll(strings.TrimPrefix(id, "php-fpm"), ".", "") + "/root/usr"
+		if p := firstExecutable([]string{"/usr/sbin/" + id, remi + "/sbin/php-fpm"}); p != "" {
 			return p, nil
 		}
 		return "", fmt.Errorf("%w: %s", ErrUnavailable, id)

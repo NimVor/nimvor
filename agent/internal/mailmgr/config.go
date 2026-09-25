@@ -210,6 +210,8 @@ func postfixSettings(dir, hostname string, t tls, ipv6 bool, spam bool) [][2]str
 	}
 	return [][2]string{
 		{"myhostname", hostname},
+		// RHEL's default is localhost only.
+		{"inet_interfaces", "all"},
 		{"mydestination", "localhost"},
 		{"mynetworks", nets},
 		{"virtual_mailbox_domains", "texthash:" + dir + "/domains"},

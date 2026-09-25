@@ -55,7 +55,7 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 	patterns := []string{
 		filepath.Join(m.NginxAvailable, "whacp-*.conf"),
 		filepath.Join(m.NginxEnabled, "whacp-*.conf"),
-		filepath.Join(fmt.Sprintf(m.PHPPoolDir, "*"), "whacp-*.conf"),
+		filepath.Join(m.PoolDir("*"), "whacp-*.conf"),
 		filepath.Join(m.CronDir, "whacp-*"),
 		filepath.Join(m.UnitDir, "whacp-worker-*.service"),
 		m.SSHDropIn,
@@ -72,6 +72,8 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.DovecotDropIn,
 		"/etc/rspamd/local.d/*",
 		m.WebmailDir + "/**",
+		"/etc/tmpfiles.d/whacp-*.conf",
+		m.NginxAvailable,
 		m.WebmailData + "/**",
 		filepath.Join(m.UnitDir, "whacp-opendkim.service"),
 		filepath.Join(m.UnitDir, "whacp-ftpd.service"),
@@ -228,7 +230,7 @@ func (e *Env) ReloadFPM(ctx context.Context, v string) error {
 	if err := e.FPMTest(ctx, v); err != nil {
 		return err
 	}
-	unit := fmt.Sprintf(e.M.PHPFPMUnit, v)
+	unit := e.M.FPMUnit(v)
 	if e.UnitActive(ctx, unit) {
 		return e.Systemctl(ctx, "reload", unit)
 	}

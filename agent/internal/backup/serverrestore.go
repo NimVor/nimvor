@@ -244,7 +244,7 @@ func (s Service) applyRestored(ctx context.Context, has map[string]bool, version
 	}
 	if has["php"] {
 		for _, v := range versions {
-			unit := fmt.Sprintf(e.M.PHPFPMUnit, v)
+			unit := e.M.FPMUnit(v)
 			if e.Runner.Available(fmt.Sprintf(e.M.PHPFPMBinary, v)) && e.UnitActive(ctx, unit) {
 				if err := e.Systemctl(ctx, "reload", unit); err != nil {
 					return err

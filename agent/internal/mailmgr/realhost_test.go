@@ -367,11 +367,11 @@ func testWebmail(t *testing.T, env *host.Env, must func(string, any) map[string]
 		w := env.M
 		os.Remove(filepath.Join(w.NginxEnabled, "whacp-webmail.conf"))
 		os.Remove(filepath.Join(w.NginxAvailable, "whacp-webmail.conf"))
-		pools, _ := filepath.Glob(filepath.Join(fmt.Sprintf(w.PHPPoolDir, "*"), "whacp-webmail.conf"))
+		pools, _ := filepath.Glob(filepath.Join(w.PoolDir("*"), "whacp-webmail.conf"))
 		for _, p := range pools {
 			os.Remove(p)
 			v := filepath.Base(filepath.Dir(filepath.Dir(p)))
-			exec.Command("systemctl", "reload", fmt.Sprintf(w.PHPFPMUnit, v)).Run()
+			exec.Command("systemctl", "reload", w.FPMUnit(v)).Run()
 		}
 		exec.Command("systemctl", "reload", "nginx").Run()
 		os.RemoveAll(w.WebmailDir)

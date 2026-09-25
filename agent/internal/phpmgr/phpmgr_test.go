@@ -47,3 +47,10 @@ func TestDisableRefusedWhileInUse(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestParseAvailableRemi(t *testing.T) {
+	out := "Available Packages\nphp74-php-fpm.x86_64  7.4.33-22.el9.remi  remi-safe\nphp83-php-fpm.x86_64  8.3.26-1.el9.remi  remi-safe\nphp84-php-fpm.x86_64 8.4.13-1.el9.remi remi-safe\n"
+	if got := strings.Join(ParseAvailableRemi(out), ","); got != "7.4,8.3,8.4" {
+		t.Fatalf("got %s", got)
+	}
+}

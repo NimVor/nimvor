@@ -31,6 +31,7 @@ func (d debianFamily) Paths() Paths {
 		PHPFPMBinaryGlobs:   append([]string{"/usr/sbin/php-fpm[0-9].[0-9]", "/usr/sbin/php-fpm[0-9].[0-9][0-9]"}, otherPanelFPMBinaries...),
 		PHPFPMPoolGlobs:     append([]string{"/etc/php/*/fpm/pool.d/*.conf"}, otherPanelPools...),
 		PHPIniGlobs:         []string{"/etc/php/*/fpm/php.ini"},
+		PHPFPMService:       "php%s-fpm.service",
 		LetsEncryptDir:      "/etc/letsencrypt",
 		MySQLConfigs:        []string{"/etc/mysql/my.cnf", "/etc/mysql/mariadb.conf.d/50-server.cnf", "/etc/mysql/mysql.conf.d/mysqld.cnf"},
 		MySQLDataDir:        "/var/lib/mysql",
@@ -40,7 +41,10 @@ func (d debianFamily) Paths() Paths {
 		UserCrontabDir:      "/var/spool/cron/crontabs",
 		PasswdFile:          "/etc/passwd",
 		UFWConfig:           "/etc/ufw/ufw.conf",
-		SystemdUnitDirs:     []string{"/etc/systemd/system", "/lib/systemd/system", "/usr/lib/systemd/system"},
+		SystemLogs: map[string]string{"auth": "/var/log/auth.log", "syslog": "/var/log/syslog", "mysql": "/var/log/mysql/error.log", "fail2ban": "/var/log/fail2ban.log",
+			"ufw": "/var/log/ufw.log", "letsencrypt": "/var/log/letsencrypt/letsencrypt.log", "mail": "/var/log/mail.log"},
+		PHPFPMLog:       "/var/log/php%s-fpm.log",
+		SystemdUnitDirs: []string{"/etc/systemd/system", "/lib/systemd/system", "/usr/lib/systemd/system"},
 	}
 }
 
@@ -92,6 +96,10 @@ func (d debianFamily) Managed() Managed {
 	}
 }
 
+func (d debianFamily) PackageManager() string { return "apt" }
+
+func (d debianFamily) PackageName(name string) (string, bool) { return name, true }
+
 func (d debianFamily) PHPPackages(v string, exts []string) []string {
 	pkgs := []string{"php" + v + "-fpm", "php" + v + "-cli"}
 	for _, e := range exts {
@@ -101,7 +109,9 @@ func (d debianFamily) PHPPackages(v string, exts []string) []string {
 }
 
 // rhelFamily covers AlmaLinux, Rocky Linux and other RHEL derivatives.
-// It is a scaffold: paths are defined, but the family is not yet supported.
+// PHP versions come from Remi's repository (php83-php-fpm and so on,
+// installed side by side); most other packages from the base repositories
+// and EPEL.
 type rhelFamily struct{ info OSInfo }
 
 func (r rhelFamily) Info() OSInfo { return r.info }
@@ -115,7 +125,9 @@ func (r rhelFamily) Paths() Paths {
 		PHPBinaryGlobs:      []string{"/usr/bin/php", "/opt/remi/php[0-9][0-9]/root/usr/bin/php"},
 		PHPFPMBinaryGlobs:   []string{"/usr/sbin/php-fpm", "/opt/remi/php[0-9][0-9]/root/usr/sbin/php-fpm"},
 		PHPFPMPoolGlobs:     []string{"/etc/php-fpm.d/*.conf", "/etc/opt/remi/php[0-9][0-9]/php-fpm.d/*.conf"},
-		PHPIniGlobs:         []string{"/etc/php.ini"},
+		PHPIniGlobs:         []string{"/etc/opt/remi/php[0-9][0-9]/php.ini"},
+		PHPFPMService:       "php%s-php-fpm.service",
+		PHPCompact:          true,
 		LetsEncryptDir:      "/etc/letsencrypt",
 		MySQLConfigs:        []string{"/etc/my.cnf", "/etc/my.cnf.d/mariadb-server.cnf"},
 		MySQLDataDir:        "/var/lib/mysql",
@@ -123,8 +135,11 @@ func (r rhelFamily) Paths() Paths {
 		SystemCrontab:       "/etc/crontab",
 		CronDDir:            "/etc/cron.d",
 		UserCrontabDir:      "/var/spool/cron",
-		PasswdFile:          "/etc/passwd",
-		SystemdUnitDirs:     []string{"/etc/systemd/system", "/usr/lib/systemd/system"},
+		SystemLogs: map[string]string{"auth": "/var/log/secure", "syslog": "/var/log/messages", "mysql": "/var/log/mariadb/mariadb.log", "fail2ban": "/var/log/fail2ban.log",
+			"letsencrypt": "/var/log/letsencrypt/letsencrypt.log", "mail": "/var/log/maillog"},
+		PHPFPMLog:       "/var/opt/remi/php%s/log/php-fpm/error.log",
+		PasswdFile:      "/etc/passwd",
+		SystemdUnitDirs: []string{"/etc/systemd/system", "/usr/lib/systemd/system"},
 	}
 }
 
@@ -136,7 +151,7 @@ func (r rhelFamily) PHPFPMUnitPatterns() []string {
 	return []string{"php-fpm.service", "php[0-9][0-9]-php-fpm.service"}
 }
 
-// Managed for RHEL is a scaffold (the family is not yet supported).
+// Managed for RHEL: Nginx from the distribution, PHP versions from Remi.
 func (r rhelFamily) Managed() Managed {
 	return Managed{
 		NginxAvailable:    "/etc/nginx/whacp-available",
@@ -175,6 +190,41 @@ func (r rhelFamily) Managed() Managed {
 		RoundcubePublic:   "/usr/share/roundcubemail/public_html",
 		RoundcubeDefaults: "/etc/roundcubemail/defaults.inc.php",
 	}
+}
+
+func (r rhelFamily) PackageManager() string { return "dnf" }
+
+// rhelPackages maps Debian package names to AlmaLinux/Rocky/RHEL ones
+// (base repositories, EPEL and, for PHP, Remi). Names not listed are the
+// same on both; "" means there is no equivalent.
+var rhelPackages = map[string]string{
+	"redis-server":        "redis",
+	"mariadb-client":      "mariadb",
+	"bind9":               "bind",
+	"bind9utils":          "bind-utils",
+	"dovecot-imapd":       "dovecot",
+	"dovecot-lmtpd":       "dovecot",
+	"dovecot-sieve":       "dovecot-pigeonhole",
+	"ufw":                 "firewalld",
+	"python3-venv":        "python3",
+	"unattended-upgrades": "dnf-automatic",
+	"imagemagick":         "ImageMagick",
+	"libnginx-mod-brotli": "",
+	"roundcube-core":      "roundcubemail",
+	"roundcube-sqlite3":   "",
+	"roundcube-plugins":   "",
+	"php-fpm":             "",
+	"php-sqlite3":         "",
+	"php-intl":            "",
+	"php-mbstring":        "",
+	"php-xml":             "",
+}
+
+func (r rhelFamily) PackageName(name string) (string, bool) {
+	if p, ok := rhelPackages[name]; ok {
+		return p, p != ""
+	}
+	return name, true
 }
 
 func (r rhelFamily) PHPPackages(v string, exts []string) []string {
