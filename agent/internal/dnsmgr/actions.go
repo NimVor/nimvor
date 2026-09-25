@@ -232,11 +232,13 @@ func Register(r *actions.Registry, env *host.Env) {
 			}
 		}
 		if startErr != nil {
+			zones, _ := env.Root.Glob(p.dir + "/*")
+			files := env.Describe(append([]string{p.conf, p.dir, p.list}, zones...)...)
 			applied.Rollback()
 			if wasRunning {
 				rndc(ctx, env, "reconfig")
 			}
-			return nil, actions.Failed("BIND did not load the configuration; the previous files were restored.", startErr.Error()+"\n"+env.JournalTail(ctx, env.M.DNSUnit, 12))
+			return nil, actions.Failed("BIND did not load the configuration; the previous files were restored.", startErr.Error()+"\n"+env.JournalTail(ctx, env.M.DNSUnit, 30)+"\n"+files)
 		}
 		notes := []string{}
 		notes = append(notes, fw.Open(ctx, env, "DNS", "53/tcp", "53/udp"))

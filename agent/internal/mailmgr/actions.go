@@ -382,7 +382,7 @@ func Register(r *actions.Registry, he *host.Env) {
 						time.Sleep(250 * time.Millisecond)
 					}
 					if err != nil {
-						return fail("OpenDKIM does not listen.", fmt.Errorf("%v\n%s", err, he.JournalTail(ctx, DKIMUnit, 8)))
+						return fail("OpenDKIM does not listen.", fmt.Errorf("%v\n%s\n%s", err, he.JournalTail(ctx, DKIMUnit, 8), he.Describe(dir, dir+"/opendkim.conf", dir+"/dkim", dir+"/dkim/TrustedHosts", dir+"/dkim/KeyTable", dir+"/dkim/SigningTable")))
 					}
 					continue
 				}

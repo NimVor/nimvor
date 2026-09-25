@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
@@ -215,6 +216,34 @@ func (e *Env) JournalTail(ctx context.Context, unit string, lines int) string {
 		return ""
 	}
 	return Output(out)
+}
+
+// Describe lists each path's mode, owner and SELinux label (for error
+// details when a service cannot read what WhaCP wrote).
+func (e *Env) Describe(paths ...string) string {
+	var b strings.Builder
+	for _, hp := range paths {
+		real, err := e.Root.Path(hp)
+		if err != nil {
+			continue
+		}
+		fi, err := os.Lstat(real)
+		if err != nil {
+			fmt.Fprintf(&b, "%s: %v\n", hp, err)
+			continue
+		}
+		owner := ""
+		if st, ok := fi.Sys().(*syscall.Stat_t); ok {
+			owner = fmt.Sprintf("%d:%d", st.Uid, st.Gid)
+		}
+		label := make([]byte, 256)
+		n, _ := syscall.Getxattr(real, "security.selinux", label)
+		if n < 0 {
+			n = 0
+		}
+		fmt.Fprintf(&b, "%s %s %s %s\n", fi.Mode(), owner, strings.TrimRight(string(label[:n]), "\x00"), hp)
+	}
+	return b.String()
 }
 
 // DaemonReload reloads systemd unit files.
