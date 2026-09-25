@@ -40,6 +40,42 @@ jobs:
       - run: make lint
       - run: cd panel && vendor/bin/phpunit
 
+  # Agent tests against real services on a disposable runner: nginx,
+  # PHP-FPM, MariaDB, Redis, UFW, SSH, Fail2ban, WordPress and Laravel
+  # (downloaded from wordpress.org / Packagist as in production).
+  realhost:
+    runs-on: ubuntu-24.04
+    needs: [agent]
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Install services
+        run: |
+          sudo systemctl stop mysql || true
+          sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y -q 'mysql-server*' 'mysql-client*' 'mysql-common' || true
+          sudo rm -rf /var/lib/mysql /etc/mysql
+          sudo apt-get update -q
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
+            nginx mariadb-server mariadb-client redis-server ufw fail2ban openssh-server git \
+            php8.3-cli php8.3-fpm php8.3-mysql php8.3-sqlite3 php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip
+          command -v composer || { curl -fsSL https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer; }
+          sudo systemctl start mariadb redis-server nginx php8.3-fpm ssh
+          sudo ufw allow 22/tcp
+          sudo ufw --force enable
+          sudo systemctl restart fail2ban
+          sudo nginx -t
+          sudo mysql -e 'select version()'
+      - name: Real-host tests (as root)
+        run: |
+          cd agent
+          sudo -E env "PATH=$PATH" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" "HOME=$HOME" WHACP_NETWORK=1 \
+            go test -tags realhost -run RealHost -count=1 -p 1 -v ./... 2>&1 | tee realhost.log
+          test "${PIPESTATUS[0]}" -eq 0
+          ! grep -q -- '--- SKIP' realhost.log || { grep -- '--- SKIP' -A1 realhost.log; exit 1; }
+
   smoke:
     runs-on: ubuntu-24.04
     needs: [agent, panel]
