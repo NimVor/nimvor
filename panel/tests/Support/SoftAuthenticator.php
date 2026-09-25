@@ -64,7 +64,8 @@ final class SoftAuthenticator
     {
         if ($this->alg === 'ES256') {
             $d = openssl_pkey_get_details($this->key)['ec'];
-            return [1 => 2, 3 => -7, -1 => 1, -2 => $d['x'], -3 => $d['y']];
+            // OpenSSL drops leading zero bytes; COSE coordinates are always 32.
+            return [1 => 2, 3 => -7, -1 => 1, -2 => str_pad($d['x'], 32, "\0", STR_PAD_LEFT), -3 => str_pad($d['y'], 32, "\0", STR_PAD_LEFT)];
         }
         if ($this->alg === 'RS256') {
             $d = openssl_pkey_get_details($this->key)['rsa'];
