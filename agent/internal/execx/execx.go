@@ -340,10 +340,11 @@ func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeo
 	return a
 }
 
-// RunDir holds the named pipes of commands run as other accounts: one
-// directory per command, owned by the account (0700), in a directory
-// only root can list. It is outside the agent's runtime directory, which
-// website accounts cannot enter.
+// RunDir holds the named pipes of commands run as other accounts. Each
+// command gets its own root-owned directory (0711) that no account can
+// list or change; only its pipes (0600) belong to the account, which can
+// open them but never rename or replace them. RunDir is outside the
+// agent's runtime directory, which website accounts cannot enter.
 var RunDir = "/run/whacp-run"
 
 // runTransient runs bin as o.As in a transient unit, streaming standard
@@ -364,6 +365,9 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 		return nil, err
 	}
 	defer os.RemoveAll(tmp)
+	if err := os.Chmod(tmp, 0o711); err != nil {
+		return nil, err
+	}
 	in, out, errp := "", filepath.Join(tmp, "out"), filepath.Join(tmp, "err")
 	if o.Stdin != nil {
 		in = filepath.Join(tmp, "in")
@@ -377,9 +381,6 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 				return nil, err
 			}
 		}
-	}
-	if err := os.Chown(tmp, int(o.As.UID), int(o.As.GID)); err != nil {
-		return nil, err
 	}
 	var buf limitedBuffer
 	buf.limit = maxOutput
@@ -410,7 +411,7 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 	var wg sync.WaitGroup
 	copyFrom := func(path string, dst io.Writer) {
 		defer wg.Done()
-		if f, err := os.OpenFile(path, os.O_RDONLY, 0); err == nil {
+		if f, err := openPipe(path, os.O_RDONLY); err == nil {
 			io.Copy(dst, f)
 			f.Close()
 		}
@@ -422,7 +423,7 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if f, err := os.OpenFile(in, os.O_WRONLY, 0); err == nil {
+			if f, err := openPipe(in, os.O_WRONLY); err == nil {
 				io.Copy(f, o.Stdin)
 				f.Close()
 			}
@@ -432,17 +433,31 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 	// If the command never opened a pipe (it failed to start), release the
 	// goroutine still waiting to open the other end.
 	for _, f := range []string{out, errp} {
-		if p, err := os.OpenFile(f, os.O_WRONLY|syscall.O_NONBLOCK, 0); err == nil {
+		if p, err := openPipe(f, os.O_WRONLY|syscall.O_NONBLOCK); err == nil {
 			p.Close()
 		}
 	}
 	if in != "" {
-		if p, err := os.OpenFile(in, os.O_RDONLY|syscall.O_NONBLOCK, 0); err == nil {
+		if p, err := openPipe(in, os.O_RDONLY|syscall.O_NONBLOCK); err == nil {
 			p.Close()
 		}
 	}
 	wg.Wait()
 	return buf.Bytes(), runErr
+}
+
+// openPipe opens one of the command's named pipes, never following a
+// symbolic link and refusing anything that is not a pipe.
+func openPipe(path string, flag int) (*os.File, error) {
+	f, err := os.OpenFile(path, flag|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, err
+	}
+	if fi, err := f.Stat(); err != nil || fi.Mode()&os.ModeNamedPipe == 0 {
+		f.Close()
+		return nil, fmt.Errorf("%s is not a named pipe", path)
+	}
+	return f, nil
 }
 
 type lockedWriter struct {

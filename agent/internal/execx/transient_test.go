@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -92,4 +93,28 @@ func TestTransientStreams(t *testing.T) {
 	if left, _ := os.ReadDir(RunDir); len(left) != 0 {
 		t.Errorf("left in %s: %v", RunDir, left)
 	}
+}
+
+// The agent (root) never follows a link planted in place of a pipe, nor
+// opens anything that is not a pipe.
+func TestOpenPipeRefusesLinksAndFiles(t *testing.T) {
+	d := t.TempDir()
+	secret := filepath.Join(d, "secret")
+	os.WriteFile(secret, []byte("x"), 0o600)
+	os.Symlink(secret, filepath.Join(d, "link"))
+	fifo := filepath.Join(d, "fifo")
+	if err := syscall.Mkfifo(fifo, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{filepath.Join(d, "link"), secret} {
+		if f, err := openPipe(p, os.O_RDONLY|syscall.O_NONBLOCK); err == nil {
+			f.Close()
+			t.Errorf("opened %s", p)
+		}
+	}
+	f, err := openPipe(fifo, os.O_RDONLY|syscall.O_NONBLOCK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
 }

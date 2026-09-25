@@ -103,6 +103,16 @@ func TestRealHostCommandsAsAccount(t *testing.T) {
 		}
 	}
 
+	// The account can open its pipes but not replace them: a link planted
+	// next to them would be followed by the agent (root).
+	out, _ = sh(`d=$(dirname "$(readlink /proc/self/fd/1)"); ls -ld "$d" >&2; ln -s /etc/shadow "$d/x" 2>/dev/null && echo planted; mv "$d/err" "$d/y" 2>/dev/null && echo moved; true`, Opts{})
+	if strings.Contains(out, "planted") || strings.Contains(out, "moved") {
+		t.Errorf("the account changed its pipe directory: %s", out)
+	}
+	if !strings.Contains(out, "root") {
+		t.Errorf("pipe directory not owned by root: %s", out)
+	}
+
 	// The named pipes live in a directory only root can list, and nothing
 	// is left behind.
 	if fi, err := os.Stat(RunDir); err != nil || fi.Mode().Perm() != 0o711 || fi.Sys().(*syscall.Stat_t).Uid != 0 {
