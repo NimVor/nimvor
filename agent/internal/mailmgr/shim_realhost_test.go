@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
@@ -30,7 +31,7 @@ func TestMain(m *testing.M) {
 // mail the way PHP's mail() does, "sendmail -t -i", and it is delivered.
 // Postfix's own sendmail would hang there (setgid postdrop under
 // NoNewPrivileges, F-25).
-func testSendmailShim(t *testing.T, env *host.Env, waitMail func(int) []string) {
+func testSendmailShim(t *testing.T, env *host.Env, must func(string, any) map[string]any) {
 	t.Helper()
 	exe, err := os.Executable()
 	if err != nil {
@@ -49,13 +50,22 @@ func testSendmailShim(t *testing.T, env *host.Env, waitMail func(int) []string) 
 	u, _ := user.Lookup(name)
 	uid, _ := strconv.Atoi(u.Uid)
 	gid, _ := strconv.Atoi(u.Gid)
-	before := len(waitMail(1))
-	script := `printf 'To: alice@rt-mail.test\nBcc: bob@rt-mail.test\nSubject: from a deploy hook\n\nsent with sendmail -t -i\n' | sendmail -t -i`
+	// Its own mailbox, so other checks' message counts are unaffected.
+	must("mail.mailbox_save", map[string]any{"address": "shim@rt-mail.test", "password": "Shim-mail-pass-1"})
+	t.Cleanup(func() {
+		must("mail.mailbox_delete", map[string]any{"address": "shim@rt-mail.test", "confirm": "shim@rt-mail.test"})
+	})
+	maildir := filepath.Join(env.M.VmailDir, "rt-mail.test/shim/Maildir")
+	script := `printf 'To: shim@rt-mail.test\nBcc: shim@rt-mail.test\nSubject: from a deploy hook\n\nsent with sendmail -t -i\n' | sendmail -t -i`
 	out, err := env.Runner.RunWith(context.Background(), "sh", execx.Opts{As: &execx.Credential{UID: uint32(uid), GID: uint32(gid), Home: home}, Dir: home}, "-c", script)
 	if err != nil {
 		t.Fatalf("sendmail as %s: %v %s", name, err, out)
 	}
-	files := waitMail(before + 1)
+	var files []string
+	for i := 0; i < 60 && len(files) == 0; i++ {
+		files, _ = filepath.Glob(filepath.Join(maildir, "new", "*"))
+		time.Sleep(250 * time.Millisecond)
+	}
 	found := false
 	for _, f := range files {
 		b, _ := os.ReadFile(f)
