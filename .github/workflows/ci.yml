@@ -59,7 +59,7 @@ jobs:
           sudo rm -rf /var/lib/mysql /etc/mysql
           sudo apt-get update -q
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
-            nginx mariadb-server mariadb-client redis-server memcached vsftpd pure-ftpd ufw fail2ban openssh-server git \
+            nginx mariadb-server mariadb-client redis-server memcached pure-ftpd ufw fail2ban openssh-server git \
             php8.3-cli php8.3-fpm php8.3-mysql php8.3-sqlite3 php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip
           command -v composer || { curl -fsSL https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer; }
           sudo systemctl start mariadb redis-server memcached nginx php8.3-fpm ssh

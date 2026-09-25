@@ -23,6 +23,7 @@ $v = static fn (string $k, mixed $d): string => (string) ($old[$k] ?? $cfg[$k] ?
         <p>The FTP server (pure-ftpd) is not installed. Websites can still use SFTP, which needs no extra software.</p>
         <?php if ($this->can(P::PACKAGES_MANAGE)): ?>
             <form method="post" action="<?= e($this->url('ftp.install')) ?>"><?= $this->csrfField() ?><button class="btn btn-primary"><i class="bi bi-download me-1"></i>Install pure-ftpd</button></form>
+            <p class="small text-body-secondary mt-2 mb-0">The distribution packages of vsftpd and ProFTPD conflict with pure-ftpd; if one is installed, remove it first (its accounts are not carried over).</p>
         <?php endif; ?>
     </div></div>
 <?php else: ?>

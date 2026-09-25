@@ -27,6 +27,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
@@ -140,46 +141,44 @@ func TestRealHostSFTPBackup(t *testing.T) {
 	}
 }
 
-// FTPS (explicit TLS) against a vsftpd started for the test with a
+// FTPS (explicit TLS) against a pure-ftpd started for the test with a
 // self-signed certificate, which is pinned.
 func TestRealHostFTPSBackup(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("needs root")
 	}
-	if _, err := exec.LookPath("vsftpd"); err != nil {
-		t.Skip("needs vsftpd")
+	if _, err := exec.LookPath("pure-ftpd"); err != nil {
+		t.Skip("needs pure-ftpd")
 	}
 	dir := t.TempDir()
+	os.Chmod(dir, 0o755)
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "ftp.whacp.test"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}}
 	der, _ := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	kder, _ := x509.MarshalECPrivateKey(key)
-	os.WriteFile(filepath.Join(dir, "cert.pem"), pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0o600)
-	os.WriteFile(filepath.Join(dir, "key.pem"), pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: kder}), 0o600)
-	os.MkdirAll("/var/run/vsftpd/empty", 0o755)
-	conf := fmt.Sprintf(`listen=YES
-listen_port=2121
-listen_address=127.0.0.1
-background=NO
-anonymous_enable=NO
-local_enable=YES
-write_enable=YES
-local_umask=077
-pasv_enable=YES
-pasv_min_port=40100
-pasv_max_port=40150
-ssl_enable=YES
-force_local_logins_ssl=YES
-force_local_data_ssl=YES
-require_ssl_reuse=NO
-rsa_cert_file=%s/cert.pem
-rsa_private_key_file=%s/key.pem
-secure_chroot_dir=/var/run/vsftpd/empty
-pam_service_name=vsftpd
-seccomp_sandbox=NO
+	pemData := append(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: kder}), pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})...)
+	os.WriteFile(filepath.Join(dir, "ftp.pem"), pemData, 0o600)
+
+	exec.Command("useradd", "-m", "-u", "2892", "-s", "/usr/sbin/nologin", "whacpftp").Run()
+	t.Cleanup(func() { exec.Command("userdel", "-r", "whacpftp").Run() })
+	line := fmt.Sprintf("whacpftp:%s:2892:2892::/home/whacpftp/./::::::::::::\n", ftpmgr.HashPassword("Ftp-Pa55word-123"))
+	os.WriteFile(filepath.Join(dir, "users.passwd"), []byte(line), 0o600)
+	if out, err := exec.Command("pure-pw", "mkdb", filepath.Join(dir, "users.pdb"), "-f", filepath.Join(dir, "users.passwd")).CombinedOutput(); err != nil {
+		t.Fatalf("pure-pw: %s", out)
+	}
+	conf := fmt.Sprintf(`ChrootEveryone yes
+Daemonize no
+NoAnonymous yes
+DontResolve yes
+PureDB %s/users.pdb
+Bind 127.0.0.1,2121
+PassivePortRange 40100 40150
+MinUID 1000
+TLS 2
+CertFile %s/ftp.pem
 `, dir, dir)
-	os.WriteFile(filepath.Join(dir, "vsftpd.conf"), []byte(conf), 0o600)
-	srv := exec.Command("vsftpd", filepath.Join(dir, "vsftpd.conf"))
+	os.WriteFile(filepath.Join(dir, "pure-ftpd.conf"), []byte(conf), 0o600)
+	srv := exec.Command("pure-ftpd", filepath.Join(dir, "pure-ftpd.conf"))
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -190,13 +189,6 @@ seccomp_sandbox=NO
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
-	}
-	exec.Command("useradd", "-m", "-s", "/bin/sh", "whacpftp").Run()
-	t.Cleanup(func() { exec.Command("userdel", "-r", "whacpftp").Run() })
-	cmd := exec.Command("chpasswd")
-	cmd.Stdin = strings.NewReader("whacpftp:Ftp-Pa55word-123\n")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("%s", out)
 	}
 
 	_, r, s := remoteEnv(t)
