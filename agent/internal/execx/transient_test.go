@@ -13,24 +13,20 @@ import (
 	"time"
 )
 
-// fakeSystemdRun stands in for systemd-run: like PID 1 it opens the
-// StandardInput/Output/Error files named in the properties and runs the
-// command after "--" with them. A missing working directory fails before
-// the streams are opened, as with systemd.
+// fakeSystemdRun stands in for systemd-run: it enters the working
+// directory and runs the command after "--" (the pipe wrapper) with no
+// standard streams of its own. A missing working directory fails before the
+// command starts, as with systemd.
 const fakeSystemdRun = `#!/bin/bash
-in=/dev/null; out=; err=
 while [ $# -gt 0 ]; do
   case $1 in
-    --property=StandardInput=file:*) in=${1#--property=StandardInput=file:} ;;
-    --property=StandardOutput=file:*) out=${1#--property=StandardOutput=file:} ;;
-    --property=StandardError=file:*) err=${1#--property=StandardError=file:} ;;
     --working-directory=*) cd "${1#--working-directory=}" || exit 200 ;;
     --) shift; break ;;
   esac
   shift
 done
 args=(); for a in "$@"; do args+=("${a//\$\$/\$}"); done
-"${args[@]}" <"$in" >"$out" 2>"$err"
+exec "${args[@]}" </dev/null >/dev/null 2>/dev/null
 `
 
 func fakeRunner(t *testing.T) *SystemRunner {
@@ -52,7 +48,7 @@ func TestTransientStreams(t *testing.T) {
 	}
 	r := fakeRunner(t)
 	sh := r.paths["sh"]
-	as := Credential{UID: 1000, GID: 1000, Home: t.TempDir()}
+	as := Credential{UID: uint32(os.Getuid()), GID: uint32(os.Getgid()), Home: t.TempDir()}
 	ctx := context.Background()
 
 	// Binary data in and out, stderr captured, exit status kept.

@@ -103,6 +103,15 @@ func TestRealHostCommandsAsAccount(t *testing.T) {
 		}
 	}
 
+	// The named pipes live in a directory only root can list, and nothing
+	// is left behind.
+	if fi, err := os.Stat(RunDir); err != nil || fi.Mode().Perm() != 0o711 || fi.Sys().(*syscall.Stat_t).Uid != 0 {
+		t.Errorf("%s: %v %v", RunDir, err, fi.Mode())
+	}
+	if left, _ := os.ReadDir(RunDir); len(left) != 0 {
+		t.Errorf("left in %s: %v", RunDir, left)
+	}
+
 	// Exit status.
 	_, err = sh("exit 3", Opts{})
 	var ee *exec.ExitError

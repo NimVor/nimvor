@@ -67,19 +67,24 @@ func TestAllowlistHasPlatformTools(t *testing.T) {
 // Commands as another account are started by PID 1, confined, and their
 // arguments reach the program unchanged (F-16).
 func TestTransientArgs(t *testing.T) {
-	a := TransientArgs("whacp-run-x.service", "/bin/sh", "/home/whacp/a.test", []string{"HOME=/home/whacp/a.test"},
-		Credential{UID: 1001, GID: 1002}, 90*time.Second, "", "/run/whacp/r/out", "/run/whacp/r/err", []string{"-c", "echo $HOME 100%"})
+	a := TransientArgs("whacp-run-x.service", "/bin/sh", "/usr/bin/php", "/home/whacp/a.test", []string{"HOME=/home/whacp/a.test"},
+		Credential{UID: 1001, GID: 1002}, 90*time.Second, "", "/run/whacp-run/r/out", "/run/whacp-run/r/err", []string{"-r", "echo $HOME, 100%;"})
 	s := strings.Join(a, "\n")
 	for _, want := range []string{"--uid=1001", "--gid=1002", "--wait", "--property=StandardInput=null",
-		"--property=StandardOutput=file:/run/whacp/r/out", "--property=StandardError=file:/run/whacp/r/err", "--working-directory=/home/whacp/a.test",
+		"--working-directory=/home/whacp/a.test",
 		"--property=NoNewPrivileges=yes", "--property=CapabilityBoundingSet=", "--property=RestrictSUIDSGID=yes",
 		"--property=RuntimeMaxSec=90", "--setenv=HOME=/home/whacp/a.test"} {
 		if !strings.Contains(s, want+"\n") && !strings.HasSuffix(s, want) {
 			t.Errorf("missing %s in\n%s", want, s)
 		}
 	}
+	// PID 1 opens no pipes: the wrapper does, as the account.
+	if strings.Contains(s, "StandardOutput") || strings.Contains(s, "StandardError") {
+		t.Errorf("PID 1 would open the output pipes:\n%s", s)
+	}
 	n := len(a)
-	if a[n-4] != "--" || a[n-3] != "/bin/sh" || a[n-2] != "-c" || a[n-1] != "echo $$HOME 100%" {
-		t.Errorf("command part: %q", a[n-4:])
+	want := []string{"--", "/bin/sh", "-c", strings.ReplaceAll(pipeWrapper, "$", "$$"), "whacp-run", "/dev/null", "/run/whacp-run/r/out", "/run/whacp-run/r/err", "/usr/bin/php", "-r", "echo $$HOME, 100%;"}
+	if strings.Join(a[n-len(want):], "\x00") != strings.Join(want, "\x00") {
+		t.Errorf("command part: %q", a[n-len(want):])
 	}
 }

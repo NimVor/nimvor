@@ -296,20 +296,25 @@ var transientHardening = []string{
 	"TimeoutStopSec=5",
 }
 
+// pipeWrapper runs as the account inside the unit: it opens the named
+// pipes (after systemd has dropped to the account, so neither PID 1 nor
+// root opens them) and replaces itself with the command. Its arguments are
+// the stdin, stdout and stderr paths, then the command.
+const pipeWrapper = `i=$1 o=$2 e=$3; shift 3; exec "$@" <"$i" >"$o" 2>"$e"`
+
 // TransientArgs builds the systemd-run arguments that start bin as the
-// account. Standard input, output and error are named pipes that PID 1
-// opens itself (stdin "" means none): passing the agent's descriptors over
-// D-Bus (--pipe) is refused by SELinux on RHEL. systemd-run --wait exits
-// with the command's status.
-func TransientArgs(unit, bin, dir string, env []string, as Credential, timeout time.Duration, stdin, stdout, stderr string, args []string) []string {
+// account through sh (the pipe wrapper). Standard input, output and error
+// are named pipes the wrapper opens (stdin "" means /dev/null): passing
+// the agent's descriptors over D-Bus (--pipe) is refused by SELinux on
+// RHEL, and so is PID 1 opening them (StandardOutput=file:). systemd-run
+// --wait exits with the command's status.
+func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeout time.Duration, stdin, stdout, stderr string, args []string) []string {
 	a := []string{"--quiet", "--wait", "--collect", "--service-type=exec", "--unit=" + unit,
-		fmt.Sprintf("--uid=%d", as.UID), fmt.Sprintf("--gid=%d", as.GID), "--working-directory=" + dir}
+		fmt.Sprintf("--uid=%d", as.UID), fmt.Sprintf("--gid=%d", as.GID), "--working-directory=" + dir,
+		"--property=StandardInput=null"}
 	if stdin == "" {
-		a = append(a, "--property=StandardInput=null")
-	} else {
-		a = append(a, "--property=StandardInput=file:"+stdin)
+		stdin = "/dev/null"
 	}
-	a = append(a, "--property=StandardOutput=file:"+stdout, "--property=StandardError=file:"+stderr)
 	if len(as.Groups) > 0 {
 		g := make([]string, len(as.Groups))
 		for i, id := range as.Groups {
@@ -326,22 +331,32 @@ func TransientArgs(unit, bin, dir string, env []string, as Credential, timeout t
 	for _, e := range env {
 		a = append(a, "--setenv="+e)
 	}
-	a = append(a, "--", bin)
-	for _, arg := range args {
+	a = append(a, "--", sh, "-c", pipeWrapper, "whacp-run", stdin, stdout, stderr, bin)
+	a = append(a, args...)
+	for i := len(a) - len(args) - 7; i < len(a); i++ {
 		// systemd expands $VAR in command lines; "$$" is a literal "$".
-		a = append(a, strings.ReplaceAll(arg, "$", "$$"))
+		a[i] = strings.ReplaceAll(a[i], "$", "$$")
 	}
 	return a
 }
 
-// RunDir holds the named pipes of commands run as other accounts (the
-// agent's runtime directory, root only).
-var RunDir = "/run/whacp"
+// RunDir holds the named pipes of commands run as other accounts: one
+// directory per command, owned by the account (0700), in a directory
+// only root can list. It is outside the agent's runtime directory, which
+// website accounts cannot enter.
+var RunDir = "/run/whacp-run"
 
 // runTransient runs bin as o.As in a transient unit, streaming standard
 // input and output through named pipes in RunDir.
 func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []string, o Opts, timeout time.Duration, args []string) ([]byte, error) {
-	if err := os.MkdirAll(RunDir, 0o750); err != nil {
+	sh, err := r.resolve("sh")
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(RunDir, 0o711); err != nil {
+		return nil, err
+	}
+	if err := os.Chmod(RunDir, 0o711); err != nil {
 		return nil, err
 	}
 	tmp, err := os.MkdirTemp(RunDir, "run-")
@@ -358,7 +373,13 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 			if err := syscall.Mkfifo(f, 0o600); err != nil {
 				return nil, err
 			}
+			if err := os.Lchown(f, int(o.As.UID), int(o.As.GID)); err != nil {
+				return nil, err
+			}
 		}
+	}
+	if err := os.Chown(tmp, int(o.As.UID), int(o.As.GID)); err != nil {
+		return nil, err
 	}
 	var buf limitedBuffer
 	buf.limit = maxOutput
@@ -372,7 +393,7 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 		stdout = o.Stdout
 	}
 	unit := transientUnit()
-	cmd := exec.CommandContext(ctx, r.paths["systemd-run"], TransientArgs(unit, bin, dir, env, *o.As, timeout, in, out, errp, args)...)
+	cmd := exec.CommandContext(ctx, r.paths["systemd-run"], TransientArgs(unit, sh, bin, dir, env, *o.As, timeout, in, out, errp, args)...)
 	cmd.Env = baseEnv
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	cmd.Stdout, cmd.Stderr = w, w // systemd-run's own messages
@@ -408,7 +429,7 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 		}()
 	}
 	runErr := cmd.Run()
-	// If the unit never opened a pipe (it failed to start), release the
+	// If the command never opened a pipe (it failed to start), release the
 	// goroutine still waiting to open the other end.
 	for _, f := range []string{out, errp} {
 		if p, err := os.OpenFile(f, os.O_WRONLY|syscall.O_NONBLOCK, 0); err == nil {

@@ -71,7 +71,11 @@ func backupCycle(t *testing.T, r *actions.Registry, s Service, remote Remote, ch
 		t.Fatalf("remote_test with the pinned key: %+v", err)
 	}
 
-	exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", "-u", "1779", "whacprmt").Run()
+	if out, err := exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", "-u", "1779", "whacprmt").CombinedOutput(); err != nil && !strings.Contains(string(out), "already exists") {
+		ids, _ := exec.Command("getent", "passwd", "1779").CombinedOutput()
+		gids, _ := exec.Command("getent", "group", "1779", "whacprmt").CombinedOutput()
+		t.Fatalf("useradd whacprmt: %v %s\nuid 1779: %s\ngroup: %s", err, out, ids, gids)
+	}
 	t.Cleanup(func() { exec.Command("userdel", "whacprmt").Run() })
 	root := filepath.Join(s.Env.Cfg.SitesRoot, "rmt.test")
 	os.MkdirAll(filepath.Join(root, "public_html"), 0o750)

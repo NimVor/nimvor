@@ -248,6 +248,10 @@ $u = parse_url(getenv('WHACP_URL'));
 $_SERVER['HTTP_HOST'] = $u['host'] . (isset($u['port']) ? ':' . $u['port'] : '');
 $_SERVER['REQUEST_URI'] = '/';
 $_SERVER['HTTPS'] = $u['scheme'] === 'https' ? 'on' : '';
+// No "new site" e-mail: the panel shows the login details, and the local
+// sendmail cannot queue mail from the installer's confined unit (Postfix's
+// setgid postdrop is refused under NoNewPrivileges and retries forever).
+function wp_new_blog_notification() {}
 require getcwd() . '/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 if (is_blog_installed()) { fwrite(STDERR, "WordPress is already installed.\n"); exit(1); }
