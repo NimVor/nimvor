@@ -35,7 +35,7 @@ final class SettingsService
             ],
             'panel_url' => [
                 'type' => 'url', 'default' => '', 'max_length' => 200,
-                'label' => 'Public panel URL', 'help' => 'e.g. https://panel.example.com. Used for Git webhook URLs; when empty the address you are browsing is used.',
+                'label' => 'Public panel URL', 'help' => 'e.g. https://panel.example.com. Used for Git webhook URLs, password reset links and Google Drive; when empty the address you are browsing is used.',
             ],
             'session_idle_minutes' => [
                 'type' => 'int', 'default' => 30, 'min' => 5, 'max' => 1440,

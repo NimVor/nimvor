@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
@@ -208,7 +210,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"exists": true, "key_id": KeyID(b), "path": s.keyPath()}, nil
 	}})
-	r.Register(actions.Action{Name: "backup.remote_test", Description: "Check that remote storage credentials work (lists the prefix).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "backup.remote_test", Description: "Check that remote storage settings work. Returns an SFTP server's host key (to pin) and creates the Google Drive folder when none is set.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Remote Remote `json:"remote"`
 		}
@@ -218,10 +220,78 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := in.Remote.Validate(); err != nil {
 			return nil, actions.InvalidParams("remote: " + err.Error())
 		}
-		keys, err := NewS3(in.Remote).List(ctx, in.Remote.Key(""))
-		if err != nil {
+		out := map[string]any{"ok": true}
+		fail := func(err error) (any, error) {
 			return nil, actions.Failed("The storage could not be reached with these settings.", err.Error())
 		}
-		return map[string]any{"ok": true, "objects": len(keys)}, nil
+		switch in.Remote.Type {
+		case "sftp":
+			if in.Remote.HostKey == "" {
+				// Trust on first use: try each key the server offers and pin
+				// the one it actually uses; the admin confirms the fingerprint.
+				keys, err := ScanHostKeys(ctx, env, in.Remote)
+				if err != nil {
+					return fail(err)
+				}
+				var last error
+				for _, k := range keys {
+					in.Remote.HostKey = k
+					if _, last = in.Remote.Open(env).List(ctx, in.Remote.Key("")); last == nil {
+						break
+					}
+					in.Remote.HostKey = ""
+				}
+				if in.Remote.HostKey == "" {
+					return fail(last)
+				}
+			}
+			out["host_key"] = in.Remote.HostKey
+			out["fingerprint"] = Fingerprint(in.Remote.HostKey)
+		case "ftp":
+			if in.Remote.TLS != "none" && in.Remote.TLSPin == "" {
+				if _, err := in.Remote.Open(env).List(ctx, in.Remote.Key("")); err != nil && strings.Contains(err.Error(), "(60)") {
+					// Not signed by a trusted CA: offer to pin its key.
+					pin, subject, perr := ScanTLSPin(ctx, in.Remote)
+					if perr != nil {
+						return fail(err)
+					}
+					in.Remote.TLSPin = pin
+					out["tls_subject"] = subject
+				}
+			}
+			out["tls_pin"] = in.Remote.TLSPin
+		case "gdrive":
+			if in.Remote.FolderID == "" {
+				id, err := NewDrive(in.Remote).CreateFolder(ctx, "WhaCP backups")
+				if err != nil {
+					return fail(err)
+				}
+				in.Remote.FolderID = id
+			}
+			out["folder_id"] = in.Remote.FolderID
+		}
+		st := in.Remote.Open(env)
+		keys, err := st.List(ctx, in.Remote.Key(""))
+		if err != nil {
+			return fail(err)
+		}
+		// Prove we can write and delete, not only read.
+		probe := in.Remote.Key(".whacp-probe")
+		tmp, err := os.CreateTemp("", "whacp-probe-")
+		if err != nil {
+			return nil, err
+		}
+		tmp.WriteString("WhaCP storage test\n")
+		tmp.Close()
+		defer os.Remove(tmp.Name())
+		if err := st.Put(ctx, probe, tmp.Name()); err != nil {
+			return fail(fmt.Errorf("listing works but writing failed: %v", err))
+		}
+		if err := st.Delete(ctx, probe); err != nil {
+			return fail(fmt.Errorf("writing works but deleting failed: %v", err))
+		}
+		out["objects"] = len(keys)
+		out["description"] = in.Remote.Describe()
+		return out, nil
 	}})
 }

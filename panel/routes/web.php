@@ -113,6 +113,9 @@ return static function (Router $r): void {
     $r->post('/backups/server/{backup}/restore', [BackupsController::class, 'restoreServer'], ['name' => 'backups.server.restore', 'permission' => P::SERVER_MANAGE]);
     $r->get('/backups/server/{backup}/download', [BackupsController::class, 'downloadServer'], ['name' => 'backups.server.download', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/storages', [BackupsController::class, 'storeStorage'], ['name' => 'backups.storages.store', 'permission' => P::BACKUPS_MANAGE]);
+    $r->get('/backups/storages/confirm', [BackupsController::class, 'confirmStorage'], ['name' => 'backups.storages.confirm', 'permission' => P::BACKUPS_MANAGE]);
+    $r->post('/backups/storages/confirm', [BackupsController::class, 'trustStorage'], ['name' => 'backups.storages.trust', 'permission' => P::BACKUPS_MANAGE]);
+    $r->get('/backups/storages/google/callback', [BackupsController::class, 'googleCallback'], ['name' => 'backups.storages.google', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/storages/{storage}/delete', [BackupsController::class, 'deleteStorage'], ['name' => 'backups.storages.delete', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/schedules', [BackupsController::class, 'storeServerSchedule'], ['name' => 'backups.schedules.store', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/schedules/{schedule}/delete', [BackupsController::class, 'deleteServerSchedule'], ['name' => 'backups.schedules.delete', 'permission' => P::BACKUPS_MANAGE]);

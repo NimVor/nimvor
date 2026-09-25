@@ -15,7 +15,8 @@ use WhaCP\Support\ValidationException;
 
 /**
  * Backups of websites (files + their databases) and of the server
- * configuration, stored on the server and/or in S3-compatible storage.
+ * configuration, stored on the server and/or remotely (S3-compatible,
+ * SFTP, FTPS, Google Drive or a local mounted folder).
  *
  * The agent creates, verifies, encrypts and restores; the panel keeps the
  * list (with each backup's manifest), remote storage credentials
@@ -30,18 +31,38 @@ final class BackupService
         private readonly ServerContext $server,
         private readonly Crypto $crypto,
         private readonly Events $events,
+        private readonly OAuthClient $oauth,
     ) {
     }
 
     // ---- Remote storage -------------------------------------------------
+
+    public const STORAGE_TYPES = [
+        's3' => 'S3-compatible bucket',
+        'sftp' => 'SFTP server',
+        'ftp' => 'FTP server (FTPS)',
+        'gdrive' => 'Google Drive',
+        'local' => 'Local folder (mounted disk or NAS)',
+    ];
 
     /** @return list<array<string, mixed>> without secrets */
     public function storages(): array
     {
         return array_map(function (array $r): array {
             $cfg = $this->storageConfig((int) $r['id']);
-            return ['id' => (int) $r['id'], 'name' => $r['name'], 'endpoint' => $cfg['endpoint'] ?? '', 'bucket' => $cfg['bucket'] ?? '', 'prefix' => $cfg['prefix'] ?? '', 'created_at' => $r['created_at']];
+            return ['id' => (int) $r['id'], 'name' => $r['name'], 'kind' => $r['kind'], 'where' => self::describe($cfg), 'prefix' => $cfg['prefix'] ?? '', 'created_at' => $r['created_at']];
         }, $this->db->fetchAll('SELECT * FROM backup_storages ORDER BY name'));
+    }
+
+    /** @param array<string, mixed> $cfg */
+    public static function describe(array $cfg): string
+    {
+        return match ($cfg['type'] ?? 's3') {
+            'sftp', 'ftp' => ($cfg['type']) . '://' . ($cfg['username'] ?? '') . '@' . ($cfg['host'] ?? '') . (!empty($cfg['port']) ? ':' . $cfg['port'] : ''),
+            'gdrive' => 'Google Drive · folder ' . ($cfg['folder_id'] ?? ''),
+            'local' => (string) ($cfg['path'] ?? ''),
+            default => ($cfg['endpoint'] ?? '') . ' · ' . ($cfg['bucket'] ?? ''),
+        };
     }
 
     /** @return array<string, mixed> agent "remote" parameter */
@@ -51,52 +72,220 @@ final class BackupService
         if ($row === null) {
             throw new UserFacingException('The remote storage no longer exists.');
         }
-        return (array) json_decode($this->crypto->decrypt((string) $row['config_enc']), true);
+        $cfg = (array) json_decode($this->crypto->decrypt((string) $row['config_enc']), true);
+        $cfg['type'] ??= (string) $row['kind'];
+        return $cfg;
     }
 
-    /** @param array<string, mixed> $input */
-    public function saveStorage(array $input, bool $test = true): int
+    /**
+     * Validate the form for one storage type.
+     *
+     * @param array<string, mixed> $input
+     * @return array{name: string, cfg: array<string, mixed>}
+     */
+    public function buildStorage(array $input): array
     {
         $errors = [];
-        $name = trim((string) ($input['name'] ?? ''));
+        $str = static fn (string $k): string => is_scalar($input[$k] ?? null) ? trim((string) $input[$k]) : '';
+        $name = $str('name');
         if ($name === '' || mb_strlen($name) > 60) {
             $errors['name'] = 'Enter a name (up to 60 characters).';
+        } elseif ($this->db->scalar('SELECT COUNT(*) FROM backup_storages WHERE name = ?', [$name]) > 0) {
+            $errors['name'] = 'A storage with this name exists.';
         }
-        $endpoint = rtrim(trim((string) ($input['endpoint'] ?? '')), '/');
-        if (!preg_match('#^https://[A-Za-z0-9.-]+(:[0-9]+)?$#', $endpoint) && !preg_match('#^http://(127\.0\.0\.1|localhost)(:[0-9]+)?$#', $endpoint)) {
-            $errors['endpoint'] = 'Enter the https:// endpoint, e.g. https://s3.eu-central-1.amazonaws.com.';
+        $type = $str('type') ?: 's3';
+        if (!isset(self::STORAGE_TYPES[$type])) {
+            $errors['type'] = 'Choose a storage type.';
         }
-        $bucket = trim((string) ($input['bucket'] ?? ''));
-        if (!preg_match('/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/', $bucket)) {
-            $errors['bucket'] = 'Enter a valid bucket name.';
-        }
-        $region = trim((string) ($input['region'] ?? '')) ?: 'us-east-1';
-        if (!preg_match('/^[a-z0-9-]{1,40}$/', $region)) {
-            $errors['region'] = 'Enter a region such as eu-central-1 (or us-east-1 if unsure).';
-        }
-        $prefix = trim((string) ($input['prefix'] ?? ''), " /");
+        $prefix = trim($str('prefix'), '/');
         if (!preg_match('#^[A-Za-z0-9._/-]{0,200}$#', $prefix) || str_contains($prefix, '..')) {
             $errors['prefix'] = 'Use letters, digits and . _ / -';
         }
-        $access = trim((string) ($input['access_key'] ?? ''));
-        $secret = trim((string) ($input['secret_key'] ?? ''));
-        if ($access === '' || $secret === '') {
-            $errors['access_key'] = 'Enter the access key and secret key.';
+        $cfg = ['type' => $type, 'prefix' => $prefix];
+        switch ($type) {
+            case 's3':
+                $endpoint = rtrim($str('endpoint'), '/');
+                if (!preg_match('#^https://[A-Za-z0-9.-]+(:[0-9]+)?$#', $endpoint) && !preg_match('#^http://(127\.0\.0\.1|localhost)(:[0-9]+)?$#', $endpoint)) {
+                    $errors['endpoint'] = 'Enter the https:// endpoint, e.g. https://s3.eu-central-1.amazonaws.com.';
+                }
+                if (!preg_match('/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/', $str('bucket'))) {
+                    $errors['bucket'] = 'Enter a valid bucket name.';
+                }
+                $region = $str('region') ?: 'us-east-1';
+                if (!preg_match('/^[a-z0-9-]{1,40}$/', $region)) {
+                    $errors['region'] = 'Enter a region such as eu-central-1 (or us-east-1 if unsure).';
+                }
+                if ($str('access_key') === '' || $str('secret_key') === '') {
+                    $errors['access_key'] = 'Enter the access key and secret key.';
+                }
+                $cfg += ['endpoint' => $endpoint, 'region' => $region, 'bucket' => $str('bucket'), 'access_key' => $str('access_key'), 'secret_key' => $str('secret_key'), 'path_style' => filter_var($input['path_style'] ?? false, FILTER_VALIDATE_BOOL)];
+                break;
+            case 'sftp':
+            case 'ftp':
+                $host = $str('host');
+                if (!preg_match('/^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/', $host) && filter_var(trim($host, '[]'), FILTER_VALIDATE_IP) === false) {
+                    $errors['host'] = 'Enter a host name or IP address.';
+                }
+                $port = $str('port') === '' ? 0 : (int) $str('port');
+                if ($port < 0 || $port > 65535) {
+                    $errors['port'] = 'Enter a port between 1 and 65535.';
+                }
+                if (!preg_match('/^[A-Za-z0-9._@+-]{1,100}$/', $str('username'))) {
+                    $errors['username'] = 'Enter the user name (letters, digits and . _ @ + -).';
+                }
+                $password = is_string($input['password'] ?? null) ? (string) $input['password'] : '';
+                $key = is_string($input['private_key'] ?? null) ? trim((string) $input['private_key']) : '';
+                if ($type === 'sftp' && $password === '' && $key === '') {
+                    $errors['password'] = 'Enter a password or paste a private key.';
+                }
+                if ($type === 'ftp' && $password === '') {
+                    $errors['password'] = 'Enter the password.';
+                }
+                $cfg += ['host' => trim($host, '[]'), 'port' => $port, 'username' => $str('username'), 'password' => $password];
+                if ($type === 'sftp') {
+                    $cfg['private_key'] = $key;
+                } else {
+                    $tls = $str('tls') ?: 'explicit';
+                    if (!in_array($tls, ['explicit', 'implicit', 'none'], true)) {
+                        $errors['tls'] = 'Choose the encryption.';
+                    }
+                    $cfg['tls'] = $tls;
+                }
+                break;
+            case 'local':
+                $path = '/' . trim($str('path'), '/');
+                if (!preg_match('#^/(mnt|media|backup|backups|srv/backups?)/[A-Za-z0-9._/-]+$#', $path) || str_contains($path, '..')) {
+                    $errors['path'] = 'Enter a folder under /mnt, /media, /backup(s) or /srv/backup(s).';
+                }
+                $cfg['path'] = $path;
+                break;
+            case 'gdrive':
+                if ($str('client_id') === '' || $str('client_secret') === '') {
+                    $errors['client_id'] = 'Enter the OAuth client ID and secret of your Google Cloud project.';
+                }
+                $cfg += ['client_id' => $str('client_id'), 'client_secret' => $str('client_secret')];
+                break;
         }
         if ($errors !== []) {
             throw new ValidationException($errors);
         }
-        $cfg = ['endpoint' => $endpoint, 'region' => $region, 'bucket' => $bucket, 'prefix' => $prefix, 'access_key' => $access, 'secret_key' => $secret, 'path_style' => filter_var($input['path_style'] ?? false, FILTER_VALIDATE_BOOL)];
-        if ($test) {
-            $this->agent->call('backup.remote_test', ['remote' => $cfg], 60);
+        return ['name' => $name, 'cfg' => $cfg];
+    }
+
+    /**
+     * Test a storage. Returns what the agent discovered that must be
+     * trusted before saving (SFTP host key, FTPS certificate pin), or an
+     * empty array when it can be saved as is.
+     *
+     * @param array<string, mixed> $cfg updated with discovered values
+     * @return array{fingerprint?: string, host_key?: string, tls_pin?: string, tls_subject?: string}
+     */
+    public function testStorage(array &$cfg): array
+    {
+        $res = (array) $this->agent->call('backup.remote_test', ['remote' => $cfg], 120);
+        $trust = [];
+        if (($cfg['type'] ?? '') === 'sftp' && empty($cfg['host_key']) && !empty($res['host_key'])) {
+            $cfg['host_key'] = (string) $res['host_key'];
+            $trust = ['host_key' => $cfg['host_key'], 'fingerprint' => (string) ($res['fingerprint'] ?? '')];
         }
+        if (($cfg['type'] ?? '') === 'ftp' && empty($cfg['tls_pin']) && !empty($res['tls_pin'])) {
+            $cfg['tls_pin'] = (string) $res['tls_pin'];
+            $trust = ['tls_pin' => $cfg['tls_pin'], 'tls_subject' => (string) ($res['tls_subject'] ?? '')];
+        }
+        if (($cfg['type'] ?? '') === 'gdrive' && !empty($res['folder_id'])) {
+            $cfg['folder_id'] = (string) $res['folder_id'];
+        }
+        return $trust;
+    }
+
+    /** @param array<string, mixed> $cfg */
+    public function insertStorage(string $name, array $cfg): int
+    {
         if ($this->db->scalar('SELECT COUNT(*) FROM backup_storages WHERE name = ?', [$name]) > 0) {
             throw new ValidationException(['name' => 'A storage with this name exists.']);
         }
-        $this->db->run('INSERT INTO backup_storages (name, kind, config_enc, created_at) VALUES (?, ?, ?, ?)', [$name, 's3', $this->crypto->encrypt((string) json_encode($cfg)), gmdate('c')]);
+        $this->db->run('INSERT INTO backup_storages (name, kind, config_enc, created_at) VALUES (?, ?, ?, ?)', [$name, (string) $cfg['type'], $this->crypto->encrypt((string) json_encode($cfg)), gmdate('c')]);
         $id = $this->db->lastInsertId();
-        $this->audit->record('backup.storage_create', 'backup_storage', (string) $id, AuditLogger::SUCCESS, ['name' => $name, 'endpoint' => $endpoint, 'bucket' => $bucket]);
+        $this->audit->record('backup.storage_create', 'backup_storage', (string) $id, AuditLogger::SUCCESS, ['name' => $name, 'type' => $cfg['type'], 'where' => self::describe($cfg), 'pinned' => $cfg['host_key'] ?? $cfg['tls_pin'] ?? null]);
         return $id;
+    }
+
+    /**
+     * Validate, test and save a storage in one step (no trust needed).
+     *
+     * @param array<string, mixed> $input
+     */
+    public function saveStorage(array $input, bool $test = true): int
+    {
+        ['name' => $name, 'cfg' => $cfg] = $this->buildStorage($input);
+        if ($test) {
+            $this->testStorage($cfg);
+        }
+        return $this->insertStorage($name, $cfg);
+    }
+
+    /**
+     * A storage waiting for confirmation (host key, certificate) or for the
+     * Google consent, sealed so its credentials never sit in the session in
+     * clear text.
+     *
+     * @param array{name: string, cfg: array<string, mixed>} $pending
+     */
+    public function seal(array $pending): string
+    {
+        return $this->crypto->encrypt((string) json_encode($pending + ['at' => time()]));
+    }
+
+    /** @return array{name: string, cfg: array<string, mixed>} */
+    public function unseal(mixed $sealed): array
+    {
+        try {
+            $p = is_string($sealed) && $sealed !== '' ? (array) json_decode($this->crypto->decrypt($sealed), true) : [];
+        } catch (\Throwable) {
+            $p = [];
+        }
+        if (!isset($p['name'], $p['cfg'], $p['at']) || !is_array($p['cfg']) || time() - (int) $p['at'] > 1800) {
+            throw new UserFacingException('The storage setup expired.', '', 'Add the storage again.');
+        }
+        return ['name' => (string) $p['name'], 'cfg' => $p['cfg']];
+    }
+
+    // ---- Google Drive (OAuth) --------------------------------------------
+
+    public const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+
+    public function googleRedirectUri(string $panelUrl): string
+    {
+        return rtrim($panelUrl, '/') . '/backups/storages/google/callback';
+    }
+
+    /** @param array{name: string, cfg: array<string, mixed>} $pending */
+    public function googleAuthUrl(array $pending, string $redirectUri, string $state): string
+    {
+        return $this->oauth->authUrl([
+            'client_id' => (string) $pending['cfg']['client_id'], 'redirect_uri' => $redirectUri, 'response_type' => 'code',
+            'scope' => self::GOOGLE_SCOPE, 'access_type' => 'offline', 'prompt' => 'consent', 'state' => $state,
+        ]);
+    }
+
+    /**
+     * Exchange the authorisation code for a refresh token, create the
+     * backup folder (through the agent's test) and save the storage.
+     *
+     * @param array{name: string, cfg: array<string, mixed>} $pending
+     */
+    public function googleComplete(array $pending, string $code, string $redirectUri): int
+    {
+        $res = $this->oauth->token([
+            'grant_type' => 'authorization_code', 'code' => $code, 'redirect_uri' => $redirectUri,
+            'client_id' => (string) $pending['cfg']['client_id'], 'client_secret' => (string) $pending['cfg']['client_secret'],
+        ]);
+        if (empty($res['refresh_token']) || !is_string($res['refresh_token'])) {
+            throw new UserFacingException('Google did not grant offline access.', (string) ($res['error_description'] ?? $res['error'] ?? ''), 'Try again; if it keeps failing, remove WhaCP from your Google account\'s third-party access and connect again.');
+        }
+        $cfg = $pending['cfg'] + ['refresh_token' => $res['refresh_token']];
+        $this->testStorage($cfg);
+        return $this->insertStorage($pending['name'], $cfg);
     }
 
     public function deleteStorage(int $id): void

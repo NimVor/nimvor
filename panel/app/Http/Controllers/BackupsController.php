@@ -14,6 +14,7 @@ use WhaCP\Services\BackupScheduler;
 use WhaCP\Services\BackupService;
 use WhaCP\Services\JobTracker;
 use WhaCP\Services\ServerContext;
+use WhaCP\Services\SettingsService;
 use WhaCP\Support\UserFacingException;
 use WhaCP\Support\ValidationException;
 use WhaCP\View\View;
@@ -28,6 +29,7 @@ final class BackupsController extends SiteController
         private readonly BackupService $backups,
         private readonly BackupScheduler $scheduler,
         private readonly JobTracker $jobs,
+        private readonly SettingsService $settings,
     ) {
         parent::__construct($view, $session, $sites, $server);
     }
@@ -147,6 +149,7 @@ final class BackupsController extends SiteController
             'schedules' => $admin ? $this->scheduler->list(null) : [],
             'storages' => $admin ? $this->backups->storages() : [],
             'keyInfo' => $admin ? $this->backups->keyInfo() : null,
+            'panelUrl' => $this->settings->string('panel_url'),
         ]);
     }
 
@@ -211,12 +214,111 @@ final class BackupsController extends SiteController
         return $this->stream($b, (string) $request->query('file', ''), '/backups');
     }
 
+    private const PENDING = 'backup_storage_pending';
+
+    /**
+     * Add a storage: validate, then either test and save it, ask the
+     * administrator to trust the server's host key or certificate first, or
+     * (Google Drive) send them to Google's consent page.
+     */
     public function storeStorage(Request $request): Response
     {
-        return $this->adminAct($request, function () use ($request): string {
-            $this->backups->saveStorage($request->all());
-            return 'Storage connected and tested.';
-        });
+        if (!Scope::isAll($this->user($request))) {
+            return $this->redirectWithError('/backups', 'Only administrators can manage server backups and storage.');
+        }
+        try {
+            $pending = $this->backups->buildStorage($request->all());
+            if ($pending['cfg']['type'] === 'gdrive') {
+                $base = rtrim($this->settings->string('panel_url'), '/');
+                if (!preg_match('#^https://#', $base)) {
+                    throw new UserFacingException('Google Drive needs the panel to be reachable over HTTPS.', 'Google only returns to https:// addresses.', 'Set the public panel URL in Settings to its https:// address and add this address as an authorised redirect URI in your Google Cloud OAuth client: ' . $this->backups->googleRedirectUri($base ?: 'https://panel.example.com'));
+                }
+                $state = bin2hex(random_bytes(16));
+                $this->session->set(self::PENDING, ['state' => $state, 'sealed' => $this->backups->seal($pending), 'kind' => 'gdrive']);
+                return Response::away($this->backups->googleAuthUrl($pending, $this->backups->googleRedirectUri($base), $state));
+            }
+            $trust = $this->backups->testStorage($pending['cfg']);
+            if ($trust !== []) {
+                $this->session->set(self::PENDING, ['sealed' => $this->backups->seal($pending), 'trust' => $trust, 'kind' => $pending['cfg']['type']]);
+                return Response::redirect('/backups/storages/confirm');
+            }
+            $this->backups->insertStorage($pending['name'], $pending['cfg']);
+        } catch (ValidationException $e) {
+            return $this->backWithErrors('/backups', $e, $request->all());
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/backups', $e);
+        }
+        return $this->redirectWithSuccess('/backups', 'Storage connected and tested.');
+    }
+
+    /** Show the host key / certificate the server presented. */
+    public function confirmStorage(Request $request): Response
+    {
+        $p = $this->session->get(self::PENDING);
+        if (!Scope::isAll($this->user($request)) || !is_array($p) || !isset($p['trust'])) {
+            return Response::redirect('/backups');
+        }
+        try {
+            $pending = $this->backups->unseal($p['sealed'] ?? null);
+        } catch (UserFacingException $e) {
+            $this->session->remove(self::PENDING);
+            return $this->redirectWithFailure('/backups', $e);
+        }
+        return $this->render('backups/confirm_storage', [
+            'name' => $pending['name'],
+            'where' => BackupService::describe($pending['cfg']),
+            'trust' => (array) $p['trust'],
+        ]);
+    }
+
+    public function trustStorage(Request $request): Response
+    {
+        $p = $this->session->get(self::PENDING);
+        $this->session->remove(self::PENDING);
+        if (!Scope::isAll($this->user($request)) || !is_array($p) || !isset($p['trust'])) {
+            return Response::redirect('/backups');
+        }
+        if ($request->input('cancel') !== null) {
+            return $this->redirectWithSuccess('/backups', 'The storage was not added.');
+        }
+        try {
+            $pending = $this->backups->unseal($p['sealed'] ?? null);
+            // Test again with the key pinned: it must now connect.
+            $this->backups->testStorage($pending['cfg']);
+            $this->backups->insertStorage($pending['name'], $pending['cfg']);
+        } catch (ValidationException $e) {
+            return $this->backWithErrors('/backups', $e, []);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/backups', $e);
+        }
+        return $this->redirectWithSuccess('/backups', 'Storage connected and tested.');
+    }
+
+    /** Google sends the administrator back here after the consent page. */
+    public function googleCallback(Request $request): Response
+    {
+        $p = $this->session->get(self::PENDING);
+        $this->session->remove(self::PENDING);
+        if (!Scope::isAll($this->user($request)) || !is_array($p) || ($p['kind'] ?? '') !== 'gdrive') {
+            return $this->redirectWithError('/backups', 'No Google Drive connection is in progress. Add the storage again.');
+        }
+        if (!hash_equals((string) ($p['state'] ?? ''), (string) $request->query('state', ''))) {
+            return $this->redirectWithError('/backups', 'The Google Drive connection could not be verified (state mismatch). Add the storage again.');
+        }
+        $error = (string) $request->query('error', '');
+        $code = (string) $request->query('code', '');
+        if ($error !== '' || $code === '') {
+            return $this->redirectWithError('/backups', $error === 'access_denied' ? 'Google Drive access was not granted.' : 'Google did not return an authorisation code' . ($error !== '' ? ' (' . $error . ')' : '') . '.');
+        }
+        try {
+            $pending = $this->backups->unseal($p['sealed'] ?? null);
+            $this->backups->googleComplete($pending, $code, $this->backups->googleRedirectUri($this->settings->string('panel_url')));
+        } catch (ValidationException $e) {
+            return $this->backWithErrors('/backups', $e, []);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/backups', $e);
+        }
+        return $this->redirectWithSuccess('/backups', 'Google Drive connected. Backups go to the "WhaCP backups" folder.');
     }
 
     public function deleteStorage(Request $request, string $storage): Response

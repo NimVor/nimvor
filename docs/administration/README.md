@@ -127,6 +127,22 @@ edits it only after you tick the confirmation; it keeps a backup, restarts
 Memcached, checks it answers and otherwise restores the old file. Only
 loopback addresses are accepted: Memcached has no authentication.
 
+## Backup destinations
+
+*Backups → Remote storage → Add storage* keeps copies off the server. Each
+storage is tested (upload, list and delete of a probe file) before it is
+saved; credentials are stored encrypted with the panel key.
+
+| Type | Notes |
+|------|-------|
+| S3-compatible | AWS S3, Backblaze B2, Wasabi, Cloudflare R2, MinIO… Use keys limited to the bucket. |
+| SFTP | Password or unencrypted private key. On the first connection WhaCP shows the server's host key fingerprint; after you confirm it the key is pinned and backups refuse any other key. |
+| FTP | Explicit TLS (FTPS) by default, implicit TLS on port 990, or plain FTP only when chosen explicitly. Certificates are verified; a self-signed certificate is shown for confirmation and its public key is pinned. |
+| Google Drive | Needs the panel on `https://` (set *Public panel URL*) and an OAuth client (*Web application*) with the Drive API enabled and `https://<panel>/backups/storages/google/callback` as redirect URI. WhaCP asks only for the `drive.file` scope (files it created) and stores backups in a "WhaCP backups" folder. |
+| Local folder | An existing folder under `/mnt`, `/media`, `/backup(s)` or `/srv/backup(s)`, owned by root, not world-writable and without symbolic links — typically a second disk or a mounted NAS share. |
+
+The optional sub-folder separates servers that share one destination.
+
 ## Restoring server configuration
 
 *Backups → server backup → Restore* (needs *Reboot, update and configure

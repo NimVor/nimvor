@@ -130,19 +130,23 @@
         if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
     });
 
-    // Show only the fields that belong to the selected website type.
+    // Show only the fields that belong to the selected type (website kind,
+    // storage type…). data-wcp-kind may list several kinds; inputs in
+    // hidden groups are disabled so they are neither validated nor sent.
     function applyKind(select) {
         var kind = select.value;
-        document.querySelectorAll('[data-wcp-kind]').forEach(function (el) {
-            el.classList.toggle('d-none', el.getAttribute('data-wcp-kind') !== kind);
+        var scope = select.form || document;
+        scope.querySelectorAll('[data-wcp-kind]').forEach(function (el) {
+            var on = el.getAttribute('data-wcp-kind').split(/\s+/).indexOf(kind) >= 0;
+            el.classList.toggle('d-none', !on);
+            el.querySelectorAll('input, select, textarea').forEach(function (i) { i.disabled = !on; });
         });
     }
     document.addEventListener('change', function (e) {
         if (e.target.matches('[data-wcp-toggle-kind]')) { applyKind(e.target); }
     });
     document.addEventListener('DOMContentLoaded', function () {
-        var k = document.querySelector('[data-wcp-toggle-kind]');
-        if (k) { applyKind(k); }
+        document.querySelectorAll('[data-wcp-toggle-kind]').forEach(applyKind);
     });
 
     // Copy-to-clipboard buttons: data-wcp-copy="<selector>".

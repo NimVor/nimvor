@@ -71,6 +71,7 @@ type Manifest struct {
 
 // RemoteRef records where a copy was uploaded.
 type RemoteRef struct {
+	Type     string `json:"type,omitempty"` // empty for S3 (older backups)
 	Endpoint string `json:"endpoint"`
 	Bucket   string `json:"bucket"`
 	Key      string `json:"key"`
@@ -310,15 +311,18 @@ func (s Service) finish(ctx context.Context, m *Manifest, dir string, remote *Re
 	if remote == nil {
 		return nil
 	}
-	c := NewS3(*remote)
+	c := remote.Open(s.Env)
 	prefix := remoteKey(remote, m)
-	fmt.Fprintf(log, "Uploading to %s/%s…\n", remote.Bucket, prefix)
+	fmt.Fprintf(log, "Uploading to %s (%s)…\n", remote.Describe(), prefix)
 	for _, f := range m.Files {
 		if err := c.Put(ctx, prefix+"/"+f.Name, filepath.Join(dir, f.Name)); err != nil {
 			return fmt.Errorf("upload of %s failed: %v", f.Name, err)
 		}
 	}
-	m.Remote = &RemoteRef{Endpoint: remote.Endpoint, Bucket: remote.Bucket, Key: prefix}
+	m.Remote = &RemoteRef{Type: remote.Type, Endpoint: remote.Endpoint, Bucket: remote.Bucket, Key: prefix}
+	if remote.Type != "s3" {
+		m.Remote.Endpoint = remote.Describe()
+	}
 	m.Local = keep
 	if err := writeManifest(dir, m); err != nil {
 		return err
@@ -412,7 +416,7 @@ func (s Service) fetch(ctx context.Context, m *Manifest, dir string, f FileEntry
 		if err != nil {
 			return "", false, err
 		}
-		err = NewS3(*remote).Get(ctx, m.Remote.Key+"/"+f.Name, out)
+		err = remote.Open(s.Env).Get(ctx, m.Remote.Key+"/"+f.Name, out)
 		out.Close()
 		if err != nil {
 			os.Remove(p + ".partial")
@@ -708,7 +712,7 @@ func (s Service) Delete(ctx context.Context, domain, id string, remote *Remote) 
 		} else {
 			key = remote.Key("sites", domain, id)
 		}
-		c := NewS3(*remote)
+		c := remote.Open(s.Env)
 		keys, err := c.List(ctx, key+"/")
 		if err != nil {
 			return fmt.Errorf("remote listing failed: %v", err)
@@ -718,6 +722,7 @@ func (s Service) Delete(ctx context.Context, domain, id string, remote *Remote) 
 				return fmt.Errorf("remote delete failed: %v", err)
 			}
 		}
+		c.RemoveDir(ctx, key+"/")
 	}
 	if dir != "" {
 		return os.RemoveAll(dir)

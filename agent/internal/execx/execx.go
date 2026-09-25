@@ -81,6 +81,8 @@ var defaultCandidates = map[string][]string{
 	"certbot":         {"/usr/bin/certbot", "/snap/bin/certbot"},
 	"git":             {"/usr/bin/git"},
 	"ssh-keygen":      {"/usr/bin/ssh-keygen"},
+	"ssh-keyscan":     {"/usr/bin/ssh-keyscan"},
+	"curl":            {"/usr/bin/curl"},
 	"apt-get":         {"/usr/bin/apt-get"},
 	"dpkg-query":      {"/usr/bin/dpkg-query"},
 	"apt-cache":       {"/usr/bin/apt-cache"},

@@ -51,6 +51,15 @@ final class Response
         return new self('', $status, ['Location' => $location]);
     }
 
+    /** Redirect to an external https:// URL (e.g. an OAuth consent page). */
+    public static function away(string $url): self
+    {
+        if (!preg_match('#^https://[^/\\\\\s]+/#', $url) || preg_match('/[\r\n]/', $url)) {
+            return self::redirect('/');
+        }
+        return new self('', 303, ['Location' => $url]);
+    }
+
     public function status(): int
     {
         return $this->status;

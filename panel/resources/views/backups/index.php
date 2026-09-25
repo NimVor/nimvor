@@ -20,30 +20,68 @@ $canManage = $this->can(\WhaCP\Security\Permissions::BACKUPS_MANAGE);
         <div class="card mb-3">
             <div class="card-header"><i class="bi bi-cloud me-1"></i>Remote storage</div>
             <div class="card-body">
-                <?php if ($storages === []): ?><p class="text-body-secondary small">No remote storage. Add an S3-compatible bucket (AWS S3, Backblaze B2, Wasabi, Cloudflare R2, MinIO, DigitalOcean Spaces…) to keep copies off this server.</p><?php endif; ?>
+                <?php if ($storages === []): ?><p class="text-body-secondary small">No remote storage. Add an S3-compatible bucket (AWS S3, Backblaze B2, Wasabi, Cloudflare R2, MinIO…), an SFTP or FTPS server, Google Drive or a mounted disk to keep copies off this server.</p><?php endif; ?>
                 <?php foreach ($storages as $s): ?>
                     <div class="d-flex align-items-center border-bottom py-2 small">
-                        <div><strong><?= e($s['name']) ?></strong><div class="text-body-secondary"><?= e($s['endpoint']) ?> · <?= e($s['bucket']) ?><?= $s['prefix'] !== '' ? '/' . e($s['prefix']) : '' ?></div></div>
-                        <?php if ($canManage): ?><form class="ms-auto" method="post" action="<?= e($this->url('backups.storages.delete', ['storage' => (int) $s['id']])) ?>" data-wcp-confirm="Remove the storage <?= e($s['name']) ?>? Backups already uploaded stay in the bucket."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form><?php endif; ?>
+                        <div><strong><?= e($s['name']) ?></strong> <span class="badge text-bg-light border"><?= e(\WhaCP\Services\BackupService::STORAGE_TYPES[$s['kind']] ?? $s['kind']) ?></span><div class="text-body-secondary"><?= e($s['where']) ?><?= $s['prefix'] !== '' ? ' · ' . e($s['prefix']) . '/' : '' ?></div></div>
+                        <?php if ($canManage): ?><form class="ms-auto" method="post" action="<?= e($this->url('backups.storages.delete', ['storage' => (int) $s['id']])) ?>" data-wcp-confirm="Remove the storage <?= e($s['name']) ?>? Backups already uploaded stay there."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form><?php endif; ?>
                     </div>
                 <?php endforeach; ?>
                 <?php if ($canManage): ?>
-                    <details class="mt-3"<?= isset($errors['endpoint']) || isset($errors['bucket']) || isset($errors['access_key']) ? ' open' : '' ?>>
+                    <?php $kind = (string) ($old['type'] ?? 's3'); $f = fn (string $n, string $l, array $x = []): string => $this->partial('partials/field', $x + ['name' => $n, 'label' => $l, 'value' => (string) ($old[$n] ?? ($x['default'] ?? ''))]); ?>
+                    <details class="mt-3"<?= isset($old['type']) ? ' open' : '' ?>>
                         <summary class="btn btn-sm btn-outline-primary">Add storage</summary>
                         <form class="mt-3" method="post" action="<?= e($this->url('backups.storages.store')) ?>" data-wcp-busy>
                             <?= $this->csrfField() ?>
                             <div class="row g-2">
-                                <div class="col-md-6"><?= $this->partial('partials/field', ['name' => 'name', 'label' => 'Name', 'value' => (string) ($old['name'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'Offsite']]) ?></div>
-                                <div class="col-md-6"><?= $this->partial('partials/field', ['name' => 'endpoint', 'label' => 'Endpoint', 'value' => (string) ($old['endpoint'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'https://s3.eu-central-1.amazonaws.com']]) ?></div>
-                                <div class="col-md-4"><?= $this->partial('partials/field', ['name' => 'bucket', 'label' => 'Bucket', 'value' => (string) ($old['bucket'] ?? ''), 'attrs' => ['required' => 'required']]) ?></div>
-                                <div class="col-md-4"><?= $this->partial('partials/field', ['name' => 'region', 'label' => 'Region', 'value' => (string) ($old['region'] ?? 'us-east-1')]) ?></div>
-                                <div class="col-md-4"><?= $this->partial('partials/field', ['name' => 'prefix', 'label' => 'Folder (optional)', 'value' => (string) ($old['prefix'] ?? ''), 'attrs' => ['placeholder' => 'whacp/web1']]) ?></div>
-                                <div class="col-md-6"><?= $this->partial('partials/field', ['name' => 'access_key', 'label' => 'Access key', 'value' => '', 'attrs' => ['required' => 'required', 'autocomplete' => 'off']]) ?></div>
-                                <div class="col-md-6"><?= $this->partial('partials/field', ['name' => 'secret_key', 'label' => 'Secret key', 'type' => 'password', 'value' => '', 'attrs' => ['required' => 'required', 'autocomplete' => 'new-password']]) ?></div>
+                                <div class="col-md-6"><?= $f('name', 'Name', ['attrs' => ['required' => 'required', 'placeholder' => 'Offsite']]) ?></div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label" for="st-type">Type</label>
+                                    <select class="form-select" id="st-type" name="type" data-wcp-toggle-kind>
+                                        <?php foreach (\WhaCP\Services\BackupService::STORAGE_TYPES as $k => $label): ?><option value="<?= e($k) ?>"<?= $k === $kind ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="path_style" value="1" id="st-path"><label class="form-check-label" for="st-path">Path-style URLs (MinIO and some other providers)</label></div>
+                            <div class="row g-2" data-wcp-kind="s3">
+                                <div class="col-md-6"><?= $f('endpoint', 'Endpoint', ['attrs' => ['required' => 'required', 'placeholder' => 'https://s3.eu-central-1.amazonaws.com']]) ?></div>
+                                <div class="col-md-3"><?= $f('bucket', 'Bucket', ['attrs' => ['required' => 'required']]) ?></div>
+                                <div class="col-md-3"><?= $f('region', 'Region', ['default' => 'us-east-1']) ?></div>
+                                <div class="col-md-6"><?= $f('access_key', 'Access key', ['value' => '', 'attrs' => ['required' => 'required', 'autocomplete' => 'off']]) ?></div>
+                                <div class="col-md-6"><?= $f('secret_key', 'Secret key', ['type' => 'password', 'value' => '', 'attrs' => ['required' => 'required', 'autocomplete' => 'new-password']]) ?></div>
+                                <div class="col-12"><div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="path_style" value="1" id="st-path"><label class="form-check-label" for="st-path">Path-style URLs (MinIO and some other providers)</label></div></div>
+                            </div>
+                            <div class="row g-2" data-wcp-kind="sftp ftp">
+                                <div class="col-md-6"><?= $f('host', 'Host', ['attrs' => ['required' => 'required', 'placeholder' => 'backup.example.com']]) ?></div>
+                                <div class="col-md-2"><?= $f('port', 'Port', ['type' => 'number', 'attrs' => ['min' => '1', 'max' => '65535', 'placeholder' => 'default']]) ?></div>
+                                <div class="col-md-4"><?= $f('username', 'User name', ['attrs' => ['required' => 'required', 'autocomplete' => 'off']]) ?></div>
+                                <div class="col-md-6"><?= $f('password', 'Password', ['type' => 'password', 'value' => '', 'help' => 'For SFTP you can use a private key instead.', 'attrs' => ['autocomplete' => 'new-password']]) ?></div>
+                                <div class="col-md-6 mb-3" data-wcp-kind="ftp">
+                                    <label class="form-label" for="st-tls">Encryption</label>
+                                    <select class="form-select" id="st-tls" name="tls">
+                                        <option value="explicit">Explicit TLS (FTPS, port 21) — recommended</option>
+                                        <option value="implicit"<?= ($old['tls'] ?? '') === 'implicit' ? ' selected' : '' ?>>Implicit TLS (port 990)</option>
+                                        <option value="none"<?= ($old['tls'] ?? '') === 'none' ? ' selected' : '' ?>>None — plain FTP, password sent unencrypted</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3" data-wcp-kind="sftp">
+                                    <label class="form-label" for="st-key">Private key (optional)</label>
+                                    <textarea class="form-control font-monospace small<?= isset($errors['private_key']) ? ' is-invalid' : '' ?>" id="st-key" name="private_key" rows="3" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" autocomplete="off" spellcheck="false"></textarea>
+                                    <div class="form-text">An unencrypted key; its public key must be in the server's authorized_keys.</div>
+                                </div>
+                            </div>
+                            <div class="row g-2" data-wcp-kind="gdrive">
+                                <div class="col-md-6"><?= $f('client_id', 'OAuth client ID', ['attrs' => ['required' => 'required', 'autocomplete' => 'off']]) ?></div>
+                                <div class="col-md-6"><?= $f('client_secret', 'OAuth client secret', ['type' => 'password', 'value' => '', 'attrs' => ['required' => 'required', 'autocomplete' => 'new-password']]) ?></div>
+                                <div class="col-12 form-text mb-3">Create an OAuth client of type <em>Web application</em> in your Google Cloud project with the Drive API enabled, and add <code><?= e(rtrim((string) ($panelUrl ?? ''), '/') ?: 'https://your-panel') ?>/backups/storages/google/callback</code> as an authorised redirect URI. WhaCP only asks for access to the files it creates.</div>
+                            </div>
+                            <div class="row g-2" data-wcp-kind="local">
+                                <div class="col-md-8"><?= $f('path', 'Folder', ['attrs' => ['required' => 'required', 'placeholder' => '/mnt/backup-disk/whacp'], 'help' => 'An existing folder under /mnt, /media, /backup(s) or /srv/backup(s), owned by root. Use a separate disk or a mounted NAS share.']) ?></div>
+                            </div>
+                            <div class="row g-2" data-wcp-kind="s3 sftp ftp local gdrive">
+                                <div class="col-md-6"><?= $f('prefix', 'Sub-folder (optional)', ['attrs' => ['placeholder' => 'whacp/web1']]) ?></div>
+                            </div>
                             <button class="btn btn-sm btn-primary">Test and save</button>
-                            <div class="form-text">The keys are stored encrypted in the panel and sent to the agent only for each backup. Use keys limited to this bucket.</div>
+                            <div class="form-text">Credentials are stored encrypted in the panel and sent to the agent only for each backup. Use credentials limited to backups. For SFTP and FTPS you confirm the server's key before it is saved; Google Drive opens Google's consent page.</div>
                         </form>
                     </details>
                 <?php endif; ?>

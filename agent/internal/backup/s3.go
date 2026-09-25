@@ -20,17 +20,43 @@ import (
 	"time"
 )
 
-// Remote is an S3-compatible bucket (AWS S3, MinIO, Backblaze B2,
-// Wasabi, Cloudflare R2, DigitalOcean Spaces…). Credentials are passed by
-// the panel with each call and are never stored by the agent.
+// Remote is where backups are copied: an S3-compatible bucket (AWS S3,
+// MinIO, Backblaze B2, Wasabi, Cloudflare R2, DigitalOcean Spaces…), an
+// SFTP or FTP(S) server, Google Drive, or a local directory (a mounted
+// disk or NAS). Credentials are passed by the panel with each call and
+// are never stored by the agent.
 type Remote struct {
+	Type string `json:"type"` // s3 (default), sftp, ftp, gdrive, local
+
+	// S3
 	Endpoint  string `json:"endpoint"` // https://s3.eu-west-1.amazonaws.com
 	Region    string `json:"region"`
 	Bucket    string `json:"bucket"`
-	Prefix    string `json:"prefix"`
 	AccessKey string `json:"access_key"`
 	SecretKey string `json:"secret_key"`
 	PathStyle bool   `json:"path_style"`
+
+	// Common: a folder inside the storage.
+	Prefix string `json:"prefix"`
+
+	// SFTP / FTP
+	Host       string `json:"host"`
+	Port       int    `json:"port"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	PrivateKey string `json:"private_key"` // SFTP, OpenSSH PEM
+	HostKey    string `json:"host_key"`    // SFTP, pinned "ssh-ed25519 AAAA…" key
+	TLS        string `json:"tls"`         // FTP: explicit (default), implicit, none
+	TLSPin     string `json:"tls_pin"`     // FTP: pinned certificate key "sha256//…" (self-signed servers)
+
+	// Google Drive (OAuth refresh token for the drive.file scope)
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RefreshToken string `json:"refresh_token"`
+	FolderID     string `json:"folder_id"`
+
+	// Local directory
+	Path string `json:"path"`
 }
 
 var (
@@ -41,6 +67,25 @@ var (
 
 // Validate checks the remote definition.
 func (r *Remote) Validate() error {
+	r.Prefix = strings.Trim(r.Prefix, "/")
+	if !prefixRe.MatchString(r.Prefix) || strings.Contains(r.Prefix, "..") {
+		return fmt.Errorf("prefix/folder may contain letters, digits and . _ / -")
+	}
+	switch r.Type {
+	case "", "s3":
+		r.Type = "s3"
+		return r.validateS3()
+	case "sftp", "ftp":
+		return r.validateFile()
+	case "gdrive":
+		return r.validateDrive()
+	case "local":
+		return r.validateLocal()
+	}
+	return fmt.Errorf("type must be s3, sftp, ftp, gdrive or local")
+}
+
+func (r *Remote) validateS3() error {
 	u, err := url.Parse(r.Endpoint)
 	if err != nil || u.Host == "" || u.Path != "" && u.Path != "/" || u.RawQuery != "" || u.User != nil {
 		return fmt.Errorf("endpoint must be a URL like https://s3.example.com")
@@ -58,10 +103,6 @@ func (r *Remote) Validate() error {
 	}
 	if !bucketRe.MatchString(r.Bucket) {
 		return fmt.Errorf("bucket name is invalid")
-	}
-	r.Prefix = strings.Trim(r.Prefix, "/")
-	if !prefixRe.MatchString(r.Prefix) || strings.Contains(r.Prefix, "..") {
-		return fmt.Errorf("prefix may contain letters, digits and . _ / -")
 	}
 	if r.AccessKey == "" || r.SecretKey == "" || strings.ContainsAny(r.AccessKey+r.SecretKey, "\n\r ") {
 		return fmt.Errorf("access key and secret key are required")
@@ -379,3 +420,6 @@ func (s *S3) List(ctx context.Context, prefix string) ([]string, error) {
 		token = out.Next
 	}
 }
+
+// RemoveDir is a no-op: S3 has no folders.
+func (s *S3) RemoveDir(ctx context.Context, prefix string) error { return nil }

@@ -109,6 +109,109 @@ final class BackupsTest extends HttpTestCase
         self::assertSame(0, $this->calls('backup.server'));
     }
 
+    public function testSftpStorageAsksToTrustTheHostKey(): void
+    {
+        $key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl';
+        $this->agent->succeed('backup.remote_test', ['ok' => true, 'host_key' => $key, 'fingerprint' => 'SHA256:abcdefFINGERPRINT']);
+        $res = $this->post('/backups/storages', ['name' => 'Box', 'type' => 'sftp', 'host' => 'backup.example.com', 'username' => 'u1', 'password' => 'sftp-secret-pass', 'prefix' => 'web1']);
+        self::assertSame('/backups/storages/confirm', $res->header('Location'));
+        $remote = $this->lastCall('backup.remote_test')['remote'];
+        self::assertSame(['sftp', 'backup.example.com', 'u1', 'sftp-secret-pass', 'web1'], [$remote['type'], $remote['host'], $remote['username'], $remote['password'], $remote['prefix']]);
+        self::assertArrayNotHasKey('host_key', $remote);
+        self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM backup_storages'));
+        // The pending credentials are sealed in the session.
+        self::assertStringNotContainsString('sftp-secret-pass', (string) json_encode($this->session->get('backup_storage_pending')));
+
+        $page = $this->request('GET', '/backups/storages/confirm')->body();
+        self::assertStringContainsString('SHA256:abcdefFINGERPRINT', $page);
+        self::assertStringContainsString('ssh_host_ed25519_key.pub', $page);
+
+        $this->post('/backups/storages/confirm', ['trust' => '1']);
+        self::assertSame($key, $this->lastCall('backup.remote_test')['remote']['host_key'], 'tested again with the key pinned');
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM backup_storages WHERE kind = 'sftp'"));
+        self::assertStringContainsString('sftp://u1@backup.example.com', $this->request('GET', '/backups')->body());
+        $this->post('/sites/' . $this->siteId . '/backups', ['files' => '1', 'storage_id' => (string) $this->db->scalar('SELECT id FROM backup_storages')]);
+        self::assertSame($key, $this->lastCall('backup.create')['remote']['host_key']);
+        // The confirmation cannot be replayed.
+        $this->post('/backups/storages/confirm', ['trust' => '1']);
+        self::assertSame(1, (int) $this->db->scalar('SELECT COUNT(*) FROM backup_storages'));
+    }
+
+    public function testCancelledTrustSavesNothing(): void
+    {
+        $this->agent->succeed('backup.remote_test', ['ok' => true, 'tls_pin' => 'sha256//' . str_repeat('A', 43) . '=', 'tls_subject' => 'CN=ftp.example.com']);
+        $this->post('/backups/storages', ['name' => 'Ftp', 'type' => 'ftp', 'host' => 'ftp.example.com', 'username' => 'u1', 'password' => 'pw']);
+        self::assertSame('explicit', $this->lastCall('backup.remote_test')['remote']['tls']);
+        self::assertStringContainsString('CN=ftp.example.com', $this->request('GET', '/backups/storages/confirm')->body());
+        $this->post('/backups/storages/confirm', ['cancel' => '1']);
+        self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM backup_storages'));
+        self::assertNull($this->session->get('backup_storage_pending'));
+    }
+
+    public function testStorageValidationPerType(): void
+    {
+        $this->agent->succeed('backup.remote_test', ['ok' => true]);
+        $this->post('/backups/storages', ['name' => 'Disk', 'type' => 'local', 'path' => '/etc/whacp']);
+        self::assertArrayHasKey('path', (array) $this->flash('errors'));
+        $this->post('/backups/storages', ['name' => 'Box', 'type' => 'sftp', 'host' => 'bad host', 'username' => 'u', 'private_key' => 'secret-key-material']);
+        self::assertArrayHasKey('host', (array) $this->flash('errors'));
+        self::assertArrayNotHasKey('private_key', (array) $this->flash('old'), 'secrets are not flashed back');
+        $this->post('/backups/storages', ['name' => 'Box', 'type' => 'ftp', 'host' => 'ftp.example.com', 'username' => 'u']);
+        self::assertArrayHasKey('password', (array) $this->flash('errors'));
+        self::assertSame(0, $this->calls('backup.remote_test'));
+
+        // A local folder with no trust step is saved straight away.
+        $this->post('/backups/storages', ['name' => 'Disk', 'type' => 'local', 'path' => '/mnt/backup/whacp/']);
+        self::assertSame('/mnt/backup/whacp', $this->lastCall('backup.remote_test')['remote']['path']);
+        self::assertSame('local', $this->db->scalar('SELECT kind FROM backup_storages'));
+    }
+
+    public function testGoogleDriveOAuth(): void
+    {
+        $oauth = new class () extends \WhaCP\Services\OAuthClient {
+            /** @var list<array<string, string>> */
+            public array $forms = [];
+            public function token(array $form): array
+            {
+                $this->forms[] = $form;
+                return ['access_token' => 'at', 'refresh_token' => 'refresh-token-value'];
+            }
+        };
+        $this->app->container->instance(\WhaCP\Services\OAuthClient::class, $oauth);
+        $input = ['name' => 'Drive', 'type' => 'gdrive', 'client_id' => 'cid.apps.googleusercontent.com', 'client_secret' => 'client-secret-value'];
+
+        // Google only redirects to https.
+        $this->post('/backups/storages', $input);
+        self::assertStringContainsString('HTTPS', (string) $this->flash('error'));
+
+        $this->app->container->get(\WhaCP\Services\SettingsService::class)->update(['panel_url' => 'https://panel.example.com'], null);
+        $res = $this->post('/backups/storages', $input);
+        $loc = (string) $res->header('Location');
+        self::assertStringStartsWith('https://accounts.google.com/o/oauth2/v2/auth?', $loc);
+        parse_str((string) parse_url($loc, PHP_URL_QUERY), $q);
+        self::assertSame(['cid.apps.googleusercontent.com', 'https://panel.example.com/backups/storages/google/callback', 'offline', 'https://www.googleapis.com/auth/drive.file'], [$q['client_id'], $q['redirect_uri'], $q['access_type'], $q['scope']]);
+        self::assertStringNotContainsString('client-secret-value', $loc);
+
+        // A forged callback (wrong state) is refused and ends the attempt.
+        $this->request('GET', '/backups/storages/google/callback', query: ['state' => 'forged', 'code' => 'c']);
+        self::assertStringContainsString('state', (string) $this->flash('error'));
+        self::assertSame([], $oauth->forms);
+
+        $res = $this->post('/backups/storages', $input);
+        parse_str((string) parse_url((string) $res->header('Location'), PHP_URL_QUERY), $q);
+        $this->agent->succeed('backup.remote_test', ['ok' => true, 'folder_id' => 'folder123']);
+        $this->request('GET', '/backups/storages/google/callback', query: ['state' => $q['state'], 'code' => 'auth-code']);
+        self::assertSame('auth-code', $oauth->forms[0]['code']);
+        self::assertSame('client-secret-value', $oauth->forms[0]['client_secret']);
+        self::assertSame('refresh-token-value', $this->lastCall('backup.remote_test')['remote']['refresh_token']);
+        self::assertSame('gdrive', $this->db->scalar('SELECT kind FROM backup_storages'));
+        $id = (int) $this->db->scalar('SELECT id FROM backup_storages');
+        $this->post('/sites/' . $this->siteId . '/backups', ['files' => '1', 'storage_id' => (string) $id]);
+        $remote = $this->lastCall('backup.create')['remote'];
+        self::assertSame(['folder123', 'refresh-token-value'], [$remote['folder_id'], $remote['refresh_token']]);
+        self::assertStringNotContainsString('refresh-token-value', (string) json_encode($this->db->fetchAll('SELECT * FROM backup_storages')));
+    }
+
     public function testServerRestore(): void
     {
         $this->db->run("INSERT INTO backups (server_id, kind, backup_id, status, local, created_at) VALUES (1, 'server', '20260901T120000Z-abcdef', 'completed', 1, '2026-09-01')");

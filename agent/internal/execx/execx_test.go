@@ -9,7 +9,7 @@ import (
 
 func TestSystemRunnerRejectsUnknownCommands(t *testing.T) {
 	r := NewSystemRunner(time.Second)
-	for _, id := range []string{"sh", "bash", "/bin/sh", "rm", "curl"} {
+	for _, id := range []string{"sh", "bash", "/bin/sh", "rm", "wget", "nc"} {
 		if _, err := r.Run(context.Background(), id, "-c", "id"); !errors.Is(err, ErrNotAllowed) {
 			t.Errorf("Run(%q) err = %v, want ErrNotAllowed", id, err)
 		}
