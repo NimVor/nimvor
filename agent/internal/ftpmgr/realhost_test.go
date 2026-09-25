@@ -35,7 +35,13 @@ func realEnv(t *testing.T) (*host.Env, *actions.Registry) {
 	os.MkdirAll(rtSites, 0o755)
 	os.Chmod(rtSites, 0o755)
 	home := filepath.Join(rtSites, "rt-ftp.test")
-	exec.Command("userdel", "rtftp").Run()
+	removeUser := func() {
+		// A finished SFTP session may still be closing.
+		exec.Command("pkill", "-KILL", "-u", "rtftp").Run()
+		time.Sleep(200 * time.Millisecond)
+		exec.Command("userdel", "-f", "rtftp").Run()
+	}
+	removeUser()
 	if out, err := exec.Command("useradd", "--home-dir", home, "--no-create-home", "--shell", "/usr/sbin/nologin", "--user-group", "--uid", "2890", "rtftp").CombinedOutput(); err != nil {
 		t.Fatalf("useradd: %s", out)
 	}
@@ -43,7 +49,7 @@ func realEnv(t *testing.T) (*host.Env, *actions.Registry) {
 	exec.Command("chown", "-R", "rtftp:rtftp", home).Run()
 	os.Chmod(home, 0o710)
 	t.Cleanup(func() {
-		exec.Command("userdel", "rtftp").Run()
+		removeUser()
 		os.RemoveAll(rtSites)
 	})
 	root := filesystem.Host()
