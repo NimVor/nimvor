@@ -22,6 +22,23 @@ $sys = $info['system'] ?? [];
     <?= $this->partial('partials/agent_error', ['error' => $agentError]) ?>
 <?php endif; ?>
 
+<?php if (!empty($failures)): ?>
+    <div class="card border-danger mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-x-octagon text-danger me-1"></i>Unread failures</span>
+            <a class="small" href="<?= e($this->url('notifications', [], ['severity' => 'error'])) ?>">All notifications</a>
+        </div>
+        <ul class="list-group list-group-flush">
+            <?php foreach ($failures as $f): ?>
+                <li class="list-group-item d-flex justify-content-between gap-2">
+                    <span class="wcp-wrap"><?= e($f['title']) ?><?php if ($f['domain'] !== null): ?> <span class="text-body-secondary small">· <?= e($f['domain']) ?></span><?php endif; ?></span>
+                    <span class="small text-body-secondary text-nowrap"><?= e(gmdate('M j H:i', (int) strtotime((string) $f['created_at']))) ?> UTC</span>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+<?php endif; ?>
+
 <div id="wcp-dashboard" data-live-url="<?= e($this->url('dashboard.live')) ?>" data-refresh="<?= (int) $refreshSeconds ?>">
     <div class="row g-3 mb-3">
         <?php foreach ([

@@ -239,4 +239,25 @@
         var auto = document.querySelector('[data-wcp-autojob]');
         if (auto) { WhaCP.showJob(auto.getAttribute('data-wcp-autojob')); }
     });
+
+    // Notification bell: refresh the unread count every minute while the
+    // tab is visible. The request does not count as activity, so an idle
+    // session still times out.
+    document.addEventListener('DOMContentLoaded', function () {
+        var bell = document.querySelector('[data-wcp-bell]');
+        if (!bell) { return; }
+        var badge = bell.querySelector('[data-wcp-bell-count]');
+        var url = bell.getAttribute('data-wcp-bell-url');
+        function refresh() {
+            if (document.hidden) { return; }
+            WhaCP.fetchJson(url).then(function (res) {
+                var n = res.unread || 0;
+                badge.textContent = n > 99 ? '99+' : String(n);
+                badge.classList.toggle('d-none', n === 0);
+                bell.setAttribute('aria-label', n > 0 ? 'Notifications (' + n + ' unread)' : 'Notifications');
+            }).catch(function () { /* keep the last count */ });
+        }
+        setInterval(refresh, 60000);
+        document.addEventListener('visibilitychange', refresh);
+    });
 })();

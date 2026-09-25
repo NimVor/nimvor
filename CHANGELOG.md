@@ -6,6 +6,29 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Notifications:** a bell in the top bar, a notifications page and a
+  dashboard card with the results of background jobs and monitoring
+  alerts.
+  - Failures of any job are reported, whoever started it and even if nobody
+    watched it (the scheduler follows unfinished jobs); long jobs are also
+    reported when they finish; refused deploy webhooks and jobs that could
+    not start are reported.
+  - Customers and resellers see their own websites' results and alerts
+    (certificates, backups, quotas); server matters stay with
+    administrators.
+  - Per-user read state, filters, and an opt-in "email me about failures"
+    through the panel's email settings.
+  - `GET /api/v1/notifications` and `POST /api/v1/notifications/read`.
+  - Kept 90 days; the count refreshes without keeping an idle session
+    alive.
+
+### Changed
+- Website owners (and their resellers) can open the log of any job run on
+  their website, not only the ones they started.
+- Webhook deployments and scheduled backups are tracked like jobs started
+  in the panel.
+
 ## [1.0.0-rc1] — 2026-09-25
 
 First release candidate. It contains the work developed as 0.5.0 (never

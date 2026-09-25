@@ -32,6 +32,7 @@ use WhaCP\Http\Controllers\SslController;
 use WhaCP\Http\Controllers\JobsController;
 use WhaCP\Http\Controllers\LogsController;
 use WhaCP\Http\Controllers\MonitoringController;
+use WhaCP\Http\Controllers\NotificationsController;
 use WhaCP\Http\Controllers\PhpController;
 use WhaCP\Http\Controllers\PlansController;
 use WhaCP\Http\Controllers\PluginsController;
@@ -132,6 +133,10 @@ return static function (Router $r): void {
     $r->get('/logs/tail', [LogsController::class, 'tail'], ['name' => 'logs.tail', 'permission' => P::LOGS_VIEW]);
     $r->get('/logs/download', [LogsController::class, 'download'], ['name' => 'logs.download', 'permission' => P::LOGS_VIEW]);
     $r->get('/jobs/{id}', [JobsController::class, 'show'], ['name' => 'jobs.show']);
+    $r->get('/notifications', [NotificationsController::class, 'index'], ['name' => 'notifications', 'permission' => P::NOTIFICATIONS_VIEW]);
+    $r->get('/notifications/summary', [NotificationsController::class, 'summary'], ['name' => 'notifications.summary', 'permission' => P::NOTIFICATIONS_VIEW]);
+    $r->post('/notifications/read', [NotificationsController::class, 'read'], ['name' => 'notifications.read', 'permission' => P::NOTIFICATIONS_VIEW]);
+    $r->post('/notifications/email', [NotificationsController::class, 'email'], ['name' => 'notifications.email', 'permission' => P::NOTIFICATIONS_VIEW]);
     $r->get('/websites/{id}/import', [ImportController::class, 'preview'], ['name' => 'websites.import', 'permission' => P::IMPORT_RUN]);
     $r->post('/websites/{id}/import', [ImportController::class, 'run'], ['name' => 'websites.import.run', 'permission' => P::IMPORT_RUN]);
     $r->post('/sites/{id}/import/undo', [SitesController::class, 'undoImport'], ['name' => 'sites.import.undo', 'permission' => P::IMPORT_RUN]);
@@ -288,6 +293,8 @@ return static function (Router $r): void {
     $r->get('/api/v1/databases', [ApiController::class, 'listDatabases'], ['name' => 'api.databases', 'permission' => P::DATABASES_VIEW]);
     $r->post('/api/v1/databases', [ApiController::class, 'createDatabase'], ['name' => 'api.databases.create', 'permission' => P::DATABASES_MANAGE]);
     $r->get('/api/v1/jobs/{id}', [ApiController::class, 'job'], ['name' => 'api.jobs']);
+    $r->get('/api/v1/notifications', [ApiController::class, 'listNotifications'], ['name' => 'api.notifications', 'permission' => P::NOTIFICATIONS_VIEW]);
+    $r->post('/api/v1/notifications/read', [ApiController::class, 'readNotifications'], ['name' => 'api.notifications.read', 'permission' => P::NOTIFICATIONS_VIEW]);
 
     // Own account (any signed-in user)
     $r->get('/profile', [ProfileController::class, 'show'], ['name' => 'profile']);

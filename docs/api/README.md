@@ -52,6 +52,7 @@ GET    /api/v1/websites/{id}/backups   POST /api/v1/websites/{id}/backups
 POST   /api/v1/websites/{id}/deploy
 GET    /api/v1/databases               POST /api/v1/databases
 GET    /api/v1/jobs/{id}
+GET    /api/v1/notifications           POST /api/v1/notifications/read
 ```
 
 The session-authenticated JSON endpoints used by the UI (for example

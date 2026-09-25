@@ -23,6 +23,7 @@ final class Permissions
     public const SERVICES_MANAGE = 'services.manage';
     public const SYSTEM_USERS_VIEW = 'system_users.view';
     public const MONITORING_VIEW = 'monitoring.view';
+    public const NOTIFICATIONS_VIEW = 'notifications.view';
     public const PACKAGES_MANAGE = 'packages.manage';
     public const SERVERS_MANAGE = 'servers.manage';
 
@@ -69,6 +70,7 @@ final class Permissions
         return [
             self::DASHBOARD_VIEW => ['label' => 'View dashboard', 'group' => 'Overview'],
             self::MONITORING_VIEW => ['label' => 'View monitoring', 'group' => 'Overview'],
+            self::NOTIFICATIONS_VIEW => ['label' => 'See notifications (job results and alerts, within the role\'s scope)', 'group' => 'Overview'],
 
             self::WEBSITES_VIEW => ['label' => 'View websites', 'group' => 'Hosting'],
             self::WEBSITES_MANAGE => ['label' => 'Create, change and delete websites', 'group' => 'Hosting'],
@@ -118,7 +120,7 @@ final class Permissions
 
     /** Permissions a hosting customer may hold for their own websites. */
     private const HOSTING_SELF = [
-        self::DASHBOARD_VIEW, self::WEBSITES_VIEW, self::WEBSITES_MANAGE, self::PHP_VIEW,
+        self::DASHBOARD_VIEW, self::NOTIFICATIONS_VIEW, self::WEBSITES_VIEW, self::WEBSITES_MANAGE, self::PHP_VIEW,
         self::DATABASES_VIEW, self::DATABASES_MANAGE, self::SSL_VIEW, self::SSL_MANAGE,
         self::FILES_MANAGE, self::LOGS_VIEW, self::CRON_VIEW, self::CRON_MANAGE, self::WORKERS_MANAGE,
         self::DEPLOY_MANAGE, self::BACKUPS_VIEW, self::BACKUPS_MANAGE, self::APPS_INSTALL, self::API_TOKENS, self::FTP_MANAGE, self::DNS_MANAGE, self::MAIL_MANAGE,
@@ -152,7 +154,7 @@ final class Permissions
                 'description' => 'Read-only access to the dashboard and hosting inventory.',
                 'scope' => 'all',
                 'permissions' => [
-                    self::DASHBOARD_VIEW, self::MONITORING_VIEW, self::SERVER_VIEW, self::SERVICES_VIEW,
+                    self::DASHBOARD_VIEW, self::NOTIFICATIONS_VIEW, self::MONITORING_VIEW, self::SERVER_VIEW, self::SERVICES_VIEW,
                     self::WEBSITES_VIEW, self::PHP_VIEW, self::DATABASES_VIEW, self::SSL_VIEW, self::CRON_VIEW, self::BACKUPS_VIEW,
                 ],
             ],

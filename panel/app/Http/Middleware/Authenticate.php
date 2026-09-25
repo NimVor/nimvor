@@ -28,11 +28,20 @@ final class Authenticate implements Middleware
         private readonly \WhaCP\Security\TwoFactor $twoFactor,
         private readonly \WhaCP\Security\WebAuthn $webAuthn,
         private readonly \WhaCP\Http\Session\SessionInterface $session,
+        private readonly \WhaCP\Services\NotificationService $notifications,
     ) {
     }
 
+    /** Automatic requests that must not keep an idle session alive. */
+    private const PASSIVE_ROUTES = ['notifications.summary'];
+
     public function process(Request $request, callable $next): Response
     {
+        /** @var Route|null $current */
+        $current = $request->attribute('route');
+        if ($current !== null && in_array($current->name, self::PASSIVE_ROUTES, true)) {
+            $this->auth->passive();
+        }
         $user = $this->auth->user();
         $this->view->share('user', $user);
         $this->view->setPermissionChecker(fn (string $p): bool => $this->authorizer->can($user, $p));
@@ -40,6 +49,8 @@ final class Authenticate implements Middleware
             $this->audit->setActor((int) $user['id'], (string) $user['username']);
             if (!$request->wantsJson()) {
                 $this->view->share('agent_status', fn () => $this->agentStatus->get());
+                $this->view->share('notification_count', fn (): ?int => $this->authorizer->can($user, \WhaCP\Security\Permissions::NOTIFICATIONS_VIEW)
+                    ? $this->notifications->unreadCount($user) : null);
                 $this->view->share('server_switcher', fn (): array => [
                     'current' => $this->serverContext->id(),
                     'servers' => $this->servers->visibleTo($user),

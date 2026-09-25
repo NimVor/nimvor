@@ -255,6 +255,19 @@ final class AuthService
         $this->user = null;
     }
 
+    /** Whether this request counts as activity (see passive()). */
+    private bool $passive = false;
+
+    /**
+     * This request is automatic (e.g. the notification count refreshing in
+     * an open tab): it does not count as activity, so the idle timeout still
+     * signs out an unattended browser. Call before user().
+     */
+    public function passive(): void
+    {
+        $this->passive = true;
+    }
+
     /**
      * The authenticated user, or null. Enforces idle and absolute timeouts
      * and password-change invalidation.
@@ -285,7 +298,9 @@ final class AuthService
             $this->session->invalidate();
             return null;
         }
-        $this->session->set(self::ACTIVITY_KEY, $now);
+        if (!$this->passive) {
+            $this->session->set(self::ACTIVITY_KEY, $now);
+        }
         return $this->user = $user;
     }
 

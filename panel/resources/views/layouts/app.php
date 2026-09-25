@@ -41,6 +41,13 @@ $pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('ti
                         </select>
                     </form>
                 <?php endif; ?>
+                <?php $unreadCount = isset($notification_count) && is_callable($notification_count) ? $notification_count() : null; ?>
+                <?php if ($unreadCount !== null): ?>
+                    <a class="btn btn-sm btn-outline-secondary position-relative" href="<?= e($this->url('notifications')) ?>" data-wcp-bell data-wcp-bell-url="<?= e($this->url('notifications.summary')) ?>" aria-label="Notifications<?= $unreadCount > 0 ? ' (' . (int) $unreadCount . ' unread)' : '' ?>">
+                        <i class="bi bi-bell"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger<?= $unreadCount > 0 ? '' : ' d-none' ?>" data-wcp-bell-count><?= $unreadCount > 99 ? '99+' : (int) $unreadCount ?></span>
+                    </a>
+                <?php endif; ?>
                 <button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-theme-toggle aria-label="Toggle dark mode">
                     <i class="bi bi-circle-half"></i>
                 </button>

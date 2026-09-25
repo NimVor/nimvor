@@ -199,6 +199,27 @@ paths:
       responses:
         "201": { description: Created }
         "422": { $ref: "#/components/responses/Error" }
+  /notifications:
+    get:
+      summary: Notifications (job results, alerts) the token's user may see, newest first
+      parameters:
+        - { name: unread, in: query, schema: { type: string, enum: ["1"] }, description: Only unread ones }
+        - { name: limit, in: query, schema: { type: integer, default: 50, maximum: 200 } }
+      responses:
+        "200": { description: OK }
+  /notifications/read:
+    post:
+      summary: Mark notifications read (read/write token)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids: { type: array, items: { type: integer } }
+                all: { type: boolean }
+      responses:
+        "200": { description: OK }
   /jobs/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string } }

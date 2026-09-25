@@ -40,7 +40,30 @@ final class ApiController
         private readonly JobTracker $jobs,
         private readonly AgentClient $agent,
         private readonly ServerContext $server,
+        private readonly \WhaCP\Services\NotificationService $notifications,
     ) {
+    }
+
+    /** Notifications the token's user may see, newest first. */
+    public function listNotifications(Request $r): Response
+    {
+        $filter = $r->query('unread') === '1' ? ['unread' => true] : [];
+        $limit = max(1, min(200, (int) $r->query('limit', 50)));
+        $rows = $this->notifications->list($this->user($r), $filter, $limit);
+        return self::ok(array_map(static fn (array $n): array => [
+            'id' => (int) $n['id'], 'server_id' => (int) $n['server_id'], 'website_id' => $n['website_id'] === null ? null : (int) $n['website_id'],
+            'domain' => $n['domain'], 'kind' => $n['kind'], 'severity' => $n['severity'], 'title' => $n['title'], 'body' => $n['body'],
+            'job_id' => $n['job_id'] !== '' ? $n['job_id'] : null, 'read' => (bool) $n['is_read'], 'created_at' => $n['created_at'],
+        ], $rows));
+    }
+
+    /** Mark notifications read: {"ids": [..]} or {"all": true}. */
+    public function readNotifications(Request $r): Response
+    {
+        $in = self::body($r);
+        $ids = !empty($in['all']) ? null : array_map('intval', (array) ($in['ids'] ?? []));
+        $marked = $this->notifications->markRead($this->user($r), $ids);
+        return self::ok(['marked' => $marked, 'unread' => $this->notifications->unreadCount($this->user($r))]);
     }
 
     /** @return array<string, mixed> */

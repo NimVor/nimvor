@@ -86,6 +86,42 @@ API token use, plugin actions). Each entry has user, action, target,
 result, IP, user agent and redacted details. Filter by action prefix
 (e.g. `user.`), user, result or free text.
 
+## Notifications
+
+The bell in the top bar and **Notifications** list the results of
+background jobs and monitoring alerts:
+
+- **Failures** of any job, whoever started it and whether or not anyone was
+  watching: the scheduler checks unfinished jobs every pass.
+- **Finished** long jobs: backups (manual and scheduled), restores,
+  deployments (panel and webhook), application installs, imports,
+  installs of PHP and services, server configuration backups. Quick jobs
+  (cron "run now", compressing or extracting files) are reported only when
+  they fail.
+- **Refused deploy webhooks** (a wrong signature, at most once an hour; a
+  replayed delivery) and deployments or scheduled backups that could not
+  start.
+- **Monitoring alerts** when they open and when they resolve.
+
+Who sees a notification follows the usual scope. Administrators and other
+"all"-scope roles see everything. A customer sees their websites' job
+results and alerts (certificate, backup) and their own quota alerts, and a
+reseller also their customers'. Server matters (packages, services,
+disk, memory, load, the agent) are for "all"-scope roles only. A website
+that changes owner takes its notifications with it; deleting it removes
+them. Website owners can open the log of any job on their website from its
+notification.
+
+Read state is per user. Each user can switch on **Email me about failures
+and alerts I can see** on the page; failures and alerts are then emailed
+through the panel's email settings, one message per recipient. Messages
+are short and redacted: the full log stays in the panel.
+
+Notifications are kept 90 days (at most 1000 per website). The bell's
+count refreshes every minute while the tab is visible; that request does
+not count as activity, so an idle session still signs out. The permission
+is `notifications.view` (in every default role).
+
 ## Discovery
 
 *Server → Discovery* shows counts, warnings encountered while reading

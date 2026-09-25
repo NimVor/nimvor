@@ -47,6 +47,14 @@ final class ScaleTest extends HttpTestCase
         for ($i = 1; $i <= 1000; $i++) {
             $db->run("INSERT INTO audit_logs (user_id, username, action, target_type, target_id, result, ip, details, created_at) VALUES (?, 'admin', 'website.update', 'website', ?, 'success', '192.0.2.1', '{}', ?)", [$admin, (string) ($i % 100 + 1), $now]);
         }
+        // 10,000 notifications: 100 per website.
+        $sites = array_map('intval', array_column($db->fetchAll('SELECT id FROM websites'), 'id'));
+        $n = 0;
+        foreach ($sites as $site) {
+            for ($j = 0; $j < 100; $j++) {
+                $db->run("INSERT INTO notifications (server_id, website_id, kind, severity, title, dedupe_key, created_at) VALUES (1, ?, 'job', ?, 'Backup failed', ?, ?)", [$site, $j % 4 === 0 ? 'error' : 'success', 'scale:' . $n++, $now]);
+            }
+        }
         $db->pdo()->commit();
         $this->agent->succeed('discovery.inventory', ['websites' => ['websites' => $inventory, 'catch_all_vhosts' => 0, 'warnings' => []],
             'php' => ['versions' => [['version' => '8.3', 'is_default' => true, 'pool_count' => 100]], 'pools' => [], 'warnings' => []],
@@ -65,17 +73,21 @@ final class ScaleTest extends HttpTestCase
             $ms = (hrtime(true) - $t) / 1e6;
             $timings[$label] = sprintf('%6.1f ms (HTTP %d)', $ms, $status);
             self::assertLessThan(2000, $ms, "{$label} took {$ms} ms");
+            self::assertSame(200, $status, $label);
         };
-        foreach (['/', '/websites', '/domains', '/databases', '/workers', '/backups', '/audit', '/ssl'] as $path) {
+        foreach (['/', '/websites', '/domains', '/databases', '/workers', '/backups', '/audit', '/ssl', '/notifications'] as $path) {
             $measure('GET ' . $path, fn (): int => $this->request('GET', $path)->status());
         }
+        $measure('GET /notifications?show=all', fn (): int => $this->request('GET', '/notifications', [], [], '', ['show' => 'all'])->status());
         $token = $this->app->container->get(ApiTokenService::class)->create($admin, ['name' => 'perf', 'ability' => 'read', 'expires_days' => 1]);
         $measure('API GET /api/v1/websites', fn (): int => $this->app->handle(new Request('GET', '/api/v1/websites', [], [], ['REMOTE_ADDR' => '192.0.2.9'], ['authorization' => 'Bearer ' . $token], ''))->status());
         $this->session = new \WhaCP\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('cust');
         $measure('GET /websites (customer, 25 own)', fn (): int => $this->request('GET', '/websites')->status());
-        fwrite(STDOUT, "\nScale timings (100 websites, 500 domains, 100 databases/cron/workers/backups, 1000 audit records):\n");
+        $measure('GET /notifications (customer)', fn (): int => $this->request('GET', '/notifications')->status());
+        $measure('GET /notifications/summary (customer)', fn (): int => $this->request('GET', '/notifications/summary', [], ['accept' => 'application/json'])->status());
+        fwrite(STDOUT, "\nScale timings (100 websites, 500 domains, 100 databases/cron/workers/backups, 1000 audit records, 10000 notifications):\n");
         foreach ($timings as $label => $t) {
             fwrite(STDOUT, sprintf("  %-38s %s\n", $label, $t));
         }

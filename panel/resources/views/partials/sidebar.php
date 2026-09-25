@@ -24,6 +24,7 @@ $groups = [
     'Operations' => [
         ['Backups', 'archive', 'backups', P::BACKUPS_VIEW, '/backups'],
         ['Monitoring', 'activity', 'monitoring', P::MONITORING_VIEW, '/monitoring'],
+        ['Notifications', 'bell', 'notifications', P::NOTIFICATIONS_VIEW, '/notifications'],
         ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs'],
     ],
     'Security' => [

@@ -209,4 +209,103 @@ final class NotificationsTest extends HttpTestCase
         $mon->run(time() + 600);
         self::assertContains('Resolved: Certificate shop.test expires in 2 day(s).', $this->titles($this->customer));
     }
+
+    public function testPageShowsOwnNotificationsEscapedAndMarksRead(): void
+    {
+        $n = $this->notifications();
+        $mine = (int) $n->notify('a', 'job', 'error', 'Backup shop.test failed <script>alert(1)</script>', ['website_id' => $this->site, 'job_id' => 'aaaaaaaaaaaaaaaa', 'link' => '/sites/' . $this->site]);
+        $theirs = (int) $n->notify('b', 'job', 'error', 'Backup other.test failed', ['website_id' => $this->strangerSite]);
+        $n->notify('c', 'job', 'error', 'Evil link', ['website_id' => $this->site, 'link' => '//evil.example/x']);
+        $this->login('cust');
+
+        $page = $this->request('GET', '/notifications')->body();
+        self::assertStringContainsString('Backup shop.test failed &lt;script&gt;', $page);
+        self::assertStringNotContainsString('<script>alert(1)', $page);
+        self::assertStringNotContainsString('other.test', $page);
+        self::assertStringContainsString('data-wcp-job-open="aaaaaaaaaaaaaaaa"', $page);
+        self::assertStringNotContainsString('evil.example', $page, 'only local links are shown');
+        self::assertMatchesRegularExpression('/data-wcp-bell-count>2</', $page, 'unread count in the top bar');
+
+        // Marking another tenant's notification read does nothing.
+        $this->post('/notifications/read', ['ids' => [(string) $theirs]]);
+        self::assertSame(2, $n->unreadCount($this->user($this->customer)));
+        self::assertNull($this->db->scalar('SELECT read_at FROM notification_reads WHERE notification_id = ?', [$theirs]));
+        $this->post('/notifications/read', ['ids' => [(string) $mine]]);
+        self::assertSame(1, $n->unreadCount($this->user($this->customer)));
+        self::assertStringNotContainsString('failed &lt;script&gt;', $this->request('GET', '/notifications')->body(), 'unread view hides read items');
+        self::assertStringContainsString('failed &lt;script&gt;', $this->request('GET', '/notifications', [], [], '', ['show' => 'all'])->body());
+        $this->post('/notifications/read', ['all' => '1']);
+        self::assertSame(0, $n->unreadCount($this->user($this->customer)));
+        self::assertSame(1, $n->unreadCount($this->user($this->stranger)), 'the stranger still has their own unread');
+    }
+
+    public function testSummaryPollDoesNotKeepAnIdleSessionAlive(): void
+    {
+        $this->notifications()->notify('a', 'job', 'error', 'x', ['website_id' => $this->site]);
+        $this->login('cust');
+        $this->session->set('_auth_last_activity', time() - 600);
+        $res = $this->request('GET', '/notifications/summary', [], ['accept' => 'application/json']);
+        self::assertSame(200, $res->status());
+        self::assertSame(1, json_decode($res->body(), true)['unread']);
+        self::assertLessThan(time() - 500, (int) $this->session->get('_auth_last_activity'), 'the poll is not activity');
+        // Each request gets its own application, as under PHP-FPM.
+        $this->app = $this->makeApp();
+        $this->app->container->instance(\WhaCP\Mail\Mailer::class, $this->mailer);
+        $this->request('GET', '/notifications');
+        self::assertGreaterThan(time() - 5, (int) $this->session->get('_auth_last_activity'), 'a page view is');
+    }
+
+    public function testEmailPreference(): void
+    {
+        $this->login('cust');
+        $this->post('/notifications/email', ['notify_email' => '1']);
+        self::assertSame(1, (int) $this->db->scalar('SELECT notify_email FROM users WHERE id = ?', [$this->customer]));
+        self::assertStringContainsString('checked', $this->request('GET', '/notifications')->body());
+        $this->post('/notifications/email', ['notify_email' => '0']);
+        self::assertSame(0, (int) $this->db->scalar('SELECT notify_email FROM users WHERE id = ?', [$this->customer]));
+    }
+
+    public function testApi(): void
+    {
+        $n = $this->notifications();
+        $mine = (int) $n->notify('a', 'job', 'error', 'Backup shop.test failed', ['website_id' => $this->site, 'job_id' => 'aaaaaaaaaaaaaaaa']);
+        $n->notify('b', 'job', 'error', 'Backup other.test failed', ['website_id' => $this->strangerSite]);
+        $tokens = $this->app->container->get(\WhaCP\Services\ApiTokenService::class);
+        $read = $tokens->create($this->customer, ['name' => 'r', 'ability' => 'read', 'expires_days' => 30]);
+        $write = $tokens->create($this->customer, ['name' => 'w', 'ability' => 'write', 'expires_days' => 30]);
+        $api = fn (string $method, string $path, string $token, array $json = [], array $query = []) => $this->app->handle(new \WhaCP\Http\Request(
+            $method, $path, $query, [], ['REMOTE_ADDR' => '192.0.2.50'], ['content-type' => 'application/json', 'authorization' => 'Bearer ' . $token], $json === [] ? '' : (string) json_encode($json)
+        ));
+        $res = $api('GET', '/api/v1/notifications', $read);
+        self::assertSame(200, $res->status(), $res->body());
+        $data = json_decode($res->body(), true)['data'];
+        self::assertSame(['Backup shop.test failed'], array_column($data, 'title'));
+        self::assertSame('aaaaaaaaaaaaaaaa', $data[0]['job_id']);
+        self::assertFalse($data[0]['read']);
+        self::assertSame(403, $api('POST', '/api/v1/notifications/read', $read, ['all' => true])->status(), 'read-only token');
+        $res = $api('POST', '/api/v1/notifications/read', $write, ['ids' => [$mine]]);
+        self::assertSame(['marked' => 1, 'unread' => 0], json_decode($res->body(), true)['data']);
+        self::assertSame([], json_decode($api('GET', '/api/v1/notifications', $read, [], ['unread' => '1'])->body(), true)['data']);
+    }
+
+    public function testRolesWithoutThePermissionAreRefused(): void
+    {
+        $this->db->run("INSERT INTO roles (name, label, description, is_system, scope, created_at) VALUES ('nonotify', 'No notifications', '', 0, 'own', ?)", [gmdate('c')]);
+        $role = (int) $this->db->lastInsertId();
+        $this->db->run("INSERT INTO role_permissions (role_id, permission_id) SELECT ?, id FROM permissions WHERE name IN ('dashboard.view', 'websites.view')", [$role]);
+        $uid = $this->seedUser('quiet', 'customer');
+        $this->db->run('UPDATE users SET role_id = ? WHERE id = ?', [$role, $uid]);
+        $this->db->run('UPDATE websites SET owner_id = ? WHERE id = ?', [$uid, $this->site]);
+        $id = (int) $this->notifications()->notify('a', 'job', 'error', 'x', ['website_id' => $this->site]);
+        $this->login('quiet');
+        self::assertSame(403, $this->request('GET', '/notifications')->status());
+        self::assertSame(403, $this->request('GET', '/notifications/summary', [], ['accept' => 'application/json'])->status());
+        self::assertSame(403, $this->post('/notifications/read', ['all' => '1'])->status());
+        self::assertSame(403, $this->post('/notifications/email', ['notify_email' => '1'])->status());
+        self::assertNull($this->db->scalar('SELECT read_at FROM notification_reads WHERE notification_id = ?', [$id]));
+        self::assertStringNotContainsString('data-wcp-bell', $this->request('GET', '/')->body());
+        $token = $this->app->container->get(\WhaCP\Services\ApiTokenService::class)->create($uid, ['name' => 't', 'ability' => 'write', 'expires_days' => 1]);
+        $res = $this->app->handle(new \WhaCP\Http\Request('GET', '/api/v1/notifications', [], [], ['REMOTE_ADDR' => '192.0.2.50'], ['authorization' => 'Bearer ' . $token], ''));
+        self::assertSame(403, $res->status());
+    }
 }
