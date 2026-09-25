@@ -78,5 +78,6 @@ $pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('ti
 <div class="toast-container position-fixed bottom-0 end-0 p-3" id="wcp-toasts"></div>
 <script src="<?= e($this->asset('assets/vendor/bootstrap/js/bootstrap.bundle.min.js')) ?>"></script>
 <script src="<?= e($this->asset('assets/js/whacp.js')) ?>"></script>
+<?= $this->section('scripts') ?>
 </body>
 </html>

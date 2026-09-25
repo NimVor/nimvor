@@ -44,6 +44,7 @@ final class AuthService
         private readonly int $absoluteTimeout = 43200,
         ?callable $clock = null,
         private readonly ?TwoFactor $twoFactor = null,
+        private readonly ?WebAuthn $webAuthn = null,
     ) {
         $this->clock = $clock ?? time(...);
     }
@@ -78,7 +79,7 @@ final class AuthService
             $hash = $this->hasher->hash($password);
             $this->users->updatePassword($id, $hash);
         }
-        if ($this->twoFactor?->enabled($id)) {
+        if ($this->hasSecondFactor($id)) {
             // Password is right; the session is not signed in until the
             // second factor is given.
             $this->session->regenerate();
@@ -123,13 +124,29 @@ final class AuthService
         return true;
     }
 
-    /**
-     * Complete a sign-in with an authenticator or recovery code. Returns a
-     * user-facing error, or null when signed in.
-     */
-    public function completeTwoFactor(string $code, string $ip): ?string
+    /** Whether the user signs in with a second factor (app code or security key). */
+    public function hasSecondFactor(int $userId): bool
     {
-        if (!$this->pendingTwoFactor() || $this->twoFactor === null) {
+        return ($this->twoFactor?->enabled($userId) ?? false) || ($this->webAuthn?->has($userId) ?? false);
+    }
+
+    /** @return array{totp: bool, key: bool} the second factors of the pending sign-in */
+    public function pendingMethods(): array
+    {
+        $p = $this->pendingTwoFactor() ? (array) $this->session->get(self::PENDING_KEY) : [];
+        $id = (int) ($p['id'] ?? 0);
+        return ['totp' => $id > 0 && ($this->twoFactor?->enabled($id) ?? false), 'key' => $id > 0 && ($this->webAuthn?->has($id) ?? false)];
+    }
+
+    /**
+     * The pending sign-in, checked: [pending, user row, password hash], or
+     * an error message.
+     *
+     * @return array{0: array{id: int, username: string, fp: string, at: int, tries: int}, 1: array<string, mixed>, 2: string}|string
+     */
+    private function pending(string $ip): array|string
+    {
+        if (!$this->pendingTwoFactor()) {
             return 'Your sign-in expired. Enter your password again.';
         }
         /** @var array{id: int, username: string, fp: string, at: int, tries: int} $p */
@@ -146,18 +163,80 @@ final class AuthService
             $this->session->remove(self::PENDING_KEY);
             return 'Your sign-in expired. Enter your password again.';
         }
-        $method = $this->twoFactor->verify($id, $code);
+        return [$p, $user, $hash];
+    }
+
+    /** @param array{id: int, username: string, fp: string, at: int, tries: int} $p @param array<string, mixed> $user */
+    private function secondFactorFailed(array $p, array $user, string $ip, string $reason, string $message): string
+    {
+        $this->throttle->recordFailure($p['username'], $ip);
+        $this->audit->record('auth.login', 'user', (string) $p['id'], AuditLogger::FAILURE, ['reason' => $reason], (int) $p['id'], (string) $user['username']);
+        if (++$p['tries'] >= self::PENDING_TRIES) {
+            $this->session->remove(self::PENDING_KEY);
+            return 'Too many failed attempts. Enter your password again.';
+        }
+        $this->session->set(self::PENDING_KEY, $p);
+        return $message;
+    }
+
+    /**
+     * Complete a sign-in with an authenticator or recovery code. Returns a
+     * user-facing error, or null when signed in.
+     */
+    public function completeTwoFactor(string $code, string $ip): ?string
+    {
+        if ($this->twoFactor === null) {
+            return 'Your sign-in expired. Enter your password again.';
+        }
+        $pending = $this->pending($ip);
+        if (is_string($pending)) {
+            return $pending;
+        }
+        [$p, $user, $hash] = $pending;
+        $method = $this->twoFactor->verify((int) $p['id'], $code);
         if ($method === null) {
-            $this->throttle->recordFailure($p['username'], $ip);
-            $this->audit->record('auth.login', 'user', (string) $id, AuditLogger::FAILURE, ['reason' => 'bad_two_factor_code'], $id, (string) $user['username']);
-            if (++$p['tries'] >= self::PENDING_TRIES) {
-                $this->session->remove(self::PENDING_KEY);
-                return 'Too many wrong codes. Enter your password again.';
-            }
-            $this->session->set(self::PENDING_KEY, $p);
-            return 'That code is not valid. Check the time on your phone and try again.';
+            return $this->secondFactorFailed($p, $user, $ip, 'bad_two_factor_code', 'That code is not valid. Check the time on your phone and try again.');
         }
         $this->finishLogin($user, $hash, $p['username'], $ip, ['two_factor' => $method]);
+        return null;
+    }
+
+    /**
+     * Options for the browser to ask the pending user's security key.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function securityKeyOptions(string $rpId): ?array
+    {
+        $p = $this->pendingTwoFactor() ? (array) $this->session->get(self::PENDING_KEY) : null;
+        if ($p === null || $this->webAuthn === null || !$this->webAuthn->has((int) $p['id'])) {
+            return null;
+        }
+        return $this->webAuthn->loginOptions((int) $p['id'], $rpId);
+    }
+
+    /**
+     * Complete a sign-in with a security key assertion.
+     *
+     * @param array<string, mixed> $a id, client_data, authenticator_data, signature (base64url)
+     */
+    public function completeWithSecurityKey(string $origin, string $rpId, array $a, string $ip): ?string
+    {
+        if ($this->webAuthn === null) {
+            return 'Security keys are not available.';
+        }
+        $pending = $this->pending($ip);
+        if (is_string($pending)) {
+            return $pending;
+        }
+        [$p, $user, $hash] = $pending;
+        $str = static fn (string $k): string => is_string($a[$k] ?? null) ? substr($a[$k], 0, 8192) : '';
+        try {
+            $name = $this->webAuthn->verify((int) $p['id'], $origin, $rpId, $str('id'), $str('client_data'), $str('authenticator_data'), $str('signature'));
+        } catch (WebAuthnException $e) {
+            return $this->secondFactorFailed($p, $user, $ip, 'bad_security_key', $e->getMessage());
+        }
+        $this->finishLogin($user, $hash, $p['username'], $ip, ['two_factor' => 'security_key', 'key' => $name]);
         return null;
     }
 

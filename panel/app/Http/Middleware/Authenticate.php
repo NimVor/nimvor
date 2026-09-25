@@ -26,6 +26,7 @@ final class Authenticate implements Middleware
         private readonly View $view,
         private readonly \WhaCP\Services\AgentStatus $agentStatus,
         private readonly \WhaCP\Security\TwoFactor $twoFactor,
+        private readonly \WhaCP\Security\WebAuthn $webAuthn,
         private readonly \WhaCP\Http\Session\SessionInterface $session,
     ) {
     }
@@ -57,7 +58,7 @@ final class Authenticate implements Middleware
             }
             return Response::redirect('/login');
         }
-        if (!empty($user['role_requires_2fa']) && !self::setupAllowed((string) $route->name) && !$this->twoFactor->enabled((int) $user['id'])) {
+        if (!empty($user['role_requires_2fa']) && !self::setupAllowed((string) $route->name) && !$this->twoFactor->enabled((int) $user['id']) && !$this->webAuthn->has((int) $user['id'])) {
             $message = 'Your role requires two-factor sign-in. Set it up to continue.';
             if ($request->wantsJson()) {
                 return Response::json(['success' => false, 'error' => ['message' => $message]], 403);

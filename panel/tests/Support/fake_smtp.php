@@ -58,4 +58,6 @@ while (($line = fgets($c)) !== false) {
         $say('250 ok');
     }
 }
-file_put_contents($file, $log);
+// Atomic: the test polls for the file and must never read it half-written.
+file_put_contents($file . '.tmp', $log);
+rename($file . '.tmp', $file);

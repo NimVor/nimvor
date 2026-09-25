@@ -52,6 +52,8 @@ return static function (Router $r): void {
     $r->post('/login', [AuthController::class, 'login'], ['name' => 'login.submit', 'auth' => false]);
     $r->get('/login/two-factor', [AuthController::class, 'twoFactor'], ['name' => 'login.two_factor', 'auth' => false]);
     $r->post('/login/two-factor', [AuthController::class, 'verifyTwoFactor'], ['name' => 'login.two_factor.submit', 'auth' => false]);
+    $r->post('/login/two-factor/key/options', [AuthController::class, 'securityKeyOptions'], ['name' => 'login.key.options', 'auth' => false]);
+    $r->post('/login/two-factor/key', [AuthController::class, 'securityKey'], ['name' => 'login.key', 'auth' => false]);
     $r->get('/password/forgot', [PasswordResetController::class, 'forgot'], ['name' => 'password.forgot', 'auth' => false]);
     $r->post('/password/forgot', [PasswordResetController::class, 'send'], ['name' => 'password.send', 'auth' => false]);
     $r->get('/password/reset/{token}', [PasswordResetController::class, 'show'], ['name' => 'password.reset.form', 'auth' => false]);
@@ -275,6 +277,9 @@ return static function (Router $r): void {
     $r->post('/profile/two-factor/setup', [ProfileController::class, 'twoFactorSetup'], ['name' => 'profile.2fa.setup']);
     $r->post('/profile/two-factor/enable', [ProfileController::class, 'twoFactorEnable'], ['name' => 'profile.2fa.enable']);
     $r->post('/profile/two-factor/disable', [ProfileController::class, 'twoFactorDisable'], ['name' => 'profile.2fa.disable']);
+    $r->post('/profile/security-keys/options', [ProfileController::class, 'keyOptions'], ['name' => 'profile.2fa.key.options']);
+    $r->post('/profile/security-keys', [ProfileController::class, 'keyAdd'], ['name' => 'profile.2fa.key.add']);
+    $r->post('/profile/security-keys/{id}/delete', [ProfileController::class, 'keyDelete'], ['name' => 'profile.2fa.key.delete']);
     $r->post('/profile/two-factor/recovery', [ProfileController::class, 'twoFactorRecovery'], ['name' => 'profile.2fa.recovery']);
     $r->post('/profile/tokens', [ApiTokensController::class, 'store'], ['name' => 'tokens.store', 'permission' => P::API_TOKENS]);
     $r->post('/profile/tokens/{id}/revoke', [ApiTokensController::class, 'revoke'], ['name' => 'tokens.revoke', 'permission' => P::API_TOKENS]);

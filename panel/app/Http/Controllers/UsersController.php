@@ -25,6 +25,7 @@ final class UsersController extends Controller
         private readonly \WhaCP\Services\PlanService $plans,
         private readonly \WhaCP\Services\PlanLimits $limits,
         private readonly \WhaCP\Security\TwoFactor $twoFactor,
+        private readonly \WhaCP\Security\WebAuthn $webAuthn,
         private readonly \WhaCP\Services\AuditLogger $audit,
     ) {
         parent::__construct($view, $session);
@@ -109,7 +110,8 @@ final class UsersController extends Controller
             return $this->redirectWithError('/users', 'The user no longer exists.');
         }
         $this->twoFactor->disable((int) $user['id']);
+        $this->webAuthn->deleteAll((int) $user['id']);
         $this->audit->record('user.two_factor_reset', 'user', (string) $user['id'], \WhaCP\Services\AuditLogger::SUCCESS, ['username' => $user['username']]);
-        return $this->redirectWithSuccess('/users/' . (int) $user['id'] . '/edit', 'Two-factor sign-in is off for ' . $user['username'] . '. Ask them to turn it on again.');
+        return $this->redirectWithSuccess('/users/' . (int) $user['id'] . '/edit', 'Two-factor sign-in (app and security keys) is off for ' . $user['username'] . '. Ask them to turn it on again.');
     }
 }

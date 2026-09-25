@@ -150,6 +150,7 @@ final class Application
                 $cfg->int('session.absolute_lifetime', 43200),
                 null,
                 $c->get(\WhaCP\Security\TwoFactor::class),
+                $c->get(\WhaCP\Security\WebAuthn::class),
             );
         });
         $c->set(AgentTransport::class, static fn (Container $c) => new \WhaCP\Agent\RoutingTransport(

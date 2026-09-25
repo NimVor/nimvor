@@ -28,6 +28,8 @@ final class ProfileController extends Controller
         private readonly \WhaCP\Security\PasswordHasher $hasher,
         private readonly \WhaCP\Repositories\UserRepository $userRepo,
         private readonly \WhaCP\Services\AuditLogger $audit,
+        private readonly \WhaCP\Security\WebAuthn $webAuthn,
+        private readonly \WhaCP\Services\SettingsService $settings,
     ) {
         parent::__construct($view, $session);
     }
@@ -46,6 +48,7 @@ final class ProfileController extends Controller
                 ? \WhaCP\Security\QrCode::encode(\WhaCP\Security\TwoFactor::uri($s, (string) $user['username']))->svg(4, 'QR code for your authenticator app')
                 : null,
             'recoveryCodes' => $this->session->pullFlash('recovery_codes'),
+            'securityKeys' => $this->webAuthn->credentials((int) $user['id']),
         ]);
     }
 
@@ -128,5 +131,38 @@ final class ProfileController extends Controller
         $this->session->flash('recovery_codes', $this->twoFactor->regenerateRecovery($id));
         $this->audit->record('user.two_factor_recovery', 'user', (string) $id, \WhaCP\Services\AuditLogger::SUCCESS);
         return $this->redirectWithSuccess('/profile#two-factor', 'New recovery codes created; the old ones no longer work.');
+    }
+
+    // ---- security keys (WebAuthn) ---------------------------------------
+
+    public function keyOptions(Request $request): Response
+    {
+        $o = \WhaCP\Security\WebAuthnOrigin::of($request, $this->settings);
+        $name = $this->settings->string('panel_name');
+        return Response::json(['success' => true, 'data' => $this->webAuthn->registrationOptions($this->user($request), $o['rp_id'], $name !== '' ? $name : 'WhaCP')]);
+    }
+
+    public function keyAdd(Request $request): Response
+    {
+        $o = \WhaCP\Security\WebAuthnOrigin::of($request, $this->settings);
+        try {
+            $this->webAuthn->register($this->user($request), $o['origin'], $o['rp_id'], $request->string('name'), substr($request->string('client_data'), 0, 8192), substr($request->string('attestation'), 0, 16384));
+        } catch (\WhaCP\Security\WebAuthnException $e) {
+            return Response::json(['success' => false, 'error' => ['message' => $e->getMessage()]], 400);
+        }
+        $this->session->flash('success', 'Security key added. You can now use it to sign in.');
+        return Response::json(['success' => true, 'data' => ['redirect' => '/profile#security-keys']]);
+    }
+
+    public function keyDelete(Request $request, string $id): Response
+    {
+        $uid = $this->userId($request);
+        if (!$this->passwordOk($uid, $request)) {
+            return $this->redirectWithError('/profile#security-keys', 'Your current password is not correct.');
+        }
+        if (!$this->webAuthn->delete($uid, (int) $id)) {
+            return $this->redirectWithError('/profile#security-keys', 'Key not found.');
+        }
+        return $this->redirectWithSuccess('/profile#security-keys', 'Security key removed.');
     }
 }

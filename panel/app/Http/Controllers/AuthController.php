@@ -20,6 +20,7 @@ final class AuthController extends Controller
         private readonly AuthService $auth,
         private readonly Csrf $csrf,
         private readonly Config $config,
+        private readonly \WhaCP\Services\SettingsService $settings,
     ) {
         parent::__construct($view, $session);
     }
@@ -58,7 +59,7 @@ final class AuthController extends Controller
         if (!$this->auth->pendingTwoFactor()) {
             return Response::redirect('/login');
         }
-        return Response::html($this->view->render('auth/two_factor', [], 'layouts/minimal'));
+        return Response::html($this->view->render('auth/two_factor', ['methods' => $this->auth->pendingMethods()], 'layouts/minimal'));
     }
 
     public function verifyTwoFactor(Request $request): Response
@@ -77,6 +78,31 @@ final class AuthController extends Controller
         }
         $this->csrf->rotate();
         return Response::redirect('/');
+    }
+
+    /** Options for the browser's security-key prompt (JSON). */
+    public function securityKeyOptions(Request $request): Response
+    {
+        $o = \WhaCP\Security\WebAuthnOrigin::of($request, $this->settings);
+        $options = $this->auth->securityKeyOptions($o['rp_id']);
+        if ($options === null) {
+            return Response::json(['success' => false, 'error' => ['message' => 'Your sign-in expired. Enter your password again.']], 401);
+        }
+        return Response::json(['success' => true, 'data' => $options]);
+    }
+
+    /** Finish the sign-in with the security key's answer (JSON). */
+    public function securityKey(Request $request): Response
+    {
+        /** @var list<string> $proxies */
+        $proxies = (array) $this->config->get('security.trusted_proxies', []);
+        $o = \WhaCP\Security\WebAuthnOrigin::of($request, $this->settings);
+        $error = $this->auth->completeWithSecurityKey($o['origin'], $o['rp_id'], $request->all(), $request->ip($proxies));
+        if ($error !== null) {
+            return Response::json(['success' => false, 'error' => ['message' => $error], 'restart' => !$this->auth->pendingTwoFactor()], 400);
+        }
+        $this->csrf->rotate();
+        return Response::json(['success' => true, 'data' => ['redirect' => '/']]);
     }
 
     public function logout(Request $request): Response

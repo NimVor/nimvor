@@ -17,7 +17,7 @@ privileged operation must be explicit, validated, audited and reversible.**
 
 | Area | Features |
 |------|----------|
-| Panel | sign-in with Argon2id, throttling, **two-factor (TOTP, QR setup, recovery codes, can be required per role)** and email password reset; CSRF, strict CSP; roles (Administrator, Operator, Viewer, Reseller, Hosting customer) and custom roles; audit log; settings |
+| Panel | sign-in with Argon2id, throttling, **two-factor (TOTP with QR setup and recovery codes, or WebAuthn security keys and passkeys; can be required per role)** and email password reset; CSRF, strict CSP; roles (Administrator, Operator, Viewer, Reseller, Hosting customer) and custom roles; audit log; settings |
 | Agent | Go service with named actions only, Unix socket (token + peer UID) or pinned TLS 1.3 for remote servers; write gate; allowlisted binaries, no shell |
 | Dashboard & monitoring | live CPU/RAM/disk/load/network, services, history, alerts (disk, memory, load, certificates, agent down) by email and webhook |
 | Discovery | read-only inventory of Nginx sites, PHP/FPM, certificates, MySQL/MariaDB, Redis, cron, accounts, firewall, sites managed by other panels |

@@ -79,6 +79,31 @@
                 <?php endif; ?>
             </div>
         </div>
+        <div class="card mt-3" id="security-keys">
+            <div class="card-header"><i class="bi bi-usb-drive me-1"></i>Security keys and passkeys</div>
+            <div class="card-body" id="wcp-keys" data-options="<?= e($this->url('profile.2fa.key.options')) ?>" data-add="<?= e($this->url('profile.2fa.key.add')) ?>">
+                <p class="small text-body-secondary">Sign in with a hardware key (YubiKey, Titan…) or a passkey on this device instead of a code. A key counts as two-factor sign-in. Keep a second key or an authenticator app in case you lose it.</p>
+                <?php foreach ((array) ($securityKeys ?? []) as $k): ?>
+                    <div class="d-flex align-items-center border-bottom py-2 small">
+                        <div><i class="bi bi-key me-1"></i><strong><?= e((string) $k['name']) ?></strong>
+                            <div class="text-body-secondary">added <?= e(substr((string) $k['created_at'], 0, 10)) ?><?= $k['last_used_at'] ? ' · last used ' . e(substr((string) $k['last_used_at'], 0, 10)) : ' · not used yet' ?></div></div>
+                        <details class="ms-auto">
+                            <summary class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></summary>
+                            <form method="post" action="<?= e($this->url('profile.2fa.key.delete', ['id' => (int) $k['id']])) ?>" class="d-flex gap-2 mt-2">
+                                <?= $this->csrfField() ?>
+                                <input class="form-control form-control-sm" type="password" name="current_password" placeholder="Current password" autocomplete="current-password" required aria-label="Current password">
+                                <button class="btn btn-sm btn-danger">Remove</button>
+                            </form>
+                        </details>
+                    </div>
+                <?php endforeach; ?>
+                <form class="d-flex gap-2 mt-3" data-wcp-key-add>
+                    <input class="form-control form-control-sm" name="name" maxlength="60" placeholder="Name, e.g. YubiKey 5C" required aria-label="Key name">
+                    <button class="btn btn-sm btn-primary text-nowrap" type="submit"><i class="bi bi-plus-lg me-1"></i>Add key</button>
+                </form>
+                <div class="small text-danger mt-2 d-none" data-wcp-key-error role="alert"></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -120,3 +145,4 @@
     </div>
 </div>
 <?php endif; ?>
+<?php $this->start(); ?><script src="<?= e($this->asset('assets/js/webauthn.js')) ?>" defer></script><?php $this->end('scripts'); ?>

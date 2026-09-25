@@ -35,6 +35,15 @@ demote the last one. Users cannot delete or disable themselves.
   sign-in throttle. Administrators can reset a user's two-factor sign-in on
   the user's edit page (after verifying who is asking), or with
   `bin/whacp user:2fa-reset <username>`.
+- **Security keys and passkeys (WebAuthn):** under *Profile → Security keys*
+  a user adds hardware keys (YubiKey, Titan…) or platform passkeys; up to
+  ten per user. A key counts as two-factor sign-in, also for roles that
+  require it; users with both a key and an authenticator app can use
+  either. Keys are bound to the panel's address (the public panel URL when
+  set), so they need HTTPS (or `localhost`) and do not work on a phishing
+  site. The signature counter is checked to detect copied keys. Removing a
+  key asks for the password; an administrator's two-factor reset removes
+  the keys too.
 
 ## Forgotten passwords
 
