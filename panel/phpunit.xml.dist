@@ -12,6 +12,7 @@
         <testsuite name="integration"><directory>tests/Integration</directory></testsuite>
         <testsuite name="http"><directory>tests/Http</directory></testsuite>
         <testsuite name="security"><directory>tests/Security</directory></testsuite>
+        <testsuite name="performance"><directory>tests/Performance</directory></testsuite>
     </testsuites>
     <source>
         <include><directory>app</directory></include>

@@ -11,14 +11,36 @@ mitigation within 30 days, coordinating disclosure with the reporter.
 
 ## Supported versions
 
-WhaCP is pre-1.0. Only the latest release on the default branch receives
-security fixes.
+| Version | Supported |
+|---|---|
+| 1.0.0-rc1 (release candidate) | yes — latest release |
+| 0.5.0 and older (never released separately) | no — upgrade with `installer/upgrade.sh` |
+
+Only the latest release receives security fixes.
 
 ## Scope
 
 In scope: the panel, the agent, the installer, default configuration and
 systemd units. Out of scope: vulnerabilities in third-party software WhaCP
 observes (Nginx, PHP, MariaDB, …) unless WhaCP makes them exploitable.
+
+## Trust model
+
+- **Administrators** (and any role with `plugins.manage`, `settings.manage`,
+  `security.manage` or `servers.manage`) control the whole server.
+- **Operators** run hosting without managing users, settings or security.
+  **Viewers** read only.
+- **Resellers and customers** see and change only their own websites and
+  those websites' resources. Every route checks the role's permission, and
+  every resource's owner, on the server. This is covered by the release-gate
+  suites in `panel/tests/Security`.
+- **Plugins** are fully trusted code inside the panel (see
+  [docs/plugins](docs/plugins/README.md)).
+- **Website accounts:** cron jobs, workers, deploy hooks and application
+  installers run as the website's own account (UID ≥ 1000), never as root.
+- **The agent** runs as root and only performs named actions with
+  validated parameters. It has no generic command endpoint, and commands
+  come from a fixed allowlist.
 
 ## Design summary
 

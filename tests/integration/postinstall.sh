@@ -101,7 +101,10 @@ for _ in $(seq 1 90); do
     [[ -n $BACKUP ]] && break
     sleep 1
 done
-[[ -n $BACKUP ]] || fail "backup not listed"
+if [[ -z $BACKUP ]]; then
+    php -r '$d = new PDO("sqlite:/var/lib/whacp/whacp.sqlite"); foreach ($d->query("SELECT id, status, error, job_id FROM backups ORDER BY id DESC LIMIT 3") as $r) { echo json_encode($r), "\n"; }' >&2 || true
+    fail "backup not listed"
+fi
 pass "encrypted backup #$BACKUP created"
 
 rm -f "$ROOT/public_html/index.php"

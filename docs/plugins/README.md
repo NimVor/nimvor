@@ -12,7 +12,11 @@ is PHP code that runs **inside the panel process**, so:
 
 Plugins never get more power over the *server* than the panel has: they can
 call the same named agent actions as the panel (see `agent/api/openapi.yaml`)
-and nothing else.
+and nothing else. **Within the panel, however, an enabled plugin is fully
+trusted:** it runs with the panel's rights, can read the panel database and
+the agent token, and is not limited by roles and permissions. Treat enabling
+a plugin like giving its author administrator access. Install only plugins
+whose code you have reviewed.
 
 ## Layout
 

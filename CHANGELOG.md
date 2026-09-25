@@ -4,10 +4,42 @@ All notable changes to WhaCP are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — 0.5.0
+## [Unreleased]
 
-Phases 5–28: write mode and everything built on it. Write actions stay off
-until the agent runs with `allow_write_actions` (`install.sh --enable-writes`).
+## [1.0.0-rc1] — 2026-09-25
+
+First release candidate. It contains the work developed as 0.5.0 (never
+released on its own): phases 5–28 on top of the 0.4.0 foundation, hosting
+services added afterwards, and the fixes from the 1.0.0-rc1 release audit
+(`docs/release/1.0.0-rc1-audit.md`). Write actions stay off until the agent
+runs with `allow_write_actions` (`install.sh --enable-writes`).
+
+### Breaking changes
+- None for data or configuration: installations of 0.4.0 or 0.5.0 upgrade
+  with `installer/upgrade.sh` (tested with real 0.5.0 data, see Testing).
+- Resellers and customers no longer see the server-wide inventory pages'
+  data for other tenants (see Security). Pages that showed it now show only
+  their own websites, and never system cron jobs.
+- Release archives no longer contain the test suites and test fixtures.
+
+### Security
+- **Fixed — tenant isolation (release blocker):** customers and resellers
+  could open the Domains, PHP, SSL and Cron pages. These showed the whole
+  server inventory, including other tenants' domains, document roots,
+  certificates, PHP pools and system cron commands (which may contain
+  credentials). The inventory is now filtered to the user's own websites.
+- New release-gate test suites:
+  - an RBAC matrix: every route, for every default role that lacks the
+    route's permission, gives 403 and never reaches the agent;
+  - tenant isolation for every page and every `/sites/{id}`, database,
+    mail and DNS route;
+  - REST API isolation: read-only tokens cannot write, other tenants'
+    resources return 404, deleted and malformed tokens are refused;
+  - an adversarial file-manager sweep: every action with traversal,
+    encoded, NUL, `/proc`, `/dev` and symlink paths.
+- Release archives are checked for test files, private keys and tokens
+  before publishing. Releases are published only after the whole CI suite
+  passes.
 
 ### Added
 - **Write-path infrastructure:** file writer limited to an allowlist of
@@ -156,6 +188,20 @@ until the agent runs with `allow_write_actions` (`install.sh --enable-writes`).
 - Agent errors print their details with `%+v` (tests and logs).
 
 ### Testing
+- `bin/whacp doctor` prints PASS/WARN/FAIL and checks the server through
+  the agent: disk space, Nginx, PHP-FPM, database server, Redis, certbot
+  and backups.
+- Installer end to end in CI on Ubuntu 24.04 and AlmaLinux 9. After
+  `install.sh`, `tests/integration/postinstall.sh` drives the panel over
+  HTTP: it signs in, creates a PHP website and checks it is served,
+  creates a database, installs a certificate and checks HTTPS, makes an
+  encrypted backup, damages the file and the database, restores and
+  verifies them, then deletes the website.
+- Upgrade from the previous release with real data
+  (`UPGRADE_FROM=<ref> tests/integration/upgrade.sh`). Users, websites,
+  databases, backups, an API token, encrypted secrets and audit history
+  survive. The old password and token keep working. A failing migration
+  rolls back, and `--rollback` restores the previous version.
 - Real-service CI on Ubuntu now also covers Pure-FTPd, SFTP, BIND, Postfix,
   Dovecot, OpenDKIM, Rspamd and Roundcube; mail is actually delivered,
   filtered, signed and read over IMAP, and webmail signs in and sends.
@@ -166,6 +212,15 @@ until the agent runs with `allow_write_actions` (`install.sh --enable-writes`).
   backup destinations and security keys (virtual authenticator).
 
 ### Fixed
+- `upgrade.sh` now orders pre-releases before their release; plain
+  version sort would have refused 1.0.0-rc1 → 1.0.0 as a downgrade.
+- Restart PHP uses the distribution's FPM unit name (RHEL:
+  `php83-php-fpm`).
+- RHEL: the commands WhaCP needs there (dnf, rpm, firewalld and SELinux
+  tools) were missing from the agent's allowlist. Atomic writes now keep
+  a replaced file's SELinux label, and restored configuration is
+  relabelled. Redis 6.2 ACL users (`resetchannels`) are created
+  correctly.
 - The panel's test SMTP server wrote its transcript non-atomically (flaky
   test); the test authenticator now pads EC key coordinates to 32 bytes.
 - Roundcube's pool sets `include_path` with `php_value`: Roundcube refuses

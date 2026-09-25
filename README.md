@@ -6,12 +6,13 @@ WhaCP is a free, MIT-licensed control panel for VPS and dedicated servers. It is
 built around one rule: **a control panel has root-level consequences, so every
 privileged operation must be explicit, validated, audited and reversible.**
 
-> **Status: v0.5.0 — feature-complete preview (all 28 roadmap phases built).**
-> Every feature is covered by unit, HTTP and real-service tests, but WhaCP has
-> not yet been validated on a wide range of production servers. Install it in
-> read-only mode first (the default): it inventories the server **without
-> changing anything**. Turn on write mode with `--enable-writes` when you are
-> ready to let WhaCP manage websites.
+> **Status: 1.0.0-rc1 — release candidate.** What was tested for this
+> release, and what was not, is listed in
+> [docs/release/1.0.0-rc1-audit.md](docs/release/1.0.0-rc1-audit.md). WhaCP has
+> not yet run on a wide range of production servers. Install it in read-only
+> mode first (the default): it inventories the server **without changing
+> anything**. Turn on write mode with `--enable-writes` when you are ready to
+> let WhaCP manage websites.
 
 ## What works today
 
