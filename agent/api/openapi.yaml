@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: WhaCP Agent API
-  version: 0.5.0
+  version: 1.0.0-rc1
   summary: Local, authenticated API of the privileged WhaCP agent.
   description: |
     The agent listens on a Unix socket (default `/run/whacp/agent.sock`,
