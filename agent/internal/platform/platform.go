@@ -104,6 +104,13 @@ type Managed struct {
 	// root-owned authorized keys of website accounts.
 	SFTPDropIn  string `json:"sftp_drop_in"`
 	SFTPKeysDir string `json:"sftp_keys_dir"`
+	// DNS (BIND): DNSConfFile is the package file that gets WhaCP's one
+	// include line (after confirmation); zones and their list live in
+	// DNSZoneDir. DNSUser is the account named runs as.
+	DNSConfFile string `json:"dns_conf_file"`
+	DNSZoneDir  string `json:"dns_zone_dir"`
+	DNSUser     string `json:"dns_user"`
+	DNSUnit     string `json:"dns_unit"`
 }
 
 // supportedUbuntu lists the Ubuntu releases WhaCP officially targets.

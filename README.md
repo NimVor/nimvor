@@ -25,6 +25,7 @@ privileged operation must be explicit, validated, audited and reversible.**
 | Websites | PHP, static and reverse-proxy sites; aliases, redirects, per-site PHP-FPM pools; `nginx -t` gate and automatic rollback |
 | PHP | install versions, per-site settings |
 | Databases | MySQL/MariaDB databases, users and grants; web database browser (rows, structure, SQL console) confined to one database |
+| DNS | authoritative zones on BIND: A, AAAA, CNAME, MX, TXT, NS, SRV, CAA, templates, secondaries; validated with named-checkzone, serial checked after every reload, rollback |
 | SSL | Let's Encrypt issue/renew, custom certificates, HTTPS redirect, HSTS |
 | Files & logs | full-screen file manager (folder tree, multi-select, drag-and-drop uploads, full-page editor, permissions, zip/tar.gz compress and safe extract), log viewer with live tail |
 | FTP & SFTP | per-website FTPS accounts (pure-ftpd, chrooted, quotas, TLS required) and SFTP for the website user (OpenSSH chroot, keys and/or password, no shell) |

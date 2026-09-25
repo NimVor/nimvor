@@ -7,6 +7,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/cronmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/dbmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/deploy"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/dnsmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/files"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logs"
@@ -37,6 +38,7 @@ func All() []Module {
 		redismgr.Register,
 		mcmgr.Register,
 		ftpmgr.Register,
+		dnsmgr.Register,
 		backup.Register,
 		security.Register,
 		sysmgr.Register,

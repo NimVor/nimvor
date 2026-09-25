@@ -60,6 +60,8 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.SFTPDropIn,
 		m.SFTPKeysDir + "/**",
 		m.FTPDir + "/**",
+		m.DNSZoneDir + "/**",
+		m.DNSConfFile,
 		filepath.Join(m.UnitDir, "whacp-ftpd.service"),
 		m.Fail2banJail,
 		m.ACMERoot + "/**",

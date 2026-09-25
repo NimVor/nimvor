@@ -65,6 +65,18 @@ final class SettingsService
                 'type' => 'url', 'default' => '', 'max_length' => 500,
                 'label' => 'Alert webhook URL', 'help' => 'Optional https:// URL that receives alerts as JSON ({"text": …}); works with Slack, Mattermost, Discord (/slack) and ntfy.',
             ],
+            'dns_nameservers' => [
+                'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 300,
+                'label' => 'DNS name servers', 'help' => 'Host names of the name servers for hosted zones, separated by commas (e.g. ns1.example.com, ns2.example.com). New zones get NS records for them.',
+            ],
+            'dns_hostmaster' => [
+                'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 200,
+                'label' => 'DNS hostmaster email', 'help' => 'Contact address in the SOA record of new zones. Empty uses hostmaster@<zone>.',
+            ],
+            'dns_default_ipv4' => [
+                'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 15,
+                'label' => 'Default IPv4 for new zones', 'help' => 'The public address new zones point @ and www to. Empty leaves the A records out.',
+            ],
             'ssl_warning_days' => [
                 'type' => 'int', 'default' => 14, 'min' => 1, 'max' => 90,
                 'label' => 'Certificate warning threshold (days)', 'help' => 'Certificates expiring within this many days are highlighted.',
@@ -135,7 +147,7 @@ final class SettingsService
                 $clean[$key] = $v;
             } else {
                 $v = is_scalar($raw) ? trim((string) $raw) : '';
-                if ($v === '' || mb_strlen($v) > ($def['max_length'] ?? 255) || preg_match('/[\x00-\x1F\x7F]/u', $v)) {
+                if (($v === '' && empty($def['optional'])) || mb_strlen($v) > ($def['max_length'] ?? 255) || preg_match('/[\x00-\x1F\x7F]/u', $v)) {
                     $errors[$key] = sprintf('Enter between 1 and %d printable characters.', $def['max_length'] ?? 255);
                     continue;
                 }

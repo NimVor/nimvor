@@ -17,6 +17,7 @@ $groups = [
         ['Workers', 'gear-wide-connected', 'workers', P::WORKERS_MANAGE, '/workers'],
         ['Redis', 'lightning', 'redis', P::REDIS_MANAGE, '/redis'],
         ['Memcached', 'memory', 'memcached', P::REDIS_MANAGE, '/memcached'],
+        ['DNS', 'signpost', 'dns', P::DNS_MANAGE, '/dns'],
         ['SSL', 'shield-lock', 'ssl', P::SSL_VIEW, '/ssl'],
     ],
     'Operations' => [

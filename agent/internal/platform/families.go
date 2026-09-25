@@ -75,6 +75,10 @@ func (d debianFamily) Managed() Managed {
 		FTPDir:          "/etc/whacp-ftp",
 		SFTPDropIn:      "/etc/ssh/sshd_config.d/50-whacp-sftp.conf",
 		SFTPKeysDir:     "/etc/ssh/whacp-keys",
+		DNSConfFile:     "/etc/bind/named.conf.local",
+		DNSZoneDir:      "/etc/bind/whacp",
+		DNSUser:         "bind",
+		DNSUnit:         "named.service",
 	}
 }
 
@@ -146,6 +150,10 @@ func (r rhelFamily) Managed() Managed {
 		FTPDir:          "/etc/whacp-ftp",
 		SFTPDropIn:      "/etc/ssh/sshd_config.d/50-whacp-sftp.conf",
 		SFTPKeysDir:     "/etc/ssh/whacp-keys",
+		DNSConfFile:     "/etc/named.conf",
+		DNSZoneDir:      "/var/named/whacp",
+		DNSUser:         "named",
+		DNSUnit:         "named.service",
 	}
 }
 

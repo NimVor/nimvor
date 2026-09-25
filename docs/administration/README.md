@@ -111,6 +111,30 @@ device files and entries that would leave the target folder, drops set-id
 bits, is limited to 50,000 entries and 8 GiB, and keeps existing files
 unless *Replace files that already exist* is ticked.
 
+## DNS
+
+*DNS* serves zones from this server's BIND. An administrator installs BIND
+and sets it up once: WhaCP adds a single `include` line for its own zone
+list to BIND's configuration (`/etc/bind/named.conf.local`, after
+confirmation, with a backup), validates with `named-checkconf`, starts
+BIND and opens port 53 when the firewall is on. Set *DNS name servers*
+(and optionally the hostmaster address and the default IPv4 for new
+zones) under *Settings*.
+
+A zone belongs to a website (customers create zones only for their own
+websites' domains) or, for administrators, stands alone. The usual records
+can be added on creation (@ and www to the server, SPF, CAA for Let's
+Encrypt). Supported types: A, AAAA, CNAME, MX, TXT (long values split
+automatically), NS, SRV and CAA; secondary servers can be allowed to
+transfer the zone and are notified of changes.
+
+Every change sends the complete zone to the agent, which writes it with a
+higher serial (YYYYMMDDnn), checks it with `named-checkzone` and
+`named-checkconf`, loads it with `rndc` and queries BIND until it serves
+the new serial. If any step fails the previous zone comes back and the
+panel keeps its previous records. Zones defined elsewhere in BIND are
+refused. Deleting a website keeps its zone; delete the zone separately.
+
 ## FTP and SFTP
 
 *Server → FTP server* installs pure-ftpd and runs it from WhaCP's own unit

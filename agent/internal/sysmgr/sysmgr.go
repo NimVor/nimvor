@@ -28,6 +28,7 @@ var Components = map[string]string{
 	"redis-server":        "Redis cache server",
 	"memcached":           "Memcached cache server",
 	"pure-ftpd":           "FTP server (FTPS accounts for websites)",
+	"bind9":               "DNS server (BIND) for hosted zones",
 	"certbot":             "Let's Encrypt client",
 	"ufw":                 "Firewall",
 	"fail2ban":            "Brute-force protection",
