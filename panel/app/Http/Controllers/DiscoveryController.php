@@ -27,6 +27,7 @@ final class DiscoveryController extends Controller
         private readonly SettingsService $settings,
         private readonly \WhaCP\Agent\AgentClient $agent,
         private readonly \WhaCP\Services\ServerContext $server,
+        private readonly \WhaCP\Repositories\WebsiteRepository $websites,
     ) {
         parent::__construct($view, $session);
     }
@@ -116,8 +117,22 @@ final class DiscoveryController extends Controller
         } catch (AgentException $e) {
             return $this->render('discovery/unavailable', ['title' => $title, 'error' => $e]);
         }
-        return $this->render($template, $build($inventory['data']) + [
+        return $this->render($template, $build($this->scoped($request, $inventory['data'])) + [
             'discoveredAt' => $inventory['created_at'],
         ]);
+    }
+
+    /**
+     * @param array<string, mixed> $inventory
+     * @return array<string, mixed>
+     */
+    private function scoped(Request $request, array $inventory): array
+    {
+        $user = $this->user($request);
+        if (\WhaCP\Hosting\Scope::isAll($user)) {
+            return $inventory;
+        }
+        $domains = array_map(static fn (array $w): string => (string) $w['domain'], $this->websites->all($this->server->id(), $user));
+        return DiscoveryService::forScope($inventory, false, $domains);
     }
 }

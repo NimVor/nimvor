@@ -77,6 +77,52 @@ final class DiscoveryService
      * @param array<string, mixed> $inventory
      * @return list<array<string, mixed>>
      */
+    /**
+     * The part of the server inventory a user may see. Roles with server-wide
+     * scope see everything. Others (resellers, customers) see only the
+     * websites they own (by domain) and those websites' certificates and PHP
+     * pools. They never see system cron jobs, accounts, services or database
+     * schemas, which may belong to anyone on the server.
+     *
+     * @param array<string, mixed> $inventory
+     * @param list<string> $ownDomains
+     * @return array<string, mixed>
+     */
+    public static function forScope(array $inventory, bool $all, array $ownDomains): array
+    {
+        if ($all) {
+            return $inventory;
+        }
+        $own = array_fill_keys(array_map('strtolower', $ownDomains), true);
+        $mine = static function (array $names) use ($own): bool {
+            foreach ($names as $n) {
+                if (isset($own[strtolower((string) $n)])) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        $sites = array_values(array_filter(self::websites($inventory), static fn (array $w): bool => isset($own[strtolower((string) ($w['domain'] ?? ''))])));
+        $pools = [];
+        foreach ($sites as $w) {
+            if (isset($w['php']['pool'])) {
+                $pools[(string) $w['php']['pool']] = true;
+            }
+        }
+        $out = $inventory;
+        $out['websites'] = ['websites' => $sites, 'catch_all_vhosts' => 0, 'warnings' => []];
+        $out['certificates'] = array_values(array_filter((array) ($inventory['certificates'] ?? []), static fn ($c): bool => is_array($c) && $mine(array_merge([(string) ($c['name'] ?? '')], (array) ($c['domains'] ?? []), (array) ($c['certificate']['names'] ?? [])))));
+        $php = (array) ($inventory['php'] ?? []);
+        $php['pools'] = array_values(array_filter((array) ($php['pools'] ?? []), static fn ($p): bool => is_array($p) && isset($pools[(string) ($p['name'] ?? '')])));
+        $php['warnings'] = [];
+        $out['php'] = $php;
+        $out['cron'] = ['jobs' => [], 'warnings' => []];
+        $out['databases'] = ['installed' => (bool) ($inventory['databases']['installed'] ?? false), 'schemas' => [], 'warnings' => []];
+        $out['users'] = [];
+        $out['services'] = [];
+        return $out;
+    }
+
     public static function websites(array $inventory): array
     {
         $list = $inventory['websites']['websites'] ?? [];

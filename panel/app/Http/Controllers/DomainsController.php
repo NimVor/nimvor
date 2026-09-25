@@ -21,6 +21,8 @@ final class DomainsController extends Controller
         View $view,
         SessionInterface $session,
         private readonly DiscoveryService $discovery,
+        private readonly \WhaCP\Services\ServerContext $server,
+        private readonly \WhaCP\Repositories\WebsiteRepository $websites,
     ) {
         parent::__construct($view, $session);
     }
@@ -33,7 +35,7 @@ final class DomainsController extends Controller
             return $this->render('discovery/unavailable', ['title' => 'Domains', 'error' => $e]);
         }
         $rows = [];
-        foreach (DiscoveryService::websites($inventory['data']) as $site) {
+        foreach (DiscoveryService::websites($this->scoped($request, $inventory['data'])) as $site) {
             $names = array_merge([(string) $site['domain']], array_map('strval', (array) ($site['aliases'] ?? [])));
             foreach ($names as $i => $name) {
                 $rows[] = [
@@ -63,5 +65,19 @@ final class DomainsController extends Controller
     {
         $parts = explode('.', $host);
         return implode('.', array_slice($parts, -2));
+    }
+
+    /**
+     * @param array<string, mixed> $inventory
+     * @return array<string, mixed>
+     */
+    private function scoped(Request $request, array $inventory): array
+    {
+        $user = $this->user($request);
+        if (\WhaCP\Hosting\Scope::isAll($user)) {
+            return $inventory;
+        }
+        $domains = array_map(static fn (array $w): string => (string) $w['domain'], $this->websites->all($this->server->id(), $user));
+        return DiscoveryService::forScope($inventory, false, $domains);
     }
 }
