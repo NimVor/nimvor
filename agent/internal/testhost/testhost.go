@@ -70,6 +70,9 @@ func New(t *testing.T) *Host {
 	cfg.AllowWriteActions = true
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	jm, _ := jobs.NewManager(t.TempDir(), 2, time.Minute, log)
+	// Registered after TempDir, so it runs first: background jobs a test
+	// started (archives, restores) finish before their folders are removed.
+	t.Cleanup(jm.Drain)
 	h.Env = host.New(cfg, root, platform.Detect(root), h.Runner, jm, log)
 	h.Env.Writer.Owners = agentfs.SelfOwners()
 	h.Env.Now = func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) }

@@ -105,9 +105,9 @@ final class Doctor
                 : ($age < 600 ? 'last run ' . $last : 'last run ' . $last . ' — check systemctl status whacp-scheduler.timer'),
         );
 
-        $down = (int) $this->db->scalar("SELECT COUNT(*) FROM servers WHERE id <> 1 AND status = 'offline'");
+        $down = (int) $this->db->scalar("SELECT COUNT(*) FROM servers WHERE id <> 1 AND status NOT IN ('online', 'version_mismatch')");
         if ($down > 0) {
-            $add(self::WARN, 'Remote servers', $down . ' offline — see Servers');
+            $add(self::WARN, 'Remote servers', $down . ' unreachable, refused or failing authentication — see Servers');
         }
         return $out;
     }

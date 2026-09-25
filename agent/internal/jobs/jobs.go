@@ -57,6 +57,8 @@ type Manager struct {
 	jobs map[string]*Job
 	// locks serialises jobs on the same target (e.g. one site).
 	locks map[string]*sync.Mutex
+	// running counts jobs whose goroutine has not returned yet.
+	running sync.WaitGroup
 }
 
 // NewManager stores job logs under dir.
@@ -89,7 +91,9 @@ func (m *Manager) Start(kind, target string, fn Func) Job {
 	snapshot := *j
 	m.mu.Unlock()
 
+	m.running.Add(1)
 	go func() {
+		defer m.running.Done()
 		lock.Lock()
 		defer lock.Unlock()
 		m.sem <- struct{}{}
@@ -150,6 +154,10 @@ func (m *Manager) finish(j *Job, result any, err error) {
 	m.log.Info("job finished", "job", j.ID, "kind", j.Kind, "target", j.Target, "status", snapshot.Status)
 	m.prune(500)
 }
+
+// Drain waits until every started job has finished, including writing its
+// record (used on shutdown and by tests before their folders are removed).
+func (m *Manager) Drain() { m.running.Wait() }
 
 // Get returns a job by ID.
 func (m *Manager) Get(id string) (Job, error) {

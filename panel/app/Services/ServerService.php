@@ -25,7 +25,23 @@ final class ServerService
         private readonly AuditLogger $audit,
         private readonly ServerContext $context,
         private readonly Logger $log,
+        private readonly \WhaCP\Core\Config $config,
     ) {
+    }
+
+    /**
+     * The state recorded for a failed check: why the agent could not be
+     * used, never "online".
+     */
+    public static function failureState(AgentException $e): string
+    {
+        return match ($e->errorCode()) {
+            'unauthorized' => 'auth_failed',
+            'agent_pin_mismatch' => 'certificate_mismatch',
+            'agent_forbidden' => 'refused',
+            'agent_timeout' => 'timeout',
+            default => 'offline',
+        };
     }
 
     /** @return list<array<string, mixed>> */
@@ -54,7 +70,7 @@ final class ServerService
         } finally {
             @unlink($tokenFile);
         }
-        return ['version' => (string) ($health['version'] ?? $info['agent_version'] ?? ''), 'hostname' => (string) ($info['system']['hostname'] ?? '')];
+        return ['version' => (string) ($health['data']['version'] ?? $health['version'] ?? $info['agent_version'] ?? ''), 'hostname' => (string) ($info['system']['hostname'] ?? '')];
     }
 
     /** @param array<string, mixed> $input */
@@ -99,10 +115,16 @@ final class ServerService
         $this->context->force($id);
         try {
             $h = $client->health();
-            $this->db->run("UPDATE servers SET status = 'online', last_seen_at = ?, last_error = '', agent_version = ? WHERE id = ?", [gmdate('c'), (string) ($h['version'] ?? ''), $id]);
+            $version = (string) ($h['data']['version'] ?? $h['version'] ?? '');
+            // Reachable, but running another release: usable, flagged.
+            $release = static fn (string $v): string => (string) preg_replace('/[-+].*$/', '', ltrim($v, 'v'));
+            $panel = (string) $this->config->get('app.version');
+            $state = $panel !== '' && $version !== '' && $release($version) !== $release($panel) ? 'version_mismatch' : 'online';
+            $this->db->run("UPDATE servers SET status = ?, last_seen_at = ?, last_error = ?, agent_version = ? WHERE id = ?",
+                [$state, gmdate('c'), $state === 'online' ? '' : 'Agent ' . $version . ', panel ' . $panel . ': upgrade both together.', $version, $id]);
             return true;
         } catch (AgentException $e) {
-            $this->db->run("UPDATE servers SET status = 'offline', last_error = ? WHERE id = ?", [mb_substr($e->getMessage() . ' ' . $e->reason(), 0, 300), $id]);
+            $this->db->run('UPDATE servers SET status = ?, last_error = ? WHERE id = ?', [self::failureState($e), mb_substr($e->getMessage() . ' ' . $e->reason(), 0, 300), $id]);
             return false;
         } finally {
             $this->context->force($prev);

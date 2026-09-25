@@ -15,7 +15,7 @@
                         <td><strong><?= e($s['name']) ?></strong><div class="small text-body-secondary"><?= $s['kind'] === 'local' ? 'this machine (Unix socket)' : e($s['url']) ?></div>
                             <?php if ($s['kind'] === 'remote'): ?><div class="small text-body-secondary text-break">pin <code><?= e($s['fingerprint']) ?></code></div><?php endif; ?></td>
                         <td class="small"><?= e($s['agent_version']) ?></td>
-                        <td><?= $s['kind'] === 'local' ? $this->statusBadge('active', 'local') : $this->statusBadge($s['status'] === 'online' ? 'active' : 'error', (string) $s['status']) ?>
+                        <td><?= $s['kind'] === 'local' ? $this->statusBadge('active', 'local') : $this->statusBadge($s['status'] === 'online' ? 'active' : ($s['status'] === 'version_mismatch' ? 'warning' : 'error'), ['online' => 'online', 'offline' => 'unreachable', 'timeout' => 'timed out', 'auth_failed' => 'authentication failed', 'certificate_mismatch' => 'certificate mismatch', 'refused' => 'refused', 'version_mismatch' => 'version mismatch'][(string) $s['status']] ?? (string) $s['status']) ?>
                             <?php if ($s['last_error'] !== ''): ?><div class="small text-danger"><?= e($s['last_error']) ?></div><?php endif; ?>
                             <?php if ($s['last_seen_at'] !== null): ?><div class="small text-body-secondary">seen <?= e(substr((string) $s['last_seen_at'], 0, 16)) ?></div><?php endif; ?></td>
                         <td><?= (int) $s['websites'] ?></td>
