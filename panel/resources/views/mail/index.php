@@ -64,6 +64,31 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
         </div>
     </div>
     <div class="col-lg-4">
+        <?php if ($ready && $this->can(P::SERVER_MANAGE)): $spam = (array) ($status['spam'] ?? []); ?>
+        <div class="card mb-3" id="spam-filter">
+            <div class="card-header d-flex align-items-center"><i class="bi bi-shield-exclamation me-1"></i>Spam filter
+                <span class="ms-auto"><?= !empty($spam['enabled']) ? $this->statusBadge(!empty($status['spam_running']) ? 'active' : 'failed', !empty($status['spam_running']) ? 'on' : 'not running') : $this->statusBadge('inactive', 'off') ?></span></div>
+            <div class="card-body small">
+                <?php if (empty($status['spam_installed'])): ?>
+                    <p class="text-body-secondary">Rspamd checks incoming mail; spam is filed into each mailbox's Junk folder or refused.</p>
+                    <?php if ($this->can(P::PACKAGES_MANAGE)): ?><form method="post" action="<?= e($this->url('mail.spam.install')) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-primary">Install Rspamd</button></form><?php endif; ?>
+                <?php else: ?>
+                    <form method="post" action="<?= e($this->url('mail.spam')) ?>" data-wcp-busy>
+                        <?= $this->csrfField() ?>
+                        <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="spam-on"<?= !empty($spam['enabled']) ? ' checked' : '' ?>><label class="form-check-label" for="spam-on">Filter incoming mail</label></div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-6"><label class="form-label small" for="spam-mark">Junk from score</label><input class="form-control form-control-sm<?= isset($errors['add_header']) ? ' is-invalid' : '' ?>" id="spam-mark" type="number" step="0.5" min="1" max="50" name="add_header" value="<?= e((string) ($spam['add_header'] ?? 6) ?: '6') ?>"></div>
+                            <div class="col-6"><label class="form-label small" for="spam-rej">Refuse from score</label><input class="form-control form-control-sm" id="spam-rej" type="number" step="0.5" min="2" max="100" name="reject" value="<?= e((string) ($spam['reject'] ?? 15) ?: '15') ?>"></div>
+                        </div>
+                        <?php if (isset($errors['add_header'])): ?><div class="text-danger mb-2"><?= e($errors['add_header']) ?></div><?php endif; ?>
+                        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm_replace" value="1" id="spam-replace"><label class="form-check-label" for="spam-replace">Replace existing Rspamd settings in local.d not made by WhaCP</label></div>
+                        <button class="btn btn-sm btn-primary">Save</button>
+                        <div class="form-text">Lower scores catch more spam but risk false positives. Refused mail bounces to its sender while connected, so nothing is lost silently.</div>
+                    </form>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
         <?php if ($ready): ?>
         <div class="card">
             <div class="card-header"><i class="bi bi-plus-lg me-1"></i>Host email for a domain</div>

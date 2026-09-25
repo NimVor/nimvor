@@ -146,9 +146,19 @@ Mail apps use the full address as user name, IMAP on port 993 (TLS) and
 SMTP submission on port 587 (STARTTLS, sign-in required). Port 25 accepts
 mail for hosted domains only and offers no sign-in; only this machine may
 relay. Signed-in users can send only as their own address or an alias that
-delivers to them. Outgoing mail is DKIM-signed. Messages the spam filter
-marks are filed into each mailbox's Junk folder by a Sieve rule that runs
-before personal filters. Dovecot 2.3 (Ubuntu 22.04 and 24.04) and 2.4
+delivers to them. Outgoing mail is DKIM-signed.
+
+**Spam filter:** *Email → Spam filter* installs and turns on Rspamd as a
+milter in front of Postfix. Mail scoring above the *Junk* score gets
+`X-Spam: Yes` and is filed into the mailbox's Junk folder by a Sieve rule
+that runs before personal filters; mail above the *Refuse* score is
+rejected while the sender is connected, so it bounces rather than
+disappearing. Senders cannot set the spam header themselves. WhaCP writes
+only its own files in `/etc/rspamd/local.d` (existing files there are
+replaced only after confirmation), validates with `rspamadm configtest`
+and restores everything if Rspamd or Postfix does not come back.
+
+ Dovecot 2.3 (Ubuntu 22.04 and 24.04) and 2.4
 (Ubuntu 26.04) are supported; WhaCP writes the matching configuration
 syntax, and mail is stored the same way (Maildir, INBOX at its root).
 

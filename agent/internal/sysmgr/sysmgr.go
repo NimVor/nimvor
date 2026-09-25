@@ -34,6 +34,7 @@ var Components = map[string]string{
 	"dovecot-lmtpd":       "Mail delivery to mailboxes (LMTP)",
 	"opendkim":            "DKIM signing of outgoing mail",
 	"dovecot-sieve":       "Mail filtering (Sieve)",
+	"rspamd":              "Spam filter for email",
 	"certbot":             "Let's Encrypt client",
 	"ufw":                 "Firewall",
 	"fail2ban":            "Brute-force protection",

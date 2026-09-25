@@ -126,6 +126,22 @@ final class MailTest extends HttpTestCase
         self::assertSame($calls, $this->calls('dns.zone_apply'));
     }
 
+    public function testSpamFilter(): void
+    {
+        $this->login('admin');
+        self::assertStringContainsString('Spam filter', $this->request('GET', '/mail')->body());
+        $this->agent->succeed('mail.spam_configure', ['spam' => ['enabled' => true]]);
+        $this->post('/mail/spam', ['enabled' => '1', 'add_header' => '15', 'reject' => '10']);
+        self::assertArrayHasKey('add_header', (array) $this->flash('errors'));
+        $this->post('/mail/spam', ['enabled' => '1', 'add_header' => '5.5', 'reject' => '14']);
+        self::assertEquals([true, 5.5, 14, false], [$this->lastCall('mail.spam_configure')['enabled'], $this->lastCall('mail.spam_configure')['add_header'], $this->lastCall('mail.spam_configure')['reject'], $this->lastCall('mail.spam_configure')['confirm_replace']]);
+        self::assertSame('The spam filter is on.', $this->flash('success'));
+        // Customers cannot change it.
+        $this->switchTo('cust');
+        $this->post('/mail/spam', ['enabled' => '0']);
+        self::assertSame(1, $this->calls('mail.spam_configure'));
+    }
+
     public function testSetupNeedsAHostName(): void
     {
         $this->login('admin');

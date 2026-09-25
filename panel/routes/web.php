@@ -159,6 +159,8 @@ return static function (Router $r): void {
     $r->get('/mail', [MailController::class, 'index'], ['name' => 'mail', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/install', [MailController::class, 'install'], ['name' => 'mail.install', 'permission' => P::PACKAGES_MANAGE]);
     $r->post('/mail/setup', [MailController::class, 'setup'], ['name' => 'mail.setup', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mail/spam/install', [MailController::class, 'installSpam'], ['name' => 'mail.spam.install', 'permission' => P::PACKAGES_MANAGE]);
+    $r->post('/mail/spam', [MailController::class, 'spam'], ['name' => 'mail.spam', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mail/domains', [MailController::class, 'store'], ['name' => 'mail.store', 'permission' => P::MAIL_MANAGE]);
     $r->get('/mail/domains/{id}', [MailController::class, 'show'], ['name' => 'mail.domain', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/dns', [MailController::class, 'publishDns'], ['name' => 'mail.dns', 'permission' => P::MAIL_MANAGE]);

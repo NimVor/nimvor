@@ -151,6 +151,7 @@ paths:
               - mail.domain_remove
               - mail.mailbox_delete
               - mail.mailbox_save
+              - mail.spam_configure
               - mail.status
               - memcached.configure
               - memcached.flush
@@ -405,6 +406,7 @@ x-whacp-actions:
   mail.domain_remove: { mutating: true, description: "Stop hosting email for a domain (confirm = domain; its mailboxes and aliases must be removed first)." }
   mail.mailbox_delete: { mutating: true, description: "Delete a mailbox (confirm = address); its mail is moved to the agent's trash folder, or kept in place with keep_mail." }
   mail.mailbox_save: { mutating: true, description: "Create a mailbox or change its password or quota (the password is stored as a SHA-512 crypt hash)." }
+  mail.spam_configure: { mutating: true, description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only WhaCP's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure." }
   mail.status: { mutating: false, description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases." }
   memcached.configure: { mutating: true, description: "Set Memcached's memory, connection limit and (loopback) listen addresses in its package configuration file after explicit confirmation; restarts and verifies, rolls back on failure." }
   memcached.flush: { mutating: true, description: "Remove every item from Memcached (requires confirm)." }

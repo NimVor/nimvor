@@ -202,7 +202,7 @@ func hasIPv6() bool {
 }
 
 // postfixSettings are applied with postconf -e.
-func postfixSettings(dir, hostname string, t tls, ipv6 bool) [][2]string {
+func postfixSettings(dir, hostname string, t tls, ipv6 bool, spam bool) [][2]string {
 	// Only this machine may relay without signing in (applications here).
 	nets := "127.0.0.0/8"
 	if ipv6 {
@@ -231,7 +231,7 @@ func postfixSettings(dir, hostname string, t tls, ipv6 bool) [][2]string {
 		{"message_size_limit", "52428800"},
 		{"milter_default_action", "accept"},
 		{"milter_protocol", "6"},
-		{"smtpd_milters", fmt.Sprintf("inet:127.0.0.1:%d", dkimPort)},
+		{"smtpd_milters", smtpdMilters(spam)},
 		{"non_smtpd_milters", fmt.Sprintf("inet:127.0.0.1:%d", dkimPort)},
 	}
 }
@@ -284,4 +284,14 @@ func disableSystemAuth(conf string) (string, bool) {
 // configured reports whether Postfix points at WhaCP's tables.
 func configuredFrom(postconfN, dir string) bool {
 	return strings.Contains(postconfN, "texthash:"+dir+"/domains")
+}
+
+// smtpdMilters lists the milters for received mail: the spam filter first
+// (so it can refuse), then DKIM signing and checking.
+func smtpdMilters(spam bool) string {
+	dkim := fmt.Sprintf("inet:127.0.0.1:%d", dkimPort)
+	if spam {
+		return fmt.Sprintf("inet:127.0.0.1:%d, %s", rspamdPort, dkim)
+	}
+	return dkim
 }

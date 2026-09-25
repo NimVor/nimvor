@@ -93,6 +93,7 @@ var defaultCandidates = map[string][]string{
 	"doveadm":         {"/usr/bin/doveadm"},
 	"dovecot":         {"/usr/sbin/dovecot"},
 	"sievec":          {"/usr/bin/sievec"},
+	"rspamadm":        {"/usr/bin/rspamadm"},
 	"curl":            {"/usr/bin/curl"},
 	"apt-get":         {"/usr/bin/apt-get"},
 	"dpkg-query":      {"/usr/bin/dpkg-query"},

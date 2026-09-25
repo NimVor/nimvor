@@ -68,6 +68,7 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.PostfixDir + "/master.cf",
 		m.DovecotAuthConf,
 		m.DovecotDropIn,
+		"/etc/rspamd/local.d/*",
 		filepath.Join(m.UnitDir, "whacp-opendkim.service"),
 		filepath.Join(m.UnitDir, "whacp-ftpd.service"),
 		m.Fail2banJail,

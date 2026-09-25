@@ -220,3 +220,25 @@ func TestMailboxesAndAliases(t *testing.T) {
 		t.Fatal("domain with mailboxes removed")
 	}
 }
+
+func TestSpamSettings(t *testing.T) {
+	for _, bad := range []Spam{{AddHeader: 0, Reject: 15}, {AddHeader: 10, Reject: 10}, {AddHeader: 6, Reject: 101}, {AddHeader: 51, Reject: 60}} {
+		if bad.validate() == nil {
+			t.Errorf("%+v accepted", bad)
+		}
+	}
+	f := rspamdFiles(Spam{AddHeader: 5.5, Reject: 15})
+	for name, want := range map[string]string{
+		"actions.conf":        "reject = 15;\nadd_header = 5.5;\n",
+		"worker-proxy.inc":    "bind_socket = \"127.0.0.1:11332\";\nmilter = yes;",
+		"milter_headers.conf": "remove_upstream_spam_flag = true;",
+		"dkim_signing.conf":   "enabled = false;",
+	} {
+		if !strings.Contains(f[name], want) || !strings.HasPrefix(f[name], spamMarker) {
+			t.Errorf("%s = %q", name, f[name])
+		}
+	}
+	if smtpdMilters(true) != "inet:127.0.0.1:11332, inet:127.0.0.1:8891" || smtpdMilters(false) != "inet:127.0.0.1:8891" {
+		t.Error("milters")
+	}
+}

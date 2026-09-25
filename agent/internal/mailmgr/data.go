@@ -31,6 +31,15 @@ type Data struct {
 	Domains   map[string]Domain   `json:"domains"`
 	Mailboxes map[string]Mailbox  `json:"mailboxes"`
 	Aliases   map[string][]string `json:"aliases"`
+	Spam      Spam                `json:"spam"`
+}
+
+// Spam holds the spam filter (Rspamd) settings.
+type Spam struct {
+	Enabled bool `json:"enabled"`
+	// Scores at which a message is marked (filed into Junk) or refused.
+	AddHeader float64 `json:"add_header"`
+	Reject    float64 `json:"reject"`
 }
 
 // Domain is a hosted mail domain.

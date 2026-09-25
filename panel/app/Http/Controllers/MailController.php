@@ -83,6 +83,34 @@ final class MailController extends Controller
         });
     }
 
+    public function installSpam(Request $request): Response
+    {
+        try {
+            $res = (array) $this->agent->call('packages.install', ['name' => 'rspamd']);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/mail', $e);
+        }
+        $this->jobs->track((string) $res['job_id'], 'Install the spam filter', 'server', 'mail', $this->userId($request));
+        $this->audit->record('packages.install', 'server', 'mail', AuditLogger::SUCCESS, ['name' => 'rspamd']);
+        $this->flashJob((string) $res['job_id']);
+        return $this->redirectWithSuccess('/mail', 'Installing Rspamd. Then turn the spam filter on below.');
+    }
+
+    public function spam(Request $request): Response
+    {
+        return $this->act($request, '/mail', function () use ($request): string {
+            $mark = (float) $request->input('add_header', 6);
+            $reject = (float) $request->input('reject', 15);
+            if ($mark < 1 || $mark > 50 || $reject <= $mark || $reject > 100) {
+                throw new ValidationException(['add_header' => 'Use a marking score of 1–50 and a higher rejection score (at most 100).']);
+            }
+            $params = ['enabled' => $request->input('enabled') === '1', 'add_header' => $mark, 'reject' => $reject, 'confirm_replace' => $request->input('confirm_replace') === '1'];
+            $this->agent->call('mail.spam_configure', $params, 120);
+            $this->audit->record('mail.spam_configure', 'server', 'mail', AuditLogger::SUCCESS, $params);
+            return $params['enabled'] ? 'The spam filter is on.' : 'The spam filter is off.';
+        });
+    }
+
     public function store(Request $request): Response
     {
         $id = 0;

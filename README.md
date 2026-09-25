@@ -25,7 +25,7 @@ privileged operation must be explicit, validated, audited and reversible.**
 | Websites | PHP, static and reverse-proxy sites; aliases, redirects, per-site PHP-FPM pools; `nginx -t` gate and automatic rollback |
 | PHP | install versions, per-site settings |
 | Databases | MySQL/MariaDB databases, users and grants; web database browser (rows, structure, SQL console) confined to one database |
-| Email | Postfix + Dovecot + OpenDKIM: mailboxes with quotas, aliases and catch-all, DKIM keys and the MX/SPF/DKIM/DMARC records (one click into the DNS zone), submission with sign-in and anti-spoofing |
+| Email | Postfix + Dovecot (2.3 and 2.4) + OpenDKIM: Rspamd spam filter (Junk folder or refusal), mailboxes with quotas, aliases and catch-all, DKIM keys and the MX/SPF/DKIM/DMARC records (one click into the DNS zone), submission with sign-in and anti-spoofing |
 | DNS | authoritative zones on BIND: A, AAAA, CNAME, MX, TXT, NS, SRV, CAA, templates, secondaries; validated with named-checkzone, serial checked after every reload, rollback |
 | SSL | Let's Encrypt issue/renew, custom certificates, HTTPS redirect, HSTS |
 | Files & logs | full-screen file manager (folder tree, multi-select, drag-and-drop uploads, full-page editor, permissions, zip/tar.gz compress and safe extract), log viewer with live tail |

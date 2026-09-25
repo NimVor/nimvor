@@ -294,6 +294,42 @@ func TestRealHostMail(t *testing.T) {
 	}
 	c.Close()
 
+	// Spam filter: GTUBE is refused while connected; mail above the marking
+	// score (set low here) is filed into Junk; off again restores Postfix.
+	if _, err := os.Stat("/usr/bin/rspamd"); err == nil {
+		t.Cleanup(func() {
+			for _, f := range []string{"actions.conf", "worker-proxy.inc", "milter_headers.conf", "dkim_signing.conf"} {
+				os.Remove("/etc/rspamd/local.d/" + f)
+			}
+			exec.Command("systemctl", "restart", "rspamd").Run()
+		})
+		must("mail.spam_configure", map[string]any{"enabled": true, "add_header": 1, "reject": 15, "confirm_replace": true})
+		if out, _ := exec.Command("postconf", "-h", "smtpd_milters").CombinedOutput(); !strings.Contains(string(out), "127.0.0.1:11332") {
+			t.Fatalf("milters = %s", out)
+		}
+		gtube := "XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X"
+		if err := inbound("bob@rt-mail.test", gtube); err == nil || !strings.Contains(err.Error(), "5") {
+			t.Fatalf("GTUBE accepted: %v", err)
+		}
+		before, _ := filepath.Glob(filepath.Join(junk, "*", "*"))
+		if err := inbound("alice@rt-mail.test", "probably spam"); err != nil {
+			t.Fatalf("marked mail: %v", err)
+		}
+		for i := 0; i < 60; i++ {
+			if after, _ := filepath.Glob(filepath.Join(junk, "*", "*")); len(after) > len(before) {
+				break
+			}
+			if i == 59 {
+				t.Fatal("mail above the marking score not filed into Junk")
+			}
+			time.Sleep(250 * time.Millisecond)
+		}
+		must("mail.spam_configure", map[string]any{"enabled": false, "add_header": 6, "reject": 15})
+		if out, _ := exec.Command("postconf", "-h", "smtpd_milters").CombinedOutput(); strings.Contains(string(out), "11332") {
+			t.Fatalf("milters after turning off = %s", out)
+		}
+	}
+
 	// Removing: the domain needs its mailboxes and aliases gone first.
 	if _, err := call("mail.domain_remove", map[string]any{"domain": "rt-mail.test", "confirm": "rt-mail.test"}); err == nil {
 		t.Fatal("domain with mailboxes removed")

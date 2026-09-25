@@ -183,6 +183,7 @@ var hostnameRe = domainRe
 func Register(r *actions.Registry, he *host.Env) {
 	e := env{he}
 	dir := he.M.MailDir
+	registerSpam(r, e)
 
 	r.Register(actions.Action{Name: "mail.status", Description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		d, _ := e.load()
@@ -208,6 +209,7 @@ func Register(r *actions.Registry, he *host.Env) {
 			"installed": e.installed(), "configured": e.configured(), "hostname": d.Hostname, "dovecot_version": dovecotVersion,
 			"running": map[string]bool{"postfix": e.run(ctx, "postfix", "status") == nil, "dovecot": e.UnitActive(ctx, "dovecot.service"), "opendkim": e.UnitActive(ctx, DKIMUnit)},
 			"domains": domains, "mailboxes": boxes, "aliases": aliases,
+			"spam": d.Spam, "spam_installed": e.rspamdInstalled(), "spam_running": e.UnitActive(ctx, rspamdUnit),
 		}, nil
 	}})
 
@@ -313,7 +315,7 @@ func Register(r *actions.Registry, he *host.Env) {
 			if out, err := he.Runner.Run(ctx, "doveconf", "-n"); err != nil {
 				return fmt.Errorf("doveconf: %s", host.Output(out))
 			}
-			for _, kv := range postfixSettings(dir, in.Hostname, t, hasIPv6()) {
+			for _, kv := range postfixSettings(dir, in.Hostname, t, hasIPv6(), d.Spam.Enabled) {
 				if err := e.run(ctx, "postconf", "-e", kv[0]+"="+kv[1]); err != nil {
 					return err
 				}
