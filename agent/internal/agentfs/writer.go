@@ -211,6 +211,7 @@ func (w Writer) WriteFile(hostPath string, data []byte, mode fs.FileMode, owner 
 	if err := tmp.Close(); err != nil {
 		return false, err
 	}
+	keepLabel(real, tmpName)
 	if err := os.Rename(tmpName, real); err != nil {
 		return false, err
 	}
@@ -361,4 +362,17 @@ func syncDir(dir string) {
 		_ = d.Sync()
 		d.Close()
 	}
+}
+
+// keepLabel gives the replacement file the SELinux label of the file it
+// replaces (a new file gets its folder's default, e.g. etc_t instead of
+// named_conf_t for /etc/named.conf, which the service may not read).
+// Without SELinux there is no such attribute and nothing happens.
+func keepLabel(old, replacement string) {
+	buf := make([]byte, 256)
+	n, err := syscall.Getxattr(old, "security.selinux", buf)
+	if err != nil || n <= 0 {
+		return
+	}
+	_ = syscall.Setxattr(replacement, "security.selinux", buf[:n], 0)
 }

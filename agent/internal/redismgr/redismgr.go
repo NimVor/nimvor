@@ -247,7 +247,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := c.backupConf(); err != nil {
 			return nil, actions.Failed("redis.conf could not be backed up; nothing was changed.", err.Error())
 		}
-		args := []string{"ACL", "SETUSER", in.User, "reset", "on", ">" + in.Password, "~" + in.Prefix + "*", "&" + in.Prefix + "*", "+@all", "-@admin", "-@dangerous"}
+		args := []string{"ACL", "SETUSER", in.User, "reset", "on", ">" + in.Password, "~" + in.Prefix + "*", "resetchannels", "&" + in.Prefix + "*", "+@all", "-@admin", "-@dangerous"}
 		if _, err := c.Cmd(ctx, args...); err != nil {
 			return nil, actions.Failed("Redis rejected the user.", err.Error())
 		}

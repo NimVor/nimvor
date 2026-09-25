@@ -52,3 +52,13 @@ func TestVersionedPHPIDs(t *testing.T) {
 		t.Errorf("php-fpm8.3 should be allowlisted: %v", err)
 	}
 }
+
+// Every command the agent runs by name must be allowlisted (a missing
+// entry makes the feature silently unavailable).
+func TestAllowlistHasPlatformTools(t *testing.T) {
+	for _, id := range []string{"apt-get", "dpkg-query", "debconf-set-selections", "dnf", "rpm", "needs-restarting", "ufw", "firewall-cmd", "firewall-offline-cmd", "getenforce", "restorecon", "semanage", "setsebool", "getsebool"} {
+		if _, ok := defaultCandidates[id]; !ok {
+			t.Errorf("%s is not allowlisted", id)
+		}
+	}
+}
