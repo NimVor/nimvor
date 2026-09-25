@@ -87,7 +87,7 @@ jobs:
           sudo installer/install.sh --yes --enable-writes --admin-user=admin --admin-email=admin@whacp.test
           sudo tests/integration/postinstall.sh
       - name: Agent sandbox diagnostics (Ubuntu)
-        if: failure()
+        if: always()
         run: |
           systemctl --version | head -1; uname -r
           sudo journalctl -u whacp-agent --no-pager -n 15 -o cat | grep -i 'fail\|error' || true

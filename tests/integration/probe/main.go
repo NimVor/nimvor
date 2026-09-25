@@ -29,7 +29,11 @@ func main() {
 		}
 	}
 	try := func(name string, attr *syscall.SysProcAttr, dir string) bool {
-		c := exec.Command("/usr/bin/tar", "-cf", "-", ".")
+		args := []string{"--version"}
+		if name == "agent" {
+			args = []string{"-cf", "-", "."}
+		}
+		c := exec.Command("/usr/bin/tar", args...)
 		c.Dir = dir
 		c.Env = []string{"PATH=/usr/bin:/bin", "HOME=" + u.HomeDir}
 		c.SysProcAttr = attr
@@ -43,13 +47,20 @@ func main() {
 	try("gid-only", &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: 0, Gid: uint32(gid)}}, "/")
 	try("uid-only", &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: uint32(uid), Gid: 0}}, "/")
 	try("dir-root", &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}}, "/")
-	for _, bin := range []string{"/usr/bin/true", "/bin/sh"} {
-		c := exec.Command(bin, "-c", "true")
+	for _, bin := range []string{"/usr/bin/true", "/usr/bin/id"} {
+		c := exec.Command(bin)
 		c.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}}
 		fmt.Printf("RESULT exec-%s err=%v\n", bin, c.Run())
 	}
-	out, err := exec.Command("/usr/bin/setpriv", "--reuid="+u.Uid, "--regid="+u.Gid, "--clear-groups", "/usr/bin/tar", "--version").CombinedOutput()
-	fmt.Printf("RESULT setpriv err=%v out=%.60q\n", err, out)
+	for _, args := range [][]string{
+		{"--reuid=" + u.Uid, "--regid=" + u.Gid, "--clear-groups", "/usr/bin/tar", "--version"},
+		{"--regid=" + u.Gid, "--clear-groups", "/usr/bin/tar", "--version"},
+		{"--reuid=" + u.Uid, "/usr/bin/tar", "--version"},
+		{"--reuid=" + u.Uid, "--regid=" + u.Gid, "--clear-groups", "--inh-caps=-all", "/usr/bin/tar", "--version"},
+	} {
+		out, err := exec.Command("/usr/bin/setpriv", args...).CombinedOutput()
+		fmt.Printf("RESULT setpriv %v err=%v out=%.70q\n", args[:len(args)-2], err, out)
+	}
 	if !ok {
 		os.Exit(1)
 	}
