@@ -63,6 +63,43 @@ var probe = func(ctx context.Context, addr, prefix string, implicitTLS bool) err
 	return fmt.Errorf("%s: %v", addr, last)
 }
 
+// startTLS checks that an SMTP server upgrades a connection to TLS 1.2 or
+// later (tests replace it).
+var startTLS = func(ctx context.Context, addr string) error {
+	d := net.Dialer{Timeout: 3 * time.Second}
+	c, err := d.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	c.SetDeadline(time.Now().Add(10 * time.Second))
+	r := bufio.NewReader(c)
+	reply := func() (string, error) {
+		for {
+			line, err := r.ReadString('\n')
+			if err != nil {
+				return line, err
+			}
+			if len(line) < 4 || line[3] != '-' {
+				return line, nil
+			}
+		}
+	}
+	for _, step := range []struct{ send, want string }{{"", "220"}, {"EHLO whacp.local\r\n", "250"}, {"STARTTLS\r\n", "220"}} {
+		if step.send != "" {
+			if _, err := c.Write([]byte(step.send)); err != nil {
+				return err
+			}
+		}
+		line, err := reply()
+		if err != nil || !strings.HasPrefix(line, step.want) {
+			return fmt.Errorf("%sexpected %s, got %q", strings.TrimSpace(step.send+" "), step.want, strings.TrimSpace(line))
+		}
+	}
+	tc := cryptotls.Client(c, &cryptotls.Config{InsecureSkipVerify: true, MinVersion: cryptotls.VersionTLS12}) //nolint:gosec // only checks the handshake
+	return tc.HandshakeContext(ctx)
+}
+
 type env struct{ *host.Env }
 
 func (e env) dataPath() string { return e.M.MailDir + "/mail.json" }
@@ -401,6 +438,11 @@ func Register(r *actions.Registry, he *host.Env) {
 				if err := probe(ctx, p.addr, p.greet, p.tls); err != nil {
 					return fail("The mail server does not answer.", err)
 				}
+			}
+			// Submission requires TLS: a Postfix that cannot start it
+			// (unreadable key, unsupported setting) refuses every login.
+			if err := startTLS(ctx, "127.0.0.1:587"); err != nil {
+				return fail("The mail server cannot start TLS for submission.", fmt.Errorf("%v\n%s", err, he.JournalTail(ctx, "postfix.service", 10)))
 			}
 		}
 		notes := []string{}

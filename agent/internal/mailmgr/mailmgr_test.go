@@ -113,8 +113,10 @@ func setup(t *testing.T) (*testhost.Host, *actions.Registry) {
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
 	old := probe
+	oldTLS := startTLS
 	probe = func(context.Context, string, string, bool) error { return nil }
-	t.Cleanup(func() { probe = old })
+	startTLS = func(context.Context, string) error { return nil }
+	t.Cleanup(func() { probe, startTLS = old, oldTLS })
 	return h, r
 }
 

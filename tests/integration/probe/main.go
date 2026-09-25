@@ -61,6 +61,12 @@ func main() {
 		out, err := exec.Command("/usr/bin/setpriv", args...).CombinedOutput()
 		fmt.Printf("RESULT setpriv %v err=%v out=%.70q\n", args[:len(args)-2], err, out)
 	}
+	// Architectural alternative: PID 1 switches to the account in a
+	// transient unit; the caller never changes its own credentials.
+	out, err := exec.Command("/usr/bin/systemd-run", "--quiet", "--pipe", "--wait", "--collect", "--service-type=exec",
+		"--uid="+u.Uid, "--gid="+u.Gid, "-p", "NoNewPrivileges=yes", "-p", "CapabilityBoundingSet=",
+		"/usr/bin/id").CombinedOutput()
+	fmt.Printf("RESULT systemd-run err=%v out=%.80q\n", err, out)
 	if !ok {
 		os.Exit(1)
 	}

@@ -22,10 +22,10 @@ run() {
     systemctl daemon-reload
     systemctl start whacp-probe.service >/dev/null 2>&1
     local inv; inv=$(systemctl show -p InvocationID --value whacp-probe.service)
-    journalctl "_SYSTEMD_INVOCATION_ID=$inv" --no-pager -o cat | grep -E 'RESULT|NoNewPrivs|Seccomp:'
+    journalctl "_SYSTEMD_INVOCATION_ID=$inv" --no-pager -o cat | grep -E 'RESULT|NoNewPrivs|Seccomp:|CapEff|CapPrm'
 }
 echo "--- exact clone"; run
-for p in NoNewPrivileges=no RestrictNamespaces=no LockPersonality=no SystemCallArchitectures= RestrictAddressFamilies= ProtectClock=no ProtectHostname=no ProtectKernelLogs=no RestrictRealtime=no; do
+for p in NoNewPrivileges=no 'AmbientCapabilities=CAP_SETUID CAP_SETGID' AmbientCapabilities=CAP_SETUID; do
     printf '[Service]\n%s\n' "$p" > /etc/systemd/system/whacp-probe.service.d/99-probe.conf
     echo "--- with $p"; run
 done

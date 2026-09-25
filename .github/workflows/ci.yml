@@ -90,6 +90,7 @@ jobs:
         if: always()
         run: |
           systemctl --version | head -1; uname -r
+          systemd-analyze security whacp-agent.service --no-pager || true
           sudo journalctl -u whacp-agent --no-pager -n 15 -o cat | grep -i 'fail\|error' || true
           sudo env "PATH=$PATH" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" HOME=$HOME tests/integration/sandbox-probe.sh
 

@@ -222,7 +222,9 @@ func postfixSettings(dir, hostname string, t tls, ipv6 bool, spam bool) [][2]str
 		{"smtpd_tls_cert_file", t.cert},
 		{"smtpd_tls_key_file", t.key},
 		{"smtpd_tls_security_level", "may"},
-		{"smtpd_tls_mandatory_protocols", ">=TLSv1.2"},
+		// TLS 1.2 or later. The ">=TLSv1.2" form needs Postfix 3.6; RHEL 9
+		// ships 3.5, which then disables TLS entirely.
+		{"smtpd_tls_mandatory_protocols", "!SSLv2, !SSLv3, !TLSv1, !TLSv1.1"},
 		{"smtp_tls_security_level", "may"},
 		{"smtpd_sasl_type", "dovecot"},
 		{"smtpd_sasl_path", "private/auth"},
