@@ -105,6 +105,10 @@ final class SecurityAndSystemTest extends HttpTestCase
         $this->agent->succeed('services.status', [['unit' => 'nginx.service', 'active_state' => 'failed', 'unit_file_state' => 'enabled'], ['unit' => 'redis-server.service', 'active_state' => 'inactive', 'unit_file_state' => 'disabled']]);
         $this->agent->succeed('discovery.certificates', [['name' => 'shop.test', 'certificate' => ['days_remaining' => 5]]]);
         $this->post('/settings', ['alert_webhook_url' => 'https://hooks.example.com/abc']);
+        $mailer = new \WhaCP\Tests\Support\ArrayMailer();
+        $this->app->container->instance(\WhaCP\Mail\Mailer::class, $mailer);
+        $this->post('/settings/mail', ['host' => 'smtp.example.com', 'port' => '465', 'encryption' => 'tls', 'from' => 'panel@example.com', 'alert_to' => 'ops@example.com']);
+        self::assertStringContainsString('saved', (string) $this->flash('success'));
         $mon = $this->app->container->get(MonitoringService::class);
         $sent = [];
         $mon->sender = function (string $url, string $body) use (&$sent): bool {
@@ -119,6 +123,8 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertSame(['certificate', 'disk', 'service'], $open, 'disabled services do not alert');
         self::assertCount(3, $sent);
         self::assertSame('https://hooks.example.com/abc', $sent[0][0]);
+        self::assertCount(3, $mailer->sent, 'alerts are emailed too');
+        self::assertSame(['ops@example.com'], $mailer->sent[0]['to']);
 
         $mon->run($now + 300);
         self::assertCount(3, $sent, "no repeat notifications while firing: " . json_encode($sent));

@@ -130,6 +130,7 @@ final class Application
             $c->get(Csrf::class),
             self::basePath('public'),
         ));
+        $c->set(\WhaCP\Mail\Mailer::class, static fn (Container $c) => $c->get(\WhaCP\Mail\SmtpMailer::class));
         $c->set(LoginThrottle::class, static fn (Container $c) => new LoginThrottle(
             $c->get(LoginAttemptRepository::class),
             $cfg->int('security.login_max_per_ip', 10),

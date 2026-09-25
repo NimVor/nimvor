@@ -14,6 +14,7 @@ use WhaCP\Http\Controllers\DatabasesController;
 use WhaCP\Http\Controllers\DiscoveryController;
 use WhaCP\Http\Controllers\HealthController;
 use WhaCP\Http\Controllers\ImportController;
+use WhaCP\Http\Controllers\PasswordResetController;
 use WhaCP\Http\Controllers\DomainsController;
 use WhaCP\Http\Controllers\FilesController;
 use WhaCP\Http\Controllers\ProfileController;
@@ -46,6 +47,10 @@ return static function (Router $r): void {
     $r->post('/login', [AuthController::class, 'login'], ['name' => 'login.submit', 'auth' => false]);
     $r->get('/login/two-factor', [AuthController::class, 'twoFactor'], ['name' => 'login.two_factor', 'auth' => false]);
     $r->post('/login/two-factor', [AuthController::class, 'verifyTwoFactor'], ['name' => 'login.two_factor.submit', 'auth' => false]);
+    $r->get('/password/forgot', [PasswordResetController::class, 'forgot'], ['name' => 'password.forgot', 'auth' => false]);
+    $r->post('/password/forgot', [PasswordResetController::class, 'send'], ['name' => 'password.send', 'auth' => false]);
+    $r->get('/password/reset/{token}', [PasswordResetController::class, 'show'], ['name' => 'password.reset.form', 'auth' => false]);
+    $r->post('/password/reset/{token}', [PasswordResetController::class, 'reset'], ['name' => 'password.reset', 'auth' => false]);
     $r->get('/healthz', [HealthController::class, 'show'], ['name' => 'health', 'auth' => false]);
     // Signed Git push webhooks (authenticated by HMAC/token, not a session).
     $r->post('/hooks/deploy/{token}', [DeployController::class, 'webhook'], ['name' => 'hooks.deploy', 'auth' => false, 'csrf' => false]);
@@ -199,6 +204,8 @@ return static function (Router $r): void {
     $r->post('/roles/{id}/delete', [RolesController::class, 'destroy'], ['name' => 'roles.delete', 'permission' => P::ROLES_MANAGE]);
     $r->get('/settings', [SettingsController::class, 'index'], ['name' => 'settings', 'permission' => P::SETTINGS_VIEW]);
     $r->post('/settings', [SettingsController::class, 'update'], ['name' => 'settings.update', 'permission' => P::SETTINGS_MANAGE]);
+    $r->post('/settings/mail', [SettingsController::class, 'mail'], ['name' => 'settings.mail', 'permission' => P::SETTINGS_MANAGE]);
+    $r->post('/settings/mail/test', [SettingsController::class, 'testMail'], ['name' => 'settings.mail.test', 'permission' => P::SETTINGS_MANAGE]);
     $r->get('/audit', [AuditLogController::class, 'index'], ['name' => 'audit', 'permission' => P::AUDIT_VIEW]);
 
     // REST API v1 (bearer tokens; see resources/api/openapi.yaml)

@@ -31,6 +31,8 @@ final class MonitoringService
         private readonly ServerContext $server,
         private readonly Logger $log,
         private readonly ?PlanLimits $limits = null,
+        private readonly ?\WhaCP\Mail\Mailer $mailer = null,
+        private readonly ?\WhaCP\Mail\MailConfig $mailConfig = null,
     ) {
     }
 
@@ -195,13 +197,30 @@ final class MonitoringService
         return $log;
     }
 
+    private function email(string $host, string $text): void
+    {
+        if ($this->mailer === null || $this->mailConfig === null) {
+            return;
+        }
+        $to = $this->mailConfig->alertRecipients();
+        if ($to === [] || !$this->mailer->configured()) {
+            return;
+        }
+        try {
+            $this->mailer->send($to, "[WhaCP {$host}] " . mb_substr($text, 0, 120), $text . "\n\n-- \nWhaCP on {$host}. Change alert settings under Settings.");
+        } catch (\WhaCP\Mail\MailException) {
+            // Logged by the mailer; the alert itself is stored and shown.
+        }
+    }
+
     private function notify(string $text): void
     {
+        $host = gethostname() ?: 'server';
+        $this->email($host, $text);
         $url = $this->settings->string('alert_webhook_url');
         if ($url === '') {
             return;
         }
-        $host = gethostname() ?: 'server';
         $body = (string) json_encode(['text' => "[WhaCP {$host}] " . $text], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($this->sender !== null) {
             ($this->sender)($url, $body);

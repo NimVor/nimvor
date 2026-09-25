@@ -18,5 +18,6 @@
                 <span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Sign in
             </button>
         </form>
+        <div class="text-center mt-3"><a class="small" href="<?= e($this->url('password.forgot')) ?>">Forgot your password?</a></div>
     </div>
 </div>
