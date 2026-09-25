@@ -37,6 +37,19 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
     resources return 404, deleted and malformed tokens are refused;
   - an adversarial file-manager sweep: every action with traversal,
     encoded, NUL, `/proc`, `/dev` and symlink paths.
+- **Fixed — commands as a website account on Ubuntu 24.04 (release
+  blocker):** under the installed agent service, backups, restores, cron
+  "run now", deploy hooks and app installers failed with `operation not
+  permitted`. On systemd 255 the agent's process lacks `CAP_SETUID`, and
+  with `NoNewPrivileges=yes` it can never gain it. The agent no longer
+  changes its own credentials: PID 1 starts these commands as the account
+  in a transient unit with no capabilities, `NoNewPrivileges`, no
+  setuid/setgid, a read-only system and an enforced timeout. The agent's
+  own unit and sandbox are unchanged (`systemd-analyze security`: 5.8, as
+  before). Standard input and output go through named pipes in
+  `/run/whacp-run` that only the account's own process opens; the agent
+  never follows a replaced pipe.
+- A command that reached its timeout is always reported as failed.
 - Release archives are checked for test files, private keys and tokens
   before publishing. Releases are published only after the whole CI suite
   passes.
@@ -226,6 +239,28 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
 - Roundcube's pool sets `include_path` with `php_value`: Roundcube refuses
   to run when include_path is locked.
 - `uninstall.sh` left the agent's write-mode drop-in behind.
+- Configuration files WhaCP rewrites without owning them (e.g. its include
+  in `/etc/named.conf`) keep their owner and group; on RHEL BIND could no
+  longer read `named.conf`.
+- RHEL: the DKIM folder is `root:opendkim`, so OpenDKIM starts under
+  SELinux; Postfix 3.5 accepts the TLS protocol setting (it had disabled
+  TLS on submission) and email setup now checks STARTTLS on 587 and rolls
+  back if it fails; Roundcube 1.5 finds WhaCP's configuration folder, its
+  default settings (`root:apache 0640` on RHEL, copied by the agent) and
+  its IMAP and SMTP servers.
+- The WordPress installer no longer sends the "new site" e-mail, which hung
+  under the sandbox (Postfix's setgid `postdrop` cannot work with
+  `NoNewPrivileges`).
+- Multi-server: the agent version is read correctly and failures are
+  recorded as `version_mismatch`, `auth_failed`, `certificate_mismatch`,
+  `refused` or `timeout` instead of plain `offline`.
+
+### Known limitations
+- Commands WhaCP runs as a website account (deploy hooks, cron "run now")
+  cannot queue mail through the local `sendmail`; use SMTP. Scheduled cron
+  jobs and websites are not affected.
+- Let's Encrypt issuance is tested only with a stand-in certbot (it needs a
+  public domain).
 
 ## [0.4.0]
 
