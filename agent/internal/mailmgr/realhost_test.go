@@ -280,7 +280,8 @@ func TestRealHostMail(t *testing.T) {
 		t.Fatal("bob could send as alice")
 	}
 	if err := submit("bob@rt-mail.test", "bob@rt-mail.test", "Bob-mail-pass-12"); err != nil {
-		t.Fatalf("submission: %v", err)
+		out, _ := exec.Command("journalctl", "--no-pager", "-o", "cat", "-n", "15", "-u", "postfix").CombinedOutput()
+		t.Fatalf("submission: %v\n%s", err, out)
 	}
 	files = waitMail(2)
 	found := false

@@ -353,6 +353,15 @@ func Register(r *actions.Registry, he *host.Env) {
 		if err := selinux.Label(ctx, he, e.M.VmailDir, "mail_spool_t"); err != nil {
 			return fail("The mail storage could not be labelled for SELinux.", err)
 		}
+		// Postfix's smtpd (postfix_smtpd_t) reads TLS files only with the
+		// certificate label; Dovecot reads it too.
+		for _, f := range []string{t.cert, t.key} {
+			if strings.HasPrefix(f, dir+"/") {
+				if err := selinux.Label(ctx, he, f, "cert_t"); err != nil {
+					he.Log.Warn("selinux: TLS file label", "file", f, "err", err)
+				}
+			}
+		}
 		// OpenDKIM (dkim_milter_t) reads its keys and tables only with the
 		// label of its own key folder.
 		if err := selinux.Label(ctx, he, dir+"/dkim", "dkim_milter_private_key_t"); err != nil {

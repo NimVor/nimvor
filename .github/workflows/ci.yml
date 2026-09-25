@@ -147,8 +147,8 @@ jobs:
       - name: SELinux denials and service logs
         if: always()
         run: |
-          tests/rhel/vm.sh ssh 'getenforce; ausearch -m AVC,USER_AVC -ts today -i | grep -v "noatsecure\|rlimitinh\|siginh" | tail -200 || true; journalctl -k --no-pager | grep -i "avc:" | grep -v "noatsecure\|rlimitinh\|siginh" | tail -100 || true'
-          tests/rhel/vm.sh ssh 'journalctl --no-pager -n 40 -u whacp-opendkim -u named -u dovecot -u postfix -u rspamd -u nginx -u php83-php-fpm || true'
+          tests/rhel/vm.sh ssh 'getenforce; systemctl is-active auditd; grep -c denied /var/log/audit/audit.log; grep denied /var/log/audit/audit.log | grep -v "noatsecure\|rlimitinh\|siginh" | tail -80 || true'
+          for u in postfix whacp-opendkim named dovecot; do tests/rhel/vm.sh ssh "echo '--- $u'; journalctl --no-pager -o cat -n 25 -u $u | grep -iv 'connect from\|disconnect from' || true"; done
 
   # Browser tests (Playwright/Chromium) against a write-mode dev instance.
   e2e:
