@@ -78,6 +78,7 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/ssl/disable', [SslController::class, 'disable'], ['name' => 'sites.ssl.disable', 'permission' => P::SSL_MANAGE]);
     $r->post('/sites/{id}/ssl/options', [SslController::class, 'options'], ['name' => 'sites.ssl.options', 'permission' => P::SSL_MANAGE]);
     $r->get('/sites/{id}/files', [FilesController::class, 'show'], ['name' => 'sites.files', 'permission' => P::FILES_MANAGE]);
+    $r->get('/sites/{id}/files/edit', [FilesController::class, 'edit'], ['name' => 'sites.files.edit', 'permission' => P::FILES_MANAGE]);
     $r->post('/sites/{id}/files/api', [FilesController::class, 'api'], ['name' => 'sites.files.api', 'permission' => P::FILES_MANAGE]);
     $r->post('/sites/{id}/files/upload', [FilesController::class, 'upload'], ['name' => 'sites.files.upload', 'permission' => P::FILES_MANAGE]);
     $r->get('/sites/{id}/files/download', [FilesController::class, 'download'], ['name' => 'sites.files.download', 'permission' => P::FILES_MANAGE]);

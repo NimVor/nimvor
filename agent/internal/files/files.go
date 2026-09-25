@@ -721,6 +721,58 @@ func Register(r *actions.Registry, env *host.Env) {
 			return map[string]any{"deleted": n}, err
 		})
 	}})
+	// Archives can be large, so they run as jobs; the site is opened inside.
+	job := func(name, domain string, fn func(ctx context.Context, s *Site, log io.Writer) (any, error)) (any, error) {
+		if err := validate.Domain("domain", domain); err != nil {
+			return nil, host.Invalid(err)
+		}
+		// Fail fast when the website does not exist.
+		s, err := Open(env, domain)
+		if err != nil {
+			return nil, err
+		}
+		s.Close()
+		j := env.Jobs.Start(name, "site:"+domain, func(ctx context.Context, log io.Writer) (any, error) {
+			s, err := Open(env, domain)
+			if err != nil {
+				return nil, err
+			}
+			defer s.Close()
+			return fn(ctx, s, log)
+		})
+		return map[string]any{"job_id": j.ID}, nil
+	}
+	r.Register(actions.Action{Name: "files.compress", Mutating: true, Description: "Create a .zip or .tar.gz of files and folders of a website (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Domain string   `json:"domain"`
+			Paths  []string `json:"paths"`
+			Dest   string   `json:"dest"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if len(in.Paths) == 0 || len(in.Paths) > 500 {
+			return nil, actions.InvalidParams("paths: 1–500 entries")
+		}
+		return job("files.compress", in.Domain, func(ctx context.Context, s *Site, log io.Writer) (any, error) {
+			n, err := s.Compress(ctx, in.Paths, in.Dest, log)
+			return map[string]any{"entries": n, "archive": in.Dest}, err
+		})
+	}})
+	r.Register(actions.Action{Name: "files.extract", Mutating: true, Description: "Extract a .zip, .tar or .tar.gz inside a website (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Domain    string `json:"domain"`
+			Path      string `json:"path"`
+			Dest      string `json:"dest"`
+			Overwrite bool   `json:"overwrite"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		return job("files.extract", in.Domain, func(ctx context.Context, s *Site, log io.Writer) (any, error) {
+			return s.Extract(ctx, in.Path, in.Dest, in.Overwrite, log)
+		})
+	}})
 	r.Register(actions.Action{Name: "files.chmod", Mutating: true, Description: "Change permissions of a file or folder.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Domain string `json:"domain"`

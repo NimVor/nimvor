@@ -76,6 +76,34 @@ jobs:
           test "${PIPESTATUS[0]}" -eq 0
           ! grep -q -- '--- SKIP' realhost.log || { grep -- '--- SKIP' -A1 realhost.log; exit 1; }
 
+  # Browser tests (Playwright/Chromium) against a write-mode dev instance.
+  e2e:
+    runs-on: ubuntu-24.04
+    needs: [agent, panel]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, curl, mbstring, sodium
+      - run: cd panel && composer install --no-interaction --no-progress
+      - name: Install Playwright
+        run: |
+          cd tests/e2e
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Browser tests
+        run: NODE_PATH=$PWD/tests/e2e/node_modules E2E_OUT=$RUNNER_TEMP/e2e tests/e2e/run.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-screenshots
+          path: ${{ runner.temp }}/e2e
+
   smoke:
     runs-on: ubuntu-24.04
     needs: [agent, panel]

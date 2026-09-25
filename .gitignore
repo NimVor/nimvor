@@ -15,3 +15,6 @@
 .vscode/
 *.swp
 .DS_Store
+
+# Browser tests
+/tests/e2e/node_modules/

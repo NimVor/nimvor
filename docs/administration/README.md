@@ -98,6 +98,19 @@ sudo -u whacp -E php /opt/whacp/panel/bin/whacp schedule:run   # normally run by
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp doctor
 ```
 
+## File manager
+
+*Website → Files* opens a full-screen file manager: a folder tree, a
+sortable list with multi-select (Ctrl/Shift-click, checkboxes), a context
+menu, keyboard shortcuts (Delete, F2, Enter, Backspace, Ctrl+A),
+drag-and-drop uploads of files and folders, a full-page editor (line
+numbers, Ctrl+S, conflict detection when the file changed meanwhile),
+permissions, copy/move, and zip/tar.gz compress and extract. Everything is
+confined to the website's folder by the agent; extraction skips links,
+device files and entries that would leave the target folder, drops set-id
+bits, is limited to 50,000 entries and 8 GiB, and keeps existing files
+unless *Replace files that already exist* is ticked.
+
 ## Restoring server configuration
 
 *Backups → server backup → Restore* (needs *Reboot, update and configure

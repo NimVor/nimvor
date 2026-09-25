@@ -26,7 +26,7 @@ privileged operation must be explicit, validated, audited and reversible.**
 | PHP | install versions, per-site settings |
 | Databases | MySQL/MariaDB databases, users and grants |
 | SSL | Let's Encrypt issue/renew, custom certificates, HTTPS redirect, HSTS |
-| Files & logs | sandboxed file manager, log viewer with live tail |
+| Files & logs | full-screen file manager (folder tree, multi-select, drag-and-drop uploads, full-page editor, permissions, zip/tar.gz compress and safe extract), log viewer with live tail |
 | Automation | cron jobs, systemd workers (queues), Git deployment with webhooks |
 | Redis | settings, password, ACL users |
 | Backups | encrypted (AES-256-GCM) site and server backups, S3-compatible storage, schedules, retention, restore (server configuration by component, with rollback) |

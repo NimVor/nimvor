@@ -106,9 +106,11 @@ paths:
               - fail2ban.status
               - fail2ban.unban
               - files.chmod
+              - files.compress
               - files.copy
               - files.delete
               - files.download
+              - files.extract
               - files.list
               - files.mkdir
               - files.read
@@ -326,9 +328,11 @@ x-whacp-actions:
   fail2ban.status: { mutating: false, description: "fail2ban jails and banned addresses." }
   fail2ban.unban: { mutating: true, description: "Unban an IP address from a jail." }
   files.chmod: { mutating: true, description: "Change permissions of a file or folder." }
+  files.compress: { mutating: true, description: "Create a .zip or .tar.gz of files and folders of a website (job)." }
   files.copy: { mutating: true, description: "Copy a file or folder." }
   files.delete: { mutating: true, description: "Delete files or folders." }
   files.download: { mutating: false, description: "Read a chunk of a website file (base64)." }
+  files.extract: { mutating: true, description: "Extract a .zip, .tar or .tar.gz inside a website (job)." }
   files.list: { mutating: false, description: "List a folder of a website." }
   files.mkdir: { mutating: true, description: "Create a folder." }
   files.read: { mutating: false, description: "Open a text file of a website." }

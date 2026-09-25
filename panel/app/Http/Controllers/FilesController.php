@@ -24,10 +24,11 @@ final class FilesController extends Controller
         'list' => ['files.list', false], 'read' => ['files.read', false], 'search' => ['files.search', false],
         'write' => ['files.write', true], 'mkdir' => ['files.mkdir', true], 'rename' => ['files.rename', true],
         'copy' => ['files.copy', true], 'delete' => ['files.delete', true], 'chmod' => ['files.chmod', true],
+        'compress' => ['files.compress', true], 'extract' => ['files.extract', true],
     ];
 
     /** Parameters each operation may pass through to the agent. */
-    private const FIELDS = ['path', 'content', 'expected_mtime', 'from', 'to', 'paths', 'mode', 'query'];
+    private const FIELDS = ['path', 'content', 'expected_mtime', 'from', 'to', 'paths', 'mode', 'query', 'dest', 'overwrite'];
 
     public function __construct(
         View $view,
@@ -36,6 +37,7 @@ final class FilesController extends Controller
         private readonly ServerContext $server,
         private readonly AgentClient $agent,
         private readonly AuditLogger $audit,
+        private readonly \WhaCP\Services\JobTracker $jobs,
     ) {
         parent::__construct($view, $session);
     }
@@ -53,7 +55,18 @@ final class FilesController extends Controller
             return $this->render('errors/error', ['title' => 'Website not found', 'message' => 'This website does not exist or you do not have access to it.', 'status' => 404], 404);
         }
         $start = ltrim(substr((string) $site['document_root'], strlen((string) $site['root'])), '/');
-        return $this->render('sites/files', ['site' => $site, 'tab' => 'files', 'start' => $start]);
+        return Response::html($this->view->render('files/manager', ['site' => $site, 'start' => $start], 'layouts/tool'));
+    }
+
+    public function edit(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        $path = trim((string) $request->query('path', ''), '/');
+        if ($site === null || $path === '' || str_contains('/' . $path . '/', '/../')) {
+            return $this->render('errors/error', ['title' => 'File not found', 'message' => 'This file does not exist or you do not have access to it.', 'status' => 404], 404);
+        }
+        $folder = str_contains($path, '/') ? substr($path, 0, (int) strrpos($path, '/')) : '';
+        return Response::html($this->view->render('files/editor', ['site' => $site, 'path' => $path, 'folder' => $folder], 'layouts/tool'));
     }
 
     public function api(Request $request, string $id): Response
@@ -79,10 +92,13 @@ final class FilesController extends Controller
         } catch (AgentException $e) {
             return Response::json(['success' => false, 'error' => $e->toArray()], $e->status() >= 400 && $e->status() < 600 ? $e->status() : 502);
         }
+        if (is_array($data) && isset($data['job_id'])) {
+            $this->jobs->track((string) $data['job_id'], ($op === 'compress' ? 'Compress in ' : 'Extract in ') . $site['domain'], 'website', (string) $site['id'], $this->userId($request));
+        }
         if ($mutating) {
             $this->audit->record('files.' . $op, 'website', (string) $site['id'], AuditLogger::SUCCESS, [
                 'domain' => $site['domain'],
-                'path' => $params['path'] ?? ($params['from'] ?? '') . (isset($params['to']) ? ' → ' . $params['to'] : ''),
+                'path' => $params['path'] ?? ($params['from'] ?? '') . (isset($params['to']) ? ' → ' . $params['to'] : '') . (isset($params['dest']) ? ' → ' . $params['dest'] : ''),
                 'paths' => isset($params['paths']) ? array_slice((array) $params['paths'], 0, 20) : null,
             ]);
         }
