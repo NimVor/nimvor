@@ -7,6 +7,7 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PORT="${E2E_PORT:-8097}"
 export E2E_BASE="http://127.0.0.1:$PORT" E2E_OUT="${E2E_OUT:-$(mktemp -d)}"
+mkdir -p "$E2E_OUT"
 rm -rf "$ROOT/.dev"
 # Own process group, so agent and PHP server stop with it.
 setsid bash -c "cd '$ROOT' && DEV_WRITE=1 DEV_PORT=$PORT exec scripts/dev.sh" > "$E2E_OUT/dev.log" 2>&1 &
