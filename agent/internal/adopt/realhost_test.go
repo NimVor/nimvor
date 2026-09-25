@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -44,11 +45,17 @@ func TestRealHostImport(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("needs root")
 	}
-	const avail, link = "/etc/nginx/sites-available/imp.whacp.test", "/etc/nginx/sites-enabled/imp.whacp.test"
+	// Debian: sites-available plus a link; RHEL: a file in conf.d.
+	avail, link := "/etc/nginx/sites-available/imp.whacp.test", "/etc/nginx/sites-enabled/imp.whacp.test"
+	if _, err := os.Stat("/etc/nginx/sites-enabled"); err != nil {
+		avail, link = "/etc/nginx/conf.d/imp.whacp.test.conf", ""
+	}
 	os.MkdirAll("/var/www/imp.whacp.test/public", 0o755)
 	os.WriteFile("/var/www/imp.whacp.test/public/index.php", []byte("<?php echo 'imported';"), 0o644)
 	os.WriteFile(avail, []byte("server {\n    listen 80;\n    server_name imp.whacp.test;\n    root /var/www/imp.whacp.test/public;\n    index index.php;\n}\n"), 0o644)
-	os.Symlink(avail, link)
+	if link != "" {
+		os.Symlink(avail, link)
+	}
 	cfg := config.Default()
 	cfg.SitesRoot = "/home/whacp-imp"
 	cfg.StateDir = t.TempDir()
@@ -59,12 +66,14 @@ func TestRealHostImport(t *testing.T) {
 	s := Service{Env: env, Sites: &sites.Manager{Env: env}}
 	req := Request{Spec: sites.Spec{Domain: "imp.whacp.test", User: "whacpimp", Kind: "php", PHPVersion: "8.3", Enabled: true}, Source: "/var/www/imp.whacp.test/public"}
 	t.Cleanup(func() {
-		os.Remove(link)
+		if link != "" {
+			os.Remove(link)
+		}
 		os.Remove(avail)
 		os.RemoveAll("/var/www/imp.whacp.test")
-		os.Remove("/etc/nginx/sites-enabled/whacp-imp.whacp.test.conf")
-		os.Remove("/etc/nginx/sites-available/whacp-imp.whacp.test.conf")
-		os.Remove("/etc/php/8.3/fpm/pool.d/whacp-imp.whacp.test.conf")
+		os.Remove(filepath.Join(env.M.NginxEnabled, "whacp-imp.whacp.test.conf"))
+		os.Remove(filepath.Join(env.M.NginxAvailable, "whacp-imp.whacp.test.conf"))
+		os.Remove(filepath.Join(env.M.PoolDir("8.3"), "whacp-imp.whacp.test.conf"))
 		exec.Command("userdel", "whacpimp").Run()
 		os.RemoveAll("/home/whacp-imp")
 	})
@@ -79,7 +88,10 @@ func TestRealHostImport(t *testing.T) {
 	if out, err := exec.Command("nginx", "-t").CombinedOutput(); err != nil {
 		t.Fatalf("real nginx -t after import: %s", out)
 	}
-	if _, err := os.Lstat(link); err == nil {
+	if _, err := os.Lstat(link); link != "" && err == nil {
+		t.Fatal("old site still enabled")
+	}
+	if _, err := os.Lstat(avail); link == "" && err == nil {
 		t.Fatal("old site still enabled")
 	}
 	st, _ := exec.Command("stat", "-c", "%U", "/home/whacp-imp/imp.whacp.test/public_html/index.php").Output()
@@ -92,7 +104,11 @@ func TestRealHostImport(t *testing.T) {
 	if out, err := exec.Command("nginx", "-t").CombinedOutput(); err != nil {
 		t.Fatalf("real nginx -t after undo: %s", out)
 	}
-	if target, err := os.Readlink(link); err != nil || target != avail {
+	if link == "" {
+		if _, err := os.Stat(avail); err != nil {
+			t.Fatalf("old site not re-enabled: %v", err)
+		}
+	} else if target, err := os.Readlink(link); err != nil || target != avail {
 		t.Fatalf("old site not re-enabled: %q %v", target, err)
 	}
 }

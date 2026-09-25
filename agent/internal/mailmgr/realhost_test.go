@@ -38,8 +38,13 @@ func TestRealHostMail(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("needs root")
 	}
-	for _, bin := range []string{"/usr/sbin/postfix", "/usr/sbin/dovecot", "/usr/sbin/opendkim", "/usr/lib/dovecot/lmtp"} {
-		if _, err := os.Stat(bin); err != nil {
+	for _, bins := range [][]string{{"/usr/sbin/postfix"}, {"/usr/sbin/dovecot"}, {"/usr/sbin/opendkim"}, {"/usr/lib/dovecot/lmtp", "/usr/libexec/dovecot/lmtp"}} {
+		found := false
+		for _, bin := range bins {
+			_, err := os.Stat(bin)
+			found = found || err == nil
+		}
+		if !found {
 			t.Skip("needs the mail packages")
 		}
 	}

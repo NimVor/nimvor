@@ -58,6 +58,16 @@ func NotFound(msg string) *Error {
 
 func (e *Error) Error() string { return e.Code + ": " + e.Message }
 
+// Format prints the details too with %+v (tests and logs; never sent to
+// the panel as part of the message).
+func (e *Error) Format(f fmt.State, verb rune) {
+	s := e.Error()
+	if verb == 'v' && f.Flag('+') && e.Details != "" {
+		s += "\n" + e.Details
+	}
+	fmt.Fprint(f, s)
+}
+
 // Common errors.
 var (
 	ErrUnknownAction = &Error{Code: "unknown_action", Message: "The requested action does not exist.", Status: http.StatusNotFound}

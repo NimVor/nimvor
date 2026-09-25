@@ -174,7 +174,7 @@ func TestLaravelInstall(t *testing.T) {
 	}
 	var composer, migrate bool
 	for i, c := range h.Runner.Calls {
-		if strings.Contains(c, "php8.3 /usr/local/bin/composer create-project --prefer-dist --no-progress laravel/laravel 'app'") {
+		if strings.Contains(c, "'/usr/bin/php8.3' /usr/local/bin/composer create-project --prefer-dist --no-progress laravel/laravel 'app'") {
 			composer = true
 		}
 		if c == "php8.3 artisan migrate --force" {

@@ -38,3 +38,14 @@ func TestDetectPicksFamilyPaths(t *testing.T) {
 		t.Error("rhel family does not use sites-enabled")
 	}
 }
+
+func TestRHELPHPNames(t *testing.T) {
+	m := rhelFamily{}.Managed()
+	if m.PoolDir("8.3") != "/etc/opt/remi/php83/php-fpm.d" || m.FPMUnit("8.3") != "php83-php-fpm.service" {
+		t.Fatalf("pool %s unit %s", m.PoolDir("8.3"), m.FPMUnit("8.3"))
+	}
+	d := debianFamily{}.Managed()
+	if d.PoolDir("8.3") != "/etc/php/8.3/fpm/pool.d" || d.FPMUnit("8.3") != "php8.3-fpm.service" {
+		t.Fatalf("pool %s unit %s", d.PoolDir("8.3"), d.FPMUnit("8.3"))
+	}
+}

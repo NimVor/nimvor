@@ -589,10 +589,13 @@ func (s Service) Restore(ctx context.Context, r RestoreRequest, cred *execx.Cred
 }
 
 // serverPaths are archived by a server configuration backup.
-var serverPaths = []string{
-	"/etc/nginx", "/etc/php", "/etc/mysql", "/etc/redis", "/etc/letsencrypt",
-	"/etc/whacp", "/etc/fail2ban", "/etc/ufw", "/etc/ssh/sshd_config.d",
-	"/etc/cron.d", "/etc/systemd/system",
+func (s Service) serverPaths() []string {
+	c := s.Env.M.ServerConfig
+	return []string{
+		c["nginx"], c["php"], c["mysql"], c["redis"], c["letsencrypt"],
+		"/etc/whacp", c["fail2ban"], c["firewall"], "/etc/ssh/sshd_config.d",
+		c["cron"], "/etc/systemd/system",
+	}
 }
 
 // CreateServer archives the server configuration (called inside a job).
@@ -622,7 +625,7 @@ func (s Service) CreateServer(ctx context.Context, encrypt bool, label string, r
 	e, err := s.artifact(dir, "server-config.tar.gz", "config", key, func(w io.Writer) error {
 		gz := gzip.NewWriter(w)
 		tw := tar.NewWriter(gz)
-		for _, p := range append(append([]string{}, serverPaths...), extra...) {
+		for _, p := range append(s.serverPaths(), extra...) {
 			if err := ctx.Err(); err != nil {
 				return err
 			}

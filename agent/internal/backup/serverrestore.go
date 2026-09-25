@@ -9,6 +9,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,14 +25,16 @@ import (
 // Firewall, SSH, systemd units and /etc/whacp are never restored in place
 // (a mistake there can lock the operator out or disconnect the panel); use
 // ExtractOnly and copy what you need by hand.
-var ServerComponents = map[string]string{
-	"nginx":       "/etc/nginx",
-	"php":         "/etc/php",
-	"mysql":       "/etc/mysql",
-	"redis":       "/etc/redis",
-	"letsencrypt": "/etc/letsencrypt",
-	"fail2ban":    "/etc/fail2ban",
-	"cron":        "/etc/cron.d",
+var ServerComponents = []string{"nginx", "php", "mysql", "redis", "letsencrypt", "fail2ban", "cron"}
+
+// component returns the folder of a restorable component on this system.
+func (s Service) component(c string) (string, bool) {
+	for _, k := range ServerComponents {
+		if k == c {
+			return s.Env.M.ServerConfig[c], true
+		}
+	}
+	return "", false
 }
 
 // ServerRestoreRequest selects what to restore from a server backup.
@@ -51,7 +55,7 @@ func (r *ServerRestoreRequest) validate() error {
 	}
 	seen := map[string]bool{}
 	for _, c := range r.Components {
-		if _, ok := ServerComponents[c]; !ok {
+		if !slices.Contains(ServerComponents, c) {
 			return fmt.Errorf("components: %q cannot be restored in place", c)
 		}
 		if seen[c] {
@@ -120,8 +124,9 @@ func (s Service) RestoreServer(ctx context.Context, r ServerRestoreRequest, log 
 	}
 
 	for _, c := range r.Components {
-		if _, err := os.Lstat(filepath.Join(stage, strings.TrimPrefix(ServerComponents[c], "/"))); err != nil {
-			return nil, fmt.Errorf("this backup does not contain %s; nothing was changed", ServerComponents[c])
+		dir, _ := s.component(c)
+		if _, err := os.Lstat(filepath.Join(stage, strings.TrimPrefix(dir, "/"))); err != nil {
+			return nil, fmt.Errorf("this backup does not contain %s; nothing was changed", dir)
 		}
 	}
 	fmt.Fprintln(log, "Creating a safety backup of the current configuration first…")
@@ -146,7 +151,7 @@ func (s Service) RestoreServer(ctx context.Context, r ServerRestoreRequest, log 
 		}
 	}
 	for _, c := range r.Components {
-		host := ServerComponents[c]
+		host, _ := s.component(c)
 		cur, err := s.real(host)
 		if err != nil {
 			rollback()
@@ -217,9 +222,10 @@ func (s Service) RestoreServer(ctx context.Context, r ServerRestoreRequest, log 
 	return map[string]any{"id": m.ID, "restored": r.Components, "safety_backup": safety.ID, "warnings": warnings}, nil
 }
 
-// phpVersions lists versions with an FPM configuration directory.
+// phpVersions lists versions with an FPM configuration directory
+// (/etc/php/8.3/fpm, or Remi's /etc/opt/remi/php83/php-fpm.d).
 func (s Service) phpVersions() []string {
-	real, err := s.real("/etc/php")
+	real, err := s.real(s.Env.M.ServerConfig["php"])
 	if err != nil {
 		return nil
 	}
@@ -229,9 +235,16 @@ func (s Service) phpVersions() []string {
 		if _, err := os.Stat(filepath.Join(real, e.Name(), "fpm")); err == nil && strings.Count(e.Name(), ".") == 1 {
 			out = append(out, e.Name())
 		}
+		if m := remiDirRe.FindStringSubmatch(e.Name()); m != nil {
+			if _, err := os.Stat(filepath.Join(real, e.Name(), "php-fpm.d")); err == nil {
+				out = append(out, m[1]+"."+m[2])
+			}
+		}
 	}
 	return out
 }
+
+var remiDirRe = regexp.MustCompile(`^php([0-9])([0-9]+)$`)
 
 // applyRestored reloads or restarts what the restored components configure,
 // and checks the services are running afterwards.

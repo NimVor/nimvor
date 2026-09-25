@@ -159,11 +159,14 @@ type Managed struct {
 	// edits the package's files. RoundcubeDir holds SQL/ and bin/,
 	// RoundcubePublic is the web root, RoundcubeDefaults the package's
 	// defaults.inc.php.
-	WebmailDir        string `json:"webmail_dir"`
-	WebmailData       string `json:"webmail_data"`
-	RoundcubeDir      string `json:"roundcube_dir"`
-	RoundcubePublic   string `json:"roundcube_public"`
-	RoundcubeDefaults string `json:"roundcube_defaults"`
+	// ServerConfig maps server-backup components to their folders (nginx,
+	// php, mysql, redis, letsencrypt, fail2ban, cron, firewall).
+	ServerConfig      map[string]string `json:"server_config"`
+	WebmailDir        string            `json:"webmail_dir"`
+	WebmailData       string            `json:"webmail_data"`
+	RoundcubeDir      string            `json:"roundcube_dir"`
+	RoundcubePublic   string            `json:"roundcube_public"`
+	RoundcubeDefaults string            `json:"roundcube_defaults"`
 }
 
 // supportedUbuntu lists the Ubuntu releases WhaCP officially targets.

@@ -38,15 +38,26 @@ func TestRealHostSecurity(t *testing.T) {
 
 	st, err := Firewall(ctx, env)
 	if err != nil || !st.Installed || !st.SSHOpen {
-		t.Fatalf("status %+v %v (needs an existing 'allow 22/tcp')", st, err)
+		t.Fatalf("status %+v %v (needs a firewall rule allowing SSH)", st, err)
 	}
 	p, err := s.AddRule(ctx, RuleInput{Action: "allow", Port: "8443", Proto: "tcp", From: "192.0.2.0/24", Comment: "rt"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, _ := exec.Command("ufw", "show", "added").Output()
-	if !strings.Contains(string(out), "8443") {
-		t.Fatalf("rule not added: %s", out)
+	has8443 := func() bool {
+		st, err := Firewall(ctx, env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range st.Rules {
+			if strings.Contains(r.Spec, "8443") {
+				return true
+			}
+		}
+		return false
+	}
+	if !has8443() {
+		t.Fatal("rule not added")
 	}
 	if _, err := s.AddRule(ctx, RuleInput{Action: "allow", Port: "8443", Proto: "tcp", From: "192.0.2.0/24"}); err == nil {
 		t.Fatal("second change accepted while pending")
@@ -54,9 +65,8 @@ func TestRealHostSecurity(t *testing.T) {
 	if err := s.guard.Undo(p.ID); err != nil {
 		t.Fatal(err)
 	}
-	out, _ = exec.Command("ufw", "show", "added").Output()
-	if strings.Contains(string(out), "8443") {
-		t.Fatalf("rule not rolled back: %s", out)
+	if has8443() {
+		t.Fatal("rule not rolled back")
 	}
 	// Duplicate detection against ufw's own ordering.
 	p, err = s.AddRule(ctx, RuleInput{Action: "allow", Port: "8443", Proto: "tcp", From: "192.0.2.0/24"})

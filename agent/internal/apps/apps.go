@@ -290,7 +290,7 @@ func Install(ctx context.Context, env *host.Env, src Sources, r Request, cred *e
 	check := fmt.Sprintf(`$m = array_filter(%s, fn ($e) => !extension_loaded($e)); if ($m) { echo implode(" ", $m); exit(1); }`, phpArray(need))
 	if out, err := env.Runner.RunWith(ctx, php, execx.Opts{As: cred, Dir: root, Timeout: time.Minute}, "-r", check); err != nil {
 		missing := strings.TrimSpace(string(out))
-		return nil, fmt.Errorf("PHP %s is missing extensions: %s. Install them under PHP (e.g. php%s-mysql) and try again", r.PHPVersion, missing, r.PHPVersion)
+		return nil, fmt.Errorf("PHP %s is missing extensions: %s. Install them under PHP and try again", r.PHPVersion, missing)
 	}
 	mkdir := fmt.Sprintf("umask 027 && mkdir -p %s", shQuote(target))
 	if _, err := env.Runner.RunWith(ctx, "sh", as(root, nil, ""), "-c", mkdir); err != nil {
@@ -349,8 +349,15 @@ func Install(ctx context.Context, env *host.Env, src Sources, r Request, cred *e
 		if env.Root.Exists("/usr/local/bin/composer") {
 			composer = "/usr/local/bin/composer"
 		}
-		// Run Composer with the website's PHP version, as the website account.
-		script := fmt.Sprintf("exec %s %s create-project --prefer-dist --no-progress laravel/laravel %s", php, composer, shQuote(filepath.Clean(name)))
+		// Run Composer with the website's PHP version, as the website account
+		// (php8.3 on Debian, Remi's /opt/remi/php83/root/usr/bin/php on RHEL).
+		phpBin := "php" + r.PHPVersion
+		for _, v := range env.Discovery.PHP().Versions {
+			if v.Version == r.PHPVersion && v.CLIBinary != "" {
+				phpBin = v.CLIBinary
+			}
+		}
+		script := fmt.Sprintf("exec %s %s create-project --prefer-dist --no-progress laravel/laravel %s", shQuote(phpBin), composer, shQuote(filepath.Clean(name)))
 		if out, err := env.Runner.RunWith(ctx, "sh", opts, "-c", script); err != nil {
 			return nil, fmt.Errorf("composer create-project failed: %s", host.Output(out))
 		}

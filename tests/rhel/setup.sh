@@ -25,7 +25,7 @@ dnf install -y -q --setopt=install_weak_deps=False \
     php83-php-fpm php83-php-cli php83-php-mysqlnd php83-php-pdo php83-php-mbstring php83-php-xml \
     php83-php-intl php83-php-zip php83-php-gd php83-php-curl php83-php-opcache
 command -v composer >/dev/null || dnf install -y -q composer || true
-systemctl enable --now mariadb redis memcached nginx php83-php-fpm named firewalld
+systemctl enable --now mariadb redis memcached nginx php83-php-fpm named firewalld fail2ban
 firewall-cmd --permanent --add-service=ssh >/dev/null
 firewall-cmd --reload >/dev/null
 nginx -t
