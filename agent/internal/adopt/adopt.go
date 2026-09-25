@@ -234,7 +234,7 @@ func (s Service) writerFor(steps []Step) agentfs.Writer {
 	for _, st := range steps {
 		patterns = append(patterns, st.Path)
 	}
-	return agentfs.Writer{Root: s.Env.Root, Policy: agentfs.Policy{Patterns: patterns}}
+	return agentfs.Writer{Root: s.Env.Root, Policy: agentfs.Policy{Patterns: patterns}, Owners: s.Env.Writer.Owners}
 }
 
 // disable takes the old vhost files out of service; undo reverses it.

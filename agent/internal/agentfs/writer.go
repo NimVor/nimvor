@@ -66,6 +66,26 @@ func (p Policy) match(hostPath string) (string, bool) {
 type Writer struct {
 	Root   filesystem.Root
 	Policy Policy
+	// Owners maps requested owners before they are applied; nil applies
+	// them as given. Tests running without root use SelfOwners.
+	Owners func(Owner) Owner
+}
+
+// SelfOwners returns nil for root, otherwise a mapping of every owner to
+// the current user (an unprivileged process cannot chown to others).
+func SelfOwners() func(Owner) Owner {
+	if os.Geteuid() == 0 {
+		return nil
+	}
+	uid, gid := os.Getuid(), os.Getgid()
+	return func(Owner) Owner { return Owner{uid, gid} }
+}
+
+func (w Writer) owner(o Owner) Owner {
+	if o == Keep || w.Owners == nil {
+		return o
+	}
+	return w.Owners(o)
 }
 
 // Owner is a uid/gid pair; -1 leaves the value unchanged.
@@ -159,7 +179,7 @@ func (w Writer) WriteFile(hostPath string, data []byte, mode fs.FileMode, owner 
 		return false, err
 	}
 	if info, err := os.Lstat(real); err == nil && info.Mode().IsRegular() && info.Mode().Perm() == mode {
-		if cur, err := os.ReadFile(real); err == nil && bytes.Equal(cur, data) && ownerMatches(info, owner) {
+		if cur, err := os.ReadFile(real); err == nil && bytes.Equal(cur, data) && ownerMatches(info, w.owner(owner)) {
 			return false, nil
 		}
 	}
@@ -178,7 +198,7 @@ func (w Writer) WriteFile(hostPath string, data []byte, mode fs.FileMode, owner 
 		tmp.Close()
 		return false, err
 	}
-	if owner != Keep {
+	if owner = w.owner(owner); owner != Keep {
 		if err := tmp.Chown(owner.UID, owner.GID); err != nil {
 			tmp.Close()
 			return false, err
@@ -262,7 +282,7 @@ func (w Writer) MkdirAll(hostPath string, mode fs.FileMode, owner Owner) (bool, 
 	if err := os.Chmod(real, mode); err != nil {
 		return created, err
 	}
-	if owner != Keep {
+	if owner = w.owner(owner); owner != Keep {
 		if err := os.Lchown(real, owner.UID, owner.GID); err != nil {
 			return created, err
 		}

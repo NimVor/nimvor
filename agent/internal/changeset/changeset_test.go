@@ -18,7 +18,7 @@ func setup(t *testing.T) (agentfs.Writer, string) {
 	root, _ := filesystem.NewRoot(base)
 	return agentfs.Writer{Root: root, Policy: agentfs.Policy{Patterns: []string{
 		"/etc/nginx/sites-available/whacp-*", "/etc/nginx/sites-enabled/whacp-*", "/var/lib/whacp-agent/**",
-	}}}, base
+	}}, Owners: agentfs.SelfOwners()}, base
 }
 
 func read(t *testing.T, base, p string) string {
