@@ -89,6 +89,9 @@ final class Doctor
             $panel = (string) $this->config->get('app.version');
             $same = self::release($agentVersion) === self::release($panel);
             $add($same ? self::OK : self::WARN, 'Agent', 'reachable, version ' . $agentVersion . ($same ? '' : ' (panel ' . $panel . ') — upgrade both together'));
+            foreach ($this->server() as [$status, $check, $detail]) {
+                $add($status, $check, $detail);
+            }
         } catch (AgentException $e) {
             $add(self::FAIL, 'Agent', trim($e->getMessage() . ' ' . $e->remedy()));
         }
@@ -109,7 +112,83 @@ final class Doctor
         return $out;
     }
 
-    /** "0.5.0-dev" → "0.5.0" */
+    /**
+     * Checks of the managed server, through the agent: disk space, the
+     * web, PHP, database and cache services, Let's Encrypt tooling and
+     * backup configuration. A check whose data is unavailable is skipped.
+     *
+     * @return list<array{0: string, 1: string, 2: string}>
+     */
+    private function server(): array
+    {
+        $out = [];
+        try {
+            foreach ((array) (((array) $this->agent->call('system.metrics'))['disks'] ?? []) as $d) {
+                if (!is_array($d) || !isset($d['used_percent'])) {
+                    continue;
+                }
+                $pct = (float) $d['used_percent'];
+                $out[] = [$pct >= 95 ? self::FAIL : ($pct >= 85 ? self::WARN : self::OK), 'Disk ' . (string) ($d['mount_point'] ?? '?'),
+                    sprintf('%.0f%% used, %s free', $pct, self::bytes((int) ($d['free_bytes'] ?? 0)))];
+            }
+        } catch (AgentException) {
+        }
+        try {
+            $groups = ['Nginx' => '/^nginx\.service$/', 'PHP-FPM' => '/php.*fpm\.service$/', 'Database server' => '/^(mariadb|mysql|mysqld)\.service$/', 'Redis' => '/^redis(-server)?\.service$/'];
+            $units = (array) $this->agent->call('services.status');
+            foreach ($groups as $name => $re) {
+                $running = $stopped = [];
+                foreach ($units as $u) {
+                    if (!is_array($u) || !preg_match($re, (string) ($u['unit'] ?? '')) || ($u['load_state'] ?? '') !== 'loaded') {
+                        continue;
+                    }
+                    if (!empty($u['running'])) {
+                        $running[] = (string) $u['unit'];
+                    } elseif (($u['unit_file_state'] ?? '') === 'enabled') {
+                        $stopped[] = (string) $u['unit'];
+                    }
+                }
+                if ($stopped !== []) {
+                    $out[] = [self::FAIL, $name, 'enabled but not running: ' . implode(', ', $stopped)];
+                } elseif ($running !== []) {
+                    $out[] = [self::OK, $name, 'running: ' . implode(', ', $running)];
+                } elseif ($name === 'Nginx') {
+                    $out[] = [self::WARN, $name, 'not installed or not running — websites cannot be served'];
+                }
+            }
+        } catch (AgentException) {
+        }
+        try {
+            $certbot = false;
+            foreach ((array) $this->agent->call('packages.list') as $p) {
+                $certbot = $certbot || (is_array($p) && ($p['name'] ?? '') === 'certbot' && !empty($p['installed']));
+            }
+            $out[] = [$certbot ? self::OK : self::WARN, "Let's Encrypt (certbot)", $certbot ? 'installed' : "not installed — install certbot under Server → Packages to issue certificates"];
+        } catch (AgentException) {
+        }
+        try {
+            $schedules = (int) $this->db->scalar('SELECT COUNT(*) FROM backup_schedules');
+            $last = (string) ($this->db->scalar("SELECT MAX(finished_at) FROM backups WHERE status = 'completed'") ?? '');
+            $age = $last === '' ? null : time() - (int) strtotime($last);
+            $out[] = [$schedules === 0 ? self::WARN : ($age !== null && $age > 8 * 86400 ? self::WARN : self::OK), 'Backups',
+                ($schedules === 0 ? 'no backup schedule' : $schedules . ' schedule(s)') . ', last completed backup: ' . ($last === '' ? 'never' : $last)];
+        } catch (\Throwable) {
+            // older schema or no backup tables
+        }
+        return $out;
+    }
+
+    private static function bytes(int $b): string
+    {
+        foreach (['B', 'KB', 'MB', 'GB', 'TB'] as $i => $u) {
+            if ($b < 1024 ** ($i + 1) || $u === 'TB') {
+                return round($b / 1024 ** $i, 1) . ' ' . $u;
+            }
+        }
+        return $b . ' B';
+    }
+
+    /** "1.0.0-rc1" → "1.0.0" */
     private static function release(string $v): string
     {
         return preg_replace('/[-+].*$/', '', ltrim($v, 'v')) ?? $v;

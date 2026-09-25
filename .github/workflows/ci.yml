@@ -177,6 +177,8 @@ jobs:
     needs: [agent, panel]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the upgrade test installs the previous version from history
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
@@ -187,3 +189,5 @@ jobs:
       - run: cd panel && composer install --no-interaction --no-progress
       - run: tests/integration/smoke.sh
       - run: tests/integration/upgrade.sh
+      - name: Upgrade from the previous release (real code and data)
+        run: UPGRADE_FROM="$(git rev-list -1 HEAD -- VERSION)^" tests/integration/upgrade.sh

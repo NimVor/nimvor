@@ -135,7 +135,10 @@ fi
 OLD=$(installed_version)
 NEW=$(cat "$SRC_DIR/VERSION")
 log "Upgrading WhaCP $OLD → $NEW"
-if [[ $(printf '%s\n%s\n' "$OLD" "$NEW" | sort -V | tail -1) != "$NEW" && $ALLOW_DOWNGRADE -eq 0 ]]; then
+# Pre-releases sort before their release (1.0.0-rc1 < 1.0.0): "-" becomes
+# "~", which version sort places before everything.
+newest=$(printf '%s\n%s\n' "${OLD/-/\~}" "${NEW/-/\~}" | sort -V | tail -1)
+if [[ $newest != "${NEW/-/\~}" && $ALLOW_DOWNGRADE -eq 0 ]]; then
     die "$NEW is older than the installed $OLD; use --rollback, or --allow-downgrade if you really mean it"
 fi
 

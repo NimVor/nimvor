@@ -60,4 +60,31 @@ final class DoctorTest extends HttpTestCase
         self::assertSame(Doctor::FAIL, Doctor::permissions($f, false)[0]);
         self::assertSame(Doctor::FAIL, Doctor::permissions($this->dir . '/missing', false)[0]);
     }
+
+    public function testServerChecks(): void
+    {
+        $this->agent->responses['/v1/health'] = new \WhaCP\Agent\AgentHttpResponse(200, (string) json_encode(['success' => true, 'data' => ['version' => '1.0.0-rc1'], 'request_id' => 't']));
+        $this->agent->succeed('system.metrics', ['disks' => [
+            ['mount_point' => '/', 'used_percent' => 42.0, 'free_bytes' => 50 * 1024 ** 3],
+            ['mount_point' => '/var', 'used_percent' => 88.5, 'free_bytes' => 2 * 1024 ** 3],
+            ['mount_point' => '/home', 'used_percent' => 97.0, 'free_bytes' => 1024 ** 2],
+        ]]);
+        $this->agent->succeed('services.status', [
+            ['unit' => 'nginx.service', 'load_state' => 'loaded', 'running' => true, 'unit_file_state' => 'enabled'],
+            ['unit' => 'php8.3-fpm.service', 'load_state' => 'loaded', 'running' => false, 'unit_file_state' => 'enabled'],
+            ['unit' => 'mariadb.service', 'load_state' => 'loaded', 'running' => true, 'unit_file_state' => 'enabled'],
+        ]);
+        $this->agent->succeed('packages.list', [['name' => 'certbot', 'installed' => false]]);
+        $r = $this->checks();
+        self::assertSame(Doctor::OK, $r['Disk /']['status']);
+        self::assertSame(Doctor::WARN, $r['Disk /var']['status']);
+        self::assertSame(Doctor::FAIL, $r['Disk /home']['status']);
+        self::assertSame(Doctor::OK, $r['Nginx']['status']);
+        self::assertSame(Doctor::FAIL, $r['PHP-FPM']['status'], 'an enabled FPM that is not running');
+        self::assertStringContainsString('php8.3-fpm.service', $r['PHP-FPM']['detail']);
+        self::assertSame(Doctor::OK, $r['Database server']['status']);
+        self::assertArrayNotHasKey('Redis', $r, 'absent optional services are not reported');
+        self::assertSame(Doctor::WARN, $r["Let's Encrypt (certbot)"]['status']);
+        self::assertSame(Doctor::WARN, $r['Backups']['status'], 'no schedule');
+    }
 }

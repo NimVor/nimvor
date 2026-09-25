@@ -143,7 +143,8 @@ switch ($command) {
         $failed = false;
         foreach ($c->get(\WhaCP\Services\Doctor::class)->run() as $r) {
             $failed = $failed || $r['status'] === \WhaCP\Services\Doctor::FAIL;
-            out(sprintf('[%-4s] %-24s %s', strtoupper($r['status']), $r['check'], $r['detail']));
+            $label = ['ok' => 'PASS', 'warn' => 'WARN', 'fail' => 'FAIL'][$r['status']] ?? strtoupper($r['status']);
+            out(sprintf('[%s] %-24s %s', $label, $r['check'], $r['detail']));
         }
         exit($failed ? 1 : 0);
 
