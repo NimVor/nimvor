@@ -40,7 +40,7 @@ func TestPreview(t *testing.T) {
 	if len(p.Steps) != 1 || p.Steps[0].Action != "unlink" || p.Steps[0].Path != "/etc/nginx/sites-enabled/shop.example.com" {
 		t.Fatalf("steps = %+v", p.Steps)
 	}
-	if p.Files != 2 || p.Database != "shop_live" || len(p.Skipped) != 1 || p.Skipped[0] != "secret" {
+	if p.Files != 3 || p.Database != "shop_live" || len(p.Skipped) != 1 || p.Skipped[0] != "secret" {
 		t.Fatalf("preview = %+v", p)
 	}
 	if !strings.Contains(p.NewConfig, "server_name shop.example.com") || !strings.Contains(p.OldConfig, "fastcgi_pass 127.0.0.1:9084") {
@@ -68,7 +68,7 @@ func TestRunAndUndo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res["files"].(int64) != 2 {
+	if res["files"].(int64) != 3 {
 		t.Errorf("res = %+v", res)
 	}
 	if h.Exists("etc/nginx/sites-enabled/shop.example.com") {
