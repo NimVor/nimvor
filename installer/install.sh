@@ -129,8 +129,10 @@ elif command -v php >/dev/null; then
     if php -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);'; then
         php_ok=1
         ok "PHP $(php -r 'echo PHP_VERSION;')"
-        for ext in pdo_sqlite curl mbstring; do
-            if php -m | grep -qi "^${ext}$"; then ok "php extension ${ext}"; else missing_pkgs+=("php-${ext/pdo_/}"); fi
+        # extension -> Ubuntu package (sodium and openssl ship in php-common)
+        declare -A ext_pkg=([pdo_sqlite]=php-sqlite3 [curl]=php-curl [mbstring]=php-mbstring [sodium]=php-common [openssl]=php-common)
+        for ext in pdo_sqlite curl mbstring sodium openssl; do
+            if php -m | grep -qi "^${ext}$"; then ok "php extension ${ext}"; else missing_pkgs+=("${ext_pkg[$ext]}"); fi
         done
     else
         warn "PHP $(php -r 'echo PHP_VERSION;') is older than 8.3"
