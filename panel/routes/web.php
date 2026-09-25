@@ -107,6 +107,7 @@ return static function (Router $r): void {
     $r->get('/backups', [BackupsController::class, 'index'], ['name' => 'backups', 'permission' => P::BACKUPS_VIEW]);
     $r->post('/backups/server', [BackupsController::class, 'createServer'], ['name' => 'backups.server', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/server/{backup}/delete', [BackupsController::class, 'deleteServer'], ['name' => 'backups.server.delete', 'permission' => P::BACKUPS_MANAGE]);
+    $r->post('/backups/server/{backup}/restore', [BackupsController::class, 'restoreServer'], ['name' => 'backups.server.restore', 'permission' => P::SERVER_MANAGE]);
     $r->get('/backups/server/{backup}/download', [BackupsController::class, 'downloadServer'], ['name' => 'backups.server.download', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/storages', [BackupsController::class, 'storeStorage'], ['name' => 'backups.storages.store', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/storages/{storage}/delete', [BackupsController::class, 'deleteStorage'], ['name' => 'backups.storages.delete', 'permission' => P::BACKUPS_MANAGE]);

@@ -78,6 +78,7 @@ paths:
               - backup.remote_test
               - backup.restore
               - backup.server
+              - backup.server_restore
               - cron.apply
               - cron.run
               - db.create
@@ -297,6 +298,7 @@ x-whacp-actions:
   backup.remote_test: { mutating: false, description: "Check that remote storage credentials work (lists the prefix)." }
   backup.restore: { mutating: true, description: "Restore website files and/or databases from a backup (job)." }
   backup.server: { mutating: true, description: "Archive the server configuration (nginx, PHP, MySQL, Redis, certificates, WhaCP) (job)." }
+  backup.server_restore: { mutating: true, description: "Restore components (nginx, php, mysql, redis, letsencrypt, fail2ban, cron) of a server backup after a safety backup, validating and rolling back on failure; or extract it for manual review (job)." }
   cron.apply: { mutating: true, description: "Write the complete cron schedule of a website." }
   cron.run: { mutating: true, description: "Run a cron command now as the website user (job)." }
   db.create: { mutating: true, description: "Create a database (utf8mb4)." }

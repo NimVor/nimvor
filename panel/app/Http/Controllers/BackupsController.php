@@ -188,6 +188,20 @@ final class BackupsController extends SiteController
         });
     }
 
+    public function restoreServer(Request $request, string $backup): Response
+    {
+        return $this->adminAct($request, function () use ($request, $backup): array {
+            $b = $this->backups->find(null, (int) $backup) ?? throw new UserFacingException('Backup not found.');
+            $extract = $request->input('extract_only') === '1';
+            $components = array_values(array_map('strval', (array) $request->input('components', [])));
+            $job = $this->backups->restoreServer($b, $components, $extract, $request->string('confirm'));
+            $this->jobs->track($job, $extract ? 'Extract server backup' : 'Restore server configuration', 'server', (string) $this->server->id(), $this->userId($request));
+            return [$extract
+                ? 'Extracting the backup for review; the job log shows where. Nothing on the server changes.'
+                : 'Restore started. A safety backup of the current configuration is taken first; any invalid configuration is rolled back.', $job];
+        });
+    }
+
     public function downloadServer(Request $request, string $backup): Response
     {
         $b = Scope::isAll($this->user($request)) ? $this->backups->find(null, (int) $backup) : null;

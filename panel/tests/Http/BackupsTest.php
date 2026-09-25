@@ -109,6 +109,29 @@ final class BackupsTest extends HttpTestCase
         self::assertSame(0, $this->calls('backup.server'));
     }
 
+    public function testServerRestore(): void
+    {
+        $this->db->run("INSERT INTO backups (server_id, kind, backup_id, status, local, created_at) VALUES (1, 'server', '20260901T120000Z-abcdef', 'completed', 1, '2026-09-01')");
+        $id = (int) $this->db->scalar("SELECT id FROM backups WHERE kind = 'server'");
+        self::assertStringContainsString('Extract for review only', $this->request('GET', '/backups')->body());
+        $this->agent->succeed('backup.server_restore', ['job_id' => 'ffffffffffffffff']);
+
+        $this->post('/backups/server/' . $id . '/restore', ['components' => ['nginx']]);
+        self::assertStringContainsString('restore', (string) $this->flash('error'));
+        self::assertSame(0, $this->calls('backup.server_restore'));
+
+        $this->post('/backups/server/' . $id . '/restore', ['components' => ['nginx', 'ssh', 'php'], 'confirm' => 'restore']);
+        $call = $this->lastCall('backup.server_restore');
+        self::assertSame(['nginx', 'php'], $call['components'], 'only restorable components are passed');
+        self::assertTrue($call['confirm']);
+        self::assertFalse($call['extract_only']);
+
+        $this->post('/backups/server/' . $id . '/restore', ['extract_only' => '1']);
+        self::assertTrue($this->lastCall('backup.server_restore')['extract_only']);
+        self::assertSame([], $this->lastCall('backup.server_restore')['components']);
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'backup.server_extract'"));
+    }
+
     public function testSchedulerDueAndRetention(): void
     {
         $s = ['frequency' => 'daily', 'hour' => 3, 'weekday' => 0, 'enabled' => 1, 'last_run_at' => null, 'created_at' => '2026-09-01T10:00:00+00:00'];

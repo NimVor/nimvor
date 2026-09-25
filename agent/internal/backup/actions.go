@@ -166,6 +166,19 @@ func Register(r *actions.Registry, env *host.Env) {
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})
+	r.Register(actions.Action{Name: "backup.server_restore", Mutating: true, Description: "Restore components (nginx, php, mysql, redis, letsencrypt, fail2ban, cron) of a server backup after a safety backup, validating and rolling back on failure; or extract it for manual review (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in ServerRestoreRequest
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := in.validate(); err != nil {
+			return nil, actions.InvalidParams(err.Error())
+		}
+		j := env.Jobs.Start("backup.server_restore", jobTarget(""), func(ctx context.Context, log io.Writer) (any, error) {
+			return s.RestoreServer(ctx, in, log)
+		})
+		return map[string]any{"job_id": j.ID}, nil
+	}})
 	r.Register(actions.Action{Name: "backup.download", Description: "Read a chunk of a stored backup file (base64).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			target

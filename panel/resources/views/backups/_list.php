@@ -45,6 +45,24 @@ $showSite ??= false;
                                 </form>
                             </details>
                         <?php endif; ?>
+                        <?php if ($isServer && $b['status'] === 'completed' && $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE)): ?>
+                            <details class="d-inline-block text-start wcp-restore">
+                                <summary class="btn btn-sm btn-outline-secondary">Restore</summary>
+                                <form class="card card-body mt-1 small" method="post" action="<?= e($this->url('backups.server.restore', $params)) ?>">
+                                    <?= $this->csrfField() ?>
+                                    <p class="mb-2">Each part replaces its folder as a whole. A safety backup is taken first; the configuration is validated and rolled back if a service does not accept it. Firewall, SSH, systemd units and WhaCP's own settings are never restored automatically.</p>
+                                    <?php foreach (\WhaCP\Services\BackupService::SERVER_COMPONENTS as $k => $label): ?>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" name="components[]" value="<?= e($k) ?>" id="sc-<?= (int) $b['id'] ?>-<?= e($k) ?>"><label class="form-check-label" for="sc-<?= (int) $b['id'] ?>-<?= e($k) ?>"><?= e($label) ?></label></div>
+                                    <?php endforeach; ?>
+                                    <label class="form-label mt-2" for="scc-<?= (int) $b['id'] ?>">Type <strong>restore</strong> to confirm</label>
+                                    <input class="form-control form-control-sm mb-2" id="scc-<?= (int) $b['id'] ?>" name="confirm" autocomplete="off">
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-sm btn-warning">Restore now</button>
+                                        <button class="btn btn-sm btn-outline-secondary" name="extract_only" value="1">Extract for review only</button>
+                                    </div>
+                                </form>
+                            </details>
+                        <?php endif; ?>
                         <?php if ($b['status'] !== 'running'): ?>
                             <form class="d-inline" method="post" action="<?= e($this->url($isServer ? 'backups.server.delete' : 'sites.backups.delete', $params)) ?>" data-wcp-confirm="Delete this backup<?= $b['storage_id'] !== null ? ' here and in remote storage' : '' ?>?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button></form>
                         <?php endif; ?>

@@ -333,6 +333,44 @@ final class BackupService
         return (string) $res['job_id'];
     }
 
+    public const SERVER_COMPONENTS = [
+        'nginx' => 'Nginx (/etc/nginx)',
+        'php' => 'PHP (/etc/php)',
+        'mysql' => 'MySQL/MariaDB settings (/etc/mysql; restarts the database)',
+        'redis' => 'Redis (/etc/redis; restarts Redis)',
+        'letsencrypt' => 'Certificates (/etc/letsencrypt)',
+        'fail2ban' => 'Fail2ban (/etc/fail2ban)',
+        'cron' => 'System cron jobs (/etc/cron.d)',
+    ];
+
+    /**
+     * Restore parts of a server configuration backup, or extract it for
+     * manual review. Returns the job id.
+     *
+     * @param array<string, mixed> $b
+     * @param list<string> $components
+     */
+    public function restoreServer(array $b, array $components, bool $extractOnly, string $confirm): string
+    {
+        if ($b['status'] !== 'completed' || $b['kind'] !== 'server') {
+            throw new UserFacingException('Only completed server backups can be restored.');
+        }
+        $components = array_values(array_unique(array_intersect($components, array_keys(self::SERVER_COMPONENTS))));
+        if (!$extractOnly && $components === []) {
+            throw new UserFacingException('Choose what to restore, or extract the backup for review.');
+        }
+        if (!$extractOnly && strtolower(trim($confirm)) !== 'restore') {
+            throw new UserFacingException('Type "restore" to confirm.');
+        }
+        $params = ['id' => $b['backup_id'], 'components' => $extractOnly ? [] : $components, 'extract_only' => $extractOnly, 'confirm' => true];
+        if ($b['storage_id'] !== null) {
+            $params['remote'] = $this->storageConfig((int) $b['storage_id']);
+        }
+        $res = (array) $this->agent->call('backup.server_restore', $params);
+        $this->audit->record($extractOnly ? 'backup.server_extract' : 'backup.server_restore', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['backup' => $b['backup_id'], 'components' => $components]);
+        return (string) $res['job_id'];
+    }
+
     /**
      * First chunk of a stored part (for streaming downloads).
      *
