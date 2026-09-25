@@ -142,6 +142,44 @@ final class MailTest extends HttpTestCase
         self::assertSame(1, $this->calls('mail.spam_configure'));
     }
 
+    public function testWebmail(): void
+    {
+        $this->login('admin');
+        $status = ['installed' => ['postfix' => true], 'configured' => true, 'hostname' => 'mail.host.test', 'running' => ['postfix' => true], 'domains' => [], 'mailboxes' => [], 'aliases' => [], 'webmail' => ['installed' => false]];
+        $this->agent->succeed('mail.status', $status);
+        self::assertStringContainsString('Install Roundcube', $this->request('GET', '/mail')->body());
+        $this->agent->succeed('mail.webmail_install', ['job_id' => 'job-webmail']);
+        $this->post('/mail/webmail/install');
+        self::assertSame(1, $this->calls('mail.webmail_install'));
+        self::assertStringContainsString('Installing Roundcube', (string) $this->flash('success'));
+
+        $status['webmail'] = ['installed' => true, 'enabled' => false];
+        $this->agent->succeed('mail.status', $status);
+        $body = $this->request('GET', '/mail')->body();
+        self::assertStringContainsString('value="mail.host.test"', $body, 'the mail host name is suggested');
+        $this->post('/mail/webmail', ['enabled' => '1', 'hostname' => 'not a host']);
+        self::assertArrayHasKey('webmail_hostname', (array) $this->flash('errors'));
+        self::assertSame(0, $this->calls('mail.webmail_configure'));
+        $this->agent->succeed('mail.webmail_configure', ['enabled' => true, 'url' => 'https://webmail.host.test/', 'notes' => ['Users sign in…', 'A self-signed certificate is used.']]);
+        $this->post('/mail/webmail', ['enabled' => '1', 'hostname' => 'WebMail.Host.test.']);
+        self::assertSame(['enabled' => true, 'hostname' => 'webmail.host.test'], $this->lastCall('mail.webmail_configure'));
+        self::assertSame('Webmail is on at https://webmail.host.test/. A self-signed certificate is used.', $this->flash('success'));
+
+        // Mailbox owners see the address on their domain page.
+        $status['webmail'] = ['installed' => true, 'enabled' => true, 'running' => true, 'hostname' => 'webmail.host.test', 'php' => '8.3'];
+        $this->agent->succeed('mail.status', $status);
+        self::assertStringContainsString('https://webmail.host.test/', $this->request('GET', '/mail')->body());
+        $this->switchTo('cust');
+        $this->post('/mail/domains', ['website_id' => (string) $this->siteId]);
+        $id = (int) $this->db->scalar('SELECT id FROM mail_domains');
+        $page = $this->request('GET', '/mail/domains/' . $id)->body();
+        self::assertStringContainsString('href="https://webmail.host.test/"', $page);
+        self::assertStringContainsString('port 993', $page);
+        // Customers cannot turn it off.
+        $this->post('/mail/webmail', ['enabled' => '0']);
+        self::assertSame(1, $this->calls('mail.webmail_configure'));
+    }
+
     public function testSetupNeedsAHostName(): void
     {
         $this->login('admin');

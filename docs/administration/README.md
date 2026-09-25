@@ -158,6 +158,31 @@ only its own files in `/etc/rspamd/local.d` (existing files there are
 replaced only after confirmation), validates with `rspamadm configtest`
 and restores everything if Rspamd or Postfix does not come back.
 
+**Webmail:** *Email → Webmail* installs Roundcube from the distribution's
+packages (its own database setup is skipped) and turns it on for a host
+name, e.g. `webmail.example.com` or the mail host name; point its DNS at
+this server. Users sign in with their full address and mailbox password;
+Roundcube reads mail from Dovecot (993) and sends through Postfix's
+submission port (587) as the signed-in user, so the usual sender checks
+and DKIM signing apply. WhaCP does not edit Roundcube's package files: its
+configuration lives in `/etc/whacp-webmail` (read through
+`ROUNDCUBE_CONFIG_DIR`), its SQLite database and temporary files in
+`/var/lib/whacp-webmail`, and it runs in its own PHP-FPM pool under its own
+account (`whacp-webmail`), restricted with `open_basedir`. The Nginx site
+(`whacp-webmail.conf`) serves only Roundcube's public folder over HTTPS and
+runs only `index.php`. A Let's Encrypt certificate for the host name is used
+when one exists, otherwise a self-signed one; issue the certificate and save
+again to switch. Every change is checked with `nginx -t` and `php-fpm -t`,
+the database is created or upgraded (after a Roundcube update, save again),
+and the sign-in page is loaded before the change is kept; otherwise the
+previous configuration is restored. Turning webmail off removes the site
+and the pool but keeps users' settings and address books. The domain page
+lists the settings for mail apps (IMAP 993, SMTP 587) and the webmail
+address. Roundcube 1.6.11 as packaged in Ubuntu 26.04 does not yet run on
+that release's PHP 8.5; WhaCP reports this and changes nothing until an
+updated package (or another PHP version with Roundcube's extensions) is
+installed.
+
  Dovecot 2.3 (Ubuntu 22.04 and 24.04) and 2.4
 (Ubuntu 26.04) are supported; WhaCP writes the matching configuration
 syntax, and mail is stored the same way (Maildir, INBOX at its root).

@@ -111,6 +111,37 @@ final class MailController extends Controller
         });
     }
 
+    public function installWebmail(Request $request): Response
+    {
+        try {
+            $res = (array) $this->agent->call('mail.webmail_install', []);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/mail', $e);
+        }
+        $this->jobs->track((string) $res['job_id'], 'Install webmail', 'server', 'mail', $this->userId($request));
+        $this->audit->record('mail.webmail_install', 'server', 'mail', AuditLogger::SUCCESS, []);
+        $this->flashJob((string) $res['job_id']);
+        return $this->redirectWithSuccess('/mail', 'Installing Roundcube. Then turn webmail on below.');
+    }
+
+    public function webmail(Request $request): Response
+    {
+        return $this->act($request, '/mail', function () use ($request): string {
+            $enabled = $request->input('enabled') === '1';
+            $params = ['enabled' => $enabled];
+            if ($enabled) {
+                $host = strtolower(rtrim(trim((string) $request->input('hostname', '')), '.'));
+                if (!preg_match('/^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/', $host)) {
+                    throw new ValidationException(['webmail_hostname' => 'Enter the full host name webmail answers on, e.g. webmail.example.com.']);
+                }
+                $params['hostname'] = $host;
+            }
+            $res = (array) $this->agent->call('mail.webmail_configure', $params, 180);
+            $this->audit->record('mail.webmail_configure', 'server', 'mail', AuditLogger::SUCCESS, $params);
+            return $enabled ? 'Webmail is on at ' . (string) ($res['url'] ?? '') . '. ' . implode(' ', array_map('strval', array_slice((array) ($res['notes'] ?? []), 1))) : 'Webmail is off.';
+        });
+    }
+
     public function store(Request $request): Response
     {
         $id = 0;
@@ -135,7 +166,7 @@ final class MailController extends Controller
         $host = (string) ($status['hostname'] ?? '');
         return $this->render('mail/domain', [
             'domain' => $domain, 'mailboxes' => $this->mail->mailboxes((int) $domain['id']), 'aliases' => $this->mail->aliases((int) $domain['id']),
-            'records' => $this->mail->dnsRecords($domain, $host), 'host' => $host, 'sizes' => $sizes,
+            'records' => $this->mail->dnsRecords($domain, $host), 'host' => $host, 'sizes' => $sizes, 'webmail' => (array) ($status['webmail'] ?? []),
             'secret' => $this->session->pullFlash('secret'), 'edit' => (int) $request->query('edit', 0),
         ]);
     }

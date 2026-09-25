@@ -89,6 +89,31 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
             </div>
         </div>
         <?php endif; ?>
+        <?php if ($ready && $this->can(P::SERVER_MANAGE)): $wm = (array) ($status['webmail'] ?? []); ?>
+        <div class="card mb-3" id="webmail">
+            <div class="card-header d-flex align-items-center"><i class="bi bi-envelope-open me-1"></i>Webmail
+                <span class="ms-auto"><?= !empty($wm['enabled']) ? $this->statusBadge(!empty($wm['running']) ? 'active' : 'failed', !empty($wm['running']) ? 'on' : 'not running') : $this->statusBadge('inactive', 'off') ?></span></div>
+            <div class="card-body small">
+                <?php if (empty($wm['installed'])): ?>
+                    <p class="text-body-secondary">Roundcube lets users read and send mail in the browser with their mailbox address and password.</p>
+                    <?php if ($this->can(P::PACKAGES_MANAGE)): ?><form method="post" action="<?= e($this->url('mail.webmail.install')) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-primary">Install Roundcube</button></form><?php endif; ?>
+                <?php else: ?>
+                    <?php if (!empty($wm['enabled']) && !empty($wm['hostname'])): ?>
+                        <p class="mb-2"><a href="https://<?= e((string) $wm['hostname']) ?>/" target="_blank" rel="noopener">https://<?= e((string) $wm['hostname']) ?>/</a><?php if (!empty($wm['php'])): ?> <span class="text-body-secondary">(PHP <?= e((string) $wm['php']) ?>)</span><?php endif; ?></p>
+                    <?php endif; ?>
+                    <form method="post" action="<?= e($this->url('mail.webmail')) ?>" data-wcp-busy>
+                        <?= $this->csrfField() ?>
+                        <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="webmail-on"<?= !empty($wm['enabled']) ? ' checked' : '' ?>><label class="form-check-label" for="webmail-on">Webmail on</label></div>
+                        <label class="form-label small" for="webmail-host">Host name</label>
+                        <input class="form-control form-control-sm mb-2<?= isset($errors['webmail_hostname']) ? ' is-invalid' : '' ?>" id="webmail-host" name="hostname" placeholder="webmail.example.com" value="<?= e((string) ($old['hostname'] ?? ($wm['hostname'] ?? '') ?: ($status['hostname'] ?? ''))) ?>">
+                        <?php if (isset($errors['webmail_hostname'])): ?><div class="text-danger mb-2"><?= e($errors['webmail_hostname']) ?></div><?php endif; ?>
+                        <button class="btn btn-sm btn-primary">Save</button>
+                        <div class="form-text">Point the host name's DNS at this server. A Let's Encrypt certificate for it is used when one exists; otherwise a self-signed one until you issue it and save again.</div>
+                    </form>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
         <?php if ($ready): ?>
         <div class="card">
             <div class="card-header"><i class="bi bi-plus-lg me-1"></i>Host email for a domain</div>

@@ -184,6 +184,7 @@ func Register(r *actions.Registry, he *host.Env) {
 	e := env{he}
 	dir := he.M.MailDir
 	registerSpam(r, e)
+	registerWebmail(r, e)
 
 	r.Register(actions.Action{Name: "mail.status", Description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		d, _ := e.load()
@@ -210,6 +211,7 @@ func Register(r *actions.Registry, he *host.Env) {
 			"running": map[string]bool{"postfix": e.run(ctx, "postfix", "status") == nil, "dovecot": e.UnitActive(ctx, "dovecot.service"), "opendkim": e.UnitActive(ctx, DKIMUnit)},
 			"domains": domains, "mailboxes": boxes, "aliases": aliases,
 			"spam": d.Spam, "spam_installed": e.rspamdInstalled(), "spam_running": e.UnitActive(ctx, rspamdUnit),
+			"webmail": e.webmailStatus(ctx),
 		}, nil
 	}})
 

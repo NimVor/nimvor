@@ -170,6 +170,9 @@ func ParseModules(out string) []string {
 	return mods
 }
 
+// VersionLess compares PHP versions such as "8.3" and "8.10".
+func VersionLess(a, b string) bool { return versionLess(a, b) }
+
 func versionLess(a, b string) bool {
 	var am, an, bm, bn int
 	fmt.Sscanf(a, "%d.%d", &am, &an)

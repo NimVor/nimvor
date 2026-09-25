@@ -7,12 +7,14 @@
  * @var list<array<string, mixed>> $records
  * @var array<string, int> $sizes
  * @var string $host
+ * @var array<string, mixed> $webmail
  * @var int $edit
  */
 $id = (int) $domain['id'];
 $dom = (string) $domain['domain'];
 $errors ??= [];
 $old ??= [];
+$webmail ??= [];
 ?>
 <?php $this->start(); ?><span class="font-monospace"><?= e($dom) ?></span><?php $this->end('title'); ?>
 <?php $this->start(); ?>Email domain<?php $this->end('subtitle'); ?>
@@ -119,6 +121,19 @@ $old ??= [];
                     </div>
                 <?php endforeach; ?>
                 <p class="text-body-secondary mb-0">Also ask your hosting provider to set the reverse DNS (PTR) of this server's IP to <code><?= e($host) ?></code>.</p>
+            </div>
+        </div>
+        <div class="card mb-3" id="mail-clients">
+            <div class="card-header"><i class="bi bi-phone me-1"></i>Mail app settings</div>
+            <div class="card-body small">
+                <dl class="row mb-0">
+                    <dt class="col-4">User name</dt><dd class="col-8">the full address</dd>
+                    <dt class="col-4">Incoming</dt><dd class="col-8">IMAP <code><?= e($host) ?></code> port 993, SSL/TLS</dd>
+                    <dt class="col-4">Outgoing</dt><dd class="col-8">SMTP <code><?= e($host) ?></code> port 587, STARTTLS, with sign-in</dd>
+                    <?php if (!empty($webmail['enabled']) && !empty($webmail['hostname'])): ?>
+                    <dt class="col-4">Webmail</dt><dd class="col-8 mb-0"><a href="https://<?= e((string) $webmail['hostname']) ?>/" target="_blank" rel="noopener">https://<?= e((string) $webmail['hostname']) ?>/</a></dd>
+                    <?php endif; ?>
+                </dl>
             </div>
         </div>
         <div class="card">

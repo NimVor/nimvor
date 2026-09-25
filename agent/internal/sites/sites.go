@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
@@ -123,7 +122,7 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 		return nil, actions.Failed("The web server account "+e.M.WebUser+" does not exist.", "")
 	}
 	l := m.layout(s)
-	l.HTTP2Direct = m.nginxAtLeast(ctx, 1, 25, 1)
+	l.HTTP2Direct = e.NginxAtLeast(ctx, 1, 25, 1)
 	l.IPv6 = e.IPv6()
 
 	// 2. Directories (idempotent; permissions are re-applied each time).
@@ -298,25 +297,6 @@ func versionOfPool(p string) string {
 func (m *Manager) poolFiles(domain string) []string {
 	matches, _ := m.Env.Root.Glob(filepath.Join(fmt.Sprintf(m.Env.M.PHPPoolDir, "*"), "whacp-"+domain+".conf"))
 	return matches
-}
-
-func (m *Manager) nginxAtLeast(ctx context.Context, maj, min, patch int) bool {
-	out, _ := m.Env.Runner.Run(ctx, "nginx", "-v")
-	mm := regexp.MustCompile(`nginx/([0-9]+)\.([0-9]+)\.([0-9]+)`).FindStringSubmatch(string(out))
-	if mm == nil {
-		return false
-	}
-	v := [3]int{}
-	for i := range v {
-		v[i], _ = strconv.Atoi(mm[i+1])
-	}
-	want := [3]int{maj, min, patch}
-	for i := range v {
-		if v[i] != want[i] {
-			return v[i] > want[i]
-		}
-	}
-	return true
 }
 
 // DeleteRequest removes a site.

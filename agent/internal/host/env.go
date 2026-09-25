@@ -12,6 +12,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,6 +71,8 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.DovecotAuthConf,
 		m.DovecotDropIn,
 		"/etc/rspamd/local.d/*",
+		m.WebmailDir + "/**",
+		m.WebmailData + "/**",
 		filepath.Join(m.UnitDir, "whacp-opendkim.service"),
 		filepath.Join(m.UnitDir, "whacp-ftpd.service"),
 		m.Fail2banJail,
@@ -152,6 +156,28 @@ func (e *Env) FPMTest(ctx context.Context, v string) error {
 	}
 	return nil
 }
+
+// NginxAtLeast reports whether the installed Nginx is at least maj.min.patch.
+func (e *Env) NginxAtLeast(ctx context.Context, maj, min, patch int) bool {
+	out, _ := e.Runner.Run(ctx, "nginx", "-v")
+	mm := nginxVersionRe.FindStringSubmatch(string(out))
+	if mm == nil {
+		return false
+	}
+	v := [3]int{}
+	for i := range v {
+		v[i], _ = strconv.Atoi(mm[i+1])
+	}
+	want := [3]int{maj, min, patch}
+	for i := range v {
+		if v[i] != want[i] {
+			return v[i] > want[i]
+		}
+	}
+	return true
+}
+
+var nginxVersionRe = regexp.MustCompile(`nginx/([0-9]+)\.([0-9]+)\.([0-9]+)`)
 
 // UnitActive reports whether a systemd unit is active.
 func (e *Env) UnitActive(ctx context.Context, unit string) bool {

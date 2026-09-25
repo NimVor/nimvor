@@ -119,6 +119,16 @@ type Managed struct {
 	PostfixDir      string `json:"postfix_dir"`
 	DovecotAuthConf string `json:"dovecot_auth_conf"`
 	DovecotDropIn   string `json:"dovecot_drop_in"`
+	// Webmail (Roundcube from the distribution's packages): WhaCP keeps
+	// its own configuration (WebmailDir) and data (WebmailData) and never
+	// edits the package's files. RoundcubeDir holds SQL/ and bin/,
+	// RoundcubePublic is the web root, RoundcubeDefaults the package's
+	// defaults.inc.php.
+	WebmailDir        string `json:"webmail_dir"`
+	WebmailData       string `json:"webmail_data"`
+	RoundcubeDir      string `json:"roundcube_dir"`
+	RoundcubePublic   string `json:"roundcube_public"`
+	RoundcubeDefaults string `json:"roundcube_defaults"`
 }
 
 // supportedUbuntu lists the Ubuntu releases WhaCP officially targets.

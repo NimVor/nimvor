@@ -153,6 +153,8 @@ paths:
               - mail.mailbox_save
               - mail.spam_configure
               - mail.status
+              - mail.webmail_configure
+              - mail.webmail_install
               - memcached.configure
               - memcached.flush
               - memcached.status
@@ -408,6 +410,8 @@ x-whacp-actions:
   mail.mailbox_save: { mutating: true, description: "Create a mailbox or change its password or quota (the password is stored as a SHA-512 crypt hash)." }
   mail.spam_configure: { mutating: true, description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only WhaCP's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure." }
   mail.status: { mutating: false, description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases." }
+  mail.webmail_configure: { mutating: true, description: "Turn webmail (Roundcube) on for a host name, or off. WhaCP writes Roundcube's configuration in its own folder, runs it in its own PHP-FPM pool and account, creates or upgrades its SQLite database and serves it with its own Nginx site over HTTPS (Let's Encrypt certificate for the host name when present, otherwise self-signed). Validated with nginx -t and php-fpm -t, checked by loading the sign-in page, rolled back on failure." }
+  mail.webmail_install: { mutating: true, description: "Install Roundcube webmail from the distribution's packages (with PHP-FPM and SQLite support; the package's own database setup is skipped because WhaCP keeps Roundcube's data itself). Runs as a job." }
   memcached.configure: { mutating: true, description: "Set Memcached's memory, connection limit and (loopback) listen addresses in its package configuration file after explicit confirmation; restarts and verifies, rolls back on failure." }
   memcached.flush: { mutating: true, description: "Remove every item from Memcached (requires confirm)." }
   memcached.status: { mutating: false, description: "Whether Memcached is installed and running, its settings and statistics." }

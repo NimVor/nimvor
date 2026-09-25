@@ -389,6 +389,8 @@ func managedBy(w *Website) string {
 		return "HestiaCP"
 	case strings.Contains(joined, "/usr/local/lsws") || strings.Contains(joined, "cyberpanel"):
 		return "CyberPanel"
+	case strings.Contains(joined, "whacp-webmail"):
+		return "WhaCP (webmail)"
 	case strings.Contains(joined, "whacp-"):
 		return "WhaCP"
 	}

@@ -10,10 +10,15 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
+	"net/http"
+	"net/http/cookiejar"
 	"net/smtp"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -330,6 +335,15 @@ func TestRealHostMail(t *testing.T) {
 		}
 	}
 
+	// Webmail: Roundcube signs in with the mailbox password and sends
+	// through submission (as the signed-in user).
+	if _, err := os.Stat(env.M.RoundcubePublic + "/index.php"); err == nil && env.Runner.Available("nginx") {
+		testWebmail(t, env, must, waitMail)
+		t.Log("webmail: signed in and sent through Roundcube")
+	} else if os.Getenv("CI") != "" {
+		t.Fatal("CI installs Roundcube and Nginx for the webmail test")
+	}
+
 	// Removing: the domain needs its mailboxes and aliases gone first.
 	if _, err := call("mail.domain_remove", map[string]any{"domain": "rt-mail.test", "confirm": "rt-mail.test"}); err == nil {
 		t.Fatal("domain with mailboxes removed")
@@ -344,4 +358,137 @@ func TestRealHostMail(t *testing.T) {
 	if out := imap("alice@rt-mail.test", "Alice-mail-pass-1"); !strings.Contains(out, "a1 NO") {
 		t.Fatalf("deleted mailbox can still sign in:\n%s", out)
 	}
+}
+
+func testWebmail(t *testing.T, env *host.Env, must func(string, any) map[string]any, waitMail func(int) []string) {
+	t.Helper()
+	const hostname = "webmail.whacp-rt.test"
+	t.Cleanup(func() {
+		w := env.M
+		os.Remove(filepath.Join(w.NginxEnabled, "whacp-webmail.conf"))
+		os.Remove(filepath.Join(w.NginxAvailable, "whacp-webmail.conf"))
+		pools, _ := filepath.Glob(filepath.Join(fmt.Sprintf(w.PHPPoolDir, "*"), "whacp-webmail.conf"))
+		for _, p := range pools {
+			os.Remove(p)
+			v := filepath.Base(filepath.Dir(filepath.Dir(p)))
+			exec.Command("systemctl", "reload", fmt.Sprintf(w.PHPFPMUnit, v)).Run()
+		}
+		exec.Command("systemctl", "reload", "nginx").Run()
+		os.RemoveAll(w.WebmailDir)
+		os.RemoveAll(w.WebmailData)
+		exec.Command("userdel", webmailUser).Run()
+	})
+	res := must("mail.webmail_configure", map[string]any{"enabled": true, "hostname": hostname})
+	if res["url"] != "https://"+hostname+"/" {
+		t.Fatalf("webmail = %v", res)
+	}
+	// Changing it again keeps the encryption key (and signs nobody out).
+	cfg1, _ := os.ReadFile(env.M.WebmailDir + "/config.inc.php")
+	must("mail.webmail_configure", map[string]any{"enabled": true, "hostname": hostname})
+	if cfg2, _ := os.ReadFile(env.M.WebmailDir + "/config.inc.php"); string(cfg1) != string(cfg2) {
+		t.Fatal("configuration (and key) changed on a repeated call")
+	}
+	if st, _ := os.Stat(env.M.WebmailData + "/roundcube.db"); st == nil {
+		t.Fatal("no database")
+	}
+
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{Jar: jar, Timeout: 30 * time.Second, Transport: &http.Transport{
+		TLSClientConfig: &cryptotls.Config{InsecureSkipVerify: true, ServerName: hostname},
+		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, network, "127.0.0.1:443")
+		},
+	}}
+	base := "https://" + hostname + "/"
+	get := func(path string) string {
+		t.Helper()
+		resp, err := client.Get(base + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return string(b)
+	}
+	post := func(path string, form url.Values) (int, string, string) {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodPost, base+path, strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		resp, err := client.Transport.RoundTrip(withCookies(req, jar))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if rc := resp.Cookies(); len(rc) > 0 {
+			jar.SetCookies(req.URL, rc)
+		}
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, resp.Header.Get("Location"), string(b)
+	}
+	tokenRe := regexp.MustCompile(`"request_token":"([^"]+)"`)
+	login := func(pass string) (int, string) {
+		page := get("")
+		m := regexp.MustCompile(`name="_token" value="([^"]+)"`).FindStringSubmatch(page)
+		if m == nil {
+			t.Fatalf("no sign-in form:\n%.2000s", page)
+		}
+		code, loc, _ := post("?_task=login", url.Values{"_token": {m[1]}, "_task": {"login"}, "_action": {"login"}, "_timezone": {"UTC"}, "_url": {""}, "_user": {"bob@rt-mail.test"}, "_pass": {pass}})
+		return code, loc
+	}
+	if code, loc := login("wrong-password"); code == http.StatusFound && strings.Contains(loc, "_task=mail") {
+		t.Fatal("webmail accepted a wrong password")
+	}
+	if code, loc := login("Bob-mail-pass-12"); code != http.StatusFound || !strings.Contains(loc, "_task=mail") {
+		log, _ := os.ReadFile(env.M.WebmailData + "/logs/errors.log")
+		t.Fatalf("webmail sign-in: %d %s\n%s", code, loc, log)
+	}
+	compose := get("?_task=mail&_action=compose")
+	id := regexp.MustCompile(`"compose_id":"([^"]+)"`).FindStringSubmatch(compose)
+	tok := tokenRe.FindStringSubmatch(compose)
+	from := regexp.MustCompile(`<select name="_from"[^>]*>\s*<option value="([0-9]+)"`).FindStringSubmatch(compose)
+	if id == nil || tok == nil || from == nil {
+		t.Fatalf("compose page:\n%.3000s", compose)
+	}
+	_, _, body := post("?_task=mail&_action=send", url.Values{"_token": {tok[1]}, "_task": {"mail"}, "_action": {"send"}, "_id": {id[1]}, "_from": {from[1]},
+		"_to": {"alice@rt-mail.test"}, "_subject": {"from webmail"}, "_message": {"sent with roundcube"}, "_is_html": {"0"}, "_framed": {"1"}})
+	if !strings.Contains(body, "sent_successfully") {
+		log, _ := os.ReadFile(env.M.WebmailData + "/logs/errors.log")
+		t.Fatalf("send:\n%.2000s\n%s", body, log)
+	}
+	found := false
+	for i := 0; i < 3 && !found; i++ {
+		for _, f := range waitMail(3) {
+			if b, _ := os.ReadFile(f); strings.Contains(string(b), "sent with roundcube") {
+				found = strings.Contains(string(b), "From: bob@rt-mail.test") && strings.Contains(string(b), "DKIM-Signature:")
+				if !found {
+					t.Fatalf("webmail message:\n%s", b)
+				}
+			}
+		}
+		time.Sleep(time.Second)
+	}
+	if !found {
+		t.Fatal("webmail message not delivered")
+	}
+	// Package files are never changed.
+	if b, _ := os.ReadFile(env.M.RoundcubeDefaults); strings.Contains(string(b), "WhaCP") {
+		t.Fatal("package defaults changed")
+	}
+
+	must("mail.webmail_configure", map[string]any{"enabled": false})
+	if _, err := os.Stat(filepath.Join(env.M.NginxEnabled, "whacp-webmail.conf")); err == nil {
+		t.Fatal("webmail site left enabled")
+	}
+	if _, err := os.Stat(env.M.WebmailData + "/roundcube.db"); err != nil {
+		t.Fatal("turning webmail off removed its data")
+	}
+}
+
+// withCookies adds the jar's cookies to a request sent without the client
+// (so redirects are not followed).
+func withCookies(req *http.Request, jar http.CookieJar) *http.Request {
+	for _, c := range jar.Cookies(req.URL) {
+		req.AddCookie(c)
+	}
+	return req
 }
