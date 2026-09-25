@@ -350,6 +350,11 @@ func Register(r *actions.Registry, he *host.Env) {
 		if err := selinux.Label(ctx, he, e.M.VmailDir, "mail_spool_t"); err != nil {
 			return fail("The mail storage could not be labelled for SELinux.", err)
 		}
+		// OpenDKIM (dkim_milter_t) reads its keys and tables only with the
+		// label of its own key folder.
+		if err := selinux.Label(ctx, he, dir+"/dkim", "dkim_milter_private_key_t"); err != nil {
+			he.Log.Warn("selinux: DKIM folder label", "err", err)
+		}
 		if err := he.DaemonReload(ctx); err != nil {
 			return fail("systemd could not load the DKIM service.", err)
 		}

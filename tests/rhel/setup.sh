@@ -30,4 +30,6 @@ firewall-cmd --permanent --add-service=ssh >/dev/null
 firewall-cmd --reload >/dev/null
 nginx -t
 mysql -e 'select version()'
+# Log denials that the policy normally hides (dontaudit), so CI shows them.
+semodule -DB
 getenforce

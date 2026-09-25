@@ -17,6 +17,7 @@ import (
 	"syscall"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 )
 
 // ServerComponents are the parts of a server backup that can be restored in
@@ -171,6 +172,11 @@ func (s Service) RestoreServer(ctx context.Context, r ServerRestoreRequest, log 
 		if err := moveTree(filepath.Join(stage, strings.TrimPrefix(host, "/")), cur); err != nil {
 			rollback()
 			return nil, fmt.Errorf("restoring %s failed: %v", host, err)
+		}
+		// SELinux: files extracted in the staging folder carry its label;
+		// services may only read the policy's labels for this folder.
+		if err := selinux.Restore(ctx, s.Env, host); err != nil {
+			fmt.Fprintf(log, "Warning: %v\n", err)
 		}
 	}
 	has := map[string]bool{}

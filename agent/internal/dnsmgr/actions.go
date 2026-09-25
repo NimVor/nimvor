@@ -16,6 +16,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/fw"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 )
 
 var mu sync.Mutex
@@ -205,6 +206,13 @@ func Register(r *actions.Registry, env *host.Env) {
 		applied, err := set.Commit(func() error { return checkconf(ctx, env) })
 		if err != nil {
 			return nil, host.FailWithValidation("BIND was not set up", err)
+		}
+		// SELinux: named reads only its policy labels (named_conf_t,
+		// named_zone_t).
+		for _, pth := range []string{p.conf, p.dir} {
+			if err := selinux.Restore(ctx, env, pth); err != nil {
+				env.Log.Warn("selinux", "err", err)
+			}
 		}
 		wasRunning := running(ctx, env)
 		var startErr error

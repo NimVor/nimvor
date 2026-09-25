@@ -157,7 +157,14 @@ final class WebsiteService
         if ($site['php_version'] === '') {
             throw new UserFacingException('This website does not use PHP.');
         }
-        $this->agent->call('services.control', ['unit' => 'php' . $site['php_version'] . '-fpm.service', 'op' => 'reload']);
+        // The agent names the unit per distribution (php8.3-fpm, php83-php-fpm).
+        $unit = 'php' . $site['php_version'] . '-fpm.service';
+        foreach ((array) (((array) $this->agent->call('discovery.php'))['versions'] ?? []) as $v) {
+            if (is_array($v) && ($v['version'] ?? '') === $site['php_version'] && !empty($v['fpm_service'])) {
+                $unit = (string) $v['fpm_service'];
+            }
+        }
+        $this->agent->call('services.control', ['unit' => $unit, 'op' => 'reload']);
         $this->audit->record('website.restart_php', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain']]);
     }
 

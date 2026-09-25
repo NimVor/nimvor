@@ -48,7 +48,7 @@ $installable = array_values(array_diff($php_available ?? [], $installed));
                         <dt>FPM</dt><dd><?= !empty($v['fpm_binary']) ? '<code>' . e($v['fpm_binary']) . '</code>' : '<span class="text-body-secondary">not installed</span>' ?></dd>
                         <dt>Pools</dt><dd><?= (int) $v['pool_count'] ?></dd>
                         <dt>Websites</dt><dd><?= count($usage[$v['version']] ?? []) ?></dd>
-                        <?php $svc = ($php_services ?? [])['php' . $v['version'] . '-fpm.service'] ?? null; ?>
+                        <?php $svc = ($php_services ?? [])[(string) ($v['fpm_service'] ?? '') ?: 'php' . $v['version'] . '-fpm.service'] ?? null; ?>
                         <?php if ($svc !== null): ?><dt>Service</dt><dd><?= $this->statusBadge((string) $svc['active_state']) ?></dd><?php endif; ?>
                     </dl>
                     <?php if ($canManage && !empty($v['fpm_binary'])): ?>

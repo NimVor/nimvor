@@ -79,6 +79,12 @@ jobs:
             go test -tags realhost -run RealHost -count=1 -p 1 -v ./... 2>&1 | tee realhost.log
           test "${PIPESTATUS[0]}" -eq 0
           ! grep -q -- '--- SKIP' realhost.log || { grep -- '--- SKIP' -A1 realhost.log; exit 1; }
+      - name: Installer and post-install end-to-end (Ubuntu)
+        run: |
+          (cd panel && composer install --no-dev --no-interaction --no-progress --optimize-autoloader)
+          mkdir -p dist && (cd agent && CGO_ENABLED=0 go build -trimpath -o ../dist/whacp-agent ./cmd/whacp-agent)
+          sudo installer/install.sh --yes --enable-writes --admin-user=admin --admin-email=admin@whacp.test
+          sudo tests/integration/postinstall.sh
 
   # The same real-host tests on AlmaLinux 9 in a KVM virtual machine (SELinux
   # enforcing, firewalld, Remi's PHP), then the installer.
@@ -130,10 +136,11 @@ jobs:
         run: |
           tests/rhel/vm.sh ssh 'cd /root/whacp && installer/install.sh --install-deps --yes --enable-writes --admin-user=admin --admin-email=admin@whacp.test'
           tests/rhel/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp agent:check'
+          tests/rhel/vm.sh ssh 'cd /root/whacp && tests/integration/postinstall.sh'
       - name: SELinux denials and service logs
         if: always()
         run: |
-          tests/rhel/vm.sh ssh 'getenforce; ausearch -m AVC,USER_AVC -ts today -i | tail -200 || true'
+          tests/rhel/vm.sh ssh 'getenforce; ausearch -m AVC,USER_AVC -ts today -i | grep -v "noatsecure\|rlimitinh\|siginh" | tail -200 || true; journalctl -k --no-pager | grep -i "avc:" | grep -v "noatsecure\|rlimitinh\|siginh" | tail -100 || true'
           tests/rhel/vm.sh ssh 'journalctl --no-pager -n 40 -u whacp-opendkim -u named -u dovecot -u postfix -u rspamd -u nginx -u php83-php-fpm || true'
 
   # Browser tests (Playwright/Chromium) against a write-mode dev instance.
