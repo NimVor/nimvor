@@ -412,21 +412,39 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 	}
 	cmd.WaitDelay = 5 * time.Second
 	var wg sync.WaitGroup
-	copyFrom := func(path string, dst io.Writer) {
-		defer wg.Done()
-		if f, err := openPipe(path, os.O_RDONLY); err == nil {
-			io.Copy(dst, f)
-			f.Close()
-		}
+	// Each goroutine blocks opening its end of a pipe until the command
+	// opens the other; opened is closed once that open has returned.
+	type pipe struct {
+		path   string
+		flag   int // the counterpart end, to release a goroutine
+		opened chan struct{}
 	}
-	wg.Add(2)
-	go copyFrom(out, stdout)
-	go copyFrom(errp, w)
-	if in != "" {
+	var pipes []pipe
+	copyFrom := func(path string, dst io.Writer) {
+		p := pipe{path, os.O_WRONLY | syscall.O_NONBLOCK, make(chan struct{})}
+		pipes = append(pipes, p)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if f, err := openPipe(in, os.O_WRONLY); err == nil {
+			f, err := openPipe(path, os.O_RDONLY)
+			close(p.opened)
+			if err == nil {
+				io.Copy(dst, f)
+				f.Close()
+			}
+		}()
+	}
+	copyFrom(out, stdout)
+	copyFrom(errp, w)
+	if in != "" {
+		p := pipe{in, os.O_RDONLY | syscall.O_NONBLOCK, make(chan struct{})}
+		pipes = append(pipes, p)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			f, err := openPipe(in, os.O_WRONLY)
+			close(p.opened)
+			if err == nil {
 				io.Copy(f, o.Stdin)
 				f.Close()
 			}
@@ -437,19 +455,39 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 		runErr = fmt.Errorf("stopped: %w", ctx.Err())
 	}
 	// If the command never opened a pipe (it failed to start), release the
-	// goroutine still waiting to open the other end.
-	for _, f := range []string{out, errp} {
-		if p, err := openPipe(f, os.O_WRONLY|syscall.O_NONBLOCK); err == nil {
-			p.Close()
-		}
-	}
-	if in != "" {
-		if p, err := openPipe(in, os.O_RDONLY|syscall.O_NONBLOCK); err == nil {
-			p.Close()
-		}
+	// goroutine still waiting to open it: hold the other end open until its
+	// open has returned. (A single open-and-close could come before the
+	// goroutine's open and be missed.)
+	for _, p := range pipes {
+		releasePipe(p.path, p.flag, p.opened)
 	}
 	wg.Wait()
 	return buf.Bytes(), runErr
+}
+
+// releasePipe opens the other end of a pipe (flag) until opened is
+// closed, then closes it. Opening a pipe's write end without blocking
+// fails until a reader is waiting, so that is retried.
+func releasePipe(path string, flag int, opened <-chan struct{}) {
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case <-opened:
+			return
+		case <-deadline:
+			return
+		default:
+		}
+		if f, err := openPipe(path, flag); err == nil {
+			select {
+			case <-opened:
+			case <-deadline:
+			}
+			f.Close()
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 // openPipe opens one of the command's named pipes, never following a
