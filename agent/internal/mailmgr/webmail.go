@@ -278,7 +278,41 @@ func (e env) renderWebmailPool() string {
 		"php_admin_value[upload_tmp_dir] = " + d + "/temp\nphp_admin_value[session.save_path] = " + d + "/temp\nphp_admin_value[sys_temp_dir] = " + d + "/temp\n" +
 		"php_admin_value[error_log] = " + d + "/logs/php-error.log\nphp_admin_flag[log_errors] = on\nphp_admin_flag[display_errors] = off\n" +
 		"php_admin_value[memory_limit] = 256M\nphp_admin_value[upload_max_filesize] = 25M\nphp_admin_value[post_max_size] = 30M\nphp_admin_value[max_execution_time] = 120\n" +
-		"php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec\n"
+		"php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec\n" +
+		e.prependLine("php_admin_value[auto_prepend_file] = ")
+}
+
+// configDirFile defines Roundcube's configuration folder before Roundcube
+// does, for packages whose iniset.php hard-codes it (RHEL's
+// "/etc/roundcubemail/") instead of reading ROUNDCUBE_CONFIG_DIR. The
+// package's own files are never changed.
+func (e env) configDirFile() string { return e.M.WebmailDir + "/whacp-config-dir.php" }
+
+func (e env) needsConfigDirFile() bool {
+	b, err := e.Root.ReadFile(e.M.RoundcubeDir + "/program/include/iniset.php")
+	if err != nil {
+		return false
+	}
+	for _, l := range strings.Split(string(b), "\n") {
+		if strings.Contains(l, "define('RCUBE_CONFIG_DIR'") && !strings.Contains(l, "getenv") {
+			return true
+		}
+	}
+	return false
+}
+
+func (e env) renderConfigDirFile() string {
+	return "<?php\n// " + webmailHeader + "\n" +
+		"if (!defined('RCMAIL_CONFIG_DIR')) define('RCMAIL_CONFIG_DIR', '" + e.M.WebmailDir + "');\n" +
+		"if (!defined('RCUBE_CONFIG_DIR')) define('RCUBE_CONFIG_DIR', '" + e.M.WebmailDir + "/');\n"
+}
+
+// prependLine is prefix + the prepend file when Roundcube needs it.
+func (e env) prependLine(prefix string) string {
+	if !e.needsConfigDirFile() {
+		return ""
+	}
+	return prefix + e.configDirFile() + "\n"
 }
 
 type vhostParams struct {
@@ -423,6 +457,9 @@ func registerWebmail(r *actions.Registry, e env) {
 		set.Mkdir(e.M.WebmailData+"/temp", 0o750, own)
 		set.Mkdir(e.M.WebmailData+"/logs", 0o750, own)
 		set.Mkdir(e.M.ACMERoot, 0o755, agentfs.RootOwner)
+		if e.needsConfigDirFile() {
+			set.Write(e.configDirFile(), []byte(e.renderConfigDirFile()), 0o644, agentfs.RootOwner)
+		}
 		set.Write(e.M.WebmailDir+"/defaults.inc.php", []byte("<?php\n// "+webmailHeader+"\ninclude '"+e.roundcubeDefaults()+"';\n"), 0o644, agentfs.RootOwner)
 		set.Write(e.M.WebmailDir+"/config.inc.php", []byte(renderRoundcube(e.M.WebmailData, key)), 0o640, agentfs.Owner{UID: 0, GID: acct.GID})
 		if cert == e.M.WebmailDir+"/tls.crt" && !e.Root.Exists(cert) {
@@ -483,10 +520,14 @@ func registerWebmail(r *actions.Registry, e env) {
 		}
 		// Creates the database, or upgrades it after a Roundcube update;
 		// run as the webmail account so it owns the file.
+		var prependArgs []string
+		if e.needsConfigDirFile() {
+			prependArgs = []string{"-d", "auto_prepend_file=" + e.configDirFile()}
+		}
 		out, err := e.Runner.RunWith(ctx, "php"+v, execx.Opts{
 			As:  &execx.Credential{UID: uint32(acct.UID), GID: uint32(acct.GID), Home: e.M.WebmailData},
 			Env: []string{"ROUNDCUBE_CONFIG_DIR=" + e.M.WebmailDir + "/"},
-		}, "-d", "error_reporting=E_ALL & ~E_DEPRECATED", e.M.RoundcubeDir+"/bin/updatedb.sh", "--package=roundcube", "--dir="+e.M.RoundcubeDir+"/SQL")
+		}, append(prependArgs, "-d", "error_reporting=E_ALL & ~E_DEPRECATED", e.M.RoundcubeDir+"/bin/updatedb.sh", "--package=roundcube", "--dir="+e.M.RoundcubeDir+"/SQL")...)
 		if err != nil {
 			if strings.Contains(string(out), "Cannot redeclare function") {
 				// e.g. Roundcube 1.6.11 with PHP 8.5, which added array_first().

@@ -11,6 +11,8 @@ import (
 	"crypto/x509/pkix"
 	"math/big"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -77,5 +79,31 @@ func TestPostfixProtocolsWorkOnPostfix35(t *testing.T) {
 		if strings.Contains(kv[1], ">=") {
 			t.Errorf("%s = %s needs Postfix 3.6", kv[0], kv[1])
 		}
+	}
+}
+
+// RHEL's Roundcube hard-codes its configuration folder; WhaCP then defines
+// it first (auto_prepend_file) instead of editing the package's files.
+func TestRoundcubeConfigDirOnHardcodedPackages(t *testing.T) {
+	h, _ := setup(t)
+	e := env{h.Env}
+	iniset := filepath.Join(h.Base, e.M.RoundcubeDir, "program/include/iniset.php")
+	os.MkdirAll(filepath.Dir(iniset), 0o755)
+
+	os.WriteFile(iniset, []byte("<?php\ndefine('RCUBE_CONFIG_DIR', getenv('ROUNDCUBE_CONFIG_DIR') ?: INSTALL_PATH . 'config/');\n"), 0o644)
+	if e.needsConfigDirFile() || strings.Contains(e.renderWebmailPool(), "auto_prepend_file") {
+		t.Error("a package that reads ROUNDCUBE_CONFIG_DIR got a prepend file")
+	}
+
+	os.WriteFile(iniset, []byte("<?php\nif (!defined('RCMAIL_CONFIG_DIR')) {\n    define('RCMAIL_CONFIG_DIR', '/etc/roundcubemail');\n}\ndefine('RCUBE_CONFIG_DIR', '/etc/roundcubemail/');\n"), 0o644)
+	if !e.needsConfigDirFile() {
+		t.Fatal("hard-coded configuration folder not detected")
+	}
+	if !strings.Contains(e.renderWebmailPool(), "php_admin_value[auto_prepend_file] = "+e.configDirFile()+"\n") {
+		t.Error("pool does not prepend the configuration folder")
+	}
+	f := e.renderConfigDirFile()
+	if !strings.Contains(f, "define('RCUBE_CONFIG_DIR', '"+e.M.WebmailDir+"/')") || !strings.Contains(f, "define('RCMAIL_CONFIG_DIR', '"+e.M.WebmailDir+"')") {
+		t.Errorf("prepend file:\n%s", f)
 	}
 }
