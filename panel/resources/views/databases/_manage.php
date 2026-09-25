@@ -42,6 +42,7 @@ $returnTo = $returnTo ?? '/databases';
                                 </td>
                                 <td class="text-end text-nowrap">
                                     <?php if ($canManage): ?>
+                                        <a class="btn btn-sm btn-outline-primary" href="<?= e($this->url('databases.browser', ['id' => (int) $d['id']])) ?>" title="Browse tables and run SQL"><i class="bi bi-table"></i> Browse</a>
                                         <form method="post" action="<?= e($this->url('databases.dump', ['id' => (int) $d['id']])) ?>" class="d-inline"><?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>"><button class="btn btn-sm btn-outline-secondary" title="Dump to the backup directory"><i class="bi bi-download"></i></button></form>
                                         <form method="post" action="<?= e($this->url('databases.drop', ['id' => (int) $d['id']])) ?>" class="d-inline" data-wcp-confirm="Delete the database <?= e($d['name']) ?> and all of its data? This cannot be undone." data-wcp-confirm-word="<?= e($d['name']) ?>">
                                             <?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>"><input type="hidden" name="confirm" value="<?= e($d['name']) ?>">

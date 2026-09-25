@@ -5,6 +5,7 @@ declare(strict_types=1);
 use WhaCP\Http\Controllers\AuditLogController;
 use WhaCP\Http\Controllers\AppsController;
 use WhaCP\Http\Controllers\AuthController;
+use WhaCP\Http\Controllers\DbBrowserController;
 use WhaCP\Http\Controllers\BackupsController;
 use WhaCP\Http\Controllers\CronController;
 use WhaCP\Http\Controllers\DeployController;
@@ -137,6 +138,10 @@ return static function (Router $r): void {
     $r->get('/php/{version}/modules', [PhpController::class, 'modules'], ['name' => 'php.modules', 'permission' => P::PHP_VIEW]);
     $r->get('/databases', [DatabasesController::class, 'index'], ['name' => 'databases', 'permission' => P::DATABASES_VIEW]);
     $r->post('/databases', [DatabasesController::class, 'store'], ['name' => 'databases.store', 'permission' => P::DATABASES_MANAGE]);
+    $r->get('/databases/browse', [DbBrowserController::class, 'serverBrowse'], ['name' => 'databases.browser.server', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/databases/browse/api', [DbBrowserController::class, 'serverApi'], ['name' => 'databases.browser.server_api', 'permission' => P::DATABASES_MANAGE]);
+    $r->get('/databases/{id}/browse', [DbBrowserController::class, 'browse'], ['name' => 'databases.browser', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/databases/{id}/browse/api', [DbBrowserController::class, 'api'], ['name' => 'databases.browser.api', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/databases/{id}/drop', [DatabasesController::class, 'drop'], ['name' => 'databases.drop', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/databases/{id}/dump', [DatabasesController::class, 'dump'], ['name' => 'databases.dump', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/databases/{id}/grant', [DatabasesController::class, 'grant'], ['name' => 'databases.grant', 'permission' => P::DATABASES_MANAGE]);

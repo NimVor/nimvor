@@ -111,6 +111,9 @@ func checkUser(u, h string) error {
 	if len(u) > 32 {
 		return &validate.Error{Field: "user", Message: "must be at most 32 characters"}
 	}
+	if strings.HasPrefix(strings.ToLower(u), BrowserPrefix) {
+		return &validate.Error{Field: "user", Message: "names starting with " + BrowserPrefix + " are reserved for the database browser"}
+	}
 	if !hostRe.MatchString(h) {
 		return &validate.Error{Field: "host", Message: "is not a valid host"}
 	}
@@ -120,6 +123,7 @@ func checkUser(u, h string) error {
 // Register adds database actions.
 func Register(r *actions.Registry, env *host.Env) {
 	c := Client{Env: env}
+	registerBrowse(r, c)
 	r.Register(actions.Action{Name: "db.overview", Description: "Databases, sizes, users and grants (live from the server).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return c.Overview(ctx)
 	}})
@@ -152,7 +156,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		if in.Confirm != in.Name {
 			return nil, actions.InvalidParams("confirm must repeat the database name")
 		}
-		return map[string]any{"name": in.Name}, c.Exec(ctx, "Dropping the database", fmt.Sprintf("DROP DATABASE IF EXISTS %s;", Ident(in.Name)))
+		return map[string]any{"name": in.Name}, c.Exec(ctx, "Dropping the database", fmt.Sprintf("DROP DATABASE IF EXISTS %s;\nDROP USER IF EXISTS %s;", Ident(in.Name), account(BrowserAccount(in.Name), "localhost")))
 	}})
 	r.Register(actions.Action{Name: "db.user_create", Mutating: true, Description: "Create a database user.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in userReq
@@ -317,7 +321,7 @@ GROUP BY s.schema_name ORDER BY s.schema_name;`)
 		n, _ := strconv.Atoi(r[2])
 		dbs = append(dbs, Database{Name: r[0], Bytes: b, Tables: n})
 	}
-	urows, err := c.Query(ctx, `SELECT user, host FROM mysql.user WHERE user NOT IN ('root','mysql','mariadb.sys','debian-sys-maint','mysql.sys','mysql.session','mysql.infoschema','') ORDER BY user, host;`)
+	urows, err := c.Query(ctx, `SELECT user, host FROM mysql.user WHERE user NOT IN ('root','mysql','mariadb.sys','debian-sys-maint','mysql.sys','mysql.session','mysql.infoschema','') AND user NOT LIKE 'whacp\\_b\\_%' ORDER BY user, host;`)
 	if err != nil {
 		return nil, actions.Failed("Could not list database users.", err.Error())
 	}

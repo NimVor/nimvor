@@ -302,3 +302,31 @@ textarea.form-control.wcp-editor { min-height: 65vh; font-size: .82rem; resize: 
     .wcp-rb-keys { width: auto; max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--wcp-card-border); }
 }
 .wcp-rb-key.active .text-body-secondary { color: inherit !important; opacity: .85; }
+
+/* Database browser */
+.wcp-db { flex: 1; min-height: 0; display: flex; background: var(--bs-body-bg); border: 1px solid var(--wcp-card-border); border-radius: .5rem; }
+.wcp-db-side { width: 17rem; min-width: 12rem; border-right: 1px solid var(--wcp-card-border); overflow: auto; resize: horizontal; }
+.wcp-db-table { display: flex; align-items: center; cursor: pointer; font-size: .85rem; padding: .35rem .6rem; }
+.wcp-db-table.active .text-body-secondary { color: inherit !important; opacity: .85; }
+.wcp-db-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.wcp-db-tabs { display: flex; align-items: center; gap: .35rem; padding: .5rem .75rem; border-bottom: 1px solid var(--wcp-card-border); }
+.wcp-db-pane { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+.wcp-db-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .5rem .75rem; }
+.wcp-db-filter { width: auto; flex: 1 1 26rem; max-width: 40rem; }
+.wcp-db-filter select { max-width: 11rem; }
+.wcp-db-grid-wrap { flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--wcp-card-border); }
+.wcp-db-grid-result { max-height: 60vh; border: 1px solid var(--wcp-card-border); border-radius: .375rem; }
+.wcp-db-grid { font-size: .82rem; }
+.wcp-db-grid th { position: sticky; top: 0; background: var(--bs-tertiary-bg); z-index: 1; white-space: nowrap; }
+.wcp-db-grid td { max-width: 24rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--bs-font-monospace); }
+.wcp-db-check { width: 1.8rem; }
+.wcp-db-null { color: var(--bs-secondary-color); font-style: italic; font-family: var(--bs-body-font-family); }
+.wcp-db-bin { color: var(--bs-info-text-emphasis); }
+.wcp-db-more { color: var(--bs-secondary-color); }
+.wcp-db-editor { padding: 1rem; max-width: 64rem; }
+.wcp-db-create { background: var(--bs-tertiary-bg); padding: .75rem; border-radius: .375rem; font-size: .8rem; white-space: pre-wrap; }
+.wcp-db-sqltext { font-size: .85rem; min-height: 9rem; resize: vertical; }
+@media (max-width: 767.98px) {
+    .wcp-db { flex-direction: column; }
+    .wcp-db-side { width: auto; max-height: 30vh; border-right: 0; border-bottom: 1px solid var(--wcp-card-border); }
+}

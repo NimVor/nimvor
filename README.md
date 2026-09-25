@@ -24,7 +24,7 @@ privileged operation must be explicit, validated, audited and reversible.**
 | **Import** | take over a discovered website: files are copied, Nginx switches in one validated reload, the old config is kept and the import can be undone |
 | Websites | PHP, static and reverse-proxy sites; aliases, redirects, per-site PHP-FPM pools; `nginx -t` gate and automatic rollback |
 | PHP | install versions, per-site settings |
-| Databases | MySQL/MariaDB databases, users and grants |
+| Databases | MySQL/MariaDB databases, users and grants; web database browser (rows, structure, SQL console) confined to one database |
 | SSL | Let's Encrypt issue/renew, custom certificates, HTTPS redirect, HSTS |
 | Files & logs | full-screen file manager (folder tree, multi-select, drag-and-drop uploads, full-page editor, permissions, zip/tar.gz compress and safe extract), log viewer with live tail |
 | Automation | cron jobs, systemd workers (queues), Git deployment with webhooks |

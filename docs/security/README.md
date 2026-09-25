@@ -22,7 +22,8 @@
 | Tenant reaches another tenant | Owner scoping on every query for *own*-scope roles; reseller limits aggregate their customers; file manager confined to the website root with symlink checks; per-site PHP-FPM pools and system accounts |
 | Malicious plugin upload | Plugins cannot be uploaded through the web; they are installed on disk by an administrator, refused if group/world-writable or containing symlinks, and must be enabled explicitly |
 | Restoring a bad or crafted server backup | Checksum verified, safety backup first, extraction confined to a root-only staging folder (no absolute/`..` paths, nothing written below symlinks, set-id bits dropped), validate before reload, automatic rollback; firewall/SSH/WhaCP settings never restored in place |
-| Leaked backups | AES-256-GCM encryption with a per-server key; remote storage credentials encrypted with the panel key |
+| Leaked backups | AES-256-GCM encryption with a per-server key; remote storage credentials encrypted with the panel key; SFTP host keys and self-signed FTPS certificates pinned after the administrator confirms them; FTP without TLS only when chosen explicitly |
+| SQL console used to escape a database | The database browser never runs SQL as root: each database has its own locked account with privileges on that database only, unlocked with a one-time random password per request; 30-second statement limit |
 | Path traversal | `filesystem.Root` rejects `..`, resolves symlinks inside the root; Nginx includes limited to `/etc/nginx`; router parameters restricted to `[A-Za-z0-9_.-]` |
 | Secret leakage | Cron commands, logs and audit details are redacted; Redis/MySQL passwords never returned; private keys never read; `/etc/shadow` never read |
 | Information disclosure through errors | Users see a message, reason, action and reference ID; stack traces only in logs |

@@ -81,12 +81,19 @@ paths:
               - backup.server_restore
               - cron.apply
               - cron.run
+              - db.browse_delete
+              - db.browse_row
+              - db.browse_rows
+              - db.browse_save
+              - db.browse_structure
+              - db.browse_tables
               - db.create
               - db.drop
               - db.dump
               - db.grant
               - db.import
               - db.overview
+              - db.query
               - db.user_create
               - db.user_drop
               - db.user_password
@@ -310,12 +317,19 @@ x-whacp-actions:
   backup.server_restore: { mutating: true, description: "Restore components (nginx, php, mysql, redis, letsencrypt, fail2ban, cron) of a server backup after a safety backup, validating and rolling back on failure; or extract it for manual review (job)." }
   cron.apply: { mutating: true, description: "Write the complete cron schedule of a website." }
   cron.run: { mutating: true, description: "Run a cron command now as the website user (job)." }
+  db.browse_delete: { mutating: true, description: "Database browser: delete rows by their keys (in one transaction)." }
+  db.browse_row: { mutating: true, description: "Database browser: one full row by its key (for editing)." }
+  db.browse_rows: { mutating: true, description: "Database browser: a page of rows (sort, filter) with the row key." }
+  db.browse_save: { mutating: true, description: "Database browser: insert a row, or update one row by its key." }
+  db.browse_structure: { mutating: true, description: "Database browser: columns, indexes and CREATE statement of a table." }
+  db.browse_tables: { mutating: true, description: "Database browser: tables and views of a database with sizes." }
   db.create: { mutating: true, description: "Create a database (utf8mb4)." }
   db.drop: { mutating: true, description: "Drop a database (requires confirm = name)." }
   db.dump: { mutating: true, description: "Dump a database to a gzip file in the backup directory (job)." }
   db.grant: { mutating: true, description: "Grant or revoke a privilege set on one database." }
   db.import: { mutating: true, description: "Import a .sql or .sql.gz file into a database (job)." }
   db.overview: { mutating: false, description: "Databases, sizes, users and grants (live from the server)." }
+  db.query: { mutating: true, description: "Database browser: run SQL (one or more statements) as the database's browser account, which can reach this database only." }
   db.user_create: { mutating: true, description: "Create a database user." }
   db.user_drop: { mutating: true, description: "Drop a database user." }
   db.user_password: { mutating: true, description: "Change a database user's password." }

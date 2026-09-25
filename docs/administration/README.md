@@ -111,6 +111,28 @@ device files and entries that would leave the target folder, drops set-id
 bits, is limited to 50,000 entries and 8 GiB, and keeps existing files
 unless *Replace files that already exist* is ticked.
 
+## Database browser
+
+*Databases → Browse* opens a full-page browser for one database: tables
+and views with sizes, rows (sort by any column, filter, pages of up to 500,
+CSV export), a row editor (NULL, defaults and binary values as
+hexadecimal), insert and multi-row delete, the table structure with its
+indexes and `CREATE` statement, and an SQL console that runs several
+statements and shows each result. Customers can browse the databases of
+their own websites; administrators can also open databases WhaCP does not
+manage.
+
+Nothing runs as the database root user. Each database has its own browser
+account (`whacp_b_…@localhost`) with privileges on that database only; it
+is locked between requests and gets a new random password for each one, so
+SQL typed in the console cannot read other databases, change server
+settings or read files. Statements are limited to 30 seconds and results to
+1,000 rows. Rows can be edited in tables that have a primary or unique key.
+Views and routines created from the console are owned by the browser
+account, which is removed together with the database. Changes (SQL, saved
+and deleted rows) are recorded in the audit log with the statement or the
+column names, never the row values.
+
 ## Redis and Memcached
 
 *Redis → Browse keys* scans a database with a glob pattern and shows every
