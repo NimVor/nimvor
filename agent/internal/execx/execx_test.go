@@ -73,7 +73,7 @@ func TestTransientArgs(t *testing.T) {
 	for _, want := range []string{"--uid=1001", "--gid=1002", "--wait", "--property=StandardInput=null",
 		"--working-directory=/home/whacp/a.test",
 		"--property=NoNewPrivileges=yes", "--property=CapabilityBoundingSet=", "--property=RestrictSUIDSGID=yes",
-		"--property=RuntimeMaxSec=90", "--setenv=HOME=/home/whacp/a.test"} {
+		"--property=RuntimeMaxSec=100", "--setenv=HOME=/home/whacp/a.test"} {
 		if !strings.Contains(s, want+"\n") && !strings.HasSuffix(s, want) {
 			t.Errorf("missing %s in\n%s", want, s)
 		}

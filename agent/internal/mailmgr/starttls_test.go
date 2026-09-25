@@ -107,3 +107,22 @@ func TestRoundcubeConfigDirOnHardcodedPackages(t *testing.T) {
 		t.Errorf("prepend file:\n%s", f)
 	}
 }
+
+// RHEL's defaults.inc.php is root:apache 0640: WhaCP copies it rather than
+// including a file the webmail account cannot read.
+func TestRoundcubeDefaultsReadableByWebmail(t *testing.T) {
+	h, _ := setup(t)
+	e := env{h.Env}
+	src := filepath.Join(h.Base, e.roundcubeDefaults())
+	os.MkdirAll(filepath.Dir(src), 0o755)
+	os.WriteFile(src, []byte("<?php\n$config['product_name'] = 'Roundcube';\n"), 0o644)
+	data, mode, err := e.renderDefaults()
+	if err != nil || mode != 0o644 || !strings.Contains(string(data), "include '"+e.roundcubeDefaults()+"';") {
+		t.Errorf("world-readable defaults: %v %o\n%s", err, mode, data)
+	}
+	os.Chmod(src, 0o640)
+	data, mode, err = e.renderDefaults()
+	if err != nil || mode != 0o640 || strings.Contains(string(data), "include") || !strings.Contains(string(data), "$config['product_name'] = 'Roundcube';") || !strings.HasPrefix(string(data), "<?php\n") {
+		t.Errorf("restricted defaults: %v %o\n%s", err, mode, data)
+	}
+}

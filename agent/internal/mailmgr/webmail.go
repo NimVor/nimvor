@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math/big"
 	"net"
 	"net/http"
@@ -118,6 +119,28 @@ func (e env) webmailLogs() string {
 		fmt.Fprintf(&b, "%s:\n%s\n", p, strings.Join(lines, "\n"))
 	}
 	return logging.Redact(b.String())
+}
+
+// renderDefaults is WhaCP's defaults.inc.php. It includes the
+// distribution's file when everyone may read it (Debian). RHEL keeps it
+// root:apache 0640, which the webmail account cannot read (and joining the
+// web server's group would give it much more): the agent copies the
+// settings instead, refreshed each time webmail is configured.
+func (e env) renderDefaults() ([]byte, fs.FileMode, error) {
+	src := e.roundcubeDefaults()
+	fi, err := e.Root.Stat(src)
+	if err != nil || fi.Mode().Perm()&0o004 != 0 {
+		return []byte("<?php\n// " + webmailHeader + "\ninclude '" + src + "';\n"), 0o644, nil
+	}
+	data, err := e.Root.ReadFile(src)
+	if err != nil {
+		return nil, 0, err
+	}
+	body, ok := strings.CutPrefix(string(data), "<?php")
+	if !ok {
+		return nil, 0, fmt.Errorf("%s does not start with <?php", src)
+	}
+	return []byte("<?php\n// " + webmailHeader + "\n// Copied from " + src + ", which the webmail account cannot read.\n" + body), 0o640, nil
 }
 
 // roundcubeDefaults is the distribution's defaults.inc.php (Debian keeps it
@@ -490,7 +513,11 @@ func registerWebmail(r *actions.Registry, e env) {
 		if e.needsConfigDirFile() {
 			set.Write(e.configDirFile(), []byte(e.renderConfigDirFile()), 0o644, agentfs.RootOwner)
 		}
-		set.Write(e.M.WebmailDir+"/defaults.inc.php", []byte("<?php\n// "+webmailHeader+"\ninclude '"+e.roundcubeDefaults()+"';\n"), 0o644, agentfs.RootOwner)
+		defaults, mode, err := e.renderDefaults()
+		if err != nil {
+			return nil, actions.Failed("Roundcube's default settings could not be read.", err.Error())
+		}
+		set.Write(e.M.WebmailDir+"/defaults.inc.php", defaults, mode, agentfs.Owner{UID: 0, GID: acct.GID})
 		set.Write(e.M.WebmailDir+"/config.inc.php", []byte(renderRoundcube(e.M.WebmailData, key)), 0o640, agentfs.Owner{UID: 0, GID: acct.GID})
 		if cert == e.M.WebmailDir+"/tls.crt" && !e.Root.Exists(cert) {
 			c, k, err := selfSigned(in.Hostname)

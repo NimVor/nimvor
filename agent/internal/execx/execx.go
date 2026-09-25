@@ -326,7 +326,10 @@ func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeo
 		a = append(a, "--property="+p)
 	}
 	if timeout > 0 {
-		a = append(a, fmt.Sprintf("--property=RuntimeMaxSec=%d", int((timeout+time.Second-1)/time.Second)))
+		// A backstop only: the agent's own deadline stops the unit first and
+		// reports the timeout (when systemd stops it, systemd-run --wait can
+		// exit 0 for the SIGTERM).
+		a = append(a, fmt.Sprintf("--property=RuntimeMaxSec=%d", int((timeout+time.Second-1)/time.Second)+10))
 	}
 	for _, e := range env {
 		a = append(a, "--setenv="+e)
@@ -430,6 +433,9 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 		}()
 	}
 	runErr := cmd.Run()
+	if runErr == nil && ctx.Err() != nil {
+		runErr = fmt.Errorf("stopped: %w", ctx.Err())
+	}
 	// If the command never opened a pipe (it failed to start), release the
 	// goroutine still waiting to open the other end.
 	for _, f := range []string{out, errp} {
