@@ -68,12 +68,13 @@ func TestAllowlistHasPlatformTools(t *testing.T) {
 // arguments reach the program unchanged (F-16).
 func TestTransientArgs(t *testing.T) {
 	a := TransientArgs("whacp-run-x.service", "/bin/sh", "/usr/bin/php", "/home/whacp/a.test", []string{"HOME=/home/whacp/a.test"},
-		Credential{UID: 1001, GID: 1002}, 90*time.Second, "", "/run/whacp-run/r/out", "/run/whacp-run/r/err", []string{"-r", "echo $HOME, 100%;"})
+		Credential{UID: 1001, GID: 1002}, 90*time.Second, "", "/run/whacp-run/r/out", "/run/whacp-run/r/err", []string{"/usr/local/bin/whacp-agent:/usr/sbin/sendmail.postfix"}, []string{"-r", "echo $HOME, 100%;"})
 	s := strings.Join(a, "\n")
 	for _, want := range []string{"--uid=1001", "--gid=1002", "--wait", "--property=StandardInput=null",
 		"--working-directory=/home/whacp/a.test",
 		"--property=NoNewPrivileges=yes", "--property=CapabilityBoundingSet=", "--property=RestrictSUIDSGID=yes",
-		"--property=RuntimeMaxSec=100", "--setenv=HOME=/home/whacp/a.test"} {
+		"--property=RuntimeMaxSec=100", "--setenv=HOME=/home/whacp/a.test",
+		"--property=BindReadOnlyPaths=/usr/local/bin/whacp-agent:/usr/sbin/sendmail.postfix"} {
 		if !strings.Contains(s, want+"\n") && !strings.HasSuffix(s, want) {
 			t.Errorf("missing %s in\n%s", want, s)
 		}

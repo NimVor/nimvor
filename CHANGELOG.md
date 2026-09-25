@@ -248,6 +248,12 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
   back if it fails; Roundcube 1.5 finds WhaCP's configuration folder, its
   default settings (`root:apache 0640` on RHEL, copied by the agent) and
   its IMAP and SMTP servers.
+- Commands WhaCP runs as a website account (deploy hooks, cron "run now",
+  app installers) can send mail with `sendmail` again: inside their units
+  it is WhaCP's own sendmail, which submits the message over SMTP to this
+  machine's mail server (Postfix's hangs there: its setgid `postdrop`
+  cannot work with `NoNewPrivileges`). The system's `sendmail` is not
+  changed.
 - The WordPress installer no longer sends the "new site" e-mail, which hung
   under the sandbox (Postfix's setgid `postdrop` cannot work with
   `NoNewPrivileges`).
@@ -256,9 +262,6 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
   `refused` or `timeout` instead of plain `offline`.
 
 ### Known limitations
-- Commands WhaCP runs as a website account (deploy hooks, cron "run now")
-  cannot queue mail through the local `sendmail`; use SMTP. Scheduled cron
-  jobs and websites are not affected.
 - Let's Encrypt issuance is tested only with a stand-in certbot (it needs a
   public domain).
 

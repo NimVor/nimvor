@@ -308,7 +308,7 @@ const pipeWrapper = `i=$1 o=$2 e=$3; shift 3; exec "$@" <"$i" >"$o" 2>"$e"`
 // the agent's descriptors over D-Bus (--pipe) is refused by SELinux on
 // RHEL, and so is PID 1 opening them (StandardOutput=file:). systemd-run
 // --wait exits with the command's status.
-func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeout time.Duration, stdin, stdout, stderr string, args []string) []string {
+func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeout time.Duration, stdin, stdout, stderr string, binds []string, args []string) []string {
 	a := []string{"--quiet", "--wait", "--collect", "--service-type=exec", "--unit=" + unit,
 		fmt.Sprintf("--uid=%d", as.UID), fmt.Sprintf("--gid=%d", as.GID), "--working-directory=" + dir,
 		"--property=StandardInput=null"}
@@ -331,6 +331,9 @@ func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeo
 		// exit 0 for the SIGTERM).
 		a = append(a, fmt.Sprintf("--property=RuntimeMaxSec=%d", int((timeout+time.Second-1)/time.Second)+10))
 	}
+	for _, b := range binds {
+		a = append(a, "--property=BindReadOnlyPaths="+b)
+	}
 	for _, e := range env {
 		a = append(a, "--setenv="+e)
 	}
@@ -341,6 +344,39 @@ func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeo
 		a[i] = strings.ReplaceAll(a[i], "$", "$$")
 	}
 	return a
+}
+
+// SendmailShim is WhaCP's sendmail program (the agent binary, which
+// behaves as sendmail when started under that name). Inside the units of
+// commands run as an account it replaces the distribution's sendmail:
+// Postfix's hands mail to setgid postdrop, which cannot work under
+// NoNewPrivileges and retries forever (F-25). Empty: no replacement.
+var SendmailShim string
+
+// sendmailPaths are where programs look for sendmail.
+var sendmailPaths = []string{"/usr/sbin/sendmail", "/usr/lib/sendmail", "/usr/bin/sendmail"}
+
+// sendmailBinds mounts SendmailShim over each sendmail on this machine
+// (inside the unit only; the files themselves are not changed). Paths that
+// lead to the same file are mounted once.
+func sendmailBinds() []string {
+	if SendmailShim == "" {
+		return nil
+	}
+	var binds []string
+	seen := map[string]bool{}
+	for _, p := range sendmailPaths {
+		real, err := filepath.EvalSymlinks(p)
+		if err != nil || seen[real] {
+			continue
+		}
+		if fi, err := os.Stat(real); err != nil || !fi.Mode().IsRegular() {
+			continue
+		}
+		seen[real] = true
+		binds = append(binds, SendmailShim+":"+real)
+	}
+	return binds
 }
 
 // RunDir holds the named pipes of commands run as other accounts. Each
@@ -397,7 +433,7 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 		stdout = o.Stdout
 	}
 	unit := transientUnit()
-	cmd := exec.CommandContext(ctx, r.paths["systemd-run"], TransientArgs(unit, sh, bin, dir, env, *o.As, timeout, in, out, errp, args)...)
+	cmd := exec.CommandContext(ctx, r.paths["systemd-run"], TransientArgs(unit, sh, bin, dir, env, *o.As, timeout, in, out, errp, sendmailBinds(), args)...)
 	cmd.Env = baseEnv
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	cmd.Stdout, cmd.Stderr = w, w // systemd-run's own messages

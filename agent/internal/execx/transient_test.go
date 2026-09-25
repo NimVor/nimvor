@@ -118,3 +118,25 @@ func TestOpenPipeRefusesLinksAndFiles(t *testing.T) {
 	}
 	f.Close()
 }
+
+// Each sendmail on the machine is covered once, whatever links lead to it
+// (Debian: /usr/lib/sendmail -> ../sbin/sendmail; RHEL: alternatives).
+func TestSendmailBinds(t *testing.T) {
+	d := t.TempDir()
+	real := filepath.Join(d, "sendmail.postfix")
+	os.WriteFile(real, []byte("x"), 0o755)
+	os.Symlink(real, filepath.Join(d, "sbin-sendmail"))
+	os.Symlink(filepath.Join(d, "sbin-sendmail"), filepath.Join(d, "lib-sendmail"))
+	oldPaths, oldShim := sendmailPaths, SendmailShim
+	t.Cleanup(func() { sendmailPaths, SendmailShim = oldPaths, oldShim })
+	sendmailPaths = []string{filepath.Join(d, "sbin-sendmail"), filepath.Join(d, "lib-sendmail"), filepath.Join(d, "missing")}
+
+	SendmailShim = ""
+	if b := sendmailBinds(); b != nil {
+		t.Errorf("binds without a shim: %v", b)
+	}
+	SendmailShim = "/usr/local/bin/whacp-agent"
+	if b := sendmailBinds(); len(b) != 1 || b[0] != "/usr/local/bin/whacp-agent:"+real {
+		t.Errorf("binds = %v", b)
+	}
+}

@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/modules"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/monitoring"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/sendmail"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/server"
 )
 
@@ -36,6 +38,12 @@ import (
 var version = "1.0.0-rc1"
 
 func main() {
+	// Commands run as a website account see this binary as their sendmail
+	// (bind-mounted in their units): it then only submits the message over
+	// SMTP to this machine and never reads the agent's configuration.
+	if strings.HasPrefix(filepath.Base(os.Args[0]), "sendmail") {
+		os.Exit(sendmail.Main(os.Args[1:], os.Stdin, os.Stderr))
+	}
 	os.Exit(run())
 }
 
@@ -96,6 +104,9 @@ func run() int {
 	collector := monitoring.NewCollector(cfg.ProcDir, cfg.MetricsInterval.Duration, cfg.MetricsHistory, log)
 	go collector.Run(ctx)
 
+	if exe, err := os.Executable(); err == nil {
+		execx.SendmailShim = exe
+	}
 	var runner execx.Runner = execx.NewSystemRunner(15 * time.Second)
 	if cfg.SimulateCommands {
 		log.Warn("simulate_commands is on: no system tool will be executed (development mode)")

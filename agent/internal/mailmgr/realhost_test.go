@@ -167,6 +167,7 @@ func TestRealHostMail(t *testing.T) {
 	if err := inbound("nobody@rt-mail.test", "x"); err == nil {
 		t.Fatal("mail for an unknown mailbox accepted")
 	}
+	testSendmailShim(t, env, waitMail)
 	// Mail the spam filter flagged goes to Junk (Sieve).
 	c0, err := smtp.Dial("127.0.0.1:25")
 	if err != nil {
