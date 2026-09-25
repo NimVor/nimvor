@@ -236,7 +236,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			if wasRunning {
 				rndc(ctx, env, "reconfig")
 			}
-			return nil, actions.Failed("BIND did not load the configuration; the previous files were restored.", startErr.Error())
+			return nil, actions.Failed("BIND did not load the configuration; the previous files were restored.", startErr.Error()+"\n"+env.JournalTail(ctx, env.M.DNSUnit, 12))
 		}
 		notes := []string{}
 		notes = append(notes, fw.Open(ctx, env, "DNS", "53/tcp", "53/udp"))

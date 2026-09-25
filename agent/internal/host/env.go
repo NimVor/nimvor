@@ -204,6 +204,19 @@ func (e *Env) Systemctl(ctx context.Context, verb, unit string) error {
 	return nil
 }
 
+// JournalTail returns the last lines a unit logged (for error details;
+// empty when the journal is unavailable).
+func (e *Env) JournalTail(ctx context.Context, unit string, lines int) string {
+	if validate.Unit("unit", unit) != nil || !e.Runner.Available("journalctl") {
+		return ""
+	}
+	out, err := e.Runner.Run(ctx, "journalctl", "--no-pager", "-o", "cat", "-n", fmt.Sprint(lines), "-u", unit)
+	if err != nil {
+		return ""
+	}
+	return Output(out)
+}
+
 // DaemonReload reloads systemd unit files.
 func (e *Env) DaemonReload(ctx context.Context) error {
 	out, err := e.Runner.Run(ctx, "systemctl", "daemon-reload")

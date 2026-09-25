@@ -382,7 +382,7 @@ func Register(r *actions.Registry, he *host.Env) {
 						time.Sleep(250 * time.Millisecond)
 					}
 					if err != nil {
-						return fail("OpenDKIM does not listen.", err)
+						return fail("OpenDKIM does not listen.", fmt.Errorf("%v\n%s", err, he.JournalTail(ctx, DKIMUnit, 8)))
 					}
 					continue
 				}
