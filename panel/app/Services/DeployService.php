@@ -119,6 +119,8 @@ final class DeployService
     public function rotateWebhook(array $site): void
     {
         $this->db->run('UPDATE git_repositories SET webhook_token = ?, webhook_secret_enc = ? WHERE website_id = ?', [bin2hex(random_bytes(20)), $this->crypto->encrypt(bin2hex(random_bytes(24))), (int) $site['id']]);
+        // Deliveries signed with the old secret are refused anyway.
+        $this->db->run('DELETE FROM webhook_deliveries WHERE website_id = ?', [(int) $site['id']]);
         $this->audit->record('deploy.webhook_rotate', 'website', (string) $site['id']);
     }
 
@@ -215,6 +217,12 @@ final class DeployService
      * Accepted signatures: GitHub/Gitea/Forgejo (X-Hub-Signature-256,
      * HMAC-SHA256 of the body) and GitLab (X-Gitlab-Token).
      *
+     * A delivery starts a deployment once: the hash of its body is recorded
+     * before the deployment starts, and the same body is refused afterwards
+     * (409). The body is what the signature covers — delivery-ID headers
+     * are not signed, so they could be changed in a replay — and no two
+     * pushes have the same body (commit IDs, timestamps).
+     *
      * @param array<string, string> $headers lower-case names
      * @return array{0: int, 1: string}
      */
@@ -251,9 +259,20 @@ final class DeployService
         if ($site === null || (int) $cfg['server_id'] !== $this->server->id()) {
             return [404, 'Unknown webhook.'];
         }
+        $hash = hash('sha256', $body);
+        $new = $this->db->run(
+            'INSERT OR IGNORE INTO webhook_deliveries (website_id, body_sha256, received_at) VALUES (?, ?, ?)',
+            [(int) $cfg['website_id'], $hash, gmdate('Y-m-d H:i:s')],
+        )->rowCount();
+        if ($new === 0) {
+            $this->audit->record('deploy.webhook', 'website', (string) $cfg['website_id'], AuditLogger::DENIED, ['reason' => 'replayed delivery']);
+            return [409, 'Ignored: this delivery was already processed. Deploy from the panel to deploy again.'];
+        }
         try {
             $job = $this->deploy($site, 'webhook', null);
         } catch (UserFacingException $e) {
+            // Nothing was deployed: the Git host may deliver it again.
+            $this->db->run('DELETE FROM webhook_deliveries WHERE website_id = ? AND body_sha256 = ?', [(int) $cfg['website_id'], $hash]);
             return [502, 'Deployment could not start: ' . $e->getMessage()];
         }
         return [202, 'Deployment started (job ' . $job . ').'];

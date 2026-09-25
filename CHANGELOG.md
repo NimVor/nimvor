@@ -50,6 +50,9 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
   `/run/whacp-run` that only the account's own process opens; the agent
   never follows a replaced pipe.
 - A command that reached its timeout is always reported as failed.
+- Git deployment webhooks: a captured delivery can no longer be replayed to
+  deploy again. Each signed body starts one deployment; a repeat is refused
+  (409) and recorded in the audit log.
 - Release archives are checked for test files, private keys and tokens
   before publishing. Releases are published only after the whole CI suite
   passes.

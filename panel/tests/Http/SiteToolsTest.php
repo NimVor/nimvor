@@ -129,7 +129,15 @@ final class SiteToolsTest extends HttpTestCase
         self::assertSame($runs, $this->calls('deploy.run'), 'other branches are ignored');
 
         self::assertSame(202, $this->request('POST', $hook, [], ['x-hub-signature-256' => $sig], $body)->status());
-        self::assertSame(202, $this->request('POST', $hook, [], ['x-gitlab-token' => $secret], $body)->status());
+        // A captured delivery replayed (even under another delivery ID, which
+        // is not signed) does not deploy again (F-05).
+        self::assertSame(409, $this->request('POST', $hook, [], ['x-hub-signature-256' => $sig, 'x-github-delivery' => 'another-id'], $body)->status());
+        self::assertSame(409, $this->request('POST', $hook, [], ['x-gitlab-token' => $secret], $body)->status());
+        self::assertSame($runs + 1, $this->calls('deploy.run'));
+        self::assertSame(2, (int) $db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'deploy.webhook' AND details LIKE '%replayed%'"), 'both replays audited');
+        // The next push (a new body) deploys.
+        $next = (string) json_encode(['ref' => 'refs/heads/main', 'after' => 'b2c3']);
+        self::assertSame(202, $this->request('POST', $hook, [], ['x-gitlab-token' => $secret], $next)->status());
         self::assertSame($runs + 2, $this->calls('deploy.run'));
         self::assertSame(2, (int) $db->scalar("SELECT COUNT(*) FROM deployments WHERE trigger = 'webhook'"));
 
