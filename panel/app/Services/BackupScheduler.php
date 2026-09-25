@@ -26,6 +26,8 @@ final class BackupScheduler
         private readonly WebsiteRepository $sites,
         private readonly ServerContext $server,
         private readonly AuditLogger $audit,
+        private readonly JobTracker $jobs,
+        private readonly NotificationService $notifications,
     ) {
     }
 
@@ -149,16 +151,23 @@ final class BackupScheduler
                 if ($s['kind'] === 'server') {
                     $job = $this->backups->createServer($opts, null);
                     $what = 'server configuration';
+                    $this->jobs->track($job, 'Scheduled backup of the server configuration', 'server', (string) $this->server->id(), null);
                 } else {
                     $site = $this->sites->find($this->server->id(), (int) $s['website_id'], null) ?? throw new UserFacingException('website missing');
                     $job = $this->backups->createSite($site, $opts, null);
                     $what = (string) $site['domain'];
+                    $this->jobs->track($job, 'Scheduled backup of ' . $what, 'website', (string) $site['id'], null);
                 }
                 $this->db->run("UPDATE backup_schedules SET last_status = 'started' WHERE id = ?", [(int) $s['id']]);
                 $log[] = "Started backup of {$what} (job {$job}).";
             } catch (\Throwable $e) {
                 $this->db->run('UPDATE backup_schedules SET last_status = ? WHERE id = ?', ['failed: ' . mb_substr($e->getMessage(), 0, 200), (int) $s['id']]);
                 $this->audit->record('backup.scheduled', 'backup_schedule', (string) $s['id'], AuditLogger::FAILURE, ['error' => $e->getMessage()]);
+                $siteId = $s['kind'] === 'server' ? null : (int) $s['website_id'];
+                $this->notifications->notify('schedule:' . $s['id'] . ':' . $now->format('YmdHi'), 'job', 'error', 'Scheduled backup could not start', [
+                    'website_id' => $siteId !== null && $this->db->scalar('SELECT COUNT(*) FROM websites WHERE id = ?', [$siteId]) > 0 ? $siteId : null,
+                    'link' => $siteId !== null ? '/sites/' . $siteId . '/backups' : '/backups', 'body' => $e->getMessage(),
+                ]);
                 $log[] = "Schedule {$s['id']} failed: " . $e->getMessage();
             }
         }

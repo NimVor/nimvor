@@ -26,6 +26,8 @@ final class DeployService
         private readonly Crypto $crypto,
         private readonly WebsiteRepository $sites,
         private readonly ServerContext $server,
+        private readonly JobTracker $jobs,
+        private readonly NotificationService $notifications,
     ) {
     }
 
@@ -174,6 +176,18 @@ final class DeployService
         return $job;
     }
 
+    /** Update running deployments of this server's websites (scheduler pass). */
+    public function refreshRunning(): void
+    {
+        $ids = $this->db->fetchAll(
+            "SELECT DISTINCT d.website_id FROM deployments d JOIN websites w ON w.id = d.website_id WHERE d.status = 'running' AND w.server_id = ?",
+            [$this->server->id()]
+        );
+        foreach ($ids as $row) {
+            $this->refresh(['id' => (int) $row['website_id']]);
+        }
+    }
+
     /**
      * Update running deployments from their agent jobs.
      *
@@ -242,6 +256,11 @@ final class DeployService
             || ($gitlab !== '' && hash_equals($secret, $gitlab));
         if (!$valid) {
             $this->audit->record('deploy.webhook', 'website', (string) $cfg['website_id'], AuditLogger::DENIED, ['reason' => 'bad signature']);
+            // At most one notification an hour: every refused request is in the audit log.
+            $this->notifications->notify('webhook-signature:' . $cfg['website_id'] . ':' . gmdate('YmdH'), 'webhook', 'warning', 'Deploy webhook refused: invalid signature', [
+                'server_id' => (int) $cfg['server_id'], 'website_id' => (int) $cfg['website_id'], 'link' => '/sites/' . (int) $cfg['website_id'] . '/git',
+                'body' => 'A request to the deploy webhook had a missing or wrong signature and was refused. If your Git host shows failed deliveries, copy the webhook secret again; if not, someone may be probing the URL (rotate it).',
+            ]);
             return [401, 'Invalid signature.'];
         }
         if (($headers['x-github-event'] ?? '') === 'ping') {
@@ -266,6 +285,10 @@ final class DeployService
         )->rowCount();
         if ($new === 0) {
             $this->audit->record('deploy.webhook', 'website', (string) $cfg['website_id'], AuditLogger::DENIED, ['reason' => 'replayed delivery']);
+            $this->notifications->notify('webhook-replay:' . $cfg['website_id'] . ':' . $hash, 'webhook', 'warning', 'Deploy webhook refused: delivery already processed', [
+                'server_id' => (int) $cfg['server_id'], 'website_id' => (int) $cfg['website_id'], 'link' => '/sites/' . (int) $cfg['website_id'] . '/git',
+                'body' => 'A delivery that had already started a deployment was sent again and refused. A Git host redelivering it is harmless; otherwise someone may have captured a request (rotate the webhook).',
+            ]);
             return [409, 'Ignored: this delivery was already processed. Deploy from the panel to deploy again.'];
         }
         try {
@@ -273,8 +296,13 @@ final class DeployService
         } catch (UserFacingException $e) {
             // Nothing was deployed: the Git host may deliver it again.
             $this->db->run('DELETE FROM webhook_deliveries WHERE website_id = ? AND body_sha256 = ?', [(int) $cfg['website_id'], $hash]);
+            $this->notifications->notify('webhook-start:' . $cfg['website_id'] . ':' . $hash, 'job', 'error', 'Deploy ' . $site['domain'] . ' could not start', [
+                'website_id' => (int) $site['id'], 'link' => '/sites/' . (int) $site['id'] . '/git', 'body' => $e->getMessage(),
+            ]);
             return [502, 'Deployment could not start: ' . $e->getMessage()];
         }
+        // Followed like deployments started in the panel, so its result is reported.
+        $this->jobs->track($job, 'Deploy ' . $site['domain'], 'website', (string) $site['id'], null);
         return [202, 'Deployment started (job ' . $job . ').'];
     }
 }

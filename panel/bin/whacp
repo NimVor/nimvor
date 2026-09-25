@@ -191,8 +191,22 @@ switch ($command) {
             foreach ($c->get(\WhaCP\Services\BackupScheduler::class)->run() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }
+            // Results of background jobs nobody watched (notifications).
+            try {
+                $c->get(\WhaCP\Services\BackupService::class)->refresh();
+                $c->get(\WhaCP\Services\DeployService::class)->refreshRunning();
+                foreach ($c->get(\WhaCP\Services\JobTracker::class)->settlePending() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                out('[' . $srv['name'] . '] jobs not checked: ' . $e->getMessage());
+            }
         }
         $context->force(null);
+        $pruned = $c->get(\WhaCP\Services\NotificationService::class)->prune();
+        if ($pruned > 0) {
+            out("Removed {$pruned} old notification(s).");
+        }
         $c->get(\WhaCP\Repositories\SettingRepository::class)->set(\WhaCP\Services\Doctor::SCHEDULER_KEY, gmdate('c'), null);
         flock($lock, LOCK_UN);
         break;

@@ -33,6 +33,7 @@ final class MonitoringService
         private readonly ?PlanLimits $limits = null,
         private readonly ?\WhaCP\Mail\Mailer $mailer = null,
         private readonly ?\WhaCP\Mail\MailConfig $mailConfig = null,
+        private readonly ?NotificationService $notifications = null,
     ) {
     }
 
@@ -184,17 +185,44 @@ final class MonitoringService
                 continue;
             }
             $this->db->run('INSERT INTO alerts (server_id, rule, subject, severity, message, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)', [$this->server->id(), $rule, $subject, $severity, $message, $ts, $ts]);
+            $this->notifyAlert($this->db->lastInsertId(), $rule, $subject, $severity === 'critical' ? 'error' : 'warning', $message);
             $log[] = 'Alert: ' . $message;
             $this->notify(($severity === 'critical' ? '🔴 ' : '🟠 ') . $message);
         }
         foreach ($open as $key => $a) {
             if (!isset($firing[$key])) {
                 $this->db->run('UPDATE alerts SET resolved_at = ? WHERE id = ?', [$ts, (int) $a['id']]);
+                $this->notifyAlert((int) $a['id'], (string) $a['rule'], (string) $a['subject'], 'success', 'Resolved: ' . $a['message']);
                 $log[] = 'Resolved: ' . $a['message'];
                 $this->notify('✅ Resolved: ' . $a['message']);
             }
         }
         return $log;
+    }
+
+    /**
+     * Record an alert (or its resolution) as a notification. Alerts about a
+     * website (certificate, backup) or a user (quota) are shown to its
+     * owner as well; the rest to administrators only.
+     */
+    private function notifyAlert(int $alertId, string $rule, string $subject, string $severity, string $message): void
+    {
+        if ($this->notifications === null) {
+            return;
+        }
+        $opts = ['link' => '/monitoring'];
+        if (($rule === 'certificate' || $rule === 'backup') && $subject !== '') {
+            $site = $this->db->fetch('SELECT id FROM websites WHERE server_id = ? AND domain = ? COLLATE NOCASE', [$this->server->id(), $subject]);
+            if ($site !== null) {
+                $opts = ['website_id' => (int) $site['id'], 'link' => '/sites/' . (int) $site['id'] . ($rule === 'backup' ? '/backups' : '')];
+            }
+        } elseif ($rule === 'quota' && $subject !== '') {
+            $owner = $this->db->scalar('SELECT id FROM users WHERE username = ? COLLATE NOCASE', [$subject]);
+            if ($owner !== null && $owner !== false) {
+                $opts = ['owner_id' => (int) $owner, 'link' => ''];
+            }
+        }
+        $this->notifications->notify('alert:' . $alertId . ':' . ($severity === 'success' ? 'resolved' : 'open'), 'alert', $severity, $message, $opts);
     }
 
     private function email(string $host, string $text): void
