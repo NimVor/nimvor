@@ -198,7 +198,18 @@ func (w Writer) WriteFile(hostPath string, data []byte, mode fs.FileMode, owner 
 		tmp.Close()
 		return false, err
 	}
-	if owner = w.owner(owner); owner != Keep {
+	owner = w.owner(owner)
+	if owner == Keep {
+		// The replacement is a new file: "unchanged" means the owner of
+		// the file it replaces (e.g. /etc/named.conf is root:named on
+		// RHEL and must stay readable by BIND).
+		if info, err := os.Lstat(real); err == nil {
+			if st, ok := info.Sys().(*syscall.Stat_t); ok && (int(st.Uid) != os.Geteuid() || int(st.Gid) != os.Getegid()) {
+				owner = Owner{int(st.Uid), int(st.Gid)}
+			}
+		}
+	}
+	if owner != Keep {
 		if err := tmp.Chown(owner.UID, owner.GID); err != nil {
 			tmp.Close()
 			return false, err

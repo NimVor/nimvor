@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
@@ -83,5 +84,25 @@ func TestSnapshotRestore(t *testing.T) {
 	}
 	if st3, _ := w.Snapshot(p); st3.Exists {
 		t.Fatal("restore to non-existent should delete")
+	}
+}
+
+// Replacing a file with Keep leaves its owner and group as they were (an
+// atomic write creates a new file, which would otherwise be root's).
+func TestKeepPreservesOwnerOnReplace(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("needs root to own files as another account")
+	}
+	w, base := newWriter(t)
+	p := filepath.Join(base, "home/whacp/named.conf")
+	os.MkdirAll(filepath.Dir(p), 0o755)
+	os.WriteFile(p, []byte("old"), 0o640)
+	os.Chown(p, 0, 4242)
+	if _, err := w.WriteFile("/home/whacp/named.conf", []byte("new"), 0o640, Keep); err != nil {
+		t.Fatal(err)
+	}
+	fi, _ := os.Stat(p)
+	if st := fi.Sys().(*syscall.Stat_t); st.Uid != 0 || st.Gid != 4242 {
+		t.Fatalf("owner %d:%d, want 0:4242", st.Uid, st.Gid)
 	}
 }

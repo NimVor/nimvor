@@ -290,7 +290,10 @@ func Register(r *actions.Registry, he *host.Env) {
 
 		set := he.Changes("mail-setup")
 		set.Mkdir(dir, 0o755, agentfs.RootOwner)
-		set.Mkdir(dir+"/dkim", 0o750, e.owner("opendkim"))
+		// Root-owned: OpenDKIM reads its tables as root before it drops to
+		// its account (under SELinux the DKIM domain may not bypass file
+		// permissions), then reads the keys through the group.
+		set.Mkdir(dir+"/dkim", 0o750, e.group("opendkim"))
 		set.Mkdir(e.M.VmailDir, 0o750, agentfs.Owner{UID: vmail.UID, GID: vmail.GID})
 		if t.cert == dir+"/tls.crt" && !he.Root.Exists(t.cert) {
 			c, k, err := selfSigned(in.Hostname)

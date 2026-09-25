@@ -90,34 +90,8 @@ jobs:
         if: failure()
         run: |
           systemctl --version | head -1; uname -r
-          sudo systemctl cat whacp-agent
-          systemctl show whacp-agent -p CapabilityBoundingSet -p AmbientCapabilities -p NoNewPrivileges -p SystemCallFilter -p RestrictNamespaces -p ProtectHome -p ProtectSystem -p PrivateTmp -p RestrictSUIDSGID -p LockPersonality -p SecureBits -p AppArmorProfile
-          sudo journalctl -k --no-pager | grep -iE 'apparmor|audit|denied' | tail -40 || true
-          sudo journalctl -u whacp-agent --no-pager -n 40 || true
-          # The same exec as the site account, with the unit's properties.
-          u=$(awk -F: '$1 ~ /^e2e/ {print $1; exit}' /etc/passwd); u=${u:-nobody}
-          props=$(systemctl show whacp-agent -p CapabilityBoundingSet -p NoNewPrivileges -p RestrictNamespaces -p PrivateTmp -p ProtectHostname -p ProtectClock -p ProtectKernelLogs -p LockPersonality -p RestrictRealtime -p SystemCallArchitectures -p ProtectControlGroups | sed 's/^/-p /' | tr '\n' ' ')
-          echo "props: $props"
-          sudo systemd-run --wait --pipe $props /usr/bin/setpriv --reuid="$u" --regid="$(id -g "$u")" --init-groups /usr/bin/tar --version | head -1 || echo "setpriv under unit properties failed"
-          for p in NoNewPrivileges=yes RestrictNamespaces=yes PrivateTmp=yes ProtectHostname=yes ProtectClock=yes ProtectKernelLogs=yes LockPersonality=yes RestrictRealtime=yes ProtectControlGroups=yes; do
-            printf '%s: ' "$p"; sudo systemd-run --wait --pipe -p "$p" /usr/bin/setpriv --reuid="$u" --regid="$(id -g "$u")" --init-groups /usr/bin/tar --version 2>&1 | head -1
-          done
-          # Go's own exec path (os/exec with SysProcAttr.Credential) as the agent does it.
-          mkdir -p /tmp/probe && cat > /tmp/probe/main.go <<'GOEOF'
-          package main
-          import ("fmt"; "os"; "os/exec"; "os/user"; "strconv"; "syscall")
-          func main() {
-            u, _ := user.Lookup(os.Args[1]); uid, _ := strconv.Atoi(u.Uid); gid, _ := strconv.Atoi(u.Gid)
-            c := exec.Command("/usr/bin/tar", "--version")
-            c.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}, Setsid: true}
-            out, err := c.CombinedOutput(); fmt.Printf("go exec: err=%v out=%.40q\n", err, out)
-          }
-          GOEOF
-          (cd /tmp/probe && go mod init probe >/dev/null 2>&1; CGO_ENABLED=0 go build -o probe .)
-          sudo cp /tmp/probe/probe /usr/local/bin/whacp-probe
-          sudo systemd-run --wait --pipe $props /usr/local/bin/whacp-probe "$u" || true
-          sudo systemd-run --wait --pipe -p "$(systemctl show whacp-agent -p CapabilityBoundingSet)" /usr/local/bin/whacp-probe "$u" || true
-          sudo /usr/local/bin/whacp-probe "$u" || true
+          sudo journalctl -u whacp-agent --no-pager -n 15 -o cat | grep -i 'fail\|error' || true
+          sudo env "PATH=$PATH" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" HOME=$HOME tests/integration/sandbox-probe.sh
 
   # The same real-host tests on AlmaLinux 9 in a KVM virtual machine (SELinux
   # enforcing, firewalld, Remi's PHP), then the installer.
