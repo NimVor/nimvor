@@ -70,12 +70,16 @@ func NewGuard(env *host.Env) *Guard {
 	if json.Unmarshal(b, &p) != nil || p.ID == "" {
 		return g
 	}
-	g.pending = &p
 	wait := time.Until(p.Deadline)
 	if wait < 0 {
 		wait = 0
 	}
+	// Arm under the lock: an expired change fires at once, and expire must
+	// not run before pending and timer are set.
+	g.mu.Lock()
+	g.pending = &p
 	g.timer = time.AfterFunc(wait, func() { g.expire(p.ID) })
+	g.mu.Unlock()
 	env.Log.Warn("unconfirmed security change found at startup", "id", p.ID, "kind", p.Kind, "rollback_in", wait.String())
 	return g
 }
