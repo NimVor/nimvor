@@ -126,3 +126,28 @@ func TestRoundcubeDefaultsReadableByWebmail(t *testing.T) {
 		t.Errorf("restricted defaults: %v %o\n%s", err, mode, data)
 	}
 }
+
+// Roundcube 1.5 (RHEL 9) reads default_host and smtp_server; 1.6 reads
+// imap_host and smtp_host.
+func TestRoundcubeServerSettingsPerVersion(t *testing.T) {
+	h, _ := setup(t)
+	e := env{h.Env}
+	iniset := filepath.Join(h.Base, e.M.RoundcubeDir, "program/include/iniset.php")
+	os.MkdirAll(filepath.Dir(iniset), 0o755)
+	for _, c := range []struct {
+		version string
+		legacy  bool
+	}{{"1.5.15", true}, {"1.6.5", false}, {"1.10.0", false}} {
+		os.WriteFile(iniset, []byte("<?php\ndefine('RCMAIL_VERSION', '"+c.version+"');\n"), 0o644)
+		if got := e.roundcubeLegacy(); got != c.legacy {
+			t.Errorf("%s: legacy = %v", c.version, got)
+		}
+		cfg := renderRoundcube("/var/lib/whacp-webmail", "k", e.roundcubeLegacy())
+		if !strings.Contains(cfg, "$config['imap_host'] = 'ssl://127.0.0.1:993';") {
+			t.Errorf("%s: imap_host missing", c.version)
+		}
+		if has := strings.Contains(cfg, "$config['default_host'] = 'ssl://127.0.0.1';") && strings.Contains(cfg, "$config['smtp_port'] = 587;"); has != c.legacy {
+			t.Errorf("%s: legacy settings present = %v", c.version, has)
+		}
+	}
+}

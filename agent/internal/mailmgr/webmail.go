@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -278,7 +279,7 @@ func (e env) webmailKey() (string, error) {
 }
 
 // renderRoundcube is WhaCP's config.inc.php.
-func renderRoundcube(data, desKey string) string {
+func renderRoundcube(data, desKey string, legacy bool) string {
 	return `<?php
 // ` + webmailHeader + `
 $config = [];
@@ -309,7 +310,39 @@ $config['drafts_mbox'] = 'Drafts';
 $config['junk_mbox'] = 'Junk';
 $config['sent_mbox'] = 'Sent';
 $config['trash_mbox'] = 'Trash';
+` + legacyHosts(legacy)
+}
+
+// legacyHosts names the same servers with the settings Roundcube before
+// 1.6 reads (RHEL 9 ships 1.5; it ignores imap_host and smtp_host).
+func legacyHosts(legacy bool) string {
+	if !legacy {
+		return ""
+	}
+	return `// Roundcube before 1.6.
+$config['default_host'] = 'ssl://127.0.0.1';
+$config['default_port'] = 993;
+$config['smtp_server'] = 'tls://127.0.0.1';
+$config['smtp_port'] = 587;
 `
+}
+
+var roundcubeVersion = regexp.MustCompile(`define\('RCMAIL_VERSION',\s*'(\d+)\.(\d+)`)
+
+// roundcubeLegacy reports whether the installed Roundcube is older than
+// 1.6 (its version is defined in program/include/iniset.php).
+func (e env) roundcubeLegacy() bool {
+	data, err := e.Root.ReadFile(e.M.RoundcubeDir + "/program/include/iniset.php")
+	if err != nil {
+		return false
+	}
+	m := roundcubeVersion.FindSubmatch(data)
+	if m == nil {
+		return false
+	}
+	major, _ := strconv.Atoi(string(m[1]))
+	minor, _ := strconv.Atoi(string(m[2]))
+	return major < 1 || (major == 1 && minor < 6)
 }
 
 // renderWebmailPool is the PHP-FPM pool Roundcube runs in.
@@ -518,7 +551,7 @@ func registerWebmail(r *actions.Registry, e env) {
 			return nil, actions.Failed("Roundcube's default settings could not be read.", err.Error())
 		}
 		set.Write(e.M.WebmailDir+"/defaults.inc.php", defaults, mode, agentfs.Owner{UID: 0, GID: acct.GID})
-		set.Write(e.M.WebmailDir+"/config.inc.php", []byte(renderRoundcube(e.M.WebmailData, key)), 0o640, agentfs.Owner{UID: 0, GID: acct.GID})
+		set.Write(e.M.WebmailDir+"/config.inc.php", []byte(renderRoundcube(e.M.WebmailData, key, e.roundcubeLegacy())), 0o640, agentfs.Owner{UID: 0, GID: acct.GID})
 		if cert == e.M.WebmailDir+"/tls.crt" && !e.Root.Exists(cert) {
 			c, k, err := selfSigned(in.Hostname)
 			if err != nil {
