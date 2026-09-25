@@ -7,8 +7,15 @@
 
 ## Requirements
 
-- Ubuntu 22.04, 24.04 or 26.04 LTS with systemd (others: `--force-unsupported`,
-  best effort).
+- Ubuntu 22.04, 24.04 or 26.04 LTS, or AlmaLinux, Rocky Linux or RHEL 9 or
+  10, with systemd (others: `--force-unsupported`, best effort).
+- On AlmaLinux, Rocky Linux and RHEL, `--install-deps` enables EPEL and Remi
+  (PHP versions for websites, and PHP 8.3 for the panel on 9), and installs
+  `policycoreutils-python-utils` for SELinux labels. SELinux stays enforcing:
+  WhaCP labels what it creates (websites, mail storage, webmail data), sets
+  the booleans it needs (`httpd_can_network_connect` for proxies and
+  webmail, `ftpd_full_access` for FTP) and labels a moved SSH port. firewalld
+  is used for the firewall, and Rspamd comes from rspamd.com's repository.
 - PHP ≥ 8.3 CLI with `pdo_sqlite`, `curl`, `mbstring` (Ubuntu 22.04 ships
   PHP 8.1 — install 8.3 from a PHP repository first; your websites are not
   affected, WhaCP only uses the CLI binary).

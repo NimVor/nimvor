@@ -78,7 +78,9 @@ machine instead (read-only; some files need root to be visible).
 
 ## Install on a server
 
-Supported: Ubuntu 22.04, 24.04 and 26.04 LTS with systemd.
+Supported: Ubuntu 22.04, 24.04 and 26.04 LTS, and AlmaLinux, Rocky Linux and
+RHEL 9 and 10 (SELinux enforcing, firewalld; PHP versions from Remi), with
+systemd.
 
 ```bash
 git clone https://github.com/mchkhawarshahzad/WhaCP.git && cd WhaCP

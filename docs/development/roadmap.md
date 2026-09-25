@@ -39,5 +39,4 @@ proven on real servers.
 
 ## Later
 
-- More application installers and backup providers; RHEL-family platform;
-  WebAuthn security keys.
+- More application installers and backup providers.
