@@ -130,9 +130,31 @@ final class ServerService
         $this->audit->record('server.remove', 'server', (string) $id, AuditLogger::SUCCESS, ['name' => $s['name']]);
     }
 
-    public function switchTo(int $id): void
+    /**
+     * Servers a user may switch to: all of them for "all"-scope roles;
+     * otherwise this server plus servers hosting their (or their
+     * customers') websites.
+     *
+     * @param array<string, mixed> $user
+     * @return list<array{id: int, name: string}>
+     */
+    public function visibleTo(array $user): array
     {
-        if ($this->find($id) === null) {
+        if (\WhaCP\Hosting\Scope::isAll($user)) {
+            return array_map(static fn (array $r): array => ['id' => (int) $r['id'], 'name' => (string) $r['name']], $this->db->fetchAll('SELECT id, name FROM servers ORDER BY id'));
+        }
+        [$cond, $params] = \WhaCP\Hosting\Scope::condition($user);
+        return array_map(
+            static fn (array $r): array => ['id' => (int) $r['id'], 'name' => (string) $r['name']],
+            $this->db->fetchAll("SELECT id, name FROM servers WHERE id = 1 OR id IN (SELECT server_id FROM websites WHERE {$cond}) ORDER BY id", $params)
+        );
+    }
+
+    /** @param array<string, mixed>|null $user */
+    public function switchTo(int $id, ?array $user = null): void
+    {
+        $allowed = $user === null ? $this->find($id) !== null : in_array($id, array_column($this->visibleTo($user), 'id'), true);
+        if (!$allowed) {
             throw new UserFacingException('That server does not exist.');
         }
         $this->context->switchTo($id);

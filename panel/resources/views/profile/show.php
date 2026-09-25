@@ -59,7 +59,9 @@
                 <?php elseif (is_string($setupSecret ?? null)): ?>
                     <?php $uri = \WhaCP\Security\TwoFactor::uri($setupSecret, (string) $profile['username']); ?>
                     <ol class="small ps-3">
-                        <li>In your authenticator app (e.g. Aegis, Google Authenticator, 1Password), add an account with this key, or open the link on your phone:
+                        <li>Scan this code with your authenticator app (e.g. Aegis, Google Authenticator, 1Password):
+                            <div class="my-2 wcp-qr"><?= $setupQr /* generated SVG, no user markup */ ?></div>
+                            or add an account with this key, or open the link on your phone:
                             <div class="my-2"><code class="fs-6 user-select-all" data-wcp-2fa-key><?= e(trim(chunk_split($setupSecret, 4, ' '))) ?></code>
                                 <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-wcp-copy="[data-wcp-2fa-key]"><i class="bi bi-clipboard"></i></button></div>
                             <a class="small" href="<?= e($uri) ?>">Open in authenticator app</a> · time-based, 6 digits, 30 seconds</li>

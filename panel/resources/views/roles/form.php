@@ -56,3 +56,20 @@ foreach ($permissions as $p) {
     </div>
     </fieldset>
 </form>
+
+<?php if (!$isNew && $this->can(\WhaCP\Security\Permissions::ROLES_MANAGE)): ?>
+<div class="card mt-3" id="two-factor-policy">
+    <div class="card-header"><i class="bi bi-phone me-1"></i>Sign-in policy</div>
+    <div class="card-body">
+        <form method="post" action="<?= e($this->url('roles.2fa', ['id' => (int) $role['id']])) ?>" class="d-flex flex-wrap align-items-center gap-3">
+            <?= $this->csrfField() ?>
+            <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" name="require_two_factor" value="1" id="req-2fa"<?= !empty($role['require_two_factor']) ? ' checked' : '' ?>>
+                <label class="form-check-label" for="req-2fa">Require two-factor sign-in for members of this role</label>
+            </div>
+            <button class="btn btn-sm btn-primary">Save</button>
+        </form>
+        <p class="small text-body-secondary mt-2 mb-0">Members who have not set it up can only reach their profile until they do. API tokens are not affected.</p>
+    </div>
+</div>
+<?php endif; ?>

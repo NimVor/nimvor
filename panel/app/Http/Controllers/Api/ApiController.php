@@ -257,7 +257,7 @@ final class ApiController
     {
         $job = preg_match('/^[a-f0-9]{16}$/', $id) ? $this->jobs->find($id) : null;
         $u = $this->user($r);
-        if ($job === null || (($u['role_scope'] ?? 'all') !== 'all' && (int) $job['user_id'] !== (int) $u['id'])) {
+        if ($job === null || !$this->jobs->visibleTo($job, $u)) {
             return self::notFound();
         }
         return $this->guard(fn (): Response => self::ok($this->jobs->poll($id, (int) $r->query('offset', 0)) + ['kind' => $job['kind']]));

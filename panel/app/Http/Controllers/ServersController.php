@@ -60,7 +60,7 @@ final class ServersController extends Controller
     public function switch(Request $request): Response
     {
         try {
-            $this->servers->switchTo((int) $request->input('server_id', 1));
+            $this->servers->switchTo((int) $request->input('server_id', 1), $this->user($request));
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/', $e);
         }

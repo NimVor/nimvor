@@ -42,6 +42,9 @@ final class ProfileController extends Controller
             'newToken' => $this->session->pullFlash('api_token'),
             'twoFactor' => $this->twoFactor->status((int) $user['id']),
             'setupSecret' => $this->session->get(self::SETUP_KEY),
+            'setupQr' => is_string($s = $this->session->get(self::SETUP_KEY))
+                ? \WhaCP\Security\QrCode::encode(\WhaCP\Security\TwoFactor::uri($s, (string) $user['username']))->svg(4, 'QR code for your authenticator app')
+                : null,
             'recoveryCodes' => $this->session->pullFlash('recovery_codes'),
         ]);
     }

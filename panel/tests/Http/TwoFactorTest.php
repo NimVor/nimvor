@@ -31,6 +31,7 @@ final class TwoFactorTest extends HttpTestCase
         $this->post('/profile/two-factor/setup');
         $body = $this->request('GET', '/profile')->body();
         self::assertSame(1, preg_match('/secret=([A-Z2-7]{32})/', $body, $m));
+        self::assertStringContainsString('<svg xmlns="http://www.w3.org/2000/svg"', $body, 'QR code shown');
         $secret = $m[1];
 
         $this->post('/profile/two-factor/enable', ['code' => $this->now($secret), 'current_password' => 'wrong-password-123']);
@@ -124,5 +125,24 @@ final class TwoFactorTest extends HttpTestCase
         $this->enable();
         $this->post('/profile/two-factor/disable', ['current_password' => 'a-long-test-password']);
         self::assertFalse($this->app->container->get(TwoFactor::class)->enabled($bob));
+    }
+
+    public function testRolesCanRequireTwoFactor(): void
+    {
+        $this->seedUser('alice', 'admin');
+        $this->seedUser('carol', 'customer');
+        $this->login('alice');
+        $roleId = (int) $this->app->container->get(\WhaCP\Repositories\RoleRepository::class)->findByName('customer')['id'];
+        self::assertStringContainsString('Require two-factor sign-in', $this->request('GET', '/roles/' . $roleId . '/edit')->body());
+        $this->post('/roles/' . $roleId . '/two-factor', ['require_two_factor' => '1']);
+        $this->post('/logout');
+
+        $this->login('carol');
+        $res = $this->request('GET', '/');
+        self::assertSame('/profile#two-factor', $res->header('Location'));
+        self::assertStringContainsString('requires two-factor', (string) $this->flash('error'));
+        self::assertSame(200, $this->request('GET', '/profile')->status());
+        $this->enable();
+        self::assertSame(200, $this->request('GET', '/')->status(), 'full access once set up');
     }
 }

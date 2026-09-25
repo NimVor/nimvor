@@ -219,3 +219,4 @@ textarea.form-control.wcp-editor { min-height: 65vh; font-size: .82rem; resize: 
 .wcp-chart-line.is-c, .wcp-chart-key.is-c { stroke: #7c3aed; background: #7c3aed; }
 .wcp-chart-line.is-d, .wcp-chart-key.is-d { stroke: #059669; background: #059669; }
 .wcp-chart-key { display: inline-block; width: .75rem; height: .25rem; border-radius: 2px; margin-right: .35rem; vertical-align: middle; }
+.wcp-qr svg { max-width: 220px; height: auto; background: #fff; padding: 4px; border-radius: 4px; }

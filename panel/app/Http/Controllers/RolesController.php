@@ -75,4 +75,14 @@ final class RolesController extends Controller
         }
         return $this->redirectWithSuccess('/users', 'Role deleted.');
     }
+
+    public function twoFactorPolicy(Request $request, string $id): Response
+    {
+        try {
+            $this->service->setRequireTwoFactor((int) $id, $request->input('require_two_factor') === '1');
+        } catch (UserFacingException $e) {
+            return $this->redirectWithError('/users', $e->getMessage());
+        }
+        return $this->redirectWithSuccess('/roles/' . (int) $id . '/edit', 'Sign-in policy saved. Members without two-factor sign-in must set it up at their next page load.');
+    }
 }

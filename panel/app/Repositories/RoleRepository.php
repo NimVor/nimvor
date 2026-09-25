@@ -69,6 +69,11 @@ final class RoleRepository
         });
     }
 
+    public function setRequireTwoFactor(int $id, bool $required): void
+    {
+        $this->db->run('UPDATE roles SET require_two_factor = ? WHERE id = ?', [$required ? 1 : 0, $id]);
+    }
+
     public function userCount(int $roleId): int
     {
         return (int) $this->db->scalar('SELECT COUNT(*) FROM users WHERE role_id = ?', [$roleId]);

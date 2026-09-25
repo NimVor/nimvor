@@ -19,12 +19,14 @@ final class Authenticate implements Middleware
 {
     public function __construct(
         private readonly \WhaCP\Services\ServerContext $serverContext,
-        private readonly \WhaCP\Database\Connection $db,
+        private readonly \WhaCP\Services\ServerService $servers,
         private readonly AuthService $auth,
         private readonly Authorizer $authorizer,
         private readonly AuditLogger $audit,
         private readonly View $view,
         private readonly \WhaCP\Services\AgentStatus $agentStatus,
+        private readonly \WhaCP\Security\TwoFactor $twoFactor,
+        private readonly \WhaCP\Http\Session\SessionInterface $session,
     ) {
     }
 
@@ -39,7 +41,7 @@ final class Authenticate implements Middleware
                 $this->view->share('agent_status', fn () => $this->agentStatus->get());
                 $this->view->share('server_switcher', fn (): array => [
                     'current' => $this->serverContext->id(),
-                    'servers' => $this->db->fetchAll('SELECT id, name FROM servers ORDER BY id'),
+                    'servers' => $this->servers->visibleTo($user),
                 ]);
             }
         }
@@ -55,6 +57,14 @@ final class Authenticate implements Middleware
             }
             return Response::redirect('/login');
         }
+        if (!empty($user['role_requires_2fa']) && !self::setupAllowed((string) $route->name) && !$this->twoFactor->enabled((int) $user['id'])) {
+            $message = 'Your role requires two-factor sign-in. Set it up to continue.';
+            if ($request->wantsJson()) {
+                return Response::json(['success' => false, 'error' => ['message' => $message]], 403);
+            }
+            $this->session->flash('error', $message);
+            return Response::redirect('/profile#two-factor');
+        }
         if ($route->permission !== null && !$this->authorizer->can($user, $route->permission)) {
             $this->audit->record('security.access_denied', 'route', $request->path(), AuditLogger::DENIED, ['permission' => $route->permission]);
             $message = 'You do not have permission to access this page.';
@@ -68,5 +78,11 @@ final class Authenticate implements Middleware
             ]), 403);
         }
         return $next($request->withAttribute('user', $user));
+    }
+
+    /** Pages a user who must set up two-factor sign-in can still reach. */
+    private static function setupAllowed(string $route): bool
+    {
+        return in_array($route, ['profile', 'profile.password', 'logout'], true) || str_starts_with($route, 'profile.2fa.');
     }
 }

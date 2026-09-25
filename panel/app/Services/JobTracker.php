@@ -33,6 +33,22 @@ final class JobTracker
     }
 
     /** @return array<string, mixed>|null */
+    /**
+     * Whether a user may follow a job: "all"-scope roles see every job,
+     * others their own and (resellers) their customers' jobs.
+     *
+     * @param array<string, mixed> $job
+     * @param array<string, mixed> $user
+     */
+    public function visibleTo(array $job, array $user): bool
+    {
+        if (\WhaCP\Hosting\Scope::isAll($user) || (int) $job['user_id'] === (int) $user['id']) {
+            return true;
+        }
+        return $job['user_id'] !== null
+            && (int) $this->db->scalar('SELECT COUNT(*) FROM users WHERE id = ? AND parent_id = ?', [(int) $job['user_id'], (int) $user['id']]) > 0;
+    }
+
     public function find(string $jobId): ?array
     {
         return $this->db->fetch('SELECT * FROM agent_jobs WHERE server_id = ? AND job_id = ?', [$this->server->id(), $jobId]);

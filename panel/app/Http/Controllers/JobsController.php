@@ -25,8 +25,7 @@ final class JobsController extends Controller
     {
         $job = preg_match('/^[a-f0-9]{16}$/', $id) ? $this->jobs->find($id) : null;
         $user = $this->user($request);
-        $scopeAll = ($user['role_scope'] ?? 'all') === 'all';
-        if ($job === null || (!$scopeAll && (int) $job['user_id'] !== (int) $user['id'])) {
+        if ($job === null || !$this->jobs->visibleTo($job, $user)) {
             return Response::json(['success' => false, 'error' => ['message' => 'Job not found.']], 404);
         }
         try {

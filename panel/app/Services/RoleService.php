@@ -58,6 +58,14 @@ final class RoleService
     }
 
     /** @return array<string, mixed> */
+    /** Built-in roles too: this is a sign-in policy, not a permission change. */
+    public function setRequireTwoFactor(int $id, bool $required): void
+    {
+        $role = $this->roles->find($id) ?? throw new UserFacingException('The role no longer exists.', status: 404);
+        $this->roles->setRequireTwoFactor($id, $required);
+        $this->audit->record('role.two_factor_policy', 'role', (string) $id, AuditLogger::SUCCESS, ['role' => $role['name'], 'required' => $required]);
+    }
+
     private function editable(int $id): array
     {
         $role = $this->roles->find($id) ?? throw new UserFacingException('The role no longer exists.', status: 404);
