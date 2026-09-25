@@ -12,7 +12,15 @@ permissions:
   attestations: write
 
 jobs:
+  # Release gate: every test suite (unit, HTTP, security, real-service on
+  # Ubuntu and AlmaLinux, installer, upgrade, browser) must pass first.
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   release:
+    needs: [ci]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -42,4 +50,7 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/release/whacp-*.tar.gz dist/release/SHA256SUMS --title "WhaCP $(cat VERSION)" --generate-notes --verify-tag
+        run: |
+          pre=()
+          [[ $(cat VERSION) == *-* ]] && pre=(--prerelease) # e.g. 1.0.0-rc1
+          gh release create "$GITHUB_REF_NAME" dist/release/whacp-*.tar.gz dist/release/SHA256SUMS --title "WhaCP $(cat VERSION)" --generate-notes --verify-tag "${pre[@]}"

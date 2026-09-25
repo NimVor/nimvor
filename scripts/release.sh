@@ -26,6 +26,10 @@ rm -f "$OUT"/whacp-"$VERSION"-*.tar.gz "$OUT/SHA256SUMS"
 mkdir -p "$WORK/src"
 git archive --format=tar HEAD | tar -x -C "$WORK/src"
 rm -rf "$WORK/src/.github"
+# Tests, fixtures (which contain sample credentials) and development files
+# are not part of a release.
+rm -rf "$WORK/src/tests" "$WORK/src/agent/tests" "$WORK/src/panel/tests" "$WORK/src/panel/phpunit.xml.dist" "$WORK/src/scripts/dev.sh"
+find "$WORK/src" -name '*_test.go' -delete
 (cd "$WORK/src/panel" && composer install --no-dev --no-interaction --no-progress --optimize-autoloader -q)
 
 for arch in $ARCHES; do
@@ -43,5 +47,18 @@ for arch in $ARCHES; do
         --mtime="@$SOURCE_DATE_EPOCH" --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime \
         -cf - "$name" | gzip -n -9 > "$OUT/$name-linux-$arch.tar.gz"
     echo "built dist/release/$name-linux-$arch.tar.gz"
+done
+# Refuse to publish anything that looks like a secret, a test or a local file.
+for f in "$OUT"/whacp-"$VERSION"-linux-*.tar.gz; do
+    listing=$(tar -tzf "$f")
+    if grep -qE '/(tests|\.dev|\.git|node_modules)/|_test\.go$|phpunit|\.sqlite$|\.env$|/dist/release/' <<<"$listing"; then
+        echo "$f contains test or development files:" >&2
+        grep -E '/(tests|\.dev|\.git|node_modules)/|_test\.go$|phpunit|\.sqlite$|\.env$|/dist/release/' <<<"$listing" | head >&2
+        exit 1
+    fi
+    if tar -xzOf "$f" --wildcards '*.pem' '*.key' '*.token' 2>/dev/null | grep -q 'PRIVATE KEY\|[0-9a-f]\{64\}'; then
+        echo "$f contains a private key or token file" >&2
+        exit 1
+    fi
 done
 (cd "$OUT" && sha256sum whacp-"$VERSION"-linux-*.tar.gz > SHA256SUMS && cat SHA256SUMS)
