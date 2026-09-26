@@ -70,6 +70,9 @@ type Manifest struct {
 	Remote    *RemoteRef      `json:"remote,omitempty"`
 	Local     bool            `json:"local"`
 	Warnings  []string        `json:"warnings,omitempty"`
+	// Mac authenticates the manifest with the backup key (encrypted
+	// backups, since 1.0.0); see manifestMAC.
+	Mac string `json:"mac,omitempty"`
 }
 
 // RemoteRef records where a copy was uploaded.
@@ -317,6 +320,13 @@ func (s Service) CreateSite(ctx context.Context, r SiteRequest, cred *execx.Cred
 func (s Service) finish(ctx context.Context, m *Manifest, dir string, remote *Remote, keep bool, log io.Writer) error {
 	for _, f := range m.Files {
 		m.Size += f.Size
+	}
+	if m.Encrypted {
+		key, err := s.key()
+		if err != nil {
+			return err
+		}
+		m.Mac = manifestMAC(key, m)
 	}
 	if err := writeManifest(dir, m); err != nil {
 		return err

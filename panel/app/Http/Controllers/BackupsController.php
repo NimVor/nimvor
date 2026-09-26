@@ -321,6 +321,22 @@ final class BackupsController extends SiteController
         return $this->redirectWithSuccess('/backups', 'Google Drive connected. Backups go to the "WhaCP backups" folder.');
     }
 
+    /** Find backups kept in a storage (recovery onto a new server). */
+    public function scanStorage(Request $request, string $storage): Response
+    {
+        return $this->adminAct($request, function () use ($request, $storage): string {
+            $r = $this->backups->findInStorage((int) $storage, $this->userId($request));
+            $msg = sprintf('%d backup(s) added, %d already known.', $r['imported'], $r['known']);
+            if ($r['no_website'] !== []) {
+                $msg .= ' Create these websites first, then search again: ' . implode(', ', array_slice($r['no_website'], 0, 20)) . '.';
+            }
+            if ($r['skipped'] !== []) {
+                $msg .= ' Not added (' . count($r['skipped']) . '): ' . implode('; ', array_slice($r['skipped'], 0, 5)) . (count($r['skipped']) > 5 ? '; …' : '') . '.';
+            }
+            return $msg;
+        });
+    }
+
     public function deleteStorage(Request $request, string $storage): Response
     {
         return $this->adminAct($request, function () use ($storage): string {

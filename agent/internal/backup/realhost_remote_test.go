@@ -92,6 +92,23 @@ func backupCycle(t *testing.T, r *actions.Registry, s Service, remote Remote, ch
 		t.Fatalf("backup: %v\n%s", err, log.String())
 	}
 	os.WriteFile(filepath.Join(root, "public_html/index.html"), []byte("changed"), 0o640)
+	// As on a new server: this server forgets the backup, finds it again in
+	// the storage (listing it over the real protocol) and restores it.
+	local, _ := s.real(s.dir("rmt.test", m.ID))
+	if err := os.RemoveAll(local); err != nil {
+		t.Fatal(err)
+	}
+	found, err := s.ImportRemote(context.Background(), &remote)
+	if err != nil {
+		t.Fatalf("search the storage: %v", err)
+	}
+	imported := false
+	for _, f := range found {
+		imported = imported || (f.ID == m.ID && f.Skipped == "" && f.Manifest != nil)
+	}
+	if !imported {
+		t.Fatalf("backup not found in the storage: %+v", found)
+	}
 	if _, err := s.Restore(context.Background(), RestoreRequest{Domain: "rmt.test", User: "whacprmt", Root: root, ID: m.ID, Files: true, Remote: &remote}, cred, &log); err != nil {
 		t.Fatalf("restore: %v\n%s", err, log.String())
 	}

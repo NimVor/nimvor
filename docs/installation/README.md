@@ -270,7 +270,7 @@ Known limitations in 1.0.0:
   Linux, which use the same packages.
 - Let's Encrypt issuance is tested against a local stand-in, not against
   Let's Encrypt itself.
-- A new installation cannot list or restore backups it did not make (see
-  *Recovering on a new server* in the administration guide).
+- Recovering onto a new server finds only encrypted backups made by 1.0.0
+  or later (see *Recovering on a new server* in the administration guide).
 - Rolling back an upgrade restores WhaCP's files and panel database; it
   does not undo changes made on the server since (see *Upgrade*).

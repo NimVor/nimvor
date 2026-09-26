@@ -7,6 +7,12 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Recovery onto a new server:** *Find backups* on a remote storage adds
+  the backups found there to the panel, so they can be restored on a new
+  server after copying the old backup key. Only backups encrypted with
+  that key are added, and their manifest must be authenticated by it
+  (backups now carry a manifest MAC), so someone who can write to the
+  storage cannot plant a backup or move one to another website.
 - **Notifications:** a bell in the top bar, a notifications page and a
   dashboard card with the results of background jobs and monitoring
   alerts.
@@ -45,9 +51,8 @@ All notable changes to WhaCP are documented here. The format follows
 - Installation guide: hardware, network ports, DNS and mail prerequisites,
   what uninstalling leaves behind (websites keep running; the backup key
   and backups are kept even with `--purge`), limits and known limitations.
-- Recovering onto a new server from remote storage is not supported yet
-  (a new installation cannot list backups it did not make); the previous
-  "restore drill" paragraph described steps that could not be carried out.
+- Step-by-step recovery onto a new server (the previous "restore drill"
+  paragraph described steps that could not be carried out).
 
 ### Fixed
 - Changes to the web server configuration no longer run at the same time:

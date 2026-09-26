@@ -367,15 +367,26 @@ never restored automatically; *Extract for review only* unpacks the whole
 backup into `/var/lib/whacp-agent/restore/` (root only) to copy from by
 hand.
 
-**Recovering on a new server — current limitation.** Backups in remote
-storage include their manifest, and are encrypted with the backup key, but
-a new WhaCP installation cannot yet list or restore backups it did not make
-itself: the panel only shows backups recorded in its own database, and a
-restore needs the backup's manifest on the server. Recovering onto a new
-server from remote storage is therefore not supported through WhaCP in
-this version. Keep a copy of `/var/lib/whacp-agent/backup.key` off the
-server regardless: without it, encrypted backups cannot be read by any
-future version either.
+**Recovering on a new server.** Keep a copy of
+`/var/lib/whacp-agent/backup.key` off the server: nothing can be recovered
+without it.
+
+1. Install the same (or a newer) WhaCP version with `--enable-writes`.
+2. Before making any backup there, copy the old key to
+   `/var/lib/whacp-agent/backup.key` (owner root, mode 0600).
+3. Add the same remote storage (same sub-folder) and press **Find
+   backups** on it. WhaCP lists the storage and adds the backups it can
+   trust; it says which it skipped and why.
+4. Restore the server backup (configuration) if you want it, then create
+   each website again (same domain) and press **Find backups** once more:
+   website backups are added for websites that exist. Restore them from the
+   website's *Backups* tab.
+
+Only backups encrypted with this key and made by WhaCP 1.0.0 or later are
+added: their manifest is authenticated with the key, so someone who can
+write to the storage cannot plant a backup, move one to another website or
+change its files. Unencrypted backups and older ones are listed as
+skipped.
 
 ## Importing existing websites
 

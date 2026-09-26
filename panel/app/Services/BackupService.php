@@ -297,6 +297,53 @@ final class BackupService
         $this->audit->record('backup.storage_delete', 'backup_storage', (string) $id);
     }
 
+    /**
+     * Find the backups kept in a storage and record those this server can
+     * restore (recovery onto a new server). The agent imports only backups
+     * encrypted with this server's backup key whose manifest that key
+     * authenticates; the rest come back with the reason. Website backups are
+     * recorded for websites that exist here (by domain).
+     *
+     * @return array{imported: int, known: int, no_website: list<string>, skipped: list<string>}
+     */
+    public function findInStorage(int $storageId, ?int $userId): array
+    {
+        $res = (array) $this->agent->call('backup.remote_import', ['remote' => $this->storageConfig($storageId)], 600);
+        $out = ['imported' => 0, 'known' => 0, 'no_website' => [], 'skipped' => []];
+        foreach ((array) ($res['backups'] ?? []) as $b) {
+            $b = (array) $b;
+            $id = (string) ($b['id'] ?? '');
+            $what = ($b['kind'] ?? '') === 'server' ? 'server backup ' . $id : ($b['domain'] ?? '') . ' ' . $id;
+            if (($b['skipped'] ?? '') !== '' || !is_array($b['manifest'] ?? null)) {
+                $out['skipped'][] = trim($what) . ': ' . (string) ($b['skipped'] ?? 'not readable');
+                continue;
+            }
+            $m = (array) $b['manifest'];
+            if ($this->db->scalar('SELECT COUNT(*) FROM backups WHERE server_id = ? AND backup_id = ?', [$this->server->id(), $id]) > 0) {
+                $out['known']++;
+                continue;
+            }
+            $websiteId = null;
+            if ($m['kind'] === 'site') {
+                $websiteId = $this->db->scalar('SELECT id FROM websites WHERE server_id = ? AND domain = ?', [$this->server->id(), (string) $m['domain']]);
+                if ($websiteId === null) {
+                    $out['no_website'][] = (string) $m['domain'];
+                    continue;
+                }
+            }
+            unset($m['meta']);
+            $created = (string) ($m['created_at'] ?? gmdate('c'));
+            $this->db->run(
+                "INSERT INTO backups (server_id, website_id, kind, domain, backup_id, label, manifest, size, encrypted, storage_id, local, status, user_id, created_at, finished_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 'completed', ?, ?, ?)",
+                [$this->server->id(), $websiteId === null ? null : (int) $websiteId, (string) $m['kind'], (string) ($m['domain'] ?? ''), $id, mb_substr((string) ($m['label'] ?? ''), 0, 100), json_encode($m, JSON_UNESCAPED_SLASHES), (int) ($m['size'] ?? 0), $storageId, $userId, $created, $created]
+            );
+            $out['imported']++;
+        }
+        $out['no_website'] = array_values(array_unique($out['no_website']));
+        $this->audit->record('backup.storage_scan', 'backup_storage', (string) $storageId, AuditLogger::SUCCESS, ['imported' => $out['imported'], 'known' => $out['known'], 'skipped' => count($out['skipped']), 'no_website' => $out['no_website']]);
+        return $out;
+    }
+
     // ---- Backups --------------------------------------------------------
 
     /**

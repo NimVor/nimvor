@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
@@ -183,6 +184,25 @@ func Register(r *actions.Registry, env *host.Env) {
 			return s.RestoreServer(ctx, in, log)
 		})
 		return map[string]any{"job_id": j.ID}, nil
+	}})
+	r.Register(actions.Action{Name: "backup.remote_import", Mutating: true, Timeout: 10 * time.Minute, Description: "Find the backups in a remote storage and make those encrypted with this server's backup key (with an authenticated manifest) restorable here; used to recover onto a new server.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Remote *Remote `json:"remote"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if in.Remote == nil {
+			return nil, actions.InvalidParams("remote is required")
+		}
+		if err := in.Remote.Validate(); err != nil {
+			return nil, actions.InvalidParams("remote: " + err.Error())
+		}
+		found, err := s.ImportRemote(ctx, in.Remote)
+		if err != nil {
+			return nil, actions.Failed("The storage could not be searched.", err.Error())
+		}
+		return map[string]any{"backups": found}, nil
 	}})
 	r.Register(actions.Action{Name: "backup.download", Description: "Read a chunk of a stored backup file (base64).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {

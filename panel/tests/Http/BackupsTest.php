@@ -234,6 +234,59 @@ final class BackupsTest extends HttpTestCase
         self::assertStringNotContainsString('refresh-token-value', (string) json_encode($this->db->fetchAll('SELECT * FROM backup_storages')));
     }
 
+    /** Recovery onto a new server: backups found in a storage become restorable here. */
+    public function testFindBackupsInStorage(): void
+    {
+        $this->agent->succeed('backup.remote_test', ['ok' => true, 'objects' => 0]);
+        $this->post('/backups/storages', ['name' => 'Offsite', 'endpoint' => 'https://s3.example.com', 'bucket' => 'my-backups', 'region' => 'eu-central-1', 'access_key' => 'AKIA1', 'secret_key' => 'super-secret-key-value']);
+        $storage = (int) $this->db->scalar('SELECT id FROM backup_storages');
+        $manifest = fn (string $id, string $kind, string $domain): array => [
+            'id' => $id, 'kind' => $kind, 'domain' => $domain, 'created_at' => '2026-08-01T03:00:00Z', 'encrypted' => true, 'local' => false, 'size' => 2048, 'meta' => ['x' => 1],
+            'files' => [['name' => 'files.tar.gz.enc', 'kind' => 'files', 'size' => 2048, 'sha256' => 'x']], 'remote' => ['key' => 'sites/' . $domain . '/' . $id],
+        ];
+        $this->agent->succeed('backup.remote_import', ['backups' => [
+            ['id' => '20260801T030000Z-aaaaaa', 'kind' => 'site', 'domain' => 'shop.test', 'manifest' => $manifest('20260801T030000Z-aaaaaa', 'site', 'shop.test')],
+            ['id' => '20260801T030000Z-bbbbbb', 'kind' => 'server', 'domain' => '', 'manifest' => $manifest('20260801T030000Z-bbbbbb', 'server', '')],
+            ['id' => '20260801T030000Z-cccccc', 'kind' => 'site', 'domain' => 'gone.test', 'manifest' => $manifest('20260801T030000Z-cccccc', 'site', 'gone.test')],
+            ['id' => '20260801T030000Z-dddddd', 'kind' => 'site', 'domain' => 'shop.test', 'skipped' => 'not encrypted: only encrypted backups are imported'],
+        ]]);
+
+        // Customers cannot search a storage.
+        $cust = $this->seedUser('cust', 'customer');
+        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->app = $this->makeApp();
+        $this->login('cust');
+        $this->post('/backups/storages/' . $storage . '/scan');
+        self::assertSame(0, $this->calls('backup.remote_import'));
+        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->app = $this->makeApp();
+        $this->login('admin');
+
+        $this->post('/backups/storages/' . $storage . '/scan');
+        self::assertSame('super-secret-key-value', $this->lastCall('backup.remote_import')['remote']['secret_key']);
+        $flash = (string) $this->flash('success');
+        self::assertStringContainsString('2 backup(s) added, 0 already known', $flash);
+        self::assertStringContainsString('Create these websites first, then search again: gone.test', $flash);
+        self::assertStringContainsString('not encrypted', $flash);
+        $rows = $this->db->fetchAll('SELECT kind, domain, website_id, storage_id, local, encrypted, status, manifest FROM backups ORDER BY backup_id');
+        self::assertCount(2, $rows);
+        self::assertSame(['site', 'shop.test', $this->siteId, $storage, 0, 1, 'completed'], [$rows[0]['kind'], $rows[0]['domain'], (int) $rows[0]['website_id'], (int) $rows[0]['storage_id'], (int) $rows[0]['local'], (int) $rows[0]['encrypted'], $rows[0]['status']]);
+        self::assertSame('server', $rows[1]['kind']);
+        self::assertArrayNotHasKey('meta', json_decode((string) $rows[0]['manifest'], true));
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'backup.storage_scan'"));
+
+        // The imported backup restores from the storage.
+        $id = (int) $this->db->scalar("SELECT id FROM backups WHERE kind = 'site'");
+        $this->agent->succeed('backup.restore', ['job_id' => 'dddddddddddddddd']);
+        $this->post('/sites/' . $this->siteId . '/backups/' . $id . '/restore', ['restore_files' => '1', 'confirm_domain' => 'shop.test']);
+        self::assertSame('super-secret-key-value', $this->lastCall('backup.restore')['remote']['secret_key']);
+
+        // Searching again adds nothing.
+        $this->post('/backups/storages/' . $storage . '/scan');
+        self::assertStringContainsString('0 backup(s) added, 2 already known', (string) $this->flash('success'));
+        self::assertSame(2, (int) $this->db->scalar('SELECT COUNT(*) FROM backups'));
+    }
+
     /** Server backups hold private keys: never unencrypted, even when kept only here. */
     public function testServerBackupsAreAlwaysEncrypted(): void
     {

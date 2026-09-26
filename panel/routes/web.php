@@ -123,6 +123,7 @@ return static function (Router $r): void {
     $r->get('/backups/storages/confirm', [BackupsController::class, 'confirmStorage'], ['name' => 'backups.storages.confirm', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/storages/confirm', [BackupsController::class, 'trustStorage'], ['name' => 'backups.storages.trust', 'permission' => P::BACKUPS_MANAGE]);
     $r->get('/backups/storages/google/callback', [BackupsController::class, 'googleCallback'], ['name' => 'backups.storages.google', 'permission' => P::BACKUPS_MANAGE]);
+    $r->post('/backups/storages/{storage}/scan', [BackupsController::class, 'scanStorage'], ['name' => 'backups.storages.scan', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/storages/{storage}/delete', [BackupsController::class, 'deleteStorage'], ['name' => 'backups.storages.delete', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/schedules', [BackupsController::class, 'storeServerSchedule'], ['name' => 'backups.schedules.store', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/schedules/{schedule}/delete', [BackupsController::class, 'deleteServerSchedule'], ['name' => 'backups.schedules.delete', 'permission' => P::BACKUPS_MANAGE]);
