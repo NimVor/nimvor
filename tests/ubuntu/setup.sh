@@ -28,15 +28,22 @@ else
 fi
 echo "$php" > /etc/whacp-ci-php
 # Ubuntu 26.04's Roundcube package does not run on its PHP 8.5 (it
-# redeclares array_first(), now built in): webmail uses PHP 8.4 from the
-# ondrej/php PPA, chosen explicitly as an administrator would.
+# redeclares array_first(), now built in). Webmail then needs another PHP
+# version; the ondrej/php PPA provides 8.4 where it publishes for this
+# release. Without one, WhaCP refuses webmail with a clear message, which
+# the test checks instead (/etc/whacp-ci-webmail-unsupported).
 webmail_php=""
 if [[ $VERSION_ID == 26.04 ]]; then
     apt-get install -y -q --no-install-recommends software-properties-common
-    add-apt-repository -y ppa:ondrej/php
-    apt-get update -q
-    webmail_php=8.4
-    echo "$webmail_php" > /etc/whacp-ci-webmail-php
+    if add-apt-repository -y ppa:ondrej/php && apt-get update -q; then
+        webmail_php=8.4
+        echo "$webmail_php" > /etc/whacp-ci-webmail-php
+    else
+        add-apt-repository -y --remove ppa:ondrej/php || rm -f /etc/apt/sources.list.d/ondrej-*
+        apt-get update -q
+        echo "The ondrej/php PPA does not publish for $VERSION_ID: webmail is expected to be refused." >&2
+        touch /etc/whacp-ci-webmail-unsupported
+    fi
 fi
 
 echo "postfix postfix/main_mailer_type select Internet Site" | debconf-set-selections
