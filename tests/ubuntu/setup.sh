@@ -27,24 +27,6 @@ else
     php=$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')
 fi
 echo "$php" > /etc/whacp-ci-php
-# Ubuntu 26.04's Roundcube package does not run on its PHP 8.5 (it
-# redeclares array_first(), now built in). Webmail then needs another PHP
-# version; the ondrej/php PPA provides 8.4 where it publishes for this
-# release. Without one, WhaCP refuses webmail with a clear message, which
-# the test checks instead (/etc/whacp-ci-webmail-unsupported).
-webmail_php=""
-if [[ $VERSION_ID == 26.04 ]]; then
-    apt-get install -y -q --no-install-recommends software-properties-common
-    if add-apt-repository -y ppa:ondrej/php && apt-get update -q; then
-        webmail_php=8.4
-        echo "$webmail_php" > /etc/whacp-ci-webmail-php
-    else
-        add-apt-repository -y --remove ppa:ondrej/php || rm -f /etc/apt/sources.list.d/ondrej-*
-        apt-get update -q
-        echo "The ondrej/php PPA does not publish for $VERSION_ID: webmail is expected to be refused." >&2
-        touch /etc/whacp-ci-webmail-unsupported
-    fi
-fi
 
 echo "postfix postfix/main_mailer_type select Internet Site" | debconf-set-selections
 echo "postfix postfix/mailname string ci.whacp.test" | debconf-set-selections
@@ -55,13 +37,12 @@ apt-get install -y -q --no-install-recommends \
     ufw fail2ban openssh-server git curl rsync openssl ca-certificates unzip \
     roundcube-core roundcube-sqlite3 roundcube-plugins \
     "php${php}-cli" "php${php}-fpm" "php${php}-mysql" "php${php}-sqlite3" "php${php}-mbstring" \
-    "php${php}-xml" "php${php}-curl" "php${php}-zip" "php${php}-intl" \
-    ${webmail_php:+"php${webmail_php}-fpm" "php${webmail_php}-cli" "php${webmail_php}-intl" "php${webmail_php}-mbstring" "php${webmail_php}-xml" "php${webmail_php}-sqlite3"}
+    "php${php}-xml" "php${php}-curl" "php${php}-zip" "php${php}-intl"
 # The panel's CLI is PHP >= 8.3 (on 22.04 the PPA's version).
 update-alternatives --set php "/usr/bin/php${php}" 2>/dev/null || true
 command -v composer >/dev/null || curl -fsSL https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-systemctl enable --now mariadb redis-server memcached nginx "php${php}-fpm" ssh named ${webmail_php:+"php${webmail_php}-fpm"}
+systemctl enable --now mariadb redis-server memcached nginx "php${php}-fpm" ssh named
 ufw allow 22/tcp
 ufw --force enable
 systemctl restart fail2ban

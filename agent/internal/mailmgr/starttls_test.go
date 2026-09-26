@@ -91,7 +91,7 @@ func TestRoundcubeConfigDirOnHardcodedPackages(t *testing.T) {
 	os.MkdirAll(filepath.Dir(iniset), 0o755)
 
 	os.WriteFile(iniset, []byte("<?php\ndefine('RCUBE_CONFIG_DIR', getenv('ROUNDCUBE_CONFIG_DIR') ?: INSTALL_PATH . 'config/');\n"), 0o644)
-	if e.needsConfigDirFile() || strings.Contains(e.renderWebmailPool(), "auto_prepend_file") {
+	if e.needsConfigDirFile() || strings.Contains(e.renderWebmailPool("8.3"), "auto_prepend_file") {
 		t.Error("a package that reads ROUNDCUBE_CONFIG_DIR got a prepend file")
 	}
 
@@ -99,7 +99,7 @@ func TestRoundcubeConfigDirOnHardcodedPackages(t *testing.T) {
 	if !e.needsConfigDirFile() {
 		t.Fatal("hard-coded configuration folder not detected")
 	}
-	if !strings.Contains(e.renderWebmailPool(), "php_admin_value[auto_prepend_file] = "+e.configDirFile()+"\n") {
+	if !strings.Contains(e.renderWebmailPool("8.3"), "php_admin_value[auto_prepend_file] = "+e.configDirFile()+"\n") {
 		t.Error("pool does not prepend the configuration folder")
 	}
 	f := e.renderConfigDirFile()

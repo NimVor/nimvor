@@ -58,6 +58,11 @@ All notable changes to WhaCP are documented here. The format follows
   paragraph described steps that could not be carried out).
 
 ### Fixed
+- **Webmail on Ubuntu 26.04.** Ubuntu's Roundcube 1.6.11 declares its own
+  `array_first()`, which PHP 8.5 has built in, so it stopped with a fatal
+  error and WhaCP refused webmail there. On PHP 8.5 and later WhaCP now
+  turns the built-in off for Roundcube's pool and database step only
+  (Roundcube's own function does the same). Websites' PHP is not changed.
 - **Background workers never started on an installed server.** The
   worker's launcher was kept in `/var/lib/whacp-agent` (0700 root), which
   the website account it runs as cannot enter. Launchers are now in

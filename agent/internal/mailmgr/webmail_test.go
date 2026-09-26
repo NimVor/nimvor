@@ -145,3 +145,53 @@ func TestWebmail(t *testing.T) {
 		t.Error("configuration removed when turning off")
 	}
 }
+
+// Roundcube 1.6.11 declares array_first(), which PHP 8.5 has built in:
+// on PHP 8.5 the built-in is turned off for Roundcube only (its pool and
+// the database step), and nowhere else.
+func TestWebmailOnPHP85(t *testing.T) {
+	h, r := setup(t)
+	next := h.Respond
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		if (id == "php8.5" || id == "php8.3") && len(args) == 1 && args[0] == "-m" {
+			return "[PHP Modules]\ndom\nintl\nmbstring\nopenssl\npdo_sqlite\n", nil, true
+		}
+		return next(id, args)
+	}
+	old := webmailProbe
+	webmailProbe = func(context.Context, string) error { return nil }
+	t.Cleanup(func() { webmailProbe = old })
+	h.Env.Cfg.SimulateCommands = true
+	if _, err := call(t, r, "mail.configure", map[string]any{"hostname": "mail.example.net", "confirm_edit_package_config": true}); err != nil {
+		t.Fatal(err)
+	}
+	h.Env.Cfg.SimulateCommands = false
+	for _, f := range []string{"var/lib/roundcube/public_html/index.php", "etc/roundcube/defaults.inc.php", "usr/share/roundcube/bin/updatedb.sh"} {
+		os.MkdirAll(filepath.Join(h.Base, filepath.Dir(f)), 0o755)
+		os.WriteFile(filepath.Join(h.Base, f), []byte("<?php\n"), 0o644)
+	}
+	os.MkdirAll(filepath.Join(h.Base, "etc/php/8.5/fpm/pool.d"), 0o755)
+	bootstrap := filepath.Join(h.Base, "usr/share/roundcube/program/lib/Roundcube/bootstrap.php")
+	os.MkdirAll(filepath.Dir(bootstrap), 0o755)
+	os.WriteFile(bootstrap, []byte("<?php\n/**\n * Get first element from an array\n */\nfunction array_first($array)\n{\n}\n"), 0o644)
+
+	if _, err := call(t, r, "mail.webmail_configure", map[string]any{"enabled": true, "hostname": "webmail.example.net", "php_version": "8.5"}); err != nil {
+		t.Fatal(err)
+	}
+	if pool := h.Read("etc/php/8.5/fpm/pool.d/whacp-webmail.conf"); !strings.Contains(pool, "php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec,array_first\n") {
+		t.Errorf("PHP 8.5 pool:\n%s", pool)
+	}
+	if !h.Runner.Called("php8.5 -d disable_functions=array_first -d error_reporting=E_ALL & ~E_DEPRECATED /usr/share/roundcube/bin/updatedb.sh --package=roundcube --dir=/usr/share/roundcube/SQL") {
+		t.Errorf("database step without the setting: %v", h.Runner.Calls)
+	}
+
+	// Older PHP, or a Roundcube that does not declare it: unchanged.
+	e := env{h.Env}
+	if strings.Contains(e.renderWebmailPool("8.4"), "array_first") || e.shadowsArrayFirst("8.3") {
+		t.Error("array_first turned off before PHP 8.5")
+	}
+	os.WriteFile(bootstrap, []byte("<?php\n// array_first() comes from PHP\n"), 0o644)
+	if e.shadowsArrayFirst("8.5") {
+		t.Error("array_first turned off although Roundcube does not declare it")
+	}
+}

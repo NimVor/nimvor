@@ -173,8 +173,8 @@ jobs:
           tests/vm.sh ssh 'bash /root/whacp/${{ matrix.setup }}'
       - name: Real-host tests
         run: |
-          tests/vm.sh ssh 'cd /root/whacp/agent && php=$(cat /etc/whacp-ci-php 2>/dev/null || echo 8.3) && wphp=$(cat /etc/whacp-ci-webmail-php 2>/dev/null || true) && wno=$([ -e /etc/whacp-ci-webmail-unsupported ] && echo 1 || true) && for t in $(find internal -name realhost.test | sort); do
-              echo "=== $t"; (cd "$(dirname "$t")" && CI=1 WHACP_NETWORK=1 WHACP_TEST_PHP=$php WHACP_TEST_WEBMAIL_PHP=$wphp WHACP_TEST_WEBMAIL_UNSUPPORTED=$wno timeout 900 ./realhost.test -test.run RealHost -test.count=1 -test.v)
+          tests/vm.sh ssh 'cd /root/whacp/agent && php=$(cat /etc/whacp-ci-php 2>/dev/null || echo 8.3) && for t in $(find internal -name realhost.test | sort); do
+              echo "=== $t"; (cd "$(dirname "$t")" && CI=1 WHACP_NETWORK=1 WHACP_TEST_PHP=$php timeout 900 ./realhost.test -test.run RealHost -test.count=1 -test.v)
             done > /root/realhost.log 2>&1; cat /root/realhost.log'
           tests/vm.sh ssh '! grep -E -e "--- (SKIP|FAIL)" -e "^(FAIL|panic)" /root/realhost.log'
       - name: Installer and post-install end-to-end

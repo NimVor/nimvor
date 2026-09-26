@@ -352,19 +352,9 @@ func TestRealHostMail(t *testing.T) {
 
 	// Webmail: Roundcube signs in with the mailbox password and sends
 	// through submission (as the signed-in user).
-	if _, err := os.Stat(env.M.RoundcubePublic + "/index.php"); err == nil && env.Runner.Available("nginx") && os.Getenv("WHACP_TEST_WEBMAIL_UNSUPPORTED") == "1" {
-		// Ubuntu 26.04 without a second PHP: the distribution's Roundcube
-		// does not run on its PHP 8.5. WhaCP must refuse clearly and leave
-		// nothing behind.
-		_, err := call("mail.webmail_configure", map[string]any{"enabled": true, "hostname": "webmail.whacp-rt.test"})
-		if err == nil || !strings.Contains(err.Error(), "does not work with PHP") {
-			t.Fatalf("webmail with an incompatible PHP: %v", err)
-		}
-		if _, err := os.Stat(filepath.Join(env.M.NginxEnabled, "whacp-webmail.conf")); err == nil {
-			t.Error("the webmail site was left enabled after the refusal")
-		}
-		t.Log("webmail: refused on this system's PHP, as expected (known limitation)")
-	} else if _, err := os.Stat(env.M.RoundcubePublic + "/index.php"); err == nil && env.Runner.Available("nginx") {
+	// On Ubuntu 26.04 this runs Roundcube 1.6.11 on PHP 8.5 (array_first()
+	// turned off for Roundcube).
+	if _, err := os.Stat(env.M.RoundcubePublic + "/index.php"); err == nil && env.Runner.Available("nginx") {
 		testWebmail(t, env, must, waitMail)
 		t.Log("webmail: signed in and sent through Roundcube")
 	} else if os.Getenv("CI") != "" {
@@ -531,12 +521,7 @@ func withCookies(req *http.Request, jar http.CookieJar) *http.Request {
 	return req
 }
 
-// webmailParams turns webmail on; WHACP_TEST_WEBMAIL_PHP picks its PHP
-// version where the distribution's does not run Roundcube (Ubuntu 26.04).
+// webmailParams turns webmail on (on the newest suitable PHP).
 func webmailParams(hostname string) map[string]any {
-	p := map[string]any{"enabled": true, "hostname": hostname}
-	if v := os.Getenv("WHACP_TEST_WEBMAIL_PHP"); v != "" {
-		p["php_version"] = v
-	}
-	return p
+	return map[string]any{"enabled": true, "hostname": hostname}
 }

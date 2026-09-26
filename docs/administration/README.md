@@ -222,10 +222,10 @@ and the sign-in page is loaded before the change is kept; otherwise the
 previous configuration is restored. Turning webmail off removes the site
 and the pool but keeps users' settings and address books. The domain page
 lists the settings for mail apps (IMAP 993, SMTP 587) and the webmail
-address. Roundcube 1.6.11 as packaged in Ubuntu 26.04 does not yet run on
-that release's PHP 8.5; WhaCP reports this and changes nothing until an
-updated package (or another PHP version with Roundcube's extensions) is
-installed.
+address. Roundcube 1.6.11 as packaged in Ubuntu 26.04 declares its own
+`array_first()`, which PHP 8.5 has built in; on PHP 8.5 and later WhaCP
+turns the built-in off for Roundcube's pool only (`disable_functions`), so
+Roundcube's own, equivalent function is used. Websites' PHP is not changed.
 
  Dovecot 2.3 (Ubuntu 22.04 and 24.04) and 2.4
 (Ubuntu 26.04) are supported; WhaCP writes the matching configuration

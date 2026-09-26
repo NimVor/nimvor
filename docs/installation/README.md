@@ -263,8 +263,6 @@ leave 512 MiB free.
 
 Known limitations in 1.0.0:
 
-- Ubuntu 26.04: webmail is refused, because the distribution's Roundcube
-  does not run on its PHP 8.5 and no other PHP is packaged yet.
 - Ubuntu 22.04 (Redis 6.0): a website's Redis user is limited to its key
   prefix but cannot be limited to its own Pub/Sub channels.
 - RHEL 9 and 10 are supported but tested only through AlmaLinux and Rocky

@@ -345,8 +345,29 @@ func (e env) roundcubeLegacy() bool {
 	return major < 1 || (major == 1 && minor < 6)
 }
 
-// renderWebmailPool is the PHP-FPM pool Roundcube runs in.
-func (e env) renderWebmailPool() string {
+// roundcubeArrayFirst matches Roundcube declaring its own array_first().
+var roundcubeArrayFirst = regexp.MustCompile(`(?m)^\s*function array_first\(`)
+
+// shadowsArrayFirst reports whether Roundcube declares its own array_first()
+// while PHP v has one built in (8.5 and later). PHP then stops with "Cannot
+// redeclare function array_first()" before any page loads (Roundcube
+// 1.6.11 in Ubuntu 26.04). The built-in is turned off for Roundcube only:
+// disable_functions removes it, so Roundcube's own, equivalent function is
+// declared. Websites' PHP is not changed.
+func (e env) shadowsArrayFirst(v string) bool {
+	if phpmgr.VersionLess(v, "8.5") {
+		return false
+	}
+	b, err := e.Root.ReadFile(e.M.RoundcubeDir + "/program/lib/Roundcube/bootstrap.php")
+	return err == nil && roundcubeArrayFirst.Match(b)
+}
+
+// renderWebmailPool is the PHP-FPM pool Roundcube runs in (PHP v).
+func (e env) renderWebmailPool(v string) string {
+	disabled := "exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec"
+	if e.shadowsArrayFirst(v) {
+		disabled += ",array_first"
+	}
 	d := e.M.WebmailData
 	basedir := strings.Join([]string{
 		filepath.Dir(e.M.RoundcubePublic) + "/", e.M.RoundcubeDir + "/", filepath.Dir(e.M.RoundcubeDefaults) + "/",
@@ -364,7 +385,7 @@ func (e env) renderWebmailPool() string {
 		"php_admin_value[upload_tmp_dir] = " + d + "/temp\nphp_admin_value[session.save_path] = " + d + "/temp\nphp_admin_value[sys_temp_dir] = " + d + "/temp\n" +
 		"php_admin_value[error_log] = " + d + "/logs/php-error.log\nphp_admin_flag[log_errors] = on\nphp_admin_flag[display_errors] = off\n" +
 		"php_admin_value[memory_limit] = 256M\nphp_admin_value[upload_max_filesize] = 25M\nphp_admin_value[post_max_size] = 30M\nphp_admin_value[max_execution_time] = 120\n" +
-		"php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec\n" +
+		"php_admin_value[disable_functions] = " + disabled + "\n" +
 		e.prependLine("php_admin_value[auto_prepend_file] = ")
 }
 
@@ -561,7 +582,7 @@ func registerWebmail(r *actions.Registry, e env) {
 			set.Write(cert, c, 0o644, agentfs.RootOwner)
 			set.Write(certKey, k, 0o600, agentfs.RootOwner)
 		}
-		set.Write(e.webmailPoolFile(v), []byte(e.renderWebmailPool()), 0o644, agentfs.RootOwner)
+		set.Write(e.webmailPoolFile(v), []byte(e.renderWebmailPool(v)), 0o644, agentfs.RootOwner)
 		if e.M.PHPSocketTmpfiles != "" {
 			set.Write(e.M.PHPSocketTmpfiles, []byte("# Managed by WhaCP: PHP-FPM sockets of websites.\nd "+e.M.PHPSocketDir+" 0755 root root -\n"), 0o644, agentfs.RootOwner)
 			if !e.Root.Exists(e.M.PHPSocketDir) {
@@ -614,6 +635,9 @@ func registerWebmail(r *actions.Registry, e env) {
 		var prependArgs []string
 		if e.needsConfigDirFile() {
 			prependArgs = []string{"-d", "auto_prepend_file=" + e.configDirFile()}
+		}
+		if e.shadowsArrayFirst(v) {
+			prependArgs = append(prependArgs, "-d", "disable_functions=array_first")
 		}
 		out, err := e.Runner.RunWith(ctx, "php"+v, execx.Opts{
 			As:  &execx.Credential{UID: uint32(acct.UID), GID: uint32(acct.GID), Home: e.M.WebmailData},
