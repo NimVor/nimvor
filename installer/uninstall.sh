@@ -7,8 +7,9 @@
 #   sudo ./installer/uninstall.sh --purge    also remove /etc/whacp, /var/lib/whacp, /var/log/whacp and the whacp user
 #
 # Websites, databases, certificates and accounts created through WhaCP keep
-# running; so do backups (/var/backups/whacp) and the agent state with the
-# backup key (/var/lib/whacp-agent), which are only listed, never deleted.
+# running; so do backups (/var/backups/whacp), the agent state with the
+# backup key (/var/lib/whacp-agent) and the launchers of background workers
+# (/var/lib/whacp-workers), which are only listed, never deleted.
 
 set -Eeuo pipefail
 
@@ -44,4 +45,5 @@ fi
 for d in /var/backups/whacp /var/lib/whacp-agent; do
     [[ -d $d ]] && echo "Kept $d (backups / backup key and change history). Remove it yourself when no longer needed."
 done
+[[ -d /var/lib/whacp-workers ]] && echo "Kept /var/lib/whacp-workers (the background workers of websites keep running and start from it)."
 exit 0

@@ -248,7 +248,8 @@ sites offline. Without `--purge`, `/etc/whacp`, `/var/lib/whacp` and
 uploaded certificates, import records) and
 `/var/backups/whacp` (backups) are kept: remove them yourself once you
 are sure you do not need them — without the key, encrypted backups cannot
-be restored.
+be restored. `/var/lib/whacp-workers` (the launchers of background
+workers, which keep running) is kept as well.
 
 ## Limits and known limitations
 

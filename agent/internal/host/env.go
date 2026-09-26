@@ -84,6 +84,7 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		cfg.SitesRoot + "/**",
 		cfg.StateDir + "/**",
 		cfg.BackupDir + "/**",
+		WorkersDir + "/**",
 	}
 	return &Env{
 		Cfg: cfg, Root: root, Platform: p, M: m, Runner: r, Jobs: j, Log: log,
@@ -348,6 +349,13 @@ func (e *Env) StripSetID(ctx context.Context, cred *execx.Credential, dir string
 	}
 	return nil
 }
+
+// WorkersDir holds the launcher scripts of background workers. The worker
+// runs as the website account, which cannot enter the state directory
+// (0700), so the launchers are kept here: the directory is 0711 root (no
+// listing) and each launcher is 0640 root:<account's group>, readable by
+// its own account only (it carries the worker's environment variables).
+const WorkersDir = "/var/lib/whacp-workers"
 
 // TrashDir is the name of the trash folder WhaCP keeps inside the folder
 // that holds the data it removes (the websites root, the mail root).

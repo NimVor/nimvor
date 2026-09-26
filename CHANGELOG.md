@@ -55,6 +55,18 @@ All notable changes to WhaCP are documented here. The format follows
   paragraph described steps that could not be carried out).
 
 ### Fixed
+- **Background workers never started on an installed server.** The
+  worker's launcher was kept in `/var/lib/whacp-agent` (0700 root), which
+  the website account it runs as cannot enter. Launchers are now in
+  `/var/lib/whacp-workers` (0711 root), each readable only by its own
+  website account (it contains the worker's environment variables).
+  Workers created before this version: open each one and save it again.
+- Workers could not unpack archives on Ubuntu 26.04: `RestrictSUIDSGID`
+  makes `openat2()` fail and tar 1.35 does not fall back. Workers no
+  longer set it, as the other commands run as a website account already
+  do not. The setting only stopped the account creating setuid/setgid
+  files, which it can do anyway through cron, PHP or SFTP, and which
+  give nothing inside the worker (`NoNewPrivileges` stays).
 - Changes to the web server configuration no longer run at the same time:
   two website changes (or a website change and a certificate renewal,
   webmail change, import or reload) could have one's `nginx -t` see the

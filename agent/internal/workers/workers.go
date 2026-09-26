@@ -2,9 +2,10 @@
 // Node.js or Python apps) as systemd services.
 //
 // A worker is whacp-worker-<slug>.service running as the website account.
-// The command is stored in a root-owned launcher script so the unit file
-// itself contains no user text, and the service is sandboxed
-// (NoNewPrivileges, PrivateTmp, read-only system directories).
+// The command is stored in a root-owned launcher script, readable by the
+// website account only, so the unit file itself contains no user text, and
+// the service is sandboxed (NoNewPrivileges, PrivateTmp, read-only system
+// directories).
 package workers
 
 import (
@@ -116,7 +117,13 @@ func (s Spec) unit(script string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Managed by WhaCP. Do not edit.\n[Unit]\nDescription=WhaCP worker %s (%s)\nAfter=network.target\nStartLimitIntervalSec=60\nStartLimitBurst=10\n\n", s.Slug, s.Domain)
 	fmt.Fprintf(&b, "[Service]\nType=simple\nUser=%s\nGroup=%s\nExecStart=/bin/sh %s\nRestart=%s\nRestartSec=5s\n", s.User, s.User, script, s.Restart)
-	b.WriteString("NoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=full\nProtectKernelTunables=yes\nProtectKernelModules=yes\nProtectControlGroups=yes\nRestrictSUIDSGID=yes\nLockPersonality=yes\nUMask=0027\n")
+	// RestrictSUIDSGID is not set, as for the other commands run as the
+	// account (see execx.transientHardening): its seccomp filter answers
+	// openat2() with ENOSYS, which tar 1.35 on Ubuntu 26.04 does not fall
+	// back from, and it only stops the account creating setuid/setgid files,
+	// which it can do anyway through cron, PHP-FPM or SFTP and which grant
+	// nothing inside the unit (NoNewPrivileges).
+	b.WriteString("NoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=full\nProtectKernelTunables=yes\nProtectKernelModules=yes\nProtectControlGroups=yes\nLockPersonality=yes\nUMask=0027\n")
 	if s.MemoryMB > 0 {
 		fmt.Fprintf(&b, "MemoryMax=%dM\n", s.MemoryMB)
 	}
@@ -126,7 +133,10 @@ func (s Spec) unit(script string) string {
 
 // Register adds worker actions.
 func Register(r *actions.Registry, env *host.Env) {
-	scriptPath := func(slug string) string { return filepath.Join(env.Cfg.StateDir, "workers", slug+".sh") }
+	scriptPath := func(slug string) string { return filepath.Join(host.WorkersDir, slug+".sh") }
+	// Before 1.0.0 launchers were written to the state directory, where the
+	// account could not read them (the worker never started).
+	legacyPath := func(slug string) string { return filepath.Join(env.Cfg.StateDir, "workers", slug+".sh") }
 	unitPath := func(slug string) string { return filepath.Join(env.M.UnitDir, Unit(slug)) }
 
 	r.Register(actions.Action{Name: "workers.apply", Mutating: true, Description: "Create or update a worker service and start/stop it.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
@@ -137,12 +147,14 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := s.validate(env); err != nil {
 			return nil, host.Invalid(err)
 		}
-		if _, _, err := env.Credential(s.User); err != nil {
+		cred, _, err := env.Credential(s.User)
+		if err != nil {
 			return nil, actions.InvalidParams("user: " + err.Error())
 		}
 		set := env.Changes("worker-" + s.Slug)
-		set.Mkdir(filepath.Join(env.Cfg.StateDir, "workers"), 0o755, agentfs.RootOwner)
-		set.Write(scriptPath(s.Slug), []byte(s.script()), 0o755, agentfs.RootOwner)
+		set.Mkdir(host.WorkersDir, 0o711, agentfs.RootOwner)
+		set.Write(scriptPath(s.Slug), []byte(s.script()), 0o640, agentfs.Owner{UID: 0, GID: int(cred.GID)})
+		set.Remove(legacyPath(s.Slug))
 		set.Write(unitPath(s.Slug), []byte(s.unit(scriptPath(s.Slug))), 0o644, agentfs.RootOwner)
 		a, err := set.Apply()
 		if err != nil {
@@ -192,6 +204,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		set := env.Changes("worker-remove-" + in.Slug)
 		set.Remove(unitPath(in.Slug))
 		set.Remove(scriptPath(in.Slug))
+		set.Remove(legacyPath(in.Slug))
 		if _, err := set.Apply(); err != nil {
 			return nil, host.FailWithValidation("The worker was not removed", err)
 		}
