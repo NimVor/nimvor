@@ -48,6 +48,9 @@ All notable changes to WhaCP are documented here. The format follows
   turn them off is refused with a message to update it.
 
 ### Documentation
+- CI runs the virtual-machine tests (six systems) only when started by
+  hand or for a release; every push runs the quick jobs, and a newer push
+  cancels the run it replaces.
 - Installation guide: hardware, network ports, DNS and mail prerequisites,
   what uninstalling leaves behind (websites keep running; the backup key
   and backups are kept even with `--purge`), limits and known limitations.

@@ -1,9 +1,32 @@
 name: CI
 
+# Every push and pull request runs the quick jobs (unit, HTTP, smoke,
+# upgrade, browser, real-host on the Ubuntu 24.04 runner). The virtual
+# machines (AlmaLinux 9/10, Rocky Linux 9/10, Ubuntu 22.04/26.04) cost
+# most of the minutes, so they run only when started by hand (Actions →
+# CI → Run workflow, once this file is on the default branch), for a push
+# whose commit message contains "[full ci]", and before every release (the
+# release workflow calls this one with vms: true).
 on:
   push:
+    branches: ['**'] # tags run through the release workflow
   pull_request:
+  workflow_dispatch:
+    inputs:
+      vms:
+        description: Also run the real-host, install and post-install tests in VMs on all six other systems
+        type: boolean
+        default: true
   workflow_call: # the release workflow runs the whole suite first
+    inputs:
+      vms:
+        type: boolean
+        default: true
+
+# A newer push to the same branch cancels the run it replaces.
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -95,11 +118,13 @@ jobs:
           sudo env "PATH=$PATH" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" HOME=$HOME tests/integration/sandbox-probe.sh
 
   # The same real-host tests, then the installer and the post-install test,
-  # in KVM virtual machines booted from each distribution's own cloud image:
+  # in KVM virtual machines booted from each distribution's own cloud image
+  # (only when started by hand or for a release, see "on" above):
   # AlmaLinux 9 (SELinux enforcing, firewalld, Remi's PHP), Ubuntu 22.04
   # (PHP 8.3 from the ondrej/php PPA) and Ubuntu 26.04 (its own PHP).
   realhost-vm:
     name: realhost-vm (${{ matrix.os }} ${{ matrix.version }})
+    if: ${{ inputs.vms || contains(github.event.head_commit.message, '[full ci]') }}
     runs-on: ubuntu-24.04
     needs: [agent, panel]
     timeout-minutes: 75

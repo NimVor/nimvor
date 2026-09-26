@@ -8,6 +8,20 @@ DEV_ROOT=/ scripts/dev.sh   # inspect this machine (read-only)
 make lint test smoke        # what CI runs
 ```
 
+CI runs the quick jobs on every push and pull request: unit, HTTP, smoke,
+upgrade, browser, and real-host on the Ubuntu 24.04 runner. A newer push
+to a branch cancels the run it replaces. The virtual machines (AlmaLinux
+9/10, Rocky Linux 9/10, Ubuntu 22.04/26.04: real-host, install and
+post-install tests) use most of the Actions minutes, so they run only:
+
+- when started by hand: *Actions → CI → Run workflow*, pick the branch
+  (GitHub offers this once the workflow is on the default branch);
+- for a push whose commit message contains `[full ci]`;
+- before every release: pushing a `v*` tag runs everything first.
+
+Start the full run before merging changes to the installer, upgrade,
+system services, SELinux, or anything run as a website account.
+
 Dev state lives in `.dev/` (git-ignored). Log in as `admin` /
 `dev-password-change-me`.
 
