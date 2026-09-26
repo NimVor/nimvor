@@ -145,8 +145,8 @@ jobs:
           tests/vm.sh ssh 'bash /root/whacp/${{ matrix.setup }}'
       - name: Real-host tests
         run: |
-          tests/vm.sh ssh 'cd /root/whacp/agent && php=$(cat /etc/whacp-ci-php 2>/dev/null || echo 8.3) && for t in $(find internal -name realhost.test | sort); do
-              echo "=== $t"; (cd "$(dirname "$t")" && CI=1 WHACP_NETWORK=1 WHACP_TEST_PHP=$php timeout 900 ./realhost.test -test.run RealHost -test.count=1 -test.v)
+          tests/vm.sh ssh 'cd /root/whacp/agent && php=$(cat /etc/whacp-ci-php 2>/dev/null || echo 8.3) && wphp=$(cat /etc/whacp-ci-webmail-php 2>/dev/null || true) && for t in $(find internal -name realhost.test | sort); do
+              echo "=== $t"; (cd "$(dirname "$t")" && CI=1 WHACP_NETWORK=1 WHACP_TEST_PHP=$php WHACP_TEST_WEBMAIL_PHP=$wphp timeout 900 ./realhost.test -test.run RealHost -test.count=1 -test.v)
             done > /root/realhost.log 2>&1; cat /root/realhost.log'
           tests/vm.sh ssh '! grep -E -e "--- (SKIP|FAIL)" -e "^(FAIL|panic)" /root/realhost.log'
       - name: Installer and post-install end-to-end
@@ -155,15 +155,6 @@ jobs:
           tests/vm.sh ssh 'cd /root/whacp && installer/install.sh --install-deps --yes --enable-writes --admin-user=admin --admin-email=admin@whacp.test'
           tests/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp agent:check'
           tests/vm.sh ssh 'cd /root/whacp && tests/integration/postinstall.sh'
-      - name: Sandbox diagnostics (tar under RestrictSUIDSGID)
-        if: always() && matrix.os == 'ubuntu'
-        run: |
-          tests/vm.sh ssh 'systemctl --version | head -1; tar --version | head -1; uname -r
-            DEBIAN_FRONTEND=noninteractive apt-get install -y -q strace >/dev/null
-            rm -rf /tmp/sx && mkdir -p /tmp/sx/src/d /tmp/sx/a /tmp/sx/b && echo x > /tmp/sx/src/d/f && tar -C /tmp/sx/src -cf /tmp/sx/t.tar d
-            for p in "RestrictSUIDSGID=yes" "RestrictSUIDSGID=no"; do
-              echo "--- $p"; systemd-run --quiet --wait --pipe -p "$p" strace -f -e trace=openat,openat2,mkdirat tar -C /tmp/sx/$([ $p = RestrictSUIDSGID=yes ] && echo a || echo b) -xf /tmp/sx/t.tar 2>&1 | tail -8; echo "exit=$?"
-            done'
       - name: SELinux denials
         if: always() && matrix.os == 'alma'
         run: tests/vm.sh ssh 'getenforce; systemctl is-active auditd; grep -c denied /var/log/audit/audit.log; grep denied /var/log/audit/audit.log | grep -v "noatsecure\|rlimitinh\|siginh" | tail -80 || true'

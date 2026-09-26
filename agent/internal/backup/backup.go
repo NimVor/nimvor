@@ -565,6 +565,9 @@ func (s Service) Restore(ctx context.Context, r RestoreRequest, cred *execx.Cred
 		if err != nil {
 			return nil, fmt.Errorf("restoring files failed: %v %s", err, host.Output(out))
 		}
+		if err := s.Env.StripSetID(ctx, cred, root); err != nil {
+			return nil, err
+		}
 		result["files"] = true
 	}
 	db := dbmgr.Client{Env: s.Env}

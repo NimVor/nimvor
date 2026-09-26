@@ -329,6 +329,9 @@ func Install(ctx context.Context, env *host.Env, src Sources, r Request, cred *e
 		if out, err := env.Runner.RunWith(ctx, "tar", o, "-xzf", "-", "--no-same-owner", "--strip-components=1", "-C", target); err != nil {
 			return nil, fmt.Errorf("extracting WordPress failed: %s", host.Output(out))
 		}
+		if err := env.StripSetID(ctx, cred, target); err != nil {
+			return nil, err
+		}
 		if _, err := env.Runner.RunWith(ctx, "sh", as(target, nil, WPConfig(r)), "-c", "umask 027 && cat > wp-config.php"); err != nil {
 			return nil, fmt.Errorf("wp-config.php could not be written")
 		}

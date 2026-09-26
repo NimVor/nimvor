@@ -72,7 +72,7 @@ func TestTransientArgs(t *testing.T) {
 	s := strings.Join(a, "\n")
 	for _, want := range []string{"--uid=1001", "--gid=1002", "--wait", "--property=StandardInput=null",
 		"--working-directory=/home/whacp/a.test",
-		"--property=NoNewPrivileges=yes", "--property=CapabilityBoundingSet=", "--property=RestrictSUIDSGID=yes",
+		"--property=NoNewPrivileges=yes", "--property=CapabilityBoundingSet=",
 		"--property=RuntimeMaxSec=100", "--setenv=HOME=/home/whacp/a.test",
 		"--property=BindReadOnlyPaths=/usr/local/bin/whacp-agent:/usr/sbin/sendmail.postfix"} {
 		if !strings.Contains(s, want+"\n") && !strings.HasSuffix(s, want) {

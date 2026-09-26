@@ -335,3 +335,15 @@ func (e *Env) Run(ctx context.Context, id string, args ...string) (string, error
 	}
 	return string(bytes.TrimSpace(out)), nil
 }
+
+// StripSetID removes setuid and setgid bits from everything under dir,
+// running as the account that owns it (after extracting an archive as that
+// account: backups restored, applications installed).
+func (e *Env) StripSetID(ctx context.Context, cred *execx.Credential, dir string) error {
+	out, err := e.Runner.RunWith(ctx, "sh", execx.Opts{As: cred, Dir: dir, Timeout: -1},
+		"-c", `find "$1" -xdev -perm /6000 ! -type l -exec chmod ug-s {} +`, "strip-setid", dir)
+	if err != nil {
+		return fmt.Errorf("removing setuid/setgid bits: %v %s", err, Output(out))
+	}
+	return nil
+}

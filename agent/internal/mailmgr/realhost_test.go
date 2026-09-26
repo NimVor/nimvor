@@ -393,13 +393,13 @@ func testWebmail(t *testing.T, env *host.Env, must func(string, any) map[string]
 		os.RemoveAll(w.WebmailData)
 		exec.Command("userdel", webmailUser).Run()
 	})
-	res := must("mail.webmail_configure", map[string]any{"enabled": true, "hostname": hostname})
+	res := must("mail.webmail_configure", webmailParams(hostname))
 	if res["url"] != "https://"+hostname+"/" {
 		t.Fatalf("webmail = %v", res)
 	}
 	// Changing it again keeps the encryption key (and signs nobody out).
 	cfg1, _ := os.ReadFile(env.M.WebmailDir + "/config.inc.php")
-	must("mail.webmail_configure", map[string]any{"enabled": true, "hostname": hostname})
+	must("mail.webmail_configure", webmailParams(hostname))
 	if cfg2, _ := os.ReadFile(env.M.WebmailDir + "/config.inc.php"); string(cfg1) != string(cfg2) {
 		t.Fatal("configuration (and key) changed on a repeated call")
 	}
@@ -506,4 +506,14 @@ func withCookies(req *http.Request, jar http.CookieJar) *http.Request {
 		req.AddCookie(c)
 	}
 	return req
+}
+
+// webmailParams turns webmail on; WHACP_TEST_WEBMAIL_PHP picks its PHP
+// version where the distribution's does not run Roundcube (Ubuntu 26.04).
+func webmailParams(hostname string) map[string]any {
+	p := map[string]any{"enabled": true, "hostname": hostname}
+	if v := os.Getenv("WHACP_TEST_WEBMAIL_PHP"); v != "" {
+		p["php_version"] = v
+	}
+	return p
 }

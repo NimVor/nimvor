@@ -37,7 +37,10 @@ func TestRealHostBackupRestore(t *testing.T) {
 	os.WriteFile(filepath.Join(root, "public_html/index.php"), []byte("<?php echo 1;"), 0o640)
 	os.WriteFile(filepath.Join(root, "logs/access.log"), []byte("log"), 0o640)
 	os.Symlink("public_html", filepath.Join(root, "current"))
+	os.WriteFile(filepath.Join(root, "public_html/tool"), []byte("#!/bin/sh\n"), 0o755)
 	exec.Command("chown", "-R", "whacprtbk:whacprtbk", root).Run()
+	// A setuid/setgid file in the archive (set after chown, which clears it).
+	os.Chmod(filepath.Join(root, "public_html/tool"), 0o755|os.ModeSetuid|os.ModeSetgid)
 
 	cfg := config.Default()
 	cfg.SitesRoot = sites
@@ -76,6 +79,11 @@ func TestRealHostBackupRestore(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join(root, "public_html/index.php"))
 	if string(b) != "<?php echo 1;" {
 		t.Fatalf("file not restored: %q %v\n%s", b, err, buf.String())
+	}
+	// Restored files never carry setuid/setgid bits (the unit does not
+	// forbid creating them, see execx.transientHardening).
+	if fi, err := os.Stat(filepath.Join(root, "public_html/tool")); err != nil || fi.Mode()&(os.ModeSetuid|os.ModeSetgid) != 0 || fi.Mode().Perm() != 0o755 {
+		t.Errorf("restored tool: %v %v", fi.Mode(), err)
 	}
 	if l, _ := os.Readlink(filepath.Join(root, "current")); l != "public_html" {
 		t.Errorf("symlink = %q", l)

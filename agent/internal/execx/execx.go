@@ -280,10 +280,17 @@ func transientUnit() string {
 // system read-only and no kernel or clock changes. /tmp is the host's, as
 // for the site's PHP-FPM pool and cron jobs (a private one would hide
 // paths callers pass in).
+//
+// RestrictSUIDSGID is deliberately not set: its seccomp filter answers
+// openat2() with ENOSYS, and tar 1.35 on Ubuntu 26.04 (systemd 259)
+// extracts with openat2(RESOLVE_BENEATH) without falling back, so every
+// restore failed. It only stops the account creating setuid/setgid files,
+// which the account can do anyway through SFTP, PHP-FPM or cron, and which
+// grant nothing inside the unit (NoNewPrivileges). Archives extracted as
+// the account have setuid/setgid bits removed afterwards (host.StripSetID).
 var transientHardening = []string{
 	"NoNewPrivileges=yes",
 	"CapabilityBoundingSet=",
-	"RestrictSUIDSGID=yes",
 	"ProtectSystem=full",
 	"ProtectKernelTunables=yes",
 	"ProtectKernelModules=yes",
