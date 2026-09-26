@@ -88,6 +88,32 @@ func redact(s, secret string) string {
 	return strings.ReplaceAll(s, secret, "[REDACTED]")
 }
 
+// ChannelACLs reports whether Redis supports Pub/Sub channel rules in
+// ACLs (6.2 and later).
+func ChannelACLs(version string) bool {
+	parts := strings.SplitN(version, ".", 3)
+	if len(parts) < 2 {
+		return true // unknown: assume a current Redis
+	}
+	major, err1 := strconv.Atoi(parts[0])
+	minor, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil {
+		return true
+	}
+	return major > 6 || (major == 6 && minor >= 2)
+}
+
+// ACLArgs is the ACL SETUSER command for a website's Redis user: its keys
+// (and, where Redis supports it, its Pub/Sub channels) limited to its
+// prefix, no administrative or dangerous commands.
+func ACLArgs(user, password, prefix string, channels bool) []string {
+	args := []string{"ACL", "SETUSER", user, "reset", "on", ">" + password, "~" + prefix + "*"}
+	if channels {
+		args = append(args, "resetchannels", "&"+prefix+"*")
+	}
+	return append(args, "+@all", "-@admin", "-@dangerous")
+}
+
 // ParseInfo parses the output of INFO into section → key → value.
 func ParseInfo(s string) map[string]map[string]string {
 	out := map[string]map[string]string{}
@@ -247,14 +273,23 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := c.backupConf(); err != nil {
 			return nil, actions.Failed("redis.conf could not be backed up; nothing was changed.", err.Error())
 		}
-		args := []string{"ACL", "SETUSER", in.User, "reset", "on", ">" + in.Password, "~" + in.Prefix + "*", "resetchannels", "&" + in.Prefix + "*", "+@all", "-@admin", "-@dangerous"}
+		info, err := c.Cmd(ctx, "INFO", "server")
+		if err != nil {
+			return nil, actions.Failed("Redis is not reachable.", err.Error())
+		}
+		channels := ChannelACLs(ParseInfo(info)["server"]["redis_version"])
+		args := ACLArgs(in.User, in.Password, in.Prefix, channels)
 		if _, err := c.Cmd(ctx, args...); err != nil {
 			return nil, actions.Failed("Redis rejected the user.", err.Error())
 		}
 		if _, err := c.Cmd(ctx, "CONFIG", "REWRITE"); err != nil {
 			return nil, actions.Failed("The user is active but could not be saved to redis.conf.", err.Error())
 		}
-		return map[string]any{"user": in.User, "prefix": in.Prefix}, nil
+		res := map[string]any{"user": in.User, "prefix": in.Prefix, "channels_restricted": channels}
+		if !channels {
+			res["notes"] = []string{"This Redis (before 6.2) cannot limit Pub/Sub channels per user: the user's keys are limited to its prefix, but it can publish and subscribe on every channel. Upgrade Redis to 6.2 or later to limit channels too."}
+		}
+		return res, nil
 	}})
 	r.Register(actions.Action{Name: "redis.acl_del", Mutating: true, Description: "Remove a Redis ACL user.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {

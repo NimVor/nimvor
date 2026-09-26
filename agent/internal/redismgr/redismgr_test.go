@@ -53,3 +53,24 @@ func TestPasswordNeverInArgs(t *testing.T) {
 		t.Error("prefix with space accepted")
 	}
 }
+
+// Redis 6.0 (Ubuntu 22.04) has no channel rules in ACLs; 6.2 and later
+// limit channels to the website's prefix too.
+func TestACLArgsByVersion(t *testing.T) {
+	for _, c := range []struct {
+		version string
+		want    bool
+	}{{"6.0.16", false}, {"5.0.7", false}, {"6.2.14", true}, {"7.0.15", true}, {"8.0.2", true}, {"", true}} {
+		if got := ChannelACLs(c.version); got != c.want {
+			t.Errorf("%q: channels = %v", c.version, got)
+		}
+	}
+	old := strings.Join(ACLArgs("shop", "pw", "shop:", false), " ")
+	cur := strings.Join(ACLArgs("shop", "pw", "shop:", true), " ")
+	if strings.Contains(old, "channels") || strings.Contains(old, "&") || !strings.Contains(old, "~shop:* +@all -@admin -@dangerous") {
+		t.Errorf("6.0 args: %s", old)
+	}
+	if !strings.Contains(cur, "~shop:* resetchannels &shop:* +@all -@admin -@dangerous") {
+		t.Errorf("6.2 args: %s", cur)
+	}
+}

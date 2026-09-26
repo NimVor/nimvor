@@ -155,6 +155,15 @@ jobs:
           tests/vm.sh ssh 'cd /root/whacp && installer/install.sh --install-deps --yes --enable-writes --admin-user=admin --admin-email=admin@whacp.test'
           tests/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp agent:check'
           tests/vm.sh ssh 'cd /root/whacp && tests/integration/postinstall.sh'
+      - name: Sandbox diagnostics (tar under RestrictSUIDSGID)
+        if: always() && matrix.os == 'ubuntu'
+        run: |
+          tests/vm.sh ssh 'systemctl --version | head -1; tar --version | head -1; uname -r
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -q strace >/dev/null
+            rm -rf /tmp/sx && mkdir -p /tmp/sx/src/d /tmp/sx/a /tmp/sx/b && echo x > /tmp/sx/src/d/f && tar -C /tmp/sx/src -cf /tmp/sx/t.tar d
+            for p in "RestrictSUIDSGID=yes" "RestrictSUIDSGID=no"; do
+              echo "--- $p"; systemd-run --quiet --wait --pipe -p "$p" strace -f -e trace=openat,openat2,mkdirat tar -C /tmp/sx/$([ $p = RestrictSUIDSGID=yes ] && echo a || echo b) -xf /tmp/sx/t.tar 2>&1 | tail -8; echo "exit=$?"
+            done'
       - name: SELinux denials
         if: always() && matrix.os == 'alma'
         run: tests/vm.sh ssh 'getenforce; systemctl is-active auditd; grep -c denied /var/log/audit/audit.log; grep denied /var/log/audit/audit.log | grep -v "noatsecure\|rlimitinh\|siginh" | tail -80 || true'
