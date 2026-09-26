@@ -367,10 +367,15 @@ never restored automatically; *Extract for review only* unpacks the whole
 backup into `/var/lib/whacp-agent/restore/` (root only) to copy from by
 hand.
 
-**Restore drill on a new server:** install WhaCP with `--enable-writes`,
-copy the old backup key to `/var/lib/whacp-agent/backup.key` (mode 0600),
-add the remote storage and restore the server backup, then the website
-backups.
+**Recovering on a new server — current limitation.** Backups in remote
+storage include their manifest, and are encrypted with the backup key, but
+a new WhaCP installation cannot yet list or restore backups it did not make
+itself: the panel only shows backups recorded in its own database, and a
+restore needs the backup's manifest on the server. Recovering onto a new
+server from remote storage is therefore not supported through WhaCP in
+this version. Keep a copy of `/var/lib/whacp-agent/backup.key` off the
+server regardless: without it, encrypted backups cannot be read by any
+future version either.
 
 ## Importing existing websites
 

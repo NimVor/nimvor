@@ -22,6 +22,49 @@
 - To build from source: Go ≥ 1.22 and Composer (or ship `dist/whacp-agent`
   and `panel/vendor`).
 
+### Hardware
+
+WhaCP's own processes are small: the agent is capped at 256 MiB (1 GiB in
+write mode) by its systemd unit, and the panel is a PHP process with a
+SQLite database (tested with 100 websites, 500 domains and 10 000
+notifications, every page under 15 ms). What a server needs is set by
+what it hosts: Nginx, PHP-FPM pools, MariaDB, and for mail Postfix,
+Dovecot and Rspamd. The CI test servers run all of these with 4 vCPUs,
+6 GB RAM and a 30 GB disk; that is the smallest configuration tested with
+every service at once. Keep disk space for backups: backups and restores
+leave 512 MiB free and stop otherwise.
+
+### Network ports
+
+| Port | Service | Opened by |
+|------|---------|-----------|
+| 22/tcp (or your SSH port) | SSH, SFTP accounts | you (WhaCP refuses firewall changes that would close it, and rolls back SSH/firewall changes you do not confirm) |
+| 80/tcp, 443/tcp | websites, webmail, Let's Encrypt validation | you |
+| 25/tcp | incoming mail | WhaCP, when mail is set up |
+| 587/tcp | mail submission (STARTTLS, sign-in required) | WhaCP, with mail |
+| 993/tcp | IMAP over TLS (143 is not offered) | WhaCP, with mail |
+| 53/tcp, 53/udp | DNS (authoritative zones) | WhaCP, when DNS is turned on |
+| 21/tcp and 40110–40210/tcp | FTP(S) and its passive range (configurable) | WhaCP, when FTP is turned on |
+| 8443/tcp (your choice) | agent for a remote panel (`--remote-access`) | you, for the panel's address only |
+| 127.0.0.1:8090 | the panel (reach it through an SSH tunnel or a reverse proxy) | never exposed |
+
+The agent's Unix socket, Rspamd, OpenDKIM, MariaDB and Redis listen
+locally only.
+
+### DNS and mail prerequisites
+
+- A host name for the server (`hostname -f`) that resolves to its address;
+  mail uses it as its name, and webmail can use it.
+- For mail: a reverse DNS (PTR) record for the server's IP matching that
+  host name (set at your provider), outgoing port 25 not blocked by the
+  provider, and for each domain the MX, SPF, DKIM and DMARC records WhaCP
+  shows (it can add them to a zone hosted on the same panel).
+- For Let's Encrypt: each domain must point to the server and port 80 must
+  be reachable from the internet.
+- For DNS hosting: the domain's registrar must list this server (and any
+  secondaries) as name servers, with glue records if the name servers are
+  inside the domain.
+
 ## Release archives
 
 Tagged releases publish `whacp-<version>-linux-{amd64,arm64}.tar.gz` with a
@@ -192,5 +235,42 @@ is marked "interrupted by an agent restart".
 
 ```bash
 sudo ./installer/uninstall.sh          # keep config and data
-sudo ./installer/uninstall.sh --purge  # remove everything WhaCP created
+sudo ./installer/uninstall.sh --purge  # also remove configuration, panel data and logs
 ```
+
+Uninstalling removes the panel, the agent and their services. It does
+**not** remove what WhaCP created for you: websites keep running (their
+Nginx sites, PHP-FPM pools, accounts, files, databases, certificates, mail
+and DNS stay configured and served), because removing them would take
+sites offline. Without `--purge`, `/etc/whacp`, `/var/lib/whacp` and
+`/var/log/whacp` are kept. Even with `--purge`, `/var/lib/whacp-agent`
+(the **backup encryption key**, the history of configuration changes,
+uploaded certificates, import records) and
+`/var/backups/whacp` (backups) are kept: remove them yourself once you
+are sure you do not need them — without the key, encrypted backups cannot
+be restored.
+
+## Limits and known limitations
+
+Limits (per request or operation): agent request 4 MiB; command output
+kept 1 MiB; archive extraction 50 000 entries and 8 GiB; file manager
+listings 5000 entries, editor 2 MiB; log views 5000 lines; SQL results
+1000 rows or 16 MiB; DNS 2000 records per zone; application downloads
+200 MiB; messages sent through WhaCP's sendmail 64 MiB; 1000 notifications
+per website; 120 API requests per minute per token; backups and restores
+leave 512 MiB free.
+
+Known limitations in 1.0.0:
+
+- Ubuntu 26.04: webmail is refused, because the distribution's Roundcube
+  does not run on its PHP 8.5 and no other PHP is packaged yet.
+- Ubuntu 22.04 (Redis 6.0): a website's Redis user is limited to its key
+  prefix but cannot be limited to its own Pub/Sub channels.
+- RHEL 9 and 10 are supported but tested only through AlmaLinux and Rocky
+  Linux, which use the same packages.
+- Let's Encrypt issuance is tested against a local stand-in, not against
+  Let's Encrypt itself.
+- A new installation cannot list or restore backups it did not make (see
+  *Recovering on a new server* in the administration guide).
+- Rolling back an upgrade restores WhaCP's files and panel database; it
+  does not undo changes made on the server since (see *Upgrade*).

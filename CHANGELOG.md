@@ -41,6 +41,14 @@ All notable changes to WhaCP are documented here. The format follows
   `\! command` in an imported file ran that command. A client that cannot
   turn them off is refused with a message to update it.
 
+### Documentation
+- Installation guide: hardware, network ports, DNS and mail prerequisites,
+  what uninstalling leaves behind (websites keep running; the backup key
+  and backups are kept even with `--purge`), limits and known limitations.
+- Recovering onto a new server from remote storage is not supported yet
+  (a new installation cannot list backups it did not make); the previous
+  "restore drill" paragraph described steps that could not be carried out.
+
 ### Fixed
 - Changes to the web server configuration no longer run at the same time:
   two website changes (or a website change and a certificate renewal,
