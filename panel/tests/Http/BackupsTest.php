@@ -109,6 +109,28 @@ final class BackupsTest extends HttpTestCase
         self::assertSame(0, $this->calls('backup.server'));
     }
 
+    /**
+     * Backup storage is server-wide: customers and resellers hold
+     * backups.manage for their own websites but cannot add a destination,
+     * so they cannot make the agent connect to an address of their choice
+     * (internal hosts, metadata services).
+     */
+    public function testCustomersAndResellersCannotAddStorage(): void
+    {
+        foreach (['customer', 'reseller'] as $role) {
+            $this->seedUser('u' . $role, $role);
+            $this->session = new \WhaCP\Http\Session\ArraySession();
+            $this->app = $this->makeApp();
+            $this->login('u' . $role);
+            $this->post('/backups/storages', ['name' => 'Internal', 'type' => 'sftp', 'host' => '10.0.0.5', 'username' => 'u1', 'password' => 'pw-internal-1']);
+            $this->post('/backups/storages', ['name' => 'Meta', 'endpoint' => 'https://169.254.169.254', 'bucket' => 'latest', 'region' => 'us-east-1', 'access_key' => 'a', 'secret_key' => 'b']);
+            $this->post('/backups/storages/confirm', ['trust' => '1']);
+            $this->request('GET', '/backups/storages/google/callback?state=x&code=y');
+            self::assertSame(0, $this->calls('backup.remote_test'), $role);
+            self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM backup_storages'), $role);
+        }
+    }
+
     public function testSftpStorageAsksToTrustTheHostKey(): void
     {
         $key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl';
