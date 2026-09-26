@@ -335,6 +335,13 @@ saved; credentials are stored encrypted with the panel key.
 
 The optional sub-folder separates servers that share one destination.
 
+Backups and restores keep 512 MiB free on every disk they write to: a
+backup or download stops (and removes its partial files) before the disk
+gets fuller than that, and a restore checks first that the website's and
+MySQL's disks have room for the restored data (estimated from the sizes
+before compression, which backups record since 1.0.0), changing nothing
+otherwise.
+
 Server backups contain `/etc/whacp` (agent token, panel key) and TLS
 private keys, so they are always encrypted with the backup key, also when
 kept only on this server. Without that key they cannot be restored: keep a

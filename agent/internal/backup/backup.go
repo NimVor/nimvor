@@ -49,6 +49,9 @@ type FileEntry struct {
 	Database string `json:"database,omitempty"`
 	Size     int64  `json:"size"`
 	SHA256   string `json:"sha256"`
+	// Unpacked is the size before compression (tar stream or SQL), used to
+	// check free space before a restore; 0 in backups from before 1.0.0.
+	Unpacked int64 `json:"unpacked,omitempty"`
 }
 
 // Manifest describes a backup.
@@ -131,7 +134,7 @@ func (s Service) artifact(dir, name, kind string, key []byte, fn func(w io.Write
 	defer os.Remove(tmp)
 	h := sha256.New()
 	c := &counter{}
-	var w io.Writer = io.MultiWriter(f, h, c)
+	var w io.Writer = io.MultiWriter(newSpaceGuard(f, dir), h, c)
 	var enc io.WriteCloser
 	if key != nil {
 		if enc, err = NewEncryptWriter(w, key); err != nil {
@@ -260,9 +263,14 @@ func (s Service) CreateSite(ctx context.Context, r SiteRequest, cred *execx.Cred
 			args = append(args, "--exclude=./logs")
 		}
 		args = append(args, "-cf", "-", ".")
+		if err := needSpace(dir, 0, "the backup"); err != nil {
+			return nil, err
+		}
+		plain := &countingWriter{}
 		e, err := s.artifact(dir, "files.tar.gz", "files", key, func(w io.Writer) error {
 			gz := gzip.NewWriter(w)
-			out, err := s.Env.Runner.RunWith(ctx, "tar", execx.Opts{As: cred, Dir: root, Stdout: gz, Timeout: -1}, args...)
+			plain.w = gz
+			out, err := s.Env.Runner.RunWith(ctx, "tar", execx.Opts{As: cred, Dir: root, Stdout: plain, Timeout: -1}, args...)
 			var ee *exec.ExitError
 			if errors.As(err, &ee) && ee.ExitCode() == 1 {
 				// GNU tar: some files changed while being read. The
@@ -278,18 +286,23 @@ func (s Service) CreateSite(ctx context.Context, r SiteRequest, cred *execx.Cred
 		if err != nil {
 			return nil, err
 		}
+		e.Unpacked = plain.n
 		m.Files = append(m.Files, e)
 		fmt.Fprintf(log, "  %s: %d bytes\n", e.Name, e.Size)
 	}
 	db := dbmgr.Client{Env: s.Env}
 	for _, name := range r.Databases {
+		var sqlBytes int64
 		e, err := s.artifact(dir, "db-"+name+".sql.gz", "database", key, func(w io.Writer) error {
-			return db.DumpTo(ctx, name, w, log)
+			n, err := db.DumpTo(ctx, name, w, log)
+			sqlBytes = n
+			return err
 		})
 		if err != nil {
 			return nil, err
 		}
 		e.Database = name
+		e.Unpacked = sqlBytes
 		m.Files = append(m.Files, e)
 		fmt.Fprintf(log, "  %s: %d bytes\n", e.Name, e.Size)
 	}
@@ -416,7 +429,7 @@ func (s Service) fetch(ctx context.Context, m *Manifest, dir string, f FileEntry
 		if err != nil {
 			return "", false, err
 		}
-		err = remote.Open(s.Env).Get(ctx, m.Remote.Key+"/"+f.Name, out)
+		err = remote.Open(s.Env).Get(ctx, m.Remote.Key+"/"+f.Name, newSpaceGuard(out, dir))
 		out.Close()
 		if err != nil {
 			os.Remove(p + ".partial")
@@ -533,6 +546,16 @@ func (s Service) Restore(ctx context.Context, r RestoreRequest, cred *execx.Cred
 		}
 		need = append(need, f)
 	}
+	// Room for what must be downloaded (the rest is already here).
+	var download int64
+	for _, f := range need {
+		if _, err := os.Stat(filepath.Join(dir, f.Name)); err != nil {
+			download += f.Size
+		}
+	}
+	if err := needSpace(dir, download, "downloading the backup"); err != nil {
+		return nil, err
+	}
 	for _, f := range need {
 		p, downloaded, err := s.fetch(ctx, m, dir, f, r.Remote, log)
 		if err != nil {
@@ -544,6 +567,27 @@ func (s Service) Restore(ctx context.Context, r RestoreRequest, cred *execx.Cred
 		paths[f.Name] = p
 	}
 	fmt.Fprintln(log, "Checksums verified.")
+	// Room for the restored data (estimated from the sizes before
+	// compression, less what it replaces); backups from before 1.0.0 do not
+	// record them and are not checked here.
+	if r.Files {
+		if f, _ := part("files", ""); f.Unpacked > 0 {
+			root, _ := s.real(r.Root)
+			if err := needSpace(root, f.Unpacked-treeSize(root), "the restored website files"); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for src, target := range r.Databases {
+		if f, _ := part("database", src); f.Unpacked > 0 {
+			current, _ := dbmgr.Client{Env: s.Env}.Size(ctx, target)
+			if dataDir, err := s.real(s.Env.Platform.Paths().MySQLDataDir); err == nil {
+				if err := needSpace(dataDir, f.Unpacked-current, "importing "+src+" (estimate)"); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
 	if r.Files {
 		if r.Safety {
 			fmt.Fprintln(log, "Creating a safety backup of the current files first…")
@@ -625,6 +669,9 @@ func (s Service) CreateServer(ctx context.Context, encrypt bool, label string, r
 		}
 	}()
 	extra := []string{filepath.Join(s.Env.Cfg.StateDir, "certs")}
+	if err := needSpace(dir, 0, "the server backup"); err != nil {
+		return nil, err
+	}
 	e, err := s.artifact(dir, "server-config.tar.gz", "config", key, func(w io.Writer) error {
 		gz := gzip.NewWriter(w)
 		tw := tar.NewWriter(gz)

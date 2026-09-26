@@ -30,7 +30,7 @@ func (c Client) Dump(ctx context.Context, name, dest string, log io.Writer) (int
 		return 0, err
 	}
 	defer os.Remove(tmp)
-	if err := c.DumpTo(ctx, name, f, log); err != nil {
+	if _, err := c.DumpTo(ctx, name, f, log); err != nil {
 		f.Close()
 		return 0, err
 	}
@@ -47,17 +47,42 @@ func (c Client) Dump(ctx context.Context, name, dest string, log io.Writer) (int
 	return info.Size(), nil
 }
 
-// DumpTo streams a gzip-compressed dump of name to w.
-func (c Client) DumpTo(ctx context.Context, name string, w io.Writer, log io.Writer) error {
+// DumpTo streams a gzip-compressed dump of name to w and returns the size
+// of the SQL before compression.
+func (c Client) DumpTo(ctx context.Context, name string, w io.Writer, log io.Writer) (int64, error) {
 	gz := gzip.NewWriter(w)
+	sql := &sizeCounter{w: gz}
 	args := c.args("--single-transaction", "--quick", "--routines", "--triggers", "--events", "--hex-blob", "--no-tablespaces", "--", name)
 	// mysqldump shares the client flags except --batch/--raw/--skip-column-names.
 	args = filterArgs(args, "--batch", "--skip-column-names", "--raw")
 	fmt.Fprintf(log, "Dumping database %s…\n", name)
-	if errOut, err := c.Env.Runner.RunWith(ctx, "mysqldump", execx.Opts{Stdout: gz, Output: log, Timeout: -1}, args...); err != nil {
-		return fmt.Errorf("mysqldump failed: %s", strings.TrimSpace(string(errOut)))
+	if errOut, err := c.Env.Runner.RunWith(ctx, "mysqldump", execx.Opts{Stdout: sql, Output: log, Timeout: -1}, args...); err != nil {
+		return 0, fmt.Errorf("mysqldump failed: %s", strings.TrimSpace(string(errOut)))
 	}
-	return gz.Close()
+	return sql.n, gz.Close()
+}
+
+type sizeCounter struct {
+	w io.Writer
+	n int64
+}
+
+func (c *sizeCounter) Write(p []byte) (int, error) {
+	n, err := c.w.Write(p)
+	c.n += int64(n)
+	return n, err
+}
+
+// Size is the space a database's tables and indexes take (0 if it does
+// not exist).
+func (c Client) Size(ctx context.Context, name string) (int64, error) {
+	rows, err := c.Query(ctx, fmt.Sprintf("SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = %s;", Quote(name)))
+	if err != nil || len(rows) == 0 || len(rows[0]) == 0 {
+		return 0, err
+	}
+	var n int64
+	fmt.Sscan(rows[0][0], &n)
+	return n, nil
 }
 
 // ImportFrom loads SQL read from r (plain text) into name. The client's own

@@ -42,6 +42,11 @@ All notable changes to WhaCP are documented here. The format follows
   turn them off is refused with a message to update it.
 
 ### Fixed
+- Backups and restores no longer fill the disk. Backup files and downloads
+  stop before less than 512 MiB would be left (the partial files are
+  removed); a restore first checks that the website's and MySQL's disks
+  have room for the restored data and changes nothing otherwise. Backups
+  now record their sizes before compression for this.
 - Installer: the PHP extension check could report an installed extension
   as missing (`php -m | grep -q` under `pipefail`: when grep stops early,
   php is killed by SIGPIPE and the check fails). Seen on AlmaLinux 10 in
