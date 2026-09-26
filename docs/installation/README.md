@@ -28,7 +28,7 @@
 - PHP ≥ 8.3 CLI with `pdo_sqlite`, `curl`, `mbstring` (Ubuntu 22.04 ships
   PHP 8.1 — install 8.3 from a PHP repository first; your websites are not
   affected, WhaCP only uses the CLI binary).
-- To build from source: Go ≥ 1.22 and Composer (or ship `dist/whacp-agent`
+- To build from source: Go ≥ 1.24 and Composer (or ship `dist/whacp-agent`
   and `panel/vendor`).
 
 ### Hardware

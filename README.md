@@ -64,7 +64,7 @@ Read more in [docs/architecture](docs/architecture/README.md).
 
 ## Quick start (development, no root needed)
 
-Requirements: Go ≥ 1.22, PHP ≥ 8.3 with `pdo_sqlite`, `curl`, `mbstring`, Composer, OpenSSL.
+Requirements: Go ≥ 1.24, PHP ≥ 8.3 with `pdo_sqlite`, `curl`, `mbstring`, Composer, OpenSSL.
 
 ```bash
 git clone https://github.com/mchkhawarshahzad/WhaCP.git && cd WhaCP
