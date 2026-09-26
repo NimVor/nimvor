@@ -11,7 +11,8 @@
 #      and waits (up to --wait, default 30m; --wait=0 skips this) until the
 #      agent has no running job, so a restore or deployment is never cut off;
 #   2. backs up the panel files, agent binary, systemd units, /etc/whacp and
-#      the panel database (taken with the panel stopped);
+#      the panel database (taken with the panel stopped), checks the
+#      database copy's integrity and records checksums of the backup;
 #   3. swaps in the new files, runs database migrations and restarts;
 #   4. checks that the agent runs, the panel reaches it and answers /healthz.
 # If any step after the swap fails, the previous version is restored
@@ -120,9 +121,43 @@ health() {
     return 1
 }
 
+# db_ok <sqlite file>: SQLite finds no corruption in it.
+db_ok() {
+    [[ $(php -r '$p = new PDO("sqlite:" . $argv[1], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); echo $p->query("PRAGMA integrity_check")->fetchColumn();' "$1" 2>/dev/null) == ok ]]
+}
+
+# write_sums / verify_backup <backup dir>: a checksum of every file in an
+# upgrade backup, checked (with the database's integrity) before anything
+# is restored from it. SQLite's -wal/-shm side files are not part of it.
+write_sums() {
+    (cd "$1" && find . -type f ! -name SHA256SUMS ! -name '*-wal' ! -name '*-shm' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+}
+verify_backup() {
+    local b=$1
+    if [[ -f $b/SHA256SUMS ]]; then
+        (cd "$b" && sha256sum --quiet --strict -c SHA256SUMS >/dev/null 2>&1) || { warn "$(basename "$b") does not match its checksums (changed or damaged since it was made)"; return 1; }
+    else
+        warn "$(basename "$b") was made by an older upgrade.sh without checksums; only its database is checked"
+    fi
+    if [[ -f $b/db.sqlite ]] && ! db_ok "$b/db.sqlite"; then
+        warn "the database in $(basename "$b") fails SQLite's integrity check"
+        return 1
+    fi
+}
+
+# backup_time <backup dir>: when it was made, in the audit log's format.
+backup_time() {
+    local n
+    n=$(basename "$1")
+    printf '%s-%s-%sT%s:%s:%s+00:00' "${n:0:4}" "${n:4:2}" "${n:6:2}" "${n:9:2}" "${n:11:2}" "${n:13:2}"
+}
+
 # restore <backup dir>: put files, units, configuration and database back.
 restore() {
     local b=$1 db
+    log "Verifying $(basename "$b")"
+    verify_backup "$b" || { warn "not restoring from a backup that failed verification; nothing was restored"; return 1; }
+    ok "backup verified"
     log "Restoring $(basename "$b")"
     stop_services
     if [[ -d $b/panel ]]; then
@@ -152,10 +187,17 @@ restore() {
 if [[ $ROLLBACK -eq 1 ]]; then
     latest=$(ls -1d "$BACKUP_ROOT"/*/ 2>/dev/null | sort | tail -1)
     [[ -n $latest ]] || die "no upgrade backup found in $BACKUP_ROOT"
+    latest=${latest%/}
+    verify_backup "$latest" || die "the backup $(basename "$latest") failed verification; nothing was changed"
+    since=$(backup_time "$latest")
+    changes=$(php -r '$p = new PDO("sqlite:" . $argv[1]); $s = $p->prepare("SELECT COUNT(*) FROM audit_logs WHERE created_at >= ?"); $s->execute([$argv[2]]); echo (int) $s->fetchColumn();' "$(db_path)" "$since" 2>/dev/null || echo "?")
+    warn "Rolling back restores WhaCP $(cat "$latest/version" 2>/dev/null) and the panel database as it was at $since."
+    warn "Everything changed in the panel since then is lost from the panel ($changes change(s) in the audit log since then)."
+    warn "What was already done on the server stays there: e.g. a website created since then keeps running but no longer appears in the panel."
     confirm "Roll back to $(cat "$latest/version" 2>/dev/null) from $(basename "$latest")?" || die "aborted"
     log "Waiting for running jobs"
     wait_jobs "$BIN" || die "jobs are still running; nothing was changed. Try again later or pass --wait=<longer>"
-    restore "${latest%/}"
+    restore "$latest" || die "rollback failed; nothing was restored"
     exit 0
 fi
 
@@ -206,17 +248,32 @@ if ! wait_jobs "$AGENT_SRC"; then
     systemctl start whacp-panel.service whacp-scheduler.timer 2>/dev/null || true
     die "jobs are still running; nothing was changed. Try again later or pass --wait=<longer>"
 fi
+# backup_failed: nothing was changed yet; bring the panel back and stop.
+backup_failed() {
+    systemctl start whacp-panel.service whacp-scheduler.timer 2>/dev/null || true
+    die "$1; nothing was changed. The incomplete backup is in $B"
+}
 if [[ -f $DB ]]; then
-    # Consistent copy: the panel and scheduler are stopped; fold the WAL in.
-    php -r '$p = new PDO("sqlite:" . $argv[1]); $p->exec("PRAGMA wal_checkpoint(TRUNCATE)");' "$DB" 2>/dev/null || true
+    # Consistent copy: the panel and scheduler are stopped; fold the WAL into
+    # the database file. The checkpoint must complete (busy = 0), otherwise
+    # the copy could miss the latest changes.
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        busy=$(php -r '$p = new PDO("sqlite:" . $argv[1], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); echo $p->query("PRAGMA wal_checkpoint(TRUNCATE)")->fetch(PDO::FETCH_NUM)[0];' "$DB" 2>/dev/null || echo error)
+        [[ $busy == 0 ]] && break
+        sleep 1
+    done
+    [[ $busy == 0 ]] || backup_failed "the panel database could not be checkpointed (still in use?)"
     cp -a "$DB" "$B/db.sqlite"
+    db_ok "$B/db.sqlite" || backup_failed "the copy of the panel database fails SQLite's integrity check (run: whacp doctor)"
 fi
-ok "backup complete"
+write_sums "$B" || backup_failed "could not write the backup's checksums"
+verify_backup "$B" || backup_failed "the backup could not be verified"
+ok "backup complete and verified"
 
 rollback_and_die() {
     trap - ERR
     warn "$1 — rolling back to $OLD"
-    restore "$B"
+    restore "$B" || die "upgrade failed ($1) and the backup $B failed verification, so it was not restored: WhaCP is left as it is. Check the backup, then restore it by hand"
     die "upgrade failed ($1); WhaCP $OLD was restored. Backup kept in $B"
 }
 trap 'rollback_and_die "unexpected error on line $LINENO"' ERR

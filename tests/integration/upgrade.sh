@@ -110,6 +110,7 @@ pass "failed upgrade rolled back files and database, panel healthy"
 if "$T/new/installer/upgrade.sh" --yes --wait=soon >"$T/log" 2>&1; then fail "an invalid --wait was accepted"; fi
 "$T/new/installer/upgrade.sh" --yes >"$T/log" 2>&1 || fail "upgrade failed"
 grep -q "no job is running" "$T/log" || { cat "$T/log"; fail "the upgrade did not check for running jobs"; }
+grep -q "backup complete and verified" "$T/log" || { cat "$T/log"; fail "the upgrade backup was not verified"; }
 [[ $(cat "$T/opt/whacp/panel/VERSION") == $(cat "$ROOT/VERSION") ]] || fail "new version not installed"
 if [[ -z ${UPGRADE_FROM:-} ]]; then
     tables | grep -q "$(php -r '$m = require $argv[1]; preg_match("/CREATE TABLE (\w+)/", implode(" ", $m), $x); echo $x[1];' "$T/new/panel/database/migrations/$LAST")" || fail "new migration not applied"
@@ -131,8 +132,21 @@ curl -fsS "http://127.0.0.1:$PORT/healthz" >/dev/null || fail "new panel not ans
 [[ $(ls "$T/backups" | wc -l) -ge 2 ]] || fail "backups missing"
 pass "upgrade migrated the database and passed health checks"
 
-# 3. Manual rollback.
+# 3. Manual rollback. A backup changed since it was made is refused and
+# nothing is touched; the intact one is restored after a warning about
+# what the panel loses.
+LATEST=$(ls -1d "$T/backups"/*/ | sort | tail -1)
+[[ -s $LATEST/SHA256SUMS ]] || fail "the upgrade backup has no checksums"
+cp "$LATEST/etc/agent.json" "$T/agent.json.orig"
+echo " " >> "$LATEST/etc/agent.json"
+if "$T/new/installer/upgrade.sh" --rollback --yes >"$T/log" 2>&1; then fail "a rollback from a changed backup succeeded"; fi
+grep -q "does not match its checksums" "$T/log" || { cat "$T/log"; fail "the changed backup was not reported"; }
+[[ $(cat "$T/opt/whacp/panel/VERSION") == $(cat "$ROOT/VERSION") ]] || fail "a refused rollback changed the installation"
+curl -fsS "http://127.0.0.1:$PORT/healthz" >/dev/null || fail "panel down after a refused rollback"
+cp "$T/agent.json.orig" "$LATEST/etc/agent.json"
+pass "a changed upgrade backup is refused before anything is restored"
 "$T/new/installer/upgrade.sh" --rollback --yes >"$T/log" 2>&1 || fail "rollback failed"
+grep -q "lost from the panel" "$T/log" && grep -q "backup verified" "$T/log" || { cat "$T/log"; fail "rollback did not verify the backup or warn about lost panel changes"; }
 [[ $(cat "$T/opt/whacp/panel/VERSION") == "$OLDV" ]] || fail "rollback did not restore $OLDV"
 [[ $(tables) == "$OLD_TABLES" ]] || fail "rollback did not restore the database"
 pass "--rollback restored the previous version"

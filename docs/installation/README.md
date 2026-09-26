@@ -168,11 +168,21 @@ The upgrade checks the new agent against the current configuration and waits
 until no background job (a restore, a deployment, a backup) is running — up
 to 30 minutes, `--wait=2h` for longer, `--wait=0` not to wait; if jobs are
 still running it stops without changing anything. It then backs up
-program files, units, `/etc/whacp` and the panel database, swaps the files,
-migrates and restarts, then verifies the agent, the panel and `/healthz`.
-Any failure restores the previous version automatically. Websites keep
-running; only WhaCP's own services restart. Downgrades need
+program files, units, `/etc/whacp` and the panel database to
+`/var/backups/whacp/upgrades` (the database copy must pass SQLite's
+integrity check, and checksums of the whole backup are recorded), swaps the
+files, migrates and restarts, then verifies the agent, the panel and
+`/healthz`. Any failure restores the previous version automatically.
+Websites keep running; only WhaCP's own services restart. Downgrades need
 `--allow-downgrade`.
+
+`--rollback` checks the backup against its checksums first and refuses a
+damaged or changed one. It restores the panel database as it was before
+the upgrade: everything changed in the panel since then is lost from the
+panel (it says how many audit-log entries that is), while what was already
+done on the server stays — a website created after the upgrade keeps
+running but no longer appears in the panel. Roll back soon after an
+upgrade, or not at all.
 
 Whenever the agent stops (upgrade, `systemctl restart`, reboot) it first
 lets running jobs finish, for at most 5 minutes; a job still running then

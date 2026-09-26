@@ -37,6 +37,12 @@ All notable changes to WhaCP are documented here. The format follows
   turn them off is refused with a message to update it.
 
 ### Fixed
+- Upgrade backups are verified: the panel database's checkpoint must
+  complete (its result was ignored, so a copy could miss the latest
+  changes), the copy must pass SQLite's integrity check, and checksums of
+  the whole backup are recorded. Rollbacks check them first and refuse a
+  damaged or changed backup. `--rollback` now warns that panel changes
+  made since the upgrade are lost, with the audit-log count.
 - Installer: running it again after an interrupted installation now says
   what is missing and prints the `--reinstall` command that completes it
   (keeping configuration, token, key and database), instead of only
