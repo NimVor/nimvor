@@ -108,6 +108,9 @@ jobs:
       matrix:
         include:
           - { os: alma, version: '9', setup: tests/rhel/setup.sh }
+          - { os: alma, version: '10', setup: tests/rhel/setup.sh }
+          - { os: rocky, version: '9', setup: tests/rhel/setup.sh }
+          - { os: rocky, version: '10', setup: tests/rhel/setup.sh }
           - { os: ubuntu, version: '22.04', setup: tests/ubuntu/setup.sh }
           - { os: ubuntu, version: '26.04', setup: tests/ubuntu/setup.sh }
     env:
@@ -156,7 +159,7 @@ jobs:
           tests/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp agent:check'
           tests/vm.sh ssh 'cd /root/whacp && tests/integration/postinstall.sh'
       - name: SELinux denials
-        if: always() && matrix.os == 'alma'
+        if: always() && matrix.os != 'ubuntu'
         run: tests/vm.sh ssh 'getenforce; systemctl is-active auditd; grep -c denied /var/log/audit/audit.log; grep denied /var/log/audit/audit.log | grep -v "noatsecure\|rlimitinh\|siginh" | tail -80 || true'
       - name: Service logs
         if: always()

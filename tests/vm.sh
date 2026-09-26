@@ -2,6 +2,7 @@
 #
 # Boots a cloud image under KVM for the real-service tests (CI only):
 #   tests/vm.sh boot alma 9|10          AlmaLinux (SELinux stays enforcing)
+#   tests/vm.sh boot rocky 9|10         Rocky Linux (SELinux stays enforcing)
 #   tests/vm.sh boot ubuntu 22.04|26.04 Ubuntu LTS
 #   tests/vm.sh ssh CMD...              run a command in the VM (as root)
 #   tests/vm.sh put SRC DST             copy a file or directory into the VM
@@ -21,6 +22,7 @@ boot)
     case $os in
     alma) url="https://repo.almalinux.org/almalinux/${version}/cloud/x86_64/images/AlmaLinux-${version}-GenericCloud-latest.x86_64.qcow2" ;;
     ubuntu) url="https://cloud-images.ubuntu.com/releases/${version}/release/ubuntu-${version}-server-cloudimg-amd64.img" ;;
+    rocky) url="https://dl.rockylinux.org/pub/rocky/${version}/images/x86_64/Rocky-${version}-GenericCloud-Base.latest.x86_64.qcow2" ;;
     *) echo "unknown OS $os" >&2; exit 2 ;;
     esac
     curl -fsSL --retry 3 -o "$image" "$url"
@@ -60,7 +62,7 @@ put)
     exec scp -q -r -i "$WORK/key" -P "$PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$2" "root@127.0.0.1:$3"
     ;;
 *)
-    sed -n '3,9p' "$0"
+    sed -n '3,10p' "$0"
     exit 2
     ;;
 esac
