@@ -106,6 +106,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			}
 			return map[string]any{"version": in.Version, "enabled": false}, nil
 		}
+		defer env.LockWebConfig()()
 		if err := env.FPMTest(ctx, in.Version); err != nil {
 			return nil, host.FailWithValidation("PHP "+in.Version+" was not started", err)
 		}

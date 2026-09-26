@@ -474,6 +474,7 @@ func registerWebmail(r *actions.Registry, e env) {
 	}})
 
 	r.Register(actions.Action{Name: "mail.webmail_configure", Mutating: true, Description: "Turn webmail (Roundcube) on for a host name, or off. WhaCP writes Roundcube's configuration in its own folder, runs it in its own PHP-FPM pool and account, creates or upgrades its SQLite database and serves it with its own Nginx site over HTTPS (Let's Encrypt certificate for the host name when present, otherwise self-signed). Validated with nginx -t and php-fpm -t, checked by loading the sign-in page, rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		defer e.LockWebConfig()()
 		in := struct {
 			Enabled    bool   `json:"enabled"`
 			Hostname   string `json:"hostname"`

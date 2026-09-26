@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -363,4 +364,18 @@ func (e *Env) MoveToTrash(path, parent, name string) (string, error) {
 	}
 	dest := filepath.Join(trash, name+"-"+e.Now().Format("20060102T150405Z"))
 	return dest, e.Writer.Rename(path, dest)
+}
+
+// webConfig serialises changes to the web server configuration (Nginx
+// sites, PHP-FPM pools and the reloads that load them). Each change writes
+// its files, validates the whole configuration (nginx -t, php-fpm -t) and
+// reloads or rolls back; two at once could each see the other's half-written
+// files and fail, or roll back, for no reason of their own.
+var webConfig sync.Mutex
+
+// LockWebConfig takes the web configuration lock; call the result to release
+// it. Taken by action handlers (and jobs), never by the helpers they call.
+func (e *Env) LockWebConfig() func() {
+	webConfig.Lock()
+	return webConfig.Unlock
 }

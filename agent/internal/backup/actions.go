@@ -179,6 +179,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			return nil, actions.InvalidParams(err.Error())
 		}
 		j := env.Jobs.Start("backup.server_restore", jobTarget(""), func(ctx context.Context, log io.Writer) (any, error) {
+			defer env.LockWebConfig()()
 			return s.RestoreServer(ctx, in, log)
 		})
 		return map[string]any{"job_id": j.ID}, nil

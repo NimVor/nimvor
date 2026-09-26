@@ -111,7 +111,10 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err != nil {
 			return nil, actions.Failed("The certificate could not be renewed.", host.Output(out))
 		}
-		if err := env.ReloadNginx(ctx); err != nil {
+		unlock := env.LockWebConfig()
+		err = env.ReloadNginx(ctx)
+		unlock()
+		if err != nil {
 			return nil, host.FailWithValidation("The certificate was renewed but Nginx was not reloaded", err)
 		}
 		live := filepath.Join(env.M.LiveDir(), in.CertName)

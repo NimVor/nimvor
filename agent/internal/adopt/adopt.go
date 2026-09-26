@@ -301,7 +301,12 @@ func (s Service) Run(ctx context.Context, r Request, log io.Writer) (map[string]
 
 	fmt.Fprintf(log, "Creating the WhaCP website %s (disabled while files are copied)…\n", spec.Domain)
 	spec.Enabled = false
-	if _, err := s.Sites.ApplyIgnoring(ctx, spec, ignore); err != nil {
+	// The web configuration lock covers the two configuration steps, not the
+	// copy between them (which can take long).
+	unlock := e.LockWebConfig()
+	_, err = s.Sites.ApplyIgnoring(ctx, spec, ignore)
+	unlock()
+	if err != nil {
 		return nil, fmt.Errorf("creating the website failed: %v", err)
 	}
 	u, err := e.LookupUser(p.User)
@@ -323,6 +328,7 @@ func (s Service) Run(ctx context.Context, r Request, log io.Writer) (map[string]
 	fmt.Fprintf(log, "Copied %d files; skipped %d link(s) pointing outside the website.\n", n, len(skipped))
 
 	fmt.Fprintln(log, "Switching: disabling the old configuration and enabling the new website…")
+	defer e.LockWebConfig()()
 	done, err := s.disable(p.Steps)
 	if err != nil {
 		return nil, fmt.Errorf("the old configuration could not be disabled: %v", err)
@@ -571,6 +577,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := in.Spec.Normalize(env.Cfg.SitesRoot, env.Cfg.StateDir); err != nil {
 			return nil, host.Invalid(err)
 		}
+		defer env.LockWebConfig()()
 		return map[string]any{"undone": in.Spec.Domain}, s.Undo(ctx, in.Spec)
 	}})
 }

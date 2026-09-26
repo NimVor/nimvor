@@ -69,6 +69,7 @@ type UserInfo struct {
 }
 
 func (m *Manager) handleApply(ctx context.Context, p json.RawMessage) (any, error) {
+	defer m.Env.LockWebConfig()()
 	var s Spec
 	if err := host.Decode(p, &s); err != nil {
 		return nil, err
@@ -337,6 +338,7 @@ type DeleteRequest struct {
 }
 
 func (m *Manager) handleDelete(ctx context.Context, p json.RawMessage) (any, error) {
+	defer m.Env.LockWebConfig()()
 	var in DeleteRequest
 	if err := host.Decode(p, &in); err != nil {
 		return nil, err

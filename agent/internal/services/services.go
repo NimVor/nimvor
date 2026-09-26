@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"path"
+	"strings"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
@@ -57,6 +58,9 @@ func Register(r *actions.Registry, env *host.Env) {
 			return nil, actions.InvalidParams("op must be start, stop, restart, reload, enable or disable")
 		}
 		// Never (re)load a configuration that does not pass its test.
+		if in.Unit == env.M.NginxUnit || strings.HasPrefix(in.Unit, "php") {
+			defer env.LockWebConfig()()
+		}
 		if in.Unit == env.M.NginxUnit && (in.Op == "reload" || in.Op == "restart" || in.Op == "start") {
 			if err := env.NginxTest(ctx); err != nil {
 				return nil, host.FailWithValidation("Nginx was not "+in.Op+"ed", err)

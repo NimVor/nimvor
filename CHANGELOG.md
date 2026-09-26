@@ -42,6 +42,10 @@ All notable changes to WhaCP are documented here. The format follows
   turn them off is refused with a message to update it.
 
 ### Fixed
+- Changes to the web server configuration no longer run at the same time:
+  two website changes (or a website change and a certificate renewal,
+  webmail change, import or reload) could have one's `nginx -t` see the
+  other's half-written files and roll back for no reason of its own.
 - History no longer grows without limit: the scheduler removes job records
   90 days after they settled, deployments after 90 days (always keeping
   the latest 20 per website) and audit records after 365 days
