@@ -86,6 +86,12 @@ API token use, plugin actions). Each entry has user, action, target,
 result, IP, user agent and redacted details. Filter by action prefix
 (e.g. `user.`), user, result or free text.
 
+The scheduler keeps the audit log for 365 days; set
+`'audit' => ['retention_days' => N]` in `/etc/whacp/panel.php` to change
+that (`0` keeps it forever). Each removal is itself recorded
+(`audit.pruned`, with the count). Job history is kept 90 days after a job
+finished, deployment history 90 days (always the latest 20 per website).
+
 ## Notifications
 
 The bell in the top bar and **Notifications** list the results of

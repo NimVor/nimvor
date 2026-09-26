@@ -47,6 +47,11 @@ return [
         'token_file' => '/etc/whacp/agent.token',
         'timeout' => 30,
     ],
+    'audit' => [
+        // Audit records older than this are removed by the scheduler (the
+        // removal is itself recorded). 0 keeps them forever.
+        'retention_days' => 365,
+    ],
     'security' => [
         // Reverse proxies whose X-Forwarded-For header is trusted.
         'trusted_proxies' => [],

@@ -207,6 +207,10 @@ switch ($command) {
         if ($pruned > 0) {
             out("Removed {$pruned} old notification(s).");
         }
+        $removed = $c->get(\WhaCP\Services\RetentionService::class)->prune();
+        if (array_sum($removed) > 0) {
+            out("Removed old history: {$removed['jobs']} job(s), {$removed['deployments']} deployment(s), {$removed['audit']} audit record(s).");
+        }
         $c->get(\WhaCP\Repositories\SettingRepository::class)->set(\WhaCP\Services\Doctor::SCHEDULER_KEY, gmdate('c'), null);
         flock($lock, LOCK_UN);
         break;

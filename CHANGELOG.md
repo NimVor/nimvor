@@ -42,6 +42,11 @@ All notable changes to WhaCP are documented here. The format follows
   turn them off is refused with a message to update it.
 
 ### Fixed
+- History no longer grows without limit: the scheduler removes job records
+  90 days after they settled, deployments after 90 days (always keeping
+  the latest 20 per website) and audit records after 365 days
+  (`audit.retention_days` in `/etc/whacp/panel.php`; `0` keeps them
+  forever). Each audit removal is itself recorded.
 - Backups and restores no longer fill the disk. Backup files and downloads
   stop before less than 512 MiB would be left (the partial files are
   removed); a restore first checks that the website's and MySQL's disks
