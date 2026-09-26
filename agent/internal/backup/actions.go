@@ -79,17 +79,19 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := validLabel(in.Label); err != nil {
 			return nil, host.Invalid(err)
 		}
-		encrypt := in.Encrypt == nil || *in.Encrypt
+		// Server backups hold the agent token, the panel key and TLS private
+		// keys: they are always encrypted, also when kept only on this server
+		// (they can be downloaded and are copied by host backups).
+		if in.Encrypt != nil && !*in.Encrypt {
+			return nil, actions.InvalidParams("encrypt: server backups contain private keys and are always encrypted")
+		}
 		if in.Remote != nil {
 			if err := in.Remote.Validate(); err != nil {
 				return nil, actions.InvalidParams("remote: " + err.Error())
 			}
-			if !encrypt {
-				return nil, actions.InvalidParams("encrypt: server backups contain private keys and are always encrypted before upload")
-			}
 		}
 		j := env.Jobs.Start("backup.server", jobTarget(""), func(ctx context.Context, log io.Writer) (any, error) {
-			return s.CreateServer(ctx, encrypt, in.Label, in.Remote, keepLocal(in.KeepLocal, in.Remote), log)
+			return s.CreateServer(ctx, true, in.Label, in.Remote, keepLocal(in.KeepLocal, in.Remote), log)
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})

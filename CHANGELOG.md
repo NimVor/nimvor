@@ -30,6 +30,11 @@ All notable changes to WhaCP are documented here. The format follows
   in the panel.
 
 ### Security
+- Server backups are always encrypted, also when kept only on the server:
+  they contain the agent token, the panel key and TLS private keys, and
+  local backups can be downloaded and are copied by host backups. The
+  agent refuses an unencrypted server backup; the panel shows "Always
+  encrypted" instead of the switch. Website backups keep the choice.
 - SQL imports (database restores and the agent's `db.import`) run the
   `mysql` client with its own commands turned off (`--sandbox` on MariaDB,
   `--commands=OFF` on MySQL). The client runs as root, and a line such as

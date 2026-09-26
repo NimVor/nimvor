@@ -22,7 +22,7 @@ use WhaCP\Services\BackupScheduler;
     <?php endif; ?>
     <div class="mb-2"><label class="form-label small" for="s-ret">Keep the last</label>
         <div class="input-group input-group-sm"><input class="form-control" id="s-ret" type="number" name="retention" min="1" max="365" value="7"><span class="input-group-text">backups</span></div></div>
-    <?= $this->partial('backups/_options', ['storages' => $storages, 'prefix' => 's']) ?>
+    <?= $this->partial('backups/_options', ['storages' => $storages, 'prefix' => 's', 'alwaysEncrypted' => !$site]) ?>
     <button class="btn btn-sm btn-outline-primary mt-2">Add schedule</button>
     <div class="form-text">Times use the server's time zone.</div>
 </form>

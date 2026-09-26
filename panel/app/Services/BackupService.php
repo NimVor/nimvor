@@ -342,11 +342,16 @@ final class BackupService
         return $job;
     }
 
-    /** @param array{encrypt?: bool, storage_id?: int|null, keep_local?: bool, label?: string, schedule_id?: int|null} $opts */
+    /**
+     * Server backups hold the agent token, the panel key and TLS private
+     * keys, so they are always encrypted ("encrypt" in $opts is ignored).
+     *
+     * @param array{encrypt?: bool, storage_id?: int|null, keep_local?: bool, label?: string, schedule_id?: int|null} $opts
+     */
     public function createServer(array $opts, ?int $userId): string
     {
         $storageId = $opts['storage_id'] ?? null;
-        $encrypt = $storageId !== null || (bool) ($opts['encrypt'] ?? true);
+        $encrypt = true;
         $label = mb_substr(trim((string) ($opts['label'] ?? '')), 0, 100);
         $params = ['encrypt' => $encrypt, 'label' => $label];
         if ($storageId !== null) {

@@ -351,6 +351,8 @@ func TestActionsValidate(t *testing.T) {
 		{"backup.download", `{"domain":"example.com","id":"../../etc","file":"manifest.json"}`},
 		{"backup.delete", `{"domain":"../x","id":"20260901T120000Z-abcdef"}`},
 		{"backup.server", `{"encrypt":false,"remote":{"endpoint":"https://s3.example.com","bucket":"b-1","access_key":"a","secret_key":"b"}}`},
+		// Kept only on this server: still refused (downloads, host backups).
+		{"backup.server", `{"encrypt":false}`},
 	} {
 		if call(c.name, c.params) == nil {
 			t.Errorf("%s accepted %s", c.name, c.params)

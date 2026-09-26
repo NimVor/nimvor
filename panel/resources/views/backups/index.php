@@ -15,7 +15,7 @@ $canManage = $this->can(\WhaCP\Security\Permissions::BACKUPS_MANAGE);
         <div class="card mb-3">
             <div class="card-header"><i class="bi bi-hdd-rack me-1"></i>Server configuration</div>
             <?= $this->partial('backups/_list', ['backups' => $serverBackups, 'canManage' => $canManage]) ?>
-            <div class="card-footer small text-body-secondary">Archives Nginx, PHP, MySQL, Redis, certificates, SSH/firewall and WhaCP configuration for disaster recovery. It contains private keys, so it is always encrypted before upload.</div>
+            <div class="card-footer small text-body-secondary">Archives Nginx, PHP, MySQL, Redis, certificates, SSH/firewall and WhaCP configuration for disaster recovery. It contains private keys, so it is always encrypted.</div>
         </div>
         <div class="card mb-3">
             <div class="card-header"><i class="bi bi-cloud me-1"></i>Remote storage</div>
@@ -96,7 +96,7 @@ $canManage = $this->can(\WhaCP\Security\Permissions::BACKUPS_MANAGE);
                     <form method="post" action="<?= e($this->url('backups.server')) ?>" data-wcp-busy>
                         <?= $this->csrfField() ?>
                         <input class="form-control form-control-sm mb-2" name="label" maxlength="100" placeholder="Label (optional)" aria-label="Label">
-                        <?= $this->partial('backups/_options', ['storages' => $storages, 'prefix' => 'sv']) ?>
+                        <?= $this->partial('backups/_options', ['storages' => $storages, 'prefix' => 'sv', 'alwaysEncrypted' => true]) ?>
                         <button class="btn btn-sm btn-primary mt-3"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Start backup</button>
                     </form>
                 </div>

@@ -335,6 +335,12 @@ saved; credentials are stored encrypted with the panel key.
 
 The optional sub-folder separates servers that share one destination.
 
+Server backups contain `/etc/whacp` (agent token, panel key) and TLS
+private keys, so they are always encrypted with the backup key, also when
+kept only on this server. Without that key they cannot be restored: keep a
+copy of `/var/lib/whacp-agent/backup.key` off the server. Server backups
+made unencrypted by earlier versions can still be restored.
+
 ## Restoring server configuration
 
 *Backups → server backup → Restore* (needs *Reboot, update and configure

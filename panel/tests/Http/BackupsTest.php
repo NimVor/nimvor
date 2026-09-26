@@ -234,6 +234,26 @@ final class BackupsTest extends HttpTestCase
         self::assertStringNotContainsString('refresh-token-value', (string) json_encode($this->db->fetchAll('SELECT * FROM backup_storages')));
     }
 
+    /** Server backups hold private keys: never unencrypted, even when kept only here. */
+    public function testServerBackupsAreAlwaysEncrypted(): void
+    {
+        $page = $this->request('GET', '/backups')->body();
+        self::assertStringContainsString('Always encrypted (AES-256)', $page);
+        self::assertStringNotContainsString('id="sv-enc"', $page);
+        self::assertStringNotContainsString('id="s-enc"', $page);
+
+        $this->agent->succeed('backup.server', ['job_id' => 'eeeeeeeeeeeeeeee']);
+        $this->post('/backups/server', ['encrypt' => '0', 'label' => 'crafted']);
+        self::assertTrue($this->lastCall('backup.server')['encrypt']);
+        self::assertSame(1, (int) $this->db->scalar("SELECT encrypted FROM backups WHERE kind = 'server' ORDER BY id DESC LIMIT 1"));
+
+        $this->post('/backups/schedules', ['frequency' => 'daily', 'hour' => '3', 'retention' => '7', 'encrypt' => '0']);
+        self::assertSame(1, (int) $this->db->scalar("SELECT encrypt FROM backup_schedules WHERE kind = 'server' ORDER BY id DESC LIMIT 1"));
+
+        // Website backups keep the choice.
+        self::assertStringContainsString('id="b-enc"', $this->request('GET', '/sites/' . $this->siteId . '/backups')->body());
+    }
+
     public function testServerRestore(): void
     {
         $this->db->run("INSERT INTO backups (server_id, kind, backup_id, status, local, created_at) VALUES (1, 'server', '20260901T120000Z-abcdef', 'completed', 1, '2026-09-01')");
