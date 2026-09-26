@@ -15,7 +15,7 @@ $mem = $metrics['memory'] ?? [];
                 <dl class="wcp-dl">
                     <dt>Hostname</dt><dd><?= e($sys['hostname'] ?? '—') ?></dd>
                     <dt>Operating system</dt><dd><?= e($os['pretty_name'] ?? '—') ?>
-                        <?= !empty($os['supported']) ? $this->statusBadge('ok', 'supported') : $this->statusBadge('warning', 'not officially supported') ?></dd>
+                        <?= empty($os['supported']) ? $this->statusBadge('warning', 'not officially supported') : (!empty($os['preview']) ? '<span class="badge text-bg-info" title="Tested, but not yet recommended for production servers">preview</span>' : $this->statusBadge('ok', 'supported')) ?></dd>
                     <dt>OS family</dt><dd><?= e($os['family'] ?? '—') ?></dd>
                     <dt>Kernel</dt><dd><?= e($sys['kernel'] ?? '—') ?></dd>
                     <dt>Architecture</dt><dd><?= e($sys['architecture'] ?? '—') ?></dd>

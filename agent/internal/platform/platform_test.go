@@ -11,23 +11,26 @@ func TestParseOSRelease(t *testing.T) {
 		in        string
 		family    string
 		supported bool
+		preview   bool
 	}{
-		{"ID=ubuntu\nID_LIKE=debian\nVERSION_ID=\"24.04\"\n", "debian", true},
-		{"ID=ubuntu\nVERSION_ID=\"22.04\"\n", "debian", true},
-		{"ID=ubuntu\nVERSION_ID=\"26.04\"\n", "debian", true},
-		{"ID=ubuntu\nVERSION_ID=\"20.04\"\n", "debian", false},
-		{"ID=debian\nVERSION_ID=\"12\"\n", "debian", false},
-		{"ID=\"almalinux\"\nID_LIKE=\"rhel centos fedora\"\nVERSION_ID=\"9.4\"\n", "rhel", true},
-		{"ID=\"almalinux\"\nVERSION_ID=\"10.0\"\n", "rhel", true},
-		{"ID=\"rhel\"\nVERSION_ID=\"8.10\"\n", "rhel", false},
-		{"ID=\"centos\"\nID_LIKE=\"rhel fedora\"\nVERSION_ID=\"9\"\n", "rhel", false},
-		{"ID=rocky\nID_LIKE=\"rhel centos fedora\"\n", "rhel", false},
-		{"", "unknown", false},
+		{"ID=ubuntu\nID_LIKE=debian\nVERSION_ID=\"24.04\"\n", "debian", true, false},
+		{"ID=ubuntu\nVERSION_ID=\"22.04\"\n", "debian", true, false},
+		{"ID=ubuntu\nVERSION_ID=\"26.04\"\n", "debian", true, true},
+		{"ID=ubuntu\nVERSION_ID=\"20.04\"\n", "debian", false, false},
+		{"ID=debian\nVERSION_ID=\"12\"\n", "debian", false, false},
+		{"ID=\"almalinux\"\nID_LIKE=\"rhel centos fedora\"\nVERSION_ID=\"9.4\"\n", "rhel", true, false},
+		{"ID=\"rhel\"\nVERSION_ID=\"9.6\"\n", "rhel", true, false},
+		{"ID=\"almalinux\"\nVERSION_ID=\"10.0\"\n", "rhel", true, true},
+		{"ID=rocky\nVERSION_ID=\"10.0\"\n", "rhel", true, true},
+		{"ID=\"rhel\"\nVERSION_ID=\"8.10\"\n", "rhel", false, false},
+		{"ID=\"centos\"\nID_LIKE=\"rhel fedora\"\nVERSION_ID=\"10\"\n", "rhel", false, false},
+		{"ID=rocky\nID_LIKE=\"rhel centos fedora\"\n", "rhel", false, false},
+		{"", "unknown", false, false},
 	}
 	for _, c := range cases {
 		info := ParseOSRelease([]byte(c.in))
-		if info.Family != c.family || info.Supported != c.supported {
-			t.Errorf("ParseOSRelease(%q) = family %q supported %v", c.in, info.Family, info.Supported)
+		if info.Family != c.family || info.Supported != c.supported || info.Preview != c.preview {
+			t.Errorf("ParseOSRelease(%q) = family %q supported %v preview %v", c.in, info.Family, info.Supported, info.Preview)
 		}
 	}
 }

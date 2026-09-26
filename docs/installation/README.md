@@ -7,8 +7,17 @@
 
 ## Requirements
 
-- Ubuntu 22.04, 24.04 or 26.04 LTS, or AlmaLinux, Rocky Linux or RHEL 9 or
-  10, with systemd (others: `--force-unsupported`, best effort).
+- A supported system, with systemd:
+
+  | Level | Systems |
+  |---|---|
+  | **Supported** (tested, recommended for production) | Ubuntu 22.04 and 24.04 LTS, AlmaLinux 9, Rocky Linux 9, RHEL 9 |
+  | **Preview** (installs and is tested, not yet recommended for production) | Ubuntu 26.04 LTS, AlmaLinux 10, Rocky Linux 10, RHEL 10 |
+
+  RHEL is tested through AlmaLinux and Rocky Linux, which are built from
+  the same sources. On a preview system the installer warns and the panel
+  shows a "preview" badge; everything works the same. Other systems are
+  refused (`--force-unsupported` to try anyway, best effort).
 - On AlmaLinux, Rocky Linux and RHEL, `--install-deps` enables EPEL and Remi
   (PHP versions for websites, and PHP 8.3 for the panel on 9), and installs
   `policycoreutils-python-utils` for SELinux labels. SELinux stays enforcing:
@@ -265,8 +274,10 @@ Known limitations in 1.0.0:
 
 - Ubuntu 22.04 (Redis 6.0): a website's Redis user is limited to its key
   prefix but cannot be limited to its own Pub/Sub channels.
-- RHEL 9 and 10 are supported but tested only through AlmaLinux and Rocky
-  Linux, which use the same packages.
+- RHEL 9 and 10 are tested only through AlmaLinux and Rocky Linux, which
+  use the same packages.
+- Ubuntu 26.04 and the version 10 systems are previews: tested like the
+  others, but newer, with less use on real servers.
 - Let's Encrypt issuance is tested against a local stand-in, not against
   Let's Encrypt itself.
 - Recovering onto a new server finds only encrypted backups made by 1.0.0

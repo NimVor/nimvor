@@ -24,6 +24,9 @@ type OSInfo struct {
 	Codename   string   `json:"codename"`
 	Family     string   `json:"family"`
 	Supported  bool     `json:"supported"`
+	// Preview: supported and tested, but not yet recommended for
+	// production (newest releases).
+	Preview bool `json:"preview"`
 }
 
 // Paths lists well-known locations for a distribution.
@@ -169,14 +172,19 @@ type Managed struct {
 	RoundcubeDefaults string            `json:"roundcube_defaults"`
 }
 
-// supportedUbuntu lists the Ubuntu releases WhaCP officially targets.
-var supportedUbuntu = map[string]bool{"22.04": true, "24.04": true, "26.04": true}
+// supportedUbuntu lists the Ubuntu releases WhaCP officially targets;
+// previewUbuntu those among them not yet recommended for production.
+var (
+	supportedUbuntu = map[string]bool{"22.04": true, "24.04": true, "26.04": true}
+	previewUbuntu   = map[string]bool{"26.04": true}
+)
 
 // supportedRHEL lists the RHEL-compatible distributions and major
 // releases WhaCP targets.
 var (
 	supportedRHEL      = map[string]bool{"almalinux": true, "rocky": true, "rhel": true}
 	supportedRHELMajor = map[string]bool{"9": true, "10": true}
+	previewRHELMajor   = map[string]bool{"10": true}
 )
 
 // Detect inspects os-release under root and returns the matching Platform.
@@ -234,6 +242,7 @@ func ParseOSRelease(data []byte) OSInfo {
 	info.Family = family(info)
 	major, _, _ := strings.Cut(info.VersionID, ".")
 	info.Supported = (info.ID == "ubuntu" && supportedUbuntu[info.VersionID]) || (supportedRHEL[info.ID] && supportedRHELMajor[major])
+	info.Preview = info.Supported && ((info.ID == "ubuntu" && previewUbuntu[info.VersionID]) || (supportedRHEL[info.ID] && previewRHELMajor[major]))
 	return info
 }
 

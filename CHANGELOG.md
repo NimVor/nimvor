@@ -30,6 +30,12 @@ All notable changes to WhaCP are documented here. The format follows
     alive.
 
 ### Changed
+- **Support levels:** Ubuntu 22.04 and 24.04, AlmaLinux 9, Rocky Linux 9
+  and RHEL 9 are supported; Ubuntu 26.04 and AlmaLinux, Rocky Linux and
+  RHEL 10 are previews: they install and are tested the same way, but are
+  not yet recommended for production. The installer warns on a preview
+  system, the agent logs it, and the dashboard and Server page show a
+  "preview" badge (`system.info` reports `preview`).
 - Website owners (and their resellers) can open the log of any job run on
   their website, not only the ones they started.
 - Webhook deployments and scheduled backups are tracked like jobs started

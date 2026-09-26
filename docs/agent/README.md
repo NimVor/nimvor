@@ -99,9 +99,10 @@ website's deploy hook.
 
 ## OS support
 
-`platform` implements the Debian family (Ubuntu 22.04/24.04/26.04 supported,
-Debian best-effort) and the RHEL family (AlmaLinux, Rocky Linux and RHEL 9
-and 10). The platform also maps package names (`pkgs` installs with apt or
+`platform` implements the Debian family (Ubuntu 22.04/24.04 supported,
+26.04 preview, Debian best-effort) and the RHEL family (AlmaLinux, Rocky
+Linux and RHEL 9 supported, 10 preview); `system.info` reports `supported`
+and `preview`. The platform also maps package names (`pkgs` installs with apt or
 dnf), and names PHP versions the Remi way on RHEL (`php83-php-fpm`, pools in
 `/etc/opt/remi/php83/php-fpm.d`). `fw` opens service ports in UFW or
 firewalld, and `selinux` keeps SELinux labels, booleans and ports

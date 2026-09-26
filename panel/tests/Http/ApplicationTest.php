@@ -161,6 +161,27 @@ final class ApplicationTest extends TestCase
         }
     }
 
+    public function testPreviewOperatingSystemIsMarked(): void
+    {
+        $app = $this->app();
+        $this->seedUser($app, 'admin', 'admin');
+        $this->login($app, 'admin');
+        $badge = '>preview</span>';
+        self::assertStringNotContainsString($badge, $this->request($app, 'GET', '/')->body(), 'Ubuntu 24.04 is not a preview');
+
+        $this->agent->succeed('system.info', [
+            'agent_version' => '1.0.0', 'os' => ['pretty_name' => 'Ubuntu 26.04 LTS', 'supported' => true, 'preview' => true],
+            'system' => ['hostname' => 'web1', 'kernel' => '7.0', 'cpu' => ['cores' => 2, 'model' => 'x'], 'uptime_seconds' => 100, 'timezone' => 'UTC', 'interfaces' => []],
+        ]);
+        $this->agent->succeed('system.metrics', []);
+        $this->agent->succeed('discovery.firewall', []);
+        foreach (['/', '/server'] as $path) {
+            $body = $this->request($app, 'GET', $path)->body();
+            self::assertStringContainsString($badge, $body, $path);
+            self::assertStringNotContainsString('unsupported', $body, $path);
+        }
+    }
+
     public function testViewerCannotManageUsersOrRunDiscovery(): void
     {
         $app = $this->app();

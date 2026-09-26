@@ -53,7 +53,11 @@ ENABLE_WRITES=0
 AGENT_ONLY=0
 REMOTE_ACCESS=""
 ALLOW_FROM=""
-SUPPORTED_UBUNTU=("22.04" "24.04" "26.04")
+# Supported: tested and recommended for production. Preview: installs and
+# is tested the same way, but not yet recommended for production.
+SUPPORTED_UBUNTU=("22.04" "24.04")
+PREVIEW_UBUNTU=("26.04")
+SUPPORTED_LIST="Ubuntu 22.04/24.04, AlmaLinux/Rocky Linux/RHEL 9; preview: Ubuntu 26.04, AlmaLinux/Rocky Linux/RHEL 10"
 
 log()  { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m  ✓\033[0m %s\n' "$*"; }
@@ -107,20 +111,26 @@ log "Detecting operating system"
 # shellcheck disable=SC1091
 . /etc/os-release
 supported=0
+preview=0
 PKG=apt
 MAJOR=${VERSION_ID%%.*}
 if [[ ${ID:-} == ubuntu ]]; then
     for v in "${SUPPORTED_UBUNTU[@]}"; do [[ ${VERSION_ID:-} == "$v" ]] && supported=1; done
+    for v in "${PREVIEW_UBUNTU[@]}"; do [[ ${VERSION_ID:-} == "$v" ]] && preview=1; done
 elif [[ ${ID:-} =~ ^(almalinux|rocky|rhel)$ ]]; then
     PKG=dnf
-    [[ $MAJOR == 9 || $MAJOR == 10 ]] && supported=1
+    [[ $MAJOR == 9 ]] && supported=1
+    [[ $MAJOR == 10 ]] && preview=1
 fi
 if [[ $supported -eq 1 ]]; then
     ok "${PRETTY_NAME}"
+elif [[ $preview -eq 1 ]]; then
+    ok "${PRETTY_NAME}"
+    warn "${PRETTY_NAME} is a preview system for WhaCP: it installs and is tested, but is not yet recommended for production servers"
 elif [[ $FORCE_UNSUPPORTED -eq 1 ]]; then
     warn "${PRETTY_NAME:-unknown OS} is not supported; continuing because of --force-unsupported"
 else
-    die "${PRETTY_NAME:-unknown OS} is not supported (Ubuntu 22.04/24.04/26.04, AlmaLinux/Rocky Linux/RHEL 9 and 10). Use --force-unsupported to try anyway."
+    die "${PRETTY_NAME:-unknown OS} is not supported (${SUPPORTED_LIST}). Use --force-unsupported to try anyway."
 fi
 command -v systemctl >/dev/null || die "systemd is required"
 

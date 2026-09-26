@@ -101,9 +101,11 @@ func run() int {
 	}
 	plat := platform.Detect(root)
 	info := plat.Info()
-	log.Info("starting whacp-agent", "version", version, "os", info.PrettyName, "family", info.Family, "supported", info.Supported, "write_actions", cfg.AllowWriteActions)
+	log.Info("starting whacp-agent", "version", version, "os", info.PrettyName, "family", info.Family, "supported", info.Supported, "preview", info.Preview, "write_actions", cfg.AllowWriteActions)
 	if !info.Supported {
 		log.Warn("this operating system is not officially supported; discovery runs in best-effort mode")
+	} else if info.Preview {
+		log.Warn("this operating system is a preview for WhaCP: tested, but not yet recommended for production servers")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

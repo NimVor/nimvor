@@ -73,7 +73,7 @@ $sys = $info['system'] ?? [];
                         <dl class="wcp-dl">
                             <dt>Hostname</dt><dd><?= e($sys['hostname'] ?? '—') ?></dd>
                             <dt>OS</dt><dd><?= e($os['pretty_name'] ?? '—') ?>
-                                <?php if (empty($os['supported'])): ?><span class="badge text-bg-warning ms-1">unsupported</span><?php endif; ?></dd>
+                                <?php if (empty($os['supported'])): ?><span class="badge text-bg-warning ms-1">unsupported</span><?php elseif (!empty($os['preview'])): ?><span class="badge text-bg-info ms-1" title="Tested, but not yet recommended for production servers">preview</span><?php endif; ?></dd>
                             <dt>Kernel</dt><dd><?= e($sys['kernel'] ?? '—') ?></dd>
                             <dt>CPU</dt><dd><?= e(($sys['cpu']['cores'] ?? '?') . ' × ' . ($sys['cpu']['model'] ?? 'unknown')) ?></dd>
                             <dt>Uptime</dt><dd data-uptime><?= e(format_duration((float) ($sys['uptime_seconds'] ?? 0))) ?></dd>
