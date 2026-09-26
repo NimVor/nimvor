@@ -113,9 +113,9 @@ grep -q "no job is running" "$T/log" || { cat "$T/log"; fail "the upgrade did no
 grep -q "backup complete and verified" "$T/log" || { cat "$T/log"; fail "the upgrade backup was not verified"; }
 [[ $(cat "$T/opt/whacp/panel/VERSION") == $(cat "$ROOT/VERSION") ]] || fail "new version not installed"
 if [[ -z ${UPGRADE_FROM:-} ]]; then
-    tables | grep -q "$(php -r '$m = require $argv[1]; preg_match("/CREATE TABLE (\w+)/", implode(" ", $m), $x); echo $x[1];' "$T/new/panel/database/migrations/$LAST")" || fail "new migration not applied"
+    grep -q "$(php -r '$m = require $argv[1]; preg_match("/CREATE TABLE (\w+)/", implode(" ", $m), $x); echo $x[1];' "$T/new/panel/database/migrations/$LAST")" <<<"$(tables)" || fail "new migration not applied"
 fi
-cli migrate | grep -q "up to date" || fail "migrations pending after the upgrade"
+grep -q "up to date" <<<"$(cli migrate)" || fail "migrations pending after the upgrade"
 [[ $(cli users:count) == "$USERS" ]] || fail "user data lost"
 if [[ -n ${UPGRADE_FROM:-} ]]; then
     WHACP_CONFIG="$T/etc/whacp/panel.php" php "$ROOT/tests/integration/fixtures/verify.php" "$T/opt/whacp/panel" "$T/state.json" || fail "fixture data lost in the upgrade"

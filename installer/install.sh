@@ -140,8 +140,12 @@ elif command -v php >/dev/null; then
         else
             declare -A ext_pkg=([pdo_sqlite]=php-sqlite3 [curl]=php-curl [mbstring]=php-mbstring [sodium]=php-common [openssl]=php-common)
         fi
+        # Read the module list once: with pipefail, "php -m | grep -q" fails
+        # when grep exits early and php gets SIGPIPE (seen on AlmaLinux 10:
+        # an installed extension reported missing).
+        php_modules=$(php -m)
         for ext in pdo_sqlite curl mbstring sodium openssl; do
-            if php -m | grep -qi "^${ext}$"; then ok "php extension ${ext}"; else missing_pkgs+=("${ext_pkg[$ext]}"); fi
+            if grep -qix "${ext}" <<<"$php_modules"; then ok "php extension ${ext}"; else missing_pkgs+=("${ext_pkg[$ext]}"); fi
         done
     else
         warn "PHP $(php -r 'echo PHP_VERSION;') is older than 8.3"
@@ -216,7 +220,7 @@ Existing configuration, agent token, panel key and database are kept; missing pa
         die "WhaCP is already installed in $PREFIX. To upgrade, run installer/upgrade.sh (it backs up, migrates and rolls back on failure). To repair this version's files, run the installer with --reinstall."
     fi
 fi
-if [[ $AGENT_ONLY -eq 0 ]] && command -v ss >/dev/null && ss -ltn "sport = :$PORT" | grep -q LISTEN; then
+if [[ $AGENT_ONLY -eq 0 ]] && command -v ss >/dev/null && grep -q LISTEN <<<"$(ss -ltn "sport = :$PORT")"; then
     if ! systemctl is-active --quiet whacp-panel 2>/dev/null; then
         die "port $PORT is already in use; choose another with --port="
     fi

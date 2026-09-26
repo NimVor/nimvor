@@ -42,6 +42,10 @@ All notable changes to WhaCP are documented here. The format follows
   turn them off is refused with a message to update it.
 
 ### Fixed
+- Installer: the PHP extension check could report an installed extension
+  as missing (`php -m | grep -q` under `pipefail`: when grep stops early,
+  php is killed by SIGPIPE and the check fails). Seen on AlmaLinux 10 in
+  CI; reproduced locally (1 in 300). The module list is now read once.
 - Upgrade backups are verified: the panel database's checkpoint must
   complete (its result was ignored, so a copy could miss the latest
   changes), the copy must pass SQLite's integrity check, and checksums of
