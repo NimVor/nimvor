@@ -382,6 +382,16 @@ func TestRealHostMail(t *testing.T) {
 		tree, _ := exec.Command("ls", "-laZ", filepath.Dir(maildir), filepath.Dir(filepath.Dir(maildir))).CombinedOutput()
 		t.Fatalf("deleted mailbox's mail left in place: %v\n%s", del, tree)
 	}
+	// The trash is on the mail's own filesystem (a rename, even when /var/vmail
+	// is a separate disk), readable by root only.
+	trashed, _ := del["trash"].(string)
+	if !strings.HasPrefix(trashed, filepath.Join(env.M.VmailDir, host.TrashDir)+"/") {
+		t.Fatalf("mail moved to %q", trashed)
+	}
+	if st, err := os.Stat(filepath.Dir(trashed)); err != nil || st.Mode().Perm() != 0o700 {
+		t.Fatalf("trash folder: %v %v", st, err)
+	}
+	os.RemoveAll(filepath.Join(env.M.VmailDir, host.TrashDir))
 	must("mail.domain_remove", map[string]any{"domain": "rt-mail.test", "confirm": "rt-mail.test"})
 	if out := imap("alice@rt-mail.test", "Alice-mail-pass-1"); !strings.Contains(out, "a1 NO") {
 		t.Fatalf("deleted mailbox can still sign in:\n%s", out)

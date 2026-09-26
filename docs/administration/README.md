@@ -176,7 +176,9 @@ can be added to the domain's zone on this panel with one click. Mailboxes
 have a password (stored as a SHA-512 crypt hash; a generated one is shown
 once) and an optional quota; aliases forward to one or more addresses, and
 `*` catches all other addresses of the domain. Deleting a mailbox moves its
-mail to the agent's trash folder.
+mail to `/var/vmail/.whacp-trash` (deleted websites' files go to
+`.whacp-trash` in the websites folder): root-only folders on the same disk
+as the data, emptied by the administrator.
 
 Mail apps use the full address as user name, IMAP on port 993 (TLS) and
 SMTP submission on port 587 (STARTTLS, sign-in required). Port 25 accepts

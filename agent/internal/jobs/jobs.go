@@ -159,6 +159,35 @@ func (m *Manager) finish(j *Job, result any, err error) {
 // record (used on shutdown and by tests before their folders are removed).
 func (m *Manager) Drain() { m.running.Wait() }
 
+// DrainWithin waits like Drain but at most until ctx ends. It reports
+// whether every job finished.
+func (m *Manager) DrainWithin(ctx context.Context) bool {
+	done := make(chan struct{})
+	go func() { m.running.Wait(); close(done) }()
+	select {
+	case <-done:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+// Active returns the jobs that are queued or running.
+func (m *Manager) Active() []Job {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []Job
+	for _, j := range m.jobs {
+		if Active(j.Status) {
+			out = append(out, *j)
+		}
+	}
+	return out
+}
+
+// Active reports whether a job with this status has not finished yet.
+func Active(status string) bool { return status == Queued || status == Running }
+
 // Get returns a job by ID.
 func (m *Manager) Get(id string) (Job, error) {
 	m.mu.Lock()

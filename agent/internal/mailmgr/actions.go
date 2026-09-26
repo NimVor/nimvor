@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -167,10 +168,61 @@ func (e env) run(ctx context.Context, name string, args ...string) error {
 	return nil
 }
 
+// reloadPostfix makes Postfix use its changed configuration and returns
+// once it does. "postfix reload" only signals the master process: an smtpd
+// started before it can still take the next connection with the old
+// settings (seen in tests: a message accepted right after the spam filter
+// was turned on, without being scanned). New smtpd processes read main.cf
+// themselves, so waiting for the earlier ones to exit is enough; a busy one
+// finishes its session first, so the wait is bounded.
+func (e env) reloadPostfix(ctx context.Context) error {
+	before := e.smtpdPIDs()
+	if err := e.run(ctx, "postfix", "reload"); err != nil {
+		return err
+	}
+	if e.Cfg.SimulateCommands {
+		return nil
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for len(before) > 0 && time.Now().Before(deadline) {
+		for pid := range before {
+			if _, err := os.Stat(filepath.Join(e.Cfg.ProcDir, pid)); err != nil {
+				delete(before, pid)
+			}
+		}
+		if len(before) > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(50 * time.Millisecond):
+			}
+		}
+	}
+	if len(before) > 0 {
+		e.Log.Warn("smtpd processes from before the Postfix reload are still running (busy sessions)", "count", len(before))
+	}
+	return nil
+}
+
+// smtpdPIDs lists running smtpd processes.
+func (e env) smtpdPIDs() map[string]bool {
+	pids := map[string]bool{}
+	entries, _ := os.ReadDir(e.Cfg.ProcDir)
+	for _, d := range entries {
+		if _, err := strconv.Atoi(d.Name()); err != nil {
+			continue
+		}
+		if b, err := os.ReadFile(filepath.Join(e.Cfg.ProcDir, d.Name(), "comm")); err == nil && strings.TrimSpace(string(b)) == "smtpd" {
+			pids[d.Name()] = true
+		}
+	}
+	return pids
+}
+
 // reloadData makes the services read the changed files.
 func (e env) reloadData(ctx context.Context) error {
 	if e.run(ctx, "postfix", "status") == nil {
-		if err := e.run(ctx, "postfix", "reload"); err != nil {
+		if err := e.reloadPostfix(ctx); err != nil {
 			return err
 		}
 	}
@@ -577,7 +629,7 @@ func Register(r *actions.Registry, he *host.Env) {
 		return map[string]any{"address": addr, "created": !exists, "quota_mb": m.QuotaMB}, nil
 	}})
 
-	r.Register(actions.Action{Name: "mail.mailbox_delete", Mutating: true, Description: "Delete a mailbox (confirm = address); its mail is moved to the agent's trash folder, or kept in place with keep_mail.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "mail.mailbox_delete", Mutating: true, Description: "Delete a mailbox (confirm = address); its mail is moved to .whacp-trash in the mail folder, or kept in place with keep_mail.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			Address  string `json:"address"`
 			Confirm  string `json:"confirm"`
@@ -612,12 +664,7 @@ func Register(r *actions.Registry, he *host.Env) {
 		if !in.KeepMail && he.Root.Exists(maildir) {
 			// The mailbox is gone from Dovecot either way; its mail must not
 			// silently stay behind if it cannot be moved away.
-			trash := filepath.Join(he.Cfg.StateDir, "trash")
-			dest := filepath.Join(trash, "mail-"+addr+"-"+e.Now().Format("20060102T150405Z"))
-			_, err := he.Writer.MkdirAll(trash, 0o700, agentfs.RootOwner)
-			if err == nil {
-				err = he.Writer.Rename(maildir, dest)
-			}
+			dest, err := he.MoveToTrash(maildir, e.M.VmailDir, "mail-"+addr)
 			if err != nil {
 				he.Log.Warn("mailbox mail not moved to trash", "address", addr, "error", err)
 				res["notes"] = []string{"The mailbox was deleted but its mail could not be moved to the trash and is still in " + maildir + ": " + logging.Redact(err.Error())}

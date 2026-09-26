@@ -377,14 +377,10 @@ func (m *Manager) handleDelete(ctx context.Context, p json.RawMessage) (any, err
 	}
 	root := filepath.Join(e.Cfg.SitesRoot, in.Domain)
 	if in.RemoveFiles && e.Root.Exists(root) {
-		trash := filepath.Join(e.Cfg.StateDir, "trash")
-		if _, err := e.Writer.MkdirAll(trash, 0o700, agentfs.RootOwner); err == nil {
-			dest := filepath.Join(trash, in.Domain+"-"+e.Now().Format("20060102T150405Z"))
-			if err := e.Writer.Rename(root, dest); err != nil {
-				warnings = append(warnings, "The website files were kept in "+root+" because they could not be moved to the trash ("+errText(err)+").")
-			} else {
-				res["trash"] = dest
-			}
+		if dest, err := e.MoveToTrash(root, e.Cfg.SitesRoot, in.Domain); err != nil {
+			warnings = append(warnings, "The website files were kept in "+root+" because they could not be moved to the trash ("+errText(err)+").")
+		} else {
+			res["trash"] = dest
 		}
 	}
 	if in.RemoveUser && in.User != "" {

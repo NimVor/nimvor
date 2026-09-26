@@ -34,6 +34,10 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/server"
 )
 
+// shutdownGrace bounds how long a stopping agent waits for running jobs
+// (whacp-agent.service allows it with TimeoutStopSec).
+const shutdownGrace = 5 * time.Minute
+
 // version is set at build time with -ldflags "-X main.version=...".
 var version = "1.0.0-rc1"
 
@@ -52,6 +56,7 @@ func run() int {
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	checkConfig := flag.Bool("check-config", false, "validate the configuration and token, then exit")
 	showPin := flag.Bool("pin", false, "print the TLS public-key pin for remote panels (creates the certificate if needed), then exit")
+	waitFor := flag.Duration("wait-jobs", 0, "wait up to this long until the running agent has no queued or running job, then exit (0: none; 3: still running; 1: error)")
 	flag.Parse()
 
 	if *showVersion {
@@ -74,6 +79,9 @@ func run() int {
 	if *checkConfig {
 		fmt.Println("configuration OK")
 		return 0
+	}
+	if *waitFor > 0 {
+		return waitJobs(context.Background(), cfg.SocketPath, token, *waitFor, 5*time.Second, os.Stdout)
 	}
 	if *showPin {
 		cert, err := server.LoadOrCreateCert(cfg.TLSCert, cfg.TLSKey)
@@ -216,13 +224,26 @@ func run() int {
 			return 1
 		}
 	}
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// No new requests (so no new jobs); let running actions finish.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ActionTimeout.Duration+5*time.Second)
 	defer cancel()
 	_ = httpSrv.Shutdown(shutdownCtx)
 	if tcpSrv != nil {
 		_ = tcpSrv.Shutdown(shutdownCtx)
 	}
 	_ = os.Remove(cfg.SocketPath)
+	// Background jobs (restores, deployments) get time to finish instead of
+	// stopping half-way; the unit's TimeoutStopSec allows for this.
+	if active := jobManager.Active(); len(active) > 0 {
+		log.Info("waiting for running jobs before stopping", "jobs", len(active), "limit", shutdownGrace)
+		drainCtx, cancelDrain := context.WithTimeout(context.Background(), shutdownGrace)
+		defer cancelDrain()
+		if !jobManager.DrainWithin(drainCtx) {
+			for _, j := range jobManager.Active() {
+				log.Warn("job interrupted by the agent stopping", "job", j.ID, "kind", j.Kind, "target", j.Target)
+			}
+		}
+	}
 	log.Info("stopped")
 	return 0
 }

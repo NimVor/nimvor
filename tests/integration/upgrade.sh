@@ -106,8 +106,10 @@ grep -q "WhaCP $OLDV was restored" "$T/log" || fail "no rollback message"
 curl -fsS "http://127.0.0.1:$PORT/healthz" >/dev/null || fail "old panel not running after rollback"
 pass "failed upgrade rolled back files and database, panel healthy"
 
-# 2. A good upgrade.
+# 2. A good upgrade. It first asks the running agent for running jobs.
+if "$T/new/installer/upgrade.sh" --yes --wait=soon >"$T/log" 2>&1; then fail "an invalid --wait was accepted"; fi
 "$T/new/installer/upgrade.sh" --yes >"$T/log" 2>&1 || fail "upgrade failed"
+grep -q "no job is running" "$T/log" || { cat "$T/log"; fail "the upgrade did not check for running jobs"; }
 [[ $(cat "$T/opt/whacp/panel/VERSION") == $(cat "$ROOT/VERSION") ]] || fail "new version not installed"
 if [[ -z ${UPGRADE_FROM:-} ]]; then
     tables | grep -q "$(php -r '$m = require $argv[1]; preg_match("/CREATE TABLE (\w+)/", implode(" ", $m), $x); echo $x[1];' "$T/new/panel/database/migrations/$LAST")" || fail "new migration not applied"

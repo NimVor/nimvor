@@ -41,6 +41,21 @@ All notable changes to WhaCP are documented here. The format follows
   instead.
 - Deleting a mailbox reports mail it could not move to the trash instead
   of ignoring the error.
+- Deleted websites' files and mailboxes' mail could not be moved to the
+  trash when they were on another filesystem than `/var/lib/whacp-agent`
+  (a separate `/home` or `/var/vmail` disk; Ubuntu 26.04's `/tmp` in
+  tests). The trash is now `.whacp-trash` in the websites folder and in
+  `/var/vmail` (root only, same disk: a rename that keeps owners and
+  labels).
+- Upgrades no longer interrupt background jobs: `upgrade.sh` waits until no
+  restore, deployment or backup is running (`--wait`, default 30 minutes)
+  and changes nothing if one still is; the agent, when stopped, lets
+  running jobs finish (up to 5 minutes) instead of abandoning them, and
+  its unit no longer sends SIGTERM to the commands a job is running.
+- Changes to Postfix (enabling the spam filter, new mailboxes and domains)
+  are reported only once Postfix applies them: a message received right
+  after `postfix reload` could still be handled by an smtpd started before
+  it, with the old settings (seen in tests as an unscanned GTUBE message).
 
 ## [1.0.0-rc1] — 2026-09-25
 

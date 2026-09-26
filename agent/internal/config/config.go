@@ -51,7 +51,7 @@ type Config struct {
 	AllowWriteActions bool `json:"allow_write_actions"`
 	// SitesRoot is where WhaCP-managed websites live (<sites_root>/<domain>).
 	SitesRoot string `json:"sites_root"`
-	// StateDir holds configuration backups, job logs, keys and the trash.
+	// StateDir holds configuration backups, job logs and keys.
 	StateDir string `json:"state_dir"`
 	// BackupDir is the local backup destination.
 	BackupDir string `json:"backup_dir"`

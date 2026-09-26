@@ -347,3 +347,20 @@ func (e *Env) StripSetID(ctx context.Context, cred *execx.Credential, dir string
 	}
 	return nil
 }
+
+// TrashDir is the name of the trash folder WhaCP keeps inside the folder
+// that holds the data it removes (the websites root, the mail root).
+const TrashDir = ".whacp-trash"
+
+// MoveToTrash moves path into <parent>/.whacp-trash/<name>-<time>, a root-only
+// folder on the same filesystem as the data, so the move is a rename (the
+// websites or mail may be on their own disk) and keeps owners, modes and
+// security labels. It returns the new location.
+func (e *Env) MoveToTrash(path, parent, name string) (string, error) {
+	trash := filepath.Join(parent, TrashDir)
+	if _, err := e.Writer.MkdirAll(trash, 0o700, agentfs.RootOwner); err != nil {
+		return "", err
+	}
+	dest := filepath.Join(trash, name+"-"+e.Now().Format("20060102T150405Z"))
+	return dest, e.Writer.Rename(path, dest)
+}

@@ -3,6 +3,7 @@ package sites
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -140,7 +141,8 @@ func TestDisableSwitchVersionAndDelete(t *testing.T) {
 	if h.Exists("etc/nginx/sites-available/whacp-new.test.conf") || h.Exists("home/whacp/new.test") || strings.Contains(h.Read("etc/passwd"), "newsite:") {
 		t.Error("delete incomplete")
 	}
-	if !h.Exists("var/lib/whacp-agent/trash") {
+	// The trash is next to the websites (same filesystem: a rename).
+	if m, _ := filepath.Glob(filepath.Join(h.Base, "home/whacp/.whacp-trash/new.test-*")); len(m) != 1 {
 		t.Error("files should be in the trash")
 	}
 }

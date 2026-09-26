@@ -12,6 +12,11 @@ ExecStart=/usr/local/bin/whacp-agent -config /etc/whacp/agent.json
 ExecStartPre=/usr/local/bin/whacp-agent -config /etc/whacp/agent.json -check-config
 Restart=on-failure
 RestartSec=3s
+# On stop the agent finishes running jobs (at most 5 minutes) before it
+# exits. SIGTERM goes to the agent only, so the commands a job runs are
+# not cut off under it; whatever is left is killed when the time is up.
+KillMode=mixed
+TimeoutStopSec=6min
 
 # The agent runs as root so it can read configuration owned by other
 # services, but with a tightly limited capability set.

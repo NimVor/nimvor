@@ -119,7 +119,7 @@ func registerSpam(r *actions.Registry, e env) {
 			if prev.Enabled {
 				e.Systemctl(ctx, "restart", rspamdUnit)
 			}
-			e.run(ctx, "postfix", "reload")
+			e.reloadPostfix(ctx)
 			return nil, actions.Failed(msg+" The previous settings were restored.", cause.Error())
 		}
 		if s.Enabled {
@@ -149,7 +149,7 @@ func registerSpam(r *actions.Registry, e env) {
 			return fail("Postfix rejected the change.", err)
 		}
 		if e.run(ctx, "postfix", "status") == nil {
-			if err := e.run(ctx, "postfix", "reload"); err != nil {
+			if err := e.reloadPostfix(ctx); err != nil {
 				return fail("Postfix did not reload.", err)
 			}
 		}

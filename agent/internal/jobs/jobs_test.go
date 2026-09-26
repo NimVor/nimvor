@@ -65,3 +65,31 @@ func TestFailureAndSerialisationPerTarget(t *testing.T) {
 		t.Fatal("log id must be validated")
 	}
 }
+
+func TestActiveAndDrainWithin(t *testing.T) {
+	m := mgr(t)
+	release := make(chan struct{})
+	j := m.Start("backup.restore", "site:a", func(ctx context.Context, log io.Writer) (any, error) {
+		<-release
+		return nil, nil
+	})
+	deadline := time.Now().Add(5 * time.Second)
+	for len(m.Active()) == 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if a := m.Active(); len(a) != 1 || a[0].ID != j.ID {
+		t.Fatalf("active = %+v", a)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if m.DrainWithin(ctx) {
+		t.Fatal("drained while the job runs")
+	}
+	close(release)
+	if !m.DrainWithin(context.Background()) || len(m.Active()) != 0 {
+		t.Fatal("job did not finish")
+	}
+	if got, _ := m.Get(j.ID); got.Status != Succeeded {
+		t.Fatalf("status = %s", got.Status)
+	}
+}

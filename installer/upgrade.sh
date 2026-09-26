@@ -2,12 +2,14 @@
 #
 # WhaCP upgrade and rollback.
 #
-#   sudo ./installer/upgrade.sh [--yes] [--allow-downgrade]   upgrade to this source tree
+#   sudo ./installer/upgrade.sh [--yes] [--allow-downgrade] [--wait=30m]   upgrade to this source tree
 #   sudo ./installer/upgrade.sh --rollback [--yes]            restore the version before the last upgrade
 #   sudo ./installer/upgrade.sh --list                        list upgrade backups
 #
 # An upgrade:
-#   1. checks that the new agent accepts the existing /etc/whacp/agent.json;
+#   1. checks that the new agent accepts the existing /etc/whacp/agent.json,
+#      and waits (up to --wait, default 30m; --wait=0 skips this) until the
+#      agent has no running job, so a restore or deployment is never cut off;
 #   2. backs up the panel files, agent binary, systemd units, /etc/whacp and
 #      the panel database (taken with the panel stopped);
 #   3. swaps in the new files, runs database migrations and restarts;
@@ -35,6 +37,7 @@ ASSUME_YES=0
 ROLLBACK=0
 LIST=0
 ALLOW_DOWNGRADE=0
+JOB_WAIT=30m
 
 log()  { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m  ✓\033[0m %s\n' "$*"; }
@@ -53,7 +56,8 @@ for arg in "$@"; do
         --rollback) ROLLBACK=1 ;;
         --list) LIST=1 ;;
         --allow-downgrade) ALLOW_DOWNGRADE=1 ;;
-        -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+        --wait=*) JOB_WAIT=${arg#--wait=} ;;
+        -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
         *) die "unknown option: $arg" ;;
     esac
 done
@@ -62,6 +66,7 @@ panel_cli() { runuser -u "$PANEL_USER" -- env WHACP_CONFIG="$CONF_DIR/panel.php"
 db_path() { php -r '$c = require $argv[1]; echo $c["database"]["path"] ?? "/var/lib/whacp/whacp.sqlite";' "$CONF_DIR/panel.php"; }
 installed_version() { cat "$PREFIX/panel/VERSION" 2>/dev/null || echo "0.4.0"; }
 
+[[ $JOB_WAIT =~ ^([0-9]+[smh])+$|^0$ ]] || die "--wait needs a duration such as 30m, 2h or 0"
 [[ $EUID -eq 0 || -n ${WHACP_TEST:-} ]] || die "run as root (sudo)"
 
 if [[ $LIST -eq 1 ]]; then
@@ -70,6 +75,24 @@ if [[ $LIST -eq 1 ]]; then
 fi
 
 [[ -d $PREFIX/panel && -x $BIN && -f $CONF_DIR/panel.php ]] || die "WhaCP is not installed here; use installer/install.sh"
+
+# wait_jobs <agent binary>: wait until the running agent has no queued or
+# running background job (restores, deployments, backups), so restarting it
+# does not stop one half-way. Returns 1 if jobs are still running.
+wait_jobs() {
+    local rc=0
+    if [[ $JOB_WAIT == 0 ]]; then
+        warn "not waiting for running jobs (--wait=0): a running restore or deployment would be interrupted"
+        return 0
+    fi
+    "$1" -config "$CONF_DIR/agent.json" -wait-jobs "$JOB_WAIT" || rc=$?
+    case $rc in
+        0) return 0 ;;
+        2) warn "this agent cannot list running jobs; not waiting for them"; return 0 ;;
+        3) warn "background jobs are still running after $JOB_WAIT"; return 1 ;;
+        *) warn "could not ask the agent for its running jobs"; return 1 ;;
+    esac
+}
 
 stop_services() {
     systemctl stop whacp-scheduler.timer whacp-panel.service 2>/dev/null || true
@@ -127,6 +150,8 @@ if [[ $ROLLBACK -eq 1 ]]; then
     latest=$(ls -1d "$BACKUP_ROOT"/*/ 2>/dev/null | sort | tail -1)
     [[ -n $latest ]] || die "no upgrade backup found in $BACKUP_ROOT"
     confirm "Roll back to $(cat "$latest/version" 2>/dev/null) from $(basename "$latest")?" || die "aborted"
+    log "Waiting for running jobs"
+    wait_jobs "$BIN" || die "jobs are still running; nothing was changed. Try again later or pass --wait=<longer>"
     restore "${latest%/}"
     exit 0
 fi
@@ -154,6 +179,9 @@ ok "new agent accepts the existing configuration"
 [[ -f $SRC_DIR/panel/vendor/autoload.php ]] || die "panel/vendor is missing (run 'composer install --no-dev' in panel/)"
 php -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);' || die "the panel needs PHP >= 8.3"
 confirm "Upgrade now? WhaCP's panel is unavailable for a few seconds; websites are not affected." || die "aborted"
+log "Waiting for running jobs"
+wait_jobs "$AGENT_SRC" || die "jobs are still running; nothing was changed. Try again later or pass --wait=<longer>"
+ok "no job is running"
 
 # --------------------------------------------------------------- backup ----
 TS=$(date -u +%Y%m%dT%H%M%SZ)
@@ -170,6 +198,11 @@ cp -a "$CONF_DIR/." "$B/etc/"
 DB=$(db_path)
 echo "$DB" > "$B/db-path"
 stop_services
+# A job may have started between the check and stopping the panel.
+if ! wait_jobs "$AGENT_SRC"; then
+    systemctl start whacp-panel.service whacp-scheduler.timer 2>/dev/null || true
+    die "jobs are still running; nothing was changed. Try again later or pass --wait=<longer>"
+fi
 if [[ -f $DB ]]; then
     # Consistent copy: the panel and scheduler are stopped; fold the WAL in.
     php -r '$p = new PDO("sqlite:" . $argv[1]); $p->exec("PRAGMA wal_checkpoint(TRUNCATE)");' "$DB" 2>/dev/null || true

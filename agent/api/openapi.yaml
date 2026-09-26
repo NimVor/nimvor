@@ -406,7 +406,7 @@ x-whacp-actions:
   mail.configure: { mutating: true, description: "Set up Postfix, Dovecot and OpenDKIM for WhaCP's mail domains (changes Postfix's main.cf/master.cf with postconf and disables Dovecot's system-account login; requires confirm_edit_package_config). Validated, restarted, checked on ports 25, 587 and 993, rolled back on failure." }
   mail.domain_add: { mutating: true, description: "Host email for a domain and create its DKIM key; returns the DNS records to publish." }
   mail.domain_remove: { mutating: true, description: "Stop hosting email for a domain (confirm = domain; its mailboxes and aliases must be removed first)." }
-  mail.mailbox_delete: { mutating: true, description: "Delete a mailbox (confirm = address); its mail is moved to the agent's trash folder, or kept in place with keep_mail." }
+  mail.mailbox_delete: { mutating: true, description: "Delete a mailbox (confirm = address); its mail is moved to .whacp-trash in the mail folder, or kept in place with keep_mail." }
   mail.mailbox_save: { mutating: true, description: "Create a mailbox or change its password or quota (the password is stored as a SHA-512 crypt hash)." }
   mail.spam_configure: { mutating: true, description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only WhaCP's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure." }
   mail.status: { mutating: false, description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases." }
