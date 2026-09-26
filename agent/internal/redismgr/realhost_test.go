@@ -22,7 +22,8 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
 )
 
-// Requires a local redis-server using /etc/redis/redis.conf.
+// Requires a local Redis (or Valkey on RHEL 10) with its default
+// configuration file.
 func TestRealHostRedis(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("needs root")

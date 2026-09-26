@@ -66,16 +66,17 @@ const maxOutput = 1 << 20
 
 // defaultCandidates maps command IDs to candidate absolute paths.
 var defaultCandidates = map[string][]string{
-	"systemctl":              {"/usr/bin/systemctl", "/bin/systemctl"},
-	"systemd-run":            {"/usr/bin/systemd-run", "/bin/systemd-run"},
-	"journalctl":             {"/usr/bin/journalctl", "/bin/journalctl"},
-	"nginx":                  {"/usr/sbin/nginx", "/usr/bin/nginx"},
-	"mysqld":                 {"/usr/sbin/mysqld", "/usr/bin/mysqld", "/usr/libexec/mysqld"},
-	"mariadbd":               {"/usr/sbin/mariadbd", "/usr/bin/mariadbd", "/usr/libexec/mariadbd"},
-	"mysql":                  {"/usr/bin/mariadb", "/usr/bin/mysql"},
-	"mysqldump":              {"/usr/bin/mariadb-dump", "/usr/bin/mysqldump"},
-	"redis-server":           {"/usr/bin/redis-server", "/usr/sbin/redis-server"},
-	"redis-cli":              {"/usr/bin/redis-cli"},
+	"systemctl":   {"/usr/bin/systemctl", "/bin/systemctl"},
+	"systemd-run": {"/usr/bin/systemd-run", "/bin/systemd-run"},
+	"journalctl":  {"/usr/bin/journalctl", "/bin/journalctl"},
+	"nginx":       {"/usr/sbin/nginx", "/usr/bin/nginx"},
+	"mysqld":      {"/usr/sbin/mysqld", "/usr/bin/mysqld", "/usr/libexec/mysqld"},
+	"mariadbd":    {"/usr/sbin/mariadbd", "/usr/bin/mariadbd", "/usr/libexec/mariadbd"},
+	"mysql":       {"/usr/bin/mariadb", "/usr/bin/mysql"},
+	"mysqldump":   {"/usr/bin/mariadb-dump", "/usr/bin/mysqldump"},
+	// Valkey (RHEL 10) replaces Redis with the same protocol and options.
+	"redis-server":           {"/usr/bin/redis-server", "/usr/sbin/redis-server", "/usr/bin/valkey-server"},
+	"redis-cli":              {"/usr/bin/redis-cli", "/usr/bin/valkey-cli"},
 	"useradd":                {"/usr/sbin/useradd"},
 	"userdel":                {"/usr/sbin/userdel"},
 	"usermod":                {"/usr/sbin/usermod"},

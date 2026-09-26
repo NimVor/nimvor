@@ -1,6 +1,9 @@
 package platform
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // Locations used by other control panels that keep their own Nginx and PHP
 // builds (aaPanel under /www/server, custom builds under /usr/local and /opt).
@@ -133,7 +136,7 @@ func (r rhelFamily) Paths() Paths {
 		LetsEncryptDir:      "/etc/letsencrypt",
 		MySQLConfigs:        []string{"/etc/my.cnf", "/etc/my.cnf.d/mariadb-server.cnf"},
 		MySQLDataDir:        "/var/lib/mysql",
-		RedisConfigs:        []string{"/etc/redis/redis.conf", "/etc/redis.conf"},
+		RedisConfigs:        []string{"/etc/redis/redis.conf", "/etc/redis.conf", "/etc/valkey/valkey.conf"},
 		SystemCrontab:       "/etc/crontab",
 		CronDDir:            "/etc/cron.d",
 		UserCrontabDir:      "/var/spool/cron",
@@ -145,8 +148,38 @@ func (r rhelFamily) Paths() Paths {
 	}
 }
 
+// valkey reports whether this release ships Valkey instead of Redis: RHEL
+// 10 and its rebuilds have no redis package, Valkey (the Redis 7.2 fork,
+// same protocol and configuration) replaces it with its own names.
+func (r rhelFamily) valkey() bool {
+	major, _, _ := strings.Cut(r.info.VersionID, ".")
+	n, err := strconv.Atoi(major)
+	return err == nil && n >= 10
+}
+
+func (r rhelFamily) redisUnit() string {
+	if r.valkey() {
+		return "valkey.service"
+	}
+	return "redis.service"
+}
+
+func (r rhelFamily) redisDir() string {
+	if r.valkey() {
+		return "/etc/valkey"
+	}
+	return "/etc/redis"
+}
+
+func (r rhelFamily) redisConfig() string {
+	if r.valkey() {
+		return "/etc/valkey/valkey.conf"
+	}
+	return "/etc/redis/redis.conf"
+}
+
 func (r rhelFamily) CoreServices() []string {
-	return []string{"nginx.service", "mariadb.service", "mysqld.service", "redis.service", "crond.service", "sshd.service", "fail2ban.service", "firewalld.service", "php-fpm.service", "whacp-agent.service", "whacp-panel.service"}
+	return []string{"nginx.service", "mariadb.service", "mysqld.service", r.redisUnit(), "crond.service", "sshd.service", "fail2ban.service", "firewalld.service", "php-fpm.service", "whacp-agent.service", "whacp-panel.service"}
 }
 
 func (r rhelFamily) PHPFPMUnitPatterns() []string {
@@ -171,8 +204,8 @@ func (r rhelFamily) Managed() Managed {
 		SSHDropIn:       "/etc/ssh/sshd_config.d/00-whacp.conf",
 		Fail2banJail:    "/etc/fail2ban/jail.d/whacp.local",
 		MySQLUnit:       []string{"mariadb.service", "mysqld.service"},
-		RedisUnit:       "redis.service",
-		RedisConfig:     "/etc/redis/redis.conf",
+		RedisUnit:       r.redisUnit(),
+		RedisConfig:     r.redisConfig(),
 		MemcachedConfig: "/etc/sysconfig/memcached",
 		MemcachedUnit:   "memcached.service",
 		FTPDir:          "/etc/whacp-ftp",
@@ -187,7 +220,7 @@ func (r rhelFamily) Managed() Managed {
 		PostfixDir:      "/etc/postfix",
 		DovecotAuthConf: "/etc/dovecot/conf.d/10-auth.conf",
 		DovecotDropIn:   "/etc/dovecot/conf.d/99-whacp.conf",
-		ServerConfig: map[string]string{"nginx": "/etc/nginx", "php": "/etc/opt/remi", "mysql": "/etc/my.cnf.d", "redis": "/etc/redis",
+		ServerConfig: map[string]string{"nginx": "/etc/nginx", "php": "/etc/opt/remi", "mysql": "/etc/my.cnf.d", "redis": r.redisDir(),
 			"letsencrypt": "/etc/letsencrypt", "fail2ban": "/etc/fail2ban", "cron": "/etc/cron.d", "firewall": "/etc/firewalld"},
 		WebmailDir:        "/etc/whacp-webmail",
 		WebmailData:       "/var/lib/whacp-webmail",
@@ -226,6 +259,9 @@ var rhelPackages = map[string]string{
 }
 
 func (r rhelFamily) PackageName(name string) (string, bool) {
+	if name == "redis-server" && r.valkey() {
+		return "valkey", true
+	}
 	if p, ok := rhelPackages[name]; ok {
 		return p, p != ""
 	}

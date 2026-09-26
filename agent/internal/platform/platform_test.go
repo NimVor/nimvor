@@ -1,6 +1,10 @@
 package platform
 
-import "testing"
+import (
+	"path/filepath"
+	"slices"
+	"testing"
+)
 
 func TestParseOSRelease(t *testing.T) {
 	cases := []struct {
@@ -47,5 +51,24 @@ func TestRHELPHPNames(t *testing.T) {
 	d := debianFamily{}.Managed()
 	if d.PoolDir("8.3") != "/etc/php/8.3/fpm/pool.d" || d.FPMUnit("8.3") != "php8.3-fpm.service" {
 		t.Fatalf("pool %s unit %s", d.PoolDir("8.3"), d.FPMUnit("8.3"))
+	}
+}
+
+// RHEL 10 and its rebuilds ship Valkey instead of Redis.
+func TestRHELRedisOrValkey(t *testing.T) {
+	for _, c := range []struct{ version, unit, config, pkg string }{
+		{"9.4", "redis.service", "/etc/redis/redis.conf", "redis"},
+		{"10.0", "valkey.service", "/etc/valkey/valkey.conf", "valkey"},
+		{"10", "valkey.service", "/etc/valkey/valkey.conf", "valkey"},
+	} {
+		r := rhelFamily{info: OSInfo{ID: "almalinux", VersionID: c.version}}
+		m := r.Managed()
+		pkg, ok := r.PackageName("redis-server")
+		if m.RedisUnit != c.unit || m.RedisConfig != c.config || !ok || pkg != c.pkg || m.ServerConfig["redis"] != filepath.Dir(c.config) {
+			t.Errorf("%s: unit %s config %s package %s dir %s", c.version, m.RedisUnit, m.RedisConfig, pkg, m.ServerConfig["redis"])
+		}
+		if !slices.Contains(r.CoreServices(), c.unit) {
+			t.Errorf("%s: %s not a core service", c.version, c.unit)
+		}
 	}
 }

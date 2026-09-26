@@ -29,6 +29,19 @@ All notable changes to WhaCP are documented here. The format follows
 - Webhook deployments and scheduled backups are tracked like jobs started
   in the panel.
 
+### Fixed
+- RHEL 10, AlmaLinux 10 and Rocky Linux 10: Redis features work with
+  Valkey, which replaces Redis there (`valkey` package and service,
+  `/etc/valkey/valkey.conf`, `valkey-cli`).
+- Redis 6.0 (Ubuntu 22.04): per-website ACL users are created without
+  Pub/Sub channel rules, which that version does not support, with a note.
+- Ubuntu 26.04: extracting backups and WordPress archives failed in the
+  site-account sandbox (`RestrictSUIDSGID` blocks the `openat2` call tar
+  1.35 uses). Setuid/setgid bits are now removed from extracted files
+  instead.
+- Deleting a mailbox reports mail it could not move to the trash instead
+  of ignoring the error.
+
 ## [1.0.0-rc1] — 2026-09-25
 
 First release candidate. It contains the work developed as 0.5.0 (never

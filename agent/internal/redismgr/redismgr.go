@@ -1,4 +1,6 @@
-// Package redismgr reports on and configures the local Redis server.
+// Package redismgr reports on and configures the local Redis server (or
+// Valkey, which replaces it on RHEL 10: same protocol, configuration and
+// INFO fields, with valkey-cli and /etc/valkey/valkey.conf).
 //
 // The agent talks to Redis with redis-cli. The admin password, if any, is
 // read from redis.conf by the agent and passed through the REDISCLI_AUTH
@@ -71,7 +73,8 @@ func (c Client) Cmd(ctx context.Context, args ...string) (string, error) {
 	}
 	var env []string
 	if pass != "" {
-		env = append(env, "REDISCLI_AUTH="+pass)
+		// valkey-cli reads VALKEYCLI_AUTH (older builds REDISCLI_AUTH).
+		env = append(env, "REDISCLI_AUTH="+pass, "VALKEYCLI_AUTH="+pass)
 	}
 	out, err := c.Env.Runner.RunWith(ctx, "redis-cli", execx.Opts{Env: env}, append(base, args...)...)
 	s := strings.TrimSpace(string(out))

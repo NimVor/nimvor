@@ -304,6 +304,12 @@ renamed and deleted. Binary data is shown as base64 and not edited. On a
 website, *Redis* opens the same browser limited to that website's key
 prefix (`<account>:`), which is also what its Redis ACL user may access.
 
+RHEL 10, AlmaLinux 10 and Rocky Linux 10 ship Valkey instead of Redis
+(package `valkey`, `valkey.service`, `/etc/valkey/valkey.conf`). It speaks
+the same protocol, so WhaCP manages it on the *Redis* pages and websites
+use it like Redis. On Redis before 6.2 (Ubuntu 22.04) ACL users cannot be
+limited to Pub/Sub channels; WhaCP says so when it creates one.
+
 *Memcached* installs the package, shows hits, memory, items, evictions and
 connections, flushes the cache, and changes memory, connection limit and
 listen addresses. The configuration file belongs to the package, so WhaCP

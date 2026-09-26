@@ -20,7 +20,7 @@ $misses = (int) ($stats['keyspace_misses'] ?? 0);
 <?= $this->partial('partials/secret', ['secret' => $secret]) ?>
 <?php if ($agentError !== null): ?>
     <?= $this->partial('partials/agent_error', ['error' => $agentError]) ?>
-    <p class="text-body-secondary small">Install Redis with <code>apt install redis-server</code> to use it with your websites.</p>
+    <p class="text-body-secondary small">Install Redis (<code>redis-server</code> on Ubuntu, <code>redis</code> on RHEL 9, <code>valkey</code> on RHEL 10)<?php if ($this->hasRoute('packages')): ?> from <a href="<?= e($this->url('packages')) ?>">Packages</a><?php endif; ?> to use it with your websites.</p>
 <?php else: ?>
 <div class="row g-3">
     <div class="col-lg-6">

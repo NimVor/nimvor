@@ -35,7 +35,7 @@ var versionRe = regexp.MustCompile(`v=([0-9][0-9.]*)`)
 // never returned, only whether it is set.
 func Discover(ctx context.Context, root filesystem.Root, paths platform.Paths, runner execx.Runner) Result {
 	res := Result{Warnings: []string{}}
-	for _, b := range []string{"/usr/bin/redis-server", "/usr/sbin/redis-server"} {
+	for _, b := range []string{"/usr/bin/redis-server", "/usr/sbin/redis-server", "/usr/bin/valkey-server"} {
 		if root.Exists(b) {
 			res.Installed = true
 		}
