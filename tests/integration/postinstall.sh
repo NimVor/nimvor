@@ -144,4 +144,29 @@ waitfor 30 "website removed" sh -c "! test -e /etc/nginx/sites-enabled/whacp-$DO
 mysql -e "DROP DATABASE IF EXISTS \`$DB\`" || true
 nginx -t 2>/dev/null || fail "nginx -t after deleting the website"
 pass "website deleted; nginx -t passes"
+
+# Installer recovery. A second run refuses and points to upgrade.sh. An
+# installation interrupted before its services were written (simulated by
+# removing panel.php and the panel unit) is reported with what is missing
+# and --reinstall; --reinstall completes it and keeps the token, the key,
+# the database and write mode.
+INSTALLER=$(cd "$(dirname "$0")/../.." && pwd)/installer/install.sh
+out=$("$INSTALLER" --yes 2>&1) && fail "a second install.sh succeeded"
+grep -q "upgrade.sh" <<<"$out" || fail "second install did not point to upgrade.sh: $out"
+TOKEN=$(sha256sum < /etc/whacp/agent.token)
+KEY=$(sha256sum < /etc/whacp/panel.key)
+USERS=$("${CLI[@]}" users:count)
+mv /etc/whacp/panel.php "$J/panel.php.orig"
+mv /etc/systemd/system/whacp-panel.service "$J/whacp-panel.service.orig"
+out=$("$INSTALLER" --yes 2>&1) && fail "install.sh over an incomplete installation succeeded"
+grep -q "did not finish" <<<"$out" && grep -q -- "--reinstall" <<<"$out" && grep -q "panel.php" <<<"$out" && grep -q "whacp-panel.service" <<<"$out" \
+    || fail "incomplete installation not explained: $out"
+"$INSTALLER" --reinstall --yes >"$J/reinstall.log" 2>&1 || { cat "$J/reinstall.log"; fail "install.sh --reinstall did not complete the installation"; }
+[[ -s /etc/whacp/panel.php && -f /etc/systemd/system/whacp-panel.service ]] || fail "--reinstall did not recreate panel.php and the unit"
+[[ $(sha256sum < /etc/whacp/agent.token) == "$TOKEN" && $(sha256sum < /etc/whacp/panel.key) == "$KEY" ]] || fail "--reinstall replaced the token or the panel key"
+[[ $("${CLI[@]}" users:count) == "$USERS" ]] || fail "--reinstall changed the users"
+grep -q '"allow_write_actions": true' /etc/whacp/agent.json || fail "--reinstall turned write mode off"
+"${CLI[@]}" agent:check >/dev/null || fail "panel cannot reach the agent after --reinstall"
+waitfor 30 "panel answering after --reinstall" curl -fsS "$P/healthz"
+pass "installer: refuses a second run, explains an interrupted one, --reinstall completes it and keeps token, key, users and write mode"
 echo "Post-install checks passed."

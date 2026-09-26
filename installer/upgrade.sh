@@ -74,7 +74,10 @@ if [[ $LIST -eq 1 ]]; then
     exit 0
 fi
 
-[[ -d $PREFIX/panel && -x $BIN && -f $CONF_DIR/panel.php ]] || die "WhaCP is not installed here; use installer/install.sh"
+if ! [[ -d $PREFIX/panel && -x $BIN && -f $CONF_DIR/panel.php ]]; then
+    [[ -e $PREFIX || -e $CONF_DIR ]] && die "WhaCP's installation here is incomplete (an earlier install.sh did not finish); complete it with installer/install.sh --reinstall, then upgrade"
+    die "WhaCP is not installed here; use installer/install.sh"
+fi
 
 # wait_jobs <agent binary>: wait until the running agent has no queued or
 # running background job (restores, deployments, backups), so restarting it

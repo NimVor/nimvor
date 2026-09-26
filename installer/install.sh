@@ -186,11 +186,34 @@ fi
 
 # ------------------------------------------------------------ 3. conflicts ----
 log "Checking for conflicts"
+# install_missing lists what a finished installation has and this one lacks
+# (an earlier run that was interrupted). The first administrator is created
+# last, so a panel database without users means the run did not finish.
+install_missing() {
+    local f users
+    [[ -x $BIN ]] || echo "$BIN"
+    for f in agent.json agent.token; do [[ -s $CONF_DIR/$f ]] || echo "$CONF_DIR/$f"; done
+    [[ -f /etc/systemd/system/whacp-agent.service ]] || echo "whacp-agent.service"
+    [[ $AGENT_ONLY -eq 1 ]] && return 0
+    [[ -f $PREFIX/panel/VERSION ]] || echo "$PREFIX/panel"
+    for f in panel.php panel.key; do [[ -s $CONF_DIR/$f ]] || echo "$CONF_DIR/$f"; done
+    [[ -f /etc/systemd/system/whacp-panel.service ]] || echo "whacp-panel.service"
+    if [[ -f $PREFIX/panel/VERSION && -s $CONF_DIR/panel.php ]]; then
+        users=$(runuser -u whacp -- env WHACP_CONFIG="$CONF_DIR/panel.php" php "$PREFIX/panel/bin/whacp" users:count 2>/dev/null || true)
+        [[ $users =~ ^[1-9][0-9]*$ ]] || echo "the first administrator (panel database)"
+    fi
+}
 if [[ -e $PREFIX || -e $CONF_DIR ]]; then
+    mapfile -t missing < <(install_missing)
     if [[ $REINSTALL -eq 1 ]]; then
         confirm "WhaCP is already installed. Reinstall files (configuration, token and database are kept)?" || die "aborted"
+    elif [[ ${#missing[@]} -gt 0 ]]; then
+        die "an earlier WhaCP installation did not finish (missing: $(IFS=,; echo "${missing[*]}" | sed 's/,/, /g')).
+Complete it by running the installer again with --reinstall and the same options, e.g.:
+    sudo $0 --reinstall $*
+Existing configuration, agent token, panel key and database are kept; missing parts are created."
     else
-        die "WhaCP is already installed in $PREFIX. To upgrade, run installer/upgrade.sh (it backs up, migrates and rolls back on failure)."
+        die "WhaCP is already installed in $PREFIX. To upgrade, run installer/upgrade.sh (it backs up, migrates and rolls back on failure). To repair this version's files, run the installer with --reinstall."
     fi
 fi
 if [[ $AGENT_ONLY -eq 0 ]] && command -v ss >/dev/null && ss -ltn "sport = :$PORT" | grep -q LISTEN; then
@@ -259,25 +282,30 @@ fi
 
 # ------------------------------------------------------ 6. configuration ----
 log "Writing configuration"
-if [[ ! -f $CONF_DIR/agent.token ]]; then
+# Secrets are written to a temporary file and renamed, so an interrupted run
+# never leaves an empty one behind; an empty file (from older installers)
+# is treated as missing — nothing can have been encrypted with an empty key.
+new_secret() {
+    (umask 077; "${@:2}" > "$1.tmp")
+    chown root:whacp "$1.tmp"
+    chmod 0640 "$1.tmp"
+    mv -f "$1.tmp" "$1"
+}
+if [[ ! -s $CONF_DIR/agent.token ]]; then
     if [[ $DRY_RUN -eq 1 ]]; then
         echo "    [dry-run] generate $CONF_DIR/agent.token"
     else
-        (umask 077; openssl rand -hex 32 > "$CONF_DIR/agent.token")
-        chown root:whacp "$CONF_DIR/agent.token"
-        chmod 0640 "$CONF_DIR/agent.token"
+        new_secret "$CONF_DIR/agent.token" openssl rand -hex 32
     fi
     ok "new agent token"
 else
     ok "keeping existing agent token"
 fi
-if [[ ! -f $CONF_DIR/panel.key ]]; then
+if [[ ! -s $CONF_DIR/panel.key ]]; then
     if [[ $DRY_RUN -eq 1 ]]; then
         echo "    [dry-run] generate $CONF_DIR/panel.key"
     else
-        (umask 077; openssl rand -base64 32 > "$CONF_DIR/panel.key")
-        chown root:whacp "$CONF_DIR/panel.key"
-        chmod 0640 "$CONF_DIR/panel.key"
+        new_secret "$CONF_DIR/panel.key" openssl rand -base64 32
     fi
 fi
 if [[ ! -f $CONF_DIR/agent.json ]]; then
@@ -373,7 +401,7 @@ fi
 if [[ $AGENT_ONLY -eq 1 ]]; then
     cat <<EOF
 
-The WhaCP agent is installed ($([[ $ENABLE_WRITES -eq 1 ]] && echo "write mode" || echo "read-only discovery mode")).
+The WhaCP agent is installed ($({ [[ $ENABLE_WRITES -eq 1 ]] || grep -q '"allow_write_actions": true' "$CONF_DIR/agent.json" 2>/dev/null; } && echo "write mode" || echo "read-only discovery mode")).
 EOF
     if [[ -n $REMOTE_ACCESS ]]; then
         cat <<EOF
@@ -397,7 +425,7 @@ fi
 
 cat <<EOF
 
-WhaCP is installed ($([[ $ENABLE_WRITES -eq 1 ]] && echo "write mode" || echo "read-only discovery mode")).
+WhaCP is installed ($({ [[ $ENABLE_WRITES -eq 1 ]] || grep -q '"allow_write_actions": true' "$CONF_DIR/agent.json" 2>/dev/null; } && echo "write mode" || echo "read-only discovery mode")).
 Nothing in your existing Nginx, PHP, database, SSL or cron configuration was
 changed. WhaCP only ever edits files it creates itself (named whacp-*).
 

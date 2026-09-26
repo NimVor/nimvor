@@ -37,6 +37,11 @@ All notable changes to WhaCP are documented here. The format follows
   turn them off is refused with a message to update it.
 
 ### Fixed
+- Installer: running it again after an interrupted installation now says
+  what is missing and prints the `--reinstall` command that completes it
+  (keeping configuration, token, key and database), instead of only
+  "already installed, use upgrade.sh". The agent token and panel key are
+  written atomically, and the summary reports the actual write mode.
 - RHEL 10, AlmaLinux 10 and Rocky Linux 10: Redis features work with
   Valkey, which replaces Redis there (`valkey` package and service,
   `/etc/valkey/valkey.conf`, `valkey-cli`).

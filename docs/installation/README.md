@@ -145,6 +145,15 @@ curl -s http://127.0.0.1:8090/healthz
 sessions, the database schema and integrity, the agent (reachable, same
 version) and the scheduler. It exits with 1 when something fails.
 
+### If the installation was interrupted
+
+Run the installer again. If an earlier run did not finish, it says what is
+missing and gives the command to complete it: the same options plus
+`--reinstall`. That keeps the existing configuration, agent token, panel
+key and database and creates only what is missing. Nothing outside
+WhaCP's own files is changed by the installer, so there is nothing else to
+undo.
+
 ## Upgrade
 
 From the new source tree or release archive:
