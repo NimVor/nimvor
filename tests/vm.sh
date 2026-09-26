@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
-# Boots an AlmaLinux cloud image under KVM for the RHEL tests (CI only):
-#   tests/rhel/vm.sh boot [9|10]     start the VM and wait for SSH
-#   tests/rhel/vm.sh ssh CMD...      run a command in the VM (as root)
-#   tests/rhel/vm.sh put SRC DST     copy a file or directory into the VM
-# SELinux stays enforcing, as on a real server.
+# Boots a cloud image under KVM for the real-service tests (CI only):
+#   tests/vm.sh boot alma 9|10          AlmaLinux (SELinux stays enforcing)
+#   tests/vm.sh boot ubuntu 22.04|26.04 Ubuntu LTS
+#   tests/vm.sh ssh CMD...              run a command in the VM (as root)
+#   tests/vm.sh put SRC DST             copy a file or directory into the VM
+# The images are the distributions' own cloud images, as on a real server.
 
 set -Eeuo pipefail
 WORK=${VM_WORK:-$PWD/.vm}
@@ -13,10 +14,16 @@ SSH_OPTS=(-i "$WORK/key" -p "$PORT" -o StrictHostKeyChecking=no -o UserKnownHost
 
 case "${1:-}" in
 boot)
-    major=${2:-9}
+    os=${2:-alma}
+    version=${3:-9}
     mkdir -p "$WORK"
-    image=$WORK/alma.qcow2
-    curl -fsSL --retry 3 -o "$image" "https://repo.almalinux.org/almalinux/${major}/cloud/x86_64/images/AlmaLinux-${major}-GenericCloud-latest.x86_64.qcow2"
+    image=$WORK/disk.qcow2
+    case $os in
+    alma) url="https://repo.almalinux.org/almalinux/${version}/cloud/x86_64/images/AlmaLinux-${version}-GenericCloud-latest.x86_64.qcow2" ;;
+    ubuntu) url="https://cloud-images.ubuntu.com/releases/${version}/release/ubuntu-${version}-server-cloudimg-amd64.img" ;;
+    *) echo "unknown OS $os" >&2; exit 2 ;;
+    esac
+    curl -fsSL --retry 3 -o "$image" "$url"
     qemu-img resize "$image" 30G >/dev/null
     ssh-keygen -q -t ed25519 -N '' -f "$WORK/key"
     cat > "$WORK/user-data" <<EOF
@@ -28,15 +35,15 @@ users:
 ssh_pwauth: false
 growpart: {mode: auto, devices: ["/"]}
 EOF
-    printf 'instance-id: whacp-ci\nlocal-hostname: alma.whacp.test\n' > "$WORK/meta-data"
+    printf 'instance-id: whacp-ci\nlocal-hostname: %s.whacp.test\n' "$os" > "$WORK/meta-data"
     cloud-localds "$WORK/seed.img" "$WORK/user-data" "$WORK/meta-data"
     qemu-system-x86_64 -enable-kvm -machine q35 -cpu host -m 6144 -smp 4 \
-        -drive "file=$image,if=virtio" -drive "file=$WORK/seed.img,if=virtio,format=raw" \
+        -drive "file=$image,if=virtio,format=qcow2" -drive "file=$WORK/seed.img,if=virtio,format=raw" \
         -nic "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:${PORT}-:22" \
         -display none -serial "file:$WORK/console.log" -daemonize -pidfile "$WORK/qemu.pid"
     for _ in $(seq 1 120); do
         if ssh "${SSH_OPTS[@]}" root@127.0.0.1 true 2>/dev/null; then
-            ssh "${SSH_OPTS[@]}" root@127.0.0.1 'cloud-init status --wait >/dev/null; cat /etc/os-release | head -2; getenforce'
+            ssh "${SSH_OPTS[@]}" root@127.0.0.1 'cloud-init status --wait >/dev/null; grep -E "^(PRETTY_NAME|VERSION_ID)=" /etc/os-release; command -v getenforce >/dev/null && getenforce; true'
             exit 0
         fi
         sleep 5
@@ -53,7 +60,7 @@ put)
     exec scp -q -r -i "$WORK/key" -P "$PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$2" "root@127.0.0.1:$3"
     ;;
 *)
-    sed -n '3,8p' "$0"
+    sed -n '3,9p' "$0"
     exit 2
     ;;
 esac

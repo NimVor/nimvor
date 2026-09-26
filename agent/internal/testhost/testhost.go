@@ -166,3 +166,12 @@ func copyTree(src, dst string) error {
 		}
 	})
 }
+
+// PHPVersion is the PHP version the real-host tests create websites with:
+// WHACP_TEST_PHP (set by CI to what the system provides), default 8.3.
+func PHPVersion() string {
+	if v := os.Getenv("WHACP_TEST_PHP"); v != "" {
+		return v
+	}
+	return "8.3"
+}

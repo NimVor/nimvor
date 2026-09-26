@@ -21,6 +21,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
 )
 
 // Requires root, PHP 8.3 with mysqli and a local MariaDB, plus either a
@@ -66,7 +67,7 @@ func TestRealHostWordPress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := Request{App: "wordpress", Domain: "wp.test", User: "whacpwp", Root: root, Path: "public_html", PHPVersion: "8.3",
+	req := Request{App: "wordpress", Domain: "wp.test", User: "whacpwp", Root: root, Path: "public_html", PHPVersion: testhost.PHPVersion(),
 		DB: DB{Name: "whacp_wp", User: "whacp_wp", Password: "db-Pa$$'word", Host: "localhost"}, URL: "https://wp.test",
 		Title: "WhaCP test", AdminUser: "owner", AdminEmail: "owner@wp.test", AdminPassword: "a-long-admin-password-1"}
 	var buf strings.Builder
@@ -124,7 +125,7 @@ func TestRealHostLaravel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := Request{App: "laravel", Domain: "lv.test", User: "whacplv", Root: root, Path: "app", PHPVersion: "8.3",
+	req := Request{App: "laravel", Domain: "lv.test", User: "whacplv", Root: root, Path: "app", PHPVersion: testhost.PHPVersion(),
 		DB: DB{Name: "whacp_lv", User: "whacp_lv", Password: "lv-Pa55word", Host: "localhost"}, URL: "https://lv.test", Migrate: true}
 	var buf strings.Builder
 	res, err := Install(context.Background(), env, DefaultSources, req, cred, &buf)

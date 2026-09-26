@@ -20,6 +20,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sites"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
 )
 
 // systemctl is simulated (containers lack systemd); everything else is real.
@@ -64,7 +65,7 @@ func TestRealHostImport(t *testing.T) {
 	root := filesystem.Host()
 	env := host.New(cfg, root, platform.Detect(root), hybrid{execx.NewSystemRunner(30 * time.Second)}, jm, log)
 	s := Service{Env: env, Sites: &sites.Manager{Env: env}}
-	req := Request{Spec: sites.Spec{Domain: "imp.whacp.test", User: "whacpimp", Kind: "php", PHPVersion: "8.3", Enabled: true}, Source: "/var/www/imp.whacp.test/public"}
+	req := Request{Spec: sites.Spec{Domain: "imp.whacp.test", User: "whacpimp", Kind: "php", PHPVersion: testhost.PHPVersion(), Enabled: true}, Source: "/var/www/imp.whacp.test/public"}
 	t.Cleanup(func() {
 		if link != "" {
 			os.Remove(link)
@@ -73,7 +74,7 @@ func TestRealHostImport(t *testing.T) {
 		os.RemoveAll("/var/www/imp.whacp.test")
 		os.Remove(filepath.Join(env.M.NginxEnabled, "whacp-imp.whacp.test.conf"))
 		os.Remove(filepath.Join(env.M.NginxAvailable, "whacp-imp.whacp.test.conf"))
-		os.Remove(filepath.Join(env.M.PoolDir("8.3"), "whacp-imp.whacp.test.conf"))
+		os.Remove(filepath.Join(env.M.PoolDir(testhost.PHPVersion()), "whacp-imp.whacp.test.conf"))
 		exec.Command("userdel", "whacpimp").Run()
 		os.RemoveAll("/home/whacp-imp")
 	})

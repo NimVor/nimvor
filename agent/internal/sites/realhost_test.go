@@ -22,6 +22,7 @@ import (
 	"math/big"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
 	"io"
 	"log/slog"
 	"os"
@@ -74,7 +75,7 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 	ctx := context.Background()
 
 	specs := []Spec{
-		{Domain: "php.whacp.test", Aliases: []string{"www.php.whacp.test"}, User: "whacptest1", CreateUser: true, Kind: "php", PHPVersion: "8.3", Enabled: true,
+		{Domain: "php.whacp.test", Aliases: []string{"www.php.whacp.test"}, User: "whacptest1", CreateUser: true, Kind: "php", PHPVersion: testhost.PHPVersion(), Enabled: true,
 			Redirects: []Redirect{{From: "/old", To: "https://php.whacp.test/new", Code: 301}}, PHP: PHPSettings{Harden: true}},
 		{Domain: "static.whacp.test", User: "whacptest1", Kind: "static", Enabled: true},
 		{Domain: "proxy.whacp.test", User: "whacptest2", CreateUser: true, Kind: "proxy", ProxyPass: "http://127.0.0.1:3000", Enabled: true},
@@ -103,7 +104,7 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 	if out, err := r.real.Run(ctx, "nginx", "-t"); err != nil {
 		t.Fatalf("real nginx -t failed after apply: %s", out)
 	}
-	if out, err := r.real.Run(ctx, "php-fpm8.3", "-t"); err != nil {
+	if out, err := r.real.Run(ctx, "php-fpm"+testhost.PHPVersion(), "-t"); err != nil {
 		t.Fatalf("real php-fpm -t failed after apply: %s", out)
 	}
 	// Invalid configuration is rejected by the real nginx and rolled back.

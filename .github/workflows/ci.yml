@@ -94,12 +94,22 @@ jobs:
           sudo journalctl -u whacp-agent --no-pager -n 15 -o cat | grep -i 'fail\|error' || true
           sudo env "PATH=$PATH" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" HOME=$HOME tests/integration/sandbox-probe.sh
 
-  # The same real-host tests on AlmaLinux 9 in a KVM virtual machine (SELinux
-  # enforcing, firewalld, Remi's PHP), then the installer.
-  realhost-alma:
+  # The same real-host tests, then the installer and the post-install test,
+  # in KVM virtual machines booted from each distribution's own cloud image:
+  # AlmaLinux 9 (SELinux enforcing, firewalld, Remi's PHP), Ubuntu 22.04
+  # (PHP 8.3 from the ondrej/php PPA) and Ubuntu 26.04 (its own PHP).
+  realhost-vm:
+    name: realhost-vm (${{ matrix.os }} ${{ matrix.version }})
     runs-on: ubuntu-24.04
     needs: [agent, panel]
-    timeout-minutes: 60
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: alma, version: '9', setup: tests/rhel/setup.sh }
+          - { os: ubuntu, version: '22.04', setup: tests/ubuntu/setup.sh }
+          - { os: ubuntu, version: '26.04', setup: tests/ubuntu/setup.sh }
     env:
       VM_WORK: ${{ github.workspace }}/.vm
     steps:
@@ -116,8 +126,8 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
           sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
-      - name: Boot AlmaLinux 9
-        run: tests/rhel/vm.sh boot 9
+      - name: Boot ${{ matrix.os }} ${{ matrix.version }}
+        run: tests/vm.sh boot ${{ matrix.os }} ${{ matrix.version }}
       - name: Build agent, test binaries and panel dependencies
         run: |
           (cd panel && composer install --no-dev --no-interaction --no-progress --optimize-autoloader)
@@ -130,26 +140,28 @@ jobs:
           cd .. && tar --exclude=.git --exclude=.vm -czf /tmp/whacp.tgz .
       - name: Install services in the VM
         run: |
-          tests/rhel/vm.sh put /tmp/whacp.tgz /root/whacp.tgz
-          tests/rhel/vm.sh ssh 'mkdir -p /root/whacp && tar -xzf /root/whacp.tgz -C /root/whacp'
-          tests/rhel/vm.sh ssh 'bash /root/whacp/tests/rhel/setup.sh'
-      - name: Real-host tests (AlmaLinux)
+          tests/vm.sh put /tmp/whacp.tgz /root/whacp.tgz
+          tests/vm.sh ssh 'mkdir -p /root/whacp && tar -xzf /root/whacp.tgz -C /root/whacp'
+          tests/vm.sh ssh 'bash /root/whacp/${{ matrix.setup }}'
+      - name: Real-host tests
         run: |
-          tests/rhel/vm.sh ssh 'cd /root/whacp/agent && for t in $(find internal -name realhost.test | sort); do
-              echo "=== $t"; (cd "$(dirname "$t")" && CI=1 WHACP_NETWORK=1 timeout 900 ./realhost.test -test.run RealHost -test.count=1 -test.v)
+          tests/vm.sh ssh 'cd /root/whacp/agent && php=$(cat /etc/whacp-ci-php 2>/dev/null || echo 8.3) && for t in $(find internal -name realhost.test | sort); do
+              echo "=== $t"; (cd "$(dirname "$t")" && CI=1 WHACP_NETWORK=1 WHACP_TEST_PHP=$php timeout 900 ./realhost.test -test.run RealHost -test.count=1 -test.v)
             done > /root/realhost.log 2>&1; cat /root/realhost.log'
-          tests/rhel/vm.sh ssh '! grep -E -e "--- (SKIP|FAIL)" -e "^(FAIL|panic)" /root/realhost.log'
-      - name: Installer (AlmaLinux)
+          tests/vm.sh ssh '! grep -E -e "--- (SKIP|FAIL)" -e "^(FAIL|panic)" /root/realhost.log'
+      - name: Installer and post-install end-to-end
         if: always()
         run: |
-          tests/rhel/vm.sh ssh 'cd /root/whacp && installer/install.sh --install-deps --yes --enable-writes --admin-user=admin --admin-email=admin@whacp.test'
-          tests/rhel/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp agent:check'
-          tests/rhel/vm.sh ssh 'cd /root/whacp && tests/integration/postinstall.sh'
-      - name: SELinux denials and service logs
+          tests/vm.sh ssh 'cd /root/whacp && installer/install.sh --install-deps --yes --enable-writes --admin-user=admin --admin-email=admin@whacp.test'
+          tests/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp agent:check'
+          tests/vm.sh ssh 'cd /root/whacp && tests/integration/postinstall.sh'
+      - name: SELinux denials
+        if: always() && matrix.os == 'alma'
+        run: tests/vm.sh ssh 'getenforce; systemctl is-active auditd; grep -c denied /var/log/audit/audit.log; grep denied /var/log/audit/audit.log | grep -v "noatsecure\|rlimitinh\|siginh" | tail -80 || true'
+      - name: Service logs
         if: always()
         run: |
-          tests/rhel/vm.sh ssh 'getenforce; systemctl is-active auditd; grep -c denied /var/log/audit/audit.log; grep denied /var/log/audit/audit.log | grep -v "noatsecure\|rlimitinh\|siginh" | tail -80 || true'
-          for u in postfix whacp-opendkim named dovecot; do tests/rhel/vm.sh ssh "echo '--- $u'; journalctl --no-pager -o cat -n 25 -u $u | grep -iv 'connect from\|disconnect from' || true"; done
+          for u in postfix whacp-opendkim named dovecot whacp-agent; do tests/vm.sh ssh "echo '--- $u'; journalctl --no-pager -o cat -n 25 -u $u | grep -iv 'connect from\|disconnect from' || true"; done
 
   # Browser tests (Playwright/Chromium) against a write-mode dev instance.
   e2e:
