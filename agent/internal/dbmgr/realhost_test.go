@@ -95,4 +95,19 @@ func TestRealHostDatabaseLifecycle(t *testing.T) {
 	if err != nil || len(rows) != 1 || rows[0][0] != "42" {
 		t.Fatalf("restored data = %v %v", rows, err)
 	}
+
+	// An SQL file with the client's shell commands must not run them (the
+	// client runs as root): the import stops and nothing is executed.
+	marks := t.TempDir()
+	evil := cfg.BackupDir + "/databases/evil.sql"
+	sql := "CREATE TABLE evil (a INT);\n\\! touch " + marks + "/shell\nsystem touch " + marks + "/system\nINSERT INTO evil VALUES (1);\n"
+	if err := os.WriteFile(evil, []byte(sql), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res = do("db.import", `{"name":"whacp_rt2","source":"`+evil+`"}`).(map[string]any)
+	j, _ = jm.Wait(ctx, res["job_id"].(string))
+	if left, _ := os.ReadDir(marks); len(left) != 0 || j.Status != "failed" {
+		l, _, _ := jm.Log(j.ID, 0)
+		t.Fatalf("client commands ran or import did not stop: status %s, created %v\n%s", j.Status, left, l)
+	}
 }

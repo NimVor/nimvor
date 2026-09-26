@@ -97,6 +97,9 @@ func (h *Host) handle(id string, o execx.Opts, args []string) (string, error) {
 	switch {
 	case id == "tar" && strings.Contains(key, " -cf - "):
 		return "TAR-DATA:" + args[1], nil
+	case key == "mysql --help":
+		// A current MariaDB client (commands can be turned off).
+		return "  --sandbox           Disallow commands that access the file system\n", nil
 	case id == "mysqldump":
 		return "-- dump of " + args[len(args)-1] + "\n", nil
 	case key == "nginx -v":

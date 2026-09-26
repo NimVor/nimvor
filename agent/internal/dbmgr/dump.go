@@ -60,9 +60,17 @@ func (c Client) DumpTo(ctx context.Context, name string, w io.Writer, log io.Wri
 	return gz.Close()
 }
 
-// ImportFrom loads SQL read from r (plain text) into name.
+// ImportFrom loads SQL read from r (plain text) into name. The client's own
+// commands are turned off (--sandbox on MariaDB, --commands=OFF on MySQL):
+// the SQL comes from backups and files a customer can influence, and the
+// client runs as root, where "\! command" or "system command" in the input
+// would run a shell. A client that cannot turn them off is refused.
 func (c Client) ImportFrom(ctx context.Context, name string, r io.Reader, log io.Writer) error {
-	args := filterArgs(c.args("--", name), "--skip-column-names", "--raw")
+	guard := c.clientGuard(ctx)
+	if guard == "" {
+		return fmt.Errorf("the mysql client on this server cannot disable its shell commands (--sandbox or --commands); update the MariaDB/MySQL client packages before importing SQL")
+	}
+	args := filterArgs(c.args(guard, "--", name), "--skip-column-names", "--raw")
 	if _, err := c.Env.Runner.RunWith(ctx, "mysql", execx.Opts{Stdin: r, Output: log, Timeout: -1}, args...); err != nil {
 		return fmt.Errorf("import failed")
 	}

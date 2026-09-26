@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
@@ -49,9 +50,44 @@ func (c Client) args(extra ...string) []string {
 	return append(args, append([]string{"--protocol=socket", "--batch", "--skip-column-names", "--raw"}, extra...)...)
 }
 
-// Query runs SQL and returns tab-separated rows.
+// guards caches the option that turns off the mysql client's own commands
+// (only a positive answer: a client that lacks it is asked again).
+var guards sync.Map
+
+// clientGuard returns the mysql client's option that disables its local
+// commands (shell, file reads and writes): --sandbox (MariaDB 10.5.25,
+// 10.6.18, 10.11.8 and later) or --commands=OFF (recent MySQL clients;
+// 8.0.46 checked), or "" when the installed client has neither.
+func (c Client) clientGuard(ctx context.Context) string {
+	if g, ok := guards.Load("mysql"); ok {
+		return g.(string)
+	}
+	out, _ := c.Env.Runner.Run(ctx, "mysql", "--help")
+	g := ""
+	for _, line := range strings.Split(string(out), "\n") {
+		f := strings.Fields(line)
+		switch {
+		case len(f) > 0 && f[0] == "--sandbox":
+			g = "--sandbox"
+		case len(f) > 0 && f[0] == "--commands" && g == "":
+			g = "--commands=OFF"
+		}
+	}
+	if g != "" {
+		guards.Store("mysql", g)
+	}
+	return g
+}
+
+// Query runs SQL and returns tab-separated rows. The SQL is WhaCP's own
+// (identifiers validated, values quoted); the client's commands are still
+// turned off where the client supports it.
 func (c Client) Query(ctx context.Context, sql string) ([][]string, error) {
-	out, err := c.Env.Runner.RunWith(ctx, "mysql", execx.Opts{Stdin: strings.NewReader(sql)}, c.args()...)
+	args := c.args()
+	if g := c.clientGuard(ctx); g != "" {
+		args = c.args(g)
+	}
+	out, err := c.Env.Runner.RunWith(ctx, "mysql", execx.Opts{Stdin: strings.NewReader(sql)}, args...)
 	if err != nil {
 		return nil, fmt.Errorf("%s", host.Output(out))
 	}

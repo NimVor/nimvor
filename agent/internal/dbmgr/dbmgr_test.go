@@ -3,6 +3,7 @@ package dbmgr
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"strings"
 	"testing"
 
@@ -60,4 +61,40 @@ func TestSQLIsSentOnStdinWithValidatedIdentifiers(t *testing.T) {
 	if _, err := call(t, r, "db.grant", `{"user":"shop","database":"shop","privileges":"superuser"}`); err == nil {
 		t.Error("unknown privilege set accepted")
 	}
+}
+
+// SQL imports run the client with its own commands (shell, files) turned
+// off, and are refused when the client cannot do that.
+func TestImportTurnsOffClientCommands(t *testing.T) {
+	for _, c := range []struct{ help, want string }{
+		{"  --sandbox           Disallow commands that access the file system\n", "--sandbox"},
+		{"  --commands          Enable or disable processing of local mysql commands.\n", "--commands=OFF"},
+		{"  --sandbox-ish-option  not the real one\n  --batch\n", ""},
+	} {
+		guards.Delete("mysql")
+		h := testhost.New(t)
+		h.Respond = func(id string, args []string) (string, error, bool) {
+			if id == "mysql" && len(args) == 1 && args[0] == "--help" {
+				return c.help, nil, true
+			}
+			return "", nil, false
+		}
+		err := Client{Env: h.Env}.ImportFrom(context.Background(), "shop", strings.NewReader("\\! touch /tmp/pwned\n"), io.Discard)
+		var imported []string
+		for _, k := range h.Runner.Calls {
+			if strings.HasPrefix(k, "mysql ") && k != "mysql --help" {
+				imported = append(imported, k)
+			}
+		}
+		if c.want == "" {
+			if err == nil || len(imported) != 0 {
+				t.Fatalf("client without the option: err %v, calls %v", err, imported)
+			}
+			continue
+		}
+		if err != nil || len(imported) != 1 || !strings.Contains(imported[0], " "+c.want+" -- shop") {
+			t.Fatalf("%s: err %v, calls %v", c.want, err, imported)
+		}
+	}
+	guards.Delete("mysql")
 }

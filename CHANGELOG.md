@@ -29,6 +29,13 @@ All notable changes to WhaCP are documented here. The format follows
 - Webhook deployments and scheduled backups are tracked like jobs started
   in the panel.
 
+### Security
+- SQL imports (database restores and the agent's `db.import`) run the
+  `mysql` client with its own commands turned off (`--sandbox` on MariaDB,
+  `--commands=OFF` on MySQL). The client runs as root, and a line such as
+  `\! command` in an imported file ran that command. A client that cannot
+  turn them off is refused with a message to update it.
+
 ### Fixed
 - RHEL 10, AlmaLinux 10 and Rocky Linux 10: Redis features work with
   Valkey, which replaces Redis there (`valkey` package and service,
