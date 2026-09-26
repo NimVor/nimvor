@@ -26,6 +26,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/changeset"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/fw"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/logging"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
 )
@@ -609,12 +610,19 @@ func Register(r *actions.Registry, he *host.Env) {
 		res := map[string]any{"address": addr, "deleted": true}
 		maildir := filepath.Join(e.M.VmailDir, dom, local)
 		if !in.KeepMail && he.Root.Exists(maildir) {
+			// The mailbox is gone from Dovecot either way; its mail must not
+			// silently stay behind if it cannot be moved away.
 			trash := filepath.Join(he.Cfg.StateDir, "trash")
-			if _, err := he.Writer.MkdirAll(trash, 0o700, agentfs.RootOwner); err == nil {
-				dest := filepath.Join(trash, "mail-"+addr+"-"+e.Now().Format("20060102T150405Z"))
-				if err := he.Writer.Rename(maildir, dest); err == nil {
-					res["trash"] = dest
-				}
+			dest := filepath.Join(trash, "mail-"+addr+"-"+e.Now().Format("20060102T150405Z"))
+			_, err := he.Writer.MkdirAll(trash, 0o700, agentfs.RootOwner)
+			if err == nil {
+				err = he.Writer.Rename(maildir, dest)
+			}
+			if err != nil {
+				he.Log.Warn("mailbox mail not moved to trash", "address", addr, "error", err)
+				res["notes"] = []string{"The mailbox was deleted but its mail could not be moved to the trash and is still in " + maildir + ": " + logging.Redact(err.Error())}
+			} else {
+				res["trash"] = dest
 			}
 		}
 		return res, nil

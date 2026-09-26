@@ -63,8 +63,9 @@ pass "signed in as the administrator"
 old=$(php -r '$d = new PDO("sqlite:/var/lib/whacp/whacp.sqlite"); $s = $d->prepare("SELECT id FROM websites WHERE domain = ?"); $s->execute([$argv[1]]); echo (string) $s->fetchColumn();' "$DOMAIN" 2>/dev/null || true)
 if [[ -n $old ]]; then remove_site "$old"; fi
 
-# Website (PHP 8.3, new account).
-loc=$(post /websites/new "domain=$DOMAIN" kind=php php_version=8.3 aliases= redirects= client_max_body_mb=64)
+# Website (the system's PHP version, set by CI; default 8.3; new account).
+PHPV=${WHACP_TEST_PHP:-$(cat /etc/whacp-ci-php 2>/dev/null || echo 8.3)}
+loc=$(post /websites/new "domain=$DOMAIN" kind=php php_version=$PHPV aliases= redirects= client_max_body_mb=64)
 [[ $loc =~ /sites/([0-9]+) ]] || fail "website not created: $(flash /websites/new)"
 SITE=${BASH_REMATCH[1]}
 ROOT=/home/whacp/$DOMAIN
@@ -72,8 +73,8 @@ waitfor 30 "website files" test -d "$ROOT/public_html"
 OWNER=$(stat -c %U "$ROOT/public_html")
 echo '<?php echo "e2e-ok-" . PHP_VERSION;' > "$ROOT/public_html/index.php"
 chown "$OWNER:$(stat -c %G "$ROOT/public_html")" "$ROOT/public_html/index.php"
-waitfor 20 "PHP page served" sh -c "curl --noproxy '*' -fsS -H 'Host: $DOMAIN' http://127.0.0.1/index.php | grep -q '^e2e-ok-8.3'"
-pass "website $DOMAIN created and served by Nginx + PHP-FPM 8.3 (account $OWNER)"
+waitfor 20 "PHP page served" sh -c "curl --noproxy '*' -fsS -H 'Host: $DOMAIN' http://127.0.0.1/index.php | grep -q '^e2e-ok-$PHPV'"
+pass "website $DOMAIN created and served by Nginx + PHP-FPM $PHPV (account $OWNER)"
 
 # Database linked to the website.
 CSRF_FROM=/databases

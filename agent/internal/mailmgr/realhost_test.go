@@ -376,10 +376,11 @@ func TestRealHostMail(t *testing.T) {
 		t.Fatal("domain with mailboxes removed")
 	}
 	must("mail.alias_delete", map[string]any{"source": "info@rt-mail.test"})
-	must("mail.mailbox_delete", map[string]any{"address": "alice@rt-mail.test", "confirm": "alice@rt-mail.test"})
+	del := must("mail.mailbox_delete", map[string]any{"address": "alice@rt-mail.test", "confirm": "alice@rt-mail.test"})
 	must("mail.mailbox_delete", map[string]any{"address": "bob@rt-mail.test", "confirm": "bob@rt-mail.test"})
 	if _, err := os.Stat(maildir); err == nil {
-		t.Fatal("deleted mailbox's mail left in place")
+		tree, _ := exec.Command("ls", "-laZ", filepath.Dir(maildir), filepath.Dir(filepath.Dir(maildir))).CombinedOutput()
+		t.Fatalf("deleted mailbox's mail left in place: %v\n%s", del, tree)
 	}
 	must("mail.domain_remove", map[string]any{"domain": "rt-mail.test", "confirm": "rt-mail.test"})
 	if out := imap("alice@rt-mail.test", "Alice-mail-pass-1"); !strings.Contains(out, "a1 NO") {
