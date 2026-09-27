@@ -7,6 +7,32 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Malware scans (ClamAV):** install ClamAV under Packages; Security →
+  Malware scan shows the engine and signatures, updates them, and sets a
+  schedule (nightly to monthly, 1:00–6:00) and quarantine. Each website
+  has a Malware scan page (scan now, last result, history). clamscan runs
+  as the website's own account; quarantine moves infected files into the
+  website's `.whacp-quarantine` folder (mode 0000) without following
+  links out of it. The owner is notified of infected files; a scan
+  without signatures fails instead of reporting "clean".
+- **Create a new account:** login, password (generate), plan, PHP
+  version, spam filter and Spam Box, mail routing, reseller, and DNS
+  options (DKIM, SPF `v=spf1 +a +mx +ip4:… ~all`, DMARC `p=none`,
+  registrar name servers, overwrite) with the first website in one step.
+- **New websites get their DNS zone** (SPF, DMARC, and DKIM when email is
+  hosted here); subdomains go into the parent's zone.
+- **Automatic SSL:** a Let's Encrypt certificate once the domain points
+  to this server (checked for up to 3 days; a setting).
+- **Plan resources:** monthly bandwidth, FTP and email accounts, quota
+  per mailbox, subdomains, parked and addon domains; enforced, with a
+  "Plan usage" panel for customers and bandwidth alerts.
+- **Additional PHP directives per website** (61 allow-listed php.ini
+  settings; paths must stay inside the website).
+- **"Coming soon" start page** (Bootstrap) for new websites.
+
+### Changed
+- Hosting customers and resellers no longer see server-level PHP-FPM
+  settings (process manager, max processes, disabled functions).
 - **Administrator and reseller list pages in a table style** (Websites,
   Databases, FTP, Security): an info bar, a row of actions with the
   service and its version, and tables with inline operations ("Manage |

@@ -194,6 +194,9 @@ switch ($command) {
             foreach ($c->get(\WhaCP\Services\AutoSslService::class)->run() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }
+            foreach ($c->get(\WhaCP\Services\AvService::class)->run() as $line) {
+                out('[' . $srv['name'] . '] ' . $line);
+            }
             // Results of background jobs nobody watched (notifications).
             try {
                 $c->get(\WhaCP\Services\BackupService::class)->refresh();

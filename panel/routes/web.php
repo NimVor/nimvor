@@ -97,6 +97,8 @@ return static function (Router $r): void {
     $r->get('/sites/{id}/files/download', [FilesController::class, 'download'], ['name' => 'sites.files.download', 'permission' => P::FILES_MANAGE]);
     $r->get('/sites/{id}/logs', [LogsController::class, 'site'], ['name' => 'sites.logs', 'permission' => P::LOGS_VIEW]);
     $r->get('/sites/{id}/cron', [CronController::class, 'show'], ['name' => 'sites.cron', 'permission' => P::CRON_VIEW]);
+    $r->get('/sites/{id}/malware', [\WhaCP\Http\Controllers\AvController::class, 'show'], ['name' => 'sites.malware', 'permission' => P::WEBSITES_VIEW]);
+    $r->post('/sites/{id}/malware/scan', [\WhaCP\Http\Controllers\AvController::class, 'scan'], ['name' => 'sites.malware.scan', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/stats', [\WhaCP\Http\Controllers\StatsController::class, 'show'], ['name' => 'sites.stats', 'permission' => P::LOGS_VIEW]);
     $r->post('/sites/{id}/stats/enable', [\WhaCP\Http\Controllers\StatsController::class, 'enable'], ['name' => 'sites.stats.enable', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/stats/update', [\WhaCP\Http\Controllers\StatsController::class, 'update'], ['name' => 'sites.stats.update', 'permission' => P::WEBSITES_MANAGE]);
@@ -258,6 +260,9 @@ return static function (Router $r): void {
     $r->get('/security/fail2ban', [SecurityController::class, 'fail2ban'], ['name' => 'security.fail2ban', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/fail2ban', [SecurityController::class, 'configureFail2ban'], ['name' => 'security.fail2ban.configure', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/fail2ban/unban', [SecurityController::class, 'unban'], ['name' => 'security.fail2ban.unban', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/malware', [\WhaCP\Http\Controllers\AvController::class, 'index'], ['name' => 'security.malware', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/malware/settings', [\WhaCP\Http\Controllers\AvController::class, 'saveSettings'], ['name' => 'security.malware.settings', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/malware/update', [\WhaCP\Http\Controllers\AvController::class, 'updateSignatures'], ['name' => 'security.malware.update', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/confirm', [SecurityController::class, 'confirm'], ['name' => 'security.confirm', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/undo', [SecurityController::class, 'undo'], ['name' => 'security.undo', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/servers', [ServersController::class, 'index'], ['name' => 'servers', 'permission' => P::SERVERS_MANAGE]);

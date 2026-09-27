@@ -81,6 +81,14 @@ final class SettingsService
                 'type' => 'bool', 'default' => true,
                 'label' => 'Automatic SSL for new websites', 'help' => 'Issue a Let\'s Encrypt certificate for a new website once its domain points to this server (its name servers are this panel\'s, or its address is this server\'s). Checked every few minutes for up to 3 days.',
             ],
+            'av_scan_days' => [
+                'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 30,
+                'label' => 'Scheduled malware scans (every N days)', 'help' => 'Scan every website with ClamAV every this many days, as the website\'s account, at night. 0 turns scheduled scans off.',
+            ],
+            'av_quarantine' => [
+                'type' => 'bool', 'default' => false,
+                'label' => 'Quarantine infected files', 'help' => 'Move files a malware scan finds into the website\'s .whacp-quarantine folder (unreadable) instead of only reporting them.',
+            ],
             'ssl_warning_days' => [
                 'type' => 'int', 'default' => 14, 'min' => 1, 'max' => 90,
                 'label' => 'Certificate warning threshold (days)', 'help' => 'Certificates expiring within this many days are highlighted.',

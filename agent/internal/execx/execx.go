@@ -125,6 +125,7 @@ var defaultCandidates = map[string][]string{
 	"sh":                     {"/bin/sh", "/usr/bin/sh"},
 	"tar":                    {"/usr/bin/tar", "/bin/tar"},
 	"perl":                   {"/usr/bin/perl"},
+	"clamscan":               {"/usr/bin/clamscan"},
 }
 
 // Versioned PHP binaries are resolved on demand ("php8.3", "php-fpm8.3").
@@ -573,9 +574,10 @@ func checkArgs(id string, o Opts, args []string) error {
 			return fmt.Errorf("invalid environment entry for %s", id)
 		}
 	}
-	// A shell, perl (AWStats) and tar (which reads and writes website
-	// files) only ever run as an unprivileged account.
-	if (id == "sh" || id == "perl" || id == "tar") && (o.As == nil || o.As.UID < 1000 || o.As.GID < 1000) {
+	// A shell, perl (AWStats), tar (which reads and writes website files)
+	// and clamscan (which reads untrusted files) only ever run as an
+	// unprivileged account.
+	if (id == "sh" || id == "perl" || id == "tar" || id == "clamscan") && (o.As == nil || o.As.UID < 1000 || o.As.GID < 1000) {
 		return fmt.Errorf("%w: %s may only run as an unprivileged account", ErrNotAllowed, id)
 	}
 	return nil
@@ -690,4 +692,11 @@ func (f *FakeRunner) Called(key string) bool {
 		}
 	}
 	return false
+}
+
+// ExitCode reports whether err is the command exiting with status code
+// (also through systemd-run --wait, which passes the status on).
+func ExitCode(err error, code int) bool {
+	var ee *exec.ExitError
+	return errors.As(err, &ee) && ee.ExitCode() == code
 }

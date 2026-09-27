@@ -3,6 +3,7 @@ package modules
 import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/adopt"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/apps"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/avmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/backup"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/cronmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/dbmgr"
@@ -36,6 +37,7 @@ func All() []Module {
 		logs.Register,
 		cronmgr.Register,
 		statsmgr.Register,
+		avmgr.Register,
 		workers.Register,
 		deploy.Register,
 		redismgr.Register,

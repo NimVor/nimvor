@@ -252,6 +252,7 @@ var rhelPackages = map[string]string{
 	"imagemagick":         "ImageMagick",
 	"libnginx-mod-brotli": "",
 	"roundcube-core":      "roundcubemail",
+	"clamav-freshclam":    "clamav-update",
 	"roundcube-sqlite3":   "",
 	"roundcube-plugins":   "",
 	"php-fpm":             "",

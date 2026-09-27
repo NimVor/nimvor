@@ -2,11 +2,11 @@
 /** @var \WhaCP\View\View $this */
 /** @var string $tab */
 /** @var array<string, mixed>|null $pending */
-$tabs = [['index', 'Overview', 'security'], ['firewall', 'Firewall', 'security.firewall'], ['ssh', 'SSH', 'security.ssh'], ['fail2ban', 'Brute-force protection', 'security.fail2ban']];
+$tabs = [['index', 'Overview', 'security'], ['firewall', 'Firewall', 'security.firewall'], ['ssh', 'SSH', 'security.ssh'], ['fail2ban', 'Brute-force protection', 'security.fail2ban'], ['malware', 'Malware scan', 'security.malware']];
 $canManage = $this->can(\WhaCP\Security\Permissions::SECURITY_MANAGE);
 ?>
 <?php $this->start(); ?>Security<?php $this->end('title'); ?>
-<?php $this->start(); ?>Firewall, SSH access and brute-force protection<?php $this->end('subtitle'); ?>
+<?php $this->start(); ?>Firewall, SSH access, brute-force protection and malware scans<?php $this->end('subtitle'); ?>
 <nav class="wcp-pagetabs" aria-label="Security">
     <?php foreach ($tabs as [$key, $label, $route]): ?>
         <a class="<?= $tab === $key ? 'active' : '' ?>" href="<?= e($this->url($route)) ?>"<?= $tab === $key ? ' aria-current="page"' : '' ?>><?= e($label) ?></a>

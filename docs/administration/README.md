@@ -245,6 +245,14 @@ such as `…/databases#new-database`, and again after a validation error).
   `<website>/.awstats`. The panel draws the report (visitors, pages, days,
   hours, referrers, search engines, browsers, systems, countries, errors)
   from AWStats' data file; AWStats' own HTML is not shown.
+- **Malware scans:** install ClamAV (and its signature updater) under
+  Packages, then set a schedule and quarantine under Security → Malware
+  scan. Scans run `clamscan` as the website's account, so they read only
+  what that account can read; files it cannot read are counted as errors.
+  With quarantine on, infected files move to
+  `<website>/.whacp-quarantine/<time>/` with mode 0000, and the owner can
+  delete them in the File manager. Owners can also scan their website
+  from its Malware scan page.
 
 ## PHP versions and settings
 

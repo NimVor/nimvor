@@ -69,6 +69,9 @@ paths:
               - agent.actions
               - agent.status
               - apps.install
+              - av.scan
+              - av.status
+              - av.update
               - backup.create
               - backup.delete
               - backup.download
@@ -343,6 +346,9 @@ x-whacp-actions:
   agent.actions: { mutating: false, description: "List the actions this agent supports." }
   agent.status: { mutating: false, description: "Agent version, write mode and managed layout." }
   apps.install: { mutating: true, description: "Install WordPress or Laravel into a website (job)." }
+  av.scan: { mutating: true, description: "Scan a website for malware with ClamAV, as the website's account (job); optionally quarantine infected files inside the website." }
+  av.status: { mutating: false, description: "ClamAV: installed, version and signature date, signature updates running." }
+  av.update: { mutating: true, description: "Update the ClamAV signatures now (restarts the signature updater, which downloads them)." }
   backup.create: { mutating: true, description: "Back up website files and databases (job)." }
   backup.delete: { mutating: true, description: "Delete a backup (and its remote copy when remote is given)." }
   backup.download: { mutating: false, description: "Read a chunk of a stored backup file (base64)." }

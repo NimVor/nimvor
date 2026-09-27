@@ -26,7 +26,7 @@ final class JobTracker
      * Jobs whose success is not worth a notification (quick, and started by
      * someone who watches them); their failures always are.
      */
-    private const QUIET_ON_SUCCESS = ['Cron: ', 'Compress in ', 'Extract in '];
+    private const QUIET_ON_SUCCESS = ['Cron: ', 'Compress in ', 'Extract in ', 'Malware scan of '];
 
     /** How long an unfinished job is followed before it is given up on. */
     private const SETTLE_WINDOW = 2 * 86400;
