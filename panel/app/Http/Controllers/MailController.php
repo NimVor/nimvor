@@ -105,7 +105,7 @@ final class MailController extends Controller
                 throw new ValidationException(['add_header' => 'Use a marking score of 1–50 and a higher rejection score (at most 100).']);
             }
             $params = ['enabled' => $request->input('enabled') === '1', 'add_header' => $mark, 'reject' => $reject, 'confirm_replace' => $request->input('confirm_replace') === '1'];
-            $this->agent->call('mail.spam_configure', $params, 120);
+            $this->agent->call('mail.spam_configure', $params + $this->mail->spamExceptions(), 120);
             $this->audit->record('mail.spam_configure', 'server', 'mail', AuditLogger::SUCCESS, $params);
             return $params['enabled'] ? 'The spam filter is on.' : 'The spam filter is off.';
         });

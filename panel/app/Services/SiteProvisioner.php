@@ -86,7 +86,8 @@ final class SiteProvisioner
                 'dmarc' => $opts['dns_dmarc'] && $opts['dns_spf'] && $opts['dns_dkim'],
             ], self::SYSTEM);
             $done[] = 'DNS zone';
-            if ($opts['dns_dkim'] && $opts['mail_routing'] !== 'remote') {
+            // Mail received elsewhere (backup or remote exchanger): no mailboxes here.
+            if ($opts['dns_dkim'] && !in_array($opts['mail_routing'], ['remote', 'backup'], true)) {
                 $done = array_merge($done, $this->email($site));
             }
         } catch (\Throwable $e) {

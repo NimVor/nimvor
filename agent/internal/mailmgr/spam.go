@@ -11,6 +11,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
 
 // Spam filtering with Rspamd. WhaCP only writes files in Rspamd's
@@ -35,6 +36,16 @@ func (s Spam) validate() error {
 	if s.AddHeader < 1 || s.AddHeader > 50 || s.Reject <= s.AddHeader || s.Reject > 100 {
 		return fmt.Errorf("the marking score must be 1–50 and the rejection score higher than it (at most 100)")
 	}
+	for field, list := range map[string][]string{"no_filter_domains": s.NoFilterDomains, "no_junk_domains": s.NoJunkDomains} {
+		if len(list) > 10000 {
+			return fmt.Errorf("%s: too many domains", field)
+		}
+		for _, d := range list {
+			if err := validate.Domain(field, d); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -50,7 +61,20 @@ func rspamdFiles(s Spam) map[string]string {
 		"milter_headers.conf": spamMarker + "\nuse = [\"authentication-results\"];\nremove_upstream_spam_flag = true;\n",
 		// OpenDKIM signs outgoing mail.
 		"dkim_signing.conf": spamMarker + "\nenabled = false;\n",
+		// Accounts that turned the filter off: their domains are not scanned.
+		"settings.conf": spamMarker + "\n" + noFilterSettings(s.NoFilterDomains),
 	}
+}
+
+func noFilterSettings(domains []string) string {
+	if len(domains) == 0 {
+		return ""
+	}
+	rcpt := make([]string, len(domains))
+	for i, d := range domains {
+		rcpt[i] = `"@` + d + `"`
+	}
+	return "whacp_no_filter {\n  priority = high;\n  rcpt = [" + strings.Join(rcpt, ", ") + "];\n  want_spam = yes;\n}\n"
 }
 
 func (e env) rspamdInstalled() bool {
@@ -61,15 +85,17 @@ func (e env) rspamdInstalled() bool {
 func registerSpam(r *actions.Registry, e env) {
 	r.Register(actions.Action{Name: "mail.spam_configure", Mutating: true, Description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only WhaCP's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		in := struct {
-			Enabled        bool    `json:"enabled"`
-			AddHeader      float64 `json:"add_header"`
-			Reject         float64 `json:"reject"`
-			ConfirmReplace bool    `json:"confirm_replace"`
+			Enabled         bool     `json:"enabled"`
+			AddHeader       float64  `json:"add_header"`
+			Reject          float64  `json:"reject"`
+			ConfirmReplace  bool     `json:"confirm_replace"`
+			NoFilterDomains []string `json:"no_filter_domains"`
+			NoJunkDomains   []string `json:"no_junk_domains"`
 		}{AddHeader: DefaultSpam().AddHeader, Reject: DefaultSpam().Reject}
 		if err := host.Decode(raw, &in); err != nil {
 			return nil, err
 		}
-		s := Spam{Enabled: in.Enabled, AddHeader: in.AddHeader, Reject: in.Reject}
+		s := Spam{Enabled: in.Enabled, AddHeader: in.AddHeader, Reject: in.Reject, NoFilterDomains: in.NoFilterDomains, NoJunkDomains: in.NoJunkDomains}
 		if err := s.validate(); err != nil {
 			return nil, actions.InvalidParams(err.Error())
 		}
@@ -104,7 +130,13 @@ func registerSpam(r *actions.Registry, e env) {
 		prev := d.Spam
 		d.Spam = s
 		e.writeData(set, d)
+		sieve := e.M.MailDir + "/sieve/spam.sieve"
+		set.Write(sieve, []byte(RenderSpamSieve(s.NoJunkDomains)), 0o644, agentfs.RootOwner)
 		applied, err := set.Commit(func() error {
+			// Compiled here: Dovecot cannot write next to the script.
+			if err := e.run(ctx, "sievec", sieve); err != nil {
+				return err
+			}
 			if s.Enabled {
 				return e.run(ctx, "rspamadm", "configtest")
 			}

@@ -35,6 +35,24 @@ if header :contains "X-Spam" "Yes" {
 }
 `
 
+// RenderSpamSieve is SpamSieve, except for domains whose accounts keep
+// marked mail in the inbox (Spam Box off). The domains are validated.
+func RenderSpamSieve(noJunk []string) string {
+	if len(noJunk) == 0 {
+		return SpamSieve
+	}
+	quoted := make([]string, len(noJunk))
+	for i, d := range noJunk {
+		quoted[i] = `"` + d + `"`
+	}
+	return `require ["fileinto", "mailbox", "envelope"];
+if allof (header :contains "X-Spam" "Yes", not envelope :domain :is "to" [` + strings.Join(quoted, ", ") + `]) {
+  fileinto :create "Junk";
+  stop;
+}
+`
+}
+
 func renderDovecot(p dovecotParams) string {
 	listen := "*, ::"
 	if !p.IPv6 {

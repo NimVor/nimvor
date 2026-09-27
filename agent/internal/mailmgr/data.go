@@ -40,6 +40,10 @@ type Spam struct {
 	// Scores at which a message is marked (filed into Junk) or refused.
 	AddHeader float64 `json:"add_header"`
 	Reject    float64 `json:"reject"`
+	// Domains whose accounts turned the filter off (not scanned) or the
+	// Spam Box off (marked mail stays in the inbox).
+	NoFilterDomains []string `json:"no_filter_domains,omitempty"`
+	NoJunkDomains   []string `json:"no_junk_domains,omitempty"`
 }
 
 // Domain is a hosted mail domain.

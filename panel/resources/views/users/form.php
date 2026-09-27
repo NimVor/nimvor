@@ -77,6 +77,25 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
                 </div>
             </div>
     <?php endif; ?>
+    <?php if (!$isNew && !empty($hostingOptions)): $ho = $hostingOptions; $sw = static function (string $k, string $label) use ($ho): string { return '<div class="form-check form-switch mb-1"><input type="hidden" name="' . e($k) . '" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ho-' . e($k) . '" name="' . e($k) . '" value="1"' . (!empty($ho[$k]) ? ' checked' : '') . '><label class="form-check-label" for="ho-' . e($k) . '">' . e($label) . '</label></div>'; }; ?>
+            <div class="card mb-3" id="hosting-options">
+                <div class="card-header"><i class="bi bi-sliders me-1"></i>Hosting options</div>
+                <div class="card-body small">
+                    <form method="post" action="<?= e($this->url('users.options', ['id' => (int) $editUser['id']])) ?>" data-wcp-busy>
+                        <?= $this->csrfField() ?>
+                        <div class="fw-semibold mb-1">DNS for new websites</div>
+                        <?= $sw('dns_dkim', 'DKIM') . $sw('dns_spf', 'SPF') . $sw('dns_dmarc', 'DMARC (needs DKIM and SPF)') . $sw('dns_registrar_ns', 'Use the registrar\'s name servers (no zone here)') . $sw('dns_overwrite', 'Overwrite an existing zone') ?>
+                        <div class="fw-semibold mt-2 mb-1">Mail</div>
+                        <?= $sw('spam_filter', 'Spam filter') . $sw('spam_box', 'Spam Box (Junk folder)') ?>
+                        <label class="form-label mt-1 mb-1" for="ho-mr">Mail routing</label>
+                        <select class="form-select form-select-sm mb-2" id="ho-mr" name="mail_routing">
+                            <?php foreach (['auto' => 'Automatically detect', 'local' => 'Local mail exchanger', 'backup' => 'Backup mail exchanger', 'remote' => 'Remote mail exchanger'] as $k => $l): ?><option value="<?= e($k) ?>"<?= ($ho['mail_routing'] ?? 'auto') === $k ? ' selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?>
+                        </select>
+                        <button class="btn btn-sm btn-primary">Save options</button>
+                    </form>
+                </div>
+            </div>
+    <?php endif; ?>
     <?php if (!$isNew && !empty($usage)): ?>
             <div class="card">
                 <div class="card-header"><i class="bi bi-speedometer me-1"></i>Usage</div>

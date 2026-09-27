@@ -44,6 +44,7 @@ use WhaCP\Http\Controllers\ServicesController;
 use WhaCP\Http\Controllers\UsersController;
 use WhaCP\Http\Controllers\WebsitesController;
 use WhaCP\Http\Controllers\Api\ApiController;
+use WhaCP\Http\Controllers\AccountsController;
 use WhaCP\Http\Controllers\ApiTokensController;
 use WhaCP\Http\Router;
 use WhaCP\Security\Permissions as P;
@@ -269,6 +270,9 @@ return static function (Router $r): void {
     // Administration
     $r->get('/users', [UsersController::class, 'index'], ['name' => 'users', 'permission' => P::USERS_VIEW]);
     $r->post('/users/{id}/two-factor/reset', [UsersController::class, 'resetTwoFactor'], ['name' => 'users.2fa.reset', 'permission' => P::USERS_MANAGE]);
+    $r->get('/accounts/new', [AccountsController::class, 'create'], ['name' => 'accounts.create', 'permission' => P::USERS_MANAGE]);
+    $r->post('/accounts', [AccountsController::class, 'store'], ['name' => 'accounts.store', 'permission' => P::USERS_MANAGE]);
+    $r->post('/users/{id}/hosting-options', [AccountsController::class, 'saveOptions'], ['name' => 'users.options', 'permission' => P::USERS_MANAGE]);
     $r->get('/users/new', [UsersController::class, 'create'], ['name' => 'users.create', 'permission' => P::USERS_MANAGE]);
     $r->post('/users', [UsersController::class, 'store'], ['name' => 'users.store', 'permission' => P::USERS_MANAGE]);
     $r->get('/users/{id}/edit', [UsersController::class, 'edit'], ['name' => 'users.edit', 'permission' => P::USERS_MANAGE]);

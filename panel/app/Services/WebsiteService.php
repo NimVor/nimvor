@@ -104,7 +104,16 @@ final class WebsiteService
         if (!Scope::isAll($actor)) {
             $this->assertNotUnderOthers($data['names'], $ownerId);
         }
-        $newUser = $this->checkSystemUser((string) $data['row']['system_user'], $ownerId, $actor);
+        if (!empty($input['new_system_user'])) {
+            // A new hosting account: its own, new system account (the agent
+            // refuses one that exists, e.g. a server login).
+            if ($this->sites->usingSystemUser($this->server->id(), (string) $data['row']['system_user']) !== []) {
+                throw new ValidationException(['system_user' => 'The system user ' . $data['row']['system_user'] . ' is in use. Choose another username.']);
+            }
+            $newUser = true;
+        } else {
+            $newUser = $this->checkSystemUser((string) $data['row']['system_user'], $ownerId, $actor);
+        }
 
         $row = $data['row'] + ['server_id' => $serverId, 'owner_id' => $ownerId, 'status' => 'pending', 'parent_id' => $parent === null ? null : (int) $parent['id']];
         $id = $this->sites->insert($row);

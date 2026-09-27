@@ -120,8 +120,56 @@ final class MailService
             [$this->server->id(), $domain, $site['id'] ?? null, $ownerId, (string) ($res['dkim_selector'] ?? ''), (string) ($res['dkim_txt'] ?? ''), gmdate('c')]
         );
         $id = $this->db->lastInsertId();
+        if ($ownerId !== null) {
+            $this->syncSpam(); // the account's spam options cover the new domain
+        }
         $this->audit->record('mail.domain_add', 'mail_domain', (string) $id, AuditLogger::SUCCESS, ['domain' => $domain]);
         return $id;
+    }
+
+    /**
+     * Domains whose accounts turned the spam filter off, and whose
+     * accounts keep marked mail in the inbox (Spam Box off).
+     *
+     * @return array{no_filter_domains: list<string>, no_junk_domains: list<string>}
+     */
+    public function spamExceptions(): array
+    {
+        $out = ['no_filter_domains' => [], 'no_junk_domains' => []];
+        $options = new AccountOptions($this->db);
+        foreach ($this->db->fetchAll('SELECT domain, owner_id FROM mail_domains WHERE server_id = ? ORDER BY domain', [$this->server->id()]) as $d) {
+            $o = $options->get($d['owner_id'] === null ? null : (int) $d['owner_id']);
+            if (!$o['spam_filter']) {
+                $out['no_filter_domains'][] = (string) $d['domain'];
+            }
+            if (!$o['spam_box']) {
+                $out['no_junk_domains'][] = (string) $d['domain'];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Apply the accounts' spam options to the server's spam set-up (when
+     * email is set up). Returns false when it could not be applied.
+     */
+    public function syncSpam(): bool
+    {
+        $status = $this->status();
+        if ($status === null || empty($status['configured'])) {
+            return true;
+        }
+        $spam = (array) ($status['spam'] ?? []);
+        try {
+            $this->agent->call('mail.spam_configure', [
+                'enabled' => !empty($spam['enabled']),
+                'add_header' => (float) ($spam['add_header'] ?? 6),
+                'reject' => (float) ($spam['reject'] ?? 15),
+            ] + $this->spamExceptions(), 120);
+        } catch (AgentException) {
+            return false;
+        }
+        return true;
     }
 
     /**

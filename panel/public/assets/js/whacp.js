@@ -709,6 +709,23 @@
         });
     });
 
+    // "Generate" fills a password field (and its confirmation) with a
+    // strong random password and shows it so it can be copied.
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-wcp-genpass]');
+        if (!btn) { return; }
+        var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_.!@#%';
+        var bytes = new Uint32Array(20);
+        window.crypto.getRandomValues(bytes);
+        var pw = '';
+        bytes.forEach(function (b) { pw += chars[b % chars.length]; });
+        [btn.getAttribute('data-wcp-genpass'), btn.getAttribute('data-wcp-genpass-confirm')].forEach(function (sel) {
+            var el = sel && document.querySelector(sel);
+            if (el) { el.value = pw; el.type = 'text'; }
+        });
+        WhaCP.toast('A strong password was generated. Copy it before creating the account.', 'success');
+    });
+
     // SQL import: upload the chosen file in chunks into the website's tmp/
     // folder (through the file manager's upload), then start the import;
     // or import a file already in the website.

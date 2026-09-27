@@ -396,7 +396,7 @@ func Register(r *actions.Registry, he *host.Env) {
 		e.writeData(set, d)
 		set.Write(he.M.DovecotDropIn, []byte(renderDovecot(dovecotParams{Dir: dir, Vmail: e.M.VmailDir, Hostname: in.Hostname, VmailUID: vmail.UID, TLS: t, IPv6: hasIPv6(), V24: v24})), 0o644, agentfs.RootOwner)
 		set.Mkdir(dir+"/sieve", 0o755, agentfs.RootOwner)
-		set.Write(dir+"/sieve/spam.sieve", []byte(SpamSieve), 0o644, agentfs.RootOwner)
+		set.Write(dir+"/sieve/spam.sieve", []byte(RenderSpamSieve(d.Spam.NoJunkDomains)), 0o644, agentfs.RootOwner)
 		if b, err := he.Root.ReadFile(he.M.DovecotAuthConf); err == nil {
 			if changed, ok := disableSystemAuth(string(b)); ok {
 				set.Write(he.M.DovecotAuthConf, []byte(changed), 0o644, agentfs.Keep)

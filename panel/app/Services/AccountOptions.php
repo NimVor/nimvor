@@ -24,7 +24,7 @@ final class AccountOptions
         // Mail: auto, local, backup or remote exchanger
         'mail_routing' => 'auto',
         'spam_filter' => true,
-        'spam_box' => false,
+        'spam_box' => true,
     ];
 
     public function __construct(private readonly Connection $db)
