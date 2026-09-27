@@ -20,6 +20,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/files"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
@@ -316,6 +317,44 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		j := env.Jobs.Start("db.import", "db:"+in.Name, func(ctx context.Context, log io.Writer) (any, error) {
 			return nil, c.Import(ctx, in.Name, in.Source, log)
+		})
+		return map[string]any{"job_id": j.ID}, nil
+	}})
+	r.Register(actions.Action{Name: "db.import_site", Mutating: true, Description: "Import a .sql or .sql.gz file of a website (path relative to its folder) into a database (job); the file is opened confined to the website. remove_after deletes the file afterwards (e.g. an upload).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Name        string `json:"name"`
+			Domain      string `json:"domain"`
+			Path        string `json:"path"`
+			RemoveAfter bool   `json:"remove_after"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := validate.DBIdentifier("name", in.Name); err != nil {
+			return nil, host.Invalid(err)
+		}
+		if !strings.HasSuffix(in.Path, ".sql") && !strings.HasSuffix(in.Path, ".sql.gz") {
+			return nil, actions.InvalidParams("path must be a .sql or .sql.gz file")
+		}
+		site, err := files.Open(env, in.Domain)
+		if err != nil {
+			return nil, err
+		}
+		f, err := site.OpenRead(in.Path)
+		if err != nil {
+			site.Close()
+			return nil, err
+		}
+		j := env.Jobs.Start("db.import", "db:"+in.Name, func(ctx context.Context, log io.Writer) (any, error) {
+			defer site.Close()
+			err := c.ImportFile(ctx, in.Name, f, in.Path, log)
+			f.Close()
+			if in.RemoveAfter {
+				if rerr := site.RemoveFile(in.Path); rerr != nil {
+					fmt.Fprintf(log, "Could not remove %s: %v\n", in.Path, rerr)
+				}
+			}
+			return nil, err
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})

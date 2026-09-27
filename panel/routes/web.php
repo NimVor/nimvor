@@ -161,6 +161,7 @@ return static function (Router $r): void {
     $r->post('/databases/{id}/drop', [DatabasesController::class, 'drop'], ['name' => 'databases.drop', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/databases/{id}/dump', [DatabasesController::class, 'dump'], ['name' => 'databases.dump', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/databases/{id}/grant', [DatabasesController::class, 'grant'], ['name' => 'databases.grant', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/databases/{id}/import', [DatabasesController::class, 'import'], ['name' => 'databases.import', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/database-users', [DatabasesController::class, 'createUser'], ['name' => 'dbusers.store', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/database-users/{id}/password', [DatabasesController::class, 'password'], ['name' => 'dbusers.password', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/database-users/{id}/reveal', [DatabasesController::class, 'reveal'], ['name' => 'dbusers.reveal', 'permission' => P::DATABASES_MANAGE]);

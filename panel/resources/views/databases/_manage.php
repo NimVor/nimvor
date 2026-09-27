@@ -94,6 +94,27 @@ $openUser = $userError !== null;
                         <td class="text-end text-nowrap">
                             <?php if ($canManage): ?>
                                 <a class="btn btn-sm btn-outline-primary" href="<?= e($this->url('databases.browser', ['id' => (int) $d['id']])) ?>" title="Browse tables and run SQL"><i class="bi bi-table"></i> Browse</a>
+                                <?php if (!empty($d['website_id'])): ?>
+                                    <details class="d-inline-block text-start" data-wcp-import>
+                                        <summary class="btn btn-sm btn-outline-secondary" title="Import a .sql file" aria-label="Import into <?= e($d['name']) ?>"><i class="bi bi-upload"></i></summary>
+                                        <form class="wcp-popover-form card card-body mt-1 position-absolute end-0 shadow-sm" method="post" action="<?= e($this->url('databases.import', ['id' => (int) $d['id']])) ?>"
+                                              data-wcp-sql-import<?= $this->can(\WhaCP\Security\Permissions::FILES_MANAGE) ? ' data-upload-url="' . e($this->url('sites.files.upload', ['id' => (int) $d['website_id']])) . '"' : '' ?>>
+                                            <?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>">
+                                            <input type="hidden" name="path" value=""><input type="hidden" name="uploaded" value="0">
+                                            <div class="fw-medium small mb-2">Import into <?= e($d['name']) ?></div>
+                                            <?php if ($this->can(\WhaCP\Security\Permissions::FILES_MANAGE)): ?>
+                                                <label class="form-label small mb-1" for="imp-f-<?= (int) $d['id'] ?>">Upload a .sql or .sql.gz file</label>
+                                                <input class="form-control form-control-sm mb-2" type="file" id="imp-f-<?= (int) $d['id'] ?>" accept=".sql,.gz,application/sql,application/gzip" data-wcp-import-file>
+                                                <div class="progress mb-2 d-none" role="progressbar" aria-label="Upload progress" data-wcp-import-progress><div class="progress-bar"></div></div>
+                                                <div class="small text-body-secondary mb-1">or a file already in the website folder:</div>
+                                            <?php endif; ?>
+                                            <input class="form-control form-control-sm font-monospace mb-2" name="existing" placeholder="backups/dump.sql" aria-label="File in the website folder">
+                                            <p class="small text-body-secondary mb-2">The SQL adds to the database and may replace its tables. Consider a dump (<i class="bi bi-download"></i>) first.</p>
+                                            <div class="text-danger small mb-2 d-none" data-wcp-import-error></div>
+                                            <button class="btn btn-sm btn-primary" type="submit">Import</button>
+                                        </form>
+                                    </details>
+                                <?php endif; ?>
                                 <form method="post" action="<?= e($this->url('databases.dump', ['id' => (int) $d['id']])) ?>" class="d-inline"><?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>"><button class="btn btn-sm btn-outline-secondary" title="Dump to the backup directory" aria-label="Dump <?= e($d['name']) ?>"><i class="bi bi-download"></i></button></form>
                                 <form method="post" action="<?= e($this->url('databases.drop', ['id' => (int) $d['id']])) ?>" class="d-inline" data-wcp-confirm="Delete the database <?= e($d['name']) ?> and all of its data? This cannot be undone." data-wcp-confirm-word="<?= e($d['name']) ?>">
                                     <?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>"><input type="hidden" name="confirm" value="<?= e($d['name']) ?>">

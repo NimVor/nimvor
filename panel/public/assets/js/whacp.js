@@ -550,4 +550,59 @@
         var c = document.querySelector('[data-wcp-cards]');
         if (c) { applyCards(c); }
     });
+    // SQL import: upload the chosen file in chunks into the website's tmp/
+    // folder (through the file manager's upload), then start the import;
+    // or import a file already in the website.
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!form.matches('[data-wcp-sql-import]') || form.dataset.wcpReady === '1') { return; }
+        e.preventDefault();
+        var err = form.querySelector('[data-wcp-import-error]');
+        var fail = function (msg) { err.textContent = msg; err.classList.remove('d-none'); btn.disabled = false; };
+        var btn = form.querySelector('button[type=submit]');
+        var input = form.querySelector('[data-wcp-import-file]');
+        var file = input && input.files && input.files[0];
+        var existing = form.querySelector('[name=existing]').value.trim();
+        err.classList.add('d-none');
+        btn.disabled = true;
+        var go = function (path, uploaded) {
+            form.querySelector('[name=path]').value = path;
+            form.querySelector('[name=uploaded]').value = uploaded ? '1' : '0';
+            form.dataset.wcpReady = '1';
+            form.submit();
+        };
+        if (!file) {
+            if (!/\.sql(\.gz)?$/.test(existing)) { return fail('Choose a .sql or .sql.gz file.'); }
+            return go(existing, false);
+        }
+        var ext = /\.sql\.gz$/i.test(file.name) ? '.sql.gz' : (/\.sql$/i.test(file.name) ? '.sql' : '');
+        if (!ext) { return fail('Choose a .sql or .sql.gz file.'); }
+        var rand = '';
+        var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        var bytes = new Uint8Array(16);
+        window.crypto.getRandomValues(bytes);
+        bytes.forEach(function (b) { rand += chars[b % chars.length]; });
+        var path = 'tmp/whacp-import-' + rand + ext;
+        var CHUNK = 1024 * 1024;
+        var bar = form.querySelector('[data-wcp-import-progress]');
+        bar.classList.remove('d-none');
+        var fill = bar.querySelector('.progress-bar');
+        var url = form.getAttribute('data-upload-url');
+        (function chunk(offset) {
+            var fd = new FormData();
+            fd.append('chunk', file.slice(offset, offset + CHUNK), 'chunk');
+            fd.append('path', path);
+            fd.append('offset', String(offset));
+            fd.append('final', offset + CHUNK >= file.size ? '1' : '0');
+            fetch(url, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': WhaCP.csrfToken(), 'Accept': 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    if (!res.success) { throw new Error((res.error && res.error.message) || 'Upload failed'); }
+                    var done = Math.min(file.size, offset + CHUNK);
+                    fill.style.width = (file.size ? Math.round(done / file.size * 100) : 100) + '%';
+                    if (offset + CHUNK < file.size) { chunk(offset + CHUNK); } else { go(path, true); }
+                })
+                .catch(function (x) { fail(x.message); });
+        })(0);
+    });
 })();

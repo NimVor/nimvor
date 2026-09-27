@@ -11,6 +11,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/files"
 )
 
 // Dump writes a consistent, gzip-compressed dump of name to dest (a host
@@ -102,28 +103,53 @@ func (c Client) ImportFrom(ctx context.Context, name string, r io.Reader, log io
 	return nil
 }
 
-// Import loads a .sql or .sql.gz file into name.
+// Import loads a .sql or .sql.gz file into name. A file inside a website
+// is opened confined to that website (files.Site): the agent runs as root
+// and mysql's errors quote the input, so a website's user must not be able
+// to point it at another file through a symlink.
 func (c Client) Import(ctx context.Context, name, source string, log io.Writer) error {
-	real, err := c.Env.Root.Path(source)
+	f, err := c.openSource(source)
 	if err != nil {
 		return err
 	}
-	f, err := os.Open(real)
-	if err != nil {
-		return fmt.Errorf("cannot open %s", source)
-	}
 	defer f.Close()
-	var r io.Reader = f
-	if strings.HasSuffix(source, ".gz") {
+	return c.ImportFile(ctx, name, f, source, log)
+}
+
+// ImportFile imports an opened .sql or .sql.gz file (label names it in the log).
+func (c Client) ImportFile(ctx context.Context, name string, f io.Reader, label string, log io.Writer) error {
+	r := f
+	if strings.HasSuffix(label, ".gz") {
 		gz, err := gzip.NewReader(f)
 		if err != nil {
-			return fmt.Errorf("%s is not a valid gzip file", source)
+			return fmt.Errorf("%s is not a valid gzip file", label)
 		}
 		defer gz.Close()
 		r = gz
 	}
-	fmt.Fprintf(log, "Importing %s into %s…\n", source, name)
+	fmt.Fprintf(log, "Importing %s into %s…\n", label, name)
 	return c.ImportFrom(ctx, name, r, log)
+}
+
+func (c Client) openSource(source string) (*os.File, error) {
+	if rel, ok := strings.CutPrefix(source, strings.TrimSuffix(c.Env.Cfg.SitesRoot, "/")+"/"); ok {
+		domain, path, _ := strings.Cut(rel, "/")
+		s, err := files.Open(c.Env, domain)
+		if err != nil {
+			return nil, err
+		}
+		defer s.Close()
+		return s.OpenRead(path)
+	}
+	real, err := c.Env.Root.Path(source)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(real)
+	if err != nil {
+		return nil, fmt.Errorf("cannot open %s", source)
+	}
+	return f, nil
 }
 
 func filterArgs(args []string, drop ...string) []string {

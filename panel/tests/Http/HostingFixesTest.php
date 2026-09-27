@@ -164,6 +164,33 @@ final class HostingFixesTest extends HttpTestCase
         self::assertSame($before, $this->calls('db.grant'));
     }
 
+    public function testSqlFilesAreImportedFromTheWebsite(): void
+    {
+        $this->agent->succeed('db.import_site', ['job_id' => 'dddddddddddddddd']);
+        $this->db->run("INSERT INTO databases (server_id, website_id, owner_id, name, created_at) VALUES (1, ?, ?, 'cust_shop', '2026-01-01')", [$this->siteId, $this->custId]);
+        $mine = (int) $this->db->scalar("SELECT id FROM databases WHERE name = 'cust_shop'");
+        $loose = $this->insertDatabase('cust_loose', $this->custId);
+        $this->db->run("INSERT INTO databases (server_id, website_id, owner_id, name, created_at) VALUES (1, ?, NULL, 'admin_db', '2026-01-01')", [$this->otherId]);
+        $theirs = (int) $this->db->scalar("SELECT id FROM databases WHERE name = 'admin_db'");
+        $this->login('cust');
+        self::assertStringContainsString('/databases/' . $mine . '/import', $this->request('GET', '/sites/' . $this->siteId . '/databases')->body());
+
+        // An upload the panel named is removed afterwards; any other file is not.
+        $this->post('/databases/' . $mine . '/import', ['path' => 'tmp/whacp-import-abcdefghij012345.sql', 'uploaded' => '1']);
+        self::assertSame(['name' => 'cust_shop', 'domain' => 'shop.test', 'path' => 'tmp/whacp-import-abcdefghij012345.sql', 'remove_after' => true], $this->lastCall('db.import_site'));
+        self::assertSame('dddddddddddddddd', $this->flash('job'));
+        $this->post('/databases/' . $mine . '/import', ['path' => 'backups/site.sql.gz', 'uploaded' => '1']);
+        self::assertFalse($this->lastCall('db.import_site')['remove_after'], 'only the panel\'s own upload is removed');
+
+        $before = $this->calls('db.import_site');
+        foreach (['../other.test/x.sql', 'public_html/index.php', 'tmp/x.sql.zip', ''] as $bad) {
+            $this->post('/databases/' . $mine . '/import', ['path' => $bad]);
+        }
+        $this->post('/databases/' . $loose . '/import', ['path' => 'x.sql']);
+        $this->post('/databases/' . $theirs . '/import', ['path' => 'x.sql']);
+        self::assertSame($before, $this->calls('db.import_site'), 'refused paths, a database without website, another account\'s database');
+    }
+
     private function insertDatabase(string $name, ?int $owner): int
     {
         $this->db->run("INSERT INTO databases (server_id, website_id, owner_id, name, created_at) VALUES (1, NULL, ?, ?, '2026-01-01')", [$owner, $name]);

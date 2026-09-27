@@ -238,6 +238,27 @@ final class DatabaseService
     }
 
     /**
+     * Import a .sql or .sql.gz file of the database's website (a path in
+     * its folder) as a job. Only an upload the panel itself named
+     * (tmp/whacp-import-….sql) is removed afterwards.
+     *
+     * @param array<string, mixed> $database
+     * @param array<string, mixed> $site
+     * @return string job id
+     */
+    public function importFromSite(array $database, array $site, string $path, bool $uploaded): string
+    {
+        $path = ltrim(trim($path), '/');
+        if (!preg_match('/\.sql(\.gz)?$/', $path) || str_contains($path, '..') || strlen($path) > 255) {
+            throw new ValidationException(['path' => 'Choose a .sql or .sql.gz file inside the website folder.']);
+        }
+        $remove = $uploaded && preg_match('#^tmp/whacp-import-[a-z0-9]{16}\.sql(\.gz)?$#', $path) === 1;
+        $res = (array) $this->agent->call('db.import_site', ['name' => $database['name'], 'domain' => $site['domain'], 'path' => $path, 'remove_after' => $remove]);
+        $this->audit->record('database.import', 'database', (string) $database['name'], AuditLogger::SUCCESS, ['website' => $site['domain'], 'file' => $path]);
+        return (string) $res['job_id'];
+    }
+
+    /**
      * @param array<string, mixed> $database
      * @return string job id
      */

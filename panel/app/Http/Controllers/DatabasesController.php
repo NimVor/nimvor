@@ -165,6 +165,27 @@ final class DatabasesController extends Controller
         return $this->redirectWithSuccess($this->back($request), 'Privileges updated.');
     }
 
+    /** Import a .sql file of the database's website (uploaded or already there) as a job. */
+    public function import(Request $request, string $id): Response
+    {
+        $user = $this->user($request);
+        $db = $this->repo->database($this->server->id(), (int) $id, $user);
+        $site = $db !== null && $db['website_id'] !== null ? $this->sites->find($this->server->id(), (int) $db['website_id'], $user) : null;
+        if ($db === null || $site === null) {
+            return $this->redirectWithError($this->back($request), 'Only a database of one of your websites can be imported into.');
+        }
+        try {
+            $job = $this->service->importFromSite($db, $site, $request->string('path'), $request->input('uploaded') === '1');
+        } catch (ValidationException $e) {
+            return $this->redirectWithError($this->back($request), implode(' ', $e->errors()));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($this->back($request), $e);
+        }
+        $this->jobs->track($job, 'Import into ' . $db['name'], 'database', (string) $db['id'], $this->userId($request));
+        $this->flashJob($job);
+        return $this->redirectWithSuccess($this->back($request), 'Import into ' . $db['name'] . ' started.');
+    }
+
     /** Give a database user access to one of the account's databases (the database is chosen in the form). */
     public function assign(Request $request, string $id): Response
     {

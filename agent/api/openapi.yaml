@@ -93,6 +93,7 @@ paths:
               - db.dump
               - db.grant
               - db.import
+              - db.import_site
               - db.overview
               - db.query
               - db.user_create
@@ -359,6 +360,7 @@ x-whacp-actions:
   db.dump: { mutating: true, description: "Dump a database to a gzip file in the backup directory (job)." }
   db.grant: { mutating: true, description: "Grant or revoke a privilege set on one database." }
   db.import: { mutating: true, description: "Import a .sql or .sql.gz file into a database (job)." }
+  db.import_site: { mutating: true, description: "Import a .sql or .sql.gz file of a website (path relative to its folder) into a database (job); the file is opened confined to the website. remove_after deletes the file afterwards (e.g. an upload)." }
   db.overview: { mutating: false, description: "Databases, sizes, users and grants (live from the server)." }
   db.query: { mutating: true, description: "Database browser: run SQL (one or more statements) as the database's browser account, which can reach this database only." }
   db.user_create: { mutating: true, description: "Create a database user." }

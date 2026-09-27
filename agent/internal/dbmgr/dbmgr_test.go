@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -97,4 +99,55 @@ func TestImportTurnsOffClientCommands(t *testing.T) {
 		}
 	}
 	guards.Delete("mysql")
+}
+
+// A website's SQL file is opened confined to the website: a symlink to a
+// file elsewhere (e.g. /etc/shadow, which mysql errors would quote into the
+// job log) is refused by db.import_site and by db.import alike.
+func TestImportFromAWebsiteIsConfinedToIt(t *testing.T) {
+	guards.Delete("mysql")
+	defer guards.Delete("mysql")
+	h := testhost.New(t)
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		if id == "mysql" && len(args) == 1 && args[0] == "--help" {
+			return "  --sandbox           Disallow commands that access the file system\n", nil, true
+		}
+		return "", nil, false
+	}
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	site := filepath.Join(h.Base, h.Env.Cfg.SitesRoot, "shop.test")
+	os.MkdirAll(filepath.Join(site, "tmp"), 0o755)
+	os.MkdirAll(filepath.Join(h.Base, "etc"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/shadow"), []byte("root:$6$secret-hash:19000:0:99999:7:::\n"), 0o600)
+	os.WriteFile(filepath.Join(site, "tmp/dump.sql"), []byte("CREATE TABLE t (a INT);\n"), 0o644)
+	os.Symlink(filepath.Join(h.Env.Cfg.SitesRoot, "../../etc/shadow"), filepath.Join(site, "tmp/evil.sql"))
+	os.Symlink("../../../../etc/shadow", filepath.Join(site, "tmp/evil2.sql"))
+
+	for _, p := range []string{"tmp/evil.sql", "tmp/evil2.sql", "../other.test/x.sql", "tmp/dump.txt"} {
+		if _, err := call(t, r, "db.import_site", `{"name":"shop","domain":"shop.test","path":"`+p+`"}`); err == nil {
+			t.Errorf("db.import_site accepted %s", p)
+		}
+	}
+	res, err := call(t, r, "db.import_site", `{"name":"shop","domain":"shop.test","path":"tmp/dump.sql","remove_after":true}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	j, _ := h.Env.Jobs.Wait(context.Background(), res.(map[string]any)["job_id"].(string))
+	if j.Status != "succeeded" || !strings.Contains(strings.Join(h.Runner.Stdins, ""), "CREATE TABLE t") {
+		t.Fatalf("import: %s, stdin %q", j.Status, h.Runner.Stdins)
+	}
+	if _, err := os.Stat(filepath.Join(site, "tmp/dump.sql")); !os.IsNotExist(err) {
+		t.Error("uploaded file not removed")
+	}
+
+	// The older db.import takes absolute paths: inside a website the same confinement applies.
+	res, err = call(t, r, "db.import", `{"name":"shop","source":"`+filepath.Join(h.Env.Cfg.SitesRoot, "shop.test/tmp/evil2.sql")+`"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	j, _ = h.Env.Jobs.Wait(context.Background(), res.(map[string]any)["job_id"].(string))
+	if j.Status != "failed" || strings.Contains(strings.Join(h.Runner.Stdins, ""), "secret-hash") {
+		t.Fatalf("symlink followed: %s, stdin %q", j.Status, h.Runner.Stdins)
+	}
 }

@@ -579,6 +579,37 @@ func (s *Site) Upload(p string, offset int64, data []byte, final bool) (int64, e
 	return size, friendly(s.rename(tmp, p))
 }
 
+// OpenRead opens a regular file of the website for reading, confined to
+// the website root like every other operation (a symlink cannot lead
+// outside it).
+func (s *Site) OpenRead(p string) (*os.File, error) {
+	p, err := clean(p)
+	if err != nil {
+		return nil, err
+	}
+	f, err := s.root.Open(p)
+	if err != nil {
+		return nil, friendly(err)
+	}
+	if info, err := f.Stat(); err != nil || !info.Mode().IsRegular() {
+		f.Close()
+		return nil, actions.InvalidParams("path: not a file")
+	}
+	return f, nil
+}
+
+// RemoveFile removes one file of the website (not a folder).
+func (s *Site) RemoveFile(p string) error {
+	p, err := clean(p)
+	if err != nil {
+		return err
+	}
+	if info, err := s.root.Lstat(p); err != nil || info.IsDir() {
+		return actions.InvalidParams("path: not a file")
+	}
+	return friendly(s.root.Remove(p))
+}
+
 // Download reads one chunk.
 func (s *Site) Download(p string, offset int64) ([]byte, int64, error) {
 	p, err := clean(p)
