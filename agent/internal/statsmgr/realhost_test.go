@@ -24,7 +24,7 @@ import (
 )
 
 // Requires root and the awstats package. Runs the real update through the
-// agent's command runner, as the website's account, on a log nginx wrote
+// agent's command runner, as the website's account, on a log nginx created
 // (root-owned, in the account's logs folder).
 func TestRealHostStatsUpdate(t *testing.T) {
 	if os.Geteuid() != 0 || program(&host.Env{Root: filesystem.Host()}) == "" {
@@ -43,7 +43,9 @@ func TestRealHostStatsUpdate(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		fmt.Fprintf(&lines, "203.0.113.%d - - [%s] \"GET /page%d HTTP/1.1\" 200 512 \"-\" \"Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0\"\n", i+1, now.Add(-time.Duration(i)*time.Minute).Format("02/Jan/2006:15:04:05 -0700"), i)
 	}
-	os.WriteFile(filepath.Join(root, "logs/access.log"), []byte(lines.String()), 0o644) // as nginx (root)
+	// As "nginx -t" creates it under the agent's umask (0027): root:root 0640.
+	os.WriteFile(filepath.Join(root, "logs/access.log"), []byte(lines.String()), 0o640)
+	os.Chmod(filepath.Join(root, "logs/access.log"), 0o640)
 
 	cfg := config.Default()
 	cfg.SitesRoot = sitesRoot

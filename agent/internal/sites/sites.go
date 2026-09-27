@@ -213,6 +213,10 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 		rollbackUser()
 		return nil, host.FailWithValidation("The website configuration was not applied", err)
 	}
+	// The Nginx test above creates missing logs (as root).
+	if err := AccessLogReadable(e, s.Root, u.GID); err != nil {
+		e.Log.Warn("access log permissions", "domain", s.Domain, "err", err)
+	}
 
 	res := &Result{Domain: s.Domain, Changed: append(dirsApplied.Changed, applied.Changed...), Backup: applied.Backup, User: UserInfo{u.Name, u.UID, u.GID}, Created: created}
 	if len(applied.Changed) == 0 {

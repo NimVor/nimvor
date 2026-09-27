@@ -27,6 +27,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/sites"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
 
@@ -223,6 +224,9 @@ func Register(r *actions.Registry, env *host.Env) {
 				return nil, actions.Failed("Could not create the statistics folder.", err.Error())
 			}
 		}
+		if err := sites.AccessLogReadable(env, in.Root, u.GID); err != nil {
+			return nil, actions.Failed("Could not let the website's account read its access log.", err.Error())
+		}
 		set.Write(configPath(in.Domain), []byte(Config(in.Site)), 0o644, agentfs.RootOwner)
 		set.Write(cronPath(env, in.Domain), []byte(CronLine(in.Site, prog)), 0o644, agentfs.RootOwner)
 		if _, err := set.Apply(); err != nil {
@@ -242,6 +246,9 @@ func Register(r *actions.Registry, env *host.Env) {
 		cred, _, err := env.Credential(s.User)
 		if err != nil {
 			return nil, actions.InvalidParams("user: " + err.Error())
+		}
+		if err := sites.AccessLogReadable(env, s.Root, int(cred.GID)); err != nil {
+			return nil, actions.Failed("Could not let the website's account read its access log.", err.Error())
 		}
 		dir, _ := env.Root.Path(s.Root)
 		j := env.Jobs.Start("stats.update", "site:"+s.Domain, func(ctx context.Context, log io.Writer) (any, error) {
