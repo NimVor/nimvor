@@ -124,7 +124,7 @@ final class PlansAndResellersTest extends HttpTestCase
         self::assertSame(5 * 1048576, (int) $this->db->scalar('SELECT bytes FROM website_usage WHERE website_id = ?', [$site]));
         self::assertStringContainsString('cust uses 5 MB of a 1 MB disk quota', (string) $this->db->scalar("SELECT message FROM alerts WHERE rule = 'quota'"));
         $usage = $this->app->container->get(PlanLimits::class)->usage($cust);
-        self::assertSame(['label' => 'Disk (MB)', 'used' => 5, 'limit' => 1], end($usage));
+        self::assertSame(['key' => 'disk', 'label' => 'Disk space (MB)', 'used' => 5, 'limit' => 1], $usage[0]);
         $calls = $this->calls('sites.usage');
         $mon->run();
         self::assertSame($calls, $this->calls('sites.usage'), 'measured at most hourly');

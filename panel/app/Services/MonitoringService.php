@@ -38,6 +38,39 @@ final class MonitoringService
     }
 
     /**
+     * Bytes sent this month by each website, read on from where the last
+     * read of its access log stopped.
+     */
+    private function bandwidth(int $now): void
+    {
+        $rows = $this->db->fetchAll('SELECT w.id, w.domain, w.root, u.bw_month, u.bw_inode, u.bw_offset FROM websites w JOIN website_usage u ON u.website_id = w.id WHERE w.server_id = ?', [$this->server->id()]);
+        if ($rows === []) {
+            return;
+        }
+        $byDomain = array_column($rows, null, 'domain');
+        try {
+            $res = (array) $this->agent->call('sites.bandwidth', ['sites' => array_map(static fn (array $r): array => ['domain' => $r['domain'], 'root' => $r['root'], 'inode' => (int) $r['bw_inode'], 'offset' => (int) $r['bw_offset']], $rows)], 300);
+        } catch (AgentException $e) {
+            $this->log->warning('bandwidth measurement failed', ['error' => $e->getMessage()]);
+            return;
+        }
+        $month = gmdate('Y-m', $now);
+        foreach ($res as $t) {
+            $t = (array) $t;
+            $row = $byDomain[(string) ($t['domain'] ?? '')] ?? null;
+            if ($row === null || !empty($t['not_found'])) {
+                continue;
+            }
+            $add = (int) (((array) ($t['months'] ?? []))[$month] ?? 0);
+            // A new month starts from zero.
+            $this->db->run(
+                'UPDATE website_usage SET bw_bytes = CASE WHEN bw_month = ? THEN bw_bytes + ? ELSE ? END, bw_month = ?, bw_inode = ?, bw_offset = ? WHERE website_id = ?',
+                [$month, $add, $add, $month, (int) $t['inode'], (int) $t['offset'], (int) $row['id']]
+            );
+        }
+    }
+
+    /**
      * Measure website disk use (at most hourly) and return quota alerts.
      *
      * @return list<array{0: string, 1: string, 2: string, 3: string}>
@@ -65,10 +98,17 @@ final class MonitoringService
                     [(int) $byDomain[$r['domain']], (int) $r['bytes'], (int) $r['files'], gmdate('c', $now)]
                 );
             }
+            $this->bandwidth($now);
         }
         $out = [];
         if ($this->limits === null) {
             return $out;
+        }
+        foreach ($this->db->fetchAll('SELECT u.id, u.username, p.bandwidth_mb FROM users u JOIN plans p ON p.id = u.plan_id WHERE p.bandwidth_mb > 0') as $u) {
+            $used = $this->limits->count('bandwidth_mb', $this->limits->owners((int) $u['id']));
+            if ($used > (int) $u['bandwidth_mb']) {
+                $out[] = ['bandwidth', (string) $u['username'], 'warning', sprintf('%s used %d MB of a %d MB monthly bandwidth.', $u['username'], $used, (int) $u['bandwidth_mb'])];
+            }
         }
         foreach ($this->db->fetchAll('SELECT u.id, u.username, p.disk_quota_mb FROM users u JOIN plans p ON p.id = u.plan_id WHERE p.disk_quota_mb > 0') as $u) {
             $owners = array_merge([(int) $u['id']], array_map('intval', array_column($this->db->fetchAll('SELECT id FROM users WHERE parent_id = ?', [(int) $u['id']]), 'id')));
@@ -145,7 +185,7 @@ final class MonitoringService
             $firing['agent'] = ['agent', '', 'critical', 'The WhaCP agent is not reachable: ' . $e->getMessage()];
             // Nothing could be measured: keep agent-based alerts open instead
             // of reporting them as resolved.
-            foreach ($this->db->fetchAll("SELECT * FROM alerts WHERE server_id = ? AND resolved_at IS NULL AND rule IN ('disk', 'memory', 'load', 'service', 'certificate', 'quota')", [$this->server->id()]) as $a) {
+            foreach ($this->db->fetchAll("SELECT * FROM alerts WHERE server_id = ? AND resolved_at IS NULL AND rule IN ('disk', 'memory', 'load', 'service', 'certificate', 'quota', 'bandwidth')", [$this->server->id()]) as $a) {
                 $firing[] = [(string) $a['rule'], (string) $a['subject'], (string) $a['severity'], (string) $a['message']];
             }
         }
@@ -216,7 +256,7 @@ final class MonitoringService
             if ($site !== null) {
                 $opts = ['website_id' => (int) $site['id'], 'link' => '/sites/' . (int) $site['id'] . ($rule === 'backup' ? '/backups' : '')];
             }
-        } elseif ($rule === 'quota' && $subject !== '') {
+        } elseif (($rule === 'quota' || $rule === 'bandwidth') && $subject !== '') {
             $owner = $this->db->scalar('SELECT id FROM users WHERE username = ? COLLATE NOCASE', [$subject]);
             if ($owner !== null && $owner !== false) {
                 $opts = ['owner_id' => (int) $owner, 'link' => ''];

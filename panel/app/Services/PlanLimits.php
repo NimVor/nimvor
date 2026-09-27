@@ -19,11 +19,19 @@ final class PlanLimits
 {
     public const RESOURCES = [
         'websites' => ['max_websites', 'Websites'],
-        'databases' => ['max_databases', 'Databases'],
+        'subdomains' => ['max_subdomains', 'Subdomains'],
+        'parked_domains' => ['max_parked_domains', 'Parked domains'],
+        'addon_domains' => ['max_addon_domains', 'Addon domains'],
+        'databases' => ['max_databases', 'SQL databases'],
+        'ftp_accounts' => ['max_ftp_accounts', 'FTP accounts'],
+        'email_accounts' => ['max_email_accounts', 'Email accounts'],
         'cron_jobs' => ['max_cron_jobs', 'Cron jobs'],
         'workers' => ['max_workers', 'Workers'],
         'customers' => ['max_customers', 'Customers'],
     ];
+
+    /** Counted outside the panel's records (on the server); callers pass the count. */
+    private const EXTERNAL = ['ftp_accounts'];
 
     public function __construct(private readonly Connection $db)
     {
@@ -50,11 +58,18 @@ final class PlanLimits
         }
         $in = implode(',', array_map('intval', $owners));
         $sql = match ($resource) {
-            'websites' => "SELECT COUNT(*) FROM websites WHERE owner_id IN ({$in})",
+            // Subdomains and addon domains have limits of their own.
+            'websites' => "SELECT COUNT(*) FROM websites WHERE owner_id IN ({$in}) AND parent_id IS NULL",
             'databases' => "SELECT COUNT(*) FROM databases WHERE owner_id IN ({$in})",
             'cron_jobs' => "SELECT COUNT(*) FROM cron_jobs c JOIN websites w ON w.id = c.website_id WHERE w.owner_id IN ({$in})",
             'workers' => "SELECT COUNT(*) FROM workers k JOIN websites w ON w.id = k.website_id WHERE w.owner_id IN ({$in})",
             'customers' => "SELECT COUNT(*) FROM users WHERE parent_id IN ({$in})",
+            'subdomains' => "SELECT COUNT(*) FROM websites c JOIN websites p ON p.id = c.parent_id WHERE c.owner_id IN ({$in}) AND c.domain LIKE '%.' || p.domain",
+            'addon_domains' => "SELECT COUNT(*) FROM websites c JOIN websites p ON p.id = c.parent_id WHERE c.owner_id IN ({$in}) AND c.domain NOT LIKE '%.' || p.domain",
+            'parked_domains' => "SELECT COUNT(*) FROM domains d JOIN websites w ON w.id = d.website_id WHERE d.is_primary = 0 AND w.owner_id IN ({$in})",
+            'email_accounts' => "SELECT COUNT(*) FROM mail_mailboxes m JOIN mail_domains d ON d.id = m.domain_id WHERE d.owner_id IN ({$in})",
+            'ftp_accounts' => '0',
+            'bandwidth_mb' => "SELECT COALESCE(SUM(u.bw_bytes), 0) / 1048576 FROM website_usage u JOIN websites w ON w.id = u.website_id WHERE u.bw_month = '" . gmdate('Y-m') . "' AND w.owner_id IN ({$in})",
             'disk_mb' => "SELECT COALESCE(SUM(u.bytes), 0) / 1048576 FROM website_usage u JOIN websites w ON w.id = u.website_id WHERE w.owner_id IN ({$in})",
             default => throw new \InvalidArgumentException($resource),
         };
@@ -68,7 +83,11 @@ final class PlanLimits
         return array_merge([$userId], $ids);
     }
 
-    public function assertCanCreate(string $resource, ?int $ownerId): void
+    /**
+     * @param int $adding how many are being added (aliases come several at a time)
+     * @param (callable(list<int>): int)|null $counter counts resources kept outside the panel's records
+     */
+    public function assertCanCreate(string $resource, ?int $ownerId, int $adding = 1, ?callable $counter = null): void
     {
         if ($ownerId === null || !isset(self::RESOURCES[$resource])) {
             return;
@@ -86,10 +105,11 @@ final class PlanLimits
             if ($plan === null || $limit <= 0) {
                 continue;
             }
-            if ($this->count($resource, $owners) >= $limit) {
+            $used = $counter !== null ? $counter($owners) : $this->count($resource, $owners);
+            if ($used + $adding > $limit) {
                 $whose = $planUser === $ownerId ? 'Your plan' : 'Your provider\'s plan';
                 throw new UserFacingException(
-                    "{$whose} allows at most {$limit} " . strtolower($label) . '.',
+                    "{$whose} allows at most {$limit} " . (ctype_upper(substr($label, 1, 1)) ? $label : lcfirst($label)) . '.',
                     'The limit of the “' . $plan['name'] . '” plan has been reached.',
                     'Delete an existing one or ask your provider to upgrade the plan.',
                 );
@@ -102,16 +122,29 @@ final class PlanLimits
      *
      * @return list<array{label: string, used: int, limit: int}>
      */
-    public function usage(int $userId): array
+    /**
+     * @param array<string, int> $external counts of resources kept outside the panel's records
+     */
+    public function usage(int $userId, array $external = []): array
     {
         $plan = $this->planFor($userId);
         $owners = $this->family($userId);
         $out = [];
+        $out[] = ['key' => 'disk', 'label' => 'Disk space (MB)', 'used' => $this->count('disk_mb', $owners), 'limit' => (int) ($plan['disk_quota_mb'] ?? 0)];
+        $out[] = ['key' => 'bandwidth', 'label' => 'Bandwidth this month (MB)', 'used' => $this->count('bandwidth_mb', $owners), 'limit' => (int) ($plan['bandwidth_mb'] ?? 0)];
         foreach (self::RESOURCES as $res => [$column, $label]) {
-            $out[] = ['label' => $label, 'used' => $this->count($res, $owners), 'limit' => (int) ($plan[$column] ?? 0)];
+            if (in_array($res, self::EXTERNAL, true) && !isset($external[$res])) {
+                continue;
+            }
+            $out[] = ['key' => $res, 'label' => $label, 'used' => $external[$res] ?? $this->count($res, $owners), 'limit' => (int) ($plan[$column] ?? 0)];
         }
-        $out[] = ['label' => 'Disk (MB)', 'used' => $this->count('disk_mb', $owners), 'limit' => (int) ($plan['disk_quota_mb'] ?? 0)];
         return $out;
+    }
+
+    /** @return list<int> the user and their customers (public for counting outside) */
+    public function owners(int $userId): array
+    {
+        return $this->family($userId);
     }
 
     /** Returns the plan's value for a numeric setting (0 = unlimited). */

@@ -17,7 +17,7 @@ $admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
                 <div class="card-body text-body-secondary">No plans yet. Users without a plan are unlimited.</div>
             <?php else: ?>
                 <div class="table-responsive"><table class="table table-sm align-middle mb-0">
-                    <thead><tr><th>Plan</th><th class="text-center">Websites</th><th class="text-center">Databases</th><th class="text-center">Cron</th><th class="text-center">Workers</th><?php if ($admin): ?><th class="text-center">Customers</th><?php endif; ?><th class="text-center">Disk</th><th class="text-center">Users</th><th></th></tr></thead>
+                    <thead><tr><th>Plan</th><th class="text-center">Websites</th><th class="text-center">Databases</th><th class="text-center">Cron</th><th class="text-center">Workers</th><?php if ($admin): ?><th class="text-center">Customers</th><?php endif; ?><th class="text-center">Disk</th><th class="text-center">Bandwidth</th><th class="text-center">Email</th><th class="text-center">FTP</th><th class="text-center">Users</th><th></th></tr></thead>
                     <tbody>
                     <?php foreach ($plans as $p): ?>
                         <tr>
@@ -28,6 +28,9 @@ $admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
                             <td class="text-center"><?= e($lim($p['max_workers'])) ?></td>
                             <?php if ($admin): ?><td class="text-center"><?= e($lim($p['max_customers'])) ?></td><?php endif; ?>
                             <td class="text-center text-nowrap"><?= (int) $p['disk_quota_mb'] === 0 ? '∞' : e(format_bytes((int) $p['disk_quota_mb'] * 1048576)) ?></td>
+                            <td class="text-center text-nowrap"><?= (int) $p['bandwidth_mb'] === 0 ? '∞' : e(format_bytes((int) $p['bandwidth_mb'] * 1048576)) ?></td>
+                            <td class="text-center"><?= e($lim($p['max_email_accounts'])) ?></td>
+                            <td class="text-center"><?= e($lim($p['max_ftp_accounts'])) ?></td>
                             <td class="text-center"><?= (int) $p['users'] ?></td>
                             <td class="text-end text-nowrap">
                                 <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('plans', [], ['edit' => (int) $p['id']])) ?>" title="Edit"><i class="bi bi-pencil"></i></a>

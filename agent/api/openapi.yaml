@@ -202,6 +202,7 @@ paths:
               - services.status
               - sftp.configure
               - sites.apply
+              - sites.bandwidth
               - sites.delete
               - sites.inspect
               - sites.list
@@ -475,6 +476,7 @@ x-whacp-actions:
   services.status: { mutating: false, description: "Status of core services and PHP-FPM units." }
   sftp.configure: { mutating: true, description: "Turn SFTP access on or off for a website's system user: confined to the websites root (starting in its folder), SFTP only, with keys and/or a password. Validated with sshd -t, verified with sshd -T, rolled back on failure." }
   sites.apply: { mutating: true, description: "Create or update a WhaCP website (Nginx, PHP-FPM pool, directories, system user)." }
+  sites.bandwidth: { mutating: false, description: "Bytes sent by websites per month, read from their access logs from where the last read stopped (read-only)." }
   sites.delete: { mutating: true, description: "Remove a WhaCP website's configuration; optionally move its files to the trash." }
   sites.inspect: { mutating: false, description: "State of a WhaCP website on disk." }
   sites.list: { mutating: false, description: "WhaCP-managed websites present on this server." }

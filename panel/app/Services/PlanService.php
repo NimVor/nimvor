@@ -16,12 +16,19 @@ use WhaCP\Support\ValidationException;
 final class PlanService
 {
     public const FIELDS = [
+        'disk_quota_mb' => 'Disk space quota (MB)',
+        'bandwidth_mb' => 'Monthly bandwidth (MB)',
         'max_websites' => 'Websites',
-        'max_databases' => 'Databases',
+        'max_subdomains' => 'Subdomains',
+        'max_parked_domains' => 'Parked domains (aliases)',
+        'max_addon_domains' => 'Addon domains',
+        'max_databases' => 'SQL databases',
+        'max_ftp_accounts' => 'FTP accounts',
+        'max_email_accounts' => 'Email accounts',
+        'max_email_quota_mb' => 'Max quota per email address (MB)',
         'max_cron_jobs' => 'Cron jobs',
-        'max_workers' => 'Workers',
+        'max_workers' => 'Workers (applications)',
         'max_customers' => 'Customers (resellers)',
-        'disk_quota_mb' => 'Disk quota (MB)',
     ];
 
     public function __construct(
@@ -102,10 +109,11 @@ final class PlanService
             throw new ValidationException($errors);
         }
         $now = gmdate('c');
+        $cols = array_keys(self::FIELDS);
         if ($id === null) {
             $this->db->run(
-                'INSERT INTO plans (owner_id, name, description, max_websites, max_databases, max_cron_jobs, max_workers, max_customers, disk_quota_mb, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$ownerId, $name, $desc, $vals['max_websites'], $vals['max_databases'], $vals['max_cron_jobs'], $vals['max_workers'], $vals['max_customers'], $vals['disk_quota_mb'], $now, $now]
+                'INSERT INTO plans (owner_id, name, description, ' . implode(', ', $cols) . ', created_at, updated_at) VALUES (?, ?, ?, ' . implode(', ', array_fill(0, count($cols), '?')) . ', ?, ?)',
+                array_merge([$ownerId, $name, $desc], array_map(static fn (string $c): int => $vals[$c], $cols), [$now, $now])
             );
             $id = $this->db->lastInsertId();
         } else {
@@ -113,8 +121,8 @@ final class PlanService
                 throw new UserFacingException('Plan not found.');
             }
             $this->db->run(
-                'UPDATE plans SET name = ?, description = ?, max_websites = ?, max_databases = ?, max_cron_jobs = ?, max_workers = ?, max_customers = ?, disk_quota_mb = ?, updated_at = ? WHERE id = ?',
-                [$name, $desc, $vals['max_websites'], $vals['max_databases'], $vals['max_cron_jobs'], $vals['max_workers'], $vals['max_customers'], $vals['disk_quota_mb'], $now, $id]
+                'UPDATE plans SET name = ?, description = ?, ' . implode(', ', array_map(static fn (string $c): string => $c . ' = ?', $cols)) . ', updated_at = ? WHERE id = ?',
+                array_merge([$name, $desc], array_map(static fn (string $c): int => $vals[$c], $cols), [$now, $id])
             );
         }
         $this->audit->record('plan.save', 'plan', (string) $id, AuditLogger::SUCCESS, ['name' => $name] + $vals);

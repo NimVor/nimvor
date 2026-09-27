@@ -36,6 +36,8 @@ final class FtpController extends SiteController
         private readonly AuditLogger $audit,
         private readonly JobTracker $jobs,
         private readonly \WhaCP\Services\SiteOverview $overview,
+        private readonly \WhaCP\Services\PlanLimits $limits,
+        private readonly \WhaCP\Services\FtpUsage $ftpUsage,
     ) {
         parent::__construct($view, $session, $sites, $server);
     }
@@ -203,6 +205,7 @@ final class FtpController extends SiteController
                 if ($count >= self::MAX_ACCOUNTS) {
                     throw new UserFacingException('This website already has ' . self::MAX_ACCOUNTS . ' FTP accounts.');
                 }
+                $this->limits->assertCanCreate('ftp_accounts', $site['owner_id'] === null ? null : (int) $site['owner_id'], 1, fn (array $owners): int => $this->ftpUsage->count($owners));
             }
             $quota = max(0, (int) $request->input('quota_mb', 0));
             $params = ['name' => $login, 'user' => (string) $site['system_user'], 'dir' => $dir, 'quota_mb' => $quota];

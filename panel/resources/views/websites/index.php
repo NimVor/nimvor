@@ -13,6 +13,19 @@ $showOwner = $this->can(P::USERS_VIEW);
 <?php $this->start(); ?>Websites<?php $this->end('title'); ?>
 <?php $this->start(); ?><?= $this->simpleLayout() ? count($managed) . ' website' . (count($managed) === 1 ? '' : 's') : count($managed) . ' managed by WhaCP' ?><?= $discoveredAt !== null ? ' · ' . (int) $total . ' other website(s) found on this server' : '' ?><?php $this->end('subtitle'); ?>
 
+<?php if (!empty($planUsage)): $shown = array_values(array_filter($planUsage['rows'], static fn (array $u): bool => $u['limit'] > 0 || in_array($u['key'], ['disk', 'bandwidth'], true))); ?>
+    <details class="wcp-panel mb-3" id="plan-usage" open>
+        <summary class="fw-semibold"><i class="bi bi-speedometer me-1" aria-hidden="true"></i>Plan usage <span class="small fw-normal wcp-muted"><?= e($planUsage['name']) ?></span></summary>
+        <div class="wcp-usage mt-3">
+            <?php foreach ($shown as $u): $pct = $u['limit'] > 0 ? (int) min(100, round(100 * $u['used'] / max(1, $u['limit']))) : 0; ?>
+                <div class="wcp-usage-item" data-usage="<?= e($u['key']) ?>">
+                    <div class="d-flex small"><span><?= e($u['label']) ?></span><span class="ms-auto fw-semibold<?= $u['limit'] > 0 && $u['used'] >= $u['limit'] ? ' wcp-bad' : '' ?>"><?= (int) $u['used'] ?> / <?= $u['limit'] > 0 ? (int) $u['limit'] : '∞' ?></span></div>
+                    <div class="progress mt-1" role="progressbar" aria-label="<?= e($u['label']) ?>" aria-valuenow="<?= $pct ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar<?= $pct >= 100 ? ' bg-danger' : ($pct >= 80 ? ' bg-warning' : '') ?> wcp-w-<?= (int) (round($pct / 5) * 5) ?>"></div></div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </details>
+<?php endif; ?>
 <?php if ($layout === 'grid'): ?>
 <div class="wcp-toolbar mb-3" data-wcp-cards-toolbar>
     <div class="input-group input-group-sm wcp-card-search">

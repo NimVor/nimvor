@@ -25,6 +25,8 @@ final class WebsitesController extends Controller
         private readonly \WhaCP\Repositories\WebsiteRepository $managed,
         private readonly \WhaCP\Services\ServerContext $server,
         private readonly \WhaCP\Database\Connection $db,
+        private readonly \WhaCP\Services\PlanLimits $limits,
+        private readonly \WhaCP\Services\FtpUsage $ftp,
     ) {
         parent::__construct($view, $session);
     }
@@ -39,7 +41,17 @@ final class WebsitesController extends Controller
         }
         // Cards (the customers' default) or the table.
         $layout = $request->query('view', '') === 'list' || ($request->query('view', '') !== 'grid' && !$this->view->simpleLayout()) ? 'list' : 'grid';
-        $list = ['backups' => $this->backupCounts(array_column($managed, 'id')), 'ssl' => [], 'nginxVersion' => null];
+        $list = ['backups' => $this->backupCounts(array_column($managed, 'id')), 'ssl' => [], 'nginxVersion' => null, 'planUsage' => null];
+        // Hosting customers see their plan's limits and what they use.
+        if ($this->view->simpleLayout() && ($plan = $this->limits->planFor((int) $user['id'])) !== null) {
+            $external = [];
+            try {
+                $external['ftp_accounts'] = $this->ftp->count($this->limits->owners((int) $user['id']));
+            } catch (AgentException) {
+                // shown without FTP accounts
+            }
+            $list['planUsage'] = ['name' => (string) $plan['name'], 'rows' => $this->limits->usage((int) $user['id'], $external)];
+        }
         // Hosting customers only see their own (managed) websites.
         if (!\WhaCP\Hosting\Scope::isAll($user)) {
             if (!$this->view->simpleLayout()) {

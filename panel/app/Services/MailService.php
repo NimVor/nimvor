@@ -28,6 +28,7 @@ final class MailService
         private readonly ServerContext $server,
         private readonly WebsiteRepository $sites,
         private readonly DnsService $dns,
+        private readonly ?PlanLimits $limits = null,
     ) {
     }
 
@@ -223,7 +224,16 @@ final class MailService
             throw new ValidationException(['password' => 'Enter a password or generate one.']);
         }
         $quota = max(0, (int) ($input['quota_mb'] ?? 0));
+        $owner = $domain['owner_id'] === null ? null : (int) $domain['owner_id'];
+        if ($this->limits !== null && ($max = $this->limits->value($owner, 'max_email_quota_mb')) > 0) {
+            // The plan caps each mailbox; "unlimited" becomes the cap.
+            if ($quota > $max) {
+                throw new ValidationException(['quota_mb' => "Your plan allows at most {$max} MB per mailbox."]);
+            }
+            $quota = $quota === 0 ? $max : $quota;
+        }
         if ($existing === null) {
+            $this->limits?->assertCanCreate('email_accounts', $owner);
             if ($this->db->scalar('SELECT COUNT(*) FROM mail_mailboxes WHERE domain_id = ?', [$domain['id']]) >= self::MAX_MAILBOXES) {
                 throw new UserFacingException('This domain has the maximum number of mailboxes.');
             }

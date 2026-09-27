@@ -95,7 +95,12 @@ final class WebsiteService
         $serverId = $this->server->id();
         // A subdomain or addon domain belongs to its parent's owner.
         $ownerId = $parent !== null ? ($parent['owner_id'] === null ? null : (int) $parent['owner_id']) : $this->resolveOwner($input, $actor);
-        $this->limits->assertCanCreate('websites', $ownerId);
+        if ($parent === null) {
+            $this->limits->assertCanCreate('websites', $ownerId);
+        }
+        if (count($data['names']) > 1) {
+            $this->limits->assertCanCreate('parked_domains', $ownerId, count($data['names']) - 1);
+        }
         if (!Scope::isAll($actor)) {
             $this->assertNotUnderOthers($data['names'], $ownerId);
         }
@@ -128,6 +133,10 @@ final class WebsiteService
         $data = $this->validate($input, $site, $actor === null || Scope::isAll($actor));
         if ($actor !== null && !Scope::isAll($actor)) {
             $this->assertNotUnderOthers($data['names'], $site['owner_id'] === null ? null : (int) $site['owner_id']);
+        }
+        $added = count($data['names']) - 1 - count($site['aliases']);
+        if ($added > 0) {
+            $this->limits->assertCanCreate('parked_domains', $site['owner_id'] === null ? null : (int) $site['owner_id'], $added);
         }
         $id = (int) $site['id'];
         $previous = $site;
@@ -344,6 +353,7 @@ final class WebsiteService
         if ($child['kind'] === 'php' && $child['php_version'] === '') {
             $child['php_version'] = $this->phpVersions()[0] ?? '';
         }
+        $this->limits->assertCanCreate($type === 'subdomain' ? 'subdomains' : 'addon_domains', $parent['owner_id'] === null ? null : (int) $parent['owner_id']);
         $id = $this->create($child, $actor, $parent);
         $dns = false;
         if ($type === 'subdomain' && !empty($input['dns'])) {
