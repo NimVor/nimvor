@@ -13,6 +13,17 @@ $canEdit = $this->can(\WhaCP\Security\Permissions::SETTINGS_MANAGE);
                     <?= $this->csrfField() ?>
                     <fieldset<?= $canEdit ? '' : ' disabled' ?>>
                         <?php foreach ($definitions as $key => $def): ?>
+                            <?php if ($def['type'] === 'bool'): $on = filter_var($old[$key] ?? $values[$key], FILTER_VALIDATE_BOOL); ?>
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        <input type="hidden" name="<?= e($key) ?>" value="0">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="f-<?= e($key) ?>" name="<?= e($key) ?>" value="1"<?= $on ? ' checked' : '' ?>>
+                                        <label class="form-check-label" for="f-<?= e($key) ?>"><?= e($def['label']) ?></label>
+                                    </div>
+                                    <div class="form-text"><?= e($def['help']) ?></div>
+                                </div>
+                                <?php continue; ?>
+                            <?php endif; ?>
                             <?= $this->partial('partials/field', [
                                 'name' => $key,
                                 'label' => $def['label'],

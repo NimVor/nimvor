@@ -77,6 +77,10 @@ final class SettingsService
                 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 15,
                 'label' => 'Default IPv4 for new zones', 'help' => 'The public address new zones point @ and www to. Empty leaves the A records out.',
             ],
+            'auto_ssl' => [
+                'type' => 'bool', 'default' => true,
+                'label' => 'Automatic SSL for new websites', 'help' => 'Issue a Let\'s Encrypt certificate for a new website once its domain points to this server (its name servers are this panel\'s, or its address is this server\'s). Checked every few minutes for up to 3 days.',
+            ],
             'ssl_warning_days' => [
                 'type' => 'int', 'default' => 14, 'min' => 1, 'max' => 90,
                 'label' => 'Certificate warning threshold (days)', 'help' => 'Certificates expiring within this many days are highlighted.',
@@ -92,6 +96,11 @@ final class SettingsService
         }
         $this->cache ??= $this->repository->all();
         return $this->cache[$key] ?? $defs[$key]['default'];
+    }
+
+    public function bool(string $key): bool
+    {
+        return filter_var($this->get($key), FILTER_VALIDATE_BOOL);
     }
 
     public function int(string $key): int
@@ -128,7 +137,9 @@ final class SettingsService
                 continue;
             }
             $raw = $input[$key];
-            if ($def['type'] === 'int') {
+            if ($def['type'] === 'bool') {
+                $clean[$key] = filter_var($raw, FILTER_VALIDATE_BOOL);
+            } elseif ($def['type'] === 'int') {
                 $v = filter_var($raw, FILTER_VALIDATE_INT);
                 if ($v === false || $v < ($def['min'] ?? PHP_INT_MIN) || $v > ($def['max'] ?? PHP_INT_MAX)) {
                     $errors[$key] = sprintf('Enter a whole number between %d and %d.', $def['min'] ?? 0, $def['max'] ?? 0);

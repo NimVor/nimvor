@@ -68,6 +68,7 @@ final class Application
         // New websites: DNS zone (and email with DKIM) when this server hosts them.
         $events->on('website.created', static function (array $p) use ($c): void {
             $c->get(\WhaCP\Services\SiteProvisioner::class)->provision((array) $p['website']);
+            $c->get(\WhaCP\Services\AutoSslService::class)->mark((array) $p['website']);
         });
         $events->on('website.deleting', static function (array $p) use ($c): void {
             $site = (array) $p['website'];

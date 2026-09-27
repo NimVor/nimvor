@@ -14,6 +14,15 @@ if ($site['https'] && $cert !== null) {
     <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i>certbot is not installed on this server. Install the <code>certbot</code> package to use Let's Encrypt.</div>
 <?php endif; ?>
 
+<?php if (!$site['https'] && in_array((string) ($site['auto_ssl'] ?? ''), ['pending', 'gave_up', 'failed'], true)): ?>
+    <div class="alert <?= $site['auto_ssl'] === 'pending' ? 'alert-info' : 'alert-warning' ?> d-flex gap-2 small" role="status">
+        <i class="bi bi-<?= $site['auto_ssl'] === 'pending' ? 'hourglass-split' : 'exclamation-triangle' ?>" aria-hidden="true"></i>
+        <div><strong>Automatic SSL<?= $site['auto_ssl'] === 'pending' ? '' : ' stopped' ?>:</strong> <?= e((string) $site['auto_ssl_note']) ?>
+            <?php if ($site['auto_ssl'] === 'pending'): ?> The certificate is issued automatically once the domain's name servers are this panel's or its address is this server's.<?php endif; ?></div>
+    </div>
+<?php elseif (($site['auto_ssl'] ?? '') === 'done' && $site['https']): ?>
+    <div class="small text-body-secondary mb-2"><i class="bi bi-magic me-1"></i><?= e((string) $site['auto_ssl_note']) ?></div>
+<?php endif; ?>
 <div class="card mb-3" id="certificate">
     <div class="card-body">
         <div class="d-flex flex-wrap align-items-center gap-3">
