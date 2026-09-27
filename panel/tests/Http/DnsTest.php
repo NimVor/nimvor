@@ -42,7 +42,7 @@ final class DnsTest extends HttpTestCase
         self::assertSame('shop.test', $call['zone']);
         self::assertSame(['primary_ns' => 'ns1.host.test.', 'hostmaster' => 'hostmaster@shop.test'], $call['soa']);
         $summary = array_map(static fn (array $r): string => $r['name'] . ' ' . $r['type'] . ' ' . $r['value'], $call['records']);
-        foreach (['@ NS ns1.host.test.', '@ NS ns2.host.test.', '@ A 203.0.113.10', 'www CNAME @', '@ TXT v=spf1 a mx ~all', '@ CAA issue letsencrypt.org'] as $want) {
+        foreach (['@ NS ns1.host.test.', '@ NS ns2.host.test.', '@ A 203.0.113.10', 'www CNAME @', '@ TXT v=spf1 +a +mx +ip4:203.0.113.10 ~all', '@ CAA issue letsencrypt.org'] as $want) {
             self::assertContains($want, $summary);
         }
         self::assertSame(2026090101, (int) $this->db->scalar('SELECT serial FROM dns_zones WHERE id = ?', [$zoneId]));

@@ -65,6 +65,10 @@ final class Application
      */
     private static function registerListeners(\WhaCP\Support\Events $events, Container $c): void
     {
+        // New websites: DNS zone (and email with DKIM) when this server hosts them.
+        $events->on('website.created', static function (array $p) use ($c): void {
+            $c->get(\WhaCP\Services\SiteProvisioner::class)->provision((array) $p['website']);
+        });
         $events->on('website.deleting', static function (array $p) use ($c): void {
             $site = (array) $p['website'];
             $c->get(\WhaCP\Services\WorkerService::class)->removeAll($site);

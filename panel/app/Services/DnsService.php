@@ -118,6 +118,18 @@ final class DnsService
         if ($this->db->scalar('SELECT COUNT(*) FROM dns_zones WHERE server_id = ? AND name = ?', [$this->server->id(), $name]) > 0) {
             throw new ValidationException(['name' => 'This zone exists already.']);
         }
+        if (!Scope::isAll($actor)) {
+            // This server answers for its zones: a zone under another
+            // account's zone (x.their-domain.test) would take names from it.
+            $owner = $site !== null && $site['owner_id'] !== null ? (int) $site['owner_id'] : (int) $actor['id'];
+            $parts = explode('.', $name);
+            for ($i = 1; $i < count($parts) - 1; $i++) {
+                $above = $this->db->fetch('SELECT owner_id FROM dns_zones WHERE server_id = ? AND name = ?', [$this->server->id(), implode('.', array_slice($parts, $i))]);
+                if ($above !== null && (int) ($above['owner_id'] ?? 0) !== $owner) {
+                    throw new ValidationException(['name' => 'This name belongs to a domain of another account.']);
+                }
+            }
+        }
         $ns = $this->nameservers();
         if ($ns === []) {
             throw new UserFacingException('No name servers are configured.', '', 'An administrator sets them under Settings → DNS name servers.');
@@ -137,11 +149,17 @@ final class DnsService
             $records = array_map(static fn (string $n): array => ['name' => '@', 'type' => 'NS', 'value' => $n . '.'], $ns);
             $ip = $this->settings->string('dns_default_ipv4');
             if (!empty($input['template'])) {
-                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+                $hasIp = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
+                if ($hasIp) {
                     $records[] = ['name' => '@', 'type' => 'A', 'value' => $ip];
                     $records[] = ['name' => 'www', 'type' => 'CNAME', 'value' => '@'];
                 }
-                $records[] = ['name' => '@', 'type' => 'TXT', 'value' => 'v=spf1 a mx ~all'];
+                if ($input['spf'] ?? true) {
+                    $records[] = ['name' => '@', 'type' => 'TXT', 'value' => self::spf($hasIp ? $ip : null)];
+                }
+                if ($input['dmarc'] ?? false) {
+                    $records[] = ['name' => '_dmarc', 'type' => 'TXT', 'value' => 'v=DMARC1; p=none;'];
+                }
                 $records[] = ['name' => '@', 'type' => 'CAA', 'value' => 'issue letsencrypt.org'];
             }
             foreach ($records as $r) {
@@ -151,6 +169,12 @@ final class DnsService
             $this->audit->record('dns.zone_create', 'dns_zone', (string) $id, AuditLogger::SUCCESS, ['zone' => $name, 'website_id' => $site['id'] ?? null]);
             return $id;
         });
+    }
+
+    /** SPF: the domain's web and mail servers, and this server's address. */
+    public static function spf(?string $ipv4): string
+    {
+        return 'v=spf1 +a +mx' . ($ipv4 !== null ? ' +ip4:' . $ipv4 : '') . ' ~all';
     }
 
     /**

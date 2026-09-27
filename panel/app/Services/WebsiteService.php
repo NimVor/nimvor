@@ -55,6 +55,30 @@ final class WebsiteService
     }
 
     /**
+     * Hosting customers and resellers cannot add names under another
+     * account's domain (x.their-domain.test): they would take its names.
+     *
+     * @param list<string> $names
+     */
+    private function assertNotUnderOthers(array $names, ?int $ownerId): void
+    {
+        $serverId = $this->server->id();
+        foreach ($names as $n) {
+            $parts = explode('.', $n);
+            for ($i = 1; $i < count($parts) - 1; $i++) {
+                $site = $this->sites->domainOwner($serverId, implode('.', array_slice($parts, $i)));
+                if ($site === null) {
+                    continue;
+                }
+                $owner = $this->sites->find($serverId, $site, null)['owner_id'] ?? null;
+                if (($owner === null ? null : (int) $owner) !== $ownerId) {
+                    throw new ValidationException([$n === $names[0] ? 'domain' : 'aliases' => "{$n} is under a domain of another account."]);
+                }
+            }
+        }
+    }
+
+    /**
      * PHP-FPM settings only administrators (server-wide roles) change:
      * process counts and manager, request limits and disabling shell
      * functions.
@@ -72,6 +96,9 @@ final class WebsiteService
         // A subdomain or addon domain belongs to its parent's owner.
         $ownerId = $parent !== null ? ($parent['owner_id'] === null ? null : (int) $parent['owner_id']) : $this->resolveOwner($input, $actor);
         $this->limits->assertCanCreate('websites', $ownerId);
+        if (!Scope::isAll($actor)) {
+            $this->assertNotUnderOthers($data['names'], $ownerId);
+        }
         $newUser = $this->checkSystemUser((string) $data['row']['system_user'], $ownerId, $actor);
 
         $row = $data['row'] + ['server_id' => $serverId, 'owner_id' => $ownerId, 'status' => 'pending', 'parent_id' => $parent === null ? null : (int) $parent['id']];
@@ -99,6 +126,9 @@ final class WebsiteService
     public function update(array $site, array $input, ?array $actor = null): void
     {
         $data = $this->validate($input, $site, $actor === null || Scope::isAll($actor));
+        if ($actor !== null && !Scope::isAll($actor)) {
+            $this->assertNotUnderOthers($data['names'], $site['owner_id'] === null ? null : (int) $site['owner_id']);
+        }
         $id = (int) $site['id'];
         $previous = $site;
         $this->sites->update($id, $data['row']);
