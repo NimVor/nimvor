@@ -275,6 +275,25 @@ suspended when their reseller is resumed. If a server could not apply a
 step, the page says which, sign-in stays blocked, and "Apply the
 suspension again" retries.
 
+## Plans, limits and bandwidth
+
+- **Overrides:** an administrator can override any limit of one account
+  (account page → Plan and limits → Override limits). Empty uses the
+  plan's value; 0 is unlimited. The plan and its other accounts are not
+  changed.
+- **Changing plans:** account page → Change plan compares the current and
+  new plan limit by limit, with current usage. A downgrade never deletes
+  anything; an account over a new limit just cannot add more.
+- **Bandwidth:** Users → Bandwidth over limit lists accounts over their
+  monthly limit (a reseller's limit covers its customers). "Reset" sets
+  this month's counter to 0; log positions and earlier months are kept.
+- **Terminating accounts:** select hosting accounts on the Users page and
+  choose "Terminate selected". The confirmation lists what will be removed
+  and requires typing TERMINATE. Each account's websites (files and system
+  account), mailboxes, databases, database users and DNS zones are removed
+  through the same code as deleting them one by one; if a step fails, that
+  account is kept with what is left and the others continue.
+
 ## PHP versions and settings
 
 *PHP* lists the installed versions; each has a **Settings** page with three

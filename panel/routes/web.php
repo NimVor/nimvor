@@ -278,6 +278,13 @@ return static function (Router $r): void {
     $r->get('/accounts/new', [AccountsController::class, 'create'], ['name' => 'accounts.create', 'permission' => P::USERS_MANAGE]);
     $r->post('/accounts', [AccountsController::class, 'store'], ['name' => 'accounts.store', 'permission' => P::USERS_MANAGE]);
     $r->post('/users/{id}/hosting-options', [AccountsController::class, 'saveOptions'], ['name' => 'users.options', 'permission' => P::USERS_MANAGE]);
+    $r->post('/users/{id}/limits', [\WhaCP\Http\Controllers\AccountAdminController::class, 'saveLimits'], ['name' => 'users.limits', 'permission' => P::USERS_MANAGE]);
+    $r->get('/users/{id}/plan', [\WhaCP\Http\Controllers\AccountAdminController::class, 'plan'], ['name' => 'users.plan', 'permission' => P::USERS_MANAGE]);
+    $r->post('/users/{id}/plan', [\WhaCP\Http\Controllers\AccountAdminController::class, 'changePlan'], ['name' => 'users.plan.change', 'permission' => P::USERS_MANAGE]);
+    $r->post('/users/{id}/bandwidth/reset', [\WhaCP\Http\Controllers\AccountAdminController::class, 'resetBandwidth'], ['name' => 'users.bandwidth.reset', 'permission' => P::USERS_MANAGE]);
+    $r->get('/accounts/bandwidth', [\WhaCP\Http\Controllers\AccountAdminController::class, 'bandwidth'], ['name' => 'accounts.bandwidth', 'permission' => P::USERS_MANAGE]);
+    $r->post('/accounts/terminate/confirm', [\WhaCP\Http\Controllers\AccountAdminController::class, 'confirmTerminate'], ['name' => 'accounts.terminate.confirm', 'permission' => P::USERS_MANAGE]);
+    $r->post('/accounts/terminate', [\WhaCP\Http\Controllers\AccountAdminController::class, 'terminate'], ['name' => 'accounts.terminate', 'permission' => P::USERS_MANAGE]);
     $r->post('/users/{id}/suspend', [\WhaCP\Http\Controllers\AccountsController::class, 'suspend'], ['name' => 'users.suspend', 'permission' => P::USERS_MANAGE]);
     $r->post('/users/{id}/unsuspend', [\WhaCP\Http\Controllers\AccountsController::class, 'unsuspend'], ['name' => 'users.unsuspend', 'permission' => P::USERS_MANAGE]);
     $r->get('/users/new', [UsersController::class, 'create'], ['name' => 'users.create', 'permission' => P::USERS_MANAGE]);

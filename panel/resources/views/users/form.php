@@ -121,6 +121,49 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
             </div>
             <?php endif; ?>
     <?php endif; ?>
+    <?php if (!$isNew && !empty($limitRows)): $hasPlan = $editUser['plan_id'] !== null; $fmtL = static fn (?int $v): string => $v === null ? '—' : ($v > 0 ? number_format($v) : '∞'); ?>
+            <div class="card mb-3" id="account-limits">
+                <div class="card-header d-flex align-items-center"><span><i class="bi bi-sliders2 me-1"></i>Plan and limits</span>
+                    <a class="btn btn-sm btn-outline-secondary ms-auto" href="<?= e($this->url('users.plan', ['id' => (int) $editUser['id']])) ?>">Change plan</a>
+                </div>
+                <?php if (!$hasPlan): ?>
+                    <div class="card-body small text-body-secondary">No plan: the account is unlimited. Assign a plan to set limits and per-account overrides.</div>
+                <?php else: ?>
+                    <div class="table-responsive"><table class="table table-sm small align-middle mb-0">
+                        <thead><tr><th>Limit</th><th class="text-end">Plan</th><th class="text-end">Override</th><th class="text-end">In effect</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($limitRows as $r): ?>
+                            <tr<?= $r['override'] !== null ? ' class="fw-semibold"' : '' ?>><td><?= e($r['label']) ?></td><td class="text-end"><?= e($fmtL($r['plan'])) ?></td><td class="text-end"><?= e($r['override'] === null ? '' : $fmtL($r['override'])) ?></td><td class="text-end"><?= e($fmtL($r['effective'])) ?></td></tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table></div>
+                    <div class="card-footer d-flex flex-wrap gap-2">
+                        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#limits-modal"><i class="bi bi-pencil me-1"></i>Override limits</button>
+                        <form method="post" action="<?= e($this->url('users.bandwidth.reset', ['id' => (int) $editUser['id']])) ?>" data-wcp-confirm="Reset <?= e($editUser['username']) ?>'s bandwidth for this month to 0? Earlier months are not affected."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary">Reset this month's bandwidth</button></form>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <?php if ($hasPlan): ?>
+            <div class="modal fade" id="limits-modal" tabindex="-1" aria-labelledby="limits-title" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-scrollable">
+                    <form class="modal-content" method="post" action="<?= e($this->url('users.limits', ['id' => (int) $editUser['id']])) ?>" data-wcp-busy>
+                        <?= $this->csrfField() ?>
+                        <div class="modal-header"><h2 class="modal-title fs-5" id="limits-title">Limits of <?= e($editUser['username']) ?></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                        <div class="modal-body small">
+                            <p>Overrides apply to this account only; the plan stays as it is. Leave a field empty to use the plan's value; 0 means unlimited.</p>
+                            <?php foreach ($limitRows as $r): ?>
+                                <div class="row g-2 align-items-center mb-2">
+                                    <label class="col-7 col-form-label col-form-label-sm" for="lim-<?= e($r['column']) ?>"><?= e($r['label']) ?> <span class="text-body-secondary">(plan: <?= e($fmtL($r['plan'])) ?>)</span></label>
+                                    <div class="col-5"><input class="form-control form-control-sm" type="number" min="0" max="<?= \WhaCP\Services\AccountAdminService::MAX_VALUE ?>" step="1" id="lim-<?= e($r['column']) ?>" name="limits[<?= e($r['column']) ?>]" value="<?= $r['override'] === null ? '' : (int) $r['override'] ?>" placeholder="plan"></div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save limits</button></div>
+                    </form>
+                </div>
+            </div>
+            <?php endif; ?>
+    <?php endif; ?>
     <?php if (!$isNew && !empty($hostingOptions)): $ho = $hostingOptions; $sw = static function (string $k, string $label) use ($ho): string { return '<div class="form-check form-switch mb-1"><input type="hidden" name="' . e($k) . '" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ho-' . e($k) . '" name="' . e($k) . '" value="1"' . (!empty($ho[$k]) ? ' checked' : '') . '><label class="form-check-label" for="ho-' . e($k) . '">' . e($label) . '</label></div>'; }; ?>
             <div class="card mb-3" id="hosting-options">
                 <div class="card-header"><i class="bi bi-sliders me-1"></i>Hosting options</div>

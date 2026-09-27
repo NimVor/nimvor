@@ -37,13 +37,47 @@ final class PlanLimits
     {
     }
 
-    /** @return array<string, mixed>|null */
+    /**
+     * The plan in effect for a user: the assigned plan with the account's
+     * own overrides applied (the plan itself is unchanged).
+     *
+     * @return array<string, mixed>|null
+     */
     public function planFor(?int $userId): ?array
     {
         if ($userId === null) {
             return null;
         }
-        return $this->db->fetch('SELECT p.* FROM plans p JOIN users u ON u.plan_id = p.id WHERE u.id = ?', [$userId]);
+        $plan = $this->db->fetch('SELECT p.*, u.limit_overrides AS account_overrides FROM plans p JOIN users u ON u.plan_id = p.id WHERE u.id = ?', [$userId]);
+        if ($plan === null) {
+            return null;
+        }
+        foreach (self::decodeOverrides((string) $plan['account_overrides']) as $column => $value) {
+            $plan[$column] = $value;
+        }
+        unset($plan['account_overrides']);
+        return $plan;
+    }
+
+    /**
+     * @return array<string, int> valid overrides (plan columns only)
+     */
+    public static function decodeOverrides(string $json): array
+    {
+        $v = json_decode($json, true);
+        $out = [];
+        foreach (is_array($v) ? $v : [] as $column => $value) {
+            if (isset(PlanService::FIELDS[$column]) && is_int($value) && $value >= 0) {
+                $out[$column] = $value;
+            }
+        }
+        return $out;
+    }
+
+    /** @return array<string, int> */
+    public function overrides(int $userId): array
+    {
+        return self::decodeOverrides((string) $this->db->scalar('SELECT limit_overrides FROM users WHERE id = ?', [$userId]));
     }
 
     /**

@@ -7,6 +7,21 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Per-account limit overrides** (administrators; account page → Plan
+  and limits): raise or lower any plan limit for one account (e.g. 25 GB
+  on a 10 GB plan) without changing the plan; the page shows plan,
+  override and the value in effect. Recorded in the audit log.
+- **Plan upgrade/downgrade page** with a side-by-side comparison of every
+  limit, current usage and limits the account is already over.
+  Administrators and resellers (for their customers, with their plans).
+- **Bandwidth over the limit** (Users → Bandwidth over limit): accounts
+  over their monthly limit with use, limit and excess; suspend, unsuspend
+  or reset this month's counter (earlier months are untouched).
+- **Bulk account termination** (administrators): select accounts on the
+  Users page; the next page lists every website, mailbox, database and
+  DNS zone that will be removed and asks for TERMINATE. Accounts are
+  removed one by one through the normal delete paths, with a result per
+  account; a reseller with unselected customers is skipped.
 - **Account suspension** (administrators; Users → account → Account
   status): a suspended customer or reseller (and a reseller's customers)
   cannot sign in or use API tokens; its websites go offline, cron jobs and

@@ -28,6 +28,7 @@ final class UsersController extends Controller
         private readonly \WhaCP\Security\WebAuthn $webAuthn,
         private readonly \WhaCP\Services\AuditLogger $audit,
         private readonly \WhaCP\Services\AccountOptions $hostingOptions,
+        private readonly \WhaCP\Services\AccountAdminService $accountAdmin,
     ) {
         parent::__construct($view, $session);
     }
@@ -77,7 +78,7 @@ final class UsersController extends Controller
         if ($user === null || !\WhaCP\Services\UserService::canManage($this->user($request), $user)) {
             return $this->redirectWithError('/users', 'The user no longer exists.');
         }
-        return $this->render('users/form', ['editUser' => $user, 'roles' => $this->assignableRoles($request), 'plans' => $this->plans->visible($this->user($request)), 'usage' => $this->limits->usage((int) $user['id']), 'twoFactor' => $this->twoFactor->status((int) $user['id']), 'hostingOptions' => ($user['role_scope'] ?? 'all') === 'own' ? $this->hostingOptions->get((int) $user['id']) : null]);
+        return $this->render('users/form', ['editUser' => $user, 'roles' => $this->assignableRoles($request), 'plans' => $this->plans->visible($this->user($request)), 'usage' => $this->limits->usage((int) $user['id']), 'twoFactor' => $this->twoFactor->status((int) $user['id']), 'hostingOptions' => ($user['role_scope'] ?? 'all') === 'own' ? $this->hostingOptions->get((int) $user['id']) : null, 'limitRows' => ($user['role_scope'] ?? 'all') === 'own' && \WhaCP\Hosting\Scope::isAll($this->user($request)) ? $this->accountAdmin->limitsTable($user) : null]);
     }
 
     public function update(Request $request, string $id): Response

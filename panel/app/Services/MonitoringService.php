@@ -104,13 +104,23 @@ final class MonitoringService
         if ($this->limits === null) {
             return $out;
         }
-        foreach ($this->db->fetchAll('SELECT u.id, u.username, p.bandwidth_mb FROM users u JOIN plans p ON p.id = u.plan_id WHERE p.bandwidth_mb > 0') as $u) {
+        // Limits in effect (plan and the account's overrides).
+        $accounts = $this->db->fetchAll('SELECT u.id, u.username FROM users u WHERE u.plan_id IS NOT NULL');
+        foreach ($accounts as $u) {
+            $u['bandwidth_mb'] = $this->limits->value((int) $u['id'], 'bandwidth_mb');
+            if ($u['bandwidth_mb'] <= 0) {
+                continue;
+            }
             $used = $this->limits->count('bandwidth_mb', $this->limits->owners((int) $u['id']));
             if ($used > (int) $u['bandwidth_mb']) {
                 $out[] = ['bandwidth', (string) $u['username'], 'warning', sprintf('%s used %d MB of a %d MB monthly bandwidth.', $u['username'], $used, (int) $u['bandwidth_mb'])];
             }
         }
-        foreach ($this->db->fetchAll('SELECT u.id, u.username, p.disk_quota_mb FROM users u JOIN plans p ON p.id = u.plan_id WHERE p.disk_quota_mb > 0') as $u) {
+        foreach ($accounts as $u) {
+            $u['disk_quota_mb'] = $this->limits->value((int) $u['id'], 'disk_quota_mb');
+            if ($u['disk_quota_mb'] <= 0) {
+                continue;
+            }
             $owners = array_merge([(int) $u['id']], array_map('intval', array_column($this->db->fetchAll('SELECT id FROM users WHERE parent_id = ?', [(int) $u['id']]), 'id')));
             $used = $this->limits->count('disk_mb', $owners);
             if ($used > (int) $u['disk_quota_mb']) {
