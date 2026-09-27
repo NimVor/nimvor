@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WhaCP\Services;
 
+use WhaCP\Agent\AgentClient;
+use WhaCP\Agent\AgentException;
 use WhaCP\Database\Connection;
 use WhaCP\Repositories\DatabaseRepository;
 
@@ -20,7 +22,63 @@ final class SiteOverview
         private readonly MailService $mail,
         private readonly DnsService $dns,
         private readonly ServerContext $server,
+        private readonly DatabaseService $dbService,
+        private readonly SettingsService $settings,
+        private readonly AgentClient $agent,
     ) {
+    }
+
+    /**
+     * The address the website answers on: the DNS default IPv4 when set,
+     * otherwise the server's first global IPv4 address.
+     */
+    public function serverIp(): ?string
+    {
+        $ip = trim($this->settings->string('dns_default_ipv4'));
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+            return $ip;
+        }
+        try {
+            $info = (array) $this->agent->call('system.info');
+        } catch (AgentException) {
+            return null;
+        }
+        foreach ((array) (((array) ($info['system'] ?? []))['interfaces'] ?? []) as $if) {
+            foreach ((array) (((array) $if)['addresses'] ?? []) as $a) {
+                $a = explode('/', (string) $a)[0];
+                if (filter_var($a, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_RES_RANGE) !== false && !str_starts_with($a, '127.')) {
+                    return $a;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Size of the website's databases, or null when the database server
+     * cannot be asked.
+     *
+     * @param array<string, mixed> $site
+     * @param array<string, mixed> $user
+     */
+    public function databaseBytes(array $site, array $user): ?int
+    {
+        $names = array_column($this->databases->databases($this->server->id(), $user, (int) $site['id']), 'name');
+        if ($names === []) {
+            return 0;
+        }
+        $live = $this->dbService->live();
+        if ($live === null) {
+            return null;
+        }
+        $total = 0;
+        foreach ((array) ($live['databases'] ?? []) as $d) {
+            $d = (array) $d;
+            if (in_array((string) ($d['name'] ?? ''), $names, true)) {
+                $total += (int) ($d['size_bytes'] ?? 0);
+            }
+        }
+        return $total;
     }
 
     /**

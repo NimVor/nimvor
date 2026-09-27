@@ -32,6 +32,10 @@ final class DashboardController extends Controller
 
     public function index(Request $request): Response
     {
+        // Hosting customers start from their websites.
+        if ($this->view->simpleLayout()) {
+            return Response::redirect('/websites');
+        }
         $info = null;
         $summary = null;
         $agentError = null;

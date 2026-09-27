@@ -516,4 +516,38 @@
         var value = form && form.querySelector('[name=value]');
         if (value && value.value === '') { value.focus(); } else if (last) { last.focus(); }
     });
+    // Website cards (or rows): search, sort and status filter on the page.
+    function applyCards(container) {
+        var box = document.querySelector('[data-wcp-cards-toolbar]');
+        if (!container || !box) { return; }
+        var q = (box.querySelector('[data-wcp-cards-search]') || {}).value || '';
+        var sort = (box.querySelector('[data-wcp-cards-sort]') || {}).value || 'created';
+        var status = (box.querySelector('[data-wcp-cards-status]') || {}).value || '';
+        var words = q.toLowerCase().trim().split(/\s+/).filter(Boolean);
+        var cards = Array.prototype.slice.call(container.querySelectorAll('[data-wcp-card]'));
+        var shown = 0;
+        cards.sort(function (a, b) {
+            if (sort === 'name') { return a.dataset.name.localeCompare(b.dataset.name); }
+            return (b.dataset.created || '').localeCompare(a.dataset.created || '');
+        });
+        cards.forEach(function (c) {
+            var on = (status === '' || c.dataset.status === status) && words.every(function (w) { return c.dataset.search.indexOf(w) >= 0; });
+            c.classList.toggle('d-none', !on);
+            if (on) { shown++; }
+            c.parentNode.appendChild(c);
+        });
+        var empty = container.querySelector('[data-wcp-cards-empty]');
+        if (empty) { empty.classList.toggle('d-none', shown > 0); empty.parentNode.appendChild(empty); }
+    }
+    ['input', 'change'].forEach(function (ev) {
+        document.addEventListener(ev, function (e) {
+            var t = e.target;
+            var sel = t.getAttribute && (t.getAttribute('data-wcp-cards-search') || t.getAttribute('data-wcp-cards-sort') || t.getAttribute('data-wcp-cards-status'));
+            if (sel) { applyCards(document.querySelector(sel)); }
+        });
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+        var c = document.querySelector('[data-wcp-cards]');
+        if (c) { applyCards(c); }
+    });
 })();

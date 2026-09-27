@@ -65,20 +65,17 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     await submit(page, `a[href="${site}"]`);
     step('website created and opened: ' + site);
 
-    // ---- Dashboard
+    // ---- Site page: details and tiles
     const main = await page.textContent('main');
-    for (const s of ['Status', 'HTTPS', 'Last backup', 'Quick actions', 'Manage your website']) {
-      if (!main.includes(s)) { throw new Error('dashboard misses ' + s); }
+    for (const s of ['Site user', 'Root directory', 'Handler', 'Site size', 'Database size', 'Site managing', 'Delete the website', 'Disable the website']) {
+      if (!main.includes(s)) { throw new Error('site page misses ' + s); }
     }
-    for (const s of ['System user', '/home/', 'Delete website']) {
-      if (main.includes(s)) { throw new Error('dashboard shows server detail ' + s); }
-    }
-    const groups = await page.$$eval('[data-wcp-feature-group]', g => g.map(x => x.getAttribute('data-wcp-feature-group')));
-    for (const g of ['files', 'databases', 'email', 'domains', 'applications', 'performance', 'backups', 'automation', 'security']) {
-      if (!groups.includes(g)) { throw new Error('missing group ' + g + ': ' + groups); }
+    const tiles = await page.$$eval('[data-wcp-tile]', t => t.map(x => x.getAttribute('data-wcp-tile')));
+    for (const t of ['ftp accounts', 'files', 'databases', 'domains (dns)', 'ssl certificates', 'scheduler', 'mail', 'backup copies', 'site access', 'settings', 'php settings', 'logs']) {
+      if (!tiles.includes(t)) { throw new Error('missing tile ' + t + ': ' + tiles); }
     }
     if (await page.$('.wcp-tabs')) { throw new Error('old tab bar still shown'); }
-    step('dashboard: summary, nine groups, no server details');
+    step('site page: details, tiles, delete and disable');
 
     // ---- Search features
     await page.press('body', '/');
@@ -105,9 +102,13 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
 
     // ---- Quick action and website menu
     await page.goto(BASE + site);
-    await Promise.all([page.waitForURL(/\/backups#backup-now$/), page.click('[data-wcp-quick-actions] a:has-text("Create backup")')]);
+    await page.fill('#wcp-fs', 'back up now');
+    await Promise.all([page.waitForURL(/\/backups#backup-now$/), page.keyboard.press('Enter')]);
     await page.waitForSelector('#backup-now.show');
-    step('quick action "Create backup" opens the backup form');
+    await page.goto(BASE + site);
+    await Promise.all([page.waitForNavigation(), page.click('[data-wcp-tile="backup copies"]')]);
+    if (!page.url().endsWith(site + '/backups')) { throw new Error('tile → ' + page.url()); }
+    step('search "back up now" opens the backup form; the tile opens backups');
 
     await Promise.all([page.waitForNavigation(), page.click('[data-wcp-site-menu] a:has-text("SSL / HTTPS")')]);
     if (!page.url().endsWith(site + '/ssl')) { throw new Error('menu → ' + page.url()); }
@@ -133,7 +134,7 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
       if (!(await flash()).includes('ready')) { throw new Error('DNS setup: ' + await flash()); }
     }
     await page.goto(BASE + site);
-    await Promise.all([page.waitForNavigation(), page.click('[data-wcp-quick-actions] a:has-text("Add DNS record")')]);
+    await Promise.all([page.waitForNavigation(), page.click('[data-wcp-tile="domains (dns)"]')]);
     if (!(await page.textContent('#dns-setup')).includes('not hosted here') || !(await page.$('[data-wcp-site-menu]'))) { throw new Error('DNS set-up page'); }
     await submit(page, '#dns-setup button[type=submit]');
     if (!/\/dns\/zones\/\d+$/.test(page.url())) { throw new Error('zone not created: ' + page.url() + ' ' + await flash()); }
@@ -199,11 +200,18 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     for (const s of ['Server security', 'Audit log', 'Memcached', 'Spam filter', 'Backup destinations']) {
       if (custMain.includes(s)) { throw new Error('customer sees ' + s); }
     }
-    if (!custMain.includes('Your sign-in security')) { throw new Error('customer dashboard'); }
+    if (await cust.$('#wcp-sidebar')) { throw new Error('customers get no sidebar'); }
+    if (!(await cust.$('[data-wcp-tiles]'))) { throw new Error('customer site page'); }
+    await cust.goto(BASE + '/');
+    if (!cust.url().endsWith('/websites') || !(await cust.$('.wcp-site-card'))) { throw new Error('customer home: ' + cust.url()); }
+    const cards = await cust.$$eval('.wcp-site-card', c => c.map(x => x.textContent));
+    if (cards.length !== 1 || !cards[0].includes(domain)) { throw new Error('customer cards: ' + cards.length); }
+    await cust.fill('[data-wcp-cards-search]', 'no-such-site');
+    if (await cust.isVisible('.wcp-site-card')) { throw new Error('card search'); }
     const others = await (await cust.request.get(BASE + '/sites/1', { maxRedirects: 0 })).status();
     if (site !== '/sites/1' && others !== 404) { throw new Error("customer opens another's website: HTTP " + others); }
     await custCtx.close();
-    step("customer: own website only, no server features");
+    step("customer: no sidebar, home is their site cards (searchable), own website only");
 
     await page.screenshot({ path: OUT + '/sitedashboard.png', fullPage: true });
     if (errors.length) { throw new Error(errors.join('\n')); }

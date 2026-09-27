@@ -27,15 +27,21 @@ foreach ($items as $i) {
 <?php $this->end('subtitle'); ?>
 <?php $this->start(); ?>
 <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('websites')) ?>"><i class="bi bi-arrow-left"></i><span class="d-none d-sm-inline"> Websites</span></a>
+<?php if (!$this->simpleLayout()): ?>
 <button class="btn btn-sm btn-outline-secondary d-lg-none" type="button" data-wcp-toggle="sidebar" aria-controls="wcp-sidebar" data-wcp-site-menu-button><i class="bi bi-list-nested"></i> Website menu</button>
+<?php endif; ?>
 <?php if ($site['enabled']): ?>
     <a class="btn btn-sm btn-outline-primary" href="<?= e($scheme . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i><span class="d-none d-sm-inline"> Visit site</span></a>
 <?php endif; ?>
 <?php $this->end('actions'); ?>
-<?php if ($active !== 'overview' && $current !== null): ?>
-    <nav class="wcp-crumbs" aria-label="Breadcrumb">
+<nav class="wcp-crumbs" aria-label="Breadcrumb">
+    <a href="<?= e($this->url('websites')) ?>">Websites</a>
+    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+    <?php if ($active === 'overview' || $current === null): ?>
+        <span aria-current="page"><?= e($site['domain']) ?></span>
+    <?php else: ?>
         <a href="<?= e($this->url('sites.show', ['id' => (int) $site['id']])) ?>"><?= e($site['domain']) ?></a>
         <i class="bi bi-chevron-right" aria-hidden="true"></i>
         <span aria-current="page"><i class="bi bi-<?= e($current['icon']) ?> me-1" aria-hidden="true"></i><?= e($current['label']) ?></span>
-    </nav>
-<?php endif; ?>
+    <?php endif; ?>
+</nav>

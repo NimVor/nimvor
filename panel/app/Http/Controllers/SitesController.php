@@ -88,6 +88,8 @@ final class SitesController extends Controller
             'inspect' => $inspect,
             'inspectError' => $inspectError,
             'summary' => $this->overview->summary($site, $this->user($request)),
+            'serverIp' => $this->overview->serverIp(),
+            'dbBytes' => $this->overview->databaseBytes($site, $this->user($request)),
             'tab' => 'overview',
             'import' => $this->imports->importOf((int) $site['id']),
         ]);
@@ -169,12 +171,14 @@ final class SitesController extends Controller
         if ($site === null) {
             return $this->notFound();
         }
+        // The site page's own button returns there; Advanced's to Advanced.
+        $back = '/sites/' . (int) $id . ($request->string('return_to') === 'overview' ? '' : '/advanced');
         try {
             $this->service->setEnabled($site, !$site['enabled']);
         } catch (UserFacingException $e) {
-            return $this->redirectWithFailure('/sites/' . (int) $id . '/advanced', $e);
+            return $this->redirectWithFailure($back, $e);
         }
-        return $this->redirectWithSuccess('/sites/' . (int) $id . '/advanced', $site['enabled'] ? 'Website disabled. Its files and settings are kept.' : 'Website enabled.');
+        return $this->redirectWithSuccess($back, $site['enabled'] ? 'Website disabled. Its files and settings are kept.' : 'Website enabled.');
     }
 
     public function restartPhp(Request $request, string $id): Response

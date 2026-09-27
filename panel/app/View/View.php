@@ -149,6 +149,18 @@ final class View
         return ($this->permissionChecker)($permission);
     }
 
+    /**
+     * Hosting customers get the simple layout: no sidebar, their websites
+     * as the home page. (Own-scope roles that manage users, i.e.
+     * resellers, keep the full layout.)
+     */
+    public function simpleLayout(): bool
+    {
+        $user = $this->shared['user'] ?? null;
+        return is_array($user) && ($user['role_scope'] ?? 'all') === 'own'
+            && !$this->can(\WhaCP\Security\Permissions::USERS_VIEW);
+    }
+
     public function isActive(string $prefix): bool
     {
         $path = (string) ($this->shared['current_path'] ?? '');

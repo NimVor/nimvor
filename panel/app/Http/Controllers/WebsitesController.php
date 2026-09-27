@@ -36,9 +36,11 @@ final class WebsitesController extends Controller
         if ($q !== '') {
             $managed = array_values(array_filter($managed, static fn (array $s): bool => str_contains(mb_strtolower($s['domain'] . ' ' . implode(' ', $s['aliases'])), $q)));
         }
+        // Cards (the customers' default) or the table.
+        $layout = $request->query('view', '') === 'list' || ($request->query('view', '') !== 'grid' && !$this->view->simpleLayout()) ? 'list' : 'grid';
         // Hosting customers only see their own (managed) websites.
         if (!\WhaCP\Hosting\Scope::isAll($user)) {
-            return $this->render('websites/index', ['managed' => $managed, 'sites' => [], 'total' => 0, 'q' => $q, 'status' => '', 'discoveredAt' => null, 'catchAll' => 0, 'warnings' => [], 'warnDays' => $this->settings->int('ssl_warning_days')]);
+            return $this->render('websites/index', ['managed' => $managed, 'sites' => [], 'total' => 0, 'q' => $q, 'status' => '', 'discoveredAt' => null, 'catchAll' => 0, 'warnings' => [], 'warnDays' => $this->settings->int('ssl_warning_days'), 'layout' => $layout]);
         }
         try {
             $inventory = $this->discovery->inventory(false, $this->userId($request));
@@ -85,6 +87,7 @@ final class WebsitesController extends Controller
             'catchAll' => (int) ($inventory['data']['websites']['catch_all_vhosts'] ?? 0),
             'warnings' => (array) ($inventory['data']['websites']['warnings'] ?? []),
             'warnDays' => $this->settings->int('ssl_warning_days'),
+            'layout' => $layout,
         ]);
     }
 

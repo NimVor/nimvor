@@ -2,6 +2,8 @@
 /** @var \WhaCP\View\View $this */
 /** @var string $content */
 $pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('title'))) : ($panel_name ?? 'WhaCP');
+// Hosting customers: no sidebar, the brand in the top bar leads to their websites.
+$simple = $this->simpleLayout();
 ?>
 <!doctype html>
 <html lang="en" data-bs-theme="light">
@@ -16,14 +18,25 @@ $pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('ti
     <link rel="stylesheet" href="<?= e($this->asset('assets/css/whacp.css')) ?>">
     <script src="<?= e($this->asset('assets/js/theme.js')) ?>"></script>
 </head>
-<body class="wcp-body">
+<body class="wcp-body<?= $simple ? ' is-simple' : '' ?>">
 <div class="wcp-shell">
-    <?= $this->partial('partials/sidebar') ?>
+    <?php if (!$simple): ?><?= $this->partial('partials/sidebar') ?><?php endif; ?>
     <div class="wcp-main">
+        <?php if ($simple): ?>
+            <div class="wcp-brandbar">
+                <a class="wcp-brand" href="<?= e($this->url('websites')) ?>">
+                    <img src="<?= e($this->asset('assets/img/logo.svg')) ?>" alt="" width="26" height="26">
+                    <span><?= e($panel_name ?? 'WhaCP') ?></span>
+                </a>
+                <a class="wcp-brandbar-link<?= $this->isActive('/websites') || $this->isActive('/sites') ? ' active' : '' ?>" href="<?= e($this->url('websites')) ?>"><i class="bi bi-globe2 me-1"></i>Websites</a>
+            </div>
+        <?php endif; ?>
         <header class="wcp-topbar">
+            <?php if (!$simple): ?>
             <button class="btn btn-link wcp-sidebar-toggle d-lg-none" type="button" data-wcp-toggle="sidebar" aria-label="Toggle navigation">
                 <i class="bi bi-list"></i>
             </button>
+            <?php endif; ?>
             <div class="wcp-topbar-title">
                 <h1 class="h5 mb-0"><?= $this->section('title') !== '' ? $this->section('title') : e($pageTitle) ?></h1>
                 <?php if ($this->section('subtitle') !== ''): ?>

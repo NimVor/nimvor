@@ -143,6 +143,8 @@ final class TwoFactorTest extends HttpTestCase
         self::assertStringContainsString('requires two-factor', (string) $this->flash('error'));
         self::assertSame(200, $this->request('GET', '/profile')->status());
         $this->enable();
-        self::assertSame(200, $this->request('GET', '/')->status(), 'full access once set up');
+        // Full access once set up: a customer's home is their websites.
+        self::assertSame('/websites', $this->request('GET', '/')->header('Location'));
+        self::assertSame(200, $this->request('GET', '/websites')->status(), 'full access once set up');
     }
 }
