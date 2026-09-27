@@ -13,7 +13,7 @@ All notable changes to WhaCP are documented here. The format follows
   with a form or a text editor (in WhaCP's own `99-whacp.ini`, allowlisted
   and type-checked), and set server-wide PHP-FPM options. Each change is
   checked with `php-fpm -t`, reloaded, and undone on failure.
-- **Website → Settings → Advanced PHP-FPM:** process manager
+- **Website → PHP & settings → Advanced PHP-FPM:** process manager
   (ondemand, dynamic, static), process counts, idle timeout, requests per
   process, request timeout and slow log per website.
 - **`install.sh --public-https[=8443]`:** the panel at
@@ -50,6 +50,35 @@ All notable changes to WhaCP are documented here. The format follows
     alive.
 
 ### Changed
+- **Website dashboard:** *Websites → Manage* opens a hosting dashboard
+  instead of server details. It has a summary (status, PHP, HTTPS, SSL,
+  disk, last backup), "Search features…" with keyboard navigation, quick
+  actions, and feature cards grouped as Files, Databases, Email, Domains,
+  Applications, Performance, Backups, Automation and Security. Links
+  follow the user's permissions.
+- **Website menu:** it replaces the 15-tab bar. It is nested under
+  Websites in the sidebar, the same on phones ("Website menu"), with a
+  breadcrumb, so there is no sideways scrolling.
+- **Advanced:** server details (system user, folders, PHP-FPM limits,
+  the generated Nginx configuration, recent tasks) moved here. Disable,
+  reload PHP and re-apply are in a Danger Zone, and delete is separate
+  and still needs the domain typed. These actions return to Advanced.
+- **Section pages:** Databases, DNS, Email, Backups, SSL, FTP / SFTP, cron
+  and workers share one pattern:
+  - a toolbar with a count, a filter and a "+ Add" button that opens
+    the form in place (also from links such as `#new-database`, and
+    after validation errors)
+  - empty states
+  - status columns (database present, mailbox usage and fullness, zone
+    live)
+  - destructive actions in danger cards
+  - DNS records shown as Type | Name | Value | TTL, with shortcuts for
+    common records
+- **Email and DNS stay inside the website.** They offer to set up a mail
+  domain or zone there. Validation errors return only to that page,
+  whose address is checked against a strict pattern.
+- On phones the top bar wraps, and the account button shows only its
+  icon.
 - **Packages page:** installed components show an "Installed" badge with
   their version. "Install" no longer reloads the page: it adds the
   component to a queue, a window lists the queued components with their

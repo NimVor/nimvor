@@ -120,7 +120,7 @@ $form = function (?array $r, string $action, string $label, string $idp) use ($o
         </div>
     </div>
     <div class="col-lg-6">
-        <div class="card wcp-danger-card h-100">
+        <div class="card wcp-danger-card">
             <div class="card-header"><i class="bi bi-exclamation-octagon me-1"></i>Danger zone</div>
             <div class="card-body">
                 <p class="small text-body-secondary">Deleting the zone removes all records above. This server stops answering for <code><?= e($zoneName) ?></code>.</p>

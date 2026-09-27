@@ -7,8 +7,13 @@ $canManage = $this->can(P::DATABASES_MANAGE);
 $returnTo = $returnTo ?? '/databases';
 $errors ??= [];
 $old ??= [];
-$openDb = isset($errors['name']);
-$openUser = isset($errors['username']);
+// Both forms can report a user name error (a new database creates its
+// user); only the user form sends "username", so it tells them apart.
+$fromUserForm = array_key_exists('username', $old);
+$dbError = $fromUserForm ? null : ($errors['name'] ?? $errors['username'] ?? null);
+$userError = $fromUserForm ? ($errors['username'] ?? $errors['host'] ?? null) : null;
+$openDb = $dbError !== null;
+$openUser = $userError !== null;
 ?>
 <?= $this->partial('partials/secret', ['secret' => $secret]) ?>
 <?php if ($live === null): ?>
@@ -32,7 +37,7 @@ $openUser = isset($errors['username']);
                         <label class="form-label small" for="db-name">Database name</label>
                         <div class="input-group input-group-sm">
                             <?php if ($prefix !== ''): ?><span class="input-group-text"><?= e($prefix) ?></span><?php endif; ?>
-                            <input class="form-control<?= isset($errors['name']) ? ' is-invalid' : '' ?>" id="db-name" name="name" value="<?= e($old['name'] ?? '') ?>" maxlength="48" required>
+                            <input class="form-control<?= $dbError !== null ? ' is-invalid' : '' ?>" id="db-name" name="name" value="<?= e($old['name'] ?? '') ?>" maxlength="48" required>
                         </div>
                     </div>
                     <?php if (isset($site)): ?>
@@ -45,7 +50,7 @@ $openUser = isset($errors['username']);
                     <?php endif; ?>
                     <div class="col-md-auto"><button class="btn btn-sm btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span> Create database</button></div>
                 </div>
-                <?php if (isset($errors['name'])): ?><div class="text-danger small mt-1"><?= e($errors['name']) ?></div><?php endif; ?>
+                <?php if ($dbError !== null): ?><div class="text-danger small mt-1"><?= e((string) $dbError) ?></div><?php endif; ?>
                 <div class="d-flex flex-wrap gap-3 mt-2">
                     <div class="form-check form-switch small"><input type="hidden" name="create_user" value="0"><input class="form-check-input" type="checkbox" name="create_user" value="1" id="db-cu" checked><label class="form-check-label" for="db-cu">Create a user with full access</label></div>
                     <div class="form-check form-switch small"><input type="hidden" name="store_password" value="0"><input class="form-check-input" type="checkbox" name="store_password" value="1" id="db-sp"><label class="form-check-label" for="db-sp">Keep the password (encrypted) so it can be shown again</label></div>
@@ -123,7 +128,7 @@ $openUser = isset($errors['username']);
                                 <label class="form-label small" for="dbu-name">User name</label>
                                 <div class="input-group input-group-sm">
                                     <?php if ($prefix !== ''): ?><span class="input-group-text"><?= e($prefix) ?></span><?php endif; ?>
-                                    <input class="form-control<?= isset($errors['username']) ? ' is-invalid' : '' ?>" id="dbu-name" name="username" placeholder="username" maxlength="24" required>
+                                    <input class="form-control<?= $userError !== null ? ' is-invalid' : '' ?>" id="dbu-name" name="username" placeholder="username" maxlength="24" required>
                                 </div>
                             </div>
                             <?php if ($prefix === ''): ?>
@@ -131,7 +136,7 @@ $openUser = isset($errors['username']);
                             <?php endif; ?>
                             <div class="col-md-auto"><button class="btn btn-sm btn-primary" type="submit">Create user</button></div>
                         </div>
-                        <?php if (isset($errors['username'])): ?><div class="text-danger small mt-1"><?= e($errors['username']) ?></div><?php endif; ?>
+                        <?php if ($userError !== null): ?><div class="text-danger small mt-1"><?= e((string) $userError) ?></div><?php endif; ?>
                         <div class="form-check form-switch small mt-2"><input type="hidden" name="store_password" value="0"><input class="form-check-input" type="checkbox" name="store_password" value="1" id="u-sp"><label class="form-check-label" for="u-sp">Keep the password (encrypted)</label></div>
                     </form>
                 </div>

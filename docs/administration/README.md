@@ -149,6 +149,43 @@ sudo -u whacp -E php /opt/whacp/panel/bin/whacp schedule:run   # normally run by
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp doctor
 ```
 
+## Website dashboard
+
+*Websites → Manage* opens the website's dashboard, written for the
+website's owner rather than for the server:
+
+- a summary: status, PHP version, HTTPS, SSL, disk use and last backup;
+- **Search features…** (press `/`): type e.g. "create database", "add
+  email" or "DNS"; arrow keys choose, Enter opens the page with its form
+  already open;
+- quick actions: upload files, create a database or mailbox, install
+  SSL, add a DNS record, back up;
+- the features grouped as Files, Databases, Email, Domains, Applications,
+  Performance, Backups, Automation and Security, with counts and states.
+
+Every link is shown only to users whose role allows it; hosting
+customers do not see server features (server security, the audit log,
+the spam filter, backup destinations, Memcached). The website's own
+menu (Overview, File manager, FTP / SFTP, Databases, Email, DNS, SSL,
+Backups, Applications, Git, Cron jobs, Workers, Logs, Redis, PHP &
+settings, Advanced) is nested under *Websites* in the sidebar; on phones
+the **Website menu** button opens it.
+
+**Advanced** holds what concerns the server rather than the website: the
+system user, folders, PHP-FPM limits, the generated Nginx configuration
+and recent tasks, and the **Danger Zone**: disable or enable the website,
+reload its PHP, re-apply its configuration, and, set apart, delete it
+(typing the domain name to confirm).
+
+The section pages follow one pattern: a toolbar with the count, a filter
+for longer lists and the main "+ Add" action, which opens its form in
+place (also from a link, e.g. `…/databases#new-database`, and again after
+a validation error); an explanation when nothing exists yet; and
+destructive actions in a separate danger card. Email and DNS stay inside
+the website: without a mail domain or DNS zone yet, the website offers to
+set one up; administrators get a link to set up the mail or DNS server
+when it is not ready.
+
 ## PHP versions and settings
 
 *PHP* lists the installed versions; each has a **Settings** page with three
@@ -175,7 +212,7 @@ Every change is checked with `php-fpm -t` (PHP's warnings count as errors)
 and applied with a reload; a change that fails is undone. Each website's
 own pool (process manager `ondemand`/`dynamic`/`static`, process counts,
 idle timeout, requests per process, request timeout, slow log) is under
-Website → Settings → *Advanced PHP-FPM*; the defaults are unchanged.
+Website → *PHP & settings* → *Advanced PHP-FPM*; the defaults are unchanged.
 
 ## File manager
 
