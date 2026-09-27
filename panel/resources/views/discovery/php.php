@@ -59,6 +59,7 @@ $installable = array_values(array_diff($php_available ?? [], $installed));
                             <input type="hidden" name="enabled" value="<?= $running ? '0' : '1' ?>">
                             <button class="btn btn-sm btn-outline-<?= $running ? 'warning' : 'success' ?> w-100" type="submit"><?= $running ? 'Stop &amp; disable' : 'Start &amp; enable' ?></button>
                         </form>
+                        <a class="btn btn-sm btn-outline-primary w-100 mt-2" href="<?= e($this->url('php.show', ['version' => $v['version']])) ?>"><i class="bi bi-gear me-1"></i>Settings</a>
                     <?php endif; ?>
                 </div>
             </div>

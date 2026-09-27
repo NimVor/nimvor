@@ -209,6 +209,14 @@ final class WebsiteService
                 'max_execution_seconds' => (int) ($php['max_execution_seconds'] ?? 60),
                 'max_children' => (int) ($php['max_children'] ?? 5),
                 'harden' => (bool) ($php['harden'] ?? false),
+                'pm' => (string) ($php['pm'] ?? 'ondemand'),
+                'start_servers' => (int) ($php['start_servers'] ?? 0),
+                'min_spare_servers' => (int) ($php['min_spare_servers'] ?? 0),
+                'max_spare_servers' => (int) ($php['max_spare_servers'] ?? 0),
+                'idle_timeout_seconds' => (int) ($php['idle_timeout_seconds'] ?? 10),
+                'max_requests' => (int) ($php['max_requests'] ?? 500),
+                'request_timeout_seconds' => (int) ($php['request_timeout_seconds'] ?? 0),
+                'slowlog_seconds' => (int) ($php['slowlog_seconds'] ?? 10),
             ],
             'proxy_pass' => $site['kind'] === 'proxy' ? $site['proxy_pass'] : '',
             'https' => (bool) $site['https'],
@@ -330,6 +338,10 @@ final class WebsiteService
         $ints = [
             'memory_limit_mb' => [32, 8192, 256], 'upload_max_mb' => [1, 4096, 64],
             'max_execution_seconds' => [5, 3600, 60], 'max_children' => [1, 200, 5],
+            // PHP-FPM process manager (0: derived by the agent).
+            'start_servers' => [0, 200, 0], 'min_spare_servers' => [0, 200, 0], 'max_spare_servers' => [0, 200, 0],
+            'idle_timeout_seconds' => [1, 3600, 10], 'max_requests' => [1, 100000, 500],
+            'request_timeout_seconds' => [0, 86400, 0], 'slowlog_seconds' => [1, 3600, 10],
         ];
         $settings = [];
         foreach ($ints as $k => [$lo, $hi, $def]) {
@@ -342,6 +354,19 @@ final class WebsiteService
             $settings[$k] = $v;
         }
         $settings['harden'] = filter_var($input['harden'] ?? ($existing['php_settings']['harden'] ?? false), FILTER_VALIDATE_BOOL);
+        $pm = (string) ($input['pm'] ?? ($existing['php_settings']['pm'] ?? 'ondemand'));
+        if (!in_array($pm, ['ondemand', 'dynamic', 'static'], true)) {
+            $errors['pm'] = 'Choose on demand, dynamic or static.';
+            $pm = 'ondemand';
+        }
+        $settings['pm'] = $pm;
+        if ($pm === 'dynamic') {
+            [$min, $start, $max] = [$settings['min_spare_servers'], $settings['start_servers'], $settings['max_spare_servers']];
+            $explicit = array_filter([$min, $start, $max]) !== [];
+            if ($explicit && !(1 <= $min && $min <= $start && $start <= $max && $max <= $settings['max_children'])) {
+                $errors['start_servers'] = 'Dynamic needs 1 ≤ min spare ≤ start ≤ max spare ≤ max PHP processes (or leave all three at 0).';
+            }
+        }
         $body = filter_var($input['client_max_body_mb'] ?? ($existing['client_max_body_mb'] ?? $settings['upload_max_mb']), FILTER_VALIDATE_INT);
         if ($body === false || $body < 1 || $body > 4096) {
             $errors['client_max_body_mb'] = 'Enter a number between 1 and 4096.';

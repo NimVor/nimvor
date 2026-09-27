@@ -74,6 +74,20 @@ final class WebsiteServiceTest extends DatabaseTestCase
         self::assertTrue($spec['create_user']);
     }
 
+    public function testPhpFpmSettingsReachTheAgent(): void
+    {
+        $this->svc->create(['domain' => 'fpm.test', 'kind' => 'php', 'php_version' => '8.3', 'pm' => 'dynamic', 'max_children' => '20',
+            'start_servers' => '4', 'min_spare_servers' => '2', 'max_spare_servers' => '6', 'max_requests' => '1000', 'request_timeout_seconds' => '120', 'slowlog_seconds' => '5'], $this->admin);
+        $php = $this->lastSpec()['php'];
+        foreach (['pm' => 'dynamic', 'max_children' => 20, 'start_servers' => 4, 'min_spare_servers' => 2, 'max_spare_servers' => 6, 'max_requests' => 1000, 'request_timeout_seconds' => 120, 'slowlog_seconds' => 5, 'idle_timeout_seconds' => 10] as $k => $v) {
+            self::assertSame($v, $php[$k], $k);
+        }
+        // Without them: the defaults existing websites have.
+        $this->svc->create(['domain' => 'plain.test', 'kind' => 'php', 'php_version' => '8.3'], $this->admin);
+        $php = $this->lastSpec()['php'];
+        self::assertSame(['ondemand', 0, 500, 0, 10], [$php['pm'], $php['start_servers'], $php['max_requests'], $php['request_timeout_seconds'], $php['slowlog_seconds']]);
+    }
+
     public function testValidationErrors(): void
     {
         $cases = [
@@ -84,6 +98,10 @@ final class WebsiteServiceTest extends DatabaseTestCase
             [['domain' => 'a.test', 'php_version' => '8.3', 'system_user' => 'root'], 'system_user'],
             [['domain' => 'a.test', 'php_version' => '8.3', 'redirects' => '/x https://y/$1;'], 'redirects'],
             [['domain' => 'a.test', 'php_version' => '8.3', 'document_root_sub' => '../etc'], 'document_root_sub'],
+            [['domain' => 'a.test', 'php_version' => '8.3', 'pm' => 'adaptive'], 'pm'],
+            [['domain' => 'a.test', 'php_version' => '8.3', 'pm' => 'dynamic', 'max_children' => '4', 'min_spare_servers' => '3', 'start_servers' => '2', 'max_spare_servers' => '4'], 'start_servers'],
+            [['domain' => 'a.test', 'php_version' => '8.3', 'request_timeout_seconds' => '-1'], 'request_timeout_seconds'],
+            [['domain' => 'a.test', 'php_version' => '8.3', 'max_requests' => '0'], 'max_requests'],
         ];
         foreach ($cases as [$input, $field]) {
             try {

@@ -147,6 +147,10 @@ return static function (Router $r): void {
     $r->post('/php/install', [PhpController::class, 'install'], ['name' => 'php.install', 'permission' => P::PHP_MANAGE]);
     $r->post('/php/{version}/toggle', [PhpController::class, 'toggle'], ['name' => 'php.toggle', 'permission' => P::PHP_MANAGE]);
     $r->get('/php/{version}/modules', [PhpController::class, 'modules'], ['name' => 'php.modules', 'permission' => P::PHP_VIEW]);
+    $r->get('/php/{version}', [PhpController::class, 'show'], ['name' => 'php.show', 'permission' => P::PHP_MANAGE]);
+    $r->post('/php/{version}/extensions/{op}', [PhpController::class, 'extension'], ['name' => 'php.extension', 'permission' => P::PHP_MANAGE]);
+    $r->post('/php/{version}/ini', [PhpController::class, 'ini'], ['name' => 'php.ini', 'permission' => P::PHP_MANAGE]);
+    $r->post('/php/{version}/fpm', [PhpController::class, 'fpm'], ['name' => 'php.fpm', 'permission' => P::PHP_MANAGE]);
     $r->get('/databases', [DatabasesController::class, 'index'], ['name' => 'databases', 'permission' => P::DATABASES_VIEW]);
     $r->post('/databases', [DatabasesController::class, 'store'], ['name' => 'databases.store', 'permission' => P::DATABASES_MANAGE]);
     $r->get('/databases/browse', [DbBrowserController::class, 'serverBrowse'], ['name' => 'databases.browser.server', 'permission' => P::DATABASES_MANAGE]);

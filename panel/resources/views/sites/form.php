@@ -130,6 +130,33 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         <input class="form-check-input" type="checkbox" role="switch" id="f-harden" name="harden" value="1"<?= filter_var($v('harden', false), FILTER_VALIDATE_BOOL) ? ' checked' : '' ?>>
                         <label class="form-check-label" for="f-harden">Disable shell functions (exec, system, …)</label>
                     </div>
+                    <details class="mt-3"<?= array_intersect(array_keys($errors ?? []), ['pm', 'start_servers', 'min_spare_servers', 'max_spare_servers', 'idle_timeout_seconds', 'max_requests', 'request_timeout_seconds', 'slowlog_seconds']) !== [] ? ' open' : '' ?>>
+                        <summary class="small fw-semibold">Advanced PHP-FPM</summary>
+                        <div class="row g-2 mt-1">
+                            <div class="col-12">
+                                <label class="form-label small" for="f-pm">Process manager</label>
+                                <select class="form-select form-select-sm<?= $cls('pm') ?>" id="f-pm" name="pm">
+                                    <?php foreach (['ondemand' => 'On demand: start processes when requests come (least memory)', 'dynamic' => 'Dynamic: keep some idle processes ready', 'static' => 'Static: always run all processes (fastest, most memory)'] as $pmv => $pml): ?>
+                                        <option value="<?= e($pmv) ?>"<?= (string) $v('pm', 'ondemand') === $pmv ? ' selected' : '' ?>><?= e($pml) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <?= $err('pm') ?>
+                            </div>
+                            <?php foreach ([
+                                ['start_servers', 'Start processes (dynamic; 0 = automatic)', 0], ['min_spare_servers', 'Min idle (dynamic; 0 = automatic)', 0],
+                                ['max_spare_servers', 'Max idle (dynamic; 0 = automatic)', 0], ['idle_timeout_seconds', 'Idle timeout (s, on demand)', 10],
+                                ['max_requests', 'Requests per process', 500], ['request_timeout_seconds', 'Request timeout (s, 0 = none)', 0],
+                                ['slowlog_seconds', 'Log requests slower than (s)', 10],
+                            ] as [$k, $label, $def]): ?>
+                                <div class="col-6">
+                                    <label class="form-label small" for="f-<?= e($k) ?>"><?= e($label) ?></label>
+                                    <input class="form-control form-control-sm<?= $cls($k) ?>" type="number" id="f-<?= e($k) ?>" name="<?= e($k) ?>" value="<?= e($v($k, $def)) ?>">
+                                    <?= $err($k) ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <p class="small text-body-secondary mt-2 mb-0">Server-wide PHP-FPM settings and php.ini are under PHP → the version → Settings.</p>
+                    </details>
                 </div>
             </div>
             <div class="card mb-3">

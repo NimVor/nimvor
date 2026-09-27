@@ -337,3 +337,4 @@ textarea.form-control.wcp-editor { min-height: 65vh; font-size: .82rem; resize: 
 .min-w-0 { min-width: 0; }
 .wcp-wrap { overflow-wrap: anywhere; }
 .wcp-unread { background: var(--bs-primary-bg-subtle); }
+.wcp-minw-11 { min-width: 11rem; }

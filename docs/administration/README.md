@@ -149,6 +149,34 @@ sudo -u whacp -E php /opt/whacp/panel/bin/whacp schedule:run   # normally run by
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp doctor
 ```
 
+## PHP versions and settings
+
+*PHP* lists the installed versions; each has a **Settings** page with three
+tabs (permission: manage PHP).
+
+- **Extensions:** install, remove, switch on or off. Install and remove use
+  the package manager as a job; before removing, WhaCP simulates it and
+  refuses when other packages would be removed with it. Switching uses
+  `phpenmod`/`phpdismod` (Debian, Ubuntu) or comments the module's line in
+  `php.d` (RHEL family), for PHP-FPM and the command line alike. Extensions
+  the panel itself needs are protected on the PHP version the panel runs on.
+- **php.ini:** a form for common settings and a text editor for the same
+  file. Settings are written to WhaCP's own `99-whacp.ini` (in `conf.d` of
+  PHP-FPM and the command line, or in `php.d`), loaded after the
+  distribution's `php.ini`, which is never changed. Only listed settings are
+  accepted (no `extension`, `auto_prepend_file`, `open_basedir`,
+  `disable_functions` and similar); values are type-checked. Settings each
+  website sets itself (memory limit, upload size, …) stay per website.
+- **PHP-FPM:** server-wide settings (emergency restart, process control
+  timeout, `process.max`, log level) in `whacp-global.conf` in the pool
+  folder.
+
+Every change is checked with `php-fpm -t` (PHP's warnings count as errors)
+and applied with a reload; a change that fails is undone. Each website's
+own pool (process manager `ondemand`/`dynamic`/`static`, process counts,
+idle timeout, requests per process, request timeout, slow log) is under
+Website → Settings → *Advanced PHP-FPM*; the defaults are unchanged.
+
 ## File manager
 
 *Website → Files* opens a full-screen file manager: a folder tree, a

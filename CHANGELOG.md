@@ -7,6 +7,15 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **PHP → version → Settings:** manage extensions (install, remove, switch
+  on or off; removals that would take other packages along are refused,
+  and the panel's own extensions are protected), edit php.ini settings
+  with a form or a text editor (in WhaCP's own `99-whacp.ini`, allowlisted
+  and type-checked), and set server-wide PHP-FPM options. Each change is
+  checked with `php-fpm -t`, reloaded, and undone on failure.
+- **Website → Settings → Advanced PHP-FPM:** process manager
+  (ondemand, dynamic, static), process counts, idle timeout, requests per
+  process, request timeout and slow log per website.
 - **`install.sh --public-https[=8443]`:** the panel at
   `https://SERVER-IP:8443/` like other panels, instead of an SSH tunnel.
   Nginx serves it with a self-signed certificate for the server's
