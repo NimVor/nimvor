@@ -161,6 +161,24 @@ final class Request
         return mb_substr($this->header('user-agent'), 0, 255);
     }
 
+    /**
+     * The request as the client made it when a trusted proxy (the HTTPS
+     * front end, e.g. install.sh --public-https) forwarded it: HTTPS if the
+     * proxy says so. X-Forwarded-Proto from any other peer is ignored.
+     *
+     * @param list<string> $trustedProxies
+     */
+    public function behindProxies(array $trustedProxies): self
+    {
+        $remote = (string) ($this->server['REMOTE_ADDR'] ?? '');
+        if ($trustedProxies === [] || !in_array($remote, $trustedProxies, true)
+            || strtolower(trim($this->header('x-forwarded-proto'))) !== 'https') {
+            return $this;
+        }
+        return new self($this->method, $this->path, $this->query, $this->body,
+            ['HTTPS' => 'on'] + $this->server, $this->headers, $this->rawBody);
+    }
+
     public function isSecure(): bool
     {
         $https = $this->server['HTTPS'] ?? '';

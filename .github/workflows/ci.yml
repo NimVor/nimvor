@@ -109,6 +109,7 @@ jobs:
           mkdir -p dist && (cd agent && CGO_ENABLED=0 go build -trimpath -o ../dist/whacp-agent ./cmd/whacp-agent)
           sudo installer/install.sh --yes --enable-writes --admin-user=admin --admin-email=admin@whacp.test
           sudo tests/integration/postinstall.sh
+          sudo tests/integration/public-https.sh
       - name: Agent sandbox diagnostics (Ubuntu)
         if: always()
         run: |
@@ -183,6 +184,7 @@ jobs:
           tests/vm.sh ssh 'cd /root/whacp && installer/install.sh --install-deps --yes --enable-writes --admin-user=admin --admin-email=admin@whacp.test'
           tests/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp agent:check'
           tests/vm.sh ssh 'cd /root/whacp && tests/integration/postinstall.sh'
+          tests/vm.sh ssh 'cd /root/whacp && tests/integration/public-https.sh'
       - name: SELinux denials
         if: always() && matrix.os != 'ubuntu'
         run: tests/vm.sh ssh 'getenforce; systemctl is-active auditd; grep -c denied /var/log/audit/audit.log; grep denied /var/log/audit/audit.log | grep -v "noatsecure\|rlimitinh\|siginh" | tail -80 || true'

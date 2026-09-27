@@ -52,6 +52,18 @@ final class CoreTest extends TestCase
         self::assertSame('198.51.100.7', $proxied->ip(['10.0.0.1']));
     }
 
+    public function testRequestIsHttpsOnlyWhenATrustedProxySaysSo(): void
+    {
+        $https = ['x-forwarded-proto' => 'https'];
+        $direct = new Request('GET', '/', [], [], ['REMOTE_ADDR' => '203.0.113.9'], $https);
+        self::assertFalse($direct->behindProxies(['127.0.0.1'])->isSecure(), 'a client cannot claim HTTPS');
+        $proxied = new Request('GET', '/', [], [], ['REMOTE_ADDR' => '127.0.0.1'], $https);
+        self::assertFalse($proxied->behindProxies([])->isSecure(), 'no trusted proxy configured');
+        self::assertTrue($proxied->behindProxies(['127.0.0.1'])->isSecure());
+        $plain = new Request('GET', '/', [], [], ['REMOTE_ADDR' => '127.0.0.1'], ['x-forwarded-proto' => 'http']);
+        self::assertFalse($plain->behindProxies(['127.0.0.1'])->isSecure());
+    }
+
     public function testRequestJsonInput(): void
     {
         $req = new Request('POST', '/x', [], [], [], ['content-type' => 'application/json'], '{"a":"1","b":[1]}');

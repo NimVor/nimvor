@@ -14,15 +14,22 @@
 #   9. Runs health checks.
 #
 # What it never does:
-#   - modify Nginx, PHP-FPM, MySQL/MariaDB, Redis, firewall or SSH configuration;
-#   - reload or restart any existing service;
+#   - modify Nginx, PHP-FPM, MySQL/MariaDB, Redis, firewall or SSH configuration
+#     (except with --public-https, which adds its own Nginx site and opens its port);
+#   - reload or restart any existing service (--public-https reloads Nginx);
 #   - overwrite an existing WhaCP installation (use --reinstall explicitly).
 #
 # Usage (from a source checkout or release archive):
 #   sudo ./installer/install.sh [--install-deps] [--admin-user=NAME] [--admin-email=EMAIL]
 #                               [--port=8090] [--dry-run] [--yes] [--reinstall] [--force-unsupported]
-#                               [--enable-writes]
+#                               [--enable-writes] [--public-https[=8443]]
 #                               [--agent-only --remote-access=0.0.0.0:8443 --allow-from=PANEL_IP[,...]]
+#
+# --public-https serves the panel at https://SERVER-IP:8443/ (or the port
+# given) through Nginx with a self-signed certificate, opens that port in
+# UFW or firewalld, and marks the panel's cookies HTTPS-only. The panel
+# itself keeps listening on 127.0.0.1 only. On an installed server run
+# install.sh --reinstall --public-https.
 #
 # --enable-writes switches the agent from read-only discovery to write mode
 # (manage websites, databases, certificates, …). Without it WhaCP only observes.
@@ -53,6 +60,7 @@ ENABLE_WRITES=0
 AGENT_ONLY=0
 REMOTE_ACCESS=""
 ALLOW_FROM=""
+PUBLIC_HTTPS=""
 # Supported: tested and recommended for production. Preview: installs and
 # is tested the same way, but not yet recommended for production.
 SUPPORTED_UBUNTU=("22.04" "24.04")
@@ -91,12 +99,19 @@ for arg in "$@"; do
         --agent-only) AGENT_ONLY=1 ;;
         --remote-access=*) REMOTE_ACCESS="${arg#*=}" ;;
         --allow-from=*) ALLOW_FROM="${arg#*=}" ;;
-        -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
+        --public-https) PUBLIC_HTTPS=8443 ;;
+        --public-https=*) PUBLIC_HTTPS="${arg#*=}" ;;
+        -h|--help) sed -n '2,40p' "$0"; exit 0 ;;
         *) die "unknown option: $arg" ;;
     esac
 done
 
 [[ $PORT =~ ^[0-9]+$ ]] && (( PORT >= 1024 && PORT <= 65535 )) || die "--port must be between 1024 and 65535"
+if [[ -n $PUBLIC_HTTPS ]]; then
+    [[ $PUBLIC_HTTPS =~ ^[0-9]+$ ]] && (( PUBLIC_HTTPS >= 1024 && PUBLIC_HTTPS <= 65535 )) || die "--public-https takes a port between 1024 and 65535 (80 and 443 stay with your websites)"
+    (( PUBLIC_HTTPS != PORT )) || die "--public-https needs a port other than the panel's own (--port=$PORT)"
+    [[ $AGENT_ONLY -eq 0 ]] || die "--public-https serves the panel; --agent-only installs no panel"
+fi
 [[ -z $ADMIN_USER || $ADMIN_USER =~ ^[a-z][a-z0-9._-]{2,31}$ ]] || die "--admin-user is not a valid username"
 if [[ -n $REMOTE_ACCESS ]]; then
     [[ $REMOTE_ACCESS =~ ^([0-9.]+|\[[0-9a-fA-F:]+\]):[0-9]{1,5}$ ]] || die "--remote-access must be ADDRESS:PORT, e.g. 0.0.0.0:8443"
@@ -172,6 +187,25 @@ command -v openssl >/dev/null || missing_pkgs+=(openssl)
 command -v curl >/dev/null || missing_pkgs+=(curl)
 # SELinux labels for what WhaCP sets up (semanage).
 if [[ $PKG == dnf ]] && ! command -v semanage >/dev/null; then missing_pkgs+=(policycoreutils-python-utils); fi
+# --public-https: WhaCP's own Nginx site for the panel, laid out like the
+# webmail site (whacp-panel.conf is not a website: "panel" is no domain).
+if [[ $PKG == dnf ]]; then
+    PANEL_SITE=/etc/nginx/whacp-available/whacp-panel.conf
+    PANEL_SITE_LINK=/etc/nginx/conf.d/whacp-panel.conf
+    PANEL_CERT=/etc/pki/tls/certs/whacp-panel.crt
+    PANEL_CERT_KEY=/etc/pki/tls/private/whacp-panel.key
+else
+    PANEL_SITE=/etc/nginx/sites-available/whacp-panel.conf
+    PANEL_SITE_LINK=/etc/nginx/sites-enabled/whacp-panel.conf
+    PANEL_CERT=/etc/ssl/certs/whacp-panel.crt
+    PANEL_CERT_KEY=/etc/ssl/private/whacp-panel.key
+fi
+if [[ -n $PUBLIC_HTTPS ]]; then
+    command -v nginx >/dev/null || missing_pkgs+=(nginx)
+    if [[ ! -e $PANEL_SITE ]] && command -v ss >/dev/null && [[ -n $(ss -ltnH "sport = :${PUBLIC_HTTPS}" 2>/dev/null) ]]; then
+        die "port ${PUBLIC_HTTPS} is already in use; choose another with --public-https=PORT"
+    fi
+fi
 
 if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
     if [[ $INSTALL_DEPS -eq 1 && $PKG == dnf ]]; then
@@ -399,6 +433,101 @@ if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
     fi
 fi
 
+# ------------------------------------------------------- 8b. public HTTPS ----
+# The panel stays on 127.0.0.1; Nginx serves it over HTTPS on the chosen
+# port. The certificate is self-signed for this server's addresses and host
+# name (replace it with a real one for a domain; see the installation guide).
+if [[ -n $PUBLIC_HTTPS ]]; then
+    log "Serving the panel over HTTPS on port ${PUBLIC_HTTPS}"
+    if [[ ! -s $PANEL_CERT || ! -s $PANEL_CERT_KEY ]]; then
+        san="DNS:$(hostname -f 2>/dev/null || hostname)"
+        for ip in $(hostname -I 2>/dev/null); do san="${san},IP:${ip}"; done
+        run install -d -m 0755 "$(dirname "$PANEL_CERT")"
+        run install -d -m 0700 "$(dirname "$PANEL_CERT_KEY")"
+        if [[ $DRY_RUN -eq 1 ]]; then
+            echo "    [dry-run] openssl req -x509 ... -addext subjectAltName=${san} -out $PANEL_CERT"
+        else
+            out=$(openssl req -x509 -newkey rsa:2048 -nodes -days 825 -subj "/CN=$(hostname -f 2>/dev/null || hostname)" \
+                -addext "subjectAltName=${san}" -keyout "$PANEL_CERT_KEY" -out "$PANEL_CERT" 2>&1) || { printf '%s\n' "$out" >&2; die "the certificate could not be created"; }
+            chmod 0600 "$PANEL_CERT_KEY"
+        fi
+        ok "self-signed certificate for ${san}"
+    else
+        ok "keeping the certificate in $PANEL_CERT"
+    fi
+    # IPv6 only where the server has it (Nginx refuses [::] otherwise).
+    listen6=""
+    [[ -e /proc/net/if_inet6 ]] && listen6="    listen [::]:${PUBLIC_HTTPS} ssl;"
+    if [[ $DRY_RUN -eq 1 ]]; then
+        echo "    [dry-run] write $PANEL_SITE and link $PANEL_SITE_LINK"
+    else
+        install -d -m 0755 "$(dirname "$PANEL_SITE")"
+        # $http_host keeps the port, so the panel sees the address the
+        # browser uses (security keys check it). Plain HTTP sent to the
+        # port (error 497) is redirected to HTTPS.
+        cat > "$PANEL_SITE" <<NGINX
+# Managed by WhaCP (install.sh --public-https): the panel over HTTPS.
+server {
+    listen ${PUBLIC_HTTPS} ssl;
+${listen6}
+    server_name _;
+    ssl_certificate     ${PANEL_CERT};
+    ssl_certificate_key ${PANEL_CERT_KEY};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    error_page 497 =301 https://\$http_host\$request_uri;
+    client_max_body_size 256m;
+    location / {
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Forwarded-For \$remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 300s;
+    }
+}
+NGINX
+        chmod 0644 "$PANEL_SITE"
+        ln -sfn "$PANEL_SITE" "$PANEL_SITE_LINK"
+    fi
+    if [[ $PKG == dnf ]] && command -v getenforce >/dev/null && [[ $(getenforce) != Disabled ]]; then
+        run restorecon "$PANEL_CERT" "$PANEL_CERT_KEY" "$PANEL_SITE"
+        # Nginx connects to the panel on 127.0.0.1 and listens on the port.
+        run setsebool -P httpd_can_network_connect 1
+        if ! semanage port -l 2>/dev/null | grep -E '^http_port_t\s' | grep -qw "${PUBLIC_HTTPS}"; then
+            run semanage port -a -t http_port_t -p tcp "${PUBLIC_HTTPS}" || run semanage port -m -t http_port_t -p tcp "${PUBLIC_HTTPS}"
+        fi
+    fi
+    if [[ $DRY_RUN -eq 0 ]] && ! nginx -t >/dev/null 2>&1; then
+        nginx -t || true
+        rm -f "$PANEL_SITE_LINK" "$PANEL_SITE"
+        die "Nginx rejected the configuration; the panel's Nginx site was removed again (use the SSH tunnel)"
+    fi
+    run systemctl enable nginx
+    if systemctl is-active --quiet nginx 2>/dev/null; then run systemctl reload nginx; else run systemctl start nginx; fi
+    # Cookies only over HTTPS; trust Nginx (127.0.0.1) for the client
+    # address and X-Forwarded-Proto.
+    if [[ $DRY_RUN -eq 1 ]]; then
+        echo "    [dry-run] $CONF_DIR/panel.php: secure_cookie => true, trusted_proxies => ['127.0.0.1']"
+    else
+        sed -i "s/'secure_cookie' => false/'secure_cookie' => true/" "$CONF_DIR/panel.php"
+        if grep -q "'trusted_proxies' => \[\]" "$CONF_DIR/panel.php"; then
+            sed -i "s/'trusted_proxies' => \[\]/'trusted_proxies' => ['127.0.0.1']/" "$CONF_DIR/panel.php"
+        fi
+        grep -q "'secure_cookie' => true" "$CONF_DIR/panel.php" || warn "set 'secure_cookie' => true in $CONF_DIR/panel.php by hand"
+        grep -q "'trusted_proxies' => \[[^]]*'127.0.0.1'" "$CONF_DIR/panel.php" || warn "add '127.0.0.1' to 'trusted_proxies' in $CONF_DIR/panel.php by hand"
+        systemctl restart whacp-panel.service
+    fi
+    if command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
+        run ufw allow "${PUBLIC_HTTPS}/tcp"
+        ok "UFW allows ${PUBLIC_HTTPS}/tcp"
+    elif command -v firewall-cmd >/dev/null && firewall-cmd --state >/dev/null 2>&1; then
+        run firewall-cmd --permanent --add-port="${PUBLIC_HTTPS}/tcp"
+        run firewall-cmd --reload
+        ok "firewalld allows ${PUBLIC_HTTPS}/tcp"
+    else
+        ok "no active firewall here (a provider firewall must allow ${PUBLIC_HTTPS}/tcp)"
+    fi
+fi
+
 # ------------------------------------------------------ 9. health checks ----
 log "Running health checks"
 if [[ $DRY_RUN -eq 0 ]]; then
@@ -409,6 +538,10 @@ if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
     runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" agent:check && ok "panel can reach the agent" || warn "panel cannot reach the agent"
     for _ in 1 2 3 4 5; do curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null 2>&1 && break; sleep 1; done
     curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null && ok "panel answers on 127.0.0.1:${PORT}" || warn "panel is not answering: journalctl -u whacp-panel"
+    if [[ -n $PUBLIC_HTTPS ]]; then
+        for _ in 1 2 3 4 5; do curl -fsSk "https://127.0.0.1:${PUBLIC_HTTPS}/healthz" >/dev/null 2>&1 && break; sleep 1; done
+        curl -fsSk "https://127.0.0.1:${PUBLIC_HTTPS}/healthz" >/dev/null && ok "panel answers over HTTPS on port ${PUBLIC_HTTPS}" || warn "the panel does not answer on https://127.0.0.1:${PUBLIC_HTTPS}/: journalctl -u nginx"
+    fi
     runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" discovery:run || warn "initial discovery failed"
 fi
 
@@ -443,12 +576,29 @@ WhaCP is installed ($({ [[ $ENABLE_WRITES -eq 1 ]] || grep -q '"allow_write_acti
 Nothing in your existing Nginx, PHP, database, SSL or cron configuration was
 changed. WhaCP only ever edits files it creates itself (named whacp-*).
 
+EOF
+if [[ -n $PUBLIC_HTTPS ]]; then
+    cat <<EOF
+Open the panel in your browser:
+
+    https://$(hostname -I 2>/dev/null | awk '{print $1}'):${PUBLIC_HTTPS}/
+
+The certificate is self-signed, so the browser warns once: check the address
+and continue. Sign-in cookies are now HTTPS-only (the SSH tunnel no longer
+signs in). Turn on two-factor authentication in your profile.
+
+EOF
+else
+    cat <<EOF
 Open the panel through an SSH tunnel from your workstation:
 
     ssh -L ${PORT}:127.0.0.1:${PORT} $(hostname -f 2>/dev/null || hostname)
     then browse to http://127.0.0.1:${PORT}/
 
+Or serve it at https://SERVER-IP:8443/: install.sh --reinstall --public-https
+
 EOF
+fi
 if [[ -n ${CREATED_PASS:-} ]]; then
     printf 'Administrator: %s\nPassword:      %s\n\nStore this password now; it is not saved anywhere and will not be shown again.\n' "$ADMIN_USER" "$CREATED_PASS"
 fi

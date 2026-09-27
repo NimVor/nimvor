@@ -30,6 +30,18 @@ done
 # install would otherwise inherit the lifted sandbox.
 rm -rf /etc/systemd/system/whacp-agent.service.d
 systemctl daemon-reload
+# The panel's HTTPS front end (install.sh --public-https). Its firewall rule
+# is left for you to remove (ufw delete allow PORT/tcp, or firewall-cmd).
+panel_site=0
+for f in /etc/nginx/sites-enabled/whacp-panel.conf /etc/nginx/sites-available/whacp-panel.conf \
+         /etc/nginx/conf.d/whacp-panel.conf /etc/nginx/whacp-available/whacp-panel.conf; do
+    [[ -e $f || -L $f ]] && { rm -f "$f"; panel_site=1; }
+done
+rm -f /etc/ssl/certs/whacp-panel.crt /etc/ssl/private/whacp-panel.key /etc/pki/tls/certs/whacp-panel.crt /etc/pki/tls/private/whacp-panel.key
+if [[ $panel_site -eq 1 ]] && command -v nginx >/dev/null && nginx -t >/dev/null 2>&1; then
+    systemctl reload nginx 2>/dev/null || true
+    echo "Removed the panel's HTTPS site from Nginx."
+fi
 rm -f /usr/local/bin/whacp-agent
 rm -rf /opt/whacp
 echo "Program files and services removed."

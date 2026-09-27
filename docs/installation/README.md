@@ -55,7 +55,8 @@ leave 512 MiB free and stop otherwise.
 | 53/tcp, 53/udp | DNS (authoritative zones) | WhaCP, when DNS is turned on |
 | 21/tcp and 40110–40210/tcp | FTP(S) and its passive range (configurable) | WhaCP, when FTP is turned on |
 | 8443/tcp (your choice) | agent for a remote panel (`--remote-access`) | you, for the panel's address only |
-| 127.0.0.1:8090 | the panel (reach it through an SSH tunnel or a reverse proxy) | never exposed |
+| 8443/tcp (with `--public-https`) | the panel over HTTPS, `https://SERVER-IP:8443/` | WhaCP (UFW or firewalld, when active) |
+| 127.0.0.1:8090 | the panel itself (reached through `--public-https` or an SSH tunnel) | never exposed |
 
 The agent's Unix socket, Rspamd, OpenDKIM, MariaDB and Redis listen
 locally only.
@@ -98,7 +99,8 @@ sudo ./installer/install.sh --admin-user=admin --admin-email=you@example.com
 
 Options: `--install-deps` (apt-install missing PHP packages, opt-in),
 `--port=8090`, `--yes`, `--reinstall` (replace program files, keep config and
-data), `--force-unsupported`, `--enable-writes` (see below).
+data), `--force-unsupported`, `--enable-writes` (see below),
+`--public-https[=8443]` (see "Opening the panel").
 
 ### Write mode
 
@@ -157,32 +159,52 @@ firewall or SSH, and it does not reload any existing service.
 
 ## Accessing the panel
 
-The panel listens on `127.0.0.1:8090` only. Use an SSH tunnel:
+### Opening the panel
+
+The panel itself listens on `127.0.0.1:8090` only. Reach it in one of two
+ways.
+
+**At the server's address over HTTPS** (like other panels): install with
+`--public-https`, or add it to an installed server:
+
+```bash
+sudo ./installer/install.sh --reinstall --public-https        # port 8443
+sudo ./installer/install.sh --reinstall --public-https=9443   # another port
+```
+
+Then browse to `https://SERVER-IP:8443/`. The installer:
+
+- installs Nginx if needed (with `--install-deps`);
+- creates a self-signed certificate for the server's addresses and host name;
+- adds WhaCP's own Nginx site (`whacp-panel.conf`) proxying to the panel,
+  checks it with `nginx -t` (it is removed again if Nginx rejects it) and
+  reloads Nginx;
+- makes sign-in cookies HTTPS-only and trusts Nginx for the client address
+  and `X-Forwarded-Proto` (`/etc/whacp/panel.php`);
+- opens the port in UFW or firewalld when one is active (SELinux: labels the
+  port and allows Nginx to connect to the panel);
+- checks the panel answers over HTTPS.
+
+The browser warns about the self-signed certificate once. Turn on
+two-factor authentication, and where you can, allow only your own address:
+add `allow YOUR.IP; deny all;` inside `location /` in `whacp-panel.conf`,
+then `nginx -t && systemctl reload nginx`.
+
+For a trusted certificate, point a name such as `panel.example.com` at the
+server, obtain a certificate for it (for example with certbot) and change
+the two `ssl_certificate` lines in `whacp-panel.conf`. Security
+keys (WebAuthn) need such a name: browsers do not allow them on an IP
+address.
+
+After `--public-https` the SSH tunnel below no longer signs in (the cookie
+is HTTPS-only). `uninstall.sh` removes the Nginx site and the certificate;
+remove the firewall rule yourself.
+
+**Through an SSH tunnel** (the default; nothing is exposed):
 
 ```bash
 ssh -L 8090:127.0.0.1:8090 you@server
 # browse to http://127.0.0.1:8090
-```
-
-### Optional: HTTPS reverse proxy
-
-If you want to reach it directly, add a dedicated Nginx server block **by
-hand**, test it with `nginx -t`, and only then reload. Then set
-`'secure_cookie' => true` and `trusted_proxies => ['127.0.0.1']` in
-`/etc/whacp/panel.php`. Restrict access by IP where possible.
-
-```nginx
-server {
-    listen 8443 ssl http2;
-    server_name panel.example.com;
-    ssl_certificate     /etc/letsencrypt/live/panel.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/panel.example.com/privkey.pem;
-    location / {
-        proxy_pass http://127.0.0.1:8090;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $remote_addr;
-    }
-}
 ```
 
 ## Verify

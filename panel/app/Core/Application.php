@@ -180,6 +180,7 @@ final class Application
 
     public function handle(Request $request): Response
     {
+        $request = $request->behindProxies((array) $this->config->get('security.trusted_proxies', []));
         if (str_starts_with($request->path(), '/api/')) {
             return $this->handleApi($request);
         }

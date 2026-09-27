@@ -89,6 +89,8 @@ git clone https://github.com/mchkhawarshahzad/WhaCP.git && cd WhaCP
 sudo ./installer/install.sh --dry-run          # see exactly what will happen
 sudo ./installer/install.sh --admin-user=admin --admin-email=you@example.com
 ssh -L 8090:127.0.0.1:8090 your-server         # then open http://127.0.0.1:8090
+# or serve it at https://SERVER-IP:8443/ instead of the tunnel:
+sudo ./installer/install.sh --reinstall --public-https
 ```
 
 By default WhaCP is **read-only**: the installer never edits Nginx, PHP-FPM,

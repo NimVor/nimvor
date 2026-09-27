@@ -7,6 +7,17 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **`install.sh --public-https[=8443]`:** the panel at
+  `https://SERVER-IP:8443/` like other panels, instead of an SSH tunnel.
+  Nginx serves it with a self-signed certificate for the server's
+  addresses (replaceable with a real one); the panel keeps listening on
+  127.0.0.1 only. The installer checks the Nginx site with `nginx -t`
+  (removing it again if rejected), makes sign-in cookies HTTPS-only,
+  opens the port in UFW or firewalld, handles SELinux, and checks the
+  panel answers. Works on an installed server with `--reinstall`.
+  The panel now treats a request as HTTPS when a trusted proxy says so
+  (`X-Forwarded-Proto`), so HSTS and security-key origins are right
+  behind it; from any other peer the header is ignored.
 - **Recovery onto a new server:** *Find backups* on a remote storage adds
   the backups found there to the panel, so they can be restored on a new
   server after copying the old backup key. Only backups encrypted with
