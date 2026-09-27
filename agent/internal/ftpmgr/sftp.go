@@ -37,6 +37,9 @@ type SFTPUser struct {
 
 type sftpState struct {
 	Users map[string]SFTPUser `json:"users"`
+	// Shells holds each account's shell mode (see shell.go); it applies
+	// while the account's SSH/SFTP login is on.
+	Shells map[string]string `json:"shells,omitempty"`
 }
 
 func statePath(env *host.Env) string { return filepath.Join(env.Cfg.StateDir, "sftp.json") }
@@ -48,6 +51,9 @@ func loadState(env *host.Env) sftpState {
 	}
 	if st.Users == nil {
 		st.Users = map[string]SFTPUser{}
+	}
+	if st.Shells == nil {
+		st.Shells = map[string]string{}
 	}
 	return st
 }
@@ -88,12 +94,21 @@ func renderDropIn(env *host.Env, st sftpState) string {
 	sort.Strings(names)
 	for _, n := range names {
 		u := st.Users[n]
+		mode := shellMode(st, n)
 		fmt.Fprintf(&b, "\nMatch User %s\n", u.User)
-		fmt.Fprintf(&b, "    ChrootDirectory %s\n", filepath.Clean(env.Cfg.SitesRoot))
-		fmt.Fprintf(&b, "    ForceCommand internal-sftp -d /%s -u 0027\n", u.Domain)
+		switch mode {
+		case ShellJailed:
+			// Everything (SFTP too) goes through the sandboxing login shell.
+			fmt.Fprintf(&b, "    ForceCommand %s\n", JailShell)
+		case ShellNormal:
+		default:
+			fmt.Fprintf(&b, "    ChrootDirectory %s\n", filepath.Clean(env.Cfg.SitesRoot))
+			fmt.Fprintf(&b, "    ForceCommand internal-sftp -d /%s -u 0027\n", u.Domain)
+		}
 		fmt.Fprintf(&b, "    AuthorizedKeysFile %s/%%u\n", env.M.SFTPKeysDir)
 		fmt.Fprintf(&b, "    PasswordAuthentication %s\n", yesNo(u.PasswordLogin))
-		b.WriteString("    PubkeyAuthentication yes\n    AllowTcpForwarding no\n    AllowAgentForwarding no\n    AllowStreamLocalForwarding no\n    X11Forwarding no\n    PermitTunnel no\n    PermitTTY no\n")
+		b.WriteString("    PubkeyAuthentication yes\n    AllowTcpForwarding no\n    AllowAgentForwarding no\n    AllowStreamLocalForwarding no\n    X11Forwarding no\n    PermitTunnel no\n    PermitUserRC no\n")
+		fmt.Fprintf(&b, "    PermitTTY %s\n", yesNo(mode != ShellDisabled))
 	}
 	return b.String()
 }
@@ -165,15 +180,44 @@ func sshUnit(env *host.Env) string {
 	return "sshd.service"
 }
 
-// applySFTP writes the state, drop-in and keys, validates with sshd -t,
-// verifies the effective settings and reloads sshd; everything is rolled
-// back on failure.
+// applySFTP applies the SSH settings after one account's SFTP change.
 func applySFTP(ctx context.Context, env *host.Env, st sftpState, changedUser string, password string) error {
+	return applySSH(ctx, env, st, []string{changedUser}, changedUser, password)
+}
+
+// applySSH writes the state, drop-in and keys, validates with sshd -t,
+// verifies the effective settings of the changed accounts, reloads sshd
+// and sets their login shells; everything is rolled back on failure.
+// Access is taken away before the configuration changes and a shell is
+// given only once sshd runs the configuration that pins its key file.
+func applySSH(ctx context.Context, env *host.Env, st sftpState, changed []string, pwUser string, password string) error {
 	before, err := effective(ctx, env, "root")
 	if err != nil {
 		return actions.Failed("The SSH server configuration could not be read.", err.Error())
 	}
+	current := map[string]string{}
+	if all, err := env.Accounts(); err == nil {
+		for _, u := range all {
+			current[u.Name] = u.Shell
+		}
+	}
+	jailed := false
+	for _, name := range changed {
+		mode := shellMode(st, name)
+		jailed = jailed || mode == ShellJailed
+		if mode == ShellDisabled && current[name] != NoLogin {
+			if err := setShell(ctx, env, name, ShellDisabled); err != nil {
+				return err
+			}
+			current[name] = NoLogin
+		}
+	}
 	set := env.Changes("sftp")
+	if jailed {
+		if err := prepareJail(ctx, env, set); err != nil {
+			return err
+		}
+	}
 	set.Mkdir(env.M.SFTPKeysDir, 0o755, agentfs.RootOwner)
 	if len(st.Users) > 0 {
 		// Hide the list of websites from confined users.
@@ -182,10 +226,12 @@ func applySFTP(ctx context.Context, env *host.Env, st sftpState, changedUser str
 	for name, u := range st.Users {
 		set.Write(filepath.Join(env.M.SFTPKeysDir, name), []byte(strings.Join(u.Keys, "\n")+"\n"), 0o644, agentfs.RootOwner)
 	}
-	if _, on := st.Users[changedUser]; !on {
-		keyFile := filepath.Join(env.M.SFTPKeysDir, changedUser)
-		if env.Root.Exists(keyFile) {
-			set.Remove(keyFile)
+	for _, name := range changed {
+		if _, on := st.Users[name]; !on {
+			keyFile := filepath.Join(env.M.SFTPKeysDir, name)
+			if env.Root.Exists(keyFile) {
+				set.Remove(keyFile)
+			}
 		}
 	}
 	set.Write(env.M.SFTPDropIn, []byte(renderDropIn(env, st)), 0o644, agentfs.RootOwner)
@@ -205,29 +251,34 @@ func applySFTP(ctx context.Context, env *host.Env, st sftpState, changedUser str
 				return fmt.Errorf("the SFTP settings would change %s for other users (%q → %q); this OpenSSH version does not scope Match blocks in included files", k, before[k], after[k])
 			}
 		}
-		if u, on := st.Users[changedUser]; on {
-			mine, err := effective(ctx, env, changedUser)
+		for _, name := range changed {
+			if _, on := st.Users[name]; !on {
+				continue
+			}
+			mine, err := effective(ctx, env, name)
 			if err != nil {
 				return err
 			}
-			if mine["chrootdirectory"] != filepath.Clean(env.Cfg.SitesRoot) || !strings.Contains(mine["forcecommand"], "internal-sftp") {
-				return fmt.Errorf("sshd does not apply the SFTP confinement to %s (chroot %q, command %q); another configuration file may take precedence", u.User, mine["chrootdirectory"], mine["forcecommand"])
+			if err := verifyMode(env, name, shellMode(st, name), mine); err != nil {
+				return err
 			}
 		}
 		return nil
 	})
 	if err != nil {
-		return host.FailWithValidation("The SFTP settings were not applied", err)
+		return host.FailWithValidation("The SSH settings were not applied", err)
 	}
 	// Password: set (hashed) or lock password logins for the account.
-	if u, on := st.Users[changedUser]; on && u.PasswordLogin && password != "" {
-		out, perr := env.Runner.RunWith(ctx, "chpasswd", execx.Opts{Stdin: strings.NewReader(changedUser + ":" + shacrypt.HashPassword(password) + "\n")}, "-e")
-		if perr != nil {
-			applied.Rollback()
-			return actions.Failed("The SFTP password could not be set.", host.Output(out))
+	if pwUser != "" {
+		if u, on := st.Users[pwUser]; on && u.PasswordLogin && password != "" {
+			out, perr := env.Runner.RunWith(ctx, "chpasswd", execx.Opts{Stdin: strings.NewReader(pwUser + ":" + shacrypt.HashPassword(password) + "\n")}, "-e")
+			if perr != nil {
+				applied.Rollback()
+				return actions.Failed("The SFTP password could not be set.", host.Output(out))
+			}
+		} else if !on || !u.PasswordLogin {
+			env.Runner.Run(ctx, "usermod", "--lock", "--", pwUser)
 		}
-	} else if !on || !u.PasswordLogin {
-		env.Runner.Run(ctx, "usermod", "--lock", "--", changedUser)
 	}
 	if env.UnitActive(ctx, sshUnit(env)) {
 		if err := env.Systemctl(ctx, "reload", sshUnit(env)); err != nil {
@@ -236,5 +287,54 @@ func applySFTP(ctx context.Context, env *host.Env, st sftpState, changedUser str
 			return actions.Failed("The SSH server did not reload; the previous settings were restored.", err.Error())
 		}
 	}
+	for _, name := range changed {
+		mode := shellMode(st, name)
+		if mode == ShellDisabled || current[name] == loginShell(mode) && mode != ShellJailed {
+			continue
+		}
+		if err := setShell(ctx, env, name, mode); err != nil {
+			setShell(ctx, env, name, ShellDisabled)
+			return err
+		}
+	}
+	return nil
+}
+
+// verifyMode checks sshd applies an account's mode (sshd -T for it).
+func verifyMode(env *host.Env, user, mode string, eff map[string]string) error {
+	chroot, force := eff["chrootdirectory"], eff["forcecommand"]
+	switch mode {
+	case ShellJailed:
+		if force != JailShell || (chroot != "" && chroot != "none") {
+			return fmt.Errorf("sshd does not run %s's sessions through the jail (chroot %q, command %q); another configuration file may take precedence", user, chroot, force)
+		}
+	case ShellNormal:
+		if (force != "" && force != "none") || (chroot != "" && chroot != "none") {
+			return fmt.Errorf("sshd does not give %s a shell (chroot %q, command %q); another configuration file may take precedence", user, chroot, force)
+		}
+	default:
+		if chroot != filepath.Clean(env.Cfg.SitesRoot) || !strings.Contains(force, "internal-sftp") {
+			return fmt.Errorf("sshd does not apply the SFTP confinement to %s (chroot %q, command %q); another configuration file may take precedence", user, chroot, force)
+		}
+	}
+	return nil
+}
+
+// setShell sets an account's login shell and jail group membership.
+func setShell(ctx context.Context, env *host.Env, user, mode string) error {
+	if out, err := env.Runner.Run(ctx, "usermod", "--shell", loginShell(mode), "--", user); err != nil {
+		return actions.Failed("The login shell of "+user+" could not be changed.", host.Output(out))
+	}
+	if _, ok := groupGID(env, JailGroup); !ok {
+		return nil
+	}
+	if mode == ShellJailed {
+		if out, err := env.Runner.Run(ctx, "usermod", "--append", "--groups", JailGroup, "--", user); err != nil {
+			return actions.Failed(user+" could not be added to the "+JailGroup+" group.", host.Output(out))
+		}
+		return nil
+	}
+	// Not a member: gpasswd fails, which is fine.
+	env.Runner.Run(ctx, "gpasswd", "--delete", user, JailGroup)
 	return nil
 }
