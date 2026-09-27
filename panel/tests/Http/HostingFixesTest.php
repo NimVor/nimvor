@@ -105,6 +105,57 @@ final class HostingFixesTest extends HttpTestCase
         self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM dns_records WHERE name = 'evil'"));
     }
 
+    public function testZonesCreatedByDomainNameBelongToThatWebsite(): void
+    {
+        $this->app->container->get(SettingsService::class)->update(['dns_nameservers' => 'ns1.host.test', 'dns_default_ipv4' => '203.0.113.10'], null);
+        $this->agent->succeed('dns.zone_apply', ['serial' => 2026090101, 'loaded' => true]);
+        $this->agent->succeed('mail.domain_add', ['domain' => 'x', 'dkim_selector' => 'whacp202609', 'dkim_txt' => 'v=DKIM1; k=rsa; p=MIIB']);
+        $this->login('admin');
+        // The administrator types the domain on the DNS and Email pages
+        // without choosing the website.
+        $this->post('/dns/zones', ['name' => 'shop.test', 'template' => '1']);
+        $this->post('/mail/domains', ['domain' => 'shop.test']);
+        $zone = $this->db->fetch("SELECT id, website_id, owner_id FROM dns_zones WHERE name = 'shop.test'");
+        $mail = $this->db->fetch("SELECT id, website_id, owner_id FROM mail_domains WHERE domain = 'shop.test'");
+        self::assertSame([$this->siteId, $this->custId], [(int) $zone['website_id'], (int) $zone['owner_id']]);
+        self::assertSame([$this->siteId, $this->custId], [(int) $mail['website_id'], (int) $mail['owner_id']]);
+        // A zone for another name stays unlinked.
+        $this->post('/dns/zones', ['name' => 'unrelated.test', 'template' => '0']);
+        self::assertNull($this->db->scalar("SELECT website_id FROM dns_zones WHERE name = 'unrelated.test'"));
+
+        // A zone that exists before its website is linked when the website is created.
+        $this->post('/dns/zones', ['name' => 'later.test', 'template' => '0']);
+        $users = $this->app->container->get(UserRepository::class);
+        $later = $this->app->container->get(WebsiteService::class)->create(['domain' => 'later.test', 'kind' => 'static'], (array) $users->find($this->custId));
+        self::assertSame($later, (int) $this->db->scalar("SELECT website_id FROM dns_zones WHERE name = 'later.test'"));
+
+        $this->switchTo('cust');
+        self::assertSame('/dns/zones/' . (int) $zone['id'], $this->request('GET', '/sites/' . $this->siteId . '/dns')->header('Location'));
+        self::assertSame(200, $this->request('GET', '/dns/zones/' . (int) $zone['id'])->status());
+        self::assertSame('/mail/domains/' . (int) $mail['id'], $this->request('GET', '/sites/' . $this->siteId . '/mail')->header('Location'));
+        $this->switchTo('mallory');
+        self::assertSame(404, $this->request('GET', '/dns/zones/' . (int) $zone['id'])->status());
+    }
+
+    public function testMigrationLinksExistingZonesToTheirWebsite(): void
+    {
+        $now = gmdate('c');
+        $mallory = (int) $this->db->scalar("SELECT id FROM users WHERE username = 'mallory'");
+        foreach ([['shop.test', null], ['other.test', $mallory], ['nosite.test', null]] as [$name, $owner]) {
+            $this->db->run("INSERT INTO dns_zones (server_id, name, website_id, owner_id, primary_ns, hostmaster, created_at, updated_at) VALUES (1, ?, NULL, ?, 'ns1.host.test', 'h@host.test', ?, ?)", [$name, $owner, $now, $now]);
+        }
+        $this->db->run("INSERT INTO mail_domains (server_id, domain, website_id, owner_id, dkim_selector, dkim_txt, created_at) VALUES (1, 'shop.test', NULL, NULL, 's', 't', ?)", [$now]);
+        foreach (require __DIR__ . '/../../database/migrations/0020_link_zones_to_websites.php' as $sql) {
+            $this->db->run($sql);
+        }
+        $row = fn (string $name): array => (array) $this->db->fetch('SELECT website_id, owner_id FROM dns_zones WHERE name = ?', [$name]);
+        self::assertSame([$this->siteId, $this->custId], array_map('intval', array_values($row('shop.test'))), 'the whasols.com case: an unowned zone for a website');
+        self::assertNull($row('other.test')['website_id'], 'a zone another account owns is not handed over');
+        self::assertSame($mallory, (int) $row('other.test')['owner_id']);
+        self::assertNull($row('nosite.test')['website_id']);
+        self::assertSame($this->siteId, (int) $this->db->scalar("SELECT website_id FROM mail_domains WHERE domain = 'shop.test'"));
+    }
+
     public function testLetsEncryptNoticesGoToTheAccountEmail(): void
     {
         $this->agent->succeed('ssl.issue', ['cert_file' => '/etc/letsencrypt/live/shop.test/fullchain.pem', 'key_file' => '/etc/letsencrypt/live/shop.test/privkey.pem']);

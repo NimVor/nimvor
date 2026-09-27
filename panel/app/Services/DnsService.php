@@ -106,6 +106,9 @@ final class DnsService
         if (!preg_match('/^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/', $name) || strlen($name) > 253) {
             throw new ValidationException(['name' => 'Enter a domain name such as example.com.']);
         }
+        // A zone for a website's domain belongs to that website (and so to
+        // its owner), whether or not the form named the website.
+        $site ??= Scope::isAll($actor) ? $this->sites->findByDomain($this->server->id(), $name) : null;
         if (!Scope::isAll($actor)) {
             // Customers host zones for their own websites only.
             if ($site === null || strtolower((string) $site['domain']) !== $name) {

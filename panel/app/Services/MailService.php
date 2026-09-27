@@ -106,6 +106,9 @@ final class MailService
         if (!preg_match('/^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/', $domain)) {
             throw new ValidationException(['domain' => 'Enter a domain name such as example.com.']);
         }
+        // Email for a website's domain belongs to that website (and so to
+        // its owner), whether or not the form named the website.
+        $site ??= Scope::isAll($actor) ? $this->sites->findByDomain($this->server->id(), $domain) : null;
         if ($this->db->scalar('SELECT COUNT(*) FROM mail_domains WHERE server_id = ? AND domain = ?', [$this->server->id(), $domain]) > 0) {
             throw new ValidationException(['domain' => 'Email is already hosted for this domain.']);
         }

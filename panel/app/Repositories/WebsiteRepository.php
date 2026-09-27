@@ -83,7 +83,29 @@ final class WebsiteRepository
             'INSERT INTO websites (' . implode(', ', $cols) . ') VALUES (:' . implode(', :', $cols) . ')',
             $this->encode($data)
         );
-        return $this->db->lastInsertId();
+        $id = $this->db->lastInsertId();
+        $this->adopt($id);
+        return $id;
+    }
+
+    /**
+     * A DNS zone or email domain created earlier for exactly this website's
+     * domain, not linked to a website and owned by nobody else, belongs to
+     * the website (as if it had been chosen when creating it).
+     */
+    private function adopt(int $id): void
+    {
+        $w = $this->db->fetch('SELECT server_id, domain, owner_id FROM websites WHERE id = ?', [$id]);
+        if ($w === null) {
+            return;
+        }
+        foreach (['dns_zones' => 'name', 'mail_domains' => 'domain'] as $table => $col) {
+            $this->db->run(
+                "UPDATE {$table} SET website_id = :id, owner_id = COALESCE(owner_id, :owner)
+                 WHERE server_id = :server AND {$col} = :domain AND website_id IS NULL AND (owner_id IS NULL OR owner_id IS :owner)",
+                ['id' => $id, 'owner' => $w['owner_id'], 'server' => $w['server_id'], 'domain' => $w['domain']]
+            );
+        }
     }
 
     /** @param array<string, mixed> $data */

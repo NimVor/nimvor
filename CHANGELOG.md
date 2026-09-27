@@ -167,6 +167,13 @@ All notable changes to WhaCP are documented here. The format follows
   paragraph described steps that could not be carried out).
 
 ### Fixed
+- **A customer's website said "DNS … is not hosted here"** when an
+  administrator had created the zone (or email domain) by typing the
+  domain on the DNS or Email page instead of choosing the website. A
+  zone or email domain for exactly a website's domain now belongs to
+  that website and its owner however it was created, also when the
+  website is created afterwards; existing ones are linked on upgrade
+  (only those no other account owns).
 - **Websites page warned "skipped /etc/nginx/modules-enabled/…: outside
   permitted configuration roots"** on Ubuntu with Nginx dynamic modules
   installed: those files link to the package's `load_module` stubs in
