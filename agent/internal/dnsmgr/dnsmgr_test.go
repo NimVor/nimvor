@@ -251,6 +251,17 @@ func TestConfigureRollsBackWhenCheckconfFails(t *testing.T) {
 	}
 }
 
+// A check that fails without printing anything still says why (reported
+// on a real server as "BIND was not set up: named-checkconf:" and nothing).
+func TestConfigureSaysWhyWhenCheckconfFailsSilently(t *testing.T) {
+	f := setup(t)
+	f.h.Fail["named-checkconf"] = ""
+	_, err := f.call(t, "dns.configure", map[string]any{"confirm_edit_package_config": true})
+	if err == nil || !strings.Contains(err.Error(), "named-checkconf: exit status 1") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestOpenListen(t *testing.T) {
 	rhel := "options {\n\tlisten-on port 53 { 127.0.0.1; };\n\tlisten-on-v6 port 53 { ::1; };\n\tallow-query     { localhost; };\n};\n"
 	if !localOnly(rhel) {

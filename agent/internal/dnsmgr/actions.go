@@ -112,7 +112,7 @@ func dnsOwner(env *host.Env) agentfs.Owner {
 func checkconf(ctx context.Context, env *host.Env) error {
 	out, err := env.Runner.Run(ctx, "named-checkconf")
 	if err != nil {
-		return fmt.Errorf("named-checkconf: %s", host.Output(out))
+		return fmt.Errorf("named-checkconf: %s", host.Why(out, err))
 	}
 	return nil
 }
@@ -120,7 +120,7 @@ func checkconf(ctx context.Context, env *host.Env) error {
 func rndc(ctx context.Context, env *host.Env, args ...string) error {
 	out, err := env.Runner.Run(ctx, "rndc", args...)
 	if err != nil {
-		return fmt.Errorf("rndc %s: %s", strings.Join(args, " "), host.Output(out))
+		return fmt.Errorf("rndc %s: %s", strings.Join(args, " "), host.Why(out, err))
 	}
 	return nil
 }
@@ -285,7 +285,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		applied, err := set.Commit(func() error {
 			out, err := env.Runner.Run(ctx, "named-checkzone", "-i", "local", z.Name, file)
 			if err != nil {
-				return fmt.Errorf("named-checkzone: %s", host.Output(out))
+				return fmt.Errorf("named-checkzone: %s", host.Why(out, err))
 			}
 			return checkconf(ctx, env)
 		})

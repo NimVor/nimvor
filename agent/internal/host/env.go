@@ -122,6 +122,19 @@ func Output(b []byte) string {
 	return s
 }
 
+// Why explains a failed command: its output, or when it printed nothing,
+// the error itself (exit status, not found, timed out), which would
+// otherwise leave the reason blank.
+func Why(out []byte, err error) string {
+	if s := Output(out); s != "" {
+		return s
+	}
+	if err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
 // IPv6 reports whether the host has IPv6 enabled (listening on [::] fails
 // otherwise).
 func (e *Env) IPv6() bool {
