@@ -247,7 +247,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		j := env.Jobs.Start("stats.update", "site:"+s.Domain, func(ctx context.Context, log io.Writer) (any, error) {
 			_, err := env.Runner.RunWith(ctx, "perl", execx.Opts{As: cred, Dir: dir, Output: log, Timeout: time.Hour}, prog, "-config="+configName(s.Domain), "-update")
 			if err != nil {
-				return nil, fmt.Errorf("AWStats could not update the statistics")
+				return nil, fmt.Errorf("AWStats could not update the statistics: %w", err)
 			}
 			return nil, nil
 		})

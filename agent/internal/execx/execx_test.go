@@ -34,8 +34,8 @@ func TestLimitedBuffer(t *testing.T) {
 }
 
 func TestShellOnlyAsUnprivilegedUser(t *testing.T) {
-	r := &SystemRunner{paths: map[string]string{"sh": "/bin/sh", "tar": "/usr/bin/tar"}}
-	for _, id := range []string{"sh", "tar"} {
+	r := &SystemRunner{paths: map[string]string{"sh": "/bin/sh", "tar": "/usr/bin/tar", "perl": "/usr/bin/perl"}}
+	for _, id := range []string{"sh", "perl", "tar"} {
 		for _, o := range []Opts{{}, {As: &Credential{UID: 0, GID: 0}}, {As: &Credential{UID: 33, GID: 33}}} {
 			if _, err := r.RunWith(context.Background(), id, o, "--version"); !errors.Is(err, ErrNotAllowed) {
 				t.Errorf("%s as %+v: %v", id, o.As, err)

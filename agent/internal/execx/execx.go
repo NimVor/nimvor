@@ -124,6 +124,7 @@ var defaultCandidates = map[string][]string{
 	"composer":               {"/usr/local/bin/composer", "/usr/bin/composer"},
 	"sh":                     {"/bin/sh", "/usr/bin/sh"},
 	"tar":                    {"/usr/bin/tar", "/bin/tar"},
+	"perl":                   {"/usr/bin/perl"},
 }
 
 // Versioned PHP binaries are resolved on demand ("php8.3", "php-fpm8.3").
@@ -572,9 +573,9 @@ func checkArgs(id string, o Opts, args []string) error {
 			return fmt.Errorf("invalid environment entry for %s", id)
 		}
 	}
-	// A shell, and tar (which reads and writes website files), only ever
-	// run as an unprivileged account.
-	if (id == "sh" || id == "tar") && (o.As == nil || o.As.UID < 1000 || o.As.GID < 1000) {
+	// A shell, perl (AWStats) and tar (which reads and writes website
+	// files) only ever run as an unprivileged account.
+	if (id == "sh" || id == "perl" || id == "tar") && (o.As == nil || o.As.UID < 1000 || o.As.GID < 1000) {
 		return fmt.Errorf("%w: %s may only run as an unprivileged account", ErrNotAllowed, id)
 	}
 	return nil

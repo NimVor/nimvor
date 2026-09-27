@@ -23,7 +23,7 @@ dnf install -y -q --setopt=install_weak_deps=False \
     nginx mariadb-server mariadb "$redis" memcached pure-ftpd bind bind-utils \
     postfix dovecot dovecot-pigeonhole opendkim opendkim-tools rspamd \
     firewalld fail2ban fail2ban-systemd openssh-server git tar rsync curl openssl \
-    policycoreutils-python-utils dnf-utils roundcubemail \
+    policycoreutils-python-utils dnf-utils roundcubemail awstats \
     php-cli php-pdo php-mbstring php-sodium \
     php83-php-fpm php83-php-cli php83-php-mysqlnd php83-php-pdo php83-php-mbstring php83-php-xml \
     php83-php-intl php83-php-zip php83-php-gd php83-php-curl php83-php-opcache
