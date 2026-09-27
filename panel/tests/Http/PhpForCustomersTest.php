@@ -71,4 +71,45 @@ final class PhpForCustomersTest extends HttpTestCase
         $this->post('/sites/' . $this->siteId . '/settings', ['kind' => 'php', 'php_version' => '8.3', 'max_children' => '12', 'harden' => '0']);
         self::assertSame([12, false], [$this->settings()['max_children'], $this->settings()['harden']]);
     }
+
+    public function testCustomersSetTheirWebsitesPhpDirectives(): void
+    {
+        $this->login('cust');
+        $root = (string) $this->db->scalar('SELECT root FROM websites WHERE id = ?', [$this->siteId]);
+        $form = $this->request('GET', '/sites/' . $this->siteId . '/settings')->body();
+        self::assertStringContainsString('name="ini[date.timezone]"', $form);
+        self::assertStringNotContainsString('ini[open_basedir]', $form);
+        self::assertStringNotContainsString('ini[allow_url_include]', $form);
+
+        $this->agent->succeed('sites.apply', ['changed' => []]);
+        $base = ['kind' => 'php', 'php_version' => '8.3'];
+        $this->post('/sites/' . $this->siteId . '/settings', $base + ['ini' => ['date.timezone' => 'Asia/Karachi', 'display_errors' => 'On', 'post_max_size' => '128m', 'session.save_path' => $root . '/tmp/sessions', 'error_reporting' => '']]);
+        self::assertSame(['date.timezone' => 'Asia/Karachi', 'display_errors' => 'On', 'post_max_size' => '128M', 'session.save_path' => $root . '/tmp/sessions'], $this->lastCall('sites.apply')['php']['ini']);
+
+        // Refused, and nothing is changed.
+        $calls = $this->calls('sites.apply');
+        foreach ([['open_basedir' => '/'], ['allow_url_include' => 'On'], ['session.save_path' => '/home/whacp/other.test/tmp'], ['error_log' => $root . '/../x'], ['date.timezone' => "UTC\nphp_admin_value[open_basedir]=/"], ['display_errors' => 'maybe']] as $bad) {
+            $this->post('/sites/' . $this->siteId . '/settings', $base + ['ini' => $bad]);
+        }
+        self::assertSame($calls, $this->calls('sites.apply'));
+        self::assertSame('Asia/Karachi', $this->settings()['ini']['date.timezone']);
+        $this->post('/sites/' . $this->siteId . '/settings', $base + ['ini' => ['display_errors' => 'maybe']]);
+        self::assertStringContainsString('Use On or Off.', $this->request('GET', '/sites/' . $this->siteId . '/settings')->body(), 'the error is shown by the field');
+
+        // Emptied: back to the server default.
+        $this->post('/sites/' . $this->siteId . '/settings', $base + ['ini' => ['date.timezone' => '', 'display_errors' => '', 'post_max_size' => '', 'session.save_path' => '']]);
+        self::assertSame([], $this->settings()['ini']);
+        self::assertArrayNotHasKey('ini', $this->lastCall('sites.apply')['php']);
+    }
+
+    public function testThePanelAndTheAgentOfferTheSameDirectives(): void
+    {
+        preg_match_all('/^\t"([a-z_.]+)":\s+\{kind/m', (string) file_get_contents(__DIR__ . '/../../../agent/internal/sites/phpini.go'), $m);
+        $agent = $m[1];
+        sort($agent);
+        $panel = array_keys(\WhaCP\Services\PhpDirectives::ALL);
+        sort($panel);
+        self::assertNotEmpty($agent);
+        self::assertSame($agent, $panel);
+    }
 }

@@ -36,6 +36,8 @@ type PHPSettings struct {
 	RequestTimeoutSec int `json:"request_timeout_seconds"`
 	// Requests slower than this are logged with a backtrace (php-slow.log).
 	SlowlogSec int `json:"slowlog_seconds"`
+	// INI: php.ini directives of the website (see PHPDirectives).
+	INI map[string]string `json:"ini,omitempty"`
 }
 
 // Redirect is a path-level redirect.
@@ -131,6 +133,11 @@ func (s *Spec) Normalize(sitesRoot, stateDir string) error {
 		s.ProxyPass = ""
 	}
 	p := &s.PHP
+	ini, err := NormalizeINI(p.INI, s.Root)
+	if err != nil {
+		return err
+	}
+	p.INI = ini
 	defaults := map[*int]int{&p.MemoryLimitMB: 256, &p.UploadMaxMB: 64, &p.MaxExecSeconds: 60, &p.MaxChildren: 5, &s.ClientMaxBodyMB: 0}
 	for ptr, def := range defaults {
 		if *ptr == 0 {

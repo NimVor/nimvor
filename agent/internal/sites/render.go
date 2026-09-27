@@ -131,15 +131,25 @@ func RenderPool(s Spec, l Layout) string {
 		fmt.Fprintf(&b, "request_terminate_timeout = %ds\n", p.RequestTimeoutSec)
 	}
 	fmt.Fprintf(&b, "chdir = /\ncatch_workers_output = yes\nslowlog = %s\nrequest_slowlog_timeout = %ds\n", filepath.Join(l.LogDir, "php-slow.log"), p.SlowlogSec)
-	fmt.Fprintf(&b, "php_admin_value[open_basedir] = %s/:/usr/share/php/:/dev/urandom\n", s.Root)
-	fmt.Fprintf(&b, "php_admin_value[upload_tmp_dir] = %s\nphp_admin_value[session.save_path] = %s\nphp_admin_value[sys_temp_dir] = %s\n", l.TmpDir, l.TmpDir, l.TmpDir)
-	fmt.Fprintf(&b, "php_admin_value[error_log] = %s\nphp_admin_flag[log_errors] = on\nphp_admin_flag[display_errors] = off\n", filepath.Join(l.LogDir, "php-error.log"))
-	fmt.Fprintf(&b, "php_admin_value[memory_limit] = %dM\n", s.PHP.MemoryLimitMB)
-	fmt.Fprintf(&b, "php_admin_value[upload_max_filesize] = %dM\nphp_admin_value[post_max_size] = %dM\n", s.PHP.UploadMaxMB, s.PHP.UploadMaxMB)
-	fmt.Fprintf(&b, "php_admin_value[max_execution_time] = %d\n", s.PHP.MaxExecSeconds)
-	if s.PHP.Harden {
-		b.WriteString("php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec\n")
+	// The website's confinement, then WhaCP's defaults; the website's own
+	// directives (validated in Normalize) replace defaults they may change.
+	defaults := []iniLine{
+		{"open_basedir", s.Root + "/:/usr/share/php/:/dev/urandom", true},
+		{"upload_tmp_dir", l.TmpDir, true},
+		{"session.save_path", l.TmpDir, true},
+		{"sys_temp_dir", l.TmpDir, true},
+		{"error_log", filepath.Join(l.LogDir, "php-error.log"), true},
+		{"log_errors", "On", true},
+		{"display_errors", "Off", true},
+		{"memory_limit", fmt.Sprintf("%dM", s.PHP.MemoryLimitMB), true},
+		{"upload_max_filesize", fmt.Sprintf("%dM", s.PHP.UploadMaxMB), true},
+		{"post_max_size", fmt.Sprintf("%dM", s.PHP.UploadMaxMB), true},
+		{"max_execution_time", fmt.Sprint(s.PHP.MaxExecSeconds), true},
 	}
+	if s.PHP.Harden {
+		defaults = append(defaults, iniLine{"disable_functions", "exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec", true})
+	}
+	b.WriteString(poolINI(defaults, s.PHP.INI))
 	return b.String()
 }
 

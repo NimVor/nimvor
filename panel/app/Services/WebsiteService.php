@@ -237,7 +237,7 @@ final class WebsiteService
                 'max_requests' => (int) ($php['max_requests'] ?? 500),
                 'request_timeout_seconds' => (int) ($php['request_timeout_seconds'] ?? 0),
                 'slowlog_seconds' => (int) ($php['slowlog_seconds'] ?? 10),
-            ],
+            ] + (!empty($php['ini']) ? ['ini' => (array) $php['ini']] : []),
             'proxy_pass' => $site['kind'] === 'proxy' ? $site['proxy_pass'] : '',
             'https' => (bool) $site['https'],
             'force_https' => (bool) $site['force_https'],
@@ -488,6 +488,15 @@ final class WebsiteService
             $explicit = array_filter([$min, $start, $max]) !== [];
             if ($explicit && !(1 <= $min && $min <= $start && $start <= $max && $max <= $settings['max_children'])) {
                 $errors['start_servers'] = 'Dynamic needs 1 ≤ min spare ≤ start ≤ max spare ≤ max PHP processes (or leave all three at 0).';
+            }
+        }
+        // The website's own php.ini directives.
+        $settings['ini'] = (array) ($existing['php_settings']['ini'] ?? []);
+        if (is_array($input['ini'] ?? null)) {
+            try {
+                $settings['ini'] = PhpDirectives::validate($input['ini'], $existing['root'] ?? rtrim($this->sitesRoot(), '/') . '/' . $domain);
+            } catch (ValidationException $e) {
+                $errors += $e->errors();
             }
         }
         $body = filter_var($input['client_max_body_mb'] ?? ($existing['client_max_body_mb'] ?? $settings['upload_max_mb']), FILTER_VALIDATE_INT);

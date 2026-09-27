@@ -165,6 +165,42 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                 </div>
             </div>
             <?php endif; ?>
+            <?php if (!$isNew): $ini = (array) ($old['ini'] ?? ($site['php_settings']['ini'] ?? [])); $iniErr = array_filter($errors ?? [], static fn ($k) => str_starts_with((string) $k, 'ini'), ARRAY_FILTER_USE_KEY); ?>
+            <div class="card mb-3" data-wcp-kind="php" id="php-ini">
+                <div class="card-header wcp-toolbar">
+                    <span class="wcp-toolbar-title"><i class="bi bi-sliders2 me-1"></i>Additional PHP directives <span class="badge rounded-pill text-bg-light border fw-normal"><?= count(array_filter($ini, static fn ($x) => $x !== '')) ?> set</span></span>
+                    <input class="form-control form-control-sm wcp-filter" type="search" placeholder="Filter directives" aria-label="Filter directives" data-wcp-filter="#php-ini-table">
+                </div>
+                <?php if (isset($iniErr['ini'])): ?><div class="text-danger small px-3 pt-2"><?= e((string) $iniErr['ini']) ?></div><?php endif; ?>
+                <div class="table-responsive wcp-scroll-400">
+                    <table class="table table-sm align-middle mb-0 wcp-table" id="php-ini-table">
+                        <tbody>
+                        <?php foreach (\WhaCP\Services\PhpDirectives::groups() as $group => $keys): ?>
+                            <tr class="table-light"><th colspan="2" class="small"><?= e($group) ?></th></tr>
+                            <?php foreach ($keys as $k): [, $kind, $hint] = \WhaCP\Services\PhpDirectives::ALL[$k]; $val = (string) ($ini[$k] ?? ''); $id = 'ini-' . str_replace('.', '-', $k); $bad = isset($iniErr['ini.' . $k]); ?>
+                                <tr>
+                                    <td class="w-50"><label class="font-monospace small" for="<?= e($id) ?>"><?= e($k) ?></label><?php if ($hint !== ''): ?><div class="small text-body-secondary"><?= e($hint) ?></div><?php endif; ?></td>
+                                    <td>
+                                        <?php if ($kind === 'bool' || str_starts_with($kind, 'enum:')): $opts = $kind === 'bool' ? ['On', 'Off'] : explode('|', substr($kind, 5)); ?>
+                                            <select class="form-select form-select-sm<?= $bad ? ' is-invalid' : '' ?>" id="<?= e($id) ?>" name="ini[<?= e($k) ?>]">
+                                                <option value="">Server default</option>
+                                                <?php foreach ($opts as $o): ?><option value="<?= e($o) ?>"<?= $val === $o ? ' selected' : '' ?>><?= e($o) ?></option><?php endforeach; ?>
+                                            </select>
+                                        <?php else: ?>
+                                            <input class="form-control form-control-sm font-monospace<?= $bad ? ' is-invalid' : '' ?>" id="<?= e($id) ?>" name="ini[<?= e($k) ?>]" value="<?= e($val) ?>" placeholder="Server default" autocomplete="off" spellcheck="false">
+                                        <?php endif; ?>
+                                        <?php if ($bad): ?><div class="invalid-feedback d-block"><?= e((string) $iniErr['ini.' . $k]) ?></div><?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endforeach; ?>
+                        <tr class="d-none" data-wcp-filter-empty><td colspan="2" class="small text-body-secondary">No directive matches.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer small text-body-secondary">Empty means the server's default. Paths must be inside <code><?= e((string) $site['root']) ?></code>. Directives removed from PHP (magic_quotes, safe_mode, register_globals, …) no longer exist in PHP 8 and are not listed.</div>
+            </div>
+            <?php endif; ?>
             <div class="card mb-3" id="requests">
                 <div class="card-header"><i class="bi bi-signpost me-1"></i>Requests and redirects</div>
                 <div class="card-body">
