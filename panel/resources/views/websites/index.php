@@ -74,7 +74,7 @@ $showOwner = $this->can(P::USERS_VIEW);
                             <span class="wcp-site-badge <?= $m['https'] ? 'is-ok' : 'is-muted' ?>" title="<?= $m['https'] ? 'HTTPS on' : 'HTTPS off' ?>"><i class="bi bi-<?= $m['https'] ? 'lock-fill' : 'unlock' ?>" aria-hidden="true"></i></span>
                             <?php if ($m['kind'] === 'php'): ?><span class="wcp-site-badge" title="PHP <?= e($m['php_version']) ?>">PHP <?= e($m['php_version']) ?></span><?php endif; ?>
                         </span>
-                        <?php if (!$m['enabled']): ?><span class="wcp-site-ribbon">Disabled</span><?php elseif ($m['status'] === 'error'): ?><span class="wcp-site-ribbon is-error">Needs attention</span><?php endif; ?>
+                        <?php if (!empty($m['account_suspended'])): ?><span class="wcp-site-ribbon is-error">Suspended</span><?php elseif (!$m['enabled']): ?><span class="wcp-site-ribbon">Disabled</span><?php elseif ($m['status'] === 'error'): ?><span class="wcp-site-ribbon is-error">Needs attention</span><?php endif; ?>
                     </div>
                     <div class="card-body py-2">
                         <div class="fw-semibold text-body text-truncate"><i class="bi bi-globe2 me-1 text-body-secondary" aria-hidden="true"></i><?= e($m['domain']) ?></div>
@@ -142,7 +142,7 @@ $showOwner = $this->can(P::USERS_VIEW);
                         <?php else: ?>
                             <span class="wcp-toggle-op <?= $m['enabled'] ? 'is-on' : 'is-off' ?>" title="<?= e($title) ?>"><i class="bi bi-<?= $m['enabled'] ? 'play-circle-fill' : 'pause-circle' ?>" aria-hidden="true"></i><span class="visually-hidden"><?= e($title) ?></span></span>
                         <?php endif; ?>
-                        <?php if ($m['status'] === 'error'): ?><div class="small wcp-bad">Needs attention</div><?php endif; ?>
+                        <?php if (!empty($m['account_suspended'])): ?><div class="small wcp-bad">Account suspended</div><?php elseif ($m['status'] === 'error'): ?><div class="small wcp-bad">Needs attention</div><?php endif; ?>
                     </td>
                     <td class="text-nowrap">
                         <?php if ($this->can(P::BACKUPS_VIEW)): ?>

@@ -18,7 +18,8 @@ foreach ($items as $i) {
 <?php $this->start(); ?><?= e($site['domain']) ?><?php $this->end('title'); ?>
 <?php $this->start(); ?>
 <span class="wcp-site-status">
-    <?php if ($site['status'] === 'error'): ?><span class="wcp-state is-error">Needs attention</span>
+    <?php if (!empty($site['account_suspended'])): ?><span class="wcp-state is-error">Account suspended</span>
+    <?php elseif ($site['status'] === 'error'): ?><span class="wcp-state is-error">Needs attention</span>
     <?php elseif ($site['enabled']): ?><span class="wcp-state is-ok">Active</span>
     <?php else: ?><span class="wcp-state is-off">Disabled</span><?php endif; ?>
     <?php if ($site['kind'] === 'php'): ?><span>PHP <?= e($site['php_version']) ?></span><?php elseif ($site['kind'] === 'proxy'): ?><span>Application proxy</span><?php else: ?><span>Static website</span><?php endif; ?>

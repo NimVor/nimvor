@@ -233,6 +233,28 @@ func Register(r *actions.Registry, env *host.Env) {
 		sql := fmt.Sprintf("ALTER USER %s IDENTIFIED BY %s;", account(in.User, in.Host), Quote(in.Password))
 		return map[string]any{"user": in.User}, c.Exec(ctx, "Changing the password", sql)
 	}})
+	r.Register(actions.Action{Name: "db.user_lock", Mutating: true, Description: "Lock or unlock a database user (account suspension): a locked user cannot connect; its data and grants are kept.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			User   string `json:"user"`
+			Host   string `json:"host"`
+			Locked bool   `json:"locked"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if in.Host == "" {
+			in.Host = "localhost"
+		}
+		if err := checkUser(in.User, in.Host); err != nil {
+			return nil, host.Invalid(err)
+		}
+		verb := "UNLOCK"
+		if in.Locked {
+			verb = "LOCK"
+		}
+		sql := fmt.Sprintf("ALTER USER IF EXISTS %s ACCOUNT %s;", account(in.User, in.Host), verb)
+		return map[string]any{"user": in.User, "locked": in.Locked}, c.Exec(ctx, "Locking the database user", sql)
+	}})
 	r.Register(actions.Action{Name: "db.user_drop", Mutating: true, Description: "Drop a database user.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in userReq
 		if err := host.Decode(p, &in); err != nil {

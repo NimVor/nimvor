@@ -292,3 +292,36 @@ func TestSFTPRollsBackWhenOtherUsersWouldBeAffected(t *testing.T) {
 		t.Fatal("sshd reloaded after a failed validation")
 	}
 }
+
+func TestAccountSuspension(t *testing.T) {
+	f := setup(t)
+	os.MkdirAll(filepath.Join(f.h.Base, "etc/whacp-ftp"), 0o755)
+	os.WriteFile(filepath.Join(f.h.Base, "etc/whacp-ftp/accounts.passwd"), nil, 0o600)
+	f.must(t, "ftp.account_save", map[string]any{"name": "shopftp", "user": "shop", "password": "long-ftp-password"})
+	hash := func() string {
+		line := strings.TrimSpace(f.h.Read("etc/whacp-ftp/accounts.passwd"))
+		return strings.Split(line, ":")[1]
+	}
+	if strings.HasPrefix(hash(), "!") {
+		t.Fatal("locked before suspension")
+	}
+	res := f.must(t, "account.suspend", map[string]any{"user": "shop", "suspended": true})
+	if res["ftp_accounts"].(float64) != 1 || !called(f, "usermod --expiredate 1 -- shop") || !strings.HasPrefix(hash(), "!$6$") {
+		t.Fatalf("suspend: %v, hash %q, calls %v", res, hash(), f.h.Runner.Calls)
+	}
+	// A new password set while suspended stays locked.
+	os.WriteFile(filepath.Join(f.h.Base, "etc/shadow"), []byte("shop:!:20000:0:99999:7::1:\n"), 0o600)
+	f.must(t, "ftp.account_save", map[string]any{"name": "shopftp", "user": "shop", "password": "another-ftp-password"})
+	if !strings.HasPrefix(hash(), "!$6$") {
+		t.Fatalf("password change unlocked the account: %q", hash())
+	}
+	f.must(t, "account.suspend", map[string]any{"user": "shop", "suspended": false})
+	if strings.HasPrefix(hash(), "!") || !called(f, "usermod --expiredate  -- shop") {
+		t.Fatalf("resume: hash %q, calls %v", hash(), f.h.Runner.Calls)
+	}
+	for _, bad := range []string{"root", "www-data", "nobody-here"} {
+		if _, err := f.call(t, "account.suspend", map[string]any{"user": bad, "suspended": true}); err == nil {
+			t.Errorf("suspended %s", bad)
+		}
+	}
+}

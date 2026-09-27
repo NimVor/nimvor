@@ -21,7 +21,7 @@ final class WebsiteRepository
     {
         [$cond, $params] = Scope::condition($user, 'w.owner_id');
         $rows = $this->db->fetchAll(
-            "SELECT w.*, u.username AS owner_name FROM websites w LEFT JOIN users u ON u.id = w.owner_id
+            "SELECT w.*, u.username AS owner_name, " . UserRepository::SUSPENDED . " AS account_suspended FROM websites w LEFT JOIN users u ON u.id = w.owner_id
              WHERE w.server_id = :server AND {$cond} ORDER BY w.domain",
             ['server' => $serverId] + $params
         );
@@ -36,7 +36,7 @@ final class WebsiteRepository
     {
         [$cond, $params] = $user === null ? ['1 = 1', []] : Scope::condition($user, 'w.owner_id');
         $row = $this->db->fetch(
-            "SELECT w.*, u.username AS owner_name FROM websites w LEFT JOIN users u ON u.id = w.owner_id
+            "SELECT w.*, u.username AS owner_name, " . UserRepository::SUSPENDED . " AS account_suspended FROM websites w LEFT JOIN users u ON u.id = w.owner_id
              WHERE w.server_id = :server AND w.id = :id AND {$cond}",
             ['server' => $serverId, 'id' => $id] + $params
         );
@@ -56,7 +56,7 @@ final class WebsiteRepository
      */
     public function children(int $serverId, int $parentId): array
     {
-        $rows = $this->db->fetchAll("SELECT w.*, u.username AS owner_name FROM websites w LEFT JOIN users u ON u.id = w.owner_id WHERE w.server_id = ? AND w.parent_id = ? ORDER BY w.domain", [$serverId, $parentId]);
+        $rows = $this->db->fetchAll("SELECT w.*, u.username AS owner_name, " . UserRepository::SUSPENDED . " AS account_suspended FROM websites w LEFT JOIN users u ON u.id = w.owner_id WHERE w.server_id = ? AND w.parent_id = ? ORDER BY w.domain", [$serverId, $parentId]);
         return array_map([$this, 'hydrate'], $rows);
     }
 
@@ -169,6 +169,7 @@ final class WebsiteRepository
         foreach (['https', 'force_https', 'hsts', 'enabled'] as $b) {
             $row[$b] = (int) $row[$b] === 1;
         }
+        $row['account_suspended'] = !empty($row['account_suspended']);
         return $row;
     }
 

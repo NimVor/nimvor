@@ -151,3 +151,27 @@ func TestImportFromAWebsiteIsConfinedToIt(t *testing.T) {
 		t.Fatalf("symlink followed: %s, stdin %q", j.Status, h.Runner.Stdins)
 	}
 }
+
+func TestUserLock(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	h.Runner.Outputs = map[string]string{}
+	if _, err := call(t, r, "db.user_lock", `{"user":"shop_u","locked":true}`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := call(t, r, "db.user_lock", `{"user":"shop_u","host":"%","locked":false}`); err != nil {
+		t.Fatal(err)
+	}
+	all := strings.Join(h.Runner.Stdins, "\n")
+	for _, want := range []string{"ALTER USER IF EXISTS 'shop_u'@'localhost' ACCOUNT LOCK;", "ALTER USER IF EXISTS 'shop_u'@'%' ACCOUNT UNLOCK;"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("missing %q in %s", want, all)
+		}
+	}
+	for _, bad := range []string{`{"user":"root","locked":true}`, `{"user":"a'b","locked":true}`} {
+		if _, err := call(t, r, "db.user_lock", bad); err == nil {
+			t.Errorf("accepted %s", bad)
+		}
+	}
+}

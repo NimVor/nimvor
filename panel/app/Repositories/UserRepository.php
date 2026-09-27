@@ -8,7 +8,20 @@ use WhaCP\Database\Connection;
 
 final class UserRepository
 {
-    private const COLUMNS = 'u.id, u.username, u.email, u.display_name, u.role_id, u.is_active, u.last_login_at, u.last_login_ip, u.password_changed_at, u.created_at, u.updated_at, r.name AS role_name, r.label AS role_label, r.scope AS role_scope, r.require_two_factor AS role_requires_2fa, u.parent_id, u.plan_id';
+    private const COLUMNS = 'u.id, u.username, u.email, u.display_name, u.role_id, u.is_active, u.last_login_at, u.last_login_ip, u.password_changed_at, u.created_at, u.updated_at, r.name AS role_name, r.label AS role_label, r.scope AS role_scope, r.require_two_factor AS role_requires_2fa, u.parent_id, u.plan_id, u.suspended_at, u.suspend_reason, ' . self::SUSPENDED . ' AS suspended';
+
+    /** An account is suspended itself or through its (suspended) reseller. */
+    public const SUSPENDED = '(u.suspended_at IS NOT NULL OR EXISTS (SELECT 1 FROM users sp WHERE sp.id = u.parent_id AND sp.suspended_at IS NOT NULL))';
+
+    /**
+     * Whether an account may sign in and act: active and not suspended.
+     *
+     * @param array<string, mixed>|null $user
+     */
+    public static function canAct(?array $user): bool
+    {
+        return $user !== null && (int) ($user['is_active'] ?? 0) === 1 && empty($user['suspended']);
+    }
 
     public function __construct(private readonly Connection $db)
     {
@@ -54,7 +67,7 @@ final class UserRepository
     public function findForAuth(string $username): ?array
     {
         return $this->db->fetch(
-            'SELECT u.id, u.username, u.password_hash, u.is_active, u.role_id FROM users u WHERE u.username = ? OR u.email = ?',
+            'SELECT u.id, u.username, u.password_hash, u.is_active, u.role_id, ' . self::SUSPENDED . ' AS suspended FROM users u WHERE u.username = ? OR u.email = ?',
             [$username, $username]
         );
     }

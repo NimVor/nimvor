@@ -225,3 +225,49 @@ func TestRealHostFTP(t *testing.T) {
 	}
 	do(t, r, "ftp.disable", map[string]any{})
 }
+
+// Account suspension: the expired account cannot log in with its key;
+// resuming lets it in again.
+func TestRealHostSuspendedAccountCannotLogIn(t *testing.T) {
+	env, r := realEnv(t)
+	if _, err := exec.LookPath("sftp"); err != nil {
+		t.Skip("needs the OpenSSH client")
+	}
+	dir := t.TempDir()
+	key := filepath.Join(dir, "id")
+	if out, err := exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key).CombinedOutput(); err != nil {
+		t.Fatalf("ssh-keygen: %s", out)
+	}
+	pub, _ := os.ReadFile(key + ".pub")
+	t.Cleanup(func() {
+		do(t, r, "sftp.configure", map[string]any{"user": "rtftp", "enabled": false})
+		os.Remove(env.M.SFTPDropIn)
+		reloadSSH()
+	})
+	do(t, r, "sftp.configure", map[string]any{"user": "rtftp", "enabled": true, "keys": []string{string(pub)}})
+	reloadSSH()
+	batch := filepath.Join(dir, "batch")
+	os.WriteFile(batch, []byte("pwd\n"), 0o644)
+	login := func() ([]byte, error) {
+		return exec.Command("sftp", "-i", key, "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-b", batch, "rtftp@127.0.0.1").CombinedOutput()
+	}
+	var out []byte
+	var err error
+	for i := 0; i < 10; i++ {
+		if out, err = login(); err == nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	if err != nil {
+		t.Fatalf("before suspension: %v\n%s", err, out)
+	}
+	do(t, r, "account.suspend", map[string]any{"user": "rtftp", "suspended": true})
+	if out, err := login(); err == nil {
+		t.Fatalf("a suspended account logged in:\n%s", out)
+	}
+	do(t, r, "account.suspend", map[string]any{"user": "rtftp", "suspended": false})
+	if out, err := login(); err != nil {
+		t.Fatalf("after resuming: %v\n%s", err, out)
+	}
+}

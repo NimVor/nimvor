@@ -188,7 +188,7 @@ final class WorkerService
             'env' => (object) $worker['env'],
             'restart' => $worker['restart'],
             'memory_mb' => (int) $worker['memory_mb'],
-            'enabled' => (bool) $worker['enabled'] && (bool) $site['enabled'],
+            'enabled' => (bool) $worker['enabled'] && (bool) $site['enabled'] && empty($site['account_suspended']),
         ], 120);
     }
 
@@ -209,6 +209,9 @@ final class WorkerService
      */
     public function restart(array $site, array $worker): void
     {
+        if (!empty($site['account_suspended'])) {
+            throw new \WhaCP\Support\UserFacingException('The account is suspended; its workers are stopped.');
+        }
         $this->agent->call('workers.restart', ['slug' => $worker['slug']], 120);
         $this->audit->record('worker.restart', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'worker' => $worker['name']]);
     }

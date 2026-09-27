@@ -67,6 +67,11 @@ final class AuthService
         $hash = $row !== null ? (string) $row['password_hash'] : self::DUMMY_HASH;
         $valid = $this->hasher->verify($password, $hash);
 
+        if ($row !== null && $valid && (int) $row['is_active'] === 1 && !empty($row['suspended'])) {
+            // The right password: say why, without counting a failure.
+            $this->audit->record('auth.login', 'user', $username, AuditLogger::DENIED, ['reason' => 'suspended'], (int) $row['id'], $username);
+            return 'This account is suspended. Please contact your hosting provider.';
+        }
         if ($row === null || !$valid || (int) $row['is_active'] !== 1) {
             $this->throttle->recordFailure($username, $ip);
             $reason = $row === null ? 'unknown_user' : (!$valid ? 'bad_password' : 'inactive');
@@ -159,7 +164,7 @@ final class AuthService
         $id = (int) $p['id'];
         $user = $this->users->find($id);
         $hash = $this->users->passwordHash($id);
-        if ($user === null || $hash === null || (int) $user['is_active'] !== 1 || !hash_equals($p['fp'], self::fingerprint($hash))) {
+        if ($hash === null || !\WhaCP\Repositories\UserRepository::canAct($user) || !hash_equals($p['fp'], self::fingerprint($hash))) {
             $this->session->remove(self::PENDING_KEY);
             return 'Your sign-in expired. Enter your password again.';
         }
@@ -293,7 +298,7 @@ final class AuthService
         }
         $user = $this->users->find($id);
         $hash = $this->users->passwordHash($id);
-        if ($user === null || $hash === null || (int) $user['is_active'] !== 1
+        if ($hash === null || !\WhaCP\Repositories\UserRepository::canAct($user)
             || !hash_equals((string) $this->session->get(self::FINGERPRINT_KEY, ''), self::fingerprint($hash))) {
             $this->session->invalidate();
             return null;

@@ -244,3 +244,53 @@ func TestSpamSettings(t *testing.T) {
 		t.Error("milters")
 	}
 }
+
+func TestSuspendedDomainCannotLogInButReceivesMail(t *testing.T) {
+	h, r := setup(t)
+	h.Env.Cfg.SimulateCommands = true
+	if _, err := call(t, r, "mail.configure", map[string]any{"hostname": "mail.example.com", "confirm_edit_package_config": true}); err != nil {
+		t.Fatal(err)
+	}
+	h.Env.Cfg.SimulateCommands = false
+	for _, d := range []string{"example.com", "other.org"} {
+		if _, err := call(t, r, "mail.domain_add", map[string]any{"domain": d}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := call(t, r, "mail.mailbox_save", map[string]any{"address": "a@" + d, "password": "Long-enough-pw", "quota_mb": 100}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := call(t, r, "mail.suspend", map[string]any{"domain": "bad domain", "suspended": true}); code(err) != "invalid_params" {
+		t.Fatalf("invalid domain: %v", err)
+	}
+	if _, err := call(t, r, "mail.suspend", map[string]any{"domain": "Example.com", "suspended": true}); err != nil {
+		t.Fatal(err)
+	}
+	users := h.Read("etc/whacp-mail/users")
+	lines := map[string]string{}
+	for _, l := range strings.Split(users, "\n") {
+		if k, _, ok := strings.Cut(l, ":"); ok {
+			lines[k] = l
+		}
+	}
+	if !strings.HasSuffix(lines["a@example.com"], "nologin=y reason=Suspended") || !strings.Contains(lines["a@example.com"], "storage=100M") || !strings.Contains(lines["a@example.com"], ":{SHA512-CRYPT}!$6$") {
+		t.Fatalf("suspended mailbox: %q", lines["a@example.com"])
+	}
+	if strings.Contains(lines["a@other.org"], "nologin") || strings.Contains(lines["a@other.org"], "}!") {
+		t.Fatalf("other domain affected: %q", lines["a@other.org"])
+	}
+	// Delivery: the mailbox and its domain stay in Postfix's maps.
+	if !strings.Contains(h.Read("etc/whacp-mail/mailboxes"), "a@example.com example.com/a/") || !strings.Contains(h.Read("etc/whacp-mail/domains"), "example.com OK") {
+		t.Fatal("suspension stopped delivery")
+	}
+	if _, err := call(t, r, "mail.suspend", map[string]any{"domain": "example.com", "suspended": false}); err != nil {
+		t.Fatal(err)
+	}
+	if u := h.Read("etc/whacp-mail/users"); strings.Contains(u, "nologin") || strings.Contains(u, "}!") {
+		t.Fatal("still suspended")
+	}
+	res, err := call(t, r, "mail.suspend", map[string]any{"domain": "not-hosted.net", "suspended": true})
+	if err != nil || res["hosted"] != false {
+		t.Fatalf("unhosted domain: %v %v", res, err)
+	}
+}

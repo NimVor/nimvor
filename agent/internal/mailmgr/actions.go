@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -573,6 +574,7 @@ func Register(r *actions.Registry, he *host.Env) {
 			}
 		}
 		delete(d.Domains, in.Domain)
+		d.Suspended = slices.DeleteFunc(d.Suspended, func(s string) bool { return s == in.Domain })
 		if err := e.saveData(ctx, d, func(set *changeset.Set) {
 			if he.Root.Exists(dir + "/dkim/" + in.Domain + ".private") {
 				set.Remove(dir + "/dkim/" + in.Domain + ".private")
@@ -581,6 +583,42 @@ func Register(r *actions.Registry, he *host.Env) {
 			return nil, err
 		}
 		return map[string]any{"domain": in.Domain, "removed": true}, nil
+	}})
+
+	r.Register(actions.Action{Name: "mail.suspend", Mutating: true, Description: "Suspend or resume logins for a mail domain's mailboxes (account suspension); incoming mail is still delivered.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var in struct {
+			Domain    string `json:"domain"`
+			Suspended bool   `json:"suspended"`
+		}
+		if err := host.Decode(raw, &in); err != nil {
+			return nil, err
+		}
+		dom := strings.ToLower(in.Domain)
+		if !ValidDomain(dom) {
+			return nil, actions.InvalidParams("domain is not a valid domain name")
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		d, err := e.load()
+		if err != nil {
+			return nil, actions.Failed("The mail data could not be read.", err.Error())
+		}
+		if _, ok := d.Domains[dom]; !ok {
+			return map[string]any{"domain": dom, "suspended": in.Suspended, "hosted": false}, nil
+		}
+		was := slices.Contains(d.Suspended, dom)
+		if was == in.Suspended {
+			return map[string]any{"domain": dom, "suspended": in.Suspended, "hosted": true}, nil
+		}
+		d.Suspended = slices.DeleteFunc(d.Suspended, func(s string) bool { return s == dom })
+		if in.Suspended {
+			d.Suspended = append(d.Suspended, dom)
+			slices.Sort(d.Suspended)
+		}
+		if err := e.saveData(ctx, d, nil); err != nil {
+			return nil, err
+		}
+		return map[string]any{"domain": dom, "suspended": in.Suspended, "hosted": true}, nil
 	}})
 
 	r.Register(actions.Action{Name: "mail.mailbox_save", Mutating: true, Description: "Create a mailbox or change its password or quota (the password is stored as a SHA-512 crypt hash).", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {

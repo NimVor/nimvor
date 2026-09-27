@@ -254,6 +254,27 @@ such as `…/databases#new-database`, and again after a validation error).
   delete them in the File manager. Owners can also scan their website
   from its Malware scan page.
 
+## Account suspension
+
+Administrators suspend a hosting customer or reseller under Users →
+account → Account status (with an optional reason). Staff accounts are
+turned off with "Account enabled" instead. For the account, and for every
+customer of a suspended reseller:
+
+| Service | While suspended |
+| --- | --- |
+| Panel and API | sign-in and API tokens are refused ("This account is suspended") |
+| Websites | offline (the vhost is removed); the website's own on/off setting is kept |
+| Cron jobs, workers | not run / stopped; their own settings are kept |
+| Email | logins refused (IMAP, POP3, webmail, SMTP AUTH); mail is still delivered |
+| Databases | database users are locked (`ACCOUNT LOCK`); data is kept |
+| SSH/SFTP, FTP | the website account expires (`usermod --expiredate 1`), which refuses SSH/SFTP logins including keys; FTP password hashes are locked |
+
+Unsuspending reverses each step. Customers suspended on their own stay
+suspended when their reseller is resumed. If a server could not apply a
+step, the page says which, sign-in stays blocked, and "Apply the
+suspension again" retries.
+
 ## PHP versions and settings
 
 *PHP* lists the installed versions; each has a **Settings** page with three

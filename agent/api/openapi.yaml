@@ -63,6 +63,7 @@ paths:
             pattern: '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$'
             enum:
               # BEGIN generated enum (do not edit; see internal/modules/openapi_test.go)
+              - account.suspend
               - adopt.preview
               - adopt.run
               - adopt.undo
@@ -102,6 +103,7 @@ paths:
               - db.query
               - db.user_create
               - db.user_drop
+              - db.user_lock
               - db.user_password
               - deploy.key
               - deploy.run
@@ -159,6 +161,7 @@ paths:
               - mail.mailbox_save
               - mail.spam_configure
               - mail.status
+              - mail.suspend
               - mail.webmail_configure
               - mail.webmail_install
               - memcached.configure
@@ -340,6 +343,7 @@ components:
         managed_by: { type: string, description: 'Heuristic hint (aaPanel, FASTPANEL, HestiaCP, CyberPanel, WhaCP).' }
 x-whacp-actions:
   # BEGIN generated catalog (do not edit; see internal/modules/openapi_test.go)
+  account.suspend: { mutating: true, description: "Suspend or resume a website's system account: SSH/SFTP logins are refused (the account expires) and its FTP accounts are locked. Files are kept." }
   adopt.preview: { mutating: false, description: "Plan the import of an existing website into WhaCP (read-only)." }
   adopt.run: { mutating: true, description: "Import an existing website into WhaCP (job)." }
   adopt.undo: { mutating: true, description: "Undo an import: re-enable the old configuration and disable the WhaCP website." }
@@ -379,6 +383,7 @@ x-whacp-actions:
   db.query: { mutating: true, description: "Database browser: run SQL (one or more statements) as the database's browser account, which can reach this database only." }
   db.user_create: { mutating: true, description: "Create a database user." }
   db.user_drop: { mutating: true, description: "Drop a database user." }
+  db.user_lock: { mutating: true, description: "Lock or unlock a database user (account suspension): a locked user cannot connect; its data and grants are kept." }
   db.user_password: { mutating: true, description: "Change a database user's password." }
   deploy.key: { mutating: true, description: "Create (if needed) and return the website's SSH deploy key." }
   deploy.run: { mutating: true, description: "Clone or update a Git repository and run post-deploy commands (job)." }
@@ -436,6 +441,7 @@ x-whacp-actions:
   mail.mailbox_save: { mutating: true, description: "Create a mailbox or change its password or quota (the password is stored as a SHA-512 crypt hash)." }
   mail.spam_configure: { mutating: true, description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only WhaCP's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure." }
   mail.status: { mutating: false, description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases." }
+  mail.suspend: { mutating: true, description: "Suspend or resume logins for a mail domain's mailboxes (account suspension); incoming mail is still delivered." }
   mail.webmail_configure: { mutating: true, description: "Turn webmail (Roundcube) on for a host name, or off. WhaCP writes Roundcube's configuration in its own folder, runs it in its own PHP-FPM pool and account, creates or upgrades its SQLite database and serves it with its own Nginx site over HTTPS (Let's Encrypt certificate for the host name when present, otherwise self-signed). Validated with nginx -t and php-fpm -t, checked by loading the sign-in page, rolled back on failure." }
   mail.webmail_install: { mutating: true, description: "Install Roundcube webmail from the distribution's packages (with PHP-FPM and SQLite support; the package's own database setup is skipped because WhaCP keeps Roundcube's data itself). Runs as a job." }
   memcached.configure: { mutating: true, description: "Set Memcached's memory, connection limit and (loopback) listen addresses in its package configuration file after explicit confirmation; restarts and verifies, rolls back on failure." }

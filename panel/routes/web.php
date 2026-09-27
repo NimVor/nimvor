@@ -278,6 +278,8 @@ return static function (Router $r): void {
     $r->get('/accounts/new', [AccountsController::class, 'create'], ['name' => 'accounts.create', 'permission' => P::USERS_MANAGE]);
     $r->post('/accounts', [AccountsController::class, 'store'], ['name' => 'accounts.store', 'permission' => P::USERS_MANAGE]);
     $r->post('/users/{id}/hosting-options', [AccountsController::class, 'saveOptions'], ['name' => 'users.options', 'permission' => P::USERS_MANAGE]);
+    $r->post('/users/{id}/suspend', [\WhaCP\Http\Controllers\AccountsController::class, 'suspend'], ['name' => 'users.suspend', 'permission' => P::USERS_MANAGE]);
+    $r->post('/users/{id}/unsuspend', [\WhaCP\Http\Controllers\AccountsController::class, 'unsuspend'], ['name' => 'users.unsuspend', 'permission' => P::USERS_MANAGE]);
     $r->get('/users/new', [UsersController::class, 'create'], ['name' => 'users.create', 'permission' => P::USERS_MANAGE]);
     $r->post('/users', [UsersController::class, 'store'], ['name' => 'users.store', 'permission' => P::USERS_MANAGE]);
     $r->get('/users/{id}/edit', [UsersController::class, 'edit'], ['name' => 'users.edit', 'permission' => P::USERS_MANAGE]);

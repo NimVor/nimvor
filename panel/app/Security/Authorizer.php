@@ -21,7 +21,7 @@ final class Authorizer
     /** @param array<string, mixed>|null $user */
     public function can(?array $user, string $permission): bool
     {
-        if ($user === null || (int) ($user['is_active'] ?? 0) !== 1) {
+        if (!\WhaCP\Repositories\UserRepository::canAct($user)) {
             return false;
         }
         return in_array($permission, $this->permissions((int) $user['role_id']), true);

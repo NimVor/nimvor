@@ -19,7 +19,7 @@
                     </td>
                     <td><?= e($u['role_label']) ?></td>
                     <td class="small"><?= e($u['plan_name'] ?? '—') ?></td>
-                    <td><?= (int) $u['is_active'] === 1 ? $this->statusBadge('active') : $this->statusBadge('inactive', 'disabled') ?></td>
+                    <td><?= !empty($u['suspended']) ? $this->statusBadge('error', 'suspended') : ((int) $u['is_active'] === 1 ? $this->statusBadge('active') : $this->statusBadge('inactive', 'disabled')) ?></td>
                     <td class="small"><?= e(time_ago($u['last_login_at'])) ?><?php if (!empty($u['last_login_ip'])): ?><div class="text-body-secondary"><?= e($u['last_login_ip']) ?></div><?php endif; ?></td>
                     <td class="text-end text-nowrap">
                         <?php if ($this->can(\WhaCP\Security\Permissions::USERS_MANAGE)): ?>

@@ -314,7 +314,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			if err := validPassword(in.Password); err != nil {
 				return nil, actions.InvalidParams(err.Error())
 			}
-			acct.hash = shacrypt.HashPassword(in.Password)
+			acct.hash = lockHash(shacrypt.HashPassword(in.Password), accountSuspended(env, u.Name))
 		case idx >= 0:
 			if list[idx].UID != u.UID {
 				return nil, actions.Conflict("an FTP account named " + in.Name + " belongs to another website")
@@ -360,6 +360,8 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"deleted": in.Name}, nil
 	}})
+
+	registerSuspend(r, env)
 
 	r.Register(actions.Action{Name: "sftp.configure", Mutating: true, Description: "Turn SFTP access on or off for a website's system user: confined to the websites root (starting in its folder), SFTP only, with keys and/or a password. Validated with sshd -t, verified with sshd -T, rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in sftpReq

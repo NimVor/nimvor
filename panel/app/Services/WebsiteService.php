@@ -254,6 +254,17 @@ final class WebsiteService
     }
 
     /**
+     * Apply the stored state without an audit record of its own (account
+     * suspension records its own).
+     *
+     * @param array<string, mixed> $site
+     */
+    public function applyState(array $site): void
+    {
+        $this->apply($site);
+    }
+
+    /**
      * Agent spec for a stored website.
      *
      * @param array<string, mixed> $site
@@ -403,11 +414,14 @@ final class WebsiteService
         // create_user: the agent recreates a missing site account;
         // new_user: it must not exist yet (see checkSystemUser).
         try {
-            $this->agent->call('sites.apply', self::spec($site, true) + ($newUser ? ['new_user' => true] : []));
+            $spec = self::spec($site, true);
+            // A suspended account's websites are off; their own setting is kept.
+            $spec['enabled'] = $spec['enabled'] && empty($site['account_suspended']);
+            $this->agent->call('sites.apply', $spec + ($newUser ? ['new_user' => true] : []));
         } finally {
             $this->discovery->invalidate();
         }
-        $this->sites->setStatus((int) $site['id'], $site['enabled'] ? 'active' : 'disabled');
+        $this->sites->setStatus((int) $site['id'], !empty($site['account_suspended']) ? 'suspended' : ($site['enabled'] ? 'active' : 'disabled'));
     }
 
     /** @param array<string, mixed> $previous */

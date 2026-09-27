@@ -7,6 +7,15 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Account suspension** (administrators; Users → account → Account
+  status): a suspended customer or reseller (and a reseller's customers)
+  cannot sign in or use API tokens; its websites go offline, cron jobs and
+  workers stop, mailbox logins are refused (IMAP, POP3, webmail, SMTP AUTH;
+  incoming mail is still delivered), database users are locked, and the
+  website accounts expire, which refuses SSH/SFTP (keys included) and
+  locks their FTP accounts. Nothing is deleted; each object keeps its own
+  on/off setting, and unsuspending restores them. A failed part is
+  reported and can be retried.
 - **Malware scans (ClamAV):** install ClamAV under Packages; Security →
   Malware scan shows the engine and signatures, updates them, and sets a
   schedule (nightly to monthly, 1:00–6:00) and quarantine. Each website

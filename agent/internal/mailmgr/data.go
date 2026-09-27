@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/mail"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -31,7 +32,10 @@ type Data struct {
 	Domains   map[string]Domain   `json:"domains"`
 	Mailboxes map[string]Mailbox  `json:"mailboxes"`
 	Aliases   map[string][]string `json:"aliases"`
-	Spam      Spam                `json:"spam"`
+	// Suspended domains: their mailboxes cannot log in (IMAP, POP3, SMTP
+	// submission, webmail); mail is still delivered.
+	Suspended []string `json:"suspended,omitempty"`
+	Spam      Spam     `json:"spam"`
 }
 
 // Spam holds the spam filter (Rspamd) settings.
@@ -145,8 +149,16 @@ func (d Data) render(dir, vmail string) files {
 				quota = fmt.Sprintf("userdb_quota_storage_size=%dM", m.QuotaMB)
 			}
 		}
+		hash := m.Hash
+		if slices.Contains(d.Suspended, dom) {
+			// No password matches a "!"-prefixed hash, so every login fails
+			// (IMAP, POP3, webmail and SMTP AUTH through Dovecot); the userdb
+			// entry stays, so mail is still delivered.
+			hash = "!" + hash
+			quota = strings.TrimSpace(quota + " nologin=y reason=Suspended")
+		}
 		// user:password:uid:gid:gecos:home:shell:extra
-		fmt.Fprintf(&users, "%s:{SHA512-CRYPT}%s::::%s/%s/%s::%s\n", addr, m.Hash, vmail, dom, local, quota)
+		fmt.Fprintf(&users, "%s:{SHA512-CRYPT}%s::::%s/%s/%s::%s\n", addr, hash, vmail, dom, local, quota)
 	}
 	for _, src := range sortedKeys(d.Aliases) {
 		fmt.Fprintf(&aliases, "%s %s\n", src, strings.Join(d.Aliases[src], ","))

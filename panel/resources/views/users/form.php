@@ -77,6 +77,50 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
                 </div>
             </div>
     <?php endif; ?>
+    <?php if (!$isNew && ($editUser['role_scope'] ?? 'all') === 'own' && $this->serverScope() && $this->can(\WhaCP\Security\Permissions::USERS_MANAGE)): $own = $editUser['suspended_at'] !== null; ?>
+            <div class="card mb-3<?= !empty($editUser['suspended']) ? ' border-danger' : '' ?>" id="account-suspension">
+                <div class="card-header"><i class="bi bi-pause-circle me-1"></i>Account status</div>
+                <div class="card-body small">
+                    <?php if ($own): ?>
+                        <p class="mb-2"><span class="wcp-state is-error">Suspended</span> since <?= e(str_replace('T', ' ', substr((string) $editUser['suspended_at'], 0, 16))) ?> UTC<?= $editUser['suspend_reason'] !== '' ? ' — ' . e($editUser['suspend_reason']) : '' ?></p>
+                        <form method="post" action="<?= e($this->url('users.unsuspend', ['id' => (int) $editUser['id']])) ?>" data-wcp-busy data-wcp-confirm="Resume <?= e($editUser['username']) ?>? Its websites, email, databases, FTP/SFTP, cron jobs and workers are turned back on<?= $editUser['role_name'] === 'reseller' ? ', for its customers too (except customers suspended on their own)' : '' ?>.">
+                            <?= $this->csrfField() ?><button class="btn btn-sm btn-success"><i class="bi bi-play-circle me-1"></i>Unsuspend</button>
+                        </form>
+                        <form class="mt-2" method="post" action="<?= e($this->url('users.suspend', ['id' => (int) $editUser['id']])) ?>" data-wcp-busy>
+                            <?= $this->csrfField() ?><input type="hidden" name="reason" value="<?= e($editUser['suspend_reason']) ?>"><button class="btn btn-sm btn-link p-0">Apply the suspension again (retry services that failed)</button>
+                        </form>
+                    <?php elseif (!empty($editUser['suspended'])): ?>
+                        <p class="mb-0"><span class="wcp-state is-error">Suspended</span> through its reseller.</p>
+                    <?php else: ?>
+                        <p class="mb-2"><span class="wcp-state is-ok">Active</span></p>
+                        <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#suspend-modal"><i class="bi bi-pause-circle me-1"></i>Suspend account</button>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php if (!$own && empty($editUser['suspended'])): ?>
+            <div class="modal fade" id="suspend-modal" tabindex="-1" aria-labelledby="suspend-title" aria-hidden="true">
+                <div class="modal-dialog">
+                    <form class="modal-content" method="post" action="<?= e($this->url('users.suspend', ['id' => (int) $editUser['id']])) ?>" data-wcp-busy>
+                        <?= $this->csrfField() ?>
+                        <div class="modal-header"><h2 class="modal-title fs-5" id="suspend-title">Suspend <?= e($editUser['username']) ?></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                        <div class="modal-body small">
+                            <p>The account<?= $editUser['role_name'] === 'reseller' ? ' and all its customers' : '' ?> can no longer sign in, and on every server:</p>
+                            <ul>
+                                <li>its websites go offline (their own settings are kept);</li>
+                                <li>email logins are refused (IMAP, POP3, webmail, sending) — incoming mail is still delivered;</li>
+                                <li>database users are locked, FTP/SFTP/SSH logins refused;</li>
+                                <li>cron jobs and workers stop.</li>
+                            </ul>
+                            <p class="mb-2">Nothing is deleted. Unsuspending turns everything back on.</p>
+                            <label class="form-label" for="suspend-reason">Reason (shown to administrators)</label>
+                            <input class="form-control" id="suspend-reason" name="reason" maxlength="250" placeholder="e.g. unpaid invoice">
+                        </div>
+                        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Suspend</button></div>
+                    </form>
+                </div>
+            </div>
+            <?php endif; ?>
+    <?php endif; ?>
     <?php if (!$isNew && !empty($hostingOptions)): $ho = $hostingOptions; $sw = static function (string $k, string $label) use ($ho): string { return '<div class="form-check form-switch mb-1"><input type="hidden" name="' . e($k) . '" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ho-' . e($k) . '" name="' . e($k) . '" value="1"' . (!empty($ho[$k]) ? ' checked' : '') . '><label class="form-check-label" for="ho-' . e($k) . '">' . e($label) . '</label></div>'; }; ?>
             <div class="card mb-3" id="hosting-options">
                 <div class="card-header"><i class="bi bi-sliders me-1"></i>Hosting options</div>

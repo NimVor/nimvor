@@ -36,6 +36,7 @@ final class AccountsController extends Controller
         private readonly UserRepository $users,
         private readonly AuditLogger $audit,
         private readonly \WhaCP\Services\MailService $mail,
+        private readonly \WhaCP\Services\SuspensionService $suspension,
     ) {
         parent::__construct($view, $session);
     }
@@ -84,5 +85,33 @@ final class AccountsController extends Controller
             return $this->redirectWithError('/users/' . (int) $target['id'] . '/edit', 'Hosting options saved, but the spam filter settings could not be applied to the mail server. Save the spam filter again under Email.');
         }
         return $this->redirectWithSuccess('/users/' . (int) $target['id'] . '/edit', 'Hosting options saved. DNS options apply to new websites; spam options to the account\'s email now.');
+    }
+
+    public function suspend(Request $request, string $id): Response
+    {
+        $to = '/users/' . (int) $id . '/edit';
+        try {
+            $warnings = $this->suspension->suspend((int) $id, $request->string('reason'), $this->user($request));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($to, $e);
+        }
+        if ($warnings !== []) {
+            return $this->redirectWithError($to, 'The account is suspended (it cannot sign in), but some services could not be turned off: ' . implode('; ', $warnings) . '. Use "Suspend" again to retry.');
+        }
+        return $this->redirectWithSuccess($to, 'The account is suspended: its websites, email logins, databases, FTP/SFTP, cron jobs and workers are off. Nothing was deleted.');
+    }
+
+    public function unsuspend(Request $request, string $id): Response
+    {
+        $to = '/users/' . (int) $id . '/edit';
+        try {
+            $warnings = $this->suspension->unsuspend((int) $id, $this->user($request));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($to, $e);
+        }
+        if ($warnings !== []) {
+            return $this->redirectWithError($to, 'The account is resumed, but some services could not be turned back on: ' . implode('; ', $warnings) . '.');
+        }
+        return $this->redirectWithSuccess($to, 'The account is resumed.');
     }
 }

@@ -236,6 +236,9 @@ final class CronService
      */
     public function run(array $site, array $job): string
     {
+        if (!empty($site['account_suspended'])) {
+            throw new \WhaCP\Support\UserFacingException('The account is suspended; its cron jobs do not run.');
+        }
         $res = (array) $this->agent->call('cron.run', ['domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root'], 'id' => (int) $job['id'], 'command' => $job['command']]);
         $this->db->run('UPDATE cron_jobs SET last_run_job = ? WHERE id = ?', [(string) $res['job_id'], (int) $job['id']]);
         $this->audit->record('cron.run', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'job' => (int) $job['id']]);
@@ -249,7 +252,8 @@ final class CronService
             'id' => (int) $j['id'],
             'schedule' => (string) $j['schedule'],
             'command' => (string) $j['command'],
-            'enabled' => (bool) $j['enabled'],
+            // A suspended account's jobs do not run; their setting is kept.
+            'enabled' => (bool) $j['enabled'] && empty($site['account_suspended']),
             'email' => self::mailable((string) ($j['email'] ?? '')) ? (string) $j['email'] : '',
         ], $this->jobs($site));
         $this->agent->call('cron.apply', ['domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root'], 'jobs' => $jobs]);

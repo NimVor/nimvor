@@ -65,7 +65,7 @@ final class PasswordReset
             $this->audit->record('auth.password_reset_request', 'user', $identifier, AuditLogger::DENIED, ['reason' => 'throttled_ip'], null, $identifier);
             return;
         }
-        if ($row === null || (int) $row['is_active'] !== 1) {
+        if (!\WhaCP\Repositories\UserRepository::canAct($row)) {
             $this->audit->record('auth.password_reset_request', 'user', $identifier, AuditLogger::FAILURE, ['reason' => $row === null ? 'unknown_user' : 'inactive'], null, $identifier);
             return;
         }
@@ -109,7 +109,7 @@ final class PasswordReset
             return null;
         }
         $user = $this->users->find((int) $row['user_id']);
-        return $user !== null && (int) $user['is_active'] === 1 ? $user : null;
+        return \WhaCP\Repositories\UserRepository::canAct($user) ? $user : null;
     }
 
     public function reset(string $token, string $password, string $confirmation): void

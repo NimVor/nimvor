@@ -85,7 +85,7 @@ final class ApiTokenService
             return null;
         }
         $user = $this->users->find((int) $row['user_id']);
-        if ($user === null || (int) $user['is_active'] !== 1) {
+        if (!\WhaCP\Repositories\UserRepository::canAct($user)) {
             return null;
         }
         if ($row['last_used_at'] === null || strtotime((string) $row['last_used_at']) < time() - 60) {
