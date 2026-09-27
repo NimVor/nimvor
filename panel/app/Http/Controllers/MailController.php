@@ -145,7 +145,9 @@ final class MailController extends Controller
     public function store(Request $request): Response
     {
         $id = 0;
-        $res = $this->act($request, '/mail', function () use ($request, &$id): string {
+        // The website's own set-up page may ask to get errors back (only that page).
+        $back = preg_match('#^/sites/\d+/mail$#', $request->string('return_to')) === 1 ? $request->string('return_to') : '/mail';
+        $res = $this->act($request, $back, function () use ($request, &$id): string {
             $id = $this->mail->addDomain($request->all(), $this->user($request));
             return 'Email is hosted for the domain. Publish the DNS records below.';
         });
@@ -250,14 +252,23 @@ final class MailController extends Controller
 
     public function site(Request $request, string $id): Response
     {
-        $site = $this->sites->find($this->server->id(), (int) $id, $this->user($request));
+        $user = $this->user($request);
+        $site = $this->sites->find($this->server->id(), (int) $id, $user);
         if ($site === null) {
             return $this->redirectWithError('/websites', 'Website not found.');
         }
         $d = $this->mail->forWebsite((int) $site['id']);
-        if ($d !== null && $this->mail->domain((int) $d['id'], $this->user($request)) !== null) {
+        if ($d !== null && $this->mail->domain((int) $d['id'], $user) !== null) {
             return Response::redirect('/mail/domains/' . (int) $d['id']);
         }
-        return Response::redirect('/mail?website=' . (int) $site['id']);
+        if ($d !== null) {
+            // Hosted, but by someone else's account: nothing to set up here.
+            return $this->redirectWithError('/sites/' . (int) $site['id'], 'Email for this domain is managed by another account.');
+        }
+        $status = $this->mail->status();
+        return $this->render('mail/site_setup', [
+            'site' => $site, 'status' => $status,
+            'ready' => !empty($status['configured']) && !empty(((array) ($status['running'] ?? []))['postfix']),
+        ]);
     }
 }

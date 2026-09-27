@@ -496,4 +496,24 @@
         var empty = table.querySelector('[data-wcp-filter-empty]');
         if (empty) { empty.classList.toggle('d-none', visible > 0); }
     });
+    // Shortcut buttons fill a form: data-wcp-fill='{"#field-id":"value"}'.
+    // Fields not named keep their value; the last filled field gets focus
+    // unless the value field is still empty.
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-wcp-fill]');
+        if (!btn) { return; }
+        var map;
+        try { map = JSON.parse(btn.getAttribute('data-wcp-fill')); } catch (err) { return; }
+        var last = null;
+        Object.keys(map).forEach(function (sel) {
+            var el = document.querySelector(sel);
+            if (!el) { return; }
+            el.value = map[sel];
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            last = el;
+        });
+        var form = last && last.form;
+        var value = form && form.querySelector('[name=value]');
+        if (value && value.value === '') { value.focus(); } else if (last) { last.focus(); }
+    });
 })();

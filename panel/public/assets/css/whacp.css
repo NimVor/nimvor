@@ -435,3 +435,27 @@ details.card[open] > summary::after { transform: rotate(180deg); }
 .wcp-danger-card > .card-header { color: var(--bs-danger-text-emphasis); }
 .wcp-form-panel { background: var(--bs-tertiary-bg); border-bottom: 1px solid var(--wcp-card-border); }
 .wcp-shortcuts { display: flex; flex-wrap: wrap; gap: .4rem; }
+
+/* Progress widths in 5% steps (no inline styles under the CSP). */
+.wcp-w-0 { width: 0%; }
+.wcp-w-5 { width: 5%; }
+.wcp-w-10 { width: 10%; }
+.wcp-w-15 { width: 15%; }
+.wcp-w-20 { width: 20%; }
+.wcp-w-25 { width: 25%; }
+.wcp-w-30 { width: 30%; }
+.wcp-w-35 { width: 35%; }
+.wcp-w-40 { width: 40%; }
+.wcp-w-45 { width: 45%; }
+.wcp-w-50 { width: 50%; }
+.wcp-w-55 { width: 55%; }
+.wcp-w-60 { width: 60%; }
+.wcp-w-65 { width: 65%; }
+.wcp-w-70 { width: 70%; }
+.wcp-w-75 { width: 75%; }
+.wcp-w-80 { width: 80%; }
+.wcp-w-85 { width: 85%; }
+.wcp-w-90 { width: 90%; }
+.wcp-w-95 { width: 95%; }
+.wcp-w-100 { width: 100%; }
+.wcp-usage { min-width: 7rem; }

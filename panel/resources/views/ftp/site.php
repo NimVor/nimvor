@@ -25,8 +25,11 @@ $sftpKeys = array_map(static fn ($k): string => (string) ((array) $k)['key'], (a
 <div class="row g-3">
     <div class="col-xl-7">
         <div class="card mb-3">
-            <div class="card-header d-flex align-items-center"><i class="bi bi-hdd-network me-1"></i>FTP accounts
-                <span class="ms-auto small text-body-secondary"><?= count($accounts) ?> of <?= FtpController::MAX_ACCOUNTS ?></span></div>
+            <?php $canAdd = $ftpReady && count($accounts) < FtpController::MAX_ACCOUNTS; $openAdd = $canAdd && ($errors !== [] || $accounts === []); ?>
+            <div class="card-header wcp-toolbar">
+                <h2 class="wcp-toolbar-title"><i class="bi bi-hdd-network me-1"></i>FTP accounts <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($accounts) ?> of <?= FtpController::MAX_ACCOUNTS ?></span></h2>
+                <?php if ($canAdd): ?><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#new-ftp" aria-expanded="<?= $openAdd ? 'true' : 'false' ?>" aria-controls="new-ftp"><i class="bi bi-plus-lg me-1"></i>Add FTP account</button><?php endif; ?>
+            </div>
             <?php if (!$ftpReady): ?>
                 <div class="card-body"><div class="alert alert-info small mb-0">The FTP server is not running on this server<?= $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE) ? '. Set it up under <a href="' . e($this->url('ftp')) . '">Server → FTP server</a>' : '; ask the administrator to set it up' ?>. SFTP (on the right) works without it.</div></div>
             <?php endif; ?>
@@ -56,13 +59,13 @@ $sftpKeys = array_map(static fn ($k): string => (string) ((array) $k)['key'], (a
                             </td>
                         </tr>
                     <?php endforeach; ?>
-                    <?php if ($accounts === []): ?><tr><td colspan="4" class="text-body-secondary">No FTP accounts.</td></tr><?php endif; ?>
+                    <?php if ($accounts === []): ?><tr><td colspan="4"><div class="wcp-empty-state py-3"><i class="bi bi-hdd-network" aria-hidden="true"></i><div class="fw-medium">No FTP accounts yet</div><div class="small">Give a designer or an FTP client (e.g. FileZilla) access to this website's files, or use SFTP on the right.</div></div></td></tr><?php endif; ?>
                     </tbody>
                 </table>
             </div>
-            <?php if ($ftpReady && count($accounts) < FtpController::MAX_ACCOUNTS): ?>
-            <div class="card-body border-top">
-                <form method="post" action="<?= e($this->url('sites.ftp.save', ['id' => $id])) ?>" data-wcp-busy>
+            <?php if ($canAdd): ?>
+            <div class="collapse wcp-form-panel border-top<?= $openAdd ? ' show' : '' ?>" id="new-ftp" data-wcp-form-panel>
+                <form class="p-3" method="post" action="<?= e($this->url('sites.ftp.save', ['id' => $id])) ?>" data-wcp-busy>
                     <?= $this->csrfField() ?>
                     <div class="row g-2 align-items-start">
                         <div class="col-md-6">
@@ -88,7 +91,7 @@ $sftpKeys = array_map(static fn ($k): string => (string) ((array) $k)['key'], (a
         </div>
     </div>
     <div class="col-xl-5">
-        <div class="card mb-3">
+        <div class="card mb-3" id="sftp">
             <div class="card-header d-flex align-items-center"><i class="bi bi-terminal me-1"></i>SFTP access
                 <span class="ms-auto"><?= $sftp !== null ? $this->statusBadge('active', 'on') : $this->statusBadge('inactive', 'off') ?></span></div>
             <div class="card-body">

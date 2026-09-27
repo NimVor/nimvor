@@ -39,7 +39,7 @@ $groups = [
         ['Aliases and forwarders', $mailUrl('#aliases'), 'Forward mail to other addresses'],
         ['Email authentication', $mail !== null ? $mailUrl('#mail-dns') : null, 'MX, SPF, DKIM and DMARC records'],
         ['Mail app settings and webmail', $mail !== null ? $mailUrl('#mail-clients') : null, 'Set up Outlook, phones and webmail'],
-        ['Spam filter', $this->can(P::SERVER_MANAGE) && $this->hasRoute('mail') ? $this->url('mail') . '#spam' : null, 'Server-wide spam filtering'],
+        ['Spam filter', $this->can(P::SERVER_MANAGE) && $this->hasRoute('mail') ? $this->url('mail') . '#spam-filter' : null, 'Server-wide spam filtering'],
     ]],
     ['Domains', 'globe2', 'Domain names, DNS and HTTPS', $site['aliases'] === [] ? 'No aliases' : $plural(count($site['aliases']), 'alias', 'aliases'), [
         ['Domains and aliases', $u('settings', '#domains'), 'Other names for this website, e.g. www'],

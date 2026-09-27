@@ -92,7 +92,9 @@ final class DnsController extends Controller
     public function store(Request $request): Response
     {
         $id = 0;
-        $res = $this->act($request, '/dns', function () use ($request, &$id): string {
+        // The website's own set-up page may ask to get errors back (only that page).
+        $back = preg_match('#^/sites/\d+/dns$#', $request->string('return_to')) === 1 ? $request->string('return_to') : '/dns';
+        $res = $this->act($request, $back, function () use ($request, &$id): string {
             $id = $this->dns->create($request->all(), $this->user($request));
             return 'Zone created and loaded. Point the domain\'s name servers at your registrar to ' . implode(', ', $this->dns->nameservers()) . '.';
         });
@@ -191,14 +193,26 @@ final class DnsController extends Controller
     /** Website tab: the website's zone, or the form to create it. */
     public function site(Request $request, string $id): Response
     {
-        $site = $this->sites->find($this->server->id(), (int) $id, $this->user($request));
+        $user = $this->user($request);
+        $site = $this->sites->find($this->server->id(), (int) $id, $user);
         if ($site === null) {
             return $this->redirectWithError('/websites', 'Website not found.');
         }
         $zone = $this->dns->forWebsite((int) $site['id']);
-        if ($zone !== null && $this->dns->zone((int) $zone['id'], $this->user($request)) !== null) {
+        if ($zone !== null && $this->dns->zone((int) $zone['id'], $user) !== null) {
             return Response::redirect('/dns/zones/' . (int) $zone['id']);
         }
-        return Response::redirect('/dns?website=' . (int) $site['id']);
+        if ($zone !== null) {
+            return $this->redirectWithError('/sites/' . (int) $site['id'], 'The DNS zone of this domain is managed by another account.');
+        }
+        $status = null;
+        try {
+            $status = (array) $this->agent->call('dns.status');
+        } catch (AgentException) {
+        }
+        return $this->render('dns/site_setup', [
+            'site' => $site, 'status' => $status, 'nameservers' => $this->dns->nameservers(),
+            'ready' => !empty($status['configured']) && !empty($status['running']),
+        ]);
     }
 }

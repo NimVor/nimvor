@@ -17,7 +17,7 @@ $canManage = $this->can(\WhaCP\Security\Permissions::BACKUPS_MANAGE);
             <?= $this->partial('backups/_list', ['backups' => $serverBackups, 'canManage' => $canManage]) ?>
             <div class="card-footer small text-body-secondary">Archives Nginx, PHP, MySQL, Redis, certificates, SSH/firewall and WhaCP configuration for disaster recovery. It contains private keys, so it is always encrypted.</div>
         </div>
-        <div class="card mb-3">
+        <div class="card mb-3" id="storages">
             <div class="card-header"><i class="bi bi-cloud me-1"></i>Remote storage</div>
             <div class="card-body">
                 <?php if ($storages === []): ?><p class="text-body-secondary small">No remote storage. Add an S3-compatible bucket (AWS S3, Backblaze B2, Wasabi, Cloudflare R2, MinIO…), an SFTP or FTPS server, Google Drive or a mounted disk to keep copies off this server.</p><?php endif; ?>

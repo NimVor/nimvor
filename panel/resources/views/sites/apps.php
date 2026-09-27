@@ -14,7 +14,7 @@ $isPhp = $site['kind'] === 'php';
 <?php endif; ?>
 <div class="row g-3">
     <div class="col-lg-6">
-        <div class="card h-100">
+        <div class="card h-100" id="app-wordpress">
             <div class="card-header"><i class="bi bi-wordpress me-1"></i><?= e(A::APPS['wordpress']['title']) ?></div>
             <div class="card-body">
                 <p class="small text-body-secondary"><?= e(A::APPS['wordpress']['description']) ?> Installed into <code><?= e($docroot) ?></code>, which must be empty.</p>
@@ -32,7 +32,7 @@ $isPhp = $site['kind'] === 'php';
         </div>
     </div>
     <div class="col-lg-6">
-        <div class="card h-100">
+        <div class="card h-100" id="app-laravel">
             <div class="card-header"><i class="bi bi-braces-asterisk me-1"></i><?= e(A::APPS['laravel']['title']) ?></div>
             <div class="card-body">
                 <p class="small text-body-secondary"><?= e(A::APPS['laravel']['description']) ?> Requires Composer (under Packages).</p>

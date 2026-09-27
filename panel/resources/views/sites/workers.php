@@ -7,6 +7,7 @@
 use WhaCP\Services\WorkerService;
 
 $id = (int) $site['id'];
+$errors ??= [];
 $form = $old !== [] ? $old : ($edit ?? []);
 $envText = $form['env'] ?? '';
 if (is_array($envText)) {
@@ -15,13 +16,43 @@ if (is_array($envText)) {
 $fmtMem = static fn (?int $b): string => $b === null ? '' : number_format($b / 1048576, 1) . ' MB';
 ?>
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'workers']) ?>
-<div class="row g-3">
-    <div class="col-xl-8">
-        <div class="card">
-            <div class="card-header"><i class="bi bi-gear-wide-connected me-1"></i>Background processes</div>
-            <?php if ($workers === []): ?>
-                <div class="card-body text-body-secondary">No workers. Use a worker for queue consumers (<code>php artisan queue:work</code>), Node.js or Python servers and other long-running commands.</div>
-            <?php else: ?>
+<?php $open = $edit || $errors !== []; ?>
+<div class="card" id="workers">
+    <div class="card-header wcp-toolbar">
+        <h2 class="wcp-toolbar-title"><i class="bi bi-gear-wide-connected me-1"></i>Background workers <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($workers) ?></span></h2>
+        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#new-worker" aria-expanded="<?= $open ? 'true' : 'false' ?>" aria-controls="new-worker"><i class="bi bi-plus-lg me-1"></i>Add worker</button>
+    </div>
+    <div class="collapse wcp-form-panel<?= $open ? ' show' : '' ?>" id="new-worker" data-wcp-form-panel>
+        <div class="p-3">
+            <h3 class="h6"><?= $edit ? 'Edit worker' : 'New worker' ?></h3>
+                <form method="post" action="<?= e($this->url('sites.workers.store', ['id' => $id])) ?>" data-wcp-busy>
+                    <?= $this->csrfField() ?>
+                    <?php if ($edit): ?><input type="hidden" name="worker_id" value="<?= (int) $edit['id'] ?>"><?php endif; ?>
+                    <?= $this->partial('partials/field', ['name' => 'name', 'label' => 'Name', 'value' => (string) ($form['name'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'Queue worker']]) ?>
+                    <?= $this->partial('partials/field', ['name' => 'command', 'label' => 'Command', 'value' => (string) ($form['command'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'php artisan queue:work --sleep=3 --tries=3']]) ?>
+                    <?= $this->partial('partials/field', ['name' => 'directory', 'label' => 'Working folder', 'value' => (string) ($form['directory'] ?? ''), 'help' => 'Relative to the website root; empty for the root itself.', 'attrs' => ['placeholder' => 'app']]) ?>
+                    <label class="form-label" for="w-env">Environment variables</label>
+                    <textarea class="form-control font-monospace mb-1<?= isset($errors['env']) ? ' is-invalid' : '' ?>" id="w-env" name="env" rows="3" placeholder="NODE_ENV=production&#10;PORT=3000"><?= e((string) $envText) ?></textarea>
+                    <?php if (isset($errors['env'])): ?><div class="invalid-feedback"><?= e($errors['env']) ?></div><?php endif; ?>
+                    <div class="form-text mb-3">One KEY=value per line. Stored in a root-only file, readable by the process.</div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label" for="w-restart">Restart</label>
+                            <select class="form-select" id="w-restart" name="restart">
+                                <?php foreach (WorkerService::RESTART as $k => $label): ?><option value="<?= e($k) ?>"<?= ($form['restart'] ?? 'always') === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-6"><?= $this->partial('partials/field', ['name' => 'memory_mb', 'label' => 'Memory limit (MB)', 'type' => 'number', 'value' => (string) ($form['memory_mb'] ?? '0'), 'attrs' => ['min' => '0', 'max' => '65536']]) ?></div>
+                    </div>
+                    <div class="form-check form-switch mb-3"><input type="hidden" name="enabled" value="0"><input class="form-check-input" type="checkbox" role="switch" id="w-en" name="enabled" value="1"<?= ($form['enabled'] ?? true) ? ' checked' : '' ?>><label class="form-check-label" for="w-en">Running</label></div>
+                    <button class="btn btn-primary btn-sm" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $edit ? 'Save and restart' : 'Create worker' ?></button>
+                    <?php if ($edit): ?><a class="btn btn-link btn-sm" href="<?= e($this->url('sites.workers', ['id' => $id])) ?>">Cancel</a><?php endif; ?>
+                </form>
+        </div>
+    </div>
+    <?php if ($workers === []): ?>
+        <div class="wcp-empty-state"><i class="bi bi-gear-wide-connected" aria-hidden="true"></i><div class="fw-medium">No workers yet</div><div class="small">Keep a command running: queue consumers (<code>php artisan queue:work</code>), Node.js or Python servers and other long-running processes.</div></div>
+    <?php else: ?>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
                         <thead><tr><th>Name</th><th>Command</th><th>State</th><th class="text-end">Actions</th></tr></thead>
@@ -50,38 +81,6 @@ $fmtMem = static fn (?int $b): string => $b === null ? '' : number_format($b / 1
                         </tbody>
                     </table>
                 </div>
-            <?php endif; ?>
-            <div class="card-footer small text-body-secondary">Workers run as <code><?= e($site['system_user']) ?></code> under systemd with a private /tmp and no privilege escalation. They stop while the website is disabled.</div>
-        </div>
-    </div>
-    <div class="col-xl-4">
-        <div class="card">
-            <div class="card-header"><i class="bi bi-plus-lg me-1"></i><?= $edit ? 'Edit worker' : 'Add a worker' ?></div>
-            <div class="card-body">
-                <form method="post" action="<?= e($this->url('sites.workers.store', ['id' => $id])) ?>" data-wcp-busy>
-                    <?= $this->csrfField() ?>
-                    <?php if ($edit): ?><input type="hidden" name="worker_id" value="<?= (int) $edit['id'] ?>"><?php endif; ?>
-                    <?= $this->partial('partials/field', ['name' => 'name', 'label' => 'Name', 'value' => (string) ($form['name'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'Queue worker']]) ?>
-                    <?= $this->partial('partials/field', ['name' => 'command', 'label' => 'Command', 'value' => (string) ($form['command'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'php artisan queue:work --sleep=3 --tries=3']]) ?>
-                    <?= $this->partial('partials/field', ['name' => 'directory', 'label' => 'Working folder', 'value' => (string) ($form['directory'] ?? ''), 'help' => 'Relative to the website root; empty for the root itself.', 'attrs' => ['placeholder' => 'app']]) ?>
-                    <label class="form-label" for="w-env">Environment variables</label>
-                    <textarea class="form-control font-monospace mb-1<?= isset($errors['env']) ? ' is-invalid' : '' ?>" id="w-env" name="env" rows="3" placeholder="NODE_ENV=production&#10;PORT=3000"><?= e((string) $envText) ?></textarea>
-                    <?php if (isset($errors['env'])): ?><div class="invalid-feedback"><?= e($errors['env']) ?></div><?php endif; ?>
-                    <div class="form-text mb-3">One KEY=value per line. Stored in a root-only file, readable by the process.</div>
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <label class="form-label" for="w-restart">Restart</label>
-                            <select class="form-select" id="w-restart" name="restart">
-                                <?php foreach (WorkerService::RESTART as $k => $label): ?><option value="<?= e($k) ?>"<?= ($form['restart'] ?? 'always') === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-6"><?= $this->partial('partials/field', ['name' => 'memory_mb', 'label' => 'Memory limit (MB)', 'type' => 'number', 'value' => (string) ($form['memory_mb'] ?? '0'), 'attrs' => ['min' => '0', 'max' => '65536']]) ?></div>
-                    </div>
-                    <div class="form-check form-switch mb-3"><input type="hidden" name="enabled" value="0"><input class="form-check-input" type="checkbox" role="switch" id="w-en" name="enabled" value="1"<?= ($form['enabled'] ?? true) ? ' checked' : '' ?>><label class="form-check-label" for="w-en">Running</label></div>
-                    <button class="btn btn-primary btn-sm" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $edit ? 'Save and restart' : 'Create worker' ?></button>
-                    <?php if ($edit): ?><a class="btn btn-link btn-sm" href="<?= e($this->url('sites.workers', ['id' => $id])) ?>">Cancel</a><?php endif; ?>
-                </form>
-            </div>
-        </div>
-    </div>
+    <?php endif; ?>
+    <div class="card-footer small text-body-secondary">Workers run as <code><?= e($site['system_user']) ?></code> under systemd with a private /tmp and no privilege escalation. They stop while the website is disabled.</div>
 </div>

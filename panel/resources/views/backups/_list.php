@@ -7,7 +7,7 @@
 $showSite ??= false;
 ?>
 <?php if ($backups === []): ?>
-    <div class="card-body text-body-secondary">No backups yet.</div>
+    <div class="wcp-empty-state"><i class="bi bi-archive" aria-hidden="true"></i><div class="fw-medium">No backups yet</div><div class="small">A backup keeps a copy of your files and databases you can restore at any time.</div></div>
 <?php else: ?>
     <div class="table-responsive"><table class="table table-sm align-middle mb-0">
         <thead><tr><th>Created</th><?php if ($showSite): ?><th>Website</th><?php endif; ?><th>Contents</th><th>Size</th><th>Stored</th><th>Status</th><?php if ($canManage): ?><th class="text-end">Actions</th><?php endif; ?></tr></thead>
