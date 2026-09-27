@@ -94,6 +94,7 @@ return static function (Router $r): void {
     $r->get('/sites/{id}/files/download', [FilesController::class, 'download'], ['name' => 'sites.files.download', 'permission' => P::FILES_MANAGE]);
     $r->get('/sites/{id}/logs', [LogsController::class, 'site'], ['name' => 'sites.logs', 'permission' => P::LOGS_VIEW]);
     $r->get('/sites/{id}/cron', [CronController::class, 'show'], ['name' => 'sites.cron', 'permission' => P::CRON_VIEW]);
+    $r->get('/sites/{id}/cron/{job}/log', [CronController::class, 'log'], ['name' => 'sites.cron.log', 'permission' => P::CRON_VIEW]);
     $r->post('/sites/{id}/cron', [CronController::class, 'store'], ['name' => 'sites.cron.store', 'permission' => P::CRON_MANAGE]);
     $r->post('/sites/{id}/cron/{job}/toggle', [CronController::class, 'toggle'], ['name' => 'sites.cron.toggle', 'permission' => P::CRON_MANAGE]);
     $r->post('/sites/{id}/cron/{job}/run', [CronController::class, 'run'], ['name' => 'sites.cron.run', 'permission' => P::CRON_MANAGE]);

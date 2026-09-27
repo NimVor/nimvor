@@ -65,7 +65,7 @@ final class CronService
      * Validate cron input; returns normalised values.
      *
      * @param array<string, mixed> $input
-     * @return array{schedule: string, command: string, description: string, enabled: bool}
+     * @return array{schedule: string, command: string, description: string, enabled: bool, email_output: bool}
      */
     public static function validate(array $input): array
     {
@@ -88,7 +88,64 @@ final class CronService
         if ($errors !== []) {
             throw new ValidationException($errors);
         }
-        return ['schedule' => $schedule, 'command' => $command, 'description' => $description, 'enabled' => filter_var($input['enabled'] ?? true, FILTER_VALIDATE_BOOL)];
+        return ['schedule' => $schedule, 'command' => $command, 'description' => $description, 'enabled' => filter_var($input['enabled'] ?? true, FILTER_VALIDATE_BOOL), 'email_output' => filter_var($input['email_output'] ?? false, FILTER_VALIDATE_BOOL)];
+    }
+
+    /** Addresses the agent accepts for a job's MAILTO line. */
+    public static function mailable(string $email): bool
+    {
+        return strlen($email) <= 254 && preg_match('/^[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})+$/', $email) === 1;
+    }
+
+    /**
+     * The end of a job's log, split into runs (newest first). Each run is
+     * framed by "### whacp-run start …" and "### whacp-run end … exit=N";
+     * output from before the framing is kept as one earlier entry.
+     *
+     * @param array<string, mixed> $site
+     * @param array<string, mixed> $job
+     * @return array{runs: list<array{start: ?string, end: ?string, exit: ?int, manual: bool, output: string}>, truncated: bool, size: int}
+     */
+    public function runs(array $site, array $job): array
+    {
+        $res = (array) $this->agent->call('cron.log', ['domain' => $site['domain'], 'root' => $site['root'], 'id' => (int) $job['id']]);
+        return ['runs' => self::parseRuns((string) ($res['content'] ?? '')), 'truncated' => !empty($res['truncated']), 'size' => (int) ($res['size'] ?? 0)];
+    }
+
+    /** @return list<array{start: ?string, end: ?string, exit: ?int, manual: bool, output: string}> */
+    public static function parseRuns(string $log, int $max = 200): array
+    {
+        $runs = [];
+        $cur = null;
+        $loose = '';
+        foreach (preg_split('/\r?\n/', $log) ?: [] as $line) {
+            if (preg_match('/^### whacp-run start (\S+)( manual)?$/', $line, $m)) {
+                if ($cur !== null) {
+                    $runs[] = $cur;
+                }
+                $cur = ['start' => $m[1], 'end' => null, 'exit' => null, 'manual' => isset($m[2]), 'output' => ''];
+            } elseif (preg_match('/^### whacp-run end (\S+) exit=(\d+)$/', $line, $m) && $cur !== null) {
+                $cur['end'] = $m[1];
+                $cur['exit'] = (int) $m[2];
+                $runs[] = $cur;
+                $cur = null;
+            } elseif ($cur !== null) {
+                $cur['output'] .= $line . "\n";
+            } elseif ($line !== '') {
+                $loose .= $line . "\n";
+            }
+        }
+        if ($cur !== null) {
+            $runs[] = $cur;
+        }
+        if ($loose !== '') {
+            array_unshift($runs, ['start' => null, 'end' => null, 'exit' => null, 'manual' => false, 'output' => $loose]);
+        }
+        foreach ($runs as &$r) {
+            $r['output'] = rtrim($r['output'], "\n");
+        }
+        unset($r);
+        return array_slice(array_reverse($runs), 0, $max);
     }
 
     public static function validSchedule(string $s): bool
@@ -120,10 +177,21 @@ final class CronService
     /**
      * @param array<string, mixed> $site
      * @param array<string, mixed> $input
+     * @param string $accountEmail the saving user's email: receives the output when mailing is turned on
      */
-    public function save(array $site, ?int $id, array $input): void
+    public function save(array $site, ?int $id, array $input, string $accountEmail = ''): void
     {
         $v = self::validate($input);
+        $email = '';
+        $current = $id === null ? null : $this->find($site, $id);
+        if ($v['email_output'] && $current !== null && self::mailable((string) ($current['email'] ?? ''))) {
+            $email = (string) $current['email']; // unchanged: keep who receives it
+        } elseif ($v['email_output']) {
+            if (!self::mailable($accountEmail)) {
+                throw new ValidationException(['email_output' => 'Your account has no usable email address for the output.']);
+            }
+            $email = $accountEmail;
+        }
         $now = gmdate('c');
         $before = $this->jobs($site);
         if ($id === null) {
@@ -132,13 +200,13 @@ final class CronService
             }
             $this->limits?->assertCanCreate('cron_jobs', $site['owner_id'] === null ? null : (int) $site['owner_id']);
             $this->db->run(
-                'INSERT INTO cron_jobs (website_id, server_id, schedule, command, description, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [(int) $site['id'], (int) $site['server_id'], $v['schedule'], $v['command'], $v['description'], $v['enabled'] ? 1 : 0, $now, $now]
+                'INSERT INTO cron_jobs (website_id, server_id, schedule, command, description, enabled, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [(int) $site['id'], (int) $site['server_id'], $v['schedule'], $v['command'], $v['description'], $v['enabled'] ? 1 : 0, $email, $now, $now]
             );
         } else {
             $this->db->run(
-                'UPDATE cron_jobs SET schedule = ?, command = ?, description = ?, enabled = ?, updated_at = ? WHERE id = ? AND website_id = ?',
-                [$v['schedule'], $v['command'], $v['description'], $v['enabled'] ? 1 : 0, $now, $id, (int) $site['id']]
+                'UPDATE cron_jobs SET schedule = ?, command = ?, description = ?, enabled = ?, email = ?, updated_at = ? WHERE id = ? AND website_id = ?',
+                [$v['schedule'], $v['command'], $v['description'], $v['enabled'] ? 1 : 0, $email, $now, $id, (int) $site['id']]
             );
         }
         $this->applyOrRevert($site, $before, $id === null ? 'cron.create' : 'cron.update', $v);
@@ -182,6 +250,7 @@ final class CronService
             'schedule' => (string) $j['schedule'],
             'command' => (string) $j['command'],
             'enabled' => (bool) $j['enabled'],
+            'email' => self::mailable((string) ($j['email'] ?? '')) ? (string) $j['email'] : '',
         ], $this->jobs($site));
         $this->agent->call('cron.apply', ['domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root'], 'jobs' => $jobs]);
     }

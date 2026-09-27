@@ -81,6 +81,7 @@ paths:
               - backup.server
               - backup.server_restore
               - cron.apply
+              - cron.log
               - cron.run
               - db.browse_delete
               - db.browse_row
@@ -348,6 +349,7 @@ x-whacp-actions:
   backup.server: { mutating: true, description: "Archive the server configuration (nginx, PHP, MySQL, Redis, certificates, WhaCP) (job)." }
   backup.server_restore: { mutating: true, description: "Restore components (nginx, php, mysql, redis, letsencrypt, fail2ban, cron) of a server backup after a safety backup, validating and rolling back on failure; or extract it for manual review (job)." }
   cron.apply: { mutating: true, description: "Write the complete cron schedule of a website." }
+  cron.log: { mutating: false, description: "The end (up to 512 KiB) of a website cron job's log, read confined to the website." }
   cron.run: { mutating: true, description: "Run a cron command now as the website user (job)." }
   db.browse_delete: { mutating: true, description: "Database browser: delete rows by their keys (in one transaction)." }
   db.browse_row: { mutating: true, description: "Database browser: one full row by its key (for editing)." }

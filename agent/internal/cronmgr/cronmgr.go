@@ -3,16 +3,21 @@
 // Each website gets one file, /etc/cron.d/whacp-site-<domain>, that WhaCP
 // owns completely. Jobs always run as the website's (unprivileged) account
 // inside the website directory and append their output to
-// <root>/logs/cron-<id>.log, where the log viewer can show it.
+// <root>/logs/cron-<id>.log, framed by "### whacp-run" lines (start, end
+// with exit code) so the panel can list the runs. A job can also have its
+// output mailed (MAILTO for that job, output through tee).
 package cronmgr
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -29,7 +34,15 @@ type Job struct {
 	Schedule string `json:"schedule"`
 	Command  string `json:"command"`
 	Enabled  bool   `json:"enabled"`
+	// Email receives the job's output; empty: not mailed.
+	Email string `json:"email,omitempty"`
 }
+
+// RunMarker starts the lines that frame each run in a job's log.
+const RunMarker = "### whacp-run"
+
+// emailRe is deliberately narrow: the address goes into a MAILTO line.
+var emailRe = regexp.MustCompile(`^[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})+$`)
 
 // SiteJobs is the complete cron state of one website.
 type SiteJobs struct {
@@ -72,6 +85,9 @@ func (s *SiteJobs) validate(env *host.Env) error {
 		if err := validate.Command(fmt.Sprintf("jobs[%d].command", i), j.Command); err != nil {
 			return err
 		}
+		if j.Email != "" && (len(j.Email) > 254 || !emailRe.MatchString(j.Email)) {
+			return &validate.Error{Field: fmt.Sprintf("jobs[%d].email", i), Message: "must be a plain email address"}
+		}
 	}
 	return nil
 }
@@ -83,12 +99,21 @@ func Render(s SiteJobs) string {
 	fmt.Fprintf(&b, "# Managed by WhaCP. Do not edit: changes are overwritten from the panel.\n# Website: %s\n", s.Domain)
 	b.WriteString("SHELL=/bin/sh\nPATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\nMAILTO=\"\"\n\n")
 	for _, j := range s.Jobs {
-		line := fmt.Sprintf("%s %s cd %s && ( %s ) >> %s 2>&1", j.Schedule, s.User, s.Root, j.Command, logFile(s.Root, j.ID))
+		// Each run is framed in the log: start time, then end time and exit code.
+		run := fmt.Sprintf(`{ echo "%s start $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"; ( %s ); rc=$?; echo "%s end $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) exit=$rc"; }`, RunMarker, j.Command, RunMarker)
+		out := ">> " + logFile(s.Root, j.ID) + " 2>&1"
+		mailto := `MAILTO=""`
+		if j.Email != "" {
+			// cron mails what the job prints: keep it in the log too.
+			out = "2>&1 | tee -a " + logFile(s.Root, j.ID)
+			mailto = `MAILTO="` + j.Email + `"`
+		}
+		line := fmt.Sprintf("%s %s cd %s && %s %s", j.Schedule, s.User, s.Root, run, out)
 		line = strings.ReplaceAll(line, "%", `\%`)
 		if !j.Enabled {
 			line = "# disabled: " + line
 		}
-		fmt.Fprintf(&b, "# job %d\n%s\n", j.ID, line)
+		fmt.Fprintf(&b, "# job %d\n%s\n%s\n", j.ID, mailto, line)
 	}
 	return b.String()
 }
@@ -96,6 +121,51 @@ func Render(s SiteJobs) string {
 func logFile(root string, id int) string {
 	return filepath.Join(root, "logs", fmt.Sprintf("cron-%d.log", id))
 }
+
+// openSiteRoot opens a website folder (not through a symlink) as an os.Root.
+func openSiteRoot(env *host.Env, root string) (*os.Root, error) {
+	real, err := env.Root.Path(root)
+	if err != nil {
+		return nil, err
+	}
+	if info, err := os.Lstat(real); err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("the website folder does not exist")
+	}
+	return os.OpenRoot(real)
+}
+
+// openLogForAppend opens an existing job log for appending, confined to the
+// website folder; nil when it does not exist or is not a regular file.
+func openLogForAppend(env *host.Env, root string, id int) *os.File {
+	r, err := openSiteRoot(env, root)
+	if err != nil {
+		return nil
+	}
+	defer r.Close()
+	f, err := r.OpenFile(filepath.Join("logs", fmt.Sprintf("cron-%d.log", id)), os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		return nil
+	}
+	if info, err := f.Stat(); err != nil || !info.Mode().IsRegular() {
+		f.Close()
+		return nil
+	}
+	return f
+}
+
+func exitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var ee *exec.ExitError
+	if errors.As(err, &ee) && ee.ExitCode() > 0 {
+		return ee.ExitCode()
+	}
+	return 1
+}
+
+// maxLog is how much of the end of a job log cron.log returns.
+const maxLog = 512 << 10
 
 // Register adds cron actions.
 func Register(r *actions.Registry, env *host.Env) {
@@ -140,24 +210,76 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err != nil {
 			return nil, actions.InvalidParams("user: " + err.Error())
 		}
-		logPath, _ := env.Root.Path(logFile(in.Root, in.ID))
 		dir, _ := env.Root.Path(in.Root)
 		j := env.Jobs.Start("cron.run", "site:"+in.Domain, func(ctx context.Context, log io.Writer) (any, error) {
 			fmt.Fprintf(log, "$ %s\n", in.Command)
 			w := log
-			if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY, 0); err == nil {
-				// Append to the job's log only if it already exists (it is
-				// owned by the site user; never create files as root there).
+			// Append to the job's log only if it already exists (it is owned
+			// by the site user; never create files as root there), and only
+			// inside the website: the log is the user's file, and a symlink
+			// must not make root append their output anywhere else.
+			f := openLogForAppend(env, in.Root, in.ID)
+			if f != nil {
 				defer f.Close()
-				fmt.Fprintf(f, "[%s] manual run from WhaCP\n", time.Now().UTC().Format(time.RFC3339))
+				fmt.Fprintf(f, "%s start %s manual\n", RunMarker, time.Now().UTC().Format(time.RFC3339))
 				w = io.MultiWriter(log, f)
 			}
 			_, err := env.Runner.RunWith(ctx, "sh", execx.Opts{As: cred, Dir: dir, Output: w, Timeout: time.Hour}, "-c", in.Command)
+			if f != nil {
+				fmt.Fprintf(f, "%s end %s exit=%d\n", RunMarker, time.Now().UTC().Format(time.RFC3339), exitCode(err))
+			}
 			if err != nil {
 				return nil, fmt.Errorf("the command exited with an error")
 			}
 			return nil, nil
 		})
 		return map[string]any{"job_id": j.ID}, nil
+	}})
+	r.Register(actions.Action{Name: "cron.log", Description: "The end (up to 512 KiB) of a website cron job's log, read confined to the website.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Domain string `json:"domain"`
+			Root   string `json:"root"`
+			ID     int    `json:"id"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := validate.Domain("domain", in.Domain); err != nil {
+			return nil, host.Invalid(err)
+		}
+		if in.Root == "" {
+			in.Root = filepath.Join(env.Cfg.SitesRoot, in.Domain)
+		}
+		if err := validate.Within("root", env.Cfg.SitesRoot, in.Root); err != nil {
+			return nil, host.Invalid(err)
+		}
+		if in.ID <= 0 {
+			return nil, actions.InvalidParams("id must be positive")
+		}
+		r, err := openSiteRoot(env, in.Root)
+		if err != nil {
+			return map[string]any{"content": "", "size": 0, "truncated": false}, nil
+		}
+		defer r.Close()
+		f, err := r.Open(filepath.Join("logs", fmt.Sprintf("cron-%d.log", in.ID)))
+		if err != nil {
+			return map[string]any{"content": "", "size": 0, "truncated": false}, nil
+		}
+		defer f.Close()
+		info, err := f.Stat()
+		if err != nil || !info.Mode().IsRegular() {
+			return nil, actions.InvalidParams("the log is not a file")
+		}
+		size := info.Size()
+		start := int64(0)
+		if size > maxLog {
+			start = size - maxLog
+		}
+		buf := make([]byte, size-start)
+		n, err := f.ReadAt(buf, start)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return nil, err
+		}
+		return map[string]any{"content": strings.ToValidUTF8(string(buf[:n]), "\uFFFD"), "size": size, "truncated": start > 0}, nil
 	}})
 }

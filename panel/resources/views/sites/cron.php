@@ -43,7 +43,11 @@ $isPreset = isset(CronService::PRESETS[$sched]);
                         <?php if (isset($errors['command'])): ?><div class="invalid-feedback"><?= e($errors['command']) ?></div><?php endif; ?>
                         <div class="form-text mb-3">Runs in <code><?= e($site['root']) ?></code>.</div>
                         <?= $this->partial('partials/field', ['name' => 'description', 'label' => 'Description (optional)', 'value' => (string) ($form['description'] ?? '')]) ?>
-                        <div class="form-check form-switch mb-3"><input type="hidden" name="enabled" value="0"><input class="form-check-input" type="checkbox" role="switch" id="c-en" name="enabled" value="1"<?= ($form['enabled'] ?? true) ? ' checked' : '' ?>><label class="form-check-label" for="c-en">Enabled</label></div>
+                        <div class="form-check form-switch mb-2"><input type="hidden" name="enabled" value="0"><input class="form-check-input" type="checkbox" role="switch" id="c-en" name="enabled" value="1"<?= ($form['enabled'] ?? true) ? ' checked' : '' ?>><label class="form-check-label" for="c-en">Enabled</label></div>
+                        <?php $mailTo = (string) (($edit['email'] ?? '') !== '' ? $edit['email'] : ($user['email'] ?? '')); ?>
+                        <div class="form-check form-switch mb-1"><input type="hidden" name="email_output" value="0"><input class="form-check-input<?= isset($errors['email_output']) ? ' is-invalid' : '' ?>" type="checkbox" role="switch" id="c-mail" name="email_output" value="1"<?= !empty($form['email_output']) || ($old === [] && ($edit['email'] ?? '') !== '') ? ' checked' : '' ?>><label class="form-check-label" for="c-mail">Email the output to <?= $mailTo !== '' ? '<strong>' . e($mailTo) . '</strong>' : 'your account\'s address' ?></label></div>
+                        <?php if (isset($errors['email_output'])): ?><div class="text-danger small"><?= e($errors['email_output']) ?></div><?php endif; ?>
+                        <div class="form-text mb-3">Sent after each run that prints something, if this server can send mail. The output is always kept in the job's log.</div>
                         <button class="btn btn-primary btn-sm" type="submit"><?= $edit ? 'Save' : 'Add job' ?></button>
                         <?php if ($edit): ?><a class="btn btn-link btn-sm" href="<?= e($this->url('sites.cron', ['id' => $id])) ?>">Cancel</a><?php endif; ?>
                     </form>
@@ -55,16 +59,19 @@ $isPreset = isset(CronService::PRESETS[$sched]);
     <?php else: ?>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
-                        <thead><tr><th>Schedule</th><th>Command</th><th>Status</th><?php if ($canManage): ?><th class="text-end">Actions</th><?php endif; ?></tr></thead>
+                        <thead><tr><th>Schedule</th><th>Command</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
                         <tbody>
                         <?php foreach ($jobs as $j): ?>
                             <tr>
                                 <td class="text-nowrap"><code><?= e($j['schedule']) ?></code><div class="small text-body-secondary"><?= e(CronService::PRESETS[$j['schedule']] ?? '') ?></div></td>
                                 <td><code class="small text-break"><?= e($j['command']) ?></code><?php if ($j['description'] !== ''): ?><div class="small text-body-secondary"><?= e($j['description']) ?></div><?php endif; ?>
-                                    <div class="small text-body-secondary">Output: logs/cron-<?= (int) $j['id'] ?>.log</div></td>
-                                <td><?= $j['enabled'] ? $this->statusBadge('active', 'enabled') : $this->statusBadge('inactive', 'paused') ?></td>
-                                <?php if ($canManage): ?>
+                                    </td>
+                                <td><?= $j['enabled'] ? $this->statusBadge('active', 'enabled') : $this->statusBadge('inactive', 'paused') ?><?php if (($j['email'] ?? '') !== ''): ?><div class="small text-body-secondary mt-1" title="Output mailed to <?= e((string) $j['email']) ?>"><i class="bi bi-envelope me-1" aria-hidden="true"></i>emailed</div><?php endif; ?></td>
+                                <?php if (!$canManage): ?>
+                                    <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.cron.log', ['id' => $id, 'job' => (int) $j['id']])) ?>"><i class="bi bi-journal-text"></i> Logs</a></td>
+                                <?php else: ?>
                                     <td class="text-end text-nowrap">
+                                        <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.cron.log', ['id' => $id, 'job' => (int) $j['id']])) ?>" title="Logs" aria-label="Logs of job <?= (int) $j['id'] ?>"><i class="bi bi-journal-text"></i> Logs</a>
                                         <form class="d-inline" method="post" action="<?= e($this->url('sites.cron.run', ['id' => $id, 'job' => (int) $j['id']])) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary" title="Run now"><i class="bi bi-play"></i></button></form>
                                         <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.cron', ['id' => $id], ['edit' => (int) $j['id']])) ?>" title="Edit"><i class="bi bi-pencil"></i></a>
                                         <form class="d-inline" method="post" action="<?= e($this->url('sites.cron.toggle', ['id' => $id, 'job' => (int) $j['id']])) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary" title="<?= $j['enabled'] ? 'Pause' : 'Enable' ?>"><i class="bi bi-<?= $j['enabled'] ? 'pause' : 'check-lg' ?>"></i></button></form>

@@ -41,11 +41,32 @@ final class CronController extends SiteController
         ]);
     }
 
+    /** A job's runs from its log: start, duration, exit code, output. */
+    public function log(Request $request, string $id, string $job): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->siteNotFound();
+        }
+        $j = $this->cron->find($site, (int) $job);
+        if ($j === null) {
+            return $this->redirectWithError('/sites/' . (int) $id . '/cron', 'Cron job not found.');
+        }
+        try {
+            $log = $this->cron->runs($site, $j);
+            $error = null;
+        } catch (\WhaCP\Agent\AgentException $e) {
+            $log = ['runs' => [], 'truncated' => false, 'size' => 0];
+            $error = $e;
+        }
+        return $this->render('sites/cron_log', ['site' => $site, 'job' => $j, 'log' => $log, 'agentError' => $error, 'tab' => 'cron']);
+    }
+
     public function store(Request $request, string $id): Response
     {
         return $this->act($request, $id, 'cron', function (array $site) use ($request): string {
             $jobId = (int) $request->input('job_id', 0);
-            $this->cron->save($site, $jobId > 0 ? $jobId : null, $request->all());
+            $this->cron->save($site, $jobId > 0 ? $jobId : null, $request->all(), (string) ($this->user($request)['email'] ?? ''));
             return $jobId > 0 ? 'Cron job updated.' : 'Cron job added. It runs as ' . $site['system_user'] . '.';
         });
     }
