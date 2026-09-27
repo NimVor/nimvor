@@ -2,12 +2,14 @@ package security
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
@@ -153,16 +155,51 @@ func (s *Service) ConfigureFail2ban(ctx context.Context, in Fail2banSettings) er
 	if err != nil {
 		return host.FailWithValidation("The fail2ban settings were not applied", err)
 	}
-	if len(a.Changed) == 0 {
+	running := env.UnitActive(ctx, fail2banUnit)
+	if len(a.Changed) == 0 && running {
 		return nil
 	}
-	if out, err := env.Runner.Run(ctx, "fail2ban-client", "reload"); err != nil {
+	if err := applyFail2ban(ctx, env, running); err != nil {
 		_ = a.Rollback()
-		_, _ = env.Runner.Run(ctx, "fail2ban-client", "reload")
-		return actions.Failed("fail2ban could not reload; the previous settings were restored.", host.Output(out))
+		_ = applyFail2ban(ctx, env, env.UnitActive(ctx, fail2banUnit))
+		return actions.Failed("fail2ban could not load the settings; the previous settings were restored.", err.Error())
 	}
 	return nil
 }
+
+const fail2banUnit = "fail2ban.service"
+
+// applyFail2ban loads the jail configuration: a reload when fail2ban runs,
+// otherwise a start (a reload needs the running server: "Could not find
+// server"). fail2ban reports a failed start only after systemd has started
+// it, so this waits until it answers and otherwise returns its own log.
+func applyFail2ban(ctx context.Context, env *host.Env, running bool) error {
+	if running {
+		if out, err := env.Runner.Run(ctx, "fail2ban-client", "reload"); err != nil {
+			return errors.New(host.Why(out, err))
+		}
+		return nil
+	}
+	_ = env.Systemctl(ctx, "enable", fail2banUnit)
+	if err := env.Systemctl(ctx, "restart", fail2banUnit); err != nil {
+		return fmt.Errorf("fail2ban did not start: %v", err)
+	}
+	for i := 0; i < 20; i++ {
+		if _, err := env.Runner.Run(ctx, "fail2ban-client", "ping"); err == nil {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(fail2banWait):
+		}
+	}
+	log, _ := env.Runner.Run(ctx, "journalctl", "--no-pager", "-o", "cat", "-n", "15", "-u", fail2banUnit)
+	return fmt.Errorf("fail2ban did not start:\n%s", host.Output(log))
+}
+
+// fail2banWait is the pause between checks that fail2ban answers.
+var fail2banWait = 500 * time.Millisecond
 
 // Unban removes an address from a jail.
 func (s *Service) Unban(ctx context.Context, jail, ip string) error {

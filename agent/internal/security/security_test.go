@@ -2,6 +2,7 @@ package security
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -296,5 +297,56 @@ func TestActionsRegistered(t *testing.T) {
 		if a, err := r.Lookup(n); err != nil || !a.Mutating {
 			t.Errorf("%s should be mutating", n)
 		}
+	}
+}
+
+// fail2ban stopped (reported on a real server: "Could not find server"
+// from a reload): saving starts it and waits until it answers; when it
+// does not start, its own log is shown and the previous settings return.
+func TestFail2banStartsWhenStopped(t *testing.T) {
+	h, s := setup(t, "")
+	fail2banWait = time.Millisecond
+	t.Cleanup(func() { fail2banWait = 500 * time.Millisecond })
+	state := "inactive"
+	next := h.Respond
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		if id == "systemctl" && len(args) == 3 && args[0] == "is-active" && args[2] == "fail2ban.service" {
+			return state, nil, true
+		}
+		if id == "systemctl" && len(args) == 3 && args[0] == "restart" && args[2] == "fail2ban.service" {
+			state = "active"
+		}
+		if next == nil {
+			return "", nil, false
+		}
+		return next(id, args)
+	}
+	in := Fail2banSettings{Jails: []string{"sshd"}, BanMinutes: 60, FindMinutes: 10, MaxRetry: 5}
+	if err := s.ConfigureFail2ban(context.Background(), in); err != nil {
+		t.Fatal(err)
+	}
+	if !h.Runner.Called("systemctl restart -- fail2ban.service") || !h.Runner.Called("fail2ban-client ping") || h.Runner.Called("fail2ban-client reload") {
+		t.Fatalf("calls: %v", h.Runner.Calls)
+	}
+
+	// Unchanged settings, fail2ban stopped again: saving starts it.
+	state = "inactive"
+	h.Runner.Calls = nil
+	if err := s.ConfigureFail2ban(context.Background(), in); err != nil || !h.Runner.Called("systemctl restart -- fail2ban.service") {
+		t.Fatalf("unchanged settings did not start fail2ban: %v %v", err, h.Runner.Calls)
+	}
+
+	// It does not start: the reason from its log; the previous settings back.
+	state = "inactive"
+	h.Fail["fail2ban-client ping"] = ""
+	h.Runner.Outputs["journalctl --no-pager -o cat -n 15 -u fail2ban.service"] = "ERROR   Failed during configuration: Have not found any log file for sshd jail"
+	in.MaxRetry = 3
+	err := s.ConfigureFail2ban(context.Background(), in)
+	var ae *actions.Error
+	if !errors.As(err, &ae) || !strings.Contains(ae.Details, "Have not found any log file for sshd jail") {
+		t.Fatalf("got %#v", err)
+	}
+	if !strings.Contains(h.Read("etc/fail2ban/jail.d/whacp.local"), "maxretry = 5") {
+		t.Error("previous jail file not restored")
 	}
 }

@@ -81,6 +81,12 @@ All notable changes to WhaCP are documented here. The format follows
   paragraph described steps that could not be carried out).
 
 ### Fixed
+- Saving fail2ban settings failed with "Could not find server" when the
+  fail2ban service was stopped (e.g. just installed and not running): a
+  reload needs a running service. WhaCP now starts it, waits until it
+  answers, and when it does not start shows fail2ban's own log; saving
+  unchanged settings also starts a stopped service. BIND checks that
+  fail without printing anything now say why (exit status, not found).
 - After a background task (installing a component, a backup, …) the page
   kept showing the old state when its window was closed without "Reload
   page": an installed component still offered "Install". Closing the
