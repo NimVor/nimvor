@@ -185,6 +185,8 @@ if [[ $php_ok -eq 0 ]]; then
 fi
 command -v openssl >/dev/null || missing_pkgs+=(openssl)
 command -v curl >/dev/null || missing_pkgs+=(curl)
+# Jailed shells for website accounts run in a bubblewrap sandbox.
+command -v bwrap >/dev/null || missing_pkgs+=(bubblewrap)
 # SELinux labels for what WhaCP sets up (semanage).
 if [[ $PKG == dnf ]] && ! command -v semanage >/dev/null; then missing_pkgs+=(policycoreutils-python-utils); fi
 # --public-https: WhaCP's own Nginx site for the panel, laid out like the
@@ -226,6 +228,29 @@ if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
         run env DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends "${missing_pkgs[@]}"
     else
         die "missing packages: ${missing_pkgs[*]}. Install them ($PKG install ${missing_pkgs[*]}) or re-run with --install-deps."
+    fi
+fi
+# Where AppArmor keeps unprivileged processes from creating user
+# namespaces (Ubuntu 23.10 and later), jailed shells run from a copy of
+# bubblewrap that only members of whacp-jail can execute (the agent keeps
+# it up to date); this profile lets that copy, and nothing else, create
+# them. Other accounts and programs keep the restriction.
+if [[ -r /proc/sys/kernel/apparmor_restrict_unprivileged_userns && $(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns) == 1 ]] && command -v apparmor_parser >/dev/null; then
+    cat > /etc/apparmor.d/whacp-bwrap <<'PROFILE'
+# Managed by WhaCP: jailed shells of website accounts (see the installer).
+abi <abi/4.0>,
+include <tunables/global>
+
+profile whacp-bwrap /usr/local/lib/whacp/bwrap flags=(unconfined) {
+  userns,
+
+  include if exists <local/whacp-bwrap>
+}
+PROFILE
+    if run apparmor_parser -r /etc/apparmor.d/whacp-bwrap; then
+        log "AppArmor profile for jailed shells loaded"
+    else
+        warn "The AppArmor profile for jailed shells could not be loaded; jailed shells stay unavailable"
     fi
 fi
 if [[ ${ID:-} == ubuntu && ${VERSION_ID:-} == "22.04" && $php_ok -eq 0 ]]; then

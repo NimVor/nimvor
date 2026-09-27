@@ -236,7 +236,7 @@ set -- --unshare-all --share-net --die-with-parent \
     --setenv SHELL /bin/bash --setenv PATH /usr/local/bin:/usr/bin:/bin \
     --setenv TERM "$term" --setenv LANG C.UTF-8
 if "$bwrap" --help 2>&1 | grep -q -e --disable-userns; then
-    set -- "$@" --disable-userns --assert-userns-disabled
+    set -- "$@" --unshare-user --disable-userns --assert-userns-disabled
 fi
 # Without a terminal, a new session keeps the sandbox off the caller's.
 [ -t 0 ] || set -- "$@" --new-session

@@ -167,7 +167,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			for _, k := range u.Keys {
 				keys = append(keys, map[string]string{"key": k, "fingerprint": fingerprint(k)})
 			}
-			sftp = append(sftp, map[string]any{"user": u.User, "domain": u.Domain, "password_login": u.PasswordLogin, "keys": keys})
+			sftp = append(sftp, map[string]any{"user": u.User, "domain": u.Domain, "password_login": u.PasswordLogin, "keys": keys, "shell": shellMode(st, u.User)})
 		}
 		out["sftp"] = sftp
 		out["sftp_root"] = filepath.Clean(env.Cfg.SitesRoot)
@@ -362,6 +362,7 @@ func Register(r *actions.Registry, env *host.Env) {
 	}})
 
 	registerSuspend(r, env)
+	registerShell(r, env)
 
 	r.Register(actions.Action{Name: "sftp.configure", Mutating: true, Description: "Turn SFTP access on or off for a website's system user: confined to the websites root (starting in its folder), SFTP only, with keys and/or a password. Validated with sshd -t, verified with sshd -T, rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in sftpReq

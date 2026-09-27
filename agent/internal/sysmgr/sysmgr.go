@@ -38,6 +38,7 @@ var Components = map[string]string{
 	"rspamd":              "Spam filter for email",
 	"certbot":             "Let's Encrypt client",
 	"awstats":             "Website statistics (AWStats)",
+	"bubblewrap":          "Sandbox for jailed shells (bubblewrap)",
 	"clamav":              "Malware scanner (ClamAV)",
 	"clamav-freshclam":    "ClamAV signature updates",
 	"ufw":                 "Firewall",

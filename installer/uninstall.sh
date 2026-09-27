@@ -43,6 +43,15 @@ if [[ $panel_site -eq 1 ]] && command -v nginx >/dev/null && nginx -t >/dev/null
     echo "Removed the panel's HTTPS site from Nginx."
 fi
 rm -f /usr/local/bin/whacp-agent
+# Jailed shells: accounts still using the jail's login shell get nologin.
+if [[ -e /usr/local/sbin/whacp-jailsh ]]; then
+    for u in $(awk -F: '$7 == "/usr/local/sbin/whacp-jailsh" {print $1}' /etc/passwd); do usermod --shell /usr/sbin/nologin -- "$u" || true; done
+fi
+rm -f /usr/local/sbin/whacp-jailsh /usr/local/lib/whacp/bwrap
+if [[ -e /etc/apparmor.d/whacp-bwrap ]]; then
+    apparmor_parser -R /etc/apparmor.d/whacp-bwrap 2>/dev/null || true
+    rm -f /etc/apparmor.d/whacp-bwrap
+fi
 rm -rf /opt/whacp
 echo "Program files and services removed."
 

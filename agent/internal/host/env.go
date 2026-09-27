@@ -63,6 +63,10 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.SSHDropIn,
 		m.SFTPDropIn,
 		m.SFTPKeysDir + "/**",
+		// Jailed shells: the sandboxing login shell and, where AppArmor
+		// restricts user namespaces, the group-only bubblewrap copy.
+		"/usr/local/sbin/whacp-jailsh",
+		"/usr/local/lib/whacp/bwrap",
 		m.FTPDir + "/**",
 		m.DNSZoneDir + "/**",
 		m.DNSConfFile,

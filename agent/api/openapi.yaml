@@ -207,6 +207,8 @@ paths:
               - services.control
               - services.status
               - sftp.configure
+              - shell.set
+              - shell.status
               - sites.apply
               - sites.bandwidth
               - sites.delete
@@ -487,6 +489,8 @@ x-whacp-actions:
   services.control: { mutating: true, description: "Start, stop, restart, reload, enable or disable an allowlisted service." }
   services.status: { mutating: false, description: "Status of core services and PHP-FPM units." }
   sftp.configure: { mutating: true, description: "Turn SFTP access on or off for a website's system user: confined to the websites root (starting in its folder), SFTP only, with keys and/or a password. Validated with sshd -t, verified with sshd -T, rolled back on failure." }
+  shell.set: { mutating: true, description: "Set the shell access of website accounts: disabled (SFTP only), jailed (a bubblewrap sandbox with only the account's website folder writable) or normal (/bin/bash). Applies while an account's SSH/SFTP login is on. Validated with sshd -t, verified with sshd -T, rolled back on failure." }
+  shell.status: { mutating: false, description: "Shell access of the website accounts (disabled, jailed or normal; in effect while their SSH/SFTP login is on) and whether jailed shells can work here." }
   sites.apply: { mutating: true, description: "Create or update a WhaCP website (Nginx, PHP-FPM pool, directories, system user)." }
   sites.bandwidth: { mutating: false, description: "Bytes sent by websites per month, read from their access logs from where the last read stopped (read-only)." }
   sites.delete: { mutating: true, description: "Remove a WhaCP website's configuration; optionally move its files to the trash." }

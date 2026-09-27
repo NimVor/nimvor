@@ -325,3 +325,77 @@ func TestAccountSuspension(t *testing.T) {
 		}
 	}
 }
+
+func TestShellModes(t *testing.T) {
+	f := setup(t)
+	f.h.Respond = func(id string, args []string) (string, error, bool) {
+		if id != "sshd" || len(args) < 3 || args[0] != "-T" {
+			return "", nil, false
+		}
+		if strings.Contains(args[2], "user=root,") {
+			return "chrootdirectory none\nforcecommand none\nx11forwarding no\npasswordauthentication no\n", nil, true
+		}
+		drop := f.h.Read("etc/ssh/sshd_config.d/50-whacp-sftp.conf")
+		switch {
+		case strings.Contains(drop, "ForceCommand "+JailShell):
+			return "chrootdirectory none\nforcecommand " + JailShell + "\n", nil, true
+		case strings.Contains(drop, "ChrootDirectory"):
+			return "chrootdirectory /home/whacp\nforcecommand internal-sftp -d /shop.test -u 0027\n", nil, true
+		}
+		return "chrootdirectory none\nforcecommand none\n", nil, true
+	}
+	os.MkdirAll(filepath.Join(f.h.Base, "usr/bin"), 0o755)
+	os.MkdirAll(filepath.Join(f.h.Base, "usr/local/sbin"), 0o755)
+
+	// A mode is kept for later but has no effect without SSH/SFTP login.
+	res := f.must(t, "shell.set", map[string]any{"users": []string{"shop"}, "mode": "normal"})
+	if res["accounts"].([]any)[0].(map[string]any)["effective"] != "disabled" || called(f, "usermod --shell /bin/bash") {
+		t.Fatalf("shell without SSH login: %v %v", res, f.h.Runner.Calls)
+	}
+	f.must(t, "sftp.configure", map[string]any{"user": "shop", "enabled": true, "keys": []string{testKey}})
+	if !called(f, "usermod --shell /bin/bash -- shop") {
+		t.Fatalf("normal shell not given with SSH login: %v", f.h.Runner.Calls)
+	}
+	drop := f.h.Read("etc/ssh/sshd_config.d/50-whacp-sftp.conf")
+	if strings.Contains(drop, "ChrootDirectory") || !strings.Contains(drop, "PermitTTY yes") || !strings.Contains(drop, "AuthorizedKeysFile /etc/ssh/whacp-keys/%u") || !strings.Contains(drop, "AllowTcpForwarding no") {
+		t.Fatalf("normal drop-in:\n%s", drop)
+	}
+
+	// Jailed needs bubblewrap.
+	if _, err := f.call(t, "shell.set", map[string]any{"users": []string{"shop"}, "mode": "jailed"}); code(err) != "conflict" {
+		t.Fatalf("jailed without bubblewrap: %v", err)
+	}
+	os.WriteFile(filepath.Join(f.h.Base, "usr/bin/bwrap"), []byte("ELF"), 0o755)
+	f.must(t, "shell.set", map[string]any{"users": []string{"shop"}, "mode": "jailed"})
+	drop = f.h.Read("etc/ssh/sshd_config.d/50-whacp-sftp.conf")
+	if !strings.Contains(drop, "ForceCommand "+JailShell+"\n") || strings.Contains(drop, "ChrootDirectory") || !strings.Contains(drop, "PermitUserRC no") {
+		t.Fatalf("jailed drop-in:\n%s", drop)
+	}
+	script := f.h.Read("usr/local/sbin/whacp-jailsh")
+	for _, want := range []string{"SITES_ROOT='/home/whacp'", "--unshare-all", "--ro-bind /usr /usr", `--bind "$home" "$home"`, "--clearenv", "--ro-bind-try /etc/php /etc/php"} {
+		if !strings.Contains(script, want) {
+			t.Errorf("jail script lacks %q", want)
+		}
+	}
+	if strings.Contains(script, "/etc/shadow") || strings.Contains(script, "--bind /etc") {
+		t.Error("the jail exposes /etc")
+	}
+	if !called(f, "usermod --shell "+JailShell+" -- shop") || !called(f, "groupadd --system -- "+JailGroup) {
+		t.Fatalf("jailed shell not set: %v", f.h.Runner.Calls)
+	}
+
+	// Turning SFTP off takes the shell away first. (The fake usermod does
+	// not edit passwd; write what the real one would have.)
+	pw := f.h.Read("etc/passwd")
+	os.WriteFile(filepath.Join(f.h.Base, "etc/passwd"), []byte(strings.Replace(pw, "/home/whacp/shop.test:/usr/sbin/nologin", "/home/whacp/shop.test:"+JailShell, 1)), 0o644)
+	f.h.Runner.Calls = nil
+	f.must(t, "sftp.configure", map[string]any{"user": "shop", "enabled": false})
+	if !called(f, "usermod --shell /usr/sbin/nologin -- shop") {
+		t.Fatalf("shell kept after SSH login was turned off: %v", f.h.Runner.Calls)
+	}
+	for _, bad := range []map[string]any{{"users": []string{"root"}, "mode": "normal"}, {"users": []string{"shop"}, "mode": "root"}, {"users": []string{}, "mode": "jailed"}} {
+		if _, err := f.call(t, "shell.set", bad); err == nil {
+			t.Errorf("accepted %v", bad)
+		}
+	}
+}

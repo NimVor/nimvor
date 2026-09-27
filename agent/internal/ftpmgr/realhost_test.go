@@ -271,3 +271,104 @@ func TestRealHostSuspendedAccountCannotLogIn(t *testing.T) {
 		t.Fatalf("after resuming: %v\n%s", err, out)
 	}
 }
+
+// Shell modes over a real sshd: a jailed session sees only its website and
+// the read-only system; SFTP runs in the jail too; a normal shell is a
+// plain login; disabled refuses commands.
+func TestRealHostShellModes(t *testing.T) {
+	env, r := realEnv(t)
+	if _, err := exec.LookPath("bwrap"); err != nil {
+		t.Skip("needs bubblewrap")
+	}
+	if b, _ := os.ReadFile("/proc/sys/kernel/apparmor_restrict_unprivileged_userns"); strings.TrimSpace(string(b)) == "1" {
+		// What the installer does on Ubuntu 23.10 and later.
+		profile := "abi <abi/4.0>,\ninclude <tunables/global>\nprofile whacp-bwrap " + JailBwrap + " flags=(unconfined) {\n  userns,\n}\n"
+		os.WriteFile("/etc/apparmor.d/whacp-bwrap", []byte(profile), 0o644)
+		if out, err := exec.Command("apparmor_parser", "-r", "/etc/apparmor.d/whacp-bwrap").CombinedOutput(); err != nil {
+			t.Fatalf("apparmor_parser: %s", out)
+		}
+		t.Cleanup(func() {
+			exec.Command("apparmor_parser", "-R", "/etc/apparmor.d/whacp-bwrap").Run()
+			os.Remove("/etc/apparmor.d/whacp-bwrap")
+			os.Remove(JailBwrap)
+		})
+	}
+	dir := t.TempDir()
+	key := filepath.Join(dir, "id")
+	if out, err := exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key).CombinedOutput(); err != nil {
+		t.Fatalf("ssh-keygen: %s", out)
+	}
+	pub, _ := os.ReadFile(key + ".pub")
+	// Another website on the same server, readable by everyone.
+	other := filepath.Join(rtSites, "other.test")
+	os.MkdirAll(other, 0o755)
+	os.WriteFile(filepath.Join(other, "secret.txt"), []byte("other website"), 0o644)
+	t.Cleanup(func() {
+		do(t, r, "shell.set", map[string]any{"users": []string{"rtftp"}, "mode": "disabled"})
+		do(t, r, "sftp.configure", map[string]any{"user": "rtftp", "enabled": false})
+		os.Remove(env.M.SFTPDropIn)
+		os.Remove(JailShell)
+		reloadSSH()
+	})
+	do(t, r, "sftp.configure", map[string]any{"user": "rtftp", "enabled": true, "keys": []string{string(pub)}})
+	sshOpts := []string{"-i", key, "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes"}
+	run := func(cmd string) (string, error) {
+		var out []byte
+		var err error
+		for i := 0; i < 5; i++ {
+			out, err = exec.Command("ssh", append(sshOpts, "rtftp@127.0.0.1", cmd)...).CombinedOutput()
+			if err == nil || !strings.Contains(string(out), "Connection refused") {
+				break
+			}
+			time.Sleep(time.Second)
+		}
+		return string(out), err
+	}
+
+	do(t, r, "shell.set", map[string]any{"users": []string{"rtftp"}, "mode": "jailed"})
+	reloadSSH()
+	out, err := run(`id -un; pwd; ls ` + rtSites + `; cat ` + filepath.Join(other, "secret.txt") + `; ls /etc; grep -c . /etc/passwd; echo hi > public_html/from-jail.txt && echo WROTE; touch /usr/x 2>&1; ps -e -o comm= | sort -u | tr '\n' ' '; echo; grep NoNewPrivs /proc/self/status`)
+	if err != nil && !strings.Contains(out, "rtftp") {
+		t.Fatalf("jailed session: %v\n%s", err, out)
+	}
+	t.Logf("jailed session:\n%s", out)
+	home := filepath.Join(rtSites, "rt-ftp.test")
+	for _, want := range []string{"rtftp\n" + home + "\n", "WROTE", "NoNewPrivs:\t1"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("jailed session lacks %q", want)
+		}
+	}
+	for _, bad := range []string{"other.test\n", "other website", "shadow", "nginx", "whacp-agent", "sshd"} {
+		if strings.Contains(out, bad) {
+			t.Errorf("jailed session sees %q", bad)
+		}
+	}
+	if !strings.Contains(out, "Read-only file system") {
+		t.Error("/usr is writable in the jail")
+	}
+	if b, err := os.ReadFile(filepath.Join(home, "public_html/from-jail.txt")); err != nil || string(b) != "hi\n" {
+		t.Errorf("file written in the jail: %q %v", b, err)
+	}
+	// SFTP runs inside the jail as well.
+	batch := filepath.Join(dir, "batch")
+	os.WriteFile(batch, []byte("pwd\n-ls "+rtSites+"\n-get "+filepath.Join(other, "secret.txt")+" "+filepath.Join(dir, "stolen")+"\n"), 0o644)
+	sout, err := exec.Command("sftp", append(sshOpts, "-b", batch, "rtftp@127.0.0.1")...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("sftp in the jail: %v\n%s", err, sout)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "stolen")); err == nil || strings.Contains(string(sout), "other.test  ") || strings.Contains(string(sout), "other.test\n") {
+		t.Fatalf("SFTP reached another website:\n%s", sout)
+	}
+
+	do(t, r, "shell.set", map[string]any{"users": []string{"rtftp"}, "mode": "normal"})
+	reloadSSH()
+	if out, err := run("echo $0; id -un"); err != nil || !strings.Contains(out, "rtftp") {
+		t.Fatalf("normal shell: %v\n%s", err, out)
+	}
+
+	do(t, r, "shell.set", map[string]any{"users": []string{"rtftp"}, "mode": "disabled"})
+	reloadSSH()
+	if out, _ := run("id -un"); strings.Contains(out, "rtftp\n") {
+		t.Fatalf("a command ran with the shell disabled:\n%s", out)
+	}
+}

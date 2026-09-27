@@ -263,6 +263,8 @@ return static function (Router $r): void {
     $r->get('/security/malware', [\WhaCP\Http\Controllers\AvController::class, 'index'], ['name' => 'security.malware', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/malware/settings', [\WhaCP\Http\Controllers\AvController::class, 'saveSettings'], ['name' => 'security.malware.settings', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/malware/update', [\WhaCP\Http\Controllers\AvController::class, 'updateSignatures'], ['name' => 'security.malware.update', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/shell', [\WhaCP\Http\Controllers\ShellController::class, 'index'], ['name' => 'security.shell', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/shell', [\WhaCP\Http\Controllers\ShellController::class, 'update'], ['name' => 'security.shell.update', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/confirm', [SecurityController::class, 'confirm'], ['name' => 'security.confirm', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/undo', [SecurityController::class, 'undo'], ['name' => 'security.undo', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/servers', [ServersController::class, 'index'], ['name' => 'servers', 'permission' => P::SERVERS_MANAGE]);

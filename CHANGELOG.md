@@ -7,6 +7,18 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Shell access for website accounts** (administrators; Security → Shell
+  access): per account or for all accounts at once. Disabled (default,
+  SFTP only), jailed (a bubblewrap sandbox: `/usr` and a short list of
+  `/etc` read-only, only the account's website folder writable, private
+  `/tmp`, processes and IPC, other accounts invisible, no_new_privs, SFTP
+  inside the sandbox too) or normal (a shell on the host, with a
+  warning). A shell exists only while the account's SSH/SFTP login is on,
+  with its keys in root-owned files. Plans whose feature list leaves out
+  "SSH shell & web terminal" get no shell; the scheduler removes shells a
+  plan no longer includes. The installer installs bubblewrap and, where
+  AppArmor restricts user namespaces (Ubuntu 23.10+), a profile that lets
+  only the jail's group-restricted bubblewrap copy create them.
 - **Feature Manager** (Plans → Manage feature lists): named feature lists
   (databases, email, DNS, file manager, SSL, subdomains, FTP, cron,
   backups, application installer, Git, workers, Redis, logs, statistics,

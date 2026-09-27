@@ -307,6 +307,36 @@ include. Administrators and other staff roles are not limited. Deleting a
 list gives its plans every feature again. Lists store the features they
 turn off, so features added in later versions are on for existing lists.
 
+## Shell access
+
+Security → Shell access (administrators) sets each website account to:
+
+- **Disabled** (default): SFTP only, chrooted to the websites folder.
+- **Jailed:** SSH commands and interactive logins run in a bubblewrap
+  sandbox (`/usr/local/sbin/whacp-jailsh` is the login shell and sshd's
+  ForceCommand): `/usr` and a short list of `/etc` files read-only
+  (no `/etc/shadow`, no service configuration), a generated passwd with
+  only root and the account, the account's website folder writable,
+  private `/tmp`, `/proc`, IPC and hostname, the network shared, no
+  capabilities and no_new_privs. SFTP runs inside the sandbox too.
+- **Normal:** `/bin/bash` on the host as the account. It can see other
+  processes, `/tmp` and world-readable files; give it only to trusted
+  accounts.
+
+A mode applies only while the account's SSH/SFTP login is on (FTP / SFTP
+page: keys in `/etc/ssh/whacp-keys`, optional password); turning that
+login off takes the shell away first. Accounts whose plan's feature list
+leaves out "SSH shell & web terminal" cannot get a shell, and the
+scheduler removes shells a plan no longer includes. A suspended account
+cannot log in at all.
+
+On Ubuntu 23.10 and later, AppArmor stops unprivileged programs from
+creating user namespaces. The installer then loads the `whacp-bwrap`
+profile for `/usr/local/lib/whacp/bwrap`, a copy of bubblewrap that only
+members of the `whacp-jail` group (jailed accounts) can run; the agent
+refreshes the copy whenever shell access changes. Other accounts and
+programs keep the restriction.
+
 ## PHP versions and settings
 
 *PHP* lists the installed versions; each has a **Settings** page with three

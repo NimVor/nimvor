@@ -95,7 +95,14 @@ $sftpKeys = array_map(static fn ($k): string => (string) ((array) $k)['key'], (a
             <div class="card-header d-flex align-items-center"><i class="bi bi-terminal me-1"></i>SFTP access
                 <span class="ms-auto"><?= $sftp !== null ? $this->statusBadge('active', 'on') : $this->statusBadge('inactive', 'off') ?></span></div>
             <div class="card-body">
-                <p class="small text-body-secondary">Log in as the website's own user over SSH (port 22), for file transfer only. The login starts in the website folder and cannot reach anything outside the websites folder; there is no shell.</p>
+                <?php $shellMode = (string) ($sftp['shell'] ?? 'disabled'); ?>
+                <?php if ($shellMode === 'jailed'): ?>
+                    <p class="small text-body-secondary">Log in as the website's own user over SSH (port 22) for SFTP and a <strong>jailed shell</strong>: <code>ssh <?= e((string) $site['system_user']) ?>@<?= e($host) ?></code>. Only the website folder is writable; the rest of the server is hidden or read-only.</p>
+                <?php elseif ($shellMode === 'normal'): ?>
+                    <p class="small text-body-secondary">Log in as the website's own user over SSH (port 22) for SFTP and a <strong>shell</strong>: <code>ssh <?= e((string) $site['system_user']) ?>@<?= e($host) ?></code>.</p>
+                <?php else: ?>
+                    <p class="small text-body-secondary">Log in as the website's own user over SSH (port 22), for file transfer only. The login starts in the website folder and cannot reach anything outside the websites folder; there is no shell<?= $this->serverScope() ? ' (administrators can allow one under Security → Shell access)' : '' ?>.</p>
+                <?php endif; ?>
                 <form method="post" action="<?= e($this->url('sites.sftp', ['id' => $id])) ?>" data-wcp-busy>
                     <?= $this->csrfField() ?>
                     <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="sftp-on"<?= $sftp !== null ? ' checked' : '' ?>><label class="form-check-label" for="sftp-on">Allow SFTP for <code><?= e((string) $site['system_user']) ?></code></label></div>
