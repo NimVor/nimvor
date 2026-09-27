@@ -34,6 +34,7 @@ final class SitesController extends Controller
         private readonly \WhaCP\Services\ImportService $imports,
         private readonly JobTracker $jobs,
         private readonly \WhaCP\Services\SiteOverview $overview,
+        private readonly \WhaCP\Services\DnsService $dns,
     ) {
         parent::__construct($view, $session);
     }
@@ -93,6 +94,42 @@ final class SitesController extends Controller
             'tab' => 'overview',
             'import' => $this->imports->importOf((int) $site['id']),
         ]);
+    }
+
+    /** Subdomains and addon domains created from this website. */
+    public function domains(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        $children = $this->sites->children($this->server->id(), (int) $site['id']);
+        $sub = array_values(array_filter($children, static fn (array $c): bool => str_ends_with((string) $c['domain'], '.' . $site['domain'])));
+        $addon = array_values(array_filter($children, static fn (array $c): bool => !str_ends_with((string) $c['domain'], '.' . $site['domain'])));
+        $zone = $this->dns->forWebsite((int) $site['id']);
+        return $this->render('sites/domains', [
+            'site' => $site, 'subdomains' => $sub, 'addons' => $addon, 'tab' => 'domains',
+            'hasZone' => $zone !== null && $this->dns->zone((int) $zone['id'], $this->user($request)) !== null,
+        ]);
+    }
+
+    public function storeDomain(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        $type = $request->string('type') === 'addon' ? 'addon' : 'subdomain';
+        $back = '/sites/' . (int) $id . '/domains';
+        try {
+            $res = $this->service->createChild($site, $type, $request->all(), $this->user($request));
+        } catch (ValidationException $e) {
+            return $this->backWithErrors($back . '#new-' . $type, $e, $request->all());
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($back, $e);
+        }
+        $child = $this->sites->find($this->server->id(), $res['id'], null);
+        return $this->redirectWithSuccess($back, ($type === 'addon' ? 'Addon domain ' : 'Subdomain ') . ($child['domain'] ?? '') . ' created. Its files are in ' . ($child['document_root'] ?? '') . '.' . ($res['dns'] ? ' A DNS record was added.' : ''));
     }
 
     /** Server details and the actions that change or remove the website. */

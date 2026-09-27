@@ -47,10 +47,14 @@ type Redirect struct {
 
 // Spec is the complete desired state of a website.
 type Spec struct {
-	Domain          string      `json:"domain"`
-	Aliases         []string    `json:"aliases"`
-	User            string      `json:"user"`
-	CreateUser      bool        `json:"create_user"`
+	Domain     string   `json:"domain"`
+	Aliases    []string `json:"aliases"`
+	User       string   `json:"user"`
+	CreateUser bool     `json:"create_user"`
+	// NewUser: the account must not exist yet (a hosting customer's new
+	// website): an existing account, e.g. another customer's or a server
+	// login, is refused instead of being used.
+	NewUser         bool        `json:"new_user,omitempty"`
 	Root            string      `json:"root"`
 	DocumentRoot    string      `json:"document_root"`
 	Kind            string      `json:"kind"`

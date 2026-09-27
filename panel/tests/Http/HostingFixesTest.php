@@ -231,6 +231,77 @@ final class HostingFixesTest extends HttpTestCase
         self::assertSame(404, $this->request('GET', $base . '/' . $job . '/log')->status());
     }
 
+    public function testSubdomainsAndAddonDomainsShareTheWebsitesAccount(): void
+    {
+        $this->app->container->get(SettingsService::class)->update(['dns_nameservers' => 'ns1.host.test', 'dns_default_ipv4' => '203.0.113.10'], null);
+        $this->agent->succeed('dns.status', ['installed' => true, 'configured' => true, 'running' => true, 'zones' => []]);
+        $this->agent->succeed('dns.zone_apply', ['serial' => 2026090101, 'loaded' => true]);
+        $this->login('cust');
+        $this->post('/dns/zones', ['website_id' => (string) $this->siteId]);
+        $user = (string) $this->db->scalar('SELECT system_user FROM websites WHERE id = ?', [$this->siteId]);
+        $base = '/sites/' . $this->siteId . '/domains';
+        self::assertSame(200, $this->request('GET', $base)->status());
+
+        $this->post($base, ['type' => 'subdomain', 'subdomain' => 'blog', 'dns' => '1']);
+        $apply = $this->lastCall('sites.apply');
+        self::assertSame(['blog.shop.test', $user], [$apply['domain'], $apply['user']]);
+        self::assertArrayNotHasKey('new_user', $apply, "the parent's account is reused");
+        $child = $this->db->fetch("SELECT * FROM websites WHERE domain = 'blog.shop.test'");
+        self::assertSame([$this->siteId, $this->custId], [(int) $child['parent_id'], (int) $child['owner_id']]);
+        self::assertContains(['name' => 'blog', 'type' => 'A', 'ttl' => 0, 'value' => '203.0.113.10', 'priority' => 0, 'weight' => 0, 'port' => 0], $this->lastCall('dns.zone_apply')['records']);
+
+        $this->post($base, ['type' => 'addon', 'domain' => 'other-shop.test', 'www' => '1']);
+        $apply = $this->lastCall('sites.apply');
+        self::assertSame(['other-shop.test', $user, ['www.other-shop.test']], [$apply['domain'], $apply['user'], $apply['aliases']]);
+        $page = $this->request('GET', $base)->body();
+        self::assertStringContainsString('blog.shop.test', $page);
+        self::assertStringContainsString('other-shop.test', $page);
+
+        // Refused: bad labels, a subdomain as addon, someone else's website.
+        $before = $this->calls('sites.apply');
+        $this->post($base, ['type' => 'subdomain', 'subdomain' => 'bad_label!']);
+        $this->post($base, ['type' => 'subdomain', 'subdomain' => 'www']);
+        $this->post($base, ['type' => 'addon', 'domain' => 'x.shop.test']);
+        $this->switchTo('mallory');
+        self::assertSame(404, $this->request('GET', $base)->status());
+        $this->post($base, ['type' => 'subdomain', 'subdomain' => 'evil']);
+        self::assertSame($before, $this->calls('sites.apply'));
+    }
+
+    public function testCustomersCannotRunAWebsiteAsAnotherAccountsUser(): void
+    {
+        $victim = (string) $this->db->scalar('SELECT system_user FROM websites WHERE id = ?', [$this->siteId]);
+        $admins = (string) $this->db->scalar('SELECT system_user FROM websites WHERE id = ?', [$this->otherId]);
+        $this->switchTo('mallory');
+        $before = $this->calls('sites.apply');
+        foreach ([$victim, $admins] as $i => $taken) {
+            $this->post('/websites/new', ['domain' => 'steal' . $i . '.test', 'kind' => 'static', 'system_user' => $taken]);
+            self::assertStringContainsString('belongs to another account', (string) ((array) $this->flash('errors'))['system_user']);
+        }
+        self::assertSame($before, $this->calls('sites.apply'));
+
+        // A new name must not exist on the server: the agent is told so.
+        $this->post('/websites/new', ['domain' => 'mine.test', 'kind' => 'static', 'system_user' => 'ubuntu']);
+        self::assertTrue($this->lastCall('sites.apply')['new_user'] ?? false);
+
+        // Administrators may still attach an existing account.
+        $this->switchTo('admin');
+        $this->post('/websites/new', ['domain' => 'adm.test', 'kind' => 'static', 'system_user' => $victim]);
+        self::assertSame($victim, $this->lastCall('sites.apply')['user']);
+        self::assertArrayNotHasKey('new_user', $this->lastCall('sites.apply'));
+    }
+
+    public function testDeletingAWebsiteKeepsAnAccountOtherWebsitesUse(): void
+    {
+        $this->agent->succeed('sites.delete', ['warnings' => []]);
+        $this->login('cust');
+        $this->post('/sites/' . $this->siteId . '/domains', ['type' => 'addon', 'domain' => 'static-sibling.test']);
+        $child = (int) $this->db->scalar("SELECT id FROM websites WHERE domain = 'static-sibling.test'");
+        $this->post('/sites/' . $child . '/delete', ['confirm_domain' => 'static-sibling.test', 'remove_user' => '1']);
+        self::assertFalse($this->lastCall('sites.delete')['remove_user'], 'the parent still runs as that account');
+        self::assertStringContainsString('was kept', (string) $this->flash('success'));
+    }
+
     private function insertDatabase(string $name, ?int $owner): int
     {
         $this->db->run("INSERT INTO databases (server_id, website_id, owner_id, name, created_at) VALUES (1, NULL, ?, ?, '2026-01-01')", [$owner, $name]);

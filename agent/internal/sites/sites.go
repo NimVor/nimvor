@@ -285,6 +285,9 @@ var usernameRe = regexp.MustCompile(`^[a-z][a-z0-9_-]{1,30}$`)
 func (m *Manager) ensureUser(ctx context.Context, s Spec) (users.User, bool, error) {
 	e := m.Env
 	if u, err := e.LookupUser(s.User); err == nil {
+		if s.NewUser {
+			return u, false, actions.Conflict("The system user " + s.User + " already exists on this server. Choose another name.")
+		}
 		if u.UID < 1000 || u.UID >= 60000 {
 			return u, false, actions.InvalidParams("user: " + s.User + " is a system account; choose a regular account for websites")
 		}

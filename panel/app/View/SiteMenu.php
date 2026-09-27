@@ -20,6 +20,7 @@ final class SiteMenu
         ['databases', 'Databases', 'database', 'sites.databases', P::DATABASES_VIEW],
         ['mail', 'Email', 'envelope', 'sites.mail', P::MAIL_MANAGE],
         ['dns', 'DNS', 'signpost', 'sites.dns', P::DNS_MANAGE],
+        ['domains', 'Subdomains & addons', 'diagram-3', 'sites.domains', P::WEBSITES_MANAGE],
         ['ssl', 'SSL / HTTPS', 'shield-lock', 'sites.ssl', P::SSL_VIEW],
         ['backups', 'Backups', 'archive', 'sites.backups', P::BACKUPS_VIEW],
         ['apps', 'Applications', 'grid-3x3-gap', 'sites.apps', P::APPS_INSTALL],

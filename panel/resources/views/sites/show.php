@@ -47,6 +47,8 @@ $tiles = array_values(array_filter([
     ['Workers', 'gear-wide-connected', $u('workers'), $summary['workers'] > 0 ? (string) $summary['workers'] : null],
     ['Redis', 'lightning', $u('redis'), null],
     ['Logs', 'journal-text', $u('logs'), null],
+    ['Subdomains', 'diagram-3', $u('domains', '#subdomains'), $summary['subdomains'] > 0 ? (string) $summary['subdomains'] : null],
+    ['Addon domains', 'plus-square', $u('domains', '#addons'), $summary['addons'] > 0 ? (string) $summary['addons'] : null],
     ['Manual settings', 'code-slash', $u('advanced'), null],
 ], static fn (array $t): bool => $t[2] !== null));
 
@@ -64,6 +66,8 @@ foreach ([
     ['Upload SSL certificate', $this->can(P::SSL_MANAGE) ? $u('ssl', '#upload-certificate') : null, 'shield-lock', 'custom pem own'],
     ['Add DNS record', $dns !== null ? $dnsUrl('#add-record') : $u('dns'), 'signpost-2', 'a aaaa cname mx txt zone'],
     ['Create FTP account', $u('ftp', '#new-ftp'), 'hdd-network', 'ftp filezilla upload login'],
+    ['Create subdomain', $u('domains', '#new-subdomain'), 'diagram-3', 'subdomain sub blog shop'],
+    ['Add addon domain', $u('domains', '#new-addon'), 'plus-square', 'addon domain another website parked'],
     ['Change PHP version', $site['kind'] === 'php' ? $u('settings', '#php') : null, 'filetype-php', 'php version upgrade memory limit upload'],
     ['Domains and aliases', $u('settings', '#domains'), 'globe2', 'alias www domain'],
     ['Redirects', $u('settings', '#requests'), 'signpost', 'redirect 301'],

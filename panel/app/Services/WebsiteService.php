@@ -30,6 +30,8 @@ final class WebsiteService
         private readonly Events $events,
         private readonly PlanLimits $limits,
         private readonly DiscoveryService $discovery,
+        private readonly ?DnsService $dns = null,
+        private readonly ?SettingsService $settings = null,
     ) {
     }
 
@@ -55,19 +57,21 @@ final class WebsiteService
      * @param array<string, mixed> $input
      * @param array<string, mixed> $actor
      */
-    public function create(array $input, array $actor): int
+    public function create(array $input, array $actor, ?array $parent = null): int
     {
         $data = $this->validate($input, null);
         $serverId = $this->server->id();
-        $ownerId = $this->resolveOwner($input, $actor);
+        // A subdomain or addon domain belongs to its parent's owner.
+        $ownerId = $parent !== null ? ($parent['owner_id'] === null ? null : (int) $parent['owner_id']) : $this->resolveOwner($input, $actor);
         $this->limits->assertCanCreate('websites', $ownerId);
+        $newUser = $this->checkSystemUser((string) $data['row']['system_user'], $ownerId, $actor);
 
-        $row = $data['row'] + ['server_id' => $serverId, 'owner_id' => $ownerId, 'status' => 'pending'];
+        $row = $data['row'] + ['server_id' => $serverId, 'owner_id' => $ownerId, 'status' => 'pending', 'parent_id' => $parent === null ? null : (int) $parent['id']];
         $id = $this->sites->insert($row);
         $this->sites->replaceDomains($serverId, $id, $data['names']);
         $site = $this->sites->find($serverId, $id, null);
         try {
-            $this->apply($site);
+            $this->apply($site, $newUser);
         } catch (\Throwable $e) {
             $this->sites->delete($id);
             $this->audit->record('website.create', 'website', $data['row']['domain'], AuditLogger::FAILURE, ['error' => $e->getMessage()]);
@@ -135,6 +139,10 @@ final class WebsiteService
     public function delete(array $site, bool $removeFiles, bool $removeUser): array
     {
         $id = (int) $site['id'];
+        // The agent only sees websites with a PHP pool; static and disabled
+        // websites have none. The panel knows them all: keep a shared account.
+        $keptFor = array_values(array_filter($this->sites->usingSystemUser((int) $site['server_id'], (string) $site['system_user']), static fn (array $w): bool => (int) $w['id'] !== $id));
+        $removeUser = $removeUser && $keptFor === [];
         $this->events->dispatch('website.deleting', ['website' => $site]);
         $res = (array) $this->agent->call('sites.delete', [
             'domain' => $site['domain'],
@@ -148,7 +156,11 @@ final class WebsiteService
             'domain' => $site['domain'], 'files' => $removeFiles ? ($res['trash'] ?? 'kept') : 'kept', 'user_removed' => $removeUser,
         ]);
         $this->events->dispatch('website.deleted', ['website' => $site]);
-        return array_values(array_map('strval', (array) ($res['warnings'] ?? [])));
+        $warnings = array_values(array_map('strval', (array) ($res['warnings'] ?? [])));
+        if ($keptFor !== []) {
+            $warnings[] = 'The system user ' . $site['system_user'] . ' was kept because other websites use it.';
+        }
+        return $warnings;
     }
 
     /** @param array<string, mixed> $site */
@@ -231,14 +243,110 @@ final class WebsiteService
     }
 
     /** @param array<string, mixed>|null $site */
-    private function apply(?array $site): void
+    /**
+     * Whether the website's system account may be used, and whether it must
+     * be new. Hosting customers and resellers may reuse only the account of
+     * one of their own websites with the same owner (subdomains, addon
+     * domains); any other name must not exist on the server yet, so another
+     * customer's account or a server login can never be taken over.
+     * Administrators may attach existing accounts, as before.
+     *
+     * @param array<string, mixed> $actor
+     * @return bool true: the agent must create the account (refuse an existing one)
+     */
+    private function checkSystemUser(string $user, ?int $ownerId, array $actor): bool
+    {
+        $usedBy = $this->sites->usingSystemUser($this->server->id(), $user);
+        if (\WhaCP\Hosting\Scope::isAll($actor)) {
+            return false;
+        }
+        if ($usedBy === []) {
+            return true;
+        }
+        foreach ($usedBy as $w) {
+            if ($this->sites->find($this->server->id(), (int) $w['id'], $actor) === null || (int) $w['owner_id'] !== (int) $ownerId) {
+                throw new ValidationException(['system_user' => 'The system user ' . $user . ' belongs to another account. Choose another name.']);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * A subdomain (name.parent-domain) or addon domain (any other domain)
+     * of a website: a website of its own, with the parent's account, owner
+     * and PHP version; the subdomain also gets an A record when the parent's
+     * DNS zone is hosted here.
+     *
+     * @param array<string, mixed> $parent access-checked
+     * @param array<string, mixed> $input
+     * @param array<string, mixed> $actor
+     * @return array{id: int, dns: bool}
+     */
+    public function createChild(array $parent, string $type, array $input, array $actor): array
+    {
+        if ($type === 'subdomain') {
+            $label = strtolower(trim((string) ($input['subdomain'] ?? '')));
+            if (!preg_match('/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/', $label) || in_array($label, ['www'], true)) {
+                throw new ValidationException(['subdomain' => 'Use letters, digits and hyphens, e.g. blog or shop (www is an alias of the website itself).']);
+            }
+            $domain = $label . '.' . $parent['domain'];
+        } else {
+            $domain = self::normalizeHost((string) ($input['domain'] ?? ''));
+            if ($domain === $parent['domain'] || str_ends_with($domain, '.' . $parent['domain'])) {
+                throw new ValidationException(['domain' => 'That is a subdomain of ' . $parent['domain'] . '; add it as a subdomain.']);
+            }
+        }
+        $child = [
+            'domain' => $domain,
+            'system_user' => (string) $parent['system_user'],
+            'kind' => (string) $parent['kind'] === 'proxy' ? 'php' : (string) $parent['kind'],
+            'php_version' => (string) ($parent['php_version'] ?: ''),
+            'aliases' => $type === 'addon' && !empty($input['www']) ? 'www.' . $domain : '',
+        ];
+        if ($child['kind'] === 'php' && $child['php_version'] === '') {
+            $child['php_version'] = $this->phpVersions()[0] ?? '';
+        }
+        $id = $this->create($child, $actor, $parent);
+        $dns = false;
+        if ($type === 'subdomain' && !empty($input['dns'])) {
+            $dns = $this->addSubdomainRecord($parent, $label ?? '');
+        }
+        return ['id' => $id, 'dns' => $dns];
+    }
+
+    /** @param array<string, mixed> $parent */
+    private function addSubdomainRecord(array $parent, string $label): bool
+    {
+        if ($this->dns === null || $this->settings === null) {
+            return false;
+        }
+        $zone = $this->dns->forWebsite((int) $parent['id']);
+        $ip = trim($this->settings->string('dns_default_ipv4'));
+        if ($zone === null || filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            return false;
+        }
+        foreach ($this->dns->records((int) $zone['id']) as $r) {
+            if ((string) $r['name'] === $label) {
+                return false;
+            }
+        }
+        try {
+            $this->dns->saveRecord($zone, null, ['name' => $label, 'type' => 'A', 'value' => $ip, 'ttl' => 0]);
+        } catch (\Throwable) {
+            return false; // the website exists; the record can be added on the DNS page
+        }
+        return true;
+    }
+
+    private function apply(?array $site, bool $newUser = false): void
     {
         if ($site === null) {
             throw new UserFacingException('The website record disappeared while saving.');
         }
-        // create_user: the agent recreates a missing site account.
+        // create_user: the agent recreates a missing site account;
+        // new_user: it must not exist yet (see checkSystemUser).
         try {
-            $this->agent->call('sites.apply', self::spec($site, true));
+            $this->agent->call('sites.apply', self::spec($site, true) + ($newUser ? ['new_user' => true] : []));
         } finally {
             $this->discovery->invalidate();
         }

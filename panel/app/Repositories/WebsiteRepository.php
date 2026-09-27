@@ -43,6 +43,23 @@ final class WebsiteRepository
         return $row === null ? null : $this->hydrate($row);
     }
 
+    /** @return list<array{id: int, owner_id: int|null}> websites run by a system account */
+    public function usingSystemUser(int $serverId, string $user): array
+    {
+        return $this->db->fetchAll('SELECT id, owner_id FROM websites WHERE server_id = ? AND system_user = ?', [$serverId, $user]);
+    }
+
+    /**
+     * Websites created from a website (subdomains, addon domains).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function children(int $serverId, int $parentId): array
+    {
+        $rows = $this->db->fetchAll("SELECT w.*, u.username AS owner_name FROM websites w LEFT JOIN users u ON u.id = w.owner_id WHERE w.server_id = ? AND w.parent_id = ? ORDER BY w.domain", [$serverId, $parentId]);
+        return array_map([$this, 'hydrate'], $rows);
+    }
+
     /** @return array<string, mixed>|null */
     public function findByDomain(int $serverId, string $domain): ?array
     {

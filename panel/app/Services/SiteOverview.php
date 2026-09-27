@@ -99,6 +99,8 @@ final class SiteOverview
             'backups' => (int) $this->db->scalar('SELECT COUNT(*) FROM backups WHERE website_id = ?', [$id]),
             'last_backup' => $this->db->fetch("SELECT created_at, status FROM backups WHERE website_id = ? AND status = 'completed' ORDER BY id DESC LIMIT 1", [$id]),
             'backup_schedules' => (int) $this->db->scalar('SELECT COUNT(*) FROM backup_schedules WHERE website_id = ?', [$id]),
+            'subdomains' => (int) $this->db->scalar("SELECT COUNT(*) FROM websites WHERE parent_id = ? AND domain LIKE ?", [$id, '%.' . $site['domain']]),
+            'addons' => (int) $this->db->scalar("SELECT COUNT(*) FROM websites WHERE parent_id = ? AND domain NOT LIKE ?", [$id, '%.' . $site['domain']]),
             'apps' => array_values(array_unique(array_column($this->db->fetchAll("SELECT app FROM app_installs WHERE website_id = ? AND status = 'succeeded' ORDER BY id", [$id]), 'app'))),
         ];
         $d = $this->mail->forWebsite($id);

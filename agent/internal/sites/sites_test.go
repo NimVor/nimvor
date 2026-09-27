@@ -177,3 +177,29 @@ func TestSpecValidation(t *testing.T) {
 		t.Errorf("https render:\n%s", conf)
 	}
 }
+
+// A hosting customer's new website asks for a new account: an existing one
+// (another customer's, or a server login) is refused, not reused.
+func TestNewUserRefusesExistingAccounts(t *testing.T) {
+	h := testhost.New(t)
+	m := &Manager{Env: h.Env}
+	s := spec()
+	s.User, s.NewUser = "example", true
+	_, err := m.Apply(context.Background(), s)
+	var ae *actions.Error
+	if !errors.As(err, &ae) || ae.Code != "conflict" || !strings.Contains(ae.Message, "already exists") {
+		t.Fatalf("err = %v", err)
+	}
+	if h.Exists("etc/nginx/sites-available/whacp-new.test.conf") {
+		t.Error("website configured for an existing account")
+	}
+	s.NewUser = false // administrators may attach an existing account
+	if _, err := m.Apply(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	s = spec()
+	s.NewUser = true // a genuinely new name is created
+	if res, err := m.Apply(context.Background(), s); err != nil || !res.Created {
+		t.Fatalf("%v %+v", err, res)
+	}
+}
