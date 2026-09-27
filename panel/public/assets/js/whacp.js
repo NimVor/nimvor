@@ -200,14 +200,22 @@
         reloadBtn.classList.add('d-none');
         var offset = 0;
         var stopped = false;
+        // Closed before the task ended: keep following it quietly and say
+        // when it is done. Closed after: reload, so the page shows the
+        // result (e.g. a component now installed).
+        var quiet = false;
+        var done = false;
+        // A newer job shown in the same window replaces this one.
+        var run = WhaCP.jobRun = (WhaCP.jobRun || 0) + 1;
         var classes = { queued: 'text-bg-secondary', running: 'text-bg-info', succeeded: 'text-bg-success', failed: 'text-bg-danger' };
         function setStatus(s) {
             statusEl.textContent = s;
             statusEl.className = 'badge ms-2 ' + (classes[s] || 'text-bg-secondary');
         }
         function poll() {
-            if (stopped) { return; }
+            if (stopped || run !== WhaCP.jobRun) { return; }
             WhaCP.fetchJson('/jobs/' + jobId + '?offset=' + offset).then(function (res) {
+                if (stopped || run !== WhaCP.jobRun) { return; }
                 if (res.log) {
                     logEl.textContent += res.log;
                     logEl.scrollTop = logEl.scrollHeight;
@@ -215,8 +223,11 @@
                 offset = res.offset || offset;
                 setStatus(res.job ? res.job.status : 'unknown');
                 if (res.done) {
+                    done = true;
                     reloadBtn.classList.remove('d-none');
-                    WhaCP.toast(res.job.status === 'succeeded' ? 'Task completed.' : 'Task failed. See the log for details.', res.job.status === 'succeeded' ? 'success' : 'danger');
+                    var ok = res.job.status === 'succeeded';
+                    var msg = ok ? 'Task completed.' : 'Task failed. See the log for details.';
+                    WhaCP.toast(quiet ? msg + ' Reload the page to see the result.' : msg, ok ? 'success' : 'danger');
                     return;
                 }
                 setTimeout(poll, 1000);
@@ -225,7 +236,9 @@
                 setTimeout(poll, 3000);
             });
         }
-        modalEl.addEventListener('hidden.bs.modal', function () { stopped = true; }, { once: true });
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            if (done) { stopped = true; window.location.reload(); } else { quiet = true; }
+        }, { once: true });
         bootstrap.Modal.getOrCreateInstance(modalEl).show();
         setStatus('queued');
         poll();

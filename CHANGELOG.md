@@ -75,6 +75,11 @@ All notable changes to WhaCP are documented here. The format follows
   paragraph described steps that could not be carried out).
 
 ### Fixed
+- After a background task (installing a component, a backup, …) the page
+  kept showing the old state when its window was closed without "Reload
+  page": an installed component still offered "Install". Closing the
+  window after the task ended now reloads the page; closed earlier, the
+  task is followed and a notice says when it is done.
 - **Webmail on Ubuntu 26.04.** Ubuntu's Roundcube 1.6.11 declares its own
   `array_first()`, which PHP 8.5 has built in, so it stopped with a fatal
   error and WhaCP refused webmail there. On PHP 8.5 and later WhaCP now
