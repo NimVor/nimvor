@@ -36,6 +36,25 @@ type Data struct {
 	// submission, webmail); mail is still delivered.
 	Suspended []string `json:"suspended,omitempty"`
 	Spam      Spam     `json:"spam"`
+	// Routing of domains that are not delivered here: "remote" (another
+	// server is the mail exchanger; mail for the domain is sent there) or
+	// "backup" (this server queues the domain's mail for the primary MX).
+	// Absent: local.
+	Routing map[string]string `json:"routing,omitempty"`
+}
+
+// Routing values.
+const (
+	RouteLocal  = "local"
+	RouteRemote = "remote"
+	RouteBackup = "backup"
+)
+
+func (d Data) route(dom string) string {
+	if r := d.Routing[dom]; r == RouteRemote || r == RouteBackup {
+		return r
+	}
+	return RouteLocal
 }
 
 // Spam holds the spam filter (Rspamd) settings.
@@ -59,8 +78,10 @@ type Domain struct {
 
 // Mailbox is one mailbox (never returned with its hash).
 type Mailbox struct {
-	Hash    string `json:"hash"`
-	QuotaMB int64  `json:"quota_mb"`
+	Hash      string     `json:"hash"`
+	QuotaMB   int64      `json:"quota_mb"`
+	Filters   []Filter   `json:"filters,omitempty"`
+	Responder *Responder `json:"responder,omitempty"`
 }
 
 func newData() Data {
@@ -127,12 +148,19 @@ const header = "# Managed by WhaCP (email). Do not edit: changes are overwritten
 
 // render produces every derived file.
 func (d Data) render(dir, vmail string) files {
-	var domains, mailboxes, aliases, senders, users, keyTable, signing strings.Builder
-	for _, b := range []*strings.Builder{&domains, &mailboxes, &aliases, &senders, &users, &keyTable, &signing} {
+	var domains, mailboxes, aliases, senders, users, keyTable, signing, relay strings.Builder
+	for _, b := range []*strings.Builder{&domains, &mailboxes, &aliases, &senders, &users, &keyTable, &signing, &relay} {
 		b.WriteString(header)
 	}
 	for _, dom := range sortedKeys(d.Domains) {
-		fmt.Fprintf(&domains, "%s OK\n", dom)
+		// Only local domains are delivered to mailboxes here; a backup
+		// domain is relayed to its primary MX, a remote one is left to DNS.
+		switch d.route(dom) {
+		case RouteLocal:
+			fmt.Fprintf(&domains, "%s OK\n", dom)
+		case RouteBackup:
+			fmt.Fprintf(&relay, "%s OK\n", dom)
+		}
 		sel := d.Domains[dom].Selector
 		fmt.Fprintf(&keyTable, "%s._domainkey.%s %s:%s:%s/dkim/%s.private\n", sel, dom, dom, sel, dir, dom)
 		fmt.Fprintf(&signing, "*@%s %s._domainkey.%s\n", dom, sel, dom)
@@ -161,6 +189,9 @@ func (d Data) render(dir, vmail string) files {
 		fmt.Fprintf(&users, "%s:{SHA512-CRYPT}%s::::%s/%s/%s::%s\n", addr, hash, vmail, dom, local, quota)
 	}
 	for _, src := range sortedKeys(d.Aliases) {
+		if _, dom, _ := strings.Cut(src, "@"); d.route(dom) != RouteLocal {
+			continue // not rewritten: the domain's mail goes to its own server
+		}
 		fmt.Fprintf(&aliases, "%s %s\n", src, strings.Join(d.Aliases[src], ","))
 		// A mailbox may send as an alias that forwards to it.
 		var owners []string
@@ -175,7 +206,7 @@ func (d Data) render(dir, vmail string) files {
 	}
 	return files{
 		"domains": domains.String(), "mailboxes": mailboxes.String(), "aliases": aliases.String(),
-		"senders": senders.String(), "users": users.String(),
+		"senders": senders.String(), "users": users.String(), "relay_domains": relay.String(),
 		"dkim/KeyTable": keyTable.String(), "dkim/SigningTable": signing.String(),
 	}
 }

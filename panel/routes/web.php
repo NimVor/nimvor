@@ -194,6 +194,12 @@ return static function (Router $r): void {
     $r->post('/mail/domains/{id}/mailboxes/{mailbox}/delete', [MailController::class, 'deleteMailbox'], ['name' => 'mail.mailboxes.delete', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/aliases', [MailController::class, 'saveAlias'], ['name' => 'mail.aliases.store', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/aliases/{alias}/delete', [MailController::class, 'deleteAlias'], ['name' => 'mail.aliases.delete', 'permission' => P::MAIL_MANAGE]);
+    $r->get('/mail/domains/{id}/mailboxes/{mailbox}/filters', [\WhaCP\Http\Controllers\MailFiltersController::class, 'show'], ['name' => 'mail.filters', 'permission' => P::MAIL_MANAGE]);
+    $r->post('/mail/domains/{id}/mailboxes/{mailbox}/filters', [\WhaCP\Http\Controllers\MailFiltersController::class, 'save'], ['name' => 'mail.filters.save', 'permission' => P::MAIL_MANAGE]);
+    $r->post('/mail/domains/{id}/mailboxes/{mailbox}/filters/{n}/toggle', [\WhaCP\Http\Controllers\MailFiltersController::class, 'toggle'], ['name' => 'mail.filters.toggle', 'permission' => P::MAIL_MANAGE]);
+    $r->post('/mail/domains/{id}/mailboxes/{mailbox}/filters/{n}/delete', [\WhaCP\Http\Controllers\MailFiltersController::class, 'delete'], ['name' => 'mail.filters.delete', 'permission' => P::MAIL_MANAGE]);
+    $r->post('/mail/domains/{id}/mailboxes/{mailbox}/responder', [\WhaCP\Http\Controllers\MailFiltersController::class, 'responder'], ['name' => 'mail.responder', 'permission' => P::MAIL_MANAGE]);
+    $r->post('/mail/domains/{id}/routing', [\WhaCP\Http\Controllers\MailFiltersController::class, 'routing'], ['name' => 'mail.routing', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/delete', [MailController::class, 'delete'], ['name' => 'mail.delete', 'permission' => P::MAIL_MANAGE]);
     $r->get('/sites/{id}/mail', [MailController::class, 'site'], ['name' => 'sites.mail', 'permission' => P::MAIL_MANAGE]);
     $r->get('/dns', [DnsController::class, 'index'], ['name' => 'dns', 'permission' => P::DNS_MANAGE]);

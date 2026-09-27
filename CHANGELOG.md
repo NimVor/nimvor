@@ -7,6 +7,18 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Email filters and autoresponders** per mailbox (Email → domain →
+  mailbox → Filters): conditions on From, To, Cc, Reply-To, Subject,
+  List-Id or body (contains / is / begins / ends, or their negation; all
+  or any), actions move to folder, forward, send a copy, mark as read,
+  delete, stop; enable, disable, edit and delete. The autoresponder has a
+  subject, message, reply interval and optional date range. Rendered to
+  the mailbox's personal Sieve script from validated fields (users never
+  write Sieve), compiled with sievec, rolled back on failure.
+- **Mail routing** per domain: local, backup (queued for the primary MX
+  through Postfix relay_domains) or remote (mail from this server to the
+  domain goes to its own mail server; local aliases for it are not
+  applied).
 - **Shell access for website accounts** (administrators; Security → Shell
   access): per account or for all accounts at once. Disabled (default,
   SFTP only), jailed (a bubblewrap sandbox: `/usr` and a short list of

@@ -233,6 +233,8 @@ func postfixSettings(dir, hostname string, t tls, ipv6 bool, spam bool) [][2]str
 		{"mydestination", "localhost"},
 		{"mynetworks", nets},
 		{"virtual_mailbox_domains", "texthash:" + dir + "/domains"},
+		// Backup MX domains (queued for their primary MX).
+		{"relay_domains", "texthash:" + dir + "/relay_domains"},
 		{"virtual_mailbox_maps", "texthash:" + dir + "/mailboxes"},
 		{"virtual_alias_maps", "texthash:" + dir + "/aliases"},
 		{"virtual_transport", "lmtp:unix:private/dovecot-lmtp"},

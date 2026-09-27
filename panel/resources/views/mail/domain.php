@@ -90,6 +90,7 @@ $webmailUrl = !empty($webmail['enabled']) && !empty($webmail['hostname']) ? 'htt
                     <td class="text-end small"><?= $quota > 0 ? e(format_bytes($quota)) : 'Unlimited' ?></td>
                     <td class="small"><?php if ($pct !== null && $pct >= 100): ?><span class="wcp-state is-error">Full</span><?php elseif ($pct !== null && $pct >= 90): ?><span class="wcp-state is-warn">Almost full</span><?php else: ?><span class="wcp-state is-ok">Active</span><?php endif; ?></td>
                     <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('mail.filters', ['id' => $id, 'mailbox' => (int) $m['id']])) ?>" title="Filters and autoresponder" aria-label="Filters and autoresponder of <?= e($addr) ?>"><i class="bi bi-funnel"></i></a>
                         <a class="btn btn-sm btn-outline-secondary" href="?edit=<?= (int) $m['id'] ?>" title="Change quota or password" aria-label="Change <?= e($addr) ?>"><i class="bi bi-pencil"></i></a>
                         <form class="d-inline" method="post" action="<?= e($this->url('mail.mailboxes.delete', ['id' => $id, 'mailbox' => (int) $m['id']])) ?>" data-wcp-confirm="Delete the mailbox <?= e($addr) ?>? Its mail is moved to the server's trash folder." data-wcp-confirm-word="<?= e($addr) ?>"><?= $this->csrfField() ?><input type="hidden" name="confirm" value="<?= e($addr) ?>"><button class="btn btn-sm btn-outline-danger" title="Delete" aria-label="Delete <?= e($addr) ?>"><i class="bi bi-trash"></i></button></form>
                     </td>
@@ -101,6 +102,21 @@ $webmailUrl = !empty($webmail['enabled']) && !empty($webmail['hostname']) ? 'htt
         </table>
     </div>
     <?php endif; ?>
+</div>
+
+<?php $routing = (string) ($domain['routing'] ?? 'local'); ?>
+<div class="card mb-3" id="routing">
+    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <div class="me-auto"><div class="fw-semibold"><i class="bi bi-diagram-2 me-1"></i>Mail routing</div>
+            <div class="small text-body-secondary"><?= e(['local' => 'This server receives the domain\'s mail into its mailboxes.', 'backup' => 'This server only queues the domain\'s mail for its primary mail server (a lower-priority MX).', 'remote' => 'Another server receives the domain\'s mail; mail from this server to the domain goes there.'][$routing] ?? '') ?></div></div>
+        <form class="d-flex gap-2" method="post" action="<?= e($this->url('mail.routing', ['id' => $id])) ?>" data-wcp-busy data-wcp-confirm="Change the mail routing of <?= e($dom) ?>? With backup or remote routing, mail for the domain is no longer delivered to the mailboxes here.">
+            <?= $this->csrfField() ?>
+            <select class="form-select form-select-sm" name="routing" aria-label="Mail routing">
+                <?php foreach (\WhaCP\Services\MailFilterService::ROUTING as $k => $l): ?><option value="<?= e($k) ?>"<?= $routing === $k ? ' selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?>
+            </select>
+            <button class="btn btn-sm btn-outline-primary">Change</button>
+        </form>
+    </div>
 </div>
 
 <div class="card mb-3" id="aliases">

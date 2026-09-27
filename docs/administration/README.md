@@ -337,6 +337,23 @@ members of the `whacp-jail` group (jailed accounts) can run; the agent
 refreshes the copy whenever shell access changes. Other accounts and
 programs keep the restriction.
 
+## Email filters, autoresponders and routing
+
+- **Filters and autoresponder** (Email → domain → the funnel button of a
+  mailbox): WhaCP renders them to the mailbox's personal Sieve script
+  `<vmail>/<domain>/<mailbox>/.dovecot.sieve` (owned by vmail) and compiles
+  it with `sievec`. The first save adds
+  `/etc/dovecot/conf.d/99-whacp-sieve.conf`, which turns on personal Sieve
+  scripts for Dovecot 2.3 (`sieve = file:~/sieve;active=~/.dovecot.sieve`)
+  and 2.4 (`sieve_script personal`), validated with `doveconf -n` and
+  followed by a Dovecot reload. The spam filter's script runs first.
+- **Routing** (Email → domain → Mail routing): *local* delivers to the
+  mailboxes here; *backup* removes the domain from local delivery and lists
+  it in `/etc/whacp-mail/relay_domains` (Postfix `relay_domains`), so this
+  server queues its mail for the primary MX; *remote* removes it from local
+  delivery and from the alias map, so mail sent from this server to the
+  domain goes to the domain's MX.
+
 ## PHP versions and settings
 
 *PHP* lists the installed versions; each has a **Settings** page with three

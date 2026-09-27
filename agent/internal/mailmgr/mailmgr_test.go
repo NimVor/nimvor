@@ -294,3 +294,76 @@ func TestSuspendedDomainCannotLogInButReceivesMail(t *testing.T) {
 		t.Fatalf("unhosted domain: %v %v", res, err)
 	}
 }
+
+func TestFiltersAndRouting(t *testing.T) {
+	h, r := setup(t)
+	h.Env.Cfg.SimulateCommands = true
+	if _, err := call(t, r, "mail.configure", map[string]any{"hostname": "mail.example.com", "confirm_edit_package_config": true}); err != nil {
+		t.Fatal(err)
+	}
+	h.Env.Cfg.SimulateCommands = false
+	for _, d := range []string{"example.com", "other.org"} {
+		call(t, r, "mail.domain_add", map[string]any{"domain": d})
+	}
+	call(t, r, "mail.mailbox_save", map[string]any{"address": "me@example.com", "password": "Long-enough-pw"})
+	call(t, r, "mail.alias_save", map[string]any{"source": "info@other.org", "destinations": []string{"me@example.com"}})
+	os.Remove(filepath.Join(h.Base, "usr/lib/dovecot/modules/lib90_sieve_plugin.so"))
+	if _, err := call(t, r, "mail.filters_save", map[string]any{"address": "me@example.com", "filters": []any{}}); code(err) != "conflict" {
+		t.Fatalf("without the Sieve plugin: %v", err)
+	}
+	os.MkdirAll(filepath.Join(h.Base, "usr/lib/dovecot/modules"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "usr/lib/dovecot/modules/lib90_sieve_plugin.so"), nil, 0o644)
+
+	filters := []map[string]any{{"name": "Invoices", "enabled": true, "rules": []map[string]any{{"part": "subject", "match": "contains", "value": "invoice"}}, "actions": []map[string]any{{"type": "fileinto", "value": "Invoices"}}}}
+	responder := map[string]any{"enabled": true, "subject": "Away", "body": "Back soon.", "days": 2}
+	if _, err := call(t, r, "mail.filters_save", map[string]any{"address": "nobody@example.com", "filters": filters}); code(err) != "not_found" {
+		t.Fatalf("unknown mailbox: %v", err)
+	}
+	if _, err := call(t, r, "mail.filters_save", map[string]any{"address": "me@example.com", "filters": []map[string]any{{"name": "x", "enabled": true, "rules": []map[string]any{{"part": "subject", "match": "is", "value": "a"}}, "actions": []map[string]any{{"type": "fileinto", "value": "../../etc"}}}}}); code(err) != "invalid_params" {
+		t.Fatalf("bad folder: %v", err)
+	}
+	res, err := call(t, r, "mail.filters_save", map[string]any{"address": "me@example.com", "filters": filters, "responder": responder})
+	if err != nil || res["active"] != true {
+		t.Fatalf("save: %v %v", res, err)
+	}
+	script := h.Read("var/vmail/example.com/me/.dovecot.sieve")
+	if !strings.Contains(script, `fileinto :create "Invoices";`) || !strings.Contains(script, `vacation :days 2 :subject "Away" :from "me@example.com" "Back soon.";`) {
+		t.Fatalf("script:\n%s", script)
+	}
+	if !strings.Contains(h.Read("etc/dovecot/conf.d/99-whacp-sieve.conf"), "sieve = file:~/sieve;active=~/.dovecot.sieve") {
+		t.Fatal("personal Sieve scripts not turned on")
+	}
+	joined := strings.Join(h.Runner.Calls, "\n")
+	if !strings.Contains(joined, "sievec "+filepath.Join(h.Base, "var/vmail/example.com/me/.dovecot.sieve")) && !strings.Contains(joined, "sievec /var/vmail/example.com/me/.dovecot.sieve") {
+		t.Fatalf("not compiled: %s", joined)
+	}
+	got, _ := call(t, r, "mail.filters_get", map[string]any{"address": "me@example.com"})
+	if len(got["filters"].([]any)) != 1 || got["responder"].(map[string]any)["subject"] != "Away" {
+		t.Fatalf("get: %v", got)
+	}
+	// Removing everything removes the script.
+	call(t, r, "mail.filters_save", map[string]any{"address": "me@example.com", "filters": []any{}, "responder": map[string]any{"enabled": false}})
+	if h.Exists("var/vmail/example.com/me/.dovecot.sieve") {
+		t.Fatal("script kept")
+	}
+
+	// Routing: remote domains are not delivered or rewritten here, backup
+	// domains are relayed.
+	if _, err := call(t, r, "mail.routing_set", map[string]any{"domain": "other.org", "routing": "remote"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(h.Read("etc/whacp-mail/domains"), "other.org") || strings.Contains(h.Read("etc/whacp-mail/aliases"), "info@other.org") {
+		t.Fatalf("remote domain still local:\n%s\n%s", h.Read("etc/whacp-mail/domains"), h.Read("etc/whacp-mail/aliases"))
+	}
+	call(t, r, "mail.routing_set", map[string]any{"domain": "other.org", "routing": "backup"})
+	if !strings.Contains(h.Read("etc/whacp-mail/relay_domains"), "other.org OK") || strings.Contains(h.Read("etc/whacp-mail/domains"), "other.org") {
+		t.Fatalf("backup: relay %q domains %q", h.Read("etc/whacp-mail/relay_domains"), h.Read("etc/whacp-mail/domains"))
+	}
+	call(t, r, "mail.routing_set", map[string]any{"domain": "other.org", "routing": "local"})
+	if !strings.Contains(h.Read("etc/whacp-mail/domains"), "other.org OK") || !strings.Contains(h.Read("etc/whacp-mail/aliases"), "info@other.org") || strings.Contains(h.Read("etc/whacp-mail/relay_domains"), "other.org") {
+		t.Fatal("local routing not restored")
+	}
+	if _, err := call(t, r, "mail.routing_set", map[string]any{"domain": "unknown.net", "routing": "remote"}); code(err) != "conflict" {
+		t.Fatalf("unhosted: %v", err)
+	}
+}
