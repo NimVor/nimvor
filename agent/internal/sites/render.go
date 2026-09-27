@@ -117,8 +117,19 @@ func RenderPool(s Spec, l Layout) string {
 	fmt.Fprintf(&b, "; %s\n; Website: %s\n\n[whacp-%s]\n", header, s.Domain, s.Domain)
 	fmt.Fprintf(&b, "user = %s\ngroup = %s\n", s.User, s.User)
 	fmt.Fprintf(&b, "listen = %s\nlisten.owner = %s\nlisten.group = %s\nlisten.mode = 0660\n", l.Socket, l.WebUser, l.WebUser)
-	fmt.Fprintf(&b, "pm = ondemand\npm.max_children = %d\npm.process_idle_timeout = 10s\npm.max_requests = 500\n", s.PHP.MaxChildren)
-	fmt.Fprintf(&b, "chdir = /\ncatch_workers_output = yes\nslowlog = %s\nrequest_slowlog_timeout = 10s\n", filepath.Join(l.LogDir, "php-slow.log"))
+	p := s.PHP
+	fmt.Fprintf(&b, "pm = %s\npm.max_children = %d\n", p.PM, p.MaxChildren)
+	switch p.PM {
+	case "dynamic":
+		fmt.Fprintf(&b, "pm.start_servers = %d\npm.min_spare_servers = %d\npm.max_spare_servers = %d\n", p.StartServers, p.MinSpare, p.MaxSpare)
+	case "ondemand":
+		fmt.Fprintf(&b, "pm.process_idle_timeout = %ds\n", p.IdleTimeoutSec)
+	}
+	fmt.Fprintf(&b, "pm.max_requests = %d\n", p.MaxRequests)
+	if p.RequestTimeoutSec > 0 {
+		fmt.Fprintf(&b, "request_terminate_timeout = %ds\n", p.RequestTimeoutSec)
+	}
+	fmt.Fprintf(&b, "chdir = /\ncatch_workers_output = yes\nslowlog = %s\nrequest_slowlog_timeout = %ds\n", filepath.Join(l.LogDir, "php-slow.log"), p.SlowlogSec)
 	fmt.Fprintf(&b, "php_admin_value[open_basedir] = %s/:/usr/share/php/:/dev/urandom\n", s.Root)
 	fmt.Fprintf(&b, "php_admin_value[upload_tmp_dir] = %s\nphp_admin_value[session.save_path] = %s\nphp_admin_value[sys_temp_dir] = %s\n", l.TmpDir, l.TmpDir, l.TmpDir)
 	fmt.Fprintf(&b, "php_admin_value[error_log] = %s\nphp_admin_flag[log_errors] = on\nphp_admin_flag[display_errors] = off\n", filepath.Join(l.LogDir, "php-error.log"))

@@ -169,6 +169,8 @@ paths:
               - php.extension_remove
               - php.extension_set
               - php.extensions
+              - php.fpm_get
+              - php.fpm_set
               - php.ini_get
               - php.ini_set
               - php.install
@@ -433,6 +435,8 @@ x-whacp-actions:
   php.extension_remove: { mutating: true, description: "Remove a PHP extension's package for a version (job), only if nothing else would be removed with it; PHP-FPM is reloaded." }
   php.extension_set: { mutating: true, description: "Switch a PHP extension on or off for a version (Debian: phpenmod/phpdismod; RHEL: its php.d line); PHP-FPM is checked and reloaded, and the change undone on failure." }
   php.extensions: { mutating: false, description: "The PHP extensions WhaCP manages for a version: installed, enabled, protected." }
+  php.fpm_get: { mutating: false, description: "Server-wide PHP-FPM settings WhaCP set for a PHP version (zero: PHP-FPM's default)." }
+  php.fpm_set: { mutating: true, description: "Write server-wide PHP-FPM settings for a PHP version (emergency restart, process control timeout, process.max, log level), checked with php-fpm -t and applied with a reload; rolled back on failure." }
   php.ini_get: { mutating: false, description: "WhaCP's php.ini settings for a PHP version, the settings that may be changed and the values PHP-FPM uses now." }
   php.ini_set: { mutating: true, description: "Write WhaCP's php.ini settings for a PHP version (allowed directives only; empty removes them), checked with php-fpm -t (warnings count as errors) and applied with a reload; rolled back on failure." }
   php.install: { mutating: true, description: "Install a PHP version (FPM, CLI and common extensions) with the package manager." }

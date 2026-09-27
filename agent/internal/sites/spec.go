@@ -21,6 +21,21 @@ type PHPSettings struct {
 	MaxExecSeconds int  `json:"max_execution_seconds"`
 	MaxChildren    int  `json:"max_children"`
 	Harden         bool `json:"harden"`
+	// PHP-FPM process manager: ondemand (default), dynamic or static.
+	PM string `json:"pm"`
+	// dynamic: processes at start and idle ones kept (0: derived from
+	// max_children).
+	StartServers int `json:"start_servers"`
+	MinSpare     int `json:"min_spare_servers"`
+	MaxSpare     int `json:"max_spare_servers"`
+	// ondemand: seconds an idle process is kept.
+	IdleTimeoutSec int `json:"idle_timeout_seconds"`
+	// Requests a process serves before it is replaced.
+	MaxRequests int `json:"max_requests"`
+	// Hard limit per request in seconds, killing the process (0: none).
+	RequestTimeoutSec int `json:"request_timeout_seconds"`
+	// Requests slower than this are logged with a backtrace (php-slow.log).
+	SlowlogSec int `json:"slowlog_seconds"`
 }
 
 // Redirect is a path-level redirect.
@@ -121,6 +136,34 @@ func (s *Spec) Normalize(sitesRoot, stateDir string) error {
 	if s.ClientMaxBodyMB == 0 {
 		s.ClientMaxBodyMB = p.UploadMaxMB
 	}
+	switch p.PM {
+	case "":
+		p.PM = "ondemand"
+	case "ondemand", "dynamic", "static":
+	default:
+		return fail("php.pm", "must be ondemand, dynamic or static")
+	}
+	for ptr, def := range map[*int]int{&p.IdleTimeoutSec: 10, &p.MaxRequests: 500, &p.SlowlogSec: 10} {
+		if *ptr == 0 {
+			*ptr = def
+		}
+	}
+	if p.PM == "dynamic" {
+		if p.MinSpare == 0 {
+			p.MinSpare = 1
+		}
+		if p.MaxSpare == 0 {
+			p.MaxSpare = min(3, p.MaxChildren)
+		}
+		if p.StartServers == 0 {
+			p.StartServers = min(max(2, p.MinSpare), p.MaxSpare)
+		}
+		if !(1 <= p.MinSpare && p.MinSpare <= p.StartServers && p.StartServers <= p.MaxSpare && p.MaxSpare <= p.MaxChildren) {
+			return fail("php.start_servers", "dynamic needs 1 ≤ min spare ≤ start ≤ max spare ≤ max processes")
+		}
+	} else {
+		p.StartServers, p.MinSpare, p.MaxSpare = 0, 0, 0
+	}
 	limits := []struct {
 		field     string
 		v, lo, hi int
@@ -129,6 +172,10 @@ func (s *Spec) Normalize(sitesRoot, stateDir string) error {
 		{"php.upload_max_mb", p.UploadMaxMB, 1, 4096},
 		{"php.max_execution_seconds", p.MaxExecSeconds, 5, 3600},
 		{"php.max_children", p.MaxChildren, 1, 200},
+		{"php.idle_timeout_seconds", p.IdleTimeoutSec, 1, 3600},
+		{"php.max_requests", p.MaxRequests, 1, 100000},
+		{"php.request_timeout_seconds", p.RequestTimeoutSec, 0, 86400},
+		{"php.slowlog_seconds", p.SlowlogSec, 1, 3600},
 		{"client_max_body_mb", s.ClientMaxBodyMB, 1, 4096},
 	}
 	for _, l := range limits {
