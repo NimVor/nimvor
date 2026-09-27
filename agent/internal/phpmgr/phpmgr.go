@@ -23,6 +23,8 @@ var extRe = regexp.MustCompile(`^[a-z][a-z0-9-]{1,30}$`)
 
 // Register adds PHP actions.
 func Register(r *actions.Registry, env *host.Env) {
+	registerExtensions(r, env)
+	registerIni(r, env)
 	r.Register(actions.Action{Name: "php.available", Description: "PHP versions offered by the configured package repositories.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		if env.Platform.PackageManager() == "dnf" {
 			// Remi's parallel versions: php83-php-fpm.x86_64 …

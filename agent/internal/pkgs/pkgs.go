@@ -94,13 +94,90 @@ func InstallNative(ctx context.Context, env *host.Env, log io.Writer, pkgs []str
 	return nil
 }
 
+// RemoveNative removes packages given by this system's own names, but only
+// them: when the package manager would also remove other packages (that
+// need these), nothing is removed and the error names them.
+func RemoveNative(ctx context.Context, env *host.Env, log io.Writer, pkgs []string) error {
+	for _, p := range pkgs {
+		if err := validate.Package("package", p); err != nil {
+			return err
+		}
+	}
+	if len(pkgs) == 0 {
+		return nil
+	}
+	opts := execx.Opts{Output: log, Timeout: -1}
+	if dnf(env) {
+		// rpm -e --test fails, naming them, when other packages need these.
+		if out, err := env.Runner.Run(ctx, "rpm", append([]string{"-e", "--test", "--"}, pkgs...)...); err != nil {
+			return fmt.Errorf("other packages need %s: %s", strings.Join(pkgs, ", "), host.Why(out, err))
+		}
+		args := append([]string{"remove", "-y", "-q", "--noautoremove", "--"}, pkgs...)
+		if _, err := env.Runner.RunWith(ctx, "dnf", opts, args...); err != nil {
+			return fmt.Errorf("dnf remove failed; see the log above")
+		}
+		return nil
+	}
+	out, err := env.Runner.Run(ctx, "apt-get", append([]string{"-s", "remove", "--"}, pkgs...)...)
+	if err != nil {
+		return fmt.Errorf("apt-get could not plan the removal: %s", host.Why(out, err))
+	}
+	if extra := ExtraRemovals(string(out), pkgs); len(extra) > 0 {
+		return fmt.Errorf("removing %s would also remove %s; nothing was removed", strings.Join(pkgs, ", "), strings.Join(extra, ", "))
+	}
+	args := append([]string{"remove", "-y", "-q", "--"}, pkgs...)
+	if _, err := env.Runner.RunWith(ctx, "apt-get", opts, args...); err != nil {
+		return fmt.Errorf("apt-get remove failed; see the log above")
+	}
+	return nil
+}
+
+var aptRemv = regexp.MustCompile(`(?m)^Remv (\S+)`)
+
+// phpVersioned is a versioned PHP package ("php8.3-redis").
+var phpVersioned = regexp.MustCompile(`^php[0-9]+\.[0-9]+-(.+)$`)
+
+// ExtraRemovals lists the packages an apt-get -s remove would remove
+// beyond those asked for. Debian's unversioned PHP metapackage of an asked
+// package ("php-redis" for "php8.3-redis") only points at it and may go.
+func ExtraRemovals(simulation string, asked []string) []string {
+	want := map[string]bool{}
+	for _, p := range asked {
+		want[p] = true
+		if m := phpVersioned.FindStringSubmatch(p); m != nil {
+			want["php-"+m[1]] = true
+		}
+	}
+	var extra []string
+	for _, m := range aptRemv.FindAllStringSubmatch(simulation, -1) {
+		if name, _, _ := strings.Cut(m[1], ":"); !want[name] {
+			extra = append(extra, name)
+		}
+	}
+	return extra
+}
+
 // Installed returns WhaCP name → version for installed packages among names.
 func Installed(ctx context.Context, env *host.Env, names []string) map[string]string {
+	return installed(ctx, env, names, false)
+}
+
+// InstalledNative returns native package name → version for installed
+// packages among natives (this system's own names).
+func InstalledNative(ctx context.Context, env *host.Env, natives []string) map[string]string {
+	return installed(ctx, env, natives, true)
+}
+
+func installed(ctx context.Context, env *host.Env, names []string, isNative bool) map[string]string {
 	out := map[string]string{}
 	native := map[string][]string{}
 	var query []string
 	for _, n := range names {
-		if p, ok := env.Platform.PackageName(n); ok {
+		p, ok := n, true
+		if !isNative {
+			p, ok = env.Platform.PackageName(n)
+		}
+		if ok {
 			if native[p] == nil {
 				query = append(query, p)
 			}

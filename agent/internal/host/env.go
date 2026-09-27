@@ -85,6 +85,11 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		cfg.StateDir + "/**",
 		cfg.BackupDir + "/**",
 		WorkersDir + "/**",
+		// RHEL: switching a PHP extension edits its php.d file; WhaCP's
+		// php.ini settings are php.d/99-whacp.ini there.
+		"/etc/opt/remi/php*/php.d/*.ini",
+		"/etc/php/*/fpm/conf.d/99-whacp.ini",
+		"/etc/php/*/cli/conf.d/99-whacp.ini",
 	}
 	return &Env{
 		Cfg: cfg, Root: root, Platform: p, M: m, Runner: r, Jobs: j, Log: log,

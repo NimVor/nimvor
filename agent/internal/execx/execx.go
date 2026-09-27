@@ -112,6 +112,8 @@ var defaultCandidates = map[string][]string{
 	"setsebool":              {"/usr/sbin/setsebool"},
 	"getsebool":              {"/usr/sbin/getsebool"},
 	"dpkg-query":             {"/usr/bin/dpkg-query"},
+	"phpenmod":               {"/usr/sbin/phpenmod"},
+	"phpdismod":              {"/usr/sbin/phpdismod"},
 	"apt-cache":              {"/usr/bin/apt-cache"},
 	"ufw":                    {"/usr/sbin/ufw"},
 	"fail2ban-client":        {"/usr/bin/fail2ban-client"},

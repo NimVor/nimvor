@@ -51,3 +51,16 @@ func TestInstalled(t *testing.T) {
 		})
 	}
 }
+
+// Removing an extension must not take other packages along; Debian's
+// unversioned metapackage of the extension itself may go.
+func TestExtraRemovals(t *testing.T) {
+	sim := "The following packages will be REMOVED:\n  php-mbstring php8.3-mbstring\nRemv php-mbstring [2:8.3+93ubuntu2]\nRemv php8.3-mbstring [8.3.6-0ubuntu0.24.04.11]\n"
+	if got := ExtraRemovals(sim, []string{"php8.3-mbstring"}); len(got) != 0 {
+		t.Errorf("metapackage counted as extra: %v", got)
+	}
+	sim += "Remv phpmyadmin [4:5.2.1]\nRemv libapache2-mod-php8.3:amd64 [8.3.6]\n"
+	if got := ExtraRemovals(sim, []string{"php8.3-mbstring"}); len(got) != 2 || got[0] != "phpmyadmin" || got[1] != "libapache2-mod-php8.3" {
+		t.Errorf("extras: %v", got)
+	}
+}
