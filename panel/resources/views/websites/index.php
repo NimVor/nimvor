@@ -69,7 +69,7 @@
         <div class="card-body text-center py-5 wcp-empty">
             <i class="bi bi-globe2 display-6 text-body-secondary"></i>
             <p class="mt-3 mb-0 text-body-secondary">
-                <?= $total === 0 ? 'No websites were found in the Nginx configuration.' : 'No websites match your filter.' ?>
+                <?= $total !== 0 ? 'No websites match your filter.' : ($managed !== [] ? 'No other websites were found in the Nginx configuration. Websites managed by WhaCP are listed above.' : 'No websites were found in the Nginx configuration.') ?>
             </p>
         </div>
     <?php else: ?>
