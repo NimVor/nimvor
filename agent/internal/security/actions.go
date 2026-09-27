@@ -3,6 +3,7 @@ package security
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
@@ -66,6 +67,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err != nil {
 			return nil, actions.Failed("The firewall state could not be read.", err.Error())
 		}
+		st.Listening = Listening(env)
 		return st, nil
 	}})
 	r.Register(actions.Action{Name: "firewall.rule_add", Mutating: true, Description: "Add a UFW rule (auto-reverted unless confirmed).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
@@ -113,6 +115,9 @@ func Register(r *actions.Registry, env *host.Env) {
 			admins = []string{}
 		}
 		return map[string]any{"effective": eff, "root_has_keys": rootKeys, "admins_with_keys": admins, "managed_file": env.M.SSHDropIn, "managed_config": managed}, nil
+	}})
+	r.Register(actions.Action{Name: "ssh.logins", Description: "SSH logins of the last seven days: accepted and failed counts, the last of each (read from the journal).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+		return Logins(ctx, env, time.Now()), nil
 	}})
 	r.Register(actions.Action{Name: "ssh.configure", Mutating: true, Description: "Harden the SSH server (validated with sshd -t, auto-reverted unless confirmed).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in SSHSettings

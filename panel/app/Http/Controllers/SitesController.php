@@ -208,8 +208,12 @@ final class SitesController extends Controller
         if ($site === null) {
             return $this->notFound();
         }
-        // The site page's own button returns there; Advanced's to Advanced.
-        $back = '/sites/' . (int) $id . ($request->string('return_to') === 'overview' ? '' : '/advanced');
+        // The site page's and the list's buttons return there; Advanced's to Advanced.
+        $back = match ($request->string('return_to')) {
+            'overview' => '/sites/' . (int) $id,
+            'websites' => '/websites',
+            default => '/sites/' . (int) $id . '/advanced',
+        };
         try {
             $this->service->setEnabled($site, !$site['enabled']);
         } catch (UserFacingException $e) {

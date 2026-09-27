@@ -207,6 +207,7 @@ paths:
               - sites.list
               - sites.usage
               - ssh.configure
+              - ssh.logins
               - ssh.status
               - ssl.custom
               - ssl.delete
@@ -479,6 +480,7 @@ x-whacp-actions:
   sites.list: { mutating: false, description: "WhaCP-managed websites present on this server." }
   sites.usage: { mutating: false, description: "Disk use of website directories (read-only)." }
   ssh.configure: { mutating: true, description: "Harden the SSH server (validated with sshd -t, auto-reverted unless confirmed)." }
+  ssh.logins: { mutating: false, description: "SSH logins of the last seven days: accepted and failed counts, the last of each (read from the journal)." }
   ssh.status: { mutating: false, description: "Effective SSH server settings and key-based access." }
   ssl.custom: { mutating: true, description: "Install an uploaded certificate and private key after validating them." }
   ssl.delete: { mutating: true, description: "Delete a certbot certificate that no WhaCP site uses any more." }

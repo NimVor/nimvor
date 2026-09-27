@@ -103,7 +103,8 @@ final class SiteDashboardTest extends HttpTestCase
         $this->agent->succeed('discovery.inventory', ['websites' => ['websites' => [], 'catch_all_vhosts' => 0, 'warnings' => []]]);
         $list = $this->request('GET', '/websites')->body();
         self::assertStringContainsString('id="wcp-sidebar"', $list);
-        self::assertStringContainsString('Managed by WhaCP', $list);
+        self::assertStringContainsString('id="wcp-sites-dt"', $list, 'the table is the administrators\' default');
+        self::assertStringContainsString('name="return_to" value="websites"', $list, 'status switch returns to the list');
         self::assertStringContainsString('wcp-site-card', $this->request('GET', '/websites', [], [], '', ['view' => 'grid'])->body());
     }
 

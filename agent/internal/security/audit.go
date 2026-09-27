@@ -58,7 +58,7 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 	case !f2b.Running:
 		add(Check{ID: "fail2ban", Title: "Brute-force protection", Status: "warn", Severity: "medium", Detail: "fail2ban is installed but not running.", Remedy: "Start fail2ban under Services."})
 	case len(f2b.Jails) == 0:
-		add(Check{ID: "fail2ban", Title: "Brute-force protection", Status: "warn", Severity: "medium", Detail: "fail2ban is running but no jail is active.", Remedy: "Enable the sshd jail under Security → Fail2ban."})
+		add(Check{ID: "fail2ban", Title: "Brute-force protection", Status: "warn", Severity: "medium", Detail: "fail2ban is running but no jail is active.", Remedy: "Enable the sshd jail under Security → Brute-force protection."})
 	default:
 		names := []string{}
 		for _, j := range f2b.Jails {

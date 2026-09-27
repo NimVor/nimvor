@@ -35,6 +35,7 @@ final class FtpController extends SiteController
         private readonly AgentClient $agent,
         private readonly AuditLogger $audit,
         private readonly JobTracker $jobs,
+        private readonly \WhaCP\Services\SiteOverview $overview,
     ) {
         parent::__construct($view, $session, $sites, $server);
     }
@@ -54,7 +55,7 @@ final class FtpController extends SiteController
         foreach ($this->sites->all($this->server->id(), $this->user($request)) as $s) {
             $sites[(string) $s['system_user']] = $s;
         }
-        return $this->render('ftp/index', ['status' => $status, 'agentError' => $error, 'sitesByUser' => $sites]);
+        return $this->render('ftp/index', ['status' => $status, 'agentError' => $error, 'sitesByUser' => $sites, 'serverIp' => $error === null ? $this->overview->serverIp() : null]);
     }
 
     /** @param callable(): (string|array{0: string, 1: string}) $fn */

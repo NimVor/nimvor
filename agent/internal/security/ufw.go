@@ -18,18 +18,25 @@ type Rule struct {
 	Args   []string `json:"-"`
 	Action string   `json:"action"`
 	SSH    bool     `json:"ssh"` // allows the SSH port
+	// Display fields read from the spec.
+	Port      string `json:"port"`      // "22", "8000:8100", a service or app name; "" = all
+	Proto     string `json:"proto"`     // tcp, udp; "" = both
+	From      string `json:"from"`      // "" = anywhere
+	Direction string `json:"direction"` // in, out or route
+	Comment   string `json:"comment"`
 }
 
 // FirewallStatus is the state of the firewall.
 type FirewallStatus struct {
-	Backend   string `json:"backend"` // ufw or firewalld
-	Installed bool   `json:"installed"`
-	Active    bool   `json:"active"`
-	Incoming  string `json:"default_incoming"`
-	Outgoing  string `json:"default_outgoing"`
-	Rules     []Rule `json:"rules"`
-	SSHPort   int    `json:"ssh_port"`
-	SSHOpen   bool   `json:"ssh_allowed"`
+	Backend   string     `json:"backend"` // ufw or firewalld
+	Installed bool       `json:"installed"`
+	Active    bool       `json:"active"`
+	Incoming  string     `json:"default_incoming"`
+	Outgoing  string     `json:"default_outgoing"`
+	Rules     []Rule     `json:"rules"`
+	SSHPort   int        `json:"ssh_port"`
+	SSHOpen   bool       `json:"ssh_allowed"`
+	Listening []Listener `json:"listening"`
 }
 
 // SplitArgs splits a ufw rule line, honouring single and double quotes.
@@ -84,6 +91,7 @@ func ParseAdded(out string, sshPort int) []Rule {
 		}
 		r := Rule{Spec: spec, Args: args, Action: args[0]}
 		r.SSH = (r.Action == "allow" || r.Action == "limit") && allowsPort(args, sshPort)
+		describeUFW(&r)
 		rules = append(rules, r)
 	}
 	return rules

@@ -20,6 +20,7 @@ final class SecurityController extends Controller
         SessionInterface $session,
         private readonly AgentClient $agent,
         private readonly SecurityService $security,
+        private readonly \WhaCP\Database\Connection $db,
     ) {
         parent::__construct($view, $session);
     }
@@ -43,7 +44,23 @@ final class SecurityController extends Controller
     public function index(Request $request): Response
     {
         [$checks, $err] = $this->read('security.audit', 120);
-        return $this->page('index', ['checks' => (array) $checks, 'agentError' => $err]);
+        [$logins] = $err === null ? $this->read('ssh.logins', 60) : [null];
+        [$f2b] = $err === null ? $this->read('fail2ban.status') : [null];
+        $f2b = (array) $f2b;
+        $sshJail = false;
+        foreach ((array) ($f2b['jails'] ?? []) as $j) {
+            $sshJail = $sshJail || (($j['name'] ?? '') === 'sshd');
+        }
+        return $this->page('index', [
+            'checks' => (array) $checks,
+            'agentError' => $err,
+            'logins' => $logins === null ? null : (array) $logins,
+            'sshProtected' => $f2b === [] ? null : (!empty($f2b['running']) && $sshJail),
+            'panelLogin' => [
+                'success' => $this->db->fetch("SELECT username, ip, created_at FROM audit_logs WHERE action = 'auth.login' AND result = 'success' ORDER BY id DESC LIMIT 1"),
+                'failure' => $this->db->fetch("SELECT username, ip, created_at FROM audit_logs WHERE action = 'auth.login' AND result <> 'success' ORDER BY id DESC LIMIT 1"),
+            ],
+        ]);
     }
 
     public function firewall(Request $request): Response

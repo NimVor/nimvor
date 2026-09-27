@@ -149,6 +149,35 @@ sudo -u whacp -E php /opt/whacp/panel/bin/whacp schedule:run   # normally run by
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp doctor
 ```
 
+## List pages for administrators and resellers
+
+*Websites*, *Databases*, *FTP* and *Security* share one layout: an info
+bar (for example the FTP address or the database host and port), a row
+of actions with the service and its version, and a table with its
+operations inline (`Manage | Log | ⋮`). Search, filters (status,
+Inbound/Outbound, rule kind) and paging (10–100 rows, *Goto*, *Total*)
+work in the page without reloading; the chosen page size is remembered
+in the browser.
+
+- **Websites** is a table for administrators and resellers (cards on
+  request): the status switch disables or enables a website after a
+  confirmation; *Backup* counts completed backups and links to the
+  website's backups; *SSL* shows the days left on the certificate from
+  the latest discovery (orange from the warning threshold under
+  Settings, red once expired). Resellers see the certificates of their
+  own websites only.
+- **Security → Overview** counts SSH logins of today, yesterday and the
+  last 7 days (accepted and failed, from the journal of `sshd`, also
+  `sshd-session` on OpenSSH 9.8+), shows the last SSH and panel sign-ins,
+  and rates the server from 0 to 100 from the security checks: a passed
+  check counts fully, a warning half, weighted by severity (high 3,
+  medium 2, low 1); informational checks do not count.
+- **Security → Firewall** lists the rules with their protocol, port,
+  source and direction, and whether a program listens on the port
+  (*Listening*, *Local only* for 127.0.0.1, *Not listening*, read from
+  `/proc/net`). The switch turns the firewall on or off (with the same
+  2-minute confirmation as before).
+
 ## Websites for hosting customers
 
 Hosting customers (own-scope roles that do not manage users) get a simple

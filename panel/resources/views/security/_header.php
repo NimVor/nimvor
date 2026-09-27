@@ -2,11 +2,16 @@
 /** @var \WhaCP\View\View $this */
 /** @var string $tab */
 /** @var array<string, mixed>|null $pending */
-$tabs = [['index', 'Overview', 'security', 'shield-check'], ['firewall', 'Firewall', 'security.firewall', 'bricks'], ['ssh', 'SSH', 'security.ssh', 'terminal'], ['fail2ban', 'Fail2ban', 'security.fail2ban', 'slash-circle']];
+$tabs = [['index', 'Overview', 'security'], ['firewall', 'Firewall', 'security.firewall'], ['ssh', 'SSH', 'security.ssh'], ['fail2ban', 'Brute-force protection', 'security.fail2ban']];
 $canManage = $this->can(\WhaCP\Security\Permissions::SECURITY_MANAGE);
 ?>
 <?php $this->start(); ?>Security<?php $this->end('title'); ?>
 <?php $this->start(); ?>Firewall, SSH access and brute-force protection<?php $this->end('subtitle'); ?>
+<nav class="wcp-pagetabs" aria-label="Security">
+    <?php foreach ($tabs as [$key, $label, $route]): ?>
+        <a class="<?= $tab === $key ? 'active' : '' ?>" href="<?= e($this->url($route)) ?>"<?= $tab === $key ? ' aria-current="page"' : '' ?>><?= e($label) ?></a>
+    <?php endforeach; ?>
+</nav>
 <?php if ($pending !== null): ?>
     <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert">
         <i class="bi bi-hourglass-split"></i>
@@ -18,9 +23,4 @@ $canManage = $this->can(\WhaCP\Security\Permissions::SECURITY_MANAGE);
         <?php endif; ?>
     </div>
 <?php endif; ?>
-<ul class="nav nav-tabs wcp-tabs">
-    <?php foreach ($tabs as [$key, $label, $route, $icon]): ?>
-        <li class="nav-item"><a class="nav-link<?= $tab === $key ? ' active' : '' ?>" href="<?= e($this->url($route)) ?>"><i class="bi bi-<?= e($icon) ?> me-1"></i><?= e($label) ?></a></li>
-    <?php endforeach; ?>
-</ul>
 <?php if ($agentError !== null): ?><?= $this->partial('partials/agent_error', ['error' => $agentError]) ?><?php endif; ?>

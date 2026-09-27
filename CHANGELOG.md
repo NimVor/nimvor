@@ -7,6 +7,22 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Administrator and reseller list pages in a table style** (Websites,
+  Databases, FTP, Security): an info bar, a row of actions with the
+  service and its version, and tables with inline operations ("Manage |
+  Log | ⋮"), search, filters and pages of 10–100 rows.
+  - Websites: a status switch per row, completed backups, quick links
+    (files, databases, statistics, PHP version) and days left on the SSL
+    certificate (resellers see only their own websites' certificates).
+  - Databases: "Databases" and "Users" tabs; Permission, Import, Dump and
+    Delete per database; Assign, Remote, Password and Delete per user.
+  - FTP: the FTP address, "Add FTP" for a website, settings in a panel.
+  - Security: tabs across the top; an overview with SSH logins (today,
+    yesterday, 7 days; last success and failure, read from the SSH
+    server's journal), the last panel sign-in, and a safety rating from
+    the security checks; firewall rules as a table (protocol, port,
+    whether something listens on it, strategy, direction, source,
+    remarks) with inbound/outbound filters; SSH settings as rows.
 - **Hosting customers get a simple layout:** no sidebar, and their
   websites as cards (search, sort, status filter). The site page follows
   the familiar hosting-panel pattern: a details header and "Site

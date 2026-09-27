@@ -464,6 +464,11 @@
             bootstrap.Collapse.getOrCreateInstance(el, { toggle: false }).show();
         }
         if (el.tagName === 'DETAILS') { el.open = true; }
+        // A tab pane (#db-users…): show its tab.
+        if (el.classList.contains('tab-pane')) {
+            var tab = document.querySelector('[data-bs-toggle="tab"][data-bs-target="#' + id + '"]');
+            if (tab) { bootstrap.Tab.getOrCreateInstance(tab).show(); }
+        }
         setTimeout(function () {
             el.scrollIntoView({ block: 'start', behavior: 'auto' });
             var f = el.querySelector('input:not([type=hidden]):not([disabled]), select, textarea');
@@ -550,6 +555,160 @@
         var c = document.querySelector('[data-wcp-cards]');
         if (c) { applyCards(c); }
     });
+    // A switch that submits its form (through the confirmation, if any);
+    // cancelling the confirmation puts the switch back.
+    document.addEventListener('change', function (e) {
+        var sw = e.target;
+        if (!sw.matches || !sw.matches('[data-wcp-switch-submit]')) { return; }
+        var form = sw.form;
+        if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+    });
+    document.addEventListener('hidden.bs.modal', function (e) {
+        if (e.target.id !== 'wcp-confirm') { return; }
+        document.querySelectorAll('[data-wcp-switch-submit]').forEach(function (sw) {
+            if (sw.form && sw.form.dataset.wcpConfirmed !== '1') { sw.checked = sw.defaultChecked; }
+        });
+    });
+
+    // Row menus (<details> "⋮", popovers): one open at a time, closed by a
+    // click elsewhere or Escape.
+    document.addEventListener('click', function (e) {
+        document.querySelectorAll('details[data-wcp-menu][open]').forEach(function (d) {
+            if (!d.contains(e.target)) { d.open = false; }
+        });
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') { return; }
+        document.querySelectorAll('details[data-wcp-menu][open]').forEach(function (d) { d.open = false; });
+    });
+    // Open menus are placed against the window, so a table's scroll box
+    // does not cut them off; they close when the page scrolls.
+    function placeMenu(d) {
+        var menu = d.querySelector('.wcp-dropmenu, .wcp-popover');
+        var sum = d.querySelector('summary');
+        if (!menu || !sum) { return null; }
+        var r = sum.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.top = (r.bottom + 4) + 'px';
+        menu.style.right = 'auto';
+        var w = menu.offsetWidth;
+        menu.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
+        var h = menu.offsetHeight;
+        if (r.bottom + 4 + h > window.innerHeight - 8 && r.top - h - 4 > 8) { menu.style.top = (r.top - h - 4) + 'px'; }
+        return menu;
+    }
+    document.addEventListener('toggle', function (e) {
+        var d = e.target;
+        if (!d.matches || !d.matches('details[data-wcp-menu]') || !d.open) { return; }
+        var menu = placeMenu(d);
+        var f = menu && menu.querySelector('input:not([type=hidden]):not([type=file]), select');
+        if (f) { f.focus({ preventScroll: true }); }
+    }, true);
+    // Menus close when the page scrolls; forms (popovers) follow it.
+    window.addEventListener('scroll', function () {
+        document.querySelectorAll('details[data-wcp-menu][open]').forEach(function (d) {
+            if (d.querySelector('.wcp-popover')) { placeMenu(d); } else { d.open = false; }
+        });
+    }, true);
+
+    // Data tables: <div data-wcp-dt data-page-size="10"> with a search box
+    // [data-wcp-dt-search], filter buttons [data-wcp-dt-seg] (data-key,
+    // data-value; rows carry data-dt-KEY), selects [data-wcp-dt-select=KEY],
+    // rows tr[data-wcp-row], an empty row [data-wcp-dt-empty] and a pager
+    // [data-wcp-dt-pager]. Everything stays in the page (no requests).
+    function DataTable(box) {
+        var self = this;
+        this.box = box;
+        this.rows = Array.prototype.slice.call(box.querySelectorAll('tr[data-wcp-row]'));
+        this.page = 1;
+        this.key = 'wcp-dt-size:' + window.location.pathname + ':' + (box.id || '');
+        this.size = parseInt(box.getAttribute('data-page-size') || '10', 10);
+        try { var saved = parseInt(localStorage.getItem(this.key) || '', 10); if (saved > 0) { this.size = saved; } } catch (err) { /* no storage */ }
+        this.filters = {};
+        box.querySelectorAll('[data-wcp-dt-seg].active').forEach(function (b) { self.filters[b.getAttribute('data-key')] = b.getAttribute('data-value'); });
+        box.querySelectorAll('[data-wcp-dt-select]').forEach(function (sel) { self.filters[sel.getAttribute('data-wcp-dt-select')] = sel.value; });
+        box.addEventListener('input', function (e) { if (e.target.matches('[data-wcp-dt-search]')) { self.page = 1; self.render(); } });
+        box.addEventListener('change', function (e) {
+            if (e.target.matches('[data-wcp-dt-select]')) { self.filters[e.target.getAttribute('data-wcp-dt-select')] = e.target.value; self.page = 1; self.render(); }
+            if (e.target.matches('[data-wcp-dt-size]')) {
+                self.size = parseInt(e.target.value, 10); self.page = 1;
+                try { localStorage.setItem(self.key, String(self.size)); } catch (err) { /* no storage */ }
+                self.render();
+            }
+            if (e.target.matches('[data-wcp-dt-goto]')) { self.page = parseInt(e.target.value, 10) || 1; self.render(); }
+        });
+        box.addEventListener('click', function (e) {
+            var seg = e.target.closest('[data-wcp-dt-seg]');
+            if (seg) {
+                seg.parentNode.querySelectorAll('[data-wcp-dt-seg]').forEach(function (b) { b.classList.toggle('active', b === seg); b.setAttribute('aria-pressed', b === seg ? 'true' : 'false'); });
+                self.filters[seg.getAttribute('data-key')] = seg.getAttribute('data-value');
+                self.page = 1; self.render();
+            }
+            var pg = e.target.closest('[data-wcp-dt-page]');
+            if (pg) { self.page = parseInt(pg.getAttribute('data-wcp-dt-page'), 10); self.render(); }
+        });
+        this.render();
+    }
+    DataTable.prototype.render = function () {
+        var self = this;
+        var search = this.box.querySelector('[data-wcp-dt-search]') || (this.box.id ? document.querySelector('[data-wcp-dt-search-for~="#' + this.box.id + '"]') : null);
+        var words = search ? search.value.toLowerCase().trim().split(/\s+/).filter(Boolean) : [];
+        var match = this.rows.filter(function (tr) {
+            var hay = (tr.getAttribute('data-search') || tr.textContent).toLowerCase();
+            if (!words.every(function (w) { return hay.indexOf(w) >= 0; })) { return false; }
+            return Object.keys(self.filters).every(function (k) {
+                var v = self.filters[k];
+                return v === '' || v === undefined || (' ' + (tr.getAttribute('data-dt-' + k) || '') + ' ').indexOf(' ' + v + ' ') >= 0;
+            });
+        });
+        var pages = Math.max(1, Math.ceil(match.length / this.size));
+        this.page = Math.min(Math.max(1, this.page), pages);
+        var from = (this.page - 1) * this.size, to = from + this.size;
+        this.rows.forEach(function (tr) { tr.classList.add('d-none'); });
+        match.forEach(function (tr, i) { tr.classList.toggle('d-none', i < from || i >= to); });
+        var empty = this.box.querySelector('[data-wcp-dt-empty]');
+        if (empty) { empty.classList.toggle('d-none', match.length > 0); }
+        var pager = this.box.querySelector('[data-wcp-dt-pager]');
+        if (!pager) { return; }
+        pager.textContent = '';
+        var el = function (tag, cls, text) { var x = document.createElement(tag); if (cls) { x.className = cls; } if (text !== undefined) { x.textContent = text; } return x; };
+        var btn = function (label, page, disabled, active, aria) {
+            var b = el('button', 'btn btn-sm btn-outline-secondary' + (active ? ' active' : ''), label);
+            b.type = 'button'; b.disabled = disabled;
+            b.setAttribute('data-wcp-dt-page', String(page));
+            if (aria) { b.setAttribute('aria-label', aria); }
+            if (active) { b.setAttribute('aria-current', 'page'); }
+            return b;
+        };
+        pager.appendChild(btn('\u2039', this.page - 1, this.page === 1, false, 'Previous page'));
+        var start = Math.max(1, Math.min(this.page - 2, pages - 4)), end = Math.min(pages, start + 4);
+        for (var p = start; p <= end; p++) { pager.appendChild(btn(String(p), p, false, p === this.page, 'Page ' + p)); }
+        pager.appendChild(btn('\u203a', this.page + 1, this.page === pages, false, 'Next page'));
+        var sel = el('select', 'form-select form-select-sm');
+        sel.setAttribute('data-wcp-dt-size', ''); sel.setAttribute('aria-label', 'Rows per page');
+        [10, 20, 50, 100].forEach(function (n) { var o = el('option', '', n + ' / page'); o.value = String(n); o.selected = n === self.size; sel.appendChild(o); });
+        pager.appendChild(sel);
+        var gl = el('label', 'd-inline-flex align-items-center gap-1', 'Goto');
+        var gi = el('input', 'form-control form-control-sm');
+        gi.type = 'number'; gi.min = '1'; gi.max = String(pages); gi.value = String(this.page);
+        gi.setAttribute('data-wcp-dt-goto', '');
+        gl.appendChild(gi);
+        pager.appendChild(gl);
+        pager.appendChild(el('span', 'wcp-pager-total', 'Total ' + match.length));
+    };
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-wcp-dt]').forEach(function (box) { box.wcpTable = new DataTable(box); });
+    });
+    // A search box outside the tables it filters: data-wcp-dt-search-for="#a #b".
+    document.addEventListener('input', function (e) {
+        var ids = e.target.getAttribute && e.target.getAttribute('data-wcp-dt-search-for');
+        if (!ids) { return; }
+        ids.split(/\s+/).forEach(function (id) {
+            var box = id && document.querySelector(id);
+            if (box && box.wcpTable) { box.wcpTable.page = 1; box.wcpTable.render(); }
+        });
+    });
+
     // SQL import: upload the chosen file in chunks into the website's tmp/
     // folder (through the file manager's upload), then start the import;
     // or import a file already in the website.

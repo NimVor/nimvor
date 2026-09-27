@@ -113,8 +113,9 @@ func firewalldStatus(ctx context.Context, env *host.Env) (FirewallStatus, error)
 		}
 		st.Rules = append(st.Rules, r)
 	}
-	for _, r := range st.Rules {
-		st.SSHOpen = st.SSHOpen || r.SSH
+	for i := range st.Rules {
+		describeFirewalld(&st.Rules[i])
+		st.SSHOpen = st.SSHOpen || st.Rules[i].SSH
 	}
 	return st, nil
 }
