@@ -81,6 +81,11 @@ All notable changes to WhaCP are documented here. The format follows
   paragraph described steps that could not be carried out).
 
 ### Fixed
+- The Packages page showed every component as not installed ("Install")
+  on every system: the dpkg-query/rpm format held real line breaks, which
+  the agent refuses in command arguments, so the query never ran. It now
+  passes `\n` for the tools to expand; installed components show their
+  version.
 - `install.sh --reinstall` from a source checkout installed the agent
   built earlier (`dist/whacp-agent`) even after `git pull` brought newer
   sources, so agent fixes did not arrive. It now rebuilds when the

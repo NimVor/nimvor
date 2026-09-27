@@ -115,7 +115,9 @@ func Installed(ctx context.Context, env *host.Env, names []string) map[string]st
 			return out
 		}
 		// rpm exits 1 when some are missing but prints the others.
-		b, _ := env.Runner.Run(ctx, "rpm", append([]string{"-q", "--qf", "%{NAME}\t%{VERSION}-%{RELEASE}\n", "--"}, query...)...)
+		// The format's \t and \n are escapes rpm expands: the agent refuses
+		// arguments with real line breaks.
+		b, _ := env.Runner.Run(ctx, "rpm", append([]string{"-q", "--qf", `%{NAME}\t%{VERSION}-%{RELEASE}\n`, "--"}, query...)...)
 		for _, l := range strings.Split(string(b), "\n") {
 			if f := strings.Split(l, "\t"); len(f) == 2 {
 				for _, n := range native[f[0]] {
@@ -129,7 +131,9 @@ func Installed(ctx context.Context, env *host.Env, names []string) map[string]st
 		return out
 	}
 	// dpkg-query exits 1 when some names are unknown but still prints the rest.
-	b, _ := env.Runner.Run(ctx, "dpkg-query", append([]string{"-W", "-f=${Package}\t${db:Status-Abbrev}\t${Version}\n", "--"}, query...)...)
+	// The format's \t and \n are escapes dpkg-query expands: the agent
+	// refuses arguments with real line breaks.
+	b, _ := env.Runner.Run(ctx, "dpkg-query", append([]string{"-W", `-f=${Package}\t${db:Status-Abbrev}\t${Version}\n`, "--"}, query...)...)
 	for _, l := range strings.Split(string(b), "\n") {
 		if f := strings.Split(l, "\t"); len(f) == 3 && strings.HasPrefix(f[1], "ii") {
 			for _, n := range native[f[0]] {
