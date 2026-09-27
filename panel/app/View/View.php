@@ -161,6 +161,13 @@ final class View
             && !$this->can(\WhaCP\Security\Permissions::USERS_VIEW);
     }
 
+    /** Whether the viewer has a server-wide role (administrators). */
+    public function serverScope(): bool
+    {
+        $user = $this->shared['user'] ?? null;
+        return is_array($user) && \WhaCP\Hosting\Scope::isAll($user);
+    }
+
     public function isActive(string $prefix): bool
     {
         $path = (string) ($this->shared['current_path'] ?? '');

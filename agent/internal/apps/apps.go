@@ -153,7 +153,7 @@ func emptyTarget(env *host.Env, r Request, dir string) (bool, error) {
 	for _, e := range entries {
 		if e.Name() == "index.html" {
 			b, _ := env.Root.ReadFile(filepath.Join(dir, "index.html"))
-			if string(b) == sites.DefaultIndex(r.Domain) {
+			if sites.PlaceholderIndex(b, r.Domain) {
 				continue
 			}
 		}

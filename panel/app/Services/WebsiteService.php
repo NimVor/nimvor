@@ -6,6 +6,7 @@ namespace WhaCP\Services;
 
 use WhaCP\Agent\AgentClient;
 use WhaCP\Agent\AgentException;
+use WhaCP\Hosting\Scope;
 use WhaCP\Repositories\WebsiteRepository;
 use WhaCP\Support\Events;
 use WhaCP\Support\UserFacingException;
@@ -54,12 +55,19 @@ final class WebsiteService
     }
 
     /**
+     * PHP-FPM settings only administrators (server-wide roles) change:
+     * process counts and manager, request limits and disabling shell
+     * functions.
+     */
+    public const SERVER_PHP_SETTINGS = ['max_children', 'harden', 'pm', 'start_servers', 'min_spare_servers', 'max_spare_servers', 'idle_timeout_seconds', 'max_requests', 'request_timeout_seconds', 'slowlog_seconds'];
+
+    /**
      * @param array<string, mixed> $input
      * @param array<string, mixed> $actor
      */
     public function create(array $input, array $actor, ?array $parent = null): int
     {
-        $data = $this->validate($input, null);
+        $data = $this->validate($input, null, Scope::isAll($actor));
         $serverId = $this->server->id();
         // A subdomain or addon domain belongs to its parent's owner.
         $ownerId = $parent !== null ? ($parent['owner_id'] === null ? null : (int) $parent['owner_id']) : $this->resolveOwner($input, $actor);
@@ -88,9 +96,9 @@ final class WebsiteService
      * @param array<string, mixed> $site current record (already access-checked)
      * @param array<string, mixed> $input
      */
-    public function update(array $site, array $input): void
+    public function update(array $site, array $input, ?array $actor = null): void
     {
-        $data = $this->validate($input, $site);
+        $data = $this->validate($input, $site, $actor === null || Scope::isAll($actor));
         $id = (int) $site['id'];
         $previous = $site;
         $this->sites->update($id, $data['row']);
@@ -383,8 +391,15 @@ final class WebsiteService
      * @param array<string, mixed>|null $existing
      * @return array{row: array<string, mixed>, names: list<string>}
      */
-    public function validate(array $input, ?array $existing): array
+    public function validate(array $input, ?array $existing, bool $serverSettings = true): array
     {
+        if (!$serverSettings) {
+            // Process limits and hardening are the administrator's: hosting
+            // customers and resellers keep the stored (or default) values.
+            foreach (self::SERVER_PHP_SETTINGS as $k) {
+                unset($input[$k]);
+            }
+        }
         $errors = [];
         $serverId = $this->server->id();
         $domain = $existing['domain'] ?? self::normalizeHost((string) ($input['domain'] ?? ''));

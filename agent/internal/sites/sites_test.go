@@ -203,3 +203,19 @@ func TestNewUserRefusesExistingAccounts(t *testing.T) {
 		t.Fatalf("%v %+v", err, res)
 	}
 }
+
+func TestDefaultIndexIsAComingSoonPage(t *testing.T) {
+	page := DefaultIndex("shop.test")
+	for _, want := range []string{"Coming soon", "<h1 class=\"display-5 fw-bold mb-3 text-break\">shop.test</h1>", `integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("page lacks %s", want)
+		}
+	}
+	if strings.Contains(DefaultIndex(`a<b>.test`), "<b>") {
+		t.Error("domain not escaped")
+	}
+	legacy := "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>shop.test</title></head>\n<body style=\"font-family:system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1rem\">\n<h1>shop.test</h1>\n<p>This website is ready. Upload your files to <code>public_html</code>.</p>\n</body></html>\n"
+	if !PlaceholderIndex([]byte(page), "shop.test") || !PlaceholderIndex([]byte(legacy), "shop.test") || PlaceholderIndex([]byte("<h1>my site</h1>"), "shop.test") {
+		t.Error("placeholder detection")
+	}
+}

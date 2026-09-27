@@ -193,7 +193,7 @@ final class SitesController extends Controller
         }
         $input = $request->all();
         try {
-            $this->service->update($site, $input);
+            $this->service->update($site, $input, $this->user($request));
         } catch (ValidationException $e) {
             return $this->backWithErrors('/sites/' . (int) $id . '/settings', $e, $input);
         } catch (UserFacingException $e) {

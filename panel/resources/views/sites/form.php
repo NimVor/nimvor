@@ -17,6 +17,8 @@ $v = static function (string $k, mixed $default = '') use ($old, $site) {
     return $default;
 };
 $kind = (string) $v('kind', 'php');
+// Process limits, hardening and PHP-FPM tuning are the administrator's.
+$serverPhp = $this->serverScope();
 $aliases = $old['aliases'] ?? implode("\n", $site['aliases'] ?? []);
 $redirects = $old['redirects'] ?? \WhaCP\Services\WebsiteService::redirectsText($site['redirects'] ?? []);
 $docSub = $site === null ? '' : ltrim(substr((string) $site['document_root'], strlen((string) $site['root'])), '/');
@@ -110,14 +112,15 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                     <?php endif; ?>
                 </div>
             </div>
+            <?php if ($serverPhp || !$isNew): ?>
             <div class="card mb-3" data-wcp-kind="php" id="php">
                 <div class="card-header"><i class="bi bi-filetype-php me-1"></i>PHP settings</div>
                 <div class="card-body">
                     <div class="row g-2">
-                        <?php foreach ([
+                        <?php foreach (array_merge([
                             ['memory_limit_mb', 'Memory limit (MB)', 256], ['upload_max_mb', 'Max upload (MB)', 64],
-                            ['max_execution_seconds', 'Max execution (s)', 60], ['max_children', 'Max PHP processes', 5],
-                        ] as [$k, $label, $def]): ?>
+                            ['max_execution_seconds', 'Max execution (s)', 60],
+                        ], $serverPhp ? [['max_children', 'Max PHP processes', 5]] : []) as [$k, $label, $def]): ?>
                             <div class="col-6">
                                 <label class="form-label small" for="f-<?= e($k) ?>"><?= e($label) ?></label>
                                 <input class="form-control form-control-sm<?= $cls($k) ?>" type="number" id="f-<?= e($k) ?>" name="<?= e($k) ?>" value="<?= e($v($k, $def)) ?>">
@@ -125,6 +128,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                             </div>
                         <?php endforeach; ?>
                     </div>
+                    <?php if ($serverPhp): ?>
                     <div class="form-check form-switch mt-3">
                         <input type="hidden" name="harden" value="0">
                         <input class="form-check-input" type="checkbox" role="switch" id="f-harden" name="harden" value="1"<?= filter_var($v('harden', false), FILTER_VALIDATE_BOOL) ? ' checked' : '' ?>>
@@ -157,8 +161,10 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         </div>
                         <p class="small text-body-secondary mt-2 mb-0">Server-wide PHP-FPM settings and php.ini are under PHP → the version → Settings.</p>
                     </details>
+                    <?php endif; ?>
                 </div>
             </div>
+            <?php endif; ?>
             <div class="card mb-3" id="requests">
                 <div class="card-header"><i class="bi bi-signpost me-1"></i>Requests and redirects</div>
                 <div class="card-body">

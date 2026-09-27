@@ -2,6 +2,7 @@ package sites
 
 import (
 	"fmt"
+	"html"
 	"path/filepath"
 	"strings"
 )
@@ -142,9 +143,42 @@ func RenderPool(s Spec, l Layout) string {
 	return b.String()
 }
 
-// DefaultIndex is written to a new, empty document root.
+// DefaultIndex is written to a new, empty document root: a "coming soon"
+// page (Bootstrap from jsDelivr, pinned with its integrity hash; without
+// it the page still reads well). The domain is HTML-escaped.
 func DefaultIndex(domain string) string {
-	return "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>" + domain +
+	d := html.EscapeString(domain)
+	return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>` + d + ` — coming soon</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+<style>
+body{min-height:100vh;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,#0f766e 0%,#1e3a8a 100%);color:#fff}
+.soon-card{max-width:40rem;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:1.25rem;backdrop-filter:blur(6px)}
+.soon-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:#5eead4;box-shadow:0 0 0 .35rem rgba(94,234,212,.25)}
+</style>
+</head>
+<body class="d-flex align-items-center justify-content-center p-3">
+<main class="soon-card text-center p-4 p-md-5">
+<p class="text-uppercase small mb-3" style="letter-spacing:.2em"><span class="soon-dot me-2"></span>Coming soon</p>
+<h1 class="display-5 fw-bold mb-3 text-break">` + d + `</h1>
+<p class="lead mb-4" style="opacity:.85">We are working on something new. Please check back soon.</p>
+<hr class="my-4" style="border-color:rgba(255,255,255,.3)">
+<p class="small mb-0" style="opacity:.7">Website owner: upload your site to <code class="text-white">public_html</code> to replace this page.</p>
+</main>
+</body>
+</html>
+`
+}
+
+// PlaceholderIndex reports whether b is a placeholder page WhaCP wrote
+// for the domain (the current one or the one of earlier versions).
+func PlaceholderIndex(b []byte, domain string) bool {
+	legacy := "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>" + domain +
 		"</title></head>\n<body style=\"font-family:system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1rem\">\n<h1>" + domain +
 		"</h1>\n<p>This website is ready. Upload your files to <code>public_html</code>.</p>\n</body></html>\n"
+	return string(b) == DefaultIndex(domain) || string(b) == legacy
 }
