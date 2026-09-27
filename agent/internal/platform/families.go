@@ -11,7 +11,10 @@ var (
 	otherPanelNginx = []string{"/www/server/nginx/conf/nginx.conf", "/usr/local/nginx/conf/nginx.conf"}
 	// includeRoots bound where Nginx "include" directives may be followed.
 	// HestiaCP includes per-user vhosts from /home/<user>/conf/web.
-	includeRoots          = []string{"/etc/nginx", "/www/server", "/usr/local/nginx", "/usr/local/hestia", "/home", "/opt"}
+	// Distribution packages keep their load_module stubs in
+	// /usr/share/nginx: modules-available (Debian, linked from
+	// /etc/nginx/modules-enabled) and modules (RHEL, included directly).
+	includeRoots          = []string{"/etc/nginx", "/usr/share/nginx/modules-available", "/usr/share/nginx/modules", "/www/server", "/usr/local/nginx", "/usr/local/hestia", "/home", "/opt"}
 	otherPanelPHPBinaries = []string{"/www/server/php/[0-9][0-9]/bin/php", "/opt/php[0-9][0-9]/bin/php"}
 	otherPanelFPMBinaries = []string{"/www/server/php/[0-9][0-9]/sbin/php-fpm", "/opt/php[0-9][0-9]/sbin/php-fpm"}
 	otherPanelPools       = []string{"/www/server/php/[0-9][0-9]/etc/php-fpm.conf", "/opt/php[0-9][0-9]/etc/php-fpm.d/*.conf"}

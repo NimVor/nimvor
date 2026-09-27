@@ -90,6 +90,11 @@ All notable changes to WhaCP are documented here. The format follows
   paragraph described steps that could not be carried out).
 
 ### Fixed
+- **Websites page warned "skipped /etc/nginx/modules-enabled/…: outside
+  permitted configuration roots"** on Ubuntu with Nginx dynamic modules
+  installed: those files link to the package's `load_module` stubs in
+  `/usr/share/nginx/modules-available` (on RHEL: `/usr/share/nginx/modules`),
+  which the Nginx scan now reads. No other folders were added.
 - The Packages page showed every component as not installed ("Install")
   on every system: the dpkg-query/rpm format held real line breaks, which
   the agent refuses in command arguments, so the query never ran. It now

@@ -69,6 +69,11 @@ func TestDiscoverFixture(t *testing.T) {
 	if def := byName["_"]; len(def) != 1 || !def[0].DefaultServer {
 		t.Errorf("default server not detected: %+v", def)
 	}
+	// Debian's modules-enabled links to the package's load_module stubs
+	// in /usr/share/nginx/modules-available: followed without warnings.
+	if len(res.Warnings) != 0 {
+		t.Errorf("warnings: %v", res.Warnings)
+	}
 }
 
 func TestIncludeOutsideAllowedRootsIsSkipped(t *testing.T) {
