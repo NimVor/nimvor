@@ -45,6 +45,7 @@ final class Authenticate implements Middleware
         $user = $this->auth->user();
         $this->view->share('user', $user);
         $this->view->setPermissionChecker(fn (string $p): bool => $this->authorizer->can($user, $p));
+        $this->view->share('route_checker', fn (string $name): bool => $this->authorizer->routeAllowed($user, $name));
         if ($user !== null) {
             $this->audit->setActor((int) $user['id'], (string) $user['username']);
             if (!$request->wantsJson()) {
@@ -77,9 +78,10 @@ final class Authenticate implements Middleware
             $this->session->flash('error', $message);
             return Response::redirect('/profile#two-factor');
         }
-        if ($route->permission !== null && !$this->authorizer->can($user, $route->permission)) {
-            $this->audit->record('security.access_denied', 'route', $request->path(), AuditLogger::DENIED, ['permission' => $route->permission]);
-            $message = 'You do not have permission to access this page.';
+        $featureOff = !$this->authorizer->routeAllowed($user, $route->name);
+        if ($featureOff || ($route->permission !== null && !$this->authorizer->can($user, $route->permission))) {
+            $this->audit->record('security.access_denied', 'route', $request->path(), AuditLogger::DENIED, $featureOff ? ['feature' => 'off', 'route' => $route->name] : ['permission' => $route->permission]);
+            $message = $featureOff ? 'This feature is not included in your hosting plan.' : 'You do not have permission to access this page.';
             if ($request->wantsJson()) {
                 return Response::json(['success' => false, 'error' => ['message' => $message]], 403);
             }

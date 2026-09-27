@@ -45,7 +45,7 @@ final class SiteMenu
     {
         $out = [];
         foreach (self::ITEMS as [$key, $label, $icon, $route, $perm]) {
-            if ($view->hasRoute($route) && $view->can($perm)) {
+            if ($view->hasRoute($route) && $view->can($perm) && $view->routeAllowed($route)) {
                 $out[] = ['key' => $key, 'label' => $label, 'icon' => $icon, 'url' => $view->url($route, ['id' => (int) $site['id']])];
             }
         }

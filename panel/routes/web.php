@@ -292,6 +292,9 @@ return static function (Router $r): void {
     $r->get('/users/{id}/edit', [UsersController::class, 'edit'], ['name' => 'users.edit', 'permission' => P::USERS_MANAGE]);
     $r->post('/users/{id}', [UsersController::class, 'update'], ['name' => 'users.update', 'permission' => P::USERS_MANAGE]);
     $r->post('/users/{id}/delete', [UsersController::class, 'destroy'], ['name' => 'users.delete', 'permission' => P::USERS_MANAGE]);
+    $r->get('/features', [\WhaCP\Http\Controllers\FeaturesController::class, 'index'], ['name' => 'features', 'permission' => P::PLANS_MANAGE]);
+    $r->post('/features', [\WhaCP\Http\Controllers\FeaturesController::class, 'store'], ['name' => 'features.store', 'permission' => P::PLANS_MANAGE]);
+    $r->post('/features/{id}/delete', [\WhaCP\Http\Controllers\FeaturesController::class, 'destroy'], ['name' => 'features.delete', 'permission' => P::PLANS_MANAGE]);
     $r->get('/plans', [PlansController::class, 'index'], ['name' => 'plans', 'permission' => P::PLANS_MANAGE]);
     $r->post('/plans', [PlansController::class, 'store'], ['name' => 'plans.store', 'permission' => P::PLANS_MANAGE]);
     $r->post('/plans/{id}/delete', [PlansController::class, 'destroy'], ['name' => 'plans.delete', 'permission' => P::PLANS_MANAGE]);

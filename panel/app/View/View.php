@@ -161,6 +161,13 @@ final class View
             && !$this->can(\WhaCP\Security\Permissions::USERS_VIEW);
     }
 
+    /** Whether the viewer's hosting plan includes the feature a route belongs to. */
+    public function routeAllowed(string $name): bool
+    {
+        $check = $this->shared['route_checker'] ?? null;
+        return !is_callable($check) || (bool) $check($name);
+    }
+
     /** Whether the viewer has a server-wide role (administrators). */
     public function serverScope(): bool
     {

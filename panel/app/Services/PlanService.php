@@ -101,6 +101,15 @@ final class PlanService
         if (!Scope::isAll($actor)) {
             $vals['max_customers'] = 0; // customers of resellers cannot resell
         }
+        // Feature lists are chosen by administrators; resellers' plans are
+        // bounded by the reseller's own plan instead.
+        $featureList = null;
+        if (Scope::isAll($actor) && ($input['feature_list_id'] ?? '') !== '') {
+            $featureList = (int) $input['feature_list_id'];
+            if ($this->db->scalar('SELECT id FROM feature_lists WHERE id = ?', [$featureList]) === null) {
+                $errors['feature_list_id'] = 'Choose an existing feature list.';
+            }
+        }
         $dup = $this->db->scalar('SELECT id FROM plans WHERE COALESCE(owner_id, 0) = ? AND name = ? AND id != ?', [$ownerId ?? 0, $name, $id ?? 0]);
         if ($dup !== null) {
             $errors['name'] = 'You already have a plan with this name.';
@@ -125,7 +134,10 @@ final class PlanService
                 array_merge([$name, $desc], array_map(static fn (string $c): int => $vals[$c], $cols), [$now, $id])
             );
         }
-        $this->audit->record('plan.save', 'plan', (string) $id, AuditLogger::SUCCESS, ['name' => $name] + $vals);
+        if (Scope::isAll($actor)) {
+            $this->db->run('UPDATE plans SET feature_list_id = ? WHERE id = ?', [$featureList, $id]);
+        }
+        $this->audit->record('plan.save', 'plan', (string) $id, AuditLogger::SUCCESS, ['name' => $name, 'feature_list_id' => $featureList] + $vals);
         return $id;
     }
 

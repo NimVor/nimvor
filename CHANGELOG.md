@@ -7,6 +7,13 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Feature Manager** (Plans → Manage feature lists): named feature lists
+  (databases, email, DNS, file manager, SSL, subdomains, FTP, cron,
+  backups, application installer, Git, workers, Redis, logs, statistics,
+  malware scan, PHP & website settings) assigned to hosting plans. A
+  feature that is off is refused by the server for pages, form posts and
+  the API, and disappears from the menus; a reseller's customers get only
+  what both plans include. Staff accounts are not limited.
 - **Per-account limit overrides** (administrators; account page → Plan
   and limits): raise or lower any plan limit for one account (e.g. 25 GB
   on a 10 GB plan) without changing the plan; the page shows plan,

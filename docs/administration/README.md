@@ -294,6 +294,19 @@ suspension again" retries.
   through the same code as deleting them one by one; if a step fails, that
   account is kept with what is left and the others continue.
 
+## Feature Manager
+
+Plans → Manage feature lists. Each list turns panel features on or off;
+assign a list to a plan on the plan's form ("Feature list"). A plan
+without a list has every feature. For accounts on the plan, a feature
+that is off is refused by the server (403, "not included in your hosting
+plan", logged as an access denial) for its pages, form posts and API
+calls; hiding the menu entries follows from that. A reseller's customers
+get only features that both their own plan and the reseller's plan
+include. Administrators and other staff roles are not limited. Deleting a
+list gives its plans every feature again. Lists store the features they
+turn off, so features added in later versions are on for existing lists.
+
 ## PHP versions and settings
 
 *PHP* lists the installed versions; each has a **Settings** page with three

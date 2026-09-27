@@ -58,6 +58,14 @@ $admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
                             <div class="col-6"><?= $this->partial('partials/field', ['name' => $f, 'label' => $label, 'type' => 'number', 'value' => (string) ($form[$f] ?? '0'), 'attrs' => ['min' => '0']]) ?></div>
                         <?php endforeach; ?>
                     </div>
+                    <?php if ($admin): $fl = (string) ($form['feature_list_id'] ?? ''); ?>
+                        <label class="form-label" for="p-features">Feature list</label>
+                        <select class="form-select form-select-sm mb-1" id="p-features" name="feature_list_id">
+                            <option value="">All features</option>
+                            <?php foreach ($featureLists ?? [] as $l): ?><option value="<?= (int) $l['id'] ?>"<?= $fl === (string) $l['id'] ? ' selected' : '' ?>><?= e($l['name']) ?></option><?php endforeach; ?>
+                        </select>
+                        <div class="form-text mt-0 mb-3">Which panel features the plan's accounts can use. <a href="<?= e($this->url('features')) ?>">Manage feature lists</a></div>
+                    <?php endif; ?>
                     <button class="btn btn-sm btn-primary"><?= $edit ? 'Save' : 'Create plan' ?></button>
                     <?php if ($edit): ?><a class="btn btn-sm btn-link" href="<?= e($this->url('plans')) ?>">Cancel</a><?php endif; ?>
                 </form>

@@ -58,6 +58,10 @@ final class ApiAuthenticate implements Middleware
         if ($auth['token']['ability'] === 'read' && !$request->isSafeMethod()) {
             return self::error(403, 'read_only_token', 'This token is read-only.');
         }
+        if (!$this->authorizer->routeAllowed($user, $route->name)) {
+            $this->audit->record('security.access_denied', 'route', $request->path(), AuditLogger::DENIED, ['feature' => 'off', 'route' => $route->name, 'via' => 'api']);
+            return self::error(403, 'forbidden', 'This feature is not included in the account\'s hosting plan.');
+        }
         if ($route->permission !== null && !$this->authorizer->can($user, $route->permission)) {
             $this->audit->record('security.access_denied', 'route', $request->path(), AuditLogger::DENIED, ['permission' => $route->permission, 'via' => 'api']);
             return self::error(403, 'forbidden', 'The token\'s user lacks the permission ' . $route->permission . '.');

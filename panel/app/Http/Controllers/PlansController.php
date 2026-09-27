@@ -18,6 +18,7 @@ final class PlansController extends Controller
         View $view,
         SessionInterface $session,
         private readonly PlanService $plans,
+        private readonly \WhaCP\Services\FeatureService $features,
     ) {
         parent::__construct($view, $session);
     }
@@ -28,6 +29,7 @@ final class PlansController extends Controller
         return $this->render('plans/index', [
             'plans' => $this->plans->visible($this->user($request)),
             'edit' => $edit > 0 ? $this->plans->find($this->user($request), $edit) : null,
+            'featureLists' => \WhaCP\Hosting\Scope::isAll($this->user($request)) ? $this->features->lists() : [],
         ]);
     }
 
