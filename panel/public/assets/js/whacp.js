@@ -273,4 +273,126 @@
         setInterval(refresh, 60000);
         document.addEventListener('visibilitychange', refresh);
     });
+
+    // Packages page: "Install" adds a component to a queue without leaving
+    // the page. The agent installs queued components one after another; the
+    // queue window shows each one's state and the log of the one running,
+    // and each row turns into "Installed" when its component is done.
+    document.addEventListener('DOMContentLoaded', function () {
+        var list = document.querySelector('[data-wcp-pkg-list]');
+        var modalEl = document.getElementById('wcp-pkg-queue');
+        if (!list || !modalEl) { return; }
+        var itemsEl = modalEl.querySelector('[data-wcp-pkg-items]');
+        var logEl = modalEl.querySelector('[data-wcp-pkg-log]');
+        var logNameEl = modalEl.querySelector('[data-wcp-pkg-logname]');
+        var showBtn = document.querySelector('[data-wcp-pkg-show]');
+        var countEl = document.querySelector('[data-wcp-pkg-count]');
+        var queue = [];
+        var timer = null;
+        var badges = { queued: 'text-bg-secondary', running: 'text-bg-info', succeeded: 'text-bg-success', failed: 'text-bg-danger' };
+        var labels = { queued: 'Queued', running: 'Installing…', succeeded: 'Installed', failed: 'Failed' };
+
+        function el(tag, cls, text) {
+            var e = document.createElement(tag);
+            if (cls) { e.className = cls; }
+            if (text !== undefined) { e.textContent = text; }
+            return e;
+        }
+        function row(name) {
+            var found = null;
+            list.querySelectorAll('[data-wcp-pkg]').forEach(function (r) { if (r.getAttribute('data-wcp-pkg') === name) { found = r; } });
+            return found;
+        }
+        function pending(it) { return it.status === 'queued' || it.status === 'running'; }
+        function setRow(it, version) {
+            var r = row(it.name);
+            if (!r) { return; }
+            var state = r.querySelector('[data-wcp-pkg-state]');
+            state.textContent = '';
+            if (it.status === 'failed') {
+                state.appendChild(el('span', 'badge text-bg-danger me-2', 'Failed'));
+                state.appendChild(it.form);
+                it.form.querySelector('button').textContent = 'Retry';
+                return;
+            }
+            var b = el('span', 'badge ' + badges[it.status]);
+            if (it.status === 'succeeded') { b.appendChild(el('i', 'bi bi-check-circle')); b.appendChild(document.createTextNode(' ')); }
+            if (it.status === 'running') { b.appendChild(el('span', 'spinner-border spinner-border-sm me-1')); }
+            b.appendChild(document.createTextNode(labels[it.status]));
+            state.appendChild(b);
+            if (version) { state.appendChild(el('div', 'small text-body-secondary', version)); }
+        }
+        function render() {
+            itemsEl.textContent = '';
+            var shown = null;
+            queue.forEach(function (it) {
+                var li = el('li', 'list-group-item d-flex align-items-center gap-2');
+                li.setAttribute('data-wcp-pkg-item', it.name);
+                li.appendChild(el('span', 'fw-semibold', it.name));
+                li.appendChild(el('span', 'badge ms-auto ' + badges[it.status], labels[it.status]));
+                itemsEl.appendChild(li);
+                if (it.status === 'running' || (!shown && it.log)) { shown = it; }
+            });
+            if (shown) {
+                logNameEl.textContent = shown.name;
+                logEl.textContent = shown.log;
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+            countEl.textContent = String(queue.filter(pending).length);
+            showBtn.classList.toggle('d-none', queue.length === 0);
+        }
+        function finished(it) {
+            if (it.status !== 'succeeded') {
+                setRow(it);
+                WhaCP.toast(it.name + ' was not installed. See the log in the queue.', 'danger');
+                return;
+            }
+            WhaCP.fetchJson(list.getAttribute('data-url')).then(function (res) {
+                var p = (res.packages || []).filter(function (x) { return x.name === it.name; })[0];
+                setRow(it, p && p.installed ? p.version : '');
+            }).catch(function () { setRow(it); });
+            WhaCP.toast(it.name + ' installed.', 'success');
+        }
+        function poll() {
+            var open = queue.filter(pending);
+            if (open.length === 0) { clearInterval(timer); timer = null; return; }
+            open.forEach(function (it) {
+                if (it.busy) { return; }
+                it.busy = true;
+                WhaCP.fetchJson('/jobs/' + it.job + '?offset=' + it.offset).then(function (res) {
+                    it.busy = false;
+                    if (res.log) { it.log += res.log; }
+                    it.offset = res.offset || it.offset;
+                    var s = res.job ? res.job.status : 'running';
+                    if (res.done) { it.status = s === 'succeeded' ? 'succeeded' : 'failed'; finished(it); }
+                    else if (s !== it.status) { it.status = s === 'queued' ? 'queued' : 'running'; setRow(it); }
+                    render();
+                }).catch(function () { it.busy = false; });
+            });
+        }
+        showBtn.addEventListener('click', function () { bootstrap.Modal.getOrCreateInstance(modalEl).show(); });
+        list.addEventListener('submit', function (e) {
+            var form = e.target.closest('[data-wcp-pkg-install]');
+            if (!form) { return; }
+            e.preventDefault();
+            var name = form.querySelector('input[name=name]').value;
+            if (queue.some(function (it) { return it.name === name && pending(it); })) { return; }
+            var button = form.querySelector('button');
+            button.disabled = true;
+            WhaCP.fetchJson(list.getAttribute('data-install-url'), { method: 'POST', body: JSON.stringify({ name: name }) }).then(function (res) {
+                button.disabled = false;
+                var it = { name: name, job: res.job_id, status: 'queued', offset: 0, log: '', form: form };
+                queue = queue.filter(function (x) { return x.name !== name; });
+                queue.push(it);
+                setRow(it);
+                render();
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                if (!timer) { timer = setInterval(poll, 1000); }
+                poll();
+            }).catch(function (err) {
+                button.disabled = false;
+                WhaCP.toast(err.message, 'danger');
+            });
+        });
+    });
 })();

@@ -41,6 +41,12 @@ All notable changes to WhaCP are documented here. The format follows
     alive.
 
 ### Changed
+- **Packages page:** installed components show an "Installed" badge with
+  their version. "Install" no longer reloads the page: it adds the
+  component to a queue, a window lists the queued components with their
+  state and the log of the one being installed, they are installed one
+  after another, and each row turns into "Installed" when done. The
+  window can be closed (installs continue) and reopened with "Queue".
 - **Support levels:** Ubuntu 22.04 and 24.04, AlmaLinux 9, Rocky Linux 9
   and RHEL 9 are supported; Ubuntu 26.04 and AlmaLinux, Rocky Linux and
   RHEL 10 are previews: they install and are tested the same way, but are

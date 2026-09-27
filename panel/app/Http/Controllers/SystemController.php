@@ -33,6 +33,14 @@ final class SystemController extends Controller
 
     public function packages(Request $request): Response
     {
+        if ($request->wantsJson()) {
+            // The components with their state, for the installation queue.
+            try {
+                return Response::json(['success' => true, 'packages' => (array) $this->agent->call('packages.list')]);
+            } catch (AgentException $e) {
+                return Response::json(['success' => false, 'error' => $e->toArray()], 503);
+            }
+        }
         $data = ['packages' => [], 'updates' => null, 'agentError' => null];
         try {
             $data['packages'] = (array) $this->agent->call('packages.list');
@@ -68,6 +76,16 @@ final class SystemController extends Controller
 
     public function install(Request $request): Response
     {
+        if ($request->wantsJson()) {
+            // The installation queue: the job starts at once; the agent runs
+            // component installs one after another.
+            $name = $request->string('name');
+            try {
+                return Response::json(['success' => true, 'name' => $name, 'job_id' => $this->job($request, 'packages.install', ['name' => $name], 'Install ' . $name)]);
+            } catch (AgentException $e) {
+                return Response::json(['success' => false, 'error' => $e->toArray()], in_array($e->errorCode(), ['invalid_params', 'conflict'], true) ? 422 : 503);
+            }
+        }
         return $this->act('/packages', function () use ($request): array {
             $name = $request->string('name');
             return ['Installing ' . $name . '…', $this->job($request, 'packages.install', ['name' => $name], 'Install ' . $name)];

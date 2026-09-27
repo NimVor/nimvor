@@ -35,22 +35,42 @@ $ups = (array) ($updates['updates'] ?? []);
     </div>
     <div class="col-xl-5">
         <div class="card">
-            <div class="card-header"><i class="bi bi-box-seam me-1"></i>Components</div>
-            <ul class="list-group list-group-flush">
+            <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-box-seam"></i>Components
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto d-none" data-wcp-pkg-show><i class="bi bi-list-task"></i> Queue <span class="badge text-bg-secondary" data-wcp-pkg-count>0</span></button>
+            </div>
+            <ul class="list-group list-group-flush" data-wcp-pkg-list data-url="<?= e($this->url('packages')) ?>" data-install-url="<?= e($this->url('packages.install')) ?>">
                 <?php foreach ($packages as $p): ?>
-                    <li class="list-group-item d-flex align-items-center gap-2">
+                    <li class="list-group-item d-flex align-items-center gap-2" data-wcp-pkg="<?= e($p['name']) ?>">
                         <div><strong><?= e($p['name']) ?></strong><div class="small text-body-secondary"><?= e($p['description']) ?></div></div>
-                        <div class="ms-auto text-end">
+                        <div class="ms-auto text-end" data-wcp-pkg-state>
                             <?php if ($p['installed']): ?>
-                                <span class="small text-body-secondary"><?= e($p['version']) ?></span>
+                                <span class="badge text-bg-success"><i class="bi bi-check-circle"></i> Installed</span>
+                                <div class="small text-body-secondary"><?= e($p['version']) ?></div>
                             <?php else: ?>
-                                <form method="post" action="<?= e($this->url('packages.install')) ?>" data-wcp-busy><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($p['name']) ?>"><button class="btn btn-sm btn-outline-primary">Install</button></form>
+                                <form method="post" action="<?= e($this->url('packages.install')) ?>" data-wcp-pkg-install><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($p['name']) ?>"><button class="btn btn-sm btn-outline-primary">Install</button></form>
                             <?php endif; ?>
                         </div>
                     </li>
                 <?php endforeach; ?>
             </ul>
             <div class="card-footer small text-body-secondary">PHP versions are installed under <a href="<?= e($this->url('php')) ?>">PHP</a>.</div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="wcp-pkg-queue" tabindex="-1" aria-labelledby="wcp-pkg-queue-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h6" id="wcp-pkg-queue-title"><i class="bi bi-box-seam me-1"></i>Installing components</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-body-secondary mb-2">Components are installed one after another. You can close this window: the installation continues on the server.</p>
+                <ul class="list-group mb-3" data-wcp-pkg-items></ul>
+                <div class="small fw-semibold mb-1" data-wcp-pkg-logname></div>
+                <pre class="wcp-pre wcp-joblog mb-0" data-wcp-pkg-log aria-live="polite"></pre>
+            </div>
         </div>
     </div>
 </div>

@@ -82,6 +82,21 @@ final class SecurityAndSystemTest extends HttpTestCase
         $this->post('/packages/install', ['name' => 'fail2ban']);
         self::assertSame('1111111111111111', $this->flash('job'));
 
+        // The installation queue: JSON, no redirect; the component list as JSON.
+        $json = ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\WhaCP\Security\Csrf::class)->token()];
+        $this->agent->succeed('packages.install', ['job_id' => '2222222222222222']);
+        $res = $this->request('POST', '/packages/install', [], $json, '{"name":"fail2ban"}');
+        self::assertSame(200, $res->status());
+        self::assertSame(['success' => true, 'name' => 'fail2ban', 'job_id' => '2222222222222222'], json_decode($res->body(), true));
+        self::assertSame(['name' => 'fail2ban'], $this->lastCall('packages.install'));
+        $this->agent->fail('packages.install', 400, 'invalid_params', 'name: nope is not an installable component');
+        $res = $this->request('POST', '/packages/install', [], $json, '{"name":"nope"}');
+        self::assertSame(422, $res->status());
+        self::assertStringContainsString('not an installable component', $res->body());
+        $res = $this->request('GET', '/packages', [], ['accept' => 'application/json']);
+        self::assertSame('fail2ban', json_decode($res->body(), true)['packages'][0]['name']);
+        self::assertSame(419, $this->request('POST', '/packages/install', [], ['accept' => 'application/json', 'content-type' => 'application/json'], '{"name":"fail2ban"}')->status(), 'no CSRF token');
+
         $this->agent->succeed('server.reboot', ['in_minutes' => 5]);
         $this->post('/server/reboot', ['confirm' => 'web1', 'minutes' => '5']);
         self::assertSame(['confirm' => 'web1', 'minutes' => 5], $this->lastCall('server.reboot'));
@@ -94,6 +109,9 @@ final class SecurityAndSystemTest extends HttpTestCase
         foreach (['/packages', '/security', '/monitoring'] as $p) {
             self::assertSame(403, $this->request('GET', $p)->status(), $p);
         }
+        $before = $this->calls('packages.install');
+        self::assertSame(403, $this->request('POST', '/packages/install', [], ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\WhaCP\Security\Csrf::class)->token()], '{"name":"fail2ban"}')->status());
+        self::assertSame($before, $this->calls('packages.install'));
         self::assertSame(403, $this->post('/server/reboot', ['confirm' => 'web1'])->status());
     }
 
