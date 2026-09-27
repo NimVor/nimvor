@@ -48,6 +48,7 @@ $groups = [
     ],
 ];
 ?>
+<?php $siteMenu = $this->shared('site_menu'); ?>
 <nav class="wcp-sidebar" id="wcp-sidebar" aria-label="Main navigation">
     <a class="wcp-brand" href="<?= e($this->url('dashboard')) ?>">
         <img src="<?= e($this->asset('assets/img/logo.svg')) ?>" alt="" width="28" height="28">
@@ -76,9 +77,20 @@ $groups = [
                         <i class="bi bi-<?= e($icon) ?>"></i><span><?= e($label) ?></span><span class="wcp-soon">soon</span>
                     </span>
                 <?php else: ?>
-                    <a class="wcp-nav-link<?= $this->isActive($prefix) ? ' active' : '' ?>" href="<?= e($this->url($route)) ?>"<?= $this->isActive($prefix) ? ' aria-current="page"' : '' ?>>
+                    <?php $inSite = $route === 'websites' && $siteMenu !== null; ?>
+                    <a class="wcp-nav-link<?= $this->isActive($prefix) || $inSite ? ' active' : '' ?>" href="<?= e($this->url($route)) ?>"<?= $this->isActive($prefix) ? ' aria-current="page"' : '' ?>>
                         <i class="bi bi-<?= e($icon) ?>"></i><span><?= e($label) ?></span>
                     </a>
+                    <?php if ($inSite): ?>
+                        <div class="wcp-subnav" data-wcp-site-menu>
+                            <div class="wcp-subnav-title" title="<?= e($siteMenu['site']['domain']) ?>"><?= e($siteMenu['site']['domain']) ?></div>
+                            <?php foreach ($siteMenu['items'] as $si): ?>
+                                <a class="wcp-subnav-link<?= $si['key'] === $siteMenu['active'] ? ' active' : '' ?>" href="<?= e($si['url']) ?>"<?= $si['key'] === $siteMenu['active'] ? ' aria-current="page"' : '' ?>>
+                                    <i class="bi bi-<?= e($si['icon']) ?>" aria-hidden="true"></i><span><?= e($si['label']) ?></span>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 <?php endif; ?>
             <?php endforeach; ?>
         <?php endforeach; ?>

@@ -33,6 +33,7 @@ final class SitesController extends Controller
         private readonly UserRepository $users,
         private readonly \WhaCP\Services\ImportService $imports,
         private readonly JobTracker $jobs,
+        private readonly \WhaCP\Services\SiteOverview $overview,
     ) {
         parent::__construct($view, $session);
     }
@@ -81,21 +82,45 @@ final class SitesController extends Controller
             return $this->redirectWithError('/websites', 'The import of ' . $site['domain'] . ' failed; the old website is unchanged. See the job log for details.');
         }
         $site = $this->site($request, $id) ?? $site;
-        $inspect = null;
-        $inspectError = null;
-        try {
-            $inspect = (array) $this->agent->call('sites.inspect', ['domain' => $site['domain']]);
-        } catch (AgentException $e) {
-            $inspectError = $e;
-        }
+        [$inspect, $inspectError] = $this->inspect($site);
         return $this->render('sites/show', [
             'site' => $site,
             'inspect' => $inspect,
             'inspectError' => $inspectError,
-            'jobs' => $this->jobs->recentFor('website', (string) $site['id']),
+            'summary' => $this->overview->summary($site, $this->user($request)),
             'tab' => 'overview',
             'import' => $this->imports->importOf((int) $site['id']),
         ]);
+    }
+
+    /** Server details and the actions that change or remove the website. */
+    public function advanced(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        [$inspect, $inspectError] = $this->inspect($site);
+        return $this->render('sites/advanced', [
+            'site' => $site,
+            'inspect' => $inspect,
+            'inspectError' => $inspectError,
+            'jobs' => $this->jobs->recentFor('website', (string) $site['id']),
+            'tab' => 'advanced',
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $site
+     * @return array{0: array<string, mixed>|null, 1: AgentException|null}
+     */
+    private function inspect(array $site): array
+    {
+        try {
+            return [(array) $this->agent->call('sites.inspect', ['domain' => $site['domain']]), null];
+        } catch (AgentException $e) {
+            return [null, $e];
+        }
     }
 
     public function undoImport(Request $request, string $id): Response
@@ -147,9 +172,9 @@ final class SitesController extends Controller
         try {
             $this->service->setEnabled($site, !$site['enabled']);
         } catch (UserFacingException $e) {
-            return $this->redirectWithFailure('/sites/' . (int) $id, $e);
+            return $this->redirectWithFailure('/sites/' . (int) $id . '/advanced', $e);
         }
-        return $this->redirectWithSuccess('/sites/' . (int) $id, $site['enabled'] ? 'Website disabled. Its files and settings are kept.' : 'Website enabled.');
+        return $this->redirectWithSuccess('/sites/' . (int) $id . '/advanced', $site['enabled'] ? 'Website disabled. Its files and settings are kept.' : 'Website enabled.');
     }
 
     public function restartPhp(Request $request, string $id): Response
@@ -161,9 +186,9 @@ final class SitesController extends Controller
         try {
             $this->service->restartPhp($site);
         } catch (UserFacingException $e) {
-            return $this->redirectWithFailure('/sites/' . (int) $id, $e);
+            return $this->redirectWithFailure('/sites/' . (int) $id . '/advanced', $e);
         }
-        return $this->redirectWithSuccess('/sites/' . (int) $id, 'PHP ' . $site['php_version'] . ' was reloaded.');
+        return $this->redirectWithSuccess('/sites/' . (int) $id . '/advanced', 'PHP ' . $site['php_version'] . ' was reloaded.');
     }
 
     public function reapply(Request $request, string $id): Response
@@ -175,9 +200,9 @@ final class SitesController extends Controller
         try {
             $this->service->reapply($site);
         } catch (UserFacingException $e) {
-            return $this->redirectWithFailure('/sites/' . (int) $id, $e);
+            return $this->redirectWithFailure('/sites/' . (int) $id . '/advanced', $e);
         }
-        return $this->redirectWithSuccess('/sites/' . (int) $id, 'Configuration re-applied from the panel.');
+        return $this->redirectWithSuccess('/sites/' . (int) $id . '/advanced', 'Configuration re-applied from the panel.');
     }
 
     public function destroy(Request $request, string $id): Response
@@ -187,12 +212,12 @@ final class SitesController extends Controller
             return $this->notFound();
         }
         if ($request->string('confirm_domain') !== $site['domain']) {
-            return $this->redirectWithError('/sites/' . (int) $id, 'Type the domain name to confirm deletion.');
+            return $this->redirectWithError('/sites/' . (int) $id . '/advanced', 'Type the domain name to confirm deletion.');
         }
         try {
             $warnings = $this->service->delete($site, $request->input('remove_files') === '1', $request->input('remove_user') === '1');
         } catch (UserFacingException $e) {
-            return $this->redirectWithFailure('/sites/' . (int) $id, $e);
+            return $this->redirectWithFailure('/sites/' . (int) $id . '/advanced', $e);
         }
         $msg = 'Website ' . $site['domain'] . ' was removed.';
         if ($warnings !== []) {

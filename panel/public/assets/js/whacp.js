@@ -395,4 +395,105 @@
             });
         });
     });
+    // Website dashboard: "Search features…" filters the action list as a
+    // combobox (arrows move, Enter opens, Escape closes).
+    document.addEventListener('DOMContentLoaded', function () {
+        var box = document.querySelector('[data-wcp-feature-search]');
+        if (!box) { return; }
+        var input = box.querySelector('[data-wcp-feature-input]');
+        var list = box.querySelector('[data-wcp-feature-results]');
+        var none = list.querySelector('[data-wcp-feature-none]');
+        var items = Array.prototype.slice.call(list.querySelectorAll('[data-wcp-feature]'));
+        var shown = [];
+        var focus = -1;
+        function setFocus(i) {
+            shown.forEach(function (el, n) { el.classList.toggle('is-focused', n === i); el.setAttribute('aria-selected', n === i ? 'true' : 'false'); });
+            focus = i;
+            if (i >= 0) { input.setAttribute('aria-activedescendant', shown[i].id); shown[i].scrollIntoView({ block: 'nearest' }); } else { input.removeAttribute('aria-activedescendant'); }
+        }
+        function update() {
+            var words = input.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+            var ranked = [];
+            items.forEach(function (el) {
+                var hay = el.getAttribute('data-wcp-feature');
+                var label = el.getAttribute('data-wcp-feature-label');
+                var on = words.length > 0 && words.every(function (w) { return hay.indexOf(w) >= 0; });
+                el.classList.toggle('d-none', !on);
+                if (on) {
+                    // Matches in the name first, names starting with the query before others.
+                    var rank = words.every(function (w) { return label.indexOf(w) >= 0; }) ? (label.indexOf(words[0]) === 0 ? 0 : 1) : 2;
+                    ranked.push({ el: el, rank: rank });
+                }
+            });
+            ranked.sort(function (a, b) { return a.rank - b.rank; });
+            shown = ranked.map(function (r) { return r.el; });
+            shown.forEach(function (el) { list.insertBefore(el, none); });
+            var open = words.length > 0;
+            list.classList.toggle('d-none', !open);
+            none.classList.toggle('d-none', !open || shown.length > 0);
+            input.setAttribute('aria-expanded', open ? 'true' : 'false');
+            setFocus(shown.length > 0 ? 0 : -1);
+        }
+        input.addEventListener('input', update);
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowDown' && shown.length) { e.preventDefault(); setFocus((focus + 1) % shown.length); }
+            else if (e.key === 'ArrowUp' && shown.length) { e.preventDefault(); setFocus((focus - 1 + shown.length) % shown.length); }
+            else if (e.key === 'Enter' && focus >= 0) { e.preventDefault(); window.location.href = shown[focus].href; }
+            else if (e.key === 'Escape') { input.value = ''; update(); }
+        });
+        document.addEventListener('click', function (e) {
+            if (!box.contains(e.target)) { list.classList.add('d-none'); input.setAttribute('aria-expanded', 'false'); }
+        });
+        input.addEventListener('focus', function () { if (input.value.trim() !== '') { update(); } });
+        // "/" focuses the search, like many web apps.
+        document.addEventListener('keydown', function (e) {
+            if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && !document.activeElement.isContentEditable) {
+                e.preventDefault(); input.focus();
+            }
+        });
+    });
+
+    // A link to #some-form opens that collapsed form (e.g. "+ Create
+    // database" from the dashboard) and focuses its first field.
+    function openFromHash() {
+        var id = decodeURIComponent(window.location.hash.slice(1));
+        if (!id || !/^[A-Za-z][\w-]*$/.test(id) || !window.bootstrap) { return; }
+        var el = document.getElementById(id);
+        if (!el) { return; }
+        if (el.classList.contains('collapse')) {
+            bootstrap.Collapse.getOrCreateInstance(el, { toggle: false }).show();
+        }
+        if (el.tagName === 'DETAILS') { el.open = true; }
+        setTimeout(function () {
+            el.scrollIntoView({ block: 'start', behavior: 'auto' });
+            var f = el.querySelector('input:not([type=hidden]):not([disabled]), select, textarea');
+            if (f && el.classList.contains('collapse')) { f.focus({ preventScroll: true }); }
+        }, 50);
+    }
+    document.addEventListener('DOMContentLoaded', openFromHash);
+    window.addEventListener('hashchange', openFromHash);
+    // Focus the first field when a form panel is opened by its button.
+    document.addEventListener('shown.bs.collapse', function (e) {
+        if (!e.target.matches('[data-wcp-form-panel]')) { return; }
+        var f = e.target.querySelector('input:not([type=hidden]):not([disabled]), select, textarea');
+        if (f) { f.focus(); }
+    });
+
+    // Table filter: <input data-wcp-filter="#table-id"> hides rows whose
+    // text does not contain every typed word.
+    document.addEventListener('input', function (e) {
+        var sel = e.target.getAttribute && e.target.getAttribute('data-wcp-filter');
+        if (!sel) { return; }
+        var table = document.querySelector(sel);
+        if (!table) { return; }
+        var words = e.target.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+        var visible = 0;
+        table.querySelectorAll('tbody tr:not([data-wcp-filter-empty])').forEach(function (tr) {
+            var on = words.every(function (w) { return tr.textContent.toLowerCase().indexOf(w) >= 0; });
+            tr.classList.toggle('d-none', !on);
+            if (on) { visible++; }
+        });
+        var empty = table.querySelector('[data-wcp-filter-empty]');
+        if (empty) { empty.classList.toggle('d-none', visible > 0); }
+    });
 })();

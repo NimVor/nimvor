@@ -1,44 +1,41 @@
 <?php
 /** @var \WhaCP\View\View $this */
 /** @var array<string, mixed> $site */
-use WhaCP\Security\Permissions as P;
+use WhaCP\View\SiteMenu;
 
-$tabs = [
-    ['overview', 'Overview', 'sites.show', P::WEBSITES_VIEW, 'info-circle'],
-    ['settings', 'Settings', 'sites.edit', P::WEBSITES_MANAGE, 'sliders'],
-    ['ssl', 'SSL', 'sites.ssl', P::SSL_VIEW, 'shield-lock'],
-    ['dns', 'DNS', 'sites.dns', P::DNS_MANAGE, 'signpost'],
-    ['mail', 'Email', 'sites.mail', P::MAIL_MANAGE, 'envelope'],
-    ['databases', 'Databases', 'sites.databases', P::DATABASES_VIEW, 'database'],
-    ['files', 'Files', 'sites.files', P::FILES_MANAGE, 'folder2-open'],
-    ['ftp', 'FTP / SFTP', 'sites.ftp', P::FTP_MANAGE, 'hdd-network'],
-    ['logs', 'Logs', 'sites.logs', P::LOGS_VIEW, 'journal-text'],
-    ['cron', 'Cron', 'sites.cron', P::CRON_VIEW, 'clock-history'],
-    ['workers', 'Workers', 'sites.workers', P::WORKERS_MANAGE, 'gear-wide-connected'],
-    ['git', 'Git', 'sites.git', P::DEPLOY_MANAGE, 'git'],
-    ['redis', 'Redis', 'sites.redis', P::WEBSITES_MANAGE, 'lightning'],
-    ['backups', 'Backups', 'sites.backups', P::BACKUPS_VIEW, 'archive'],
-    ['apps', 'Apps', 'sites.apps', P::APPS_INSTALL, 'grid-3x3-gap'],
-];
 $active = $tab ?? 'overview';
 $scheme = $site['https'] ? 'https://' : 'http://';
+$items = SiteMenu::items($this, $site);
+// The sidebar shows this website's menu under "Websites".
+$this->share('site_menu', ['site' => $site, 'active' => $active, 'items' => $items]);
+$current = null;
+foreach ($items as $i) {
+    if ($i['key'] === $active) {
+        $current = $i;
+    }
+}
 ?>
 <?php $this->start(); ?><?= e($site['domain']) ?><?php $this->end('title'); ?>
 <?php $this->start(); ?>
-<?= $site['enabled'] ? $this->statusBadge('active', 'enabled') : $this->statusBadge('inactive', 'disabled') ?>
-<?php if ($site['status'] === 'error'): ?><?= $this->statusBadge('error', 'needs attention') ?><?php endif; ?>
-· <?= e(\WhaCP\Services\WebsiteService::KINDS[$site['kind']] ?? $site['kind']) ?><?= $site['kind'] === 'php' ? ' · PHP ' . e($site['php_version']) : '' ?>
+<span class="wcp-site-status">
+    <?php if ($site['status'] === 'error'): ?><span class="wcp-state is-error">Needs attention</span>
+    <?php elseif ($site['enabled']): ?><span class="wcp-state is-ok">Active</span>
+    <?php else: ?><span class="wcp-state is-off">Disabled</span><?php endif; ?>
+    <?php if ($site['kind'] === 'php'): ?><span>PHP <?= e($site['php_version']) ?></span><?php elseif ($site['kind'] === 'proxy'): ?><span>Application proxy</span><?php else: ?><span>Static website</span><?php endif; ?>
+    <span><i class="bi bi-<?= $site['https'] ? 'lock-fill text-success' : 'unlock' ?>" aria-hidden="true"></i> HTTPS <?= $site['https'] ? 'on' : 'off' ?></span>
+</span>
 <?php $this->end('subtitle'); ?>
 <?php $this->start(); ?>
-<a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('websites')) ?>"><i class="bi bi-arrow-left"></i> Websites</a>
+<a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('websites')) ?>"><i class="bi bi-arrow-left"></i><span class="d-none d-sm-inline"> Websites</span></a>
+<button class="btn btn-sm btn-outline-secondary d-lg-none" type="button" data-wcp-toggle="sidebar" aria-controls="wcp-sidebar" data-wcp-site-menu-button><i class="bi bi-list-nested"></i> Website menu</button>
 <?php if ($site['enabled']): ?>
-    <a class="btn btn-sm btn-outline-primary" href="<?= e($scheme . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i> Open</a>
+    <a class="btn btn-sm btn-outline-primary" href="<?= e($scheme . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i><span class="d-none d-sm-inline"> Visit site</span></a>
 <?php endif; ?>
 <?php $this->end('actions'); ?>
-<ul class="nav nav-tabs wcp-tabs">
-    <?php foreach ($tabs as [$key, $label, $route, $perm, $icon]): ?>
-        <?php if ($this->hasRoute($route) && $this->can($perm)): ?>
-            <li class="nav-item"><a class="nav-link<?= $active === $key ? ' active' : '' ?>" href="<?= e($this->url($route, ['id' => (int) $site['id']])) ?>"><i class="bi bi-<?= e($icon) ?> me-1"></i><?= e($label) ?></a></li>
-        <?php endif; ?>
-    <?php endforeach; ?>
-</ul>
+<?php if ($active !== 'overview' && $current !== null): ?>
+    <nav class="wcp-crumbs" aria-label="Breadcrumb">
+        <a href="<?= e($this->url('sites.show', ['id' => (int) $site['id']])) ?>"><?= e($site['domain']) ?></a>
+        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        <span aria-current="page"><i class="bi bi-<?= e($current['icon']) ?> me-1" aria-hidden="true"></i><?= e($current['label']) ?></span>
+    </nav>
+<?php endif; ?>

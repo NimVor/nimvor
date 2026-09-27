@@ -53,8 +53,9 @@ $pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('ti
                 </button>
                 <?php if (!empty($user)): ?>
                     <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle me-1"></i><?= e($user['display_name'] !== '' ? $user['display_name'] : $user['username']) ?>
+                        <?php $who = $user['display_name'] !== '' ? $user['display_name'] : $user['username']; ?>
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account: <?= e($who) ?>">
+                            <i class="bi bi-person-circle"></i><span class="d-none d-sm-inline ms-1"><?= e($who) ?></span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><span class="dropdown-item-text small text-body-secondary"><?= e($user['role_label']) ?></span></li>

@@ -117,6 +117,8 @@ final class DnsController extends Controller
         return $this->render('dns/zone', [
             'zone' => $zone, 'records' => $this->dns->records((int) $zone['id']), 'served' => $served,
             'edit' => (int) $request->query('edit', 0),
+            // The website this zone belongs to, when the user may see it: the page then keeps its menu.
+            'site' => (int) ($zone['website_id'] ?? 0) > 0 ? $this->sites->find($this->server->id(), (int) $zone['website_id'], $this->user($request)) : null,
         ]);
     }
 

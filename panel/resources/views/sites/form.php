@@ -34,7 +34,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
     <?= $this->csrfField() ?>
     <div class="row g-3">
         <div class="col-lg-6">
-            <div class="card mb-3">
+            <div class="card mb-3" id="domains">
                 <div class="card-header"><i class="bi bi-globe2 me-1"></i>Domains</div>
                 <div class="card-body">
                     <div class="mb-3">
@@ -110,7 +110,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                     <?php endif; ?>
                 </div>
             </div>
-            <div class="card mb-3" data-wcp-kind="php">
+            <div class="card mb-3" data-wcp-kind="php" id="php">
                 <div class="card-header"><i class="bi bi-filetype-php me-1"></i>PHP settings</div>
                 <div class="card-body">
                     <div class="row g-2">
@@ -159,8 +159,8 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                     </details>
                 </div>
             </div>
-            <div class="card mb-3">
-                <div class="card-header"><i class="bi bi-signpost me-1"></i>Requests</div>
+            <div class="card mb-3" id="requests">
+                <div class="card-header"><i class="bi bi-signpost me-1"></i>Requests and redirects</div>
                 <div class="card-body">
                     <label class="form-label small" for="f-body">Max request body (MB)</label>
                     <input class="form-control form-control-sm mb-3<?= $cls('client_max_body_mb') ?>" type="number" id="f-body" name="client_max_body_mb" value="<?= e($v('client_max_body_mb', 64)) ?>">
