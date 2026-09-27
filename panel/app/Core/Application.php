@@ -73,6 +73,11 @@ final class Application
             } catch (\WhaCP\Agent\AgentException $e) {
                 $c->get(Logger::class)->warning('cron cleanup failed', ['domain' => $site['domain'], 'error' => $e->getMessage()]);
             }
+            try {
+                $c->get(\WhaCP\Services\StatsService::class)->setEnabled($site, false, false);
+            } catch (\WhaCP\Agent\AgentException $e) {
+                $c->get(Logger::class)->warning('statistics cleanup failed', ['domain' => $site['domain'], 'error' => $e->getMessage()]);
+            }
         });
         $events->on('website.updated', static function (array $p) use ($c): void {
             $site = $p['website'] ?? null;

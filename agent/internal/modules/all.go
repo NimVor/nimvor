@@ -19,6 +19,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/services"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sites"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sslmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/statsmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sysmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/usage"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/workers"
@@ -34,6 +35,7 @@ func All() []Module {
 		files.Register,
 		logs.Register,
 		cronmgr.Register,
+		statsmgr.Register,
 		workers.Register,
 		deploy.Register,
 		redismgr.Register,

@@ -7,6 +7,22 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Hosting customers get a simple layout:** no sidebar, and their
+  websites as cards (search, sort, status filter). The site page follows
+  the familiar hosting-panel pattern: a details header and "Site
+  managing" tiles, with Delete and Disable at the top. Administrators
+  can switch between cards and the list.
+- **SQL import** into a website's database (upload `.sql`/`.sql.gz`, or a
+  file in the website).
+- **Cron:** a Logs page per job with its runs as a table (start,
+  duration, exit code, trigger, output), and an optional per-job email of
+  the output.
+- **Remote access for database users** (an IP address, a network or any
+  host), and "Assign to database".
+- **Subdomains and addon domains:** websites under the same site
+  account, with an optional A record in the parent's zone.
+- **Website statistics (AWStats):** updated every 6 hours as the
+  website's account; the panel draws the report from AWStats' data.
 - **PHP → version → Settings:** manage extensions (install, remove, switch
   on or off; removals that would take other packages along are refused,
   and the panel's own extensions are protected), edit php.ini settings
@@ -50,6 +66,11 @@ All notable changes to WhaCP are documented here. The format follows
     alive.
 
 ### Changed
+- Automatic backups are set up by administrators only; customers see the
+  schedules read-only.
+- DNS zones and mail domains attached to a website are visible to its
+  owner, including ones an administrator created.
+- Let's Encrypt notices go to the account's email (shown, not asked).
 - **Website dashboard:** *Websites → Manage* opens a hosting dashboard
   instead of server details. It has a summary (status, PHP, HTTPS, SSL,
   disk, last backup), "Search features…" with keyboard navigation, quick
@@ -97,6 +118,17 @@ All notable changes to WhaCP are documented here. The format follows
   in the panel.
 
 ### Security
+- **Website file symlinks:** `db.import` (a website path) and cron's
+  "Run now" log append opened website files as root, following symlinks.
+  A website's user could have leaked a root-only file into an import log,
+  or appended their command's output to a file such as `/etc/crontab`.
+  Both now open website files confined to the website (os.Root).
+- **System accounts:** the website form let a hosting customer name an
+  existing account (another customer's, or a server login), and the agent
+  used it. Customers may now reuse only their own websites' accounts; a
+  new name must not exist on the server (`new_user`). Deleting a website
+  no longer removes an account that a static or disabled website still
+  uses.
 - Server backups are always encrypted, also when kept only on the server:
   they contain the agent token, the panel key and TLS private keys, and
   local backups can be downloaded and are copied by host backups. The

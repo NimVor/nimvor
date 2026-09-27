@@ -47,6 +47,7 @@ $tiles = array_values(array_filter([
     ['Workers', 'gear-wide-connected', $u('workers'), $summary['workers'] > 0 ? (string) $summary['workers'] : null],
     ['Redis', 'lightning', $u('redis'), null],
     ['Logs', 'journal-text', $u('logs'), null],
+    ['Statistics', 'bar-chart-line', $u('stats'), null],
     ['Subdomains', 'diagram-3', $u('domains', '#subdomains'), $summary['subdomains'] > 0 ? (string) $summary['subdomains'] : null],
     ['Addon domains', 'plus-square', $u('domains', '#addons'), $summary['addons'] > 0 ? (string) $summary['addons'] : null],
     ['Manual settings', 'code-slash', $u('advanced'), null],
@@ -77,6 +78,7 @@ foreach ([
     ['Install WordPress', $u('apps', '#app-wordpress'), 'grid-3x3-gap', 'wordpress wp blog'],
     ['Install Laravel', $u('apps', '#app-laravel'), 'grid-3x3-gap', 'laravel framework'],
     ['View error log', $u('logs'), 'journal-text', 'error access log debug'],
+    ['Visitor statistics (AWStats)', $u('stats'), 'bar-chart-line', 'awstats analytics visitors traffic bandwidth stats'],
     ['Disable or delete website', $u('advanced', '#danger-zone'), 'exclamation-octagon', 'disable delete remove danger'],
 ] as [$label, $url, $icon, $words]) {
     if ($url !== null) {

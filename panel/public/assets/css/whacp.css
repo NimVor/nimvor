@@ -529,3 +529,9 @@ details.card[open] > summary::after { transform: rotate(180deg); }
     .wcp-tile { min-height: 8rem; }
 }
 @media (prefers-reduced-motion: reduce) { .wcp-tile, .wcp-site-card { transition: none; } }
+
+/* ---- Website statistics ---- */
+.wcp-progress-thin { height: .35rem; }
+.wcp-stat-bar { width: 30%; }
+.wcp-hour { width: 1.6rem; }
+.wcp-hour-count { width: 3.5rem; }

@@ -90,6 +90,8 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		"/etc/opt/remi/php*/php.d/*.ini",
 		"/etc/php/*/fpm/conf.d/99-whacp.ini",
 		"/etc/php/*/cli/conf.d/99-whacp.ini",
+		// Website statistics: WhaCP's own AWStats configurations.
+		"/etc/awstats/awstats.whacp-*.conf",
 	}
 	return &Env{
 		Cfg: cfg, Root: root, Platform: p, M: m, Runner: r, Jobs: j, Log: log,

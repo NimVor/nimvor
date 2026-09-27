@@ -28,6 +28,7 @@ final class SiteMenu
         ['cron', 'Cron jobs', 'clock-history', 'sites.cron', P::CRON_VIEW],
         ['workers', 'Workers', 'gear-wide-connected', 'sites.workers', P::WORKERS_MANAGE],
         ['logs', 'Logs', 'journal-text', 'sites.logs', P::LOGS_VIEW],
+        ['stats', 'Statistics', 'bar-chart-line', 'sites.stats', P::LOGS_VIEW],
         ['redis', 'Redis', 'lightning', 'sites.redis', P::WEBSITES_MANAGE],
         ['settings', 'PHP & settings', 'sliders', 'sites.edit', P::WEBSITES_MANAGE],
         ['advanced', 'Advanced', 'tools', 'sites.advanced', P::WEBSITES_MANAGE],

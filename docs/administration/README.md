@@ -149,42 +149,73 @@ sudo -u whacp -E php /opt/whacp/panel/bin/whacp schedule:run   # normally run by
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp doctor
 ```
 
-## Website dashboard
+## Websites for hosting customers
 
-*Websites → Manage* opens the website's dashboard, written for the
-website's owner rather than for the server:
+Hosting customers (own-scope roles that do not manage users) get a simple
+layout without the sidebar. Their home page is their websites as cards
+(search, sort by creation date or name, filter by status, "Create site").
+Administrators see the same cards through the cards/list switch on
+*Websites*.
 
-- a summary: status, PHP version, HTTPS, SSL, disk use and last backup;
-- **Search features…** (press `/`): type e.g. "create database", "add
-  email" or "DNS"; arrow keys choose, Enter opens the page with its form
-  already open;
-- quick actions: upload files, create a database or mailbox, install
-  SSL, add a DNS record, back up;
-- the features grouped as Files, Databases, Email, Domains, Applications,
-  Performance, Backups, Automation and Security, with counts and states.
+Opening a website shows its details (site user, root directory, IPv4,
+PHP handler and version, site and database size, SSL, last backup) and
+**Site managing**: tiles for FTP accounts, Files, Databases, Domains (DNS),
+SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Settings,
+PHP settings, Applications, Git, Workers, Redis, Logs, Statistics,
+Subdomains, Addon domains and Manual settings (Advanced), plus
+**Search…** (press `/`). *Delete the website* leads to the typed
+confirmation under Advanced; *Disable the website* asks first.
+Administrators also have the website's menu in the sidebar.
 
-Every link is shown only to users whose role allows it; hosting
-customers do not see server features (server security, the audit log,
-the spam filter, backup destinations, Memcached). The website's own
-menu (Overview, File manager, FTP / SFTP, Databases, Email, DNS, SSL,
-Backups, Applications, Git, Cron jobs, Workers, Logs, Redis, PHP &
-settings, Advanced) is nested under *Websites* in the sidebar; on phones
-the **Website menu** button opens it.
+**Advanced** holds the server details (system user, folders, PHP-FPM
+limits, generated Nginx configuration, recent tasks) and the Danger
+Zone: disable/enable, reload PHP, re-apply configuration and, set apart,
+delete.
 
-**Advanced** holds what concerns the server rather than the website: the
-system user, folders, PHP-FPM limits, the generated Nginx configuration
-and recent tasks, and the **Danger Zone**: disable or enable the website,
-reload its PHP, re-apply its configuration, and, set apart, delete it
-(typing the domain name to confirm).
+Section pages share one pattern: a toolbar with a count, a filter where
+lists grow and "+ Add", which opens its form in place (also from links
+such as `…/databases#new-database`, and again after a validation error).
 
-The section pages follow one pattern: a toolbar with the count, a filter
-for longer lists and the main "+ Add" action, which opens its form in
-place (also from a link, e.g. `…/databases#new-database`, and again after
-a validation error); an explanation when nothing exists yet; and
-destructive actions in a separate danger card. Email and DNS stay inside
-the website: without a mail domain or DNS zone yet, the website offers to
-set one up; administrators get a link to set up the mail or DNS server
-when it is not ready.
+### What customers can do (and what stays with administrators)
+
+- **Automatic backups** are set up by administrators. Customers see the
+  schedules and back up and restore by hand.
+- **DNS zones and mail domains** an administrator creates for a
+  customer's website belong to that website: its owner sees and manages
+  them.
+- **Let's Encrypt** expiry notices go to the email address of the account
+  that issues the certificate.
+- **Database users** can connect from this server, a specific IP address
+  or network (`203.0.113.%`), or any host. Remote access (globe icon)
+  gives an existing user another host: a separate login with a new
+  password, shown once, and the same database access. Remote connections
+  also need MariaDB/MySQL to listen on the network (`bind-address`) and
+  port 3306 open in the firewall; WhaCP does not change either. Users are
+  assigned to the account's databases with *Assign to database*.
+- **SQL import:** each website database has an Import action. It uploads
+  a `.sql` or `.sql.gz` file into the website's `tmp/` folder (removed
+  afterwards) or imports a file already in the website. The file is read
+  confined to the website, and the mysql client's own commands (shell,
+  files) are turned off.
+- **Cron jobs** have a *Logs* page listing their runs (start, duration,
+  exit code, scheduled or manual, output) from the last 512 KB of
+  `logs/cron-<id>.log`. *Email the output* sends each run's output to
+  the email of the account that turned it on (the server must be able
+  to send mail); the log keeps it too.
+- **Subdomains and addon domains** (Site → Subdomains & addons) are
+  websites of their own under the same site account. A subdomain gets an
+  A record when the parent's zone is hosted here.
+- **System accounts:** customers and resellers can reuse only the account
+  of one of their own websites; any other name must not exist on the
+  server yet. Deleting a website keeps its account while another website
+  uses it.
+- **Statistics:** install AWStats under Packages. Each website turns it
+  on under Statistics. AWStats then runs every 6 hours as the website's
+  account (`/etc/cron.d/whacp-awstats-*`, configuration in
+  `/etc/awstats/awstats.whacp-<domain>.conf`) and keeps its data in
+  `<website>/.awstats`. The panel draws the report (visitors, pages, days,
+  hours, referrers, search engines, browsers, systems, countries, errors)
+  from AWStats' data file; AWStats' own HTML is not shown.
 
 ## PHP versions and settings
 

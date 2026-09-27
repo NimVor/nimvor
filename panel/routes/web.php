@@ -96,6 +96,9 @@ return static function (Router $r): void {
     $r->get('/sites/{id}/files/download', [FilesController::class, 'download'], ['name' => 'sites.files.download', 'permission' => P::FILES_MANAGE]);
     $r->get('/sites/{id}/logs', [LogsController::class, 'site'], ['name' => 'sites.logs', 'permission' => P::LOGS_VIEW]);
     $r->get('/sites/{id}/cron', [CronController::class, 'show'], ['name' => 'sites.cron', 'permission' => P::CRON_VIEW]);
+    $r->get('/sites/{id}/stats', [\WhaCP\Http\Controllers\StatsController::class, 'show'], ['name' => 'sites.stats', 'permission' => P::LOGS_VIEW]);
+    $r->post('/sites/{id}/stats/enable', [\WhaCP\Http\Controllers\StatsController::class, 'enable'], ['name' => 'sites.stats.enable', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/stats/update', [\WhaCP\Http\Controllers\StatsController::class, 'update'], ['name' => 'sites.stats.update', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/cron/{job}/log', [CronController::class, 'log'], ['name' => 'sites.cron.log', 'permission' => P::CRON_VIEW]);
     $r->post('/sites/{id}/cron', [CronController::class, 'store'], ['name' => 'sites.cron.store', 'permission' => P::CRON_MANAGE]);
     $r->post('/sites/{id}/cron/{job}/toggle', [CronController::class, 'toggle'], ['name' => 'sites.cron.toggle', 'permission' => P::CRON_MANAGE]);

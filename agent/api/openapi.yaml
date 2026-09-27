@@ -214,6 +214,10 @@ paths:
               - ssl.issue
               - ssl.renew
               - ssl.renewal_status
+              - stats.data
+              - stats.enable
+              - stats.status
+              - stats.update
               - system.info
               - system.metrics
               - system.metrics_history
@@ -482,6 +486,10 @@ x-whacp-actions:
   ssl.issue: { mutating: true, description: "Issue or expand a Let's Encrypt certificate (webroot)." }
   ssl.renew: { mutating: true, description: "Force renewal of a certbot certificate and reload Nginx." }
   ssl.renewal_status: { mutating: false, description: "Whether automatic certificate renewal is active." }
+  stats.data: { mutating: false, description: "One month (YYYYMM) of a website's AWStats data (text), read confined to the website." }
+  stats.enable: { mutating: true, description: "Turn website statistics on (AWStats configuration, data folder, update every 6 hours as the website's account) or off (the data is kept)." }
+  stats.status: { mutating: false, description: "Website statistics: AWStats installed, turned on for the website, months with data and the last update." }
+  stats.update: { mutating: true, description: "Update a website's statistics now, as its account (job)." }
   system.info: { mutating: false, description: "Operating system, kernel, CPU, network interfaces and uptime." }
   system.metrics: { mutating: false, description: "Latest CPU, memory, disk, load and network sample." }
   system.metrics_history: { mutating: false, description: "Recent metrics history for charts." }
