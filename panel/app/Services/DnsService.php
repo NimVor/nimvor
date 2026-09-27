@@ -39,7 +39,7 @@ final class DnsService
      */
     public function zones(array $user): array
     {
-        [$cond, $params] = Scope::condition($user, 'z.owner_id');
+        [$cond, $params] = Scope::withWebsite($user, 'z.owner_id', 'z.website_id');
         return $this->db->fetchAll(
             "SELECT z.*, w.domain AS website, (SELECT COUNT(*) FROM dns_records r WHERE r.zone_id = z.id) AS records
              FROM dns_zones z LEFT JOIN websites w ON w.id = z.website_id WHERE z.server_id = :server AND {$cond} ORDER BY z.name",
@@ -53,7 +53,7 @@ final class DnsService
      */
     public function zone(int $id, array $user): ?array
     {
-        [$cond, $params] = Scope::condition($user, 'owner_id');
+        [$cond, $params] = Scope::withWebsite($user, 'owner_id', 'website_id');
         return $this->db->fetch("SELECT * FROM dns_zones WHERE id = :id AND server_id = :server AND {$cond}", ['id' => $id, 'server' => $this->server->id()] + $params);
     }
 

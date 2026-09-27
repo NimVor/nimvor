@@ -45,14 +45,18 @@ foreach ($backups as $b) {
     <?= $this->partial('backups/_list', ['backups' => $backups, 'canManage' => $canManage]) ?>
 </div>
 
-<?php if ($canManage): ?>
-    <div class="card" id="schedule">
-        <div class="card-header"><i class="bi bi-calendar-check me-1"></i>Automatic backups</div>
-        <div class="card-body">
+<?php $canSchedule ??= false; ?>
+<div class="card" id="schedule">
+    <div class="card-header"><i class="bi bi-calendar-check me-1"></i>Automatic backups</div>
+    <div class="card-body">
+        <?php if ($canSchedule): ?>
             <div class="row g-4">
                 <div class="col-lg-6"><?= $this->partial('backups/_schedules', ['schedules' => $schedules, 'deleteRoute' => 'sites.backups.schedule_delete', 'routeParams' => ['id' => $id]]) ?></div>
                 <div class="col-lg-6"><?= $this->partial('backups/_schedule_form', ['action' => $this->url('sites.backups.schedule', ['id' => $id]), 'site' => true, 'storages' => $storages]) ?></div>
             </div>
-        </div>
+        <?php else: ?>
+            <?= $this->partial('backups/_schedules', ['schedules' => $schedules, 'deleteRoute' => null, 'routeParams' => ['id' => $id]]) ?>
+            <p class="small text-body-secondary mt-2 mb-0"><i class="bi bi-info-circle me-1"></i>Automatic backups are set up by your administrator. You can back up and restore at any time above.</p>
+        <?php endif; ?>
     </div>
-<?php endif; ?>
+</div>

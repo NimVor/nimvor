@@ -30,6 +30,7 @@ final class DatabasesController extends Controller
         private readonly ServerContext $server,
         private readonly DiscoveryService $discovery,
         private readonly JobTracker $jobs,
+        private readonly \WhaCP\Services\SiteOverview $overview,
     ) {
         parent::__construct($view, $session);
     }
@@ -90,6 +91,7 @@ final class DatabasesController extends Controller
             'websites' => $this->sites->all($this->server->id(), $user),
             'prefix' => $this->service->prefix($user),
             'secret' => $this->session->pullFlash('secret'),
+            'serverIp' => $this->overview->serverIp(),
         ];
     }
 
@@ -161,6 +163,43 @@ final class DatabasesController extends Controller
             return $this->redirectWithFailure($this->back($request), $e);
         }
         return $this->redirectWithSuccess($this->back($request), 'Privileges updated.');
+    }
+
+    /** Give a database user access to one of the account's databases (the database is chosen in the form). */
+    public function assign(Request $request, string $id): Response
+    {
+        $dbUser = $this->repo->user($this->server->id(), (int) $id, $this->user($request));
+        $db = $this->repo->database($this->server->id(), (int) $request->input('database_id'), $this->user($request));
+        if ($db === null || $dbUser === null) {
+            return $this->redirectWithError($this->back($request), 'Database or user not found.');
+        }
+        try {
+            $this->service->grant($db, $dbUser, $request->string('privileges', 'all'));
+        } catch (ValidationException $e) {
+            return $this->redirectWithError($this->back($request), implode(' ', $e->errors()));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($this->back($request), $e);
+        }
+        return $this->redirectWithSuccess($this->back($request), $dbUser['username'] . ' may now use ' . $db['name'] . '.');
+    }
+
+    /** Let a database user also connect from another host (remote access). */
+    public function addHost(Request $request, string $id): Response
+    {
+        $dbUser = $this->repo->user($this->server->id(), (int) $id, $this->user($request));
+        if ($dbUser === null) {
+            return $this->redirectWithError($this->back($request), 'Database user not found.');
+        }
+        try {
+            $res = $this->service->addHost($dbUser, $request->all(), $this->user($request));
+        } catch (ValidationException $e) {
+            return $this->redirectWithError($this->back($request), implode(' ', $e->errors()));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($this->back($request), $e);
+        }
+        $host = DatabaseService::hostFrom($request->all(), $this->user($request));
+        $this->session->flash('secret', ['title' => 'Remote access added: ' . $res['user'] . ' from ' . ($host === '%' ? 'any host' : $host), 'user' => $res['user'], 'password' => $res['password']]);
+        return Response::redirect($this->back($request));
     }
 
     public function createUser(Request $request): Response

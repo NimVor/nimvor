@@ -47,7 +47,7 @@ final class MailService
      */
     public function domains(array $user): array
     {
-        [$cond, $params] = Scope::condition($user, 'd.owner_id');
+        [$cond, $params] = Scope::withWebsite($user, 'd.owner_id', 'd.website_id');
         return $this->db->fetchAll(
             "SELECT d.*, w.domain AS website,
                 (SELECT COUNT(*) FROM mail_mailboxes m WHERE m.domain_id = d.id) AS mailboxes,
@@ -64,7 +64,7 @@ final class MailService
      */
     public function domain(int $id, array $user): ?array
     {
-        [$cond, $params] = Scope::condition($user, 'owner_id');
+        [$cond, $params] = Scope::withWebsite($user, 'owner_id', 'website_id');
         return $this->db->fetch("SELECT * FROM mail_domains WHERE id = :id AND server_id = :server AND {$cond}", ['id' => $id, 'server' => $this->server->id()] + $params);
     }
 

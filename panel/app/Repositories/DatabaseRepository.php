@@ -93,6 +93,12 @@ final class DatabaseRepository
         $this->db->run('UPDATE database_users SET password_enc = ? WHERE id = ?', [$enc, $userId]);
     }
 
+    /** @return list<array{database_id: int, name: string, privileges: string}> */
+    public function grantsOf(int $userId): array
+    {
+        return $this->db->fetchAll('SELECT g.database_id, d.name, g.privileges FROM database_grants g JOIN databases d ON d.id = g.database_id WHERE g.user_id = ? ORDER BY d.name', [$userId]);
+    }
+
     public function setGrant(int $databaseId, int $userId, ?string $privileges): void
     {
         if ($privileges === null) {

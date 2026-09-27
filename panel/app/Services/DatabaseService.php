@@ -106,12 +106,9 @@ final class DatabaseService
     {
         $serverId = $this->server->id();
         $username = $this->prefix($actor) . strtolower(trim((string) ($input['username'] ?? '')));
-        $host = Scope::isAll($actor) ? trim((string) ($input['host'] ?? 'localhost')) : 'localhost';
+        $host = self::hostFrom($input, $actor);
         if (!preg_match('/^[a-z0-9_]{1,32}$/', $username) || $this->repo->userTaken($serverId, $username, $host)) {
             throw new ValidationException(['username' => 'Use up to 32 lowercase letters, digits or underscores (not already used).']);
-        }
-        if (!preg_match('/^(localhost|%|[0-9A-Fa-f.:%\/]{1,60}|[A-Za-z0-9.-]{1,60})$/', $host)) {
-            throw new ValidationException(['host' => 'Use localhost, an IP address, a network or %.']);
         }
         $password = Crypto::password();
         $this->agent->call('db.user_create', ['user' => $username, 'host' => $host, 'password' => $password]);
@@ -119,6 +116,66 @@ final class DatabaseService
         $this->repo->insertUser($serverId, $username, $host, Scope::isAll($actor) ? null : (int) $actor['id'], $store ? $this->crypto->encrypt($password) : '');
         $this->audit->record('database.user_create', 'database_user', $username . '@' . $host, AuditLogger::SUCCESS, ['stored' => $store]);
         return ['user' => $username, 'password' => $password];
+    }
+
+    /**
+     * Where a database user may connect from. The form offers "this server"
+     * (localhost), "a specific address" and "any host" (%). Hosting
+     * customers may give an IP address or an IPv4 network with % wildcards
+     * (203.0.113.%); administrators may also use host names and netmasks.
+     *
+     * @param array<string, mixed> $input
+     * @param array<string, mixed> $actor
+     */
+    public static function hostFrom(array $input, array $actor): string
+    {
+        $host = match ((string) ($input['host_choice'] ?? '')) {
+            'localhost' => 'localhost',
+            'any' => '%',
+            'ip' => trim((string) ($input['host_ip'] ?? '')),
+            default => trim((string) ($input['host'] ?? 'localhost')),
+        };
+        $ok = $host === 'localhost' || $host === '%'
+            || filter_var($host, FILTER_VALIDATE_IP) !== false
+            || preg_match('/^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d|%)){0,2}\.%$/', $host) === 1;
+        if (!$ok && Scope::isAll($actor)) {
+            $ok = preg_match('/^([0-9A-Fa-f.:%\/]{1,60}|[A-Za-z0-9.-]{1,60})$/', $host) === 1;
+        }
+        if (!$ok) {
+            throw new ValidationException(['host' => Scope::isAll($actor)
+                ? 'Use localhost, an IP address, a network or %.'
+                : 'Enter an IP address (e.g. 203.0.113.5) or a network with % (e.g. 203.0.113.%).']);
+        }
+        return $host;
+    }
+
+    /**
+     * Let an existing database user also connect from another host: a
+     * separate account (same name, new host) with its own new password
+     * and the same database access.
+     *
+     * @param array<string, mixed> $dbUser
+     * @param array<string, mixed> $input
+     * @param array<string, mixed> $actor
+     * @return array{user: string, password: string}
+     */
+    public function addHost(array $dbUser, array $input, array $actor): array
+    {
+        $serverId = $this->server->id();
+        $host = self::hostFrom($input, $actor);
+        if ($this->repo->userTaken($serverId, (string) $dbUser['username'], $host)) {
+            throw new ValidationException(['host' => $dbUser['username'] . ' may already connect from ' . $host . '.']);
+        }
+        $password = Crypto::password();
+        $this->agent->call('db.user_create', ['user' => $dbUser['username'], 'host' => $host, 'password' => $password]);
+        $store = filter_var($input['store_password'] ?? false, FILTER_VALIDATE_BOOL);
+        $newId = $this->repo->insertUser($serverId, (string) $dbUser['username'], $host, $dbUser['owner_id'] === null ? null : (int) $dbUser['owner_id'], $store ? $this->crypto->encrypt($password) : '');
+        foreach ($this->repo->grantsOf((int) $dbUser['id']) as $g) {
+            $this->agent->call('db.grant', ['user' => $dbUser['username'], 'host' => $host, 'database' => $g['name'], 'privileges' => $g['privileges'], 'revoke' => false]);
+            $this->repo->setGrant((int) $g['database_id'], $newId, (string) $g['privileges']);
+        }
+        $this->audit->record('database.user_create', 'database_user', $dbUser['username'] . '@' . $host, AuditLogger::SUCCESS, ['stored' => $store, 'copied_from' => $dbUser['host']]);
+        return ['user' => (string) $dbUser['username'], 'password' => $password];
     }
 
     /**

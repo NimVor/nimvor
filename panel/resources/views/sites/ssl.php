@@ -56,8 +56,7 @@ if ($site['https'] && $cert !== null) {
             <div class="card-body">
                 <form method="post" action="<?= e($this->url('sites.ssl.issue', ['id' => $id])) ?>" data-wcp-busy>
                     <?= $this->csrfField() ?>
-                    <label class="form-label small" for="le-email">Email for expiry notices (optional)</label>
-                    <input class="form-control form-control-sm mb-2" type="email" id="le-email" name="email" value="<?= e($defaultEmail) ?>">
+                    <p class="small mb-2"><i class="bi bi-envelope me-1 text-body-secondary" aria-hidden="true"></i>Expiry notices from Let's Encrypt go to <?= $defaultEmail !== '' ? '<strong>' . e($defaultEmail) . '</strong>' : 'nobody (your account has no email address)' ?>, the email address of your account.</p>
                     <?php if ($site['aliases'] !== []): ?>
                         <div class="form-check small"><input type="hidden" name="include_aliases" value="0"><input class="form-check-input" type="checkbox" name="include_aliases" value="1" id="le-al" checked><label class="form-check-label" for="le-al">Include aliases (<?= e(implode(', ', $site['aliases'])) ?>)</label></div>
                     <?php endif; ?>

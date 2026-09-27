@@ -29,6 +29,24 @@ final class Scope
         ];
     }
 
+    /**
+     * Like condition(), but an object attached to a website is also visible
+     * to whoever may see that website (e.g. the DNS zone an administrator
+     * created for a customer's website).
+     *
+     * @param array<string, mixed> $user
+     * @return array{0: string, 1: array<string, mixed>}
+     */
+    public static function withWebsite(array $user, string $ownerColumn, string $websiteColumn): array
+    {
+        [$cond, $params] = self::condition($user, $ownerColumn);
+        if ($cond === '1 = 1') {
+            return [$cond, $params];
+        }
+        [$siteCond] = self::condition($user, 'owner_id');
+        return ["({$cond} OR {$websiteColumn} IN (SELECT id FROM websites WHERE {$siteCond}))", $params];
+    }
+
     /** @param array<string, mixed> $user */
     public static function isAll(array $user): bool
     {

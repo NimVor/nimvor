@@ -165,6 +165,8 @@ return static function (Router $r): void {
     $r->post('/database-users/{id}/password', [DatabasesController::class, 'password'], ['name' => 'dbusers.password', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/database-users/{id}/reveal', [DatabasesController::class, 'reveal'], ['name' => 'dbusers.reveal', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/database-users/{id}/delete', [DatabasesController::class, 'deleteUser'], ['name' => 'dbusers.delete', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/database-users/{id}/assign', [DatabasesController::class, 'assign'], ['name' => 'dbusers.assign', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/database-users/{id}/hosts', [DatabasesController::class, 'addHost'], ['name' => 'dbusers.host', 'permission' => P::DATABASES_MANAGE]);
     $r->get('/sites/{id}/databases', [DatabasesController::class, 'site'], ['name' => 'sites.databases', 'permission' => P::DATABASES_VIEW]);
     $r->get('/redis', [RedisController::class, 'index'], ['name' => 'redis', 'permission' => P::REDIS_MANAGE]);
     $r->get('/mail', [MailController::class, 'index'], ['name' => 'mail', 'permission' => P::MAIL_MANAGE]);

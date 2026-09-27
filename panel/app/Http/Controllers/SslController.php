@@ -68,7 +68,9 @@ final class SslController extends Controller
     public function issue(Request $request, string $id): Response
     {
         return $this->act($request, $id, function (array $site) use ($request): string {
-            $this->ssl->issue($site, $request->string('email'), $request->input('include_aliases', '1') === '1', $request->input('staging') === '1');
+            // Expiry notices go to the account's own email address (none if it is not valid).
+            $email = (string) ($this->user($request)['email'] ?? '');
+            $this->ssl->issue($site, filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? $email : '', $request->input('include_aliases', '1') === '1', $request->input('staging') === '1');
             return 'Certificate issued. The website now uses HTTPS and HTTP requests are redirected.';
         });
     }

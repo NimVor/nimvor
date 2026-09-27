@@ -57,6 +57,8 @@ final class BackupsController extends SiteController
             'schedules' => $this->scheduler->list($site),
             'storages' => Scope::isAll($this->user($request)) ? $this->backups->storages() : [],
             'databases' => $this->backups->siteDatabases($site),
+            // Automatic backups are set up by administrators only.
+            'canSchedule' => Scope::isAll($this->user($request)),
         ]);
     }
 
@@ -117,11 +119,11 @@ final class BackupsController extends SiteController
 
     public function storeSchedule(Request $request, string $id): Response
     {
+        if (!Scope::isAll($this->user($request))) {
+            return $this->redirectWithError('/sites/' . (int) $id . '/backups', 'Automatic backups are set up by your administrator.');
+        }
         return $this->act($request, $id, 'backups', function (array $site) use ($request): string {
             $input = $request->all();
-            if (!Scope::isAll($this->user($request))) {
-                unset($input['storage_id']);
-            }
             $this->scheduler->create($site, $input);
             return 'Schedule added.';
         });
@@ -129,6 +131,9 @@ final class BackupsController extends SiteController
 
     public function deleteSchedule(Request $request, string $id, string $schedule): Response
     {
+        if (!Scope::isAll($this->user($request))) {
+            return $this->redirectWithError('/sites/' . (int) $id . '/backups', 'Automatic backups are set up by your administrator.');
+        }
         return $this->act($request, $id, 'backups', function (array $site) use ($schedule): string {
             $this->scheduler->delete($site, (int) $schedule);
             return 'Schedule removed. Existing backups are kept.';
