@@ -81,6 +81,10 @@ All notable changes to WhaCP are documented here. The format follows
   paragraph described steps that could not be carried out).
 
 ### Fixed
+- `install.sh --reinstall` from a source checkout installed the agent
+  built earlier (`dist/whacp-agent`) even after `git pull` brought newer
+  sources, so agent fixes did not arrive. It now rebuilds when the
+  sources are newer than that build (without Go it warns and keeps it).
 - Saving fail2ban settings failed with "Could not find server" when the
   fail2ban service was stopped (e.g. just installed and not running): a
   reload needs a running service. WhaCP now starts it, waits until it

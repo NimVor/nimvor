@@ -274,10 +274,18 @@ ok "no conflicts"
 # --------------------------------------------------------- 4. build agent ----
 log "Preparing the agent binary"
 AGENT_SRC=""
-if [[ -x $SRC_DIR/dist/whacp-agent ]]; then
+# A build older than the agent's sources (e.g. after git pull) is stale:
+# reinstalling would put the old agent back. Release archives ship the
+# build made after their sources, so they are not rebuilt.
+stale=0
+if [[ -x $SRC_DIR/dist/whacp-agent && -d $SRC_DIR/agent ]] && [[ -n $(find "$SRC_DIR/agent" "$SRC_DIR/VERSION" \( -name '*.go' -o -name go.mod -o -name go.sum -o -name VERSION \) -newer "$SRC_DIR/dist/whacp-agent" -print -quit 2>/dev/null) ]]; then
+    stale=1
+fi
+if [[ -x $SRC_DIR/dist/whacp-agent && ( $stale -eq 0 || -z $(command -v go) ) ]]; then
+    [[ $stale -eq 1 ]] && warn "the agent's sources are newer than dist/whacp-agent, but Go is not installed: installing the older build"
     AGENT_SRC=$SRC_DIR/dist/whacp-agent
 elif command -v go >/dev/null; then
-    log "Building agent from source"
+    if [[ $stale -eq 1 ]]; then log "Rebuilding the agent: its sources are newer than dist/whacp-agent"; else log "Building agent from source"; fi
     run mkdir -p "$SRC_DIR/dist"
     (cd "$SRC_DIR/agent" && run env CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$(cat "$SRC_DIR/VERSION")" -o "$SRC_DIR/dist/whacp-agent" ./cmd/whacp-agent)
     AGENT_SRC=$SRC_DIR/dist/whacp-agent
