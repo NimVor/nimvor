@@ -18,7 +18,7 @@ import (
 func TestInstalled(t *testing.T) {
 	for _, c := range []struct {
 		name, osRelease, tool, out string
-		want                        map[string]string
+		want                       map[string]string
 	}{
 		{"ubuntu", "ID=ubuntu\nVERSION_ID=\"24.04\"\n", "dpkg-query",
 			"dpkg-query: no packages found matching rspamd\nnginx\tii \t1.24.0-2ubuntu7\nfail2ban\trc \t1.0.2-3\nmariadb-server\tii \t1:10.11.14\n",
