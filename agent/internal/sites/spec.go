@@ -8,6 +8,7 @@ package sites
 
 import (
 	"fmt"
+	"net/netip"
 	"path/filepath"
 	"regexp"
 
@@ -74,6 +75,10 @@ type Spec struct {
 	// Autoindex lists the files of folders without an index page (nginx
 	// autoindex); off by default.
 	Autoindex bool `json:"autoindex,omitempty"`
+	// IPv4 and IPv6: the addresses the website listens on ("" = every
+	// address of the server).
+	IPv4 string `json:"ipv4,omitempty"`
+	IPv6 string `json:"ipv6,omitempty"`
 }
 
 var (
@@ -101,6 +106,20 @@ func (s *Spec) Normalize(sitesRoot, stateDir string) error {
 	}
 	if err := validate.Username("user", s.User); err != nil {
 		return err
+	}
+	if s.IPv4 != "" {
+		a, err := netip.ParseAddr(s.IPv4)
+		if err != nil || !a.Is4() || a.IsUnspecified() || a.IsLoopback() || a.IsMulticast() {
+			return fail("ipv4", "must be an IPv4 address of this server")
+		}
+		s.IPv4 = a.String()
+	}
+	if s.IPv6 != "" {
+		a, err := netip.ParseAddr(s.IPv6)
+		if err != nil || !a.Is6() || a.Is4In6() || a.Zone() != "" || a.IsUnspecified() || a.IsLoopback() || a.IsMulticast() || a.IsLinkLocalUnicast() {
+			return fail("ipv6", "must be a global IPv6 address of this server")
+		}
+		s.IPv6 = a.String()
 	}
 	if s.Root == "" {
 		s.Root = filepath.Join(sitesRoot, s.Domain)

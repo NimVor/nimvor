@@ -7,6 +7,20 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **IP addresses** (administrators):
+  - a pool of addresses websites may be bound to (shared, dedicated or
+    reserved with a reason), with usage and whether the server has each
+    one;
+  - routed IPv6 ranges made local through a loopback route kept by
+    `whacp-ipv6-ranges.service`, refused when they overlap an on-link
+    prefix or contain a gateway, with address allocation;
+  - per-website IPv4/IPv6 listen addresses (Nginx checked before reload)
+    with A/AAAA records following, rolled back if the DNS server refuses;
+  - a migration wizard (review, confirm, per-website results);
+  - a non-destructive pool rebuild.
+
+  Network interfaces are not configured by WhaCP; an address must exist
+  on the server first.
 - **SSL/TLS section** (administrators):
   - SSL hosts: every host name Nginx serves with its certificate state,
     names not covered, and renewal status;

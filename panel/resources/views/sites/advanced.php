@@ -35,6 +35,26 @@ $id = (int) $site['id'];
             </div>
             <div class="card-footer small"><a href="<?= e($this->url('sites.edit', ['id' => $id])) ?>"><i class="bi bi-sliders me-1"></i>Change settings</a></div>
         </div>
+        <?php if (($ipPool ?? null) !== null && $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE)): $cur4 = (string) ($site['ipv4'] ?? ''); $cur6 = (string) ($site['ipv6'] ?? ''); ?>
+        <form class="card mb-3" id="ip" method="post" action="<?= e($this->url('sites.ip', ['id' => $id])) ?>" data-wcp-busy data-wcp-confirm="Change the addresses this website listens on? Nginx is checked and reloaded.">
+            <?= $this->csrfField() ?>
+            <div class="card-header"><i class="bi bi-ethernet me-1"></i>IP addresses</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <?php foreach ([4 => $cur4, 6 => $cur6] as $fam => $cur): ?>
+                    <div class="col-sm-6"><label class="form-label small" for="ip-v<?= $fam ?>">IPv<?= $fam ?></label>
+                        <select class="form-select form-select-sm font-monospace" id="ip-v<?= $fam ?>" name="ipv<?= $fam ?>">
+                            <option value="">Every address of the server</option>
+                            <?php foreach ($ipPool as $a): if ((int) $a['family'] !== $fam) { continue; } ?><option value="<?= e((string) $a['address']) ?>"<?= $cur === $a['address'] ? ' selected' : '' ?>><?= e((string) $a['address']) ?><?= $a['kind'] === 'dedicated' ? ' (dedicated)' : '' ?></option><?php endforeach; ?>
+                        </select></div>
+                    <?php endforeach; ?>
+                </div>
+                <div class="form-check mt-2"><input class="form-check-input" type="checkbox" name="dns" value="1" id="ip-dns" checked><label class="form-check-label small" for="ip-dns">Update the website's A/AAAA records in its DNS zone</label></div>
+                <div class="form-text">Addresses come from the <?php if ($this->hasRoute('ips')): ?><a href="<?= e($this->url('ips')) ?>">IP pool</a><?php else: ?>IP pool<?php endif; ?>. Certificates are unaffected (HTTPS is served by name).</div>
+            </div>
+            <div class="card-footer text-end"><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save addresses</button></div>
+        </form>
+        <?php endif; ?>
         <?php if ($inspect !== null && !empty($inspect['config_preview'])): ?>
             <details class="card mb-3">
                 <summary class="card-header"><i class="bi bi-file-earmark-code me-1"></i>Generated Nginx configuration</summary>

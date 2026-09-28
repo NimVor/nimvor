@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/netmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
 	"io/fs"
 	"os"
@@ -102,6 +103,19 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 			if !e.Root.Exists(f) {
 				return nil, actions.Failed("The certificate files for this website do not exist. Issue the certificate first.", "")
 			}
+		}
+	}
+	// An address the server does not have passes nginx -t but fails at reload.
+	for _, ip := range []string{s.IPv4, s.IPv6} {
+		if ip == "" || e.Cfg.SimulateCommands {
+			continue
+		}
+		ok, err := netmgr.Local(ctx, e, ip)
+		if err != nil {
+			return nil, actions.Failed("The server's IP addresses could not be read.", err.Error())
+		}
+		if !ok {
+			return nil, actions.InvalidParams(ip + " is not an address of this server (configure it on a network interface, or add its IPv6 range, first)")
 		}
 	}
 	if err := m.checkConflicts(ctx, s, ignore); err != nil {

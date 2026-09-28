@@ -35,6 +35,7 @@ final class SitesController extends Controller
         private readonly JobTracker $jobs,
         private readonly \WhaCP\Services\SiteOverview $overview,
         private readonly \WhaCP\Services\DnsService $dns,
+        private readonly \WhaCP\Services\IpService $ips,
     ) {
         parent::__construct($view, $session);
     }
@@ -146,6 +147,9 @@ final class SitesController extends Controller
             'inspectError' => $inspectError,
             'jobs' => $this->jobs->recentFor('website', (string) $site['id']),
             'tab' => 'advanced',
+            // Addresses the website may be bound to (administrators).
+            'ipPool' => \WhaCP\Hosting\Scope::isAll($this->user($request)) ? array_values(array_filter($this->ips->pool(), static fn (array $a): bool => (int) $a['reserved'] === 0
+                && ($a['kind'] !== 'dedicated' || $a['sites'] === [] || (int) $a['sites'][0]['id'] === (int) $site['id']))) : null,
         ]);
     }
 

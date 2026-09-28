@@ -602,6 +602,53 @@ the new serial. If any step fails the previous zone comes back and the
 panel keeps its previous records. Zones defined elsewhere in BIND are
 refused. Deleting a website keeps its zone; delete the zone separately.
 
+## IP addresses
+
+*Server → IP addresses* (server administrators) manages the addresses
+websites listen on. A website listens on every address of the server
+unless it is bound to addresses from the pool (the website's *Advanced*
+page, *IP addresses*). Its Nginx configuration then listens on those
+addresses only, and is checked with `nginx -t` before the reload.
+Certificates are unaffected: HTTPS is served by name.
+
+WhaCP does not change the operating system's network configuration
+(netplan, NetworkManager, ifcfg), because a mistake there can cut the
+server off and providers set it up in different ways. An IPv4 address
+must already be configured on an interface before it is added to the
+pool; the agent checks that. A website bound to an address the server
+does not have is refused before anything is written.
+
+- **Addresses and usage**: the pool with each address's family,
+  assignment (*shared* by several websites or *dedicated* to one), whether
+  it is *reserved* (with a reason; reserved addresses cannot be
+  assigned), the websites and accounts using it, and whether the server
+  still has it. It can be searched and filtered. Unused addresses can be
+  removed from the pool; the server keeps them. The server's addresses
+  that are not in the pool are listed and can be added with one click.
+  *Rebuild pool* adds the server's addresses and those websites use that
+  are missing, and re-applies the IPv6 ranges. It removes nothing:
+  addresses the server no longer has are listed.
+- **IPv6 ranges**: a range the provider *routes* to the server (not the
+  on-link prefix of its interface), /48 to /128. WhaCP makes its addresses
+  local with a local route on the loopback interface, kept at boot by
+  `whacp-ipv6-ranges.service`. It refuses ranges that overlap an
+  interface's prefix or contain a gateway, since such a route would cut
+  the server off from its network. Addresses are allocated from a range
+  (the next free one from `::10`, or one given), optionally straight to a
+  website with its AAAA records. A range can be removed only when none
+  of its addresses is in use.
+- **Migration wizard**: choose the address to move from and the one to move
+  to, then review the websites (and, if chosen, every DNS record pointing to
+  the old address and the default IPv4 for new zones) that change. Confirm,
+  and each website is moved on its own, with the results listed per
+  website and zone.
+
+When a website's addresses change and *Update DNS* is on, its A (and AAAA)
+records in its zone follow: records that pointed to its previous address
+(the default IPv4 for new zones when it listened on every address) point to
+the new one. Other records, such as SPF, are not changed. If the DNS server
+refuses the zone, the website goes back to its previous addresses.
+
 ## SSL/TLS
 
 Each website's *SSL* page issues a Let's Encrypt certificate, installs an

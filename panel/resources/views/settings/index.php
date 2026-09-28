@@ -6,7 +6,7 @@ $canEdit = $this->can(\WhaCP\Security\Permissions::SETTINGS_MANAGE);
 // (each keeps its own settings; this page links to them).
 $categories = [
     'general' => ['General', 'sliders', []],
-    'server' => ['Server', 'hdd-rack', [['server', 'Host name, time zone, root password, restart'], ['services', 'Services'], ['packages', 'Packages and updates'], ['ffmpeg', 'FFmpeg'], ['servers', 'All servers']]],
+    'server' => ['Server', 'hdd-rack', [['server', 'Host name, time zone, root password, restart'], ['services', 'Services'], ['ips', 'IP addresses and IPv6 ranges'], ['packages', 'Packages and updates'], ['ffmpeg', 'FFmpeg'], ['servers', 'All servers']]],
     'security' => ['Security', 'shield-check', [['security', 'Security overview'], ['security.firewall', 'Firewall'], ['security.ssh', 'SSH'], ['security.shell', 'Shell access'], ['security.malware', 'Malware scans']]],
     'websites' => ['Websites and PHP', 'globe', [['websites', 'Websites'], ['php', 'PHP versions, extensions, php.ini and PHP-FPM']]],
     'email' => ['Email', 'envelope', [['mail', 'Email hosting'], ['mail.admin.server', 'Mail server (Postfix, Dovecot)'], ['mail.greylist', 'Greylisting']]],

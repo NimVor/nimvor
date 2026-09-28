@@ -199,6 +199,8 @@ paths:
               - memcached.configure
               - memcached.flush
               - memcached.status
+              - net.addresses
+              - net.ipv6_ranges
               - packages.install
               - packages.list
               - packages.refresh
@@ -527,6 +529,8 @@ x-whacp-actions:
   memcached.configure: { mutating: true, description: "Set Memcached's memory, connection limit and (loopback) listen addresses in its package configuration file after explicit confirmation; restarts and verifies, rolls back on failure." }
   memcached.flush: { mutating: true, description: "Remove every item from Memcached (requires confirm)." }
   memcached.status: { mutating: false, description: "Whether Memcached is installed and running, its settings and statistics." }
+  net.addresses: { mutating: false, description: "The server's IP addresses (per interface), default gateways and the routed IPv6 ranges WhaCP makes local." }
+  net.ipv6_ranges: { mutating: true, description: "Set the routed IPv6 ranges (exactly these) whose addresses websites may use: each becomes a local route on lo, kept at boot by whacp-ipv6-ranges.service. Ranges overlapping an interface's on-link prefix or containing a gateway are refused." }
   packages.install: { mutating: true, description: "Install allowlisted components: name, or names for several at once (job)." }
   packages.list: { mutating: false, description: "Installable components and their versions." }
   packages.refresh: { mutating: true, description: "Refresh the package index (apt-get update or dnf makecache) (job)." }

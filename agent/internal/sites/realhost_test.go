@@ -36,6 +36,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/netmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
 )
 
@@ -136,6 +137,42 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 	if out, err := r.real.Run(ctx, "nginx", "-t"); err != nil {
 		t.Fatalf("real nginx -t failed with HTTPS: %s", out)
 	}
+	// A website bound to one of the server's addresses; one that is not the
+	// server's is refused before anything is written.
+	addrs, err := netmgr.Addresses(ctx, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v4 string
+	for _, a := range addrs {
+		if a.Family == 4 && a.Scope == "global" {
+			v4 = a.Address
+			break
+		}
+	}
+	if v4 == "" {
+		t.Fatalf("no global IPv4 address in %+v", addrs)
+	}
+	bound := specs[1]
+	bound.IPv4 = v4
+	if _, err := m.Apply(ctx, bound); err != nil {
+		t.Fatalf("bound site: %v", err)
+	}
+	if b, _ := os.ReadFile(m.layout(bound).NginxFile); !strings.Contains(string(b), "listen "+v4+":80;") {
+		t.Fatalf("listen line:\n%s", b)
+	}
+	if out, err := r.real.Run(ctx, "nginx", "-t"); err != nil {
+		t.Fatalf("real nginx -t with a bound address: %s", out)
+	}
+	foreign := bound
+	foreign.IPv4 = "198.51.100.77"
+	if _, err := m.Apply(ctx, foreign); err == nil || !strings.Contains(err.Error(), "not an address of this server") {
+		t.Fatalf("foreign address: %v", err)
+	}
+	if _, err := m.Apply(ctx, specs[1]); err != nil { // back to every address
+		t.Fatal(err)
+	}
+
 	// TLS settings come from the server-wide snippet.
 	if b, _ := os.ReadFile(m.layout(good).NginxFile); !strings.Contains(string(b), "include /etc/nginx/whacp-tls.conf;") || strings.Contains(string(b), "ssl_protocols") {
 		t.Fatalf("vhost does not use the TLS snippet:\n%s", b)

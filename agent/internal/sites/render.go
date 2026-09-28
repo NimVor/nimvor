@@ -33,10 +33,8 @@ func RenderNginx(s Spec, l Layout) string {
 	names := strings.Join(s.Names(), " ")
 
 	// Port 80: either the site itself or a redirect to HTTPS.
-	b.WriteString("server {\n    listen 80;\n")
-	if l.IPv6 {
-		b.WriteString("    listen [::]:80;\n")
-	}
+	b.WriteString("server {\n")
+	listen(&b, s, l, "80")
 	fmt.Fprintf(&b, "    server_name %s;\n", names)
 	if s.HTTPS && s.ForceHTTPS {
 		acme(&b, l)
@@ -52,10 +50,7 @@ func RenderNginx(s Spec, l Layout) string {
 		if l.HTTP2Direct {
 			suffix = ""
 		}
-		fmt.Fprintf(&b, "    listen 443 ssl%s;\n", suffix)
-		if l.IPv6 {
-			fmt.Fprintf(&b, "    listen [::]:443 ssl%s;\n", suffix)
-		}
+		listen(&b, s, l, "443 ssl"+suffix)
 		if l.HTTP2Direct {
 			b.WriteString("    http2 on;\n")
 		}
@@ -73,6 +68,22 @@ func RenderNginx(s Spec, l Layout) string {
 		b.WriteString("}\n")
 	}
 	return b.String()
+}
+
+// listen writes the listen lines: the website's own addresses when set,
+// otherwise every address (IPv6 only where the server has it).
+func listen(b *strings.Builder, s Spec, l Layout, port string) {
+	if s.IPv4 != "" {
+		fmt.Fprintf(b, "    listen %s:%s;\n", s.IPv4, port)
+	} else {
+		fmt.Fprintf(b, "    listen %s;\n", port)
+	}
+	switch {
+	case s.IPv6 != "":
+		fmt.Fprintf(b, "    listen [%s]:%s;\n", s.IPv6, port)
+	case l.IPv6:
+		fmt.Fprintf(b, "    listen [::]:%s;\n", port)
+	}
 }
 
 func acme(b *strings.Builder, l Layout) {

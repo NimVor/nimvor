@@ -70,6 +70,7 @@ var defaultCandidates = map[string][]string{
 	"systemd-run": {"/usr/bin/systemd-run", "/bin/systemd-run"},
 	"journalctl":  {"/usr/bin/journalctl", "/bin/journalctl"},
 	"nginx":       {"/usr/sbin/nginx", "/usr/bin/nginx"},
+	"ip":          {"/usr/sbin/ip", "/sbin/ip", "/usr/bin/ip", "/bin/ip"},
 	"mysqld":      {"/usr/sbin/mysqld", "/usr/bin/mysqld", "/usr/libexec/mysqld"},
 	"mariadbd":    {"/usr/sbin/mariadbd", "/usr/bin/mariadbd", "/usr/libexec/mariadbd"},
 	"mysql":       {"/usr/bin/mariadb", "/usr/bin/mysql"},

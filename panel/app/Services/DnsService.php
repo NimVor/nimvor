@@ -469,6 +469,86 @@ final class DnsService
     }
 
     /** Send the complete zone to the agent and remember the serial. */
+    /**
+     * Point a zone's A or AAAA records from one address to another in one
+     * reload: records with value $old (and one of $names, when given) get
+     * $new ($new '' deletes them). With no $old, records are added for
+     * $names that have an A record but none of $type yet. Nothing changes
+     * if the DNS server refuses.
+     *
+     * @param list<string> $names
+     * @return int records changed
+     */
+    public function replaceAddress(int $zoneId, string $type, string $old, string $new, array $names = []): int
+    {
+        if (!in_array($type, ['A', 'AAAA'], true)) {
+            throw new UserFacingException('Only A and AAAA records hold addresses.');
+        }
+        $zone = $this->db->fetch('SELECT * FROM dns_zones WHERE id = ?', [$zoneId]) ?? throw new UserFacingException('The zone no longer exists.');
+        $n = 0;
+        $this->db->transaction(function () use ($zone, $zoneId, $type, $old, $new, $names, &$n): void {
+            if ($old !== '') {
+                $rows = $this->db->fetchAll('SELECT id, name FROM dns_records WHERE zone_id = ? AND type = ? AND value = ?', [$zoneId, $type, $old]);
+                // With names given, only those records change (a website's own names in a shared zone).
+                $rows = $names === [] ? $rows : array_filter($rows, static fn (array $r): bool => in_array((string) $r['name'], $names, true));
+                $ids = array_map('intval', array_column($rows, 'id'));
+                $n = count($ids);
+                foreach ($ids as $id) {
+                    $new === ''
+                        ? $this->db->run('DELETE FROM dns_records WHERE id = ?', [$id])
+                        : $this->db->run('UPDATE dns_records SET value = ? WHERE id = ?', [$new, $id]);
+                }
+            } elseif ($new !== '') {
+                foreach ($names as $name) {
+                    $hasA = (int) $this->db->scalar("SELECT COUNT(*) FROM dns_records WHERE zone_id = ? AND name = ? AND type = 'A' AND disabled = 0", [$zoneId, $name]);
+                    $has = (int) $this->db->scalar('SELECT COUNT(*) FROM dns_records WHERE zone_id = ? AND name = ? AND type = ?', [$zoneId, $name, $type]);
+                    if ($hasA > 0 && $has === 0) {
+                        $this->insertRecord($zoneId, ['name' => $name, 'type' => $type, 'ttl' => 0, 'value' => $new, 'priority' => 0, 'weight' => 0, 'port' => 0]);
+                        $n++;
+                    }
+                }
+            }
+            if ($n > 0) {
+                $this->push($zoneId);
+                $this->audit->record('dns.address_replace', 'dns_zone', (string) $zoneId, AuditLogger::SUCCESS, ['zone' => $zone['name'], 'type' => $type, 'old' => $old, 'new' => $new, 'records' => $n]);
+            }
+        });
+        return $n;
+    }
+
+    /**
+     * The zone that holds a host name (its own zone, or the closest parent
+     * zone) and the name relative to it.
+     *
+     * @return array{zone: array<string, mixed>, name: string}|null
+     */
+    public function zoneForName(string $host): ?array
+    {
+        $host = strtolower(rtrim($host, '.'));
+        $labels = explode('.', $host);
+        for ($i = 0; $i < count($labels) - 1; $i++) {
+            $zoneName = implode('.', array_slice($labels, $i));
+            $z = $this->db->fetch('SELECT * FROM dns_zones WHERE name = ?', [$zoneName]);
+            if ($z !== null) {
+                return ['zone' => $z, 'name' => $i === 0 ? '@' : implode('.', array_slice($labels, 0, $i))];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Zones with A or AAAA records holding an address.
+     *
+     * @return list<array{id: int, name: string, records: int}>
+     */
+    public function zonesUsingAddress(string $address): array
+    {
+        return array_map(static fn (array $r): array => ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'records' => (int) $r['n']], $this->db->fetchAll(
+            "SELECT z.id, z.name, COUNT(*) AS n FROM dns_records r JOIN dns_zones z ON z.id = r.zone_id WHERE r.type IN ('A', 'AAAA') AND r.value = ? GROUP BY z.id, z.name ORDER BY z.name",
+            [$address]
+        ));
+    }
+
     private function push(int $zoneId): void
     {
         $z = $this->db->fetch('SELECT * FROM dns_zones WHERE id = ?', [$zoneId]) ?? throw new UserFacingException('The zone no longer exists.');

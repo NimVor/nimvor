@@ -15,6 +15,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/mailmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/mcmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/netmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/redismgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/security"
@@ -40,6 +41,7 @@ func All() []Module {
 		statsmgr.Register,
 		avmgr.Register,
 		ffmpegmgr.Register,
+		netmgr.Register,
 		workers.Register,
 		deploy.Register,
 		redismgr.Register,
