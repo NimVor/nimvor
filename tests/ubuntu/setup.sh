@@ -38,6 +38,10 @@ apt-get install -y -q --no-install-recommends \
     roundcube-core roundcube-sqlite3 roundcube-plugins awstats clamav ffmpeg bubblewrap \
     "php${php}-cli" "php${php}-fpm" "php${php}-mysql" "php${php}-sqlite3" "php${php}-mbstring" \
     "php${php}-xml" "php${php}-curl" "php${php}-zip" "php${php}-intl"
+# ModSecurity (the connector is packaged from Ubuntu 24.04; its real-host
+# test has nothing to check where it is missing).
+apt-get install -y -q --no-install-recommends libnginx-mod-http-modsecurity modsecurity-crs \
+    || echo "ModSecurity for Nginx is not packaged here"
 # The panel's CLI is PHP >= 8.3 (on 22.04 the PPA's version).
 update-alternatives --set php "/usr/bin/php${php}" 2>/dev/null || true
 command -v composer >/dev/null || curl -fsSL https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer

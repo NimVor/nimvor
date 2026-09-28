@@ -426,6 +426,45 @@ shell (Server → Web terminal) has no sandbox.
 The terminal page allows style elements that carry a per-response nonce
 (xterm.js sets colours and sizes that way); scripts stay `'self'` only.
 
+## ModSecurity (web application firewall)
+
+*Security → ModSecurity* (administrators). It needs the Nginx connector
+and the OWASP Core Rule Set: install **Web application firewall for Nginx
+(ModSecurity)** and **OWASP Core Rule Set** under Packages
+(`libnginx-mod-http-modsecurity`, `modsecurity-crs`; packaged from Ubuntu
+24.04). AlmaLinux and RHEL have no connector in their repositories; one
+installed from a third-party repository is detected.
+
+- **Server-wide:** ModSecurity on/off; the Core Rule Set with its paranoia
+  level (1–4) and inbound/outbound anomaly thresholds; custom rules on/off.
+  The rules are loaded once at the http level
+  (`whacp-00-modsecurity.conf`, `/etc/nginx/whacp-modsec/`) with
+  `modsecurity off`, so nothing is filtered until a website turns it on.
+- **Rule vendors:** the OWASP Core Rule Set (IDs 900000–999999, updated
+  with its package: *Update rules* runs the package update, checks Nginx
+  and, if the new rules do not load, turns the Core Rule Set off so
+  websites keep working) and **custom rules** (IDs 10000–99999). Custom
+  rules may use only rule directives (`SecRule`, `SecAction`,
+  `SecMarker`, `SecRuleRemove…`, `SecRuleUpdate…`); `exec`, file operators
+  and includes are refused. Commercial rule sets need their vendor's
+  licence and are not bundled.
+- **Per website:** off, detection only (log, do not block) or on (block
+  with 403); which vendors apply (a vendor is left out by removing its ID
+  range); single rules turned off. The website's vhost includes
+  `/etc/nginx/whacp-modsec/sites/<domain>.conf` through a glob, which
+  matches nothing while ModSecurity is off for it; existing vhosts get
+  the include line when ModSecurity is first turned on.
+- **Events:** blocked and detected requests from the audit log
+  (`/var/log/nginx/whacp-modsec-audit.json`, parts `ABHZ`: no request or
+  response bodies; the panel shows only time, host, address, request line,
+  result and matched rules). From an event an administrator can turn a
+  rule off for that website. The scheduler keeps the log under 50 MiB.
+
+Every change is checked with `nginx -t` and rolled back if Nginx refuses
+it or does not reload. A website's owner sees its **Web firewall** page and
+may switch it between on, detection only and off; vendors, rules and the
+server-wide settings stay with administrators.
+
 ## Email filters, autoresponders and routing
 
 - **Filters and autoresponder** (Email → domain → the funnel button of a

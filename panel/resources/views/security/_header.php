@@ -5,6 +5,7 @@
 $tabs = [['index', 'Overview', 'security'], ['firewall', 'Firewall', 'security.firewall'], ['ssh', 'SSH', 'security.ssh'], ['fail2ban', 'Brute-force protection', 'security.fail2ban'], ['malware', 'Malware scan', 'security.malware']];
 if ($this->serverScope()) {
     $tabs[] = ['shell', 'Shell access', 'security.shell'];
+    $tabs[] = ['modsec', 'ModSecurity', 'security.modsec'];
 }
 $canManage = $this->can(\WhaCP\Security\Permissions::SECURITY_MANAGE);
 ?>

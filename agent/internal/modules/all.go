@@ -16,6 +16,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/mailmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/mcmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/modsec"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/netmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/redismgr"
@@ -37,6 +38,7 @@ func All() []Module {
 		sites.Register,
 		dbmgr.Register,
 		sslmgr.Register,
+		modsec.Register,
 		files.Register,
 		logs.Register,
 		cronmgr.Register,

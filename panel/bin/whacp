@@ -214,6 +214,16 @@ switch ($command) {
                     out('[' . $srv['name'] . '] resource limits not checked: ' . $e->getMessage());
                 }
             }
+            // ModSecurity: keep the audit log small.
+            try {
+                foreach ($c->get(\WhaCP\Services\ModSecurityService::class)->trim() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    out('[' . $srv['name'] . '] ModSecurity audit log not checked: ' . $e->getMessage());
+                }
+            }
             // FFmpeg: the accounts that may run it follow the plans.
             try {
                 foreach ($c->get(\WhaCP\Services\FfmpegService::class)->reconcile() as $line) {

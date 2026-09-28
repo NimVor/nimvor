@@ -32,6 +32,7 @@ final class SiteMenu
         ['logs', 'Logs', 'journal-text', 'sites.logs', P::LOGS_VIEW],
         ['stats', 'Statistics', 'bar-chart-line', 'sites.stats', P::LOGS_VIEW],
         ['malware', 'Malware scan', 'bug', 'sites.malware', P::WEBSITES_VIEW],
+        ['firewall', 'Web firewall', 'shield-shaded', 'sites.firewall', P::WEBSITES_VIEW],
         ['redis', 'Redis', 'lightning', 'sites.redis', P::WEBSITES_MANAGE],
         ['settings', 'PHP & settings', 'sliders', 'sites.edit', P::WEBSITES_MANAGE],
         ['advanced', 'Advanced', 'tools', 'sites.advanced', P::WEBSITES_MANAGE],

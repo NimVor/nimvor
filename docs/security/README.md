@@ -32,6 +32,7 @@
 | Secret leakage | Cron commands, logs and audit details are redacted; Redis/MySQL passwords never returned; private keys never read; `/etc/shadow` never read |
 | Information disclosure through errors | Users see a message, reason, action and reference ID; stack traces only in logs |
 | Web terminal hijacked or abused | Password (and authenticator code) confirmed again before opening, five tries then locked; single-use 256-bit tickets, one minute, bound to the client address, sent inside the WebSocket (not in URLs or logs); Origin must equal Host; listener on loopback behind Nginx; each session its own systemd unit as the account with no_new_privs and its resource limits; idle and maximum times; sign-out ends the sign-in's sessions; starts and ends logged |
+| Web attacks on hosted applications | Optional ModSecurity with the OWASP Core Rule Set per website (off, detection only, blocking); rules and exclusions only by administrators; custom rules limited to rule directives in their own ID range (no `exec`, file operators or includes); every change checked with `nginx -t` and rolled back |
 | Resource exhaustion | Size limits on files, bodies and command output; bounded walks; systemd memory/task limits |
 
 ## Policy for dangerous operations

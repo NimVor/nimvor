@@ -251,8 +251,13 @@ var rhelPackages = map[string]string{
 	"unattended-upgrades": "dnf-automatic",
 	"imagemagick":         "ImageMagick",
 	"libnginx-mod-brotli": "",
-	"roundcube-core":      "roundcubemail",
-	"clamav-freshclam":    "clamav-update",
+	// No Nginx ModSecurity connector in BaseOS, AppStream or EPEL: an
+	// administrator may install one from a third-party repository, which
+	// WhaCP then detects.
+	"libnginx-mod-http-modsecurity": "",
+	"modsecurity-crs":               "",
+	"roundcube-core":                "roundcubemail",
+	"clamav-freshclam":              "clamav-update",
 	// EPEL's build (no patent-encumbered codecs); RPM Fusion's is not used.
 	"ffmpeg":            "ffmpeg-free",
 	"roundcube-sqlite3": "",

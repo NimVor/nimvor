@@ -22,6 +22,9 @@ type Layout struct {
 	IPv6        bool   // add [::] listeners
 	TLSInclude  string // the server-wide TLS snippet's include line
 	Slice       string // the account's slice when it has resource limits
+	// ModSecInclude is the website's ModSecurity include (a glob that
+	// matches nothing while ModSecurity is off for it).
+	ModSecInclude string
 }
 
 const header = "Managed by WhaCP. Do not edit: changes are overwritten when the website is saved in the panel."
@@ -104,6 +107,7 @@ func body(b *strings.Builder, s Spec, l Layout) {
 		b.WriteString("    autoindex on;\n")
 	}
 	b.WriteString("    add_header X-Content-Type-Options \"nosniff\" always;\n")
+	b.WriteString(l.ModSecInclude)
 	acme(b, l)
 	b.WriteString("    location ~ /\\.(?!well-known) {\n        deny all;\n    }\n")
 	for _, r := range s.Redirects {

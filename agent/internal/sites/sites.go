@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/limits"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/modsec"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/netmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
 	"io/fs"
@@ -49,6 +50,8 @@ func (m *Manager) layout(s Spec) Layout {
 		ACMERoot:   e.M.ACMERoot,
 		WebUser:    e.M.WebUser,
 		TLSInclude: tlsprofile.Include(e),
+		// ModSecurity: the website's file, when it has one.
+		ModSecInclude: modsec.SiteInclude(e, s.Domain),
 	}
 	if s.PHPVersion != "" {
 		l.PoolFile = filepath.Join(e.M.PoolDir(s.PHPVersion), name)
@@ -432,6 +435,9 @@ func (m *Manager) handleDelete(ctx context.Context, p json.RawMessage) (any, err
 	set := e.Changes("site-delete-" + in.Domain)
 	set.Remove(filepath.Join(e.M.NginxEnabled, name))
 	set.Remove(filepath.Join(e.M.NginxAvailable, name))
+	if ms := modsec.SitePath(e, in.Domain); e.Root.Exists(ms) {
+		set.Remove(ms)
+	}
 	fpm := newFPMTargets()
 	for _, pf := range m.poolFiles(in.Domain) {
 		set.Remove(pf)

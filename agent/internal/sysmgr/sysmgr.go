@@ -62,6 +62,9 @@ var Components = map[string]string{
 	"imagemagick":         "Image processing",
 	"ffmpeg":              "Audio and video processing (FFmpeg)",
 	"libnginx-mod-brotli": "Brotli compression for Nginx",
+	// ModSecurity: the web application firewall and its generic rules.
+	"libnginx-mod-http-modsecurity": "Web application firewall for Nginx (ModSecurity)",
+	"modsecurity-crs":               "OWASP Core Rule Set for ModSecurity",
 }
 
 // Package is the state of one component.

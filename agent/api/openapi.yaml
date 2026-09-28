@@ -201,6 +201,14 @@ paths:
               - memcached.configure
               - memcached.flush
               - memcached.status
+              - modsec.configure
+              - modsec.custom_get
+              - modsec.custom_set
+              - modsec.events
+              - modsec.site
+              - modsec.status
+              - modsec.trim
+              - modsec.update
               - net.addresses
               - net.ipv6_ranges
               - packages.install
@@ -536,6 +544,14 @@ x-whacp-actions:
   memcached.configure: { mutating: true, description: "Set Memcached's memory, connection limit and (loopback) listen addresses in its package configuration file after explicit confirmation; restarts and verifies, rolls back on failure." }
   memcached.flush: { mutating: true, description: "Remove every item from Memcached (requires confirm)." }
   memcached.status: { mutating: false, description: "Whether Memcached is installed and running, its settings and statistics." }
+  modsec.configure: { mutating: true, description: "Turn ModSecurity on or off server-wide and set the rule vendors (OWASP CRS paranoia level and anomaly thresholds, custom rules). Checked with nginx -t, rolled back on failure." }
+  modsec.custom_get: { mutating: false, description: "The administrator's custom ModSecurity rules." }
+  modsec.custom_set: { mutating: true, description: "Save the custom ModSecurity rules (rule directives only, IDs 10000–99999, no programs, files or includes). Checked with nginx -t, rolled back on failure." }
+  modsec.events: { mutating: false, description: "Recent requests ModSecurity blocked or detected (newest first), optionally only those for the given host names: time, host, client address, method, URI, status and the rules that matched." }
+  modsec.site: { mutating: true, description: "Set a website's ModSecurity: off, detect (log only) or on (block), which rule vendors apply and single rules turned off. Checked with nginx -t, rolled back on failure." }
+  modsec.status: { mutating: false, description: "ModSecurity: whether the Nginx connector is loaded, the OWASP Core Rule Set found, the server-wide configuration, rule vendors, websites' modes and the audit log size." }
+  modsec.trim: { mutating: true, description: "Keep the ModSecurity audit log small: above 50 MiB its last 5 MiB are kept." }
+  modsec.update: { mutating: true, description: "Update the rule packages (OWASP CRS and the connector) with the package manager as a background job, then check with nginx -t and reload. If the new rules break the configuration, the Core Rule Set is turned off and the rest restored." }
   net.addresses: { mutating: false, description: "The server's IP addresses (per interface), default gateways and the routed IPv6 ranges WhaCP makes local." }
   net.ipv6_ranges: { mutating: true, description: "Set the routed IPv6 ranges (exactly these) whose addresses websites may use: each becomes a local route on lo, kept at boot by whacp-ipv6-ranges.service. Ranges overlapping an interface's on-link prefix or containing a gateway are refused." }
   packages.install: { mutating: true, description: "Install allowlisted components: name, or names for several at once (job)." }

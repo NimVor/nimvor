@@ -7,6 +7,17 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **ModSecurity manager** (Security → ModSecurity): the Nginx connector
+  with the OWASP Core Rule Set (paranoia level, anomaly thresholds) and
+  validated custom rules as rule vendors.
+  - Per website: off, detection only or on, which vendors apply, and
+    single rules turned off.
+  - Recent blocked/detected events, with "turn this rule off here".
+  - *Update rules* updates the package; if the new rules do not load,
+    the Core Rule Set is turned off automatically.
+  - Every change checked with `nginx -t` and rolled back on failure.
+  - Website owners get a Web firewall page to switch their own website's
+    mode; rules stay with administrators.
 - **Web terminal**: a shell in the browser (xterm.js) on each website's
   Terminal page, for accounts with shell access (jailed or normal) whose
   plan includes SSH.
