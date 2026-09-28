@@ -171,6 +171,43 @@
             .catch(function () { loading.textContent = 'The message could not be read.'; body.replaceChildren(loading); });
     });
 
+    // Website file permissions (Advanced page): check, then offer repair.
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-wcp-perm-check]');
+        if (!btn) { return; }
+        var box = document.querySelector('[data-wcp-perm-results]');
+        var repair = document.querySelector('[data-wcp-perm-repair]');
+        var el = function (tag, cls, text) { var x = document.createElement(tag); if (cls) { x.className = cls; } if (text !== undefined) { x.textContent = text; } return x; };
+        var names = { owner: 'another owner', group: 'another account\'s group', world_write: 'writable by anyone', setid: 'set-ID bit', unreadable: 'owner cannot read' };
+        btn.disabled = true;
+        box.hidden = false;
+        repair.hidden = true;
+        box.replaceChildren(el('span', 'wcp-muted', 'Checking the files…'));
+        fetch(btn.getAttribute('data-wcp-perm-check'), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                box.replaceChildren();
+                if (d.error) { box.appendChild(el('span', 'text-danger-emphasis', d.error)); return; }
+                if (!d.issues) {
+                    box.appendChild(el('span', 'text-success-emphasis', 'All ' + d.checked + ' files and folders are in order.'));
+                    return;
+                }
+                var parts = Object.keys(d.counts).map(function (k) { return d.counts[k] + ' × ' + (names[k] || k); });
+                box.appendChild(el('div', 'fw-medium', d.issues + ' of ' + d.checked + ' files and folders need repair: ' + parts.join(', ') + '.'));
+                var ul = el('ul', 'mb-0 mt-1 ps-3 wcp-scroll-400');
+                (d.sample || []).forEach(function (s) {
+                    var li = el('li', 'text-break');
+                    li.append(el('code', '', s.path), document.createTextNode(' ' + s.mode + ' — ' + s.problems.map(function (p) { return names[p] || p; }).join(', ')));
+                    ul.appendChild(li);
+                });
+                box.appendChild(ul);
+                if (d.skipped_count) { box.appendChild(el('div', 'wcp-muted mt-1', d.skipped_count + ' link(s) or special file(s) are never changed.')); }
+                repair.hidden = false;
+            })
+            .catch(function () { box.replaceChildren(el('span', 'text-danger-emphasis', 'The check failed.')); })
+            .finally(function () { btn.disabled = false; });
+    });
+
     // Email authentication checker (mail domain page): results as a list.
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('[data-wcp-dns-check]');

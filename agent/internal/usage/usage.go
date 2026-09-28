@@ -54,6 +54,7 @@ func Measure(ctx context.Context, dir string) (bytes, files int64, partial bool,
 // Register adds sites.usage and sites.bandwidth.
 func Register(r *actions.Registry, env *host.Env) {
 	registerBandwidth(r, env)
+	registerDU(r, env)
 	r.Register(actions.Action{Name: "sites.usage", Timeout: 5 * time.Minute, Description: "Disk use of website directories (read-only).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Domains []string `json:"domains"`

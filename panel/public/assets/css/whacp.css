@@ -682,3 +682,6 @@ details.wcp-panel > summary { cursor: pointer; }
 .wcp-trace-3 { margin-left: 3.75rem; }
 .wcp-trace-4 { margin-left: 5rem; }
 .wcp-trace-5 { margin-left: 6.25rem; }
+
+/* Disk usage: share of each folder. */
+.wcp-du-bar { width: calc(100% - 3rem); height: .5rem; vertical-align: middle; accent-color: var(--bs-primary); }

@@ -406,6 +406,24 @@ Email → Email administration (administrators with server permissions).
 - **Delivery reports and statistics**: parsed from the journal (mail
   facility) or `/var/log/mail.log`, `maillog` or `postfix.log`.
 
+## Website files: disk usage, directory listing, permissions
+
+- **Disk usage** (`sites.disk_usage`) is an agent job: it measures each
+  folder directly inside the website folder (or the chosen folder below
+  it) without following links, for up to 30 minutes, and at the top level
+  adds the domain's mailboxes. The panel keeps the five latest results per
+  folder (`disk_usage_scans`).
+- **Directory listing** writes `autoindex on;` into the website's nginx
+  server block; the setting is only sent to the agent when on.
+- **Permission repair** (`sites.permissions`, `dry_run` for the check)
+  walks the website folder with directory descriptors (`openat` with
+  `O_NOFOLLOW`, one filesystem) and changes the open descriptor, so links
+  are never followed. Owner: the website's account; group: the account's
+  or the web server's (a foreign group becomes the web server's inside the
+  document root, the account's elsewhere); `o+w` and set-ID bits on files
+  are removed; the owner gets read (and enter, for folders). Nothing else
+  is changed. The SELinux context is restored after a repair.
+
 ## PHP versions and settings
 
 *PHP* lists the installed versions; each has a **Settings** page with three

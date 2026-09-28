@@ -25,6 +25,7 @@ import (
 func Register(r *actions.Registry, env *host.Env) {
 	m := &Manager{Env: env}
 	r.Register(actions.Action{Name: "sites.apply", Mutating: true, Description: "Create or update a WhaCP website (Nginx, PHP-FPM pool, directories, system user).", Handler: m.handleApply})
+	m.registerRepair(r)
 	r.Register(actions.Action{Name: "sites.delete", Mutating: true, Description: "Remove a WhaCP website's configuration; optionally move its files to the trash.", Handler: m.handleDelete})
 	r.Register(actions.Action{Name: "sites.inspect", Description: "State of a WhaCP website on disk.", Handler: m.handleInspect})
 	r.Register(actions.Action{Name: "sites.list", Description: "WhaCP-managed websites present on this server.", Handler: m.handleList})

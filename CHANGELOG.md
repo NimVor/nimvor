@@ -29,6 +29,23 @@ All notable changes to WhaCP are documented here. The format follows
     logins and failed logins over time; relayers (mailboxes, server
     accounts such as a website's PHP, clients) and a sent summary by
     sender domain. Read from the journal or /var/log/mail.log / maillog.
+- **Disk usage by folder** (website → Disk usage): the size and number of
+  files of each folder in the website folder, the files lying there and
+  the domain's mailboxes, measured by a background job (the page stays
+  usable; the job window shows progress); sort by size, name or files;
+  open a folder to measure inside it. Links are not followed.
+- **Directory listing** per website (Advanced → Files and folders): off by
+  default (folders without an index page answer 403); when on, nginx lists
+  their files (`autoindex on`). Not offered for proxy websites.
+- **File permission repair** per website (Advanced → Files and folders):
+  a check lists files and folders that are not owned by the website's
+  account, belong to another account's group, are writable by anyone,
+  carry set-user/group-ID bits or cannot be read by their owner; Repair
+  fixes exactly those. Deliberate choices such as a private 0600
+  configuration file or group-writable folders are kept. Symbolic links,
+  special files, other filesystems and extra hard links to files the
+  account does not own are never touched, and a website folder that is
+  not already the account's is refused.
 - **Email authentication checker** (Email → domain → Check DNS): looks up
   the published DNS and reports Pass, Warning, Fail or Missing with an
   explanation for the mail host name (points to this server), MX (delivers

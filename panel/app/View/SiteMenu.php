@@ -16,6 +16,7 @@ final class SiteMenu
     private const ITEMS = [
         ['overview', 'Overview', 'speedometer2', 'sites.show', P::WEBSITES_VIEW],
         ['files', 'File manager', 'folder2-open', 'sites.files', P::FILES_MANAGE],
+        ['disk', 'Disk usage', 'pie-chart', 'sites.disk', P::FILES_MANAGE],
         ['ftp', 'FTP / SFTP', 'hdd-network', 'sites.ftp', P::FTP_MANAGE],
         ['databases', 'Databases', 'database', 'sites.databases', P::DATABASES_VIEW],
         ['mail', 'Email', 'envelope', 'sites.mail', P::MAIL_MANAGE],

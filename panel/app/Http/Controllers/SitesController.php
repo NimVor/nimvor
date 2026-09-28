@@ -236,6 +236,50 @@ final class SitesController extends Controller
         return $this->redirectWithSuccess('/sites/' . (int) $id . '/advanced', 'PHP ' . $site['php_version'] . ' was reloaded.');
     }
 
+    public function directoryListing(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        $on = $request->input('enabled') === '1';
+        try {
+            $this->service->setDirectoryListing($site, $on);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/sites/' . (int) $id . '/advanced#files', $e);
+        }
+        return $this->redirectWithSuccess('/sites/' . (int) $id . '/advanced#files', $on ? 'Directory listing is on: folders without an index page list their files.' : 'Directory listing is off.');
+    }
+
+    /** Checks the website's file permissions (JSON, nothing changed). */
+    public function checkPermissions(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return Response::json(['error' => 'Website not found.'], 404);
+        }
+        try {
+            return Response::json($this->service->permissions($site, false));
+        } catch (UserFacingException $e) {
+            return Response::json(['error' => $e->getMessage()], 502);
+        }
+    }
+
+    public function repairPermissions(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        try {
+            $res = $this->service->permissions($site, true);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/sites/' . (int) $id . '/advanced#files', $e);
+        }
+        $skipped = (int) ($res['skipped_count'] ?? 0);
+        return $this->redirectWithSuccess('/sites/' . (int) $id . '/advanced#files', sprintf('Checked %d file(s) and folder(s); repaired %d.', (int) ($res['checked'] ?? 0), (int) ($res['fixed'] ?? 0)) . ($skipped > 0 ? " {$skipped} link(s) or special file(s) were left as they are." : ''));
+    }
+
     public function reapply(Request $request, string $id): Response
     {
         $site = $this->site($request, $id);

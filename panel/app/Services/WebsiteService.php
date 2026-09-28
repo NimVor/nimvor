@@ -182,6 +182,38 @@ final class WebsiteService
         $this->audit->record($auditAction, 'website', (string) $id, AuditLogger::SUCCESS, ['domain' => $site['domain'], 'changes' => $this->diff($site, $fields)]);        $this->events->dispatch('website.updated', ['website' => $this->sites->find((int) $site['server_id'], $id, null)]);
     }
 
+    /**
+     * Directory listing: folders without an index page list their files.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function setDirectoryListing(array $site, bool $on): void
+    {
+        if ($site['kind'] === 'proxy') {
+            throw new UserFacingException('A proxy website\'s application serves its own pages; directory listing does not apply.');
+        }
+        $this->patch($site, ['directory_listing' => $on], $on ? 'website.listing_on' : 'website.listing_off');
+    }
+
+    /**
+     * Check (dry run) or repair the ownership and permissions of the
+     * website's files.
+     *
+     * @param array<string, mixed> $site
+     * @return array<string, mixed>
+     */
+    public function permissions(array $site, bool $repair): array
+    {
+        $res = (array) json_decode((string) json_encode($this->agent->call('sites.permissions', [
+            'domain' => (string) $site['domain'], 'user' => (string) $site['system_user'],
+            'document_root' => (string) $site['document_root'], 'dry_run' => !$repair,
+        ], 1800)), true);
+        if ($repair) {
+            $this->audit->record('website.permissions_repair', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'fixed' => (int) ($res['fixed'] ?? 0)]);
+        }
+        return $res;
+    }
+
     /** @param array<string, mixed> $site */
     public function setEnabled(array $site, bool $enabled): void
     {
@@ -306,7 +338,7 @@ final class WebsiteService
             'enabled' => (bool) $site['enabled'],
             'redirects' => array_values((array) $site['redirects']),
             'client_max_body_mb' => (int) $site['client_max_body_mb'],
-        ];
+        ] + (!empty($site['directory_listing']) && $site['kind'] !== 'proxy' ? ['autoindex' => true] : []);
     }
 
     /** @param array<string, mixed>|null $site */
@@ -430,7 +462,7 @@ final class WebsiteService
         $id = (int) $previous['id'];
         $fields = array_intersect_key($previous, array_flip([
             'domain', 'system_user', 'root', 'document_root', 'kind', 'php_version', 'php_settings', 'proxy_pass',
-            'https', 'force_https', 'hsts', 'ssl_mode', 'cert_file', 'key_file', 'redirects', 'client_max_body_mb', 'enabled', 'status',
+            'https', 'force_https', 'hsts', 'ssl_mode', 'cert_file', 'key_file', 'redirects', 'client_max_body_mb', 'enabled', 'status', 'directory_listing',
         ]));
         $this->sites->update($id, $fields);
         $this->sites->replaceDomains((int) $previous['server_id'], $id, array_merge([(string) $previous['domain']], $previous['aliases']));

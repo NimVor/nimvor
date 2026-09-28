@@ -15,6 +15,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/safewalk"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 )
 
@@ -151,65 +152,51 @@ type RepairStats struct {
 	Dirs    int      `json:"dirs"`
 	Files   int      `json:"files"`
 	Fixed   int      `json:"fixed"`
-	Skipped []string `json:"skipped,omitempty"` // symbolic links and special files (not touched)
+	Skipped []string `json:"skipped,omitempty"` // links, special files, extra hard links (not touched)
 }
 
 // repairTree gives a mail folder tree to uid:gid and removes access for
-// others, working on file descriptors opened with O_NOFOLLOW relative to
-// their parent, so links placed in the tree are never followed.
-func repairTree(parent int, name, rel string, uid, gid int, st *RepairStats, depth int) error {
-	if depth > 64 {
-		return fmt.Errorf("%s: nested too deep", rel)
-	}
-	fd, err := syscall.Openat(parent, name, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_DIRECTORY|syscall.O_CLOEXEC, 0)
-	if err != nil {
-		if errors.Is(err, syscall.ELOOP) || errors.Is(err, syscall.ENOTDIR) {
-			st.Skipped = appendCapped(st.Skipped, rel)
-			return nil
-		}
-		return fmt.Errorf("%s: %w", rel, err)
-	}
-	dir := os.NewFile(uintptr(fd), rel)
-	defer dir.Close()
-	if err := fixFD(fd, uid, gid, true, st); err != nil {
-		return fmt.Errorf("%s: %w", rel, err)
-	}
-	st.Dirs++
-	for {
-		entries, err := dir.ReadDir(512)
-		for _, e := range entries {
-			child := rel + "/" + e.Name()
-			switch {
-			case e.IsDir():
-				if err := repairTree(fd, e.Name(), child, uid, gid, st, depth+1); err != nil {
-					return err
-				}
-			case e.Type().IsRegular():
-				f, err := syscall.Openat(fd, e.Name(), syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK|syscall.O_CLOEXEC, 0)
-				if err != nil {
-					st.Skipped = appendCapped(st.Skipped, child)
-					continue
-				}
-				var s syscall.Stat_t
-				if syscall.Fstat(f, &s) == nil && s.Mode&syscall.S_IFMT == syscall.S_IFREG {
-					if err := fixFD(f, uid, gid, false, st); err != nil {
-						syscall.Close(f)
-						return fmt.Errorf("%s: %w", child, err)
-					}
-					st.Files++
-				} else {
-					st.Skipped = appendCapped(st.Skipped, child)
-				}
-				syscall.Close(f)
-			default:
-				st.Skipped = appendCapped(st.Skipped, child)
+// others (Dovecot's own modes), through safewalk: links are never followed.
+func repairTree(parent int, name string, uid, gid int, st *RepairStats) error {
+	res, err := safewalk.Walk(parent, name, func(e *safewalk.Entry) error {
+		if e.Dir {
+			st.Dirs++
+		} else {
+			// A second name of a file someone else owns (a hard link made
+			// into the mailbox) is not taken over.
+			if e.Stat.Nlink > 1 && int(e.Stat.Uid) != uid {
+				st.Skipped = appendCapped(st.Skipped, e.Rel)
+				return nil
 			}
+			st.Files++
 		}
-		if err != nil {
-			break // io.EOF or a read error: the entries read are done
+		changed := false
+		if int(e.Stat.Uid) != uid || int(e.Stat.Gid) != gid {
+			if err := syscall.Fchown(e.FD, uid, gid); err != nil {
+				return err
+			}
+			changed = true
 		}
+		mode := e.Stat.Mode & 0o7777
+		want := (mode &^ 0o7007) | 0o600
+		if e.Dir {
+			want |= 0o700
+		}
+		if want != mode {
+			if err := syscall.Fchmod(e.FD, want); err != nil {
+				return err
+			}
+			changed = true
+		}
+		if changed {
+			st.Fixed++
+		}
+		return nil
+	})
+	for _, s := range res.Skipped {
+		st.Skipped = appendCapped(st.Skipped, s)
 	}
-	return nil
+	return err
 }
 
 func appendCapped(list []string, s string) []string {
@@ -217,37 +204,6 @@ func appendCapped(list []string, s string) []string {
 		return append(list, s)
 	}
 	return list
-}
-
-// fixFD sets the owner and removes access for others (Dovecot's own mode:
-// the owner can read and write; directories are searchable).
-func fixFD(fd, uid, gid int, isDir bool, st *RepairStats) error {
-	var s syscall.Stat_t
-	if err := syscall.Fstat(fd, &s); err != nil {
-		return err
-	}
-	changed := false
-	if int(s.Uid) != uid || int(s.Gid) != gid {
-		if err := syscall.Fchown(fd, uid, gid); err != nil {
-			return err
-		}
-		changed = true
-	}
-	mode := s.Mode & 0o7777
-	want := (mode &^ 0o7007) | 0o600
-	if isDir {
-		want |= 0o700
-	}
-	if want != mode {
-		if err := syscall.Fchmod(fd, want); err != nil {
-			return err
-		}
-		changed = true
-	}
-	if changed {
-		st.Fixed++
-	}
-	return nil
 }
 
 func registerTools(r *actions.Registry, e env) {
@@ -332,8 +288,8 @@ func registerTools(r *actions.Registry, e env) {
 		}
 		defer syscall.Close(rfd)
 		for _, dom := range doms {
-			if err := repairTree(rfd, dom, dom, vmail.UID, vmail.GID, st, 0); err != nil {
-				if errors.Is(err, syscall.ENOENT) {
+			if err := repairTree(rfd, dom, vmail.UID, vmail.GID, st); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
 					continue // no mail received yet
 				}
 				return nil, actions.Failed("The permissions could not be repaired.", err.Error())

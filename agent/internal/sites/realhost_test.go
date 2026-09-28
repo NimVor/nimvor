@@ -25,6 +25,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -139,5 +140,53 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 	// Idempotent re-apply.
 	if res, err := m.Apply(ctx, specs[1]); err != nil || len(res.Changed) != 0 {
 		t.Fatalf("re-apply changed %v (%v)", res, err)
+	}
+
+	// Directory listing: off by default (403), on lists the files; served
+	// by the real nginx.
+	os.MkdirAll("/home/whacp-test/static.whacp.test/public_html/files", 0o755)
+	os.WriteFile("/home/whacp-test/static.whacp.test/public_html/files/report.txt", []byte("x"), 0o644)
+	serve := func() {
+		if out, err := r.real.Run(ctx, "nginx", "-t"); err != nil {
+			t.Fatalf("nginx -t: %s", out)
+		}
+		if _, err := r.real.Run(ctx, "nginx", "-s", "reload"); err != nil {
+			if out, err := r.real.Run(ctx, "nginx"); err != nil {
+				t.Fatalf("nginx start: %s", out)
+			}
+			t.Cleanup(func() { r.real.Run(context.Background(), "nginx", "-s", "quit") })
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	get := func() (int, string) {
+		req, _ := http.NewRequest("GET", "http://127.0.0.1/files/", nil)
+		req.Host = "static.whacp.test"
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("GET: %v", err)
+		}
+		defer res.Body.Close()
+		b, _ := io.ReadAll(res.Body)
+		return res.StatusCode, string(b)
+	}
+	serve()
+	if code, _ := get(); code != http.StatusForbidden {
+		t.Fatalf("listing off: HTTP %d", code)
+	}
+	listed := specs[1]
+	listed.Autoindex = true
+	if _, err := m.Apply(ctx, listed); err != nil {
+		t.Fatalf("autoindex apply: %v", err)
+	}
+	serve()
+	if code, body := get(); code != http.StatusOK || !strings.Contains(body, "report.txt") {
+		t.Fatalf("listing on: HTTP %d\n%s", code, body)
+	}
+	if _, err := m.Apply(ctx, specs[1]); err != nil {
+		t.Fatal(err)
+	}
+	serve()
+	if code, _ := get(); code != http.StatusForbidden {
+		t.Fatalf("listing off again: HTTP %d", code)
 	}
 }

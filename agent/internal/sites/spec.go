@@ -71,6 +71,9 @@ type Spec struct {
 	Enabled         bool        `json:"enabled"`
 	Redirects       []Redirect  `json:"redirects"`
 	ClientMaxBodyMB int         `json:"client_max_body_mb"`
+	// Autoindex lists the files of folders without an index page (nginx
+	// autoindex); off by default.
+	Autoindex bool `json:"autoindex,omitempty"`
 }
 
 var (

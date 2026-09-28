@@ -176,6 +176,17 @@ func TestSpecValidation(t *testing.T) {
 	if !strings.Contains(conf, "return 301 https://$host$request_uri;") || !strings.Contains(conf, "listen 443 ssl http2;") {
 		t.Errorf("https render:\n%s", conf)
 	}
+	if strings.Contains(conf, "autoindex") {
+		t.Error("directory listing is off by default")
+	}
+	s.Autoindex = true
+	if conf := RenderNginx(s, Layout{Socket: "/run/php/x.sock", LogDir: "/l", ACMERoot: "/a"}); strings.Count(conf, "    autoindex on;\n") != 1 {
+		t.Errorf("autoindex:\n%s", conf)
+	}
+	s.Kind, s.ProxyPass = "proxy", "http://127.0.0.1:3000"
+	if conf := RenderNginx(s, Layout{LogDir: "/l", ACMERoot: "/a"}); strings.Contains(conf, "autoindex") {
+		t.Error("autoindex on a proxy")
+	}
 }
 
 // A hosting customer's new website asks for a new account: an existing one

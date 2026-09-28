@@ -230,8 +230,10 @@ paths:
               - sites.apply
               - sites.bandwidth
               - sites.delete
+              - sites.disk_usage
               - sites.inspect
               - sites.list
+              - sites.permissions
               - sites.usage
               - ssh.configure
               - ssh.logins
@@ -530,8 +532,10 @@ x-whacp-actions:
   sites.apply: { mutating: true, description: "Create or update a WhaCP website (Nginx, PHP-FPM pool, directories, system user)." }
   sites.bandwidth: { mutating: false, description: "Bytes sent by websites per month, read from their access logs from where the last read stopped (read-only)." }
   sites.delete: { mutating: true, description: "Remove a WhaCP website's configuration; optionally move its files to the trash." }
+  sites.disk_usage: { mutating: false, description: "Start a background job measuring the folders of a website folder (or a folder below it; the top level also counts the domain's mailboxes). Read-only." }
   sites.inspect: { mutating: false, description: "State of a WhaCP website on disk." }
   sites.list: { mutating: false, description: "WhaCP-managed websites present on this server." }
+  sites.permissions: { mutating: true, description: "Check (dry_run) or repair the ownership and permissions of a website's files: the account's owner, its or the web server's group, no world-writable files, no set-ID files, readable by the owner. Links are never followed." }
   sites.usage: { mutating: false, description: "Disk use of website directories (read-only)." }
   ssh.configure: { mutating: true, description: "Harden the SSH server (validated with sshd -t, auto-reverted unless confirmed)." }
   ssh.logins: { mutating: false, description: "SSH logins of the last seven days: accepted and failed counts, the last of each (read from the journal)." }

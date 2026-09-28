@@ -83,6 +83,9 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/toggle', [SitesController::class, 'toggle'], ['name' => 'sites.toggle', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/restart-php', [SitesController::class, 'restartPhp'], ['name' => 'sites.restart_php', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/reapply', [SitesController::class, 'reapply'], ['name' => 'sites.reapply', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/directory-listing', [SitesController::class, 'directoryListing'], ['name' => 'sites.listing', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/permissions', [SitesController::class, 'checkPermissions'], ['name' => 'sites.permissions', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/permissions', [SitesController::class, 'repairPermissions'], ['name' => 'sites.permissions.repair', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/delete', [SitesController::class, 'destroy'], ['name' => 'sites.delete', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/ssl', [SslController::class, 'show'], ['name' => 'sites.ssl', 'permission' => P::SSL_VIEW]);
     $r->post('/sites/{id}/ssl/issue', [SslController::class, 'issue'], ['name' => 'sites.ssl.issue', 'permission' => P::SSL_MANAGE]);
@@ -97,6 +100,8 @@ return static function (Router $r): void {
     $r->get('/sites/{id}/files/download', [FilesController::class, 'download'], ['name' => 'sites.files.download', 'permission' => P::FILES_MANAGE]);
     $r->get('/sites/{id}/logs', [LogsController::class, 'site'], ['name' => 'sites.logs', 'permission' => P::LOGS_VIEW]);
     $r->get('/sites/{id}/cron', [CronController::class, 'show'], ['name' => 'sites.cron', 'permission' => P::CRON_VIEW]);
+    $r->get('/sites/{id}/disk-usage', [\WhaCP\Http\Controllers\DiskUsageController::class, 'show'], ['name' => 'sites.disk', 'permission' => P::FILES_MANAGE]);
+    $r->post('/sites/{id}/disk-usage', [\WhaCP\Http\Controllers\DiskUsageController::class, 'scan'], ['name' => 'sites.disk.scan', 'permission' => P::FILES_MANAGE]);
     $r->get('/sites/{id}/malware', [\WhaCP\Http\Controllers\AvController::class, 'show'], ['name' => 'sites.malware', 'permission' => P::WEBSITES_VIEW]);
     $r->post('/sites/{id}/malware/scan', [\WhaCP\Http\Controllers\AvController::class, 'scan'], ['name' => 'sites.malware.scan', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/stats', [\WhaCP\Http\Controllers\StatsController::class, 'show'], ['name' => 'sites.stats', 'permission' => P::LOGS_VIEW]);

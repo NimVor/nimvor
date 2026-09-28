@@ -56,6 +56,28 @@ $id = (int) $site['id'];
         <?php endif; ?>
     </div>
     <div class="col-xl-5" id="danger-zone">
+        <div class="card mb-3" id="files">
+            <div class="card-header"><i class="bi bi-folder-check me-1"></i>Files and folders</div>
+            <div class="card-body d-grid gap-3">
+                <?php if ($site['kind'] !== 'proxy'): ?>
+                    <form class="wcp-danger-row" method="post" action="<?= e($this->url('sites.listing', ['id' => $id])) ?>" data-wcp-busy>
+                        <?= $this->csrfField() ?><input type="hidden" name="enabled" value="<?= !empty($site['directory_listing']) ? '0' : '1' ?>">
+                        <div><div class="fw-medium">Directory listing <?= !empty($site['directory_listing']) ? '<span class="wcp-state is-warn">On</span>' : '<span class="wcp-state is-ok">Off</span>' ?></div><div class="small text-body-secondary"><?= !empty($site['directory_listing']) ? 'Folders without an index page show a list of their files to visitors.' : 'Folders without an index page return “403 Forbidden” instead of listing their files (recommended).' ?></div></div>
+                        <button class="btn btn-sm btn-outline-secondary text-nowrap"><?= !empty($site['directory_listing']) ? 'Turn off' : 'Turn on' ?></button>
+                    </form>
+                <?php endif; ?>
+                <div>
+                    <div class="wcp-danger-row">
+                        <div><div class="fw-medium">File permissions</div><div class="small text-body-secondary">Find files that do not belong to the website's account, can be written by anyone, carry set-ID bits or cannot be read by their owner. Deliberately private files (e.g. 0600) are left as they are.</div></div>
+                        <button class="btn btn-sm btn-outline-secondary text-nowrap" type="button" data-wcp-perm-check="<?= e($this->url('sites.permissions', ['id' => $id])) ?>"><i class="bi bi-search me-1"></i>Check</button>
+                    </div>
+                    <div class="small mt-2" data-wcp-perm-results aria-live="polite" hidden></div>
+                    <form class="mt-2" method="post" action="<?= e($this->url('sites.permissions.repair', ['id' => $id])) ?>" data-wcp-busy data-wcp-perm-repair hidden data-wcp-confirm="Repair the ownership and permissions of <?= e($site['domain']) ?>'s files as listed?">
+                        <?= $this->csrfField() ?><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Repair</button>
+                    </form>
+                </div>
+            </div>
+        </div>
         <h2 class="wcp-section-heading text-danger-emphasis"><i class="bi bi-exclamation-octagon me-1"></i>Danger Zone</h2>
         <div class="card mb-3 border-warning-subtle">
             <div class="card-body d-grid gap-3">

@@ -73,9 +73,16 @@ func TestRepairTree(t *testing.T) {
 	os.Symlink(outside, filepath.Join(box, "evil"))
 	os.Symlink(t.TempDir(), filepath.Join(root, "shop.test", "me", "evildir"))
 	syscall.Mkfifo(filepath.Join(box, "fifo"), 0o666)
+	// A hard link to a file someone else owns is not taken over.
+	os.Link(outside, filepath.Join(box, "hard"))
 	os.Chmod(box, 0o777)
 	os.Chmod(filepath.Join(box, "1.msg"), 0o666)
-	filepath.Walk(filepath.Join(root, "shop.test"), func(p string, _ os.FileInfo, _ error) error { return os.Lchown(p, 1234, 1234) })
+	filepath.Walk(filepath.Join(root, "shop.test"), func(p string, _ os.FileInfo, _ error) error {
+		if filepath.Base(p) != "hard" {
+			os.Lchown(p, 1234, 1234)
+		}
+		return nil
+	})
 
 	fd, err := syscall.Open(root, syscall.O_RDONLY|syscall.O_DIRECTORY, 0)
 	if err != nil {
@@ -83,10 +90,10 @@ func TestRepairTree(t *testing.T) {
 	}
 	defer syscall.Close(fd)
 	st := &RepairStats{}
-	if err := repairTree(fd, "shop.test", "shop.test", 5000, 5000, st, 0); err != nil {
+	if err := repairTree(fd, "shop.test", 5000, 5000, st); err != nil {
 		t.Fatal(err)
 	}
-	if st.Dirs != 4 || st.Files != 1 || len(st.Skipped) != 3 {
+	if st.Dirs != 4 || st.Files != 1 || len(st.Skipped) != 4 {
 		t.Fatalf("stats: %+v", st)
 	}
 	var s syscall.Stat_t
@@ -104,7 +111,7 @@ func TestRepairTree(t *testing.T) {
 	}
 	// A second run changes nothing.
 	st2 := &RepairStats{}
-	repairTree(fd, "shop.test", "shop.test", 5000, 5000, st2, 0)
+	repairTree(fd, "shop.test", 5000, 5000, st2)
 	if st2.Fixed != 0 {
 		t.Fatalf("second run fixed %d", st2.Fixed)
 	}

@@ -82,6 +82,9 @@ func body(b *strings.Builder, s Spec, l Layout) {
 	}
 	fmt.Fprintf(b, "    access_log %s;\n    error_log %s warn;\n", filepath.Join(l.LogDir, "access.log"), filepath.Join(l.LogDir, "error.log"))
 	fmt.Fprintf(b, "    client_max_body_size %dm;\n", s.ClientMaxBodyMB)
+	if s.Autoindex && s.Kind != "proxy" {
+		b.WriteString("    autoindex on;\n")
+	}
 	b.WriteString("    add_header X-Content-Type-Options \"nosniff\" always;\n")
 	acme(b, l)
 	b.WriteString("    location ~ /\\.(?!well-known) {\n        deny all;\n    }\n")
