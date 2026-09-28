@@ -41,4 +41,22 @@ final class ServicesController extends Controller
         $this->audit->record('service.' . $op, 'service', $unit);
         return $this->redirectWithSuccess($back, ucfirst($op) . ' of ' . $unit . ' completed.');
     }
+
+    /** Restart one of WhaCP's own services (agent and panel restart shortly after). */
+    public function restartWhacp(Request $request, string $key): Response
+    {
+        if (!\WhaCP\Hosting\Scope::isAll($this->user($request))) {
+            return $this->redirectWithError('/services', 'Only server administrators can restart WhaCP.');
+        }
+        try {
+            $res = (array) $this->agent->call('whacp.restart', ['key' => $key]);
+        } catch (AgentException $e) {
+            $this->audit->record('whacp.restart', 'service', $key, AuditLogger::FAILURE, ['error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/services', $e);
+        }
+        $this->audit->record('whacp.restart', 'service', (string) ($res['unit'] ?? $key));
+        return $this->redirectWithSuccess('/services', !empty($res['scheduled'])
+            ? ($key === 'panel' ? 'The panel restarts in a few seconds; reload this page then.' : 'The agent restarts in a few seconds; running tasks finish first.')
+            : 'Restarted ' . $res['unit'] . '.');
+    }
 }

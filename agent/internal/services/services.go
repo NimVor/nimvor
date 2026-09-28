@@ -19,8 +19,8 @@ var controllable = []string{
 	"whacp-worker-*.service", "whacp-panel.service",
 }
 
-// neverStop protects remote access and the agent itself.
-var neverStop = map[string]bool{"ssh.service": true, "sshd.service": true}
+// neverStop protects remote access and the panel itself.
+var neverStop = map[string]bool{"ssh.service": true, "sshd.service": true, "whacp-panel.service": true}
 
 // Allowed reports whether unit may be controlled.
 func Allowed(unit string) bool {
@@ -34,6 +34,7 @@ func Allowed(unit string) bool {
 
 // Register adds services.control.
 func Register(r *actions.Registry, env *host.Env) {
+	registerWhacp(r, env)
 	r.Register(actions.Action{Name: "services.control", Mutating: true, Description: "Start, stop, restart, reload, enable or disable an allowlisted service.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Unit string `json:"unit"`
@@ -52,7 +53,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		case "start", "restart", "reload", "enable":
 		case "stop", "disable":
 			if neverStop[in.Unit] {
-				return nil, actions.InvalidParams("SSH cannot be stopped from WhaCP; you could lock yourself out")
+				return nil, actions.InvalidParams(in.Unit + " cannot be stopped from WhaCP; you could lock yourself out")
 			}
 		default:
 			return nil, actions.InvalidParams("op must be start, stop, restart, reload, enable or disable")

@@ -29,6 +29,16 @@ All notable changes to WhaCP are documented here. The format follows
     logins and failed logins over time; relayers (mailboxes, server
     accounts such as a website's PHP, clients) and a sent summary by
     sender domain. Read from the journal or /var/log/mail.log / maillog.
+- **WhaCP services** (Services → WhaCP): state of the agent, panel,
+  scheduler, greylisting, DKIM and FTP services with a restart button
+  (server administrators). The agent and the panel restart two seconds
+  after answering, so the request is not cut off; the panel can no longer
+  be stopped, or restarted mid-request, from the services table.
+- **Root password** (Server, administrators only): confirmed with the
+  administrator's own panel password; at least 14 characters with three
+  character classes. The agent hashes it (SHA-512 crypt) and gives
+  `chpasswd -e` only the hash; the password is never logged, stored or
+  returned, and the audit log records only that it changed.
 - **Live statistics** (Monitoring → Live, server administrators): CPU
   (model, architecture, sockets/cores/threads, frequency, use per logical
   CPU), memory, swap, load, uptime, processes (running, threads, zombies),

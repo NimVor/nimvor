@@ -221,6 +221,7 @@ paths:
               - security.undo
               - server.reboot
               - server.reboot_cancel
+              - server.root_password
               - server.set_hostname
               - server.set_timezone
               - server.settings
@@ -255,6 +256,8 @@ paths:
               - system.live
               - system.metrics
               - system.metrics_history
+              - whacp.restart
+              - whacp.services
               - workers.apply
               - workers.remove
               - workers.restart
@@ -527,6 +530,7 @@ x-whacp-actions:
   security.undo: { mutating: true, description: "Roll back the pending firewall/SSH change now." }
   server.reboot: { mutating: true, description: "Schedule a restart (requires the host name as confirmation)." }
   server.reboot_cancel: { mutating: true, description: "Cancel a scheduled restart." }
+  server.root_password: { mutating: true, description: "Set the root password. It is hashed (SHA-512 crypt) in the agent and handed to chpasswd -e as a hash on standard input; it is never logged or returned." }
   server.set_hostname: { mutating: true, description: "Change the host name." }
   server.set_timezone: { mutating: true, description: "Change the time zone." }
   server.settings: { mutating: false, description: "Host name, time zone, clock synchronisation and restart state." }
@@ -561,6 +565,8 @@ x-whacp-actions:
   system.live: { mutating: false, description: "Live statistics over half a second: CPU per core and details, memory, load, processes (busiest by CPU and memory, program and user only), network interfaces with rates, disks." }
   system.metrics: { mutating: false, description: "Latest CPU, memory, disk, load and network sample." }
   system.metrics_history: { mutating: false, description: "Recent metrics history for charts." }
+  whacp.restart: { mutating: true, description: "Restart one of WhaCP's services (key: agent, panel, scheduler, greylist, dkim, ftpd). The agent and the panel restart two seconds after answering." }
+  whacp.services: { mutating: false, description: "State of WhaCP's own services (agent, panel, scheduler, greylisting, DKIM, FTP)." }
   workers.apply: { mutating: true, description: "Create or update a worker service and start/stop it." }
   workers.remove: { mutating: true, description: "Stop and remove a worker service." }
   workers.restart: { mutating: true, description: "Restart a running worker service." }

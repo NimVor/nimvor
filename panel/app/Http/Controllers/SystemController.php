@@ -27,6 +27,8 @@ final class SystemController extends Controller
         private readonly AuditLogger $audit,
         private readonly JobTracker $jobs,
         private readonly ServerContext $server,
+        private readonly \WhaCP\Repositories\UserRepository $users,
+        private readonly \WhaCP\Security\PasswordHasher $hasher,
     ) {
         parent::__construct($view, $session);
     }
@@ -110,6 +112,48 @@ final class SystemController extends Controller
             $this->audit->record('server.hostname', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['hostname' => $h]);
             return 'Host name changed. Add it to /etc/hosts if tools such as sudo warn that they cannot resolve it.';
         });
+    }
+
+    /**
+     * The root password: administrators only, confirmed with their own
+     * panel password. The password is never logged, stored or returned.
+     */
+    public function rootPassword(Request $request): Response
+    {
+        $user = $this->user($request);
+        if (($user['role_name'] ?? '') !== 'admin') {
+            return $this->redirectWithError('/server', 'Only administrators can change the root password.');
+        }
+        $current = (string) $request->input('current_password', '');
+        $new = (string) $request->input('root_password', '');
+        $confirm = (string) $request->input('root_password_confirmation', '');
+        $hash = $this->users->passwordHash((int) $user['id']);
+        if ($hash === null || !$this->hasher->verify($current, $hash)) {
+            $this->audit->record('server.root_password', 'server', (string) $this->server->id(), AuditLogger::DENIED, ['reason' => 'wrong panel password']);
+            return $this->redirectWithError('/server#root-password', 'Your panel password is not correct.');
+        }
+        if ($new !== $confirm) {
+            return $this->redirectWithError('/server#root-password', 'The new passwords do not match.');
+        }
+        $problem = $this->hasher->weakness($new, 'root');
+        $classes = (int) preg_match('/[a-z]/', $new) + (int) preg_match('/[A-Z]/', $new) + (int) preg_match('/[0-9]/', $new) + (int) preg_match('/[^A-Za-z0-9]/', $new);
+        if ($problem === null && (mb_strlen($new) < 14 || $classes < 3)) {
+            $problem = 'Use at least 14 characters with three of: lower case, upper case, digits, symbols.';
+        }
+        if ($problem === null && (str_contains($new, ':') || preg_match('/[\x00-\x1f]/', $new))) {
+            $problem = 'The password must not contain colons or control characters.';
+        }
+        if ($problem !== null) {
+            return $this->redirectWithError('/server#root-password', $problem);
+        }
+        try {
+            $this->agent->call('server.root_password', ['password' => $new]);
+        } catch (\WhaCP\Support\UserFacingException $e) {
+            $this->audit->record('server.root_password', 'server', (string) $this->server->id(), AuditLogger::FAILURE, ['error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/server#root-password', $e);
+        }
+        $this->audit->record('server.root_password', 'server', (string) $this->server->id());
+        return $this->redirectWithSuccess('/server', 'The root password was changed.');
     }
 
     public function timezone(Request $request): Response

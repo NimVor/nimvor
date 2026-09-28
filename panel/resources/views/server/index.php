@@ -110,6 +110,21 @@ $mem = $metrics['memory'] ?? [];
                     <div class="form-text">Clock sync: <?= !empty($settings['ntp_synchronized']) ? 'synchronised' : (!empty($settings['ntp_enabled']) ? 'enabled, not yet synchronised' : 'off') ?></div>
                 </form>
             </div>
+            <?php if ($canManage && ($this->shared('user')['role_name'] ?? '') === 'admin'): ?>
+                <div class="col-md-8" id="root-password">
+                    <form method="post" action="<?= e($this->url('server.root_password')) ?>" autocomplete="off" data-wcp-busy data-wcp-confirm="Change the root password of this server? Keep the new one somewhere safe: WhaCP does not store it.">
+                        <?= $this->csrfField() ?>
+                        <label class="form-label" for="s-root1">Root password</label>
+                        <div class="row g-2">
+                            <div class="col-sm-4"><input class="form-control form-control-sm" type="password" id="s-root1" name="root_password" placeholder="New password" minlength="14" maxlength="512" autocomplete="new-password" required></div>
+                            <div class="col-sm-4"><input class="form-control form-control-sm" type="password" name="root_password_confirmation" placeholder="Repeat it" aria-label="Repeat the new password" minlength="14" maxlength="512" autocomplete="new-password" required></div>
+                            <div class="col-sm-4"><input class="form-control form-control-sm" type="password" name="current_password" placeholder="Your panel password" aria-label="Your panel password" autocomplete="current-password" required></div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger mt-2"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Change root password</button>
+                        <div class="form-text">At least 14 characters with three of: lower case, upper case, digits, symbols. It is never logged or stored by WhaCP; SSH may still refuse root password logins by its own settings.</div>
+                    </form>
+                </div>
+            <?php endif; ?>
             <?php if ($canManage && empty($settings['scheduled_reboot'])): ?>
                 <div class="col-md-4">
                     <form method="post" action="<?= e($this->url('server.reboot')) ?>">

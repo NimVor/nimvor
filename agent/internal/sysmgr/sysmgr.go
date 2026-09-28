@@ -15,11 +15,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ffmpegmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
 )
 
 // Components are the packages WhaCP offers to install (PHP versions are
@@ -244,6 +247,23 @@ func Register(r *actions.Registry, env *host.Env) {
 
 	r.Register(actions.Action{Name: "server.settings", Description: "Host name, time zone, clock synchronisation and restart state.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return Read(ctx, env), nil
+	}})
+	r.Register(actions.Action{Name: "server.root_password", Mutating: true, Description: "Set the root password. It is hashed (SHA-512 crypt) in the agent and handed to chpasswd -e as a hash on standard input; it is never logged or returned.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Password string `json:"password"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if n := utf8.RuneCountInString(in.Password); n < 12 || len(in.Password) > 512 || strings.ContainsAny(in.Password, "\x00\r\n:") || !utf8.ValidString(in.Password) {
+			return nil, actions.InvalidParams("password: 12 to 512 characters, without line breaks or colons")
+		}
+		hash := shacrypt.HashPassword(in.Password)
+		in.Password = ""
+		if out, err := env.Runner.RunWith(ctx, "chpasswd", execx.Opts{Stdin: strings.NewReader("root:" + hash + "\n")}, "-e"); err != nil {
+			return nil, actions.Failed("The root password was not changed.", host.Output(out))
+		}
+		return map[string]any{"changed": true}, nil
 	}})
 	r.Register(actions.Action{Name: "server.set_hostname", Mutating: true, Description: "Change the host name.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {

@@ -55,7 +55,13 @@ final class ServerController extends Controller
         } catch (AgentException $e) {
             return $this->render('discovery/unavailable', ['title' => 'Services', 'error' => $e]);
         }
-        return $this->render('server/services', ['services' => (array) $services]);
+        $whacp = null;
+        try {
+            $whacp = (array) json_decode((string) json_encode($this->agent->call('whacp.services')), true);
+        } catch (AgentException) {
+            // An older agent: the table below still lists its units.
+        }
+        return $this->render('server/services', ['services' => (array) $services, 'whacp' => $whacp]);
     }
 
     public function systemUsers(Request $request): Response
