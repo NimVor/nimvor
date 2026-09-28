@@ -18,6 +18,7 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
 ?>
 <?php $this->start(); ?>Email<?php $this->end('title'); ?>
 <?php $this->start(); ?>Mailboxes and aliases for your domains<?php $this->end('subtitle'); ?>
+<?php if ($this->serverScope() && $this->can(P::SERVER_VIEW)): ?><?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('mail.admin.queue')) ?>"><i class="bi bi-inboxes me-1"></i>Email administration</a><?php $this->end('actions'); ?><?php endif; ?>
 <?php if ($status === null): ?>
     <div class="alert alert-warning">The server agent is not reachable, so the mail server state is unknown.</div>
 <?php elseif (!$ready): ?>

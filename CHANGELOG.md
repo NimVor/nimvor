@@ -7,6 +7,18 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Email administration** (administrators; Email → Email administration):
+  - Mail queue: every queued message with queue, sender, recipients,
+    size, age and why delivery was deferred; message headers; deliver
+    now, hold, release, delete (with confirmation) for selected messages;
+    retry all deferred.
+  - Delivery reports: each delivery attempt (sent, delivered here,
+    deferred, bounced, rejected) with DSN, reason, relay and delay,
+    filtered by address and status, for the last hour to 30 days.
+  - Statistics: received, sent, delivered, deferred, bounced, rejected,
+    logins and failed logins over time; relayers (mailboxes, server
+    accounts such as a website's PHP, clients) and a sent summary by
+    sender domain. Read from the journal or /var/log/mail.log / maillog.
 - **Email filters and autoresponders** per mailbox (Email → domain →
   mailbox → Filters): conditions on From, To, Cc, Reply-To, Subject,
   List-Id or body (contains / is / begins / ends, or their negation; all

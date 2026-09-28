@@ -91,15 +91,19 @@
 
     // Confirmation modal for destructive forms: data-wcp-confirm="message",
     // optional data-wcp-confirm-word="text the user must type".
+    // A button may ask on its own: data-wcp-confirm-submit="message".
     var pendingForm = null;
+    var pendingSubmitter = null;
     document.addEventListener('submit', function (e) {
         var form = e.target;
-        if (!form.matches('[data-wcp-confirm]') || form.dataset.wcpConfirmed === '1') { return; }
+        var btn = e.submitter && e.submitter.matches('[data-wcp-confirm-submit]') ? e.submitter : null;
+        if ((!btn && !form.matches('[data-wcp-confirm]')) || form.dataset.wcpConfirmed === '1') { return; }
         e.preventDefault();
         pendingForm = form;
+        pendingSubmitter = e.submitter || null;
         var modalEl = document.getElementById('wcp-confirm');
-        modalEl.querySelector('[data-wcp-confirm-message]').textContent = form.getAttribute('data-wcp-confirm');
-        var word = form.getAttribute('data-wcp-confirm-word');
+        modalEl.querySelector('[data-wcp-confirm-message]').textContent = btn ? btn.getAttribute('data-wcp-confirm-submit') : form.getAttribute('data-wcp-confirm');
+        var word = btn ? btn.getAttribute('data-wcp-confirm-word') : form.getAttribute('data-wcp-confirm-word');
         var typed = modalEl.querySelector('[data-wcp-confirm-typed]');
         var input = modalEl.querySelector('#wcp-confirm-input');
         var ok = modalEl.querySelector('[data-wcp-confirm-ok]');
@@ -124,10 +128,47 @@
     document.addEventListener('click', function (e) {
         if (!e.target.closest('[data-wcp-confirm-ok]') || !pendingForm) { return; }
         var form = pendingForm;
+        var submitter = pendingSubmitter;
         pendingForm = null;
+        pendingSubmitter = null;
         form.dataset.wcpConfirmed = '1';
         bootstrap.Modal.getInstance(document.getElementById('wcp-confirm')).hide();
-        if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+        if (form.requestSubmit) { form.requestSubmit(submitter && submitter.form === form ? submitter : undefined); } else { form.submit(); }
+    });
+
+    // Mail queue: headers of a message, loaded into a modal.
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-wcp-mail-headers]');
+        if (!btn) { return; }
+        var modalEl = document.getElementById('wcp-headers');
+        var body = modalEl.querySelector('[data-wcp-headers-body]');
+        body.replaceChildren();
+        var loading = document.createElement('dd');
+        loading.className = 'col-12 wcp-muted';
+        loading.textContent = 'Loading…';
+        body.appendChild(loading);
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        fetch(btn.getAttribute('data-wcp-mail-headers'), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                body.replaceChildren();
+                if (!d.success) {
+                    loading.textContent = (d.error && d.error.message) || 'The message could not be read.';
+                    body.appendChild(loading);
+                    return;
+                }
+                ['from', 'to', 'reply-to', 'subject', 'date', 'message-id'].forEach(function (k) {
+                    if (!d.headers[k]) { return; }
+                    var dt = document.createElement('dt');
+                    dt.className = 'col-sm-3 text-capitalize';
+                    dt.textContent = k;
+                    var dd = document.createElement('dd');
+                    dd.className = 'col-sm-9 text-break';
+                    dd.textContent = d.headers[k];
+                    body.append(dt, dd);
+                });
+            })
+            .catch(function () { loading.textContent = 'The message could not be read.'; body.replaceChildren(loading); });
     });
 
     // Show only the fields that belong to the selected type (website kind,

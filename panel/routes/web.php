@@ -201,6 +201,10 @@ return static function (Router $r): void {
     $r->post('/mail/domains/{id}/mailboxes/{mailbox}/responder', [\WhaCP\Http\Controllers\MailFiltersController::class, 'responder'], ['name' => 'mail.responder', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/routing', [\WhaCP\Http\Controllers\MailFiltersController::class, 'routing'], ['name' => 'mail.routing', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/delete', [MailController::class, 'delete'], ['name' => 'mail.delete', 'permission' => P::MAIL_MANAGE]);
+    $r->get('/mail/admin/queue', [\WhaCP\Http\Controllers\MailAdminController::class, 'queue'], ['name' => 'mail.admin.queue', 'permission' => P::SERVER_VIEW]);
+    $r->get('/mail/admin/queue/{id}', [\WhaCP\Http\Controllers\MailAdminController::class, 'message'], ['name' => 'mail.admin.message', 'permission' => P::SERVER_VIEW]);
+    $r->post('/mail/admin/queue', [\WhaCP\Http\Controllers\MailAdminController::class, 'queueAction'], ['name' => 'mail.admin.queue.action', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/mail/admin/reports', [\WhaCP\Http\Controllers\MailAdminController::class, 'reports'], ['name' => 'mail.admin.reports', 'permission' => P::SERVER_VIEW]);
     $r->get('/sites/{id}/mail', [MailController::class, 'site'], ['name' => 'sites.mail', 'permission' => P::MAIL_MANAGE]);
     $r->get('/dns', [DnsController::class, 'index'], ['name' => 'dns', 'permission' => P::DNS_MANAGE]);
     $r->post('/dns/install', [DnsController::class, 'install'], ['name' => 'dns.install', 'permission' => P::PACKAGES_MANAGE]);

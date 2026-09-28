@@ -161,6 +161,10 @@ paths:
               - mail.filters_save
               - mail.mailbox_delete
               - mail.mailbox_save
+              - mail.queue
+              - mail.queue_action
+              - mail.queue_message
+              - mail.report
               - mail.routing_set
               - mail.spam_configure
               - mail.status
@@ -446,6 +450,10 @@ x-whacp-actions:
   mail.filters_save: { mutating: true, description: "Save a mailbox's email filters and autoresponder (rendered to its personal Sieve script, compiled with sievec; rolled back on failure)." }
   mail.mailbox_delete: { mutating: true, description: "Delete a mailbox (confirm = address); its mail is moved to .whacp-trash in the mail folder, or kept in place with keep_mail." }
   mail.mailbox_save: { mutating: true, description: "Create a mailbox or change its password or quota (the password is stored as a SHA-512 crypt hash)." }
+  mail.queue: { mutating: false, description: "Postfix's mail queue: messages with queue, sender, recipients, size, age and the reason delivery was deferred (postqueue -j)." }
+  mail.queue_action: { mutating: true, description: "Act on queued messages: delete, retry (deliver now), hold, release; or flush (retry every deferred message). IDs go to postsuper on stdin." }
+  mail.queue_message: { mutating: false, description: "Headers of one queued message (From, To, Subject, Date, Message-ID; not the body)." }
+  mail.report: { mutating: false, description: "Mail statistics and delivery records for a time range from Postfix's and Dovecot's logs: received, sent, delivered, deferred, bounced, rejected, logins; relayers (authenticated users, local accounts, clients) and sending domains; deliveries filtered by address and status." }
   mail.routing_set: { mutating: true, description: "Route a mail domain: local (mailboxes here), backup (queue its mail for the primary MX) or remote (another server receives it; mail for it from this server goes there)." }
   mail.spam_configure: { mutating: true, description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only WhaCP's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure." }
   mail.status: { mutating: false, description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases." }
