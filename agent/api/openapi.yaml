@@ -292,6 +292,10 @@ paths:
               - terminal.status
               - whacp.restart
               - whacp.services
+              - wordpress.info
+              - wordpress.login
+              - wordpress.manage
+              - wordpress.scan
               - workers.apply
               - workers.remove
               - workers.restart
@@ -635,6 +639,10 @@ x-whacp-actions:
   terminal.status: { mutating: false, description: "Web terminal: whether it is enabled, whether root shells are allowed (terminal_root), and the open sessions." }
   whacp.restart: { mutating: true, description: "Restart one of WhaCP's services (key: agent, panel, scheduler, greylist, dkim, ftpd). The agent and the panel restart two seconds after answering." }
   whacp.services: { mutating: false, description: "State of WhaCP's own services (agent, panel, scheduler, greylisting, DKIM, FTP)." }
+  wordpress.info: { mutating: true, description: "Overview of a WordPress installation: versions, updates, plugins, themes, settings (WP-CLI as the website account)." }
+  wordpress.login: { mutating: true, description: "One-time sign-in link for a WordPress administrator (a file that deletes itself on first use and expires after a minute)." }
+  wordpress.manage: { mutating: true, description: "Change a WordPress installation: updates (job), plugins, themes, maintenance mode, hardening, core file verification." }
+  wordpress.scan: { mutating: true, description: "Find WordPress installations in websites (read-only; WordPress is not loaded)." }
   workers.apply: { mutating: true, description: "Create or update a worker service and start/stop it." }
   workers.remove: { mutating: true, description: "Stop and remove a worker service." }
   workers.restart: { mutating: true, description: "Restart a running worker service." }

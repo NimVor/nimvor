@@ -43,6 +43,7 @@ final class FeatureService
         'stats' => ['Visitor statistics', [], ['sites.stats']],
         'malware' => ['Malware scan', [], ['sites.malware']],
         'ssh' => ['SSH shell & web terminal', [], ['sites.terminal']],
+        'wordpress' => ['WordPress Toolkit', [], ['sites.wordpress', 'wordpress']],
     ];
 
     /** @var array<int, list<string>> disabled features per user (request cache) */

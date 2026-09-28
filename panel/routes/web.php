@@ -347,6 +347,14 @@ return static function (Router $r): void {
     $r->post('/security/modsec/sites/{id}', [\WhaCP\Http\Controllers\ModSecurityController::class, 'saveSite'], ['name' => 'security.modsec.site', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/sites/{id}/firewall', [\WhaCP\Http\Controllers\ModSecurityController::class, 'site'], ['name' => 'sites.firewall', 'permission' => P::WEBSITES_VIEW]);
     $r->post('/sites/{id}/firewall', [\WhaCP\Http\Controllers\ModSecurityController::class, 'saveSiteMode'], ['name' => 'sites.firewall.update', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/wordpress', [\WhaCP\Http\Controllers\WordPressController::class, 'index'], ['name' => 'wordpress', 'permission' => P::WEBSITES_VIEW]);
+    $r->post('/wordpress/scan', [\WhaCP\Http\Controllers\WordPressController::class, 'scanAll'], ['name' => 'wordpress.scan', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/wordpress', [\WhaCP\Http\Controllers\WordPressController::class, 'siteList'], ['name' => 'sites.wordpress', 'permission' => P::WEBSITES_VIEW]);
+    $r->post('/sites/{id}/wordpress/scan', [\WhaCP\Http\Controllers\WordPressController::class, 'scanSite'], ['name' => 'sites.wordpress.scan', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/wordpress/{wp}', [\WhaCP\Http\Controllers\WordPressController::class, 'show'], ['name' => 'sites.wordpress.show', 'permission' => P::WEBSITES_VIEW]);
+    $r->post('/sites/{id}/wordpress/{wp}/check', [\WhaCP\Http\Controllers\WordPressController::class, 'check'], ['name' => 'sites.wordpress.check', 'permission' => P::WEBSITES_VIEW]);
+    $r->post('/sites/{id}/wordpress/{wp}/manage', [\WhaCP\Http\Controllers\WordPressController::class, 'manage'], ['name' => 'sites.wordpress.manage', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/wordpress/{wp}/login', [\WhaCP\Http\Controllers\WordPressController::class, 'login'], ['name' => 'sites.wordpress.login', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/security/confirm', [SecurityController::class, 'confirm'], ['name' => 'security.confirm', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/undo', [SecurityController::class, 'undo'], ['name' => 'security.undo', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/servers', [ServersController::class, 'index'], ['name' => 'servers', 'permission' => P::SERVERS_MANAGE]);

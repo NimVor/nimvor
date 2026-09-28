@@ -45,6 +45,7 @@ $tiles = array_values(array_filter([
     ['Settings', 'gear', $u('settings'), null],
     ['PHP settings', 'filetype-php', $site['kind'] === 'php' ? $u('settings', '#php') : null, $site['kind'] === 'php' ? (string) $site['php_version'] : null],
     ['Applications', 'grid-3x3-gap', $u('apps'), $summary['apps'] !== [] ? implode(', ', array_map('ucfirst', $summary['apps'])) : null],
+    ['WordPress', 'wordpress', $site['kind'] === 'php' ? $u('wordpress') : null, null],
     ['Git deployment', 'git', $u('git'), $summary['git'] !== null ? (string) $summary['git']['branch'] : null],
     ['Workers', 'gear-wide-connected', $u('workers'), $summary['workers'] > 0 ? (string) $summary['workers'] : null],
     ['Redis', 'lightning', $u('redis'), null],

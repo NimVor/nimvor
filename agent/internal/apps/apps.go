@@ -237,6 +237,8 @@ func WPConfig(r Request) string {
 	}
 	b.WriteString("$table_prefix = 'wp_';\n")
 	b.WriteString("define('DISALLOW_FILE_EDIT', true);\ndefine('WP_DEBUG', false);\n")
+	// WordPress's usual marker: tools (WP-CLI "config set") add settings above it.
+	b.WriteString("/* That's all, stop editing! Happy publishing. */\n")
 	b.WriteString("if (!defined('ABSPATH')) {\n    define('ABSPATH', __DIR__ . '/');\n}\nrequire_once ABSPATH . 'wp-settings.php';\n")
 	return b.String()
 }

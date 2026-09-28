@@ -28,6 +28,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sysmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/terminal"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/usage"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/wordpress"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/workers"
 )
 
@@ -60,6 +61,7 @@ func All() []Module {
 		terminal.Register,
 		usage.Register,
 		apps.Register,
+		wordpress.Register,
 		adopt.Register,
 		phpmgr.Register,
 		services.Register,

@@ -26,6 +26,7 @@ final class SiteMenu
         ['ssl', 'SSL / HTTPS', 'shield-lock', 'sites.ssl', P::SSL_VIEW],
         ['backups', 'Backups', 'archive', 'sites.backups', P::BACKUPS_VIEW],
         ['apps', 'Applications', 'grid-3x3-gap', 'sites.apps', P::APPS_INSTALL],
+        ['wordpress', 'WordPress', 'wordpress', 'sites.wordpress', P::WEBSITES_VIEW],
         ['git', 'Git deployment', 'git', 'sites.git', P::DEPLOY_MANAGE],
         ['cron', 'Cron jobs', 'clock-history', 'sites.cron', P::CRON_VIEW],
         ['workers', 'Workers', 'gear-wide-connected', 'sites.workers', P::WORKERS_MANAGE],

@@ -67,7 +67,7 @@ fi
 if [[ -e /usr/local/sbin/whacp-jailsh ]]; then
     for u in $(awk -F: '$7 == "/usr/local/sbin/whacp-jailsh" {print $1}' /etc/passwd); do usermod --shell /usr/sbin/nologin -- "$u" || true; done
 fi
-rm -f /usr/local/sbin/whacp-jailsh /usr/local/lib/whacp/bwrap
+rm -f /usr/local/sbin/whacp-jailsh /usr/local/lib/whacp/bwrap /usr/local/lib/whacp/wp-cli.phar
 if [[ -e /etc/apparmor.d/whacp-bwrap ]]; then
     apparmor_parser -R /etc/apparmor.d/whacp-bwrap 2>/dev/null || true
     rm -f /etc/apparmor.d/whacp-bwrap

@@ -498,6 +498,63 @@ it or does not reload. A website's owner sees its **Web firewall** page and
 may switch it between on, detection only and off; vendors, rules and the
 server-wide settings stay with administrators.
 
+## WordPress Toolkit
+
+*WordPress* in the sidebar lists the installations in the websites you
+manage; each website has a **WordPress** page. Hosting plans turn it off
+with the **WordPress Toolkit** feature (Feature Manager).
+
+- **Finding installations:** *Scan* looks for WordPress (a folder with
+  `wp-settings.php` and `wp-includes/version.php`) up to four levels
+  below each website folder. It runs PHP as the website account and only
+  reads `version.php` and `wp-config.php` as text: WordPress is not
+  loaded and the database password is never read. An installation is
+  listed under the website whose document root holds it, including
+  subdomains. The scan also asks WordPress.org for the current release,
+  so *Updates available* lists outdated installations.
+- **Overview and checks:** version, PHP, address, database (name, tables,
+  size), administrators, plugins and themes with their updates. The
+  security and health checks cover:
+  - outdated core, plugins or themes, and an unsupported PHP version;
+  - debugging on, or the dashboard file editor on;
+  - `wp-config.php` readable by others, or a user called `admin`;
+  - no HTTPS, or an `http://` site address;
+  - automatic updates off, inactive plugins, maintenance mode, hidden
+    from search engines;
+  - WordPress.org not reachable.
+
+  Most checks have a *Fix* button.
+- **Management:**
+  - core, plugin and theme updates (background jobs, notified when done);
+  - plugins: activate, deactivate, automatic updates on or off;
+  - themes: activate, automatic updates on or off;
+  - automatic core updates: security releases, all releases or off;
+  - maintenance mode;
+  - hardening: file editor off, debugging off, `wp-config.php` to 0600;
+  - search-engine visibility;
+  - core file verification against WordPress.org checksums.
+- **Log in to WordPress:** a one-time sign-in link for a chosen
+  administrator. The agent writes a random 128-bit-named file into the
+  installation, as the account, mode 0600. It works for one minute,
+  deletes itself on first use, and the agent removes it if unused. The
+  link is built from the website's own domain (never from WordPress's
+  settings) and needs HTTPS on the website.
+
+How commands run:
+- **WP-CLI:** commands use WP-CLI 2.12.0. The agent downloads it once from
+  GitHub, verifies it against a SHA-512 written into the agent, and keeps it
+  at `/usr/local/lib/whacp/wp-cli.phar` (root-owned, 0644). A changed copy is
+  not used.
+- **Where they run:** as the website account in its slice, with the site's
+  plugins and themes not loaded (`--skip-plugins --skip-themes`), so their
+  code does not run in these commands. Plugin names are validated and
+  never passed as options.
+- **Who may change what:** owners and administrators see the website's
+  installations; changes need *Create, change and delete websites*. A
+  suspended account's WordPress can be viewed but not changed. Every
+  change and sign-in link is recorded in the audit log (without the
+  link).
+
 ## Email filters, autoresponders and routing
 
 - **Filters and autoresponder** (Email → domain → the funnel button of a

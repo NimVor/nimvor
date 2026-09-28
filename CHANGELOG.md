@@ -23,6 +23,22 @@ All notable changes to WhaCP are documented here. The format follows
     authenticator code.
 
 ### Added
+- **WordPress Toolkit** (*WordPress* in the sidebar, and a *WordPress*
+  page per website).
+  - Finds installations in websites by reading files only, as the
+    website account.
+  - Shows versions, updates, plugins, themes and the database, with
+    security and health checks and fixes.
+  - Management: core, plugin and theme updates (background jobs);
+    plugins and themes on or off, with automatic updates; automatic core
+    updates; maintenance mode; hardening; search-engine visibility; core
+    file verification.
+  - One-time administrator sign-in links (HTTPS only).
+  - Runs a pinned, checksum-verified WP-CLI as the website account,
+    without the site's plugins and themes. Controlled by the Feature
+    Manager (*WordPress Toolkit*).
+- New WordPress installations get the standard "That's all, stop
+  editing!" line in `wp-config.php`, so tools can add settings to it.
 - **ModSecurity manager** (Security → ModSecurity): the Nginx connector
   with the OWASP Core Rule Set (paranoia level, anomaly thresholds) and
   validated custom rules as rule vendors.

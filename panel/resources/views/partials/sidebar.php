@@ -13,6 +13,7 @@ $groups = [
         ['Domains', 'signpost-split', 'domains', P::WEBSITES_VIEW, '/domains'],
         ['Databases', 'database', 'databases', P::DATABASES_VIEW, '/databases'],
         ['PHP', 'filetype-php', 'php', P::PHP_VIEW, '/php'],
+        ['WordPress', 'wordpress', 'wordpress', P::WEBSITES_VIEW, '/wordpress'],
         ['Cron Jobs', 'clock-history', 'cron', P::CRON_VIEW, '/cron'],
         ['Workers', 'gear-wide-connected', 'workers', P::WORKERS_MANAGE, '/workers'],
         ['Redis', 'lightning', 'redis', P::REDIS_MANAGE, '/redis'],
