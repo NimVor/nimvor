@@ -12,7 +12,7 @@
 
 <div class="wcp-db" id="wcp-db" data-api="<?= e($api) ?>" data-database="<?= e($database) ?>">
     <aside class="wcp-db-side">
-        <div class="p-2 border-bottom"><input class="form-control form-control-sm" type="search" placeholder="Filter tables" aria-label="Filter tables" data-db-table-filter></div>
+        <div class="p-2 border-bottom d-flex gap-1"><input class="form-control form-control-sm" type="search" placeholder="Filter tables" aria-label="Filter tables" data-db-table-filter><button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-db-new-table title="Create a table"><i class="bi bi-plus-lg"></i><span class="visually-hidden">New table</span></button></div>
         <ul class="list-group list-group-flush" data-db-tables aria-label="Tables"></ul>
         <div class="small text-body-secondary px-2 py-2" data-db-tables-count></div>
     </aside>
@@ -36,6 +36,20 @@
             <div class="modal-header"><h2 class="modal-title h6" id="db-dialog-title"></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
             <div class="modal-body" data-db-dialog-body></div>
             <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-danger" data-db-dialog-ok>OK</button></div>
+        </form>
+    </div>
+</div>
+<div class="modal fade" id="db-form" tabindex="-1" aria-labelledby="db-form-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <form class="modal-content" data-db-form novalidate>
+            <div class="modal-header"><h2 class="modal-title h6" id="db-form-title"></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body" data-db-form-body></div>
+            <div class="modal-footer flex-wrap">
+                <pre class="wcp-db-create small w-100 mb-2" data-db-form-sql></pre>
+                <button type="button" class="btn btn-outline-secondary me-auto" data-db-form-preview><i class="bi bi-code-slash me-1"></i>Show SQL</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" data-db-form-ok>Save</button>
+            </div>
         </form>
     </div>
 </div>

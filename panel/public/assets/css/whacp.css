@@ -330,6 +330,17 @@ textarea.form-control.wcp-editor { min-height: 65vh; font-size: .82rem; resize: 
 .wcp-db-editor { padding: 1rem; max-width: 64rem; }
 .wcp-db-create { background: var(--bs-tertiary-bg); padding: .75rem; border-radius: .375rem; font-size: .8rem; white-space: pre-wrap; }
 .wcp-db-sqltext { font-size: .85rem; min-height: 9rem; resize: vertical; }
+.wcp-sql-edit { position: relative; background: var(--bs-body-bg); border-radius: var(--bs-border-radius); }
+.wcp-sql-edit .wcp-db-sqltext, .wcp-sql-hl { font-family: var(--bs-font-monospace); font-size: .85rem; line-height: 1.5; padding: .375rem .75rem; letter-spacing: 0; tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.wcp-sql-hl { position: absolute; inset: 0; margin: 0; overflow: hidden; pointer-events: none; border: var(--bs-border-width) solid transparent; color: var(--bs-body-color); }
+.wcp-sql-edit .wcp-db-sqltext { position: relative; z-index: 1; background: transparent; color: transparent; caret-color: var(--bs-body-color); }
+.wcp-sql-edit .wcp-db-sqltext::selection { background: rgba(var(--bs-primary-rgb), .25); }
+.wcp-sql-hl .tk-kw { color: var(--bs-primary-text-emphasis); font-weight: 600; }
+.wcp-sql-hl .tk-str { color: var(--bs-success-text-emphasis); }
+.wcp-sql-hl .tk-num { color: var(--bs-warning-text-emphasis); }
+.wcp-sql-hl .tk-id { color: var(--bs-info-text-emphasis); }
+.wcp-sql-hl .tk-com { color: var(--bs-secondary-color); font-style: italic; }
+[data-db-form-sql]:empty { display: none; }
 @media (max-width: 767.98px) {
     .wcp-db { flex-direction: column; }
     .wcp-db-side { width: auto; max-height: 30vh; border-right: 0; border-bottom: 1px solid var(--wcp-card-border); }

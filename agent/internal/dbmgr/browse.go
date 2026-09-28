@@ -323,6 +323,7 @@ type browseReq struct {
 	Keys     []map[string]json.RawMessage `json:"keys"`
 	Values   map[string]json.RawMessage   `json:"values"`
 	Insert   bool                         `json:"insert"`
+	Search   string                       `json:"search"`
 }
 
 type filterReq struct {
@@ -372,8 +373,8 @@ func registerBrowse(r *actions.Registry, c Client) {
 				size, _ := strconv.ParseInt(str(row[4]), 10, 64)
 				tables = append(tables, map[string]any{"name": str(row[0]), "view": str(row[1]) == "VIEW", "engine": str(row[2]), "rows": rows, "bytes": size, "collation": str(row[5]), "comment": str(row[6])})
 			}
-			v, _ := one(conn, "SELECT VERSION()")
-			out = map[string]any{"database": in.Database, "tables": tables, "server": str(v.Rows[0][0])}
+			v, _ := one(conn, "SELECT VERSION(), @@character_set_database, @@collation_database")
+			out = map[string]any{"database": in.Database, "tables": tables, "server": str(v.Rows[0][0]), "charset": str(v.Rows[0][1]), "collation": str(v.Rows[0][2])}
 			return nil
 		})
 		return out, err
@@ -400,7 +401,12 @@ func registerBrowse(r *actions.Registry, c Client) {
 				if row[4] != nil {
 					def = str(row[4])
 				}
-				cols = append(cols, map[string]any{"name": str(row[0]), "type": str(row[1]), "nullable": str(row[2]) == "YES", "key": str(row[3]), "default": def, "extra": str(row[5]), "comment": str(row[6]), "collation": str(row[7])})
+				base, length, values, unsigned := ParseColumnType(str(row[1]))
+				if values == nil {
+					values = []string{}
+				}
+				cols = append(cols, map[string]any{"name": str(row[0]), "type": str(row[1]), "nullable": str(row[2]) == "YES", "key": str(row[3]), "default": def, "extra": str(row[5]), "comment": str(row[6]), "collation": str(row[7]),
+					"base_type": base, "length": length, "values": values, "unsigned": unsigned})
 			}
 			ir, err := one(conn, "SELECT INDEX_NAME, NON_UNIQUE, GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ', '), INDEX_TYPE FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = "+Quote(in.Table)+" GROUP BY INDEX_NAME, NON_UNIQUE, INDEX_TYPE ORDER BY INDEX_NAME <> 'PRIMARY', INDEX_NAME")
 			if err != nil {
@@ -414,7 +420,23 @@ func registerBrowse(r *actions.Registry, c Client) {
 			if sr, err := one(conn, "SHOW CREATE TABLE "+Ident(in.Table)); err == nil && len(sr.Rows) == 1 && len(sr.Rows[0]) >= 2 {
 				create = str(sr.Rows[0][1])
 			}
-			out = map[string]any{"table": in.Table, "columns": cols, "indexes": idx, "key": t.Key, "create": create}
+			fks := []map[string]any{}
+			if fr, err := one(conn, `SELECT k.CONSTRAINT_NAME, GROUP_CONCAT(k.COLUMN_NAME ORDER BY k.ORDINAL_POSITION SEPARATOR ', '), k.REFERENCED_TABLE_NAME,
+GROUP_CONCAT(k.REFERENCED_COLUMN_NAME ORDER BY k.ORDINAL_POSITION SEPARATOR ', '), r.DELETE_RULE, r.UPDATE_RULE
+FROM information_schema.KEY_COLUMN_USAGE k JOIN information_schema.REFERENTIAL_CONSTRAINTS r ON r.CONSTRAINT_SCHEMA = k.CONSTRAINT_SCHEMA AND r.CONSTRAINT_NAME = k.CONSTRAINT_NAME AND r.TABLE_NAME = k.TABLE_NAME
+WHERE k.TABLE_SCHEMA = DATABASE() AND k.TABLE_NAME = `+Quote(in.Table)+` AND k.REFERENCED_TABLE_NAME IS NOT NULL
+GROUP BY k.CONSTRAINT_NAME, k.REFERENCED_TABLE_NAME, r.DELETE_RULE, r.UPDATE_RULE ORDER BY k.CONSTRAINT_NAME`); err == nil {
+				for _, row := range fr.Rows {
+					fks = append(fks, map[string]any{"name": str(row[0]), "columns": str(row[1]), "ref_table": str(row[2]), "ref_columns": str(row[3]), "on_delete": str(row[4]), "on_update": str(row[5])})
+				}
+			}
+			status := map[string]any{}
+			if sr, err := one(conn, "SELECT TABLE_TYPE, ENGINE, ROW_FORMAT, TABLE_ROWS, AVG_ROW_LENGTH, DATA_LENGTH, INDEX_LENGTH, DATA_FREE, AUTO_INCREMENT, CREATE_TIME, UPDATE_TIME, TABLE_COLLATION, TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = "+Quote(in.Table)); err == nil && len(sr.Rows) == 1 {
+				for i, k := range []string{"type", "engine", "row_format", "rows", "avg_row_length", "data_bytes", "index_bytes", "free_bytes", "auto_increment", "created", "updated", "collation", "comment"} {
+					status[k] = str(sr.Rows[0][i])
+				}
+			}
+			out = map[string]any{"table": in.Table, "columns": cols, "indexes": idx, "foreign_keys": fks, "status": status, "key": t.Key, "create": create}
 			return nil
 		})
 		return out, err
@@ -437,16 +459,9 @@ func registerBrowse(r *actions.Registry, c Client) {
 			if err != nil {
 				return notFoundOr(err)
 			}
-			where := ""
-			if f := in.Filter; f != nil && f.Column != "" {
-				op, ok := filterOps[strings.ToLower(f.Op)]
-				if !ok || !t.has(f.Column) {
-					return actions.InvalidParams("filter column or operator is invalid")
-				}
-				where = " WHERE " + Ident(f.Column) + " " + op
-				if !strings.HasPrefix(op, "IS") {
-					where += " " + Quote(f.Value)
-				}
+			where, err := rowsWhere(t, in.Filter, in.Search)
+			if err != nil {
+				return err
 			}
 			order := ""
 			if in.Order != "" {

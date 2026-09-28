@@ -143,9 +143,87 @@ func TestRealHostDatabaseBrowser(t *testing.T) {
 		t.Fatal("non-key column accepted as key")
 	}
 
+	// Search across columns (wildcards literal), structure changes, foreign
+	// keys, CSV export and import (all or nothing).
+	pg = do("db.browse_rows", `{"database":"whacp_br","table":"items","search":"IT'S"}`)
+	if pg["total"].(float64) != 1 {
+		t.Fatalf("search = %+v", pg)
+	}
+	if pg = do("db.browse_rows", `{"database":"whacp_br","table":"items","search":"%"}`); pg["total"].(float64) != 0 {
+		t.Fatalf("wildcard search matched: %+v", pg)
+	}
+	do("db.browse_alter", `{"database":"whacp_br","table":"owners","op":"create_table","columns":[{"name":"id","type":"INT","unsigned":true,"auto_increment":true},{"name":"email","type":"VARCHAR","length":"190"}],"primary":["id"],"engine":"InnoDB"}`)
+	do("db.browse_alter", `{"database":"whacp_br","table":"items","op":"add_column","column":{"name":"owner_id","type":"INT","unsigned":true,"nullable":true,"default_kind":"null"},"after":"name"}`)
+	do("db.browse_alter", `{"database":"whacp_br","table":"items","op":"add_column","column":{"name":"status","type":"ENUM","values":["new","done"],"default_kind":"value","default":"new","comment":"state"}}`)
+	do("db.browse_alter", `{"database":"whacp_br","table":"items","op":"add_index","kind":"unique","name":"u_name","index_columns":["name"]}`)
+	do("db.browse_alter", `{"database":"whacp_br","table":"items","op":"add_foreign_key","name":"fk_owner","index_columns":["owner_id"],"ref_table":"owners","ref_columns":["id"],"on_delete":"set null"}`)
+	do("db.browse_alter", `{"database":"whacp_br","table":"items","op":"modify_column","name":"note","column":{"name":"remark","type":"VARCHAR","length":"100","nullable":true}}`)
+	st = do("db.browse_structure", `{"database":"whacp_br","table":"items"}`)
+	fk := st["foreign_keys"].([]any)
+	if len(fk) != 1 || fk[0].(map[string]any)["ref_table"] != "owners" || fk[0].(map[string]any)["on_delete"] != "SET NULL" {
+		t.Fatalf("foreign keys = %+v", st["foreign_keys"])
+	}
+	var status *map[string]any
+	for _, col := range st["columns"].([]any) {
+		cm := col.(map[string]any)
+		if cm["name"] == "status" {
+			status = &cm
+		}
+		if cm["name"] == "note" {
+			t.Fatal("note was not renamed")
+		}
+	}
+	if status == nil || (*status)["base_type"] != "ENUM" || len((*status)["values"].([]any)) != 2 {
+		t.Fatalf("status column = %+v", status)
+	}
+	if st["status"].(map[string]any)["engine"] != "InnoDB" {
+		t.Fatalf("table status = %+v", st["status"])
+	}
+	// The foreign key is enforced.
+	if q := do("db.query", `{"database":"whacp_br","sql":"UPDATE items SET owner_id = 99"}`); q["error"] == nil {
+		t.Fatal("foreign key not enforced")
+	}
+	// A reference to another database's table is not possible (names are one identifier).
+	if _, err := call("db.browse_alter", `{"database":"whacp_br","table":"items","op":"add_foreign_key","index_columns":["owner_id"],"ref_table":"whacp_br_other.secret","ref_columns":["v"]}`); err == nil {
+		t.Fatal("cross-database foreign key accepted")
+	}
+	ex := do("db.browse_export_csv", `{"database":"whacp_br","table":"items"}`)
+	if !strings.HasPrefix(ex["csv"].(string), "id,name,owner_id,remark,data,status\n") || !strings.Contains(ex["csv"].(string), "0xcafe") || !strings.Contains(ex["csv"].(string), `\N`) {
+		t.Fatalf("csv = %q", ex["csv"])
+	}
+	im := do("db.browse_import_csv", `{"database":"whacp_br","table":"items","header":true,"csv":"name;remark;skip\nimported;\\N;x\n\"semi;colon\";r;y\n","delimiter":";","columns":["name","remark",""]}`)
+	if im["affected_rows"].(float64) != 2 {
+		t.Fatalf("import = %+v", im)
+	}
+	if pg = do("db.browse_rows", `{"database":"whacp_br","table":"items","filter":{"column":"name","op":"=","value":"semi;colon"}}`); pg["total"].(float64) != 1 {
+		t.Fatalf("imported row = %+v", pg)
+	}
+	before := do("db.browse_rows", `{"database":"whacp_br","table":"items"}`)["total"].(float64)
+	if _, err := call("db.browse_import_csv", `{"database":"whacp_br","table":"items","csv":"fresh\nimported\n","columns":["name"]}`); err == nil {
+		t.Fatal("duplicate in unique index accepted")
+	}
+	if after := do("db.browse_rows", `{"database":"whacp_br","table":"items"}`)["total"].(float64); after != before {
+		t.Fatalf("failed import left rows: %v → %v", before, after)
+	}
+	if im = do("db.browse_import_csv", `{"database":"whacp_br","table":"items","csv":"fresh\nimported\n","columns":["name"],"mode":"ignore"}`); im["affected_rows"].(float64) != 1 {
+		t.Fatalf("import ignore = %+v", im)
+	}
+	do("db.browse_alter", `{"database":"whacp_br","table":"items","op":"drop_foreign_key","name":"fk_owner"}`)
+	do("db.browse_alter", `{"database":"whacp_br","table":"items","op":"drop_index","name":"u_name"}`)
+	do("db.browse_alter", `{"database":"whacp_br","table":"items","op":"drop_column","name":"status"}`)
+	if o := do("db.browse_alter", `{"database":"whacp_br","table":"items","op":"optimize_table"}`); o["result"] == nil {
+		t.Fatalf("optimize = %+v", o)
+	}
+	do("db.browse_alter", `{"database":"whacp_br","table":"owners","op":"rename_table","new_name":"people"}`)
+	do("db.browse_alter", `{"database":"whacp_br","table":"people","op":"truncate_table"}`)
+	do("db.browse_alter", `{"database":"whacp_br","table":"people","op":"drop_table"}`)
+	if out, err := c.Query(ctx, "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'whacp_br_other';"); err != nil || out[0][0] != "1" {
+		t.Fatalf("other database touched: %v %v", out, err)
+	}
+
 	// A view created from the browser keeps working afterwards.
 	do("db.query", `{"database":"whacp_br","sql":"CREATE VIEW v AS SELECT name FROM items"}`)
-	if out, err := c.Query(ctx, "SELECT COUNT(*) FROM whacp_br.v;"); err != nil || out[0][0] != "2" {
+	if out, err := c.Query(ctx, "SELECT COUNT(*) FROM whacp_br.v;"); err != nil || out[0][0] != "5" {
 		t.Fatalf("view: %v %v", out, err)
 	}
 

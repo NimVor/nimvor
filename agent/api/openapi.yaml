@@ -87,7 +87,10 @@ paths:
               - cron.apply
               - cron.log
               - cron.run
+              - db.browse_alter
               - db.browse_delete
+              - db.browse_export_csv
+              - db.browse_import_csv
               - db.browse_row
               - db.browse_rows
               - db.browse_save
@@ -398,7 +401,10 @@ x-whacp-actions:
   cron.apply: { mutating: true, description: "Write the complete cron schedule of a website." }
   cron.log: { mutating: false, description: "The end (up to 512 KiB) of a website cron job's log, read confined to the website." }
   cron.run: { mutating: true, description: "Run a cron command now as the website user (job)." }
+  db.browse_alter: { mutating: true, description: "Database browser: change a table's structure from structured input (create, rename, truncate, drop, optimize/analyze/check/repair; add, change or drop columns, indexes and foreign keys). dry_run returns the SQL only." }
   db.browse_delete: { mutating: true, description: "Database browser: delete rows by their keys (in one transaction)." }
+  db.browse_export_csv: { mutating: true, description: "Database browser: a table (optionally filtered or searched) as CSV; NULL is written as \\N and binary values as 0x… hex." }
+  db.browse_import_csv: { mutating: true, description: "Database browser: insert CSV rows into a table in one transaction (all or nothing). columns maps each CSV column to a table column (\"\" skips it); \\N is NULL." }
   db.browse_row: { mutating: true, description: "Database browser: one full row by its key (for editing)." }
   db.browse_rows: { mutating: true, description: "Database browser: a page of rows (sort, filter) with the row key." }
   db.browse_save: { mutating: true, description: "Database browser: insert a row, or update one row by its key." }

@@ -161,6 +161,7 @@ func checkUser(u, h string) error {
 func Register(r *actions.Registry, env *host.Env) {
 	c := Client{Env: env}
 	registerBrowse(r, c)
+	registerBrowseExt(r, c)
 	r.Register(actions.Action{Name: "db.overview", Description: "Databases, sizes, users and grants (live from the server).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return c.Overview(ctx)
 	}})

@@ -33,8 +33,17 @@ final class DbBrowserController extends Controller
         'save' => ['db.browse_save', true],
         'delete' => ['db.browse_delete', true],
         'query' => ['db.query', true],
+        'alter' => ['db.browse_alter', true],
+        'export_csv' => ['db.browse_export_csv', false],
+        'import_csv' => ['db.browse_import_csv', true],
     ];
-    private const FIELDS = ['table', 'offset', 'limit', 'order', 'desc', 'filter', 'sql', 'key', 'keys', 'values', 'insert'];
+    private const FIELDS = [
+        'table', 'offset', 'limit', 'order', 'desc', 'filter', 'search', 'sql', 'key', 'keys', 'values', 'insert',
+        // Structure changes (the operation travels as alter_op: op names the browser operation).
+        'alter_op', 'new_name', 'column', 'columns', 'name', 'after', 'kind', 'index_columns', 'ref_table', 'ref_columns', 'on_delete', 'on_update', 'primary', 'engine', 'dry_run',
+        // CSV import.
+        'csv', 'delimiter', 'header', 'mode',
+    ];
 
     public function __construct(
         View $view,
@@ -100,10 +109,10 @@ final class DbBrowserController extends Controller
         foreach (self::FIELDS as $f) {
             $v = $request->input($f);
             if ($v !== null) {
-                $params[$f] = match ($f) {
+                $params[$f === 'alter_op' ? 'op' : $f] = match ($f) {
                     'offset', 'limit' => (int) $v,
-                    'desc', 'insert' => (bool) $v,
-                    'table', 'order', 'sql' => is_scalar($v) ? (string) $v : '',
+                    'desc', 'insert', 'dry_run', 'header' => (bool) $v,
+                    'table', 'order', 'sql', 'search', 'csv', 'alter_op', 'new_name', 'name', 'after', 'kind', 'ref_table', 'on_delete', 'on_update', 'engine', 'delimiter', 'mode' => is_scalar($v) ? (string) $v : '',
                     default => $v,
                 };
             }
@@ -117,8 +126,8 @@ final class DbBrowserController extends Controller
             }
             return Response::json(['success' => false, 'error' => $e->toArray()], $e->status() >= 400 && $e->status() < 600 ? $e->status() : 502);
         }
-        if ($changes) {
-            $ctx = $this->auditContext($op, $db['name'], $params);
+        if ($changes && !($op === 'alter' && !empty($params['dry_run']))) {
+            $ctx = $this->auditContext($op, $db['name'], $params, (array) $data);
             if ($op === 'query' && isset($data['error'])) {
                 $ctx['error'] = mb_substr((string) $data['error'], 0, 300);
             }
@@ -137,9 +146,10 @@ final class DbBrowserController extends Controller
      * short), never the full row values.
      *
      * @param array<string, mixed> $params
+     * @param array<mixed> $data
      * @return array<string, mixed>
      */
-    private function auditContext(string $op, string $db, array $params): array
+    private function auditContext(string $op, string $db, array $params, array $data = []): array
     {
         $ctx = ['database' => $db];
         if (isset($params['table'])) {
@@ -149,6 +159,8 @@ final class DbBrowserController extends Controller
             'query' => ['sql' => mb_substr((string) ($params['sql'] ?? ''), 0, 1000)],
             'save' => ['insert' => !empty($params['insert']), 'columns' => array_slice(array_map('strval', array_keys((array) ($params['values'] ?? []))), 0, 50), 'key' => $params['key'] ?? null],
             'delete' => ['rows' => count((array) ($params['keys'] ?? []))],
+            'alter' => ['operation' => (string) ($params['op'] ?? ''), 'sql' => mb_substr((string) ($data['sql'] ?? ''), 0, 1000)],
+            'import_csv' => ['bytes' => strlen((string) ($params['csv'] ?? '')), 'rows' => $data['rows'] ?? null, 'mode' => (string) ($params['mode'] ?? 'insert')],
             default => [],
         };
     }

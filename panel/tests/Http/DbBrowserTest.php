@@ -93,6 +93,43 @@ final class DbBrowserTest extends HttpTestCase
         self::assertSame(404, $this->request('GET', '/databases/browse', query: ['name' => 'bad name;'])->status());
     }
 
+    public function testStructureChangesAndCsv(): void
+    {
+        $this->login('cust');
+        $url = '/databases/' . $this->shopDb . '/browse/api';
+        $this->agent->succeed('db.browse_alter', ['sql' => 'ALTER TABLE `orders` ADD COLUMN `phone` VARCHAR(20) NULL']);
+        // The operation travels as alter_op; the database comes from the route.
+        $col = ['name' => 'phone', 'type' => 'VARCHAR', 'length' => '20', 'nullable' => true];
+        $res = $this->api($url, ['op' => 'alter', 'alter_op' => 'add_column', 'table' => 'orders', 'column' => $col, 'after' => 'id', 'database' => 'admin_crm', 'dry_run' => true]);
+        self::assertSame(200, $res->status());
+        $call = $this->lastCall('db.browse_alter');
+        self::assertSame(['cust_shop', 'orders', 'add_column', $col, 'id', true], [$call['database'], $call['table'], $call['op'], $call['column'], $call['after'], $call['dry_run']]);
+        self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'database.browser_alter'"), 'a preview is not a change');
+        $this->api($url, ['op' => 'alter', 'alter_op' => 'add_column', 'table' => 'orders', 'column' => $col]);
+        $audit = (string) $this->db->scalar("SELECT details FROM audit_logs WHERE action = 'database.browser_alter'");
+        self::assertStringContainsString('add_column', $audit);
+        self::assertStringContainsString('ADD COLUMN', $audit);
+
+        // CSV: the export is a read; the import is audited without its rows.
+        $this->agent->succeed('db.browse_export_csv', ['csv' => "id\n1\n", 'rows' => 1, 'truncated' => false]);
+        $res = $this->api($url, ['op' => 'export_csv', 'table' => 'orders', 'search' => 'ann', 'filter' => ['column' => 'id', 'op' => '>', 'value' => '0']]);
+        self::assertSame("id\n1\n", json_decode($res->body(), true)['data']['csv']);
+        self::assertSame('ann', $this->lastCall('db.browse_export_csv')['search']);
+        self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'database.browser_export_csv'"));
+        $this->agent->succeed('db.browse_import_csv', ['rows' => 2, 'affected_rows' => 2]);
+        $this->api($url, ['op' => 'import_csv', 'table' => 'orders', 'csv' => "email\nsecret-row@x.test\nb@x.test\n", 'header' => '1', 'delimiter' => ';', 'columns' => ['email'], 'mode' => 'ignore']);
+        $call = $this->lastCall('db.browse_import_csv');
+        self::assertSame([true, ';', ['email'], 'ignore'], [$call['header'], $call['delimiter'], $call['columns'], $call['mode']]);
+        $audit = (string) $this->db->scalar("SELECT details FROM audit_logs WHERE action = 'database.browser_import_csv'");
+        self::assertStringContainsString('"rows":2', $audit);
+        self::assertStringNotContainsString('secret-row', $audit);
+
+        // Not on another account's database.
+        $calls = $this->calls('db.browse_alter');
+        self::assertSame(404, $this->api('/databases/' . $this->otherDb . '/browse/api', ['op' => 'alter', 'alter_op' => 'drop_table', 'table' => 'orders'])->status());
+        self::assertSame($calls, $this->calls('db.browse_alter'));
+    }
+
     public function testAgentErrorsAreReportedAndFailedChangesAudited(): void
     {
         $this->login('admin');

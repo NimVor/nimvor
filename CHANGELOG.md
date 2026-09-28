@@ -7,6 +7,21 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Database browser**:
+  - search across all columns;
+  - table status (engine, sizes, row format, auto-increment, dates), the
+    database's size, character set and collation, and foreign keys;
+  - structure changes from forms, with an SQL preview: create tables;
+    add, change and drop columns (types from a fixed list); indexes,
+    primary keys and foreign keys; rename, optimize, analyze, check,
+    repair, empty and drop tables;
+  - CSV export of a table or the matching rows, and CSV import with
+    column mapping and duplicate handling, all or nothing;
+  - SQL console highlighting, per-database query history (kept in the
+    browser) and result paging.
+
+  All of it runs as the database's own browser account, so it cannot
+  reach other databases.
 - **DNS zone editor**: search, type filter and sorting; one add/edit form
   with the fields of each record type (SRV service, protocol, priority,
   weight, port and target; CAA flags, tag and value); shortcuts for common

@@ -639,6 +639,36 @@ statements and shows each result. Customers can browse the databases of
 their own websites; administrators can also open databases WhaCP does not
 manage.
 
+Rows can also be searched in every column at once (the text is matched
+literally). The side bar shows the database's size, character set and
+collation, and creates tables. The *Structure* tab shows the table's status
+(engine, row count, data, index and free size, next auto-increment value,
+row format, collation, dates) and changes the structure from forms, never
+from typed SQL:
+
+- columns: add, change (name, type from a fixed list, length or ENUM/SET
+  values, unsigned, NULL, default, auto-increment, on-update timestamp,
+  comment, position) and drop;
+- indexes: index, unique, full text and primary key; add and drop;
+- foreign keys (InnoDB): add, with ON DELETE / ON UPDATE rules, and drop;
+- the table: rename, optimize, analyze, check, repair, empty and drop.
+
+Each form can show the SQL it will run before running it. Emptying and
+dropping ask for confirmation (dropping asks for the table's name).
+
+*Export CSV* writes the table, or the rows matching the current filter and
+search, as CSV (up to 200,000 rows; NULL as `\N`, binary values as `0x…`).
+*Import CSV* reads a file of up to 16 MB (comma, semicolon or tab). Each
+of its columns is mapped to a table column or skipped, and duplicates of a
+unique key can stop the import, be skipped or replace the existing rows.
+The rows are inserted in one transaction: either all of them or none.
+
+The SQL console highlights the SQL, keeps the last 30 statements run for
+each database (in this browser only, in its local storage; *Clear history*
+removes them), shows results 100 rows per page and exports each result as
+CSV. The whole database is exported and imported as SQL on the
+*Databases* page.
+
 Nothing runs as the database root user. Each database has its own browser
 account (`whacp_b_…@localhost`) with privileges on that database only; it
 is locked between requests and gets a new random password for each one, so
@@ -647,8 +677,8 @@ settings or read files. Statements are limited to 30 seconds and results to
 1,000 rows. Rows can be edited in tables that have a primary or unique key.
 Views and routines created from the console are owned by the browser
 account, which is removed together with the database. Changes (SQL, saved
-and deleted rows) are recorded in the audit log with the statement or the
-column names, never the row values.
+and deleted rows, structure changes, CSV imports) are recorded in the
+audit log with the statement or the column names, never the row values.
 
 ## Redis and Memcached
 
