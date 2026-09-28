@@ -26,6 +26,18 @@ for svc in whacp-scheduler whacp-panel whacp-agent; do
     systemctl disable --now "$svc.service" 2>/dev/null || true
     rm -f "/etc/systemd/system/$svc.service"
 done
+# Greylisting runs this package's binary: Postfix stops asking it first.
+if [[ -e /etc/systemd/system/whacp-greylist.service ]]; then
+    if command -v postconf >/dev/null; then
+        restr=$(postconf -h smtpd_recipient_restrictions 2>/dev/null || true)
+        if [[ $restr == *unix:private/whacp-greylist* ]]; then
+            restr=$(sed -E 's/,? *check_policy_service \{ unix:private\/whacp-greylist[^}]*\}//' <<<"$restr")
+            postconf -e "smtpd_recipient_restrictions=$restr" && postfix reload 2>/dev/null || true
+        fi
+    fi
+    systemctl disable --now whacp-greylist.service whacp-greylist.socket 2>/dev/null || true
+    rm -f /etc/systemd/system/whacp-greylist.service /etc/systemd/system/whacp-greylist.socket
+fi
 # Drop-ins (write mode, remote access) must go too: a later read-only
 # install would otherwise inherit the lifted sandbox.
 rm -rf /etc/systemd/system/whacp-agent.service.d

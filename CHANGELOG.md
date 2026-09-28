@@ -29,6 +29,21 @@ All notable changes to WhaCP are documented here. The format follows
     logins and failed logins over time; relayers (mailboxes, server
     accounts such as a website's PHP, clients) and a sent summary by
     sender domain. Read from the journal or /var/log/mail.log / maillog.
+- **Greylisting** (Email administration → Greylisting): triplet
+  greylisting (sender IP, from, to) by WhaCP's own Postfix policy service,
+  which runs as an unprivileged, socket-activated systemd unit
+  (`whacp-greylist`, DynamicUser, no capabilities; `systemd-analyze
+  security` exposure 1.1). Settings: on/off, initial deferral, resend
+  acceptance period and record expiration (minutes), bypass for senders
+  whose SPF passes, automatic trust of newly listed providers. Trusted
+  hosts (addresses and ranges with comments; add, edit, delete). Common
+  mail providers (Google, Microsoft, Yahoo, Apple, Amazon SES and others)
+  with Trust and Auto update: their ranges are read from their SPF records
+  (on demand and daily). Report of all triplets with deferred and accepted
+  counts, create, block expire, must retry and record expire times;
+  search, status filter, sorting, pages, removal of expired, selected or
+  all records. Postfix asks the service with `default_action=DUNNO`, so
+  mail is accepted, not deferred, if the service is unavailable.
 - **Email filters and autoresponders** per mailbox (Email → domain →
   mailbox → Filters): conditions on From, To, Cc, Reply-To, Subject,
   List-Id or body (contains / is / begins / ends, or their negation; all

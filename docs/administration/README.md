@@ -369,6 +369,27 @@ Email → Email administration (administrators with server permissions).
   reload restores the previous values. The settings are kept in
   `/etc/whacp-mail/mail.json`, so setting up email again keeps them. There
   is no free-form configuration editing.
+- **Greylisting**: WhaCP's policy service is the agent binary in its
+  `greylist-policy` mode, run by `whacp-greylist.service` as a dynamic
+  unprivileged user without capabilities and started by
+  `whacp-greylist.socket` (`<queue_directory>/private/whacp-greylist`,
+  owned by postfix, mode 0600). Its configuration
+  (`/etc/whacp-mail/greylist.json`, root 0600) reaches it as a systemd
+  credential; changing it restarts the service (the socket keeps Postfix's
+  requests waiting). Triplets are kept in `/var/lib/whacp-greylist`
+  (at most 200,000; expired ones are removed hourly). The agent reads the
+  report over `/run/whacp-greylist/control` (0600). Postfix gets
+  `check_policy_service { unix:private/whacp-greylist, default_action=DUNNO }`
+  at the end of `smtpd_recipient_restrictions`, after
+  `permit_mynetworks`, `permit_sasl_authenticated` and
+  `reject_unauth_destination`: authenticated users and local mail are
+  never greylisted, and if the service is down Postfix accepts mail rather
+  than deferring it. The reply to a new triplet is `DEFER_IF_PERMIT 4.7.1`
+  (a later rejection still wins). The SPF bypass follows RFC 7208 (ten
+  DNS lookups; `ptr` never matches). Provider ranges come from each
+  provider's SPF record (`ip4`, `ip6`, `a`, `mx`, `include`, `redirect`).
+  Not verified yet: SELinux on AlmaLinux (Postfix's smtpd connecting to the
+  socket); a denial there shows as Postfix warnings, and mail is accepted.
 - **Mail queue**: `postqueue -j`; headers via `postcat -h -q`; deliver
   now, hold, release and delete via `postsuper` (queue IDs are validated).
 - **Delivery reports and statistics**: parsed from the journal (mail

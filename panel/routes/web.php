@@ -206,6 +206,14 @@ return static function (Router $r): void {
     $r->post('/mail/admin/queue', [\WhaCP\Http\Controllers\MailAdminController::class, 'queueAction'], ['name' => 'mail.admin.queue.action', 'permission' => P::SERVER_MANAGE]);
     $r->get('/mail/admin/server', [\WhaCP\Http\Controllers\MailAdminController::class, 'server'], ['name' => 'mail.admin.server', 'permission' => P::SERVER_VIEW]);
     $r->post('/mail/admin/server', [\WhaCP\Http\Controllers\MailAdminController::class, 'saveSettings'], ['name' => 'mail.admin.settings', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/mail/admin/greylisting', [\WhaCP\Http\Controllers\MailGreylistController::class, 'index'], ['name' => 'mail.greylist', 'permission' => P::SERVER_VIEW]);
+    $r->post('/mail/admin/greylisting', [\WhaCP\Http\Controllers\MailGreylistController::class, 'save'], ['name' => 'mail.greylist.save', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mail/admin/greylisting/trusted', [\WhaCP\Http\Controllers\MailGreylistController::class, 'saveTrusted'], ['name' => 'mail.greylist.trusted', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mail/admin/greylisting/trusted/{n}/delete', [\WhaCP\Http\Controllers\MailGreylistController::class, 'deleteTrusted'], ['name' => 'mail.greylist.trusted.delete', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mail/admin/greylisting/providers', [\WhaCP\Http\Controllers\MailGreylistController::class, 'saveProviders'], ['name' => 'mail.greylist.providers', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mail/admin/greylisting/providers/update', [\WhaCP\Http\Controllers\MailGreylistController::class, 'updateProviders'], ['name' => 'mail.greylist.providers.update', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/mail/admin/greylisting/report', [\WhaCP\Http\Controllers\MailGreylistController::class, 'report'], ['name' => 'mail.greylist.report', 'permission' => P::SERVER_VIEW]);
+    $r->post('/mail/admin/greylisting/report', [\WhaCP\Http\Controllers\MailGreylistController::class, 'cleanup'], ['name' => 'mail.greylist.cleanup', 'permission' => P::SERVER_MANAGE]);
     $r->get('/mail/admin/reports', [\WhaCP\Http\Controllers\MailAdminController::class, 'reports'], ['name' => 'mail.admin.reports', 'permission' => P::SERVER_VIEW]);
     $r->get('/sites/{id}/mail', [MailController::class, 'site'], ['name' => 'sites.mail', 'permission' => P::MAIL_MANAGE]);
     $r->get('/dns', [DnsController::class, 'index'], ['name' => 'dns', 'permission' => P::DNS_MANAGE]);

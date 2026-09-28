@@ -85,6 +85,8 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.WebmailData + "/**",
 		filepath.Join(m.UnitDir, "whacp-opendkim.service"),
 		filepath.Join(m.UnitDir, "whacp-ftpd.service"),
+		filepath.Join(m.UnitDir, "whacp-greylist.service"),
+		filepath.Join(m.UnitDir, "whacp-greylist.socket"),
 		m.Fail2banJail,
 		m.ACMERoot + "/**",
 		cfg.SitesRoot + "/**",

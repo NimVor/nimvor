@@ -159,6 +159,11 @@ paths:
               - mail.domain_remove
               - mail.filters_get
               - mail.filters_save
+              - mail.greylist_cleanup
+              - mail.greylist_get
+              - mail.greylist_report
+              - mail.greylist_set
+              - mail.greylist_update_providers
               - mail.log_tail
               - mail.mailbox_delete
               - mail.mailbox_save
@@ -451,6 +456,11 @@ x-whacp-actions:
   mail.domain_remove: { mutating: true, description: "Stop hosting email for a domain (confirm = domain; its mailboxes and aliases must be removed first)." }
   mail.filters_get: { mutating: false, description: "Email filters and autoresponder of a mailbox." }
   mail.filters_save: { mutating: true, description: "Save a mailbox's email filters and autoresponder (rendered to its personal Sieve script, compiled with sievec; rolled back on failure)." }
+  mail.greylist_cleanup: { mutating: true, description: "Remove greylisting triplets: expired ones (purge), selected ones (delete) or all (delete_all)." }
+  mail.greylist_get: { mutating: false, description: "Greylisting configuration, trusted hosts, mail providers and service state." }
+  mail.greylist_report: { mutating: false, description: "Greylisting triplets (sender IP, from, to) with counts and times; search, status filter, sort and pages." }
+  mail.greylist_set: { mutating: true, description: "Change greylisting: on/off, deferral, resend acceptance and record expiration (minutes), SPF bypass, trusted hosts, trusted mail providers." }
+  mail.greylist_update_providers: { mutating: true, description: "Refresh the address ranges of trusted mail providers from their SPF records (all trusted ones with all=true, else those updated automatically and older than 20 hours)." }
   mail.log_tail: { mutating: false, description: "The latest mail log lines (Postfix, Dovecot, OpenDKIM), newest last." }
   mail.mailbox_delete: { mutating: true, description: "Delete a mailbox (confirm = address); its mail is moved to .whacp-trash in the mail folder, or kept in place with keep_mail." }
   mail.mailbox_save: { mutating: true, description: "Create a mailbox or change its password or quota (the password is stored as a SHA-512 crypt hash)." }

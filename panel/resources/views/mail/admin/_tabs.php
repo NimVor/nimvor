@@ -1,7 +1,7 @@
 <?php
 /** @var \WhaCP\View\View $this */
 /** @var string $tab */
-$tabs = [['server', 'Mail server', 'mail.admin.server', []], ['queue', 'Mail queue', 'mail.admin.queue', []], ['reports', 'Delivery reports', 'mail.admin.reports', []], ['stats', 'Statistics', 'mail.admin.reports', ['view' => 'stats']]];
+$tabs = [['server', 'Mail server', 'mail.admin.server', []], ['queue', 'Mail queue', 'mail.admin.queue', []], ['reports', 'Delivery reports', 'mail.admin.reports', []], ['stats', 'Statistics', 'mail.admin.reports', ['view' => 'stats']], ['greylisting', 'Greylisting', 'mail.greylist', []], ['greylist-report', 'Greylisting report', 'mail.greylist.report', []]];
 ?>
 <?php $this->start(); ?>Email administration<?php $this->end('title'); ?>
 <?php $this->start(); ?>Mail server settings, queue, delivery reports and statistics<?php $this->end('subtitle'); ?>

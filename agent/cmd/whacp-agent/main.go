@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/greylist"
 	"log/slog"
 	"net/http"
 	"os"
@@ -47,6 +48,11 @@ func main() {
 	// SMTP to this machine and never reads the agent's configuration.
 	if strings.HasPrefix(filepath.Base(os.Args[0]), "sendmail") {
 		os.Exit(sendmail.Main(os.Args[1:], os.Stdin, os.Stderr))
+	}
+	// Greylisting policy service: its own unprivileged systemd unit
+	// (DynamicUser, no capabilities); it never reads the agent's config.
+	if len(os.Args) > 1 && os.Args[1] == "greylist-policy" {
+		os.Exit(greylist.Main(os.Args[2:]))
 	}
 	os.Exit(run())
 }

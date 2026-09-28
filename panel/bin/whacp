@@ -204,6 +204,18 @@ switch ($command) {
             } catch (\WhaCP\Agent\AgentException $e) {
                 out('[' . $srv['name'] . '] shell access not checked: ' . $e->getMessage());
             }
+            // Greylisting: trusted providers' address ranges. Asked in the
+            // first ten minutes of every sixth hour; the agent reads them at
+            // most once a day and only while greylisting is on.
+            if ((int) date('G') % 6 === 0 && (int) date('i') < 10) {
+                try {
+                    $c->get(AgentClient::class)->call('mail.greylist_update_providers', ['all' => false], 300);
+                } catch (\WhaCP\Agent\AgentException $e) {
+                    if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                        out('[' . $srv['name'] . '] greylisting providers not updated: ' . $e->getMessage());
+                    }
+                }
+            }
             // Results of background jobs nobody watched (notifications).
             try {
                 $c->get(\WhaCP\Services\BackupService::class)->refresh();
