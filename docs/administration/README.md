@@ -602,6 +602,52 @@ the new serial. If any step fails the previous zone comes back and the
 panel keeps its previous records. Zones defined elsewhere in BIND are
 refused. Deleting a website keeps its zone; delete the zone separately.
 
+## SSL/TLS
+
+Each website's *SSL* page issues a Let's Encrypt certificate, installs an
+uploaded one, renews it, and sets HTTPS redirection and HSTS. *AutoSSL*
+(Settings → SSL/TLS) issues certificates for new websites once their domain
+points to this server. For server administrators, *SSL* also opens the
+SSL/TLS section:
+
+- **SSL hosts**: every host name Nginx serves, whether it has HTTPS and
+  redirects to it, and the certificate that answers for it. It flags
+  certificates that expire within the warning period, have expired, or do
+  not cover the name. It also shows whether Let's Encrypt renewals are
+  scheduled, and links to each website's SSL page.
+- **Certificates**: every certificate on the server (Let's Encrypt, the ones
+  installed through WhaCP, and those other Nginx configurations use, shown
+  read only) with names, issuer, validity, SHA-256 fingerprint, chain length
+  and the Nginx files that use it. Unused Let's Encrypt and WhaCP
+  certificates can be deleted. A private key readable by everyone is
+  flagged.
+- **Keys and CSRs**: a private key (ECDSA P-256 by default, or P-384, RSA
+  2048/3072/4096) and a certificate signing request for up to 100 names
+  (wildcards allowed), with organization, city, state, country and email.
+  Optionally a self-signed certificate (1–825 days) is made from the same
+  key. The key is made and kept on the server (root only, mode 0600) and
+  is never shown or downloaded; the CSR can be copied or downloaded. When
+  the certificate authority sends the certificate, paste it (with the
+  intermediate certificates) under *Install on a website*. The key is taken
+  from the server. Deleting a key removes it without keeping a copy in the
+  configuration backups.
+- **TLS configuration**: the protocol versions (TLS 1.2 and 1.3, or TLS 1.3
+  only), the TLS 1.2 ciphers (Nginx's default, or Mozilla's
+  "intermediate" list), and session tickets for every WhaCP website and
+  webmail. They live in one Nginx snippet (`/etc/nginx/whacp-tls.conf`) that
+  each of those virtual hosts includes. A change is checked with `nginx -t`
+  and reloaded, and restored if either step fails. Website configurations
+  written by earlier versions carry their own TLS lines; the first change
+  moves them to the snippet. OCSP stapling is not offered (Let's Encrypt no
+  longer runs OCSP). The panel's own HTTPS, set up by the installer, is
+  not changed here. The snippet stays when WhaCP is uninstalled, because
+  the websites still use it.
+
+Before any certificate is installed (uploaded or for a stored key), it is
+checked: the key matches, the certificate is valid now (not expired, not
+valid only in the future), each certificate in the chain is signed by the
+next, and it covers the website's domain.
+
 ## FTP and SFTP
 
 *Server → FTP server* installs pure-ftpd and runs it from WhaCP's own unit

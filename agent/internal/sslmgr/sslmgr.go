@@ -43,11 +43,19 @@ type customReq struct {
 	Certificate string `json:"certificate"`
 	PrivateKey  string `json:"private_key"`
 	Chain       string `json:"chain"`
+	// KeyID installs against a key made on the server (instead of PrivateKey);
+	// with UseSelfSigned its self-signed certificate is installed.
+	KeyID         string `json:"key_id"`
+	UseSelfSigned bool   `json:"use_self_signed"`
+	// Domain, when set, must be covered by the certificate.
+	Domain string `json:"domain"`
 }
 
 // Register adds certificate actions.
 func Register(r *actions.Registry, env *host.Env) {
 	env.Writer.Policy.Patterns = append(env.Writer.Policy.Patterns, DeployHook)
+	registerKeys(r, env)
+	registerStore(r, env)
 
 	r.Register(actions.Action{Name: "ssl.issue", Mutating: true, Timeout: 5 * time.Minute, Description: "Issue or expand a Let's Encrypt certificate (webroot).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in issueReq
@@ -149,6 +157,26 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		if err := validate.Domain("name", in.Name); err != nil {
 			return nil, host.Invalid(err)
+		}
+		if in.KeyID != "" {
+			if in.PrivateKey != "" {
+				return nil, actions.InvalidParams("give either a private key or key_id, not both")
+			}
+			key, err := readStoredKey(env, in.KeyID)
+			if err != nil {
+				return nil, err
+			}
+			in.PrivateKey = key
+			if in.UseSelfSigned {
+				m, err := readKeyMeta(env, in.KeyID, true)
+				if err != nil {
+					return nil, err
+				}
+				if !m.SelfSigned {
+					return nil, actions.InvalidParams("that key has no self-signed certificate")
+				}
+				in.Certificate, in.Chain = m.Certificate, ""
+			}
 		}
 		info, fullchain, err := CheckCustom(in, env.Now())
 		if err != nil {
@@ -252,6 +280,12 @@ func CheckCustom(in customReq, now time.Time) (ssl.Certificate, []byte, error) {
 	if block, _ := pem.Decode([]byte(keyPEM)); block == nil {
 		return ssl.Certificate{}, nil, actions.InvalidParams("the private key is not PEM encoded")
 	}
+	if now.Before(leaf.NotBefore) {
+		return ssl.Certificate{}, nil, actions.InvalidParams("the certificate is not valid yet (from " + leaf.NotBefore.UTC().Format("2006-01-02 15:04") + " UTC)")
+	}
+	if err := checkChain([]byte(full)); err != nil {
+		return ssl.Certificate{}, nil, actions.InvalidParams(err.Error())
+	}
 	info := ssl.Certificate{
 		CommonName: leaf.Subject.CommonName, DNSNames: leaf.DNSNames, Issuer: leaf.Issuer.String(),
 		NotBefore: leaf.NotBefore, NotAfter: leaf.NotAfter, DaysRemaining: int(leaf.NotAfter.Sub(now).Hours() / 24),
@@ -259,6 +293,9 @@ func CheckCustom(in customReq, now time.Time) (ssl.Certificate, []byte, error) {
 	}
 	if info.DNSNames == nil {
 		info.DNSNames = []string{}
+	}
+	if in.Domain != "" && !info.Covers(in.Domain) {
+		return ssl.Certificate{}, nil, actions.InvalidParams("the certificate is not valid for " + in.Domain + " (it covers " + strings.Join(append([]string{info.CommonName}, info.DNSNames...), ", ") + ")")
 	}
 	return info, []byte(full), nil
 }

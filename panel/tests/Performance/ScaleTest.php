@@ -75,7 +75,7 @@ final class ScaleTest extends HttpTestCase
             self::assertLessThan(2000, $ms, "{$label} took {$ms} ms");
             self::assertSame(200, $status, $label);
         };
-        foreach (['/', '/websites', '/domains', '/databases', '/workers', '/backups', '/audit', '/ssl', '/notifications'] as $path) {
+        foreach (['/', '/websites', '/domains', '/databases', '/workers', '/backups', '/audit', '/ssl/hosts', '/notifications'] as $path) {
             $measure('GET ' . $path, fn (): int => $this->request('GET', $path)->status());
         }
         $measure('GET /notifications?show=all', fn (): int => $this->request('GET', '/notifications', [], [], '', ['show' => 'all'])->status());

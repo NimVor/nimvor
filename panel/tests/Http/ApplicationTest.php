@@ -156,7 +156,7 @@ final class ApplicationTest extends TestCase
         $res = $this->request($app, 'GET', '/websites/doesnotexist');
         self::assertSame(404, $res->status());
 
-        foreach (['/php', '/databases', '/ssl', '/cron', '/discovery', '/system-users', '/users', '/settings', '/audit', '/profile'] as $path) {
+        foreach (['/php', '/databases', '/ssl/hosts', '/ssl/certificates', '/ssl/keys', '/ssl/tls', '/cron', '/discovery', '/system-users', '/users', '/settings', '/audit', '/profile'] as $path) {
             self::assertSame(200, $this->request($app, 'GET', $path)->status(), $path);
         }
     }

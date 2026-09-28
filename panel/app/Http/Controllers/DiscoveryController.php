@@ -76,6 +76,10 @@ final class DiscoveryController extends Controller
 
     public function ssl(Request $request): Response
     {
+        // Administrators manage SSL/TLS in its own section; others see their certificates here.
+        if (\WhaCP\Hosting\Scope::isAll($this->user($request))) {
+            return Response::redirect('/ssl/hosts');
+        }
         $warn = $this->settings->int('ssl_warning_days');
         return $this->page($request, 'discovery/ssl', 'SSL certificates', static fn (array $inv): array => [
             'certificates' => (array) ($inv['certificates'] ?? []),

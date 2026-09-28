@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
 	"io"
 	"io/fs"
 	"math/big"
@@ -448,7 +449,7 @@ func (e env) renderWebmailVhost(p vhostParams) string {
 		listen("443 ssl http2")
 	}
 	fmt.Fprintf(&b, "    server_name %s;\n    ssl_certificate %s;\n    ssl_certificate_key %s;\n", p.Hostname, p.Cert, p.Key)
-	b.WriteString("    ssl_protocols TLSv1.2 TLSv1.3;\n    ssl_prefer_server_ciphers off;\n    ssl_session_cache shared:WhaCPSSL:10m;\n    ssl_session_timeout 1d;\n")
+	b.WriteString(tlsprofile.Include(e.Env))
 	b.WriteString("    add_header Strict-Transport-Security \"max-age=31536000\" always;\n    add_header X-Content-Type-Options \"nosniff\" always;\n    add_header Referrer-Policy \"same-origin\" always;\n")
 	fmt.Fprintf(&b, "    root %s;\n    index index.php;\n    client_max_body_size 30m;\n", e.M.RoundcubePublic)
 	b.WriteString("    access_log /var/log/nginx/whacp-webmail.access.log;\n    error_log /var/log/nginx/whacp-webmail.error.log warn;\n")
@@ -596,6 +597,7 @@ func registerWebmail(r *actions.Registry, e env) {
 			set.Remove(e.webmailPoolFile(prev.PHP))
 		}
 		vh := vhostParams{Hostname: in.Hostname, Cert: cert, Key: certKey, HTTP2Direct: e.NginxAtLeast(ctx, 1, 25, 1), IPv6: e.IPv6()}
+		tlsprofile.Ensure(e.Env, set)
 		set.Write(e.webmailVhost(), []byte(e.renderWebmailVhost(vh)), 0o644, agentfs.RootOwner)
 		set.Link(e.webmailVhost(), e.webmailLink())
 		state, _ := json.MarshalIndent(Webmail{Enabled: true, Hostname: in.Hostname, PHP: v}, "", "  ")

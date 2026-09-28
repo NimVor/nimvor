@@ -253,12 +253,20 @@ paths:
               - ssh.configure
               - ssh.logins
               - ssh.status
+              - ssl.csr_create
               - ssl.custom
+              - ssl.custom_delete
               - ssl.delete
               - ssl.inspect
               - ssl.issue
+              - ssl.key
+              - ssl.key_delete
+              - ssl.keys
               - ssl.renew
               - ssl.renewal_status
+              - ssl.store
+              - ssl.tls_get
+              - ssl.tls_set
               - stats.data
               - stats.enable
               - stats.status
@@ -573,12 +581,20 @@ x-whacp-actions:
   ssh.configure: { mutating: true, description: "Harden the SSH server (validated with sshd -t, auto-reverted unless confirmed)." }
   ssh.logins: { mutating: false, description: "SSH logins of the last seven days: accepted and failed counts, the last of each (read from the journal)." }
   ssh.status: { mutating: false, description: "Effective SSH server settings and key-based access." }
+  ssl.csr_create: { mutating: true, description: "Generate a private key (kept on the server, never returned) and a certificate signing request for it; optionally a self-signed certificate from the same key." }
   ssl.custom: { mutating: true, description: "Install an uploaded certificate and private key after validating them." }
+  ssl.custom_delete: { mutating: true, description: "Delete an uploaded (or installed from a server-made key) certificate and its key copy that no Nginx configuration uses." }
   ssl.delete: { mutating: true, description: "Delete a certbot certificate that no WhaCP site uses any more." }
   ssl.inspect: { mutating: false, description: "Details of a certificate file used by a site." }
   ssl.issue: { mutating: true, description: "Issue or expand a Let's Encrypt certificate (webroot)." }
+  ssl.key: { mutating: false, description: "One key made on the server: its CSR and self-signed certificate (PEM) and details; never the private key." }
+  ssl.key_delete: { mutating: true, description: "Delete a stored key with its CSR and self-signed certificate. Certificates already installed keep their own copy of the key." }
+  ssl.keys: { mutating: false, description: "Private keys made on the server, with whether each has a CSR and a self-signed certificate; the keys themselves are never returned." }
   ssl.renew: { mutating: true, description: "Force renewal of a certbot certificate and reload Nginx." }
   ssl.renewal_status: { mutating: false, description: "Whether automatic certificate renewal is active." }
+  ssl.store: { mutating: false, description: "Every certificate on the server (Let's Encrypt, uploaded or made here, and others Nginx uses) with where it is used, and every host name Nginx serves with the certificate that answers for it. No private keys." }
+  ssl.tls_get: { mutating: false, description: "The server-wide TLS configuration WhaCP websites and webmail use, the snippet, and how many WhaCP virtual hosts still carry their own TLS lines." }
+  ssl.tls_set: { mutating: true, description: "Set the server-wide TLS configuration: writes the snippet every WhaCP virtual host includes (moving vhosts that carry their own TLS lines to the include), checks with nginx -t and reloads; restores everything if the check or reload fails." }
   stats.data: { mutating: false, description: "One month (YYYYMM) of a website's AWStats data (text), read confined to the website." }
   stats.enable: { mutating: true, description: "Turn website statistics on (AWStats configuration, data folder, update every 6 hours as the website's account) or off (the data is kept)." }
   stats.status: { mutating: false, description: "Website statistics: AWStats installed, turned on for the website, months with data and the last update." }

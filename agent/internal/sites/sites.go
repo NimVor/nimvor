@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -38,13 +39,14 @@ func (m *Manager) layout(s Spec) Layout {
 	e := m.Env
 	name := "whacp-" + s.Domain + ".conf"
 	l := Layout{
-		NginxFile: filepath.Join(e.M.NginxAvailable, name),
-		NginxLink: filepath.Join(e.M.NginxEnabled, name),
-		Socket:    filepath.Join(e.M.PHPSocketDir, "whacp-"+s.Domain+".sock"),
-		LogDir:    filepath.Join(s.Root, "logs"),
-		TmpDir:    filepath.Join(s.Root, "tmp"),
-		ACMERoot:  e.M.ACMERoot,
-		WebUser:   e.M.WebUser,
+		NginxFile:  filepath.Join(e.M.NginxAvailable, name),
+		NginxLink:  filepath.Join(e.M.NginxEnabled, name),
+		Socket:     filepath.Join(e.M.PHPSocketDir, "whacp-"+s.Domain+".sock"),
+		LogDir:     filepath.Join(s.Root, "logs"),
+		TmpDir:     filepath.Join(s.Root, "tmp"),
+		ACMERoot:   e.M.ACMERoot,
+		WebUser:    e.M.WebUser,
+		TLSInclude: tlsprofile.Include(e),
 	}
 	if s.PHPVersion != "" {
 		l.PoolFile = filepath.Join(e.M.PoolDir(s.PHPVersion), name)
@@ -173,6 +175,9 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 	// 3. Configuration, validated before anything is reloaded.
 	cfg := e.Changes("site-" + s.Domain)
 	cfg.Write(filepath.Join(e.M.NginxEnabled, "whacp-00-proxy-map.conf"), []byte(RenderProxyMap()), 0o644, agentfs.RootOwner)
+	if s.HTTPS {
+		tlsprofile.Ensure(m.Env, cfg)
+	}
 	cfg.Write(l.NginxFile, []byte(RenderNginx(s, l)), 0o644, agentfs.RootOwner)
 	if s.Enabled {
 		cfg.Link(l.NginxFile, l.NginxLink)

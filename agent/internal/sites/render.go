@@ -2,6 +2,7 @@ package sites
 
 import (
 	"fmt"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
 	"html"
 	"path/filepath"
 	"strings"
@@ -17,8 +18,9 @@ type Layout struct {
 	TmpDir      string
 	ACMERoot    string
 	WebUser     string
-	HTTP2Direct bool // nginx >= 1.25.1 uses "http2 on;"
-	IPv6        bool // add [::] listeners
+	HTTP2Direct bool   // nginx >= 1.25.1 uses "http2 on;"
+	IPv6        bool   // add [::] listeners
+	TLSInclude  string // the server-wide TLS snippet's include line
 }
 
 const header = "Managed by WhaCP. Do not edit: changes are overwritten when the website is saved in the panel."
@@ -59,7 +61,11 @@ func RenderNginx(s Spec, l Layout) string {
 		}
 		fmt.Fprintf(&b, "    server_name %s;\n", names)
 		fmt.Fprintf(&b, "    ssl_certificate %s;\n    ssl_certificate_key %s;\n", s.CertFile, s.KeyFile)
-		b.WriteString("    ssl_protocols TLSv1.2 TLSv1.3;\n    ssl_prefer_server_ciphers off;\n    ssl_session_cache shared:WhaCPSSL:10m;\n    ssl_session_timeout 1d;\n")
+		if l.TLSInclude != "" {
+			b.WriteString(l.TLSInclude)
+		} else {
+			b.WriteString(tlsprofile.LegacyBlock)
+		}
 		if s.HSTS {
 			b.WriteString("    add_header Strict-Transport-Security \"max-age=31536000\" always;\n")
 		}

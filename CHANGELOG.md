@@ -7,6 +7,21 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **SSL/TLS section** (administrators):
+  - SSL hosts: every host name Nginx serves with its certificate state,
+    names not covered, and renewal status;
+  - certificate store: all certificates with where they are used;
+    deletion of unused ones;
+  - private keys and CSRs made on the server, where the key never leaves
+    it; optional self-signed certificate; installing the CA's certificate
+    against the stored key;
+  - a server-wide TLS profile (TLS 1.2+1.3 or 1.3 only, Mozilla
+    intermediate ciphers, session tickets) in one Nginx snippet included
+    by WhaCP websites and webmail, checked with `nginx -t` and rolled back
+    on failure.
+
+  Certificate installs now also check the chain order, the validity start
+  and that the website's domain is covered.
 - **Database server manager** (Databases → Database server, for
   administrators):
   - status and resources: connections, queries, InnoDB buffer pool,

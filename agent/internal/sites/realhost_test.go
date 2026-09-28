@@ -136,6 +136,13 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 	if out, err := r.real.Run(ctx, "nginx", "-t"); err != nil {
 		t.Fatalf("real nginx -t failed with HTTPS: %s", out)
 	}
+	// TLS settings come from the server-wide snippet.
+	if b, _ := os.ReadFile(m.layout(good).NginxFile); !strings.Contains(string(b), "include /etc/nginx/whacp-tls.conf;") || strings.Contains(string(b), "ssl_protocols") {
+		t.Fatalf("vhost does not use the TLS snippet:\n%s", b)
+	}
+	if b, err := os.ReadFile("/etc/nginx/whacp-tls.conf"); err != nil || !strings.Contains(string(b), "ssl_protocols TLSv1.2 TLSv1.3;") {
+		t.Fatalf("TLS snippet: %v %s", err, b)
+	}
 
 	// Idempotent re-apply.
 	if res, err := m.Apply(ctx, specs[1]); err != nil || len(res.Changed) != 0 {

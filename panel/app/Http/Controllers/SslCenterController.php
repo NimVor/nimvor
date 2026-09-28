@@ -1,0 +1,224 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WhaCP\Http\Controllers;
+
+use WhaCP\Agent\AgentClient;
+use WhaCP\Agent\AgentException;
+use WhaCP\Hosting\Scope;
+use WhaCP\Http\Request;
+use WhaCP\Http\Response;
+use WhaCP\Http\Session\SessionInterface;
+use WhaCP\Repositories\WebsiteRepository;
+use WhaCP\Services\AuditLogger;
+use WhaCP\Services\ServerContext;
+use WhaCP\Services\SettingsService;
+use WhaCP\Services\SslService;
+use WhaCP\Support\UserFacingException;
+use WhaCP\View\View;
+
+/**
+ * SSL/TLS for server administrators: SSL hosts, the certificate store,
+ * private keys and CSRs made on the server, and the server-wide TLS
+ * configuration. Customers use each website's SSL page.
+ */
+final class SslCenterController extends Controller
+{
+    public function __construct(
+        View $view,
+        SessionInterface $session,
+        private readonly AgentClient $agent,
+        private readonly AuditLogger $audit,
+        private readonly WebsiteRepository $websites,
+        private readonly ServerContext $server,
+        private readonly SslService $ssl,
+        private readonly SettingsService $settings,
+    ) {
+        parent::__construct($view, $session);
+    }
+
+    private function denied(Request $request): ?Response
+    {
+        return Scope::isAll($this->user($request)) ? null : $this->render('errors/error', ['title' => 'Access denied', 'message' => 'The SSL/TLS section is for server administrators. Each website has its own SSL page.', 'status' => 403], 403);
+    }
+
+    /** @param array<string, mixed> $data */
+    private function page(string $tab, array $data, ?AgentException $error = null): Response
+    {
+        return $this->render('ssl/' . $tab, $data + ['tab' => $tab, 'agentError' => $error, 'warnDays' => $this->settings->int('ssl_warning_days')]);
+    }
+
+    /** @return array<string, mixed>|null */
+    private function call(string $action, array $params, ?AgentException &$error): ?array
+    {
+        try {
+            return json_decode((string) json_encode($this->agent->call($action, $params, 60)), true);
+        } catch (AgentException $e) {
+            $error = $e;
+            return null;
+        }
+    }
+
+    /** Websites by host name (domain and aliases). @return array<string, array<string, mixed>> */
+    private function sitesByName(Request $request): array
+    {
+        $out = [];
+        foreach ($this->websites->all($this->server->id(), $this->user($request)) as $w) {
+            foreach (array_merge([(string) $w['domain']], (array) ($w['aliases'] ?? [])) as $n) {
+                $out[strtolower((string) $n)] = $w;
+            }
+        }
+        return $out;
+    }
+
+    public function hosts(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $error = null;
+        $store = $this->call('ssl.store', [], $error);
+        $renewal = $error === null ? $this->call('ssl.renewal_status', [], $error) : null;
+        return $this->page('hosts', ['hosts' => (array) ($store['hosts'] ?? []), 'sites' => $this->sitesByName($request), 'renewal' => $renewal, 'autoSsl' => $this->settings->bool('auto_ssl')], $error);
+    }
+
+    public function certificates(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $error = null;
+        $store = $this->call('ssl.store', [], $error);
+        return $this->page('certificates', ['certificates' => (array) ($store['certificates'] ?? [])], $error);
+    }
+
+    public function deleteCertificate(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $source = $request->string('source');
+        $name = $request->string('name');
+        try {
+            match ($source) {
+                'letsencrypt' => $this->agent->call('ssl.delete', ['cert_name' => $name], 60),
+                'whacp' => $this->agent->call('ssl.custom_delete', ['name' => $name], 60),
+                default => throw new UserFacingException('Only Let\'s Encrypt and WhaCP certificates can be deleted here.'),
+            };
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/ssl/certificates', $e);
+        }
+        $this->audit->record('ssl.certificate_delete', 'server', 'ssl', AuditLogger::SUCCESS, ['source' => $source, 'name' => $name]);
+        return $this->redirectWithSuccess('/ssl/certificates', 'Certificate ' . $name . ' deleted.');
+    }
+
+    public function keys(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $error = null;
+        $list = $this->call('ssl.keys', [], $error);
+        $id = (string) $request->query('id', '');
+        $key = $id !== '' && $error === null ? $this->call('ssl.key', ['id' => $id], $error) : null;
+        $sites = $this->websites->all($this->server->id(), $this->user($request));
+        return $this->page('keys', ['keys' => (array) ($list['keys'] ?? []), 'keyTypes' => (array) ($list['key_types'] ?? []), 'key' => $key, 'websites' => $sites], $error);
+    }
+
+    public function createCsr(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $names = array_values(array_filter(array_map(static fn (string $n): string => strtolower(trim($n)), preg_split('/[\s,]+/', $request->string('names')) ?: [])));
+        $params = [
+            'names' => $names, 'organization' => $request->string('organization'), 'organizational_unit' => $request->string('organizational_unit'),
+            'locality' => $request->string('locality'), 'province' => $request->string('province'), 'country' => strtoupper($request->string('country')),
+            'email' => $request->string('email'), 'key_type' => $request->string('key_type'),
+            'self_signed_days' => $request->input('self_signed') === '1' ? max(1, min(825, (int) $request->input('self_signed_days', 365))) : 0,
+        ];
+        try {
+            $res = (array) $this->agent->call('ssl.csr_create', $params, 120);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/ssl/keys', $e);
+        }
+        $this->audit->record('ssl.csr_create', 'server', 'ssl', AuditLogger::SUCCESS, ['id' => $res['id'] ?? '', 'names' => $names, 'key_type' => $params['key_type'], 'self_signed' => $params['self_signed_days'] > 0]);
+        return $this->redirectWithSuccess('/ssl/keys?id=' . rawurlencode((string) ($res['id'] ?? '')), 'Key and CSR created. Send the CSR to your certificate authority; the private key stays on this server.');
+    }
+
+    public function installKey(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $id = $request->string('key_id');
+        $back = '/ssl/keys?id=' . rawurlencode($id);
+        $site = $this->websites->find($this->server->id(), (int) $request->input('website_id', 0), $this->user($request));
+        if ($site === null) {
+            return $this->redirectWithError($back, 'Choose a website.');
+        }
+        try {
+            $this->ssl->installFromKey($site, $id, (string) $request->input('certificate', ''), (string) $request->input('chain', ''), $request->input('self_signed') === '1');
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($back, $e);
+        }
+        return $this->redirectWithSuccess('/sites/' . (int) $site['id'] . '/ssl', 'Certificate installed on ' . $site['domain'] . ' and HTTPS enabled.');
+    }
+
+    public function deleteKey(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $id = $request->string('id');
+        try {
+            $this->agent->call('ssl.key_delete', ['id' => $id], 60);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/ssl/keys', $e);
+        }
+        $this->audit->record('ssl.key_delete', 'server', 'ssl', AuditLogger::SUCCESS, ['id' => $id]);
+        return $this->redirectWithSuccess('/ssl/keys', 'Key ' . $id . ' deleted.');
+    }
+
+    public function csrDownload(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $error = null;
+        $key = $this->call('ssl.key', ['id' => (string) $request->query('id', '')], $error);
+        if ($key === null || empty($key['csr'])) {
+            return $this->redirectWithError('/ssl/keys', 'That CSR does not exist.');
+        }
+        $file = preg_replace('/[^a-z0-9.-]/', '_', (string) $key['id']) . '.csr';
+        return new Response((string) $key['csr'], 200, ['Content-Type' => 'application/pkcs10', 'Content-Disposition' => 'attachment; filename="' . $file . '"', 'X-Content-Type-Options' => 'nosniff']);
+    }
+
+    public function tls(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $error = null;
+        $tls = $this->call('ssl.tls_get', [], $error);
+        return $this->page('tls', ['tls' => $tls], $error);
+    }
+
+    public function saveTls(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $profile = ['protocols' => $request->string('protocols'), 'ciphers' => $request->string('ciphers'), 'session_tickets' => $request->input('session_tickets') === '1'];
+        try {
+            $res = (array) $this->agent->call('ssl.tls_set', $profile, 120);
+        } catch (UserFacingException $e) {
+            $this->audit->record('ssl.tls', 'server', 'nginx', AuditLogger::FAILURE, $profile + ['error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/ssl/tls', $e);
+        }
+        $this->audit->record('ssl.tls', 'server', 'nginx', AuditLogger::SUCCESS, $profile);
+        $moved = (int) ($res['migrated_vhosts'] ?? 0);
+        return $this->redirectWithSuccess('/ssl/tls', 'TLS configuration applied and Nginx reloaded.' . ($moved > 0 ? ' ' . $moved . ' website configuration(s) now use it.' : ''));
+    }
+}

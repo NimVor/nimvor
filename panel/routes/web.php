@@ -270,6 +270,16 @@ return static function (Router $r): void {
     $r->post('/redis/users/delete', [RedisController::class, 'deleteUser'], ['name' => 'redis.users.delete', 'permission' => P::REDIS_MANAGE]);
     $r->get('/workers', [WorkersController::class, 'index'], ['name' => 'workers', 'permission' => P::WORKERS_MANAGE]);
     $r->get('/ssl', [DiscoveryController::class, 'ssl'], ['name' => 'ssl', 'permission' => P::SSL_VIEW]);
+    $r->get('/ssl/hosts', [\WhaCP\Http\Controllers\SslCenterController::class, 'hosts'], ['name' => 'ssl.hosts', 'permission' => P::SSL_VIEW]);
+    $r->get('/ssl/certificates', [\WhaCP\Http\Controllers\SslCenterController::class, 'certificates'], ['name' => 'ssl.certificates', 'permission' => P::SSL_VIEW]);
+    $r->post('/ssl/certificates/delete', [\WhaCP\Http\Controllers\SslCenterController::class, 'deleteCertificate'], ['name' => 'ssl.certificates.delete', 'permission' => P::SSL_MANAGE]);
+    $r->get('/ssl/keys', [\WhaCP\Http\Controllers\SslCenterController::class, 'keys'], ['name' => 'ssl.keys', 'permission' => P::SSL_VIEW]);
+    $r->get('/ssl/keys/csr', [\WhaCP\Http\Controllers\SslCenterController::class, 'csrDownload'], ['name' => 'ssl.keys.csr', 'permission' => P::SSL_VIEW]);
+    $r->post('/ssl/keys', [\WhaCP\Http\Controllers\SslCenterController::class, 'createCsr'], ['name' => 'ssl.keys.create', 'permission' => P::SSL_MANAGE]);
+    $r->post('/ssl/keys/install', [\WhaCP\Http\Controllers\SslCenterController::class, 'installKey'], ['name' => 'ssl.keys.install', 'permission' => P::SSL_MANAGE]);
+    $r->post('/ssl/keys/delete', [\WhaCP\Http\Controllers\SslCenterController::class, 'deleteKey'], ['name' => 'ssl.keys.delete', 'permission' => P::SSL_MANAGE]);
+    $r->get('/ssl/tls', [\WhaCP\Http\Controllers\SslCenterController::class, 'tls'], ['name' => 'ssl.tls', 'permission' => P::SSL_VIEW]);
+    $r->post('/ssl/tls', [\WhaCP\Http\Controllers\SslCenterController::class, 'saveTls'], ['name' => 'ssl.tls.save', 'permission' => P::SERVER_MANAGE]);
     $r->get('/cron', [DiscoveryController::class, 'cron'], ['name' => 'cron', 'permission' => P::CRON_VIEW]);
     $r->get('/discovery', [DiscoveryController::class, 'index'], ['name' => 'discovery', 'permission' => P::WEBSITES_VIEW]);
     $r->post('/discovery/run', [DiscoveryController::class, 'run'], ['name' => 'discovery.run', 'permission' => P::DISCOVERY_RUN]);

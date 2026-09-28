@@ -56,13 +56,39 @@ final class SslService
         if (trim($cert) === '' || trim($key) === '') {
             throw new UserFacingException('Paste both the certificate and its private key.');
         }
-        $res = (array) $this->agent->call('ssl.custom', ['name' => $site['domain'], 'certificate' => $cert, 'private_key' => $key, 'chain' => $chain]);
+        $res = (array) $this->agent->call('ssl.custom', ['name' => $site['domain'], 'certificate' => $cert, 'private_key' => $key, 'chain' => $chain, 'domain' => $site['domain']]);
         $this->sites->patch($site, [
             'https' => true,
             'ssl_mode' => 'custom',
             'cert_file' => (string) $res['cert_file'],
             'key_file' => (string) $res['key_file'],
         ], 'ssl.custom');
+    }
+
+    /**
+     * Install a certificate for a key made on the server (the CA's
+     * certificate for its CSR, or its self-signed certificate).
+     *
+     * @param array<string, mixed> $site
+     */
+    public function installFromKey(array $site, string $keyId, string $cert, string $chain, bool $selfSigned): void
+    {
+        if (!$selfSigned && trim($cert) === '') {
+            throw new UserFacingException('Paste the certificate the certificate authority issued for this key.');
+        }
+        try {
+            $res = (array) $this->agent->call('ssl.custom', ['name' => $site['domain'], 'key_id' => $keyId, 'certificate' => $selfSigned ? '' : $cert, 'chain' => $selfSigned ? '' : $chain, 'use_self_signed' => $selfSigned, 'domain' => $site['domain']]);
+        } catch (AgentException $e) {
+            $this->audit->record('ssl.install_key', 'website', (string) $site['id'], AuditLogger::FAILURE, ['domain' => $site['domain'], 'key_id' => $keyId, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+        $this->sites->patch($site, [
+            'https' => true,
+            'ssl_mode' => 'custom',
+            'cert_file' => (string) $res['cert_file'],
+            'key_file' => (string) $res['key_file'],
+        ], 'ssl.custom');
+        $this->audit->record('ssl.install_key', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'key_id' => $keyId, 'self_signed' => $selfSigned]);
     }
 
     /** @param array<string, mixed> $site */
