@@ -46,9 +46,9 @@ $list = function (array $rows, string $empty, string $icon): string {
 <div class="card mb-3" id="subdomains">
     <div class="card-header wcp-toolbar">
         <h2 class="wcp-toolbar-title"><i class="bi bi-diagram-3 me-1"></i>Subdomains <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($subdomains) ?></span></h2>
-        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#new-subdomain" aria-expanded="<?= $openSub ? 'true' : 'false' ?>" aria-controls="new-subdomain"><i class="bi bi-plus-lg me-1"></i>Create subdomain</button>
+        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-subdomain"><i class="bi bi-plus-lg me-1"></i>Create subdomain</button>
     </div>
-    <div class="collapse wcp-form-panel<?= $openSub ? ' show' : '' ?>" id="new-subdomain" data-wcp-form-panel>
+    <?= $this->modalStart('new-subdomain', 'Create subdomain', $openSub) ?>
         <form class="p-3" method="post" action="<?= e($this->url('sites.domains.store', ['id' => $id])) ?>" data-wcp-busy>
             <?= $this->csrfField() ?><input type="hidden" name="type" value="subdomain">
             <div class="row g-2 align-items-end">
@@ -68,16 +68,16 @@ $list = function (array $rows, string $empty, string $icon): string {
                 <div class="form-text">Point the subdomain to this server in your domain's DNS (an A record).</div>
             <?php endif; ?>
         </form>
-    </div>
+    <?= $this->modalEnd() ?>
     <?= $list($subdomains, 'No subdomains yet. A subdomain like blog.' . $site['domain'] . ' can host a separate site.', 'diagram-3') ?>
 </div>
 
 <div class="card" id="addons">
     <div class="card-header wcp-toolbar">
         <h2 class="wcp-toolbar-title"><i class="bi bi-plus-square me-1"></i>Addon domains <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($addons) ?></span></h2>
-        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#new-addon" aria-expanded="<?= $openAddon ? 'true' : 'false' ?>" aria-controls="new-addon"><i class="bi bi-plus-lg me-1"></i>Add addon domain</button>
+        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-addon"><i class="bi bi-plus-lg me-1"></i>Add addon domain</button>
     </div>
-    <div class="collapse wcp-form-panel<?= $openAddon ? ' show' : '' ?>" id="new-addon" data-wcp-form-panel>
+    <?= $this->modalStart('new-addon', 'Add addon domain', $openAddon) ?>
         <form class="p-3" method="post" action="<?= e($this->url('sites.domains.store', ['id' => $id])) ?>" data-wcp-busy>
             <?= $this->csrfField() ?><input type="hidden" name="type" value="addon">
             <div class="row g-2 align-items-end">
@@ -91,6 +91,6 @@ $list = function (array $rows, string $empty, string $icon): string {
             <div class="form-check small mt-2"><input type="hidden" name="www" value="0"><input class="form-check-input" type="checkbox" name="www" value="1" id="ad-www" checked><label class="form-check-label" for="ad-www">Also answer on www.</label></div>
             <div class="form-text">A separate website for another domain you own, under this account. Point the domain's DNS to this server.</div>
         </form>
-    </div>
+    <?= $this->modalEnd() ?>
     <?= $list($addons, 'No addon domains yet.', 'plus-square') ?>
 </div>

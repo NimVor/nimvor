@@ -128,10 +128,10 @@ $paranoia = [1 => '1 — few false positives (recommended)', 2 => '2 — more ru
                     <td><span class="wcp-state <?= e($mc) ?>"><?= e($ml) ?></span></td>
                     <td class="small"><?= e(implode(', ', array_map(static fn (string $v): string => $vendorNames[$v] ?? $v, array_values(array_diff(['crs', 'custom'], $set['exclude']))))) ?: '—' ?></td>
                     <td class="small font-monospace"><?= $set['disabled_rules'] === [] ? '—' : e(implode(' ', $set['disabled_rules'])) ?></td>
-                    <td class="text-end"><?php if ($canManage): ?><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#<?= $rid ?>" aria-expanded="false" aria-controls="<?= $rid ?>">Edit</button><?php endif; ?></td>
+                    <td class="text-end"><?php if ($canManage): ?><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#<?= $rid ?>">Edit</button><?php endif; ?></td>
                 </tr>
                 <?php if ($canManage): ?>
-                <tr class="collapse" id="<?= $rid ?>"><td colspan="5">
+                <?php ob_start(); ?><?= $this->modalStart($rid, 'ModSecurity for ' . $s['domain']) ?>
                     <form class="row g-2 align-items-end" method="post" action="<?= e($this->url('security.modsec.site', ['id' => (int) $s['id']])) ?>" data-wcp-busy>
                         <?= $this->csrfField() ?>
                         <div class="col-md-3"><label class="form-label small" for="<?= $rid ?>-m">Mode</label>
@@ -142,7 +142,7 @@ $paranoia = [1 => '1 — few false positives (recommended)', 2 => '2 — more ru
                             <input class="form-control form-control-sm font-monospace" id="<?= $rid ?>-d" name="disabled_rules" value="<?= e(implode(' ', $set['disabled_rules'])) ?>" placeholder="e.g. 942100 920350"></div>
                         <div class="col-md-2"><button class="btn btn-sm btn-primary w-100">Save and check</button></div>
                     </form>
-                </td></tr>
+                <?= $this->modalEnd() ?><?php $editWindows[] = ob_get_clean(); ?>
                 <?php endif; ?>
             <?php endforeach; ?>
             <?php if ($sites === []): ?><tr><td colspan="5" class="text-center py-4 wcp-muted">No websites yet.</td></tr><?php endif; ?>
@@ -150,6 +150,7 @@ $paranoia = [1 => '1 — few false positives (recommended)', 2 => '2 — more ru
         </table>
     </div>
 </div>
+<?= implode('', $editWindows ?? []) ?>
 
 <div class="wcp-panel mb-3" id="custom">
     <div class="fw-semibold mb-1">Custom rules</div>

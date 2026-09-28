@@ -96,9 +96,13 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     await page.waitForSelector('#new-database.show');
     if (!(await page.$('#new-database .text-danger, #new-database .is-invalid'))) { throw new Error('field error not shown: ' + await flash()); }
     if (!(await page.textContent('#databases')).includes('No databases yet')) { throw new Error('empty state'); }
+    // Fully shown (its first field focused) before it can be closed.
+    await page.waitForFunction(() => document.activeElement && document.activeElement.id === 'db-name');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('#new-database', { state: 'hidden' });
     await page.click('button[data-bs-target="#new-db-user"]');
     await page.waitForSelector('#new-db-user.show');
-    step('databases: refused name reopens the form with its error; empty state; "Create user" panel');
+    step('databases: refused name reopens the window with its error; empty state; "Create user" window');
 
     // ---- Quick action and website menu
     await page.goto(BASE + site);
@@ -124,6 +128,8 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     fs.mkdirSync(path.join(DEV_ROOT, 'etc/bind'), { recursive: true });
     for (const f of ['named.conf', 'named.conf.local']) { if (!fs.existsSync(path.join(DEV_ROOT, 'etc/bind', f))) { fs.writeFileSync(path.join(DEV_ROOT, 'etc/bind', f), ''); } }
     await page.goto(BASE + '/settings');
+    await page.click('#tab-dns');
+    await page.waitForSelector('#pane-dns.show');
     await page.fill('[name=dns_nameservers]', 'ns1.example.test, ns2.example.test');
     await page.fill('[name=dns_default_ipv4]', '203.0.113.10');
     await submit(page, 'main form:has([name=dns_nameservers]) button[type=submit]');
@@ -140,17 +146,16 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     if (!/\/dns\/zones\/\d+$/.test(page.url())) { throw new Error('zone not created: ' + page.url() + ' ' + await flash()); }
     if (!(await page.$('[data-wcp-site-menu] a[aria-current=page]'))) { throw new Error('zone page lost the website menu'); }
     const dnsHeads = await page.$$eval('#dns-table thead th', t => t.map(x => x.textContent.trim()));
-    if (dnsHeads.join('|') !== 'Type|Name|Value|TTL|Actions') { throw new Error('DNS columns: ' + dnsHeads); }
-    await page.click('button[data-bs-target="#add-record"]');
-    await page.waitForSelector('#add-record.show');
-    await page.click('#add-record [data-wcp-fill]:has-text("CNAME www")');
-    if (await page.inputValue('#add-type') !== 'CNAME' || await page.inputValue('#add-name') !== 'www') { throw new Error('shortcut did not fill'); }
-    await page.fill('#add-name', 'shop');
-    await page.fill('#add-value', domain + '.');
-    await submit(page, '#add-record button[type=submit]');
+    if (dnsHeads.join('|') !== 'Select|Type|Name|Value|TTL|Actions') { throw new Error('DNS columns: ' + dnsHeads); }
+    await page.click('button[data-wcp-dns-new]');
+    await page.waitForSelector('#dns-record.show');
+    await page.selectOption('#rec-type', 'CNAME');
+    await page.fill('#rec-name', 'shop');
+    await page.fill('#rec-value', domain + '.');
+    await submit(page, '#dns-record button:has-text("Save record")');
     const row = await page.$(`#dns-table tr:has(td:text-is("shop"))`);
     if (!row || !(await row.textContent()).includes('CNAME')) { throw new Error('record not added: ' + await flash()); }
-    step('DNS: zone created inside the website, record added with a shortcut');
+    step('DNS: zone created inside the website, record added in the record window');
 
     // ---- Email set-up page stays inside the website
     await page.goto(BASE + site + '/mail');

@@ -81,7 +81,7 @@
     document.addEventListener('submit', function (e) {
         var form = e.target;
         if (!form.matches('[data-wcp-busy]') || e.defaultPrevented) { return; }
-        var btn = form.querySelector('button[type="submit"]');
+        var btn = form.querySelector('button[type="submit"], button:not([type])');
         if (btn) {
             btn.disabled = true;
             var spin = btn.querySelector('.spinner-border');
@@ -173,18 +173,21 @@
 
     // Settings: the tab named in the address (#dns) opens; switching tabs
     // updates the address so a reload or a saved form comes back to it.
-    (function () {
+    // (Runs again when a saved form brings the page back.)
+    function openSettingsTab() {
         var root = document.querySelector('[data-wcp-settings-tabs]');
         if (!root || !window.bootstrap) { return; }
-        var open = function () {
-            var id = (location.hash || '').replace(/[^a-z]/g, '');
-            var link = id && root.querySelector('#tab-' + id);
-            if (link && !root.querySelector('.tab-pane.show [aria-invalid="true"], .tab-pane.show .is-invalid')) { bootstrap.Tab.getOrCreateInstance(link).show(); }
-        };
-        root.addEventListener('shown.bs.tab', function (e) { history.replaceState(null, '', e.target.getAttribute('href')); });
-        window.addEventListener('hashchange', open);
-        open();
-    })();
+        var id = (location.hash || '').replace(/[^a-z]/g, '');
+        var link = id && root.querySelector('#tab-' + id);
+        if (link && !root.querySelector('.tab-pane.show [aria-invalid="true"], .tab-pane.show .is-invalid')) { bootstrap.Tab.getOrCreateInstance(link).show(); }
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        var root = document.querySelector('[data-wcp-settings-tabs]');
+        if (!root) { return; }
+        root.addEventListener('shown.bs.tab', function (e) { history.replaceState(history.state, '', e.target.getAttribute('href')); });
+        openSettingsTab();
+    });
+    window.addEventListener('hashchange', openSettingsTab);
 
     // Live statistics (Monitoring → Live): polled every 3 seconds while the
     // page is visible; every value is set as text.
@@ -448,6 +451,8 @@
             var end = Date.parse(el.getAttribute('data-wcp-countdown'));
             if (isNaN(end)) { return; }
             var tick = function () {
+                // Stops once its page was swapped away.
+                if (!el.isConnected) { clearInterval(timer); return; }
                 var s = Math.max(0, Math.round((end - Date.now()) / 1000));
                 el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
                 if (s === 0) { clearInterval(timer); setTimeout(function () { window.location.reload(); }, 3000); }
@@ -459,7 +464,7 @@
 
     // Auto-submit selects.
     document.addEventListener('change', function (e) {
-        if (e.target.matches('[data-wcp-autosubmit]')) { e.target.form.submit(); }
+        if (e.target.matches('[data-wcp-autosubmit]')) { var f = e.target.form; if (f.requestSubmit) { f.requestSubmit(); } else { f.submit(); } }
     });
 
     // Apply widths from data attributes (inline styles are blocked by CSP).
@@ -552,7 +557,12 @@
                 bell.setAttribute('aria-label', n > 0 ? 'Notifications (' + n + ' unread)' : 'Notifications');
             }).catch(function () { /* keep the last count */ });
         }
-        setInterval(refresh, 60000);
+        if (WhaCP.bellTimer) { return; }
+        WhaCP.bellTimer = setInterval(function () {
+            var b = document.querySelector('[data-wcp-bell]');
+            if (b !== bell) { bell = b; if (!b) { return; } badge = b.querySelector('[data-wcp-bell-count]'); }
+            refresh();
+        }, 60000);
         document.addEventListener('visibilitychange', refresh);
     });
 
@@ -746,6 +756,8 @@
             bootstrap.Collapse.getOrCreateInstance(el, { toggle: false }).show();
         }
         if (el.tagName === 'DETAILS') { el.open = true; }
+        // A form window (#new-database…): open it.
+        if (el.classList.contains('modal')) { bootstrap.Modal.getOrCreateInstance(el).show(); return; }
         // A tab pane (#db-users…): show its tab.
         if (el.classList.contains('tab-pane')) {
             var tab = document.querySelector('[data-bs-toggle="tab"][data-bs-target="#' + id + '"]');
@@ -759,11 +771,19 @@
     }
     document.addEventListener('DOMContentLoaded', openFromHash);
     window.addEventListener('hashchange', openFromHash);
-    // Focus the first field when a form panel is opened by its button.
-    document.addEventListener('shown.bs.collapse', function (e) {
-        if (!e.target.matches('[data-wcp-form-panel]')) { return; }
-        var f = e.target.querySelector('input:not([type=hidden]):not([disabled]), select, textarea');
-        if (f) { f.focus(); }
+    // Focus the first field when a form panel or window is opened.
+    ['shown.bs.collapse', 'shown.bs.modal'].forEach(function (ev) {
+        document.addEventListener(ev, function (e) {
+            if (!e.target.matches('[data-wcp-form-panel]')) { return; }
+            var f = e.target.querySelector('input:not([type=hidden]):not([disabled]):not([readonly]), select, textarea');
+            if (f) { f.focus(); }
+        });
+    });
+    // A form window marked data-wcp-modal-open (a refused save, shown again
+    // with its errors) opens with the page.
+    document.addEventListener('DOMContentLoaded', function () {
+        var m = document.querySelector('.modal[data-wcp-modal-open]');
+        if (m && window.bootstrap) { bootstrap.Modal.getOrCreateInstance(m).show(); }
     });
 
     // Table filter: <input data-wcp-filter="#table-id"> hides rows whose
@@ -1062,5 +1082,171 @@
                 })
                 .catch(function (x) { fail(x.message); });
         })(0);
+    });
+
+    // Forms in the page submit in the background: the server answers a
+    // form action with {redirect} (see AjaxForms), the page loads that
+    // address and swaps in the new content, keeping the scroll position and
+    // showing the result as a notification. Validation, CSRF and
+    // authorization are the server's, exactly as for a normal submit.
+    // Applies to forms in the page and its header actions. Left alone:
+    // forms with a target, data-wcp-noajax (on the form or a parent), GET
+    // forms, and pages that load their own scripts
+    // (<body data-wcp-ajax="off">). Anything unexpected falls back to a
+    // normal page load.
+    function ajaxEligible(form) {
+        if (!window.fetch || !window.DOMParser || !window.history.pushState) { return false; }
+        if (document.body.getAttribute('data-wcp-ajax') === 'off') { return false; }
+        if ((form.getAttribute('method') || 'get').toLowerCase() !== 'post' || form.hasAttribute('target')) { return false; }
+        if (form.closest('[data-wcp-noajax]') || !form.closest('.wcp-content, .wcp-topbar-actions')) { return false; }
+        var action = new URL(form.action, window.location.href);
+        return action.origin === window.location.origin;
+    }
+
+    function sameAssets(doc) {
+        var list = function (d) {
+            return Array.prototype.map.call(d.querySelectorAll('script[src], link[rel="stylesheet"]'), function (el) {
+                return el.getAttribute('src') || el.getAttribute('href');
+            }).join('|');
+        };
+        return list(doc) === list(document);
+    }
+
+    // Replaces the page with a fetched document; false when it cannot be
+    // swapped in place (different scripts), so the caller loads it fully.
+    WhaCP.swapPage = function (html, url, keepScroll) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var shell = doc.querySelector('.wcp-shell');
+        if (!shell || !sameAssets(doc) || doc.body.getAttribute('data-wcp-ajax') === 'off') { return false; }
+        var y = window.scrollY;
+        // Windows of the old page go at once (a hide transition would finish
+        // after the swap and undo the new page's window state). The shared
+        // windows outside the page (confirmation, job log) close by themselves.
+        var closed = false;
+        document.querySelectorAll('.wcp-shell .modal').forEach(function (m) {
+            var inst = window.bootstrap && bootstrap.Modal.getInstance(m);
+            if (inst) { inst.dispose(); closed = true; }
+        });
+        if (closed && !document.querySelector('.modal.show')) {
+            document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+        }
+        document.querySelector('.wcp-shell').replaceWith(document.adoptNode(shell));
+        document.body.className = doc.body.className;
+        document.title = doc.title;
+        var meta = doc.querySelector('meta[name="csrf-token"]');
+        if (meta) { document.querySelector('meta[name="csrf-token"]').setAttribute('content', meta.getAttribute('content')); }
+        if (url) {
+            var next = new URL(url, window.location.href);
+            // A history step, as a normal form post makes one.
+            window.history.pushState({ wcp: 1 }, '', next.href);
+        }
+        // Page behaviours run again for the new content.
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        if (keepScroll && !window.location.hash) { window.scrollTo(0, y); }
+        // The result (flash message) as a notification when it is not in view.
+        var alert = document.querySelector('.wcp-content > .alert');
+        if (alert) {
+            var r = alert.getBoundingClientRect();
+            if (r.bottom < 0 || r.top > window.innerHeight) {
+                var variant = alert.classList.contains('alert-success') ? 'success' : (alert.classList.contains('alert-danger') ? 'danger' : 'secondary');
+                WhaCP.toast(alert.textContent.replace(/\s+/g, ' ').trim(), variant);
+            }
+        }
+        return true;
+    };
+
+    function loadInto(url, keepScroll) {
+        return fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'text/html' } }).then(function (res) {
+            var final = res.url || url;
+            if (new URL(final).pathname === '/login') { window.location.href = final; return; }
+            return res.text().then(function (html) {
+                // fetch drops the #section of the address; keep the requested one.
+                var hash = new URL(url, window.location.href).hash;
+                if (!WhaCP.swapPage(html, final.split('#')[0] + hash, keepScroll)) { window.location.href = url; }
+            });
+        });
+    }
+
+    function download(res) {
+        var cd = res.headers.get('Content-Disposition') || '';
+        var m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+        return res.blob().then(function (blob) {
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = m ? decodeURIComponent(m[1]) : 'download';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+        });
+    }
+
+    function restore(form) {
+        form.removeAttribute('aria-busy');
+        delete form.dataset.wcpConfirmed;
+        form.querySelectorAll('button[type="submit"], button:not([type])').forEach(function (b) {
+            b.disabled = false;
+            var spin = b.querySelector('.spinner-border');
+            if (spin) { spin.classList.add('d-none'); }
+        });
+    }
+
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (e.defaultPrevented || !ajaxEligible(form)) { return; }
+        // The pressed button may send elsewhere (formaction) or open a window.
+        var pressed = e.submitter && e.submitter.form === form ? e.submitter : null;
+        if (pressed && (pressed.hasAttribute('formtarget') || (pressed.getAttribute('formmethod') || 'post').toLowerCase() !== 'post')) { return; }
+        var actionUrl = pressed && pressed.hasAttribute('formaction') ? pressed.formAction : form.action;
+        if (new URL(actionUrl, window.location.href).origin !== window.location.origin) { return; }
+        if (form.getAttribute('aria-busy') === 'true') { e.preventDefault(); return; }
+        e.preventDefault();
+        var data = new FormData(form);
+        var sub = e.submitter;
+        if (sub && sub.name && !data.has(sub.name)) { data.append(sub.name, sub.value || ''); }
+        form.setAttribute('aria-busy', 'true');
+        // Loading state: the pressed button (or the form's first) spins.
+        var btn = (sub && sub.form === form ? sub : null) || form.querySelector('button[type="submit"], button:not([type])');
+        if (btn) {
+            btn.disabled = true;
+            var spin = btn.querySelector('.spinner-border');
+            if (spin) { spin.classList.remove('d-none'); }
+        }
+        fetch(actionUrl, {
+            method: 'POST', body: data, credentials: 'same-origin',
+            headers: { 'X-WhaCP-Ajax': '1', 'Accept': 'text/html' }, // as a normal form post
+        }).then(function (res) {
+            var type = res.headers.get('Content-Type') || '';
+            if (type.indexOf('application/json') === 0) {
+                return res.json().then(function (body) {
+                    if (body && body.redirect) {
+                        var to = new URL(body.redirect, window.location.href);
+                        if (to.origin !== window.location.origin || to.pathname === '/login') { window.location.href = to.href; return; }
+                        return loadInto(to.href, true);
+                    }
+                    restore(form);
+                    WhaCP.toast((body && body.error && body.error.message) || (body && body.message) || (res.ok ? 'Done.' : 'The request failed.'), res.ok ? 'success' : 'danger');
+                });
+            }
+            if (type.indexOf('text/html') === 0) {
+                // A page rendered for the form (e.g. an error page).
+                return res.text().then(function (html) {
+                    if (!WhaCP.swapPage(html, null, false)) { document.open(); document.write(html); document.close(); }
+                });
+            }
+            restore(form);
+            if (res.ok) { return download(res); }
+            WhaCP.toast('The request failed (HTTP ' + res.status + ').', 'danger');
+        }).catch(function () {
+            restore(form);
+            WhaCP.toast('The panel could not be reached. Check the connection and try again.', 'danger');
+        });
+    });
+
+    // Back and forward after background submits: load the address fully.
+    window.addEventListener('popstate', function (e) {
+        if (e.state && e.state.wcp) { window.location.reload(); }
     });
 })();

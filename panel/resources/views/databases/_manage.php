@@ -60,8 +60,8 @@ $tab = $openUser ? 'users' : 'dbs';
 <div class="wcp-panel" id="databases">
     <div class="wcp-actionbar">
         <?php if ($canManage): ?>
-            <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#new-database" aria-expanded="<?= $openDb ? 'true' : 'false' ?>" aria-controls="new-database"><i class="bi bi-plus-lg me-1"></i>Add database</button>
-            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#new-db-user" aria-expanded="<?= $openUser ? 'true' : 'false' ?>" aria-controls="new-db-user"><i class="bi bi-person-plus me-1"></i>Add user</button>
+            <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-database"><i class="bi bi-plus-lg me-1"></i>Add database</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#new-db-user"><i class="bi bi-person-plus me-1"></i>Add user</button>
             <?php if (!isset($site) && $this->hasRoute('databases.browser.server') && !empty($unmanaged)): ?><a class="btn btn-sm btn-outline-secondary" href="#other-databases"><i class="bi bi-binoculars me-1"></i>Other databases (<?= count($unmanaged) ?>)</a><?php endif; ?>
         <?php endif; ?>
         <?php if ($server !== null): ?><span class="wcp-svc" title="Database server"><i class="bi bi-database" aria-hidden="true"></i><?= e($server) ?> <i class="bi bi-play-fill" aria-hidden="true"></i></span><?php elseif ($live === null): ?><span class="wcp-svc" title="Database server"><i class="bi bi-database" aria-hidden="true"></i>Database server <i class="bi bi-stop-fill" aria-hidden="true"></i></span><?php endif; ?>
@@ -71,10 +71,9 @@ $tab = $openUser ? 'users' : 'dbs';
     </div>
 
     <?php if ($canManage): ?>
-        <div class="collapse<?= $openDb ? ' show' : '' ?>" id="new-database" data-wcp-form-panel>
+        <?= $this->modalStart('new-database', 'Add database', $openDb) ?>
             <form class="wcp-form-panel border rounded-3 p-3 mb-3" method="post" action="<?= e($this->url('databases.store')) ?>" data-wcp-busy novalidate>
                 <?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>">
-                <div class="fw-semibold mb-2">Add database</div>
                 <div class="row g-2 align-items-end">
                     <div class="col-md-5">
                         <label class="form-label small" for="db-name">Database name</label>
@@ -99,11 +98,10 @@ $tab = $openUser ? 'users' : 'dbs';
                     <div class="form-check form-switch small"><input type="hidden" name="store_password" value="0"><input class="form-check-input" type="checkbox" name="store_password" value="1" id="db-sp"><label class="form-check-label" for="db-sp">Keep the password (encrypted) so it can be shown again</label></div>
                 </div>
             </form>
-        </div>
-        <div class="collapse<?= $openUser ? ' show' : '' ?>" id="new-db-user" data-wcp-form-panel>
+        <?= $this->modalEnd() ?>
+        <?= $this->modalStart('new-db-user', 'Add database user', $openUser) ?>
             <form class="wcp-form-panel border rounded-3 p-3 mb-3" method="post" action="<?= e($this->url('dbusers.store')) ?>" data-wcp-busy novalidate>
                 <?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>">
-                <div class="fw-semibold mb-2">Add database user</div>
                 <div class="row g-2 align-items-end">
                     <div class="col-md-4">
                         <label class="form-label small" for="dbu-name">User name</label>
@@ -121,7 +119,7 @@ $tab = $openUser ? 'users' : 'dbs';
                 </div>
                 <div class="form-text"><?= e($remoteNote) ?></div>
             </form>
-        </div>
+        <?= $this->modalEnd() ?>
     <?php endif; ?>
 
     <div class="wcp-subtabs" role="tablist">

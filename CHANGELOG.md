@@ -23,6 +23,18 @@ All notable changes to WhaCP are documented here. The format follows
     authenticator code.
 
 ### Added
+- **Forms without page reloads.** Create, change and delete forms submit
+  in the background.
+  - The page updates in place, keeps its scroll position and shows the
+    result as a notification.
+  - The server's checks (CSRF, permissions, validation) are unchanged.
+  - The file manager and pages with their own scripts submit as before.
+- **Create and edit forms in windows (Bootstrap modals).** Databases and
+  users, FTP accounts, mailboxes and forwarders, subdomains and addon
+  domains, backups, cron jobs, workers, firewall rules, IP addresses,
+  ModSecurity per website, and the FTP and Fail2ban settings.
+  - A refused save reopens the window with its errors.
+  - Links such as `#new-database` open the window.
 - **WordPress Toolkit** (*WordPress* in the sidebar, and a *WordPress*
   page per website).
   - Finds installations in websites by reading files only, as the

@@ -236,6 +236,7 @@ final class Application
 
             $pipeline = [
                 $this->container->get(SecurityHeaders::class),
+                $this->container->get(\WhaCP\Http\Middleware\AjaxForms::class),
                 $this->container->get(VerifyCsrfToken::class),
                 $this->container->get(Authenticate::class),
             ];

@@ -18,13 +18,12 @@ $isPreset = isset(CronService::PRESETS[$sched]);
     <div class="card-header wcp-toolbar">
         <h2 class="wcp-toolbar-title"><i class="bi bi-clock-history me-1"></i>Cron jobs <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($jobs) ?></span></h2>
         <?php if ($canManage): ?>
-            <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#new-cron" aria-expanded="<?= $open ? 'true' : 'false' ?>" aria-controls="new-cron"><i class="bi bi-plus-lg me-1"></i>Add cron job</button>
+            <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-cron"><i class="bi bi-plus-lg me-1"></i>Add cron job</button>
         <?php endif; ?>
     </div>
     <?php if ($canManage): ?>
-        <div class="collapse wcp-form-panel<?= $open ? ' show' : '' ?>" id="new-cron" data-wcp-form-panel>
+        <?= $this->modalStart('new-cron', $edit ? 'Edit cron job' : 'Add cron job', $open) ?>
             <div class="p-3">
-                <h3 class="h6"><?= $edit ? 'Edit cron job' : 'New cron job' ?></h3>
                     <form method="post" action="<?= e($this->url('sites.cron.store', ['id' => $id])) ?>" data-wcp-busy>
                         <?= $this->csrfField() ?>
                         <?php if ($edit): ?><input type="hidden" name="job_id" value="<?= (int) $edit['id'] ?>"><?php endif; ?>
@@ -52,7 +51,7 @@ $isPreset = isset(CronService::PRESETS[$sched]);
                         <?php if ($edit): ?><a class="btn btn-link btn-sm" href="<?= e($this->url('sites.cron', ['id' => $id])) ?>">Cancel</a><?php endif; ?>
                     </form>
             </div>
-        </div>
+        <?= $this->modalEnd() ?>
     <?php endif; ?>
     <?php if ($jobs === []): ?>
         <div class="wcp-empty-state"><i class="bi bi-clock-history" aria-hidden="true"></i><div class="fw-medium">No cron jobs yet</div><div class="small">Run a command on a schedule, e.g. WordPress or Laravel tasks every few minutes.</div></div>

@@ -20,11 +20,10 @@ $fmtMem = static fn (?int $b): string => $b === null ? '' : number_format($b / 1
 <div class="card" id="workers">
     <div class="card-header wcp-toolbar">
         <h2 class="wcp-toolbar-title"><i class="bi bi-gear-wide-connected me-1"></i>Background workers <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($workers) ?></span></h2>
-        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#new-worker" aria-expanded="<?= $open ? 'true' : 'false' ?>" aria-controls="new-worker"><i class="bi bi-plus-lg me-1"></i>Add worker</button>
+        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-worker"><i class="bi bi-plus-lg me-1"></i>Add worker</button>
     </div>
-    <div class="collapse wcp-form-panel<?= $open ? ' show' : '' ?>" id="new-worker" data-wcp-form-panel>
+    <?= $this->modalStart('new-worker', $edit ? 'Edit worker' : 'Add worker', $open) ?>
         <div class="p-3">
-            <h3 class="h6"><?= $edit ? 'Edit worker' : 'New worker' ?></h3>
                 <form method="post" action="<?= e($this->url('sites.workers.store', ['id' => $id])) ?>" data-wcp-busy>
                     <?= $this->csrfField() ?>
                     <?php if ($edit): ?><input type="hidden" name="worker_id" value="<?= (int) $edit['id'] ?>"><?php endif; ?>
@@ -49,7 +48,7 @@ $fmtMem = static fn (?int $b): string => $b === null ? '' : number_format($b / 1
                     <?php if ($edit): ?><a class="btn btn-link btn-sm" href="<?= e($this->url('sites.workers', ['id' => $id])) ?>">Cancel</a><?php endif; ?>
                 </form>
         </div>
-    </div>
+    <?= $this->modalEnd() ?>
     <?php if ($workers === []): ?>
         <div class="wcp-empty-state"><i class="bi bi-gear-wide-connected" aria-hidden="true"></i><div class="fw-medium">No workers yet</div><div class="small">Keep a command running: queue consumers (<code>php artisan queue:work</code>), Node.js or Python servers and other long-running processes.</div></div>
     <?php else: ?>

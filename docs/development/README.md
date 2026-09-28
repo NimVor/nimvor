@@ -77,6 +77,51 @@ panel/
    `public/assets/js/whacp.js`.
 5. Tests: service tests in `tests/Integration`, an HTTP test in `tests/Http`.
 
+## Forms: background submits and windows
+
+Controllers keep the plain pattern: validate, act, flash a message and
+redirect (or flash errors and redirect back).
+
+**Background submits.** `whacp.js` submits POST forms in the page and its
+header actions in the background, with the header `X-WhaCP-Ajax: 1` and
+`Accept: text/html`, exactly as a normal post.
+- **Server side:** the `AjaxForms` middleware turns the final redirect into
+  `{"success": true, "redirect": "…"}`. CSRF, authorization and validation
+  are unchanged.
+- **Page swap:** the page loads that address and swaps in the new content
+  (`.wcp-shell`), keeping the scroll position. The flash message is shown,
+  as a notification when it is out of view.
+- **History:** each submit adds a history step, and Back loads the previous
+  page in full.
+- **Other responses:** an HTML answer (an error page) is shown; a file is
+  downloaded.
+
+A form is submitted normally when:
+- it has a `target`, is a GET form, or has `data-wcp-noajax` on itself or a
+  parent;
+- the page has its own scripts (`section('scripts')`), or declares
+  `<?php $this->start(); ?>off<?php $this->end('ajax'); ?>`;
+- it is outside the page layout, such as the file manager or the sign-in
+  pages.
+
+Every `DOMContentLoaded` handler in `whacp.js` runs again after a swap, so it
+must be safe to run twice. Downloads stay GET links.
+
+**Form windows.** Create and edit forms open in a Bootstrap modal:
+```php
+<button type="button" data-bs-toggle="modal" data-bs-target="#new-thing">Add thing</button>
+<?= $this->modalStart('new-thing', 'Add thing', $errors !== []) ?>
+    <form method="post" action="…" data-wcp-busy>…</form>
+<?= $this->modalEnd() ?>
+```
+- The third argument reopens the window after a refused save, with the
+  errors.
+- A link to `#new-thing` opens the window, and its first field gets focus.
+- Windows for table rows are collected in the loop and printed after the
+  table (see `ips/index.php`).
+- Destructive forms keep `data-wcp-confirm` (and
+  `data-wcp-confirm-word` for high-risk ones).
+
 ## Fixture server
 
 `agent/tests/fixtures/ubuntu-host` is a miniature Ubuntu 24.04 filesystem:

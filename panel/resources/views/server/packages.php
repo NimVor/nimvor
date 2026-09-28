@@ -4,6 +4,8 @@
 /** @var array<string, mixed>|null $updates */
 $ups = (array) ($updates['updates'] ?? []);
 ?>
+<?php // The install queue polls on its own: forms here submit normally. ?>
+<?php $this->start(); ?>off<?php $this->end('ajax'); ?>
 <?php $this->start(); ?>Packages<?php $this->end('title'); ?>
 <?php $this->start(); ?>Components and system updates<?php $this->end('subtitle'); ?>
 <?php $this->start(); ?>

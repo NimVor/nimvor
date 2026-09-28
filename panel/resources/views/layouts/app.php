@@ -19,7 +19,8 @@ $simple = $this->simpleLayout();
     <?= $this->section('head') ?>
     <script src="<?= e($this->asset('assets/js/theme.js')) ?>"></script>
 </head>
-<body class="wcp-body<?= $simple ? ' is-simple' : '' ?>">
+<?php // Pages with their own scripts, or that opt out, submit forms normally (see whacp.js). ?>
+<body class="wcp-body<?= $simple ? ' is-simple' : '' ?>"<?= $this->section('scripts') !== '' || trim($this->section('ajax')) === 'off' ? ' data-wcp-ajax="off"' : '' ?>>
 <div class="wcp-shell">
     <?php if (!$simple): ?><?= $this->partial('partials/sidebar') ?><?php endif; ?>
     <div class="wcp-main">
@@ -48,7 +49,7 @@ $simple = $this->simpleLayout();
                 <?= $this->section('actions') ?>
                 <?php $sw = isset($server_switcher) && is_callable($server_switcher) ? $server_switcher() : null; ?>
                 <?php if ($sw !== null && count($sw['servers']) > 1): ?>
-                    <form method="post" action="<?= e($this->url('servers.switch')) ?>" class="d-flex">
+                    <form method="post" action="<?= e($this->url('servers.switch')) ?>" class="d-flex" data-wcp-noajax>
                         <?= $this->csrfField() ?>
                         <select class="form-select form-select-sm" name="server_id" data-wcp-autosubmit aria-label="Server">
                             <?php foreach ($sw['servers'] as $srv): ?><option value="<?= (int) $srv['id'] ?>"<?= (int) $srv['id'] === $sw['current'] ? ' selected' : '' ?>><?= e($srv['name']) ?></option><?php endforeach; ?>
@@ -76,7 +77,7 @@ $simple = $this->simpleLayout();
                             <li><a class="dropdown-item" href="<?= e($this->url('profile')) ?>"><i class="bi bi-person me-2"></i>Profile</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
-                                <form method="post" action="<?= e($this->url('logout')) ?>">
+                                <form method="post" action="<?= e($this->url('logout')) ?>" data-wcp-noajax>
                                     <?= $this->csrfField() ?>
                                     <button class="dropdown-item" type="submit"><i class="bi bi-box-arrow-right me-2"></i>Sign out</button>
                                 </form>

@@ -50,7 +50,7 @@ $tls = ($cfg['tls'] ?? 'required') === 'optional' ? 'optional' : 'required';
                 </div>
             </details>
         <?php endif; ?>
-        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#ftp-settings" aria-expanded="<?= $openSettings ? 'true' : 'false' ?>" aria-controls="ftp-settings"><i class="bi bi-sliders me-1"></i><?= empty($status['configured']) ? 'Set up' : 'Settings' ?></button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#ftp-settings"><i class="bi bi-sliders me-1"></i><?= empty($status['configured']) ? 'Set up' : 'Settings' ?></button>
         <span class="wcp-svc" title="whacp-ftpd.service"><i class="bi bi-hdd-network" aria-hidden="true"></i>Pure-FTPd <?= !empty($status['active']) ? 'running <i class="bi bi-play-fill" aria-hidden="true"></i>' : (empty($status['configured']) ? 'not set up <i class="bi bi-stop-fill" aria-hidden="true"></i>' : 'stopped <i class="bi bi-stop-fill" aria-hidden="true"></i>') ?></span>
         <?php if (!empty($status['active'])): ?>
             <form method="post" action="<?= e($this->url('ftp.disable')) ?>" data-wcp-confirm="Stop the FTP server? Accounts are kept and come back when you start it again."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-stop-circle me-1"></i>Stop</button></form>
@@ -60,7 +60,7 @@ $tls = ($cfg['tls'] ?? 'required') === 'optional' ? 'optional' : 'required';
         </div>
     </div>
 
-    <div class="collapse<?= $openSettings ? ' show' : '' ?>" id="ftp-settings" data-wcp-form-panel>
+    <?= $this->modalStart('ftp-settings', 'FTP server settings', $errors !== []) ?>
         <form class="wcp-form-panel border rounded-3 p-3 mb-3" method="post" action="<?= e($this->url('ftp.configure')) ?>" data-wcp-busy>
             <?= $this->csrfField() ?>
             <div class="fw-semibold mb-2"><?= empty($status['configured']) ? 'Set up the FTP server' : 'FTP server settings' ?></div>
@@ -87,7 +87,7 @@ $tls = ($cfg['tls'] ?? 'required') === 'optional' ? 'optional' : 'required';
             <button class="btn btn-primary btn-sm"><?= empty($status['configured']) ? 'Set up and start' : 'Save and restart' ?></button>
             <div class="form-text">WhaCP runs pure-ftpd from its own configuration (<code>/etc/whacp-ftp</code>); the distribution's configuration is not changed. If the firewall is on, port 21 and the passive range are opened.</div>
         </form>
-    </div>
+    <?= $this->modalEnd() ?>
 
     <div class="wcp-dtable table-responsive">
         <table class="table align-middle">

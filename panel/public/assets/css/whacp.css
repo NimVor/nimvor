@@ -711,3 +711,6 @@ details.wcp-panel > summary { cursor: pointer; }
 .wcp-term { overflow: hidden; }
 .wcp-term-screen { height: min(70vh, 720px); min-height: 320px; background: #0f1419; padding: .5rem; }
 .wcp-term-screen .xterm { height: 100%; }
+
+/* Create/edit forms in a window: the window is the frame. */
+.modal .wcp-form-panel { background: none; border: 0 !important; padding: 0 !important; margin: 0 !important; }

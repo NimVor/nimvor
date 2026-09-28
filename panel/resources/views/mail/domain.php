@@ -41,9 +41,9 @@ $webmailUrl = !empty($webmail['enabled']) && !empty($webmail['hostname']) ? 'htt
     <div class="card-header wcp-toolbar">
         <h2 class="wcp-toolbar-title"><i class="bi bi-inbox me-1"></i>Mailboxes <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($mailboxes) ?></span></h2>
         <?php if (count($mailboxes) > 5): ?><input class="form-control form-control-sm wcp-filter" type="search" placeholder="Filter mailboxes" aria-label="Filter mailboxes" data-wcp-filter="#mailbox-table"><?php endif; ?>
-        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#new-mailbox" aria-expanded="<?= $openMailbox ? 'true' : 'false' ?>" aria-controls="new-mailbox"><i class="bi bi-plus-lg me-1"></i>Create mailbox</button>
+        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-mailbox"><i class="bi bi-plus-lg me-1"></i>Create mailbox</button>
     </div>
-    <div class="collapse wcp-form-panel<?= $openMailbox ? ' show' : '' ?>" id="new-mailbox" data-wcp-form-panel>
+    <?= $this->modalStart('new-mailbox', 'Create mailbox', $openMailbox) ?>
         <form method="post" action="<?= e($this->url('mail.mailboxes.store', ['id' => $id])) ?>" class="p-3" data-wcp-busy>
             <?= $this->csrfField() ?>
             <div class="row g-2 align-items-start">
@@ -59,7 +59,7 @@ $webmailUrl = !empty($webmail['enabled']) && !empty($webmail['hostname']) ? 'htt
                     <?php if (isset($errors['password'])): ?><div class="text-danger small"><?= e($errors['password']) ?></div><?php endif; ?></div>
             </div>
         </form>
-    </div>
+    <?= $this->modalEnd() ?>
     <?php if ($mailboxes === []): ?>
         <div class="wcp-empty-state"><i class="bi bi-inbox" aria-hidden="true"></i><div class="fw-medium">No mailboxes yet</div><div class="small">Create an address like info@<?= e($dom) ?> with its own inbox.</div></div>
     <?php else: ?>
@@ -122,9 +122,9 @@ $webmailUrl = !empty($webmail['enabled']) && !empty($webmail['hostname']) ? 'htt
 <div class="card mb-3" id="aliases">
     <div class="card-header wcp-toolbar">
         <h2 class="wcp-toolbar-title"><i class="bi bi-signpost-split me-1"></i>Aliases and forwarders <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($aliases) ?></span></h2>
-        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#new-alias" aria-expanded="<?= $openAlias ? 'true' : 'false' ?>" aria-controls="new-alias"><i class="bi bi-plus-lg me-1"></i>Add forwarder</button>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-alias"><i class="bi bi-plus-lg me-1"></i>Add forwarder</button>
     </div>
-    <div class="collapse wcp-form-panel<?= $openAlias ? ' show' : '' ?>" id="new-alias" data-wcp-form-panel>
+    <?= $this->modalStart('new-alias', 'Add forwarder', $openAlias) ?>
         <form method="post" action="<?= e($this->url('mail.aliases.store', ['id' => $id])) ?>" class="row g-2 align-items-start p-3" data-wcp-busy>
             <?= $this->csrfField() ?>
             <div class="col-md-5">
@@ -136,7 +136,7 @@ $webmailUrl = !empty($webmail['enabled']) && !empty($webmail['hostname']) ? 'htt
                 <?php if (isset($errors['destinations'])): ?><div class="invalid-feedback d-block"><?= e($errors['destinations']) ?></div><?php endif; ?></div>
             <div class="col-md-2"><label class="form-label small d-none d-md-block">&nbsp;</label><button class="btn btn-sm btn-primary w-100" type="submit">Save</button></div>
         </form>
-    </div>
+    <?= $this->modalEnd() ?>
     <?php if ($aliases === []): ?>
         <div class="wcp-empty-state"><i class="bi bi-signpost-split" aria-hidden="true"></i><div class="fw-medium">No forwarders</div><div class="small">Forward an address, e.g. sales@<?= e($dom) ?>, to one or more mailboxes.</div></div>
     <?php else: ?>

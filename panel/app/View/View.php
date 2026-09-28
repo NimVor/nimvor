@@ -115,6 +115,26 @@ final class View
         return $this->sections[$name] ?? '';
     }
 
+    /**
+     * Opens a create/edit form window (Bootstrap modal); close it with
+     * modalEnd(). $open shows it when the page loads (e.g. a refused save
+     * shown again with its errors). A button opens it with
+     * data-bs-toggle="modal" data-bs-target="#<id>", a link with #<id>.
+     */
+    public function modalStart(string $id, string $title, bool $open = false, string $size = 'modal-lg'): string
+    {
+        return '<div class="modal fade" id="' . e($id) . '" tabindex="-1" aria-labelledby="' . e($id) . '-title" aria-hidden="true" data-wcp-form-panel' . ($open ? ' data-wcp-modal-open' : '') . '>'
+            . '<div class="modal-dialog ' . e($size) . ' modal-dialog-scrollable"><div class="modal-content">'
+            . '<div class="modal-header"><h2 class="modal-title fs-5" id="' . e($id) . '-title">' . e($title) . '</h2>'
+            . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
+            . '<div class="modal-body">';
+    }
+
+    public function modalEnd(): string
+    {
+        return '</div></div></div></div>';
+    }
+
     /** @param array<string, string|int> $params @param array<string, mixed> $query */
     public function url(string $name, array $params = [], array $query = []): string
     {

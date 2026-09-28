@@ -47,20 +47,20 @@ $old ??= [];
                     <td class="small"><?= $a['present'] === null ? '<span class="wcp-muted">unknown</span>' : ($a['present'] ? '<span class="wcp-state is-ok">On the server</span>' : '<span class="wcp-state is-error">Not on the server</span>') ?></td>
                     <td class="text-end text-nowrap">
                         <?php if ($canManage): ?>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#ip-edit-<?= (int) $a['id'] ?>" aria-expanded="false">Edit</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#ip-edit-<?= (int) $a['id'] ?>">Edit</button>
                             <?php if (!$used): ?><form class="d-inline" method="post" action="<?= e($this->url('ips.delete', ['id' => (int) $a['id']])) ?>" data-wcp-confirm="Remove <?= e((string) $a['address']) ?> from the pool? The server keeps the address."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Remove</button></form><?php endif; ?>
                         <?php endif; ?>
                     </td>
                 </tr>
                 <?php if ($canManage): ?>
-                <tr class="collapse" id="ip-edit-<?= (int) $a['id'] ?>"><td colspan="6">
+                <?php ob_start(); ?><?= $this->modalStart('ip-edit-' . (int) $a['id'], 'Edit ' . $a['address']) ?>
                     <form class="row g-2 align-items-end" method="post" action="<?= e($this->url('ips.update', ['id' => (int) $a['id']])) ?>" data-wcp-busy><?= $this->csrfField() ?>
                         <div class="col-sm-3"><label class="form-label small" for="ipk-<?= (int) $a['id'] ?>">Assignment</label><select class="form-select form-select-sm" id="ipk-<?= (int) $a['id'] ?>" name="kind"><option value="shared">Shared (several websites)</option><option value="dedicated"<?= $a['kind'] === 'dedicated' ? ' selected' : '' ?>>Dedicated (one website)</option></select></div>
                         <div class="col-sm-2"><div class="form-check"><input class="form-check-input" type="checkbox" name="reserved" value="1" id="ipr-<?= (int) $a['id'] ?>"<?= (int) $a['reserved'] ? ' checked' : '' ?>><label class="form-check-label small" for="ipr-<?= (int) $a['id'] ?>">Reserved</label></div></div>
                         <div class="col-sm-5"><label class="form-label small" for="ipn-<?= (int) $a['id'] ?>">Reason / comment</label><input class="form-control form-control-sm" id="ipn-<?= (int) $a['id'] ?>" name="reason" maxlength="300" value="<?= e((string) $a['reason']) ?>" placeholder="e.g. mail server, kept for a customer"></div>
                         <div class="col-sm-2 text-end"><button class="btn btn-sm btn-primary">Save</button></div>
                     </form>
-                </td></tr>
+                <?= $this->modalEnd() ?><?php $editWindows[] = ob_get_clean(); ?>
                 <?php endif; ?>
             <?php endforeach; ?>
             <tr class="<?= $pool === [] ? '' : 'd-none' ?>" data-wcp-dt-empty><td colspan="6" class="text-center py-4 wcp-muted">The pool is empty. Add the server's addresses below, or rebuild the pool.</td></tr>
@@ -69,6 +69,7 @@ $old ??= [];
     </div>
     <div class="wcp-pager" data-wcp-dt-pager></div>
 </div>
+<?= implode('', $editWindows ?? []) ?>
 
 <div class="row g-3 mt-0">
     <div class="col-lg-6">

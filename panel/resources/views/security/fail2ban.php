@@ -28,10 +28,10 @@ foreach ($active as $j) {
         <span><?= !empty($f2b['running']) ? '<span class="wcp-state is-ok">Running</span>' : '<span class="wcp-state is-error">Not running</span>' ?></span>
         <span class="small"><span class="wcp-muted">Active jails</span> <?= count($active) ?></span>
         <span class="small"><span class="wcp-muted">Banned now</span> <span class="<?= $banned > 0 ? 'wcp-bad' : '' ?>"><?= $banned ?></span></span>
-        <?php if ($canManage): ?><button class="btn btn-sm btn-outline-secondary ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#f2b-settings" aria-expanded="false" aria-controls="f2b-settings"><i class="bi bi-sliders me-1"></i>Protection settings</button><?php endif; ?>
+        <?php if ($canManage): ?><button class="btn btn-sm btn-outline-secondary ms-auto" type="button" data-bs-toggle="modal" data-bs-target="#f2b-settings"><i class="bi bi-sliders me-1"></i>Protection settings</button><?php endif; ?>
     </div>
     <?php if ($canManage): ?>
-        <div class="collapse" id="f2b-settings" data-wcp-form-panel>
+        <?= $this->modalStart('f2b-settings', 'Protection settings') ?>
             <form class="wcp-form-panel border rounded-3 p-3 mt-3" method="post" action="<?= e($this->url('security.fail2ban.configure')) ?>" data-wcp-busy>
                 <?= $this->csrfField() ?>
                 <div class="row g-3">
@@ -53,7 +53,7 @@ foreach ($active as $j) {
                     </div>
                 </div>
             </form>
-        </div>
+        <?= $this->modalEnd() ?>
     <?php endif; ?>
 </div>
 

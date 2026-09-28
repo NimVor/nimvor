@@ -28,7 +28,7 @@ $sftpKeys = array_map(static fn ($k): string => (string) ((array) $k)['key'], (a
             <?php $canAdd = $ftpReady && count($accounts) < FtpController::MAX_ACCOUNTS; $openAdd = $canAdd && ($errors !== [] || $accounts === []); ?>
             <div class="card-header wcp-toolbar">
                 <h2 class="wcp-toolbar-title"><i class="bi bi-hdd-network me-1"></i>FTP accounts <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($accounts) ?> of <?= FtpController::MAX_ACCOUNTS ?></span></h2>
-                <?php if ($canAdd): ?><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#new-ftp" aria-expanded="<?= $openAdd ? 'true' : 'false' ?>" aria-controls="new-ftp"><i class="bi bi-plus-lg me-1"></i>Add FTP account</button><?php endif; ?>
+                <?php if ($canAdd): ?><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-ftp"><i class="bi bi-plus-lg me-1"></i>Add FTP account</button><?php endif; ?>
             </div>
             <?php if (!$ftpReady): ?>
                 <div class="card-body"><div class="alert alert-info small mb-0">The FTP server is not running on this server<?= $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE) ? '. Set it up under <a href="' . e($this->url('ftp')) . '">Server → FTP server</a>' : '; ask the administrator to set it up' ?>. SFTP (on the right) works without it.</div></div>
@@ -64,7 +64,7 @@ $sftpKeys = array_map(static fn ($k): string => (string) ((array) $k)['key'], (a
                 </table>
             </div>
             <?php if ($canAdd): ?>
-            <div class="collapse wcp-form-panel border-top<?= $openAdd ? ' show' : '' ?>" id="new-ftp" data-wcp-form-panel>
+            <?= $this->modalStart('new-ftp', 'Add FTP account', $openAdd) ?>
                 <form class="p-3" method="post" action="<?= e($this->url('sites.ftp.save', ['id' => $id])) ?>" data-wcp-busy>
                     <?= $this->csrfField() ?>
                     <div class="row g-2 align-items-start">
@@ -80,7 +80,7 @@ $sftpKeys = array_map(static fn ($k): string => (string) ((array) $k)['key'], (a
                     <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="generate" value="1" id="ftp-gen"><label class="form-check-label" for="ftp-gen">Generate a strong password (shown once)</label></div>
                     <button class="btn btn-sm btn-primary"><i class="bi bi-plus-lg me-1"></i>Add FTP account</button>
                 </form>
-            </div>
+            <?= $this->modalEnd() ?>
             <?php endif; ?>
             <?php if ($ftpReady): ?>
             <div class="card-footer small">

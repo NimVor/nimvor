@@ -1,6 +1,8 @@
 <?php
 /** @var \WhaCP\View\View $this */
 ?>
+<?php // Polls on its own (whacp.js): forms here submit normally. ?>
+<?php $this->start(); ?>off<?php $this->end('ajax'); ?>
 <?php $this->start(); ?>Monitoring<?php $this->end('title'); ?>
 <?php $this->start(); ?>Live statistics of this server<?php $this->end('subtitle'); ?>
 <?php $this->start(); ?>

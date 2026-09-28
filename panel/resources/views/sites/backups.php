@@ -22,11 +22,11 @@ foreach ($backups as $b) {
     <div class="card-header wcp-toolbar">
         <h2 class="wcp-toolbar-title"><i class="bi bi-archive me-1"></i>Backups <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($backups) ?></span></h2>
         <?php if ($canManage): ?>
-            <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#backup-now" aria-expanded="false" aria-controls="backup-now"><i class="bi bi-plus-lg me-1"></i>Back up now</button>
+            <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#backup-now"><i class="bi bi-plus-lg me-1"></i>Back up now</button>
         <?php endif; ?>
     </div>
     <?php if ($canManage): ?>
-        <div class="collapse wcp-form-panel" id="backup-now" data-wcp-form-panel>
+        <?= $this->modalStart('backup-now', 'Back up now') ?>
             <form class="p-3" method="post" action="<?= e($this->url('sites.backups.create', ['id' => $id])) ?>" data-wcp-busy>
                 <?= $this->csrfField() ?>
                 <div class="row g-3">
@@ -40,7 +40,7 @@ foreach ($backups as $b) {
                 </div>
                 <button class="btn btn-sm btn-primary mt-3" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Start backup</button>
             </form>
-        </div>
+        <?= $this->modalEnd() ?>
     <?php endif; ?>
     <?= $this->partial('backups/_list', ['backups' => $backups, 'canManage' => $canManage]) ?>
 </div>

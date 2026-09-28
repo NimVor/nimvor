@@ -93,7 +93,7 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
     </div>
     <div class="wcp-actionbar">
         <?php if ($canManage): ?>
-            <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#new-rule" aria-expanded="<?= $errors !== [] ? 'true' : 'false' ?>" aria-controls="new-rule"><i class="bi bi-plus-lg me-1"></i>Add rule</button>
+            <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-rule"><i class="bi bi-plus-lg me-1"></i>Add rule</button>
         <?php endif; ?>
         <div class="wcp-actionbar-end">
             <div class="wcp-seg" role="group" aria-label="Direction">
@@ -105,7 +105,7 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
         </div>
     </div>
     <?php if ($canManage): ?>
-        <div class="collapse<?= $errors !== [] ? ' show' : '' ?>" id="new-rule" data-wcp-form-panel>
+        <?= $this->modalStart('new-rule', 'Add firewall rule', $errors !== []) ?>
             <form class="wcp-form-panel border rounded-3 p-3 mb-3" method="post" action="<?= e($this->url('security.firewall.add')) ?>" data-wcp-busy>
                 <?= $this->csrfField() ?>
                 <div class="row g-2 align-items-end">
@@ -123,7 +123,7 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
                 </div>
                 <div class="form-text">Common ports: 22 SSH, 80 HTTP, 443 HTTPS, 3306 MySQL. Changes are undone after 2 minutes unless you confirm them.</div>
             </form>
-        </div>
+        <?= $this->modalEnd() ?>
     <?php endif; ?>
     <div class="wcp-dtable table-responsive">
         <table class="table align-middle">
