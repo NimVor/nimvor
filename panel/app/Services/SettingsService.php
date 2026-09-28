@@ -30,67 +30,67 @@ final class SettingsService
     {
         return [
             'panel_name' => [
-                'type' => 'string', 'default' => 'WhaCP', 'max_length' => 60,
+                'category' => 'general', 'type' => 'string', 'default' => 'WhaCP', 'max_length' => 60,
                 'label' => 'Panel name', 'help' => 'Shown in the header and browser title.',
             ],
             'panel_url' => [
-                'type' => 'url', 'default' => '', 'max_length' => 200,
+                'category' => 'general', 'type' => 'url', 'default' => '', 'max_length' => 200,
                 'label' => 'Public panel URL', 'help' => 'e.g. https://panel.example.com. Used for Git webhook URLs, password reset links and Google Drive; when empty the address you are browsing is used.',
             ],
             'session_idle_minutes' => [
-                'type' => 'int', 'default' => 30, 'min' => 5, 'max' => 1440,
+                'category' => 'security', 'type' => 'int', 'default' => 30, 'min' => 5, 'max' => 1440,
                 'label' => 'Session idle timeout (minutes)', 'help' => 'Users are signed out after this period of inactivity.',
             ],
             'discovery_cache_seconds' => [
-                'type' => 'int', 'default' => 300, 'min' => 0, 'max' => 86400,
+                'category' => 'general', 'type' => 'int', 'default' => 300, 'min' => 0, 'max' => 86400,
                 'label' => 'Discovery cache (seconds)', 'help' => 'How long a discovery snapshot is reused before the agent is asked again. 0 always asks the agent.',
             ],
             'dashboard_refresh_seconds' => [
-                'type' => 'int', 'default' => 10, 'min' => 3, 'max' => 300,
+                'category' => 'general', 'type' => 'int', 'default' => 10, 'min' => 3, 'max' => 300,
                 'label' => 'Dashboard refresh interval (seconds)', 'help' => 'How often the dashboard polls live metrics.',
             ],
             'alert_disk_percent' => [
-                'type' => 'int', 'default' => 90, 'min' => 50, 'max' => 99,
+                'category' => 'monitoring', 'type' => 'int', 'default' => 90, 'min' => 50, 'max' => 99,
                 'label' => 'Disk usage alert (%)', 'help' => 'Alert when any disk is fuller than this.',
             ],
             'alert_memory_percent' => [
-                'type' => 'int', 'default' => 95, 'min' => 50, 'max' => 100,
+                'category' => 'monitoring', 'type' => 'int', 'default' => 95, 'min' => 50, 'max' => 100,
                 'label' => 'Memory usage alert (%)', 'help' => 'Alert when memory use stays above this for two samples in a row.',
             ],
             'alert_load_per_core' => [
-                'type' => 'int', 'default' => 2, 'min' => 1, 'max' => 20,
+                'category' => 'monitoring', 'type' => 'int', 'default' => 2, 'min' => 1, 'max' => 20,
                 'label' => 'Load alert (per CPU core)', 'help' => 'Alert when the 1-minute load exceeds this many times the number of cores.',
             ],
             'alert_webhook_url' => [
-                'type' => 'url', 'default' => '', 'max_length' => 500,
+                'category' => 'monitoring', 'type' => 'url', 'default' => '', 'max_length' => 500,
                 'label' => 'Alert webhook URL', 'help' => 'Optional https:// URL that receives alerts as JSON ({"text": …}); works with Slack, Mattermost, Discord (/slack) and ntfy.',
             ],
             'dns_nameservers' => [
-                'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 300,
+                'category' => 'dns', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 300,
                 'label' => 'DNS name servers', 'help' => 'Host names of the name servers for hosted zones, separated by commas (e.g. ns1.example.com, ns2.example.com). New zones get NS records for them.',
             ],
             'dns_hostmaster' => [
-                'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 200,
+                'category' => 'dns', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 200,
                 'label' => 'DNS hostmaster email', 'help' => 'Contact address in the SOA record of new zones. Empty uses hostmaster@<zone>.',
             ],
             'dns_default_ipv4' => [
-                'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 15,
+                'category' => 'dns', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 15,
                 'label' => 'Default IPv4 for new zones', 'help' => 'The public address new zones point @ and www to. Empty leaves the A records out.',
             ],
             'auto_ssl' => [
-                'type' => 'bool', 'default' => true,
+                'category' => 'ssl', 'type' => 'bool', 'default' => true,
                 'label' => 'Automatic SSL for new websites', 'help' => 'Issue a Let\'s Encrypt certificate for a new website once its domain points to this server (its name servers are this panel\'s, or its address is this server\'s). Checked every few minutes for up to 3 days.',
             ],
             'av_scan_days' => [
-                'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 30,
+                'category' => 'security', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 30,
                 'label' => 'Scheduled malware scans (every N days)', 'help' => 'Scan every website with ClamAV every this many days, as the website\'s account, at night. 0 turns scheduled scans off.',
             ],
             'av_quarantine' => [
-                'type' => 'bool', 'default' => false,
+                'category' => 'security', 'type' => 'bool', 'default' => false,
                 'label' => 'Quarantine infected files', 'help' => 'Move files a malware scan finds into the website\'s .whacp-quarantine folder (unreadable) instead of only reporting them.',
             ],
             'ssl_warning_days' => [
-                'type' => 'int', 'default' => 14, 'min' => 1, 'max' => 90,
+                'category' => 'ssl', 'type' => 'int', 'default' => 14, 'min' => 1, 'max' => 90,
                 'label' => 'Certificate warning threshold (days)', 'help' => 'Certificates expiring within this many days are highlighted.',
             ],
         ];

@@ -689,3 +689,8 @@ details.wcp-panel > summary { cursor: pointer; }
 /* Live statistics: per-core use. */
 .wcp-live-cores { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: .25rem .75rem; }
 .wcp-live-cores progress { width: 100%; height: .45rem; accent-color: var(--bs-primary); vertical-align: middle; }
+
+/* Settings: category list. */
+.wcp-settings-nav .nav-link { color: var(--bs-body-color); border-radius: .5rem; }
+.wcp-settings-nav .nav-link.active { background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); font-weight: 500; }
+@media (min-width: 992px) { .wcp-settings-nav { position: sticky; top: 1rem; } }

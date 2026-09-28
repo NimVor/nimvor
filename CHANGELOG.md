@@ -29,6 +29,13 @@ All notable changes to WhaCP are documented here. The format follows
     logins and failed logins over time; relayers (mailboxes, server
     accounts such as a website's PHP, clients) and a sent summary by
     sender domain. Read from the journal or /var/log/mail.log / maillog.
+- **Central settings page** (Settings): every panel setting sorted into
+  categories (General, Server, Security, Websites and PHP, Email, DNS,
+  SSL/TLS, Databases, Backups, Monitoring and alerts, Resource limits,
+  Integrations, System), each saved on its own and returning to its tab
+  (`/settings#dns`), with links to the pages that keep related settings of
+  their own (server, PHP, mail server, greylisting, security, plans…). It
+  uses the same settings store; nothing moved or was duplicated.
 - **WhaCP services** (Services → WhaCP): state of the agent, panel,
   scheduler, greylisting, DKIM and FTP services with a restart button
   (server administrators). The agent and the panel restart two seconds

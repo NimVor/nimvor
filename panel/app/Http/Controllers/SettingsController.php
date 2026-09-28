@@ -44,12 +44,15 @@ final class SettingsController extends Controller
     public function update(Request $request): Response
     {
         $input = $request->all();
+        // Back to the tab the form was on (a known category only).
+        $tab = preg_match('/^[a-z]{2,20}$/', (string) ($input['tab'] ?? '')) === 1 ? '#' . $input['tab'] : '';
+        unset($input['tab']);
         try {
             $this->settings->update($input, $this->userId($request));
         } catch (ValidationException $e) {
-            return $this->backWithErrors('/settings', $e, $input);
+            return $this->backWithErrors('/settings' . $tab, $e, $input);
         }
-        return $this->redirectWithSuccess('/settings', 'Settings saved.');
+        return $this->redirectWithSuccess('/settings' . $tab, 'Settings saved.');
     }
 
     public function mail(Request $request): Response

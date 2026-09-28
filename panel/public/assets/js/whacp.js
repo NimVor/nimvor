@@ -171,6 +171,21 @@
             .catch(function () { loading.textContent = 'The message could not be read.'; body.replaceChildren(loading); });
     });
 
+    // Settings: the tab named in the address (#dns) opens; switching tabs
+    // updates the address so a reload or a saved form comes back to it.
+    (function () {
+        var root = document.querySelector('[data-wcp-settings-tabs]');
+        if (!root || !window.bootstrap) { return; }
+        var open = function () {
+            var id = (location.hash || '').replace(/[^a-z]/g, '');
+            var link = id && root.querySelector('#tab-' + id);
+            if (link && !root.querySelector('.tab-pane.show [aria-invalid="true"], .tab-pane.show .is-invalid')) { bootstrap.Tab.getOrCreateInstance(link).show(); }
+        };
+        root.addEventListener('shown.bs.tab', function (e) { history.replaceState(null, '', e.target.getAttribute('href')); });
+        window.addEventListener('hashchange', open);
+        open();
+    })();
+
     // Live statistics (Monitoring → Live): polled every 3 seconds while the
     // page is visible; every value is set as text.
     (function () {
