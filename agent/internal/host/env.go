@@ -79,6 +79,10 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-whacp-sieve.conf"),
 		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-whacp-tuning.conf"),
 		"/etc/rspamd/local.d/*",
+		// MariaDB/MySQL server settings WhaCP manages (its own drop-in only).
+		"/etc/mysql/mariadb.conf.d/zz-whacp.cnf",
+		"/etc/mysql/mysql.conf.d/zz-whacp.cnf",
+		"/etc/my.cnf.d/zz-whacp.cnf",
 		m.WebmailDir + "/**",
 		"/etc/tmpfiles.d/whacp-*.conf",
 		m.NginxAvailable,

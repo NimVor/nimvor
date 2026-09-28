@@ -168,6 +168,11 @@ return static function (Router $r): void {
     $r->post('/php/{version}/extensions/{op}', [PhpController::class, 'extension'], ['name' => 'php.extension', 'permission' => P::PHP_MANAGE]);
     $r->post('/php/{version}/ini', [PhpController::class, 'ini'], ['name' => 'php.ini', 'permission' => P::PHP_MANAGE]);
     $r->post('/php/{version}/fpm', [PhpController::class, 'fpm'], ['name' => 'php.fpm', 'permission' => P::PHP_MANAGE]);
+    $r->get('/databases/server', [\WhaCP\Http\Controllers\DbServerController::class, 'index'], ['name' => 'databases.server', 'permission' => P::SERVER_VIEW]);
+    $r->post('/databases/server/settings', [\WhaCP\Http\Controllers\DbServerController::class, 'saveSettings'], ['name' => 'databases.server.settings', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/databases/server/restart', [\WhaCP\Http\Controllers\DbServerController::class, 'restart'], ['name' => 'databases.server.restart', 'permission' => P::SERVICES_MANAGE]);
+    $r->post('/databases/server/flush', [\WhaCP\Http\Controllers\DbServerController::class, 'flush'], ['name' => 'databases.server.flush', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/databases/server/kill', [\WhaCP\Http\Controllers\DbServerController::class, 'kill'], ['name' => 'databases.server.kill', 'permission' => P::SERVER_MANAGE]);
     $r->get('/databases', [DatabasesController::class, 'index'], ['name' => 'databases', 'permission' => P::DATABASES_VIEW]);
     $r->post('/databases', [DatabasesController::class, 'store'], ['name' => 'databases.store', 'permission' => P::DATABASES_MANAGE]);
     $r->get('/databases/browse', [DbBrowserController::class, 'serverBrowse'], ['name' => 'databases.browser.server', 'permission' => P::DATABASES_MANAGE]);

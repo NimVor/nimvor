@@ -7,6 +7,20 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Database server manager** (Databases → Database server, for
+  administrators):
+  - status and resources: connections, queries, InnoDB buffer pool,
+    temporary tables, traffic, data size;
+  - connection details;
+  - a fixed set of settings in WhaCP's own option file, checked by the
+    server program and applied live where possible, rolled back on
+    failure;
+  - a restart that checks the option files first, waits for the server to
+    answer, and restores the previous settings if it does not come back;
+  - flush privileges, logs and hosts;
+  - connection list with stop query / end connection.
+
+  Networking (bind-address) is not changed.
 - **Database browser**:
   - search across all columns;
   - table status (engine, sizes, row format, auto-increment, dates), the

@@ -628,6 +628,44 @@ website; password login is optional. The SSH configuration is validated
 with `sshd -t`, and WhaCP verifies with `sshd -T` that the change applies to
 that user only before reloading; otherwise it is rolled back.
 
+## Database server
+
+*Databases → Database server* (server administrators) shows the MariaDB or
+MySQL server: version and uptime, connections in use and their peak,
+queries per second, slow queries and failed logins, data size and the
+numbers of databases and users, the InnoDB buffer pool (use and hit rate),
+temporary tables written to disk, open tables and traffic. It also shows
+where clients connect (socket, port, listening address, data directory, error log,
+TLS). Where the server listens is left to the distribution's option files;
+WhaCP does not open the database server to the network.
+
+*Settings* lists a fixed set of options: connections and timeouts, the
+largest packet, thread cache, host name lookups, InnoDB buffer pool, redo
+log size and flush at commit, temporary and heap table sizes, open tables
+cache, slow query log and time, and the default character set and
+collation. Values are checked (types, ranges, a collation that belongs
+to the character set) and written to WhaCP's own option file
+(`zz-whacp.cnf` in `/etc/mysql/mariadb.conf.d`, `/etc/mysql/mysql.conf.d`
+or `/etc/my.cnf.d`, read after the distribution's files). Then the server
+program itself reads all option files (`mariadbd --help --verbose`); if
+it reports an error, the previous file comes back. Options marked *now* are
+applied at once with `SET GLOBAL` (if the server refuses one, the file and
+the values applied before it are restored); the others take effect at the
+next restart. An empty field removes WhaCP's value, so the server's own
+applies again.
+
+*Restart* first checks the option files (it is refused while they have an
+error), restarts the service and waits up to 90 seconds for the server to
+answer. When settings are saved with a restart and the server does not come
+back, the previous option file is restored and the server is restarted with
+it. *Reload privileges*, *Reopen logs* and *Unblock hosts* run `FLUSH
+PRIVILEGES`, `FLUSH LOGS` and `FLUSH HOSTS`.
+
+*Connections* lists every client connection with its user, host, database,
+command, time and statement; a statement can be stopped (`KILL QUERY`) or
+the connection ended (`KILL CONNECTION`), after confirmation. The server's
+own threads cannot be ended. Every change is recorded in the audit log.
+
 ## Database browser
 
 *Databases → Browse* opens a full-page browser for one database: tables

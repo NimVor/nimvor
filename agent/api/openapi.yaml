@@ -102,8 +102,14 @@ paths:
               - db.grant
               - db.import
               - db.import_site
+              - db.kill
               - db.overview
+              - db.processlist
               - db.query
+              - db.server_flush
+              - db.server_restart
+              - db.server_settings
+              - db.server_status
               - db.user_create
               - db.user_drop
               - db.user_lock
@@ -416,8 +422,14 @@ x-whacp-actions:
   db.grant: { mutating: true, description: "Grant or revoke a privilege set on one database." }
   db.import: { mutating: true, description: "Import a .sql or .sql.gz file into a database (job)." }
   db.import_site: { mutating: true, description: "Import a .sql or .sql.gz file of a website (path relative to its folder) into a database (job); the file is opened confined to the website. remove_after deletes the file afterwards (e.g. an upload)." }
+  db.kill: { mutating: true, description: "Database server: end a connection (or only its running statement with query_only). Server threads cannot be ended." }
   db.overview: { mutating: false, description: "Databases, sizes, users and grants (live from the server)." }
+  db.processlist: { mutating: false, description: "Database server: the current connections and what they run (statements cut to 2,000 characters)." }
   db.query: { mutating: true, description: "Database browser: run SQL (one or more statements) as the database's browser account, which can reach this database only." }
+  db.server_flush: { mutating: true, description: "Database server: FLUSH PRIVILEGES, LOGS (reopen log files) or HOSTS (unblock hosts blocked after connection errors)." }
+  db.server_restart: { mutating: true, description: "Database server: check the configuration, restart the service and wait until it answers again. Refused when the configuration is invalid." }
+  db.server_settings: { mutating: true, description: "Database server: set WhaCP's managed options (\"\" removes one, leaving the distribution's value). Values are validated, the option files are checked by the server program, dynamic options are applied at once; others (or all, with restart) take effect after a checked restart. Anything that fails is rolled back." }
+  db.server_status: { mutating: false, description: "Database server: version, uptime, status counters, connection details, managed settings (effective and WhaCP's) and whether the configuration is valid." }
   db.user_create: { mutating: true, description: "Create a database user." }
   db.user_drop: { mutating: true, description: "Drop a database user." }
   db.user_lock: { mutating: true, description: "Lock or unlock a database user (account suspension): a locked user cannot connect; its data and grants are kept." }

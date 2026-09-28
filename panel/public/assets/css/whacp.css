@@ -543,6 +543,7 @@ details.card[open] > summary::after { transform: rotate(180deg); }
 
 /* ---- Website statistics ---- */
 .wcp-progress-thin { height: .35rem; }
+.wcp-meter { height: .5rem; accent-color: var(--bs-primary); vertical-align: middle; }
 .wcp-stat-bar { width: 30%; }
 .wcp-hour { width: 1.6rem; }
 .wcp-hour-count { width: 3.5rem; }
