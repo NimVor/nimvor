@@ -60,6 +60,9 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		filepath.Join(m.PoolDir("*"), "whacp-*.conf"),
 		filepath.Join(m.CronDir, "whacp-*"),
 		filepath.Join(m.UnitDir, "whacp-worker-*.service"),
+		filepath.Join(m.UnitDir, "whacp-fpm-*.service"),
+		"/etc/whacp-fpm/**",
+		"/etc/whacp-cron/**",
 		m.SSHDropIn,
 		m.SFTPDropIn,
 		m.SFTPKeysDir + "/**",
@@ -342,7 +345,33 @@ func (e *Env) Credential(name string) (*execx.Credential, users.User, error) {
 	if u.UID < 1000 || u.UID >= 60000 {
 		return nil, u, fmt.Errorf("user %s is a system account; WhaCP only runs commands as regular accounts", name)
 	}
-	return &execx.Credential{UID: uint32(u.UID), GID: uint32(u.GID), Home: u.Home}, u, nil
+	return &execx.Credential{UID: uint32(u.UID), GID: uint32(u.GID), Home: u.Home, Slice: e.AccountSlice(name)}, u, nil
+}
+
+// AccountSlice is the slice a system user's processes run in when its
+// hosting account has resource limits ("" otherwise). The limits package
+// keeps the assignment in the state directory.
+func (e *Env) AccountSlice(user string) string {
+	b, err := e.Root.ReadFile(filepath.Join(e.Cfg.StateDir, "limits.json"))
+	if err != nil {
+		return ""
+	}
+	var st struct {
+		Accounts map[string]struct {
+			Users []string `json:"users"`
+		} `json:"accounts"`
+	}
+	if json.Unmarshal(b, &st) != nil {
+		return ""
+	}
+	for acct, a := range st.Accounts {
+		for _, u := range a.Users {
+			if u == user {
+				return "whacp-" + acct + ".slice"
+			}
+		}
+	}
+	return ""
 }
 
 // WebUser returns the account Nginx runs as.

@@ -92,30 +92,64 @@ func (s *SiteJobs) validate(env *host.Env) error {
 	return nil
 }
 
+// ScriptDir holds the job scripts of accounts with resource limits.
+const ScriptDir = "/etc/whacp-cron"
+
+// jobBody is what a run executes as the website account: the command,
+// framed in its log (or mailed through tee).
+func jobBody(s SiteJobs, j Job) (body, out string) {
+	// Each run is framed in the log: start time, then end time and exit code.
+	run := fmt.Sprintf(`{ echo "%s start $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"; ( %s ); rc=$?; echo "%s end $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) exit=$rc"; }`, RunMarker, j.Command, RunMarker)
+	out = ">> " + logFile(s.Root, j.ID) + " 2>&1"
+	if j.Email != "" {
+		// cron mails what the job prints: keep it in the log too.
+		out = "2>&1 | tee -a " + logFile(s.Root, j.ID)
+	}
+	return run, out
+}
+
 // Render produces the cron.d file. "%" is escaped because cron turns it
 // into a newline.
 func Render(s SiteJobs) string {
+	out, _ := render(s, "")
+	return out
+}
+
+// ScriptPath is a job's script (accounts with resource limits).
+func ScriptPath(domain string, id int) string {
+	return filepath.Join(ScriptDir, FileName(domain), fmt.Sprintf("%d.sh", id))
+}
+
+// render returns the cron.d file and, for an account with resource limits
+// (slice set), the job scripts. Such jobs are started by root's cron line
+// with systemd-run as the account, in its slice: root's line holds only
+// validated names and numbers; the command is in the script, which only
+// root and the account can read and which runs as the account.
+func render(s SiteJobs, slice string) (string, map[string]string) {
 	var b strings.Builder
+	scripts := map[string]string{}
 	fmt.Fprintf(&b, "# Managed by WhaCP. Do not edit: changes are overwritten from the panel.\n# Website: %s\n", s.Domain)
 	b.WriteString("SHELL=/bin/sh\nPATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\nMAILTO=\"\"\n\n")
 	for _, j := range s.Jobs {
-		// Each run is framed in the log: start time, then end time and exit code.
-		run := fmt.Sprintf(`{ echo "%s start $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"; ( %s ); rc=$?; echo "%s end $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) exit=$rc"; }`, RunMarker, j.Command, RunMarker)
-		out := ">> " + logFile(s.Root, j.ID) + " 2>&1"
+		run, out := jobBody(s, j)
 		mailto := `MAILTO=""`
 		if j.Email != "" {
-			// cron mails what the job prints: keep it in the log too.
-			out = "2>&1 | tee -a " + logFile(s.Root, j.ID)
 			mailto = `MAILTO="` + j.Email + `"`
 		}
-		line := fmt.Sprintf("%s %s cd %s && %s %s", j.Schedule, s.User, s.Root, run, out)
-		line = strings.ReplaceAll(line, "%", `\%`)
+		var line string
+		if slice == "" {
+			line = fmt.Sprintf("%s %s cd %s && %s %s", j.Schedule, s.User, s.Root, run, out)
+			line = strings.ReplaceAll(line, "%", `\%`)
+		} else {
+			scripts[ScriptPath(s.Domain, j.ID)] = fmt.Sprintf("# Managed by WhaCP: job %d of %s (runs as %s in %s).\ncd %s || exit 1\n%s %s\n", j.ID, s.Domain, s.User, slice, s.Root, run, out)
+			line = fmt.Sprintf("%s root /usr/bin/systemd-run --quiet --collect --wait --pipe --uid=%s --gid=%s --slice=%s --working-directory=%s --property=NoNewPrivileges=yes -- /bin/sh %s", j.Schedule, s.User, s.User, slice, s.Root, ScriptPath(s.Domain, j.ID))
+		}
 		if !j.Enabled {
 			line = "# disabled: " + line
 		}
 		fmt.Fprintf(&b, "# job %d\n%s\n%s\n", j.ID, mailto, line)
 	}
-	return b.String()
+	return b.String(), scripts
 }
 
 func logFile(root string, id int) string {
@@ -182,10 +216,28 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		path := filepath.Join(env.M.CronDir, FileName(in.Domain))
 		set := env.Changes("cron-" + in.Domain)
+		cred, _, _ := env.Credential(in.User)
+		content, scripts := render(in, cred.Slice)
 		if len(in.Jobs) == 0 {
 			set.Remove(path)
 		} else {
-			set.Write(path, []byte(Render(in)), 0o644, agentfs.RootOwner)
+			set.Write(path, []byte(content), 0o644, agentfs.RootOwner)
+		}
+		// Job scripts (resource-limited accounts): exactly these.
+		dir := filepath.Join(ScriptDir, FileName(in.Domain))
+		old, _ := env.Root.Glob(filepath.Join(dir, "*.sh"))
+		for _, f := range old {
+			if _, keep := scripts[f]; !keep {
+				set.Remove(f)
+			}
+		}
+		if len(scripts) > 0 {
+			group := agentfs.Owner{UID: 0, GID: int(cred.GID)}
+			set.Mkdir(ScriptDir, 0o755, agentfs.RootOwner)
+			set.Mkdir(dir, 0o750, group)
+			for f, body := range scripts {
+				set.Write(f, []byte(body), 0o640, group)
+			}
 		}
 		a, err := set.Apply()
 		if err != nil {

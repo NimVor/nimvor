@@ -20,6 +20,7 @@ final class PlansController extends Controller
         private readonly PlanService $plans,
         private readonly \WhaCP\Services\FeatureService $features,
         private readonly \WhaCP\Services\FfmpegService $ffmpeg,
+        private readonly \WhaCP\Services\ResourceLimitService $limits,
     ) {
         parent::__construct($view, $session);
     }
@@ -49,7 +50,13 @@ final class PlansController extends Controller
             $this->ffmpeg->reconcile();
         } catch (\WhaCP\Agent\AgentException) {
         }
-        return $this->redirectWithSuccess('/plans', 'Plan saved. Limits apply to new websites, databases, cron jobs and workers.');
+        // Resource limits apply to the plan's accounts at once.
+        try {
+            $changed = $this->limits->reconcile();
+        } catch (\WhaCP\Agent\AgentException $e) {
+            return $this->redirectWithFailure('/plans', new UserFacingException('Plan saved, but its resource limits were not applied: ' . $e->getMessage(), '', 'They are applied again by the scheduler within minutes; check the agent.'));
+        }
+        return $this->redirectWithSuccess('/plans', 'Plan saved. Limits apply to new websites, databases, cron jobs and workers' . ($changed !== [] ? '; resource limits applied to ' . count($changed) . ' account(s)' : '') . '.');
     }
 
     public function destroy(Request $request, string $id): Response

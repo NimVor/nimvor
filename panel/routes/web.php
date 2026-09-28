@@ -168,6 +168,8 @@ return static function (Router $r): void {
     $r->post('/php/{version}/extensions/{op}', [PhpController::class, 'extension'], ['name' => 'php.extension', 'permission' => P::PHP_MANAGE]);
     $r->post('/php/{version}/ini', [PhpController::class, 'ini'], ['name' => 'php.ini', 'permission' => P::PHP_MANAGE]);
     $r->post('/php/{version}/fpm', [PhpController::class, 'fpm'], ['name' => 'php.fpm', 'permission' => P::PHP_MANAGE]);
+    $r->get('/limits', [\WhaCP\Http\Controllers\LimitsController::class, 'index'], ['name' => 'limits', 'permission' => P::SERVER_VIEW]);
+    $r->post('/limits/apply', [\WhaCP\Http\Controllers\LimitsController::class, 'apply'], ['name' => 'limits.apply', 'permission' => P::SERVER_MANAGE]);
     $r->get('/ips', [\WhaCP\Http\Controllers\IpController::class, 'index'], ['name' => 'ips', 'permission' => P::SERVER_VIEW]);
     $r->post('/ips', [\WhaCP\Http\Controllers\IpController::class, 'store'], ['name' => 'ips.store', 'permission' => P::SERVER_MANAGE]);
     $r->post('/ips/rebuild', [\WhaCP\Http\Controllers\IpController::class, 'rebuild'], ['name' => 'ips.rebuild', 'permission' => P::SERVER_MANAGE]);

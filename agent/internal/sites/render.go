@@ -21,6 +21,7 @@ type Layout struct {
 	HTTP2Direct bool   // nginx >= 1.25.1 uses "http2 on;"
 	IPv6        bool   // add [::] listeners
 	TLSInclude  string // the server-wide TLS snippet's include line
+	Slice       string // the account's slice when it has resource limits
 }
 
 const header = "Managed by WhaCP. Do not edit: changes are overwritten when the website is saved in the panel."

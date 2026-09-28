@@ -162,3 +162,16 @@ func TestRunNowDoesNotFollowLogSymlinksOutOfTheWebsite(t *testing.T) {
 		t.Fatal("cron.log followed the symlink out of the website")
 	}
 }
+
+func TestLimitedAccountJobsRunInSlice(t *testing.T) {
+	s := SiteJobs{Domain: "shop.test", User: "shop", Root: "/home/whacp/shop.test", Jobs: []Job{{ID: 4, Schedule: "*/5 * * * *", Command: "php artisan schedule:run 'x%y'", Enabled: true}}}
+	out, scripts := render(s, "whacp-acct2.slice")
+	line := "*/5 * * * * root /usr/bin/systemd-run --quiet --collect --wait --pipe --uid=shop --gid=shop --slice=whacp-acct2.slice --working-directory=/home/whacp/shop.test --property=NoNewPrivileges=yes -- /bin/sh /etc/whacp-cron/whacp-site-shop_test/4.sh"
+	if !strings.Contains(out, line) || strings.Contains(out, "artisan") {
+		t.Fatalf("cron file (the command must not be in root's line):\n%s", out)
+	}
+	body := scripts["/etc/whacp-cron/whacp-site-shop_test/4.sh"]
+	if !strings.Contains(body, "( php artisan schedule:run 'x%y' )") || !strings.Contains(body, ">> /home/whacp/shop.test/logs/cron-4.log 2>&1") {
+		t.Fatalf("script:\n%s", body)
+	}
+}

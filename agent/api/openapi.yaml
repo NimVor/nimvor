@@ -163,6 +163,8 @@ paths:
               - jobs.get
               - jobs.list
               - jobs.log
+              - limits.set
+              - limits.status
               - logs.download
               - logs.sources
               - logs.tail
@@ -493,6 +495,8 @@ x-whacp-actions:
   jobs.get: { mutating: false, description: "Status of a background job." }
   jobs.list: { mutating: false, description: "Recent background jobs, optionally for one target." }
   jobs.log: { mutating: false, description: "Log output of a background job from an offset." }
+  limits.set: { mutating: true, description: "Set a hosting account's resource limits (CPU %, memory, processes, disk read/write MB/s; 0 = no limit) for its slice whacp-acct<ID>.slice and its system users' logins; all zero removes them. Applied at once and at every boot. Websites, workers and cron jobs follow when they are applied again." }
+  limits.status: { mutating: false, description: "Resource use of hosting accounts' slices (memory, CPU time and throttling, processes, memory pressure and out-of-memory kills) and their limits." }
   logs.download: { mutating: false, description: "Read a chunk of a log file (base64)." }
   logs.sources: { mutating: false, description: "Available log sources (server-wide or for one website)." }
   logs.tail: { mutating: false, description: "Last lines of a log, or new lines since an offset/cursor." }

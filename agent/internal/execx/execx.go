@@ -37,6 +37,8 @@ type Credential struct {
 	GID    uint32
 	Groups []uint32
 	Home   string
+	// Slice runs the command in the account's slice (resource limits).
+	Slice string
 }
 
 // Opts customises a single run.
@@ -342,6 +344,9 @@ func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeo
 	}
 	for _, p := range transientHardening {
 		a = append(a, "--property="+p)
+	}
+	if as.Slice != "" {
+		a = append(a, "--slice="+as.Slice)
 	}
 	if timeout > 0 {
 		// A backstop only: the agent's own deadline stops the unit first and

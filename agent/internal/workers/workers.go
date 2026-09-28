@@ -37,6 +37,9 @@ type Spec struct {
 	Restart   string            `json:"restart"`
 	MemoryMB  int               `json:"memory_mb"`
 	Enabled   bool              `json:"enabled"`
+	// slice is the account's slice when it has resource limits (set by
+	// the agent from its own record, never from the request).
+	slice string
 }
 
 var envKey = regexp.MustCompile(`^[A-Z_][A-Z0-9_]{0,63}$`)
@@ -127,6 +130,9 @@ func (s Spec) unit(script string) string {
 	if s.MemoryMB > 0 {
 		fmt.Fprintf(&b, "MemoryMax=%dM\n", s.MemoryMB)
 	}
+	if s.slice != "" {
+		fmt.Fprintf(&b, "Slice=%s\n", s.slice)
+	}
 	b.WriteString("\n[Install]\nWantedBy=multi-user.target\n")
 	return b.String()
 }
@@ -155,6 +161,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		set.Mkdir(host.WorkersDir, 0o711, agentfs.RootOwner)
 		set.Write(scriptPath(s.Slug), []byte(s.script()), 0o640, agentfs.Owner{UID: 0, GID: int(cred.GID)})
 		set.Remove(legacyPath(s.Slug))
+		s.slice = env.AccountSlice(s.User)
 		set.Write(unitPath(s.Slug), []byte(s.unit(scriptPath(s.Slug))), 0o644, agentfs.RootOwner)
 		a, err := set.Apply()
 		if err != nil {

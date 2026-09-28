@@ -31,6 +31,15 @@ final class PlanService
         'max_customers' => 'Customers (resellers)',
     ];
 
+    /** Resource limits (cgroups): field => [label, minimum when set, maximum, unit] */
+    public const LIMITS = [
+        'cpu_percent' => ['CPU', 10, 12800, '% (100 = one core)'],
+        'memory_mb' => ['Memory', 64, 2097152, 'MB'],
+        'tasks_max' => ['Processes and threads', 16, 1048576, ''],
+        'io_read_mbps' => ['Disk reads', 1, 100000, 'MB/s'],
+        'io_write_mbps' => ['Disk writes', 1, 100000, 'MB/s'],
+    ];
+
     public function __construct(
         private readonly Connection $db,
         private readonly AuditLogger $audit,
@@ -97,6 +106,15 @@ final class PlanService
             }
             $vals[$f] = $v;
         }
+        $limits = [];
+        foreach (self::LIMITS as $f => [$label, $min, $max]) {
+            $v = filter_var($input[$f] ?? 0, FILTER_VALIDATE_INT);
+            if ($v === false || ($v !== 0 && ($v < $min || $v > $max))) {
+                $errors[$f] = 'Enter 0 (no limit) or ' . $min . '–' . $max . '.';
+                continue;
+            }
+            $limits[$f] = $v;
+        }
         $ownerId = Scope::isAll($actor) ? null : (int) $actor['id'];
         if (!Scope::isAll($actor)) {
             $vals['max_customers'] = 0; // customers of resellers cannot resell
@@ -140,7 +158,8 @@ final class PlanService
         // FFmpeg: a reseller's plan grants it only while the reseller's own plan does too.
         $ffmpeg = !empty($input['ffmpeg']) && $input['ffmpeg'] !== '0';
         $this->db->run('UPDATE plans SET ffmpeg = ? WHERE id = ?', [$ffmpeg ? 1 : 0, $id]);
-        $this->audit->record('plan.save', 'plan', (string) $id, AuditLogger::SUCCESS, ['name' => $name, 'feature_list_id' => $featureList, 'ffmpeg' => $ffmpeg] + $vals);
+        $this->db->run('UPDATE plans SET ' . implode(', ', array_map(static fn (string $c): string => $c . ' = ?', array_keys($limits))) . ' WHERE id = ?', array_merge(array_values($limits), [$id]));
+        $this->audit->record('plan.save', 'plan', (string) $id, AuditLogger::SUCCESS, ['name' => $name, 'feature_list_id' => $featureList, 'ffmpeg' => $ffmpeg] + $vals + $limits);
         return $id;
     }
 

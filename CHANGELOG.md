@@ -7,6 +7,19 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Resource limits per account (cgroups)**: plans set CPU %, memory,
+  processes and disk read/write speed. Each limited account gets a systemd
+  slice, and everything the account runs is counted in it:
+  - its websites' PHP (a per-account PHP-FPM master),
+  - its cron jobs (run through `systemd-run`),
+  - its workers and the commands the panel runs for it.
+
+  The same limits also apply to its SSH/SFTP logins. Accounts cannot leave
+  their slice, and personal crontab and `at` jobs are refused for limited
+  accounts. The limits persist across reboots and apply at once when plans
+  change, websites are added or removed, or accounts are suspended; the
+  scheduler reconciles them. *Server → Resource limits* shows current use.
+  Network bandwidth is not limited (cgroup v2 has no network controller).
 - **IP addresses** (administrators):
   - a pool of addresses websites may be bound to (shared, dedicated or
     reserved with a reason), with usage and whether the server has each

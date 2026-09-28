@@ -70,6 +70,18 @@ final class Application
             $c->get(\WhaCP\Services\SiteProvisioner::class)->provision((array) $p['website']);
             $c->get(\WhaCP\Services\AutoSslService::class)->mark((array) $p['website']);
         });
+        // Resource limits follow the account's websites (its system users).
+        $limits = static function () use ($c): void {
+            try {
+                $c->get(\WhaCP\Services\ResourceLimitService::class)->reconcile();
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    $c->get(Logger::class)->warning('resource limits not applied', ['error' => $e->getMessage()]);
+                }
+            }
+        };
+        $events->on('website.created', static fn (array $p) => $limits());
+        $events->on('website.deleted', static fn (array $p) => $limits());
         $events->on('website.deleting', static function (array $p) use ($c): void {
             $site = (array) $p['website'];
             $c->get(\WhaCP\Services\WorkerService::class)->removeAll($site);

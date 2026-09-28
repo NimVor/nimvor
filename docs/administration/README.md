@@ -294,6 +294,51 @@ suspension again" retries.
   through the same code as deleting them one by one; if a step fails, that
   account is kept with what is left and the others continue.
 
+## Resource limits (CPU, memory)
+
+A plan can limit its accounts' CPU (100 % = one core), memory, number of
+processes and threads, and disk read and write speed (MB/s, on the
+websites' file system); 0 means no limit. A reseller's customers get at most
+what the reseller's own plan allows. Administrators' websites are not
+limited. *Server → Resource limits* lists the limited accounts with their
+current memory use, processes, CPU time lost to the limit and
+out-of-memory kills; *Apply the plans now* re-applies everything.
+
+WhaCP uses systemd and cgroup v2 (Ubuntu 22.04+, Debian 11+, RHEL/AlmaLinux
+9): each limited account gets a slice, `whacp-acct<ID>.slice` (under
+`whacp.slice`), with the plan's limits. It is shared by everything the
+account runs:
+
+- PHP: the account's websites get their own PHP-FPM master per PHP version,
+  `whacp-fpm-<user>-<version>.service` (configuration in
+  `/etc/whacp-fpm/`), which runs in the slice; each PHP process and
+  whatever it starts is counted. Accounts without limits keep using the
+  distribution's PHP-FPM service.
+- Cron jobs run through `systemd-run` in the slice, as the account. Root's
+  cron line only names the job's script, `/etc/whacp-cron/…`, which only
+  root and the account can read. Personal crontabs and `at` jobs of limited
+  accounts are refused (`/etc/cron.deny`, `/etc/at.deny`), because they
+  would run outside the slice.
+- Workers and commands run for the account from the panel (such as
+  *Run now*, deployments and installers) run in the slice.
+- SSH and SFTP logins are placed by systemd-logind in `user-<uid>.slice`;
+  WhaCP gives it the same limits (a separate budget from the websites').
+
+An account cannot leave its slice: moving a process to another cgroup
+needs permissions (cgroup delegation) that accounts do not get. The limits
+are unit files (`/etc/systemd/system/whacp-acct*.slice` and
+`user-*.slice.d/50-whacp-limits.conf`), so they apply after a reboot, and
+they are also applied to the running slices at once. They follow the
+account when its plan or the plan's limits change (upgrade or downgrade),
+when websites are added or removed and when it is suspended or restored,
+and the scheduler checks every few minutes that the server matches the
+plans. Removing the limits moves PHP back to the shared service.
+
+Network bandwidth is not limited this way: cgroup v2 has no network
+controller, and shaping by account would need changes to the network
+interface's queueing that WhaCP does not make. The plans' monthly
+bandwidth limit (measured from the web logs) still applies.
+
 ## Feature Manager
 
 Plans → Manage feature lists. Each list turns panel features on or off;

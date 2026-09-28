@@ -26,6 +26,7 @@ final class AccountAdminController extends Controller
         private readonly AccountAdminService $accounts,
         private readonly PlanService $plans,
         private readonly TerminationService $termination,
+        private readonly \WhaCP\Services\ResourceLimitService $limits,
     ) {
         parent::__construct($view, $session);
     }
@@ -77,6 +78,12 @@ final class AccountAdminController extends Controller
             $plan = $this->accounts->changePlan($account, (int) $request->input('plan_id'), $this->user($request));
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/users/' . (int) $id . '/plan', $e);
+        }
+        // CPU, memory and other resource limits change at once (upgrade or downgrade).
+        try {
+            $this->limits->reconcile();
+        } catch (\WhaCP\Agent\AgentException $e) {
+            return $this->redirectWithFailure($this->edit((int) $id), new UserFacingException('The plan was changed, but its resource limits were not applied: ' . $e->getMessage(), '', 'The scheduler applies them again within minutes.'));
         }
         return $this->redirectWithSuccess($this->edit((int) $id), 'The account now has the “' . $plan['name'] . '” plan. Its limits apply from now on; nothing was removed.');
     }

@@ -17,7 +17,7 @@ $admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
                 <div class="card-body text-body-secondary">No plans yet. Users without a plan are unlimited.</div>
             <?php else: ?>
                 <div class="table-responsive"><table class="table table-sm align-middle mb-0">
-                    <thead><tr><th>Plan</th><th class="text-center">Websites</th><th class="text-center">Databases</th><th class="text-center">Cron</th><th class="text-center">Workers</th><?php if ($admin): ?><th class="text-center">Customers</th><?php endif; ?><th class="text-center">Disk</th><th class="text-center">Bandwidth</th><th class="text-center">Email</th><th class="text-center">FTP</th><th class="text-center">Users</th><th></th></tr></thead>
+                    <thead><tr><th>Plan</th><th class="text-center">Websites</th><th class="text-center">Databases</th><th class="text-center">Cron</th><th class="text-center">Workers</th><?php if ($admin): ?><th class="text-center">Customers</th><?php endif; ?><th class="text-center">Disk</th><th class="text-center">Bandwidth</th><th class="text-center">Email</th><th class="text-center">FTP</th><th class="text-center">CPU / memory</th><th class="text-center">Users</th><th></th></tr></thead>
                     <tbody>
                     <?php foreach ($plans as $p): ?>
                         <tr>
@@ -31,6 +31,7 @@ $admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
                             <td class="text-center text-nowrap"><?= (int) $p['bandwidth_mb'] === 0 ? '∞' : e(format_bytes((int) $p['bandwidth_mb'] * 1048576)) ?></td>
                             <td class="text-center"><?= e($lim($p['max_email_accounts'])) ?></td>
                             <td class="text-center"><?= e($lim($p['max_ftp_accounts'])) ?></td>
+                            <td class="text-center text-nowrap small"><?= (int) ($p['cpu_percent'] ?? 0) > 0 ? (int) $p['cpu_percent'] . '%' : '∞' ?> / <?= (int) ($p['memory_mb'] ?? 0) > 0 ? e(format_bytes((int) $p['memory_mb'] * 1048576, 0)) : '∞' ?></td>
                             <td class="text-center"><?= (int) $p['users'] ?></td>
                             <td class="text-end text-nowrap">
                                 <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('plans', [], ['edit' => (int) $p['id']])) ?>" title="Edit"><i class="bi bi-pencil"></i></a>
@@ -58,6 +59,14 @@ $admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
                             <div class="col-6"><?= $this->partial('partials/field', ['name' => $f, 'label' => $label, 'type' => 'number', 'value' => (string) ($form[$f] ?? '0'), 'attrs' => ['min' => '0']]) ?></div>
                         <?php endforeach; ?>
                     </div>
+                    <fieldset class="border rounded p-2 mb-3"><legend class="float-none w-auto px-1 mb-0 small fw-semibold">Resource limits (CPU, memory)</legend>
+                        <div class="row g-2">
+                            <?php foreach (PlanService::LIMITS as $f => [$label, $min, $max, $unit]): ?>
+                                <div class="col-6"><?= $this->partial('partials/field', ['name' => $f, 'label' => $label . ($unit !== '' ? ' (' . $unit . ')' : ''), 'type' => 'number', 'value' => (string) ($form[$f] ?? '0'), 'attrs' => ['min' => '0', 'max' => (string) $max]]) ?></div>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="form-text mt-0">0 = no limit. Applied with cgroups to all of an account's websites (PHP), cron jobs and workers together, and to its SSH/SFTP logins; changes apply at once.<?= $admin ? '' : ' Your own plan\'s limits cap these.' ?></div>
+                    </fieldset>
                     <div class="form-check mb-3"><input type="hidden" name="ffmpeg" value="0"><input class="form-check-input" type="checkbox" id="p-ffmpeg" name="ffmpeg" value="1"<?= !empty($form['ffmpeg']) ? ' checked' : '' ?>><label class="form-check-label" for="p-ffmpeg">FFmpeg (audio and video processing)</label><div class="form-text mt-0">The plan's accounts may run the server's FFmpeg<?= $admin ? '' : ' (when your own plan includes it)' ?>.</div></div>
                     <?php if ($admin): $fl = (string) ($form['feature_list_id'] ?? ''); ?>
                         <label class="form-label" for="p-features">Feature list</label>

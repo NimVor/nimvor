@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/limits"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/netmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
 	"io/fs"
@@ -51,6 +52,11 @@ func (m *Manager) layout(s Spec) Layout {
 	}
 	if s.PHPVersion != "" {
 		l.PoolFile = filepath.Join(e.M.PoolDir(s.PHPVersion), name)
+		// An account with resource limits: its own FPM master in its slice.
+		if slice := limits.SliceFor(e, s.User); slice != "" {
+			l.Slice = slice
+			l.PoolFile = filepath.Join(AccountFPM{User: s.User, Version: s.PHPVersion}.PoolDir(), name)
+		}
 	}
 	return l
 }
@@ -198,33 +204,29 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 	} else {
 		cfg.Remove(l.NginxLink)
 	}
-	fpmVersions := map[string]bool{}
+	fpm := newFPMTargets()
 	for _, old := range m.poolFiles(s.Domain) {
 		if old != l.PoolFile {
 			cfg.Remove(old)
-			fpmVersions[versionOfPool(old)] = true
+			fpm.add(old)
 		}
 	}
 	if s.PHPVersion != "" {
+		if a, ok := accountOfPool(l.PoolFile); ok {
+			m.writeAccountFPM(cfg, a, l.Slice)
+		}
 		if s.Enabled {
 			cfg.Write(l.PoolFile, []byte(RenderPool(s, l)), 0o644, agentfs.RootOwner)
 		} else {
 			cfg.Remove(l.PoolFile) // a disabled site keeps no PHP processes
 		}
-		fpmVersions[s.PHPVersion] = true
+		fpm.add(l.PoolFile)
 	}
 	applied, err := cfg.Commit(func() error {
 		if err := e.NginxTest(ctx); err != nil {
 			return err
 		}
-		for v := range fpmVersions {
-			if v != "" && e.Runner.Available(fmt.Sprintf(e.M.PHPFPMBinary, v)) {
-				if err := e.FPMTest(ctx, v); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
+		return m.testFPM(ctx, fpm)
 	})
 	if err != nil {
 		if newDocroot || created {
@@ -244,25 +246,73 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 	}
 	// 4. Reload: PHP first (so the socket exists), then Nginx. On failure,
 	// restore the previous configuration and reload again.
-	if err := m.reload(ctx, fpmVersions); err != nil {
+	if err := m.reload(ctx, fpm); err != nil {
 		_ = applied.Rollback()
-		_ = m.reload(ctx, fpmVersions)
+		_ = m.reload(ctx, fpm)
 		return nil, host.FailWithValidation("The services did not accept the new configuration", err)
 	}
 	e.Log.Info("site applied", "domain", s.Domain, "changed", len(res.Changed), "enabled", s.Enabled)
 	return res, nil
 }
 
-func (m *Manager) reload(ctx context.Context, fpm map[string]bool) error {
-	versions := make([]string, 0, len(fpm))
-	for v := range fpm {
-		if v != "" && m.Env.Runner.Available(fmt.Sprintf(m.Env.M.PHPFPMBinary, v)) {
+// fpmTargets are the FPM masters a change touches: the distribution's
+// (by PHP version) and per-account ones.
+type fpmTargets struct {
+	versions map[string]bool
+	masters  map[AccountFPM]bool
+}
+
+func newFPMTargets() fpmTargets {
+	return fpmTargets{versions: map[string]bool{}, masters: map[AccountFPM]bool{}}
+}
+
+func (t fpmTargets) add(poolFile string) {
+	if a, ok := accountOfPool(poolFile); ok {
+		t.masters[a] = true
+	} else if v := versionOfPool(poolFile); v != "" {
+		t.versions[v] = true
+	}
+}
+
+func (m *Manager) testFPM(ctx context.Context, t fpmTargets) error {
+	e := m.Env
+	for v := range t.versions {
+		if e.Runner.Available(fmt.Sprintf(e.M.PHPFPMBinary, v)) {
+			if err := e.FPMTest(ctx, v); err != nil {
+				return err
+			}
+		}
+	}
+	for a := range t.masters {
+		if err := m.testAccountFPM(ctx, a); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// reload applies the FPM changes (the distribution's masters first, so a
+// socket moving to an account's master is free) and then Nginx.
+func (m *Manager) reload(ctx context.Context, t fpmTargets) error {
+	versions := make([]string, 0, len(t.versions))
+	for v := range t.versions {
+		if m.Env.Runner.Available(fmt.Sprintf(m.Env.M.PHPFPMBinary, v)) {
 			versions = append(versions, v)
 		}
 	}
 	sort.Strings(versions)
 	for _, v := range versions {
 		if err := m.Env.ReloadFPM(ctx, v); err != nil {
+			return err
+		}
+	}
+	masters := make([]AccountFPM, 0, len(t.masters))
+	for a := range t.masters {
+		masters = append(masters, a)
+	}
+	sort.Slice(masters, func(i, j int) bool { return masters[i].Name() < masters[j].Name() })
+	for _, a := range masters {
+		if err := m.reloadAccountFPM(ctx, a); err != nil {
 			return err
 		}
 	}
@@ -353,7 +403,8 @@ func versionOfPool(p string) string {
 // poolFiles lists existing pool files for a domain across PHP versions.
 func (m *Manager) poolFiles(domain string) []string {
 	matches, _ := m.Env.Root.Glob(filepath.Join(m.Env.M.PoolDir("*"), "whacp-"+domain+".conf"))
-	return matches
+	acct, _ := m.Env.Root.Glob(filepath.Join(FPMRoot, "*", "pool.d", "whacp-"+domain+".conf"))
+	return append(matches, acct...)
 }
 
 // DeleteRequest removes a site.
@@ -381,10 +432,10 @@ func (m *Manager) handleDelete(ctx context.Context, p json.RawMessage) (any, err
 	set := e.Changes("site-delete-" + in.Domain)
 	set.Remove(filepath.Join(e.M.NginxEnabled, name))
 	set.Remove(filepath.Join(e.M.NginxAvailable, name))
-	fpm := map[string]bool{}
+	fpm := newFPMTargets()
 	for _, pf := range m.poolFiles(in.Domain) {
 		set.Remove(pf)
-		fpm[versionOfPool(pf)] = true
+		fpm.add(pf)
 	}
 	applied, err := set.Commit(func() error { return e.NginxTest(ctx) })
 	if err != nil {
@@ -465,6 +516,8 @@ type Inspection struct {
 	DiskBytes     int64    `json:"disk_bytes"`
 	DiskComplete  bool     `json:"disk_complete"`
 	ConfigPreview string   `json:"config_preview,omitempty"`
+	// FPMService is the account's own PHP-FPM service (resource limits).
+	FPMService string `json:"fpm_service,omitempty"`
 }
 
 func (m *Manager) handleInspect(ctx context.Context, p json.RawMessage) (any, error) {
@@ -486,7 +539,12 @@ func (m *Manager) handleInspect(ctx context.Context, p json.RawMessage) (any, er
 	}
 	res.Enabled = e.Root.Exists(filepath.Join(e.M.NginxEnabled, name))
 	for _, pf := range m.poolFiles(in.Domain) {
-		res.PoolVersions = append(res.PoolVersions, versionOfPool(pf))
+		if a, ok := accountOfPool(pf); ok {
+			res.PoolVersions = append(res.PoolVersions, a.Version)
+			res.FPMService = a.Unit()
+		} else {
+			res.PoolVersions = append(res.PoolVersions, versionOfPool(pf))
+		}
 	}
 	root := filepath.Join(e.Cfg.SitesRoot, in.Domain)
 	if e.Root.IsDir(root) {

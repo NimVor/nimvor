@@ -15,7 +15,7 @@ $categories = [
     'databases' => ['Databases', 'database', [['databases', 'Databases and users'], ['databases.server', 'Database server (MariaDB / MySQL)']]],
     'backups' => ['Backups', 'archive', [['backups', 'Backups, schedules and destinations']]],
     'monitoring' => ['Monitoring and alerts', 'activity', [['monitoring', 'Monitoring'], ['notifications', 'Notifications']]],
-    'limits' => ['Resource limits', 'speedometer', [['plans', 'Hosting plans'], ['features', 'Feature lists']]],
+    'limits' => ['Resource limits', 'speedometer', [['plans', 'Hosting plans'], ['limits', 'CPU and memory limits (cgroups)'], ['features', 'Feature lists']]],
     'integrations' => ['Integrations', 'plug', [['plugins', 'Plugins'], ['profile', 'API tokens (your profile)']]],
     'system' => ['System', 'info-circle', [['audit', 'Audit log'], ['users', 'Users and roles']]],
 ];
