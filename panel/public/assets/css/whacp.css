@@ -675,3 +675,10 @@ details[data-wcp-menu] > summary::-webkit-details-marker { display: none; }
 .form-check-input:focus { border-color: #5eead4; box-shadow: 0 0 0 .25rem rgba(13, 148, 136, .25); }
 .wcp-usage { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: .9rem 1.5rem; }
 details.wcp-panel > summary { cursor: pointer; }
+
+/* Mail troubleshooter: forwarded addresses are indented by depth. */
+.wcp-trace-1 { margin-left: 1.25rem; }
+.wcp-trace-2 { margin-left: 2.5rem; }
+.wcp-trace-3 { margin-left: 3.75rem; }
+.wcp-trace-4 { margin-left: 5rem; }
+.wcp-trace-5 { margin-left: 6.25rem; }

@@ -29,6 +29,20 @@ All notable changes to WhaCP are documented here. The format follows
     logins and failed logins over time; relayers (mailboxes, server
     accounts such as a website's PHP, clients) and a sent summary by
     sender domain. Read from the journal or /var/log/mail.log / maillog.
+- **Email authentication checker** (Email → domain → Check DNS): looks up
+  the published DNS and reports Pass, Warning, Fail or Missing with an
+  explanation for the mail host name (points to this server), MX (delivers
+  here, or elsewhere by design with remote routing), SPF (evaluated for
+  this server's address per RFC 7208, several records detected), DKIM
+  (published key compared with the signing key), DMARC (policy) and
+  reverse DNS of the server's address (PTR and forward confirmation). The
+  required and recommended records and "Add to DNS zone" stay as before.
+- **Email administration tools** (Email administration → Tools): mail
+  troubleshooter (how mail to an address is routed: mailbox with filters,
+  autoresponder and spam filter, forwarders and loops, catch-all, remote or
+  backup routing, external MX or smart host, or refused as unknown) and
+  repair of mailbox ownership and permissions (vmail, no access for
+  others; links and special files are skipped and never followed).
 - **Greylisting** (Email administration → Greylisting): triplet
   greylisting (sender IP, from, to) by WhaCP's own Postfix policy service,
   which runs as an unprivileged, socket-activated systemd unit

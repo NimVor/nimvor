@@ -154,6 +154,7 @@ paths:
               - logs.tail
               - mail.alias_delete
               - mail.alias_save
+              - mail.auth_check
               - mail.configure
               - mail.domain_add
               - mail.domain_remove
@@ -170,6 +171,7 @@ paths:
               - mail.queue
               - mail.queue_action
               - mail.queue_message
+              - mail.repair_permissions
               - mail.report
               - mail.routing_set
               - mail.server_status
@@ -177,6 +179,7 @@ paths:
               - mail.spam_configure
               - mail.status
               - mail.suspend
+              - mail.trace
               - mail.webmail_configure
               - mail.webmail_install
               - memcached.configure
@@ -451,6 +454,7 @@ x-whacp-actions:
   logs.tail: { mutating: false, description: "Last lines of a log, or new lines since an offset/cursor." }
   mail.alias_delete: { mutating: true, description: "Delete an alias." }
   mail.alias_save: { mutating: true, description: "Create or change an alias (forwarder): source address, or @domain for a catch-all, to up to 50 destinations." }
+  mail.auth_check: { mutating: false, description: "Check a mail domain's public DNS: host name, MX, SPF (evaluated for this server), DKIM (compared with the signing key), DMARC and reverse DNS of the server's addresses." }
   mail.configure: { mutating: true, description: "Set up Postfix, Dovecot and OpenDKIM for WhaCP's mail domains (changes Postfix's main.cf/master.cf with postconf and disables Dovecot's system-account login; requires confirm_edit_package_config). Validated, restarted, checked on ports 25, 587 and 993, rolled back on failure." }
   mail.domain_add: { mutating: true, description: "Host email for a domain and create its DKIM key; returns the DNS records to publish." }
   mail.domain_remove: { mutating: true, description: "Stop hosting email for a domain (confirm = domain; its mailboxes and aliases must be removed first)." }
@@ -467,6 +471,7 @@ x-whacp-actions:
   mail.queue: { mutating: false, description: "Postfix's mail queue: messages with queue, sender, recipients, size, age and the reason delivery was deferred (postqueue -j)." }
   mail.queue_action: { mutating: true, description: "Act on queued messages: delete, retry (deliver now), hold, release; or flush (retry every deferred message). IDs go to postsuper on stdin." }
   mail.queue_message: { mutating: false, description: "Headers of one queued message (From, To, Subject, Date, Message-ID; not the body)." }
+  mail.repair_permissions: { mutating: true, description: "Give mailbox folders back to the vmail user and remove access for others (one domain, or all); symbolic links are never followed." }
   mail.report: { mutating: false, description: "Mail statistics and delivery records for a time range from Postfix's and Dovecot's logs: received, sent, delivered, deferred, bounced, rejected, logins; relayers (authenticated users, local accounts, clients) and sending domains; deliveries filtered by address and status." }
   mail.routing_set: { mutating: true, description: "Route a mail domain: local (mailboxes here), backup (queue its mail for the primary MX) or remote (another server receives it; mail for it from this server goes there)." }
   mail.server_status: { mutating: false, description: "Mail services (Postfix, Dovecot, OpenDKIM, Rspamd): running, enabled, version; configuration checks; the managed Postfix and Dovecot settings." }
@@ -474,6 +479,7 @@ x-whacp-actions:
   mail.spam_configure: { mutating: true, description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only WhaCP's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure." }
   mail.status: { mutating: false, description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases." }
   mail.suspend: { mutating: true, description: "Suspend or resume logins for a mail domain's mailboxes (account suspension); incoming mail is still delivered." }
+  mail.trace: { mutating: false, description: "Mail troubleshooter: how mail to an address is routed (mailbox, forwarders, catch-all, routing, external MX or smart host)." }
   mail.webmail_configure: { mutating: true, description: "Turn webmail (Roundcube) on for a host name, or off. WhaCP writes Roundcube's configuration in its own folder, runs it in its own PHP-FPM pool and account, creates or upgrades its SQLite database and serves it with its own Nginx site over HTTPS (Let's Encrypt certificate for the host name when present, otherwise self-signed). Validated with nginx -t and php-fpm -t, checked by loading the sign-in page, rolled back on failure." }
   mail.webmail_install: { mutating: true, description: "Install Roundcube webmail from the distribution's packages (with PHP-FPM and SQLite support; the package's own database setup is skipped because WhaCP keeps Roundcube's data itself). Runs as a job." }
   memcached.configure: { mutating: true, description: "Set Memcached's memory, connection limit and (loopback) listen addresses in its package configuration file after explicit confirmation; restarts and verifies, rolls back on failure." }

@@ -390,6 +390,17 @@ Email → Email administration (administrators with server permissions).
   provider's SPF record (`ip4`, `ip6`, `a`, `mx`, `include`, `redirect`).
   Not verified yet: SELinux on AlmaLinux (Postfix's smtpd connecting to the
   socket); a denial there shows as Postfix warnings, and mail is accepted.
+- **Tools**: the troubleshooter follows WhaCP's mail data (domains,
+  routing, mailboxes, forwarders, catch-all) and, for other domains, their
+  MX records or the smart host. The permission repair walks each domain's
+  folder under the mailbox storage with directory file descriptors
+  (`openat` with `O_NOFOLLOW`), sets the owner to vmail and removes access
+  for others on the open descriptor, so a link placed in a mailbox cannot
+  redirect it; the SELinux label `mail_spool_t` is applied again after.
+  Mailbox conversion does not apply: every mailbox is Maildir.
+- **Email authentication checker** (on each mail domain's page): runs in
+  the agent (public DNS lookups). The server's address is the default IPv4
+  address from the DNS settings, else its first public IPv4 address.
 - **Mail queue**: `postqueue -j`; headers via `postcat -h -q`; deliver
   now, hold, release and delete via `postsuper` (queue IDs are validated).
 - **Delivery reports and statistics**: parsed from the journal (mail

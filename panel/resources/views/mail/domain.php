@@ -161,8 +161,10 @@ $webmailUrl = !empty($webmail['enabled']) && !empty($webmail['hostname']) ? 'htt
     <div class="col-xl-7">
         <div class="card mb-3" id="mail-dns">
             <div class="card-header wcp-toolbar"><h2 class="wcp-toolbar-title"><i class="bi bi-patch-check me-1"></i>Email authentication (DNS)</h2>
-                <form method="post" action="<?= e($this->url('mail.dns', ['id' => $id])) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-primary" title="Add the missing records to this domain's zone on this panel">Add to DNS zone</button></form></div>
+                <div class="d-flex gap-1"><button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-dns-check="<?= e($this->url('mail.dns.check', ['id' => $id])) ?>" title="Look up the published records and test them against this server"><i class="bi bi-clipboard2-check me-1"></i>Check DNS</button>
+                <form method="post" action="<?= e($this->url('mail.dns', ['id' => $id])) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-primary" title="Add the missing records to this domain's zone on this panel">Add to DNS zone</button></form></div></div>
             <div class="card-body small">
+                <div class="mb-3" data-wcp-dns-results aria-live="polite" hidden></div>
                 <p class="text-body-secondary">Publish these records where the domain's DNS is hosted, so mail reaches this server and other providers trust it (MX, SPF, DKIM, DMARC).</p>
                 <?php foreach ($records as $r): ?>
                     <div class="border rounded p-2 mb-2">

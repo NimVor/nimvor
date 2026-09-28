@@ -41,6 +41,25 @@ final class MailAdminTest extends HttpTestCase
         $this->agent->succeed('mail.log_tail', ['source' => 'journal', 'lines' => [['time' => '2026-09-27T10:05:02Z', 'ident' => 'postfix/smtp', 'message' => 'to=<a@b.test>, status=sent <x>']]]);
         $this->agent->succeed('mail.settings_set', ['ok' => true]);
         $this->agent->succeed('services.control', ['ok' => true]);
+        $this->agent->succeed('mail.trace', ['address' => 'sales@shop.test', 'steps' => [
+            ['depth' => 0, 'address' => 'sales@shop.test', 'result' => 'forward', 'detail' => 'Forwarded to me@shop.test <x>.'],
+            ['depth' => 1, 'address' => 'me@shop.test', 'result' => 'mailbox', 'detail' => 'Delivered to the mailbox me@shop.test.'],
+        ]]);
+        $this->agent->succeed('mail.repair_permissions', ['dirs' => 12, 'files' => 40, 'fixed' => 3, 'skipped' => ['shop.test/me/evil']]);
+    }
+
+    public function testToolsTraceAndRepair(): void
+    {
+        $this->login('admin');
+        $page = $this->request('GET', '/mail/admin/tools', [], [], '', ['address' => ' Sales@shop.test '])->body();
+        self::assertSame('Sales@shop.test', $this->lastCall('mail.trace')['address']);
+        foreach (['Forwarded to me@shop.test &lt;x&gt;.', 'wcp-trace-1', 'Repair mailbox permissions', 'Maildir'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        self::assertSame(0, $this->calls('mail.repair_permissions'));
+        $this->post('/mail/admin/tools/repair', ['domain' => 'Shop.test']);
+        self::assertSame(['domain' => 'shop.test'], $this->lastCall('mail.repair_permissions'));
+        self::assertSame('Checked 12 folder(s) and 40 file(s); fixed 3. Skipped 1 link(s) or special file(s): shop.test/me/evil.', $this->flash('success'));
     }
 
     public function testMailServerPageAndSettings(): void
@@ -107,11 +126,15 @@ final class MailAdminTest extends HttpTestCase
             self::assertNotSame(200, $this->request('GET', '/mail/admin/reports')->status(), $who);
             self::assertNotSame(200, $this->request('GET', '/mail/admin/server')->status(), $who);
             $this->post('/mail/admin/server', ['postfix' => ['relayhost' => 'evil.test']]);
+            self::assertNotSame(200, $this->request('GET', '/mail/admin/tools', [], [], '', ['address' => 'a@b.test'])->status(), $who);
+            $this->post('/mail/admin/tools/repair', ['domain' => '']);
             $this->post('/mail/admin/queue', ['action' => 'delete', 'ids' => ['7506CE0062']]);
         }
         self::assertSame(0, $this->calls('mail.queue_action'));
         self::assertSame(0, $this->calls('mail.report'));
         self::assertSame(0, $this->calls('mail.server_status'));
         self::assertSame(0, $this->calls('mail.settings_set'));
+        self::assertSame(0, $this->calls('mail.trace'));
+        self::assertSame(0, $this->calls('mail.repair_permissions'));
     }
 }

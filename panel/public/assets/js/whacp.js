@@ -171,6 +171,43 @@
             .catch(function () { loading.textContent = 'The message could not be read.'; body.replaceChildren(loading); });
     });
 
+    // Email authentication checker (mail domain page): results as a list.
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-wcp-dns-check]');
+        if (!btn) { return; }
+        var box = document.querySelector('[data-wcp-dns-results]');
+        var el = function (tag, cls, text) { var x = document.createElement(tag); if (cls) { x.className = cls; } if (text !== undefined) { x.textContent = text; } return x; };
+        var labels = { pass: 'Pass', warning: 'Warning', fail: 'Fail', missing: 'Missing', info: 'Note' };
+        var states = { pass: 'is-ok', warning: 'is-warn', fail: 'is-error', missing: 'is-error', info: '' };
+        btn.disabled = true;
+        box.hidden = false;
+        box.replaceChildren(el('div', 'wcp-muted small', 'Checking the public DNS…'));
+        fetch(btn.getAttribute('data-wcp-dns-check'), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                box.replaceChildren();
+                if (d.error || !d.checks) {
+                    box.appendChild(el('div', 'text-danger-emphasis small', d.error || 'The check failed.'));
+                    return;
+                }
+                if (d.simulated) {
+                    box.appendChild(el('div', 'wcp-muted small', 'Not checked: the agent simulates commands (development mode).'));
+                }
+                d.checks.forEach(function (c) {
+                    var row = el('div', 'border rounded p-2 mb-2 small');
+                    var head = el('div', 'd-flex flex-wrap align-items-center gap-2');
+                    head.append(el('span', 'fw-semibold', c.label), el('span', 'wcp-state ' + (states[c.status] || ''), labels[c.status] || c.status));
+                    row.appendChild(head);
+                    row.appendChild(el('div', 'mt-1', c.detail));
+                    if (c.found) { var f = el('div', 'text-body-secondary text-break mt-1', 'Found: '); f.appendChild(el('code', '', c.found)); row.appendChild(f); }
+                    if (c.expected && c.status !== 'pass') { var x = el('div', 'text-body-secondary text-break', 'Expected: '); x.appendChild(el('code', '', c.expected)); row.appendChild(x); }
+                    box.appendChild(row);
+                });
+            })
+            .catch(function () { box.replaceChildren(el('div', 'text-danger-emphasis small', 'The check failed.')); })
+            .finally(function () { btn.disabled = false; });
+    });
+
     // Show only the fields that belong to the selected type (website kind,
     // storage type…). data-wcp-kind may list several kinds; inputs in
     // hidden groups are disabled so they are neither validated nor sent.

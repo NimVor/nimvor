@@ -27,6 +27,7 @@ final class MailAdminController extends Controller
         SessionInterface $session,
         private readonly AgentClient $agent,
         private readonly AuditLogger $audit,
+        private readonly \WhaCP\Services\MailService $mail,
     ) {
         parent::__construct($view, $session);
     }
@@ -144,5 +145,41 @@ final class MailAdminController extends Controller
         }
         $this->audit->record('mail.settings', 'server', 'mail', AuditLogger::SUCCESS, ['postfix' => $pf, 'dovecot' => $dc]);
         return $this->redirectWithSuccess('/mail/admin/server', 'Mail server settings applied.');
+    }
+
+    /** Mail troubleshooter and mailbox permission repair. */
+    public function tools(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $address = mb_substr(trim((string) $request->query('address', '')), 0, 254);
+        $trace = null;
+        $error = null;
+        if ($address !== '') {
+            try {
+                $trace = (array) json_decode((string) json_encode($this->agent->call('mail.trace', ['address' => $address], 60)), true);
+            } catch (UserFacingException $e) {
+                $error = $e;
+            }
+        }
+        return $this->render('mail/admin/tools', ['tab' => 'tools', 'address' => $address, 'trace' => $trace, 'domains' => array_column($this->mail->domains($this->user($request)), 'domain'), 'agentError' => $error]);
+    }
+
+    public function repair(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $domain = strtolower($request->string('domain'));
+        try {
+            $res = (array) $this->agent->call('mail.repair_permissions', ['domain' => $domain], 600);
+        } catch (UserFacingException $e) {
+            $this->audit->record('mail.repair_permissions', 'server', $domain !== '' ? $domain : 'mail', AuditLogger::FAILURE, ['error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/mail/admin/tools', $e);
+        }
+        $this->audit->record('mail.repair_permissions', 'server', $domain !== '' ? $domain : 'mail', AuditLogger::SUCCESS, ['fixed' => (int) ($res['fixed'] ?? 0)]);
+        $skipped = count((array) ($res['skipped'] ?? []));
+        return $this->redirectWithSuccess('/mail/admin/tools', sprintf('Checked %d folder(s) and %d file(s); fixed %d.', (int) ($res['dirs'] ?? 0), (int) ($res['files'] ?? 0), (int) ($res['fixed'] ?? 0)) . ($skipped > 0 ? ' Skipped ' . $skipped . ' link(s) or special file(s): ' . implode(', ', array_slice(array_map('strval', (array) $res['skipped']), 0, 5)) . '.' : ''));
     }
 }

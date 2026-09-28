@@ -17,9 +17,11 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -167,6 +169,37 @@ func TestRealHostMail(t *testing.T) {
 	if err := inbound("nobody@rt-mail.test", "x"); err == nil {
 		t.Fatal("mail for an unknown mailbox accepted")
 	}
+	// Troubleshooter: the forwarder leads to alice's mailbox; unknown is refused.
+	tr := must("mail.trace", map[string]any{"address": "info@rt-mail.test"})
+	if b, _ := json.Marshal(tr["steps"]); !strings.Contains(string(b), `"result":"forward"`) || !strings.Contains(string(b), `"address":"alice@rt-mail.test","result":"mailbox"`) {
+		t.Fatalf("trace: %s", b)
+	}
+	if b, _ := json.Marshal(must("mail.trace", map[string]any{"address": "nobody@rt-mail.test"})["steps"]); !strings.Contains(string(b), `"result":"rejected"`) {
+		t.Fatalf("trace unknown: %s", b)
+	}
+	// Repair: a message given to root and opened to others comes back; a
+	// link placed in the mailbox is not followed.
+	msgs := waitMail(1)
+	os.Chown(msgs[0], 0, 0)
+	os.Chmod(msgs[0], 0o644)
+	os.Symlink("/etc/shadow", filepath.Join(maildir, "cur", "evil"))
+	var shadowBefore syscall.Stat_t
+	syscall.Stat("/etc/shadow", &shadowBefore)
+	rep := must("mail.repair_permissions", map[string]any{"domain": "rt-mail.test"})
+	if sk, _ := json.Marshal(rep["skipped"]); rep["fixed"].(float64) < 1 || !strings.Contains(string(sk), "alice/Maildir/cur/evil") {
+		t.Fatalf("repair: %v", rep)
+	}
+	var st, shadowAfter syscall.Stat_t
+	syscall.Stat(msgs[0], &st)
+	vm, _ := user.Lookup("vmail")
+	if fmt.Sprint(st.Uid) != vm.Uid || st.Mode&0o007 != 0 {
+		t.Fatalf("message not repaired: uid %d mode %o", st.Uid, st.Mode&0o777)
+	}
+	syscall.Stat("/etc/shadow", &shadowAfter)
+	if shadowAfter.Uid != shadowBefore.Uid || shadowAfter.Mode != shadowBefore.Mode {
+		t.Fatal("the link's target was changed")
+	}
+	os.Remove(filepath.Join(maildir, "cur", "evil"))
 	testSendmailShim(t, env, must)
 	// Mail the spam filter flagged goes to Junk (Sieve).
 	c0, err := smtp.Dial("127.0.0.1:25")

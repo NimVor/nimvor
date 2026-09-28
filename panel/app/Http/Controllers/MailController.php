@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WhaCP\Http\Controllers;
 
 use WhaCP\Agent\AgentClient;
+use WhaCP\Agent\AgentException;
 use WhaCP\Hosting\Scope;
 use WhaCP\Http\Request;
 use WhaCP\Http\Response;
@@ -14,6 +15,7 @@ use WhaCP\Services\AuditLogger;
 use WhaCP\Services\JobTracker;
 use WhaCP\Services\MailService;
 use WhaCP\Services\ServerContext;
+use WhaCP\Services\SiteOverview;
 use WhaCP\Support\UserFacingException;
 use WhaCP\Support\ValidationException;
 use WhaCP\View\View;
@@ -31,6 +33,7 @@ final class MailController extends Controller
         private readonly JobTracker $jobs,
         private readonly WebsiteRepository $sites,
         private readonly ServerContext $server,
+        private readonly SiteOverview $overview,
     ) {
         parent::__construct($view, $session);
     }
@@ -191,6 +194,29 @@ final class MailController extends Controller
             $n = $this->mail->publishDns($domain, (string) ($this->mail->status()['hostname'] ?? ''), $this->user($request));
             return $n > 0 ? $n . ' record(s) added to the DNS zone.' : 'The DNS zone already has these records.';
         });
+    }
+
+    /** Checks the domain's public DNS for email (JSON for the domain page). */
+    public function dnsCheck(Request $request, string $id): Response
+    {
+        $domain = $this->mail->domain((int) $id, $this->user($request));
+        if ($domain === null) {
+            return Response::json(['error' => 'Mail domain not found.'], 404);
+        }
+        $ip = $this->overview->serverIp();
+        try {
+            $res = (array) $this->agent->call('mail.auth_check', [
+                'domain' => (string) $domain['domain'],
+                'hostname' => (string) ($this->mail->status()['hostname'] ?? ''),
+                'ips' => $ip !== null ? [$ip] : [],
+                'dkim_selector' => (string) $domain['dkim_selector'],
+                'dkim_txt' => (string) $domain['dkim_txt'],
+                'routing' => (string) ($domain['routing'] ?? 'local'),
+            ], 60);
+        } catch (AgentException $e) {
+            return Response::json(['error' => $e->getMessage()], 502);
+        }
+        return Response::json(['checks' => array_values((array) ($res['checks'] ?? [])), 'simulated' => !empty($res['simulated'])]);
     }
 
     public function saveMailbox(Request $request, string $id, ?string $mailbox = null): Response

@@ -189,6 +189,7 @@ return static function (Router $r): void {
     $r->post('/mail/domains', [MailController::class, 'store'], ['name' => 'mail.store', 'permission' => P::MAIL_MANAGE]);
     $r->get('/mail/domains/{id}', [MailController::class, 'show'], ['name' => 'mail.domain', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/dns', [MailController::class, 'publishDns'], ['name' => 'mail.dns', 'permission' => P::MAIL_MANAGE]);
+    $r->get('/mail/domains/{id}/dns-check', [MailController::class, 'dnsCheck'], ['name' => 'mail.dns.check', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/mailboxes', [MailController::class, 'saveMailbox'], ['name' => 'mail.mailboxes.store', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/mailboxes/{mailbox}', [MailController::class, 'updateMailbox'], ['name' => 'mail.mailboxes.update', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/mailboxes/{mailbox}/delete', [MailController::class, 'deleteMailbox'], ['name' => 'mail.mailboxes.delete', 'permission' => P::MAIL_MANAGE]);
@@ -206,6 +207,8 @@ return static function (Router $r): void {
     $r->post('/mail/admin/queue', [\WhaCP\Http\Controllers\MailAdminController::class, 'queueAction'], ['name' => 'mail.admin.queue.action', 'permission' => P::SERVER_MANAGE]);
     $r->get('/mail/admin/server', [\WhaCP\Http\Controllers\MailAdminController::class, 'server'], ['name' => 'mail.admin.server', 'permission' => P::SERVER_VIEW]);
     $r->post('/mail/admin/server', [\WhaCP\Http\Controllers\MailAdminController::class, 'saveSettings'], ['name' => 'mail.admin.settings', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/mail/admin/tools', [\WhaCP\Http\Controllers\MailAdminController::class, 'tools'], ['name' => 'mail.admin.tools', 'permission' => P::SERVER_VIEW]);
+    $r->post('/mail/admin/tools/repair', [\WhaCP\Http\Controllers\MailAdminController::class, 'repair'], ['name' => 'mail.admin.repair', 'permission' => P::SERVER_MANAGE]);
     $r->get('/mail/admin/greylisting', [\WhaCP\Http\Controllers\MailGreylistController::class, 'index'], ['name' => 'mail.greylist', 'permission' => P::SERVER_VIEW]);
     $r->post('/mail/admin/greylisting', [\WhaCP\Http\Controllers\MailGreylistController::class, 'save'], ['name' => 'mail.greylist.save', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mail/admin/greylisting/trusted', [\WhaCP\Http\Controllers\MailGreylistController::class, 'saveTrusted'], ['name' => 'mail.greylist.trusted', 'permission' => P::SERVER_MANAGE]);

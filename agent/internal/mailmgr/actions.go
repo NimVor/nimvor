@@ -283,6 +283,8 @@ func Register(r *actions.Registry, he *host.Env) {
 	registerLogStats(r, e)
 	registerManager(r, e)
 	registerGreylist(r, e)
+	registerAuthCheck(r, e)
+	registerTools(r, e)
 
 	r.Register(actions.Action{Name: "mail.status", Description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		d, _ := e.load()
