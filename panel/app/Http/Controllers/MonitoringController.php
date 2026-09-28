@@ -18,6 +18,7 @@ final class MonitoringController extends Controller
         View $view,
         SessionInterface $session,
         private readonly MonitoringService $monitoring,
+        private readonly \WhaCP\Agent\AgentClient $agent,
     ) {
         parent::__construct($view, $session);
     }
@@ -34,5 +35,26 @@ final class MonitoringController extends Controller
             'open' => $this->monitoring->openAlerts(),
             'recent' => $this->monitoring->recentAlerts(),
         ]);
+    }
+
+    /** Live statistics (server administrators: all accounts' processes). */
+    public function live(Request $request): Response
+    {
+        if (!\WhaCP\Hosting\Scope::isAll($this->user($request))) {
+            return $this->render('errors/error', ['title' => 'Access denied', 'message' => 'Live statistics are for server administrators.', 'status' => 403], 403);
+        }
+        return $this->render('monitoring/live', []);
+    }
+
+    public function liveData(Request $request): Response
+    {
+        if (!\WhaCP\Hosting\Scope::isAll($this->user($request))) {
+            return Response::json(['error' => 'Access denied.'], 403);
+        }
+        try {
+            return Response::json((array) json_decode((string) json_encode($this->agent->call('system.live', [], 20)), true));
+        } catch (\WhaCP\Agent\AgentException $e) {
+            return Response::json(['error' => $e->getMessage()], 502);
+        }
     }
 }

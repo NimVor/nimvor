@@ -685,3 +685,7 @@ details.wcp-panel > summary { cursor: pointer; }
 
 /* Disk usage: share of each folder. */
 .wcp-du-bar { width: calc(100% - 3rem); height: .5rem; vertical-align: middle; accent-color: var(--bs-primary); }
+
+/* Live statistics: per-core use. */
+.wcp-live-cores { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: .25rem .75rem; }
+.wcp-live-cores progress { width: 100%; height: .45rem; accent-color: var(--bs-primary); vertical-align: middle; }

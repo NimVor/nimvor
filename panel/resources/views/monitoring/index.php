@@ -21,6 +21,9 @@ $ago = static function (string $iso): string {
 </div>
 <?php $this->end('actions'); ?>
 
+<?php if ($this->serverScope()): ?>
+<nav class="wcp-pagetabs" aria-label="Monitoring"><a class="active" href="<?= e($this->url('monitoring')) ?>" aria-current="page">History and alerts</a><a href="<?= e($this->url('monitoring.live')) ?>">Live</a></nav>
+<?php endif; ?>
 <div class="card mb-3">
     <div class="card-header"><i class="bi bi-bell me-1"></i>Active alerts</div>
     <?php if ($open === []): ?>

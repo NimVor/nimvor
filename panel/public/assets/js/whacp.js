@@ -171,6 +171,82 @@
             .catch(function () { loading.textContent = 'The message could not be read.'; body.replaceChildren(loading); });
     });
 
+    // Live statistics (Monitoring → Live): polled every 3 seconds while the
+    // page is visible; every value is set as text.
+    (function () {
+        var root = document.querySelector('[data-wcp-live]');
+        if (!root) { return; }
+        var url = root.getAttribute('data-wcp-live');
+        var paused = false, timer = null, busy = false;
+        var q = function (sel) { return root.querySelector(sel); };
+        var set = function (k, v) { var x = q('[data-live="' + k + '"]'); if (x) { x.textContent = v; } };
+        var el = function (tag, cls, text) { var x = document.createElement(tag); if (cls) { x.className = cls; } if (text !== undefined) { x.textContent = text; } return x; };
+        var bytes = function (n) { var u = ['B', 'KB', 'MB', 'GB', 'TB']; var i = 0; n = Number(n) || 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return (i ? n.toFixed(1) : String(Math.round(n))) + ' ' + u[i]; };
+        var rate = function (n) { return bytes(n) + '/s'; };
+        var pct = function (n) { return (Number(n) || 0).toFixed(1) + '%'; };
+        var dur = function (s) { s = Math.floor(s || 0); var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return (d ? d + ' d ' : '') + h + ' h ' + m + ' min'; };
+        var row = function (cells) { var tr = el('tr'); cells.forEach(function (c) { tr.appendChild(el('td', c[1] || '', c[0])); }); return tr; };
+        var procs = function (body, list) {
+            body.replaceChildren();
+            (list || []).forEach(function (p) {
+                body.appendChild(row([[p.name, 'font-monospace text-break'], [p.user], [String(p.pid), 'text-end'], [pct(p.cpu_percent), 'text-end'], [bytes(p.rss_bytes) + ' (' + pct(p.mem_percent) + ')', 'text-end text-nowrap']]));
+            });
+        };
+        var render = function (d) {
+            set('cpu', pct(d.cpu.percent)); set('cpu-sub', d.cpu.threads + ' logical CPUs');
+            var m = d.memory;
+            set('mem', pct(m.used_percent)); set('mem-sub', bytes(m.used_bytes) + ' of ' + bytes(m.total_bytes));
+            set('swap', m.swap_total_bytes ? pct(100 * m.swap_used_bytes / m.swap_total_bytes) : 'none'); set('swap-sub', m.swap_total_bytes ? bytes(m.swap_used_bytes) + ' of ' + bytes(m.swap_total_bytes) : '');
+            set('load', [d.load.load1, d.load.load5, d.load.load15].map(function (x) { return (Number(x) || 0).toFixed(2); }).join(' / '));
+            set('load-sub', (d.cpu.threads ? (100 * d.load.load1 / d.cpu.threads).toFixed(0) + '% of the CPUs' : ''));
+            set('uptime', dur(d.uptime_seconds));
+            set('procs', String(d.processes)); set('procs-sub', d.running + ' running · ' + d.threads + ' threads' + (d.zombies ? ' · ' + d.zombies + ' zombie' : ''));
+            set('cpu-model', d.cpu.model || '—'); set('cpu-arch', d.cpu.architecture);
+            set('cpu-topology', d.cpu.sockets + ' / ' + d.cpu.cores + ' / ' + d.cpu.threads);
+            set('cpu-freq', d.cpu.mhz ? Math.round(d.cpu.mhz) + ' MHz' + (d.cpu.max_mhz ? ' (max ' + Math.round(d.cpu.max_mhz) + ' MHz)' : '') : 'not reported');
+            var cores = q('[data-live-cores]'); cores.replaceChildren();
+            (d.cpu.per_core || []).forEach(function (c) {
+                var w = el('div', 'small'); var pr = el('progress'); pr.max = 100; pr.value = c.percent; pr.setAttribute('aria-label', c.cpu + ' ' + pct(c.percent));
+                w.append(el('span', 'text-body-secondary', c.cpu + ' '), el('span', '', pct(c.percent)), pr); cores.appendChild(w);
+            });
+            var net = q('[data-live-net]'); net.replaceChildren();
+            (d.interfaces || []).forEach(function (n) {
+                net.appendChild(row([[n.name, 'font-monospace'], [rate(n.rx_bytes_per_sec), 'text-end text-nowrap'], [rate(n.tx_bytes_per_sec), 'text-end text-nowrap'], [bytes(n.rx_bytes), 'text-end'], [bytes(n.tx_bytes), 'text-end'], [(n.rx_errors + n.tx_errors) + ' / ' + (n.rx_dropped + n.tx_dropped), 'text-end']]));
+            });
+            procs(q('[data-live-topcpu]'), d.top_cpu); procs(q('[data-live-topmem]'), d.top_memory);
+            var disks = q('[data-live-disks]'); disks.replaceChildren();
+            (d.disks || []).forEach(function (k) {
+                var tr = row([[k.mount_point || k.mountpoint || '', 'font-monospace'], [k.device || '', 'small text-body-secondary'], [bytes(k.used_bytes), 'text-end'], [bytes(k.free_bytes), 'text-end'], [bytes(k.total_bytes), 'text-end']]);
+                var td = el('td'); var pr = el('progress', 'wcp-du-bar'); pr.max = 100; pr.value = k.used_percent; pr.setAttribute('aria-label', pct(k.used_percent)); td.append(pr, el('span', 'small text-body-secondary', ' ' + pct(k.used_percent))); tr.appendChild(td);
+                disks.appendChild(tr);
+            });
+            set('status', '');
+            q('[data-live-status]').textContent = 'Updated ' + new Date(d.timestamp).toLocaleTimeString() + ' · every 3 seconds';
+        };
+        var poll = function () {
+            clearTimeout(timer);
+            if (paused || document.hidden || busy) { return; }
+            busy = true;
+            fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) { if (d.error) { throw new Error(d.error); } render(d); })
+                .catch(function (e) { q('[data-live-status]').textContent = 'Not updated: ' + (e.message || 'the request failed') + '. Retrying…'; })
+                .finally(function () { busy = false; timer = setTimeout(poll, 3000); });
+        };
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) { poll(); } });
+        var tog = document.querySelector('[data-wcp-live-toggle]');
+        if (tog) {
+            tog.addEventListener('click', function () {
+                paused = !paused;
+                tog.setAttribute('aria-pressed', paused ? 'true' : 'false');
+                tog.querySelector('span').textContent = paused ? 'Resume' : 'Pause';
+                tog.querySelector('i').className = 'bi ' + (paused ? 'bi-play-fill' : 'bi-pause-fill') + ' me-1';
+                if (!paused) { poll(); }
+            });
+        }
+        poll();
+    })();
+
     // Website file permissions (Advanced page): check, then offer repair.
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('[data-wcp-perm-check]');

@@ -143,6 +143,8 @@ return static function (Router $r): void {
     $r->post('/backups/schedules', [BackupsController::class, 'storeServerSchedule'], ['name' => 'backups.schedules.store', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/schedules/{schedule}/delete', [BackupsController::class, 'deleteServerSchedule'], ['name' => 'backups.schedules.delete', 'permission' => P::BACKUPS_MANAGE]);
     $r->get('/monitoring', [MonitoringController::class, 'index'], ['name' => 'monitoring', 'permission' => P::MONITORING_VIEW]);
+    $r->get('/monitoring/live', [MonitoringController::class, 'live'], ['name' => 'monitoring.live', 'permission' => P::MONITORING_VIEW]);
+    $r->get('/monitoring/live.json', [MonitoringController::class, 'liveData'], ['name' => 'monitoring.live.data', 'permission' => P::MONITORING_VIEW]);
     $r->get('/sites/{id}/apps', [AppsController::class, 'show'], ['name' => 'sites.apps', 'permission' => P::APPS_INSTALL]);
     $r->post('/sites/{id}/apps/{app}', [AppsController::class, 'install'], ['name' => 'sites.apps.install', 'permission' => P::APPS_INSTALL]);
     $r->get('/logs', [LogsController::class, 'index'], ['name' => 'logs', 'permission' => P::LOGS_VIEW]);

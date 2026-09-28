@@ -252,6 +252,7 @@ paths:
               - stats.status
               - stats.update
               - system.info
+              - system.live
               - system.metrics
               - system.metrics_history
               - workers.apply
@@ -557,6 +558,7 @@ x-whacp-actions:
   stats.status: { mutating: false, description: "Website statistics: AWStats installed, turned on for the website, months with data and the last update." }
   stats.update: { mutating: true, description: "Update a website's statistics now, as its account (job)." }
   system.info: { mutating: false, description: "Operating system, kernel, CPU, network interfaces and uptime." }
+  system.live: { mutating: false, description: "Live statistics over half a second: CPU per core and details, memory, load, processes (busiest by CPU and memory, program and user only), network interfaces with rates, disks." }
   system.metrics: { mutating: false, description: "Latest CPU, memory, disk, load and network sample." }
   system.metrics_history: { mutating: false, description: "Recent metrics history for charts." }
   workers.apply: { mutating: true, description: "Create or update a worker service and start/stop it." }

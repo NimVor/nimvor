@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"path/filepath"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/discovery"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/monitoring"
@@ -58,6 +60,15 @@ func RegisterBuiltin(r *Registry, d Deps) {
 		Description: "Latest CPU, memory, disk, load and network sample.",
 		Handler: noParams(func(context.Context) (any, error) {
 			return d.Collector.Latest(), nil
+		}),
+	})
+	r.Register(Action{
+		Name:        "system.live",
+		Description: "Live statistics over half a second: CPU per core and details, memory, load, processes (busiest by CPU and memory, program and user only), network interfaces with rates, disks.",
+		Handler: noParams(func(ctx context.Context) (any, error) {
+			return monitoring.SampleLive(ctx, d.ProcDir, filepath.Join(d.RootDir, "sys"), d.RootDir, 500*time.Millisecond, func() []monitoring.Disk {
+				return d.Collector.Latest().Disks
+			}), nil
 		}),
 	})
 	r.Register(Action{

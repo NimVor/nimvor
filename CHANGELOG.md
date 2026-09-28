@@ -29,6 +29,14 @@ All notable changes to WhaCP are documented here. The format follows
     logins and failed logins over time; relayers (mailboxes, server
     accounts such as a website's PHP, clients) and a sent summary by
     sender domain. Read from the journal or /var/log/mail.log / maillog.
+- **Live statistics** (Monitoring → Live, server administrators): CPU
+  (model, architecture, sockets/cores/threads, frequency, use per logical
+  CPU), memory, swap, load, uptime, processes (running, threads, zombies),
+  network interfaces with current in/out rates, totals, errors and drops,
+  disks, and the busiest processes by CPU and by memory (program and user
+  only; command lines are not shown, they can carry passwords). Updated
+  every 3 seconds without reloading; paused while the tab is hidden or on
+  request. History and alerts stay on the Monitoring page.
 - **FFmpeg** (Server → FFmpeg): install, update and uninstall (refused
   when other packages need it), version and state; the Ubuntu/Debian
   package `ffmpeg`, on AlmaLinux/Rocky EPEL's `ffmpeg-free` (without
