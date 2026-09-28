@@ -77,6 +77,7 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.DovecotAuthConf,
 		m.DovecotDropIn,
 		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-whacp-sieve.conf"),
+		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-whacp-tuning.conf"),
 		"/etc/rspamd/local.d/*",
 		m.WebmailDir + "/**",
 		"/etc/tmpfiles.d/whacp-*.conf",

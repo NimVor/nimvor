@@ -41,6 +41,8 @@ type Data struct {
 	// "backup" (this server queues the domain's mail for the primary MX).
 	// Absent: local.
 	Routing map[string]string `json:"routing,omitempty"`
+	// Tuning: the structured Postfix and Dovecot settings (manager.go).
+	Tuning Tuning `json:"tuning,omitempty"`
 }
 
 // Routing values.

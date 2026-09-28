@@ -105,4 +105,44 @@ final class MailAdminController extends Controller
         }
         return $this->render('mail/admin/reports', ['tab' => $tab, 'report' => $rep === null ? null : json_decode((string) json_encode($rep['report']), true), 'source' => (string) ($rep['source'] ?? ''), 'range' => $range, 'filters' => $filters, 'agentError' => $error]);
     }
+
+    public function server(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $status = null;
+        $log = null;
+        $error = null;
+        try {
+            $status = json_decode((string) json_encode($this->agent->call('mail.server_status', [], 60)), true);
+            $log = json_decode((string) json_encode($this->agent->call('mail.log_tail', ['lines' => 100], 60)), true);
+        } catch (AgentException $e) {
+            $error = $e;
+        }
+        return $this->render('mail/admin/server', ['tab' => 'server', 'status' => $status, 'log' => $log, 'agentError' => $error]);
+    }
+
+    public function saveSettings(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $pf = array_map('strval', (array) $request->input('postfix', []));
+        $dc = array_map('strval', (array) $request->input('dovecot', []));
+        // Only fields that changed are sent (unchanged Postfix values stay as Postfix has them).
+        $current = (array) ($request->input('current', []));
+        foreach ($pf as $k => $v) {
+            if (isset($current[$k]) && (string) $current[$k] === $v) {
+                unset($pf[$k]);
+            }
+        }
+        try {
+            $this->agent->call('mail.settings_set', ['postfix' => (object) $pf, 'dovecot' => (object) $dc], 120);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/mail/admin/server', $e);
+        }
+        $this->audit->record('mail.settings', 'server', 'mail', AuditLogger::SUCCESS, ['postfix' => $pf, 'dovecot' => $dc]);
+        return $this->redirectWithSuccess('/mail/admin/server', 'Mail server settings applied.');
+    }
 }

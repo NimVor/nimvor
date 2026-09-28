@@ -124,3 +124,23 @@ func TestSieveBehaviour(t *testing.T) {
 		t.Errorf("plain:\n%s", plain)
 	}
 }
+
+// Real Dovecot accepts the rendered settings.
+func TestDovecotTuningParses(t *testing.T) {
+	if _, err := exec.LookPath("doveconf"); err != nil {
+		t.Skip("doveconf not installed")
+	}
+	dir := t.TempDir()
+	conf := filepath.Join(dir, "dovecot.conf")
+	body := "protocols = imap\nbase_dir = " + dir + "\n" + renderDovecotTuning(map[string]string{"mail_max_userip_connections": "20", "auth_failure_delay": "4s", "ssl_min_protocol": "TLSv1.3", "login_greeting": "Mail ready"})
+	os.WriteFile(conf, []byte(body), 0o644)
+	out, err := exec.Command("doveconf", "-c", conf, "-n").CombinedOutput()
+	if err != nil {
+		t.Fatalf("doveconf: %v\n%s", err, out)
+	}
+	for _, want := range []string{"auth_failure_delay = 4 secs", "login_greeting = Mail ready", "ssl_min_protocol = TLSv1.3", "mail_max_userip_connections = 20"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("doveconf lacks %q:\n%s", want, out)
+		}
+	}
+}

@@ -204,6 +204,8 @@ return static function (Router $r): void {
     $r->get('/mail/admin/queue', [\WhaCP\Http\Controllers\MailAdminController::class, 'queue'], ['name' => 'mail.admin.queue', 'permission' => P::SERVER_VIEW]);
     $r->get('/mail/admin/queue/{id}', [\WhaCP\Http\Controllers\MailAdminController::class, 'message'], ['name' => 'mail.admin.message', 'permission' => P::SERVER_VIEW]);
     $r->post('/mail/admin/queue', [\WhaCP\Http\Controllers\MailAdminController::class, 'queueAction'], ['name' => 'mail.admin.queue.action', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/mail/admin/server', [\WhaCP\Http\Controllers\MailAdminController::class, 'server'], ['name' => 'mail.admin.server', 'permission' => P::SERVER_VIEW]);
+    $r->post('/mail/admin/server', [\WhaCP\Http\Controllers\MailAdminController::class, 'saveSettings'], ['name' => 'mail.admin.settings', 'permission' => P::SERVER_MANAGE]);
     $r->get('/mail/admin/reports', [\WhaCP\Http\Controllers\MailAdminController::class, 'reports'], ['name' => 'mail.admin.reports', 'permission' => P::SERVER_VIEW]);
     $r->get('/sites/{id}/mail', [MailController::class, 'site'], ['name' => 'sites.mail', 'permission' => P::MAIL_MANAGE]);
     $r->get('/dns', [DnsController::class, 'index'], ['name' => 'dns', 'permission' => P::DNS_MANAGE]);

@@ -27,16 +27,18 @@ final class ServicesController extends Controller
     {
         $unit = $request->string('unit');
         $op = $request->string('op');
+        // Pages that show service controls of their own.
+        $back = in_array($request->string('return_to'), ['/mail/admin/server'], true) ? $request->string('return_to') : '/services';
         if (!preg_match('/^[A-Za-z0-9_][A-Za-z0-9@._:-]{0,199}\.service$/', $unit) || !in_array($op, ['start', 'stop', 'restart', 'reload', 'enable', 'disable'], true)) {
-            return $this->redirectWithError('/services', 'Invalid service operation.');
+            return $this->redirectWithError($back, 'Invalid service operation.');
         }
         try {
             $this->agent->call('services.control', ['unit' => $unit, 'op' => $op]);
         } catch (AgentException $e) {
             $this->audit->record('service.' . $op, 'service', $unit, AuditLogger::FAILURE, ['error' => $e->getMessage()]);
-            return $this->redirectWithFailure('/services', $e);
+            return $this->redirectWithFailure($back, $e);
         }
         $this->audit->record('service.' . $op, 'service', $unit);
-        return $this->redirectWithSuccess('/services', ucfirst($op) . ' of ' . $unit . ' completed.');
+        return $this->redirectWithSuccess($back, ucfirst($op) . ' of ' . $unit . ' completed.');
     }
 }

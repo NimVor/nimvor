@@ -29,6 +29,40 @@ final class MailAdminTest extends HttpTestCase
             'relayers' => [['kind' => 'local', 'name' => 'uid 1001 (shop@mx)', 'messages' => 40]],
             'senders' => [['kind' => 'domain', 'name' => 'shop.test', 'messages' => 7]], 'truncated' => false,
         ]]);
+        $this->agent->succeed('mail.server_status', [
+            'services' => [
+                ['unit' => 'postfix.service', 'name' => 'Postfix', 'active' => true, 'enabled' => true, 'version' => '3.8.6'],
+                ['unit' => 'dovecot.service', 'name' => 'Dovecot', 'active' => false, 'enabled' => true, 'version' => '2.3.21'],
+            ],
+            'checks' => ['postfix' => '', 'dovecot' => 'doveconf: Error: <b>broken</b>'],
+            'values' => ['postfix' => ['message_size_limit' => '52428800', 'maximal_queue_lifetime' => '5d', 'relayhost' => ''], 'dovecot' => ['login_greeting' => '']],
+            'labels' => ['postfix' => ['message_size_limit' => 'Largest message (MB)', 'maximal_queue_lifetime' => 'Keep retrying undelivered mail (days)', 'relayhost' => 'Smart host'], 'dovecot' => ['login_greeting' => 'Login greeting']],
+        ]);
+        $this->agent->succeed('mail.log_tail', ['source' => 'journal', 'lines' => [['time' => '2026-09-27T10:05:02Z', 'ident' => 'postfix/smtp', 'message' => 'to=<a@b.test>, status=sent <x>']]]);
+        $this->agent->succeed('mail.settings_set', ['ok' => true]);
+        $this->agent->succeed('services.control', ['ok' => true]);
+    }
+
+    public function testMailServerPageAndSettings(): void
+    {
+        $this->login('admin');
+        $page = $this->request('GET', '/mail/admin/server')->body();
+        foreach (['3.8.6', 'Stopped', '&lt;b&gt;broken&lt;/b&gt;', 'name="postfix[message_size_limit]"', 'value="50"', 'status=sent &lt;x&gt;', 'value="start"', 'value="/mail/admin/server"'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        $this->post('/mail/admin/server', [
+            'postfix' => ['message_size_limit' => '25', 'maximal_queue_lifetime' => '5', 'relayhost' => ''],
+            'current' => ['message_size_limit' => '50', 'maximal_queue_lifetime' => '5', 'relayhost' => ''],
+            'dovecot' => ['login_greeting' => 'Mail ready'],
+        ]);
+        $call = $this->lastCall('mail.settings_set');
+        self::assertEquals(['message_size_limit' => '25'], (array) $call['postfix'], 'only changed Postfix values are sent');
+        self::assertEquals(['login_greeting' => 'Mail ready'], (array) $call['dovecot']);
+        self::assertStringContainsString('applied', (string) $this->flash('success'));
+        $res = $this->post('/services/control', ['unit' => 'dovecot.service', 'op' => 'start', 'return_to' => '/mail/admin/server']);
+        self::assertSame('/mail/admin/server', $res->header('location'));
+        $res = $this->post('/services/control', ['unit' => 'dovecot.service', 'op' => 'start', 'return_to' => 'https://evil.test/']);
+        self::assertSame('/services', $res->header('location'), 'return_to is an allow-list');
     }
 
     public function testTheQueueCanBeListedAndManaged(): void
@@ -71,9 +105,13 @@ final class MailAdminTest extends HttpTestCase
             $this->login($who);
             self::assertNotSame(200, $this->request('GET', '/mail/admin/queue')->status(), $who);
             self::assertNotSame(200, $this->request('GET', '/mail/admin/reports')->status(), $who);
+            self::assertNotSame(200, $this->request('GET', '/mail/admin/server')->status(), $who);
+            $this->post('/mail/admin/server', ['postfix' => ['relayhost' => 'evil.test']]);
             $this->post('/mail/admin/queue', ['action' => 'delete', 'ids' => ['7506CE0062']]);
         }
         self::assertSame(0, $this->calls('mail.queue_action'));
         self::assertSame(0, $this->calls('mail.report'));
+        self::assertSame(0, $this->calls('mail.server_status'));
+        self::assertSame(0, $this->calls('mail.settings_set'));
     }
 }

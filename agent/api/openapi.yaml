@@ -159,6 +159,7 @@ paths:
               - mail.domain_remove
               - mail.filters_get
               - mail.filters_save
+              - mail.log_tail
               - mail.mailbox_delete
               - mail.mailbox_save
               - mail.queue
@@ -166,6 +167,8 @@ paths:
               - mail.queue_message
               - mail.report
               - mail.routing_set
+              - mail.server_status
+              - mail.settings_set
               - mail.spam_configure
               - mail.status
               - mail.suspend
@@ -448,6 +451,7 @@ x-whacp-actions:
   mail.domain_remove: { mutating: true, description: "Stop hosting email for a domain (confirm = domain; its mailboxes and aliases must be removed first)." }
   mail.filters_get: { mutating: false, description: "Email filters and autoresponder of a mailbox." }
   mail.filters_save: { mutating: true, description: "Save a mailbox's email filters and autoresponder (rendered to its personal Sieve script, compiled with sievec; rolled back on failure)." }
+  mail.log_tail: { mutating: false, description: "The latest mail log lines (Postfix, Dovecot, OpenDKIM), newest last." }
   mail.mailbox_delete: { mutating: true, description: "Delete a mailbox (confirm = address); its mail is moved to .whacp-trash in the mail folder, or kept in place with keep_mail." }
   mail.mailbox_save: { mutating: true, description: "Create a mailbox or change its password or quota (the password is stored as a SHA-512 crypt hash)." }
   mail.queue: { mutating: false, description: "Postfix's mail queue: messages with queue, sender, recipients, size, age and the reason delivery was deferred (postqueue -j)." }
@@ -455,6 +459,8 @@ x-whacp-actions:
   mail.queue_message: { mutating: false, description: "Headers of one queued message (From, To, Subject, Date, Message-ID; not the body)." }
   mail.report: { mutating: false, description: "Mail statistics and delivery records for a time range from Postfix's and Dovecot's logs: received, sent, delivered, deferred, bounced, rejected, logins; relayers (authenticated users, local accounts, clients) and sending domains; deliveries filtered by address and status." }
   mail.routing_set: { mutating: true, description: "Route a mail domain: local (mailboxes here), backup (queue its mail for the primary MX) or remote (another server receives it; mail for it from this server goes there)." }
+  mail.server_status: { mutating: false, description: "Mail services (Postfix, Dovecot, OpenDKIM, Rspamd): running, enabled, version; configuration checks; the managed Postfix and Dovecot settings." }
+  mail.settings_set: { mutating: true, description: "Change managed Postfix settings (postconf, postfix check, reload) and Dovecot settings (drop-in, doveconf -n, reload); the previous values come back on failure." }
   mail.spam_configure: { mutating: true, description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only WhaCP's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure." }
   mail.status: { mutating: false, description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases." }
   mail.suspend: { mutating: true, description: "Suspend or resume logins for a mail domain's mailboxes (account suspension); incoming mail is still delivered." }

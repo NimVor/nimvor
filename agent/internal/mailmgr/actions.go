@@ -281,6 +281,7 @@ func Register(r *actions.Registry, he *host.Env) {
 	registerFilters(r, e)
 	registerQueue(r, e)
 	registerLogStats(r, e)
+	registerManager(r, e)
 
 	r.Register(actions.Action{Name: "mail.status", Description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		d, _ := e.load()
@@ -420,6 +421,10 @@ func Register(r *actions.Registry, he *host.Env) {
 				if err := e.run(ctx, "postconf", "-e", kv[0]+"="+kv[1]); err != nil {
 					return err
 				}
+			}
+			// The administrator's settings win over the defaults above.
+			if err := e.applyPostfixTuning(ctx, d.Tuning.Postfix); err != nil {
+				return err
 			}
 			if err := e.run(ctx, "postconf", "-M", "submission/inet=submission inet n - y - - smtpd"); err != nil {
 				return err

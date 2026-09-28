@@ -8,6 +8,16 @@ All notable changes to WhaCP are documented here. The format follows
 
 ### Added
 - **Email administration** (administrators; Email → Email administration):
+  - Mail server: Postfix, Dovecot, OpenDKIM and Rspamd with state,
+    start-at-boot, version, start / reload / restart; `postfix check`
+    and `doveconf -n` results; the latest mail log lines; structured
+    settings (largest message, recipients per message, queue and bounce
+    lifetimes, per-client connection and message rates, HELO required,
+    VRFY, outgoing TLS level, IP versions, smart host; Dovecot IMAP
+    connections per user and address, failed-login delay, oldest TLS
+    version, login greeting). Values are validated, checked by Postfix and
+    Dovecot before reload, restored on failure, and kept when email is set
+    up again. No free-form configuration editing.
   - Mail queue: every queued message with queue, sender, recipients,
     size, age and why delivery was deferred; message headers; deliver
     now, hold, release, delete (with confirmation) for selected messages;

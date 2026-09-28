@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -365,5 +366,70 @@ func TestFiltersAndRouting(t *testing.T) {
 	}
 	if _, err := call(t, r, "mail.routing_set", map[string]any{"domain": "unknown.net", "routing": "remote"}); code(err) != "conflict" {
 		t.Fatalf("unhosted: %v", err)
+	}
+}
+
+func TestMailServerSettings(t *testing.T) {
+	h, r := setup(t)
+	if _, err := call(t, r, "mail.settings_set", map[string]any{"postfix": map[string]string{"smtpd_recipient_limit": "100"}}); code(err) != "conflict" {
+		t.Fatalf("before setup: %v", err)
+	}
+	h.Env.Cfg.SimulateCommands = true
+	if _, err := call(t, r, "mail.configure", map[string]any{"hostname": "mail.example.com", "confirm_edit_package_config": true}); err != nil {
+		t.Fatal(err)
+	}
+	h.Env.Cfg.SimulateCommands = false
+	postconf := map[string]string{"message_size_limit": "52428800", "relayhost": "", "maximal_queue_lifetime": "5d"}
+	failCheck := false
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		switch {
+		case id == "postconf" && len(args) == 2 && args[0] == "-h":
+			return postconf[args[1]] + "\n", nil, true
+		case id == "postconf" && len(args) == 2 && args[0] == "-e":
+			k, v, _ := strings.Cut(args[1], "=")
+			postconf[k] = v
+			return "", nil, true
+		case id == "postfix" && len(args) == 1 && args[0] == "check" && failCheck:
+			return "postfix: fatal: bad value", fmt.Errorf("exit status 1"), true
+		}
+		return "", nil, false
+	}
+	for _, bad := range []map[string]any{
+		{"postfix": map[string]string{"message_size_limit": "0"}},
+		{"postfix": map[string]string{"relayhost": "evil host; rm"}},
+		{"postfix": map[string]string{"smtpd_milters": "x"}},
+		{"postfix": map[string]string{"maximal_queue_lifetime": "2", "bounce_queue_lifetime": "5"}},
+		// Only the bounce lifetime changes: compared with Postfix's 5d.
+		{"postfix": map[string]string{"bounce_queue_lifetime": "6"}},
+		{"dovecot": map[string]string{"login_greeting": "a\nb"}},
+		{"dovecot": map[string]string{"mail_plugins": "x"}},
+	} {
+		if _, err := call(t, r, "mail.settings_set", bad); code(err) != "invalid_params" {
+			t.Errorf("%v accepted: %v", bad, err)
+		}
+	}
+	if _, err := call(t, r, "mail.settings_set", map[string]any{
+		"postfix": map[string]string{"message_size_limit": "25", "relayhost": "smtp.relay.example.com:587"},
+		"dovecot": map[string]string{"mail_max_userip_connections": "20", "ssl_min_protocol": "TLSv1.3"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if postconf["message_size_limit"] != "26214400" || postconf["relayhost"] != "[smtp.relay.example.com]:587" {
+		t.Fatalf("postconf: %v", postconf)
+	}
+	tuning := h.Read("etc/dovecot/conf.d/99-whacp-tuning.conf")
+	if !strings.Contains(tuning, "ssl_min_protocol = TLSv1.3") || !strings.Contains(tuning, "protocol imap {\n  mail_max_userip_connections = 20\n}") {
+		t.Fatalf("dovecot tuning:\n%s", tuning)
+	}
+	if !strings.Contains(h.Read("etc/whacp-mail/mail.json"), `"relayhost": "[smtp.relay.example.com]:587"`) {
+		t.Fatal("settings not kept for a later setup")
+	}
+	// A value Postfix refuses: the previous ones come back.
+	failCheck = true
+	if _, err := call(t, r, "mail.settings_set", map[string]any{"postfix": map[string]string{"message_size_limit": "100"}}); err == nil {
+		t.Fatal("accepted although postfix check failed")
+	}
+	if postconf["message_size_limit"] != "26214400" {
+		t.Fatalf("not restored: %v", postconf["message_size_limit"])
 	}
 }

@@ -354,6 +354,26 @@ programs keep the restriction.
   delivery and from the alias map, so mail sent from this server to the
   domain goes to the domain's MX.
 
+## Email administration
+
+Email → Email administration (administrators with server permissions).
+
+- **Mail server**: state, start-at-boot and version of Postfix, Dovecot,
+  OpenDKIM and Rspamd, with start / reload / restart (the services
+  permission); the results of `postfix check` and `doveconf -n`; the latest
+  100 mail log lines. The settings form covers a fixed list of Postfix
+  parameters (set with `postconf -e`) and Dovecot settings (written to
+  `/etc/dovecot/conf.d/99-whacp-tuning.conf`). Only changed Postfix values
+  are sent. Postfix values are checked with `postfix check` and Dovecot's
+  with `doveconf -n` before either service reloads; a refusal or failed
+  reload restores the previous values. The settings are kept in
+  `/etc/whacp-mail/mail.json`, so setting up email again keeps them. There
+  is no free-form configuration editing.
+- **Mail queue**: `postqueue -j`; headers via `postcat -h -q`; deliver
+  now, hold, release and delete via `postsuper` (queue IDs are validated).
+- **Delivery reports and statistics**: parsed from the journal (mail
+  facility) or `/var/log/mail.log`, `maillog` or `postfix.log`.
+
 ## PHP versions and settings
 
 *PHP* lists the installed versions; each has a **Settings** page with three
