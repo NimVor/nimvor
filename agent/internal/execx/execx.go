@@ -129,6 +129,8 @@ var defaultCandidates = map[string][]string{
 	"tar":                    {"/usr/bin/tar", "/bin/tar"},
 	"perl":                   {"/usr/bin/perl"},
 	"clamscan":               {"/usr/bin/clamscan"},
+	"ffmpeg":                 {"/usr/bin/ffmpeg"},
+	"dpkg-statoverride":      {"/usr/bin/dpkg-statoverride"},
 }
 
 // Versioned PHP binaries are resolved on demand ("php8.3", "php-fpm8.3").

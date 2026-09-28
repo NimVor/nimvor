@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/ffmpegmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
 )
@@ -56,6 +57,7 @@ var Components = map[string]string{
 	"openssh-server":      "SSH server",
 	"mariadb-client":      "MariaDB command-line client",
 	"imagemagick":         "Image processing",
+	"ffmpeg":              "Audio and video processing (FFmpeg)",
 	"libnginx-mod-brotli": "Brotli compression for Nginx",
 }
 
@@ -218,13 +220,17 @@ func Register(r *actions.Registry, env *host.Env) {
 			}
 		}
 		j := env.Jobs.Start("packages.install", "server:packages", func(ctx context.Context, log io.Writer) (any, error) {
-			return nil, pkgs.Install(ctx, env, log, names)
+			err := pkgs.Install(ctx, env, log, names)
+			restrictAgain(ctx, env, log)
+			return nil, err
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})
 	r.Register(actions.Action{Name: "packages.upgrade", Mutating: true, Description: "Install all pending updates, keeping existing configuration files (job).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		j := env.Jobs.Start("packages.upgrade", "server:packages", func(ctx context.Context, log io.Writer) (any, error) {
-			if err := pkgs.UpgradeAll(ctx, env, log); err != nil {
+			err := pkgs.UpgradeAll(ctx, env, log)
+			restrictAgain(ctx, env, log)
+			if err != nil {
 				return nil, err
 			}
 			s := Read(ctx, env)
@@ -294,4 +300,12 @@ func Register(r *actions.Registry, env *host.Env) {
 	r.Register(actions.Action{Name: "server.reboot_cancel", Mutating: true, Description: "Cancel a scheduled restart.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return map[string]any{"cancelled": true}, run(ctx, env, "Cancelling the restart", "shutdown", "-c")
 	}})
+}
+
+// restrictAgain applies WhaCP's limits on installed programs again after a
+// package job (package updates reset file modes on RHEL).
+func restrictAgain(ctx context.Context, env *host.Env, log io.Writer) {
+	if err := ffmpegmgr.Reapply(ctx, env); err != nil {
+		fmt.Fprintf(log, "FFmpeg could not be limited to its group again: %v\n", err)
+	}
 }

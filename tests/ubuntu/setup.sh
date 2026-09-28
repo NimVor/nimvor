@@ -35,7 +35,7 @@ apt-get install -y -q --no-install-recommends \
     nginx mariadb-server mariadb-client redis-server memcached pure-ftpd bind9 bind9-utils \
     postfix dovecot-imapd dovecot-lmtpd dovecot-sieve opendkim opendkim-tools rspamd \
     ufw fail2ban openssh-server git curl rsync openssl ca-certificates unzip \
-    roundcube-core roundcube-sqlite3 roundcube-plugins awstats clamav bubblewrap \
+    roundcube-core roundcube-sqlite3 roundcube-plugins awstats clamav ffmpeg bubblewrap \
     "php${php}-cli" "php${php}-fpm" "php${php}-mysql" "php${php}-sqlite3" "php${php}-mbstring" \
     "php${php}-xml" "php${php}-curl" "php${php}-zip" "php${php}-intl"
 # The panel's CLI is PHP >= 8.3 (on 22.04 the PPA's version).

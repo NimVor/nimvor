@@ -124,6 +124,9 @@ paths:
               - fail2ban.configure
               - fail2ban.status
               - fail2ban.unban
+              - ffmpeg.access
+              - ffmpeg.status
+              - ffmpeg.uninstall
               - files.chmod
               - files.compress
               - files.copy
@@ -426,6 +429,9 @@ x-whacp-actions:
   fail2ban.configure: { mutating: true, description: "Write the WhaCP jail file, test it and reload fail2ban." }
   fail2ban.status: { mutating: false, description: "fail2ban jails and banned addresses." }
   fail2ban.unban: { mutating: true, description: "Unban an IP address from a jail." }
+  ffmpeg.access: { mutating: true, description: "Set the accounts that may run FFmpeg (the whacp-ffmpeg group's members, exactly these) and limit FFmpeg's programs to that group." }
+  ffmpeg.status: { mutating: false, description: "FFmpeg: installed, version, package, whether its programs are limited to the whacp-ffmpeg group, and the group's members." }
+  ffmpeg.uninstall: { mutating: true, description: "Remove the FFmpeg package (job); refused when other packages need it. The group and, on Debian/Ubuntu, the mode override stay, so a later install is limited at once." }
   files.chmod: { mutating: true, description: "Change permissions of a file or folder." }
   files.compress: { mutating: true, description: "Create a .zip or .tar.gz of files and folders of a website (job)." }
   files.copy: { mutating: true, description: "Copy a file or folder." }

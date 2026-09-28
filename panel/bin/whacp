@@ -204,6 +204,16 @@ switch ($command) {
             } catch (\WhaCP\Agent\AgentException $e) {
                 out('[' . $srv['name'] . '] shell access not checked: ' . $e->getMessage());
             }
+            // FFmpeg: the accounts that may run it follow the plans.
+            try {
+                foreach ($c->get(\WhaCP\Services\FfmpegService::class)->reconcile() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    out('[' . $srv['name'] . '] FFmpeg access not checked: ' . $e->getMessage());
+                }
+            }
             // Greylisting: trusted providers' address ranges. Asked in the
             // first ten minutes of every sixth hour; the agent reads them at
             // most once a day and only while greylisting is on.

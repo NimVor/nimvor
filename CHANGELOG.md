@@ -29,6 +29,19 @@ All notable changes to WhaCP are documented here. The format follows
     logins and failed logins over time; relayers (mailboxes, server
     accounts such as a website's PHP, clients) and a sent summary by
     sender domain. Read from the journal or /var/log/mail.log / maillog.
+- **FFmpeg** (Server → FFmpeg): install, update and uninstall (refused
+  when other packages need it), version and state; the Ubuntu/Debian
+  package `ffmpeg`, on AlmaLinux/Rocky EPEL's `ffmpeg-free` (without
+  patent-encumbered codecs; no third-party repository). Per hosting plan
+  (Plans → FFmpeg, off by default): only accounts whose plan includes it
+  (for a reseller's customers, the reseller's plan too) and
+  administrators' websites can run it. The programs belong to root and the
+  group `whacp-ffmpeg` with mode 0750 (kept through package updates by
+  dpkg-statoverride, applied again after package jobs on RHEL), and the
+  group's members follow the plans (at once when a plan is saved, else
+  within five minutes); suspended accounts lose access and PHP is reloaded
+  for accounts that lose it. It does not stop users from running a
+  program they upload themselves.
 - **Disk usage by folder** (website → Disk usage): the size and number of
   files of each folder in the website folder, the files lying there and
   the domain's mailboxes, measured by a background job (the page stays

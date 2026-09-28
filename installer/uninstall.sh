@@ -55,6 +55,14 @@ if [[ $panel_site -eq 1 ]] && command -v nginx >/dev/null && nginx -t >/dev/null
     echo "Removed the panel's HTTPS site from Nginx."
 fi
 rm -f /usr/local/bin/whacp-agent
+# FFmpeg limited to the whacp-ffmpeg group: back to the package's own modes.
+if getent group whacp-ffmpeg >/dev/null; then
+    for f in /usr/bin/ffmpeg /usr/bin/ffprobe; do
+        if command -v dpkg-statoverride >/dev/null; then dpkg-statoverride --remove "$f" 2>/dev/null || true; fi
+        if [[ -f $f && ! -L $f ]]; then chown root:root "$f"; chmod 0755 "$f"; fi
+    done
+    groupdel whacp-ffmpeg 2>/dev/null || true
+fi
 # Jailed shells: accounts still using the jail's login shell get nologin.
 if [[ -e /usr/local/sbin/whacp-jailsh ]]; then
     for u in $(awk -F: '$7 == "/usr/local/sbin/whacp-jailsh" {print $1}' /etc/passwd); do usermod --shell /usr/sbin/nologin -- "$u" || true; done

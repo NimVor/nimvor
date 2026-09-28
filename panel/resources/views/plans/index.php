@@ -58,6 +58,7 @@ $admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
                             <div class="col-6"><?= $this->partial('partials/field', ['name' => $f, 'label' => $label, 'type' => 'number', 'value' => (string) ($form[$f] ?? '0'), 'attrs' => ['min' => '0']]) ?></div>
                         <?php endforeach; ?>
                     </div>
+                    <div class="form-check mb-3"><input type="hidden" name="ffmpeg" value="0"><input class="form-check-input" type="checkbox" id="p-ffmpeg" name="ffmpeg" value="1"<?= !empty($form['ffmpeg']) ? ' checked' : '' ?>><label class="form-check-label" for="p-ffmpeg">FFmpeg (audio and video processing)</label><div class="form-text mt-0">The plan's accounts may run the server's FFmpeg<?= $admin ? '' : ' (when your own plan includes it)' ?>.</div></div>
                     <?php if ($admin): $fl = (string) ($form['feature_list_id'] ?? ''); ?>
                         <label class="form-label" for="p-features">Feature list</label>
                         <select class="form-select form-select-sm mb-1" id="p-features" name="feature_list_id">

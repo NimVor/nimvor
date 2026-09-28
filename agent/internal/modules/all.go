@@ -9,6 +9,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/dbmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/deploy"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/dnsmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/ffmpegmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/files"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logs"
@@ -38,6 +39,7 @@ func All() []Module {
 		cronmgr.Register,
 		statsmgr.Register,
 		avmgr.Register,
+		ffmpegmgr.Register,
 		workers.Register,
 		deploy.Register,
 		redismgr.Register,

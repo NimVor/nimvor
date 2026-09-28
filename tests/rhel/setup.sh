@@ -27,6 +27,9 @@ dnf install -y -q --setopt=install_weak_deps=False \
     php-cli php-pdo php-mbstring php-sodium \
     php83-php-fpm php83-php-cli php83-php-mysqlnd php83-php-pdo php83-php-mbstring php83-php-xml \
     php83-php-intl php83-php-zip php83-php-gd php83-php-curl php83-php-opcache
+# FFmpeg from EPEL (ffmpeg-free); its own line so a missing package does not
+# stop the rest (the FFmpeg real-host test then reports it).
+dnf install -y -q ffmpeg-free || echo 'ffmpeg-free is not available'
 command -v composer >/dev/null || dnf install -y -q composer || true
 systemctl enable --now mariadb "$redis" memcached nginx php83-php-fpm named firewalld fail2ban
 firewall-cmd --permanent --add-service=ssh >/dev/null

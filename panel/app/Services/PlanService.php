@@ -137,7 +137,10 @@ final class PlanService
         if (Scope::isAll($actor)) {
             $this->db->run('UPDATE plans SET feature_list_id = ? WHERE id = ?', [$featureList, $id]);
         }
-        $this->audit->record('plan.save', 'plan', (string) $id, AuditLogger::SUCCESS, ['name' => $name, 'feature_list_id' => $featureList] + $vals);
+        // FFmpeg: a reseller's plan grants it only while the reseller's own plan does too.
+        $ffmpeg = !empty($input['ffmpeg']) && $input['ffmpeg'] !== '0';
+        $this->db->run('UPDATE plans SET ffmpeg = ? WHERE id = ?', [$ffmpeg ? 1 : 0, $id]);
+        $this->audit->record('plan.save', 'plan', (string) $id, AuditLogger::SUCCESS, ['name' => $name, 'feature_list_id' => $featureList, 'ffmpeg' => $ffmpeg] + $vals);
         return $id;
     }
 

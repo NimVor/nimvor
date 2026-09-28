@@ -2,10 +2,14 @@ package usage
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
 )
 
 func TestDiskUsage(t *testing.T) {
@@ -45,5 +49,28 @@ func TestDiskUsage(t *testing.T) {
 	}
 	if p, err := cleanRel("/public_html/big/"); err != nil || p != "public_html/big" {
 		t.Fatalf("clean: %q %v", p, err)
+	}
+}
+
+func TestDiskUsageActionRefusesLinks(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	site, _ := h.Env.Root.Path(filepath.Join(h.Env.Cfg.SitesRoot, "shop.test"))
+	os.MkdirAll(filepath.Join(site, "public_html"), 0o755)
+	os.Symlink("/etc", filepath.Join(site, "etc-link"))
+	call := func(path string) error {
+		a, _ := r.Lookup("sites.disk_usage")
+		b, _ := json.Marshal(map[string]string{"domain": "shop.test", "path": path})
+		_, err := a.Handler(context.Background(), b)
+		return err
+	}
+	if err := call("public_html"); err != nil {
+		t.Fatalf("real folder: %v", err)
+	}
+	for _, p := range []string{"etc-link", "etc-link/ssl", "missing", "../other.test"} {
+		if err := call(p); err == nil {
+			t.Errorf("%q accepted", p)
+		}
 	}
 }

@@ -253,13 +253,15 @@ var rhelPackages = map[string]string{
 	"libnginx-mod-brotli": "",
 	"roundcube-core":      "roundcubemail",
 	"clamav-freshclam":    "clamav-update",
-	"roundcube-sqlite3":   "",
-	"roundcube-plugins":   "",
-	"php-fpm":             "",
-	"php-sqlite3":         "",
-	"php-intl":            "",
-	"php-mbstring":        "",
-	"php-xml":             "",
+	// EPEL's build (no patent-encumbered codecs); RPM Fusion's is not used.
+	"ffmpeg":            "ffmpeg-free",
+	"roundcube-sqlite3": "",
+	"roundcube-plugins": "",
+	"php-fpm":           "",
+	"php-sqlite3":       "",
+	"php-intl":          "",
+	"php-mbstring":      "",
+	"php-xml":           "",
 }
 
 func (r rhelFamily) PackageName(name string) (string, bool) {

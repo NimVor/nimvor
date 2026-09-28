@@ -19,6 +19,7 @@ final class PlansController extends Controller
         SessionInterface $session,
         private readonly PlanService $plans,
         private readonly \WhaCP\Services\FeatureService $features,
+        private readonly \WhaCP\Services\FfmpegService $ffmpeg,
     ) {
         parent::__construct($view, $session);
     }
@@ -42,6 +43,11 @@ final class PlansController extends Controller
             return $this->backWithErrors('/plans' . ($id > 0 ? '?edit=' . $id : ''), $e, $request->all());
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/plans', $e);
+        }
+        // FFmpeg access follows the plan at once (else the scheduler does).
+        try {
+            $this->ffmpeg->reconcile();
+        } catch (\WhaCP\Agent\AgentException) {
         }
         return $this->redirectWithSuccess('/plans', 'Plan saved. Limits apply to new websites, databases, cron jobs and workers.');
     }

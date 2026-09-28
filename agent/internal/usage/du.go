@@ -128,12 +128,19 @@ func registerDU(r *actions.Registry, env *host.Env) {
 			return nil, err
 		}
 		dir := filepath.Join(root, rel)
-		// No link anywhere on the way: the scan stays inside the website.
-		if real, err := filepath.EvalSymlinks(dir); err != nil || real != filepath.Clean(dir) {
-			return nil, actions.NotFound("That folder does not exist in the website folder.")
+		// The website folder is not a link, and no link below it leads the
+		// scan elsewhere (links above it, e.g. /home, are the system's).
+		notFound := actions.NotFound("That folder does not exist in the website folder.")
+		if info, err := os.Lstat(root); err != nil || !info.IsDir() {
+			return nil, notFound
+		}
+		realRoot, err1 := filepath.EvalSymlinks(root)
+		realDir, err2 := filepath.EvalSymlinks(dir)
+		if err1 != nil || err2 != nil || realDir != filepath.Join(realRoot, rel) {
+			return nil, notFound
 		}
 		if info, err := os.Lstat(dir); err != nil || !info.IsDir() {
-			return nil, actions.NotFound("That folder does not exist in the website folder.")
+			return nil, notFound
 		}
 		mail := ""
 		if rel == "" {

@@ -406,6 +406,25 @@ Email → Email administration (administrators with server permissions).
 - **Delivery reports and statistics**: parsed from the journal (mail
   facility) or `/var/log/mail.log`, `maillog` or `postfix.log`.
 
+## FFmpeg
+
+The agent's `ffmpeg.access` sets the members of the group `whacp-ffmpeg`
+(exactly the list the panel sends, with `gpasswd --members`) and gives
+`/usr/bin/ffmpeg` and `/usr/bin/ffprobe` to `root:whacp-ffmpeg` with mode
+0750 (opened with `O_NOFOLLOW`; a link at those paths is refused). On
+Debian and Ubuntu `dpkg-statoverride` keeps these modes through package
+updates; on RHEL-family systems the agent applies them again after every
+package install or update it runs, and the panel's scheduler checks every
+five minutes. The allowed accounts are the system accounts of websites
+owned by administrators, or by accounts whose plan has FFmpeg (and whose
+reseller's plan has it too), not suspended; an account shared with an
+owner without FFmpeg is left out. Members removed from the group get the
+PHP-FPM service of their websites' PHP version reloaded, so no running
+worker keeps the group. Limitation: this controls the server's FFmpeg; a
+user who uploads a program of their own can run it (WhaCP does not mount
+website folders `noexec`). Uninstalling WhaCP gives the programs back to
+root with mode 0755 and removes the group.
+
 ## Website files: disk usage, directory listing, permissions
 
 - **Disk usage** (`sites.disk_usage`) is an agent job: it measures each

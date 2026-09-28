@@ -269,6 +269,10 @@ return static function (Router $r): void {
     $r->get('/services', [ServerController::class, 'services'], ['name' => 'services', 'permission' => P::SERVICES_VIEW]);
     $r->post('/services/control', [ServicesController::class, 'control'], ['name' => 'services.control', 'permission' => P::SERVICES_MANAGE]);
     $r->get('/packages', [SystemController::class, 'packages'], ['name' => 'packages', 'permission' => P::PACKAGES_MANAGE]);
+    $r->get('/ffmpeg', [\WhaCP\Http\Controllers\FfmpegController::class, 'index'], ['name' => 'ffmpeg', 'permission' => P::SERVER_VIEW]);
+    $r->post('/ffmpeg/install', [\WhaCP\Http\Controllers\FfmpegController::class, 'install'], ['name' => 'ffmpeg.install', 'permission' => P::PACKAGES_MANAGE]);
+    $r->post('/ffmpeg/uninstall', [\WhaCP\Http\Controllers\FfmpegController::class, 'uninstall'], ['name' => 'ffmpeg.uninstall', 'permission' => P::PACKAGES_MANAGE]);
+    $r->post('/ffmpeg/apply', [\WhaCP\Http\Controllers\FfmpegController::class, 'apply'], ['name' => 'ffmpeg.apply', 'permission' => P::SERVER_MANAGE]);
     $r->post('/packages/install', [SystemController::class, 'install'], ['name' => 'packages.install', 'permission' => P::PACKAGES_MANAGE]);
     $r->post('/packages/refresh', [SystemController::class, 'refresh'], ['name' => 'packages.refresh', 'permission' => P::PACKAGES_MANAGE]);
     $r->post('/packages/upgrade', [SystemController::class, 'upgrade'], ['name' => 'packages.upgrade', 'permission' => P::PACKAGES_MANAGE]);
