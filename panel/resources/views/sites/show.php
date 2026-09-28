@@ -40,6 +40,7 @@ $tiles = array_values(array_filter([
     ['Mail', 'envelope', $mailUrl(''), $mail !== null ? (string) $mail['mailboxes'] : null],
     ['Backup copies', 'archive', $u('backups'), $summary['backups'] > 0 ? (string) $summary['backups'] : null],
     ['Site access', 'person-lock', $u('ftp', '#sftp'), null],
+    ['Terminal', 'terminal', $u('terminal'), null],
     ['Settings', 'gear', $u('settings'), null],
     ['PHP settings', 'filetype-php', $site['kind'] === 'php' ? $u('settings', '#php') : null, $site['kind'] === 'php' ? (string) $site['php_version'] : null],
     ['Applications', 'grid-3x3-gap', $u('apps'), $summary['apps'] !== [] ? implode(', ', array_map('ucfirst', $summary['apps'])) : null],

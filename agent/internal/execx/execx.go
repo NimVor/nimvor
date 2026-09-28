@@ -316,6 +316,10 @@ var transientHardening = []string{
 	"TimeoutStopSec=5",
 }
 
+// TransientHardening is the sandbox of commands run as an account (a
+// copy; the web terminal applies it to its sessions too).
+func TransientHardening() []string { return append([]string(nil), transientHardening...) }
+
 // pipeWrapper runs as the account inside the unit: it opens the named
 // pipes (after systemd has dropped to the account, so neither PID 1 nor
 // root opens them) and replaces itself with the command. Its arguments are

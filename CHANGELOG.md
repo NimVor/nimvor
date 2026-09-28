@@ -7,6 +7,19 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Web terminal**: a shell in the browser (xterm.js) on each website's
+  Terminal page, for accounts with shell access (jailed or normal) whose
+  plan includes SSH.
+  - Opening one asks for the password (and authenticator code) again.
+  - The agent hands out single-use tickets bound to the browser's
+    address and serves the WebSocket on loopback behind the panel's
+    Nginx site (`install.sh --public-https` sets it up).
+  - Each session is a systemd unit as the account, with its sandbox and
+    resource limits; idle and maximum times, three per account.
+  - Signing out ends the sign-in's sessions.
+  - *Server → Web terminal* lists open sessions and can close them.
+  - Root shells stay off unless root sets `terminal_root` in
+    `/etc/whacp/agent.json`.
 - **Resource limits per account (cgroups)**: plans set CPU %, memory,
   processes and disk read/write speed. Each limited account gets a systemd
   slice, and everything the account runs is counted in it:

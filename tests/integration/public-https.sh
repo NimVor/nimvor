@@ -48,4 +48,16 @@ elif command -v firewall-cmd >/dev/null && firewall-cmd --state >/dev/null 2>&1;
     firewall-cmd --query-port="${HTTPS_PORT}/tcp" >/dev/null || fail "firewalld does not allow ${HTTPS_PORT}/tcp"
     pass "firewalld allows ${HTTPS_PORT}/tcp"
 fi
+# Web terminal: the WebSocket reaches the agent through Nginx (write mode).
+grep -q '"terminal_listen": "127.0.0.1:8091"' /etc/whacp/agent.json || fail "the installer did not set terminal_listen"
+if grep -q '"allow_write_actions": true' /etc/whacp/agent.json; then
+    ws=(curl --noproxy '*' -sk --http1.1 -o /dev/null -w '%{http_code}' --max-time 3 -H 'Connection: Upgrade' -H 'Upgrade: websocket'
+        -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==')
+    code=$("${ws[@]}" -H 'Origin: https://evil.example' "$P/terminal/ws" || true)
+    [[ $code == 403 ]] || fail "a WebSocket from another origin was not refused: $code"
+    code=$("${ws[@]}" -H "Origin: $P" "$P/terminal/ws" || true)
+    [[ $code == 101 ]] || fail "the terminal WebSocket did not open through Nginx: $code"
+    pass "web terminal WebSocket proxied to the agent"
+fi
+
 echo "Public HTTPS checks passed."

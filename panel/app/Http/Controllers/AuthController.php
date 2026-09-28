@@ -21,6 +21,7 @@ final class AuthController extends Controller
         private readonly Csrf $csrf,
         private readonly Config $config,
         private readonly \WhaCP\Services\SettingsService $settings,
+        private readonly \WhaCP\Services\TerminalService $terminal,
     ) {
         parent::__construct($view, $session);
     }
@@ -107,6 +108,8 @@ final class AuthController extends Controller
 
     public function logout(Request $request): Response
     {
+        // Web terminals of this sign-in end with it.
+        $this->terminal->closeOwn();
         $this->auth->logout();
         $this->session->flash('success', 'You have been signed out.');
         return Response::redirect('/login');

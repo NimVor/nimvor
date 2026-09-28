@@ -16,6 +16,7 @@ $simple = $this->simpleLayout();
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap-icons/bootstrap-icons.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/css/whacp.css')) ?>">
+    <?= $this->section('head') ?>
     <script src="<?= e($this->asset('assets/js/theme.js')) ?>"></script>
 </head>
 <body class="wcp-body<?= $simple ? ' is-simple' : '' ?>">

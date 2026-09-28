@@ -61,6 +61,7 @@ AGENT_ONLY=0
 REMOTE_ACCESS=""
 ALLOW_FROM=""
 PUBLIC_HTTPS=""
+TERMINAL_PORT=8091
 # Supported: tested and recommended for production. Preview: installs and
 # is tested the same way, but not yet recommended for production.
 SUPPORTED_UBUNTU=("22.04" "24.04")
@@ -509,6 +510,19 @@ ${listen6}
     ssl_protocols TLSv1.2 TLSv1.3;
     error_page 497 =301 https://\$http_host\$request_uri;
     client_max_body_size 256m;
+    # Web terminal: WebSockets to the agent's loopback listener
+    # (terminal_listen in agent.json).
+    location = /terminal/ws {
+        proxy_pass http://127.0.0.1:${TERMINAL_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Forwarded-For \$remote_addr;
+        proxy_buffering off;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+    }
     location / {
         proxy_pass http://127.0.0.1:${PORT};
         proxy_set_header Host \$http_host;
@@ -548,6 +562,16 @@ NGINX
         grep -q "'secure_cookie' => true" "$CONF_DIR/panel.php" || warn "set 'secure_cookie' => true in $CONF_DIR/panel.php by hand"
         grep -q "'trusted_proxies' => \[[^]]*'127.0.0.1'" "$CONF_DIR/panel.php" || warn "add '127.0.0.1' to 'trusted_proxies' in $CONF_DIR/panel.php by hand"
         systemctl restart whacp-panel.service
+        # The web terminal's WebSocket listener (loopback; Nginx proxies to it).
+        set_terminal=$(php -r '$f = $argv[1]; $c = json_decode((string) file_get_contents($f), true);
+            if (!is_array($c)) { exit(1); }
+            if (($c["terminal_listen"] ?? "") === "") { $c["terminal_listen"] = "127.0.0.1:" . $argv[2];
+                file_put_contents($f, json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"); echo "set"; }' "$CONF_DIR/agent.json" "$TERMINAL_PORT") \
+            || warn "set \"terminal_listen\": \"127.0.0.1:${TERMINAL_PORT}\" in $CONF_DIR/agent.json by hand for the web terminal"
+        if [[ $set_terminal == set ]]; then
+            systemctl restart whacp-agent.service
+            ok "web terminal on 127.0.0.1:${TERMINAL_PORT} (behind Nginx)"
+        fi
     fi
     if command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
         run ufw allow "${PUBLIC_HTTPS}/tcp"

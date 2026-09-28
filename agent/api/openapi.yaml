@@ -279,6 +279,9 @@ paths:
               - system.live
               - system.metrics
               - system.metrics_history
+              - terminal.kill
+              - terminal.open
+              - terminal.status
               - whacp.restart
               - whacp.services
               - workers.apply
@@ -611,6 +614,9 @@ x-whacp-actions:
   system.live: { mutating: false, description: "Live statistics over half a second: CPU per core and details, memory, load, processes (busiest by CPU and memory, program and user only), network interfaces with rates, disks." }
   system.metrics: { mutating: false, description: "Latest CPU, memory, disk, load and network sample." }
   system.metrics_history: { mutating: false, description: "Recent metrics history for charts." }
+  terminal.kill: { mutating: true, description: "End a web terminal session (id), or every session of a panel sign-in (owner)." }
+  terminal.open: { mutating: true, description: "Prepare a web terminal session for a website account (its shell access must be jailed or normal) or, when terminal_root is on, a root shell. Returns a single-use ticket valid for a minute, which the browser sends over the WebSocket." }
+  terminal.status: { mutating: false, description: "Web terminal: whether it is enabled, whether root shells are allowed (terminal_root), and the open sessions." }
   whacp.restart: { mutating: true, description: "Restart one of WhaCP's services (key: agent, panel, scheduler, greylist, dkim, ftpd). The agent and the panel restart two seconds after answering." }
   whacp.services: { mutating: false, description: "State of WhaCP's own services (agent, panel, scheduler, greylisting, DKIM, FTP)." }
   workers.apply: { mutating: true, description: "Create or update a worker service and start/stop it." }

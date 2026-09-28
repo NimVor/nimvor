@@ -25,6 +25,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sslmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/statsmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sysmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/terminal"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/usage"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/workers"
 )
@@ -54,6 +55,7 @@ func All() []Module {
 		backup.Register,
 		security.Register,
 		sysmgr.Register,
+		terminal.Register,
 		usage.Register,
 		apps.Register,
 		adopt.Register,

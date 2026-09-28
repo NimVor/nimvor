@@ -89,6 +89,14 @@ final class SettingsService
                 'category' => 'security', 'type' => 'bool', 'default' => false,
                 'label' => 'Quarantine infected files', 'help' => 'Move files a malware scan finds into the website\'s .whacp-quarantine folder (unreadable) instead of only reporting them.',
             ],
+            'terminal_idle_minutes' => [
+                'category' => 'security', 'type' => 'int', 'default' => 15, 'min' => 1, 'max' => 240,
+                'label' => 'Web terminal idle timeout (minutes)', 'help' => 'A web terminal closes after this many minutes without input.',
+            ],
+            'terminal_max_minutes' => [
+                'category' => 'security', 'type' => 'int', 'default' => 480, 'min' => 15, 'max' => 1440,
+                'label' => 'Web terminal maximum session (minutes)', 'help' => 'A web terminal closes after this long, active or not.',
+            ],
             'ssl_warning_days' => [
                 'category' => 'ssl', 'type' => 'int', 'default' => 14, 'min' => 1, 'max' => 90,
                 'label' => 'Certificate warning threshold (days)', 'help' => 'Certificates expiring within this many days are highlighted.',

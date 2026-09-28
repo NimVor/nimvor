@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/greylist"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -33,6 +34,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sendmail"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/server"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/terminal"
 )
 
 // shutdownGrace bounds how long a stopping agent waits for running jobs
@@ -224,6 +226,26 @@ func run() int {
 		log.Info("listening for remote panels", "address", cfg.ListenTCP, "pin", pin, "allowed_clients", cfg.AllowedClients)
 	}
 
+	// Web terminal: WebSockets from the panel's Nginx site, on loopback.
+	var termSrv *http.Server
+	if cfg.TerminalListen != "" && terminal.Shared != nil {
+		if !cfg.AllowWriteActions {
+			log.Warn("terminal_listen is set but write actions are off; the web terminal stays disabled")
+		} else if tln, err := net.Listen("tcp", cfg.TerminalListen); err != nil {
+			log.Error("cannot listen for the web terminal; it stays disabled", "address", cfg.TerminalListen, "error", err)
+		} else {
+			terminal.Shared.Enabled = true
+			termSrv = &http.Server{
+				Handler:           terminal.Shared.Handler(),
+				ReadHeaderTimeout: 5 * time.Second,
+				MaxHeaderBytes:    16 << 10,
+				ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),
+			}
+			go func() { errCh <- termSrv.Serve(tln) }()
+			log.Info("web terminal listening", "address", cfg.TerminalListen, "root_shells", cfg.TerminalRoot)
+		}
+	}
+
 	select {
 	case <-ctx.Done():
 	case err := <-errCh:
@@ -238,6 +260,10 @@ func run() int {
 	_ = httpSrv.Shutdown(shutdownCtx)
 	if tcpSrv != nil {
 		_ = tcpSrv.Shutdown(shutdownCtx)
+	}
+	if termSrv != nil {
+		_ = termSrv.Shutdown(shutdownCtx)
+		terminal.Shared.CloseAll("The server agent is restarting.")
 	}
 	_ = os.Remove(cfg.SocketPath)
 	// Background jobs (restores, deployments) get time to finish instead of

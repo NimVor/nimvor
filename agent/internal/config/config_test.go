@@ -63,3 +63,13 @@ func TestReadToken(t *testing.T) {
 		t.Fatalf("ReadToken = %q, %v", tok, err)
 	}
 }
+
+func TestTerminalListenIsLoopbackOnly(t *testing.T) {
+	for addr, ok := range map[string]bool{"127.0.0.1:8091": true, "[::1]:8091": true, "0.0.0.0:8091": false, "203.0.113.5:8091": false, "localhost:8091": false, "8091": false} {
+		cfg := Default()
+		cfg.TerminalListen = addr
+		if err := cfg.Validate(); (err == nil) != ok {
+			t.Errorf("%s: %v", addr, err)
+		}
+	}
+}

@@ -256,3 +256,22 @@ $group:x:$gid:
 nogroup:x:65534:
 GROUP
 `
+
+// ShellFor is the shell mode in effect for an account (ShellDisabled,
+// ShellJailed or ShellNormal), for the web terminal, and the login shell
+// program of that mode.
+func ShellFor(env *host.Env, user string) (mode, program string) {
+	mode = shellMode(loadState(env), user)
+	return mode, loginShell(mode)
+}
+
+// JailReady says why a jailed shell cannot start here ("" when it can).
+func JailReady(env *host.Env) string {
+	if p := jailProblem(env); p != "" {
+		return p
+	}
+	if !env.Root.Exists(JailShell) {
+		return "The jailed shell is not installed yet; set the account's shell access again (Security → Shell access)."
+	}
+	return ""
+}

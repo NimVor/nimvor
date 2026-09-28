@@ -269,6 +269,12 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/ftp/accounts', [FtpController::class, 'saveAccount'], ['name' => 'sites.ftp.save', 'permission' => P::FTP_MANAGE]);
     $r->post('/sites/{id}/ftp/accounts/delete', [FtpController::class, 'deleteAccount'], ['name' => 'sites.ftp.delete', 'permission' => P::FTP_MANAGE]);
     $r->post('/sites/{id}/sftp', [FtpController::class, 'sftp'], ['name' => 'sites.sftp', 'permission' => P::FTP_MANAGE]);
+    $r->get('/sites/{id}/terminal', [\WhaCP\Http\Controllers\TerminalController::class, 'site'], ['name' => 'sites.terminal', 'permission' => P::FILES_MANAGE]);
+    $r->post('/sites/{id}/terminal/open', [\WhaCP\Http\Controllers\TerminalController::class, 'openSite'], ['name' => 'sites.terminal.open', 'permission' => P::FILES_MANAGE]);
+    $r->post('/terminal/unlock', [\WhaCP\Http\Controllers\TerminalController::class, 'unlock'], ['name' => 'sites.terminal.unlock', 'permission' => P::FILES_MANAGE]);
+    $r->get('/terminal', [\WhaCP\Http\Controllers\TerminalController::class, 'index'], ['name' => 'terminal', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/terminal/root/open', [\WhaCP\Http\Controllers\TerminalController::class, 'openRoot'], ['name' => 'terminal.root', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/terminal/sessions/{id}/close', [\WhaCP\Http\Controllers\TerminalController::class, 'close'], ['name' => 'terminal.close', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/redis/browser', [RedisBrowserController::class, 'browse'], ['name' => 'redis.browser', 'permission' => P::REDIS_MANAGE]);
     $r->post('/redis/browser/api', [RedisBrowserController::class, 'api'], ['name' => 'redis.browser.api', 'permission' => P::REDIS_MANAGE]);
     $r->get('/sites/{id}/redis', [RedisBrowserController::class, 'siteBrowse'], ['name' => 'sites.redis', 'permission' => P::WEBSITES_MANAGE]);

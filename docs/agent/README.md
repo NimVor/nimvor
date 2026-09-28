@@ -28,6 +28,8 @@ privileges.
 | `listen_tcp` | empty | `host:port` for remote access over TLS 1.3 |
 | `tls_cert`, `tls_key` | `/etc/whacp/agent-tls.{crt,key}` | created on first start when missing; `whacp-agent -pin` prints the pin |
 | `allowed_clients` | empty | IPs/networks allowed on `listen_tcp` (required when it is set) |
+| `terminal_listen` | empty | loopback `host:port` of the web terminal WebSocket (Nginx proxies `/terminal/ws` to it; `install.sh --public-https` sets `127.0.0.1:8091`); write mode only |
+| `terminal_root` | `false` | allow administrators a root shell in the web terminal (only root can turn this on, here) |
 | `simulate_commands` | `false` | development only: log commands instead of running them |
 
 Unknown keys are rejected so typos do not silently fall back to defaults.

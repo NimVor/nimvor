@@ -14,7 +14,7 @@
 | XSS | Output escaping everywhere, CSP `script-src 'self'; style-src 'self'` (no inline code) |
 | Clickjacking | `frame-ancestors 'none'`, `X-Frame-Options: DENY` |
 | Privilege escalation inside the panel | RBAC per route, denials audited, last-admin protection |
-| Compromised panel | Agent exposes only named actions with strictly validated parameters; no shell, no arbitrary file access; write gate off by default; in read-only mode the sandbox makes the filesystem read-only; in write mode the agent writes only WhaCP-owned paths and runs site commands as the site's unprivileged account |
+| Compromised panel | Agent exposes only named actions with strictly validated parameters; no arbitrary commands or file access; web terminal shells only as website accounts that already have shell access, in their sandbox (a root shell only when root sets `terminal_root` in the agent's configuration); write gate off by default; in read-only mode the sandbox makes the filesystem read-only; in write mode the agent writes only WhaCP-owned paths and runs site commands as the site's unprivileged account |
 | Other local users talking to the agent | Socket 0660 root:whacp, SO_PEERCRED UID allowlist, bearer token |
 | Network attacker between panel and a remote agent | TLS 1.3 only, public-key pinning (the token is never sent to an unpinned peer), client IP allowlist with lockout |
 | Operator locks themselves out | Firewall, SSH and Fail2ban changes roll back automatically after two minutes unless confirmed; SSH changes validated with `sshd -t` |
@@ -31,6 +31,7 @@
 | Path traversal | `filesystem.Root` rejects `..`, resolves symlinks inside the root; Nginx includes limited to `/etc/nginx`; router parameters restricted to `[A-Za-z0-9_.-]` |
 | Secret leakage | Cron commands, logs and audit details are redacted; Redis/MySQL passwords never returned; private keys never read; `/etc/shadow` never read |
 | Information disclosure through errors | Users see a message, reason, action and reference ID; stack traces only in logs |
+| Web terminal hijacked or abused | Password (and authenticator code) confirmed again before opening, five tries then locked; single-use 256-bit tickets, one minute, bound to the client address, sent inside the WebSocket (not in URLs or logs); Origin must equal Host; listener on loopback behind Nginx; each session its own systemd unit as the account with no_new_privs and its resource limits; idle and maximum times; sign-out ends the sign-in's sessions; starts and ends logged |
 | Resource exhaustion | Size limits on files, bodies and command output; bounded walks; systemd memory/task limits |
 
 ## Policy for dangerous operations

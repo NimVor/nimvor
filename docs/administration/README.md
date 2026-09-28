@@ -382,6 +382,50 @@ members of the `whacp-jail` group (jailed accounts) can run; the agent
 refreshes the copy whenever shell access changes. Other accounts and
 programs keep the restriction.
 
+## Web terminal
+
+A shell in the browser, on the website's **Terminal** page (and a tile on
+customers' website pages). It is available when:
+
+- the panel is served by Nginx over HTTPS (`install.sh --public-https`),
+  which proxies `/terminal/ws` to the agent's loopback listener
+  (`terminal_listen` in `/etc/whacp/agent.json`, `127.0.0.1:8091`); with
+  only the SSH tunnel to the panel there is no web terminal;
+- the agent is in write mode;
+- the website's account has shell access (jailed or normal, above) with
+  its SSH/SFTP login on, and the owner's plan includes "SSH shell & web
+  terminal".
+
+Opening a terminal asks for the panel password again (and the
+authenticator code with two-factor sign-in); that lasts 15 minutes, and
+five wrong tries lock it for 15 minutes. The panel then gets a single-use
+ticket from the agent, valid for a minute and bound to the browser's
+address; the browser sends it as the first WebSocket message, and the
+WebSocket's Origin must be the panel's own host.
+
+Each session is its own systemd unit (`whacp-term-<id>.service`) as the
+account, with the sandbox of other commands run as the account
+(no_new_privs, no capabilities, read-only system folders), in its
+resource limits slice, with at most 512 processes. A jailed account gets
+its bubblewrap jail; a normal one bash. At most 3 sessions per account and
+20 in all. A session closes when the shell exits, the tab closes, after
+the idle time without input (Settings → Security, default 15 minutes), at
+the maximum duration (default 8 hours), when its sign-in signs out, or
+from *Server → Web terminal*, where administrators see every open session
+(account, who opened it, address, times, traffic) and can close it. The
+panel's audit log records confirmations and openings, the agent's log
+starts and ends; keystrokes are not recorded, since they include
+passwords typed at prompts.
+
+**Root shells** are off. A root shell in the browser means that whoever
+takes over an administrator's sign-in controls the server, so only the
+server's root user can allow it: `"terminal_root": true` in
+`/etc/whacp/agent.json`, then `systemctl restart whacp-agent`. The root
+shell (Server → Web terminal) has no sandbox.
+
+The terminal page allows style elements that carry a per-response nonce
+(xterm.js sets colours and sizes that way); scripts stay `'self'` only.
+
 ## Email filters, autoresponders and routing
 
 - **Filters and autoresponder** (Email → domain → the funnel button of a

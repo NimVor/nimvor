@@ -66,6 +66,14 @@ type Config struct {
 	// AllowedClients lists the addresses/networks allowed to use
 	// ListenTCP (required when ListenTCP is set).
 	AllowedClients []string `json:"allowed_clients"`
+	// TerminalListen is the loopback address of the web terminal's
+	// WebSocket endpoint, which the panel's Nginx site proxies to
+	// (/terminal/ws). Empty disables the web terminal. Loopback only.
+	TerminalListen string `json:"terminal_listen"`
+	// TerminalRoot lets server administrators open a root shell in the
+	// web terminal. Off by default; only root can turn it on (here), so a
+	// compromised panel cannot.
+	TerminalRoot bool `json:"terminal_root"`
 	// MaxJobs bounds concurrently running background jobs.
 	MaxJobs int `json:"max_jobs"`
 	// SimulateCommands replaces every system tool with a simulation. For
@@ -177,6 +185,15 @@ func (c Config) Validate() error {
 		}
 		if !filepath.IsAbs(c.TLSCert) || !filepath.IsAbs(c.TLSKey) {
 			return errors.New("tls_cert and tls_key must be absolute")
+		}
+	}
+	if c.TerminalListen != "" {
+		host, _, err := net.SplitHostPort(c.TerminalListen)
+		if err != nil {
+			return fmt.Errorf("terminal_listen must be host:port: %v", err)
+		}
+		if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
+			return errors.New("terminal_listen must be a loopback address (127.0.0.1:port or [::1]:port)")
 		}
 	}
 	if c.MaxJobs < 1 || c.MaxJobs > 16 {

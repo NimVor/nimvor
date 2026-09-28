@@ -36,6 +36,7 @@ $groups = [
         ['Services', 'cpu', 'services', P::SERVICES_VIEW, '/services'],
         ['IP addresses', 'ethernet', 'ips', P::SERVER_VIEW, '/ips'],
         ['Resource limits', 'speedometer', 'limits', P::SERVER_VIEW, '/limits'],
+        ['Web terminal', 'terminal', 'terminal', P::SECURITY_MANAGE, '/terminal'],
         ['Packages', 'box-seam', 'packages', P::PACKAGES_MANAGE, '/packages'],
         ['FFmpeg', 'film', 'ffmpeg', P::SERVER_VIEW, '/ffmpeg'],
         ['FTP server', 'hdd-network', 'ftp', P::SERVER_MANAGE, '/ftp'],
