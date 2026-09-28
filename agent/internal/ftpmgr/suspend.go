@@ -66,6 +66,9 @@ func registerSuspend(r *actions.Registry, env *host.Env) {
 		if out, err := env.Runner.Run(ctx, "usermod", "--expiredate", expire, "--", u.Name); err != nil {
 			return nil, actions.Failed("The system account "+u.Name+" could not be "+map[bool]string{true: "suspended", false: "resumed"}[in.Suspended]+".", host.Output(out))
 		}
+		if in.Suspended {
+			credentialsChanged(u.Name)
+		}
 		p := ftpPaths(env)
 		locked := 0
 		if env.Root.Exists(p.passwd) {

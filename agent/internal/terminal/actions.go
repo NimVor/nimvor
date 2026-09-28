@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 )
 
@@ -12,6 +13,11 @@ import (
 func Register(r *actions.Registry, e *host.Env) {
 	m := NewManager(e)
 	Shared = m
+	// A changed password, taken-away shell or suspension ends the
+	// account's sessions (like sshd sessions, they would otherwise live on).
+	ftpmgr.CredentialsChanged = func(user string) {
+		m.KillUser(user, "The account's password or shell access changed. Sign in again.")
+	}
 	RegisterWith(r, m)
 }
 
@@ -21,7 +27,7 @@ func RegisterWith(r *actions.Registry, m *Manager) {
 		return map[string]any{"enabled": m.Enabled, "root_allowed": m.Env.Cfg.TerminalRoot && m.Enabled, "simulation": m.Env.Cfg.SimulateCommands,
 			"sessions": m.List(), "max_sessions": maxSessions, "max_per_account": maxPerAccount}, nil
 	}})
-	r.Register(actions.Action{Name: "terminal.open", Mutating: true, Description: "Prepare a web terminal session for a website account (its shell access must be jailed or normal) or, when terminal_root is on, a root shell. Returns a single-use ticket valid for a minute, which the browser sends over the WebSocket.", Handler: func(_ context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "terminal.open", Mutating: true, Description: "Prepare a web terminal session for a website account (its shell access must be jailed or normal) or, when terminal_root is on, a root shell. Returns a single-use ticket valid for a minute, which the browser sends over the WebSocket together with the account's Linux password (checked by the agent with PAM's unix_chkpwd; the panel never sees it). Accounts in privileged groups are refused.", Handler: func(_ context.Context, raw json.RawMessage) (any, error) {
 		var p OpenParams
 		if err := host.Decode(raw, &p); err != nil {
 			return nil, err

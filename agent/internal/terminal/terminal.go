@@ -3,11 +3,14 @@
 // the agent (terminal_listen).
 //
 // The panel asks for a session with terminal.open, which checks the
-// account (its shell access must be jailed or normal; root only when
-// terminal_root is on in the agent's own configuration) and returns a
-// single-use ticket valid for a minute. The browser sends the ticket as
-// its first WebSocket message; the ticket is bound to the client address
-// the panel saw and the WebSocket's Origin must match its Host.
+// account (its shell access must be jailed or normal, and it must not be
+// in a privileged group; root only when terminal_root is on in the
+// agent's own configuration) and returns a single-use ticket valid for a
+// minute. The browser sends the ticket as its first WebSocket message,
+// with the account's Linux password (see auth.go), which the agent checks
+// before any shell starts; the panel never sees it. The ticket is bound to
+// the client address the panel saw and the WebSocket's Origin must match
+// its Host.
 //
 // Each session is its own transient systemd unit, as the account, with
 // the same sandbox as other commands run as the account, in its resource
@@ -79,14 +82,17 @@ type Spec struct {
 }
 
 type ticket struct {
-	spec     Spec
-	cols     int
-	rows     int
-	clientIP string
-	label    string
-	owner    string
-	idle     time.Duration
-	expires  time.Time
+	spec Spec
+	// needPassword: the account's Linux password must be given over the
+	// WebSocket before the shell starts (every website account session).
+	needPassword bool
+	cols         int
+	rows         int
+	clientIP     string
+	label        string
+	owner        string
+	idle         time.Duration
+	expires      time.Time
 }
 
 // Session is a running terminal.
@@ -117,6 +123,11 @@ type Manager struct {
 	Now   func() time.Time
 	// CheckEvery is how often idle and maximum times are checked.
 	CheckEvery time.Duration
+	// Verify checks a Linux account's password (unix_chkpwd; tests
+	// replace it).
+	Verify func(ctx context.Context, user, password string) error
+
+	guard throttle
 
 	mu       sync.Mutex
 	tickets  map[string]*ticket
@@ -131,6 +142,7 @@ var Shared *Manager
 func NewManager(e *host.Env) *Manager {
 	m := &Manager{Env: e, Now: time.Now, tickets: map[string]*ticket{}, sessions: map[string]*Session{}, CheckEvery: 5 * time.Second}
 	m.Spawn = m.systemdSpawn
+	m.Verify = func(ctx context.Context, user, password string) error { return checkPassword(ctx, e, user, password) }
 	if e.Cfg.SimulateCommands {
 		m.Spawn = simulationSpawn
 	}
@@ -229,6 +241,9 @@ func (m *Manager) spec(p OpenParams) (Spec, error) {
 	default:
 		return s, actions.Conflict("Shell access is disabled for " + p.User + ". An administrator can allow it under Security → Shell access (jailed or normal), with the account's SSH/SFTP login on.")
 	}
+	if bad := PrivilegedGroups(e, p.User, u.GID); len(bad) > 0 {
+		return s, actions.Conflict(p.User + " belongs to privileged groups (" + strings.Join(bad, ", ") + "); a website account must not. Remove it from them (gpasswd -d " + p.User + " <group>) before opening a terminal.")
+	}
 	s.User, s.Mode, s.Program = p.User, mode, program
 	s.UID, s.GID, s.Home, s.Slice = int(cred.UID), int(cred.GID), u.Home, cred.Slice
 	s.Groups = supplementaryGroups(e, p.User)
@@ -284,9 +299,9 @@ func (m *Manager) Open(p OpenParams) (map[string]any, error) {
 		return nil, actions.Conflict("Too many terminals are being opened; try again in a minute.")
 	}
 	tok := randomHex(32)
-	m.tickets[hashTicket(tok)] = &ticket{spec: s, cols: p.Cols, rows: p.Rows, clientIP: p.ClientIP, label: p.Label, owner: p.Owner,
+	m.tickets[hashTicket(tok)] = &ticket{spec: s, needPassword: s.Mode != ModeRoot, cols: p.Cols, rows: p.Rows, clientIP: p.ClientIP, label: p.Label, owner: p.Owner,
 		idle: time.Duration(p.IdleMinutes) * time.Minute, expires: now.Add(ticketTTL)}
-	return map[string]any{"ticket": tok, "expires_in": int(ticketTTL.Seconds()), "session_id": s.ID, "mode": s.Mode, "user": s.User}, nil
+	return map[string]any{"ticket": tok, "expires_in": int(ticketTTL.Seconds()), "session_id": s.ID, "mode": s.Mode, "user": s.User, "password_required": s.Mode != ModeRoot}, nil
 }
 
 // capacity refuses a session over the limits (m.mu held).
@@ -429,8 +444,9 @@ func (m *Manager) Handler() http.Handler {
 		_ = ws.c.SetReadDeadline(time.Now().Add(authTimeout))
 		op, msg, err := ws.ReadMessage()
 		var auth struct {
-			Type   string `json:"type"`
-			Ticket string `json:"ticket"`
+			Type     string `json:"type"`
+			Ticket   string `json:"ticket"`
+			Password string `json:"password"`
 		}
 		if err != nil || op != opText || json.Unmarshal(msg, &auth) != nil || auth.Type != "auth" || len(auth.Ticket) != 64 {
 			ws.Close(4401, "authentication required")
@@ -443,9 +459,64 @@ func (m *Manager) Handler() http.Handler {
 			ws.Close(4401, "invalid ticket")
 			return
 		}
+		if t.needPassword && !m.authenticate(ws, t, ip, auth.Password) {
+			return
+		}
+		auth.Password = ""
 		_ = ws.c.SetReadDeadline(time.Time{})
 		m.run(ws, t, ip)
 	})
+}
+
+// authenticate checks the account's Linux password: up to maxAttempts
+// per ticket, throttled per account and per client address. The password
+// is never logged or echoed.
+func (m *Manager) authenticate(ws *wsConn, t *ticket, ip, password string) bool {
+	user := t.spec.User
+	keys := []string{"user:" + user, "ip:" + ip}
+	for attempt := 1; ; attempt++ {
+		if wait := m.guard.blocked(m.Now(), keys...); wait > 0 {
+			m.Env.Log.Warn("terminal: sign-in refused after repeated wrong passwords", "user", user, "client_ip", ip)
+			m.sendJSON(ws, map[string]any{"type": "exit", "reason": fmt.Sprintf("Too many wrong passwords. Try again in %d minutes.", int(wait.Minutes())+1)})
+			ws.Close(4429, "too many attempts")
+			return false
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		err := m.Verify(ctx, user, password)
+		cancel()
+		password = ""
+		if err == nil {
+			m.guard.clear(keys[0])
+			m.Env.Log.Info("terminal: account password accepted", "user", user, "client_ip", ip)
+			return true
+		}
+		if !errors.Is(err, errWrongPassword) {
+			m.Env.Log.Error("terminal: the password could not be checked", "user", user, "error", err.Error())
+			m.sendJSON(ws, map[string]any{"type": "exit", "reason": "The password could not be checked on this server."})
+			ws.Close(1011, "no password check")
+			return false
+		}
+		m.guard.record(m.Now(), keys...)
+		m.Env.Log.Warn("terminal: wrong account password", "user", user, "client_ip", ip, "attempt", attempt)
+		time.Sleep(failurePause)
+		if attempt >= maxAttempts {
+			m.sendJSON(ws, map[string]any{"type": "exit", "reason": "Wrong password. Open the terminal again to retry."})
+			ws.Close(4401, "wrong password")
+			return false
+		}
+		m.sendJSON(ws, map[string]any{"type": "auth_failed", "reason": "Wrong password for " + user + ".", "attempts_left": maxAttempts - attempt})
+		_ = ws.c.SetReadDeadline(time.Now().Add(2 * time.Minute))
+		op, msg, err := ws.ReadMessage()
+		var in struct {
+			Type     string `json:"type"`
+			Password string `json:"password"`
+		}
+		if err != nil || op != opText || json.Unmarshal(msg, &in) != nil || in.Type != "password" {
+			ws.Close(4401, "authentication required")
+			return false
+		}
+		password = in.Password
+	}
 }
 
 func (m *Manager) sendJSON(ws *wsConn, v any) error {

@@ -6,6 +6,22 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Web terminal sign-in uses the Linux account's password.** A website's
+  terminal now signs in as its Linux account with that account's own
+  password (the SSH/SFTP one in `/etc/shadow`), instead of re-confirming
+  the panel password.
+  - The browser sends the password to the agent only, inside the
+    WebSocket; the agent checks it with PAM's `unix_chkpwd`. The panel
+    never receives, stores or logs it.
+  - Wrong passwords: three tries per connection, and five per 15 minutes
+    per account or address block sign-in.
+  - Changing the password, turning shell access or password login off,
+    or suspending the account ends its open terminals.
+  - Accounts in privileged groups get no terminal.
+  - Root shells (when enabled) still confirm the panel password and
+    authenticator code.
+
 ### Added
 - **ModSecurity manager** (Security → ModSecurity): the Nginx connector
   with the OWASP Core Rule Set (paranoia level, anomaly thresholds) and

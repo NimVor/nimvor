@@ -29,10 +29,12 @@ func fixture(t *testing.T, mode string) (*testhost.Host, *Manager) {
 	h := testhost.New(t)
 	f, _ := os.OpenFile(filepath.Join(h.Base, "etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
 	fmt.Fprintf(f, "shop:x:%d:%d::/home/whacp/shop:/bin/bash\n", h.UID, h.GID)
+	fmt.Fprintf(f, "other:x:%d:%d::/home/whacp/other:/bin/bash\n", h.UID+1, h.GID+1)
 	f.Close()
 	os.WriteFile(filepath.Join(h.Base, "etc/group"), []byte(fmt.Sprintf("shop:x:%d:\nwhacp-jail:x:990:shop,other\n", h.GID)), 0o644)
 	os.MkdirAll(filepath.Join(h.Base, "home/whacp/shop"), 0o755)
-	os.WriteFile(filepath.Join(h.Base, "var/lib/whacp-agent/sftp.json"), []byte(`{"users":{"shop":{}},"shells":{"shop":"`+mode+`"}}`), 0o600)
+	os.MkdirAll(filepath.Join(h.Base, "home/whacp/other"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "var/lib/whacp-agent/sftp.json"), []byte(`{"users":{"shop":{},"other":{}},"shells":{"shop":"`+mode+`","other":"normal"}}`), 0o600)
 	os.WriteFile(filepath.Join(h.Base, "var/lib/whacp-agent/limits.json"), []byte(`{"accounts":{"acct7":{"users":["shop"]}}}`), 0o600)
 	m := NewManager(h.Env)
 	m.Enabled = true
@@ -230,6 +232,13 @@ func e2e(t *testing.T) (*Manager, *httptest.Server) {
 		t.Skip("pseudo terminals: Linux only")
 	}
 	_, m := fixture(t, "normal")
+	e2eSpawn(t, m)
+	m.Verify = passwords.verify
+	return m, serve(t, m)
+}
+
+// e2eSpawn runs sessions as /bin/sh of the test's own user.
+func e2eSpawn(t *testing.T, m *Manager) {
 	home := t.TempDir()
 	var mu sync.Mutex
 	m.Spawn = func(ctx context.Context, s Spec) (func(), error) {
@@ -238,9 +247,46 @@ func e2e(t *testing.T) (*Manager, *httptest.Server) {
 		s.Program, s.Home = "/bin/sh", home
 		return simulationSpawn(ctx, s)
 	}
+}
+
+func serve(t *testing.T, m *Manager) *httptest.Server {
 	srv := httptest.NewServer(m.Handler())
 	t.Cleanup(srv.Close)
-	return m, srv
+	return srv
+}
+
+// passwords stands in for /etc/shadow (the real check, unix_chkpwd, is
+// covered by the real-host tests).
+var passwords = &fakeShadow{pw: map[string]string{"shop": "shop-pass", "other": "other-pass"}}
+
+type fakeShadow struct {
+	mu sync.Mutex
+	pw map[string]string
+}
+
+func (f *fakeShadow) verify(_ context.Context, user, password string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if p, ok := f.pw[user]; !ok || password == "" || p != password {
+		return errWrongPassword
+	}
+	return nil
+}
+
+func (f *fakeShadow) set(user, password string) {
+	f.mu.Lock()
+	f.pw[user] = password
+	f.mu.Unlock()
+}
+
+func authMsg(ticket, password string) []byte {
+	b, _ := json.Marshal(map[string]string{"type": "auth", "ticket": ticket, "password": password})
+	return b
+}
+
+func TestMain(m *testing.M) {
+	failurePause = 10 * time.Millisecond
+	os.Exit(m.Run())
 }
 
 func newTicket(t *testing.T, m *Manager, p OpenParams) string {
@@ -260,7 +306,7 @@ func TestSessionEndToEnd(t *testing.T) {
 	if code != 101 {
 		t.Fatalf("handshake %d", code)
 	}
-	c.send(opText, []byte(`{"type":"auth","ticket":"`+tk+`"}`))
+	c.send(opText, (authMsg(tk, "shop-pass")))
 	_, ready := c.until(t, "ready", "")
 	if ready["user"] != "shop" || ready["mode"] != "normal" {
 		t.Fatalf("%v", ready)
@@ -286,7 +332,7 @@ func TestSessionEndToEnd(t *testing.T) {
 
 	// The ticket was used up.
 	c2, _ := dial(t, srv, "https://HOST")
-	c2.send(opText, []byte(`{"type":"auth","ticket":"`+tk+`"}`))
+	c2.send(opText, (authMsg(tk, "shop-pass")))
 	if _, e := c2.until(t, "exit", ""); !strings.Contains(e["reason"].(string), "no longer valid") {
 		t.Fatalf("%v", e)
 	}
@@ -295,7 +341,7 @@ func TestSessionEndToEnd(t *testing.T) {
 func TestShellExitEndsSession(t *testing.T) {
 	m, srv := e2e(t)
 	c, _ := dial(t, srv, "http://HOST")
-	c.send(opText, []byte(`{"type":"auth","ticket":"`+newTicket(t, m, OpenParams{User: "shop"})+`"}`))
+	c.send(opText, (authMsg(newTicket(t, m, OpenParams{User: "shop"}), "shop-pass")))
 	c.until(t, "ready", "")
 	c.send(opBinary, []byte("exit\n"))
 	if _, e := c.until(t, "exit", ""); e["reason"] != "The shell exited." {
@@ -310,7 +356,7 @@ func TestIdleTimeout(t *testing.T) {
 	now := time.Now()
 	m.Now = func() time.Time { mu.Lock(); defer mu.Unlock(); return now }
 	c, _ := dial(t, srv, "http://HOST")
-	c.send(opText, []byte(`{"type":"auth","ticket":"`+newTicket(t, m, OpenParams{User: "shop", IdleMinutes: 5})+`"}`))
+	c.send(opText, (authMsg(newTicket(t, m, OpenParams{User: "shop", IdleMinutes: 5}), "shop-pass")))
 	c.until(t, "ready", "")
 	mu.Lock()
 	now = now.Add(6 * time.Minute)
@@ -329,13 +375,13 @@ func TestRefusals(t *testing.T) {
 	// A ticket is bound to the address the panel saw.
 	tk := newTicket(t, m, OpenParams{User: "shop", ClientIP: "198.51.100.4"})
 	c, _ := dial(t, srv, "https://HOST")
-	c.send(opText, []byte(`{"type":"auth","ticket":"`+tk+`"}`))
+	c.send(opText, (authMsg(tk, "shop-pass")))
 	c.until(t, "exit", "")
 	// Expired.
 	tk = newTicket(t, m, OpenParams{User: "shop"})
 	m.Now = func() time.Time { return time.Now().Add(2 * time.Minute) }
 	c, _ = dial(t, srv, "https://HOST")
-	c.send(opText, []byte(`{"type":"auth","ticket":"`+tk+`"}`))
+	c.send(opText, (authMsg(tk, "shop-pass")))
 	c.until(t, "exit", "")
 	m.Now = time.Now
 	// No authentication message.
@@ -360,7 +406,7 @@ func TestCapacity(t *testing.T) {
 	var cs []*client
 	for i := 0; i < maxPerAccount; i++ {
 		c, _ := dial(t, srv, "https://HOST")
-		c.send(opText, []byte(`{"type":"auth","ticket":"`+newTicket(t, m, OpenParams{User: "shop"})+`"}`))
+		c.send(opText, (authMsg(newTicket(t, m, OpenParams{User: "shop"}), "shop-pass")))
 		c.until(t, "ready", "")
 		cs = append(cs, c)
 	}

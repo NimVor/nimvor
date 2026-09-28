@@ -396,12 +396,35 @@ customers' website pages). It is available when:
   its SSH/SFTP login on, and the owner's plan includes "SSH shell & web
   terminal".
 
-Opening a terminal asks for the panel password again (and the
-authenticator code with two-factor sign-in); that lasts 15 minutes, and
-five wrong tries lock it for 15 minutes. The panel then gets a single-use
-ticket from the agent, valid for a minute and bound to the browser's
-address; the browser sends it as the first WebSocket message, and the
-WebSocket's Origin must be the panel's own host.
+**Sign-in.** A website's terminal signs in as that website's Linux
+account (for example `shop`) with the account's own password: the one in
+`/etc/shadow`, which is also its SSH and SFTP password (set on the FTP /
+SFTP page, *Also allow password login*). There is no separate terminal or
+SFTP password: WhaCP hashes the password into `/etc/shadow` with
+`chpasswd -e` and never stores it, and a password changed on the server
+(`passwd`) works too.
+
+1. The panel checks who may open which account (website owner, plan
+   feature "SSH shell & web terminal", shell access jailed or normal,
+   account not suspended) and asks the agent for a single-use ticket,
+   valid for a minute and bound to the browser's address.
+2. The browser opens the WebSocket (its Origin must be the panel's own
+   host) and sends the ticket with the password. The password goes to the
+   agent only; the panel never receives, stores or logs it.
+3. The agent checks the password with PAM's `unix_chkpwd` (password on
+   standard input, never in a command line), then that the account has
+   not expired. Locked (password login off) or suspended accounts are
+   refused.
+4. Wrong passwords: three tries per ticket, then the connection closes.
+   Five wrong passwords within 15 minutes, per account or per address,
+   block sign-in for 15 minutes. Each wrong password waits a second, and
+   the agent's log records the account and address, never the password.
+
+Changing the account's password, turning its password login or shell
+access off, changing its shell mode, or suspending it ends its open
+terminals. An account that belongs to a privileged group (`sudo`,
+`wheel`, `adm`, `shadow`, `docker`, `lxd`, `disk`, `systemd-journal`,
+`root`…) gets no terminal until it is removed from the group.
 
 Each session is its own systemd unit (`whacp-term-<id>.service`) as the
 account, with the sandbox of other commands run as the account
@@ -421,7 +444,17 @@ passwords typed at prompts.
 takes over an administrator's sign-in controls the server, so only the
 server's root user can allow it: `"terminal_root": true` in
 `/etc/whacp/agent.json`, then `systemctl restart whacp-agent`. The root
-shell (Server → Web terminal) has no sandbox.
+shell (Server → Web terminal) has no sandbox and, since root usually has
+no password, asks for the administrator's panel password (and
+authenticator code) again instead; hosting accounts can never open it.
+
+**What a website account's session gets** (checked by the real-host
+tests): its own UID and groups, `NoNewPrivs: 1` and every capability set
+(`CapInh`, `CapPrm`, `CapEff`, `CapBnd`, `CapAmb`) empty, so `sudo` and
+`su` cannot raise privileges; its account's resource limits slice and at
+most 512 processes; the normal filesystem permissions (other accounts'
+website folders are `0710`, their files unreadable) or, jailed, only its
+own website folder and a read-only system.
 
 The terminal page allows style elements that carry a per-response nonce
 (xterm.js sets colours and sizes that way); scripts stay `'self'` only.

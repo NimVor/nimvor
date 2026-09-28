@@ -13,9 +13,13 @@ use WhaCP\Support\UserFacingException;
 /**
  * Web terminal. The agent runs the shell (as the website account, in its
  * shell access mode and resource limits) and serves the WebSocket; the
- * panel decides who may open which account, after the user confirms its
- * password (and authenticator code) again, and hands the browser a
- * single-use ticket bound to its address.
+ * panel decides who may open which account and hands the browser a
+ * single-use ticket bound to its address. The session is then
+ * authenticated with the account's Linux password (the SSH/SFTP one, in
+ * /etc/shadow), which goes from the browser to the agent only: the panel
+ * never receives, stores or logs it. Root shells (administrators, when
+ * the agent allows them) need the panel password and authenticator code
+ * confirmed again instead.
  *
  * Every sign-in gets an owner token; signing out ends that sign-in's
  * terminals.
@@ -141,7 +145,11 @@ final class TerminalService
      */
     private function open(array $target, array $user, string $clientIp, int $cols, int $rows, string $what): array
     {
-        if (!$this->unlocked()) {
+        // A website account's terminal is authenticated by that Linux
+        // account's own password, which the browser sends to the agent
+        // inside the WebSocket (the panel never sees it). A root shell has
+        // no such account password, so it needs the panel password again.
+        if (!empty($target['root']) && !$this->unlocked()) {
             throw new UserFacingException('Confirm your password to open the terminal.', status: 428);
         }
         $label = preg_replace('/[^\pL\pN @._()#:-]/u', '', (string) $user['username'] . ' (#' . (int) $user['id'] . ')') ?? '';
@@ -153,7 +161,7 @@ final class TerminalService
         ]);
         $this->audit->record('terminal.open', 'terminal', (string) ($res['session_id'] ?? ''), AuditLogger::SUCCESS,
             ['target' => $what, 'account' => $res['user'] ?? null, 'mode' => $res['mode'] ?? null, 'ip' => $clientIp], (int) $user['id']);
-        return ['ticket' => (string) $res['ticket'], 'session_id' => (string) ($res['session_id'] ?? ''), 'mode' => (string) ($res['mode'] ?? ''), 'user' => (string) ($res['user'] ?? '')];
+        return ['ticket' => (string) $res['ticket'], 'session_id' => (string) ($res['session_id'] ?? ''), 'mode' => (string) ($res['mode'] ?? ''), 'user' => (string) ($res['user'] ?? ''), 'password_required' => (bool) ($res['password_required'] ?? empty($target['root']))];
     }
 
     /** @param array<string, mixed> $actor */

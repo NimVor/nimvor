@@ -268,7 +268,8 @@ func applySSH(ctx context.Context, env *host.Env, st sftpState, changed []string
 	if err != nil {
 		return host.FailWithValidation("The SSH settings were not applied", err)
 	}
-	// Password: set (hashed) or lock password logins for the account.
+	// Password: set (hashed) or lock password logins for the account. It
+	// is the Linux account's password (SSH, SFTP and the web terminal).
 	if pwUser != "" {
 		if u, on := st.Users[pwUser]; on && u.PasswordLogin && password != "" {
 			out, perr := env.Runner.RunWith(ctx, "chpasswd", execx.Opts{Stdin: strings.NewReader(pwUser + ":" + shacrypt.HashPassword(password) + "\n")}, "-e")
@@ -276,8 +277,17 @@ func applySSH(ctx context.Context, env *host.Env, st sftpState, changed []string
 				applied.Rollback()
 				return actions.Failed("The SFTP password could not be set.", host.Output(out))
 			}
+			credentialsChanged(pwUser)
 		} else if !on || !u.PasswordLogin {
 			env.Runner.Run(ctx, "usermod", "--lock", "--", pwUser)
+			credentialsChanged(pwUser)
+		}
+	}
+	// Web terminal sessions end when shell access changes (shell.set) or
+	// the account's shell or login is taken away.
+	for _, name := range changed {
+		if pwUser == "" || shellMode(st, name) == ShellDisabled {
+			credentialsChanged(name)
 		}
 	}
 	if env.UnitActive(ctx, sshUnit(env)) {

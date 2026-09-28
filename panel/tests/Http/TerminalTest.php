@@ -47,16 +47,20 @@ final class TerminalTest extends HttpTestCase
         $this->login($who);
     }
 
-    public function testOwnerConfirmsPasswordThenGetsATicket(): void
+    public function testOwnerSignsInWithTheLinuxAccountPassword(): void
     {
         $this->login('cust');
         self::assertStringContainsString('/sites/' . $this->siteId . '/terminal"', $this->request('GET', '/sites/' . $this->siteId)->body(), 'menu entry');
         $res = $this->request('GET', '/sites/' . $this->siteId . '/terminal');
         self::assertSame(200, $res->status());
         $page = $res->body();
-        foreach (['Confirm it is you', 'assets/vendor/xterm/xterm.js', 'assets/js/terminal.js', 'in a sandbox that shows only', 'data-unlocked="0"'] as $want) {
+        foreach (['Sign in as the Linux account <code>shop</code>', 'Password for shop', 'data-auth="linux"', 'assets/vendor/xterm/xterm.js', 'assets/js/terminal.js', 'in a sandbox that shows only'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
+        // The Linux password field is never submitted to the panel.
+        self::assertMatchesRegularExpression('/<input class="form-control" type="password" id="wcp-term-lpw" required/', $page);
+        self::assertStringNotContainsString('id="wcp-term-lpw" name=', $page);
+        self::assertStringNotContainsString('Your panel password', $page, 'no panel-password step for account terminals');
         // The page's policy allows style elements only with its nonce.
         preg_match('/data-style-nonce="([^"]+)"/', $page, $m);
         $csp = (string) $res->header('Content-Security-Policy');
@@ -64,26 +68,26 @@ final class TerminalTest extends HttpTestCase
         self::assertStringContainsString("script-src 'self';", $csp);
         self::assertStringNotContainsString('unsafe', $csp);
 
-        // No ticket before the password is confirmed again.
-        $res = $this->json('/sites/' . $this->siteId . '/terminal/open', ['cols' => 120, 'rows' => 30]);
-        self::assertSame(428, $res->status());
-        self::assertTrue(json_decode($res->body(), true)['error']['unlock']);
-        self::assertSame(0, $this->calls('terminal.open'));
-
-        self::assertSame(403, $this->json('/terminal/unlock', ['password' => 'wrong'])->status());
-        self::assertSame(200, $this->json('/terminal/unlock', ['password' => 'a-long-test-password'])->status());
-
-        $res = $this->json('/sites/' . $this->siteId . '/terminal/open', ['cols' => 120, 'rows' => 30]);
+        // The ticket: authorization by the panel; the password is checked by
+        // the agent over the WebSocket, so the panel never passes one on.
+        $res = $this->json('/sites/' . $this->siteId . '/terminal/open', ['cols' => 120, 'rows' => 30, 'password' => 'Should-Not-Travel-1']);
         self::assertSame(200, $res->status(), $res->body());
-        self::assertSame(str_repeat('a', 64), json_decode($res->body(), true)['data']['ticket']);
+        $data = json_decode($res->body(), true)['data'];
+        self::assertSame(str_repeat('a', 64), $data['ticket']);
+        self::assertTrue($data['password_required']);
         $call = $this->lastCall('terminal.open');
         self::assertSame('shop', $call['user']);
         self::assertArrayNotHasKey('root', $call);
+        self::assertArrayNotHasKey('password', $call);
         self::assertSame([120, 30, '192.0.2.10', 'cust (#' . $this->custId . ')', 15, 480], [$call['cols'], $call['rows'], $call['client_ip'], $call['label'], $call['idle_minutes'], $call['max_minutes']]);
         self::assertMatchesRegularExpression('/^[a-f0-9]{32}$/', $call['owner']);
         $db = $this->app->container->get(Connection::class);
         self::assertSame(1, (int) $db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'terminal.open'"));
-        self::assertSame(1, (int) $db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'terminal.unlock' AND result = 'failure'"));
+        // Nothing the browser sent as a password is kept anywhere.
+        foreach ($this->agent->requests as $r) {
+            self::assertStringNotContainsString('Should-Not-Travel-1', (string) $r['body']);
+        }
+        self::assertSame(0, (int) $db->scalar("SELECT COUNT(*) FROM audit_logs WHERE details LIKE '%Should-Not-Travel%'"));
 
         // Signing out ends this sign-in's terminals.
         $this->post('/logout');

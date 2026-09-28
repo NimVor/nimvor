@@ -30,6 +30,11 @@
     var WhaCP = window.WhaCP;
     var openUrl = root.getAttribute('data-open-url');
     var unlockForm = document.getElementById('wcp-term-unlock');
+    // "linux": a website account, signed in with its Linux password, which
+    // is sent only to the agent over the WebSocket and never kept here.
+    var auth = root.getAttribute('data-auth') || 'panel';
+    var loginForm = document.getElementById('wcp-term-login');
+    var loginInput = loginForm ? loginForm.querySelector('input[type="password"]') : null;
     var screen = document.getElementById('wcp-term-screen');
     var state = document.getElementById('wcp-term-state');
     var connectBtn = document.getElementById('wcp-term-connect');
@@ -45,6 +50,7 @@
     }
 
     function showUnlock(message) {
+        if (!unlockForm) { return; }
         unlockForm.hidden = false;
         connectBtn.hidden = true;
         var err = unlockForm.querySelector('[data-term-error]');
@@ -52,6 +58,18 @@
         err.hidden = !message;
         var pw = unlockForm.querySelector('input[name="password"]');
         if (pw) { pw.focus(); }
+    }
+
+    function showLogin(message) {
+        if (!loginForm) { return; }
+        loginForm.hidden = false;
+        connectBtn.hidden = true;
+        var err = loginForm.querySelector('[data-term-error]');
+        err.textContent = message || '';
+        err.hidden = !message;
+        loginForm.querySelector('button[type="submit"]').disabled = false;
+        loginInput.value = '';
+        loginInput.focus();
     }
 
     function ensureTerminal() {
@@ -94,14 +112,15 @@
 
     function ended(reason) {
         setState('Disconnected', 'is-off');
-        connectBtn.hidden = false;
+        connectBtn.hidden = auth === 'linux';
         connectBtn.disabled = false;
         closeBtn.hidden = true;
+        if (auth === 'linux') { showLogin(reason); }
         if (term && reason) { term.write('\r\n\x1b[33m' + reason + '\x1b[0m\r\n'); }
         ws = null;
     }
 
-    function connect() {
+    function connect(password) {
         ensureTerminal();
         connectBtn.disabled = true;
         setState('Connecting…', 'is-warn');
@@ -112,7 +131,10 @@
                 var reason = '';
                 sock.binaryType = 'arraybuffer';
                 sock.onopen = function () {
-                    sock.send(JSON.stringify({ type: 'auth', ticket: res.data.ticket }));
+                    var msg = { type: 'auth', ticket: res.data.ticket };
+                    if (auth === 'linux') { msg.password = password; }
+                    sock.send(JSON.stringify(msg));
+                    password = null;
                 };
                 sock.onmessage = function (ev) {
                     if (typeof ev.data !== 'string') {
@@ -121,7 +143,13 @@
                     }
                     var msg;
                     try { msg = JSON.parse(ev.data); } catch (e) { return; }
-                    if (msg.type === 'ready') {
+                    if (msg.type === 'auth_failed') {
+                        sock.wcpAwaitPassword = true;
+                        setState('Not signed in', 'is-warn');
+                        showLogin(msg.reason + ' ' + msg.attempts_left + ' more ' + (msg.attempts_left === 1 ? 'try' : 'tries') + '.');
+                    } else if (msg.type === 'ready') {
+                        sock.wcpAwaitPassword = false;
+                        if (loginForm) { loginForm.hidden = true; }
                         setState('Connected as ' + msg.user + (msg.mode === 'jailed' ? ' (jailed shell)' : msg.mode === 'root' ? ' (root)' : ''), 'is-ok');
                         closeBtn.hidden = false;
                         connectBtn.hidden = true;
@@ -140,7 +168,12 @@
             })
             .catch(function (err) {
                 connectBtn.disabled = false;
+                password = null;
                 setState('Not connected', 'is-off');
+                if (auth === 'linux') {
+                    showLogin(err.message);
+                    return;
+                }
                 if (err.details && err.details.unlock) {
                     showUnlock('');
                     return;
@@ -149,14 +182,33 @@
             });
     }
 
-    connectBtn.addEventListener('click', connect);
+    connectBtn.addEventListener('click', function () {
+        if (auth === 'linux') { showLogin(''); } else { connect(); }
+    });
+    if (loginForm) {
+        loginForm.addEventListener('submit', function (ev) {
+            ev.preventDefault();
+            var pw = loginInput.value;
+            loginInput.value = '';
+            if (pw === '') { showLogin('Enter the password.'); return; }
+            loginForm.querySelector('button[type="submit"]').disabled = true;
+            loginForm.querySelector('[data-term-error]').hidden = true;
+            if (ws && ws.readyState === 1 && ws.wcpAwaitPassword) {
+                ws.wcpAwaitPassword = false;
+                ws.send(JSON.stringify({ type: 'password', password: pw }));
+            } else {
+                connect(pw);
+            }
+            pw = null;
+        });
+    }
     closeBtn.addEventListener('click', function () {
         if (ws) {
             ws.wcpClosing = true;
             ws.close();
         }
     });
-    unlockForm.addEventListener('submit', function (ev) {
+    if (unlockForm) unlockForm.addEventListener('submit', function (ev) {
         ev.preventDefault();
         var btn = unlockForm.querySelector('button[type="submit"]');
         btn.disabled = true;
@@ -172,7 +224,10 @@
             .then(function () { btn.disabled = false; });
     });
 
-    if (root.getAttribute('data-unlocked') === '1') {
+    if (auth === 'linux') {
+        ensureTerminal();
+        showLogin('');
+    } else if (root.getAttribute('data-unlocked') === '1') {
         connect();
     } else {
         showUnlock('');

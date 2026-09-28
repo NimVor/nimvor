@@ -275,3 +275,14 @@ func JailReady(env *host.Env) string {
 	}
 	return ""
 }
+
+// CredentialsChanged, when set (by the web terminal), is called with an
+// account whose password was set or locked, whose shell access or SSH
+// login changed, or that was suspended: its open sessions end.
+var CredentialsChanged func(user string)
+
+func credentialsChanged(user string) {
+	if CredentialsChanged != nil && user != "" {
+		CredentialsChanged(user)
+	}
+}

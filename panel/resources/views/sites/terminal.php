@@ -37,6 +37,6 @@ $enabled = (bool) ($status['enabled'] ?? false);
 
 <div class="wcp-infobar">
     <i class="bi bi-info-circle" aria-hidden="true"></i>
-    <span>A shell as <code><?= e($site['system_user']) ?></code><?= $mode === 'jailed' ? ', in a sandbox that shows only this account\'s website folder' : ' on the server' ?>. It closes after <?= (int) ($idle ?? 15) ?> minutes without input and when you sign out; the session is logged.</span>
+    <span>A shell as <code><?= e($site['system_user']) ?></code><?= $mode === 'jailed' ? ', in a sandbox that shows only this account\'s website folder' : ' on the server' ?>. Sign in with the account's Linux password (the same as for SSH and SFTP). The session closes after <?= (int) ($idle ?? 15) ?> minutes without input, when you sign out of the panel and when the account's password or shell access changes; it is logged.</span>
 </div>
-<?= $this->partial('terminal/_console', ['styleNonce' => $styleNonce, 'openUrl' => $openUrl, 'unlocked' => $unlocked, 'needsCode' => $needsCode]) ?>
+<?= $this->partial('terminal/_console', ['styleNonce' => $styleNonce, 'openUrl' => $openUrl, 'unlocked' => $unlocked, 'needsCode' => $needsCode, 'account' => (string) $site['system_user']]) ?>

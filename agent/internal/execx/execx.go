@@ -73,6 +73,8 @@ var defaultCandidates = map[string][]string{
 	"journalctl":  {"/usr/bin/journalctl", "/bin/journalctl"},
 	"nginx":       {"/usr/sbin/nginx", "/usr/bin/nginx"},
 	"ip":          {"/usr/sbin/ip", "/sbin/ip", "/usr/bin/ip", "/bin/ip"},
+	// PAM's password checker (web terminal sign-in; password on stdin).
+	"unix_chkpwd": {"/usr/sbin/unix_chkpwd", "/sbin/unix_chkpwd"},
 	"mysqld":      {"/usr/sbin/mysqld", "/usr/bin/mysqld", "/usr/libexec/mysqld"},
 	"mariadbd":    {"/usr/sbin/mariadbd", "/usr/bin/mariadbd", "/usr/libexec/mariadbd"},
 	"mysql":       {"/usr/bin/mariadb", "/usr/bin/mysql"},
