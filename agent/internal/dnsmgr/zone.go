@@ -62,7 +62,7 @@ var (
 )
 
 // Types lists the supported record types.
-var Types = []string{"A", "AAAA", "CNAME", "MX", "TXT", "NS", "SRV", "CAA"}
+var Types = []string{"A", "AAAA", "CNAME", "MX", "TXT", "NS", "SRV", "CAA", "PTR"}
 
 func validName(n string) bool {
 	if n == "@" {
@@ -141,6 +141,9 @@ func (z *Zone) Validate() error {
 		if err := r.validate(); err != nil {
 			return fmt.Errorf("record %d (%s %s): %v", i+1, r.Name, r.Type, err)
 		}
+		if r.Type == "PTR" && !strings.HasSuffix(z.Name, ".arpa") {
+			return fmt.Errorf("record %d (%s PTR): PTR records belong in reverse zones (in-addr.arpa, ip6.arpa)", i+1, r.Name)
+		}
 		names[r.Name] = append(names[r.Name], r.Type)
 		if r.Name == "@" && r.Type == "NS" {
 			apexNS++
@@ -183,7 +186,7 @@ func (r *Record) validate() error {
 		if ip := net.ParseIP(v); ip == nil || ip.To4() != nil {
 			return fmt.Errorf("value must be an IPv6 address")
 		}
-	case "CNAME", "NS":
+	case "CNAME", "NS", "PTR":
 		if !validHost(v) {
 			return fmt.Errorf("value must be a host name")
 		}
@@ -258,7 +261,7 @@ func (z Zone) Render(serial uint32) string {
 	fmt.Fprintf(&b, "@\tIN\tSOA\t%s %s (\n\t\t%d ; serial\n\t\t%d ; refresh\n\t\t%d ; retry\n\t\t%d ; expire\n\t\t%d ; minimum\n\t)\n",
 		abs(s.PrimaryNS, z.Name), rname(s.Hostmaster), serial, s.Refresh, s.Retry, s.Expire, s.Minimum)
 	recs := append([]Record(nil), z.Records...)
-	order := map[string]int{"NS": 0, "A": 1, "AAAA": 2, "CNAME": 3, "MX": 4, "TXT": 5, "SRV": 6, "CAA": 7}
+	order := map[string]int{"NS": 0, "A": 1, "AAAA": 2, "CNAME": 3, "MX": 4, "TXT": 5, "SRV": 6, "CAA": 7, "PTR": 8}
 	sort.SliceStable(recs, func(i, j int) bool {
 		if (recs[i].Name == "@") != (recs[j].Name == "@") {
 			return recs[i].Name == "@"
@@ -279,7 +282,7 @@ func (z Zone) Render(serial uint32) string {
 			data = fmt.Sprintf("%d %s", r.Priority, abs(r.Value, z.Name))
 		case "SRV":
 			data = fmt.Sprintf("%d %d %d %s", r.Priority, r.Weight, r.Port, abs(r.Value, z.Name))
-		case "CNAME", "NS":
+		case "CNAME", "NS", "PTR":
 			data = abs(r.Value, z.Name)
 		case "TXT":
 			data = quoteTXT(r.Value)

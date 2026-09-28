@@ -121,6 +121,8 @@ paths:
               - dns.status
               - dns.zone_apply
               - dns.zone_delete
+              - dns.zone_parse
+              - dns.zone_render
               - fail2ban.configure
               - fail2ban.status
               - fail2ban.unban
@@ -430,6 +432,8 @@ x-whacp-actions:
   dns.status: { mutating: false, description: "Whether BIND is installed, set up for WhaCP and running, and the zones WhaCP serves (with serials)." }
   dns.zone_apply: { mutating: true, description: "Write a complete zone (SOA, records, optional secondaries) with a new serial, validate it with named-checkzone and named-checkconf, load it and verify BIND serves the new serial; rolls back on failure." }
   dns.zone_delete: { mutating: true, description: "Stop serving a zone and remove its file (confirm = zone name)." }
+  dns.zone_parse: { mutating: false, description: "Read a zone file (BIND format) for import: the supported records, relative to the zone, and the lines skipped with reasons. Nothing is changed." }
+  dns.zone_render: { mutating: false, description: "Validate a zone and return its zone file (BIND format) without writing it, e.g. for export." }
   fail2ban.configure: { mutating: true, description: "Write the WhaCP jail file, test it and reload fail2ban." }
   fail2ban.status: { mutating: false, description: "fail2ban jails and banned addresses." }
   fail2ban.unban: { mutating: true, description: "Unban an IP address from a jail." }

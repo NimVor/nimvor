@@ -235,6 +235,9 @@ return static function (Router $r): void {
     $r->post('/dns/zones/{id}/records/{record}', [DnsController::class, 'updateRecord'], ['name' => 'dns.records.update', 'permission' => P::DNS_MANAGE]);
     $r->post('/dns/zones/{id}/records/{record}/delete', [DnsController::class, 'deleteRecord'], ['name' => 'dns.records.delete', 'permission' => P::DNS_MANAGE]);
     $r->post('/dns/zones/{id}/settings', [DnsController::class, 'settings'], ['name' => 'dns.settings', 'permission' => P::DNS_MANAGE]);
+    $r->post('/dns/zones/{id}/bulk', [DnsController::class, 'bulk'], ['name' => 'dns.bulk', 'permission' => P::DNS_MANAGE]);
+    $r->post('/dns/zones/{id}/import', [DnsController::class, 'import'], ['name' => 'dns.import', 'permission' => P::DNS_MANAGE]);
+    $r->get('/dns/zones/{id}/export', [DnsController::class, 'export'], ['name' => 'dns.export', 'permission' => P::DNS_MANAGE]);
     $r->post('/dns/zones/{id}/sync', [DnsController::class, 'sync'], ['name' => 'dns.sync', 'permission' => P::DNS_MANAGE]);
     $r->post('/dns/zones/{id}/delete', [DnsController::class, 'delete'], ['name' => 'dns.delete', 'permission' => P::DNS_MANAGE]);
     $r->get('/sites/{id}/dns', [DnsController::class, 'site'], ['name' => 'sites.dns', 'permission' => P::DNS_MANAGE]);

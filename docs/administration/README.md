@@ -567,8 +567,33 @@ A zone belongs to a website (customers create zones only for their own
 websites' domains) or, for administrators, stands alone. The usual records
 can be added on creation (@ and www to the server, SPF, CAA for Let's
 Encrypt). Supported types: A, AAAA, CNAME, MX, TXT (long values split
-automatically), NS, SRV and CAA; secondary servers can be allowed to
-transfer the zone and are notified of changes.
+automatically), NS, SRV, CAA and, in reverse zones (`.in-addr.arpa` /
+`.ip6.arpa`) only, PTR; secondary servers can be allowed to transfer the
+zone and are notified of changes.
+
+The zone page lists the records with search, a type filter and sorting by
+name, type, value or TTL. Records are added and edited in one form that
+shows the fields of the chosen type: SRV from service, protocol, priority,
+weight, port and target; CAA from flags (0 or 128), tag (`issue`,
+`issuewild`, `iodef`) and value. Common records (A, `www` CNAME, MX, SPF,
+CAA for Let's Encrypt) are one click away. Before anything reaches BIND the
+panel refuses a CNAME next to other records of the same name, a CNAME at @
+and duplicates. It also warns about common mistakes without refusing them: fewer
+than two NS records at @; an MX, NS or SRV target that is a CNAME; a target
+without the final dot that names nothing in the zone; private or reserved
+addresses; TTLs under five minutes; several SPF records; mail (MX) without
+SPF; and an SPF record ending in `+all`.
+
+Records can be turned off without being deleted: a turned-off record stays
+in the list but is left out of the served zone. Several selected records
+can be turned on, turned off or deleted at once (with confirmation).
+*Export* downloads the zone file as served (BIND format). *Import* takes a
+zone file (pasted or uploaded, up to 1 MB) as most DNS hosts export it; the
+agent parses it (`$ORIGIN`, `$TTL`, parentheses and quoted strings are
+understood; `$INCLUDE` and `$GENERATE` are not). Records that are not in
+the zone yet are added. The SOA and the name servers at @ stay as WhaCP
+manages them. Lines that are unsupported, outside the zone, invalid or in
+conflict with the zone's records are listed with the reason and left out.
 
 Every change sends the complete zone to the agent, which writes it with a
 higher serial (YYYYMMDDnn), checks it with `named-checkzone` and

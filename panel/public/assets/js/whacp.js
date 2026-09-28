@@ -355,6 +355,82 @@
         document.querySelectorAll('[data-wcp-toggle-kind]').forEach(applyKind);
     });
 
+    // DNS record modal: one form for adding and editing (buttons carry the
+    // record as JSON), with the fields of the chosen type only.
+    var dnsHints = {
+        A: ['IPv4 address', 'e.g. 192.0.2.10'], AAAA: ['IPv6 address', 'e.g. 2001:db8::10'],
+        CNAME: ['Target host', 'Another name: www → @, or a full host ending in a dot.'],
+        NS: ['Name server', 'Host name of the name server, e.g. ns1.example.net.'],
+        PTR: ['Host name', 'The host this address belongs to, ending in a dot.'],
+        MX: ['Mail server', 'Host that receives mail, e.g. mail or mx.example.net.'],
+        SRV: ['Target host', 'Host offering the service (or . for none).']
+    };
+    function dnsFill(form, rec) {
+        var set = function (name, v) { form.querySelectorAll('[name="' + name + '"]').forEach(function (el) { el.value = v === undefined || v === null ? '' : String(v); }); };
+        var type = rec.type || 'A';
+        set('_record', rec.id || 0); set('type', type); set('name', rec.name || '@'); set('ttl', rec.ttl || 0);
+        set('priority', rec.priority !== undefined ? rec.priority : 10); set('weight', rec.weight || 0); set('port', rec.port || 0);
+        set('srv_service', ''); set('srv_protocol', '');
+        if (type === 'CAA') {
+            var v = String(rec.value || ''), sp = v.indexOf(' ');
+            set('caa_flags', rec.priority === 128 ? 128 : 0);
+            set('caa_tag', sp > 0 ? v.slice(0, sp) : 'issue'); set('caa_value', sp > 0 ? v.slice(sp + 1) : v);
+            set('value', '');
+        } else {
+            set('value', rec.value || ''); set('caa_flags', 0); set('caa_tag', 'issue'); set('caa_value', '');
+        }
+        form.querySelectorAll('.is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
+        form.querySelectorAll('.invalid-feedback').forEach(function (el) { el.remove(); });
+        dnsType(form);
+    }
+    function dnsType(form) {
+        var sel = form.querySelector('[name="type"]');
+        applyKind(sel);
+        var h = dnsHints[sel.value] || ['Value', ''];
+        var label = form.querySelector('[data-wcp-dns-value-label]'), hint = form.querySelector('[data-wcp-dns-hint]');
+        if (label) { label.textContent = h[0]; }
+        if (hint) { hint.textContent = h[1]; }
+    }
+    function dnsOpen(action, rec, title) {
+        var modalEl = document.getElementById('dns-record');
+        if (!modalEl || !window.bootstrap) { return; }
+        var form = modalEl.querySelector('[data-wcp-dns-form]');
+        form.action = action || form.getAttribute('data-store');
+        if (rec) { dnsFill(form, rec); }
+        modalEl.querySelector('.modal-title').textContent = title;
+        modalEl.querySelector('[data-wcp-dns-shortcuts]').classList.toggle('d-none', title !== 'Add record');
+        window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest && e.target.closest('[data-wcp-dns-edit], [data-wcp-dns-new], [data-wcp-dns-preset]');
+        if (!b) { return; }
+        var rec;
+        try { rec = JSON.parse(b.getAttribute('data-wcp-dns-edit') || b.getAttribute('data-wcp-dns-preset') || '{}'); } catch (x) { rec = {}; }
+        if (b.hasAttribute('data-wcp-dns-preset')) {
+            var form = b.closest('form');
+            rec.id = 0;
+            dnsFill(form, rec);
+            var first = form.querySelector('[name="value"]:not([disabled]), [name="caa_value"]:not([disabled])');
+            if (first) { first.focus(); }
+            return;
+        }
+        if (b.hasAttribute('data-wcp-dns-new')) { rec = {type: 'A', name: '@', ttl: 0, id: 0}; }
+        dnsOpen(b.getAttribute('data-wcp-dns-action'), rec, b.hasAttribute('data-wcp-dns-new') ? 'Add record' : 'Edit record');
+    });
+    document.addEventListener('change', function (e) {
+        if (e.target.matches('[data-wcp-dns-form] [name="type"]')) { dnsType(e.target.form); }
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+        var modalEl = document.getElementById('dns-record');
+        if (!modalEl) { return; }
+        dnsType(modalEl.querySelector('[data-wcp-dns-form]'));
+        // After a refused save the form opens again with what was typed.
+        if (modalEl.hasAttribute('data-wcp-dns-reopen')) {
+            var editing = modalEl.querySelector('[name="_record"]').value !== '0';
+            dnsOpen(modalEl.getAttribute('data-wcp-dns-reopen'), null, editing ? 'Edit record' : 'Add record');
+        }
+    });
+
     // Copy-to-clipboard buttons: data-wcp-copy="<selector>".
     document.addEventListener('click', function (e) {
         var b = e.target.closest('[data-wcp-copy]');

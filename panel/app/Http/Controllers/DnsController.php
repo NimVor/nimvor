@@ -116,9 +116,15 @@ final class DnsController extends Controller
             }
         } catch (AgentException) {
         }
+        $records = $this->dns->records((int) $zone['id']);
+        $sort = in_array($request->query('sort'), ['name', 'type', 'ttl', 'value'], true) ? (string) $request->query('sort') : '';
+        if ($sort !== '') {
+            usort($records, static fn (array $a, array $b): int => ($sort === 'ttl' ? ((int) $a['ttl'] <=> (int) $b['ttl']) : strcmp((string) $a[$sort], (string) $b[$sort])) ?: strcmp((string) $a['name'], (string) $b['name']));
+        }
         return $this->render('dns/zone', [
-            'zone' => $zone, 'records' => $this->dns->records((int) $zone['id']), 'served' => $served,
-            'edit' => (int) $request->query('edit', 0),
+            'zone' => $zone, 'records' => $records, 'served' => $served, 'sort' => $sort,
+            'warnings' => DnsService::warnings((string) $zone['name'], $records),
+            'import' => $this->session->pullFlash('dns_import'),
             // The website this zone belongs to, when the user may see it: the page then keeps its menu.
             'site' => (int) ($zone['website_id'] ?? 0) > 0 ? $this->sites->find($this->server->id(), (int) $zone['website_id'], $this->user($request)) : null,
         ]);
@@ -156,6 +162,43 @@ final class DnsController extends Controller
             $this->dns->saveRecord($zone, (int) $record, null, true);
             return 'Record deleted; the zone was reloaded.';
         });
+    }
+
+    public function bulk(Request $request, string $id): Response
+    {
+        return $this->zoneAct($request, $id, function (array $zone) use ($request): string {
+            $op = $request->string('op');
+            $n = $this->dns->bulk($zone, array_map('intval', (array) $request->input('ids', [])), $op);
+            return $n . ' record(s) ' . ['enable' => 'turned on', 'disable' => 'turned off', 'delete' => 'deleted'][$op] . '; the zone was reloaded.';
+        });
+    }
+
+    public function import(Request $request, string $id): Response
+    {
+        return $this->zoneAct($request, $id, function (array $zone) use ($request): string {
+            $text = $request->string('zonefile');
+            $up = $_FILES['zonefile_upload'] ?? null;
+            if (is_array($up) && ($up['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $up['tmp_name']) && (int) $up['size'] <= 1048576) {
+                $text = (string) file_get_contents((string) $up['tmp_name']);
+            }
+            $res = $this->dns->import($zone, $text);
+            $this->session->flash('dns_import', $res['skipped']);
+            return $res['added'] . ' record(s) imported' . ($res['duplicates'] > 0 ? ', ' . $res['duplicates'] . ' already in the zone (name servers at @ are kept as they are)' : '') . (count($res['skipped']) > 0 ? '; ' . count($res['skipped']) . ' line(s) skipped (listed below)' : '') . '.';
+        });
+    }
+
+    public function export(Request $request, string $id): Response
+    {
+        $zone = $this->dns->zone((int) $id, $this->user($request));
+        if ($zone === null) {
+            return $this->redirectWithError('/dns', 'Zone not found.');
+        }
+        try {
+            $text = $this->dns->export($zone);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/dns/zones/' . (int) $zone['id'], $e);
+        }
+        return new Response($text, 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $zone['name'] . '.zone"', 'X-Content-Type-Options' => 'nosniff']);
     }
 
     public function settings(Request $request, string $id): Response

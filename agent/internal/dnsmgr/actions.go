@@ -17,6 +17,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/fw"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
 
 var mu sync.Mutex
@@ -243,6 +244,37 @@ func Register(r *actions.Registry, env *host.Env) {
 		notes := []string{}
 		notes = append(notes, fw.Open(ctx, env, "DNS", "53/tcp", "53/udp"))
 		return map[string]any{"configured": true, "changed": applied.Changed, "notes": notes}, nil
+	}})
+
+	r.Register(actions.Action{Name: "dns.zone_parse", Description: "Read a zone file (BIND format) for import: the supported records, relative to the zone, and the lines skipped with reasons. Nothing is changed.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var in struct {
+			Zone string `json:"zone"`
+			Text string `json:"text"`
+		}
+		if err := host.Decode(raw, &in); err != nil {
+			return nil, err
+		}
+		if err := validate.Domain("zone", strings.TrimSuffix(in.Zone, ".")); err != nil {
+			return nil, err
+		}
+		if len(in.Text) > 1<<20 {
+			return nil, actions.InvalidParams("the zone file is larger than 1 MB")
+		}
+		return ParseZoneFile(in.Text, in.Zone), nil
+	}})
+
+	r.Register(actions.Action{Name: "dns.zone_render", Description: "Validate a zone and return its zone file (BIND format) without writing it, e.g. for export.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var in struct {
+			Zone
+			Serial uint32 `json:"serial"`
+		}
+		if err := host.Decode(raw, &in); err != nil {
+			return nil, err
+		}
+		if err := in.Zone.Validate(); err != nil {
+			return nil, actions.InvalidParams(err.Error())
+		}
+		return map[string]any{"text": in.Zone.Render(in.Serial)}, nil
 	}})
 
 	r.Register(actions.Action{Name: "dns.zone_apply", Mutating: true, Description: "Write a complete zone (SOA, records, optional secondaries) with a new serial, validate it with named-checkzone and named-checkconf, load it and verify BIND serves the new serial; rolls back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {

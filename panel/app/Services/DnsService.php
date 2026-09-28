@@ -19,7 +19,8 @@ use WhaCP\Support\ValidationException;
  */
 final class DnsService
 {
-    public const TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA'];
+    public const TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA', 'PTR'];
+    public const CAA_TAGS = ['issue' => 'issue (may issue certificates)', 'issuewild' => 'issuewild (may issue wildcard certificates)', 'iodef' => 'iodef (report violations to)'];
 
     public function __construct(
         private readonly Connection $db,
@@ -177,8 +178,11 @@ final class DnsService
         return 'v=spf1 +a +mx' . ($ipv4 !== null ? ' +ip4:' . $ipv4 : '') . ' ~all';
     }
 
+    private const HOST_RE = '/^(@|\.|([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9])?\.)*[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9])?\.?)$/';
+
     /**
-     * Validate a record from the form.
+     * Validate a record from the form: each type has its own fields and
+     * checks (IPv4, IPv6, host names, MX priority, TXT, CAA, SRV, TTL).
      *
      * @param array<string, mixed> $in
      * @return array{name: string, type: string, ttl: int, value: string, priority: int, weight: int, port: int}
@@ -186,37 +190,193 @@ final class DnsService
     public function cleanRecord(array $in, string $zone): array
     {
         $str = static fn (string $k): string => is_scalar($in[$k] ?? null) ? trim((string) $in[$k]) : '';
-        $int = static fn (string $k): int => (int) ($in[$k] ?? 0);
-        $name = strtolower($str('name'));
-        $name = $name === '' || $name === $zone || $name === $zone . '.' ? '@' : preg_replace('/\.' . preg_quote($zone, '/') . '\.?$/', '', $name);
+        $num = static fn (string $k, int $d = 0): ?int => ($v = $str($k)) === '' ? $d : (preg_match('/^\d{1,6}$/', $v) ? (int) $v : null);
         $type = strtoupper($str('type'));
+        $name = strtolower($str('name'));
+        // SRV: _service._protocol[.name]
+        if ($type === 'SRV' && ($str('srv_service') !== '' || $str('srv_protocol') !== '')) {
+            $svc = ltrim(strtolower($str('srv_service')), '_');
+            $proto = ltrim(strtolower($str('srv_protocol')), '_');
+            $name = '_' . $svc . '._' . $proto . ($name !== '' && $name !== '@' ? '.' . $name : '');
+        }
+        $name = $name === '' || $name === $zone || $name === $zone . '.' ? '@' : (string) preg_replace('/\.' . preg_quote($zone, '/') . '\.?$/', '', $name);
         $errors = [];
         if (!in_array($type, self::TYPES, true)) {
             $errors['type'] = 'Choose a record type.';
         }
-        if ($name !== '@' && !preg_match('/^(\*\.)?([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)*[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?$/', (string) $name) && $name !== '*') {
+        if ($name !== '@' && $name !== '*' && !preg_match('/^(\*\.)?([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)*[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?$/', $name)) {
             $errors['name'] = 'Use @ for the domain itself, or a name such as www, mail or *.dev.';
         }
-        $ttl = $int('ttl');
-        if ($ttl !== 0 && ($ttl < 60 || $ttl > 604800)) {
+        $ttl = $num('ttl');
+        if ($ttl === null || ($ttl !== 0 && ($ttl < 60 || $ttl > 604800))) {
             $errors['ttl'] = 'Use 60–604800 seconds, or 0 for the zone default.';
+            $ttl = 0;
         }
         $value = $str('value');
-        if ($value === '' || strlen($value) > 4000 || preg_match('/[\x00-\x1F]/', $value)) {
-            $errors['value'] = 'Enter the value on one line.';
+        $priority = $num('priority');
+        $weight = $num('weight');
+        $port = $num('port');
+        $host = static fn (string $h): bool => strlen($h) <= 253 && preg_match(self::HOST_RE, strtolower($h)) === 1;
+        switch ($type) {
+            case 'A':
+                if (filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+                    $errors['value'] = 'Enter an IPv4 address such as 192.0.2.10.';
+                }
+                break;
+            case 'AAAA':
+                if (filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) === false) {
+                    $errors['value'] = 'Enter an IPv6 address such as 2001:db8::10.';
+                }
+                break;
+            case 'CNAME':
+            case 'NS':
+            case 'PTR':
+                $value = strtolower($value);
+                if ($value === '' || $value === '.' || !$host($value) || filter_var(rtrim($value, '.'), FILTER_VALIDATE_IP) !== false) {
+                    $errors['value'] = 'Enter a host name (not an address), e.g. ' . ($type === 'NS' ? 'ns1.example.com.' : 'www.example.com.') . ' A name ending in a dot is absolute.';
+                }
+                if ($type === 'PTR' && !str_ends_with($zone, '.arpa')) {
+                    $errors['type'] = 'PTR records belong in reverse zones (in-addr.arpa or ip6.arpa).';
+                }
+                break;
+            case 'MX':
+                $value = strtolower($value);
+                if ($value === '' || !$host($value) || filter_var(rtrim($value, '.'), FILTER_VALIDATE_IP) !== false) {
+                    $errors['value'] = 'Enter the mail server\'s host name, not an IP address.';
+                }
+                if ($priority === null || $priority > 65535) {
+                    $errors['priority'] = 'Priority: 0–65535 (lower is preferred).';
+                }
+                break;
+            case 'SRV':
+                $value = strtolower($value);
+                if ($value === '' || !$host($value)) {
+                    $errors['value'] = 'Enter the target host name (or . for “no service”).';
+                }
+                foreach (['priority' => $priority, 'weight' => $weight, 'port' => $port] as $k => $v) {
+                    if ($v === null || $v > 65535) {
+                        $errors[$k] = ucfirst($k) . ': 0–65535.';
+                    }
+                }
+                if (!preg_match('/^_[a-z0-9-]{1,63}\._(tcp|udp|tls|sctp)(\.|$)/', $name)) {
+                    $errors['name'] = 'An SRV name is _service._protocol, e.g. _sip._tcp (optionally followed by a name).';
+                }
+                break;
+            case 'TXT':
+                // Pasted with surrounding quotes: keep the text only.
+                if (strlen($value) >= 2 && $value[0] === '"' && str_ends_with($value, '"') && substr_count($value, '"') === 2) {
+                    $value = substr($value, 1, -1);
+                }
+                if ($value === '' || strlen($value) > 4000 || preg_match('/[\x00-\x1F]/', $value)) {
+                    $errors['value'] = 'Enter the text on one line (up to 4000 characters).';
+                }
+                break;
+            case 'CAA':
+                $tag = $str('caa_tag') !== '' ? strtolower($str('caa_tag')) : strtolower(explode(' ', $value, 2)[0]);
+                $cv = $str('caa_tag') !== '' ? $str('caa_value') : trim(explode(' ', $value, 2)[1] ?? '');
+                $cv = trim($cv, '"');
+                $flags = $str('caa_flags') !== '' ? $num('caa_flags') : $priority;
+                if (!isset(self::CAA_TAGS[$tag])) {
+                    $errors['caa_tag'] = 'Choose issue, issuewild or iodef.';
+                } elseif ($tag === 'iodef' ? !preg_match('#^(mailto:[^@\s]+@[^@\s]+|https?://\S+)$#', $cv) : !preg_match('/^(;|[a-z0-9.-]+\.[a-z]{2,}(\s*;.*)?)$/i', $cv)) {
+                    $errors['caa_value'] = $tag === 'iodef' ? 'Enter mailto:address or an https:// URL.' : 'Enter the certificate authority\'s domain, e.g. letsencrypt.org (or ; to allow none).';
+                }
+                if ($flags !== 0 && $flags !== 128) {
+                    $errors['caa_flags'] = 'Flags: 0, or 128 (critical).';
+                }
+                $value = $tag . ' ' . $cv;
+                $priority = $flags;
+                break;
         }
         if ($errors !== []) {
             throw new ValidationException($errors);
         }
-        return ['name' => (string) $name, 'type' => $type, 'ttl' => $ttl, 'value' => $value, 'priority' => max(0, $int('priority')), 'weight' => max(0, $int('weight')), 'port' => max(0, $int('port'))];
+        $keepPrio = in_array($type, ['MX', 'SRV', 'CAA'], true);
+        return ['name' => $name, 'type' => $type, 'ttl' => (int) $ttl, 'value' => $value, 'priority' => $keepPrio ? (int) $priority : 0, 'weight' => $type === 'SRV' ? (int) $weight : 0, 'port' => $type === 'SRV' ? (int) $port : 0];
+    }
+
+    /**
+     * Conflicts with the zone's other (enabled) records.
+     *
+     * @param array{name: string, type: string, value: string, priority: int} $r
+     * @param list<array<string, mixed>> $others
+     */
+    public static function conflicts(array $r, array $others): ?string
+    {
+        foreach ($others as $o) {
+            if (!empty($o['disabled']) || $o['name'] !== $r['name']) {
+                continue;
+            }
+            if ($r['type'] === 'CNAME' || $o['type'] === 'CNAME') {
+                return $r['name'] . ' already has ' . ($o['type'] === 'CNAME' ? 'a CNAME record' : 'other records') . '; a CNAME must be the only record of its name.';
+            }
+            if ($o['type'] === $r['type'] && strtolower((string) $o['value']) === strtolower($r['value']) && (int) $o['priority'] === $r['priority']) {
+                return 'The same record already exists.';
+            }
+        }
+        if ($r['type'] === 'CNAME' && $r['name'] === '@') {
+            return 'The domain itself (@) cannot be a CNAME; use an A/AAAA record.';
+        }
+        return null;
+    }
+
+    /**
+     * Common mistakes in the zone (warnings, not errors).
+     *
+     * @param list<array<string, mixed>> $records
+     * @return list<string>
+     */
+    public static function warnings(string $zone, array $records): array
+    {
+        $on = array_values(array_filter($records, static fn (array $r): bool => empty($r['disabled'])));
+        $by = static fn (string $name, string $type): array => array_values(array_filter($on, static fn (array $r): bool => $r['name'] === $name && $r['type'] === $type));
+        $rel = static function (string $host) use ($zone): ?string {
+            $h = strtolower(rtrim($host, '.'));
+            if (!str_ends_with($host, '.')) {
+                return $host === '@' ? '@' : $h;
+            }
+            return $h === $zone ? '@' : (str_ends_with($h, '.' . $zone) ? substr($h, 0, -strlen('.' . $zone)) : null);
+        };
+        $w = [];
+        if (count($by('@', 'NS')) < 2) {
+            $w[] = 'The zone has fewer than two NS records at @; most registries require at least two name servers.';
+        }
+        foreach ($on as $r) {
+            $name = $r['name'] === '@' ? $zone : $r['name'] . '.' . $zone;
+            if (in_array($r['type'], ['MX', 'NS'], true) && ($t = $rel((string) $r['value'])) !== null && $by($t, 'CNAME') !== []) {
+                $w[] = $r['type'] . ' ' . $name . ' points to ' . $r['value'] . ', which is a CNAME; ' . $r['type'] . ' targets must have A/AAAA records.';
+            }
+            if (in_array($r['type'], ['MX', 'NS', 'CNAME'], true) && ($t = $rel((string) $r['value'])) !== null && $t !== '@' && !str_contains($t, '*') && $by($t, 'A') === [] && $by($t, 'AAAA') === [] && $by($t, 'CNAME') === [] && !str_ends_with((string) $r['value'], '.')) {
+                $w[] = $r['type'] . ' ' . $name . ' points to ' . $r['value'] . '.' . $zone . ', which has no record in this zone. For a host elsewhere, end the name with a dot.';
+            }
+            if ($r['type'] === 'A' && filter_var((string) $r['value'], FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+                $w[] = 'A ' . $name . ' is a private or reserved address (' . $r['value'] . '); visitors on the internet cannot reach it.';
+            }
+            if ((int) $r['ttl'] > 0 && (int) $r['ttl'] < 300) {
+                $w[] = $r['type'] . ' ' . $name . ' has a TTL under 5 minutes, which increases DNS traffic; keep short TTLs for planned changes only.';
+            }
+        }
+        $spf = array_filter($by('@', 'TXT'), static fn (array $r): bool => str_starts_with(strtolower((string) $r['value']), 'v=spf1'));
+        if (count($spf) > 1) {
+            $w[] = 'There are ' . count($spf) . ' SPF records at @; receivers treat several as an error. Merge them into one.';
+        }
+        if ($by('@', 'MX') !== [] && $spf === []) {
+            $w[] = 'The domain receives mail (MX) but has no SPF record; mail from it is more likely to be marked as spam.';
+        }
+        foreach ($spf as $r) {
+            if (preg_match('/\+all\b/i', (string) $r['value'])) {
+                $w[] = 'The SPF record ends in +all, which lets anyone send mail as this domain.';
+            }
+        }
+        return array_values(array_unique($w));
     }
 
     /** @param array<string, mixed> $r */
     private function insertRecord(int $zoneId, array $r): void
     {
         $this->db->run(
-            'INSERT INTO dns_records (zone_id, name, type, ttl, value, priority, weight, port) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [$zoneId, $r['name'], $r['type'], $r['ttl'], $r['value'], $r['priority'], $r['weight'], $r['port']]
+            'INSERT INTO dns_records (zone_id, name, type, ttl, value, priority, weight, port, disabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$zoneId, $r['name'], $r['type'], $r['ttl'], $r['value'], $r['priority'], $r['weight'], $r['port'], (int) !empty($r['disabled'])]
         );
     }
 
@@ -243,6 +403,10 @@ final class DnsService
                 $after = null;
             } else {
                 $after = $this->cleanRecord((array) $input, (string) $zone['name']);
+                $others = array_values(array_filter($this->records($zoneId), static fn (array $o): bool => (int) $o['id'] !== (int) $recordId));
+                if (($conflict = self::conflicts($after, $others)) !== null) {
+                    throw new ValidationException(['name' => $conflict]);
+                }
                 if ($recordId === null) {
                     if ($this->db->scalar('SELECT COUNT(*) FROM dns_records WHERE zone_id = ?', [$zoneId]) >= 2000) {
                         throw new UserFacingException('A zone can hold at most 2000 records.');
@@ -308,16 +472,126 @@ final class DnsService
     private function push(int $zoneId): void
     {
         $z = $this->db->fetch('SELECT * FROM dns_zones WHERE id = ?', [$zoneId]) ?? throw new UserFacingException('The zone no longer exists.');
-        $records = array_map(static fn (array $r): array => [
-            'name' => $r['name'], 'type' => $r['type'], 'ttl' => (int) $r['ttl'], 'value' => $r['value'],
-            'priority' => (int) $r['priority'], 'weight' => (int) $r['weight'], 'port' => (int) $r['port'],
-        ], $this->records($zoneId));
-        $res = (array) $this->agent->call('dns.zone_apply', [
+        $res = (array) $this->agent->call('dns.zone_apply', $this->zonePayload($z), 60);
+        $this->db->run('UPDATE dns_zones SET serial = ?, applied_at = ?, updated_at = ? WHERE id = ?', [(int) ($res['serial'] ?? 0), gmdate('c'), gmdate('c'), $zoneId]);
+    }
+
+    /**
+     * The zone as the agent takes it (enabled records only).
+     *
+     * @param array<string, mixed> $z
+     * @return array<string, mixed>
+     */
+    private function zonePayload(array $z): array
+    {
+        $records = [];
+        foreach ($this->records((int) $z['id']) as $r) {
+            if (empty($r['disabled'])) {
+                $records[] = [
+                    'name' => $r['name'], 'type' => $r['type'], 'ttl' => (int) $r['ttl'], 'value' => $r['value'],
+                    'priority' => (int) $r['priority'], 'weight' => (int) $r['weight'], 'port' => (int) $r['port'],
+                ];
+            }
+        }
+        return [
             'zone' => $z['name'], 'ttl' => (int) $z['ttl'],
             'soa' => ['primary_ns' => $z['primary_ns'] . '.', 'hostmaster' => $z['hostmaster']],
             'records' => $records,
             'secondaries' => $z['secondaries'] === '' ? [] : explode(',', (string) $z['secondaries']),
-        ], 60);
-        $this->db->run('UPDATE dns_zones SET serial = ?, applied_at = ?, updated_at = ? WHERE id = ?', [(int) ($res['serial'] ?? 0), gmdate('c'), gmdate('c'), $zoneId]);
+        ];
+    }
+
+    /**
+     * Enable, disable or delete several records at once (one zone reload;
+     * nothing changes if the DNS server refuses the result).
+     *
+     * @param array<string, mixed> $zone
+     * @param list<int> $ids
+     */
+    public function bulk(array $zone, array $ids, string $op): int
+    {
+        if (!in_array($op, ['enable', 'disable', 'delete'], true)) {
+            throw new UserFacingException('Unknown operation.');
+        }
+        $zoneId = (int) $zone['id'];
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $i): bool => $i > 0)));
+        if ($ids === []) {
+            throw new UserFacingException('Select records first.');
+        }
+        $n = 0;
+        $this->db->transaction(function () use ($zone, $zoneId, $ids, $op, &$n): void {
+            $in = implode(',', array_fill(0, count($ids), '?'));
+            $args = array_merge([$zoneId], $ids);
+            $n = count($this->db->fetchAll("SELECT id FROM dns_records WHERE zone_id = ? AND id IN ({$in})", $args));
+            if ($n === 0) {
+                throw new UserFacingException('The selected records are not in this zone.');
+            }
+            match ($op) {
+                'delete' => $this->db->run("DELETE FROM dns_records WHERE zone_id = ? AND id IN ({$in})", $args),
+                default => $this->db->run("UPDATE dns_records SET disabled = ? WHERE zone_id = ? AND id IN ({$in})", array_merge([$op === 'disable' ? 1 : 0], $args)),
+            };
+            $this->push($zoneId);
+            $this->audit->record('dns.records_' . $op, 'dns_zone', (string) $zoneId, AuditLogger::SUCCESS, ['zone' => $zone['name'], 'count' => $n]);
+        });
+        return $n;
+    }
+
+    /**
+     * Import a zone file: its records that are not in the zone yet are
+     * added (SOA and unsupported lines are skipped, and reported).
+     *
+     * @param array<string, mixed> $zone
+     * @return array{added: int, duplicates: int, skipped: list<array<string, mixed>>}
+     */
+    public function import(array $zone, string $text): array
+    {
+        if (trim($text) === '' || strlen($text) > 1048576) {
+            throw new ValidationException(['zonefile' => 'Paste or upload a zone file of up to 1 MB.']);
+        }
+        $parsed = (array) json_decode((string) json_encode($this->agent->call('dns.zone_parse', ['zone' => $zone['name'], 'text' => $text], 60)), true);
+        $zoneId = (int) $zone['id'];
+        $added = $dups = 0;
+        $skipped = array_values((array) ($parsed['skipped'] ?? []));
+        $this->db->transaction(function () use ($zone, $zoneId, $parsed, &$added, &$dups, &$skipped): void {
+            $existing = $this->records($zoneId);
+            $key = static fn (array $r): string => strtolower($r['name'] . '|' . $r['type'] . '|' . $r['value'] . '|' . (int) ($r['priority'] ?? 0));
+            $have = array_flip(array_map($key, $existing));
+            foreach ((array) ($parsed['records'] ?? []) as $r) {
+                $r = ['name' => (string) $r['name'], 'type' => (string) $r['type'], 'ttl' => (int) ($r['ttl'] ?? 0), 'value' => (string) $r['value'], 'priority' => (int) ($r['priority'] ?? 0), 'weight' => (int) ($r['weight'] ?? 0), 'port' => (int) ($r['port'] ?? 0)];
+                if (isset($have[$key($r)]) || ($r['type'] === 'NS' && $r['name'] === '@')) {
+                    $dups++; // the zone's own name servers stay
+                    continue;
+                }
+                // What the zone could not hold (a CNAME next to other records) is listed, not added.
+                if (($why = self::conflicts($r, $existing)) !== null) {
+                    $skipped[] = ['line' => 0, 'text' => $r['name'] . ' ' . $r['type'] . ' ' . $r['value'], 'reason' => $why];
+                    continue;
+                }
+                if (count($existing) >= 2000) {
+                    throw new UserFacingException('A zone can hold at most 2000 records.');
+                }
+                $this->insertRecord($zoneId, $r);
+                $existing[] = $r + ['disabled' => 0];
+                $have[$key($r)] = true;
+                $added++;
+            }
+            if ($added > 0) {
+                $this->push($zoneId);
+            }
+            $this->audit->record('dns.zone_import', 'dns_zone', (string) $zoneId, AuditLogger::SUCCESS, ['zone' => $zone['name'], 'added' => $added]);
+        });
+        return ['added' => $added, 'duplicates' => $dups, 'skipped' => $skipped];
+    }
+
+    /**
+     * The zone file as served (BIND format).
+     *
+     * @param array<string, mixed> $zone
+     */
+    public function export(array $zone): string
+    {
+        $z = $this->db->fetch('SELECT * FROM dns_zones WHERE id = ?', [$zone['id']]) ?? throw new UserFacingException('The zone no longer exists.');
+        $res = (array) $this->agent->call('dns.zone_render', $this->zonePayload($z) + ['serial' => (int) $z['serial']], 60);
+        return (string) ($res['text'] ?? '');
     }
 }

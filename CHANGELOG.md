@@ -7,6 +7,17 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **DNS zone editor**: search, type filter and sorting; one add/edit form
+  with the fields of each record type (SRV service, protocol, priority,
+  weight, port and target; CAA flags, tag and value); shortcuts for common
+  records; PTR records in reverse zones; conflict checks before anything
+  reaches BIND (a CNAME next to other records or at @, duplicates) and
+  warnings for common mistakes (fewer than two name servers, targets that
+  are CNAMEs or do not exist, private addresses, very short TTLs, several
+  SPF records, MX without SPF, `+all`); records can be turned off without
+  deleting them; bulk turn on / turn off / delete; export of the served
+  zone file and import of a BIND zone file (pasted or uploaded), with the
+  lines that were left out listed and explained.
 - **Email administration** (administrators; Email → Email administration):
   - Mail server: Postfix, Dovecot, OpenDKIM and Rspamd with state,
     start-at-boot, version, start / reload / restart; `postfix check`
