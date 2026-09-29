@@ -95,5 +95,12 @@ final class FilesTest extends HttpTestCase
         $this->login('cust');
         self::assertSame(404, $this->request('GET', '/sites/' . $this->siteId . '/files')->status());
         self::assertSame(404, $this->post('/sites/' . $this->siteId . '/files/api', ['op' => 'list', 'path' => ''])->status());
+        $id = '20260901T120000Z-0a0b0c0d';
+        foreach ([['op' => 'trash_list'], ['op' => 'trash_restore', 'ids' => [$id]], ['op' => 'trash_delete', 'ids' => [$id]], ['op' => 'trash_empty']] as $body) {
+            self::assertSame(404, $this->post('/sites/' . $this->siteId . '/files/api', $body)->status(), $body['op']);
+        }
+        foreach (['files.trash_list', 'files.trash_restore', 'files.trash_delete', 'files.trash_empty'] as $action) {
+            self::assertSame(0, $this->calls($action), $action . ' reached the agent');
+        }
     }
 }
