@@ -74,6 +74,21 @@ final class HulkService
         return array_values(array_filter(preg_split('/[\s,]+/', $this->settings->string('hulk_whitelist')) ?: [], static fn (string $s): bool => $s !== ''));
     }
 
+    /** Add an address to the whitelist (when it is not covered yet). */
+    public function addToWhitelist(string $ip): void
+    {
+        if (!self::validEntry($ip) || $this->whitelisted($ip)) {
+            return;
+        }
+        $list = $this->whitelist();
+        $list[] = $ip;
+        $this->settings->update(['hulk_whitelist' => implode(', ', $list)], null);
+        $this->audit->record('hulk.whitelist_add', 'server', 'hulk', AuditLogger::SUCCESS, ['ip' => $ip]);
+        if ($this->enabled()) {
+            $this->syncQuietly();
+        }
+    }
+
     public static function validEntry(string $s): bool
     {
         [$addr, $len] = array_pad(explode('/', $s, 2), 2, null);

@@ -534,7 +534,7 @@ x-whacp-actions:
   files.write: { mutating: true, description: "Save a text file." }
   firewall.rule_add: { mutating: true, description: "Add a UFW rule (auto-reverted unless confirmed)." }
   firewall.rule_delete: { mutating: true, description: "Delete a UFW rule (auto-reverted unless confirmed)." }
-  firewall.set_enabled: { mutating: true, description: "Enable or disable UFW (auto-reverted unless confirmed)." }
+  firewall.set_enabled: { mutating: true, description: "Enable or disable the firewall (auto-reverted unless confirmed). Enabling first opens SSH, the panel and the agent's remote listener, optionally the ports of listening services (allow_services) and every port for one address (allow_from); undoing removes them again." }
   firewall.status: { mutating: false, description: "UFW state, defaults and rules." }
   ftp.account_delete: { mutating: true, description: "Delete an FTP account (files are kept)." }
   ftp.account_save: { mutating: true, description: "Create or change an FTP account of a website: chrooted to the website folder (or a sub-folder), files owned by the website's user. The password is stored as a SHA-512 crypt hash." }

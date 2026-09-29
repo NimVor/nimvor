@@ -781,6 +781,18 @@ func (f *FakeRunner) RunWith(_ context.Context, id string, o Opts, args ...strin
 	return []byte(out), nil
 }
 
+// Index is the position of the first call with this exact key (-1: none).
+func (f *FakeRunner) Index(key string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i, c := range f.Calls {
+		if c == key {
+			return i
+		}
+	}
+	return -1
+}
+
 // Called reports whether a call with this exact key was made.
 func (f *FakeRunner) Called(key string) bool {
 	f.mu.Lock()

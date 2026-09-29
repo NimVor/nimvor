@@ -214,6 +214,9 @@ func (s *Service) firewalldDelete(ctx context.Context, spec string) (*Pending, e
 	if target.SSH && sshRules == 1 && st.Active {
 		return nil, actions.Conflict(fmt.Sprintf("This rule keeps SSH (port %d) reachable. Add another rule for SSH before deleting it.", st.SSHPort))
 	}
+	if msg := keepsCritical(ctx, s.env, st, *target); msg != "" {
+		return nil, actions.Conflict(msg)
+	}
 	do := firewalldCmds(st.Active, addOrRemove(target.Args[0], false))
 	undo := firewalldCmds(st.Active, addOrRemove(target.Args[0], true))
 	if err := runFirewalld(ctx, s.env, do); err != nil {
@@ -222,7 +225,7 @@ func (s *Service) firewalldDelete(ctx context.Context, spec string) (*Pending, e
 	return s.guard.Start(Pending{Kind: "firewall", Summary: "firewall: delete " + spec, Commands: undo})
 }
 
-func (s *Service) firewalldSetEnabled(ctx context.Context, enabled bool) (*Pending, error) {
+func (s *Service) firewalldSetEnabled(ctx context.Context, enabled bool, opts EnableOptions) (*Pending, error) {
 	st, err := firewalldStatus(ctx, s.env)
 	if err != nil {
 		return nil, actions.Failed("The firewall state could not be read.", err.Error())
@@ -230,19 +233,66 @@ func (s *Service) firewalldSetEnabled(ctx context.Context, enabled bool) (*Pendi
 	if st.Active == enabled {
 		return nil, nil
 	}
-	if enabled {
-		if !st.SSHOpen {
-			return nil, actions.Conflict(fmt.Sprintf("No rule allows SSH (port %d). Add one first, or you would be locked out.", st.SSHPort))
+	if !enabled {
+		if err := s.env.Systemctl(ctx, "stop", firewalldUnit); err != nil {
+			return nil, actions.Failed("firewalld did not stop.", err.Error())
 		}
-		s.env.Systemctl(ctx, "enable", firewalldUnit)
-		if err := s.env.Systemctl(ctx, "start", firewalldUnit); err != nil {
-			return nil, actions.Failed("firewalld did not start.", err.Error())
+		s.env.Systemctl(ctx, "disable", firewalldUnit)
+		return s.guard.Start(Pending{Kind: "firewall", Summary: "firewall: disable", Units: [][2]string{{"enable", firewalldUnit}, {"start", firewalldUnit}}})
+	}
+	// While stopped, rules go into the permanent configuration; undoing runs
+	// while firewalld is on (runtime and permanent), before it is stopped.
+	have := map[string]bool{}
+	for _, r := range st.Rules {
+		have[r.Args[0]] = true
+	}
+	var do, undo [][]string
+	var opened []string
+	addItems := func(items []string, label string) {
+		n := 0
+		for _, it := range items {
+			if have[it] {
+				continue
+			}
+			have[it] = true
+			do = append(do, firewalldCmds(false, addOrRemove(it, true))...)
+			undo = append(undo, firewalldCmds(true, addOrRemove(it, false))...)
+			n++
 		}
-		return s.guard.Start(Pending{Kind: "firewall", Summary: "firewall: enable", Units: [][2]string{{"stop", firewalldUnit}, {"disable", firewalldUnit}}})
+		if n > 0 {
+			opened = append(opened, label)
+		}
 	}
-	if err := s.env.Systemctl(ctx, "stop", firewalldUnit); err != nil {
-		return nil, actions.Failed("firewalld did not stop.", err.Error())
+	for _, p := range RequiredPorts(ctx, s.env, st.Rules) {
+		if p.Open || (!p.Critical && !opts.Services) {
+			continue
+		}
+		if items, err := p.Input().FirewalldArgs(); err == nil {
+			addItems(items, p.Service+" ("+p.Port+"/"+p.Proto+")")
+		}
 	}
-	s.env.Systemctl(ctx, "disable", firewalldUnit)
-	return s.guard.Start(Pending{Kind: "firewall", Summary: "firewall: disable", Units: [][2]string{{"enable", firewalldUnit}, {"start", firewalldUnit}}})
+	if opts.AllowFrom != "" {
+		family := "ipv4"
+		if strings.Contains(opts.AllowFrom, ":") {
+			family = "ipv6"
+		}
+		addItems([]string{`--rich-rule=rule family="` + family + `" source address="` + opts.AllowFrom + `" accept`}, "your address "+opts.AllowFrom)
+	}
+	if err := runFirewalld(ctx, s.env, do); err != nil {
+		for _, it := range do {
+			rm := append([]string{}, it...)
+			rm[len(rm)-1] = strings.Replace(rm[len(rm)-1], "--add-", "--remove-", 1)
+			s.env.Runner.Run(ctx, rm[0], rm[1:]...)
+		}
+		return nil, err
+	}
+	s.env.Systemctl(ctx, "enable", firewalldUnit)
+	if err := s.env.Systemctl(ctx, "start", firewalldUnit); err != nil {
+		return nil, actions.Failed("firewalld did not start.", err.Error())
+	}
+	summary := "firewall: enable"
+	if len(opened) > 0 {
+		summary += " (opened " + strings.Join(opened, ", ") + ")"
+	}
+	return s.guard.Start(Pending{Kind: "firewall", Summary: summary, Commands: undo, Units: [][2]string{{"stop", firewalldUnit}, {"disable", firewalldUnit}}})
 }

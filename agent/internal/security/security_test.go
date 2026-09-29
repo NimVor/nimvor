@@ -129,11 +129,11 @@ func TestPendingRollbackSurvivesRestart(t *testing.T) {
 	ConfirmWindow = time.Hour
 	defer func() { ConfirmWindow = old }()
 	h, s := setup(t, "ufw allow 22/tcp\n")
-	if p, err := s.SetEnabled(context.Background(), true); err != nil || p != nil {
+	if p, err := s.SetEnabled(context.Background(), true, EnableOptions{}); err != nil || p != nil {
 		t.Fatal("ufw is already active; nothing should change")
 	}
 	h.Runner.Outputs["ufw status verbose"] = "Status: inactive\n"
-	if _, err := s.SetEnabled(context.Background(), true); err != nil {
+	if _, err := s.SetEnabled(context.Background(), true, EnableOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	// Simulate an agent restart after the deadline.
@@ -153,9 +153,14 @@ func TestPendingRollbackSurvivesRestart(t *testing.T) {
 func TestLockoutProtection(t *testing.T) {
 	h, s := setup(t, "ufw allow 80/tcp\n")
 	h.Runner.Outputs["ufw status verbose"] = "Status: inactive\n"
-	if _, err := s.SetEnabled(context.Background(), true); err == nil || !strings.Contains(err.Error(), "SSH") {
-		t.Fatalf("enabling without an SSH rule: %v", err)
+	// No SSH rule: enabling opens SSH first instead of locking it out.
+	if _, err := s.SetEnabled(context.Background(), true, EnableOptions{}); err != nil {
+		t.Fatal(err)
 	}
+	if i, j := h.Runner.Index("ufw allow proto tcp from any to any port 22 comment whacp: SSH"), h.Runner.Index("ufw --force enable"); i < 0 || j < i {
+		t.Fatalf("SSH not opened before enabling: %v", h.Runner.Calls)
+	}
+	s.guard.Undo(s.guard.Current().ID)
 	h.Runner.Outputs["ufw status verbose"] = ufwActive
 	h.Runner.Outputs["ufw show added"] = "ufw allow 22/tcp\n"
 	if _, err := s.DeleteRule(context.Background(), "allow 22/tcp"); err == nil {
@@ -348,5 +353,110 @@ func TestFail2banStartsWhenStopped(t *testing.T) {
 	}
 	if !strings.Contains(h.Read("etc/fail2ban/jail.d/whacp.local"), "maxretry = 5") {
 		t.Error("previous jail file not restored")
+	}
+}
+
+func TestEnablingOpensWhatWhaCPNeeds(t *testing.T) {
+	old := ConfirmWindow
+	ConfirmWindow = time.Hour
+	defer func() { ConfirmWindow = old }()
+	h, s := setup(t, "ufw allow 22/tcp\nufw allow 'Nginx Full'\n")
+	h.Runner.Outputs["ufw status verbose"] = "Status: inactive\n"
+	os.MkdirAll(filepath.Join(h.Base, "etc/nginx/sites-available"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/nginx/sites-available/whacp-panel.conf"), []byte("server {\n    listen 8443 ssl;\n    listen [::]:8443 ssl;\n}\n"), 0o644)
+	// Listening: 25 and 993 publicly, 3306 on loopback only.
+	os.MkdirAll(filepath.Join(h.Base, "proc/net"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "proc/net/tcp"), []byte("  sl  local_address rem_address   st\n   0: 00000000:0019 00000000:0000 0A\n   1: 00000000:03E1 00000000:0000 0A\n   2: 0100007F:0CEA 00000000:0000 0A\n"), 0o644)
+	st, _ := Firewall(context.Background(), h.Env)
+	req := RequiredPorts(context.Background(), h.Env, st.Rules)
+	got := map[string]bool{}
+	for _, p := range req {
+		got[p.Port+"/"+p.Proto] = p.Open
+	}
+	for k, open := range map[string]bool{"22/tcp": true, "8443/tcp": false, "25/tcp": false, "993/tcp": false} {
+		if o, ok := got[k]; !ok || o != open {
+			t.Errorf("%s: listed %v open %v (%+v)", k, ok, o, req)
+		}
+	}
+	if _, ok := got["3306/tcp"]; ok {
+		t.Error("a loopback-only port is not required")
+	}
+
+	// Only the critical ports without allow_services; everything with it,
+	// plus the administrator's address; all before enabling.
+	p, err := s.SetEnabled(context.Background(), true, EnableOptions{Services: true, AllowFrom: "203.0.113.7"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	enable := h.Runner.Index("ufw --force enable")
+	for _, want := range []string{
+		"ufw allow proto tcp from any to any port 8443 comment whacp: WhaCP panel HTTPS",
+		"ufw allow proto tcp from any to any port 25 comment whacp: Mail SMTP",
+		"ufw allow proto tcp from any to any port 993 comment whacp: IMAPS",
+		"ufw allow from 203.0.113.7 comment whacp: administrator",
+	} {
+		if i := h.Runner.Index(want); i < 0 || i > enable {
+			t.Errorf("%q not run before enabling: %v", want, h.Runner.Calls)
+		}
+	}
+	if h.Runner.Called("ufw allow proto tcp from any to any port 22 comment whacp: SSH") || h.Runner.Called("ufw allow proto tcp from any to any port 443 comment whacp: Websites and webmail HTTPS") {
+		t.Error("ports already open (22, Nginx Full) were added again")
+	}
+	if !strings.Contains(p.Summary, "WhaCP panel") {
+		t.Errorf("summary: %s", p.Summary)
+	}
+	// Undo closes the firewall and removes what it opened.
+	if err := s.guard.Undo(p.ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"ufw disable", "ufw --force delete allow proto tcp from any to any port 8443", "ufw --force delete allow from 203.0.113.7"} {
+		if !h.Runner.Called(want) {
+			t.Errorf("undo did not run %q", want)
+		}
+	}
+	if _, err := s.SetEnabled(context.Background(), true, EnableOptions{AllowFrom: "nope; rm -rf /"}); err == nil {
+		t.Error("a bad address was accepted")
+	}
+
+	// The only rule opening the panel cannot be deleted while the firewall is on.
+	h.Runner.Outputs["ufw status verbose"] = ufwActive
+	h.Runner.Outputs["ufw show added"] = "ufw allow 22/tcp\nufw allow 8443/tcp\n"
+	if _, err := s.DeleteRule(context.Background(), "allow 8443/tcp"); err == nil || !strings.Contains(err.Error(), "WhaCP panel") {
+		t.Fatalf("deleting the panel's only rule: %v", err)
+	}
+}
+
+func TestEnablingFirewalldOpensWhatWhaCPNeeds(t *testing.T) {
+	old := ConfirmWindow
+	ConfirmWindow = time.Hour
+	defer func() { ConfirmWindow = old }()
+	h, s := setup(t, "")
+	h.Runner.Unavailable = map[string]bool{"ufw": true}
+	h.Fail["firewall-cmd --state"] = "not running"
+	h.Runner.Outputs["firewall-offline-cmd --list-services"] = "ssh dhcpv6-client"
+	h.Runner.Outputs["firewall-offline-cmd --list-ports"] = ""
+	h.Runner.Outputs["firewall-offline-cmd --list-rich-rules"] = ""
+	h.Runner.Outputs["firewall-cmd --add-port=8443/tcp"] = "success"
+	os.MkdirAll(filepath.Join(h.Base, "etc/nginx/whacp-available"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/nginx/whacp-available/whacp-panel.conf"), []byte("server {\n    listen 8443 ssl;\n}\n"), 0o644)
+	p, err := s.SetEnabled(context.Background(), true, EnableOptions{AllowFrom: "203.0.113.7"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := h.Runner.Index("systemctl start -- firewalld.service")
+	for _, want := range []string{"firewall-offline-cmd --add-port=8443/tcp", `firewall-offline-cmd --add-rich-rule=rule family="ipv4" source address="203.0.113.7" accept`} {
+		if i := h.Runner.Index(want); i < 0 || start < 0 || i > start {
+			t.Errorf("%q not run before starting firewalld: %v", want, h.Runner.Calls)
+		}
+	}
+	if h.Runner.Called("firewall-offline-cmd --add-port=22/tcp") {
+		t.Error("SSH (the ssh service) was added again")
+	}
+	if err := s.guard.Undo(p.ID); err != nil {
+		t.Fatal(err)
+	}
+	remove, stop := h.Runner.Index("firewall-cmd --permanent --remove-port=8443/tcp"), h.Runner.Index("systemctl stop -- firewalld.service")
+	if remove < 0 || stop < 0 || remove > stop {
+		t.Errorf("undo: ports removed %d, stopped %d: %v", remove, stop, h.Runner.Calls)
 	}
 }

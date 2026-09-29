@@ -18,6 +18,7 @@ final class SecurityService
     public function __construct(
         private readonly AgentClient $agent,
         private readonly AuditLogger $audit,
+        private readonly ?HulkService $hulk = null,
     ) {
     }
 
@@ -58,9 +59,30 @@ final class SecurityService
         return $this->recordGuarded('firewall.rule_delete', (array) $this->agent->call('firewall.rule_delete', ['spec' => $spec]), ['rule' => $spec]);
     }
 
-    public function setFirewall(bool $enabled): string
+    /**
+     * Turn the firewall on or off. Turning it on first opens SSH and the
+     * panel (always), the listening services' ports ($services) and every
+     * port for the administrator's address ($myIp, also whitelisted in
+     * brute force protection), all in the same guarded change.
+     */
+    public function setFirewall(bool $enabled, bool $services = true, string $myIp = ''): string
     {
-        return $this->recordGuarded($enabled ? 'firewall.enable' : 'firewall.disable', (array) $this->agent->call('firewall.set_enabled', ['enabled' => $enabled]), []);
+        if (!$enabled) {
+            return $this->recordGuarded('firewall.disable', (array) $this->agent->call('firewall.set_enabled', ['enabled' => false]), []);
+        }
+        $ip = self::publicAddress($myIp) ? $myIp : '';
+        $params = ['enabled' => true, 'allow_services' => $services, 'allow_from' => $ip];
+        $msg = $this->recordGuarded('firewall.enable', (array) $this->agent->call('firewall.set_enabled', $params, 90), $params);
+        if ($ip !== '' && $this->hulk !== null) {
+            $this->hulk->addToWhitelist($ip);
+        }
+        return $msg;
+    }
+
+    /** An address worth allowing (not loopback, private tunnels are fine). */
+    public static function publicAddress(string $ip): bool
+    {
+        return filter_var($ip, FILTER_VALIDATE_IP) !== false && !str_starts_with($ip, '127.') && $ip !== '::1';
     }
 
     /** @param array<string, mixed> $input */

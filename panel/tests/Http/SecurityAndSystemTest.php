@@ -49,6 +49,32 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertStringContainsString('locked out', (string) $this->flash('error'));
     }
 
+    public function testTurningTheFirewallOnKeepsAccess(): void
+    {
+        $this->agent->succeed('security.pending', ['pending' => null]);
+        $this->agent->succeed('firewall.status', ['installed' => true, 'active' => false, 'rules' => [], 'ssh_port' => 22, 'ssh_allowed' => false, 'required' => [
+            ['port' => '22', 'proto' => 'tcp', 'service' => 'SSH', 'critical' => true, 'open' => false],
+            ['port' => '8443', 'proto' => 'tcp', 'service' => 'WhaCP panel (HTTPS)', 'critical' => true, 'open' => false],
+            ['port' => '443', 'proto' => 'tcp', 'service' => 'Websites and webmail (HTTPS)', 'critical' => false, 'open' => false],
+        ]]);
+        $page = $this->request('GET', '/security/firewall')->body();
+        foreach (['Ports WhaCP keeps open', 'WhaCP panel (HTTPS)', '8443', 'Opened when turned on', 'Turn on firewall', 'Always allow my address <code>192.0.2.10</code>', 'you have 2 minutes'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        $this->agent->succeed('firewall.set_enabled', ['changed' => true, 'pending' => ['id' => 'p1', 'summary' => 'firewall: enable', 'deadline' => gmdate('c', time() + 120)]]);
+        $this->agent->succeed('hulk.sync', ['changed' => true]);
+        $this->post('/security/firewall/toggle', ['enabled' => '1', 'allow_services' => '1', 'allow_me' => '1']);
+        self::assertSame(['enabled' => true, 'allow_services' => true, 'allow_from' => '192.0.2.10'], $this->lastCall('firewall.set_enabled'));
+        self::assertStringContainsString('192.0.2.10', $this->app->container->get(\WhaCP\Services\SettingsService::class)->string('hulk_whitelist'), 'also whitelisted in cPHulk');
+        // Without the options: only SSH and the panel (the agent always opens those).
+        $this->post('/security/firewall/toggle', ['enabled' => '1', 'allow_services' => '0']);
+        self::assertSame(['enabled' => true, 'allow_services' => false, 'allow_from' => ''], $this->lastCall('firewall.set_enabled'));
+        // A loopback address (SSH tunnel) is never sent.
+        $this->remoteIp = '127.0.0.1';
+        $this->post('/security/firewall/toggle', ['enabled' => '1', 'allow_services' => '1', 'allow_me' => '1']);
+        self::assertSame('', $this->lastCall('firewall.set_enabled')['allow_from']);
+    }
+
     public function testSshAndFail2ban(): void
     {
         $this->agent->succeed('security.pending', ['pending' => null]);

@@ -62,28 +62,68 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
 <?php if ($fw !== [] && empty($fw['installed'])): ?>
     <div class="wcp-infobar"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>The firewall (UFW) is not installed. Install it from <a href="<?= e($this->url('packages')) ?>">Packages</a>.</span></div>
 <?php elseif ($fw !== []): ?>
+<?php $required = (array) ($fw['required'] ?? []); $myIp ??= ''; $active = !empty($fw['active']); ?>
 <div class="wcp-panel mb-3">
     <div class="wcp-statusbar">
-        <?php if ($canManage): ?>
-            <form method="post" action="<?= e($this->url('security.firewall.toggle')) ?>"<?= !empty($fw['active']) ? ' data-wcp-confirm="Turn off the firewall? Every listening service becomes reachable."' : '' ?>>
-                <?= $this->csrfField() ?><input type="hidden" name="enabled" value="<?= !empty($fw['active']) ? '0' : '1' ?>">
+        <?php if ($canManage && $active): ?>
+            <form method="post" action="<?= e($this->url('security.firewall.toggle')) ?>" data-wcp-confirm="Turn off the firewall? Every listening service becomes reachable.">
+                <?= $this->csrfField() ?><input type="hidden" name="enabled" value="0">
                 <div class="form-check form-switch">
                     <label class="form-check-label fw-medium" for="fw-on">Firewall</label>
-                    <input class="form-check-input" type="checkbox" role="switch" id="fw-on" data-wcp-switch-submit<?= !empty($fw['active']) ? ' checked' : '' ?><?= empty($fw['active']) && empty($fw['ssh_allowed']) ? ' disabled title="Allow SSH first"' : '' ?>>
+                    <input class="form-check-input" type="checkbox" role="switch" id="fw-on" data-wcp-switch-submit checked>
                 </div>
             </form>
         <?php else: ?>
             <span class="fw-medium">Firewall</span>
         <?php endif; ?>
-        <span><?= !empty($fw['active']) ? '<span class="wcp-state is-ok">On</span>' : '<span class="wcp-state is-error">Off</span>' ?></span>
+        <span><?= $active ? '<span class="wcp-state is-ok">On</span>' : '<span class="wcp-state is-error">Off</span>' ?></span>
         <span class="small"><span class="wcp-muted">Backend</span> <?= e(($fw['backend'] ?? 'ufw') === 'firewalld' ? 'firewalld' : 'UFW') ?></span>
         <?php if (!empty($fw['default_incoming'])): ?><span class="small"><span class="wcp-muted">Incoming</span> <?= e((string) $fw['default_incoming']) ?> · <span class="wcp-muted">Outgoing</span> <?= e((string) ($fw['default_outgoing'] ?? '?')) ?></span><?php endif; ?>
-        <span class="small"><span class="wcp-muted">SSH port</span> <?= (int) ($fw['ssh_port'] ?? 22) ?> <?= !empty($fw['ssh_allowed']) ? '<i class="bi bi-check-circle-fill wcp-good" title="Allowed"></i>' : '<i class="bi bi-exclamation-triangle-fill wcp-warn" title="No rule allows SSH"></i>' ?></span>
+        <span class="small"><span class="wcp-muted">SSH port</span> <?= (int) ($fw['ssh_port'] ?? 22) ?> <?= !empty($fw['ssh_allowed']) ? '<i class="bi bi-check-circle-fill wcp-good" title="Allowed"></i>' : '<i class="bi bi-exclamation-triangle-fill wcp-warn" title="No rule allows SSH yet"></i>' ?></span>
     </div>
-    <?php if (empty($fw['ssh_allowed'])): ?>
-        <div class="alert alert-warning small mb-0 mt-3"><i class="bi bi-exclamation-triangle me-1"></i>No rule allows SSH on port <?= (int) ($fw['ssh_port'] ?? 22) ?>. Add one before turning the firewall on.</div>
-    <?php endif; ?>
 </div>
+
+<?php if ($required !== []): ?>
+<div class="wcp-panel mb-3" id="fw-required">
+    <div class="fw-semibold mb-1">Ports WhaCP keeps open</div>
+    <div class="small text-body-secondary mb-2">SSH and the panel are always opened before the firewall is turned on, and their last rule cannot be deleted while it is on. Service ports are those of services listening on this server.</div>
+    <div class="wcp-dtable table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>Port</th><th>Protocol</th><th>Used by</th><th>Status</th></tr></thead>
+            <tbody>
+            <?php foreach ($required as $p): ?>
+                <tr>
+                    <td class="font-monospace"><?= e((string) $p['port']) ?><?php if (!empty($p['from'])): ?> <span class="small text-body-secondary">from <?= e((string) $p['from']) ?></span><?php endif; ?></td>
+                    <td class="small"><?= e(strtoupper((string) $p['proto'])) ?></td>
+                    <td><?= e((string) $p['service']) ?><?php if (!empty($p['critical'])): ?> <span class="badge text-bg-light border fw-normal">access</span><?php endif; ?></td>
+                    <td><?= !empty($p['open']) ? '<span class="wcp-state is-ok">Allowed</span>' : '<span class="wcp-state is-warn">' . ($active ? 'Not allowed' : 'Opened when turned on') . '</span>' ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($canManage && !$active): ?>
+<form class="wcp-panel mb-3" method="post" action="<?= e($this->url('security.firewall.toggle')) ?>" data-wcp-busy id="fw-enable">
+    <?= $this->csrfField() ?><input type="hidden" name="enabled" value="1">
+    <div class="fw-semibold mb-2">Turn on the firewall</div>
+    <div class="form-check mb-1">
+        <input type="hidden" name="allow_services" value="0">
+        <input class="form-check-input" type="checkbox" id="fw-services" name="allow_services" value="1" checked>
+        <label class="form-check-label" for="fw-services">Also open the ports of running services (websites, mail, FTP, DNS) listed above</label>
+    </div>
+    <?php if ($myIp !== ''): ?>
+        <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="fw-me" name="allow_me" value="1" checked>
+            <label class="form-check-label" for="fw-me">Always allow my address <code><?= e($myIp) ?></code> on every port, and whitelist it in cPHulk</label>
+        </div>
+    <?php endif; ?>
+    <div class="small text-body-secondary mb-3">After turning it on you have 2 minutes to click <strong>Keep change</strong>. If the panel stops answering, you do nothing and the firewall is turned off again, with the rules it added removed.</div>
+    <button class="btn btn-primary btn-sm"><i class="bi bi-shield-check me-1"></i>Turn on firewall</button>
+</form>
+<?php endif; ?>
 
 <div class="wcp-panel" data-wcp-dt id="fw-rules">
     <div class="wcp-subtabs" role="group" aria-label="Rule kind">

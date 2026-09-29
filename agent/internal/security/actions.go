@@ -68,6 +68,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			return nil, actions.Failed("The firewall state could not be read.", err.Error())
 		}
 		st.Listening = Listening(env)
+		st.Required = RequiredPorts(ctx, env, st.Rules)
 		return st, nil
 	}})
 	r.Register(actions.Action{Name: "firewall.rule_add", Mutating: true, Description: "Add a UFW rule (auto-reverted unless confirmed).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
@@ -86,14 +87,15 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return guarded(s.DeleteRule(ctx, in.Spec))
 	}})
-	r.Register(actions.Action{Name: "firewall.set_enabled", Mutating: true, Description: "Enable or disable UFW (auto-reverted unless confirmed).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "firewall.set_enabled", Mutating: true, Description: "Enable or disable the firewall (auto-reverted unless confirmed). Enabling first opens SSH, the panel and the agent's remote listener, optionally the ports of listening services (allow_services) and every port for one address (allow_from); undoing removes them again.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Enabled bool `json:"enabled"`
+			EnableOptions
 		}
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
 		}
-		return guarded(s.SetEnabled(ctx, in.Enabled))
+		return guarded(s.SetEnabled(ctx, in.Enabled, in.EnableOptions))
 	}})
 
 	r.Register(actions.Action{Name: "ssh.status", Description: "Effective SSH server settings and key-based access.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {

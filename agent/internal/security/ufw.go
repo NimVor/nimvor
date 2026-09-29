@@ -37,6 +37,28 @@ type FirewallStatus struct {
 	SSHPort   int        `json:"ssh_port"`
 	SSHOpen   bool       `json:"ssh_allowed"`
 	Listening []Listener `json:"listening"`
+	// Required: the ports WhaCP and its services need (firewall.status).
+	Required []RequiredPort `json:"required,omitempty"`
+}
+
+// keepsCritical names a critical port that only this rule opens (deleting
+// it while the firewall is on would cut access), or "".
+func keepsCritical(ctx context.Context, env *host.Env, st FirewallStatus, target Rule) string {
+	if !st.Active {
+		return ""
+	}
+	var rest []Rule
+	for _, r := range st.Rules {
+		if r.Spec != target.Spec {
+			rest = append(rest, r)
+		}
+	}
+	for _, p := range RequiredPorts(ctx, env, st.Rules) {
+		if p.Critical && p.Open && covered(p, []Rule{target}) && !covered(p, rest) {
+			return fmt.Sprintf("This rule keeps %s (port %s) reachable. Add another rule for it before deleting this one.", p.Service, p.Port)
+		}
+	}
+	return ""
 }
 
 // SplitArgs splits a ufw rule line, honouring single and double quotes.
@@ -351,20 +373,48 @@ func (s *Service) DeleteRule(ctx context.Context, spec string) (*Pending, error)
 	if target.SSH && sshRules == 1 && st.Active {
 		return nil, actions.Conflict(fmt.Sprintf("This rule keeps SSH (port %d) reachable. Add another rule for SSH before deleting it.", st.SSHPort))
 	}
+	if msg := keepsCritical(ctx, s.env, st, *target); msg != "" {
+		return nil, actions.Conflict(msg)
+	}
 	if err := s.ufw(ctx, append([]string{"--force", "delete"}, withoutComment(target.Args)...)...); err != nil {
 		return nil, err
 	}
 	return s.guard.Start(Pending{Kind: "firewall", Summary: "firewall: delete " + spec, UFW: [][]string{target.Args}})
 }
 
-// SetEnabled turns UFW on or off under the guard. Enabling requires a
-// rule that keeps SSH reachable.
-func (s *Service) SetEnabled(ctx context.Context, enabled bool) (*Pending, error) {
+// EnableOptions: what turning the firewall on also opens. Critical ports
+// (SSH, the panel, the agent's remote listener) are always opened first;
+// Services opens the ports of the services that are listening; AllowFrom
+// lets one address (the administrator's) reach every port.
+type EnableOptions struct {
+	Services  bool   `json:"allow_services"`
+	AllowFrom string `json:"allow_from"`
+}
+
+func (o EnableOptions) validate() error {
+	if o.AllowFrom != "" && validate.IPOrCIDR("allow_from", o.AllowFrom) != nil {
+		return fmt.Errorf("allow_from must be an IP address or network")
+	}
+	return nil
+}
+
+// adminRule is the ufw rule letting one address reach every port.
+func adminRule(from string) []string {
+	return []string{"allow", "from", from, "comment", "whacp: administrator"}
+}
+
+// SetEnabled turns UFW on or off under the guard. Turning it on opens the
+// required ports first, in the same guarded change: undoing it (or not
+// confirming) closes the firewall and removes those rules again.
+func (s *Service) SetEnabled(ctx context.Context, enabled bool, opts EnableOptions) (*Pending, error) {
+	if err := opts.validate(); err != nil {
+		return nil, actions.InvalidParams(err.Error())
+	}
 	if err := s.guard.Busy(); err != nil {
 		return nil, err
 	}
 	if useFirewalld(s.env) {
-		return s.firewalldSetEnabled(ctx, enabled)
+		return s.firewalldSetEnabled(ctx, enabled, opts)
 	}
 	st, err := Firewall(ctx, s.env)
 	if err != nil {
@@ -376,17 +426,61 @@ func (s *Service) SetEnabled(ctx context.Context, enabled bool) (*Pending, error
 	if st.Active == enabled {
 		return nil, nil
 	}
-	if enabled {
-		if !st.SSHOpen {
-			return nil, actions.Conflict(fmt.Sprintf("No rule allows SSH (port %d). Add one first, or you would be locked out.", st.SSHPort))
-		}
-		if err := s.ufw(ctx, "--force", "enable"); err != nil {
+	if !enabled {
+		if err := s.ufw(ctx, "disable"); err != nil {
 			return nil, err
 		}
-		return s.guard.Start(Pending{Kind: "firewall", Summary: "firewall: enable", UFW: [][]string{{"disable"}}})
+		return s.guard.Start(Pending{Kind: "firewall", Summary: "firewall: disable", UFW: [][]string{{"--force", "enable"}}})
 	}
-	if err := s.ufw(ctx, "disable"); err != nil {
+	undo := [][]string{{"disable"}}
+	var opened []string
+	rollback := func() {
+		for _, u := range undo[1:] {
+			s.env.Runner.Run(ctx, "ufw", u...)
+		}
+	}
+	run := func(args []string, label string) error {
+		out, err := s.env.Runner.Run(ctx, "ufw", args...)
+		if err != nil {
+			rollback()
+			return actions.Failed("UFW rejected a rule for "+label+".", host.Output(out))
+		}
+		if !strings.Contains(string(out), "Skipping") {
+			undo = append(undo, append([]string{"--force", "delete"}, withoutComment(args)...))
+			opened = append(opened, label)
+		}
+		return nil
+	}
+	for _, p := range RequiredPorts(ctx, s.env, st.Rules) {
+		if p.Open || (!p.Critical && !opts.Services) {
+			continue
+		}
+		args, err := p.Input().Args()
+		if err != nil {
+			continue
+		}
+		if err := run(args, p.Service+" ("+p.Port+"/"+p.Proto+")"); err != nil {
+			return nil, err
+		}
+	}
+	if opts.AllowFrom != "" {
+		exists := false
+		for _, r := range st.Rules {
+			exists = exists || sameRule(r, adminRule(opts.AllowFrom))
+		}
+		if !exists {
+			if err := run(adminRule(opts.AllowFrom), "your address "+opts.AllowFrom); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := s.ufw(ctx, "--force", "enable"); err != nil {
+		rollback()
 		return nil, err
 	}
-	return s.guard.Start(Pending{Kind: "firewall", Summary: "firewall: disable", UFW: [][]string{{"--force", "enable"}}})
+	summary := "firewall: enable"
+	if len(opened) > 0 {
+		summary += " (opened " + strings.Join(opened, ", ") + ")"
+	}
+	return s.guard.Start(Pending{Kind: "firewall", Summary: summary, UFW: undo})
 }

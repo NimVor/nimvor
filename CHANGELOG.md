@@ -7,6 +7,15 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Turning the firewall on keeps you connected.** The Firewall page lists
+  the ports WhaCP needs (SSH, the panel's HTTPS port, the agent's remote
+  listener, and the ports of running services: websites, webmail, mail,
+  FTP with its passive range, DNS) and whether a rule allows each. Turning
+  the firewall on first opens SSH and the panel, optionally the services'
+  ports and every port for your own address (also whitelisted in cPHulk),
+  in one guarded change: without **Keep change** within 2 minutes the
+  firewall goes off again and those rules are removed. The last rule
+  opening SSH or the panel cannot be deleted while the firewall is on.
 - **Security menu in the sidebar.** Overview, Firewall, SSH, Brute-force
   protection, Malware scan, Shell access, ModSecurity, Configure Security
   Policies, Compiler Access, SMTP Restrictions, cPHulk Brute Force

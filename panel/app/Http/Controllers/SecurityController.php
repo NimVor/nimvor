@@ -23,6 +23,7 @@ final class SecurityController extends Controller
         private readonly \WhaCP\Database\Connection $db,
         private readonly \WhaCP\Services\SettingsService $settings,
         private readonly \WhaCP\Services\AuditLogger $audit,
+        private readonly \WhaCP\Core\Config $config,
     ) {
         parent::__construct($view, $session);
     }
@@ -130,7 +131,10 @@ final class SecurityController extends Controller
     public function firewall(Request $request): Response
     {
         [$fw, $err] = $this->read('firewall.status');
-        return $this->page('firewall', ['fw' => (array) $fw, 'agentError' => $err]);
+        /** @var list<string> $proxies */
+        $proxies = (array) $this->config->get('security.trusted_proxies', []);
+        $ip = $request->ip($proxies);
+        return $this->page('firewall', ['fw' => (array) $fw, 'agentError' => $err, 'myIp' => SecurityService::publicAddress($ip) ? $ip : '']);
     }
 
     public function ssh(Request $request): Response
@@ -167,7 +171,10 @@ final class SecurityController extends Controller
 
     public function toggleFirewall(Request $request): Response
     {
-        return $this->act('/security/firewall', fn (): string => $this->security->setFirewall($request->input('enabled') === '1'));
+        /** @var list<string> $proxies */
+        $proxies = (array) $this->config->get('security.trusted_proxies', []);
+        $mine = $request->input('allow_me') === '1' ? $request->ip($proxies) : '';
+        return $this->act('/security/firewall', fn (): string => $this->security->setFirewall($request->input('enabled') === '1', $request->input('allow_services', '1') === '1', $mine));
     }
 
     public function configureSsh(Request $request): Response

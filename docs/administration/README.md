@@ -448,6 +448,15 @@ turn off, so features added in later versions are on for existing lists.
 
 All under **Security** in the sidebar (administrators).
 
+- **Firewall**: the page lists the ports WhaCP keeps open. *Turn on
+  firewall* adds allow rules for SSH and the panel's HTTPS port (always),
+  the running services' ports (option) and every port from your current
+  address (option; it is also added to the cPHulk whitelist), then turns
+  the firewall on (UFW, or firewalld on RHEL-family systems). Confirm with
+  **Keep change** within 2 minutes; otherwise the firewall is turned off
+  and the added rules are removed, so a mistake cannot lock you out.
+  The last rule opening SSH or the panel cannot be deleted while the
+  firewall is on.
 - **Configure Security Policies**: *Limit logins to verified IP
   addresses* (a WhaCP sign-in from a new address needs a 6-digit code sent
   to the user's email; addresses already used count as verified;
