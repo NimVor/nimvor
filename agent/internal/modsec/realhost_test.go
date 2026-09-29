@@ -196,3 +196,29 @@ func TestRealHostBuildConnectorFromSource(t *testing.T) {
 		t.Fatalf("nginx -t after rollback: %s", out)
 	}
 }
+
+// The pinned Core Rule Set release downloads, matches its checksum and
+// unpacks into rules WhaCP can load (nothing is installed).
+func TestRealHostCRSRelease(t *testing.T) {
+	b, err := download(context.Background(), DefaultCRSSource.Client, DefaultCRSSource.URL)
+	if err != nil {
+		t.Skipf("no network: %v", err)
+	}
+	if got := sum(b); got != DefaultCRSSource.SHA256 {
+		t.Fatalf("checksum %s", got)
+	}
+	files, err := CRSFiles(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for name := range files {
+		if strings.HasSuffix(name, ".conf") {
+			n++
+		}
+	}
+	if n < 20 || files["crs-setup.conf"] == nil || files["rules/REQUEST-942-APPLICATION-ATTACK-SQLI.conf"] == nil {
+		t.Fatalf("%d rule files", n)
+	}
+	t.Logf("%d files, %d .conf", len(files), n)
+}

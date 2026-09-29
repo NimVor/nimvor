@@ -135,6 +135,7 @@ var installerPaths = []string{
 	"/usr/local/lib/whacp/modsecurity", LibRoot + "/**", ModuleDir, ModuleDir + "/**", BuildHome, BuildHome + "/**",
 	"/etc/nginx/nginx.conf", "/etc/nginx/modules-enabled/50-" + loadName, "/usr/share/nginx/modules/" + loadName,
 	"/etc/nginx/conf.modules.d/" + loadName, "/etc/nginx/whacp-modules", "/etc/nginx/whacp-modules/" + loadName,
+	CRSRoot, CRSRoot + "/**",
 }
 
 var policyMu sync.Mutex

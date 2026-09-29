@@ -535,11 +535,80 @@ The terminal page allows style elements that carry a per-response nonce
 ## ModSecurity (web application firewall)
 
 *Security → ModSecurity* (administrators). It needs the Nginx connector
-and the OWASP Core Rule Set: install **Web application firewall for Nginx
-(ModSecurity)** and **OWASP Core Rule Set** under Packages
-(`libnginx-mod-http-modsecurity`, `modsecurity-crs`; packaged from Ubuntu
-24.04). AlmaLinux and RHEL have no connector in their repositories; one
-installed from a third-party repository is detected.
+(libmodsecurity 3 with the ModSecurity-nginx module) and the OWASP Core
+Rule Set.
+
+**What is installed is detected by what it does, not by package name.**
+The connector is *missing*, *installed but not usable* (not loaded, a
+library missing, built for another Nginx — the page says which) or
+*working*, whether it came from a package, an rpm, a module built from
+source or a file copied by hand. WhaCP reads `nginx -V` (version,
+modules folder, `--with-compat`, modules built in), the active
+configuration's `load_module` lines, resolves the module's libraries like
+the dynamic linker (RUNPATH, `/etc/ld.so.conf`) and test-loads a module that
+is present but not loaded with a throwaway configuration. The same applies
+to the Brotli module and to programs such as FFmpeg on the Packages page;
+a package is never installed for something that already works.
+
+**Install ModSecurity** (one background job, one transaction):
+
+1. Detects the OS, Nginx and an existing connector. A working connector is
+   left alone (*Upgrade connector* replaces one WhaCP built; a packaged one
+   is updated with the package manager).
+2. Before any change, copies `/etc/nginx`, `/etc/modsecurity`, the CRS
+   setup folder, `/etc/ld.so.conf(.d)`, `/usr/share/nginx/modules` and
+   WhaCP's ModSecurity state into the transaction's folder
+   (`/var/lib/whacp-agent/transactions/modsec/<id>/snapshot`), and records
+   Nginx's version and build options, package versions and every file it
+   will change.
+3. Uses the distribution's package when a dry run (`apt-get -s` /
+   `dnf --assumeno`) shows it would not remove or replace Nginx itself
+   (for example with nginx.org's Nginx it would, so it is not used).
+   Otherwise it builds the official connector (1.0.4) for the exact
+   installed Nginx: from that version's own source — the distribution's
+   signed source package (apt or dnf), or for an Nginx no package
+   installed, nginx.org's release checked against a SHA-256 you enter —
+   with libmodsecurity from its package or built from the pinned 3.0.14
+   release (both releases SHA-256 verified). Compilers and development
+   packages are installed; the build runs as a temporary unprivileged
+   account (`whacp-build`), removed afterwards. Nginx must be built with
+   `--with-compat`. **The Nginx binary is never installed, replaced or
+   upgraded.**
+4. Installs new, versioned files only
+   (`/usr/local/lib/whacp/nginx-modules/`,
+   `/usr/local/lib/whacp/modsecurity/<version>/`), checks that the
+   module's libraries resolve and that Nginx loads it, then switches the
+   `load_module` line (`modules-enabled/50-whacp-modsecurity.conf`, the
+   folder nginx.conf includes; nginx.conf only gets an include line when it
+   has no module folder), runs `nginx -t`, reloads, and checks again.
+5. If **any** step fails — dependencies, download, build, libraries, module
+   load, `nginx -t`, reload — everything is rolled back: files restored
+   byte for byte with owner and mode, new files removed, packages it added
+   removed, the build account removed, the previous configuration
+   reloaded. The previous module and configuration are never deleted
+   before the new ones have passed. If the agent stops in the middle, the
+   next start rolls the unfinished installation back. Running it again is
+   safe.
+
+*Installation* on the page lists every installation and rollback with its
+sources, versions and errors. **Roll back** undoes the installation in
+effect (the newest; roll back in order) as a transaction of its own: its
+files are put back, packages it added removed, then `nginx -t` and a
+reload; if Nginx would not accept the result (for example while
+ModSecurity is on and the connector would go), nothing changes. From the
+command line: `whacp modsec:installs` and `whacp modsec:rollback <id>`.
+Records are kept for *Settings → ModSecurity installation backups*
+(default 30 days); the one in effect is always kept. If a rollback itself
+was incomplete, the page names the snapshot folder for manual recovery.
+
+**Install Core Rule Set** (separately, also a transaction): the
+distribution's `modsecurity-crs` package, or the pinned CRS 4.18.0
+release (SHA-256 verified; only rule and data files are unpacked, into
+`/usr/local/lib/whacp/coreruleset/<version>/`). It is turned on in
+**detection only**: websites set to *On* only log what they would block
+until you turn *Detection only* off in the server-wide settings. New
+installations start in detection only; configurations from before this
+setting keep blocking.
 
 - **Server-wide:** ModSecurity on/off; the Core Rule Set with its paranoia
   level (1–4) and inbound/outbound anomaly thresholds; custom rules on/off.

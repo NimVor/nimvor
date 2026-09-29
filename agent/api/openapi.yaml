@@ -207,6 +207,7 @@ paths:
               - memcached.flush
               - memcached.status
               - modsec.configure
+              - modsec.crs_install
               - modsec.custom_get
               - modsec.custom_set
               - modsec.events
@@ -566,6 +567,7 @@ x-whacp-actions:
   memcached.flush: { mutating: true, description: "Remove every item from Memcached (requires confirm)." }
   memcached.status: { mutating: false, description: "Whether Memcached is installed and running, its settings and statistics." }
   modsec.configure: { mutating: true, description: "Turn ModSecurity on or off server-wide and set the rule vendors (OWASP CRS paranoia level and anomaly thresholds, custom rules). Checked with nginx -t, rolled back on failure." }
+  modsec.crs_install: { mutating: true, description: "Install the OWASP Core Rule Set (background job, one transaction): the distribution's package when there is one, otherwise the pinned, checksum-verified CRS release unpacked by the agent (rule and data files only). It is turned on in detection only: websites set to block only log until blocking is allowed. Rolled back on failure." }
   modsec.custom_get: { mutating: false, description: "The administrator's custom ModSecurity rules." }
   modsec.custom_set: { mutating: true, description: "Save the custom ModSecurity rules (rule directives only, IDs 10000–99999, no programs, files or includes). Checked with nginx -t, rolled back on failure." }
   modsec.events: { mutating: false, description: "Recent requests ModSecurity blocked or detected (newest first), optionally only those for the given host names: time, host, client address, method, URI, status and the rules that matched." }

@@ -68,7 +68,11 @@ func vendorByID(id string) (Vendor, bool) {
 // Config is the server-wide configuration.
 type Config struct {
 	Enabled bool `json:"enabled"`
-	CRS     struct {
+	// DetectionOnly: websites set to block only log until an
+	// administrator allows blocking (new installations start so; older
+	// configurations without the setting keep blocking).
+	DetectionOnly bool `json:"detection_only"`
+	CRS           struct {
 		Enabled  bool `json:"enabled"`
 		Paranoia int  `json:"paranoia"`
 		Inbound  int  `json:"inbound_threshold"`
@@ -187,6 +191,8 @@ func Load(e *host.Env) State {
 	st.Config.CRS.Paranoia, st.Config.CRS.Inbound, st.Config.CRS.Outbound = 1, 5, 4
 	if b, err := e.Root.ReadFile(statePath(e)); err == nil {
 		json.Unmarshal(b, &st)
+	} else {
+		st.Config.DetectionOnly = true // a new installation starts detecting only
 	}
 	if st.Sites == nil {
 		st.Sites = map[string]Site{}
@@ -282,7 +288,8 @@ func FindCRS(e *host.Env) CRS {
 		}
 		return c
 	}
-	return CRS{}
+	// A release WhaCP installed (when there is no distribution package).
+	return whacpCRS(e)
 }
 
 // Rendering.

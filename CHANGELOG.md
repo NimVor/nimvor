@@ -7,6 +7,26 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Dependencies are detected by capability.** Nginx modules (ModSecurity,
+  Brotli) are missing, installed but not usable (with the reason) or
+  working, whatever installed them (package, rpm, built from source, copied
+  by hand, built into Nginx): module file, libraries resolved like the
+  dynamic linker, `load_module` in the active configuration, test load.
+  Programs (FFmpeg, Composer, Git, Certbot, ClamAV) count when present.
+  The Packages page shows the real state and skips packages for what
+  already works.
+- **ModSecurity installer with backup and rollback.** *Security →
+  ModSecurity → Install ModSecurity* installs the connector as one
+  transaction: snapshot first; the distribution package when it would not
+  touch Nginx, otherwise the official connector built for the exact
+  installed Nginx from verified sources as a temporary unprivileged
+  account; versioned files, test load, atomic `load_module` switch,
+  `nginx -t`, reload; any failure rolls everything back (also after an
+  interrupted run). Manual rollback on the page and with
+  `whacp modsec:rollback <id>`; records kept for a configurable time, the
+  one in effect always. *Install Core Rule Set* separately (package or
+  pinned release), starting in detection only; a new *Detection only*
+  switch holds blocking until an administrator allows it.
 - **File Manager trash.** Delete now moves files and folders to the
   website's trash; *Trash* in the toolbar restores them to where they were,
   deletes them permanently or empties the trash (with confirmation). Items

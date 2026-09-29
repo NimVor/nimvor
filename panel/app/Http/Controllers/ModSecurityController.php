@@ -32,6 +32,7 @@ final class ModSecurityController extends Controller
         private readonly WebsiteRepository $websites,
         private readonly ServerContext $server,
         private readonly \WhaCP\Security\Authorizer $authorizer,
+        private readonly \WhaCP\Services\SettingsService $settings,
     ) {
         parent::__construct($view, $session);
     }
@@ -73,9 +74,16 @@ final class ModSecurityController extends Controller
             $error = $e;
         }
         $sites = $this->websites->all($this->server->id(), $this->user($request));
+        $installs = [];
+        try {
+            $installs = $this->modsec->installs();
+        } catch (AgentException) {
+            // An older agent: no installation records.
+        }
         return $this->render('security/modsec', [
             'tab' => 'modsec', 'pending' => $this->security->pending(), 'agentError' => $error,
-            'status' => $status, 'custom' => $custom, 'events' => $events, 'sites' => $sites,
+            'status' => $status, 'custom' => $custom, 'events' => $events, 'sites' => $sites, 'installs' => $installs,
+            'retention' => $this->settings->int('modsec_backup_retention_days'),
         ]);
     }
 
@@ -93,6 +101,31 @@ final class ModSecurityController extends Controller
             $n = $this->modsec->saveCustomRules(str_replace("\r\n", "\n", (string) $request->input('rules', '')), $this->userId($request));
             $on = !empty(($this->modsec->status()['config']['custom']['enabled'] ?? false));
             return $n . ' custom rule(s) saved; Nginx accepted them.' . ($on ? '' : ' Turn "Custom rules" on in the server-wide settings to use them.');
+        });
+    }
+
+    /** Install or upgrade the Nginx connector (a transaction on the server). */
+    public function install(Request $request): Response
+    {
+        return $this->act($request, '/security/modsec#installs', function () use ($request): string {
+            $this->modsec->install($request->all(), $this->userId($request));
+            return 'Installing the ModSecurity connector in the background. Everything is backed up first and rolled back if any step fails; you will be notified when it finishes.';
+        });
+    }
+
+    public function installCrs(Request $request): Response
+    {
+        return $this->act($request, '/security/modsec#installs', function () use ($request): string {
+            $this->modsec->installCrs($this->userId($request));
+            return 'Installing the OWASP Core Rule Set in the background. It starts in detection only: websites set to block only log until you allow blocking.';
+        });
+    }
+
+    public function rollback(Request $request, string $id): Response
+    {
+        return $this->act($request, '/security/modsec#installs', function () use ($request, $id): string {
+            $this->modsec->rollback($id, $this->userId($request));
+            return 'Rolling back installation ' . $id . ' in the background. If Nginx would not accept the result, nothing changes.';
         });
     }
 

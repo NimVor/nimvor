@@ -51,7 +51,7 @@ in CI have not run for this work:
 
 - **Network bandwidth per account:** the plans' monthly bandwidth is enforced (websites of an account over it answer 509 until the month ends, the limit is raised or the counter is reset). Network speed is not shaped per account: cgroup v2 has no network controller.
 - **Disk quota:** enforced with Linux user quotas once an administrator turns them on (ext4 live; XFS after a reboot). Commands needing `CAP_SYS_ADMIN` run in a capability-limited helper unit (owner-approved trade-off). Not yet verified on a real quota-capable kernel (this build machine's kernel has no quota support; CI is not running).
-- **FFmpeg and ModSecurity on AlmaLinux 9:** no package exists in BaseOS, AppStream or EPEL. WhaCP detects a third-party installation but does not install one.
+- **FFmpeg on AlmaLinux 9:** EPEL's build only. **ModSecurity on AlmaLinux 9:** no connector package exists; WhaCP now builds the official connector for the installed Nginx from its signed source package (transactional, rolled back on failure). Verified by a real source build on Ubuntu 24.04 here; the AlmaLinux (dnf source package) route is unit-tested only until CI runs.
 - **Web terminal for key-only SSH accounts:** the browser terminal signs in with the Linux password only.
 
 ## 3. Remaining (blocked by external dependencies)
@@ -65,7 +65,7 @@ in CI have not run for this work:
 `0025_account_suspension`, `0026_limit_overrides`, `0027_feature_lists`,
 `0028_mail_routing`, `0029_disk_usage`, `0030_directory_listing`,
 `0031_plan_ffmpeg`, `0032_dns_record_disabled`, `0033_ip_management`,
-`0034_plan_resource_limits`, `0035_wordpress`, `0036_bandwidth_block`, `0037_disk_quotas`.
+`0034_plan_resource_limits`, `0035_wordpress`, `0036_bandwidth_block`, `0037_disk_quotas` (the ModSecurity installer keeps its records on the server, not in the panel database).
 
 All of them only add tables, columns or indexes; none rewrites or drops
 data. They run forward and are recorded, so they run once. Every panel test

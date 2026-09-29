@@ -26,6 +26,7 @@ final class ModSecurityService
         private readonly AuditLogger $audit,
         private readonly ServerContext $server,
         private readonly JobTracker $jobs,
+        private readonly ?SettingsService $settings = null,
     ) {
     }
 
@@ -61,6 +62,8 @@ final class ModSecurityService
                 'outbound_threshold' => $num($in['outbound_threshold'] ?? 4, 2, 1000, 'Outbound threshold'),
             ],
             'custom' => ['enabled' => ($in['custom_enabled'] ?? '') === '1'],
+            // Websites set to block only log until blocking is allowed.
+            'detection_only' => ($in['detection_only'] ?? '') === '1',
         ];
         $this->agent->call('modsec.configure', $cfg, 120);
         $this->audit->record('modsec.configure', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, $cfg, $userId);
@@ -163,6 +166,59 @@ final class ModSecurityService
         $this->jobs->track($job, 'Update ModSecurity rules', 'server', (string) $this->server->id(), $userId);
         $this->audit->record('modsec.update', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['job' => $job], $userId);
         return $job;
+    }
+
+    /**
+     * Install (or upgrade) the Nginx connector as a transaction on the
+     * server (a background job).
+     *
+     * @param array<string, mixed> $in method (auto|source), upgrade, nginx_source_sha256
+     */
+    public function install(array $in, int $userId): string
+    {
+        $method = ($in['method'] ?? 'auto') === 'source' ? 'source' : 'auto';
+        $sha = strtolower(trim((string) ($in['nginx_source_sha256'] ?? '')));
+        if ($sha !== '' && !preg_match('/^[0-9a-f]{64}$/', $sha)) {
+            throw new ValidationException(['nginx_source_sha256' => 'The SHA-256 is 64 hexadecimal characters.']);
+        }
+        $params = ['method' => $method, 'upgrade' => ($in['upgrade'] ?? '') === '1', 'retention_days' => $this->retention()];
+        if ($sha !== '') {
+            $params['nginx_source_sha256'] = $sha;
+        }
+        $job = (string) (self::arr($this->agent->call('modsec.install', $params, 60))['job_id'] ?? '');
+        $this->jobs->track($job, $params['upgrade'] ? 'Upgrade the ModSecurity connector' : 'Install the ModSecurity connector', 'server', (string) $this->server->id(), $userId);
+        $this->audit->record('modsec.install', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['job' => $job] + $params, $userId);
+        return $job;
+    }
+
+    public function installCrs(int $userId): string
+    {
+        $job = (string) (self::arr($this->agent->call('modsec.crs_install', ['retention_days' => $this->retention()], 60))['job_id'] ?? '');
+        $this->jobs->track($job, 'Install the OWASP Core Rule Set', 'server', (string) $this->server->id(), $userId);
+        $this->audit->record('modsec.crs_install', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['job' => $job], $userId);
+        return $job;
+    }
+
+    /** @return list<array<string, mixed>> installation records, newest first */
+    public function installs(): array
+    {
+        return array_values((array) (self::arr($this->agent->call('modsec.installs', [], 30))['installs'] ?? []));
+    }
+
+    public function rollback(string $id, ?int $userId): string
+    {
+        if (!preg_match('/^[0-9TZ-]{17,40}[0-9a-f]*$/', $id)) {
+            throw new ValidationException(['id' => 'Unknown installation.']);
+        }
+        $job = (string) (self::arr($this->agent->call('modsec.rollback', ['id' => $id], 60))['job_id'] ?? '');
+        $this->jobs->track($job, 'Roll back ModSecurity installation ' . $id, 'server', (string) $this->server->id(), $userId);
+        $this->audit->record('modsec.rollback', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['job' => $job, 'installation' => $id], $userId);
+        return $job;
+    }
+
+    private function retention(): int
+    {
+        return $this->settings?->int('modsec_backup_retention_days') ?? 30;
     }
 
     /** Scheduler: keep the audit log small. @return list<string> */

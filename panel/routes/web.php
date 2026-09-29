@@ -346,6 +346,9 @@ return static function (Router $r): void {
     $r->post('/security/modsec', [\WhaCP\Http\Controllers\ModSecurityController::class, 'configure'], ['name' => 'security.modsec.configure', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/modsec/custom', [\WhaCP\Http\Controllers\ModSecurityController::class, 'saveCustom'], ['name' => 'security.modsec.custom', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/modsec/update', [\WhaCP\Http\Controllers\ModSecurityController::class, 'update'], ['name' => 'security.modsec.update', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/modsec/install', [\WhaCP\Http\Controllers\ModSecurityController::class, 'install'], ['name' => 'security.modsec.install', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/modsec/crs', [\WhaCP\Http\Controllers\ModSecurityController::class, 'installCrs'], ['name' => 'security.modsec.crs', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/modsec/rollback/{id}', [\WhaCP\Http\Controllers\ModSecurityController::class, 'rollback'], ['name' => 'security.modsec.rollback', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/modsec/sites/{id}', [\WhaCP\Http\Controllers\ModSecurityController::class, 'saveSite'], ['name' => 'security.modsec.site', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/sites/{id}/firewall', [\WhaCP\Http\Controllers\ModSecurityController::class, 'site'], ['name' => 'sites.firewall', 'permission' => P::WEBSITES_VIEW]);
     $r->post('/sites/{id}/firewall', [\WhaCP\Http\Controllers\ModSecurityController::class, 'saveSiteMode'], ['name' => 'sites.firewall.update', 'permission' => P::WEBSITES_MANAGE]);

@@ -59,15 +59,17 @@ final class ModSecurityTest extends HttpTestCase
     {
         $this->login('admin');
         $page = $this->request('GET', '/security/modsec')->body();
-        foreach (['Nginx connector loaded', '3.3.5', 'Rule vendors', 'shop.test', 'Detection only', '920350', 'SQL Injection Attack Detected', 'Blocked (403)', 'id:10001'] as $want) {
+        foreach (['Nginx connector working', '3.3.5', 'Rule vendors', 'shop.test', 'Detection only', '920350', 'SQL Injection Attack Detected', 'Blocked (403)', 'id:10001'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
         self::assertStringNotContainsString('Inbound Anomaly Score Exceeded', $page, 'score summaries are hidden');
 
         $this->post('/security/modsec', ['enabled' => '1', 'crs_enabled' => '1', 'paranoia' => '2', 'inbound_threshold' => '10', 'outbound_threshold' => '4', 'custom_enabled' => '0']);
-        self::assertSame(['enabled' => true, 'crs' => ['enabled' => true, 'paranoia' => 2, 'inbound_threshold' => 10, 'outbound_threshold' => 4], 'custom' => ['enabled' => false]], $this->lastCall('modsec.configure'));
+        self::assertSame(['enabled' => true, 'crs' => ['enabled' => true, 'paranoia' => 2, 'inbound_threshold' => 10, 'outbound_threshold' => 4], 'custom' => ['enabled' => false], 'detection_only' => false], $this->lastCall('modsec.configure'));
+        $this->post('/security/modsec', ['enabled' => '1', 'crs_enabled' => '1', 'detection_only' => '1', 'paranoia' => '1', 'inbound_threshold' => '5', 'outbound_threshold' => '4']);
+        self::assertTrue($this->lastCall('modsec.configure')['detection_only'], 'blocking is allowed only when the switch is off');
         $this->post('/security/modsec', ['enabled' => '1', 'paranoia' => '9']);
-        self::assertSame(1, $this->calls('modsec.configure'), 'invalid paranoia level refused in the panel');
+        self::assertSame(2, $this->calls('modsec.configure'), 'invalid paranoia level refused in the panel');
 
         $this->post('/security/modsec/sites/' . $this->otherSite, ['mode' => 'on', 'vendors' => ['crs'], 'disabled_rules' => '942100, 941100 942100']);
         self::assertSame(['domain' => 'blog.test', 'mode' => 'on', 'exclude' => ['custom'], 'disabled_rules' => [942100, 941100]], $this->lastCall('modsec.site'));
@@ -80,7 +82,7 @@ final class ModSecurityTest extends HttpTestCase
         $this->post('/security/modsec/update');
         self::assertSame(1, $this->calls('modsec.update'));
         $db = $this->app->container->get(Connection::class);
-        self::assertSame(4, (int) $db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action LIKE 'modsec.%'"));
+        self::assertSame(5, (int) $db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action LIKE 'modsec.%'"), 'settings saves, website setting, custom rules, update');
 
         // An administrator turns a rule off for a website from its page.
         $page = $this->request('GET', '/sites/' . $this->siteId . '/firewall')->body();
@@ -126,10 +128,53 @@ final class ModSecurityTest extends HttpTestCase
 
     public function testInactiveServerExplainsWhatToDo(): void
     {
-        $this->agent->succeed('modsec.status', ['module_loaded' => false, 'active' => false, 'packages_available' => true, 'crs' => ['available' => false], 'config' => ['enabled' => false], 'vendors' => [], 'sites' => []]);
+        $this->agent->succeed('modsec.status', ['module_loaded' => false, 'active' => false, 'packages_available' => true, 'crs' => ['available' => false], 'config' => ['enabled' => false], 'vendors' => [], 'sites' => [],
+            'connector' => ['state' => 'installed', 'reason' => 'The module is installed but Nginx cannot load it: not binary compatible', 'nginx_version' => '1.26.2']]);
+        $this->agent->succeed('modsec.installs', ['installs' => []]);
         $this->login('cust');
         self::assertStringContainsString('ask your hosting provider', $this->request('GET', '/sites/' . $this->siteId . '/firewall')->body());
         $this->switchTo('admin');
-        self::assertStringContainsString('from <a href="/packages">Packages</a>', $this->request('GET', '/security/modsec')->body());
+        $page = $this->request('GET', '/security/modsec')->body();
+        foreach (['Connector installed, not usable', 'not binary compatible', 'Install ModSecurity', 'Install Core Rule Set', 'nginx-1.26.2.tar.gz', 'The Nginx program itself is never changed'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+    }
+
+    /** Install, Core Rule Set, records and rollback: administrators only. */
+    public function testInstallationsAndRollback(): void
+    {
+        $this->agent->succeed('modsec.install', ['job_id' => 'aaaaaaaaaaaaaaaa']);
+        $this->agent->succeed('modsec.crs_install', ['job_id' => 'bbbbbbbbbbbbbbbb']);
+        $this->agent->succeed('modsec.rollback', ['job_id' => 'cccccccccccccccc']);
+        $this->agent->succeed('modsec.installs', ['installs' => [
+            ['id' => '20260929T051322Z-000002-84871d', 'status' => 'committed', 'started_at' => '2026-09-29T05:13:22Z', 'method' => 'source', 'nginx_version' => '1.24.0', 'os' => 'ubuntu 24.04', 'sources' => [['name' => 'ModSecurity-nginx', 'version' => '1.0.4', 'origin' => 'https://github.com/…']], 'module' => '/usr/local/lib/whacp/nginx-modules/ngx_http_modsecurity_module-1.24.0-2-84871d.so', 'can_roll_back' => true, 'folder' => '/var/lib/whacp-agent/transactions/modsec/x'],
+            ['id' => '20260929T050000Z-000001-aaaaaa', 'status' => 'rollback_failed', 'started_at' => '2026-09-29T05:00:00Z', 'method' => 'source', 'error' => 'make failed', 'can_roll_back' => false, 'folder' => '/var/lib/whacp-agent/transactions/modsec/y'],
+        ]]);
+        $this->login('admin');
+        $page = $this->request('GET', '/security/modsec')->body();
+        foreach (['id="installs"', 'ModSecurity-nginx 1.0.4', 'in effect', 'Roll back', 'Rollback incomplete', '/var/lib/whacp-agent/transactions/modsec/y/snapshot', 'make failed'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        self::assertSame(1, substr_count($page, '/security/modsec/rollback/'), 'only the installation in effect can be rolled back');
+
+        $this->post('/security/modsec/install', ['method' => 'source', 'nginx_source_sha256' => str_repeat('AB', 32)]);
+        self::assertSame(['method' => 'source', 'upgrade' => false, 'retention_days' => 30, 'nginx_source_sha256' => str_repeat('ab', 32)], $this->lastCall('modsec.install'));
+        $this->post('/security/modsec/install', ['nginx_source_sha256' => 'not-a-hash']);
+        self::assertSame(1, $this->calls('modsec.install'), 'a malformed checksum is refused');
+        $this->post('/security/modsec/crs');
+        self::assertSame(1, $this->calls('modsec.crs_install'));
+        $this->post('/security/modsec/rollback/20260929T051322Z-000002-84871d');
+        self::assertSame(['id' => '20260929T051322Z-000002-84871d'], $this->lastCall('modsec.rollback'));
+        $db = $this->app->container->get(Connection::class);
+        foreach (['modsec.install', 'modsec.crs_install', 'modsec.rollback'] as $a) {
+            self::assertSame(1, (int) $db->scalar('SELECT COUNT(*) FROM audit_logs WHERE action = ?', [$a]), $a);
+        }
+        self::assertSame(3, (int) $db->scalar('SELECT COUNT(*) FROM agent_jobs'));
+
+        $this->switchTo('resell');
+        $this->post('/security/modsec/install', ['method' => 'auto']);
+        $this->post('/security/modsec/crs');
+        $this->post('/security/modsec/rollback/20260929T051322Z-000002-84871d');
+        self::assertSame(1, $this->calls('modsec.install') + $this->calls('modsec.crs_install') + $this->calls('modsec.rollback') - 2, 'resellers cannot');
     }
 }

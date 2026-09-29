@@ -4,6 +4,8 @@
 
 | Threat | Mitigation |
 |--------|------------|
+| ModSecurity connector built from source | Sources: the connector and libmodsecurity releases are pinned by SHA-256; Nginx's source is the distribution's signed source package (apt/dnf verify it) or nginx.org's release checked against an administrator-given SHA-256. Compiling runs as a temporary unprivileged account (`whacp-build`, in a sandboxed unit; `make`/`sh`/`tar` refuse root), removed afterwards. Installation is a write-ahead transaction: everything is backed up first and rolled back on any failure; the Nginx binary is never touched |
+| Core Rule Set from the release archive | SHA-256 pinned; only regular rule and data files inside the release folder are unpacked (no links, no `..`, size-limited) into a WhaCP-owned versioned folder; starts in detection only |
 | Disk quota commands need CAP_SYS_ADMIN | The agent's own capabilities are unchanged. Only setquota, repquota, quotaon, quotacheck and mount (allowlisted, arguments validated) run as root in a transient unit started by PID 1 with CapabilityBoundingSet=CAP_SYS_ADMIN (+CAP_DAC_READ_SEARCH for quotacheck) and NoNewPrivileges; refused for any other command or capability, and never as a website account |
 | Remote attacker reaches the panel | Loopback-only listener by default; SSH tunnel or TLS proxy required |
 | Password guessing | Argon2id, 12-char minimum, per-user and per-IP throttling, uniform error messages, timing-equalised verification |

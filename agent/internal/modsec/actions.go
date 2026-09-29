@@ -59,6 +59,18 @@ func Register(r *actions.Registry, e *host.Env) {
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})
+	r.Register(actions.Action{Name: "modsec.crs_install", Mutating: true, Description: "Install the OWASP Core Rule Set (background job, one transaction): the distribution's package when there is one, otherwise the pinned, checksum-verified CRS release unpacked by the agent (rule and data files only). It is turned on in detection only: websites set to block only log until blocking is allowed. Rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var in struct {
+			RetentionDays int `json:"retention_days"`
+		}
+		if err := host.Decode(raw, &in); err != nil {
+			return nil, err
+		}
+		j := e.Jobs.Start("modsec.crs_install", "server", func(ctx context.Context, log io.Writer) (any, error) {
+			return InstallCRS(ctx, e, DefaultCRSSource, in.RetentionDays, log)
+		})
+		return map[string]any{"job_id": j.ID}, nil
+	}})
 	r.Register(actions.Action{Name: "modsec.installs", Description: "ModSecurity connector installations and rollbacks (transactions, newest first): status, method, versions and sources, the module, the backup folder, and which one can be rolled back.", Handler: func(context.Context, json.RawMessage) (any, error) {
 		return map[string]any{"installs": Installs(e)}, nil
 	}})
@@ -310,6 +322,9 @@ func apply(ctx context.Context, e *host.Env, st State, custom *string) error {
 	if active {
 		set.Write(HTTPPath(e), []byte(RenderHTTP(e)), 0o644, agentfs.RootOwner)
 		for d, s := range st.Sites {
+			if st.Config.DetectionOnly && s.Mode == ModeOn {
+				s.Mode = ModeDetect // blocking not allowed yet
+			}
 			body := RenderSite(s)
 			if body == "" || !e.Root.Exists(vhostPath(e, d)) {
 				continue

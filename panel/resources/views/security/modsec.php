@@ -5,6 +5,7 @@
  * @var string $custom
  * @var list<array<string, mixed>> $events
  * @var list<array<string, mixed>> $sites
+ * @var list<array<string, mixed>> $installs
  */
 use WhaCP\Services\ModSecurityService;
 
@@ -13,6 +14,9 @@ $cfg = (array) ($status['config'] ?? []);
 $crs = (array) ($status['crs'] ?? []);
 $crsCfg = (array) ($cfg['crs'] ?? []);
 $loaded = (bool) ($status['module_loaded'] ?? false);
+$conn = (array) ($status['connector'] ?? []);
+$connState = (string) ($conn['state'] ?? ($loaded ? 'functional' : 'missing'));
+$installs ??= [];
 $active = (bool) ($status['active'] ?? false);
 $vendorNames = [];
 foreach ((array) ($status['vendors'] ?? []) as $v) {
@@ -35,7 +39,8 @@ $paranoia = [1 => '1 — few false positives (recommended)', 2 => '2 — more ru
 <div class="wcp-panel mb-3">
     <div class="wcp-statusbar">
         <span class="fw-medium">Web application firewall (ModSecurity)</span>
-        <span><?= $loaded ? '<span class="wcp-state is-ok">Nginx connector loaded</span>' : '<span class="wcp-state is-off">Nginx connector not installed</span>' ?></span>
+        <span><?php if ($connState === 'functional'): ?><span class="wcp-state is-ok" title="<?= e((string) ($conn['modules'][0]['path'] ?? '')) ?>">Nginx connector working</span><?php elseif ($connState === 'installed'): ?><span class="wcp-state is-warn" title="<?= e((string) ($conn['reason'] ?? '')) ?>">Connector installed, not usable</span><?php else: ?><span class="wcp-state is-off">Nginx connector not installed</span><?php endif; ?>
+            <?php if ($connState === 'functional'): ?><span class="small wcp-muted"><?= !empty($conn['package']) ? e('package ' . $conn['package']) : 'built or installed without a package' ?></span><?php endif; ?></span>
         <span class="small"><span class="wcp-muted">OWASP CRS</span> <?= ($crs['available'] ?? false) ? e((string) ($crs['version'] ?? '?')) : 'not installed' ?></span>
         <span><?= $active ? '<span class="wcp-state is-ok">Active</span>' : '<span class="wcp-state is-off">Off</span>' ?></span>
         <span class="small"><span class="wcp-muted">Audit log</span> <?= e(format_bytes((int) ($status['audit_log_bytes'] ?? 0))) ?></span>
@@ -45,14 +50,75 @@ $paranoia = [1 => '1 — few false positives (recommended)', 2 => '2 — more ru
     </div>
 </div>
 
-<?php if (!$loaded): ?>
-    <div class="wcp-infobar"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>
-        <?php if ($status['packages_available'] ?? false): ?>
-            Install <strong>Web application firewall for Nginx (ModSecurity)</strong> and <strong>OWASP Core Rule Set</strong> from <a href="<?= e($this->url('packages')) ?>">Packages</a>, then turn ModSecurity on here.
+<?php if ($connState !== 'functional' || !($crs['available'] ?? false)): ?>
+    <div class="wcp-infobar" id="install"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>
+        <?php if ($connState === 'installed'): ?><strong>The connector is present but not usable:</strong> <?= e((string) ($conn['reason'] ?? '')) ?><br><?php endif; ?>
+        <?php if ($connState !== 'functional'): ?>
+            <strong>Install ModSecurity</strong> uses the distribution's package when installing it would not touch Nginx itself, and otherwise builds the official connector for the exact Nginx installed here. Everything is backed up first; if any step fails (build, libraries, loading, <code>nginx -t</code>, reload) it is all rolled back and Nginx keeps working as before. The Nginx program itself is never changed.
         <?php else: ?>
-            This distribution has no ModSecurity connector for Nginx in its repositories (on AlmaLinux and RHEL it comes only from third-party repositories). Once a connector and the OWASP Core Rule Set are installed, WhaCP detects them here.
+            The OWASP Core Rule Set is not installed. It is installed from the distribution's package, or from the official release, and starts in <strong>detection only</strong>.
         <?php endif; ?>
     </span></div>
+<?php endif; ?>
+
+<?php if ($canManage): ?>
+<div class="wcp-panel mb-3" id="installs">
+    <div class="wcp-actionbar">
+        <div class="fw-semibold">Installation</div>
+        <div class="wcp-actionbar-end d-flex flex-wrap gap-2">
+            <?php if ($connState !== 'functional' || empty($conn['package'])): ?>
+                <button type="button" class="btn btn-sm <?= $connState === 'functional' ? 'btn-outline-secondary' : 'btn-primary' ?>" data-bs-toggle="modal" data-bs-target="#ms-install"><i class="bi bi-box-arrow-in-down me-1"></i><?= $connState === 'functional' ? 'Upgrade connector' : 'Install ModSecurity' ?></button>
+            <?php endif; ?>
+            <?php if (!($crs['available'] ?? false)): ?>
+                <form method="post" action="<?= e($this->url('security.modsec.crs')) ?>" data-wcp-busy data-wcp-confirm="Install the OWASP Core Rule Set? It comes from the distribution's package, or from the official release (checksum-verified). It is turned on in detection only: websites set to block only log until you allow blocking."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-primary"><i class="bi bi-shield-plus me-1"></i>Install Core Rule Set</button></form>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php if ($installs !== []): ?>
+    <div class="wcp-dtable table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>Started</th><th>What</th><th>Result</th><th>Sources</th><th></th></tr></thead>
+            <tbody>
+            <?php foreach (array_slice($installs, 0, 20) as $in): $st = (string) $in['status']; ?>
+                <tr>
+                    <td class="small text-nowrap"><?= e(str_replace('T', ' ', substr((string) $in['started_at'], 0, 16))) ?> UTC<div class="wcp-muted font-monospace" style="font-size:.75em"><?= e((string) $in['id']) ?></div></td>
+                    <td class="small"><?= e((string) ($in['method'] ?? '')) ?><?php if (!empty($in['nginx_version'])): ?><div class="wcp-muted">Nginx <?= e((string) $in['nginx_version']) ?><?= !empty($in['os']) ? ' · ' . e((string) $in['os']) : '' ?></div><?php endif; ?></td>
+                    <td class="small">
+                        <?php if ($st === 'committed'): ?><span class="wcp-state is-ok">Done</span><?= !empty($in['can_roll_back']) ? ' <span class="wcp-muted">in effect</span>' : '' ?>
+                        <?php elseif ($st === 'rolled_back'): ?><span class="wcp-state is-warn">Rolled back</span>
+                        <?php elseif ($st === 'running'): ?><span class="wcp-state is-warn">Running</span>
+                        <?php else: ?><span class="wcp-state is-error">Rollback incomplete</span><?php endif; ?>
+                        <?php if (!empty($in['error'])): ?><div class="text-break"><?= e((string) $in['error']) ?></div><?php endif; ?>
+                        <?php if ($st === 'rollback_failed'): ?><div>Backup for manual recovery: <code><?= e((string) $in['folder']) ?>/snapshot</code></div><?php endif; ?>
+                    </td>
+                    <td class="small"><?php foreach ((array) ($in['sources'] ?? []) as $src): $src = (array) $src; ?><div><?= e(trim($src['name'] . ' ' . ($src['version'] ?? ''))) ?> <span class="wcp-muted">— <?= e((string) ($src['origin'] ?? '')) ?></span></div><?php endforeach; ?><?php if (!empty($in['module'])): ?><div class="font-monospace wcp-muted text-break"><?= e((string) $in['module']) ?></div><?php endif; ?></td>
+                    <td class="text-end"><?php if (!empty($in['can_roll_back'])): ?>
+                        <form method="post" action="<?= e($this->url('security.modsec.rollback', ['id' => (string) $in['id']])) ?>" data-wcp-busy data-wcp-confirm="Roll back this installation? Its files are put back as they were before it, packages it added are removed, then Nginx is checked and reloaded. If Nginx would not accept the result (for example while ModSecurity is on and the connector would go), nothing changes."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Roll back</button></form>
+                    <?php endif; ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php endif; ?>
+    <p class="small wcp-muted mb-0 mt-2">Every installation first saves a copy of the Nginx configuration, the ModSecurity and rule configuration and the linker configuration; records are kept <?= (int) ($retention ?? 30) ?> days (Settings), the one in effect always.</p>
+</div>
+
+<?php $this->modalStart('ms-install', $connState === 'functional' ? 'Upgrade the ModSecurity connector' : 'Install ModSecurity'); ?>
+    <form method="post" action="<?= e($this->url('security.modsec.install')) ?>" data-wcp-busy>
+        <?= $this->csrfField() ?>
+        <?php if ($connState === 'functional'): ?><input type="hidden" name="upgrade" value="1"><p class="small">The connector in use stays in place until the new one works; if anything fails it stays in effect.</p><?php endif; ?>
+        <label class="form-label small" for="ms-method">How</label>
+        <select class="form-select form-select-sm mb-2" id="ms-method" name="method">
+            <option value="auto">Package when it is compatible, otherwise build from source (recommended)</option>
+            <option value="source">Always build from source</option>
+        </select>
+        <label class="form-label small" for="ms-sha">SHA-256 of Nginx's source <span class="wcp-muted">(only when Nginx was not installed from a package)</span></label>
+        <input class="form-control form-control-sm font-monospace mb-2" id="ms-sha" name="nginx_source_sha256" pattern="[0-9a-fA-F]{64}" placeholder="from nginx.org, for nginx-<?= e((string) ($conn['nginx_version'] ?? 'x.y.z')) ?>.tar.gz" autocomplete="off" spellcheck="false">
+        <p class="small wcp-muted">A build installs compilers and development packages (removed again if the installation fails), downloads the pinned ModSecurity releases (checksum-verified) and Nginx's own source, and builds as a temporary unprivileged account. It takes a few minutes; you can close this page.</p>
+        <div class="modal-footer px-0 pb-0"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary"><?= $connState === 'functional' ? 'Upgrade' : 'Install' ?></button></div>
+    </form>
+<?php $this->modalEnd(); ?>
 <?php endif; ?>
 
 <div class="row g-3 mb-3">
@@ -82,6 +148,12 @@ $paranoia = [1 => '1 — few false positives (recommended)', 2 => '2 — more ru
                     <div class="col-6"><label class="form-label small" for="ms-out">Outbound anomaly threshold</label><input class="form-control form-control-sm" type="number" min="2" max="1000" id="ms-out" name="outbound_threshold" value="<?= (int) ($crsCfg['outbound_threshold'] ?? 4) ?>"></div>
                 </div>
                 <div class="form-text mt-0 mb-3">A request is blocked when the rules it matches add up to the threshold (a critical match counts 5). Higher: fewer false positives, less protection.</div>
+                <div class="form-check form-switch mb-1">
+                    <input type="hidden" name="detection_only" value="0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="ms-detect" name="detection_only" value="1"<?= !empty($cfg['detection_only']) ? ' checked' : '' ?>>
+                    <label class="form-check-label" for="ms-detect">Detection only (do not block yet)</label>
+                </div>
+                <div class="form-text mt-0 mb-3">Websites set to “On” only log what they would block. Check the events below for false positives, then turn this off to start blocking.</div>
                 <div class="form-check form-switch mb-3">
                     <input type="hidden" name="custom_enabled" value="0">
                     <input class="form-check-input" type="checkbox" role="switch" id="ms-custom" name="custom_enabled" value="1"<?= !empty($cfg['custom']['enabled']) ? ' checked' : '' ?>>

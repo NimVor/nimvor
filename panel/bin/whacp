@@ -170,6 +170,44 @@ switch ($command) {
         }
         break;
 
+    case 'modsec:installs':
+        // ModSecurity connector and rule installations (transactions).
+        try {
+            foreach ($c->get(\WhaCP\Services\ModSecurityService::class)->installs() as $i) {
+                out(sprintf('%s  %-16s %-22s%s%s', $i['id'], $i['status'], $i['method'] ?? '', !empty($i['can_roll_back']) ? '  [in effect: can be rolled back]' : '', !empty($i['error']) ? '  ' . $i['error'] : ''));
+                if (($i['status'] ?? '') === 'rollback_failed') {
+                    out('    backup for manual recovery: ' . $i['folder'] . '/snapshot');
+                }
+            }
+        } catch (AgentException $e) {
+            fail($e->getMessage());
+        }
+        break;
+
+    case 'modsec:rollback':
+        // Manual rollback of the ModSecurity installation in effect.
+        $id = (string) ($positional[0] ?? '');
+        if ($id === '') {
+            fail('Usage: whacp modsec:rollback <installation id>   (see: whacp modsec:installs)');
+        }
+        try {
+            $job = $c->get(\WhaCP\Services\ModSecurityService::class)->rollback($id, null);
+            $offset = 0;
+            do {
+                sleep(1);
+                $res = $c->get(\WhaCP\Services\JobTracker::class)->poll($job, $offset);
+                fwrite(STDOUT, (string) ($res['log'] ?? ''));
+                $offset = (int) ($res['offset'] ?? $offset);
+            } while (empty($res['done']));
+            if (($res['job']['status'] ?? '') !== 'succeeded') {
+                fail('Rollback failed: ' . ($res['job']['error'] ?? 'see the log above'));
+            }
+            out('Installation ' . $id . ' rolled back.');
+        } catch (\Throwable $e) {
+            fail($e->getMessage());
+        }
+        break;
+
     case 'schedule:run':
         // Run by whacp-scheduler.timer; one pass at a time.
         $lock = fopen(sys_get_temp_dir() . '/whacp-schedule.lock', 'c');
@@ -302,5 +340,5 @@ switch ($command) {
         break;
 
     default:
-        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  agent:check\n  discovery:run\n  schedule:run\n  doctor");
+        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  agent:check\n  discovery:run\n  schedule:run\n  doctor\n  modsec:installs\n  modsec:rollback <installation id>");
 }

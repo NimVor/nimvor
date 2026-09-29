@@ -97,6 +97,10 @@ final class SettingsService
                 'category' => 'security', 'type' => 'int', 'default' => 480, 'min' => 15, 'max' => 1440,
                 'label' => 'Web terminal maximum session (minutes)', 'help' => 'A web terminal closes after this long, active or not.',
             ],
+            'modsec_backup_retention_days' => [
+                'category' => 'security', 'type' => 'int', 'default' => 30, 'min' => 1, 'max' => 3650,
+                'label' => 'ModSecurity installation backups: keep (days)', 'help' => 'Backups and records of ModSecurity connector and rule installations are kept this long. The one in effect (the last known-good) is always kept.',
+            ],
             'trash_retention_days' => [
                 'category' => 'general', 'type' => 'int', 'default' => 30, 'min' => 0, 'max' => 365,
                 'label' => 'File Manager trash: keep deleted files (days)', 'help' => 'Files deleted in the File Manager can be restored from its Trash for this many days, then they are deleted for good. 0 keeps them until the trash is emptied.',
