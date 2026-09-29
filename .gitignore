@@ -20,3 +20,5 @@
 /tests/e2e/node_modules/
 .vm/
 realhost.test
+# go build output in the agent folder
+/agent/whacp-agent
