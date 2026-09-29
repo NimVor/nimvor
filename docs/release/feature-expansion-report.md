@@ -69,8 +69,9 @@ in CI have not run for this work:
 
 All of them only add tables, columns or indexes; none rewrites or drops
 data. They run forward and are recorded, so they run once. Every panel test
-run applies all of them to a fresh database. Upgrading an existing
-installation was not re-run for this work (see 11).
+run applies all of them to a fresh database. Upgrading a pre-expansion
+installation with data passes here (see 10); on real operating systems it
+was not run (see 11).
 
 ## 5. New and modified APIs
 
@@ -176,6 +177,8 @@ Per website: `/sites/{id}/terminal`, `/sites/{id}/firewall`,
 | Browser (13 Playwright tests, write-mode dev instance) | all pass |
 | Real host, run here | `TestRealHostWordPressToolkit`, `TestRealHostWordPress` (apps), `TestRealHostLinuxPassword` (terminal): pass |
 | `make lint` | pass |
+| Upgrade (`UPGRADE_FROM=ce75a6c tests/integration/upgrade.sh`) | pass: pre-expansion installation with realistic data (users, websites, databases, backups, API token, encrypted secrets, audit history) upgraded with all migrations; a failing upgrade rolled back; `--rollback` restored the old version |
+| Smoke (`tests/integration/smoke.sh`) | pass: agent and panel against the fixture server, sign-in, discovery, pinned remote TLS, fixture unchanged |
 
 The real-host tests that need systemd as PID 1 did not run here (this
 container has none). Earlier commits in this work also ran their real-host
