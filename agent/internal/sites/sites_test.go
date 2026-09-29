@@ -189,6 +189,32 @@ func TestSpecValidation(t *testing.T) {
 	}
 }
 
+// An account over its monthly bandwidth: every request gets 509, except
+// certificate renewals; PHP is not reached.
+func TestRenderBandwidthExceeded(t *testing.T) {
+	s := spec()
+	s.Redirects = []Redirect{{From: "/old", To: "/new", Code: 301}}
+	if err := s.Normalize("/home/whacp", "/var/lib/whacp-agent"); err != nil {
+		t.Fatal(err)
+	}
+	s.BandwidthExceeded = true
+	conf := RenderNginx(s, Layout{Socket: "/run/php/x.sock", LogDir: "/l", ACMERoot: "/a"})
+	for _, want := range []string{"return 509 \"", "Bandwidth limit exceeded", "location ^~ /.well-known/acme-challenge/", "access_log /l/access.log;"} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("missing %q:\n%s", want, conf)
+		}
+	}
+	for _, gone := range []string{"fastcgi_pass", "location = /old", "try_files $uri $uri/"} {
+		if strings.Contains(conf, gone) {
+			t.Errorf("%q still served:\n%s", gone, conf)
+		}
+	}
+	// The page text cannot end the nginx string or expand a variable.
+	if strings.Count(bandwidthExceeded, "\"") != 4 || strings.Contains(bandwidthExceeded, "$") {
+		t.Errorf("unsafe page text: %s", bandwidthExceeded)
+	}
+}
+
 // A hosting customer's new website asks for a new account: an existing one
 // (another customer's, or a server login) is refused, not reused.
 func TestNewUserRefusesExistingAccounts(t *testing.T) {

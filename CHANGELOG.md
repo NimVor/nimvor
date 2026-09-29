@@ -6,6 +6,16 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Monthly bandwidth is enforced.** An account over its plan's monthly
+  bandwidth (a reseller's limit covers its customers) is blocked: its
+  websites answer "509 Bandwidth limit exceeded" (certificate renewals still
+  work) until the month ends, the plan or an override allows more, or an
+  administrator resets the counter. Usage is now read every scheduler pass
+  (5 minutes) instead of hourly. Blocks and unblocks are audited, the
+  account is notified, the website dashboard and Users → Bandwidth over
+  limit show the state. Administrators' websites are never blocked.
+
 ### Changed
 - **Web terminal sign-in uses the Linux account's password.** A website's
   terminal now signs in as its Linux account with that account's own

@@ -21,6 +21,7 @@ final class PlansController extends Controller
         private readonly \WhaCP\Services\FeatureService $features,
         private readonly \WhaCP\Services\FfmpegService $ffmpeg,
         private readonly \WhaCP\Services\ResourceLimitService $limits,
+        private readonly \WhaCP\Services\BandwidthLimitService $bandwidth,
     ) {
         parent::__construct($view, $session);
     }
@@ -49,6 +50,11 @@ final class PlansController extends Controller
         try {
             $this->ffmpeg->reconcile();
         } catch (\WhaCP\Agent\AgentException) {
+        }
+        // Monthly bandwidth blocks follow the new limit at once.
+        try {
+            $this->bandwidth->reconcile();
+        } catch (\Throwable) {
         }
         // Resource limits apply to the plan's accounts at once.
         try {

@@ -1,6 +1,6 @@
 <?php
 /** @var \WhaCP\View\View $this */
-/** @var list<array{id: int, username: string, role: string, plan: string, used: int, limit: int, excess: int, suspended: bool}> $rows */
+/** @var list<array{id: int, username: string, role: string, plan: string, used: int, limit: int, excess: int, suspended: bool, blocked: bool}> $rows */
 /** @var bool $all */
 /** @var string $month */
 $admin = $this->serverScope();
@@ -26,10 +26,10 @@ $admin = $this->serverScope();
                     <td class="text-end"><?= e(number_format($r['used'])) ?></td>
                     <td class="text-end"><?= e(number_format($r['limit'])) ?></td>
                     <td class="text-end <?= $r['excess'] > 0 ? 'wcp-bad fw-semibold' : '' ?>"><?= $r['excess'] > 0 ? e(number_format($r['excess'])) : '—' ?></td>
-                    <td><?= $r['suspended'] ? '<span class="wcp-state is-error">Suspended</span>' : '<span class="wcp-state is-ok">Active</span>' ?></td>
+                    <td><?php if ($r['suspended']): ?><span class="wcp-state is-error">Suspended</span><?php elseif ($r['blocked']): ?><span class="wcp-state is-error" title="Its websites answer 509 Bandwidth limit exceeded">Blocked (509)</span><?php else: ?><span class="wcp-state is-ok">Active</span><?php endif; ?></td>
                     <td class="text-end text-nowrap">
                         <?php if ($admin): ?>
-                            <form class="d-inline" method="post" action="<?= e($this->url('users.bandwidth.reset', ['id' => $r['id']])) ?>" data-wcp-confirm="Reset <?= e($r['username']) ?>'s bandwidth for <?= e($month) ?> to 0? The usage counted so far this month (<?= e(number_format($r['used'])) ?> MB) is discarded; earlier months are not affected."><?= $this->csrfField() ?><input type="hidden" name="return_to" value="bandwidth"><button class="btn btn-sm btn-outline-secondary">Reset</button></form>
+                            <form class="d-inline" method="post" action="<?= e($this->url('users.bandwidth.reset', ['id' => $r['id']])) ?>" data-wcp-confirm="Reset <?= e($r['username']) ?>'s bandwidth for <?= e($month) ?> to 0? The usage counted so far this month (<?= e(number_format($r['used'])) ?> MB) is discarded; earlier months are not affected.<?= $r['blocked'] ? ' Its websites are unblocked at once.' : '' ?>"><?= $this->csrfField() ?><input type="hidden" name="return_to" value="bandwidth"><button class="btn btn-sm btn-outline-secondary">Reset</button></form>
                             <?php if (!$r['suspended']): ?>
                                 <form class="d-inline" method="post" action="<?= e($this->url('users.suspend', ['id' => $r['id']])) ?>" data-wcp-confirm="Suspend <?= e($r['username']) ?>? Its websites go offline and email logins, databases, FTP/SFTP, cron jobs and workers stop until you unsuspend it. Nothing is deleted."><?= $this->csrfField() ?><input type="hidden" name="reason" value="Bandwidth limit exceeded (<?= e($month) ?>)"><button class="btn btn-sm btn-outline-danger">Suspend</button></form>
                             <?php else: ?>
@@ -44,4 +44,4 @@ $admin = $this->serverScope();
         </table>
     </div>
 </div>
-<p class="small text-body-secondary mt-2">A reseller's limit covers its customers' websites too. Usage is counted from the websites' access logs every few minutes.</p>
+<p class="small text-body-secondary mt-2">A reseller's limit covers its customers' websites too. Usage is counted from the websites' access logs every few minutes. An account over its limit is blocked: its websites answer “509 Bandwidth limit exceeded” until the month ends, its plan or limit allows more, or you reset its counter.</p>

@@ -71,7 +71,8 @@ final class MonitoringService
     }
 
     /**
-     * Measure website disk use (at most hourly) and return quota alerts.
+     * Measure website disk use (at most hourly) and bandwidth (every pass,
+     * reading on from the last position) and return quota alerts.
      *
      * @return list<array{0: string, 1: string, 2: string, 3: string}>
      */
@@ -98,8 +99,9 @@ final class MonitoringService
                     [(int) $byDomain[$r['domain']], (int) $r['bytes'], (int) $r['files'], gmdate('c', $now)]
                 );
             }
-            $this->bandwidth($now);
         }
+        // Every pass: the plans' monthly bandwidth is enforced on it.
+        $this->bandwidth($now);
         $out = [];
         if ($this->limits === null) {
             return $out;

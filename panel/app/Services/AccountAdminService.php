@@ -157,12 +157,12 @@ final class AccountAdminService
     /**
      * Accounts with a monthly bandwidth limit, with this month's use.
      *
-     * @return list<array{id: int, username: string, role: string, plan: string, used: int, limit: int, excess: int, suspended: bool}>
+     * @return list<array{id: int, username: string, role: string, plan: string, used: int, limit: int, excess: int, suspended: bool, blocked: bool}>
      */
     public function bandwidth(bool $exceededOnly): array
     {
         $rows = [];
-        $accounts = $this->db->fetchAll('SELECT u.id, u.username, r.name AS role, p.name AS plan, ' . UserRepository::SUSPENDED . ' AS suspended FROM users u JOIN roles r ON r.id = u.role_id JOIN plans p ON p.id = u.plan_id ORDER BY u.username');
+        $accounts = $this->db->fetchAll('SELECT u.id, u.username, r.name AS role, p.name AS plan, ' . UserRepository::SUSPENDED . ' AS suspended, ' . UserRepository::BANDWIDTH_BLOCKED . ' AS blocked FROM users u JOIN roles r ON r.id = u.role_id JOIN plans p ON p.id = u.plan_id ORDER BY u.username');
         foreach ($accounts as $a) {
             $limit = $this->limits->value((int) $a['id'], 'bandwidth_mb');
             if ($limit <= 0) {
@@ -172,7 +172,7 @@ final class AccountAdminService
             if ($exceededOnly && $used <= $limit) {
                 continue;
             }
-            $rows[] = ['id' => (int) $a['id'], 'username' => (string) $a['username'], 'role' => (string) $a['role'], 'plan' => (string) $a['plan'], 'used' => $used, 'limit' => $limit, 'excess' => max(0, $used - $limit), 'suspended' => !empty($a['suspended'])];
+            $rows[] = ['id' => (int) $a['id'], 'username' => (string) $a['username'], 'role' => (string) $a['role'], 'plan' => (string) $a['plan'], 'used' => $used, 'limit' => $limit, 'excess' => max(0, $used - $limit), 'suspended' => !empty($a['suspended']), 'blocked' => !empty($a['blocked'])];
         }
         usort($rows, static fn (array $x, array $y): int => $y['excess'] <=> $x['excess'] ?: $y['used'] <=> $x['used']);
         return $rows;

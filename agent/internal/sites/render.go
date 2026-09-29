@@ -110,6 +110,10 @@ func body(b *strings.Builder, s Spec, l Layout) {
 	b.WriteString(l.ModSecInclude)
 	acme(b, l)
 	b.WriteString("    location ~ /\\.(?!well-known) {\n        deny all;\n    }\n")
+	if s.BandwidthExceeded {
+		b.WriteString(bandwidthExceeded)
+		return
+	}
 	for _, r := range s.Redirects {
 		fmt.Fprintf(b, "    location = %s {\n        return %d %s;\n    }\n", r.From, r.Code, r.To)
 	}
@@ -128,6 +132,13 @@ func body(b *strings.Builder, s Spec, l Layout) {
 		b.WriteString("        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection $connection_upgrade_whacp;\n        proxy_read_timeout 300s;\n    }\n")
 	}
 }
+
+// bandwidthExceeded answers every request of a website whose account has
+// used its monthly data transfer (the text has no quote or "$").
+const bandwidthExceeded = "    location / {\n        default_type text/html;\n        add_header Cache-Control \"no-store\" always;\n" +
+	"        return 509 \"<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Bandwidth limit exceeded</title></head>" +
+	"<body style='font-family:sans-serif;max-width:40em;margin:4em auto;padding:0 1em'><h1>Bandwidth limit exceeded</h1>" +
+	"<p>This website has used its monthly data transfer. It is available again at the start of next month, or earlier when its hosting plan allows more.</p></body></html>\";\n    }\n"
 
 // RenderProxyMap is included once (whacp-00-proxy-map.conf) so proxied
 // sites can upgrade WebSocket connections.

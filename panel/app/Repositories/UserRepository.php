@@ -11,6 +11,8 @@ final class UserRepository
     private const COLUMNS = 'u.id, u.username, u.email, u.display_name, u.role_id, u.is_active, u.last_login_at, u.last_login_ip, u.password_changed_at, u.created_at, u.updated_at, r.name AS role_name, r.label AS role_label, r.scope AS role_scope, r.require_two_factor AS role_requires_2fa, u.parent_id, u.plan_id, u.suspended_at, u.suspend_reason, ' . self::SUSPENDED . ' AS suspended';
 
     /** An account is suspended itself or through its (suspended) reseller. */
+    /** The account (or its reseller) is over its monthly bandwidth this month. */
+    public const BANDWIDTH_BLOCKED = "(u.bw_blocked_month = strftime('%Y-%m', 'now') OR EXISTS (SELECT 1 FROM users bp WHERE bp.id = u.parent_id AND bp.bw_blocked_month = strftime('%Y-%m', 'now')))";
     public const SUSPENDED = '(u.suspended_at IS NOT NULL OR EXISTS (SELECT 1 FROM users sp WHERE sp.id = u.parent_id AND sp.suspended_at IS NOT NULL))';
 
     /**

@@ -79,6 +79,10 @@ type Spec struct {
 	// address of the server).
 	IPv4 string `json:"ipv4,omitempty"`
 	IPv6 string `json:"ipv6,omitempty"`
+	// BandwidthExceeded: the account has used its plan's monthly data
+	// transfer; every request is answered with 509 (certificate renewals
+	// still work) until the panel clears it.
+	BandwidthExceeded bool `json:"bandwidth_exceeded,omitempty"`
 }
 
 var (

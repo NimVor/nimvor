@@ -476,11 +476,16 @@ final class WebsiteService
             $spec = self::spec($site, true);
             // A suspended account's websites are off; their own setting is kept.
             $spec['enabled'] = $spec['enabled'] && empty($site['account_suspended']);
+            // Over the plan's monthly bandwidth: the website answers 509.
+            if (!empty($site['bandwidth_blocked'])) {
+                $spec['bandwidth_exceeded'] = true;
+            }
             $this->agent->call('sites.apply', $spec + ($newUser ? ['new_user' => true] : []));
         } finally {
             $this->discovery->invalidate();
         }
         $this->sites->setStatus((int) $site['id'], !empty($site['account_suspended']) ? 'suspended' : ($site['enabled'] ? 'active' : 'disabled'));
+        $this->sites->setBandwidthApplied((int) $site['id'], !empty($site['bandwidth_blocked']));
     }
 
     /** @param array<string, mixed> $previous */

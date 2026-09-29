@@ -49,8 +49,8 @@ in CI have not run for this work:
 
 ## 2. Partially completed
 
-- **Network bandwidth limits per account:** not possible with cgroup v2, which has no network controller. Bandwidth is measured, reported and can lead to suspension (22), but it is not shaped.
-- **Disk quota:** usage is measured against the plan limit and override, with alerts and exceeders. It is not enforced by filesystem quotas (no `setquota`/project quotas).
+- **Network bandwidth per account:** the plans' monthly bandwidth is enforced (websites of an account over it answer 509 until the month ends, the limit is raised or the counter is reset). Network speed is not shaped per account: cgroup v2 has no network controller.
+- **Disk quota:** usage is measured against the plan limit and override, with alerts and exceeders. It is not enforced by filesystem quotas: that needs `CAP_SYS_ADMIN` for the agent or a helper it starts, a security trade-off awaiting the owner's decision.
 - **FFmpeg and ModSecurity on AlmaLinux 9:** no package exists in BaseOS, AppStream or EPEL. WhaCP detects a third-party installation but does not install one.
 - **Web terminal for key-only SSH accounts:** the browser terminal signs in with the Linux password only.
 
@@ -208,8 +208,8 @@ tests here where the container allowed it; see each commit message.
 
 ## 12. Known limitations
 
-- **Network bandwidth:** not shaped per account (no cgroup v2 controller).
-- **Disk quotas:** measured, not enforced by the filesystem.
+- **Network bandwidth:** monthly transfer enforced (509); speed not shaped per account (no cgroup v2 controller).
+- **Disk quotas:** measured, not enforced by the filesystem (needs a decision on `CAP_SYS_ADMIN`).
 - **Web terminal:** password sign-in only. The optional root shell (off by
   default) runs as root and is administrator-only.
 - **WordPress Toolkit:**

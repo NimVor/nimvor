@@ -204,6 +204,10 @@ switch ($command) {
             } catch (\WhaCP\Agent\AgentException $e) {
                 out('[' . $srv['name'] . '] shell access not checked: ' . $e->getMessage());
             }
+            // Monthly bandwidth (measured by the monitoring pass above).
+            foreach ($c->get(\WhaCP\Services\BandwidthLimitService::class)->reconcile() as $line) {
+                out('[' . $srv['name'] . '] ' . $line);
+            }
             // Resource limits (cgroups) follow the plans.
             try {
                 foreach ($c->get(\WhaCP\Services\ResourceLimitService::class)->reconcile() as $line) {

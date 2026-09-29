@@ -27,8 +27,18 @@ final class AccountAdminController extends Controller
         private readonly PlanService $plans,
         private readonly TerminationService $termination,
         private readonly \WhaCP\Services\ResourceLimitService $limits,
+        private readonly \WhaCP\Services\BandwidthLimitService $bandwidth,
     ) {
         parent::__construct($view, $session);
+    }
+
+    /** Monthly bandwidth blocks follow a changed limit or counter at once (else the scheduler does). */
+    private function bandwidthNow(): void
+    {
+        try {
+            $this->bandwidth->reconcile();
+        } catch (\Throwable) {
+        }
     }
 
     private function edit(int $id): string
@@ -46,6 +56,7 @@ final class AccountAdminController extends Controller
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure($this->edit((int) $id), $e);
         }
+        $this->bandwidthNow();
         return $this->redirectWithSuccess($this->edit((int) $id) . '#account-limits', 'Limits saved. The plan itself is unchanged.');
     }
 
@@ -79,6 +90,7 @@ final class AccountAdminController extends Controller
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/users/' . (int) $id . '/plan', $e);
         }
+        $this->bandwidthNow();
         // CPU, memory and other resource limits change at once (upgrade or downgrade).
         try {
             $this->limits->reconcile();
@@ -103,6 +115,7 @@ final class AccountAdminController extends Controller
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure($back, $e);
         }
+        $this->bandwidthNow();
         return $this->redirectWithSuccess($back, 'Bandwidth of ' . $account['username'] . ' reset for ' . gmdate('F Y') . ' (' . number_format($mb) . ' MB were counted).');
     }
 

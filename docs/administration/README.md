@@ -309,9 +309,19 @@ suspension again" retries.
 - **Changing plans:** account page → Change plan compares the current and
   new plan limit by limit, with current usage. A downgrade never deletes
   anything; an account over a new limit just cannot add more.
-- **Bandwidth:** Users → Bandwidth over limit lists accounts over their
-  monthly limit (a reseller's limit covers its customers). "Reset" sets
+- **Bandwidth:** each website's data sent is read from its access log on
+  every scheduler pass (every 5 minutes). An account that sends more than
+  its plan's monthly bandwidth (a reseller's limit covers its customers'
+  websites too) is blocked: all its websites answer
+  "509 Bandwidth limit exceeded", except `/.well-known/acme-challenge/`, so
+  certificates still renew. The account and its reseller get a
+  notification, the block is audited (`account.bandwidth_block`), and the
+  website dashboard says why. The block ends by itself when the month
+  ends, or at once when the plan or an override allows more or an
+  administrator presses "Reset" (Users → Bandwidth over limit), which sets
   this month's counter to 0; log positions and earlier months are kept.
+  Administrators' websites are never blocked. Only web traffic counted in
+  the access logs is measured (not FTP, email or database traffic).
 - **Terminating accounts:** select hosting accounts on the Users page and
   choose "Terminate selected". The confirmation lists what will be removed
   and requires typing TERMINATE. Each account's websites (files and system
@@ -359,10 +369,11 @@ when websites are added or removed and when it is suspended or restored,
 and the scheduler checks every few minutes that the server matches the
 plans. Removing the limits moves PHP back to the shared service.
 
-Network bandwidth is not limited this way: cgroup v2 has no network
+Network speed is not limited this way: cgroup v2 has no network
 controller, and shaping by account would need changes to the network
 interface's queueing that WhaCP does not make. The plans' monthly
-bandwidth limit (measured from the web logs) still applies.
+bandwidth (data transfer) is enforced instead; see *Plans, limits and
+bandwidth*.
 
 ## Feature Manager
 

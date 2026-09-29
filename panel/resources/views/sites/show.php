@@ -94,6 +94,9 @@ foreach ([
 <?php if ($site['status'] === 'error' && $site['last_error'] !== ''): ?>
     <div class="alert alert-danger small"><strong>The last change failed:</strong> <?= e($site['last_error']) ?><?php if ($u('advanced') !== null): ?> · <a href="<?= e($u('advanced', '#danger-zone')) ?>">Re-apply configuration</a><?php endif; ?></div>
 <?php endif; ?>
+<?php if (!empty($site['bandwidth_blocked'])): ?>
+    <div class="alert alert-danger small" id="bandwidth-blocked"><i class="bi bi-speedometer me-1"></i><strong>Monthly bandwidth used up.</strong> This website answers “509 Bandwidth limit exceeded” until the month ends or the hosting plan allows more<?= $this->serverScope() ? ' (or you <a href="' . e($this->url('accounts.bandwidth', [], ['show' => 'all'])) . '">reset the counter</a>)' : '' ?>.</div>
+<?php endif; ?>
 <?php if ($inspectError !== null): ?>
     <?= $this->partial('partials/agent_error', ['error' => $inspectError]) ?>
 <?php elseif ($inspect !== null && !$inspect['config_exists']): ?>
