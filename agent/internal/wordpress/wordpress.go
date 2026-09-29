@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -452,6 +453,9 @@ type Operation struct {
 	Op    string   `json:"op"`
 	Items []string `json:"items"`
 	Value string   `json:"value"`
+	// Password is the new password of admin_password and db_password
+	// (only ever sent to PHP on standard input).
+	Password string `json:"password"`
 }
 
 // ops maps an operation to its WP-CLI arguments; items are appended where
@@ -480,6 +484,12 @@ var ops = map[string]struct {
 	"verify_core":        {},
 	"search_engines_on":  {args: []string{"option", "update", "blog_public", "1"}},
 	"search_engines_off": {args: []string{"option", "update", "blog_public", "0"}},
+	"debug":              {items: "any"},
+	"cron_takeover_on":   {},
+	"cron_takeover_off":  {},
+	"admin_password":     {items: "1"},
+	"db_password":        {},
+	"debug_log":          {},
 }
 
 func (o *Operation) validate(env *host.Env) error {
@@ -511,6 +521,25 @@ func (o *Operation) validate(env *host.Env) error {
 		if len(o.Items) == 0 {
 			return &validate.Error{Field: "items", Message: "choose at least one"}
 		}
+	}
+	switch o.Op {
+	case "debug":
+		for _, it := range o.Items {
+			if !contains(DebugConstants, it) {
+				return &validate.Error{Field: "items", Message: it + " is not a debugging setting"}
+			}
+		}
+	case "admin_password":
+		if n, err := strconv.Atoi(o.Items[0]); err != nil || n < 1 {
+			return &validate.Error{Field: "items", Message: "choose an administrator"}
+		}
+	}
+	if o.Op == "admin_password" || o.Op == "db_password" {
+		if !validSecret(o.Password) {
+			return &validate.Error{Field: "password", Message: "8 to 128 characters, on one line"}
+		}
+	} else if o.Password != "" {
+		return &validate.Error{Field: "password", Message: "not used by " + o.Op}
 	}
 	if o.Op == "core_auto_update" && o.Value != "minor" && o.Value != "major" && o.Value != "off" {
 		return &validate.Error{Field: "value", Message: "must be minor, major or off"}
@@ -547,6 +576,9 @@ func manage(ctx context.Context, env *host.Env, o Operation) (map[string]any, fu
 			}
 			return map[string]any{"op": o.Op, "path": o.Path}, nil
 		}, nil
+	}
+	if res, ok, err := settings(ctx, env, r, dir, o); ok {
+		return res, nil, err
 	}
 	quick := func(args ...string) error {
 		out, err := r.wp(ctx, dir, execx.Opts{}, args...)
@@ -702,6 +734,16 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		j := env.Jobs.Start("wordpress."+in.Op, "wordpress:"+in.Domain+"/"+in.Path, job)
 		return map[string]any{"job_id": j.ID}, nil
+	}})
+	r.Register(actions.Action{Name: "wordpress.security", Mutating: true, Timeout: 4 * time.Minute, Description: "Security hardening of a WordPress installation: the state of each measure (status), or apply / roll back measures. Web server rules are checked with nginx -t; WordPress settings are changed with WP-CLI as the website account and what they replaced is recorded for the rollback.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in SecurityRequest
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := in.Target.validate(env); err != nil {
+			return nil, host.Invalid(err)
+		}
+		return security(ctx, env, in)
 	}})
 	r.Register(actions.Action{Name: "wordpress.login", Mutating: true, Timeout: 2 * time.Minute, Description: "One-time sign-in link for a WordPress administrator (a file that deletes itself on first use and expires after a minute).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {

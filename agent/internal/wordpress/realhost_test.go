@@ -5,6 +5,7 @@ package wordpress
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -221,6 +222,120 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 		}
 	}
 
+	// Debugging: exactly the chosen settings; the debug log is read back.
+	do("debug", []string{"WP_DEBUG", "WP_DEBUG_LOG"}, "")
+	if c := wpEval(t, root, "echo json_encode([WP_DEBUG, WP_DEBUG_LOG, WP_DEBUG_DISPLAY, SCRIPT_DEBUG]);"); c != "[true,true,false,false]" {
+		t.Fatalf("debug constants: %s", c)
+	}
+	logFile := filepath.Join(root, "public_html/wp-content/debug.log")
+	os.WriteFile(logFile, []byte("PHP Notice: one\nPHP Warning: two\n"), 0o644)
+	exec.Command("chown", "whacpwt:whacpwt", logFile).Run()
+	if r := do("debug_log", nil, ""); r["exists"] != true || r["path"] != "public_html/wp-content/debug.log" || !strings.Contains(fmt.Sprint(r["lines"]), "PHP Warning: two") {
+		t.Fatalf("debug log: %v", r)
+	}
+	do("debug", nil, "")
+	if c := wpEval(t, root, "echo json_encode([WP_DEBUG, WP_DEBUG_LOG]);"); c != "[false,false]" {
+		t.Fatalf("debug off: %s", c)
+	}
+
+	// wp-cron.php taken over: DISABLE_WP_CRON and a command that runs the
+	// due tasks as the account.
+	r := do("cron_takeover_on", nil, "")
+	cmd, _ := r["command"].(string)
+	if !strings.Contains(cmd, " --path="+filepath.Join(root, "public_html")+" cron event run --due-now") || wpEval(t, root, "var_export(DISABLE_WP_CRON);") != "true" {
+		t.Fatalf("takeover: %v", r)
+	}
+	if out, err := exec.Command("runuser", "-u", "whacpwt", "--", "sh", "-c", cmd).CombinedOutput(); err != nil {
+		t.Fatalf("the cron command fails: %v %s", err, out)
+	}
+	do("cron_takeover_off", nil, "")
+	if wpEval(t, root, "var_export(DISABLE_WP_CRON);") != "false" {
+		t.Fatal("takeover not off")
+	}
+
+	// Passwords with quotes, backslashes and dollars: only on standard input.
+	const adminPass = `new 'admin' "pass" \$x\`
+	secret := func(op string, items []string, pw string) (map[string]any, error) {
+		o := Operation{Target: target, Op: op, Items: items, Password: pw}
+		if err := o.validate(env); err != nil {
+			return nil, err
+		}
+		res, _, err := manage(ctx, env, o)
+		return res, err
+	}
+	if _, err := secret("admin_password", []string{fmt.Sprint(in.Admins[0].ID)}, adminPass); err != nil {
+		t.Fatal(err)
+	}
+	if ok := wpEvalEnv(t, root, `echo wp_check_password(getenv("P"), get_user_by("login", "owner")->user_pass) ? "yes" : "no";`, "P="+adminPass); ok != "yes" {
+		t.Fatalf("admin password not changed: %s", ok)
+	}
+	if _, err := secret("admin_password", []string{"999"}, "long-enough-1"); err == nil {
+		t.Fatal("password set for a user who is not an administrator")
+	}
+	const newDB = `db'Pa"ss\w0rd$1`
+	if _, err := secret("db_password", nil, newDB); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("mysql", "-uwhacp_wpt", "-p"+newDB, "-e", "SELECT 1").CombinedOutput(); err != nil {
+		t.Fatalf("the new database password does not work: %s", out)
+	}
+	if err := exec.Command("mysql", "-uwhacp_wpt", "-p"+dbPass, "-e", "SELECT 1").Run(); err == nil {
+		t.Fatal("the old database password still works")
+	}
+	if _, err := info(ctx, env, target, false); err != nil {
+		t.Fatalf("WordPress cannot reach its database after the change: %v", err)
+	}
+	for _, bad := range []string{"short", "two\nlines-long"} {
+		if _, err := secret("db_password", nil, bad); err == nil {
+			t.Errorf("accepted %q", bad)
+		}
+	}
+
+	// Hardening: apply, then roll back to exactly what was there.
+	os.Chmod(cfgFile, 0o644)
+	sec := func(op string, m ...string) map[string]any {
+		t.Helper()
+		res, err := security(ctx, env, SecurityRequest{Target: target, URLPath: "/", Op: op, Measures: m})
+		if err != nil {
+			t.Fatalf("%s %v: %v", op, m, err)
+		}
+		return res
+	}
+	state := func(res map[string]any) map[string]bool {
+		out := map[string]bool{}
+		for _, m := range res["measures"].([]map[string]any) {
+			out[m["id"].(string)] = m["applied"].(bool)
+		}
+		return out
+	}
+	before := state(sec("status"))
+	if before["disable_pingbacks"] || before["config_permissions"] || !before["disable_file_edit"] {
+		t.Fatalf("status before: %v", before)
+	}
+	oldKey := wpEval(t, root, "echo AUTH_KEY;")
+	after := state(sec("apply", "disable_pingbacks", "disable_script_concat", "config_permissions", "security_keys", "debug_off"))
+	for _, m := range []string{"disable_pingbacks", "disable_script_concat", "config_permissions", "debug_off"} {
+		if !after[m] {
+			t.Errorf("%s not applied", m)
+		}
+	}
+	if wpEval(t, root, "echo AUTH_KEY;") == oldKey {
+		t.Error("security keys not changed")
+	}
+	sec("rollback", "disable_pingbacks", "disable_script_concat", "config_permissions", "debug_off")
+	if b, _ := exec.Command("stat", "-c", "%a", cfgFile).Output(); strings.TrimSpace(string(b)) != "644" {
+		t.Fatalf("mode not restored: %s", b)
+	}
+	if got := wpEval(t, root, `echo get_option("default_ping_status"), defined("CONCATENATE_SCRIPTS") ? "defined" : "none";`); got != "opennone" {
+		t.Fatalf("after rollback: %s", got)
+	}
+	if _, err := security(ctx, env, SecurityRequest{Target: target, URLPath: "/", Op: "rollback", Measures: []string{"security_keys"}}); err == nil {
+		t.Fatal("security keys rolled back")
+	}
+	if b, _ := os.ReadFile(filepath.Join(cfg.StateDir, "wordpress-security.json")); strings.Contains(string(b), "AUTH_KEY") {
+		t.Fatal("state holds keys")
+	}
+
 	if network {
 		// Updates from WordPress.org.
 		in4, err := info(ctx, env, target, true)
@@ -245,7 +360,7 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 			t.Fatalf("verify after a change: %v", r)
 		}
 	}
-	if strings.Contains(logBuf.String(), dbPass) {
+	if strings.Contains(logBuf.String(), dbPass) || strings.Contains(logBuf.String(), newDB) || strings.Contains(logBuf.String(), "admin\" \"pass") {
 		t.Fatal("the database password is in the agent log")
 	}
 	_ = io.Discard
@@ -254,4 +369,18 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 func anyStrings(v any) []string {
 	s, _ := v.([]string)
 	return s
+}
+
+// wpEval runs PHP inside the installation as root (checks only).
+func wpEval(t *testing.T, root, code string) string { return wpEvalEnv(t, root, code) }
+
+func wpEvalEnv(t *testing.T, root, code string, env ...string) string {
+	t.Helper()
+	c := exec.Command("php"+testhost.PHPVersion(), WPCLIPath, "--allow-root", "--skip-plugins", "--skip-themes", "--path="+filepath.Join(root, "public_html"), "eval", code)
+	c.Env = append(os.Environ(), env...)
+	out, err := c.Output()
+	if err != nil {
+		t.Fatalf("eval %s: %v", code, err)
+	}
+	return strings.TrimSpace(string(out))
 }

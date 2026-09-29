@@ -340,3 +340,55 @@ func TestLoginFile(t *testing.T) {
 		t.Fatal("a sign-in link for a subscriber")
 	}
 }
+
+// New operations: debugging settings only from the list, passwords only
+// where they are used and never on a command line.
+func TestSettingsOperationsAreValidated(t *testing.T) {
+	h, target := fixture(t)
+	for _, o := range []Operation{
+		{Target: target, Op: "debug", Items: []string{"WP_DEBUG", "WP_HOME"}},
+		{Target: target, Op: "admin_password", Items: []string{"1"}, Password: "short"},
+		{Target: target, Op: "admin_password", Items: []string{"x"}, Password: "long-enough-1"},
+		{Target: target, Op: "admin_password", Items: []string{"1"}, Password: "two\nlines-long"},
+		{Target: target, Op: "db_password"},
+		{Target: target, Op: "maintenance_on", Password: "long-enough-1"},
+	} {
+		if o.validate(h.Env) == nil {
+			t.Errorf("accepted %+v", o)
+		}
+	}
+	o := Operation{Target: target, Op: "admin_password", Items: []string{"1"}, Password: "It's-a \"secret\" $1"}
+	if err := o.validate(h.Env); err != nil {
+		t.Fatal(err)
+	}
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		if strings.Contains(strings.Join(args, " "), "eval-file") {
+			return marker + `{"ok":true,"login":"owner"}`, nil, true
+		}
+		return "", nil, false
+	}
+	if _, _, err := manage(context.Background(), h.Env, o); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range h.Runner.Calls {
+		if strings.Contains(c, "secret") {
+			t.Fatalf("password on a command line: %v", c)
+		}
+	}
+	if !strings.Contains(phpString(`a'b\c`), `'a\'b\\c'`) {
+		t.Fatalf("phpString: %s", phpString(`a'b\c`))
+	}
+}
+
+func TestSecurityMeasuresAreValidated(t *testing.T) {
+	h, target := fixture(t)
+	for _, in := range []SecurityRequest{
+		{Target: target, URLPath: "/", Op: "apply", Measures: []string{"rm_rf"}},
+		{Target: target, URLPath: "/a\"b/", Op: "apply", Measures: []string{"block_xmlrpc"}},
+		{Target: target, URLPath: "/", Op: "apply"},
+	} {
+		if _, err := security(context.Background(), h.Env, in); err == nil {
+			t.Errorf("accepted %+v", in)
+		}
+	}
+}

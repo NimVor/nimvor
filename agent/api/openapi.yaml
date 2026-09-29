@@ -312,6 +312,7 @@ paths:
               - wordpress.login
               - wordpress.manage
               - wordpress.scan
+              - wordpress.security
               - workers.apply
               - workers.remove
               - workers.restart
@@ -675,6 +676,7 @@ x-whacp-actions:
   wordpress.login: { mutating: true, description: "One-time sign-in link for a WordPress administrator (a file that deletes itself on first use and expires after a minute)." }
   wordpress.manage: { mutating: true, description: "Change a WordPress installation: updates (job), plugins, themes, maintenance mode, hardening, core file verification." }
   wordpress.scan: { mutating: true, description: "Find WordPress installations in websites (read-only; WordPress is not loaded)." }
+  wordpress.security: { mutating: true, description: "Security hardening of a WordPress installation: the state of each measure (status), or apply / roll back measures. Web server rules are checked with nginx -t; WordPress settings are changed with WP-CLI as the website account and what they replaced is recorded for the rollback." }
   workers.apply: { mutating: true, description: "Create or update a worker service and start/stop it." }
   workers.remove: { mutating: true, description: "Stop and remove a worker service." }
   workers.restart: { mutating: true, description: "Restart a running worker service." }
