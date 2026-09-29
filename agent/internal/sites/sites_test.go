@@ -341,3 +341,33 @@ func TestRenderSecurityHeaders(t *testing.T) {
 		t.Error("upgrade-insecure-requests only over HTTPS")
 	}
 }
+
+func TestConfigFilesUnreadableToOtherAccounts(t *testing.T) {
+	h := testhost.New(t)
+	m := &Manager{Env: h.Env}
+	if _, err := m.Apply(context.Background(), spec()); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"etc/nginx/sites-available/whacp-new.test.conf", "etc/php/8.3/fpm/pool.d/whacp-new.test.conf"} {
+		st, err := os.Stat(filepath.Join(h.Base, f))
+		if err != nil || st.Mode().Perm() != 0o640 {
+			t.Errorf("%s: %v %v", f, st.Mode(), err)
+		}
+	}
+	// Files written by earlier versions are tightened (root-owned only).
+	old := filepath.Join(h.Base, "etc/nginx/sites-available/whacp-old.test.conf")
+	os.WriteFile(old, []byte("server {}\n"), 0o644)
+	other := filepath.Join(h.Base, "etc/nginx/sites-available/other.conf")
+	os.WriteFile(other, []byte("server {}\n"), 0o644)
+	if os.Geteuid() == 0 {
+		if n := TightenConfigModes(h.Env); n != 1 {
+			t.Fatalf("tightened %d", n)
+		}
+		if st, _ := os.Stat(old); st.Mode().Perm() != 0o640 {
+			t.Errorf("old: %v", st.Mode())
+		}
+		if st, _ := os.Stat(other); st.Mode().Perm() != 0o644 {
+			t.Errorf("not WhaCP's file changed: %v", st.Mode())
+		}
+	}
+}

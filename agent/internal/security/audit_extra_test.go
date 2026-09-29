@@ -60,3 +60,16 @@ func TestOpenResolver(t *testing.T) {
 		}
 	}
 }
+
+func TestProcCheck(t *testing.T) {
+	for mounts, want := range map[string]string{
+		"proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0\n":                       "warn",
+		"proc /proc proc rw,nosuid,nodev,noexec,relatime,hidepid=invisible 0 0\n":     "pass",
+		"sysfs /sys sysfs rw 0 0\nproc /proc proc rw,relatime,hidepid=2,gid=27 0 0\n": "pass",
+		"": "info",
+	} {
+		if c := procCheck(mounts); c.Status != want {
+			t.Errorf("%q: %+v", mounts, c)
+		}
+	}
+}

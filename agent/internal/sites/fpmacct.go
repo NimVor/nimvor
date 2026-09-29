@@ -102,7 +102,7 @@ func (m *Manager) writeAccountFPM(set *changeset.Set, a AccountFPM, slice string
 	set.Mkdir(FPMRoot, 0o755, agentfs.RootOwner)
 	set.Mkdir(a.Dir(), 0o755, agentfs.RootOwner)
 	set.Mkdir(a.PoolDir(), 0o755, agentfs.RootOwner)
-	set.Write(a.Conf(), []byte(RenderAccountFPMConf(a)), 0o644, agentfs.RootOwner)
+	set.Write(a.Conf(), []byte(RenderAccountFPMConf(a)), ConfigMode, agentfs.RootOwner)
 	set.Write(filepath.Join(e.M.UnitDir, a.Unit()), []byte(RenderAccountFPMUnit(a, fpmBinary(e, a.Version), slice, e.M.PHPSocketDir)), 0o644, agentfs.RootOwner)
 }
 

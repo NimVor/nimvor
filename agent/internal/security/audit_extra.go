@@ -198,3 +198,28 @@ func openResolver(conf string) (bool, string) {
 	}
 	return false, "limited to BIND's defaults (localhost and local networks)"
 }
+
+// procCheck: with /proc mounted hidepid=2 (or "invisible"), website accounts
+// see only their own processes, not other websites' command lines. It is
+// not applied automatically: some services (polkit, systemd-logind on
+// older systems) need a gid= exception, chosen by the administrator.
+func procCheck(mounts string) Check {
+	c := Check{ID: "proc_hidepid", Title: "Process visibility", Severity: "low"}
+	for _, line := range strings.Split(mounts, "\n") {
+		f := strings.Fields(line)
+		if len(f) < 4 || f[1] != "/proc" || f[2] != "proc" {
+			continue
+		}
+		for _, o := range strings.Split(f[3], ",") {
+			if o == "hidepid=2" || o == "hidepid=invisible" || o == "hidepid=1" || o == "hidepid=noaccess" {
+				c.Status, c.Detail = "pass", "/proc is mounted with "+o+": accounts see only their own processes."
+				return c
+			}
+		}
+		c.Status, c.Detail = "warn", "Every account can list all processes and their command lines, including other websites'."
+		c.Remedy = "Mount /proc with hidepid=invisible (or hidepid=2) and gid= a group for monitoring tools, e.g. in /etc/fstab: proc /proc proc defaults,hidepid=invisible,gid=proc 0 0 (test that polkit and logins still work)."
+		return c
+	}
+	c.Status, c.Detail = "info", "The /proc mount could not be read."
+	return c
+}

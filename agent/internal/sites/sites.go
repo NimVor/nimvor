@@ -29,6 +29,11 @@ import (
 // Register adds the website actions.
 func Register(r *actions.Registry, env *host.Env) {
 	m := &Manager{Env: env}
+	if env.Cfg.AllowWriteActions {
+		if n := TightenConfigModes(env); n > 0 {
+			env.Log.Info("site and pool files made unreadable to other accounts", "files", n)
+		}
+	}
 	r.Register(actions.Action{Name: "sites.apply", Mutating: true, Description: "Create or update a WhaCP website (Nginx, PHP-FPM pool, directories, system user).", Handler: m.handleApply})
 	m.registerRepair(r)
 	r.Register(actions.Action{Name: "sites.delete", Mutating: true, Description: "Remove a WhaCP website's configuration; optionally move its files to the trash.", Handler: m.handleDelete})
@@ -206,7 +211,7 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 	if s.HTTPS {
 		tlsprofile.Ensure(m.Env, cfg)
 	}
-	cfg.Write(l.NginxFile, []byte(RenderNginx(s, l)), 0o644, agentfs.RootOwner)
+	cfg.Write(l.NginxFile, []byte(RenderNginx(s, l)), ConfigMode, agentfs.RootOwner)
 	if s.Enabled {
 		cfg.Link(l.NginxFile, l.NginxLink)
 	} else {
@@ -224,7 +229,7 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 			m.writeAccountFPM(cfg, a, l.Slice)
 		}
 		if s.Enabled {
-			cfg.Write(l.PoolFile, []byte(RenderPool(s, l)), 0o644, agentfs.RootOwner)
+			cfg.Write(l.PoolFile, []byte(RenderPool(s, l)), ConfigMode, agentfs.RootOwner)
 		} else {
 			cfg.Remove(l.PoolFile) // a disabled site keeps no PHP processes
 		}

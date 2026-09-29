@@ -3,6 +3,8 @@ package security
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -113,6 +115,9 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 	}
 	out = append(out, databaseChecks(ctx, env)...)
 	out = append(out, nobodyMailCheck(ctx, env))
+	if b, err := os.ReadFile(filepath.Join(env.Cfg.ProcDir, "mounts")); err == nil {
+		out = append(out, procCheck(string(b)))
+	}
 	if c, ok := dnsRecursionCheck(ctx, env); ok {
 		out = append(out, c)
 	}
