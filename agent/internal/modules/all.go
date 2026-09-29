@@ -29,6 +29,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sysmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/terminal"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/usage"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/webprotect"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/wordpress"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/workers"
 )
@@ -41,6 +42,7 @@ func All() []Module {
 		dbmgr.Register,
 		sslmgr.Register,
 		modsec.Register,
+		webprotect.Register,
 		files.Register,
 		logs.Register,
 		cronmgr.Register,

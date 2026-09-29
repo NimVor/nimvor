@@ -23,6 +23,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/users"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/webprotect"
 )
 
 // Register adds the website actions.
@@ -52,6 +53,8 @@ func (m *Manager) layout(s Spec) Layout {
 		TLSInclude: tlsprofile.Include(e),
 		// ModSecurity: the website's file, when it has one.
 		ModSecInclude: modsec.SiteInclude(e, s.Domain),
+		// Password, hotlink and WordPress protection, when it has any.
+		ProtectInclude: webprotect.SiteInclude(e, s.Domain),
 	}
 	if s.PHPVersion != "" {
 		l.PoolFile = filepath.Join(e.M.PoolDir(s.PHPVersion), name)
@@ -442,6 +445,9 @@ func (m *Manager) handleDelete(ctx context.Context, p json.RawMessage) (any, err
 	set.Remove(filepath.Join(e.M.NginxAvailable, name))
 	if ms := modsec.SitePath(e, in.Domain); e.Root.Exists(ms) {
 		set.Remove(ms)
+	}
+	for _, f := range webprotect.Remove(e, in.Domain) {
+		set.Remove(f)
 	}
 	fpm := newFPMTargets()
 	for _, pf := range m.poolFiles(in.Domain) {

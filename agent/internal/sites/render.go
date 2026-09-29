@@ -25,6 +25,9 @@ type Layout struct {
 	// ModSecInclude is the website's ModSecurity include (a glob that
 	// matches nothing while ModSecurity is off for it).
 	ModSecInclude string
+	// ProtectInclude is the website's protection include (password,
+	// hotlink, WordPress rules; a glob that matches nothing without any).
+	ProtectInclude string
 }
 
 const header = "Managed by WhaCP. Do not edit: changes are overwritten when the website is saved in the panel."
@@ -108,6 +111,7 @@ func body(b *strings.Builder, s Spec, l Layout) {
 	}
 	b.WriteString("    add_header X-Content-Type-Options \"nosniff\" always;\n")
 	b.WriteString(l.ModSecInclude)
+	b.WriteString(l.ProtectInclude)
 	acme(b, l)
 	b.WriteString("    location ~ /\\.(?!well-known) {\n        deny all;\n    }\n")
 	if s.BandwidthExceeded {
