@@ -21,6 +21,7 @@ package modsec
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -29,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 )
 
@@ -194,9 +196,31 @@ func Load(e *host.Env) State {
 
 // Detection.
 
-// ModuleLoaded reports whether Nginx loads the ModSecurity connector.
+// Connector reports the ModSecurity connector as a capability: missing,
+// installed (not loaded or not usable, with the reason) or functional,
+// whether it came from a package, was built from source or copied by hand.
+func Connector(ctx context.Context, e *host.Env, testLoad bool) capability.Status {
+	n, ok := capability.Inspect(ctx, e)
+	if !ok {
+		return capability.Status{ID: capability.ModSecurity.ID, Name: capability.ModSecurity.Name, State: capability.Missing, Reason: "Nginx is not installed."}
+	}
+	return capability.DetectModule(ctx, e, n, capability.NewLinker(e), capability.ModSecurity, testLoad)
+}
+
+// ModuleLoaded reports (cheaply, for every configuration change) whether
+// Nginx loads the ModSecurity connector: a load_module line in the usual
+// module configuration, or the connector built into nginx.
 func ModuleLoaded(e *host.Env) bool {
-	for _, g := range []string{"/etc/nginx/modules-enabled/*.conf", "/usr/share/nginx/modules/*.conf", "/etc/nginx/conf.modules.d/*.conf"} {
+	if e.Runner.Available("nginx") {
+		if out, err := e.Runner.Run(context.Background(), "nginx", "-V"); err == nil {
+			for _, a := range capability.ParseV(string(out)).AddModules {
+				if capability.ModSecurity.Static.MatchString(a) {
+					return true
+				}
+			}
+		}
+	}
+	for _, g := range []string{"/etc/nginx/modules-enabled/*.conf", "/usr/share/nginx/modules/*.conf", "/etc/nginx/conf.modules.d/*.conf", "/etc/nginx/nginx.conf"} {
 		files, _ := e.Root.Glob(g)
 		for _, f := range files {
 			if b, err := e.Root.ReadFile(f); err == nil && bytes.Contains(b, []byte("ngx_http_modsecurity_module")) && !commentedOnly(b) {

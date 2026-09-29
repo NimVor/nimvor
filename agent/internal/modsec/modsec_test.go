@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
 )
 
@@ -78,6 +79,28 @@ func newFixture(t *testing.T) fixture {
 		os.WriteFile(filepath.Join(h.Base, p), []byte(s), 0o644)
 	}
 	w("etc/nginx/modules-enabled/50-mod-http-modsecurity.conf", "load_module modules/ngx_http_modsecurity_module.so;\n")
+	w("usr/lib/nginx/modules/ngx_http_modsecurity_module.so", "\x7fELF")
+	os.MkdirAll(filepath.Join(h.Base, "usr/share/nginx"), 0o755)
+	os.Symlink("../../lib/nginx/modules", filepath.Join(h.Base, "usr/share/nginx/modules")) // as on Debian
+	// Detection by capability: the module file, nginx -V and the active
+	// configuration (nginx -T lists what the module files load).
+	realNeeded := capability.ReadNeeded
+	capability.ReadNeeded = func(string) ([]string, []string, error) { return nil, nil, nil }
+	t.Cleanup(func() { capability.ReadNeeded = realNeeded })
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		if id == "nginx" && len(args) == 1 && args[0] == "-V" {
+			return "nginx version: nginx/1.24.0 (Ubuntu)\nconfigure arguments: --prefix=/usr/share/nginx --modules-path=/usr/lib/nginx/modules --with-compat\n", nil, true
+		}
+		if id == "nginx" && len(args) == 1 && args[0] == "-T" {
+			var b strings.Builder
+			for _, f := range []string{"etc/nginx/modules-enabled/50-mod-http-modsecurity.conf"} {
+				c, _ := os.ReadFile(filepath.Join(h.Base, f))
+				b.Write(c)
+			}
+			return b.String(), nil, true
+		}
+		return "", nil, false
+	}
 	w("usr/share/modsecurity-crs/rules/REQUEST-942-APPLICATION-ATTACK-SQLI.conf", "# rules\n")
 	w("etc/modsecurity/crs/crs-setup.conf", "SecAction \\\n  \"id:900990,phase:1,pass,t:none,nolog,\\\n  setvar:tx.crs_setup_version=335\"\n")
 	w("etc/modsecurity/crs/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf", "")
@@ -207,6 +230,11 @@ func TestConfigureSitesAndRollback(t *testing.T) {
 func TestConfigureNeedsTheModule(t *testing.T) {
 	f := newFixture(t)
 	os.Remove(filepath.Join(f.h.Base, "etc/nginx/modules-enabled/50-mod-http-modsecurity.conf"))
+	// The module file alone: installed, not loaded.
+	if _, err := f.call(t, "modsec.configure", `{"enabled":true,"crs":{"enabled":true}}`); err == nil || !strings.Contains(err.Error(), "installed but not usable") || !strings.Contains(err.Error(), "does not load it") {
+		t.Fatalf("%v", err)
+	}
+	os.Remove(filepath.Join(f.h.Base, "usr/lib/nginx/modules/ngx_http_modsecurity_module.so"))
 	if _, err := f.call(t, "modsec.configure", `{"enabled":true,"crs":{"enabled":true}}`); err == nil || !strings.Contains(err.Error(), "not installed") {
 		t.Fatalf("%v", err)
 	}

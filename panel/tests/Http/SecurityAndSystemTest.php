@@ -73,9 +73,17 @@ final class SecurityAndSystemTest extends HttpTestCase
 
     public function testPackagesAndServerSettings(): void
     {
-        $this->agent->succeed('packages.list', [['name' => 'fail2ban', 'description' => 'Brute-force protection', 'installed' => false]]);
+        $this->agent->succeed('packages.list', [
+            ['name' => 'fail2ban', 'description' => 'Brute-force protection', 'installed' => false],
+            // Detected by what it does, not only by the package.
+            ['name' => 'libnginx-mod-brotli', 'description' => 'Brotli', 'installed' => true, 'version' => '', 'state' => 'functional', 'source' => 'other'],
+            ['name' => 'libnginx-mod-http-modsecurity', 'description' => 'ModSecurity', 'installed' => true, 'version' => '1.0.3', 'state' => 'installed', 'source' => 'package', 'reason' => 'Nginx does not load it.'],
+        ]);
         $this->agent->succeed('packages.updates', ['updates' => [['name' => 'openssl', 'current' => '1', 'new' => '2', 'security' => true]], 'count' => 1, 'security' => 1]);
         $page = $this->request('GET', '/packages')->body();
+        self::assertStringContainsString('without the package (built or installed by hand)', $page);
+        self::assertStringContainsString('Installed, not usable', $page);
+        self::assertStringContainsString('Nginx does not load it.', $page);
         self::assertStringContainsString('openssl', $page);
         self::assertStringContainsString('Install all updates', $page);
         $this->agent->succeed('packages.install', ['job_id' => '1111111111111111']);

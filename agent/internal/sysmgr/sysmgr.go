@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ffmpegmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
@@ -70,11 +71,36 @@ var Components = map[string]string{
 // Package is the state of one component.
 type Package struct {
 	Name string `json:"name"`
-	// Package is this system's package name (e.g. redis on RHEL).
+	// Package is this system's package name (e.g. redis on RHEL; "" when
+	// there is none and the functionality came from elsewhere).
 	Package     string `json:"package"`
 	Description string `json:"description"`
-	Installed   bool   `json:"installed"`
-	Version     string `json:"version,omitempty"`
+	// Installed: the package is installed, or the functionality is there
+	// without it (built from source, copied by hand).
+	Installed bool   `json:"installed"`
+	Version   string `json:"version,omitempty"`
+	// State of the functionality itself, for components WhaCP can check:
+	// missing, installed (present but not loaded or usable) or functional.
+	State  string `json:"state,omitempty"`
+	Reason string `json:"reason,omitempty"`
+	// Source: "package", or "other" when it works without the package.
+	Source string `json:"source,omitempty"`
+}
+
+// commandOf maps components to the program that provides them.
+var commandOf = map[string]string{"ffmpeg": "ffmpeg", "composer": "composer", "git": "git", "certbot": "certbot", "clamav": "clamscan"}
+
+// capabilities checks the functionality of the components that have one.
+func capabilities(ctx context.Context, env *host.Env) map[string]capability.Status {
+	out := map[string]capability.Status{}
+	mods := capability.Modules(ctx, env, true)
+	for _, c := range capability.NginxModules {
+		out[c.Package] = mods[c.ID]
+	}
+	for comp, cmd := range commandOf {
+		out[comp] = capability.Command(env, cmd, Components[comp])
+	}
+	return out
 }
 
 // Upgrade is one pending update.
@@ -164,9 +190,12 @@ func run(ctx context.Context, env *host.Env, what string, id string, args ...str
 // Register adds package and server-management actions.
 func Register(r *actions.Registry, env *host.Env) {
 	r.Register(actions.Action{Name: "packages.list", Description: "Installable components and their versions.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+		caps := capabilities(ctx, env)
 		names := make([]string, 0, len(Components))
 		for n := range Components {
-			if _, ok := env.Platform.PackageName(n); ok {
+			_, hasPkg := env.Platform.PackageName(n)
+			// Without a package here, listed only when it works anyway.
+			if hasPkg || caps[n].State == capability.Functional {
 				names = append(names, n)
 			}
 		}
@@ -176,7 +205,17 @@ func Register(r *actions.Registry, env *host.Env) {
 		for _, n := range names {
 			v, ok := inst[n]
 			native, _ := env.Platform.PackageName(n)
-			out = append(out, Package{Name: n, Package: native, Description: Components[n], Installed: ok, Version: v})
+			p := Package{Name: n, Package: native, Description: Components[n], Installed: ok, Version: v}
+			if c, has := caps[n]; has {
+				p.State, p.Reason = c.State, c.Reason
+				switch {
+				case ok:
+					p.Source = "package"
+				case c.State == capability.Functional:
+					p.Installed, p.Source = true, "other"
+				}
+			}
+			out = append(out, p)
 		}
 		return out, nil
 	}})
@@ -226,7 +265,23 @@ func Register(r *actions.Registry, env *host.Env) {
 			}
 		}
 		j := env.Jobs.Start("packages.install", "server:packages", func(ctx context.Context, log io.Writer) (any, error) {
-			err := pkgs.Install(ctx, env, log, names)
+			// A functionality that already works (a module built from
+			// source, a program installed by hand) needs no package.
+			caps := capabilities(ctx, env)
+			var want []string
+			for _, n := range names {
+				if c, has := caps[n]; has && c.State == capability.Functional {
+					if inst := pkgs.Installed(ctx, env, []string{n}); len(inst) == 0 {
+						fmt.Fprintf(log, "%s: already available without the package; skipped.\n", n)
+						continue
+					}
+				}
+				want = append(want, n)
+			}
+			if len(want) == 0 {
+				return nil, nil
+			}
+			err := pkgs.Install(ctx, env, log, want)
 			restrictAgain(ctx, env, log)
 			return nil, err
 		})

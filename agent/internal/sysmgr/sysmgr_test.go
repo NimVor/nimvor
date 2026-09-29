@@ -3,11 +3,14 @@ package sysmgr
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
 )
 
@@ -81,5 +84,68 @@ func TestPackagesList(t *testing.T) {
 	res, err := call(t, r, "packages.list", `{}`)
 	if err != nil || len(res.([]Package)) != len(Components) {
 		t.Fatalf("list: %v %v", err, res)
+	}
+}
+
+// A Brotli module compiled by hand and loaded, and an ffmpeg installed
+// without the package: shown as installed (not from the package), and
+// installing their packages is skipped. The ModSecurity package is
+// installed but its module is not loaded: installed, not functional.
+func TestPackagesByCapability(t *testing.T) {
+	h := testhost.New(t)
+	w := func(p string) {
+		os.MkdirAll(filepath.Join(h.Base, filepath.Dir(p)), 0o755)
+		os.WriteFile(filepath.Join(h.Base, p), []byte("\x7fELF"), 0o644)
+	}
+	w("usr/local/nginx/modules/ngx_http_brotli_filter_module.so")
+	w("usr/lib/nginx/modules/ngx_http_modsecurity_module.so")
+	realNeeded := capability.ReadNeeded
+	capability.ReadNeeded = func(string) ([]string, []string, error) { return nil, nil, nil }
+	t.Cleanup(func() { capability.ReadNeeded = realNeeded })
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		switch {
+		case id == "nginx" && args[0] == "-V":
+			return "nginx version: nginx/1.24.0\nconfigure arguments: --modules-path=/usr/lib/nginx/modules --with-compat\n", nil, true
+		case id == "nginx" && args[0] == "-T":
+			return "load_module /usr/local/nginx/modules/ngx_http_brotli_filter_module.so;\n", nil, true
+		case id == "dpkg-query" && args[0] == "-W":
+			return "libnginx-mod-http-modsecurity\tii \t1.0.3-1\n", nil, true
+		case id == "dpkg-query":
+			return "", fmt.Errorf("not found"), true
+		}
+		return "", nil, false
+	}
+	h.Runner.Unavailable["composer"] = true
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	res, err := call(t, r, "packages.list", `{}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	by := map[string]Package{}
+	for _, p := range res.([]Package) {
+		by[p.Name] = p
+	}
+	if b := by["libnginx-mod-brotli"]; !b.Installed || b.State != capability.Functional || b.Source != "other" {
+		t.Errorf("brotli: %+v", b)
+	}
+	if m := by["libnginx-mod-http-modsecurity"]; !m.Installed || m.State != capability.Installed || m.Source != "package" || !strings.Contains(m.Reason, "does not load") {
+		t.Errorf("modsecurity: %+v", m)
+	}
+	if c := by["composer"]; c.Installed || c.State != capability.Missing {
+		t.Errorf("composer: %+v", c)
+	}
+	if f := by["ffmpeg"]; !f.Installed || f.Source != "other" {
+		t.Errorf("ffmpeg: %+v", f)
+	}
+	res2, err := call(t, r, "packages.install", `{"names":["libnginx-mod-brotli","ffmpeg","zip"]}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.Env.Jobs.Wait(context.Background(), res2.(map[string]any)["job_id"].(string))
+	for _, c := range h.Runner.Calls {
+		if strings.HasPrefix(c, "apt-get install") && (strings.Contains(c, "brotli") || strings.Contains(c, "ffmpeg") || !strings.HasSuffix(c, " zip")) {
+			t.Errorf("installed what already works: %s", c)
+		}
 	}
 }

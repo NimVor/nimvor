@@ -45,9 +45,18 @@ $ups = (array) ($updates['updates'] ?? []);
                     <li class="list-group-item d-flex align-items-center gap-2" data-wcp-pkg="<?= e($p['name']) ?>">
                         <div><strong><?= e($p['name']) ?></strong><div class="small text-body-secondary"><?= e($p['description']) ?></div></div>
                         <div class="ms-auto text-end" data-wcp-pkg-state>
-                            <?php if ($p['installed']): ?>
-                                <span class="badge text-bg-success"><i class="bi bi-check-circle"></i> Installed</span>
+                            <?php $state = (string) ($p['state'] ?? ''); ?>
+                            <?php if ($p['installed'] && $state === 'installed'): ?>
+                                <span class="badge text-bg-warning" title="<?= e((string) ($p['reason'] ?? '')) ?>"><i class="bi bi-exclamation-triangle"></i> Installed, not usable</span>
                                 <div class="small text-body-secondary"><?= e($p['version']) ?></div>
+                                <div class="small text-body-secondary text-wrap" style="max-width:28rem"><?= e((string) ($p['reason'] ?? '')) ?></div>
+                            <?php elseif ($p['installed']): ?>
+                                <span class="badge text-bg-success"><i class="bi bi-check-circle"></i> <?= ($p['source'] ?? '') === 'other' ? 'Available' : 'Installed' ?></span>
+                                <div class="small text-body-secondary"><?= ($p['source'] ?? '') === 'other' ? 'without the package (built or installed by hand)' : e($p['version']) ?></div>
+                            <?php elseif ($state === 'installed'): ?>
+                                <span class="badge text-bg-warning" title="<?= e((string) ($p['reason'] ?? '')) ?>"><i class="bi bi-exclamation-triangle"></i> Present, not usable</span>
+                                <div class="small text-body-secondary text-wrap" style="max-width:28rem"><?= e((string) ($p['reason'] ?? '')) ?></div>
+                                <form method="post" action="<?= e($this->url('packages.install')) ?>" data-wcp-pkg-install><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($p['name']) ?>"><button class="btn btn-sm btn-outline-primary">Install package</button></form>
                             <?php else: ?>
                                 <form method="post" action="<?= e($this->url('packages.install')) ?>" data-wcp-pkg-install><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($p['name']) ?>"><button class="btn btn-sm btn-outline-primary">Install</button></form>
                             <?php endif; ?>

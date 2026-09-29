@@ -15,6 +15,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
@@ -37,7 +38,7 @@ func vhostPath(e *host.Env, domain string) string {
 func Register(r *actions.Registry, e *host.Env) {
 	e.Writer.Policy.Patterns = append(e.Writer.Policy.Patterns, Dir(e)+"/**", AuditLog(e))
 
-	r.Register(actions.Action{Name: "modsec.status", Description: "ModSecurity: whether the Nginx connector is loaded, the OWASP Core Rule Set found, the server-wide configuration, rule vendors, websites' modes and the audit log size.", Handler: func(context.Context, json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "modsec.status", Description: "ModSecurity: the Nginx connector as a capability (missing, installed but not loaded or usable, functional; from a package or not), the OWASP Core Rule Set found, the server-wide configuration, rule vendors, websites' modes and the audit log size.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		st := Load(e)
 		crs := FindCRS(e)
 		custom, _ := e.Root.ReadFile(filepath.Join(Dir(e), "custom.conf"))
@@ -49,8 +50,9 @@ func Register(r *actions.Registry, e *host.Env) {
 			}
 		}
 		_, missing := pkgs.Resolve(e, Packages)
+		conn := Connector(ctx, e, true)
 		return map[string]any{
-			"module_loaded": ModuleLoaded(e), "crs": crs, "config": st.Config, "sites": st.Sites,
+			"module_loaded": conn.State == capability.Functional, "connector": conn, "crs": crs, "config": st.Config, "sites": st.Sites,
 			"active": st.Config.Enabled && e.Root.Exists(HTTPPath(e)), "vendors": Vendors,
 			"custom_rules": len(ids), "audit_log_bytes": size, "packages": Packages, "packages_available": len(missing) == 0,
 		}, nil
@@ -66,8 +68,14 @@ func Register(r *actions.Registry, e *host.Env) {
 		}
 		mu.Lock()
 		defer mu.Unlock()
-		if c.Enabled && !ModuleLoaded(e) {
-			return nil, actions.Conflict("The ModSecurity module for Nginx is not installed. Install " + strings.Join(Packages, " and ") + " under Packages first.")
+		if c.Enabled {
+			if conn := Connector(ctx, e, false); conn.State != capability.Functional {
+				what := "is not installed"
+				if conn.State == capability.Installed {
+					what = "is installed but not usable"
+				}
+				return nil, actions.Conflict("The ModSecurity module for Nginx " + what + ": " + conn.Reason + " Install it with Install ModSecurity on this page first.")
+			}
 		}
 		if c.Enabled && c.CRS.Enabled && !FindCRS(e).Available {
 			return nil, actions.Conflict("The OWASP Core Rule Set is not installed (package modsecurity-crs). Install it, or turn the Core Rule Set off.")
