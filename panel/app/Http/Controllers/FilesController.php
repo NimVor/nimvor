@@ -25,10 +25,13 @@ final class FilesController extends Controller
         'write' => ['files.write', true], 'mkdir' => ['files.mkdir', true], 'rename' => ['files.rename', true],
         'copy' => ['files.copy', true], 'delete' => ['files.delete', true], 'chmod' => ['files.chmod', true],
         'compress' => ['files.compress', true], 'extract' => ['files.extract', true],
+        // The trash: deleting moves items there unless "permanent" is set.
+        'trash_list' => ['files.trash_list', false], 'trash_restore' => ['files.trash_restore', true],
+        'trash_delete' => ['files.trash_delete', true], 'trash_empty' => ['files.trash_empty', true],
     ];
 
     /** Parameters each operation may pass through to the agent. */
-    private const FIELDS = ['path', 'content', 'expected_mtime', 'from', 'to', 'paths', 'mode', 'query', 'dest', 'overwrite'];
+    private const FIELDS = ['path', 'content', 'expected_mtime', 'from', 'to', 'paths', 'mode', 'query', 'dest', 'overwrite', 'permanent', 'ids'];
 
     public function __construct(
         View $view,
@@ -38,6 +41,7 @@ final class FilesController extends Controller
         private readonly AgentClient $agent,
         private readonly AuditLogger $audit,
         private readonly \WhaCP\Services\JobTracker $jobs,
+        private readonly \WhaCP\Services\SettingsService $settings,
     ) {
         parent::__construct($view, $session);
     }
@@ -55,7 +59,7 @@ final class FilesController extends Controller
             return $this->render('errors/error', ['title' => 'Website not found', 'message' => 'This website does not exist or you do not have access to it.', 'status' => 404], 404);
         }
         $start = ltrim(substr((string) $site['document_root'], strlen((string) $site['root'])), '/');
-        return Response::html($this->view->render('files/manager', ['site' => $site, 'start' => $start], 'layouts/tool'));
+        return Response::html($this->view->render('files/manager', ['site' => $site, 'start' => $start, 'retention' => $this->settings->int('trash_retention_days')], 'layouts/tool'));
     }
 
     public function edit(Request $request, string $id): Response
@@ -100,6 +104,8 @@ final class FilesController extends Controller
                 'domain' => $site['domain'],
                 'path' => $params['path'] ?? ($params['from'] ?? '') . (isset($params['to']) ? ' → ' . $params['to'] : '') . (isset($params['dest']) ? ' → ' . $params['dest'] : ''),
                 'paths' => isset($params['paths']) ? array_slice((array) $params['paths'], 0, 20) : null,
+                'ids' => isset($params['ids']) ? array_slice((array) $params['ids'], 0, 20) : null,
+                'permanent' => $op === 'delete' ? !empty($params['permanent']) : null,
             ]);
         }
         return Response::json(['success' => true, 'data' => $data]);

@@ -349,6 +349,85 @@
 
     // ---- commands -----------------------------------------------------
     function names(sel) { return sel.map(function (e) { return e.name; }); }
+    // ---- trash --------------------------------------------------------
+    var trashEl = document.getElementById('fm-trash');
+    var trashRows = trashEl ? trashEl.querySelector('[data-fm-trash-rows]') : null;
+    var trashItems = [], trashSel = new Set();
+    function trashButtons() {
+        trashEl.querySelector('[data-fm-trash-restore]').disabled = trashSel.size === 0;
+        trashEl.querySelector('[data-fm-trash-delete]').disabled = trashSel.size === 0;
+        trashEl.querySelector('[data-fm-trash-empty]').disabled = trashItems.length === 0;
+        trashEl.querySelector('[data-fm-trash-all]').checked = trashItems.length > 0 && trashSel.size === trashItems.length;
+    }
+    function renderTrash() {
+        trashRows.replaceChildren();
+        if (!trashItems.length) {
+            var tr = el('tr'); var td = el('td', 'text-center text-body-secondary py-4', 'The trash is empty.'); td.colSpan = 5; tr.appendChild(td); trashRows.appendChild(tr);
+        }
+        trashItems.forEach(function (it) {
+            var tr = el('tr'); tr.dataset.id = it.id;
+            var c = el('td', 'wcp-fm-check'); var cb = el('input', 'form-check-input'); cb.type = 'checkbox'; cb.checked = trashSel.has(it.id); cb.setAttribute('aria-label', 'Select ' + base(it.path));
+            cb.addEventListener('change', function () { if (cb.checked) { trashSel.add(it.id); } else { trashSel.delete(it.id); } trashButtons(); });
+            c.appendChild(cb); tr.appendChild(c);
+            var n = el('td', 'text-break'); n.appendChild(icon(it.type === 'dir' ? 'bi-folder-fill text-warning me-1' : 'bi-file-earmark me-1')); n.appendChild(document.createTextNode(base(it.path))); tr.appendChild(n);
+            tr.appendChild(el('td', 'small font-monospace text-break', '/' + parent(it.path)));
+            tr.appendChild(el('td', 'small text-end text-nowrap', fmtSize(it.size || 0)));
+            tr.appendChild(el('td', 'small text-nowrap', new Date(it.deleted_at).toLocaleString()));
+            trashRows.appendChild(tr);
+        });
+        trashButtons();
+    }
+    function openTrash() {
+        if (!trashEl) { return; }
+        trashSel.clear();
+        call('trash_list', {}).then(function (r) {
+            trashItems = r.items || []; renderTrash();
+            if (trashEl.classList.contains('show')) {
+                // Refreshed in place: a button that became disabled lost focus (Escape needs it inside).
+                if (!trashEl.contains(document.activeElement) || document.activeElement.disabled) { trashEl.focus(); }
+            } else {
+                bootstrap.Modal.getOrCreateInstance(trashEl).show();
+            }
+        }).catch(fail);
+    }
+    // Confirmations use the file manager's own window: the trash window
+    // closes for it and opens again afterwards.
+    function trashConfirm(title, text, list, okLabel, danger) {
+        return new Promise(function (resolve) {
+            trashEl.addEventListener('hidden.bs.modal', function () {
+                dialog(title, function (b) { b.appendChild(el('p', 'small', text)); if (list.length) { nameList(b, list); } return function () { return true; }; }, okLabel, danger).then(resolve);
+            }, { once: true });
+            bootstrap.Modal.getOrCreateInstance(trashEl).hide();
+        });
+    }
+    function selectedTrash() { return trashItems.filter(function (it) { return trashSel.has(it.id); }); }
+    if (trashEl) {
+        trashEl.querySelector('[data-fm-trash-all]').addEventListener('change', function (e) {
+            trashSel.clear(); if (e.target.checked) { trashItems.forEach(function (it) { trashSel.add(it.id); }); } renderTrash();
+        });
+        trashEl.querySelector('[data-fm-trash-restore]').addEventListener('click', function () {
+            var ids = Array.from(trashSel); if (!ids.length) { return; }
+            call('trash_restore', { ids: ids }).then(function (r) {
+                var done = r.restored || [];
+                WhaCP.toast('Restored ' + done.length + ' item(s)' + (done.length === 1 ? ' to /' + done[0].path : '') + '.', 'success');
+                refreshTreeAt(''); load(); openTrash();
+            }).catch(function (e) { fail(e); openTrash(); });
+        });
+        trashEl.querySelector('[data-fm-trash-delete]').addEventListener('click', function () {
+            var sel = selectedTrash(); if (!sel.length) { return; }
+            trashConfirm('Delete permanently', 'These items will be deleted for good. This cannot be undone:', sel.map(function (it) { return it.path; }), 'Delete permanently', true).then(function (ok) {
+                if (!ok) { openTrash(); return; }
+                call('trash_delete', { ids: sel.map(function (it) { return it.id; }) }).then(function (r) { WhaCP.toast('Deleted ' + r.deleted + ' item(s) permanently.', 'success'); openTrash(); }).catch(function (e) { fail(e); openTrash(); });
+            });
+        });
+        trashEl.querySelector('[data-fm-trash-empty]').addEventListener('click', function () {
+            trashConfirm('Empty trash', 'All ' + trashItems.length + ' item(s) in the trash will be deleted for good. This cannot be undone.', [], 'Empty trash', true).then(function (ok) {
+                if (!ok) { openTrash(); return; }
+                call('trash_empty', {}).then(function (r) { WhaCP.toast('Deleted ' + r.deleted + ' item(s) permanently.', 'success'); openTrash(); }).catch(function (e) { fail(e); openTrash(); });
+            });
+        });
+    }
+
     var commands = {
         home: function () { go(''); },
         up: function () { if (state.cwd) { go(parent(state.cwd)); } },
@@ -380,17 +459,20 @@
         move: function () { transfer('move'); },
         delete: function () {
             var sel = selectedEntries(); if (!sel.length) { return; }
+            var perm;
             dialog('Delete ' + sel.length + ' item' + (sel.length > 1 ? 's' : ''), function (b) {
-                b.appendChild(el('p', 'small', 'These will be permanently deleted, including everything inside folders:'));
+                b.appendChild(el('p', 'small', 'These will be moved to the Trash, including everything inside folders. You can restore them from there:'));
                 nameList(b, names(sel));
-                return function () { return true; };
-            }, 'Delete', true).then(function (ok) {
-                if (!ok) { return; }
-                call('delete', { paths: sel.map(function (e) { return e.path; }) }).then(function (r) {
-                    WhaCP.toast('Deleted ' + r.deleted + ' item(s).', 'success'); refreshTreeAt(state.cwd); load();
+                perm = check(b, 'Delete permanently instead (cannot be undone)', false);
+                return function () { return { permanent: perm.checked }; };
+            }, 'Delete', true).then(function (v) {
+                if (!v) { return; }
+                call('delete', { paths: sel.map(function (e) { return e.path; }), permanent: v.permanent }).then(function (r) {
+                    WhaCP.toast(r.trashed ? 'Moved ' + r.deleted + ' item(s) to the Trash.' : 'Deleted ' + r.deleted + ' item(s) permanently.', 'success'); refreshTreeAt(state.cwd); load();
                 }).catch(fail);
             });
         },
+        trash: function () { openTrash(); },
         perms: function () {
             var sel = selectedEntries(); if (!sel.length) { return; }
             var start = sel[0].mode ? sel[0].mode.slice(-3) : '644';

@@ -7,6 +7,12 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **File Manager trash.** Delete now moves files and folders to the
+  website's trash; *Trash* in the toolbar restores them to where they were,
+  deletes them permanently or empties the trash (with confirmation). Items
+  are deleted automatically after a configurable number of days (default
+  30). "Delete permanently instead" skips the trash. Backups leave the
+  trash out; trashed files still count towards the disk quota.
 - **Disk quotas are enforced.** Server → Resource limits → Disk quotas turns
   Linux user quotas on for the websites' file system (ext4: live remount,
   count, `/etc/fstab`; XFS: `/etc/fstab` and `rootflags`, then a reboot).
@@ -25,6 +31,8 @@ All notable changes to WhaCP are documented here. The format follows
   limit show the state. Administrators' websites are never blocked.
 
 ### Changed
+- **File Manager paths:** any path through a `.whacp-*` folder (trash,
+  quarantine, temporary files) is refused, not only one ending in it.
 - **Web terminal sign-in uses the Linux account's password.** A website's
   terminal now signs in as its Linux account with that account's own
   password (the SSH/SFTP one in `/etc/shadow`), instead of re-confirming

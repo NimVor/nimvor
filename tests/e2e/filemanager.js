@@ -115,7 +115,49 @@ const OUT = process.env.E2E_OUT || '/tmp';
   await page.keyboard.press('Delete');
   await page.click('[data-fm-dialog-ok]');
   await page.waitForSelector('[data-fm-rows] tr[data-path="public_html/pack.zip"]', { state: 'detached' });
-  step('deleted');
+  step('deleted (moved to the trash)');
+
+  // Trash: listed with where it was, restored to its place
+  await page.click('[data-fm-cmd="trash"]');
+  await page.waitForSelector('#fm-trash.show');
+  const trow = page.locator('#fm-trash [data-fm-trash-rows] tr', { hasText: 'pack.zip' });
+  await trow.waitFor();
+  if (!(await trow.textContent()).includes('/public_html')) { throw new Error('trash row lacks the folder: ' + await trow.textContent()); }
+  await trow.locator('input[type=checkbox]').check();
+  await page.click('[data-fm-trash-restore]');
+  await page.waitForSelector('[data-fm-rows] tr[data-path="public_html/pack.zip"]', { timeout: 15000 });
+  await page.waitForSelector('#fm-trash.show [data-fm-trash-rows] td[colspan]');
+  step('restored from the trash');
+  await page.click('#fm-trash .btn-close');
+  await page.waitForSelector('#fm-trash', { state: 'hidden' });
+
+  // Permanent delete skips the trash
+  await page.click('[data-fm-rows] tr[data-path="public_html/pack.zip"] td.wcp-fm-name');
+  await page.click('[data-fm-cmd="delete"]');
+  await page.check('#fm-dialog .form-check-input');
+  await page.click('[data-fm-dialog-ok]');
+  await page.waitForSelector('[data-fm-rows] tr[data-path="public_html/pack.zip"]', { state: 'detached' });
+  await page.click('[data-fm-cmd="trash"]');
+  await page.waitForSelector('#fm-trash.show [data-fm-trash-rows] td[colspan]');
+  step('deleted permanently; the trash stays empty');
+  await page.click('#fm-trash .btn-close');
+  await page.waitForSelector('#fm-trash', { state: 'hidden' });
+
+  // Empty trash asks first, then the trash window comes back empty
+  await page.click('[data-fm-rows] tr[data-path="public_html/assets"] td.wcp-fm-name');
+  await page.click('[data-fm-cmd="delete"]');
+  await page.click('[data-fm-dialog-ok]');
+  await page.waitForSelector('[data-fm-rows] tr[data-path="public_html/assets"]', { state: 'detached' });
+  await page.click('[data-fm-cmd="trash"]');
+  await page.locator('#fm-trash [data-fm-trash-rows] tr', { hasText: 'assets' }).waitFor();
+  await page.click('[data-fm-trash-empty]');
+  await page.waitForSelector('#fm-dialog.show');
+  if (!(await page.textContent('#fm-dialog')).includes('cannot be undone')) { throw new Error('empty trash without a warning'); }
+  await page.click('[data-fm-dialog-ok]');
+  await page.waitForSelector('#fm-trash.show [data-fm-trash-rows] td[colspan]');
+  step('trash emptied after confirmation');
+  await page.screenshot({ path: OUT + '/fm-trash.png' });
+  await page.keyboard.press('Escape');
 
   // Mobile width screenshot
   await page.setViewportSize({ width: 390, height: 800 });

@@ -97,6 +97,10 @@ final class SettingsService
                 'category' => 'security', 'type' => 'int', 'default' => 480, 'min' => 15, 'max' => 1440,
                 'label' => 'Web terminal maximum session (minutes)', 'help' => 'A web terminal closes after this long, active or not.',
             ],
+            'trash_retention_days' => [
+                'category' => 'general', 'type' => 'int', 'default' => 30, 'min' => 0, 'max' => 365,
+                'label' => 'File Manager trash: keep deleted files (days)', 'help' => 'Files deleted in the File Manager can be restored from its Trash for this many days, then they are deleted for good. 0 keeps them until the trash is emptied.',
+            ],
             'ssl_warning_days' => [
                 'category' => 'ssl', 'type' => 'int', 'default' => 14, 'min' => 1, 'max' => 90,
                 'label' => 'Certificate warning threshold (days)', 'help' => 'Certificates expiring within this many days are highlighted.',

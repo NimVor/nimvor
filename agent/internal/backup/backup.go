@@ -261,7 +261,7 @@ func (s Service) CreateSite(ctx context.Context, r SiteRequest, cred *execx.Cred
 	if r.Files {
 		fmt.Fprintf(log, "Archiving website files of %s…\n", r.Domain)
 		root, _ := s.real(r.Root)
-		args := []string{"-C", root, "--exclude=./backups", "--exclude=./tmp", "--exclude=./.whacp-upload-*"}
+		args := []string{"-C", root, "--exclude=./backups", "--exclude=./tmp", "--exclude=./.whacp-upload-*", "--exclude=./.whacp-trash"}
 		if !r.IncludeLogs {
 			args = append(args, "--exclude=./logs")
 		}

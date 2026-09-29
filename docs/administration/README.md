@@ -775,6 +775,20 @@ device files and entries that would leave the target folder, drops set-id
 bits, is limited to 50,000 entries and 8 GiB, and keeps existing files
 unless *Replace files that already exist* is ticked.
 
+**Trash.** Deleting moves files and folders into the website's trash
+(`.whacp-trash` in the website folder, owned by the website's account),
+unless *Delete permanently instead* is ticked. *Trash* in the toolbar lists
+what was deleted, from where and when; *Restore* puts items back where they
+were (as "name (restored).ext" when that name is taken, recreating missing
+folders), *Delete permanently* and *Empty trash* remove them for good after
+a confirmation. Items are deleted automatically after the number of days in
+*Settings → File Manager trash* (default 30; 0 keeps them until the trash is
+emptied), checked daily after 03:00. Trashed files still count towards the
+account's disk space, are not included in backups and cannot be reached
+from the web (they are outside the document root). The file manager itself
+never shows or accepts paths inside `.whacp-*` folders, and restores
+re-check the recorded location, which must stay inside the website folder.
+
 ## Email
 
 *Email* hosts mailboxes on this server with Postfix (SMTP), Dovecot (IMAP)

@@ -60,6 +60,35 @@ final class FilesTest extends HttpTestCase
         self::assertSame('restore', $this->lastCall('files.extract')['dest']);
     }
 
+    public function testTrashOperations(): void
+    {
+        $api = '/sites/' . $this->siteId . '/files/api';
+        self::assertStringContainsString('id="fm-trash"', $this->request('GET', '/sites/' . $this->siteId . '/files')->body());
+
+        $this->agent->succeed('files.delete', ['deleted' => 1, 'trashed' => true]);
+        $this->post($api, ['op' => 'delete', 'paths' => ['public_html/a.txt']]);
+        self::assertArrayNotHasKey('permanent', $this->lastCall('files.delete'), 'the trash by default');
+        $this->post($api, ['op' => 'delete', 'paths' => ['public_html/a.txt'], 'permanent' => true]);
+        self::assertTrue($this->lastCall('files.delete')['permanent']);
+
+        $this->agent->succeed('files.trash_list', ['items' => []]);
+        self::assertSame(200, $this->post($api, ['op' => 'trash_list'])->status());
+        $this->agent->succeed('files.trash_restore', ['restored' => [['id' => '20260901T120000Z-0a0b0c0d', 'path' => 'public_html/a.txt']]]);
+        $this->post($api, ['op' => 'trash_restore', 'ids' => ['20260901T120000Z-0a0b0c0d']]);
+        self::assertSame(['20260901T120000Z-0a0b0c0d'], $this->lastCall('files.trash_restore')['ids']);
+        $this->agent->succeed('files.trash_empty', ['deleted' => 3]);
+        $this->post($api, ['op' => 'trash_empty', 'older_than_days' => 5]);
+        self::assertArrayNotHasKey('older_than_days', $this->lastCall('files.trash_empty'), 'the page empties everything; age is the scheduler\'s');
+        $this->agent->succeed('files.trash_delete', ['deleted' => 1]);
+        $this->post($api, ['op' => 'trash_delete', 'ids' => ['20260901T120000Z-0a0b0c0d']]);
+
+        $db = $this->app->container->get(Connection::class);
+        foreach (['files.delete' => 2, 'files.trash_restore' => 1, 'files.trash_empty' => 1, 'files.trash_delete' => 1, 'files.trash_list' => 0] as $action => $n) {
+            self::assertSame($n, (int) $db->scalar('SELECT COUNT(*) FROM audit_logs WHERE action = ?', [$action]), $action);
+        }
+        self::assertSame(1, (int) $db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'files.delete' AND details LIKE '%\"permanent\":true%'"));
+    }
+
     public function testOtherCustomersCannotOpenTheManager(): void
     {
         $this->seedUser('cust', 'customer');

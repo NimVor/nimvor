@@ -204,6 +204,23 @@ switch ($command) {
             } catch (\WhaCP\Agent\AgentException $e) {
                 out('[' . $srv['name'] . '] shell access not checked: ' . $e->getMessage());
             }
+            // File Manager trash: items older than the retention are deleted,
+            // once a day (the first passes after 03:00).
+            $keep = $c->get(\WhaCP\Services\SettingsService::class)->int('trash_retention_days');
+            if ($keep > 0 && (int) date('G') === 3 && (int) date('i') < 10) {
+                foreach ($c->get(\WhaCP\Database\Connection::class)->fetchAll('SELECT domain FROM websites WHERE server_id = ?', [(int) $srv['id']]) as $w) {
+                    try {
+                        $n = (int) (((array) $c->get(AgentClient::class)->call('files.trash_empty', ['domain' => $w['domain'], 'older_than_days' => $keep], 300))['deleted'] ?? 0);
+                        if ($n > 0) {
+                            out('[' . $srv['name'] . '] ' . $w['domain'] . ': ' . $n . ' item(s) older than ' . $keep . ' days deleted from the trash');
+                        }
+                    } catch (\WhaCP\Agent\AgentException $e) {
+                        if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled', 'not_found'], true)) {
+                            out('[' . $srv['name'] . '] ' . $w['domain'] . ': trash not emptied: ' . $e->getMessage());
+                        }
+                    }
+                }
+            }
             // Monthly bandwidth (measured by the monitoring pass above).
             foreach ($c->get(\WhaCP\Services\BandwidthLimitService::class)->reconcile() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);

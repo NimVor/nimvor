@@ -149,6 +149,10 @@ paths:
               - files.read
               - files.rename
               - files.search
+              - files.trash_delete
+              - files.trash_empty
+              - files.trash_list
+              - files.trash_restore
               - files.upload
               - files.write
               - firewall.rule_add
@@ -493,7 +497,7 @@ x-whacp-actions:
   files.chmod: { mutating: true, description: "Change permissions of a file or folder." }
   files.compress: { mutating: true, description: "Create a .zip or .tar.gz of files and folders of a website (job)." }
   files.copy: { mutating: true, description: "Copy a file or folder." }
-  files.delete: { mutating: true, description: "Delete files or folders." }
+  files.delete: { mutating: true, description: "Delete files or folders: moved to the website's trash (restorable), or removed for good with permanent." }
   files.download: { mutating: false, description: "Read a chunk of a website file (base64)." }
   files.extract: { mutating: true, description: "Extract a .zip, .tar or .tar.gz inside a website (job)." }
   files.list: { mutating: false, description: "List a folder of a website." }
@@ -501,6 +505,10 @@ x-whacp-actions:
   files.read: { mutating: false, description: "Open a text file of a website." }
   files.rename: { mutating: true, description: "Rename or move a file or folder." }
   files.search: { mutating: false, description: "Find files by name in a website." }
+  files.trash_delete: { mutating: true, description: "Delete trash items permanently." }
+  files.trash_empty: { mutating: true, description: "Empty a website's trash, or only what was deleted more than older_than_days days ago." }
+  files.trash_list: { mutating: false, description: "List a website's trash: deleted files and folders, where they were and when." }
+  files.trash_restore: { mutating: true, description: "Put trash items back where they were (under a \"(restored)\" name when that one is taken)." }
   files.upload: { mutating: true, description: "Upload a file chunk (base64)." }
   files.write: { mutating: true, description: "Save a text file." }
   firewall.rule_add: { mutating: true, description: "Add a UFW rule (auto-reverted unless confirmed)." }

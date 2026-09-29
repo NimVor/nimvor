@@ -1,6 +1,7 @@
 <?php
 /** @var \WhaCP\View\View $this */
 /** @var array<string, mixed> $site */
+/** @var int $retention days deleted files stay in the trash (0 = until emptied) */
 $id = (int) $site['id'];
 $btn = static fn (string $cmd, string $icon, string $label, string $extra = ''): string =>
     '<button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="' . $cmd . '"' . $extra . '><i class="bi ' . $icon . '"></i><span>' . $label . '</span></button>';
@@ -34,6 +35,7 @@ $btn = static fn (string $cmd, string $icon, string $label, string $extra = ''):
         <?= $btn('perms', 'bi-shield-lock', 'Permissions', ' data-fm-needs="1+"') ?>
         <?= $btn('extract', 'bi-box-arrow-up', 'Extract', ' data-fm-needs="archive"') ?>
         <?= $btn('compress', 'bi-file-zip', 'Compress', ' data-fm-needs="1+"') ?>
+        <?= $btn('trash', 'bi-recycle', 'Trash') ?>
         <div class="wcp-fm-search ms-auto">
             <form class="input-group input-group-sm" data-fm-search-form role="search">
                 <input class="form-control" type="search" placeholder="Search names…" data-fm-search aria-label="Search file names">
@@ -104,6 +106,27 @@ $btn = static fn (string $cmd, string $icon, string $label, string $extra = ''):
             <div class="modal-body" data-fm-dialog-body></div>
             <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" data-fm-dialog-ok>OK</button></div>
         </form>
+    </div>
+</div>
+<div class="modal fade" id="fm-trash" tabindex="-1" aria-labelledby="fm-trash-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title h6" id="fm-trash-title"><i class="bi bi-recycle me-1"></i>Trash</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body p-0">
+                <p class="small text-body-secondary px-3 pt-3 mb-2">Deleted files and folders stay here until you delete them permanently or empty the trash<?= $retention > 0 ? '; after ' . (int) $retention . ' days they are deleted automatically' : '' ?>. They still count towards the disk space.</p>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead><tr><th class="wcp-fm-check"><input class="form-check-input" type="checkbox" data-fm-trash-all aria-label="Select all"></th><th>Name</th><th>Was in</th><th class="text-end">Size</th><th>Deleted</th></tr></thead>
+                        <tbody data-fm-trash-rows></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-danger me-auto" data-fm-trash-empty>Empty trash</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-fm-trash-delete disabled>Delete permanently</button>
+                <button type="button" class="btn btn-sm btn-primary" data-fm-trash-restore disabled><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+            </div>
+        </div>
     </div>
 </div>
 <?php $this->start(); ?><script src="<?= e($this->asset('assets/js/filemanager.js')) ?>" defer></script><?php $this->end('scripts'); ?>

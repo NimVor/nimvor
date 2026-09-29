@@ -80,8 +80,12 @@ func clean(p string) (string, error) {
 		return ".", nil
 	}
 	c := path.Clean(p)
-	if strings.HasPrefix(path.Base(c), ".whacp-") {
-		return "", actions.InvalidParams("path: names starting with .whacp- are reserved")
+	// WhaCP's own folders (trash, quarantine, temporary files) and anything
+	// inside them are not the file manager's.
+	for _, part := range strings.Split(c, "/") {
+		if strings.HasPrefix(part, ".whacp-") {
+			return "", actions.InvalidParams("path: names starting with .whacp- are reserved")
+		}
 	}
 	return c, nil
 }
@@ -739,16 +743,77 @@ func Register(r *actions.Registry, env *host.Env) {
 			return map[string]any{"copied": n}, err
 		})
 	}})
-	r.Register(actions.Action{Name: "files.delete", Mutating: true, Description: "Delete files or folders.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "files.delete", Mutating: true, Description: "Delete files or folders: moved to the website's trash (restorable), or removed for good with permanent.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
-			Domain string   `json:"domain"`
-			Paths  []string `json:"paths"`
+			Domain    string   `json:"domain"`
+			Paths     []string `json:"paths"`
+			Permanent bool     `json:"permanent"`
 		}
 		return with(p, &in, func(s *Site) (any, error) {
 			if len(in.Paths) == 0 || len(in.Paths) > 500 {
 				return nil, actions.InvalidParams("paths: 1–500 entries")
 			}
-			n, err := s.Delete(in.Paths)
+			if in.Permanent {
+				n, err := s.Delete(in.Paths)
+				return map[string]any{"deleted": n, "trashed": false}, err
+			}
+			n, err := s.Trash(in.Paths, env.Now())
+			return map[string]any{"deleted": n, "trashed": true}, err
+		})
+	}})
+	type ids struct {
+		Domain string   `json:"domain"`
+		IDs    []string `json:"ids"`
+	}
+	checkIDs := func(v []string) error {
+		if len(v) == 0 || len(v) > 500 {
+			return actions.InvalidParams("ids: 1–500 entries")
+		}
+		return nil
+	}
+	r.Register(actions.Action{Name: "files.trash_list", Description: "List a website's trash: deleted files and folders, where they were and when.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Domain string `json:"domain"`
+		}
+		return with(p, &in, func(s *Site) (any, error) {
+			items, err := s.TrashList()
+			return map[string]any{"items": items}, err
+		})
+	}})
+	r.Register(actions.Action{Name: "files.trash_restore", Mutating: true, Description: "Put trash items back where they were (under a \"(restored)\" name when that one is taken).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in ids
+		return with(p, &in, func(s *Site) (any, error) {
+			if err := checkIDs(in.IDs); err != nil {
+				return nil, err
+			}
+			done, err := s.TrashRestore(in.IDs)
+			return map[string]any{"restored": done}, err
+		})
+	}})
+	r.Register(actions.Action{Name: "files.trash_delete", Mutating: true, Description: "Delete trash items permanently.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in ids
+		return with(p, &in, func(s *Site) (any, error) {
+			if err := checkIDs(in.IDs); err != nil {
+				return nil, err
+			}
+			n, err := s.TrashDelete(in.IDs)
+			return map[string]any{"deleted": n}, err
+		})
+	}})
+	r.Register(actions.Action{Name: "files.trash_empty", Mutating: true, Description: "Empty a website's trash, or only what was deleted more than older_than_days days ago.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Domain        string `json:"domain"`
+			OlderThanDays int    `json:"older_than_days"`
+		}
+		return with(p, &in, func(s *Site) (any, error) {
+			if in.OlderThanDays < 0 || in.OlderThanDays > 3650 {
+				return nil, actions.InvalidParams("older_than_days: 0 (everything) to 3650")
+			}
+			var cutoff time.Time
+			if in.OlderThanDays > 0 {
+				cutoff = env.Now().Add(-time.Duration(in.OlderThanDays) * 24 * time.Hour)
+			}
+			n, err := s.TrashEmpty(cutoff)
 			return map[string]any{"deleted": n}, err
 		})
 	}})
