@@ -63,6 +63,12 @@ All notable changes to WhaCP are documented here. The format follows
   now reserved for websites), build outputs are read without following
   links and only from inside the build folder, and installed files are
   copied only from regular files.
+- SSH/SFTP keys, passwords and shells are never given to an account with
+  administrator rights.
+
+### Fixed
+- Installing the Core Rule Set no longer overwrites a website's ModSecurity
+  mode changed at the same time.
 
 ### Changed
 - **File Manager paths:** any path through a `.whacp-*` folder (trash,
