@@ -35,3 +35,12 @@ func TestSSHVersion(t *testing.T) {
 		t.Fatal(c)
 	}
 }
+
+func TestPackageIndexCheck(t *testing.T) {
+	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
+	for refreshed, want := range map[time.Time]string{{}: "warn", now.Add(-10 * 24 * time.Hour): "warn", now.Add(-2 * time.Hour): "pass"} {
+		if c := indexCheck(refreshed, now); c.Status != want || (want == "warn") != (c.Remedy != "") {
+			t.Errorf("%v: %+v", refreshed, c)
+		}
+	}
+}

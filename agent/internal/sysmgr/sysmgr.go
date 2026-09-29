@@ -234,7 +234,12 @@ func Register(r *actions.Registry, env *host.Env) {
 				sec++
 			}
 		}
-		return map[string]any{"updates": ups, "count": len(ups), "security": sec}, nil
+		res := map[string]any{"updates": ups, "count": len(ups), "security": sec, "index_refreshed": nil, "index_stale": true}
+		if t := pkgs.IndexRefreshed(env); !t.IsZero() {
+			res["index_refreshed"] = t.UTC().Format(time.RFC3339)
+			res["index_stale"] = time.Since(t) > pkgs.IndexStaleAfter
+		}
+		return res, nil
 	}})
 	r.Register(actions.Action{Name: "packages.refresh", Mutating: true, Description: "Refresh the package index (apt-get update or dnf makecache) (job).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		j := env.Jobs.Start("packages.refresh", "server:packages", func(ctx context.Context, log io.Writer) (any, error) {

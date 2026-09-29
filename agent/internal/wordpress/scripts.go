@@ -149,12 +149,14 @@ echo "\nWHACP-JSON " . json_encode([
 `
 
 // loginScript is the one-time sign-in file: it deletes itself when it is
-// first requested, works for a minute, and signs in only the chosen
-// administrator. %d are the expiry (Unix time) and the user ID.
+// first requested, works for a minute and only over HTTPS, and signs in
+// only the chosen administrator. %d are the expiry (Unix time) and the user ID.
 const loginScript = `<?php
 // WhaCP one-time sign-in link: deleted on first use, valid until %d.
 @unlink(__FILE__);
-if (time() > %d || ($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
+// Only over HTTPS (nginx sets HTTPS=on for TLS requests), so the session
+// cookie is never sent in clear.
+if (time() > %d || ($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET' || strtolower((string) ($_SERVER['HTTPS'] ?? '')) !== 'on') {
     http_response_code(404);
     exit;
 }
@@ -164,7 +166,7 @@ if (!$u || !user_can($u, 'manage_options')) {
     http_response_code(403);
     exit;
 }
-wp_set_auth_cookie($u->ID, false, is_ssl());
+wp_set_auth_cookie($u->ID, false, true);
 do_action('wp_login', $u->user_login, $u);
 wp_safe_redirect(admin_url());
 exit;

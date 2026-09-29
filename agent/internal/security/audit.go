@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
@@ -68,6 +69,7 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 	}
 
 	if pkgs.Available(env) {
+		add(indexCheck(pkgs.IndexRefreshed(env), time.Now()))
 		if ups, err := pkgs.Updates(ctx, env); err == nil {
 			add(sshVersionCheck(ups))
 			n := 0

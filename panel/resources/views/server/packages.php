@@ -16,7 +16,7 @@ $ups = (array) ($updates['updates'] ?? []);
     <div class="col-xl-7">
         <div class="card">
             <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-arrow-up-circle"></i>Updates
-                <?php if ($updates !== null): ?><span class="small text-body-secondary"><?= (int) $updates['count'] ?> pending, <?= (int) $updates['security'] ?> security</span><?php endif; ?>
+                <?php if ($updates !== null): ?><span class="small text-body-secondary"><?= (int) $updates['count'] ?> pending, <?= (int) $updates['security'] ?> security<?php if (!empty($updates['index_refreshed'])): ?> · index of <?= e(substr((string) $updates['index_refreshed'], 0, 10)) ?><?php endif; ?></span><?php if (!empty($updates['index_stale'])): ?> <span class="badge text-bg-warning" title="Update information is only as current as the package index">index out of date: check for updates</span><?php endif; ?><?php endif; ?>
                 <?php if ($ups !== []): ?>
                     <form class="ms-auto" method="post" action="<?= e($this->url('packages.upgrade')) ?>" data-wcp-confirm="Install <?= count($ups) ?> update(s) now? Services may restart briefly. Local configuration files are kept."><?= $this->csrfField() ?><button class="btn btn-sm btn-primary">Install all updates</button></form>
                 <?php endif; ?>

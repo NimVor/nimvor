@@ -111,3 +111,20 @@ func nobodyMailCheck(ctx context.Context, env *host.Env) Check {
 	}
 	return Check{ID: "nobody_mail", Title: "“nobody” may not send email", Status: "warn", Severity: "medium", Detail: "The pseudo-user “nobody” " + strings.Join(problems, " and ") + ".", Remedy: "Turn on Security → SMTP Restrictions; set “Local accounts that may send mail with sendmail” to !nobody, static:anyone under Email → Mail server."}
 }
+
+// indexCheck: update checks are only as current as the package index.
+func indexCheck(refreshed, now time.Time) Check {
+	c := Check{ID: "package_index", Title: "Package index", Severity: "medium"}
+	switch {
+	case refreshed.IsZero():
+		c.Status, c.Detail = "warn", "The package index was never refreshed, so pending security updates are unknown."
+	case now.Sub(refreshed) > pkgs.IndexStaleAfter:
+		c.Status, c.Detail = "warn", fmt.Sprintf("The package index is %d days old (refreshed %s), so the list of security updates cannot be trusted.", int(now.Sub(refreshed).Hours()/24), refreshed.UTC().Format("2006-01-02"))
+	default:
+		c.Status, c.Detail = "pass", "The package index was refreshed on "+refreshed.UTC().Format("2006-01-02")+"."
+	}
+	if c.Status != "pass" {
+		c.Remedy = "Refresh it under Server → Packages (Check for updates), and make sure automatic updates refresh it daily."
+	}
+	return c
+}

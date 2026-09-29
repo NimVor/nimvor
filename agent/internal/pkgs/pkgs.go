@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
@@ -330,3 +331,25 @@ func sortUpgrades(ups []Upgrade) []Upgrade {
 	})
 	return ups
 }
+
+// IndexRefreshed is when the package index was last refreshed (the newest
+// file of apt's lists or dnf's cache); zero when unknown.
+func IndexRefreshed(env *host.Env) time.Time {
+	patterns := []string{"/var/lib/apt/lists/*_InRelease", "/var/lib/apt/lists/*_Release", "/var/lib/apt/periodic/update-success-stamp"}
+	if dnf(env) {
+		patterns = []string{"/var/cache/dnf/*.solv", "/var/cache/dnf/*/repodata/repomd.xml", "/var/cache/dnf/expired_repos.json"}
+	}
+	var newest time.Time
+	for _, p := range patterns {
+		files, _ := env.Root.Glob(p)
+		for _, f := range files {
+			if st, err := env.Root.Stat(f); err == nil && st.ModTime().After(newest) {
+				newest = st.ModTime()
+			}
+		}
+	}
+	return newest
+}
+
+// IndexStaleAfter is when update information stops being trustworthy.
+const IndexStaleAfter = 7 * 24 * time.Hour

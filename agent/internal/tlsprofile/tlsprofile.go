@@ -25,8 +25,14 @@ type Profile struct {
 	SessionTickets bool `json:"session_tickets"`
 }
 
-// Default matches what WhaCP wrote before the profile existed.
-var Default = Profile{Protocols: "tls12", Ciphers: "default", SessionTickets: true}
+// Default is what a new server gets: TLS 1.2 and 1.3 with Mozilla's
+// intermediate ciphers (forward secrecy and AEAD only).
+var Default = Profile{Protocols: "tls12", Ciphers: "intermediate", SessionTickets: true}
+
+// Legacy is what WhaCP wrote before the default changed: a server whose
+// snippet exists without a saved profile keeps it until the administrator
+// changes the TLS configuration.
+var Legacy = Profile{Protocols: "tls12", Ciphers: "default", SessionTickets: true}
 
 // Mozilla's intermediate TLS 1.2 ciphers (TLS 1.3 suites are fixed by OpenSSL).
 const intermediateCiphers = "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305"
@@ -74,9 +80,13 @@ func Include(e *host.Env) string { return "    include " + Path(e) + ";\n" }
 
 func statePath(e *host.Env) string { return filepath.Join(e.Cfg.StateDir, "tls-profile.json") }
 
-// Load returns the saved profile (or the default).
+// Load returns the saved profile, or what the existing snippet was written
+// with, or the default for a new server.
 func Load(e *host.Env) Profile {
 	p := Default
+	if e.Root.Exists(Path(e)) {
+		p = Legacy
+	}
 	if b, err := e.Root.ReadFile(statePath(e)); err == nil {
 		var q Profile
 		if json.Unmarshal(b, &q) == nil && q.Validate() == nil {
