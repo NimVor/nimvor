@@ -186,6 +186,9 @@ return static function (Router $r): void {
     $r->post('/ips/{id}/delete', [\WhaCP\Http\Controllers\IpController::class, 'delete'], ['name' => 'ips.delete', 'permission' => P::SERVER_MANAGE]);
     $r->post('/sites/{id}/ip', [\WhaCP\Http\Controllers\IpController::class, 'assignSite'], ['name' => 'sites.ip', 'permission' => P::SERVER_MANAGE]);
     $r->get('/databases/server', [\WhaCP\Http\Controllers\DbServerController::class, 'index'], ['name' => 'databases.server', 'permission' => P::SERVER_VIEW]);
+    $r->get('/databases/server/settings', [\WhaCP\Http\Controllers\DbServerController::class, 'settingsPage'], ['name' => 'databases.server.settings_page', 'permission' => P::SERVER_VIEW]);
+    $r->get('/databases/server/connections', [\WhaCP\Http\Controllers\DbServerController::class, 'connections'], ['name' => 'databases.server.connections', 'permission' => P::SERVER_VIEW]);
+    $r->get('/databases/server/logs', [\WhaCP\Http\Controllers\DbServerController::class, 'logs'], ['name' => 'databases.server.logs', 'permission' => P::LOGS_VIEW]);
     $r->post('/databases/server/settings', [\WhaCP\Http\Controllers\DbServerController::class, 'saveSettings'], ['name' => 'databases.server.settings', 'permission' => P::SERVER_MANAGE]);
     $r->post('/databases/server/restart', [\WhaCP\Http\Controllers\DbServerController::class, 'restart'], ['name' => 'databases.server.restart', 'permission' => P::SERVICES_MANAGE]);
     $r->post('/databases/server/flush', [\WhaCP\Http\Controllers\DbServerController::class, 'flush'], ['name' => 'databases.server.flush', 'permission' => P::SERVER_MANAGE]);

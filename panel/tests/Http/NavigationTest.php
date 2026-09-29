@@ -57,4 +57,23 @@ final class NavigationTest extends HttpTestCase
         self::assertSame('/websites', $this->request('GET', '/')->header('Location'));
         self::assertStringNotContainsString('wcp-palette', $this->request('GET', '/websites')->body());
     }
+
+    public function testSectionMenusMarkTheCurrentPage(): void
+    {
+        $this->seedUser('admin', 'admin');
+        $this->login('admin');
+        foreach ([
+            '/mail/admin/queue' => ['mail', 'Mail queue'],
+            '/mail/admin/reports' => ['mail', 'Delivery reports'],
+            '/security/firewall' => ['security', 'Firewall'],
+            '/databases/server/connections' => ['databases', 'Database connections'],
+        ] as $path => [$menu, $label]) {
+            $body = $this->request('GET', $path)->body();
+            self::assertMatchesRegularExpression('#data-wcp-section-menu="' . $menu . '".*?class="wcp-subnav-link active"[^>]*aria-current="page"><span>' . preg_quote($label, '#') . '</span>#s', $body, $path);
+        }
+        $stats = $this->request('GET', '/mail/admin/reports', [], [], '', ['view' => 'stats'])->body();
+        self::assertMatchesRegularExpression('#wcp-subnav-link active"[^>]*><span>Statistics</span>#', $stats);
+        self::assertDoesNotMatchRegularExpression('#wcp-subnav-link active"[^>]*><span>Delivery reports</span>#', $stats);
+        self::assertStringNotContainsString('wcp-pagetabs', $this->request('GET', '/security/ssh')->body(), 'no tab bar: the sidebar menu replaces it');
+    }
 }

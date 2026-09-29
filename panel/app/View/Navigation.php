@@ -27,7 +27,13 @@ final class Navigation
             'Hosting' => [
                 ['Websites', 'globe2', 'websites', P::WEBSITES_VIEW, '/websites', 'Create and manage websites'],
                 ['Domains', 'signpost-split', 'domains', P::WEBSITES_VIEW, '/domains', 'Domains, aliases and subdomains'],
-                ['Databases', 'database', 'databases', P::DATABASES_VIEW, '/databases', 'MariaDB databases and users'],
+                ['Databases', 'database', 'databases', P::DATABASES_VIEW, '/databases', 'MariaDB databases and users', [
+                    ['Databases and users', 'databases', P::DATABASES_VIEW],
+                    ['Database server', 'databases.server', P::SERVER_VIEW],
+                    ['Database server settings', 'databases.server.settings_page', P::SERVER_VIEW],
+                    ['Database connections', 'databases.server.connections', P::SERVER_VIEW],
+                    ['Database logs', 'databases.server.logs', P::LOGS_VIEW],
+                ]],
                 ['PHP', 'filetype-php', 'php', P::PHP_VIEW, '/php', 'PHP versions, extensions and php.ini'],
                 ['WordPress', 'wordpress', 'wordpress', P::WEBSITES_VIEW, '/wordpress', 'WordPress Toolkit: updates, security, staging'],
                 ['Cron Jobs', 'clock-history', 'cron', P::CRON_VIEW, '/cron', 'Scheduled tasks of the websites'],
@@ -35,7 +41,16 @@ final class Navigation
                 ['Redis', 'lightning', 'redis', P::REDIS_MANAGE, '/redis', 'Redis server and key browser'],
                 ['Memcached', 'memory', 'memcached', P::REDIS_MANAGE, '/memcached', 'Memcached server'],
                 ['DNS', 'signpost', 'dns', P::DNS_MANAGE, '/dns', 'DNS zones and records'],
-                ['Email', 'envelope', 'mail', P::MAIL_MANAGE, '/mail', 'Mailboxes, aliases, spam filtering, webmail'],
+                ['Email', 'envelope', 'mail', P::MAIL_MANAGE, '/mail', 'Mailboxes, aliases, spam filtering, webmail', [
+                    ['Mail server', 'mail.admin.server', P::SERVER_VIEW],
+                    ['Mailboxes and aliases', 'mail', P::MAIL_MANAGE, [], ['/mail/domains']],
+                    ['Mail queue', 'mail.admin.queue', P::SERVER_VIEW],
+                    ['Delivery reports', 'mail.admin.reports', P::SERVER_VIEW],
+                    ['Statistics', 'mail.admin.reports', P::SERVER_VIEW, ['view' => 'stats']],
+                    ['Greylisting', 'mail.greylist', P::SERVER_VIEW],
+                    ['Greylisting report', 'mail.greylist.report', P::SERVER_VIEW],
+                    ['Tools', 'mail.admin.tools', P::SERVER_VIEW],
+                ]],
                 ['SSL', 'shield-lock', 'ssl', P::SSL_VIEW, '/ssl', 'Certificates and Let\'s Encrypt'],
             ],
             'Operations' => [
@@ -45,7 +60,7 @@ final class Navigation
                 ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs', 'Web server, PHP and system logs'],
             ],
             'Security' => [
-                ['Security', 'shield-check', 'security', P::SECURITY_VIEW, '/security', 'Firewall, SSH, Fail2ban, ModSecurity, malware'],
+                ['Security', 'shield-check', 'security', P::SECURITY_VIEW, '/security', 'Firewall, SSH, Fail2ban, ModSecurity, malware', self::securityChildren()],
             ],
             'Server' => [
                 ['Server', 'hdd-rack', 'server', P::SERVER_VIEW, '/server', 'Hostname, time, updates and reboot'],
@@ -71,6 +86,31 @@ final class Navigation
     }
 
     /**
+     * Security's pages, in the order of the sidebar.
+     *
+     * @return list<array<int, mixed>>
+     */
+    public static function securityChildren(): array
+    {
+        return [
+            ['Overview', 'security', P::SECURITY_VIEW],
+            ['Firewall', 'security.firewall', P::SECURITY_VIEW],
+            ['SSH', 'security.ssh', P::SECURITY_VIEW],
+            ['Brute-force protection', 'security.fail2ban', P::SECURITY_VIEW],
+            ['Malware scan', 'security.malware', P::SECURITY_VIEW],
+            ['Shell access', 'security.shell', P::SECURITY_VIEW],
+            ['ModSecurity', 'security.modsec', P::SECURITY_VIEW],
+            ['Configure Security Policies', 'security.policies', P::SECURITY_VIEW],
+            ['Compiler Access', 'security.compilers', P::SECURITY_VIEW],
+            ['SMTP Restrictions', 'security.smtp', P::SECURITY_VIEW],
+            ['cPHulk Brute Force Protection', 'security.hulk', P::SECURITY_VIEW],
+            ['Password Strength Configuration', 'security.password_strength', P::SECURITY_VIEW],
+            ['Shell Fork Bomb Protection', 'security.forkbomb', P::SECURITY_VIEW],
+            ['Traceroute', 'security.traceroute', P::SECURITY_VIEW],
+        ];
+    }
+
+    /**
      * The areas a viewer may open, per group (routes that exist and that
      * the viewer's role and plan allow).
      *
@@ -80,13 +120,47 @@ final class Navigation
     {
         $out = [];
         foreach (self::groups() as $group => $items) {
-            foreach ($items as [$label, $icon, $route, $perm, $prefix, $desc]) {
+            foreach ($items as $item) {
+                [$label, $icon, $route, $perm, $prefix, $desc] = $item;
                 if (!$view->can($perm) || !$view->hasRoute($route) || !$view->routeAllowed($route)) {
                     continue;
                 }
-                $out[$group][] = ['label' => $label, 'icon' => $icon, 'route' => $route, 'prefix' => $prefix, 'description' => $desc, 'url' => $view->url($route)];
+                $children = [];
+                foreach ($item[6] ?? [] as $c) {
+                    [$cLabel, $cRoute, $cPerm] = $c;
+                    $query = $c[3] ?? [];
+                    if (!$view->can($cPerm) || !$view->hasRoute($cRoute) || !$view->routeAllowed($cRoute)) {
+                        continue;
+                    }
+                    $path = $view->url($cRoute);
+                    $children[] = ['label' => $cLabel, 'url' => $view->url($cRoute, [], $query), 'active' => self::childActive($view, $path, $query, $c[4] ?? [])];
+                }
+                // One child only (e.g. a reseller's Email): the parent is enough.
+                if (count($children) < 2) {
+                    $children = [];
+                }
+                $out[$group][] = ['label' => $label, 'icon' => $icon, 'route' => $route, 'prefix' => $prefix, 'description' => $desc, 'url' => $view->url($route), 'children' => $children];
             }
         }
         return $out;
+    }
+
+    /**
+     * @param array<string, string> $query
+     * @param list<string> $also paths below which the child is active too
+     */
+    private static function childActive(View $view, string $path, array $query, array $also): bool
+    {
+        $current = (string) ($view->shared('current_path') ?? '');
+        $currentView = (string) ($view->shared('current_view') ?? '');
+        if ($current === $path && ($query['view'] ?? '') === $currentView) {
+            return true;
+        }
+        foreach ($also as $prefix) {
+            if (str_starts_with($current, rtrim($prefix, '/') . '/')) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -18,7 +18,6 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
 ?>
 <?php $this->start(); ?>Email<?php $this->end('title'); ?>
 <?php $this->start(); ?>Mailboxes and aliases for your domains<?php $this->end('subtitle'); ?>
-<?php if ($this->serverScope() && $this->can(P::SERVER_VIEW)): ?><?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('mail.admin.queue')) ?>"><i class="bi bi-inboxes me-1"></i>Email administration</a><?php $this->end('actions'); ?><?php endif; ?>
 <?php if ($status === null): ?>
     <div class="alert alert-warning">The server agent is not reachable, so the mail server state is unknown.</div>
 <?php elseif (!$ready): ?>
@@ -41,12 +40,21 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
         <?php endif; ?>
     </div></div>
 <?php endif; ?>
-<div class="row g-3">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header d-flex align-items-center"><i class="bi bi-envelope me-1"></i>Mail domains
-                <?php if ($ready): ?><span class="ms-auto small text-body-secondary">IMAP <code><?= e((string) $status['hostname']) ?>:993</code> · SMTP <code><?= e((string) $status['hostname']) ?>:587</code> (STARTTLS)</span><?php endif; ?></div>
-            <div class="table-responsive">
+<?php $spam = (array) ($status['spam'] ?? []); $wm = (array) ($status['webmail'] ?? []); $srvManage = $ready && $this->can(P::SERVER_MANAGE); ?>
+<div class="wcp-panel mb-3">
+    <div class="wcp-actionbar">
+        <div class="fw-semibold"><i class="bi bi-envelope me-1" aria-hidden="true"></i>Mail domains <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($domains) ?></span>
+            <?php if ($ready): ?><span class="small text-body-secondary fw-normal ms-2">IMAP <code><?= e((string) $status['hostname']) ?>:993</code> · SMTP <code><?= e((string) $status['hostname']) ?>:587</code> (STARTTLS)</span><?php endif; ?></div>
+        <div class="wcp-actionbar-end">
+            <?php if ($srvManage): ?>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#spam-filter"><i class="bi bi-shield-exclamation me-1" aria-hidden="true"></i>Spam filter <?= !empty($spam['enabled']) ? $this->statusBadge(!empty($status['spam_running']) ? 'active' : 'failed', !empty($status['spam_running']) ? 'on' : 'not running') : $this->statusBadge('inactive', 'off') ?></button>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#webmail"><i class="bi bi-envelope-open me-1" aria-hidden="true"></i>Webmail <?= !empty($wm['enabled']) ? $this->statusBadge(!empty($wm['running']) ? 'active' : 'failed', !empty($wm['running']) ? 'on' : 'not running') : $this->statusBadge('inactive', 'off') ?></button>
+            <?php endif; ?>
+            <?php if ($ready): ?><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#mail-add"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Host email for a domain</button><?php endif; ?>
+        </div>
+    </div>
+    <div class="wcp-dtable">
+<div class="table-responsive">
                 <table class="table mb-0 wcp-table align-middle">
                     <thead><tr><th>Domain</th><th>Website</th><th class="text-end">Mailboxes</th><th class="text-end">Aliases</th></tr></thead>
                     <tbody>
@@ -62,14 +70,12 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
                     </tbody>
                 </table>
             </div>
-        </div>
     </div>
-    <div class="col-lg-4">
-        <?php if ($ready && $this->can(P::SERVER_MANAGE)): $spam = (array) ($status['spam'] ?? []); ?>
-        <div class="card mb-3" id="spam-filter">
-            <div class="card-header d-flex align-items-center"><i class="bi bi-shield-exclamation me-1"></i>Spam filter
-                <span class="ms-auto"><?= !empty($spam['enabled']) ? $this->statusBadge(!empty($status['spam_running']) ? 'active' : 'failed', !empty($status['spam_running']) ? 'on' : 'not running') : $this->statusBadge('inactive', 'off') ?></span></div>
-            <div class="card-body small">
+</div>
+
+<?php if ($srvManage): ?>
+    <?= $this->modalStart('spam-filter', 'Spam filter', isset($errors['add_header']), 'modal-md') ?>
+        <div class="small">
                 <?php if (empty($status['spam_installed'])): ?>
                     <p class="text-body-secondary">Rspamd checks incoming mail; spam is filed into each mailbox's Junk folder or refused.</p>
                     <?php if ($this->can(P::PACKAGES_MANAGE)): ?><form method="post" action="<?= e($this->url('mail.spam.install')) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-primary">Install Rspamd</button></form><?php endif; ?>
@@ -88,13 +94,9 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
                     </form>
                 <?php endif; ?>
             </div>
-        </div>
-        <?php endif; ?>
-        <?php if ($ready && $this->can(P::SERVER_MANAGE)): $wm = (array) ($status['webmail'] ?? []); ?>
-        <div class="card mb-3" id="webmail">
-            <div class="card-header d-flex align-items-center"><i class="bi bi-envelope-open me-1"></i>Webmail
-                <span class="ms-auto"><?= !empty($wm['enabled']) ? $this->statusBadge(!empty($wm['running']) ? 'active' : 'failed', !empty($wm['running']) ? 'on' : 'not running') : $this->statusBadge('inactive', 'off') ?></span></div>
-            <div class="card-body small">
+    <?= $this->modalEnd() ?>
+    <?= $this->modalStart('webmail', 'Webmail', isset($errors['webmail_hostname']), 'modal-md') ?>
+        <div class="small">
                 <?php if (empty($wm['installed'])): ?>
                     <p class="text-body-secondary">Roundcube lets users read and send mail in the browser with their mailbox address and password.</p>
                     <?php if ($this->can(P::PACKAGES_MANAGE)): ?><form method="post" action="<?= e($this->url('mail.webmail.install')) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-primary">Install Roundcube</button></form><?php endif; ?>
@@ -113,12 +115,10 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
                     </form>
                 <?php endif; ?>
             </div>
-        </div>
-        <?php endif; ?>
-        <?php if ($ready): ?>
-        <div class="card">
-            <div class="card-header"><i class="bi bi-plus-lg me-1"></i>Host email for a domain</div>
-            <div class="card-body">
+    <?= $this->modalEnd() ?>
+<?php endif; ?>
+<?php if ($ready): ?>
+    <?= $this->modalStart('mail-add', 'Host email for a domain', isset($errors['website_id']) || isset($errors['domain']), 'modal-md') ?>
                 <form method="post" action="<?= e($this->url('mail.store')) ?>" data-wcp-busy>
                     <?= $this->csrfField() ?>
                     <div class="mb-3">
@@ -133,8 +133,5 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
                     <button class="btn btn-primary btn-sm">Add domain</button>
                     <div class="form-text">A DKIM key is created for the domain; the next page lists the DNS records to publish.</div>
                 </form>
-            </div>
-        </div>
-        <?php endif; ?>
-    </div>
-</div>
+    <?= $this->modalEnd() ?>
+<?php endif; ?>

@@ -2,20 +2,14 @@
 /** @var \WhaCP\View\View $this */
 /** @var string $tab */
 /** @var array<string, mixed>|null $pending */
-$tabs = [['index', 'Overview', 'security'], ['firewall', 'Firewall', 'security.firewall'], ['ssh', 'SSH', 'security.ssh'], ['fail2ban', 'Brute-force protection', 'security.fail2ban'], ['malware', 'Malware scan', 'security.malware']];
-if ($this->serverScope()) {
-    $tabs[] = ['shell', 'Shell access', 'security.shell'];
-    $tabs[] = ['modsec', 'ModSecurity', 'security.modsec'];
+$labels = ['index' => 'Overview', 'firewall' => 'Firewall', 'ssh' => 'SSH', 'fail2ban' => 'Brute-force protection', 'malware' => 'Malware scan', 'shell' => 'Shell access', 'modsec' => 'ModSecurity'];
+foreach (\WhaCP\View\Navigation::securityChildren() as [$l, $r]) {
+    $labels[$r === 'security' ? 'index' : substr($r, strlen('security.'))] = $l;
 }
 $canManage = $this->can(\WhaCP\Security\Permissions::SECURITY_MANAGE);
 ?>
-<?php $this->start(); ?>Security<?php $this->end('title'); ?>
-<?php $this->start(); ?>Firewall, SSH access, brute-force protection and malware scans<?php $this->end('subtitle'); ?>
-<nav class="wcp-pagetabs" aria-label="Security">
-    <?php foreach ($tabs as [$key, $label, $route]): ?>
-        <a class="<?= $tab === $key ? 'active' : '' ?>" href="<?= e($this->url($route)) ?>"<?= $tab === $key ? ' aria-current="page"' : '' ?>><?= e($label) ?></a>
-    <?php endforeach; ?>
-</nav>
+<?php $this->start(); ?><?= e($tab === 'index' ? 'Security' : ($labels[$tab] ?? 'Security')) ?><?php $this->end('title'); ?>
+<?php $this->start(); ?><?= $tab === 'index' ? 'Security overview of the server' : 'Security' ?><?php $this->end('subtitle'); ?>
 <?php if ($pending !== null): ?>
     <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert">
         <i class="bi bi-hourglass-split"></i>

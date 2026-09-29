@@ -113,7 +113,7 @@ final class SiteDashboardTest extends HttpTestCase
         $this->login('viewer');
         $page = $this->request('GET', '/sites/' . $this->siteId)->body();
         self::assertStringContainsString('data-wcp-tiles', $page);
-        foreach (['/advanced', '#new-database', '#backup-now', 'Delete the website', 'Disable the website', '/settings'] as $s) {
+        foreach (['/advanced', '#new-database', '#backup-now', 'Delete the website', 'Disable the website', '/sites/' . $this->siteId . '/settings', 'href="/settings"'] as $s) {
             self::assertStringNotContainsString($s, $page, $s);
         }
         self::assertSame(403, $this->request('GET', '/sites/' . $this->siteId . '/advanced')->status());

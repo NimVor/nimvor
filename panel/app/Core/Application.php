@@ -230,6 +230,7 @@ final class Application
             /** @var View $view */
             $view = $this->container->get(View::class);
             $view->share('current_path', $request->path());
+            $view->share('current_view', (string) $request->query('view', ''));
             $view->share('flash_success', $session->pullFlash('success'));
             $view->share('flash_error', $session->pullFlash('error'));
             $view->share('flash_details', $session->pullFlash('details'));

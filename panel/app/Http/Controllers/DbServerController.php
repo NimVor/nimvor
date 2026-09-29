@@ -39,6 +39,41 @@ final class DbServerController extends Controller
 
     public function index(Request $request): Response
     {
+        return $this->page($request, 'overview');
+    }
+
+    public function settingsPage(Request $request): Response
+    {
+        return $this->page($request, 'settings');
+    }
+
+    public function connections(Request $request): Response
+    {
+        return $this->page($request, 'connections');
+    }
+
+    /** The database server's logs (the log viewer with its sources only). */
+    public function logs(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $sources = [];
+        $error = null;
+        try {
+            $sources = array_values(array_filter((array) $this->agent->call('logs.sources'), static function ($s): bool {
+                $id = (string) (is_array($s) ? ($s['id'] ?? '') : ($s->id ?? ''));
+                return (bool) preg_match('/mysql|mariadb/i', $id);
+            }));
+        } catch (AgentException $e) {
+            $error = $e;
+        }
+        $sources = json_decode((string) json_encode($sources), true);
+        return $this->render('databases/logs', ['sources' => $sources, 'agentError' => $error, 'site' => null, 'initialSource' => (string) ($sources[0]['id'] ?? '')]);
+    }
+
+    private function page(Request $request, string $section): Response
+    {
         if ($r = $this->denied($request)) {
             return $r;
         }
@@ -47,13 +82,13 @@ final class DbServerController extends Controller
         $error = null;
         try {
             $status = json_decode((string) json_encode($this->agent->call('db.server_status', [], 60)), true);
-            if (!empty($status['running'])) {
+            if (!empty($status['running']) && $section === 'connections') {
                 $conns = json_decode((string) json_encode($this->agent->call('db.processlist', [], 30)), true);
             }
         } catch (AgentException $e) {
             $error = $e;
         }
-        return $this->render('databases/server', ['status' => $status, 'connections' => $conns['connections'] ?? [], 'agentError' => $error]);
+        return $this->render('databases/server', ['status' => $status, 'connections' => $conns['connections'] ?? [], 'agentError' => $error, 'section' => $section]);
     }
 
     public function saveSettings(Request $request): Response
@@ -72,13 +107,13 @@ final class DbServerController extends Controller
         }
         $restart = $request->input('restart') === '1';
         if ($send === [] && !$restart) {
-            return $this->redirectWithSuccess(self::PAGE, 'Nothing changed.');
+            return $this->redirectWithSuccess(self::PAGE . '/settings', 'Nothing changed.');
         }
         try {
             $res = (array) $this->agent->call('db.server_settings', ['settings' => (object) $send, 'restart' => $restart], 200);
         } catch (UserFacingException $e) {
             $this->audit->record('database.server_settings', 'server', 'database', AuditLogger::FAILURE, ['settings' => $send, 'restart' => $restart, 'error' => $e->getMessage()]);
-            return $this->redirectWithFailure(self::PAGE, $e);
+            return $this->redirectWithFailure(self::PAGE . '/settings', $e);
         }
         $this->audit->record('database.server_settings', 'server', 'database', AuditLogger::SUCCESS, ['settings' => $send, 'restart' => $restart]);
         $pending = (array) ($res['restart_needed'] ?? []);
@@ -86,7 +121,7 @@ final class DbServerController extends Controller
         if ($pending !== []) {
             $msg = 'Settings saved. ' . implode(', ', array_map('strval', $pending)) . ' take effect after the database server restarts.';
         }
-        return $this->redirectWithSuccess(self::PAGE, $msg);
+        return $this->redirectWithSuccess(self::PAGE . '/settings', $msg);
     }
 
     public function restart(Request $request): Response
@@ -129,9 +164,9 @@ final class DbServerController extends Controller
         try {
             $this->agent->call('db.kill', ['id' => $id, 'query_only' => $queryOnly], 30);
         } catch (UserFacingException $e) {
-            return $this->redirectWithFailure(self::PAGE . '#connections', $e);
+            return $this->redirectWithFailure(self::PAGE . '/connections', $e);
         }
         $this->audit->record('database.kill', 'server', 'database', AuditLogger::SUCCESS, ['id' => $id, 'query_only' => $queryOnly]);
-        return $this->redirectWithSuccess(self::PAGE . '#connections', $queryOnly ? 'The statement of connection ' . $id . ' was stopped.' : 'Connection ' . $id . ' was ended.');
+        return $this->redirectWithSuccess(self::PAGE . '/connections', $queryOnly ? 'The statement of connection ' . $id . ' was stopped.' : 'Connection ' . $id . ' was ended.');
     }
 }

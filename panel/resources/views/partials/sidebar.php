@@ -27,6 +27,13 @@ $groups = Navigation::visible($this);
                 <a class="wcp-nav-link<?= $active || $inSite ? ' active' : '' ?>" href="<?= e($item['url']) ?>"<?= $active ? ' aria-current="page"' : '' ?>>
                     <i class="bi bi-<?= e($item['icon']) ?>"></i><span><?= e($item['label']) ?></span>
                 </a>
+                <?php if (!$inSite && $item['children'] !== [] && ($active || array_filter(array_column($item['children'], 'active')) !== [])): ?>
+                    <div class="wcp-subnav" data-wcp-section-menu="<?= e($item['route']) ?>">
+                        <?php foreach ($item['children'] as $ch): ?>
+                            <a class="wcp-subnav-link<?= $ch['active'] ? ' active' : '' ?>" href="<?= e($ch['url']) ?>"<?= $ch['active'] ? ' aria-current="page"' : '' ?>><span><?= e($ch['label']) ?></span></a>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
                 <?php if ($inSite): ?>
                     <div class="wcp-subnav" data-wcp-site-menu>
                         <div class="wcp-subnav-title" title="<?= e($siteMenu['site']['domain']) ?>"><?= e($siteMenu['site']['domain']) ?></div>

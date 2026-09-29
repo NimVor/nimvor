@@ -4,6 +4,7 @@
  * @var array<string, mixed>|null $status
  * @var list<array<string, mixed>> $connections
  * @var \WhaCP\Agent\AgentException|null $agentError
+ * @var string $section overview, settings or connections
  */
 use WhaCP\Security\Permissions as P;
 
@@ -34,9 +35,9 @@ foreach ((array) ($status['settings'] ?? []) as $s) {
 $collations = (array) ($status['collations'] ?? []);
 $charset = (string) ($managed['character_set_server'] ?? $vars['character_set_server'] ?? 'utf8mb4');
 ?>
-<?php $this->start(); ?>Database server<?php $this->end('title'); ?>
+<?php $section ??= 'overview'; ?>
+<?php $this->start(); ?><?= e(['overview' => 'Database server', 'settings' => 'Database server settings', 'connections' => 'Database connections'][$section]) ?><?php $this->end('title'); ?>
 <?php $this->start(); ?><?= e(trim((string) ($vars['version_comment'] ?? 'MariaDB / MySQL'))) ?><?php $this->end('subtitle'); ?>
-<?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('databases')) ?>"><i class="bi bi-arrow-left"></i> Databases</a><?php $this->end('actions'); ?>
 
 <?php if ($agentError !== null): ?><?= $this->partial('partials/agent_error', ['error' => $agentError]) ?><?php endif; ?>
 <?php if ($status === null): return; endif; ?>
@@ -49,6 +50,7 @@ $charset = (string) ($managed['character_set_server'] ?? $vars['character_set_se
     <div class="alert alert-warning small"><div class="fw-semibold"><i class="bi bi-exclamation-triangle me-1"></i>The server's option files have an error; a restart would fail, so restarts are refused until it is fixed.</div><pre class="mb-0 mt-1 small text-wrap"><?= e((string) $status['config_error']) ?></pre></div>
 <?php endif; ?>
 
+<?php if ($section === 'overview'): ?>
 <?php if (!empty($status['running'])): ?>
 <div class="row g-3 mb-3">
     <?php foreach ([
@@ -129,6 +131,8 @@ $charset = (string) ($managed['character_set_server'] ?? $vars['character_set_se
     </div>
 </div>
 
+<?php endif; ?>
+<?php if ($section === 'settings'): ?>
 <form method="post" action="<?= e($this->url('databases.server.settings')) ?>" data-wcp-busy class="mb-3">
     <?= $this->csrfField() ?>
     <div class="card">
@@ -170,13 +174,15 @@ $charset = (string) ($managed['character_set_server'] ?? $vars['character_set_se
     </div>
 </form>
 
+<?php endif; ?>
+<?php if ($section === 'connections'): ?>
 <?php if (!empty($status['running'])): ?>
 <div class="wcp-panel" id="connections" data-wcp-dt>
     <div class="wcp-actionbar">
         <div class="fw-semibold"><i class="bi bi-diagram-3 me-1"></i>Connections <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($connections) ?></span></div>
         <div class="wcp-actionbar-end">
             <div class="wcp-search"><input class="form-control form-control-sm" type="search" placeholder="Search" aria-label="Search connections" data-wcp-dt-search><i class="bi bi-search" aria-hidden="true"></i></div>
-            <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('databases.server')) ?>#connections"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</a>
+            <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('databases.server.connections')) ?>"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</a>
         </div>
     </div>
     <div class="wcp-dtable table-responsive">
@@ -206,4 +212,5 @@ $charset = (string) ($managed['character_set_server'] ?? $vars['character_set_se
     </div>
     <div class="wcp-pager" data-wcp-dt-pager></div>
 </div>
+<?php endif; ?>
 <?php endif; ?>

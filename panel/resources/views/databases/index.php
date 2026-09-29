@@ -1,7 +1,6 @@
 <?php /** @var \WhaCP\View\View $this */ ?>
 <?php $this->start(); ?>Databases<?php $this->end('title'); ?>
 <?php $this->start(); ?>MySQL / MariaDB<?php $this->end('subtitle'); ?>
-<?php if ($this->serverScope() && $this->can(\WhaCP\Security\Permissions::SERVER_VIEW) && $this->hasRoute('databases.server')): ?><?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('databases.server')) ?>"><i class="bi bi-hdd-stack me-1"></i>Database server</a><?php $this->end('actions'); ?><?php endif; ?>
 
 <?= $this->partial('databases/_manage', get_defined_vars()) ?>
 

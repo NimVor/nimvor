@@ -77,13 +77,13 @@ const OUT = process.env.E2E_OUT || '/tmp';
     for (const p of ['/security', '/security/firewall', '/security/ssh', '/security/fail2ban', '/ftp']) {
       const res = await page.goto(BASE + p);
       if (res.status() !== 200) { throw new Error(p + ' ' + res.status()); }
-      if (p.startsWith('/security') && !(await page.$('.wcp-pagetabs a.active'))) { throw new Error(p + ': tabs'); }
+      if (p.startsWith('/security') && !(await page.$('[data-wcp-section-menu="security"] a.active'))) { throw new Error(p + ': security menu'); }
     }
     await page.goto(BASE + '/security/firewall');
-    if (await page.$('.wcp-pagetabs a.active') && (await page.textContent('.wcp-pagetabs a.active')).trim() !== 'Firewall') { throw new Error('active tab'); }
+    if ((await page.textContent('[data-wcp-section-menu="security"] a.active')).trim() !== 'Firewall') { throw new Error('active menu item'); }
     await page.click('button[data-bs-target="#new-rule"]');
     await page.waitForSelector('#new-rule.show #r-port');
-    step('security tabs and FTP load; firewall rule form opens');
+    step('security pages (sidebar menu) and FTP load; firewall rule form opens');
     await page.screenshot({ path: OUT + '/adminlists-firewall.png', fullPage: true });
 
     // ---- Phones

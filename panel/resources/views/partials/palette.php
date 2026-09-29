@@ -33,6 +33,12 @@ $groups = ['Quick actions' => $quick] + Navigation::visible($this);
                 <?php foreach ($groups as $group => $items): if ($items === []) { continue; } ?>
                     <div class="wcp-palette-group" data-wcp-palette-group><?= e($group) ?></div>
                     <?php foreach ($items as $i): ?>
+                        <?php foreach ($i['children'] ?? [] as $ch): ?>
+                            <a class="wcp-palette-item" href="<?= e($ch['url']) ?>" data-wcp-palette-item data-search="<?= e(mb_strtolower($i['label'] . ' ' . $ch['label'])) ?>">
+                                <span class="wcp-palette-icon"><i class="bi bi-<?= e($i['icon']) ?>" aria-hidden="true"></i></span>
+                                <span class="min-w-0"><span class="d-block fw-medium"><?= e($ch['label']) ?></span><span class="d-block small text-body-secondary text-truncate"><?= e($i['label']) ?></span></span>
+                            </a>
+                        <?php endforeach; ?>
                         <a class="wcp-palette-item" href="<?= e($i['url']) ?>" data-wcp-palette-item data-search="<?= e(mb_strtolower($i['label'] . ' ' . $i['description'] . ' ' . $group)) ?>">
                             <span class="wcp-palette-icon"><i class="bi bi-<?= e($i['icon']) ?>" aria-hidden="true"></i></span>
                             <span class="min-w-0"><span class="d-block fw-medium"><?= e($i['label']) ?></span><span class="d-block small text-body-secondary text-truncate"><?= e($i['description']) ?></span></span>

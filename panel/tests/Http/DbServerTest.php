@@ -37,12 +37,24 @@ final class DbServerTest extends HttpTestCase
     public function testAdministratorSeesStatusSettingsAndConnections(): void
     {
         $this->login('admin');
-        $page = $this->request('GET', '/databases/server');
-        self::assertSame(200, $page->status());
-        $body = $page->body();
-        foreach (['10.11.14-MariaDB', '3 / 300', '2.0 /s', '60%', 'zz-whacp.cnf', 'SELECT * FROM orders', 'server thread', 'utf8mb4_unicode_ci', 'value="300"', '128 MB'] as $want) {
-            self::assertStringContainsString($want, $body, $want);
+        // Separate pages (sidebar children of Databases).
+        foreach ([
+            '/databases/server' => ['10.11.14-MariaDB', '3 / 300', '2.0 /s', '60%'],
+            '/databases/server/settings' => ['zz-whacp.cnf', 'utf8mb4_unicode_ci', 'value="300"', '128 MB'],
+            '/databases/server/connections' => ['SELECT * FROM orders', 'server thread'],
+        ] as $path => $wants) {
+            $page = $this->request('GET', $path);
+            self::assertSame(200, $page->status(), $path);
+            foreach ($wants as $want) {
+                self::assertStringContainsString($want, $page->body(), $path . ': ' . $want);
+            }
+            self::assertStringContainsString('data-wcp-section-menu="databases"', $page->body(), $path . ' shows the Databases menu');
         }
+        self::assertStringNotContainsString('SELECT * FROM orders', $this->request('GET', '/databases/server/settings')->body());
+        $this->agent->succeed('logs.sources', [['id' => 'system:mysql', 'label' => 'MariaDB error log', 'group' => 'System', 'kind' => 'file'], ['id' => 'nginx:error', 'label' => 'Nginx', 'group' => 'Web', 'kind' => 'file']]);
+        $logs = $this->request('GET', '/databases/server/logs')->body();
+        self::assertStringContainsString('MariaDB error log', $logs);
+        self::assertStringNotContainsString('nginx:error', $logs, 'only the database logs');
         self::assertStringContainsString('/databases/server', $this->request('GET', '/databases')->body());
     }
 

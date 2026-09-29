@@ -41,11 +41,13 @@ $ready = !empty($status['configured']) && !empty($status['running']);
 <?php if ($nameservers === []): ?>
     <div class="alert alert-info small"><?= $this->can(P::SETTINGS_MANAGE) ? 'Set the <strong>DNS name servers</strong> (and the default IPv4 for new zones) under <a href="' . e($this->url('settings')) . '">Settings</a> before creating zones.' : 'An administrator has to set the DNS name servers before zones can be created.' ?></div>
 <?php endif; ?>
-<div class="row g-3">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header"><i class="bi bi-signpost me-1"></i>Zones</div>
-            <div class="table-responsive">
+<div class="wcp-panel">
+    <div class="wcp-actionbar">
+        <div class="fw-semibold"><i class="bi bi-signpost me-1" aria-hidden="true"></i>Zones <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($zones) ?></span></div>
+        <?php if ($ready && $nameservers !== []): ?><div class="wcp-actionbar-end"><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-zone"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>New zone</button></div><?php endif; ?>
+    </div>
+    <div class="wcp-dtable">
+<div class="table-responsive">
                 <table class="table mb-0 wcp-table align-middle">
                     <thead><tr><th>Zone</th><th>Website</th><th class="text-end">Records</th><th>Serial</th><th>Status</th></tr></thead>
                     <tbody>
@@ -62,13 +64,10 @@ $ready = !empty($status['configured']) && !empty($status['running']);
                     </tbody>
                 </table>
             </div>
-        </div>
     </div>
-    <div class="col-lg-4">
-        <?php if ($ready && $nameservers !== []): ?>
-        <div class="card">
-            <div class="card-header"><i class="bi bi-plus-lg me-1"></i>New zone</div>
-            <div class="card-body">
+</div>
+<?php if ($ready && $nameservers !== []): ?>
+    <?= $this->modalStart('new-zone', 'New zone', isset($errors['website_id']) || isset($errors['name']), 'modal-md') ?>
                 <form method="post" action="<?= e($this->url('dns.store')) ?>" data-wcp-busy>
                     <?= $this->csrfField() ?>
                     <div class="mb-3">
@@ -84,8 +83,5 @@ $ready = !empty($status['configured']) && !empty($status['running']);
                     <button class="btn btn-primary btn-sm">Create zone</button>
                     <div class="form-text">Name servers: <?= e(implode(', ', $nameservers)) ?>. After creating the zone, set these name servers for the domain at its registrar.</div>
                 </form>
-            </div>
-        </div>
-        <?php endif; ?>
-    </div>
-</div>
+    <?= $this->modalEnd() ?>
+<?php endif; ?>
