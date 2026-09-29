@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/greylist"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -29,6 +30,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logging"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/modsec"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/modules"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/monitoring"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
@@ -162,6 +164,16 @@ func run() int {
 		Collector: collector,
 		Discovery: discovery.Service{Root: root, Platform: plat, Runner: runner},
 	})
+
+	if cfg.AllowWriteActions {
+		// An installation the agent stopped in the middle of was never
+		// validated: roll it back before anything else.
+		go func() {
+			for _, line := range modsec.RecoverInstalls(context.Background(), env, io.Discard) {
+				log.Warn("modsec: " + line)
+			}
+		}()
+	}
 
 	srv := &server.Server{
 		Registry:      registry,

@@ -210,6 +210,9 @@ paths:
               - modsec.custom_get
               - modsec.custom_set
               - modsec.events
+              - modsec.install
+              - modsec.installs
+              - modsec.rollback
               - modsec.site
               - modsec.status
               - modsec.trim
@@ -566,6 +569,9 @@ x-whacp-actions:
   modsec.custom_get: { mutating: false, description: "The administrator's custom ModSecurity rules." }
   modsec.custom_set: { mutating: true, description: "Save the custom ModSecurity rules (rule directives only, IDs 10000–99999, no programs, files or includes). Checked with nginx -t, rolled back on failure." }
   modsec.events: { mutating: false, description: "Recent requests ModSecurity blocked or detected (newest first), optionally only those for the given host names: time, host, client address, method, URI, status and the rules that matched." }
+  modsec.install: { mutating: true, description: "Install (or upgrade) the ModSecurity connector as a background job and one transaction: the distribution's package when installing it does not touch Nginx itself, otherwise built from source for the exact installed Nginx (pinned, checksum-verified ModSecurity releases; Nginx's own verified source). Everything is backed up first and rolled back on any failure (build, dependencies, libraries, module load, nginx -t, reload). A working connector is left alone unless upgrade is set. The Nginx binary is never changed." }
+  modsec.installs: { mutating: false, description: "ModSecurity connector installations and rollbacks (transactions, newest first): status, method, versions and sources, the module, the backup folder, and which one can be rolled back." }
+  modsec.rollback: { mutating: true, description: "Roll back the ModSecurity connector installation in effect (id) as a background job: its files are put back, packages it added removed, then nginx -t and a reload; if that fails, nothing changes." }
   modsec.site: { mutating: true, description: "Set a website's ModSecurity: off, detect (log only) or on (block), which rule vendors apply and single rules turned off. Checked with nginx -t, rolled back on failure." }
   modsec.status: { mutating: false, description: "ModSecurity: the Nginx connector as a capability (missing, installed but not loaded or usable, functional; from a package or not), the OWASP Core Rule Set found, the server-wide configuration, rule vendors, websites' modes and the audit log size." }
   modsec.trim: { mutating: true, description: "Keep the ModSecurity audit log small: above 50 MiB its last 5 MiB are kept." }

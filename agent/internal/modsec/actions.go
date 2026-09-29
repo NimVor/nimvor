@@ -18,6 +18,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/txn"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
 
@@ -37,6 +38,45 @@ func vhostPath(e *host.Env, domain string) string {
 // Register adds the ModSecurity actions.
 func Register(r *actions.Registry, e *host.Env) {
 	e.Writer.Policy.Patterns = append(e.Writer.Policy.Patterns, Dir(e)+"/**", AuditLog(e))
+	allowInstallerPaths(e)
+
+	r.Register(actions.Action{Name: "modsec.install", Mutating: true, Description: "Install (or upgrade) the ModSecurity connector as a background job and one transaction: the distribution's package when installing it does not touch Nginx itself, otherwise built from source for the exact installed Nginx (pinned, checksum-verified ModSecurity releases; Nginx's own verified source). Everything is backed up first and rolled back on any failure (build, dependencies, libraries, module load, nginx -t, reload). A working connector is left alone unless upgrade is set. The Nginx binary is never changed.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var opt InstallOptions
+		if err := host.Decode(raw, &opt); err != nil {
+			return nil, err
+		}
+		if opt.Method != "" && opt.Method != "auto" && opt.Method != "source" {
+			return nil, actions.InvalidParams("method: auto or source")
+		}
+		if opt.RetentionDays < 0 || opt.RetentionDays > 3650 {
+			return nil, actions.InvalidParams("retention_days: 1 to 3650")
+		}
+		if opt.NginxSourceSHA256 != "" && !sha256Re.MatchString(strings.ToLower(opt.NginxSourceSHA256)) {
+			return nil, actions.InvalidParams("nginx_source_sha256: 64 hexadecimal characters")
+		}
+		j := e.Jobs.Start("modsec.install", "server", func(ctx context.Context, log io.Writer) (any, error) {
+			return Install(ctx, e, DefaultSources, opt, log)
+		})
+		return map[string]any{"job_id": j.ID}, nil
+	}})
+	r.Register(actions.Action{Name: "modsec.installs", Description: "ModSecurity connector installations and rollbacks (transactions, newest first): status, method, versions and sources, the module, the backup folder, and which one can be rolled back.", Handler: func(context.Context, json.RawMessage) (any, error) {
+		return map[string]any{"installs": Installs(e)}, nil
+	}})
+	r.Register(actions.Action{Name: "modsec.rollback", Mutating: true, Description: "Roll back the ModSecurity connector installation in effect (id) as a background job: its files are put back, packages it added removed, then nginx -t and a reload; if that fails, nothing changes.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var in struct {
+			ID string `json:"id"`
+		}
+		if err := host.Decode(raw, &in); err != nil {
+			return nil, err
+		}
+		if _, err := txn.Load(e, TxKind, in.ID); err != nil {
+			return nil, actions.NotFound("There is no ModSecurity installation " + in.ID + ".")
+		}
+		j := e.Jobs.Start("modsec.rollback", "server", func(ctx context.Context, log io.Writer) (any, error) {
+			return RollbackInstall(ctx, e, in.ID, log)
+		})
+		return map[string]any{"job_id": j.ID}, nil
+	}})
 
 	r.Register(actions.Action{Name: "modsec.status", Description: "ModSecurity: the Nginx connector as a capability (missing, installed but not loaded or usable, functional; from a package or not), the OWASP Core Rule Set found, the server-wide configuration, rule vendors, websites' modes and the audit log size.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		st := Load(e)

@@ -474,7 +474,8 @@ func DetectModule(ctx context.Context, e *host.Env, n Nginx, l *Linker, c NginxM
 	candidates := map[string][]string{}
 	for _, m := range c.Modules {
 		for p := range n.Loaded {
-			if path.Base(p) == m+".so" {
+			// Also a versioned file (name-<version>.so) the configuration loads.
+			if b := path.Base(p); b == m+".so" || (strings.HasPrefix(b, m+"-") && strings.HasSuffix(b, ".so")) {
 				candidates[m] = append(candidates[m], p)
 			}
 		}

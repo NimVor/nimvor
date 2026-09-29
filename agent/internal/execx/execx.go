@@ -160,6 +160,8 @@ var defaultCandidates = map[string][]string{
 	"quotacheck": {"/usr/sbin/quotacheck", "/sbin/quotacheck"},
 	"mount":      {"/usr/bin/mount", "/bin/mount"},
 	"grubby":     {"/usr/sbin/grubby", "/sbin/grubby"},
+	// Building the ModSecurity connector (only as WhaCP's build account).
+	"make": {"/usr/bin/make"},
 }
 
 // Versioned PHP binaries are resolved on demand ("php8.3", "php-fpm8.3").
@@ -642,7 +644,7 @@ func checkArgs(id string, o Opts, args []string) error {
 	// A shell, perl (AWStats), tar (which reads and writes website files)
 	// and clamscan (which reads untrusted files) only ever run as an
 	// unprivileged account.
-	if (id == "sh" || id == "perl" || id == "tar" || id == "clamscan") && (o.As == nil || o.As.UID < 1000 || o.As.GID < 1000) {
+	if (id == "sh" || id == "perl" || id == "tar" || id == "clamscan" || id == "make") && (o.As == nil || o.As.UID < 1000 || o.As.GID < 1000) {
 		return fmt.Errorf("%w: %s may only run as an unprivileged account", ErrNotAllowed, id)
 	}
 	if len(o.Capabilities) > 0 {
