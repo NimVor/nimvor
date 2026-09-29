@@ -314,3 +314,24 @@ func TestDefaultIndexIsAComingSoonPage(t *testing.T) {
 		t.Error("placeholder detection")
 	}
 }
+
+func TestRenderSecurityHeaders(t *testing.T) {
+	s := spec()
+	if err := s.Normalize("/home/whacp", "/var/lib/whacp-agent"); err != nil {
+		t.Fatal(err)
+	}
+	l := Layout{Socket: "/run/php/x.sock", LogDir: "/l", ACMERoot: "/a"}
+	if strings.Contains(RenderNginx(s, l), "Referrer-Policy") {
+		t.Fatal("headers are opt-in")
+	}
+	s.SecurityHeaders = true
+	conf := RenderNginx(s, l)
+	for _, want := range []string{"Referrer-Policy \"strict-origin-when-cross-origin\" always", "X-Frame-Options \"SAMEORIGIN\"", "Permissions-Policy \"camera=()"} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	if strings.Contains(conf, "upgrade-insecure-requests") {
+		t.Error("upgrade-insecure-requests only over HTTPS")
+	}
+}

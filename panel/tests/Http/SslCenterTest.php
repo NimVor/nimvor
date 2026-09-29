@@ -112,4 +112,21 @@ final class SslCenterTest extends HttpTestCase
             self::assertSame(0, $this->calls($a), $a);
         }
     }
+
+    public function testSecurityHeadersPerWebsite(): void
+    {
+        $this->agent->succeed('sites.apply', ['domain' => 'shop.test', 'changed' => [], 'user' => ['name' => 'shop', 'uid' => 1500, 'gid' => 1500]]);
+        $this->login('admin');
+        self::assertStringContainsString('Send recommended security headers', $this->request('GET', '/sites/' . $this->siteId . '/ssl')->body());
+        $this->post('/sites/' . $this->siteId . '/security-headers', ['security_headers' => '1']);
+        self::assertTrue($this->lastCall('sites.apply')['security_headers']);
+        $this->post('/sites/' . $this->siteId . '/security-headers', ['security_headers' => '0']);
+        self::assertFalse($this->lastCall('sites.apply')['security_headers']);
+        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->app = $this->makeApp();
+        $this->login('cust');
+        $n = $this->calls('sites.apply');
+        $this->post('/sites/' . $this->siteId . '/security-headers', ['security_headers' => '1']);
+        self::assertSame($n, $this->calls('sites.apply'), 'not the customer\'s website');
+    }
 }

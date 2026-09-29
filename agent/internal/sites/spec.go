@@ -67,6 +67,9 @@ type Spec struct {
 	HTTPS           bool        `json:"https"`
 	ForceHTTPS      bool        `json:"force_https"`
 	HSTS            bool        `json:"hsts"`
+	// SecurityHeaders adds Referrer-Policy, X-Frame-Options and
+	// Permissions-Policy (and upgrade-insecure-requests over HTTPS).
+	SecurityHeaders bool `json:"security_headers,omitempty"`
 	CertFile        string      `json:"cert_file"`
 	KeyFile         string      `json:"key_file"`
 	Enabled         bool        `json:"enabled"`

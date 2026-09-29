@@ -99,6 +99,15 @@ final class SslController extends Controller
         });
     }
 
+    public function securityHeaders(Request $request, string $id): Response
+    {
+        return $this->act($request, $id, function (array $site) use ($request): string {
+            $on = $request->input('security_headers') === '1';
+            $this->ssl->securityHeaders($site, $on);
+            return $on ? 'Security headers are on.' : 'Security headers are off.';
+        });
+    }
+
     public function options(Request $request, string $id): Response
     {
         return $this->act($request, $id, function (array $site) use ($request): string {

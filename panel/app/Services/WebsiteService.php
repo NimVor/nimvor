@@ -358,6 +358,7 @@ final class WebsiteService
             'https' => (bool) $site['https'],
             'force_https' => (bool) $site['force_https'],
             'hsts' => (bool) $site['hsts'],
+            'security_headers' => !empty($site['security_headers']),
             'cert_file' => $site['cert_file'],
             'key_file' => $site['key_file'],
             'enabled' => (bool) $site['enabled'],
@@ -494,7 +495,7 @@ final class WebsiteService
         $id = (int) $previous['id'];
         $fields = array_intersect_key($previous, array_flip([
             'domain', 'system_user', 'root', 'document_root', 'kind', 'php_version', 'php_settings', 'proxy_pass',
-            'https', 'force_https', 'hsts', 'ssl_mode', 'cert_file', 'key_file', 'redirects', 'client_max_body_mb', 'enabled', 'status', 'directory_listing', 'ipv4', 'ipv6',
+            'https', 'force_https', 'hsts', 'security_headers', 'ssl_mode', 'cert_file', 'key_file', 'redirects', 'client_max_body_mb', 'enabled', 'status', 'directory_listing', 'ipv4', 'ipv6',
         ]));
         $this->sites->update($id, $fields);
         $this->sites->replaceDomains((int) $previous['server_id'], $id, array_merge([(string) $previous['domain']], $previous['aliases']));

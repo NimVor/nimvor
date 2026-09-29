@@ -44,3 +44,19 @@ func TestPackageIndexCheck(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenResolver(t *testing.T) {
+	for conf, want := range map[string]bool{
+		"options {\n\tdirectory \"/var/cache/bind\";\n};\n":                                                           false,
+		"options {\n\trecursion no;\n\tallow-query { any; };\n};\n":                                                   false,
+		"options {\n\tallow-query { any; };\n};\nzone \"a\" { allow-query { any; }; };\n":                             true,
+		"options {\n\tallow-query { any; };\n\tallow-recursion { localhost; localnets; };\n};\n":                      false,
+		"options {\n\tallow-recursion { any; };\n};\n":                                                                true,
+		"options {\n\tallow-query-cache { 0.0.0.0/0; };\n};\n":                                                        true,
+		"key \"k\" { secret \"x\"; };\noptions {\n\tlisten-on { any; };\n};\nzone \"b\" { allow-query { any; }; };\n": false,
+	} {
+		if got, why := openResolver(conf); got != want {
+			t.Errorf("%q: %v (%s), want %v", conf, got, why, want)
+		}
+	}
+}

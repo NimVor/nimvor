@@ -128,3 +128,73 @@ func indexCheck(refreshed, now time.Time) Check {
 	}
 	return c
 }
+
+// dnsRecursionCheck: BIND answers recursive queries only for this server
+// and its local networks (an open resolver is abused for amplification).
+// It reads the effective configuration (named-checkconf -p; keys in it are
+// never returned).
+func dnsRecursionCheck(ctx context.Context, env *host.Env) (Check, bool) {
+	if !env.Runner.Available("named-checkconf") {
+		return Check{}, false
+	}
+	out, err := env.Runner.Run(ctx, "named-checkconf", "-p")
+	c := Check{ID: "dns_recursion", Title: "DNS recursion", Severity: "high"}
+	if err != nil {
+		return Check{ID: "dns_recursion", Title: "DNS recursion", Status: "info", Severity: "low", Detail: "The BIND configuration could not be read."}, true
+	}
+	open, why := openResolver(string(out))
+	if open {
+		c.Status, c.Detail = "fail", "BIND answers recursive queries from anywhere ("+why+"): the server can be used for DNS amplification attacks."
+		c.Remedy = "In BIND's options add: recursion no; (or allow-recursion { localhost; localnets; };) and reload named."
+	} else {
+		c.Status, c.Detail = "pass", "Recursion is "+why+"."
+	}
+	return c, true
+}
+
+var (
+	optionsRe = regexp.MustCompile(`(?s)(^|\n)options\s*\{`)
+	stmtRe    = func(name string) *regexp.Regexp {
+		return regexp.MustCompile(`(?s)(?:^|[\s;{])` + regexp.QuoteMeta(name) + `\s*(\{[^}]*\}|[^;]*);`)
+	}
+)
+
+// openResolver decides from named-checkconf -p output whether recursion is
+// open to everyone. BIND's rule: allow-recursion, else allow-query-cache,
+// else allow-query (at the options level), else localnets and localhost.
+func openResolver(conf string) (bool, string) {
+	loc := optionsRe.FindStringIndex(conf)
+	if loc == nil {
+		return false, "limited to BIND's defaults (localhost and local networks)"
+	}
+	// The options block, braces balanced.
+	depth, end := 0, len(conf)
+	for i := loc[1] - 1; i < len(conf); i++ {
+		if conf[i] == '{' {
+			depth++
+		} else if conf[i] == '}' {
+			depth--
+			if depth == 0 {
+				end = i
+				break
+			}
+		}
+	}
+	opts := conf[loc[1]:end]
+	if m := stmtRe("recursion").FindStringSubmatch(opts); m != nil && strings.TrimSpace(m[1]) == "no" {
+		return false, "off"
+	}
+	for _, name := range []string{"allow-recursion", "allow-query-cache", "allow-query"} {
+		if m := stmtRe(name).FindStringSubmatch(opts); m != nil {
+			acl := strings.Trim(strings.TrimSpace(m[1]), "{} ")
+			for _, e := range strings.Split(acl, ";") {
+				e = strings.Trim(strings.TrimSpace(e), `"`)
+				if e == "any" || e == "0.0.0.0/0" || e == "::/0" {
+					return true, name + " { " + acl + " }"
+				}
+			}
+			return false, "limited by " + name + " { " + acl + " }"
+		}
+	}
+	return false, "limited to BIND's defaults (localhost and local networks)"
+}

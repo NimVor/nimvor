@@ -93,6 +93,12 @@ func listen(b *strings.Builder, s Spec, l Layout, port string) {
 	}
 }
 
+// SecurityHeaders are the optional headers a website can turn on: safe for
+// most applications (no script policy, which breaks many).
+const SecurityHeaders = "    add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;\n" +
+	"    add_header X-Frame-Options \"SAMEORIGIN\" always;\n" +
+	"    add_header Permissions-Policy \"camera=(), microphone=(), geolocation=(), payment=(), usb=()\" always;\n"
+
 func acme(b *strings.Builder, l Layout) {
 	fmt.Fprintf(b, "    location ^~ /.well-known/acme-challenge/ {\n        root %s;\n        default_type \"text/plain\";\n        try_files $uri =404;\n    }\n", l.ACMERoot)
 }
@@ -110,6 +116,12 @@ func body(b *strings.Builder, s Spec, l Layout) {
 		b.WriteString("    autoindex on;\n")
 	}
 	b.WriteString("    add_header X-Content-Type-Options \"nosniff\" always;\n")
+	if s.SecurityHeaders {
+		b.WriteString(SecurityHeaders)
+		if s.HTTPS {
+			b.WriteString("    add_header Content-Security-Policy \"upgrade-insecure-requests\" always;\n")
+		}
+	}
 	b.WriteString(l.ModSecInclude)
 	b.WriteString(l.ProtectInclude)
 	acme(b, l)

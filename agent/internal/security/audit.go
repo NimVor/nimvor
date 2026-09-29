@@ -113,5 +113,8 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 	}
 	out = append(out, databaseChecks(ctx, env)...)
 	out = append(out, nobodyMailCheck(ctx, env))
+	if c, ok := dnsRecursionCheck(ctx, env); ok {
+		out = append(out, c)
+	}
 	return out
 }

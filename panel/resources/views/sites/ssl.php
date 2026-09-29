@@ -88,6 +88,17 @@ if ($site['https'] && $cert !== null) {
                 </div>
             </div>
         <?php endif; ?>
+        <div class="card mb-3" id="security-headers">
+            <div class="card-header"><i class="bi bi-shield-check me-1"></i>Security headers</div>
+            <div class="card-body">
+                <form method="post" action="<?= e($this->url('sites.security_headers', ['id' => $id])) ?>" data-wcp-busy>
+                    <?= $this->csrfField() ?>
+                    <div class="form-check form-switch mb-2"><input type="hidden" name="security_headers" value="0"><input class="form-check-input" type="checkbox" role="switch" name="security_headers" value="1" id="o-headers"<?= !empty($site['security_headers']) ? ' checked' : '' ?>><label class="form-check-label" for="o-headers">Send recommended security headers</label></div>
+                    <div class="small text-body-secondary mb-3"><code>Referrer-Policy: strict-origin-when-cross-origin</code>, <code>X-Frame-Options: SAMEORIGIN</code> (the site cannot be framed by others), <code>Permissions-Policy</code> denying camera, microphone, location, payment and USB, and over HTTPS <code>upgrade-insecure-requests</code>. <code>X-Content-Type-Options: nosniff</code> is always sent. No script policy is set, since that breaks many applications.</div>
+                    <button class="btn btn-sm btn-primary" type="submit">Save</button>
+                </form>
+            </div>
+        </div>
     </div>
     <div class="col-lg-6">
         <details class="card mb-3" id="upload-certificate">

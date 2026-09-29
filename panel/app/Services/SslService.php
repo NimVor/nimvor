@@ -112,6 +112,12 @@ final class SslService
     }
 
     /** @param array<string, mixed> $site */
+    public function securityHeaders(array $site, bool $on): void
+    {
+        $this->sites->patch($site, ['security_headers' => $on], 'website.security_headers');
+    }
+
+    /** @param array<string, mixed> $site */
     public function options(array $site, bool $force, bool $hsts): void
     {
         if (!$site['https']) {

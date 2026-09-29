@@ -172,7 +172,7 @@ final class WebsiteRepository
             static fn (array $r): string => (string) $r['name'],
             $this->db->fetchAll('SELECT name FROM domains WHERE website_id = ? AND is_primary = 0 ORDER BY id', [(int) $row['id']])
         );
-        foreach (['https', 'force_https', 'hsts', 'enabled'] as $b) {
+        foreach (['https', 'force_https', 'hsts', 'security_headers', 'enabled'] as $b) {
             $row[$b] = (int) $row[$b] === 1;
         }
         $row['account_suspended'] = !empty($row['account_suspended']);
