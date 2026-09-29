@@ -190,3 +190,24 @@ func TestPruneKeepsTheLastKnownGood(t *testing.T) {
 		t.Fatal("path in an id")
 	}
 }
+
+// A file to install from a folder an unprivileged account controls: a
+// link (e.g. to /etc/shadow) is refused, not followed.
+func TestInstallFileRefusesLinks(t *testing.T) {
+	h := setup(t)
+	tx, _ := Begin(h.Env, "demo", io.Discard)
+	dir := t.TempDir()
+	secret := filepath.Join(dir, "shadow")
+	os.WriteFile(secret, []byte("root:$6$secret"), 0o600)
+	link := filepath.Join(dir, "module.so")
+	os.Symlink(secret, link)
+	if err := tx.InstallFile("/usr/local/lib/whacp/mod.so", link, 0o644, agentfs.RootOwner); err == nil {
+		t.Fatal("followed a link")
+	}
+	if err := tx.InstallFile("/usr/local/lib/whacp/mod.so", dir, 0o644, agentfs.RootOwner); err == nil {
+		t.Fatal("installed a folder")
+	}
+	if _, err := os.Stat(filepath.Join(h.Base, "usr/local/lib/whacp/mod.so")); err == nil {
+		t.Fatal("something was installed")
+	}
+}

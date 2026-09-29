@@ -37,34 +37,9 @@ var errWrongPassword = errors.New("wrong password")
 
 // privilegedGroups must not be held by a website account: a terminal for
 // such an account is refused (a misconfiguration the administrator fixes).
-var privilegedGroups = map[string]bool{
-	"root": true, "sudo": true, "wheel": true, "admin": true, "adm": true, "shadow": true,
-	"disk": true, "docker": true, "lxd": true, "lxc": true, "systemd-journal": true,
-	"libvirt": true, "kvm": true, "kmem": true,
-}
-
-// PrivilegedGroups returns the privileged groups user belongs to (by
-// supplementary membership or primary group), by name.
+// PrivilegedGroups returns the privileged groups user belongs to.
 func PrivilegedGroups(e *host.Env, user string, primaryGID int) []string {
-	b, err := e.Root.ReadFile("/etc/group")
-	if err != nil {
-		return nil
-	}
-	var out []string
-	for _, line := range strings.Split(string(b), "\n") {
-		f := strings.Split(line, ":")
-		if len(f) < 4 || !privilegedGroups[f[0]] {
-			continue
-		}
-		member := f[2] == fmt.Sprint(primaryGID)
-		for _, m := range strings.Split(f[3], ",") {
-			member = member || m == user
-		}
-		if member {
-			out = append(out, f[0])
-		}
-	}
-	return out
+	return e.PrivilegedGroups(user, primaryGID)
 }
 
 // checkPassword verifies a Linux account's password with PAM's helper.

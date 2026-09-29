@@ -50,6 +50,20 @@ All notable changes to WhaCP are documented here. The format follows
   account is notified, the website dashboard and Users → Bandwidth over
   limit show the state. Administrators' websites are never blocked.
 
+### Security
+- **Accounts with administrator rights never run website code.** The agent
+  refuses to use an existing Linux account as a website account, or to run
+  any command (PHP-FPM pool, cron, workers, deploys, WP-CLI, terminal) as
+  one, when it is in a privileged group (sudo, wheel, adm, docker, lxd,
+  disk, shadow, …) or named in `/etc/sudoers` / `/etc/sudoers.d`. Before,
+  a compromised panel could name such an account and gain root through its
+  sudo rights.
+- **ModSecurity build is not trusted blindly.** A pre-existing
+  `whacp-build` account that WhaCP did not create is refused (the name is
+  now reserved for websites), build outputs are read without following
+  links and only from inside the build folder, and installed files are
+  copied only from regular files.
+
 ### Changed
 - **File Manager paths:** any path through a `.whacp-*` folder (trash,
   quarantine, temporary files) is refused, not only one ending in it.

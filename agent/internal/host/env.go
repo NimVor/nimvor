@@ -350,6 +350,9 @@ func (e *Env) Credential(name string) (*execx.Credential, users.User, error) {
 	if u.UID < 1000 || u.UID >= 60000 {
 		return nil, u, fmt.Errorf("user %s is a system account; WhaCP only runs commands as regular accounts", name)
 	}
+	if why := e.PrivilegedAccount(name, u.GID); why != "" {
+		return nil, u, fmt.Errorf("user %s has administrator rights (%s); WhaCP never runs commands as such an account", name, why)
+	}
 	return &execx.Credential{UID: uint32(u.UID), GID: uint32(u.GID), Home: u.Home, Slice: e.AccountSlice(name)}, u, nil
 }
 

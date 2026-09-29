@@ -70,7 +70,7 @@ func Username(field, u string) error {
 		return fail(field, "must be 2–31 lowercase letters, digits, '-' or '_', starting with a letter")
 	}
 	switch u {
-	case "root", "daemon", "bin", "sys", "www-data", "nobody", "mysql", "redis", "valkey", "nginx", "whacp", "sshd", "admin":
+	case "root", "daemon", "bin", "sys", "www-data", "nobody", "mysql", "redis", "valkey", "nginx", "whacp", "sshd", "admin", "whacp-build":
 		return fail(field, "%q is reserved", u)
 	}
 	return nil

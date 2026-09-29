@@ -63,7 +63,14 @@ func (in *installer) installRecorded(ctx context.Context, names []string) error 
 
 // buildAccount makes sure the unprivileged build account exists.
 func (in *installer) buildAccount(ctx context.Context) (*execx.Credential, error) {
-	if _, err := in.e.LookupUser(BuildAccount); err != nil {
+	if u, err := in.e.LookupUser(BuildAccount); err == nil {
+		// Only WhaCP's own (left by an interrupted build); never an
+		// account something else uses, which could change the source
+		// while it is built.
+		if u.Home != BuildHome || !strings.Contains(u.Comment, "WhaCP build account") {
+			return nil, actions.Conflict("An account named " + BuildAccount + " exists that WhaCP did not create; the build does not use it. Remove or rename it first.")
+		}
+	} else {
 		if err := in.tx.Account(BuildAccount); err != nil {
 			return nil, err
 		}
@@ -274,6 +281,10 @@ func (in *installer) fromSource(ctx context.Context) error {
 		src, err := filepath.EvalSymlinks(filepath.Join(stageLib, "lib", "libmodsecurity.so.3"))
 		if err != nil {
 			return fmt.Errorf("the built libmodsecurity is missing: %v", err)
+		}
+		// The build account wrote the stage: its links must stay inside it.
+		if stageReal, _ := filepath.EvalSymlinks(stageLib); !strings.HasPrefix(src, stageReal+"/") {
+			return fmt.Errorf("the built libmodsecurity points outside the build folder (%s)", src)
 		}
 		if err := in.tx.MkdirAll(filepath.Join(libDir, "lib"), 0o755, agentfs.RootOwner); err != nil {
 			return err

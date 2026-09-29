@@ -18,6 +18,7 @@
 | Clickjacking | `frame-ancestors 'none'`, `X-Frame-Options: DENY` |
 | Privilege escalation inside the panel | RBAC per route, denials audited, last-admin protection |
 | Compromised panel | Agent exposes only named actions with strictly validated parameters; no arbitrary commands or file access; web terminal shells only as website accounts that already have shell access, in their sandbox (a root shell only when root sets `terminal_root` in the agent's configuration); write gate off by default; in read-only mode the sandbox makes the filesystem read-only; in write mode the agent writes only WhaCP-owned paths and runs site commands as the site's unprivileged account |
+| Compromised panel names an administrator account as a website account | Any account in a privileged group (root, sudo, wheel, admin, adm, shadow, disk, docker, lxd, lxc, systemd-journal, libvirt, kvm, kmem) or named in sudoers is refused as a website account and for every command the agent runs as an account |
 | Other local users talking to the agent | Socket 0660 root:whacp, SO_PEERCRED UID allowlist, bearer token |
 | Network attacker between panel and a remote agent | TLS 1.3 only, public-key pinning (the token is never sent to an unpinned peer), client IP allowlist with lockout |
 | Operator locks themselves out | Firewall, SSH and Fail2ban changes roll back automatically after two minutes unless confirmed; SSH changes validated with `sshd -t` |

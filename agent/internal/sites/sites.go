@@ -368,6 +368,11 @@ func (m *Manager) ensureUser(ctx context.Context, s Spec) (users.User, bool, err
 		if u.UID < 1000 || u.UID >= 60000 {
 			return u, false, actions.InvalidParams("user: " + s.User + " is a system account; choose a regular account for websites")
 		}
+		// A website's code runs as this account: never one with sudo or
+		// root-equivalent group rights.
+		if why := e.PrivilegedAccount(s.User, u.GID); why != "" {
+			return u, false, actions.InvalidParams("user: " + s.User + " has administrator rights (" + why + "); websites never run as such an account. Choose or create another one.")
+		}
 		return u, false, nil
 	}
 	if !s.CreateUser {

@@ -297,7 +297,19 @@ func (t *Tx) InstallFile(path, srcReal string, mode fs.FileMode, owner agentfs.O
 	} else if err != nil && !strings.Contains(err.Error(), "too large") {
 		return err
 	}
-	b, err := os.ReadFile(srcReal)
+	// The source may lie in a folder an unprivileged account controls:
+	// never follow a link, only a regular file.
+	f, err := os.OpenFile(srcReal, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return fmt.Errorf("%s: %v", filepath.Base(srcReal), err)
+	}
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		f.Close()
+		return fmt.Errorf("%s is not a regular file", filepath.Base(srcReal))
+	}
+	b, err := io.ReadAll(io.LimitReader(f, 512<<20))
+	f.Close()
 	if err != nil {
 		return err
 	}

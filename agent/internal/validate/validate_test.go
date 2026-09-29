@@ -69,3 +69,9 @@ func TestGit(t *testing.T) {
 		t.Error("ref rules")
 	}
 }
+
+func TestBuildAccountNameIsReserved(t *testing.T) {
+	if Username("user", "whacp-build") == nil {
+		t.Fatal("whacp-build accepted as a website account")
+	}
+}

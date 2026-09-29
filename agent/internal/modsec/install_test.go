@@ -39,6 +39,7 @@ type machine struct {
 	nginxOwner   string
 	compat       bool
 	missingLib   bool
+	libEscapes   bool // the build links libmodsecurity.so.3 outside its folder
 	reloads      int
 	src          Sources
 }
@@ -288,7 +289,12 @@ func (m *machine) respond(id string, args []string) (string, error, bool) {
 				os.MkdirAll(lib, 0o755)
 				os.MkdirAll(filepath.Join(s, "stage", strings.TrimPrefix(prefix, "/"), "include"), 0o755)
 				os.WriteFile(filepath.Join(lib, "libmodsecurity.so.3.0.14"), []byte("ELF-lib"), 0o755)
-				os.Symlink("libmodsecurity.so.3.0.14", filepath.Join(lib, "libmodsecurity.so.3"))
+				target := "libmodsecurity.so.3.0.14"
+				if m.libEscapes {
+					os.WriteFile(m.path("/etc/shadow"), []byte("root:$6$secret"), 0o600)
+					target = m.path("/etc/shadow")
+				}
+				os.Symlink(target, filepath.Join(lib, "libmodsecurity.so.3"))
 			}
 		}
 		return "", nil, true
@@ -693,5 +699,38 @@ func TestDebSrc(t *testing.T) {
 	got := DebSrc("Types: deb\nURIs: http://a/\nSuites: noble\nComponents: main\nSigned-By: /k.gpg\n\nTypes: deb\nURIs: http://off/\nEnabled: no\nSuites: x\n", true)
 	if !strings.Contains(got, "Types: deb-src\nURIs: http://a/") || !strings.Contains(got, "Signed-By: /k.gpg") || strings.Contains(got, "off") {
 		t.Fatalf("%q", got)
+	}
+}
+
+// The build account is only WhaCP's own, and what it built is read without
+// following links out of the build folder.
+func TestBuildAccountAndOutputsAreNotTrusted(t *testing.T) {
+	m := newMachine(t)
+	m.simRemovesNG = true
+	appendPasswd := func(line string) {
+		f, _ := os.OpenFile(m.path("/etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
+		f.WriteString(line)
+		f.Close()
+	}
+	// An account of that name that is not WhaCP's (e.g. a website's).
+	appendPasswd(fmt.Sprintf("%s:x:1700:1700:WhaCP website evil.test:/home/whacp/evil.test:/usr/sbin/nologin\n", BuildAccount))
+	before := m.state()
+	if _, err := m.install(InstallOptions{}); err == nil || !strings.Contains(err.Error(), "WhaCP did not create") {
+		t.Fatalf("%v", err)
+	}
+	if m.state() != before {
+		t.Fatal("not rolled back")
+	}
+
+	m2 := newMachine(t)
+	m2.simRemovesNG = true
+	m2.failInstall["libmodsecurity-dev"] = true // libmodsecurity is built
+	m2.libEscapes = true
+	if _, err := m2.install(InstallOptions{}); err == nil || !strings.Contains(err.Error(), "outside the build folder") {
+		t.Fatalf("%v", err)
+	}
+	libs, _ := filepath.Glob(m2.path(LibRoot + "/*/lib/*"))
+	if len(libs) != 0 {
+		t.Fatalf("installed %v", libs)
 	}
 }

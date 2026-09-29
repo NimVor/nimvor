@@ -3,6 +3,7 @@ package sites
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -239,6 +240,63 @@ func TestNewUserRefusesExistingAccounts(t *testing.T) {
 	if res, err := m.Apply(context.Background(), s); err != nil || !res.Created {
 		t.Fatalf("%v %+v", err, res)
 	}
+}
+
+// An existing account with administrator rights (sudo or root-equivalent
+// groups, or named in sudoers) never runs a website, whoever asks: its PHP
+// could become root. The same account is refused for commands (Credential).
+func TestPrivilegedAccountsNeverRunWebsites(t *testing.T) {
+	cases := map[string]func(base string){
+		"sudo group": func(b string) { appendFile(b, "etc/group", "sudo:x:27:example\n") },
+		"docker":     func(b string) { appendFile(b, "etc/group", "docker:x:998:someone,example\n") },
+		"sudoers":    func(b string) { appendFile(b, "etc/sudoers", "example ALL=(ALL) NOPASSWD:ALL\n") },
+		"user alias": func(b string) {
+			appendFile(b, "etc/sudoers", "User_Alias ADMINS = alice, example\nADMINS ALL=(ALL) ALL\n")
+		},
+		"sudoers.d group": func(b string) {
+			appendFile(b, "etc/group", "ops:x:1200:example\n")
+			os.MkdirAll(filepath.Join(b, "etc/sudoers.d"), 0o755)
+			os.WriteFile(filepath.Join(b, "etc/sudoers.d/90-cloud-init-users"), []byte("%ops ALL=(ALL) NOPASSWD:ALL\n"), 0o440)
+		},
+	}
+	for name, setup := range cases {
+		t.Run(name, func(t *testing.T) {
+			h := testhost.New(t)
+			setup(h.Base)
+			m := &Manager{Env: h.Env}
+			s := spec()
+			s.User = "example" // exists (uid 1500 or the test's own)
+			_, err := m.Apply(context.Background(), s)
+			if err == nil || !strings.Contains(err.Error(), "administrator rights") {
+				t.Fatalf("err = %v", err)
+			}
+			if h.Exists("etc/nginx/sites-available/whacp-new.test.conf") {
+				t.Error("website configured for a privileged account")
+			}
+			if _, _, err := h.Env.Credential("example"); err == nil || !strings.Contains(err.Error(), "administrator rights") {
+				t.Fatalf("Credential: %v", err)
+			}
+		})
+	}
+	// A Defaults line or a dotted sudoers.d file names nobody; an ordinary
+	// account is fine.
+	h := testhost.New(t)
+	appendFile(h.Base, "etc/sudoers", "Defaults env_reset\n# example ALL=(ALL) ALL\nCmnd_Alias WEB = /usr/bin/example\nops ALL=(root) /usr/sbin/example restart\n")
+	os.MkdirAll(filepath.Join(h.Base, "etc/sudoers.d"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/sudoers.d/README.disabled"), []byte("example ALL=(ALL) ALL\n"), 0o440)
+	s := spec()
+	s.User = "example"
+	if _, err := (&Manager{Env: h.Env}).Apply(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func appendFile(base, rel, text string) {
+	p := filepath.Join(base, rel)
+	os.MkdirAll(filepath.Dir(p), 0o755)
+	f, _ := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f.WriteString(text)
+	f.Close()
 }
 
 func TestDefaultIndexIsAComingSoonPage(t *testing.T) {

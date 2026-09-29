@@ -223,8 +223,16 @@ func (m *Manager) spec(p OpenParams) (Spec, error) {
 		s.User, s.Mode, s.Program, s.Args, s.Home = "root", ModeRoot, "/bin/bash", []string{"-l"}, "/root"
 		return s, nil
 	}
+	if u, err := e.LookupUser(p.User); err == nil {
+		if bad := PrivilegedGroups(e, p.User, u.GID); len(bad) > 0 {
+			return s, actions.Conflict(p.User + " belongs to privileged groups (" + strings.Join(bad, ", ") + "); a website account must not. Remove it from them (gpasswd -d " + p.User + " <group>) before opening a terminal.")
+		}
+	}
 	cred, u, err := e.Credential(p.User)
 	if err != nil {
+		if strings.Contains(err.Error(), "administrator rights") {
+			return s, actions.Conflict(err.Error())
+		}
 		return s, actions.InvalidParams("user: not a website account")
 	}
 	if filepath.Dir(filepath.Clean(u.Home)) != filepath.Clean(e.Cfg.SitesRoot) {
