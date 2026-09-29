@@ -164,7 +164,13 @@ Per website: `/sites/{id}/terminal`, `/sites/{id}/firewall`,
   - FFmpeg;
   - terminal (`unix_chkpwd`, systemd session);
   - WordPress (real WordPress, MariaDB and WP-CLI).
-- **Browser test:** `tests/e2e/ajaxforms.js`. Three existing browser tests
+- **Browser tests:**
+  - `tests/e2e/ajaxforms.js`;
+  - `tests/e2e/accountadmin.js`: feature list without the WordPress
+    Toolkit, plan, Create a New Account, the customer denied WordPress
+    (menu and address), suspend with a reason and unsuspend with
+    confirmation, plan change page, addon conversion with typed
+    confirmation, and phone widths. Three existing browser tests
   that no longer matched the UI (settings tabs, DNS table, record window)
   were fixed.
 
@@ -172,9 +178,9 @@ Per website: `/sites/{id}/terminal`, `/sites/{id}/firewall`,
 
 | Suite | Result |
 | --- | --- |
-| Panel (PHPUnit) | 351 tests, 3,010 assertions: pass |
+| Panel (PHPUnit) | 351 tests, 3,011 assertions: pass |
 | Agent (`go test ./...`, `go vet ./...`) | pass; terminal and WordPress packages also pass with `-race` |
-| Browser (13 Playwright tests, write-mode dev instance) | all pass |
+| Browser (14 Playwright tests, write-mode dev instance) | all pass |
 | Real host, run here | `TestRealHostWordPressToolkit`, `TestRealHostWordPress` (apps), `TestRealHostLinuxPassword` (terminal): pass |
 | `make lint` | pass |
 | Upgrade (`UPGRADE_FROM=ce75a6c tests/integration/upgrade.sh`) | pass: pre-expansion installation with realistic data (users, websites, databases, backups, API token, encrypted secrets, audit history) upgraded with all migrations; a failing upgrade rolled back; `--rollback` restored the old version |

@@ -203,6 +203,8 @@ final class WebsiteService
             $this->restore($site);
             throw $e;
         }
+        // Resource limits follow the website's account.
+        $this->events->dispatch('website.moved', ['website' => $this->sites->find((int) $site['server_id'], $id, null)]);
     }
 
     /**

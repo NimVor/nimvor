@@ -108,6 +108,7 @@ final class AddonConversionTest extends HttpTestCase
         self::assertSame(['other.test', 'blog.other.test'], array_column($this->agentCalls('sites.permissions'), 'domain'));
         self::assertSame(['otheracct', 'otheracct'], array_column($this->agentCalls('ftp.move_site'), 'user'));
         self::assertContains('otheracct', array_column($this->agentCalls('cron.apply'), 'user'));
+        self::assertGreaterThan(0, count($this->agentCalls('limits.status')), 'resource limits are reconciled for the new account');
 
         // Ownership in the panel.
         self::assertSame($newId, (int) $db->scalar("SELECT owner_id FROM databases WHERE name = 'other_db'"));

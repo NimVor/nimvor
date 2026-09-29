@@ -82,6 +82,7 @@ final class Application
         };
         $events->on('website.created', static fn (array $p) => $limits());
         $events->on('website.deleted', static fn (array $p) => $limits());
+        $events->on('website.moved', static fn (array $p) => $limits());
         $events->on('website.deleting', static function (array $p) use ($c): void {
             $site = (array) $p['website'];
             $c->get(\WhaCP\Services\WorkerService::class)->removeAll($site);
