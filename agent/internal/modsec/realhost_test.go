@@ -145,3 +145,54 @@ func TestRealHostModSecurity(t *testing.T) {
 		t.Log("Nginx is not running: the configuration was checked with nginx -t only")
 	}
 }
+
+// The whole source route on this machine: with the packaged connector
+// removed, the installer builds the official connector against this
+// Nginx's own source package, installs it versioned, and Nginx loads it;
+// rolling back leaves Nginx as it was. It changes the machine (removes the
+// connector package), so it only runs when asked.
+func TestRealHostBuildConnectorFromSource(t *testing.T) {
+	if os.Getenv("WHACP_REALHOST_BUILD") != "1" {
+		t.Skip("set WHACP_REALHOST_BUILD=1 (removes the connector package, builds from source)")
+	}
+	root := filesystem.Host()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	jm, _ := jobs.NewManager(t.TempDir(), 1, time.Minute, log)
+	cfg := config.Default()
+	cfg.StateDir = t.TempDir()
+	e := host.New(cfg, root, platform.Detect(root), execx.NewSystemRunner(30*time.Minute), jm, log)
+	ctx := context.Background()
+	if out, err := exec.Command("apt-get", "remove", "-y", "-q", "libnginx-mod-http-modsecurity").CombinedOutput(); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	before := Connector(ctx, e, true)
+	if before.State == "functional" {
+		t.Fatalf("still functional: %+v", before)
+	}
+	logW := &strings.Builder{}
+	res, err := Install(ctx, e, DefaultSources, InstallOptions{Method: "source"}, io.MultiWriter(logW, os.Stderr))
+	if err != nil {
+		t.Fatalf("%v\n%s", err, logW)
+	}
+	t.Logf("installed: %v", res)
+	after := Connector(ctx, e, true)
+	if after.State != "functional" || after.Package != "" || !strings.HasPrefix(after.Modules[0].Path, ModuleDir) {
+		t.Fatalf("%+v", after)
+	}
+	if out, err := exec.Command("nginx", "-t").CombinedOutput(); err != nil {
+		t.Fatalf("nginx -t: %s", out)
+	}
+	if _, err := e.LookupUser(BuildAccount); err == nil {
+		t.Fatal("build account left behind")
+	}
+	// Roll back: the module goes, Nginx still passes nginx -t.
+	if _, err := RollbackInstall(ctx, e, res["transaction"].(string), io.MultiWriter(logW, os.Stderr)); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+	if c := Connector(ctx, e, false); c.State == "functional" {
+		t.Fatalf("still loaded after rollback: %+v", c)
+	}
+	if out, err := exec.Command("nginx", "-t").CombinedOutput(); err != nil {
+		t.Fatalf("nginx -t after rollback: %s", out)
+	}
+}

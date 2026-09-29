@@ -236,7 +236,7 @@ func (in *installer) fromSource(ctx context.Context) error {
 		if err := in.as(ctx, cred, msDir, nil, "sh", "./configure", "--prefix="+libDir, "--with-pcre2", "--without-lua", "--disable-doxygen-doc", "--disable-examples"); err != nil {
 			return err
 		}
-		if err := in.as(ctx, cred, msDir, nil, "make", jobs()); err != nil {
+		if err := in.as(ctx, cred, msDir, nil, "make", parallelJobs()); err != nil {
 			return err
 		}
 		if err := in.as(ctx, cred, msDir, nil, "make", "install", "DESTDIR="+stage); err != nil {
@@ -256,7 +256,7 @@ func (in *installer) fromSource(ctx context.Context) error {
 	if err := in.as(ctx, cred, nginxDir, env, "sh", args...); err != nil {
 		return err
 	}
-	if err := in.as(ctx, cred, nginxDir, env, "make", jobs(), "modules"); err != nil {
+	if err := in.as(ctx, cred, nginxDir, env, "make", parallelJobs(), "modules"); err != nil {
 		return err
 	}
 	built := filepath.Join(nginxDir, "objs", "ngx_http_modsecurity_module.so")
@@ -302,7 +302,7 @@ func contains(list []string, s string) bool {
 	return false
 }
 
-func jobs() string {
+func parallelJobs() string {
 	n := runtime.NumCPU()
 	if n > 8 {
 		n = 8
@@ -416,8 +416,11 @@ func (in *installer) aptSource(ctx context.Context, cred *execx.Credential, owne
 	opts := []string{"-o", "Dir::Etc::SourceList=" + in.real(filepath.Join(apt, "sources.list")), "-o", "Dir::Etc::SourceParts=" + in.real(filepath.Join(apt, "parts")),
 		"-o", "Dir::State::Lists=" + in.real(filepath.Join(apt, "lists")), "-o", "Dir::Cache::pkgcache=", "-o", "Dir::Cache::srcpkgcache=", "-o", "Debug::NoLocking=1", "-o", "APT::Sandbox::User=root"}
 	in.logf("Downloading the source package %s %s (signature-checked by apt)…", srcPkg, srcVer)
-	if out, err := in.e.Runner.RunWith(ctx, "apt-get", execx.Opts{Output: in.log, Timeout: -1}, append(opts, "-q", "update")...); err != nil {
-		return "", fmt.Errorf("the source package index could not be read: %s", host.Output(out))
+	// One unreachable or unsigned repository fails "update" as a whole;
+	// the indexes that did download are signature-checked and usable
+	// (the others are simply not used).
+	if _, err := in.e.Runner.RunWith(ctx, "apt-get", execx.Opts{Output: in.log, Timeout: -1}, append(opts, "-q", "update")...); err != nil {
+		in.logf("Some repositories' source indexes could not be read (see above); the others are used.")
 	}
 	if out, err := in.e.Runner.RunWith(ctx, "apt-get", execx.Opts{Dir: in.real(filepath.Join(apt, "dl")), Output: in.log, Timeout: -1}, append(opts, "-q", "source", "--download-only", srcPkg+"="+srcVer)...); err != nil {
 		return "", fmt.Errorf("the source of %s %s could not be downloaded (its repository may not publish sources): %s", srcPkg, srcVer, host.Output(out))

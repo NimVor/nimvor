@@ -168,6 +168,14 @@ func (t *Tx) record(c Change) error {
 func (t *Tx) Snapshot(limit int64, paths ...string) error {
 	var total int64
 	for _, p := range paths {
+		p = filepath.Clean(p)
+		covered := false
+		for _, done := range t.Snapshots {
+			covered = covered || p == done || strings.HasPrefix(p, strings.TrimSuffix(done, "/")+"/")
+		}
+		if covered {
+			continue // inside a folder already copied
+		}
 		src, err := t.e.Root.Path(p)
 		if err != nil {
 			return err

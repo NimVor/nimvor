@@ -33,7 +33,7 @@ func TestRollbackUndoesEverything(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := tx.Snapshot(1<<20, "/etc/demo", "/etc/missing"); err != nil {
+	if err := tx.Snapshot(1<<20, "/etc/demo", "/etc/missing", "/etc/demo/sub", "/etc/demo"); err != nil {
 		t.Fatal(err)
 	}
 	must := func(err error) {
