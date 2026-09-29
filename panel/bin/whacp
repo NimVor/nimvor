@@ -382,6 +382,16 @@ switch ($command) {
                     }
                 }
             }
+            // Outgoing mail limits: accounts that reached theirs.
+            try {
+                foreach ($c->get(\WhaCP\Services\MailRateService::class)->alerts() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    out('[' . $srv['name'] . '] mail sending limits not checked: ' . $e->getMessage());
+                }
+            }
             // Results of background jobs nobody watched (notifications).
             try {
                 $c->get(\WhaCP\Services\BackupService::class)->refresh();

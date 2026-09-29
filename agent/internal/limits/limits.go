@@ -419,3 +419,42 @@ func Register(r *actions.Registry, e *host.Env) {
 		return map[string]any{"accounts": out, "cgroup_v2": cgroupV2(e)}, nil
 	}})
 }
+
+// NoSubmitFile is Postfix's table of accounts that may not use Postfix's
+// own sendmail (authorized_submit_users) while outgoing mail limits are
+// on: website accounts send through WhaCP's sendmail, over SMTP, where
+// their limit applies. Relative to the mail folder.
+const NoSubmitFile = "nosubmit"
+
+// RenderNoSubmit is the table for users (texthash: "name value" lines).
+func RenderNoSubmit(users []string) string {
+	var b strings.Builder
+	b.WriteString("# Managed by WhaCP (outgoing mail limits). Do not edit.\n")
+	sorted := append([]string{}, users...)
+	sort.Strings(sorted)
+	for _, u := range sorted {
+		b.WriteString(u + " website\n")
+	}
+	return b.String()
+}
+
+// DenyLocalSubmit keeps the table listing every website account (and extra
+// ones), once outgoing mail limits have created it.
+func DenyLocalSubmit(e *host.Env, set *changeset.Set, extra []string) {
+	f := filepath.Join(e.M.MailDir, NoSubmitFile)
+	cur, err := e.Root.ReadFile(f)
+	if err != nil {
+		return
+	}
+	seen := map[string]bool{}
+	var users []string
+	for _, u := range append(WebsiteAccounts(e), extra...) {
+		if !seen[u] {
+			seen[u] = true
+			users = append(users, u)
+		}
+	}
+	if next := RenderNoSubmit(users); next != string(cur) {
+		set.Write(f, []byte(next), 0o644, agentfs.RootOwner)
+	}
+}

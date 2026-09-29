@@ -49,6 +49,7 @@ final class Navigation
                     ['Statistics', 'mail.admin.reports', P::SERVER_VIEW, ['view' => 'stats']],
                     ['Greylisting', 'mail.greylist', P::SERVER_VIEW],
                     ['Greylisting report', 'mail.greylist.report', P::SERVER_VIEW],
+                    ['Sending limits', 'mail.limits', P::SERVER_VIEW],
                     ['Tools', 'mail.admin.tools', P::SERVER_VIEW],
                 ]],
                 ['SSL', 'shield-lock', 'ssl', P::SSL_VIEW, '/ssl', 'Certificates and Let\'s Encrypt'],

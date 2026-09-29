@@ -202,6 +202,9 @@ paths:
               - mail.queue
               - mail.queue_action
               - mail.queue_message
+              - mail.rate_get
+              - mail.rate_reset
+              - mail.rate_set
               - mail.repair_permissions
               - mail.report
               - mail.routing_set
@@ -578,6 +581,9 @@ x-whacp-actions:
   mail.queue: { mutating: false, description: "Postfix's mail queue: messages with queue, sender, recipients, size, age and the reason delivery was deferred (postqueue -j)." }
   mail.queue_action: { mutating: true, description: "Act on queued messages: delete, retry (deliver now), hold, release; or flush (retry every deferred message). IDs go to postsuper on stdin." }
   mail.queue_message: { mutating: false, description: "Headers of one queued message (From, To, Subject, Date, Message-ID; not the body)." }
+  mail.rate_get: { mutating: false, description: "Outgoing mail limits for website accounts: settings, service state and this hour's recipients per account." }
+  mail.rate_reset: { mutating: true, description: "Let a website account (or all with an empty name) send again this hour." }
+  mail.rate_set: { mutating: true, description: "Change outgoing mail limits: on/off, recipients per website account and hour (0: no limit) and per-account limits by account name." }
   mail.repair_permissions: { mutating: true, description: "Give mailbox folders back to the vmail user and remove access for others (one domain, or all); symbolic links are never followed." }
   mail.report: { mutating: false, description: "Mail statistics and delivery records for a time range from Postfix's and Dovecot's logs: received, sent, delivered, deferred, bounced, rejected, logins; relayers (authenticated users, local accounts, clients) and sending domains; deliveries filtered by address and status." }
   mail.routing_set: { mutating: true, description: "Route a mail domain: local (mailboxes here), backup (queue its mail for the primary MX) or remote (another server receives it; mail for it from this server goes there)." }

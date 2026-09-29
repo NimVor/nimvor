@@ -29,6 +29,7 @@ var WhacpUnits = []WhacpUnit{
 	{"panel", "whacp-panel.service", "Panel (web interface)", true, true},
 	{"scheduler", "whacp-scheduler.timer", "Scheduler (every 5 minutes)", true, false},
 	{"greylist", "whacp-greylist.service", "Greylisting policy service", true, false},
+	{"mailrate", "whacp-mailrate.service", "Outgoing mail limit service", true, false},
 	{"dkim", "whacp-opendkim.service", "DKIM signing (OpenDKIM)", true, false},
 	{"ftpd", "whacp-ftpd.service", "FTP server", true, false},
 }

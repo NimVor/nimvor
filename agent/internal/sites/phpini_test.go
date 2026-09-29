@@ -104,3 +104,20 @@ func TestPoolSessionDefaults(t *testing.T) {
 		t.Errorf("website override not applied:\n%s", got)
 	}
 }
+
+// PHP's mail() uses WhaCP's sendmail, fixed by the administrator.
+func TestPoolSendmailPath(t *testing.T) {
+	root := "/home/whacp/shop.test"
+	s := Spec{Domain: "shop.test", User: "shop", Root: root, PHP: PHPSettings{MemoryLimitMB: 256, UploadMaxMB: 64, MaxExecSeconds: 60, MaxChildren: 5, PM: "ondemand", MaxRequests: 500}}
+	l := Layout{LogDir: root + "/logs", TmpDir: root + "/tmp"}
+	if strings.Contains(RenderPool(s, l), "sendmail_path") {
+		t.Error("sendmail_path without WhaCP's sendmail")
+	}
+	l.Sendmail = "/usr/local/bin/whacp-agent sendmail -t -i"
+	if !strings.Contains(RenderPool(s, l), "php_admin_value[sendmail_path] = /usr/local/bin/whacp-agent sendmail -t -i\n") {
+		t.Error("PHP mail does not use WhaCP's sendmail")
+	}
+	if _, err := NormalizeINI(map[string]string{"sendmail_path": "/tmp/x"}, root); err == nil {
+		t.Error("a website may set sendmail_path")
+	}
+}

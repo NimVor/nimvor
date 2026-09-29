@@ -57,24 +57,24 @@ type Spec struct {
 	// NewUser: the account must not exist yet (a hosting customer's new
 	// website): an existing account, e.g. another customer's or a server
 	// login, is refused instead of being used.
-	NewUser         bool        `json:"new_user,omitempty"`
-	Root            string      `json:"root"`
-	DocumentRoot    string      `json:"document_root"`
-	Kind            string      `json:"kind"`
-	PHPVersion      string      `json:"php_version"`
-	PHP             PHPSettings `json:"php"`
-	ProxyPass       string      `json:"proxy_pass"`
-	HTTPS           bool        `json:"https"`
-	ForceHTTPS      bool        `json:"force_https"`
-	HSTS            bool        `json:"hsts"`
+	NewUser      bool        `json:"new_user,omitempty"`
+	Root         string      `json:"root"`
+	DocumentRoot string      `json:"document_root"`
+	Kind         string      `json:"kind"`
+	PHPVersion   string      `json:"php_version"`
+	PHP          PHPSettings `json:"php"`
+	ProxyPass    string      `json:"proxy_pass"`
+	HTTPS        bool        `json:"https"`
+	ForceHTTPS   bool        `json:"force_https"`
+	HSTS         bool        `json:"hsts"`
 	// SecurityHeaders adds Referrer-Policy, X-Frame-Options and
 	// Permissions-Policy (and upgrade-insecure-requests over HTTPS).
-	SecurityHeaders bool `json:"security_headers,omitempty"`
-	CertFile        string      `json:"cert_file"`
-	KeyFile         string      `json:"key_file"`
-	Enabled         bool        `json:"enabled"`
-	Redirects       []Redirect  `json:"redirects"`
-	ClientMaxBodyMB int         `json:"client_max_body_mb"`
+	SecurityHeaders bool       `json:"security_headers,omitempty"`
+	CertFile        string     `json:"cert_file"`
+	KeyFile         string     `json:"key_file"`
+	Enabled         bool       `json:"enabled"`
+	Redirects       []Redirect `json:"redirects"`
+	ClientMaxBodyMB int        `json:"client_max_body_mb"`
 	// Autoindex lists the files of folders without an index page (nginx
 	// autoindex); off by default.
 	Autoindex bool `json:"autoindex,omitempty"`

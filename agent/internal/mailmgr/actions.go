@@ -28,6 +28,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/changeset"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/fw"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/limits"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logging"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
@@ -283,6 +284,7 @@ func Register(r *actions.Registry, he *host.Env) {
 	registerLogStats(r, e)
 	registerManager(r, e)
 	registerGreylist(r, e)
+	registerMailRate(r, e)
 	registerAuthCheck(r, e)
 	registerTools(r, e)
 
@@ -422,6 +424,12 @@ func Register(r *actions.Registry, he *host.Env) {
 			}
 			for _, kv := range postfixSettings(dir, in.Hostname, t, hasIPv6(), d.Spam.Enabled) {
 				if err := e.run(ctx, "postconf", "-e", kv[0]+"="+kv[1]); err != nil {
+					return err
+				}
+			}
+			// Outgoing mail limits keep website accounts off Postfix's sendmail.
+			if rc, err := e.loadMailRate(); err == nil && rc.Enabled && he.Root.Exists(filepath.Join(dir, limits.NoSubmitFile)) {
+				if err := e.run(ctx, "postconf", "-e", "authorized_submit_users="+submitLimited(dir)); err != nil {
 					return err
 				}
 			}

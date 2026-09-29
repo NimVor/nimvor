@@ -28,6 +28,10 @@ type Layout struct {
 	// ProtectInclude is the website's protection include (password,
 	// hotlink, WordPress rules; a glob that matches nothing without any).
 	ProtectInclude string
+	// Sendmail is PHP's sendmail_path: WhaCP's sendmail, which submits
+	// over SMTP to this machine, where the account's sending limit
+	// applies (empty: PHP's default).
+	Sendmail string
 }
 
 const header = "Managed by WhaCP. Do not edit: changes are overwritten when the website is saved in the panel."
@@ -209,6 +213,9 @@ func RenderPool(s Spec, l Layout) string {
 		// Only when every request is HTTPS: otherwise visitors on plain
 		// HTTP would lose their session.
 		defaults = append(defaults, iniLine{"session.cookie_secure", "On", false})
+	}
+	if l.Sendmail != "" {
+		defaults = append(defaults, iniLine{"sendmail_path", l.Sendmail, true})
 	}
 	if s.PHP.Harden {
 		defaults = append(defaults, iniLine{"disable_functions", "exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec", true})

@@ -100,6 +100,8 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		filepath.Join(m.UnitDir, "whacp-ftpd.service"),
 		filepath.Join(m.UnitDir, "whacp-greylist.service"),
 		filepath.Join(m.UnitDir, "whacp-greylist.socket"),
+		filepath.Join(m.UnitDir, "whacp-mailrate.service"),
+		filepath.Join(m.UnitDir, "whacp-mailrate.socket"),
 		m.Fail2banJail,
 		m.ACMERoot + "/**",
 		cfg.SitesRoot + "/**",

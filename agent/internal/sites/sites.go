@@ -18,6 +18,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
@@ -60,6 +61,9 @@ func (m *Manager) layout(s Spec) Layout {
 		ModSecInclude: modsec.SiteInclude(e, s.Domain),
 		// Password, hotlink and WordPress protection, when it has any.
 		ProtectInclude: webprotect.SiteInclude(e, s.Domain),
+	}
+	if execx.SendmailShim != "" && !strings.ContainsAny(execx.SendmailShim, " \t\n;\"'") {
+		l.Sendmail = execx.SendmailShim + " sendmail -t -i"
 	}
 	if s.PHPVersion != "" {
 		l.PoolFile = filepath.Join(e.M.PoolDir(s.PHPVersion), name)
@@ -188,6 +192,8 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 	}
 	// Its scheduled tasks are the panel's: no personal crontab or at jobs.
 	limits.DenyPersonalCron(e, dirs, nil)
+	// Nor Postfix's own sendmail while outgoing mail limits are on.
+	limits.DenyLocalSubmit(e, dirs, nil)
 	dirsApplied, err := dirs.Apply()
 	if err != nil {
 		rollbackUser()

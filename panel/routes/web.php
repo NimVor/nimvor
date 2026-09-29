@@ -250,6 +250,9 @@ return static function (Router $r): void {
     $r->post('/mail/admin/greylisting/trusted/{n}/delete', [\WhaCP\Http\Controllers\MailGreylistController::class, 'deleteTrusted'], ['name' => 'mail.greylist.trusted.delete', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mail/admin/greylisting/providers', [\WhaCP\Http\Controllers\MailGreylistController::class, 'saveProviders'], ['name' => 'mail.greylist.providers', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mail/admin/greylisting/providers/update', [\WhaCP\Http\Controllers\MailGreylistController::class, 'updateProviders'], ['name' => 'mail.greylist.providers.update', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/mail/admin/sending-limits', [\WhaCP\Http\Controllers\MailRateController::class, 'index'], ['name' => 'mail.limits', 'permission' => P::SERVER_VIEW]);
+    $r->post('/mail/admin/sending-limits', [\WhaCP\Http\Controllers\MailRateController::class, 'save'], ['name' => 'mail.limits.save', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mail/admin/sending-limits/reset', [\WhaCP\Http\Controllers\MailRateController::class, 'reset'], ['name' => 'mail.limits.reset', 'permission' => P::SERVER_MANAGE]);
     $r->get('/mail/admin/greylisting/report', [\WhaCP\Http\Controllers\MailGreylistController::class, 'report'], ['name' => 'mail.greylist.report', 'permission' => P::SERVER_VIEW]);
     $r->post('/mail/admin/greylisting/report', [\WhaCP\Http\Controllers\MailGreylistController::class, 'cleanup'], ['name' => 'mail.greylist.cleanup', 'permission' => P::SERVER_MANAGE]);
     $r->get('/mail/admin/reports', [\WhaCP\Http\Controllers\MailAdminController::class, 'reports'], ['name' => 'mail.admin.reports', 'permission' => P::SERVER_VIEW]);

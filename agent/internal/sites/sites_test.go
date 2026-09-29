@@ -371,3 +371,28 @@ func TestConfigFilesUnreadableToOtherAccounts(t *testing.T) {
 		}
 	}
 }
+
+// With outgoing mail limits on, a new website account may not use
+// Postfix's own sendmail (it sends through WhaCP's, where the limit
+// applies); without them, nothing is written.
+func TestNewAccountDeniedLocalSubmitWithMailLimits(t *testing.T) {
+	h := testhost.New(t)
+	m := &Manager{Env: h.Env}
+	if _, err := m.Apply(context.Background(), spec()); err != nil {
+		t.Fatal(err)
+	}
+	nosubmit := strings.TrimPrefix(h.Env.M.MailDir, "/") + "/nosubmit"
+	if h.Exists(nosubmit) {
+		t.Fatal("nosubmit written without mail limits")
+	}
+	os.MkdirAll(filepath.Join(h.Base, filepath.Dir(nosubmit)), 0o755)
+	os.WriteFile(filepath.Join(h.Base, nosubmit), []byte("# Managed by WhaCP (outgoing mail limits). Do not edit.\n"), 0o644)
+	s := spec()
+	s.Domain, s.Aliases, s.User = "other.test", nil, "othersite"
+	if _, err := m.Apply(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.Read(nosubmit); !strings.Contains(got, "\nnewsite website\nothersite website\n") {
+		t.Errorf("nosubmit:\n%s", got)
+	}
+}

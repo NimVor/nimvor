@@ -30,6 +30,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logging"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/mailrate"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/modsec"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/modules"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/monitoring"
@@ -52,6 +53,15 @@ func main() {
 	// SMTP to this machine and never reads the agent's configuration.
 	if strings.HasPrefix(filepath.Base(os.Args[0]), "sendmail") {
 		os.Exit(sendmail.Main(os.Args[1:], os.Stdin, os.Stderr))
+	}
+	// The same, run by path (PHP's sendmail_path): whacp-agent sendmail ...
+	if len(os.Args) > 1 && os.Args[1] == "sendmail" {
+		os.Exit(sendmail.Main(os.Args[2:], os.Stdin, os.Stderr))
+	}
+	// Outgoing mail limit policy service: its own systemd unit
+	// (DynamicUser, no capabilities); it never reads the agent's config.
+	if len(os.Args) > 1 && os.Args[1] == "mailrate-policy" {
+		os.Exit(mailrate.Main(os.Args[2:]))
 	}
 	// Greylisting policy service: its own unprivileged systemd unit
 	// (DynamicUser, no capabilities); it never reads the agent's config.
