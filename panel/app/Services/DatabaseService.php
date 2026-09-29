@@ -33,7 +33,27 @@ final class DatabaseService
         private readonly ServerContext $server,
         private readonly Crypto $crypto,
         private readonly PlanLimits $limits,
+        private readonly ?SettingsService $settings = null,
     ) {
+    }
+
+    /**
+     * Whether the actor may let database users connect from other hosts (Settings).
+     *
+     * @param array<string, mixed> $actor
+     */
+    public function remoteHostsAllowed(array $actor): bool
+    {
+        return Scope::isAll($actor) || $this->settings === null || $this->settings->bool('db_customer_remote_hosts');
+    }
+
+    /** @param array<string, mixed> $actor */
+    private function allowedHost(string $host, array $actor): string
+    {
+        if ($host !== 'localhost' && !$this->remoteHostsAllowed($actor)) {
+            throw new ValidationException(['host' => 'Database users may connect from this server only (your hosting provider\'s setting).']);
+        }
+        return $host;
     }
 
     /** @param array<string, mixed> $actor */
@@ -106,7 +126,7 @@ final class DatabaseService
     {
         $serverId = $this->server->id();
         $username = $this->prefix($actor) . strtolower(trim((string) ($input['username'] ?? '')));
-        $host = self::hostFrom($input, $actor);
+        $host = $this->allowedHost(self::hostFrom($input, $actor), $actor);
         if (!preg_match('/^[a-z0-9_]{1,32}$/', $username) || $this->repo->userTaken($serverId, $username, $host)) {
             throw new ValidationException(['username' => 'Use up to 32 lowercase letters, digits or underscores (not already used).']);
         }
@@ -162,7 +182,7 @@ final class DatabaseService
     public function addHost(array $dbUser, array $input, array $actor): array
     {
         $serverId = $this->server->id();
-        $host = self::hostFrom($input, $actor);
+        $host = $this->allowedHost(self::hostFrom($input, $actor), $actor);
         if ($this->repo->userTaken($serverId, (string) $dbUser['username'], $host)) {
             throw new ValidationException(['host' => $dbUser['username'] . ' may already connect from ' . $host . '.']);
         }

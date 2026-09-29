@@ -101,6 +101,10 @@ final class SettingsService
                 'category' => 'security', 'type' => 'int', 'default' => 30, 'min' => 1, 'max' => 3650,
                 'label' => 'ModSecurity installation backups: keep (days)', 'help' => 'Backups and records of ModSecurity connector and rule installations are kept this long. The one in effect (the last known-good) is always kept.',
             ],
+            'db_customer_remote_hosts' => [
+                'category' => 'security', 'type' => 'bool', 'default' => true,
+                'label' => 'Hosting customers may allow remote database connections', 'help' => 'Customers and resellers may let their database users connect from other hosts. Off: from this server only (administrators still can). Existing remote logins are kept.',
+            ],
             'php_harden_new_sites' => [
                 'category' => 'security', 'type' => 'bool', 'default' => false,
                 'label' => 'Disable shell functions for new websites', 'help' => 'New websites start with exec, system, shell_exec, passthru, proc_open, popen and pcntl_exec disabled. Some applications (for example Composer or queue workers run from PHP) need them; an administrator can turn this off per website.',

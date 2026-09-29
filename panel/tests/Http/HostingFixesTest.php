@@ -196,6 +196,29 @@ final class HostingFixesTest extends HttpTestCase
         self::assertNotNull($this->flash('secret'), 'the new password is shown once');
     }
 
+    public function testAdministratorsCanKeepDatabaseUsersLocal(): void
+    {
+        $this->app->container->get(SettingsService::class)->update(['db_customer_remote_hosts' => '0'], 1);
+        $this->login('cust');
+        $page = $this->request('GET', '/databases')->body();
+        self::assertStringNotContainsString('value="any"', $page, 'no remote choice offered');
+        self::assertStringNotContainsString('data-wcp-remote', $page);
+        $before = $this->calls('db.user_create');
+        $this->post('/database-users', ['username' => 'far', 'host_choice' => 'any', 'return_to' => '/databases']);
+        self::assertSame($before, $this->calls('db.user_create'), 'refused');
+        $this->post('/database-users', ['username' => 'near', 'host_choice' => 'localhost', 'return_to' => '/databases']);
+        self::assertSame('localhost', $this->lastCall('db.user_create')['host']);
+        $user = (int) $this->db->scalar("SELECT id FROM database_users WHERE host = 'localhost'");
+        $before = $this->calls('db.user_create');
+        $this->post('/database-users/' . $user . '/hosts', ['host_choice' => 'ip', 'host_ip' => '198.51.100.7']);
+        self::assertSame($before, $this->calls('db.user_create'), 'no remote login added');
+
+        // Administrators still can.
+        $this->switchTo('admin');
+        $this->post('/database-users', ['username' => 'ops', 'host_choice' => 'ip', 'host_ip' => '198.51.100.9', 'return_to' => '/databases']);
+        self::assertSame('198.51.100.9', $this->lastCall('db.user_create')['host']);
+    }
+
     public function testDatabaseUsersAreAssignedToTheAccountsDatabases(): void
     {
         $mine = $this->insertDatabase('cust_blog', $this->custId);

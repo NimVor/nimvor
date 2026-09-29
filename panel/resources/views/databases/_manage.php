@@ -22,7 +22,11 @@ foreach ($managed as $d) {
     }
 }
 // "Connect from": this server, a specific address or network, any host.
-$hostFields = function (string $idp, bool $withLocal, string $col = 'col-md-4') use ($old): string {
+$remoteHosts ??= true;
+$hostFields = function (string $idp, bool $withLocal, string $col = 'col-md-4') use ($old, $remoteHosts): string {
+    if (!$remoteHosts) {
+        return '<input type="hidden" name="host_choice" value="localhost">';
+    }
     ob_start(); ?>
     <div class="<?= e($col) ?>">
         <label class="form-label small" for="<?= e($idp) ?>-hc">Connect from</label>
@@ -117,7 +121,7 @@ $tab = $openUser ? 'users' : 'dbs';
                     <div class="form-check form-switch small mb-0"><input type="hidden" name="store_password" value="0"><input class="form-check-input" type="checkbox" name="store_password" value="1" id="u-sp"><label class="form-check-label" for="u-sp">Keep the password (encrypted)</label></div>
                     <button class="btn btn-sm btn-primary ms-auto" type="submit">Create user</button>
                 </div>
-                <div class="form-text"><?= e($remoteNote) ?></div>
+                <?php if ($remoteHosts): ?><div class="form-text"><?= e($remoteNote) ?></div><?php endif; ?>
             </form>
         <?= $this->modalEnd() ?>
     <?php endif; ?>
@@ -244,6 +248,7 @@ $tab = $openUser ? 'users' : 'dbs';
                                                 </form>
                                             </details>
                                         <?php endif; ?>
+                                        <?php if ($remoteHosts): ?>
                                         <details data-wcp-remote data-wcp-menu>
                                             <summary class="wcp-op" title="Allow connections from another host" aria-label="Remote access for <?= e($u['username']) ?>">Remote</summary>
                                             <form class="wcp-popover wcp-popover-form card card-body shadow-sm" method="post" action="<?= e($this->url('dbusers.host', ['id' => $uid])) ?>" data-wcp-busy>
@@ -255,6 +260,7 @@ $tab = $openUser ? 'users' : 'dbs';
                                                 <button class="btn btn-sm btn-primary" type="submit">Allow</button>
                                             </form>
                                         </details>
+                                        <?php endif; ?>
                                         <form method="post" action="<?= e($this->url('dbusers.password', ['id' => $uid])) ?>" data-wcp-confirm="Generate a new password for <?= e($u['username']) ?>? Applications using the old password will stop working until updated.">
                                             <?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>"><input type="hidden" name="store_password" value="<?= $u['stored'] ? '1' : '0' ?>">
                                             <button class="wcp-op" title="New password" aria-label="New password for <?= e($u['username']) ?>">Password</button>

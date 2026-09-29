@@ -89,6 +89,104 @@ func databaseChecks(ctx context.Context, env *host.Env) []Check {
 	} else {
 		out = append(out, Check{ID: "mysql_anonymous", Title: "MySQL anonymous users", Status: "pass", Severity: "high", Detail: "There are no anonymous MySQL users."})
 	}
+	return append(out, databaseAccountChecks(ctx, c, Listening(env))...)
+}
+
+// dbSystemUsers are the database server's own accounts.
+const dbSystemUsers = "'root','mysql','mariadb.sys','debian-sys-maint','mysql.sys','mysql.session','mysql.infoschema'"
+
+// dbLocal are the host names of connections from this machine.
+const dbLocal = "'localhost','127.0.0.1','::1'"
+
+// databaseAccountChecks: who can reach the database server and with what.
+// Account names are reported, never password hashes.
+func databaseAccountChecks(ctx context.Context, c dbmgr.Client, listening []Listener) []Check {
+	var out []Check
+	names := func(rows [][]string) string {
+		var l []string
+		for i, r := range rows {
+			if i == 10 {
+				l = append(l, fmt.Sprintf("and %d more", len(rows)-10))
+				break
+			}
+			if len(r) >= 2 {
+				l = append(l, r[0]+"@"+r[1])
+			}
+		}
+		return strings.Join(l, ", ")
+	}
+
+	// Network exposure: listening on more than loopback.
+	if rows, err := c.Query(ctx, "SELECT @@port, @@skip_networking;"); err == nil && len(rows) == 1 && len(rows[0]) == 2 {
+		port, _ := strconv.Atoi(rows[0][0])
+		ch := Check{ID: "database_network", Title: "Database network access", Severity: "medium", Status: "pass", Detail: "The database server accepts connections from this server only."}
+		if rows[0][1] != "1" {
+			for _, l := range listening {
+				if l.Proto == "tcp" && l.Port == port && !l.Local {
+					ch.Status, ch.Detail = "warn", fmt.Sprintf("The database server listens on all network addresses (port %d): only the firewall and its accounts' host names keep others out.", port)
+					ch.Remedy = "Unless remote database access is needed, set bind-address = 127.0.0.1 in the server's configuration (Databases → Server) and keep port " + strconv.Itoa(port) + " closed in the firewall."
+				}
+			}
+		}
+		out = append(out, ch)
+	}
+
+	// Privileged accounts reachable from other hosts.
+	if rows, err := c.Query(ctx, "SELECT User, Host FROM mysql.user WHERE Host NOT IN ("+dbLocal+") AND Host <> '' AND (User = 'root' OR Super_priv = 'Y' OR Grant_priv = 'Y' OR File_priv = 'Y' OR Shutdown_priv = 'Y' OR Process_priv = 'Y') ORDER BY User, Host;"); err == nil {
+		ch := Check{ID: "database_remote_admin", Title: "Remote database administrators", Severity: "high", Status: "pass", Detail: "No administrative database account can sign in from another host."}
+		if len(rows) > 0 {
+			ch.Status, ch.Detail = "fail", "Administrative accounts can sign in from other hosts: "+names(rows)+"."
+			ch.Remedy = "Remove those accounts or limit them to localhost (DROP USER / RENAME USER in Databases → Server → SQL)."
+		}
+		out = append(out, ch)
+	}
+
+	// Accounts without a password (locked ones cannot sign in). MySQL has
+	// account_locked; MariaDB keeps it in global_priv.
+	rows, err := c.Query(ctx, "SELECT User, Host FROM mysql.user WHERE authentication_string = '' AND plugin IN ('mysql_native_password','caching_sha2_password','sha256_password','') AND User <> '' AND account_locked = 'N' ORDER BY User, Host;")
+	if err != nil {
+		rows, err = c.Query(ctx, "SELECT u.User, u.Host FROM mysql.user u LEFT JOIN mysql.global_priv g ON g.User = u.User AND g.Host = u.Host WHERE u.authentication_string = '' AND u.plugin IN ('mysql_native_password','') AND u.User <> '' AND u.is_role = 'N' AND IFNULL(JSON_VALUE(g.Priv, '$.account_locked'), 0) = 0 ORDER BY u.User, u.Host;")
+	}
+	if err == nil {
+		ch := Check{ID: "database_empty_password", Title: "Database accounts without a password", Severity: "high", Status: "pass", Detail: "Every database account that signs in with a password has one."}
+		if len(rows) > 0 {
+			ch.Status, ch.Detail = "fail", "These accounts sign in without a password: "+names(rows)+"."
+			ch.Remedy = "Set a password (ALTER USER ... IDENTIFIED BY ...) or remove them."
+		}
+		out = append(out, ch)
+	}
+
+	// Global privileges: an account with them reaches every website's
+	// database. WhaCP gives website accounts privileges on their own
+	// databases only.
+	if rows, err := c.Query(ctx, "SELECT User, Host FROM mysql.user WHERE User NOT IN ("+dbSystemUsers+") AND User <> '' AND Host <> '' AND (Select_priv = 'Y' OR Insert_priv = 'Y' OR Update_priv = 'Y' OR Delete_priv = 'Y' OR Create_priv = 'Y' OR Drop_priv = 'Y' OR Alter_priv = 'Y' OR File_priv = 'Y' OR Super_priv = 'Y' OR Grant_priv = 'Y' OR Process_priv = 'Y' OR Reload_priv = 'Y' OR Shutdown_priv = 'Y') ORDER BY User, Host;"); err == nil {
+		ch := Check{ID: "database_global_privileges", Title: "Database accounts with access to every database", Severity: "high", Status: "pass", Detail: "No account besides the server's own has privileges on all databases."}
+		if len(rows) > 0 {
+			ch.Status, ch.Detail = "warn", "These accounts have privileges on all databases (including every website's): "+names(rows)+"."
+			ch.Remedy = "Unless they are your own administrative accounts, revoke the global privileges (REVOKE ... ON *.*) and grant them on their own databases only."
+		}
+		out = append(out, ch)
+	}
+
+	// Grant option on a database: that account can give others access.
+	if rows, err := c.Query(ctx, "SELECT User, Host FROM mysql.db WHERE Grant_priv = 'Y' AND User NOT IN ("+dbSystemUsers+") GROUP BY User, Host ORDER BY User, Host;"); err == nil {
+		ch := Check{ID: "database_grant_option", Title: "Database accounts that can grant access", Severity: "medium", Status: "pass", Detail: "No website database account can pass its privileges on."}
+		if len(rows) > 0 {
+			ch.Status, ch.Detail = "warn", "These accounts hold WITH GRANT OPTION on a database: "+names(rows)+"."
+			ch.Remedy = "Revoke it (REVOKE GRANT OPTION ON db.* FROM ...); WhaCP never grants it."
+		}
+		out = append(out, ch)
+	}
+
+	// The historical test database, open to every account.
+	if rows, err := c.Query(ctx, "SELECT (SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = 'test') + (SELECT COUNT(*) FROM mysql.db WHERE Db IN ('test', 'test\\\\_%'));"); err == nil && len(rows) == 1 {
+		ch := Check{ID: "database_test", Title: "Test database", Severity: "low", Status: "pass", Detail: "There is no test database or test grant."}
+		if n, _ := strconv.Atoi(rows[0][0]); n > 0 {
+			ch.Status, ch.Detail = "warn", "The \"test\" database or the default grants on test databases exist; any account may be able to use them."
+			ch.Remedy = "DROP DATABASE test; DELETE FROM mysql.db WHERE Db IN ('test', 'test\\\\_%'); FLUSH PRIVILEGES;"
+		}
+		out = append(out, ch)
+	}
 	return out
 }
 

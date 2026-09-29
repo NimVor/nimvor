@@ -109,7 +109,7 @@ final class SecurityController extends Controller
      */
     private function link(array $c): array
     {
-        $links = ['firewall' => 'security.firewall', 'ssh_root' => 'security.ssh', 'ssh_password' => 'security.ssh', 'fail2ban' => 'security.fail2ban', 'updates' => 'packages', 'ssh_version' => 'packages', 'nobody_mail' => 'security.smtp', 'database_version' => 'databases.server', 'package_index' => 'packages', 'dns_recursion' => 'dns'];
+        $links = ['firewall' => 'security.firewall', 'ssh_root' => 'security.ssh', 'ssh_password' => 'security.ssh', 'fail2ban' => 'security.fail2ban', 'updates' => 'packages', 'ssh_version' => 'packages', 'nobody_mail' => 'security.smtp', 'database_version' => 'databases.server', 'package_index' => 'packages', 'dns_recursion' => 'dns', 'database_network' => 'databases.server', 'database_remote_admin' => 'databases.server', 'database_empty_password' => 'databases.server', 'database_global_privileges' => 'databases.server', 'database_grant_option' => 'databases.server', 'database_test' => 'databases.server'];
         if (($c['id'] ?? '') === 'mysql_anonymous' && ($c['status'] ?? '') === 'fail') {
             $c['action'] = ['route' => 'security.mysql_anonymous', 'label' => 'Remove anonymous users'];
         } elseif (isset($links[$c['id'] ?? ''])) {

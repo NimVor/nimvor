@@ -83,6 +83,7 @@ final class DatabasesController extends Controller
             }
         }
         return [
+            'remoteHosts' => $this->service->remoteHostsAllowed($user),
             'managed' => $managed,
             'dbUsers' => $this->repo->users($this->server->id(), $user),
             'sizes' => $sizes,
