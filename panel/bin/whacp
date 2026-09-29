@@ -311,6 +311,17 @@ switch ($command) {
                     out('[' . $srv['name'] . '] FFmpeg access not checked: ' . $e->getMessage());
                 }
             }
+            // Compiler and traceroute restrictions: package updates on RHEL
+            // reset the programs' modes. Once an hour.
+            if ((int) date('i') < 10) {
+                try {
+                    $c->get(\WhaCP\Services\HardeningService::class)->reapply();
+                } catch (\WhaCP\Agent\AgentException $e) {
+                    if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                        out('[' . $srv['name'] . '] hardening not reapplied: ' . $e->getMessage());
+                    }
+                }
+            }
             // Greylisting: trusted providers' address ranges. Asked in the
             // first ten minutes of every sixth hour; the agent reads them at
             // most once a day and only while greylisting is on.

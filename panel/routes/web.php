@@ -345,6 +345,14 @@ return static function (Router $r): void {
     $r->post('/security/malware/update', [\WhaCP\Http\Controllers\AvController::class, 'updateSignatures'], ['name' => 'security.malware.update', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/shell', [\WhaCP\Http\Controllers\ShellController::class, 'index'], ['name' => 'security.shell', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/shell', [\WhaCP\Http\Controllers\ShellController::class, 'update'], ['name' => 'security.shell.update', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/compilers', [\WhaCP\Http\Controllers\HardeningController::class, 'compilers'], ['name' => 'security.compilers', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/compilers', [\WhaCP\Http\Controllers\HardeningController::class, 'saveCompilers'], ['name' => 'security.compilers.save', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/smtp', [\WhaCP\Http\Controllers\HardeningController::class, 'smtp'], ['name' => 'security.smtp', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/smtp', [\WhaCP\Http\Controllers\HardeningController::class, 'saveSmtp'], ['name' => 'security.smtp.save', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/forkbomb', [\WhaCP\Http\Controllers\HardeningController::class, 'forkbomb'], ['name' => 'security.forkbomb', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/forkbomb', [\WhaCP\Http\Controllers\HardeningController::class, 'saveForkbomb'], ['name' => 'security.forkbomb.save', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/traceroute', [\WhaCP\Http\Controllers\HardeningController::class, 'traceroute'], ['name' => 'security.traceroute', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/traceroute', [\WhaCP\Http\Controllers\HardeningController::class, 'saveTraceroute'], ['name' => 'security.traceroute.save', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/modsec', [\WhaCP\Http\Controllers\ModSecurityController::class, 'index'], ['name' => 'security.modsec', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/modsec', [\WhaCP\Http\Controllers\ModSecurityController::class, 'configure'], ['name' => 'security.modsec.configure', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/modsec/custom', [\WhaCP\Http\Controllers\ModSecurityController::class, 'saveCustom'], ['name' => 'security.modsec.custom', 'permission' => P::SECURITY_MANAGE]);

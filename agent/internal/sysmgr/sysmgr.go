@@ -21,6 +21,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ffmpegmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/hardening"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
@@ -385,5 +386,8 @@ func Register(r *actions.Registry, env *host.Env) {
 func restrictAgain(ctx context.Context, env *host.Env, log io.Writer) {
 	if err := ffmpegmgr.Reapply(ctx, env); err != nil {
 		fmt.Fprintf(log, "FFmpeg could not be limited to its group again: %v\n", err)
+	}
+	if err := hardening.Reapply(ctx, env); err != nil {
+		fmt.Fprintf(log, "Compiler or traceroute restrictions could not be applied again: %v\n", err)
 	}
 }

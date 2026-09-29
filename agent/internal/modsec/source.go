@@ -18,6 +18,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/hardening"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
 )
@@ -78,6 +79,10 @@ func (in *installer) buildAccount(ctx context.Context) (*execx.Credential, error
 			return nil, fmt.Errorf("the build account could not be created: %s", host.Output(out))
 		}
 		in.createdAccount = true
+	}
+	// While compiler access is restricted, the build account may compile.
+	if err := hardening.AllowBuild(ctx, in.e); err != nil {
+		return nil, err
 	}
 	cred, _, err := in.e.Credential(BuildAccount)
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ffmpegmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/files"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/hardening"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/limits"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/mailmgr"
@@ -49,6 +50,7 @@ func All() []Module {
 		statsmgr.Register,
 		avmgr.Register,
 		ffmpegmgr.Register,
+		hardening.Register,
 		netmgr.Register,
 		limits.Register,
 		quota.Register,

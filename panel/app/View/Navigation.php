@@ -106,7 +106,7 @@ final class Navigation
             ['cPHulk Brute Force Protection', 'security.hulk', P::SECURITY_VIEW],
             ['Password Strength Configuration', 'security.password_strength', P::SECURITY_VIEW],
             ['Shell Fork Bomb Protection', 'security.forkbomb', P::SECURITY_VIEW],
-            ['Traceroute', 'security.traceroute', P::SECURITY_VIEW],
+            ['Traceroute Enable/Disable', 'security.traceroute', P::SECURITY_VIEW],
         ];
     }
 

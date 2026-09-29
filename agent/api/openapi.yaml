@@ -165,6 +165,12 @@ paths:
               - ftp.disable
               - ftp.move_site
               - ftp.status
+              - hardening.compilers
+              - hardening.forkbomb
+              - hardening.reapply
+              - hardening.smtp
+              - hardening.status
+              - hardening.traceroute
               - jobs.get
               - jobs.list
               - jobs.log
@@ -531,6 +537,12 @@ x-whacp-actions:
   ftp.disable: { mutating: true, description: "Stop and disable WhaCP's FTP service (accounts are kept)." }
   ftp.move_site: { mutating: true, description: "Give a website's FTP accounts (those inside its folder) to the website's current account, keeping their passwords (after the website moved to another account)." }
   ftp.status: { mutating: false, description: "FTP server state, settings, certificate and accounts (optionally of one website user); SFTP-enabled website users." }
+  hardening.compilers: { mutating: true, description: "Restrict the C/C++ compilers and the assembler to root and the whacp-compiler group (mode 0750), with these members; or open them again (earlier owner and mode restored)." }
+  hardening.forkbomb: { mutating: true, description: "Shell fork bomb protection: cap the processes of accounts (UID 1000 and up) in their sessions with pam_limits, or remove the cap." }
+  hardening.reapply: { mutating: true, description: "Apply compiler and traceroute restrictions again (after package updates reset modes)." }
+  hardening.smtp: { mutating: true, description: "SMTP restrictions: only root, the mail server, Mailman and the panel may connect to remote SMTP servers (nftables table loaded at boot); or remove the restriction." }
+  hardening.status: { mutating: false, description: "Server hardening: compiler access (programs, allowed users), traceroute, shell fork bomb protection and SMTP restrictions." }
+  hardening.traceroute: { mutating: true, description: "Enable traceroute for everyone (earlier modes restored) or limit it to root (mode 0700)." }
   jobs.get: { mutating: false, description: "Status of a background job." }
   jobs.list: { mutating: false, description: "Recent background jobs, optionally for one target." }
   jobs.log: { mutating: false, description: "Log output of a background job from an offset." }

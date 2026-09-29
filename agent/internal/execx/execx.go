@@ -162,6 +162,20 @@ var defaultCandidates = map[string][]string{
 	"grubby":     {"/usr/sbin/grubby", "/sbin/grubby"},
 	// Building the ModSecurity connector (only as WhaCP's build account).
 	"make": {"/usr/bin/make"},
+	// SMTP restrictions: only WhaCP's own table and rules file (checkArgs).
+	"nft": {"/usr/sbin/nft", "/sbin/nft"},
+}
+
+// NftRulesFile is the only file nft may load (SMTP restrictions).
+const NftRulesFile = "/etc/whacp/smtp-restrict.nft"
+
+// nftAllowed are the only nft command lines WhaCP runs.
+func nftAllowed(args []string) bool {
+	switch strings.Join(args, " ") {
+	case "-c -f " + NftRulesFile, "-f " + NftRulesFile, "list table inet whacp_smtp", "delete table inet whacp_smtp", "--version":
+		return true
+	}
+	return false
 }
 
 // Versioned PHP binaries are resolved on demand ("php8.3", "php-fpm8.3").
@@ -646,6 +660,9 @@ func checkArgs(id string, o Opts, args []string) error {
 	// unprivileged account.
 	if (id == "sh" || id == "perl" || id == "tar" || id == "clamscan" || id == "make") && (o.As == nil || o.As.UID < 1000 || o.As.GID < 1000) {
 		return fmt.Errorf("%w: %s may only run as an unprivileged account", ErrNotAllowed, id)
+	}
+	if id == "nft" && !nftAllowed(args) {
+		return fmt.Errorf("%w: nft %s", ErrNotAllowed, strings.Join(args, " "))
 	}
 	if len(o.Capabilities) > 0 {
 		if !PrivilegedCommands[id] || o.As != nil {
