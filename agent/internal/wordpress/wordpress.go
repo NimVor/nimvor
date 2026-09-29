@@ -745,6 +745,33 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return security(ctx, env, in)
 	}})
+	r.Register(actions.Action{Name: "wordpress.copy", Mutating: true, Timeout: 2 * time.Minute, Description: "Staging and cloning (job): clone an installation to another folder with its own database, sync files and/or the database from one installation to another, or put back a restore point. Files are copied by tar as the source and target accounts; a restore point of the target is saved before anything is replaced.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in CopyRequest
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := in.validate(env); err != nil {
+			return nil, host.Invalid(err)
+		}
+		job, err := copyJob(env, in)
+		if err != nil {
+			return nil, err
+		}
+		j := env.Jobs.Start("wordpress."+in.Mode, "wordpress:"+in.Dest.Domain+"/"+in.Dest.Path, job)
+		return map[string]any{"job_id": j.ID}, nil
+	}})
+	r.Register(actions.Action{Name: "wordpress.restore_points", Description: "Restore points of a website's WordPress installations (saved before a sync or clone replaced them), newest first.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Domain string `json:"domain"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := validate.Domain("domain", in.Domain); err != nil {
+			return nil, host.Invalid(err)
+		}
+		return map[string]any{"restore_points": ListRestorePoints(env, in.Domain)}, nil
+	}})
 	r.Register(actions.Action{Name: "wordpress.login", Mutating: true, Timeout: 2 * time.Minute, Description: "One-time sign-in link for a WordPress administrator (a file that deletes itself on first use and expires after a minute).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Target

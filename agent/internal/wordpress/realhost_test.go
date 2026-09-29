@@ -56,6 +56,7 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 		t.Cleanup(func() { exec.Command("userdel", name).Run() })
 	}
 	root := filepath.Join(sitesRoot, "wpt.test")
+	cfgBackup := t.TempDir()
 	os.MkdirAll(filepath.Join(root, "public_html"), 0o755)
 	os.MkdirAll(filepath.Join(root, "tmp"), 0o755)
 	exec.Command("chown", "-R", "whacpwt:whacpwt", root).Run()
@@ -72,6 +73,7 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	cfg := config.Default()
 	cfg.SitesRoot = sitesRoot
 	cfg.StateDir = t.TempDir()
+	cfg.BackupDir = cfgBackup
 	logBuf := &strings.Builder{}
 	log := slog.New(slog.NewTextHandler(logBuf, nil))
 	jm, _ := jobs.NewManager(t.TempDir(), 1, time.Minute, log)
@@ -334,6 +336,95 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(filepath.Join(cfg.StateDir, "wordpress-security.json")); strings.Contains(string(b), "AUTH_KEY") {
 		t.Fatal("state holds keys")
+	}
+
+	// Staging: clone to another website of another account, change the
+	// copy, sync its database back, then put the restore point back.
+	stgRoot := filepath.Join(sitesRoot, "stg.wpt.test")
+	os.MkdirAll(filepath.Join(stgRoot, "public_html"), 0o755)
+	os.MkdirAll(filepath.Join(stgRoot, "tmp"), 0o755)
+	exec.Command("chown", "-R", "whacpwt2:whacpwt2", stgRoot).Run()
+	os.Chmod(stgRoot, 0o710)
+	const stgPass = "stg-Db-Secret-88"
+	if out, err := exec.Command("mysql", "-e", "CREATE DATABASE whacp_wpt_stg; CREATE USER 'whacp_wpt_stg'@'localhost' IDENTIFIED BY '"+stgPass+"'; GRANT ALL ON whacp_wpt_stg.* TO 'whacp_wpt_stg'@'localhost';").CombinedOutput(); err != nil {
+		t.Fatalf("%s", out)
+	}
+	t.Cleanup(func() {
+		exec.Command("mysql", "-e", "DROP DATABASE IF EXISTS whacp_wpt_stg; DROP USER IF EXISTS 'whacp_wpt_stg'@'localhost'").Run()
+	})
+	stg := Target{Site: Site{Domain: "stg.wpt.test", User: "whacpwt2", Root: stgRoot, PHPVersion: php}, Path: "public_html"}
+	runCopy := func(in CopyRequest) map[string]any {
+		t.Helper()
+		if err := in.validate(env); err != nil {
+			t.Fatalf("%s: %v", in.Mode, err)
+		}
+		job, err := copyJob(env, in)
+		if err != nil {
+			t.Fatalf("%s: %v", in.Mode, err)
+		}
+		var jl strings.Builder
+		res, err := job(ctx, &jl)
+		if err != nil {
+			t.Fatalf("%s: %v\n%s", in.Mode, err, jl.String())
+		}
+		if strings.Contains(jl.String(), stgPass) || strings.Contains(jl.String(), newDB) {
+			t.Fatalf("a password in the job log:\n%s", jl.String())
+		}
+		return res.(map[string]any)
+	}
+	runCopy(CopyRequest{Source: target, Dest: stg, Mode: "clone", SourceDB: "whacp_wpt", URL: "https://stg.wpt.test", Staging: true,
+		DB: &DBTarget{Name: "whacp_wpt_stg", User: "whacp_wpt_stg", Password: stgPass, Host: "localhost"}})
+	stgEval := func(code string) string {
+		t.Helper()
+		c := exec.Command("php"+php, WPCLIPath, "--allow-root", "--skip-plugins", "--skip-themes", "--path="+filepath.Join(stgRoot, "public_html"), "eval", code)
+		out, err := c.CombinedOutput()
+		if err != nil {
+			t.Fatalf("staging eval: %v %s", err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	if got := stgEval(`echo DB_NAME, " ", get_option("home"), " ", get_option("blog_public");`); got != "whacp_wpt_stg https://stg.wpt.test 0" {
+		t.Fatalf("clone: %s", got)
+	}
+	if b, _ := exec.Command("stat", "-c", "%U", filepath.Join(stgRoot, "public_html/wp-config.php")).Output(); strings.TrimSpace(string(b)) != "whacpwt2" {
+		t.Fatalf("copied files belong to %s", b)
+	}
+	if _, err := info(ctx, env, stg, false); err != nil {
+		t.Fatalf("the clone does not work: %v", err)
+	}
+	// Change the copy, then sync its database and a new file back.
+	stgEval(`update_option("blogname", "Changed on staging");`)
+	os.WriteFile(filepath.Join(stgRoot, "public_html/staging-only.txt"), []byte("x"), 0o644)
+	exec.Command("chown", "whacpwt2:whacpwt2", filepath.Join(stgRoot, "public_html/staging-only.txt")).Run()
+	res = runCopy(CopyRequest{Source: stg, Dest: target, Mode: "sync", Files: true, Database: true, SourceDB: "whacp_wpt_stg", TargetDB: "whacp_wpt", URL: "https://wpt.test"})
+	point, _ := res["restore_point"].(string)
+	if got := wpEval(t, root, `echo get_option("blogname"), " ", get_option("home"), " ", DB_NAME;`); got != "Changed on staging https://wpt.test whacp_wpt" {
+		t.Fatalf("after sync: %s", got)
+	}
+	if b, _ := exec.Command("stat", "-c", "%U", filepath.Join(root, "public_html/staging-only.txt")).Output(); strings.TrimSpace(string(b)) != "whacpwt" {
+		t.Fatalf("synced file: %s", b)
+	}
+	if point == "" || len(ListRestorePoints(env, "wpt.test")) != 1 {
+		t.Fatalf("no restore point: %v", res)
+	}
+	runCopy(CopyRequest{Dest: target, Source: target, Mode: "restore", RestorePoint: point, TargetDB: "whacp_wpt"})
+	if got := wpEval(t, root, `echo get_option("blogname");`); got != "Toolkit test" {
+		t.Fatalf("after restore: %s", got)
+	}
+	// Refused: copying over itself, into its own parent, unknown modes.
+	for _, bad := range []CopyRequest{
+		{Source: target, Dest: target, Mode: "sync", Files: true, URL: "https://wpt.test"},
+		{Source: target, Dest: Target{Site: site, Path: ""}, Mode: "sync", Files: true, URL: "https://wpt.test"},
+		{Source: target, Dest: stg, Mode: "sync", Database: true, SourceDB: "whacp_wpt", TargetDB: "whacp_wpt", URL: "https://stg.wpt.test"},
+		{Source: target, Dest: stg, Mode: "copy", URL: "https://stg.wpt.test"},
+	} {
+		if bad.validate(env) == nil {
+			t.Errorf("accepted %+v", bad)
+		}
+	}
+	if _, err := copyJob(env, CopyRequest{Source: target, Dest: stg, Mode: "clone", SourceDB: "whacp_wpt", TargetDB: "whacp_wpt_stg", URL: "https://stg.wpt.test",
+		DB: &DBTarget{Name: "whacp_wpt_stg", User: "whacp_wpt_stg", Password: stgPass, Host: "localhost"}}); err == nil {
+		t.Fatal("cloned over an existing installation without confirmation")
 	}
 
 	if network {
