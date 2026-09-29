@@ -76,3 +76,31 @@ func TestWebsitePHPDirectives(t *testing.T) {
 		t.Error("Normalize accepted open_basedir")
 	}
 }
+
+func TestPoolSessionDefaults(t *testing.T) {
+	root := "/home/whacp/shop.test"
+	s := Spec{Domain: "shop.test", User: "shop", Root: root, PHP: PHPSettings{MemoryLimitMB: 256, UploadMaxMB: 64, MaxExecSeconds: 60, MaxChildren: 5, PM: "ondemand", MaxRequests: 500}}
+	l := Layout{LogDir: root + "/logs", TmpDir: root + "/tmp"}
+	pool := RenderPool(s, l)
+	for _, want := range []string{"php_flag[session.cookie_httponly] = on\n", "php_flag[session.use_strict_mode] = on\n", "php_flag[session.use_only_cookies] = on\n"} {
+		if !strings.Contains(pool, want) {
+			t.Errorf("pool lacks %q", want)
+		}
+	}
+	if strings.Contains(pool, "cookie_secure") {
+		t.Error("cookie_secure set on a website reachable over HTTP")
+	}
+	s.HTTPS, s.ForceHTTPS = true, true
+	if !strings.Contains(RenderPool(s, l), "php_flag[session.cookie_secure] = on\n") {
+		t.Error("HTTPS-only website without secure session cookies")
+	}
+	// The website can still choose otherwise.
+	ini, err := NormalizeINI(map[string]string{"session.use_strict_mode": "0"}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.PHP.INI = ini
+	if got := RenderPool(s, l); !strings.Contains(got, "php_flag[session.use_strict_mode] = off\n") || strings.Count(got, "use_strict_mode") != 1 {
+		t.Errorf("website override not applied:\n%s", got)
+	}
+}

@@ -131,7 +131,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                     <?php if ($serverPhp): ?>
                     <div class="form-check form-switch mt-3">
                         <input type="hidden" name="harden" value="0">
-                        <input class="form-check-input" type="checkbox" role="switch" id="f-harden" name="harden" value="1"<?= filter_var($v('harden', false), FILTER_VALIDATE_BOOL) ? ' checked' : '' ?>>
+                        <input class="form-check-input" type="checkbox" role="switch" id="f-harden" name="harden" value="1"<?= filter_var($v('harden', $hardenDefault ?? false), FILTER_VALIDATE_BOOL) ? ' checked' : '' ?>>
                         <label class="form-check-label" for="f-harden">Disable shell functions (exec, system, …)</label>
                     </div>
                     <details class="mt-3"<?= array_intersect(array_keys($errors ?? []), ['pm', 'start_servers', 'min_spare_servers', 'max_spare_servers', 'idle_timeout_seconds', 'max_requests', 'request_timeout_seconds', 'slowlog_seconds']) !== [] ? ' open' : '' ?>>

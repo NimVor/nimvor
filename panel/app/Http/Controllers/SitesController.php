@@ -58,6 +58,7 @@ final class SitesController extends Controller
         return $this->render('sites/form', [
             'site' => null,
             'phpVersions' => $this->service->phpVersions(),
+            'hardenDefault' => $this->service->hardenNewSites(),
             'owners' => \WhaCP\Hosting\Scope::isAll($this->user($request)) ? $this->users->all() : [],
         ]);
     }

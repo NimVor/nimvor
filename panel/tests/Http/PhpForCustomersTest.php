@@ -72,6 +72,24 @@ final class PhpForCustomersTest extends HttpTestCase
         self::assertSame([12, false], [$this->settings()['max_children'], $this->settings()['harden']]);
     }
 
+    public function testNewWebsitesFollowTheHardeningSetting(): void
+    {
+        $sites = $this->app->container->get(WebsiteService::class);
+        $admin = ['role_scope' => 'all', 'id' => 1];
+        $harden = fn (int $id): bool => (bool) json_decode((string) $this->db->scalar('SELECT php_settings FROM websites WHERE id = ?', [$id]), true)['harden'];
+        self::assertFalse($harden($sites->create(['domain' => 'off.test', 'kind' => 'php', 'php_version' => '8.3'], $admin)));
+
+        $this->app->container->get(\WhaCP\Services\SettingsService::class)->update(['php_harden_new_sites' => '1'], 1);
+        $this->login('admin');
+        self::assertMatchesRegularExpression('/id="f-harden" name="harden" value="1" checked/', $this->request('GET', '/websites/new')->body());
+        self::assertTrue($harden($sites->create(['domain' => 'on.test', 'kind' => 'php', 'php_version' => '8.3'], $admin)));
+        // An administrator can still create one without it.
+        self::assertFalse($harden($sites->create(['domain' => 'free.test', 'kind' => 'php', 'php_version' => '8.3', 'harden' => '0'], $admin)));
+        // A hosting customer cannot opt out.
+        $cust = (array) $this->app->container->get(UserRepository::class)->find((int) $this->db->scalar("SELECT id FROM users WHERE username = 'cust'"));
+        self::assertTrue($harden($sites->create(['domain' => 'cust.test', 'kind' => 'php', 'php_version' => '8.3', 'harden' => '0'], $cust)));
+    }
+
     public function testCustomersSetTheirWebsitesPhpDirectives(): void
     {
         $this->login('cust');

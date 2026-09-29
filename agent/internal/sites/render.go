@@ -198,6 +198,18 @@ func RenderPool(s Spec, l Layout) string {
 		{"post_max_size", fmt.Sprintf("%dM", s.PHP.UploadMaxMB), true},
 		{"max_execution_time", fmt.Sprint(s.PHP.MaxExecSeconds), true},
 	}
+	// Safer session cookies. They are plain (not admin) values, so the
+	// website's own directives or ini_set() can still change them.
+	defaults = append(defaults,
+		iniLine{"session.cookie_httponly", "On", false},
+		iniLine{"session.use_strict_mode", "On", false},
+		iniLine{"session.use_only_cookies", "On", false},
+	)
+	if s.HTTPS && s.ForceHTTPS {
+		// Only when every request is HTTPS: otherwise visitors on plain
+		// HTTP would lose their session.
+		defaults = append(defaults, iniLine{"session.cookie_secure", "On", false})
+	}
 	if s.PHP.Harden {
 		defaults = append(defaults, iniLine{"disable_functions", "exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec", true})
 	}

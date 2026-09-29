@@ -514,6 +514,12 @@ final class WebsiteService
         return (int) $actor['id']; // customers and resellers own what they create
     }
 
+    /** Whether new websites start with shell functions disabled (Settings). */
+    public function hardenNewSites(): bool
+    {
+        return $this->settings !== null && $this->settings->bool('php_harden_new_sites');
+    }
+
     /**
      * @param array<string, mixed> $input
      * @param array<string, mixed>|null $existing
@@ -604,7 +610,7 @@ final class WebsiteService
             }
             $settings[$k] = $v;
         }
-        $settings['harden'] = filter_var($input['harden'] ?? ($existing['php_settings']['harden'] ?? false), FILTER_VALIDATE_BOOL);
+        $settings['harden'] = filter_var($input['harden'] ?? ($existing['php_settings']['harden'] ?? $this->hardenNewSites()), FILTER_VALIDATE_BOOL);
         $pm = (string) ($input['pm'] ?? ($existing['php_settings']['pm'] ?? 'ondemand'));
         if (!in_array($pm, ['ondemand', 'dynamic', 'static'], true)) {
             $errors['pm'] = 'Choose on demand, dynamic or static.';
