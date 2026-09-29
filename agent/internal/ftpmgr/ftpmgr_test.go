@@ -441,3 +441,26 @@ func TestMoveSiteKeepsPasswords(t *testing.T) {
 		t.Fatal("another website's account changed")
 	}
 }
+
+// A website account that has (or was given) administrator rights never gets
+// SSH/SFTP keys, a password or a shell through WhaCP.
+func TestAdministratorAccountsGetNoAccess(t *testing.T) {
+	f := setup(t)
+	g, _ := os.OpenFile(filepath.Join(f.h.Base, "etc/group"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	g.WriteString("sudo:x:27:shop\n")
+	g.Close()
+	for _, c := range []struct {
+		action string
+		params map[string]any
+	}{
+		{"sftp.configure", map[string]any{"user": "shop", "enabled": true, "keys": []string{testKey}}},
+		{"shell.set", map[string]any{"users": []string{"shop"}, "mode": "normal"}},
+	} {
+		if _, err := f.call(t, c.action, c.params); code(err) != "invalid_params" || !strings.Contains(err.Error(), "administrator rights") {
+			t.Fatalf("%s for a sudo member: %v", c.action, err)
+		}
+	}
+	if called(f, "usermod") {
+		t.Fatalf("account changed: %v", f.h.Runner.Calls)
+	}
+}

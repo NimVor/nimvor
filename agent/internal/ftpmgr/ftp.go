@@ -247,6 +247,11 @@ func siteUser(env *host.Env, name string) (users.User, error) {
 			if u.UID < 1000 || filepath.Dir(filepath.Clean(u.Home)) != filepath.Clean(env.Cfg.SitesRoot) {
 				return users.User{}, actions.InvalidParams(name + " is not a website account")
 			}
+			// SSH/SFTP keys, passwords and shells are never given to an
+			// account with administrator rights.
+			if why := env.PrivilegedAccount(u.Name, u.GID); why != "" {
+				return users.User{}, actions.InvalidParams(name + " has administrator rights (" + why + "); WhaCP never grants it access")
+			}
 			return u, nil
 		}
 	}
