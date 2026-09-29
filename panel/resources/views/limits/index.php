@@ -4,6 +4,9 @@
  * @var array<string, mixed>|null $status
  * @var array<string, array<string, mixed>> $desired
  * @var array<string, array<string, mixed>> $names
+ * @var array<string, mixed>|null $quota
+ * @var list<array<string, mixed>> $quotaRows
+ * @var string $quotaJob
  */
 use WhaCP\Security\Permissions as P;
 
@@ -60,4 +63,47 @@ $fmt = static function (array $l): string {
         </table>
     </div>
     <div class="wcp-pager" data-wcp-dt-pager></div>
+</div>
+
+<div class="wcp-panel mt-4" id="disk-quotas">
+    <div class="wcp-actionbar"><div class="fw-semibold">Disk quotas</div>
+        <div class="wcp-actionbar-end">
+            <?php if ($quotaJob !== ''): ?><button type="button" class="btn btn-sm btn-link" data-wcp-job-open="<?= e($quotaJob) ?>">Last log</button><?php endif; ?>
+            <?php if ($quota !== null && in_array($quota['state'] ?? '', ['off'], true) && $this->can(P::SERVER_MANAGE)): ?>
+                <form method="post" action="<?= e($this->url('limits.quota.enable')) ?>" data-wcp-confirm="Turn on disk quotas for <?= e((string) $quota['mount_point']) ?> (<?= e((string) $quota['fstype']) ?>)? <?= ($quota['fstype'] ?? '') === 'xfs' ? 'WhaCP adds uquota to /etc/fstab' . (($quota['mount_point'] ?? '') === '/' ? ' and rootflags=uquota to the kernel options' : '') . '; quotas start after you reboot the server.' : 'The file system is remounted with user quotas (no downtime), every file is counted once (this can take a while on a large disk) and /etc/fstab is updated so they stay on after a reboot. The quota tools, and on some cloud kernels the kernel\'s extra modules, are installed if missing.' ?> Then each account's plan disk space is enforced: writes beyond it fail with “Disk quota exceeded”."><?= $this->csrfField() ?><button class="btn btn-sm btn-primary"><i class="bi bi-hdd me-1"></i>Turn on disk quotas</button></form>
+            <?php endif; ?>
+        </div></div>
+    <div class="p-3 border-bottom small">
+        <?php if ($quota === null): ?>
+            <span class="wcp-muted">The agent did not report the disk quota state.</span>
+        <?php else: $st = (string) ($quota['state'] ?? ''); ?>
+            <?php if ($st === 'on'): ?><span class="wcp-state is-ok">On</span>
+            <?php elseif ($st === 'pending_reboot'): ?><span class="wcp-state is-warn">After the next reboot</span>
+            <?php elseif ($st === 'unsupported'): ?><span class="wcp-state is-error">Not supported</span>
+            <?php else: ?><span class="wcp-state is-warn">Off</span><?php endif; ?>
+            <span class="ms-2">Websites in <code><?= e((string) ($quota['path'] ?? '')) ?></code> on <code><?= e((string) ($quota['mount_point'] ?? '')) ?></code> (<?= e((string) ($quota['fstype'] ?? '')) ?>, <?= e((string) ($quota['device'] ?? '')) ?>).</span>
+            <?php if (!empty($quota['note'])): ?><div class="mt-1"><?= e((string) $quota['note']) ?></div><?php endif; ?>
+            <div class="mt-1 wcp-muted"><?= $st === 'on'
+                ? 'Each account\'s plan disk space (with its overrides) is enforced on the files its websites\' system users own; an account with several system users shares it between them, re-divided every few minutes. A reseller\'s disk space covers its customers. Email and databases are not counted here.'
+                : 'While quotas are off, disk space is only measured: accounts over their plan get alerts and cannot add websites, but files can still be written.' ?></div>
+        <?php endif; ?>
+    </div>
+    <?php if ($quotaRows !== []): ?>
+    <div class="wcp-dtable table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>System user</th><th>Account</th><th class="text-end">Used</th><th class="text-end">Limit</th><th style="width:30%">Use</th></tr></thead>
+            <tbody>
+            <?php foreach ($quotaRows as $q): $used = (int) $q['used_kb'] * 1024; $hard = (int) $q['hard_kb'] * 1024; $pct = $hard > 0 ? (int) min(100, round(100 * $used / $hard)) : null; ?>
+                <tr>
+                    <td class="font-monospace small"><?= e((string) $q['system_user']) ?></td>
+                    <td class="small"><?= e((string) ($q['account'] ?? '—')) ?></td>
+                    <td class="text-end small"><?= e(format_bytes($used)) ?></td>
+                    <td class="text-end small"><?= $hard > 0 ? e(format_bytes($hard)) : '<span class="wcp-muted">none</span>' ?></td>
+                    <td><?php if ($pct !== null): ?><progress class="wcp-meter w-100" max="100" value="<?= $pct ?>" aria-label="Disk used"><?= $pct ?>%</progress><?php endif; ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php endif; ?>
 </div>

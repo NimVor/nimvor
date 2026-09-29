@@ -79,6 +79,13 @@ final class Application
                     $c->get(Logger::class)->warning('resource limits not applied', ['error' => $e->getMessage()]);
                 }
             }
+            try {
+                $c->get(\WhaCP\Services\DiskQuotaService::class)->reconcile();
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    $c->get(Logger::class)->warning('disk quotas not applied', ['error' => $e->getMessage()]);
+                }
+            }
         };
         $events->on('website.created', static fn (array $p) => $limits());
         $events->on('website.deleted', static fn (array $p) => $limits());

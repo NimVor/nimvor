@@ -104,7 +104,10 @@ final class PlanLimits
             'email_accounts' => "SELECT COUNT(*) FROM mail_mailboxes m JOIN mail_domains d ON d.id = m.domain_id WHERE d.owner_id IN ({$in})",
             'ftp_accounts' => '0',
             'bandwidth_mb' => "SELECT COALESCE(SUM(u.bw_bytes), 0) / 1048576 FROM website_usage u JOIN websites w ON w.id = u.website_id WHERE u.bw_month = '" . gmdate('Y-m') . "' AND w.owner_id IN ({$in})",
-            'disk_mb' => "SELECT COALESCE(SUM(u.bytes), 0) / 1048576 FROM website_usage u JOIN websites w ON w.id = u.website_id WHERE w.owner_id IN ({$in})",
+            // Where disk quotas are on, what the quota counts for the owners'
+            // system users (what is enforced); elsewhere their website folders.
+            'disk_mb' => "SELECT (COALESCE((SELECT SUM(q.used_kb) FROM disk_quotas q WHERE EXISTS (SELECT 1 FROM websites w WHERE w.server_id = q.server_id AND w.system_user = q.system_user AND w.owner_id IN ({$in}))), 0) * 1024
+                + COALESCE((SELECT SUM(u.bytes) FROM website_usage u JOIN websites w ON w.id = u.website_id WHERE w.owner_id IN ({$in}) AND NOT EXISTS (SELECT 1 FROM disk_quotas q WHERE q.server_id = w.server_id AND q.system_user = w.system_user)), 0)) / 1048576",
             default => throw new \InvalidArgumentException($resource),
         };
         return (int) $this->db->scalar($sql);

@@ -28,15 +28,20 @@ final class AccountAdminController extends Controller
         private readonly TerminationService $termination,
         private readonly \WhaCP\Services\ResourceLimitService $limits,
         private readonly \WhaCP\Services\BandwidthLimitService $bandwidth,
+        private readonly \WhaCP\Services\DiskQuotaService $quotas,
     ) {
         parent::__construct($view, $session);
     }
 
-    /** Monthly bandwidth blocks follow a changed limit or counter at once (else the scheduler does). */
+    /** Bandwidth blocks and disk quotas follow a changed limit or counter at once (else the scheduler does). */
     private function bandwidthNow(): void
     {
         try {
             $this->bandwidth->reconcile();
+        } catch (\Throwable) {
+        }
+        try {
+            $this->quotas->reconcile();
         } catch (\Throwable) {
         }
     }

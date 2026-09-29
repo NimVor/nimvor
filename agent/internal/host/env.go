@@ -73,6 +73,8 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		// WordPress toolkit: the pinned, checksum-verified WP-CLI.
 		"/usr/local/lib/whacp",
 		"/usr/local/lib/whacp/wp-cli.phar",
+		// Disk quotas: only the quota options of the websites' file system entry.
+		"/etc/fstab",
 		m.FTPDir + "/**",
 		m.DNSZoneDir + "/**",
 		m.DNSConfFile,

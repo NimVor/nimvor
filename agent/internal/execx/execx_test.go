@@ -89,3 +89,40 @@ func TestTransientArgs(t *testing.T) {
 		t.Errorf("command part: %q", a[n-len(want):])
 	}
 }
+
+// Commands given capabilities run as root in a unit whose bounding set is
+// exactly those, without the account sandbox's mount namespace; only the
+// quota commands may, only with the allowed capabilities.
+func TestPrivilegedCommands(t *testing.T) {
+	a := TransientArgs("whacp-run-x.service", "/bin/sh", "/usr/sbin/setquota", "/", nil,
+		Credential{Home: "/root", Capabilities: []string{"CAP_SYS_ADMIN"}}, time.Minute, "", "/o", "/e", []string{"/x:/y"}, []string{"-u", "web1", "0", "1024", "0", "0", "/"})
+	s := strings.Join(a, "\n") + "\n"
+	for _, want := range []string{"--uid=0\n", "--property=NoNewPrivileges=yes\n", "--property=CapabilityBoundingSet=CAP_SYS_ADMIN\n"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing %q in\n%s", want, s)
+		}
+	}
+	for _, gone := range []string{"ProtectSystem", "BindReadOnlyPaths", "CapabilityBoundingSet=\n"} {
+		if strings.Contains(s, gone) {
+			t.Errorf("%q in a privileged unit:\n%s", gone, s)
+		}
+	}
+	caps := []string{"CAP_SYS_ADMIN"}
+	for _, c := range []struct {
+		id string
+		o  Opts
+		ok bool
+	}{
+		{"setquota", Opts{Capabilities: caps}, true},
+		{"quotacheck", Opts{Capabilities: []string{"CAP_SYS_ADMIN", "CAP_DAC_READ_SEARCH"}}, true},
+		{"sh", Opts{Capabilities: caps}, false},
+		{"apt-get", Opts{Capabilities: caps}, false},
+		{"setquota", Opts{Capabilities: []string{"CAP_SYS_MODULE"}}, false},
+		{"setquota", Opts{Capabilities: caps, As: &Credential{UID: 1001, GID: 1001}}, false},
+	} {
+		err := checkArgs(c.id, c.o, nil)
+		if (err == nil) != c.ok {
+			t.Errorf("%s %v: %v", c.id, c.o.Capabilities, err)
+		}
+	}
+}

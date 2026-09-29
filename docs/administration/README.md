@@ -329,6 +329,43 @@ suspension again" retries.
   through the same code as deleting them one by one; if a step fails, that
   account is kept with what is left and the others continue.
 
+## Disk quotas
+
+A plan's disk space is enforced with Linux user quotas once an
+administrator turns them on: *Server → Resource limits → Disk quotas →
+Turn on disk quotas* (once per server). The websites' file system must be
+ext4 or XFS.
+
+- **ext4 (Ubuntu, Debian):** the file system is remounted with journaled
+  user quotas (`usrjquota=aquota.user,jqfmt=vfsv1`, no downtime), every
+  file is counted once with `quotacheck` (slow on a large disk), quotas
+  are turned on and the same options are added to its `/etc/fstab` entry
+  so they stay on after a reboot. The `quota` package is installed if
+  missing; on kernels without the quota module (some cloud images) the
+  matching `linux-modules-extra` package is installed. If a step fails,
+  `/etc/fstab` is not changed.
+- **XFS (AlmaLinux, RHEL):** XFS starts counting quotas only when it is
+  mounted, so `uquota` is added to `/etc/fstab` (and, for the root file
+  system, `rootflags=uquota` to every kernel with `grubby`). Quotas start
+  after the next reboot; the page shows "After the next reboot" until then.
+
+While quotas are on, the scheduler (every 5 minutes, and at once after a
+plan, override or website change) reads each website system user's use
+and sets its hard limit. An account's disk space is shared by its system
+users: each may grow by an equal part of what is left, re-divided on every
+pass, so together they never pass the limit. A reseller's disk space
+covers its customers' users too. Administrators and accounts without a
+limit are not limited. Writing beyond the limit fails with "Disk quota
+exceeded". Files owned by the account's system users on the websites' file
+system count; email (stored as the mail system's user) and databases do
+not. The plan usage shown to accounts then comes from the quota.
+
+The agent does not hold `CAP_SYS_ADMIN`, which quotas need. `setquota`,
+`repquota`, `quotaon`, `quotacheck` and `mount` (remount only) run as root
+in a short-lived systemd unit started by PID 1 whose capability bounding
+set is only `CAP_SYS_ADMIN` (plus `CAP_DAC_READ_SEARCH` for `quotacheck`),
+with `NoNewPrivileges`. No other command can be started that way.
+
 ## Resource limits (CPU, memory)
 
 A plan can limit its accounts' CPU (100 % = one core), memory, number of

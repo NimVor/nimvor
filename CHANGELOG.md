@@ -7,6 +7,14 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Disk quotas are enforced.** Server → Resource limits → Disk quotas turns
+  Linux user quotas on for the websites' file system (ext4: live remount,
+  count, `/etc/fstab`; XFS: `/etc/fstab` and `rootflags`, then a reboot).
+  Each account's plan disk space (with overrides; a reseller's covers its
+  customers) is then set as its system users' hard limit, shared between
+  them and re-divided every scheduler pass. Quota commands run in a
+  short-lived systemd unit limited to `CAP_SYS_ADMIN`; the agent itself gets
+  no new capability.
 - **Monthly bandwidth is enforced.** An account over its plan's monthly
   bandwidth (a reseller's limit covers its customers) is blocked: its
   websites answer "509 Bandwidth limit exceeded" (certificate renewals still

@@ -19,6 +19,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/modsec"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/netmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/quota"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/redismgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/security"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/services"
@@ -48,6 +49,7 @@ func All() []Module {
 		ffmpegmgr.Register,
 		netmgr.Register,
 		limits.Register,
+		quota.Register,
 		workers.Register,
 		deploy.Register,
 		redismgr.Register,

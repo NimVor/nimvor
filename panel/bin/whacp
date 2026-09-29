@@ -208,6 +208,16 @@ switch ($command) {
             foreach ($c->get(\WhaCP\Services\BandwidthLimitService::class)->reconcile() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }
+            // Disk quotas (where turned on) follow the plans and the use.
+            try {
+                foreach ($c->get(\WhaCP\Services\DiskQuotaService::class)->reconcile() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    out('[' . $srv['name'] . '] disk quotas not checked: ' . $e->getMessage());
+                }
+            }
             // Resource limits (cgroups) follow the plans.
             try {
                 foreach ($c->get(\WhaCP\Services\ResourceLimitService::class)->reconcile() as $line) {

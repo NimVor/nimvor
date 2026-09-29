@@ -4,6 +4,7 @@
 
 | Threat | Mitigation |
 |--------|------------|
+| Disk quota commands need CAP_SYS_ADMIN | The agent's own capabilities are unchanged. Only setquota, repquota, quotaon, quotacheck and mount (allowlisted, arguments validated) run as root in a transient unit started by PID 1 with CapabilityBoundingSet=CAP_SYS_ADMIN (+CAP_DAC_READ_SEARCH for quotacheck) and NoNewPrivileges; refused for any other command or capability, and never as a website account |
 | Remote attacker reaches the panel | Loopback-only listener by default; SSH tunnel or TLS proxy required |
 | Password guessing | Argon2id, 12-char minimum, per-user and per-IP throttling, uniform error messages, timing-equalised verification |
 | Password reset abuse | Same answer for every account, 256-bit single-use tokens stored as hashes, 30-minute expiry, per-account and per-IP limits, links only from the configured panel URL (no Host-header poisoning), two-factor still required |

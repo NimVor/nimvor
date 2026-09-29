@@ -229,6 +229,10 @@ paths:
               - php.install
               - php.modules
               - php.set_enabled
+              - quota.enable
+              - quota.report
+              - quota.set
+              - quota.status
               - redis.acl_del
               - redis.acl_set
               - redis.configure
@@ -577,6 +581,10 @@ x-whacp-actions:
   php.install: { mutating: true, description: "Install a PHP version (FPM, CLI and common extensions) with the package manager." }
   php.modules: { mutating: false, description: "Loaded modules of a PHP version." }
   php.set_enabled: { mutating: true, description: "Start and enable, or stop and disable, the FPM service of a PHP version." }
+  quota.enable: { mutating: true, description: "Start a background job turning user quotas on for the websites' file system: ext4 is remounted with journaled quotas, usage is counted and /etc/fstab updated; XFS gets uquota in /etc/fstab (and rootflags=uquota for the root file system) and needs a reboot. Installs the quota tools when missing." }
+  quota.report: { mutating: false, description: "Disk use and limit (KiB) of website system users on the websites' file system, from the quota records (read-only)." }
+  quota.set: { mutating: true, description: "Set website system users' disk space limits (KiB, hard limit; 0 removes the limit) on the websites' file system. Writing beyond the limit fails with \"Disk quota exceeded\"." }
+  quota.status: { mutating: false, description: "Whether disk quotas are on for the file system holding the websites (ext4 or XFS), with its mount point, device and type." }
   redis.acl_del: { mutating: true, description: "Remove a Redis ACL user." }
   redis.acl_set: { mutating: true, description: "Create or update a Redis user limited to a key prefix (per-website isolation)." }
   redis.configure: { mutating: true, description: "Set maxmemory and eviction policy (persisted with CONFIG REWRITE)." }

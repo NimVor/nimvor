@@ -39,6 +39,9 @@ type Credential struct {
 	Home   string
 	// Slice runs the command in the account's slice (resource limits).
 	Slice string
+	// Capabilities (root only, see Opts.Capabilities) is the unit's
+	// capability bounding set instead of none.
+	Capabilities []string
 }
 
 // Opts customises a single run.
@@ -54,7 +57,20 @@ type Opts struct {
 	// Timeout overrides the runner default; a negative value disables the
 	// per-command timeout (the caller's context still applies).
 	Timeout time.Duration
+	// Capabilities runs the command as root in a transient unit started by
+	// PID 1 whose capability bounding set is exactly these: for the few
+	// commands that need a capability the agent itself does not hold
+	// (CAP_SYS_ADMIN for disk quotas). Only the commands in
+	// PrivilegedCommands may, only with PrivilegedCapabilities, never with
+	// As. The agent's own capability set is unchanged.
+	Capabilities []string
 }
+
+// PrivilegedCommands may run with Opts.Capabilities.
+var PrivilegedCommands = map[string]bool{"setquota": true, "repquota": true, "quotaon": true, "quotacheck": true, "mount": true}
+
+// PrivilegedCapabilities are the capabilities Opts.Capabilities may name.
+var PrivilegedCapabilities = map[string]bool{"CAP_SYS_ADMIN": true, "CAP_DAC_READ_SEARCH": true}
 
 // Runner executes allowlisted commands.
 type Runner interface {
@@ -136,6 +152,14 @@ var defaultCandidates = map[string][]string{
 	"clamscan":               {"/usr/bin/clamscan"},
 	"ffmpeg":                 {"/usr/bin/ffmpeg"},
 	"dpkg-statoverride":      {"/usr/bin/dpkg-statoverride"},
+	// Disk quotas (the quota package); mount only remounts with quota
+	// options, grubby adds the XFS root quota boot option.
+	"setquota":   {"/usr/sbin/setquota", "/sbin/setquota"},
+	"repquota":   {"/usr/sbin/repquota", "/sbin/repquota"},
+	"quotaon":    {"/usr/sbin/quotaon", "/sbin/quotaon"},
+	"quotacheck": {"/usr/sbin/quotacheck", "/sbin/quotacheck"},
+	"mount":      {"/usr/bin/mount", "/bin/mount"},
+	"grubby":     {"/usr/sbin/grubby", "/sbin/grubby"},
 }
 
 // Versioned PHP binaries are resolved on demand ("php8.3", "php-fpm8.3").
@@ -237,6 +261,10 @@ func (r *SystemRunner) RunWith(ctx context.Context, id string, o Opts, args ...s
 	}
 	var cmd *exec.Cmd
 	switch {
+	case len(o.Capabilities) > 0 && r.transient():
+		// Through PID 1: the agent keeps its own narrow capability set.
+		o.As = &Credential{Home: "/root", Capabilities: o.Capabilities}
+		return r.runTransient(ctx, bin, dir, env, o, timeout, args)
 	case o.As != nil && r.transient():
 		// The agent never changes its own credentials: PID 1 starts the
 		// command as the account in a transient, confined unit. Under the
@@ -318,6 +346,21 @@ var transientHardening = []string{
 	"TimeoutStopSec=5",
 }
 
+// PrivilegedHardening confines a root command given capabilities (see
+// Opts.Capabilities): only those capabilities, no privilege gain through
+// setuid binaries, and no private mount namespace (a quota remount must
+// change the system's mount, not a copy).
+func PrivilegedHardening(caps []string) []string {
+	return []string{
+		"NoNewPrivileges=yes",
+		"CapabilityBoundingSet=" + strings.Join(caps, " "),
+		"RestrictRealtime=yes",
+		"LockPersonality=yes",
+		"KillMode=control-group",
+		"TimeoutStopSec=5",
+	}
+}
+
 // TransientHardening is the sandbox of commands run as an account (a
 // copy; the web terminal applies it to its sessions too).
 func TransientHardening() []string { return append([]string(nil), transientHardening...) }
@@ -348,7 +391,12 @@ func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeo
 		}
 		a = append(a, "--property=SupplementaryGroups="+strings.Join(g, " "))
 	}
-	for _, p := range transientHardening {
+	hardening := transientHardening
+	if len(as.Capabilities) > 0 {
+		hardening = PrivilegedHardening(as.Capabilities)
+		binds = nil
+	}
+	for _, p := range hardening {
 		a = append(a, "--property="+p)
 	}
 	if as.Slice != "" {
@@ -596,6 +644,16 @@ func checkArgs(id string, o Opts, args []string) error {
 	// unprivileged account.
 	if (id == "sh" || id == "perl" || id == "tar" || id == "clamscan") && (o.As == nil || o.As.UID < 1000 || o.As.GID < 1000) {
 		return fmt.Errorf("%w: %s may only run as an unprivileged account", ErrNotAllowed, id)
+	}
+	if len(o.Capabilities) > 0 {
+		if !PrivilegedCommands[id] || o.As != nil {
+			return fmt.Errorf("%w: %s may not run with added capabilities", ErrNotAllowed, id)
+		}
+		for _, c := range o.Capabilities {
+			if !PrivilegedCapabilities[c] {
+				return fmt.Errorf("%w: capability %s", ErrNotAllowed, c)
+			}
+		}
 	}
 	return nil
 }
