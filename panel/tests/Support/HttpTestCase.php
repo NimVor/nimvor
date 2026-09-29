@@ -77,9 +77,12 @@ abstract class HttpTestCase extends TestCase
      * @param array<string, mixed> $body
      * @param array<string, string> $headers
      */
+    /** The client address of requests. */
+    protected string $remoteIp = '192.0.2.10';
+
     protected function request(string $method, string $path, array $body = [], array $headers = [], string $raw = '', array $query = []): Response
     {
-        return $this->app->handle(new Request($method, $path, $query, $body, ['REMOTE_ADDR' => '192.0.2.10'], $headers, $raw));
+        return $this->app->handle(new Request($method, $path, $query, $body, ['REMOTE_ADDR' => $this->remoteIp], $headers, $raw));
     }
 
     /** @param array<string, mixed> $body */

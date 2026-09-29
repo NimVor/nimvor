@@ -74,7 +74,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     step('databases: Users tab (also from #db-users) and the user form');
 
     // ---- Security and FTP
-    for (const p of ['/security', '/security/firewall', '/security/ssh', '/security/fail2ban', '/ftp']) {
+    for (const p of ['/security', '/security/firewall', '/security/ssh', '/security/fail2ban', '/security/policies', '/security/compilers', '/security/smtp', '/security/password-strength', '/security/forkbomb', '/security/traceroute', '/ftp']) {
       const res = await page.goto(BASE + p);
       if (res.status() !== 200) { throw new Error(p + ' ' + res.status()); }
       if (p.startsWith('/security') && !(await page.$('[data-wcp-section-menu="security"] a.active'))) { throw new Error(p + ': security menu'); }
@@ -85,10 +85,18 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.waitForSelector('#new-rule.show #r-port');
     step('security pages (sidebar menu) and FTP load; firewall rule form opens');
     await page.screenshot({ path: OUT + '/adminlists-firewall.png', fullPage: true });
+    for (const [p, shot] of [['/security/policies', 'policies'], ['/security/password-strength', 'password-strength'], ['/security/traceroute', 'traceroute'], ['/security/compilers', 'compilers']]) {
+      await page.goto(BASE + p);
+      await page.screenshot({ path: OUT + '/adminlists-' + shot + '.png', fullPage: true });
+    }
+    const items = await page.$$eval('[data-wcp-section-menu="security"] a', (as) => as.map((a) => a.textContent.trim()));
+    const want = ['Overview', 'Firewall', 'SSH', 'Brute-force protection', 'Malware scan', 'Shell access', 'ModSecurity', 'Configure Security Policies', 'Compiler Access', 'SMTP Restrictions'];
+    if (want.some((w, i) => items[i] !== w)) { throw new Error('security menu order: ' + items.join(', ')); }
+    step('security menu in order: ' + items.join(', '));
 
     // ---- Phones
     await page.setViewportSize({ width: 390, height: 844 });
-    for (const p of ['/websites', '/databases', '/security', '/security/firewall', '/ftp']) {
+    for (const p of ['/websites', '/databases', '/security', '/security/firewall', '/security/policies', '/security/password-strength', '/security/traceroute', '/ftp']) {
       await page.goto(BASE + p);
       const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       if (over > 0) { throw new Error(p + ' scrolls sideways on a phone by ' + over + 'px'); }

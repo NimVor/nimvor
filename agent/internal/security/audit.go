@@ -69,6 +69,7 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 
 	if pkgs.Available(env) {
 		if ups, err := pkgs.Updates(ctx, env); err == nil {
+			add(sshVersionCheck(ups))
 			n := 0
 			for _, u := range ups {
 				if u.Security {
@@ -108,5 +109,7 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 			add(Check{ID: "redis", Title: "Redis exposure", Status: "pass", Severity: "high", Detail: "Redis is not exposed without a password."})
 		}
 	}
+	out = append(out, databaseChecks(ctx, env)...)
+	out = append(out, nobodyMailCheck(ctx, env))
 	return out
 }

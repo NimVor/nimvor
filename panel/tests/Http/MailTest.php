@@ -61,7 +61,7 @@ final class MailTest extends HttpTestCase
         self::assertSame($call['password'], $this->flash('secret')['password']);
         self::assertStringNotContainsString($call['password'], (string) json_encode($this->db->fetchAll('SELECT * FROM audit_logs')));
         self::assertStringContainsString('2 KB', $this->request('GET', '/mail/domains/' . $id)->body() . ' ');
-        foreach ([['local' => 'bad name', 'password' => 'a-long-password'], ['local' => 'x', 'password' => 'short'], ['local' => 'y'], ['local' => 'info', 'password' => 'a-long-password']] as $bad) {
+        foreach ([['local' => 'bad name', 'password' => 'a-long-password'], ['local' => 'x', 'password' => 'short'], ['local' => 'y'], ['local' => 'info', 'password' => 'a-long-password'], ['local' => 'weak', 'password' => 'abcdefghijkl']] as $bad) {
             $this->post('/mail/domains/' . $id . '/mailboxes', $bad);
             self::assertNotEmpty($this->flash('errors'), json_encode($bad));
         }

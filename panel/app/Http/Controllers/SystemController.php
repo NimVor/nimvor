@@ -29,6 +29,7 @@ final class SystemController extends Controller
         private readonly ServerContext $server,
         private readonly \WhaCP\Repositories\UserRepository $users,
         private readonly \WhaCP\Security\PasswordHasher $hasher,
+        private readonly \WhaCP\Security\PasswordPolicy $policy,
     ) {
         parent::__construct($view, $session);
     }
@@ -135,7 +136,7 @@ final class SystemController extends Controller
         if ($new !== $confirm) {
             return $this->redirectWithError('/server#root-password', 'The new passwords do not match.');
         }
-        $problem = $this->hasher->weakness($new, 'root');
+        $problem = $this->policy->check($new, 'root');
         $classes = (int) preg_match('/[a-z]/', $new) + (int) preg_match('/[A-Z]/', $new) + (int) preg_match('/[0-9]/', $new) + (int) preg_match('/[^A-Za-z0-9]/', $new);
         if ($problem === null && (mb_strlen($new) < 14 || $classes < 3)) {
             $problem = 'Use at least 14 characters with three of: lower case, upper case, digits, symbols.';

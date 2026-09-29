@@ -51,6 +51,35 @@ final class AuthController extends Controller
         if ($this->auth->pendingTwoFactor()) {
             return Response::redirect('/login/two-factor');
         }
+        if ($this->auth->pendingIpVerification()) {
+            return Response::redirect('/login/verify-ip');
+        }
+        $this->csrf->rotate();
+        return Response::redirect('/');
+    }
+
+    public function verifyIpForm(Request $request): Response
+    {
+        if (!$this->auth->pendingIpVerification()) {
+            return Response::redirect('/login');
+        }
+        return Response::html($this->view->render('auth/verify_ip', [], 'layouts/minimal'));
+    }
+
+    public function verifyIp(Request $request): Response
+    {
+        if ($request->input('cancel') === '1') {
+            $this->auth->cancelIpVerification();
+            return Response::redirect('/login');
+        }
+        /** @var list<string> $proxies */
+        $proxies = (array) $this->config->get('security.trusted_proxies', []);
+        $code = $request->input('code', '');
+        $error = $this->auth->completeIpVerification(is_string($code) ? mb_substr($code, 0, 20) : '', $request->ip($proxies));
+        if ($error !== null) {
+            $this->session->flash('error', $error);
+            return Response::redirect($this->auth->pendingIpVerification() ? '/login/verify-ip' : '/login');
+        }
         $this->csrf->rotate();
         return Response::redirect('/');
     }
@@ -77,6 +106,9 @@ final class AuthController extends Controller
             $this->session->flash('error', $error);
             return Response::redirect($this->auth->pendingTwoFactor() ? '/login/two-factor' : '/login');
         }
+        if ($this->auth->pendingIpVerification()) {
+            return Response::redirect('/login/verify-ip');
+        }
         $this->csrf->rotate();
         return Response::redirect('/');
     }
@@ -101,6 +133,9 @@ final class AuthController extends Controller
         $error = $this->auth->completeWithSecurityKey($o['origin'], $o['rp_id'], $request->all(), $request->ip($proxies));
         if ($error !== null) {
             return Response::json(['success' => false, 'error' => ['message' => $error], 'restart' => !$this->auth->pendingTwoFactor()], 400);
+        }
+        if ($this->auth->pendingIpVerification()) {
+            return Response::json(['success' => true, 'data' => ['redirect' => '/login/verify-ip']]);
         }
         $this->csrf->rotate();
         return Response::json(['success' => true, 'data' => ['redirect' => '/']]);

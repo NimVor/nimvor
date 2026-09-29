@@ -267,6 +267,27 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"user": in.User}, c.Exec(ctx, "Removing the database user", fmt.Sprintf("DROP USER IF EXISTS %s;", account(in.User, in.Host)))
 	}})
+	r.Register(actions.Action{Name: "db.drop_anonymous_users", Mutating: true, Description: "Remove the anonymous accounts (empty user name) of the database server.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+		rows, err := c.Query(ctx, "SELECT Host FROM mysql.user WHERE User = '';")
+		if err != nil {
+			return nil, actions.Failed("The anonymous users could not be listed.", err.Error())
+		}
+		removed := []string{}
+		var sql strings.Builder
+		for _, r := range rows {
+			if len(r) == 0 || !hostRe.MatchString(r[0]) {
+				continue
+			}
+			sql.WriteString(fmt.Sprintf("DROP USER IF EXISTS %s;\n", account("", r[0])))
+			removed = append(removed, r[0])
+		}
+		if len(removed) > 0 {
+			if err := c.Exec(ctx, "Removing the anonymous users", sql.String()); err != nil {
+				return nil, err
+			}
+		}
+		return map[string]any{"removed": removed}, nil
+	}})
 	r.Register(actions.Action{Name: "db.grant", Mutating: true, Description: "Grant or revoke a privilege set on one database.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in grantReq
 		if err := host.Decode(p, &in); err != nil {

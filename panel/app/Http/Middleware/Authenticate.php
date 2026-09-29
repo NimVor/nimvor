@@ -29,6 +29,8 @@ final class Authenticate implements Middleware
         private readonly \WhaCP\Security\WebAuthn $webAuthn,
         private readonly \WhaCP\Http\Session\SessionInterface $session,
         private readonly \WhaCP\Services\NotificationService $notifications,
+        private readonly \WhaCP\Services\SettingsService $settings,
+        private readonly \WhaCP\Security\PasswordPolicy $passwordPolicy,
     ) {
     }
 
@@ -50,6 +52,7 @@ final class Authenticate implements Middleware
             $this->audit->setActor((int) $user['id'], (string) $user['username']);
             if (!$request->wantsJson()) {
                 $this->view->share('agent_status', fn () => $this->agentStatus->get());
+                $this->view->share('password_rules', fn (): string => $this->passwordPolicy->describe());
                 $this->view->share('notification_count', fn (): ?int => $this->authorizer->can($user, \WhaCP\Security\Permissions::NOTIFICATIONS_VIEW)
                     ? $this->notifications->unreadCount($user) : null);
                 $this->view->share('server_switcher', fn (): array => [
@@ -77,6 +80,17 @@ final class Authenticate implements Middleware
             }
             $this->session->flash('error', $message);
             return Response::redirect('/profile#two-factor');
+        }
+        // Security policy: Password Age.
+        $maxAge = $this->settings->int('policy_password_age_days');
+        $changed = strtotime((string) ($user['password_changed_at'] ?? '')) ?: 0;
+        if ($maxAge > 0 && !self::setupAllowed((string) $route->name) && time() - $changed > $maxAge * 86400) {
+            $message = sprintf('Your password is older than %d days. Choose a new password to continue.', $maxAge);
+            if ($request->wantsJson()) {
+                return Response::json(['success' => false, 'error' => ['message' => $message]], 403);
+            }
+            $this->session->flash('error', $message);
+            return Response::redirect('/profile#password');
         }
         $featureOff = !$this->authorizer->routeAllowed($user, $route->name);
         if ($featureOff || ($route->permission !== null && !$this->authorizer->can($user, $route->permission))) {

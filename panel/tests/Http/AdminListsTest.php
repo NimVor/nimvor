@@ -119,9 +119,10 @@ final class AdminListsTest extends HttpTestCase
             'last_failure' => ['time' => '2026-09-27T09:30:00Z', 'user' => 'oracle', 'ip' => '198.51.100.8', 'port' => 40000]]);
         $this->agent->succeed('fail2ban.status', ['installed' => true, 'running' => true, 'jails' => [], 'managed_config' => '']);
         $page = $this->request('GET', '/security')->body();
-        // (high pass 3 + medium warn 1) / (3 + 3 + 2) = 50; info does not count.
-        self::assertStringContainsString('50 / 100', $page);
-        self::assertStringContainsString('Insecure', $page);
+        // (high pass 3 + medium warn 1 + the panel's own password strength
+        // check, medium pass 2) / (3 + 3 + 2 + 2) = 60; info does not count.
+        self::assertStringContainsString('60 / 100', $page);
+        self::assertStringContainsString('Fair', $page);
         self::assertMatchesRegularExpression('#wcp-stat-num">2<.*?wcp-stat-num">17<#s', $page);
         self::assertStringContainsString('203.0.113.10', $page);
         self::assertStringContainsString('oracle from 198.51.100.8', $page);
@@ -133,7 +134,7 @@ final class AdminListsTest extends HttpTestCase
         $this->agent->fail('ssh.logins', 404, 'not_found', 'Unknown action');
         $page = $this->request('GET', '/security')->body();
         self::assertStringContainsString('SSH login history is not available', $page);
-        self::assertStringContainsString('50 / 100', $page);
+        self::assertStringContainsString('60 / 100', $page);
     }
 
     public function testFtpPageShowsTheAddress(): void

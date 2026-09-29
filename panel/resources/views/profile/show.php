@@ -23,13 +23,13 @@
         </div>
     </div>
     <div class="col-lg-6">
-        <div class="card">
+        <div class="card" id="password">
             <div class="card-header"><i class="bi bi-shield-lock me-1"></i>Change password</div>
             <div class="card-body">
                 <form method="post" action="<?= e($this->url('profile.password')) ?>" data-wcp-busy novalidate>
                     <?= $this->csrfField() ?>
                     <?= $this->partial('partials/field', ['name' => 'current_password', 'label' => 'Current password', 'type' => 'password', 'value' => '', 'attrs' => ['autocomplete' => 'current-password', 'required' => 'required']]) ?>
-                    <?= $this->partial('partials/field', ['name' => 'password', 'label' => 'New password', 'type' => 'password', 'value' => '', 'help' => 'At least 12 characters.', 'attrs' => ['autocomplete' => 'new-password', 'required' => 'required']]) ?>
+                    <?= $this->partial('partials/field', ['name' => 'password', 'label' => 'New password', 'type' => 'password', 'value' => '', 'help' => isset($password_rules) && is_callable($password_rules) ? $password_rules() : 'At least 12 characters.', 'attrs' => ['autocomplete' => 'new-password', 'required' => 'required']]) ?>
                     <?= $this->partial('partials/field', ['name' => 'password_confirmation', 'label' => 'Confirm new password', 'type' => 'password', 'value' => '', 'attrs' => ['autocomplete' => 'new-password', 'required' => 'required']]) ?>
                     <button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Change password</button>
                 </form>

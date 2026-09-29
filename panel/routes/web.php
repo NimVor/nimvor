@@ -57,6 +57,8 @@ return static function (Router $r): void {
     $r->post('/login/two-factor', [AuthController::class, 'verifyTwoFactor'], ['name' => 'login.two_factor.submit', 'auth' => false]);
     $r->post('/login/two-factor/key/options', [AuthController::class, 'securityKeyOptions'], ['name' => 'login.key.options', 'auth' => false]);
     $r->post('/login/two-factor/key', [AuthController::class, 'securityKey'], ['name' => 'login.key', 'auth' => false]);
+    $r->get('/login/verify-ip', [AuthController::class, 'verifyIpForm'], ['name' => 'login.verify_ip', 'auth' => false]);
+    $r->post('/login/verify-ip', [AuthController::class, 'verifyIp'], ['name' => 'login.verify_ip.submit', 'auth' => false]);
     $r->get('/password/forgot', [PasswordResetController::class, 'forgot'], ['name' => 'password.forgot', 'auth' => false]);
     $r->post('/password/forgot', [PasswordResetController::class, 'send'], ['name' => 'password.send', 'auth' => false]);
     $r->get('/password/reset/{token}', [PasswordResetController::class, 'show'], ['name' => 'password.reset.form', 'auth' => false]);
@@ -331,6 +333,7 @@ return static function (Router $r): void {
 
     // Security
     $r->get('/security', [SecurityController::class, 'index'], ['name' => 'security', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/mysql-anonymous', [SecurityController::class, 'dropAnonymousUsers'], ['name' => 'security.mysql_anonymous', 'permission' => P::SERVER_MANAGE]);
     $r->get('/security/firewall', [SecurityController::class, 'firewall'], ['name' => 'security.firewall', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/firewall/rules', [SecurityController::class, 'addRule'], ['name' => 'security.firewall.add', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/firewall/rules/delete', [SecurityController::class, 'deleteRule'], ['name' => 'security.firewall.delete', 'permission' => P::SECURITY_MANAGE]);
@@ -345,6 +348,11 @@ return static function (Router $r): void {
     $r->post('/security/malware/update', [\WhaCP\Http\Controllers\AvController::class, 'updateSignatures'], ['name' => 'security.malware.update', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/shell', [\WhaCP\Http\Controllers\ShellController::class, 'index'], ['name' => 'security.shell', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/shell', [\WhaCP\Http\Controllers\ShellController::class, 'update'], ['name' => 'security.shell.update', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/policies', [\WhaCP\Http\Controllers\SecurityPolicyController::class, 'policies'], ['name' => 'security.policies', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/policies', [\WhaCP\Http\Controllers\SecurityPolicyController::class, 'savePolicies'], ['name' => 'security.policies.save', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/policies/ips/forget', [\WhaCP\Http\Controllers\SecurityPolicyController::class, 'forgetIp'], ['name' => 'security.policies.forget_ip', 'permission' => P::SECURITY_VIEW]);
+    $r->get('/security/password-strength', [\WhaCP\Http\Controllers\SecurityPolicyController::class, 'strength'], ['name' => 'security.password_strength', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/password-strength', [\WhaCP\Http\Controllers\SecurityPolicyController::class, 'saveStrength'], ['name' => 'security.password_strength.save', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/compilers', [\WhaCP\Http\Controllers\HardeningController::class, 'compilers'], ['name' => 'security.compilers', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/compilers', [\WhaCP\Http\Controllers\HardeningController::class, 'saveCompilers'], ['name' => 'security.compilers.save', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/smtp', [\WhaCP\Http\Controllers\HardeningController::class, 'smtp'], ['name' => 'security.smtp', 'permission' => P::SECURITY_VIEW]);

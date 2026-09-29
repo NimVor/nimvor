@@ -24,6 +24,7 @@ final class UserService
         private readonly AuditLogger $audit,
         private readonly ?PlanService $plans = null,
         private readonly ?PlanLimits $limits = null,
+        private readonly ?\WhaCP\Security\PasswordPolicy $policy = null,
     ) {
     }
 
@@ -167,7 +168,7 @@ final class UserService
         if ($new !== $confirm) {
             throw new ValidationException(['password_confirmation' => 'The passwords do not match.']);
         }
-        if (($weak = $this->hasher->weakness($new, (string) $user['username'])) !== null) {
+        if (($weak = ($this->policy?->check($new, (string) $user['username']) ?? $this->hasher->weakness($new, (string) $user['username']))) !== null) {
             throw new ValidationException(['password' => $weak]);
         }
         $this->users->updatePassword($id, $this->hasher->hash($new));
@@ -226,7 +227,7 @@ final class UserService
             $errors['role_id'] = 'Choose a valid role.';
         }
         if ($id === null || $password !== '') {
-            if (($weak = $this->hasher->weakness($password, $username)) !== null) {
+            if (($weak = ($this->policy?->check($password, $username) ?? $this->hasher->weakness($password, $username))) !== null) {
                 $errors['password'] = $weak;
             } elseif ($password !== $confirm) {
                 $errors['password_confirmation'] = 'The passwords do not match.';

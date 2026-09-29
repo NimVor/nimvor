@@ -124,6 +124,11 @@ $w5 = static fn (int $n): int => (int) (round($n / $max * 20) * 5);
                 <div class="wcp-check-text"><i class="bi bi-<?= e($icon[$st]) ?>" aria-hidden="true"></i><span><?= e($c['status'] !== 'pass' && !empty($c['remedy']) ? $c['remedy'] : $c['detail']) ?></span></div>
                 <?php if ($c['status'] !== 'pass' && !empty($c['remedy'])): ?><div class="wcp-check-more"><?= e($c['detail']) ?></div><?php endif; ?>
                 <div class="wcp-check-more">Severity: <?= e($c['severity']) ?></div>
+                <?php if (!empty($c['action']) && $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE)): ?>
+                    <form class="mt-2" method="post" action="<?= e($this->url($c['action']['route'])) ?>" data-wcp-busy data-wcp-confirm="<?= e($c['action']['label']) ?>?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger"><?= e($c['action']['label']) ?></button></form>
+                <?php elseif (!empty($c['link']) && $c['status'] !== 'pass' && $this->hasRoute($c['link'])): ?>
+                    <a class="small d-inline-block mt-2" href="<?= e($this->url($c['link'])) ?>">Open <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                <?php endif; ?>
             </div>
         <?php endforeach; ?>
     </div>

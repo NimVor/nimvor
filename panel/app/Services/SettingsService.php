@@ -105,6 +105,48 @@ final class SettingsService
                 'category' => 'security', 'type' => 'bool', 'default' => true,
                 'label' => 'Harden new WordPress installations automatically', 'help' => 'WordPress installed with the app installer gets the recommended security measures (web server rules and WordPress settings) as soon as it is installed. Each measure can be rolled back in the WordPress toolkit.',
             ],
+            // Security policies (Security → Configure Security Policies and
+            // Password Strength Configuration; not on the Settings page).
+            'policy_password_strength' => [
+                'category' => 'policy', 'type' => 'bool', 'default' => true,
+                'label' => 'Password Strength', 'help' => 'New passwords must meet the Password Strength Configuration.',
+            ],
+            'policy_password_age_days' => [
+                'category' => 'policy', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 3650,
+                'label' => 'Password Age (days)', 'help' => 'Users must choose a new password after this many days. 0 turns it off.',
+            ],
+            'policy_verified_ips' => [
+                'category' => 'policy', 'type' => 'bool', 'default' => false,
+                'label' => 'Limit logins to verified IP addresses', 'help' => 'A sign-in from an IP address the user has not used before needs a code sent to the user\'s email address.',
+            ],
+            'password_min_strength' => [
+                'category' => 'policy', 'type' => 'int', 'default' => 65, 'min' => 0, 'max' => 100,
+                'label' => 'Minimum password strength', 'help' => '0–100, from the length and the kinds of characters used.',
+            ],
+            'password_min_length' => [
+                'category' => 'policy', 'type' => 'int', 'default' => 12, 'min' => 12, 'max' => 128,
+                'label' => 'Total characters', 'help' => 'At least 12.',
+            ],
+            'password_min_special' => [
+                'category' => 'policy', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 32,
+                'label' => 'Special characters', 'help' => 'Characters other than letters and digits.',
+            ],
+            'password_min_numeric' => [
+                'category' => 'policy', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 32,
+                'label' => 'Numeric characters', 'help' => '0–9.',
+            ],
+            'password_min_alpha' => [
+                'category' => 'policy', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 32,
+                'label' => 'Alphabet characters', 'help' => 'Letters, upper or lower case.',
+            ],
+            'password_min_upper' => [
+                'category' => 'policy', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 32,
+                'label' => 'Uppercase characters', 'help' => 'A–Z.',
+            ],
+            'password_min_lower' => [
+                'category' => 'policy', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 32,
+                'label' => 'Lowercase characters', 'help' => 'a–z.',
+            ],
             'trash_retention_days' => [
                 'category' => 'general', 'type' => 'int', 'default' => 30, 'min' => 0, 'max' => 365,
                 'label' => 'File Manager trash: keep deleted files (days)', 'help' => 'Files deleted in the File Manager can be restored from its Trash for this many days, then they are deleted for good. 0 keeps them until the trash is emptied.',

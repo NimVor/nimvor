@@ -29,6 +29,7 @@ final class MailService
         private readonly WebsiteRepository $sites,
         private readonly DnsService $dns,
         private readonly ?PlanLimits $limits = null,
+        private readonly ?\WhaCP\Security\PasswordPolicy $policy = null,
     ) {
     }
 
@@ -263,10 +264,15 @@ final class MailService
         $password = is_string($input['password'] ?? null) ? (string) $input['password'] : '';
         $generated = null;
         if (!empty($input['generate'])) {
-            $password = $generated = rtrim(strtr(base64_encode(random_bytes(15)), '+/', 'Aa'), '=');
+            $password = $generated = $this->policy?->generate(20, ':') ?? rtrim(strtr(base64_encode(random_bytes(15)), '+/', 'Aa'), '=');
         }
         if ($password !== '' && (strlen($password) < 10 || strlen($password) > 128 || str_contains($password, ':'))) {
             throw new ValidationException(['password' => 'Use 10–128 characters (no colon), or generate one.']);
+        }
+        // Webmail sign-ins use this password: the server's password policy
+        // applies to passwords typed in (generated ones meet it).
+        if ($password !== '' && $generated === null && $this->policy !== null && $this->policy->enabled() && ($weak = $this->policy->check($password)) !== null) {
+            throw new ValidationException(['password' => $weak]);
         }
         if ($existing === null && $password === '') {
             throw new ValidationException(['password' => 'Enter a password or generate one.']);

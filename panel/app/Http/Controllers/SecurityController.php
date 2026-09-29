@@ -21,6 +21,8 @@ final class SecurityController extends Controller
         private readonly AgentClient $agent,
         private readonly SecurityService $security,
         private readonly \WhaCP\Database\Connection $db,
+        private readonly \WhaCP\Services\SettingsService $settings,
+        private readonly \WhaCP\Services\AuditLogger $audit,
     ) {
         parent::__construct($view, $session);
     }
@@ -51,8 +53,9 @@ final class SecurityController extends Controller
         foreach ((array) ($f2b['jails'] ?? []) as $j) {
             $sshJail = $sshJail || (($j['name'] ?? '') === 'sshd');
         }
+        [$hardening] = $err === null ? $this->read('hardening.status') : [null];
         return $this->page('index', [
-            'checks' => (array) $checks,
+            'checks' => $err === null ? array_merge($this->panelChecks((array) $hardening), array_map(fn ($c): array => $this->link((array) $c), (array) $checks)) : [],
             'agentError' => $err,
             'logins' => $logins === null ? null : (array) $logins,
             'sshProtected' => $f2b === [] ? null : (!empty($f2b['running']) && $sshJail),
@@ -61,6 +64,64 @@ final class SecurityController extends Controller
                 'failure' => $this->db->fetch("SELECT username, ip, created_at FROM audit_logs WHERE action = 'auth.login' AND result <> 'success' ORDER BY id DESC LIMIT 1"),
             ],
         ]);
+    }
+
+    /**
+     * Checks the panel answers itself: password strength, and the hardening
+     * switches (fork bomb protection, traceroute).
+     *
+     * @param array<string, mixed> $h hardening.status
+     * @return list<array<string, mixed>>
+     */
+    private function panelChecks(array $h): array
+    {
+        $out = [];
+        $min = $this->settings->int('password_min_strength');
+        $strong = $this->settings->bool('policy_password_strength') && $min >= \WhaCP\Security\PasswordPolicy::STRONG;
+        $out[] = ['id' => 'password_strength', 'title' => 'Password strength requirements', 'severity' => 'medium', 'link' => 'security.password_strength',
+            'status' => $strong ? 'pass' : 'warn',
+            'detail' => $strong ? sprintf('Password strength requirements are strong (minimum strength %d).', $min) : ($this->settings->bool('policy_password_strength') ? sprintf('The minimum password strength is %d.', $min) : 'Password strength requirements are off.'),
+            'remedy' => $strong ? '' : sprintf('Require a password strength of %d or more under Password Strength Configuration.', \WhaCP\Security\PasswordPolicy::STRONG)];
+        if (isset($h['forkbomb'])) {
+            $on = !empty($h['forkbomb']['enabled']);
+            $out[] = ['id' => 'forkbomb', 'title' => 'Shell Fork Bomb Protection', 'severity' => 'medium', 'link' => 'security.forkbomb', 'status' => $on ? 'pass' : 'warn',
+                'detail' => $on ? 'Fork bomb protection is enabled.' : 'Fork bomb protection is disabled.', 'remedy' => $on ? '' : 'Enable it under Shell Fork Bomb Protection.'];
+        }
+        if (isset($h['traceroute'])) {
+            $on = !empty($h['traceroute']['enabled']);
+            $none = ($h['traceroute']['programs'] ?? []) === [];
+            $out[] = ['id' => 'traceroute', 'title' => 'Traceroute status', 'severity' => 'low', 'link' => 'security.traceroute', 'status' => $none || !$on ? 'pass' : 'warn',
+                'detail' => $none ? 'Traceroute is not installed.' : ($on ? 'Traceroute is enabled for every user.' : 'Traceroute is disabled for users other than root.'),
+                'remedy' => $none || !$on ? '' : 'Disable it under Traceroute Enable/Disable.'];
+        }
+        return $out;
+    }
+
+    /**
+     * The page (or action) that fixes an agent check.
+     *
+     * @param array<string, mixed> $c
+     * @return array<string, mixed>
+     */
+    private function link(array $c): array
+    {
+        $links = ['firewall' => 'security.firewall', 'ssh_root' => 'security.ssh', 'ssh_password' => 'security.ssh', 'fail2ban' => 'security.fail2ban', 'updates' => 'packages', 'ssh_version' => 'packages', 'nobody_mail' => 'security.smtp', 'database_version' => 'databases.server'];
+        if (($c['id'] ?? '') === 'mysql_anonymous' && ($c['status'] ?? '') === 'fail') {
+            $c['action'] = ['route' => 'security.mysql_anonymous', 'label' => 'Remove anonymous users'];
+        } elseif (isset($links[$c['id'] ?? ''])) {
+            $c['link'] = $links[$c['id']];
+        }
+        return $c;
+    }
+
+    public function dropAnonymousUsers(Request $request): Response
+    {
+        return $this->act('/security', function (): string {
+            $res = (array) $this->agent->call('db.drop_anonymous_users', [], 60);
+            $removed = array_map('strval', (array) ($res['removed'] ?? []));
+            $this->audit->record('db.drop_anonymous_users', 'server', 'mysql', \WhaCP\Services\AuditLogger::SUCCESS, ['hosts' => $removed]);
+            return $removed === [] ? 'There were no anonymous users.' : 'Removed the anonymous MySQL users (' . implode(', ', $removed) . ').';
+        });
     }
 
     public function firewall(Request $request): Response

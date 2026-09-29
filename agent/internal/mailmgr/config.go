@@ -251,6 +251,8 @@ func postfixSettings(dir, hostname string, t tls, ipv6 bool, spam bool) [][2]str
 		{"smtpd_sasl_auth_enable", "no"},
 		{"smtpd_helo_required", "yes"},
 		{"disable_vrfy_command", "yes"},
+		// The pseudo-user "nobody" may not send mail with sendmail.
+		{"authorized_submit_users", "!nobody, static:anyone"},
 		{"smtpd_relay_restrictions", "permit_mynetworks, permit_sasl_authenticated, defer_unauth_destination"},
 		{"message_size_limit", "52428800"},
 		{"milter_default_action", "accept"},

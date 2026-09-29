@@ -35,6 +35,7 @@ final class PasswordReset
         private readonly Connection $db,
         private readonly UserRepository $users,
         private readonly PasswordHasher $hasher,
+        private readonly PasswordPolicy $policy,
         private readonly Mailer $mailer,
         private readonly SettingsService $settings,
         private readonly AuditLogger $audit,
@@ -118,7 +119,7 @@ final class PasswordReset
         if ($user === null) {
             throw new ValidationException(['token' => 'This link has expired or was already used. Ask for a new one.']);
         }
-        if (($weak = $this->hasher->weakness($password, (string) $user['username'])) !== null) {
+        if (($weak = $this->policy->check($password, (string) $user['username'])) !== null) {
             throw new ValidationException(['password' => $weak]);
         }
         if (!hash_equals($password, $confirmation)) {

@@ -11,7 +11,7 @@ $canManage = $this->can(\WhaCP\Security\Permissions::SECURITY_MANAGE) && ($user[
     <p class="mb-2">Traceroute displays the packet routing statistics from the server to another network host. It can be used to map the network’s topology and subsequently be used as a tool to focus a hacking attack.</p>
     <div class="d-flex flex-wrap align-items-center gap-2">
         <span class="fw-medium">Traceroute Status:</span>
-        <?= $on ? '<span class="wcp-state is-warn">Enabled</span>' : '<span class="wcp-state is-ok">Disabled</span>' ?>
+        <?= $progs === [] ? '<span class="wcp-state is-off">Not installed</span>' : ($on ? '<span class="wcp-state is-warn">Enabled</span>' : '<span class="wcp-state is-ok">Disabled</span>') ?>
         <span class="small text-body-secondary">Disabled means only root can run it (permissions 700).</span>
     </div>
 </div>

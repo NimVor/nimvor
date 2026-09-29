@@ -98,6 +98,7 @@ paths:
               - db.browse_tables
               - db.create
               - db.drop
+              - db.drop_anonymous_users
               - db.dump
               - db.grant
               - db.import
@@ -470,6 +471,7 @@ x-whacp-actions:
   db.browse_tables: { mutating: true, description: "Database browser: tables and views of a database with sizes." }
   db.create: { mutating: true, description: "Create a database (utf8mb4)." }
   db.drop: { mutating: true, description: "Drop a database (requires confirm = name)." }
+  db.drop_anonymous_users: { mutating: true, description: "Remove the anonymous accounts (empty user name) of the database server." }
   db.dump: { mutating: true, description: "Dump a database to a gzip file in the backup directory (job)." }
   db.grant: { mutating: true, description: "Grant or revoke a privilege set on one database." }
   db.import: { mutating: true, description: "Import a .sql or .sql.gz file into a database (job)." }

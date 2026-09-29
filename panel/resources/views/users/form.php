@@ -52,7 +52,7 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
                     </div>
 
                     <hr>
-                    <p class="small text-body-secondary"><?= $isNew ? 'Choose a password of at least 12 characters.' : 'Leave empty to keep the current password.' ?></p>
+                    <p class="small text-body-secondary"><?= $isNew ? e(isset($password_rules) && is_callable($password_rules) ? $password_rules() : 'Choose a password of at least 12 characters.') : 'Leave empty to keep the current password.' ?></p>
                     <?= $this->partial('partials/field', ['name' => 'password', 'label' => $isNew ? 'Password' : 'New password', 'type' => 'password', 'value' => '', 'attrs' => ['autocomplete' => 'new-password'] + ($isNew ? ['required' => 'required'] : [])]) ?>
                     <?= $this->partial('partials/field', ['name' => 'password_confirmation', 'label' => 'Confirm password', 'type' => 'password', 'value' => '', 'attrs' => ['autocomplete' => 'new-password']]) ?>
 

@@ -98,6 +98,7 @@ var PostfixSettings = map[string]setting{
 	"smtp_tls_security_level":            {"TLS for outgoing mail", oneOf("may", "encrypt", "dane")},
 	"inet_protocols":                     {"IP versions", oneOf("all", "ipv4", "ipv6")},
 	"relayhost":                          {"Send outgoing mail through (smart host)", relayhost},
+	"authorized_submit_users":            {"Local accounts that may send mail with sendmail", oneOf("!nobody, static:anyone", "static:anyone")},
 }
 
 // DovecotSettings are the Dovecot settings WhaCP manages.

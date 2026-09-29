@@ -143,6 +143,7 @@ sudo -u whacp -E php /opt/whacp/panel/bin/whacp migrate
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:create alice alice@example.com --role=operator
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:password alice
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:2fa-reset alice
+sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:verify-ip alice 203.0.113.5
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp agent:check
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp discovery:run
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp schedule:run   # normally run by whacp-scheduler.timer

@@ -15,6 +15,7 @@ declare(strict_types=1);
  *   bin/whacp discovery:run               Run read-only discovery and store a snapshot
  *   bin/whacp schedule:run                Record metrics and alerts, start due backups, apply retention
  *   bin/whacp user:2fa-reset <username>   Turn off two-factor sign-in for a user (lost phone)
+ *   bin/whacp user:verify-ip <username> <ip>   Let a user sign in from an address without an emailed code
  *   bin/whacp doctor                      Check the installation (exit code 1 on failures)
  */
 
@@ -120,7 +121,7 @@ switch ($command) {
         $user = $c->get(UserRepository::class)->findForAuth($username) ?? fail('user not found');
         $hasher = $c->get(PasswordHasher::class);
         $password = readPassword('New password: ');
-        if (($weak = $hasher->weakness($password, $username)) !== null) {
+        if (($weak = $c->get(\WhaCP\Security\PasswordPolicy::class)->check($password, $username)) !== null) {
             fail($weak);
         }
         if (stream_isatty(STDIN) && readPassword('Confirm password: ') !== $password) {
@@ -137,6 +138,16 @@ switch ($command) {
         $c->get(\WhaCP\Security\TwoFactor::class)->disable((int) $user['id']);
         $audit->record('user.two_factor_reset', 'user', (string) $user['id'], AuditLogger::SUCCESS, ['via' => 'cli']);
         out('Two-factor sign-in is off for ' . $user['username'] . '.');
+        break;
+
+    case 'user:verify-ip':
+        $username = $positional[0] ?? fail('usage: bin/whacp user:verify-ip <username> <ip>');
+        $ip = $positional[1] ?? fail('usage: bin/whacp user:verify-ip <username> <ip>');
+        filter_var($ip, FILTER_VALIDATE_IP) !== false || fail('not an IP address');
+        $user = $c->get(UserRepository::class)->findForAuth($username) ?? fail('user not found');
+        $c->get(\WhaCP\Security\LoginIpVerifier::class)->remember((int) $user['id'], $ip);
+        $audit->record('user.verify_ip', 'user', (string) $user['id'], AuditLogger::SUCCESS, ['via' => 'cli', 'ip' => $ip]);
+        out($user['username'] . ' can sign in from ' . $ip . ' without an emailed code.');
         break;
 
     case 'doctor':
@@ -359,5 +370,5 @@ switch ($command) {
         break;
 
     default:
-        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  agent:check\n  discovery:run\n  schedule:run\n  doctor\n  modsec:installs\n  modsec:rollback <installation id>");
+        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  user:verify-ip <username> <ip>\n  agent:check\n  discovery:run\n  schedule:run\n  doctor\n  modsec:installs\n  modsec:rollback <installation id>");
 }

@@ -15,7 +15,7 @@ $shown = static function (string $k, string $v): string {
 // Related settings together; keys the agent adds later go last.
 $order = ['message_size_limit', 'smtpd_recipient_limit', 'maximal_queue_lifetime', 'bounce_queue_lifetime', 'smtpd_client_connection_rate_limit', 'smtpd_client_message_rate_limit', 'smtpd_helo_required', 'disable_vrfy_command', 'smtp_tls_security_level', 'inet_protocols', 'relayhost', 'mail_max_userip_connections', 'auth_failure_delay', 'ssl_min_protocol', 'login_greeting'];
 $ordered = static fn (array $labels): array => array_replace(array_intersect_key(array_flip($order), $labels), $labels);
-$choices = ['smtpd_helo_required' => ['yes', 'no'], 'disable_vrfy_command' => ['yes', 'no'], 'smtp_tls_security_level' => ['may', 'encrypt', 'dane'], 'inet_protocols' => ['all', 'ipv4', 'ipv6'], 'ssl_min_protocol' => ['', 'TLSv1.2', 'TLSv1.3']];
+$choices = ['smtpd_helo_required' => ['yes', 'no'], 'disable_vrfy_command' => ['yes', 'no'], 'smtp_tls_security_level' => ['may', 'encrypt', 'dane'], 'inet_protocols' => ['all', 'ipv4', 'ipv6'], 'ssl_min_protocol' => ['', 'TLSv1.2', 'TLSv1.3'], 'authorized_submit_users' => ['!nobody, static:anyone', 'static:anyone']];
 ?>
 <?= $this->partial('mail/admin/_tabs', get_defined_vars()) ?>
 <?php if ($status === null) { return; } ?>

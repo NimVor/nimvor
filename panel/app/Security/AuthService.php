@@ -24,6 +24,7 @@ final class AuthService
     /** Seconds allowed between the password and the second factor. */
     private const PENDING_TTL = 300;
     private const PENDING_TRIES = 5;
+    private const IP_PENDING_KEY = '_auth_ip_pending';
 
     /** A real Argon2id hash of a random, discarded value (same cost as user hashes). */
     private const DUMMY_HASH = '$argon2id$v=19$m=65536,t=4,p=1$dVkvM1B6dzNvTFI1bW40Rg$4ObwPqsBPsJMDj4LO19/WrcHGZflXqksE8+8FUXeSAc';
@@ -45,6 +46,7 @@ final class AuthService
         ?callable $clock = null,
         private readonly ?TwoFactor $twoFactor = null,
         private readonly ?WebAuthn $webAuthn = null,
+        private readonly ?LoginIpVerifier $ipVerifier = null,
     ) {
         $this->clock = $clock ?? time(...);
     }
@@ -92,8 +94,84 @@ final class AuthService
             $this->audit->record('auth.login', 'user', (string) $id, AuditLogger::SUCCESS, ['step' => 'password', 'two_factor' => 'required'], $id, (string) $row['username']);
             return null;
         }
-        $this->finishLogin($row, $hash, $username, $ip, []);
+        return $this->finishOrVerifyIp($row, $hash, $username, $ip, []);
+    }
+
+    /**
+     * Sign in, unless the address must be verified first (security policy):
+     * then a code is emailed and the sign-in waits for it.
+     *
+     * @param array<string, mixed> $row
+     * @param array<string, mixed> $details
+     */
+    private function finishOrVerifyIp(array $row, string $hash, string $username, string $ip, array $details): ?string
+    {
+        $id = (int) $row['id'];
+        if ($this->ipVerifier === null || !$this->ipVerifier->required($id, $ip)) {
+            $this->finishLogin($row, $hash, $username, $ip, $details);
+            return null;
+        }
+        $this->session->remove(self::PENDING_KEY);
+        $user = $this->users->find($id) ?? $row;
+        try {
+            $code = $this->ipVerifier->sendCode($user, $ip);
+        } catch (\RuntimeException $e) {
+            $this->audit->record('auth.login', 'user', (string) $id, AuditLogger::DENIED, ['reason' => 'ip_not_verified', 'ip' => $ip], $id, (string) $row['username']);
+            return $e->getMessage();
+        }
+        $this->session->regenerate();
+        $this->session->set(self::IP_PENDING_KEY, ['id' => $id, 'username' => $username, 'fp' => self::fingerprint($hash), 'at' => ($this->clock)(), 'tries' => 0, 'code' => $code, 'ip' => $ip, 'details' => $details]);
+        $this->audit->record('auth.login', 'user', (string) $id, AuditLogger::SUCCESS, ['step' => 'password', 'ip_verification' => 'required', 'ip' => $ip], $id, (string) $row['username']);
         return null;
+    }
+
+    /** Whether a sign-in is waiting for the emailed code of a new IP address. */
+    public function pendingIpVerification(): bool
+    {
+        $p = $this->session->get(self::IP_PENDING_KEY);
+        if (!is_array($p)) {
+            return false;
+        }
+        if (($this->clock)() - (int) $p['at'] > LoginIpVerifier::CODE_TTL) {
+            $this->session->remove(self::IP_PENDING_KEY);
+            return false;
+        }
+        return true;
+    }
+
+    /** Complete a sign-in from a new IP address with the emailed code. */
+    public function completeIpVerification(string $code, string $ip): ?string
+    {
+        if ($this->ipVerifier === null || !$this->pendingIpVerification()) {
+            return 'Your sign-in expired. Enter your password again.';
+        }
+        /** @var array{id: int, username: string, fp: string, at: int, tries: int, code: string, ip: string, details: array<string, mixed>} $p */
+        $p = $this->session->get(self::IP_PENDING_KEY);
+        $user = $this->users->find((int) $p['id']);
+        $hash = $this->users->passwordHash((int) $p['id']);
+        if ($p['ip'] !== $ip || $hash === null || !\WhaCP\Repositories\UserRepository::canAct($user) || !hash_equals($p['fp'], self::fingerprint($hash))
+            || $this->throttle->retryAfter($p['username'], $ip) > 0) {
+            $this->session->remove(self::IP_PENDING_KEY);
+            return 'Your sign-in expired. Enter your password again.';
+        }
+        if (!hash_equals($p['code'], LoginIpVerifier::hash(trim($code)))) {
+            $this->throttle->recordFailure($p['username'], $ip);
+            $this->audit->record('auth.login', 'user', (string) $p['id'], AuditLogger::FAILURE, ['reason' => 'bad_ip_code', 'ip' => $ip], (int) $p['id'], (string) $user['username']);
+            if (++$p['tries'] >= self::PENDING_TRIES) {
+                $this->session->remove(self::IP_PENDING_KEY);
+                return 'Too many failed attempts. Enter your password again.';
+            }
+            $this->session->set(self::IP_PENDING_KEY, $p);
+            return 'That code is not valid.';
+        }
+        $this->ipVerifier->remember((int) $p['id'], $ip);
+        $this->finishLogin($user, $hash, $p['username'], $ip, $p['details'] + ['ip_verified' => true]);
+        return null;
+    }
+
+    public function cancelIpVerification(): void
+    {
+        $this->session->remove(self::IP_PENDING_KEY);
     }
 
     /** @param array<string, mixed> $row @param array<string, mixed> $details */
@@ -102,9 +180,13 @@ final class AuthService
         $id = (int) $row['id'];
         $this->throttle->recordSuccess($username, $ip);
         $this->users->recordLogin($id, $ip);
+        // Addresses signed in from count as verified (also while the policy
+        // is off, so turning it on does not lock anyone out).
+        $this->ipVerifier?->remember($id, $ip);
 
         $this->session->regenerate();
         $this->session->remove(self::PENDING_KEY);
+        $this->session->remove(self::IP_PENDING_KEY);
         $now = ($this->clock)();
         $this->session->set(self::USER_KEY, $id);
         $this->session->set(self::FINGERPRINT_KEY, self::fingerprint($hash));
@@ -202,8 +284,7 @@ final class AuthService
         if ($method === null) {
             return $this->secondFactorFailed($p, $user, $ip, 'bad_two_factor_code', 'That code is not valid. Check the time on your phone and try again.');
         }
-        $this->finishLogin($user, $hash, $p['username'], $ip, ['two_factor' => $method]);
-        return null;
+        return $this->finishOrVerifyIp($user, $hash, $p['username'], $ip, ['two_factor' => $method]);
     }
 
     /**
@@ -241,8 +322,7 @@ final class AuthService
         } catch (WebAuthnException $e) {
             return $this->secondFactorFailed($p, $user, $ip, 'bad_security_key', $e->getMessage());
         }
-        $this->finishLogin($user, $hash, $p['username'], $ip, ['two_factor' => 'security_key', 'key' => $name]);
-        return null;
+        return $this->finishOrVerifyIp($user, $hash, $p['username'], $ip, ['two_factor' => 'security_key', 'key' => $name]);
     }
 
     public function cancelTwoFactor(): void
