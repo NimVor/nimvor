@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/txn"
 )
@@ -162,5 +163,29 @@ func TestDetectionOnlyBeforeBlocking(t *testing.T) {
 	}
 	if site := f.h.Read("etc/nginx/whacp-modsec/sites/shop.test.conf"); strings.Contains(site, "DetectionOnly") {
 		t.Fatalf("still detection only:\n%s", site)
+	}
+}
+
+// The state is updated under the actions' lock: a website's mode being
+// changed at the same time is not overwritten with an older copy.
+func TestInstallCRSWaitsForOtherStateChanges(t *testing.T) {
+	m := newMachine(t)
+	m.Runner.Unavailable["apt-get"] = true
+	src := crsServer(t, crsArchive(t, false))
+	mu.Lock()
+	done := make(chan error, 1)
+	go func() {
+		_, err := InstallCRS(context.Background(), m.Env, src, 30, io.Discard)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		mu.Unlock()
+		t.Fatalf("finished while another change held the state: %v", err)
+	case <-time.After(300 * time.Millisecond):
+	}
+	mu.Unlock()
+	if err := <-done; err != nil {
+		t.Fatal(err)
 	}
 }

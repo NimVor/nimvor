@@ -217,6 +217,10 @@ func InstallCRS(ctx context.Context, e *host.Env, src CRSSource, retentionDays i
 		return fail(errors.New("the Core Rule Set is still not found after the installation"))
 	}
 	// Turn it on, in detection only until an administrator allows blocking.
+	// The state is read and written under the same lock as the other
+	// ModSecurity actions, so a website's mode changed meanwhile is kept.
+	mu.Lock()
+	defer mu.Unlock()
 	st := Load(e)
 	st.Config.CRS.Enabled = true
 	st.Config.DetectionOnly = true
