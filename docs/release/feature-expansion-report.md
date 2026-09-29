@@ -65,7 +65,7 @@ in CI have not run for this work:
 `0025_account_suspension`, `0026_limit_overrides`, `0027_feature_lists`,
 `0028_mail_routing`, `0029_disk_usage`, `0030_directory_listing`,
 `0031_plan_ffmpeg`, `0032_dns_record_disabled`, `0033_ip_management`,
-`0034_plan_resource_limits`, `0035_wordpress`.
+`0034_plan_resource_limits`, `0035_wordpress`, `0036_bandwidth_block`, `0037_disk_quotas`.
 
 All of them only add tables, columns or indexes; none rewrites or drops
 data. They run forward and are recorded, so they run once. Every panel test
