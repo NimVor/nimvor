@@ -7,6 +7,37 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Security menu in the sidebar.** Overview, Firewall, SSH, Brute-force
+  protection, Malware scan, Shell access, ModSecurity, Configure Security
+  Policies, Compiler Access, SMTP Restrictions, cPHulk Brute Force
+  Protection, Password Strength Configuration, Shell Fork Bomb Protection
+  and Traceroute Enable/Disable are pages of their own. Email and Databases
+  have sidebar menus too (mail server, mailboxes, queue, delivery reports,
+  statistics, greylisting, tools; databases and users, database server,
+  settings, connections, logs); the new DNS zone form is a modal.
+- **cPHulk Brute Force Protection.** Failed logins from WhaCP, webmail, SSH,
+  IMAP/POP3, SMTP AUTH and FTP lock the account (WhaCP sign-ins) or block
+  the address, for the protection period or one day; blocks apply to WhaCP
+  and the login services, or at the firewall level (nftables, expiring on
+  their own). Commands with the cPHulk variables (run as the panel's
+  account, 15-second limit, shell-quoted values), root login and brute
+  force notifications, an IP whitelist, whitelisted and blacklisted
+  countries (DB-IP Lite, downloaded monthly or imported), a failed logins
+  report, unblock and "Remove Blocks and clear report".
+- **Configure Security Policies.** Limit logins to verified IP addresses
+  (an emailed code for a new address), two-factor authentication per role,
+  password strength and password age.
+- **Password Strength Configuration.** Minimum strength and counts of
+  special, numeric, alphabet, upper and lower case characters and length,
+  for WhaCP users, mailbox passwords and the root password.
+- **Compiler Access, SMTP Restrictions, Shell Fork Bomb Protection and
+  Traceroute Enable/Disable.** Compilers for root and chosen accounts only;
+  only root, the mail server, Mailman and the panel may reach remote SMTP
+  servers; process caps for accounts' sessions; traceroute for root only.
+- **Security overview checks:** cPHulk, MySQL anonymous users (with a
+  remove button), supported database version, strong password rules,
+  "nobody" may not send email (Postfix authorized_submit_users), SSH
+  version, fork bomb protection and traceroute.
 - **Refreshed administrator and reseller interface.** Softer cards, a
   polished sidebar with an account card, a sticky top bar and **global
   search (Ctrl+K)** over every tool the viewer may open, with quick actions.

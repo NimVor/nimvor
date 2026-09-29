@@ -353,6 +353,12 @@ return static function (Router $r): void {
     $r->post('/security/policies/ips/forget', [\WhaCP\Http\Controllers\SecurityPolicyController::class, 'forgetIp'], ['name' => 'security.policies.forget_ip', 'permission' => P::SECURITY_VIEW]);
     $r->get('/security/password-strength', [\WhaCP\Http\Controllers\SecurityPolicyController::class, 'strength'], ['name' => 'security.password_strength', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/password-strength', [\WhaCP\Http\Controllers\SecurityPolicyController::class, 'saveStrength'], ['name' => 'security.password_strength.save', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/hulk', [\WhaCP\Http\Controllers\HulkController::class, 'index'], ['name' => 'security.hulk', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/hulk', [\WhaCP\Http\Controllers\HulkController::class, 'save'], ['name' => 'security.hulk.save', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/hulk/countries', [\WhaCP\Http\Controllers\HulkController::class, 'countries'], ['name' => 'security.hulk.countries', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/hulk/geo', [\WhaCP\Http\Controllers\HulkController::class, 'geoUpload'], ['name' => 'security.hulk.geo', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/hulk/unblock', [\WhaCP\Http\Controllers\HulkController::class, 'unblock'], ['name' => 'security.hulk.unblock', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/hulk/clear', [\WhaCP\Http\Controllers\HulkController::class, 'clear'], ['name' => 'security.hulk.clear', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/compilers', [\WhaCP\Http\Controllers\HardeningController::class, 'compilers'], ['name' => 'security.compilers', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/compilers', [\WhaCP\Http\Controllers\HardeningController::class, 'saveCompilers'], ['name' => 'security.compilers.save', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/smtp', [\WhaCP\Http\Controllers\HardeningController::class, 'smtp'], ['name' => 'security.smtp', 'permission' => P::SECURITY_VIEW]);

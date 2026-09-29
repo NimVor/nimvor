@@ -182,6 +182,7 @@ final class Application
                 $c->get(\WhaCP\Security\TwoFactor::class),
                 $c->get(\WhaCP\Security\WebAuthn::class),
                 $c->get(\WhaCP\Security\LoginIpVerifier::class),
+                $c->get(\WhaCP\Services\HulkService::class),
             );
         });
         $c->set(AgentTransport::class, static fn (Container $c) => new \WhaCP\Agent\RoutingTransport(

@@ -16,6 +16,8 @@ declare(strict_types=1);
  *   bin/whacp schedule:run                Record metrics and alerts, start due backups, apply retention
  *   bin/whacp user:2fa-reset <username>   Turn off two-factor sign-in for a user (lost phone)
  *   bin/whacp user:verify-ip <username> <ip>   Let a user sign in from an address without an emailed code
+ *   bin/whacp hulk:unblock <ip|user|all>   Remove brute force protection blocks
+ *   bin/whacp hulk:geo-import <file>   Load the DB-IP country database (brute force protection countries)
  *   bin/whacp doctor                      Check the installation (exit code 1 on failures)
  */
 
@@ -148,6 +150,30 @@ switch ($command) {
         $c->get(\WhaCP\Security\LoginIpVerifier::class)->remember((int) $user['id'], $ip);
         $audit->record('user.verify_ip', 'user', (string) $user['id'], AuditLogger::SUCCESS, ['via' => 'cli', 'ip' => $ip]);
         out($user['username'] . ' can sign in from ' . $ip . ' without an emailed code.');
+        break;
+
+    case 'hulk:unblock':
+        $what = $positional[0] ?? fail('usage: bin/whacp hulk:unblock <ip|user|all>');
+        $db = $c->get(\WhaCP\Database\Connection::class);
+        $n = $what === 'all' ? $db->run('DELETE FROM hulk_blocks')->rowCount() : $db->run('DELETE FROM hulk_blocks WHERE ip = ? OR user = ?', [$what, $what])->rowCount();
+        $audit->record('hulk.unblock', 'server', 'hulk', AuditLogger::SUCCESS, ['via' => 'cli', 'what' => $what]);
+        try {
+            $c->get(\WhaCP\Services\HulkService::class)->sync();
+        } catch (\WhaCP\Agent\AgentException $e) {
+            out('The server rules were not updated yet (the scheduler retries): ' . $e->getMessage());
+        }
+        out("Removed {$n} block(s).");
+        break;
+
+    case 'hulk:geo-import':
+        $file = $positional[0] ?? fail('usage: bin/whacp hulk:geo-import <dbip-country-lite.csv[.gz]>');
+        is_file($file) || fail('no such file');
+        try {
+            $n = $c->get(\WhaCP\Services\GeoIpService::class)->import($file);
+        } catch (\WhaCP\Support\UserFacingException $e) {
+            fail($e->getMessage());
+        }
+        out("Country database loaded ({$n} address ranges).");
         break;
 
     case 'doctor':
@@ -322,6 +348,17 @@ switch ($command) {
                     out('[' . $srv['name'] . '] FFmpeg access not checked: ' . $e->getMessage());
                 }
             }
+            // Brute force protection: failed logins from the services' logs,
+            // blocks, and the rules at the server.
+            try {
+                foreach ($c->get(\WhaCP\Services\HulkService::class)->run() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    out('[' . $srv['name'] . '] brute force protection not checked: ' . $e->getMessage());
+                }
+            }
             // Compiler and traceroute restrictions: package updates on RHEL
             // reset the programs' modes. Once an hour.
             if ((int) date('i') < 10) {
@@ -370,5 +407,5 @@ switch ($command) {
         break;
 
     default:
-        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  user:verify-ip <username> <ip>\n  agent:check\n  discovery:run\n  schedule:run\n  doctor\n  modsec:installs\n  modsec:rollback <installation id>");
+        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  user:verify-ip <username> <ip>\n  hulk:geo-import <file>\n  hulk:unblock <ip|user|all>\n  agent:check\n  discovery:run\n  schedule:run\n  doctor\n  modsec:installs\n  modsec:rollback <installation id>");
 }

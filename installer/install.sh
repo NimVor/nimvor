@@ -203,6 +203,9 @@ else
     PANEL_CERT=/etc/ssl/certs/whacp-panel.crt
     PANEL_CERT_KEY=/etc/ssl/private/whacp-panel.key
 fi
+# nft: SMTP Restrictions and brute force protection blocks (the package's
+# own nftables.service is left as it is).
+command -v nft >/dev/null || [[ -x /usr/sbin/nft ]] || missing_pkgs+=(nftables)
 if [[ -n $PUBLIC_HTTPS ]]; then
     command -v nginx >/dev/null || missing_pkgs+=(nginx)
     if [[ ! -e $PANEL_SITE ]] && command -v ss >/dev/null && [[ -n $(ss -ltnH "sport = :${PUBLIC_HTTPS}" 2>/dev/null) ]]; then

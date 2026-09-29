@@ -147,6 +147,95 @@ final class SettingsService
                 'category' => 'policy', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 32,
                 'label' => 'Lowercase characters', 'help' => 'a–z.',
             ],
+            // Brute force protection (Security → cPHulk Brute Force Protection; not on the Settings page).
+            'hulk_enabled' => [
+                'category' => 'hulk', 'type' => 'bool', 'default' => false,
+                'label' => 'cPHulk Brute Force Protection', 'help' => '',
+            ],
+            'hulk_user_enabled' => [
+                'category' => 'hulk', 'type' => 'bool', 'default' => true,
+                'label' => 'Username-based Protection', 'help' => '',
+            ],
+            'hulk_user_period' => [
+                'category' => 'hulk', 'type' => 'int', 'default' => 5, 'min' => 1, 'max' => 1440,
+                'label' => 'Brute Force Protection Period (in minutes)', 'help' => '',
+            ],
+            'hulk_user_max' => [
+                'category' => 'hulk', 'type' => 'int', 'default' => 5, 'min' => 1, 'max' => 1000,
+                'label' => 'Maximum Failures by Account', 'help' => '',
+            ],
+            'hulk_user_scope' => [
+                'category' => 'hulk', 'type' => 'string', 'default' => 'all', 'max_length' => 5,
+                'label' => 'Protection type', 'help' => 'local or all',
+            ],
+            'hulk_user_lock_root' => [
+                'category' => 'hulk', 'type' => 'bool', 'default' => false,
+                'label' => 'Allow username protection to lock the “root” user', 'help' => '',
+            ],
+            'hulk_ip_enabled' => [
+                'category' => 'hulk', 'type' => 'bool', 'default' => true,
+                'label' => 'IP Address-based Protection', 'help' => '',
+            ],
+            'hulk_ip_period' => [
+                'category' => 'hulk', 'type' => 'int', 'default' => 15, 'min' => 1, 'max' => 1440,
+                'label' => 'IP Address-based Brute Force Protection Period (in minutes)', 'help' => '',
+            ],
+            'hulk_ip_max' => [
+                'category' => 'hulk', 'type' => 'int', 'default' => 15, 'min' => 1, 'max' => 1000,
+                'label' => 'Maximum Failures per IP Address', 'help' => '',
+            ],
+            'hulk_ip_command' => [
+                'category' => 'hulk', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 500,
+                'label' => 'Command to Run When an IP Address Triggers Brute Force Protection', 'help' => '',
+            ],
+            'hulk_ip_firewall' => [
+                'category' => 'hulk', 'type' => 'bool', 'default' => false,
+                'label' => 'Block IP addresses at the firewall level if they trigger brute force protection', 'help' => '',
+            ],
+            'hulk_oneday_max' => [
+                'category' => 'hulk', 'type' => 'int', 'default' => 30, 'min' => 1, 'max' => 10000,
+                'label' => 'Maximum Failures per IP Address before the IP Address is Blocked for One Day', 'help' => '',
+            ],
+            'hulk_oneday_command' => [
+                'category' => 'hulk', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 500,
+                'label' => 'Command to Run When an IP Address Triggers a One-Day Block', 'help' => '',
+            ],
+            'hulk_oneday_firewall' => [
+                'category' => 'hulk', 'type' => 'bool', 'default' => false,
+                'label' => 'Block IP addresses at the firewall level if they trigger a one-day block', 'help' => '',
+            ],
+            'hulk_retention' => [
+                'category' => 'hulk', 'type' => 'int', 'default' => 360, 'min' => 5, 'max' => 10080,
+                'label' => 'Duration for Retaining Failed Logins (in minutes)', 'help' => '',
+            ],
+            'hulk_notify_root' => [
+                'category' => 'hulk', 'type' => 'bool', 'default' => true,
+                'label' => 'Send a notification upon successful root login when the IP address is not on the whitelist', 'help' => '',
+            ],
+            'hulk_notify_root_netblock' => [
+                'category' => 'hulk', 'type' => 'bool', 'default' => false,
+                'label' => 'Send a notification upon successful root login when the IP address is not on the whitelist, but from a known netblock', 'help' => '',
+            ],
+            'hulk_notify_brute' => [
+                'category' => 'hulk', 'type' => 'bool', 'default' => true,
+                'label' => 'Send a notification when the system detects a brute force user', 'help' => '',
+            ],
+            'hulk_whitelist' => [
+                'category' => 'hulk', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 4000,
+                'label' => 'Whitelisted IP addresses', 'help' => '',
+            ],
+            'hulk_synced' => [
+                'category' => 'hulk', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 5,
+                'label' => 'Brute force protection rules applied', 'help' => '',
+            ],
+            'hulk_geo_updated' => [
+                'category' => 'hulk', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 20,
+                'label' => 'Country database date', 'help' => '',
+            ],
+            'hulk_geo_tried' => [
+                'category' => 'hulk', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 20,
+                'label' => 'Country database download attempt', 'help' => '',
+            ],
             'trash_retention_days' => [
                 'category' => 'general', 'type' => 'int', 'default' => 30, 'min' => 0, 'max' => 365,
                 'label' => 'File Manager trash: keep deleted files (days)', 'help' => 'Files deleted in the File Manager can be restored from its Trash for this many days, then they are deleted for good. 0 keeps them until the trash is emptied.',

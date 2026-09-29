@@ -40,7 +40,9 @@ func TestRealHostDropAnonymousUsers(t *testing.T) {
 	if _, err := c.Query(ctx, "CREATE USER ''@'localhost'; CREATE USER 'whacpanonkeep'@'localhost';"); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { c.Query(ctx, "DROP USER IF EXISTS ''@'localhost'; DROP USER IF EXISTS 'whacpanonkeep'@'localhost';") })
+	t.Cleanup(func() {
+		c.Query(ctx, "DROP USER IF EXISTS ''@'localhost'; DROP USER IF EXISTS 'whacpanonkeep'@'localhost';")
+	})
 	r := actions.NewRegistry(true)
 	Register(r, env)
 	a, _ := r.Lookup("db.drop_anonymous_users")

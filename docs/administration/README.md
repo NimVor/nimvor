@@ -144,6 +144,7 @@ sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:create alice alice@example.
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:password alice
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:2fa-reset alice
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:verify-ip alice 203.0.113.5
+sudo -u whacp -E php /opt/whacp/panel/bin/whacp hulk:unblock 203.0.113.5
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp agent:check
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp discovery:run
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp schedule:run   # normally run by whacp-scheduler.timer
@@ -442,6 +443,45 @@ get only features that both their own plan and the reseller's plan
 include. Administrators and other staff roles are not limited. Deleting a
 list gives its plans every feature again. Lists store the features they
 turn off, so features added in later versions are on for existing lists.
+
+## Server security settings
+
+All under **Security** in the sidebar (administrators).
+
+- **Configure Security Policies**: *Limit logins to verified IP
+  addresses* (a WhaCP sign-in from a new address needs a 6-digit code sent
+  to the user's email; addresses already used count as verified;
+  `bin/whacp user:verify-ip <user> <ip>` verifies one from the shell),
+  two-factor authentication required per role, password strength on/off
+  and password age (days; 0 = off).
+- **Password Strength Configuration**: minimum strength (0–100, 65 or more
+  is reported as strong) and minimum numbers of total, special, numeric,
+  alphabet, upper case and lower case characters. It applies to WhaCP
+  users, mailbox passwords typed in (webmail) and the root password.
+- **cPHulk Brute Force Protection**: failed logins are read every minute
+  from the journal (sshd, Dovecot, Postfix SMTP AUTH, pure-ftpd) and
+  Roundcube's log, and counted at once for WhaCP sign-ins. Too many for an
+  account lock its WhaCP sign-ins; too many from an address block it from
+  WhaCP and the login ports (SSH, 21, 110, 143, 465, 587, 993, 995, 4190),
+  or from every port with the firewall-level options. Blocks live in the
+  nftables table `inet whacp_hulk` and expire by themselves; the scheduler
+  restores the table after a restart. Commands run as the panel's account
+  (not root) with a 15-second limit and shell-quoted variables. Countries
+  use DB-IP's IP to Country Lite database (CC BY 4.0), downloaded monthly;
+  without Internet access import it with `bin/whacp hulk:geo-import FILE`.
+  If you block yourself: `bin/whacp hulk:unblock <ip|user|all>`. When
+  protection is first turned on with an empty whitelist, your own address
+  is added to it.
+- **Compiler Access**: compilers and the assembler become mode 0750, group
+  `whacp-compiler`, with the accounts you allow as members (ModSecurity
+  source builds keep working). Restored exactly when turned off.
+- **SMTP Restrictions**: nftables table `inet whacp_smtp` (loaded at boot
+  by `whacp-smtp-restrict.service`) lets only root, the MTA, Mailman and
+  the panel connect to remote ports 25, 465 and 587.
+- **Shell Fork Bomb Protection**: `/etc/security/limits.d/90-whacp-forkbomb.conf`
+  caps processes of accounts (UID 1000 and up) in login sessions.
+- **Traceroute Enable/Disable**: traceroute and tracepath for root only
+  (mode 0700) or everyone.
 
 ## Shell access
 

@@ -166,13 +166,18 @@ var defaultCandidates = map[string][]string{
 	"nft": {"/usr/sbin/nft", "/sbin/nft"},
 }
 
-// NftRulesFile is the only file nft may load (SMTP restrictions).
-const NftRulesFile = "/etc/whacp/smtp-restrict.nft"
+// NftRulesFile and NftHulkFile are the only files nft may load (SMTP
+// restrictions; brute force protection blocks).
+const (
+	NftRulesFile = "/etc/whacp/smtp-restrict.nft"
+	NftHulkFile  = "/etc/whacp/hulk.nft"
+)
 
 // nftAllowed are the only nft command lines WhaCP runs.
 func nftAllowed(args []string) bool {
 	switch strings.Join(args, " ") {
-	case "-c -f " + NftRulesFile, "-f " + NftRulesFile, "list table inet whacp_smtp", "delete table inet whacp_smtp", "--version":
+	case "-c -f " + NftRulesFile, "-f " + NftRulesFile, "list table inet whacp_smtp", "delete table inet whacp_smtp", "--version",
+		"-c -f " + NftHulkFile, "-f " + NftHulkFile, "list table inet whacp_hulk", "delete table inet whacp_hulk":
 		return true
 	}
 	return false

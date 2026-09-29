@@ -82,6 +82,9 @@ final class SecurityController extends Controller
             'status' => $strong ? 'pass' : 'warn',
             'detail' => $strong ? sprintf('Password strength requirements are strong (minimum strength %d).', $min) : ($this->settings->bool('policy_password_strength') ? sprintf('The minimum password strength is %d.', $min) : 'Password strength requirements are off.'),
             'remedy' => $strong ? '' : sprintf('Require a password strength of %d or more under Password Strength Configuration.', \WhaCP\Security\PasswordPolicy::STRONG)];
+        $hulk = $this->settings->bool('hulk_enabled');
+        $out[] = ['id' => 'hulk', 'title' => 'cPHulk Brute Force Protection', 'severity' => 'high', 'link' => 'security.hulk', 'status' => $hulk ? 'pass' : 'fail',
+            'detail' => $hulk ? 'cPHulk Brute Force Protection is enabled.' : 'cPHulk Brute Force Protection is disabled.', 'remedy' => $hulk ? '' : 'Enable it under cPHulk Brute Force Protection (add your own IP address to its whitelist first).'];
         if (isset($h['forkbomb'])) {
             $on = !empty($h['forkbomb']['enabled']);
             $out[] = ['id' => 'forkbomb', 'title' => 'Shell Fork Bomb Protection', 'severity' => 'medium', 'link' => 'security.forkbomb', 'status' => $on ? 'pass' : 'warn',

@@ -47,6 +47,7 @@ final class AuthService
         private readonly ?TwoFactor $twoFactor = null,
         private readonly ?WebAuthn $webAuthn = null,
         private readonly ?LoginIpVerifier $ipVerifier = null,
+        private readonly ?\WhaCP\Services\HulkService $hulk = null,
     ) {
         $this->clock = $clock ?? time(...);
     }
@@ -57,6 +58,10 @@ final class AuthService
     public function attempt(string $username, string $password, string $ip): ?string
     {
         $username = trim($username);
+        if (($refusal = $this->bruteForceRefusal($username, $ip)) !== null) {
+            $this->audit->record('auth.login', 'user', $username, AuditLogger::DENIED, ['reason' => 'brute_force_protection'], null, $username);
+            return $refusal;
+        }
         $retry = $this->throttle->retryAfter($username, $ip);
         if ($retry > 0) {
             $this->audit->record('auth.login', 'user', $username, AuditLogger::DENIED, ['reason' => 'throttled'], null, $username);
@@ -76,6 +81,7 @@ final class AuthService
         }
         if ($row === null || !$valid || (int) $row['is_active'] !== 1) {
             $this->throttle->recordFailure($username, $ip);
+            $this->bruteForceFailure($username, $ip);
             $reason = $row === null ? 'unknown_user' : (!$valid ? 'bad_password' : 'inactive');
             $this->audit->record('auth.login', 'user', $username, AuditLogger::FAILURE, ['reason' => $reason], $row === null ? null : (int) $row['id'], $username);
             return 'Invalid username or password.';
@@ -123,6 +129,25 @@ final class AuthService
         $this->session->set(self::IP_PENDING_KEY, ['id' => $id, 'username' => $username, 'fp' => self::fingerprint($hash), 'at' => ($this->clock)(), 'tries' => 0, 'code' => $code, 'ip' => $ip, 'details' => $details]);
         $this->audit->record('auth.login', 'user', (string) $id, AuditLogger::SUCCESS, ['step' => 'password', 'ip_verification' => 'required', 'ip' => $ip], $id, (string) $row['username']);
         return null;
+    }
+
+    /** Brute force protection's refusal of a sign-in (never fails the sign-in itself). */
+    private function bruteForceRefusal(string $username, string $ip): ?string
+    {
+        try {
+            return $this->hulk?->loginRefusal($username, $ip);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function bruteForceFailure(string $username, string $ip): void
+    {
+        try {
+            $this->hulk?->recordPanelFailure($username, $ip);
+        } catch (\Throwable) {
+            // Counted by the login throttle regardless.
+        }
     }
 
     /** Whether a sign-in is waiting for the emailed code of a new IP address. */
@@ -257,6 +282,7 @@ final class AuthService
     private function secondFactorFailed(array $p, array $user, string $ip, string $reason, string $message): string
     {
         $this->throttle->recordFailure($p['username'], $ip);
+        $this->bruteForceFailure($p['username'], $ip);
         $this->audit->record('auth.login', 'user', (string) $p['id'], AuditLogger::FAILURE, ['reason' => $reason], (int) $p['id'], (string) $user['username']);
         if (++$p['tries'] >= self::PENDING_TRIES) {
             $this->session->remove(self::PENDING_KEY);

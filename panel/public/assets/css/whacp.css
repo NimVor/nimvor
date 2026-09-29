@@ -835,3 +835,7 @@ body { letter-spacing: -.003em; }
 .wcp-usage .progress { height: .45rem; border-radius: 999px; background: var(--bs-tertiary-bg); }
 .wcp-avatar-sm { width: 1.8rem; height: 1.8rem; font-size: .8rem; }
 .wcp-usage-open { grid-template-columns: 1fr auto; }
+
+/* Brute force protection: command variables and the selection column. */
+.wcp-hulk-vars { columns: 2 22rem; padding-left: 1.1rem; }
+.wcp-col-check { width: 2.5rem; }

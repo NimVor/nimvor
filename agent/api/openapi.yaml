@@ -172,6 +172,9 @@ paths:
               - hardening.smtp
               - hardening.status
               - hardening.traceroute
+              - hulk.failures
+              - hulk.status
+              - hulk.sync
               - jobs.get
               - jobs.list
               - jobs.log
@@ -545,6 +548,9 @@ x-whacp-actions:
   hardening.smtp: { mutating: true, description: "SMTP restrictions: only root, the mail server, Mailman and the panel may connect to remote SMTP servers (nftables table loaded at boot); or remove the restriction." }
   hardening.status: { mutating: false, description: "Server hardening: compiler access (programs, allowed users), traceroute, shell fork bomb protection and SMTP restrictions." }
   hardening.traceroute: { mutating: true, description: "Enable traceroute for everyone (earlier modes restored) or limit it to root (mode 0700)." }
+  hulk.failures: { mutating: false, description: "Brute force protection: login attempts since a Unix time (at most a day back) from the SSH server, Dovecot, Postfix SMTP AUTH, pure-ftpd (journal) and webmail (Roundcube log). Failures, plus successful SSH logins (for root login notifications)." }
+  hulk.status: { mutating: false, description: "Brute force protection: whether nftables is available and the table is loaded." }
+  hulk.sync: { mutating: true, description: "Brute force protection: enforce the blocked addresses (login services only, or every port), blacklisted countries' address ranges (login services) and the whitelist with the nftables table inet whacp_hulk; or remove the table." }
   jobs.get: { mutating: false, description: "Status of a background job." }
   jobs.list: { mutating: false, description: "Recent background jobs, optionally for one target." }
   jobs.log: { mutating: false, description: "Log output of a background job from an offset." }
