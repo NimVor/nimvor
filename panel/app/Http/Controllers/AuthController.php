@@ -141,6 +141,26 @@ final class AuthController extends Controller
         return Response::json(['success' => true, 'data' => ['redirect' => '/']]);
     }
 
+    /** Step-up: confirm the password before a sensitive change. */
+    public function confirmForm(Request $request): Response
+    {
+        return $this->render('auth/confirm_password', ['return' => \WhaCP\Http\Middleware\Authenticate::safePath($request->string('return'))]);
+    }
+
+    public function confirm(Request $request): Response
+    {
+        /** @var list<string> $proxies */
+        $proxies = (array) $this->config->get('security.trusted_proxies', []);
+        $return = \WhaCP\Http\Middleware\Authenticate::safePath($request->string('return'));
+        $password = $request->input('password', '');
+        if (!$this->auth->confirmPassword(is_string($password) ? $password : '', $request->ip($proxies))) {
+            $this->session->flash('error', 'That password is not correct.');
+            return Response::redirect('/confirm-password?return=' . rawurlencode($return));
+        }
+        $this->session->flash('success', 'Password confirmed for 15 minutes. Submit your change again.');
+        return Response::redirect($return);
+    }
+
     public function logout(Request $request): Response
     {
         // Web terminals of this sign-in end with it.

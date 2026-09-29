@@ -108,7 +108,13 @@ func (h *Host) handle(id string, o execx.Opts, args []string) (string, error) {
 		return "active", nil
 	case id == "useradd":
 		name := args[len(args)-1]
-		line := fmt.Sprintf("%s:x:%d:%d::/home/whacp:/usr/sbin/nologin\n", name, h.NextUID, h.NextUID)
+		home := "/home/whacp"
+		for i, a := range args {
+			if a == "--home-dir" && i+1 < len(args) {
+				home = args[i+1]
+			}
+		}
+		line := fmt.Sprintf("%s:x:%d:%d::%s:/usr/sbin/nologin\n", name, h.NextUID, h.NextUID, home)
 		f, _ := os.OpenFile(filepath.Join(h.Base, "etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
 		f.WriteString(line)
 		f.Close()

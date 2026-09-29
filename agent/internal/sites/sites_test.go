@@ -36,6 +36,12 @@ func TestApplyCreatesSiteAndIsIdempotent(t *testing.T) {
 	if !strings.Contains(pool, "user = newsite") || !strings.Contains(pool, "open_basedir] = /home/whacp/new.test/") {
 		t.Errorf("pool:\n%s", pool)
 	}
+	// Its scheduled tasks are the panel's: no personal crontab or at jobs.
+	for _, f := range []string{"etc/cron.deny", "etc/at.deny"} {
+		if !strings.Contains(h.Read(f), "\nnewsite\n") {
+			t.Errorf("%s:\n%s", f, h.Read(f))
+		}
+	}
 	if !h.Exists("etc/nginx/sites-enabled/whacp-new.test.conf") || !h.Exists("home/whacp/new.test/public_html/index.html") {
 		t.Error("link or index missing")
 	}

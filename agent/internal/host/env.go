@@ -106,6 +106,8 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		cfg.StateDir + "/**",
 		cfg.BackupDir + "/**",
 		WorkersDir + "/**",
+		// Website accounts' personal crontab and at jobs are refused.
+		"/etc/cron.deny", "/etc/at.deny",
 		// RHEL: switching a PHP extension edits its php.d file; WhaCP's
 		// php.ini settings are php.d/99-whacp.ini there.
 		"/etc/opt/remi/php*/php.d/*.ini",

@@ -25,6 +25,7 @@ final class AuthService
     private const PENDING_TTL = 300;
     private const PENDING_TRIES = 5;
     private const IP_PENDING_KEY = '_auth_ip_pending';
+    private const CONFIRMED_KEY = '_auth_confirmed_at';
 
     /** A real Argon2id hash of a random, discarded value (same cost as user hashes). */
     private const DUMMY_HASH = '$argon2id$v=19$m=65536,t=4,p=1$dVkvM1B6dzNvTFI1bW40Rg$4ObwPqsBPsJMDj4LO19/WrcHGZflXqksE8+8FUXeSAc';
@@ -96,7 +97,7 @@ final class AuthService
             // Password is right; the session is not signed in until the
             // second factor is given.
             $this->session->regenerate();
-            $this->session->set(self::PENDING_KEY, ['id' => $id, 'username' => $username, 'fp' => self::fingerprint($hash), 'at' => ($this->clock)(), 'tries' => 0]);
+            $this->session->set(self::PENDING_KEY, ['id' => $id, 'username' => $username, 'fp' => $this->fingerprint($hash, $id), 'at' => ($this->clock)(), 'tries' => 0]);
             $this->audit->record('auth.login', 'user', (string) $id, AuditLogger::SUCCESS, ['step' => 'password', 'two_factor' => 'required'], $id, (string) $row['username']);
             return null;
         }
@@ -126,7 +127,7 @@ final class AuthService
             return $e->getMessage();
         }
         $this->session->regenerate();
-        $this->session->set(self::IP_PENDING_KEY, ['id' => $id, 'username' => $username, 'fp' => self::fingerprint($hash), 'at' => ($this->clock)(), 'tries' => 0, 'code' => $code, 'ip' => $ip, 'details' => $details]);
+        $this->session->set(self::IP_PENDING_KEY, ['id' => $id, 'username' => $username, 'fp' => $this->fingerprint($hash, $id), 'at' => ($this->clock)(), 'tries' => 0, 'code' => $code, 'ip' => $ip, 'details' => $details]);
         $this->audit->record('auth.login', 'user', (string) $id, AuditLogger::SUCCESS, ['step' => 'password', 'ip_verification' => 'required', 'ip' => $ip], $id, (string) $row['username']);
         return null;
     }
@@ -174,7 +175,7 @@ final class AuthService
         $p = $this->session->get(self::IP_PENDING_KEY);
         $user = $this->users->find((int) $p['id']);
         $hash = $this->users->passwordHash((int) $p['id']);
-        if ($p['ip'] !== $ip || $hash === null || !\WhaCP\Repositories\UserRepository::canAct($user) || !hash_equals($p['fp'], self::fingerprint($hash))
+        if ($p['ip'] !== $ip || $hash === null || !\WhaCP\Repositories\UserRepository::canAct($user) || !hash_equals($p['fp'], $this->fingerprint($hash, (int) $p['id']))
             || $this->throttle->retryAfter($p['username'], $ip) > 0) {
             $this->session->remove(self::IP_PENDING_KEY);
             return 'Your sign-in expired. Enter your password again.';
@@ -214,8 +215,9 @@ final class AuthService
         $this->session->remove(self::IP_PENDING_KEY);
         $now = ($this->clock)();
         $this->session->set(self::USER_KEY, $id);
-        $this->session->set(self::FINGERPRINT_KEY, self::fingerprint($hash));
+        $this->session->set(self::FINGERPRINT_KEY, $this->fingerprint($hash, $id));
         $this->session->set(self::LOGIN_AT_KEY, $now);
+        $this->session->set(self::CONFIRMED_KEY, $now);
         $this->session->set(self::ACTIVITY_KEY, $now);
         $this->user = false;
 
@@ -271,7 +273,7 @@ final class AuthService
         $id = (int) $p['id'];
         $user = $this->users->find($id);
         $hash = $this->users->passwordHash($id);
-        if ($hash === null || !\WhaCP\Repositories\UserRepository::canAct($user) || !hash_equals($p['fp'], self::fingerprint($hash))) {
+        if ($hash === null || !\WhaCP\Repositories\UserRepository::canAct($user) || !hash_equals($p['fp'], $this->fingerprint($hash, (int) $p['id']))) {
             $this->session->remove(self::PENDING_KEY);
             return 'Your sign-in expired. Enter your password again.';
         }
@@ -405,7 +407,7 @@ final class AuthService
         $user = $this->users->find($id);
         $hash = $this->users->passwordHash($id);
         if ($hash === null || !\WhaCP\Repositories\UserRepository::canAct($user)
-            || !hash_equals((string) $this->session->get(self::FINGERPRINT_KEY, ''), self::fingerprint($hash))) {
+            || !hash_equals((string) $this->session->get(self::FINGERPRINT_KEY, ''), $this->fingerprint($hash, $id))) {
             $this->session->invalidate();
             return null;
         }
@@ -421,13 +423,57 @@ final class AuthService
         $hash = $this->users->passwordHash($userId);
         if ($hash !== null && $this->session->get(self::USER_KEY) === $userId) {
             $this->session->regenerate();
-            $this->session->set(self::FINGERPRINT_KEY, self::fingerprint($hash));
+            $this->session->set(self::FINGERPRINT_KEY, $this->fingerprint($hash, $userId));
             $this->user = false;
         }
     }
 
-    private static function fingerprint(string $hash): string
+    /**
+     * The session's binding to the account: its password hash and session
+     * epoch (raised by "sign out other sessions"), so either change ends
+     * every other session.
+     */
+    private function fingerprint(string $hash, int $userId): string
     {
-        return hash('sha256', 'whacp-session|' . $hash);
+        return hash('sha256', 'whacp-session|' . $hash . '|' . $this->users->sessionEpoch($userId));
+    }
+
+    /** End every other session of the user; this one stays signed in. */
+    public function signOutOtherSessions(int $userId): void
+    {
+        $this->users->bumpSessionEpoch($userId);
+        $this->refreshFingerprint($userId);
+        $this->audit->record('auth.sessions_revoked', 'user', (string) $userId, AuditLogger::SUCCESS, [], $userId);
+    }
+
+    /** Seconds allowed between a password confirmation and a sensitive change. */
+    public const CONFIRM_TTL = 900;
+
+    /** Whether the user confirmed their password (or signed in) recently. */
+    public function recentlyConfirmed(): bool
+    {
+        return ($this->clock)() - (int) $this->session->get(self::CONFIRMED_KEY, 0) <= self::CONFIRM_TTL;
+    }
+
+    /** Check the signed-in user's password again (step-up). */
+    public function confirmPassword(string $password, string $ip): bool
+    {
+        $user = $this->user();
+        if ($user === null) {
+            return false;
+        }
+        $username = (string) $user['username'];
+        if ($this->throttle->retryAfter($username, $ip) > 0) {
+            return false;
+        }
+        $hash = $this->users->passwordHash((int) $user['id']);
+        if ($hash === null || !$this->hasher->verify($password, $hash)) {
+            $this->throttle->recordFailure($username, $ip);
+            $this->audit->record('auth.confirm', 'user', (string) $user['id'], AuditLogger::FAILURE, [], (int) $user['id'], $username);
+            return false;
+        }
+        $this->session->set(self::CONFIRMED_KEY, ($this->clock)());
+        $this->audit->record('auth.confirm', 'user', (string) $user['id'], AuditLogger::SUCCESS, [], (int) $user['id'], $username);
+        return true;
     }
 }

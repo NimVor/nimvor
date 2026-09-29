@@ -7,6 +7,18 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Security hardening (low-severity audit findings).**
+  - WordPress one-time sign-in links work only over HTTPS.
+  - New servers use Mozilla's intermediate TLS ciphers.
+  - The security audit warns when the package index is older than a week.
+  - Websites can opt in to security headers: Referrer-Policy,
+    X-Frame-Options, Permissions-Policy and upgrade-insecure-requests.
+  - The security audit flags a BIND open resolver.
+  - Changes to users, roles, API tokens and sign-in policies ask for the
+    password again when it was last confirmed more than 15 minutes ago.
+  - The profile has "Sign out other sessions".
+  - Website accounts can no longer create personal crontabs or at jobs:
+    scheduled tasks go through the panel.
 - **Turning the firewall on keeps you connected.** The Firewall page lists
   the ports WhaCP needs (SSH, the panel's HTTPS port, the agent's remote
   listener, and the ports of running services: websites, webmail, mail,

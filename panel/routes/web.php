@@ -467,6 +467,9 @@ return static function (Router $r): void {
     $r->post('/profile/security-keys', [ProfileController::class, 'keyAdd'], ['name' => 'profile.2fa.key.add']);
     $r->post('/profile/security-keys/{id}/delete', [ProfileController::class, 'keyDelete'], ['name' => 'profile.2fa.key.delete']);
     $r->post('/profile/two-factor/recovery', [ProfileController::class, 'twoFactorRecovery'], ['name' => 'profile.2fa.recovery']);
+    $r->get('/confirm-password', [AuthController::class, 'confirmForm'], ['name' => 'auth.confirm']);
+    $r->post('/confirm-password', [AuthController::class, 'confirm'], ['name' => 'auth.confirm.submit']);
+    $r->post('/profile/sessions/revoke', [\WhaCP\Http\Controllers\ProfileController::class, 'revokeSessions'], ['name' => 'profile.sessions.revoke']);
     $r->post('/profile/tokens', [ApiTokensController::class, 'store'], ['name' => 'tokens.store', 'permission' => P::API_TOKENS]);
     $r->post('/profile/tokens/{id}/revoke', [ApiTokensController::class, 'revoke'], ['name' => 'tokens.revoke', 'permission' => P::API_TOKENS]);
 };

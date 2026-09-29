@@ -145,6 +145,16 @@ final class UserRepository
         $this->db->run('UPDATE users SET password_hash = ?, password_changed_at = ?, updated_at = ? WHERE id = ?', [$hash, $now, $now, $id]);
     }
 
+    public function sessionEpoch(int $id): int
+    {
+        return (int) ($this->db->scalar('SELECT session_epoch FROM users WHERE id = ?', [$id]) ?? 0);
+    }
+
+    public function bumpSessionEpoch(int $id): void
+    {
+        $this->db->run('UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?', [$id]);
+    }
+
     public function recordLogin(int $id, string $ip): void
     {
         $this->db->run('UPDATE users SET last_login_at = ?, last_login_ip = ? WHERE id = ?', [gmdate('c'), $ip, $id]);

@@ -25,6 +25,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/changeset"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
@@ -146,9 +147,64 @@ func userDropIn(e *host.Env, uid int) string {
 
 // CronDenyStart and CronDenyEnd frame the users WhaCP adds to cron.deny.
 const (
-	CronDenyStart = "# BEGIN WhaCP: accounts with resource limits use scheduled tasks in the panel"
+	CronDenyStart = "# BEGIN WhaCP: website accounts use scheduled tasks in the panel"
 	CronDenyEnd   = "# END WhaCP"
+	// cronDenyStartOld is the line written before every website account
+	// was listed (only accounts with resource limits).
+	cronDenyStartOld = "# BEGIN WhaCP: accounts with resource limits use scheduled tasks in the panel"
 )
+
+// WebsiteAccounts are the accounts whose home is a website folder directly
+// under the sites root (UID 1000 and up).
+func WebsiteAccounts(e *host.Env) []string {
+	b, err := e.Root.ReadFile("/etc/passwd")
+	if err != nil {
+		return nil
+	}
+	root := filepath.Clean(e.Cfg.SitesRoot)
+	var out []string
+	for _, line := range strings.Split(string(b), "\n") {
+		f := strings.Split(line, ":")
+		if len(f) < 7 {
+			continue
+		}
+		uid, err := strconv.Atoi(f[2])
+		if err != nil || uid < 1000 || uid >= 60000 {
+			continue
+		}
+		if filepath.Dir(filepath.Clean(f[5])) == root {
+			out = append(out, f[0])
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// DenyPersonalCron lists every website account (and extra ones) in
+// cron.deny and at.deny: their scheduled tasks are the panel's, which run
+// under WhaCP's control (as the account, in its slice when limited); a
+// personal crontab or at job would run outside it, unseen.
+func DenyPersonalCron(e *host.Env, set *changeset.Set, extra []string) {
+	seen := map[string]bool{}
+	var users []string
+	for _, u := range append(WebsiteAccounts(e), extra...) {
+		if !seen[u] {
+			seen[u] = true
+			users = append(users, u)
+		}
+	}
+	for _, f := range []string{"/etc/cron.deny", "/etc/at.deny"} {
+		cur, _ := e.Root.ReadFile(f)
+		next := RenderCronDeny(string(cur), users)
+		if next != string(cur) {
+			if next == "" {
+				set.Remove(f)
+			} else {
+				set.Write(f, []byte(next), 0o644, agentfs.RootOwner)
+			}
+		}
+	}
+}
 
 // RenderCronDeny puts WhaCP's block (the limited users) into cron.deny.
 func RenderCronDeny(current string, users []string) string {
@@ -156,7 +212,7 @@ func RenderCronDeny(current string, users []string) string {
 	in := false
 	for _, line := range strings.Split(strings.TrimRight(current, "\n"), "\n") {
 		switch {
-		case line == CronDenyStart:
+		case line == CronDenyStart || line == cronDenyStartOld:
 			in = true
 		case line == CronDenyEnd && in:
 			in = false
@@ -313,23 +369,13 @@ func Register(r *actions.Registry, e *host.Env) {
 			sort.Strings(users)
 			st.Accounts[in.Account] = AccountState{Limits: in.Limits, Users: in.Users}
 		}
-		// Limited users schedule tasks in the panel (their cron jobs run in
-		// the slice); a personal crontab or at job would run outside it.
+		// Website accounts schedule tasks in the panel (limited ones in the
+		// slice); a personal crontab or at job would run outside it.
 		var denied []string
 		for _, a := range st.Accounts {
 			denied = append(denied, a.Users...)
 		}
-		for _, f := range []string{"/etc/cron.deny", "/etc/at.deny"} {
-			cur, _ := e.Root.ReadFile(f)
-			next := RenderCronDeny(string(cur), denied)
-			if next != string(cur) {
-				if next == "" {
-					set.Remove(f)
-				} else {
-					set.Write(f, []byte(next), 0o644, agentfs.RootOwner)
-				}
-			}
-		}
+		DenyPersonalCron(e, set, denied)
 		b, _ := json.MarshalIndent(st, "", "  ")
 		set.Write(statePath(e), b, 0o600, agentfs.RootOwner)
 		applied, err := set.Commit(func() error { return e.DaemonReload(ctx) })

@@ -105,7 +105,36 @@ final class Authenticate implements Middleware
                 'status' => 403,
             ]), 403);
         }
+        // Step-up: changes to accounts, roles, API tokens and sign-in
+        // policies need the password confirmed in the last 15 minutes.
+        if (in_array($route->name, self::STEP_UP, true) && !$this->auth->recentlyConfirmed()) {
+            $message = 'Confirm your password to continue, then submit again.';
+            $back = self::safePath($request->header('Referer'));
+            if ($request->wantsJson()) {
+                return Response::json(['success' => false, 'error' => ['message' => $message], 'redirect' => '/confirm-password?return=' . rawurlencode($back)], 403);
+            }
+            $this->session->flash('error', $message);
+            return Response::redirect('/confirm-password?return=' . rawurlencode($back));
+        }
         return $next($request->withAttribute('user', $user));
+    }
+
+    /** Routes that need a recent password confirmation. */
+    public const STEP_UP = [
+        'users.store', 'users.update', 'users.delete', 'users.2fa.reset', 'accounts.store',
+        'roles.store', 'roles.update', 'roles.2fa', 'roles.delete',
+        'tokens.store', 'security.policies.save',
+    ];
+
+    /** A local path to return to ('/' when the value is not one). */
+    public static function safePath(string $url): string
+    {
+        $path = (string) (parse_url($url, PHP_URL_PATH) ?? '/');
+        $query = (string) (parse_url($url, PHP_URL_QUERY) ?? '');
+        if ($path === '' || $path[0] !== '/' || str_starts_with($path, '//') || str_contains($path, '\\')) {
+            return '/';
+        }
+        return $path . ($query !== '' ? '?' . $query : '');
     }
 
     /** Pages a user who must set up two-factor sign-in can still reach. */

@@ -181,6 +181,8 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 			dirs.Mkdir(e.M.PHPSocketDir, 0o755, agentfs.RootOwner)
 		}
 	}
+	// Its scheduled tasks are the panel's: no personal crontab or at jobs.
+	limits.DenyPersonalCron(e, dirs, nil)
 	dirsApplied, err := dirs.Apply()
 	if err != nil {
 		rollbackUser()

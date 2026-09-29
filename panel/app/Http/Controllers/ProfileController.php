@@ -165,4 +165,11 @@ final class ProfileController extends Controller
         }
         return $this->redirectWithSuccess('/profile#security-keys', 'Security key removed.');
     }
+
+    /** End the user's other sessions (other browsers and devices). */
+    public function revokeSessions(Request $request): Response
+    {
+        $this->auth->signOutOtherSessions((int) $this->user($request)['id']);
+        return $this->redirectWithSuccess('/profile#sessions', 'You were signed out everywhere else.');
+    }
 }
