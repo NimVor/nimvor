@@ -36,6 +36,8 @@ final class SitesController extends Controller
         private readonly \WhaCP\Services\SiteOverview $overview,
         private readonly \WhaCP\Services\DnsService $dns,
         private readonly \WhaCP\Services\IpService $ips,
+        private readonly \WhaCP\Services\PlanService $plans,
+        private readonly \WhaCP\Services\AddonConversionService $conversion,
     ) {
         parent::__construct($view, $session);
     }
@@ -108,8 +110,12 @@ final class SitesController extends Controller
         $sub = array_values(array_filter($children, static fn (array $c): bool => str_ends_with((string) $c['domain'], '.' . $site['domain'])));
         $addon = array_values(array_filter($children, static fn (array $c): bool => !str_ends_with((string) $c['domain'], '.' . $site['domain'])));
         $zone = $this->dns->forWebsite((int) $site['id']);
+        $user = $this->user($request);
         return $this->render('sites/domains', [
             'site' => $site, 'subdomains' => $sub, 'addons' => $addon, 'tab' => 'domains',
+            // "Convert to account": administrators and resellers (route permission).
+            'plans' => $this->plans->visible($user),
+            'moves' => array_combine(array_map(static fn (array $a): int => (int) $a['id'], $addon), array_map(fn (array $a): array => $this->conversion->preview($a), $addon)) ?: [],
             'hasZone' => $zone !== null && $this->dns->zone((int) $zone['id'], $this->user($request)) !== null,
         ]);
     }

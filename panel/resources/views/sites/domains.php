@@ -12,7 +12,8 @@ $openSub = ($old['type'] ?? '') === 'subdomain' && $errors !== [];
 $openAddon = ($old['type'] ?? '') === 'addon' && $errors !== [];
 $subError = $openSub ? ($errors['subdomain'] ?? $errors['domain'] ?? $errors['system_user'] ?? null) : null;
 $addonError = $openAddon ? ($errors['domain'] ?? $errors['system_user'] ?? null) : null;
-$list = function (array $rows, string $empty, string $icon): string {
+$canConvert = $this->can(\WhaCP\Security\Permissions::USERS_MANAGE) && $this->hasRoute('sites.convert');
+$list = function (array $rows, string $empty, string $icon, bool $convert = false) use ($canConvert): string {
     ob_start(); ?>
     <?php if ($rows === []): ?>
         <div class="wcp-empty-state"><i class="bi bi-<?= e($icon) ?>" aria-hidden="true"></i><div class="small"><?= e($empty) ?></div></div>
@@ -30,6 +31,7 @@ $list = function (array $rows, string $empty, string $icon): string {
                         <td class="text-end text-nowrap">
                             <?php if ($c['enabled']): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e(($c['https'] ? 'https://' : 'http://') . $c['domain']) ?>/" target="_blank" rel="noopener noreferrer" title="Visit" aria-label="Visit <?= e($c['domain']) ?>"><i class="bi bi-box-arrow-up-right"></i></a><?php endif; ?>
                             <a class="btn btn-sm btn-outline-primary" href="<?= e($this->url('sites.show', ['id' => (int) $c['id']])) ?>">Manage</a>
+                            <?php if ($convert && $canConvert): ?><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#convert-<?= (int) $c['id'] ?>">Convert to account</button><?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -92,5 +94,32 @@ $list = function (array $rows, string $empty, string $icon): string {
             <div class="form-text">A separate website for another domain you own, under this account. Point the domain's DNS to this server.</div>
         </form>
     <?= $this->modalEnd() ?>
-    <?= $list($addons, 'No addon domains yet.', 'plus-square') ?>
+    <?= $list($addons, 'No addon domains yet.', 'plus-square', true) ?>
 </div>
+<?php if ($canConvert): foreach ($addons as $c): $cid = (int) $c['id']; $mv = $moves[$cid] ?? null; $mine = ($old['convert'] ?? '') === (string) $cid && $errors !== [];
+    $fv = fn (string $k, string $d = ''): string => $mine ? (string) ($old[$k] ?? $d) : $d;
+    $fe = fn (string $k): string => $mine && isset($errors[$k]) ? '<div class="invalid-feedback d-block">' . e((string) $errors[$k]) . '</div>' : '';
+    $suggest = substr(preg_replace('/[^a-z0-9]/', '', explode('.', (string) $c['domain'])[0]) ?: 'site', 0, 16); ?>
+    <?= $this->modalStart('convert-' . $cid, 'Convert ' . $c['domain'] . ' to an account', $mine) ?>
+        <form method="post" action="<?= e($this->url('sites.convert', ['id' => $cid])) ?>" data-wcp-busy data-wcp-confirm="Move <?= e($c['domain']) ?> to the new account? Its files are re-owned in place; it no longer runs as <?= e($site['system_user']) ?>." data-wcp-confirm-word="<?= e($c['domain']) ?>">
+            <?= $this->csrfField() ?>
+            <p class="small mb-2"><?= e($c['domain']) ?> becomes a hosting account of its own, with a new login and a new system account. Nothing is copied: its folder is re-owned in place.</p>
+            <?php if ($mv !== null): ?>
+                <ul class="small mb-3">
+                    <li>Websites: <?= e(implode(', ', array_column($mv['websites'], 'domain'))) ?></li>
+                    <li>Databases: <?= $mv['databases'] === [] ? 'none' : e(implode(', ', $mv['databases'])) ?> (database users that only these use move too)</li>
+                    <li>DNS zone: <?= $mv['dns'] ? 'moves' : 'none here' ?> · email domain with its mailboxes: <?= $mv['mail'] ? 'moves' : 'none here' ?></li>
+                    <li>Cron jobs: <?= (int) $mv['cron'] ?> · workers: <?= (int) $mv['workers'] ?> · FTP accounts move with their passwords</li>
+                </ul>
+            <?php endif; ?>
+            <div class="row g-2">
+                <div class="col-sm-6"><label class="form-label small" for="cv-u-<?= $cid ?>">Username (login and system account)</label><input class="form-control form-control-sm" id="cv-u-<?= $cid ?>" name="username" value="<?= e($fv('username', $suggest)) ?>" required maxlength="31"><?= $fe('username') ?></div>
+                <div class="col-sm-6"><label class="form-label small" for="cv-e-<?= $cid ?>">Email</label><input class="form-control form-control-sm" id="cv-e-<?= $cid ?>" type="email" name="email" value="<?= e($fv('email')) ?>" required><?= $fe('email') ?></div>
+                <div class="col-sm-6"><label class="form-label small" for="cv-p-<?= $cid ?>">Password</label><input class="form-control form-control-sm" id="cv-p-<?= $cid ?>" type="password" name="password" autocomplete="new-password" required><?= $fe('password') ?></div>
+                <div class="col-sm-6"><label class="form-label small" for="cv-pc-<?= $cid ?>">Repeat password</label><input class="form-control form-control-sm" id="cv-pc-<?= $cid ?>" type="password" name="password_confirmation" autocomplete="new-password" required></div>
+                <div class="col-12"><label class="form-label small" for="cv-pl-<?= $cid ?>">Hosting plan</label><select class="form-select form-select-sm" id="cv-pl-<?= $cid ?>" name="plan_id"><option value="">No plan</option><?php foreach ($plans as $p): ?><option value="<?= (int) $p['id'] ?>"<?= $fv('plan_id') === (string) $p['id'] ? ' selected' : '' ?>><?= e($p['name']) ?></option><?php endforeach; ?></select><?= $fe('plan_id') ?></div>
+            </div>
+            <div class="mt-3"><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Convert to account</button></div>
+        </form>
+    <?= $this->modalEnd() ?>
+<?php endforeach; endif; ?>

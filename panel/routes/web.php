@@ -79,6 +79,7 @@ return static function (Router $r): void {
     $r->get('/sites/{id}/advanced', [SitesController::class, 'advanced'], ['name' => 'sites.advanced', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/domains', [SitesController::class, 'domains'], ['name' => 'sites.domains', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/domains', [SitesController::class, 'storeDomain'], ['name' => 'sites.domains.store', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/convert', [\WhaCP\Http\Controllers\AddonConversionController::class, 'convert'], ['name' => 'sites.convert', 'permission' => P::USERS_MANAGE]);
     $r->post('/sites/{id}/settings', [SitesController::class, 'update'], ['name' => 'sites.update', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/toggle', [SitesController::class, 'toggle'], ['name' => 'sites.toggle', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/restart-php', [SitesController::class, 'restartPhp'], ['name' => 'sites.restart_php', 'permission' => P::WEBSITES_MANAGE]);

@@ -399,3 +399,45 @@ func TestShellModes(t *testing.T) {
 		}
 	}
 }
+
+// A website moved to a new account takes its FTP accounts along, with
+// their passwords; other websites' accounts stay as they are.
+func TestMoveSiteKeepsPasswords(t *testing.T) {
+	f := setup(t)
+	fp, _ := os.OpenFile(filepath.Join(f.h.Base, "etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
+	fmt.Fprintf(fp, "blog:x:%d:%d::/home/whacp/blog.test:/usr/sbin/nologin\n", f.h.UID+1, f.h.GID+1)
+	fmt.Fprintf(fp, "newshop:x:%d:%d::/home/whacp/shop.test:/usr/sbin/nologin\n", f.h.UID+2, f.h.GID+2)
+	fp.Close()
+	f.must(t, "ftp.configure", map[string]any{"confirm_replace_service": true})
+	f.must(t, "ftp.account_save", map[string]any{"name": "shopdev", "user": "shop", "dir": "public_html", "password": "long-enough-pw"})
+	f.must(t, "ftp.account_save", map[string]any{"name": "blogdev", "user": "blog", "password": "long-enough-pw"})
+	lines := func() map[string][]string {
+		m := map[string][]string{}
+		for _, l := range strings.Split(strings.TrimSpace(f.h.Read("etc/whacp-ftp/accounts.passwd")), "\n") {
+			fs := strings.Split(l, ":")
+			m[fs[0]] = fs
+		}
+		return m
+	}
+	before := lines()
+	// Only the account that now owns the website folder receives them.
+	if _, err := f.call(t, "ftp.move_site", map[string]any{"domain": "shop.test", "user": "newshop"}); err == nil {
+		t.Fatal("moved before the folder belongs to the new account")
+	}
+	if err := os.Chown(filepath.Join(f.h.Base, "home/whacp/shop.test"), f.h.UID+2, f.h.GID+2); err != nil { // what sites.apply does
+		t.Skip("handing a folder to another account needs root")
+	}
+	if _, err := f.call(t, "ftp.move_site", map[string]any{"domain": "shop.test", "user": "blog"}); err == nil {
+		t.Fatal("moved to another website's account")
+	}
+	if r := f.must(t, "ftp.move_site", map[string]any{"domain": "shop.test", "user": "newshop"}); r["moved"] != float64(1) {
+		t.Fatalf("%v", r)
+	}
+	after := lines()
+	if after["shopdev"][2] != fmt.Sprint(f.h.UID+2) || after["shopdev"][3] != fmt.Sprint(f.h.GID+2) || after["shopdev"][1] != before["shopdev"][1] {
+		t.Fatalf("shopdev %v (before %v)", after["shopdev"], before["shopdev"])
+	}
+	if strings.Join(after["blogdev"], ":") != strings.Join(before["blogdev"], ":") {
+		t.Fatal("another website's account changed")
+	}
+}

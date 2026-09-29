@@ -254,6 +254,31 @@ such as `…/databases#new-database`, and again after a validation error).
   delete them in the File manager. Owners can also scan their website
   from its Malware scan page.
 
+## Converting an addon domain into an account
+
+On a website's *Subdomains & addons* page, administrators and resellers
+(*Manage users*) can use **Convert to account** on an addon domain. It
+becomes a hosting account of its own: a new login (a hosting customer
+with a plan) and a new system account with the same name, which must not
+exist yet.
+
+Nothing is copied:
+- **Files:** the website folder is re-owned in place, links are never
+  followed, and hard links to files of another account are left alone.
+- **Subdomains:** subdomains of the addon domain go with it.
+- **Databases:** they change owner, and so do database users that only
+  they use.
+- **DNS and email:** the DNS zone and the email domain change owner, with
+  the mailboxes.
+- **Scheduled work:** cron jobs and workers now run as the new account.
+- **FTP:** FTP accounts move with their passwords.
+
+The confirmation window lists all of this and asks you to type the
+domain. If a step on the server fails, the websites go back to the old
+account and the new login is removed. The system account already created
+on the server is left without websites; remove it by hand if you do not
+retry.
+
 ## Account suspension
 
 Administrators suspend a hosting customer or reseller under Users →

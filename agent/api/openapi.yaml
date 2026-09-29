@@ -159,6 +159,7 @@ paths:
               - ftp.account_save
               - ftp.configure
               - ftp.disable
+              - ftp.move_site
               - ftp.status
               - jobs.get
               - jobs.list
@@ -506,6 +507,7 @@ x-whacp-actions:
   ftp.account_save: { mutating: true, description: "Create or change an FTP account of a website: chrooted to the website folder (or a sub-folder), files owned by the website's user. The password is stored as a SHA-512 crypt hash." }
   ftp.configure: { mutating: true, description: "Set up or change WhaCP's FTP server (its own pure-ftpd unit and configuration; TLS required by default). Stopping another running FTP server needs confirm_replace_service. Restarts, verifies and rolls back on failure." }
   ftp.disable: { mutating: true, description: "Stop and disable WhaCP's FTP service (accounts are kept)." }
+  ftp.move_site: { mutating: true, description: "Give a website's FTP accounts (those inside its folder) to the website's current account, keeping their passwords (after the website moved to another account)." }
   ftp.status: { mutating: false, description: "FTP server state, settings, certificate and accounts (optionally of one website user); SFTP-enabled website users." }
   jobs.get: { mutating: false, description: "Status of a background job." }
   jobs.list: { mutating: false, description: "Recent background jobs, optionally for one target." }

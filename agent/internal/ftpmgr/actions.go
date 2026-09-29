@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
@@ -21,6 +22,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
 
 type configureReq struct {
@@ -333,6 +335,53 @@ func Register(r *actions.Registry, env *host.Env) {
 			return nil, err
 		}
 		return map[string]any{"account": acct, "created": created}, nil
+	}})
+
+	r.Register(actions.Action{Name: "ftp.move_site", Mutating: true, Description: "Give a website's FTP accounts (those inside its folder) to the website's current account, keeping their passwords (after the website moved to another account).", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var in struct {
+			Domain string `json:"domain"`
+			User   string `json:"user"`
+		}
+		if err := host.Decode(raw, &in); err != nil {
+			return nil, err
+		}
+		if err := validate.Domain("domain", in.Domain); err != nil {
+			return nil, host.Invalid(err)
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		if !env.Root.Exists(p.passwd) {
+			return map[string]any{"moved": 0}, nil
+		}
+		u, err := siteUser(env, in.User)
+		if err != nil {
+			return nil, err
+		}
+		// The website folder must already be the account's (the website was
+		// moved to it): accounts are never given to an unrelated account.
+		root := filepath.Join(filepath.Clean(env.Cfg.SitesRoot), in.Domain)
+		real, err := env.Root.Path(root)
+		if err != nil {
+			return nil, host.Invalid(err)
+		}
+		fi, err := os.Lstat(real)
+		if err != nil || !fi.IsDir() || fi.Sys().(*syscall.Stat_t).Uid != uint32(u.UID) {
+			return nil, actions.Conflict("The folder of " + in.Domain + " does not belong to " + in.User + "; its FTP accounts were not moved.")
+		}
+		list := loadAccounts(env, p)
+		moved := 0
+		for i, a := range list {
+			if (a.Dir == root || strings.HasPrefix(a.Dir, root+"/")) && a.UID != u.UID {
+				list[i].User, list[i].UID, list[i].gid = u.Name, u.UID, u.GID
+				moved++
+			}
+		}
+		if moved > 0 {
+			if err := saveAccounts(ctx, env, p, list); err != nil {
+				return nil, err
+			}
+		}
+		return map[string]any{"moved": moved}, nil
 	}})
 
 	r.Register(actions.Action{Name: "ftp.account_delete", Mutating: true, Description: "Delete an FTP account (files are kept).", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {

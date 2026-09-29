@@ -183,6 +183,29 @@ final class WebsiteService
     }
 
     /**
+     * Moves a website to another system account and owner (converting an
+     * addon domain into its own hosting account). $newUser: the account is
+     * created now and must not exist yet. The agent re-owns the website
+     * folder and document root; the caller re-owns the files inside
+     * (permissions(), repair) and moves what else runs as the account. On
+     * failure the website row is restored and applied again as before.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function moveToAccount(array $site, string $user, ?int $ownerId, bool $newUser, bool $detach): void
+    {
+        $id = (int) $site['id'];
+        $this->sites->update($id, ['system_user' => $user, 'owner_id' => $ownerId] + ($detach ? ['parent_id' => null] : []));
+        try {
+            $this->apply($this->sites->find((int) $site['server_id'], $id, null), $newUser);
+        } catch (\Throwable $e) {
+            $this->sites->update($id, ['owner_id' => $site['owner_id'], 'parent_id' => $site['parent_id'] ?? null]);
+            $this->restore($site);
+            throw $e;
+        }
+    }
+
+    /**
      * Directory listing: folders without an index page list their files.
      *
      * @param array<string, mixed> $site

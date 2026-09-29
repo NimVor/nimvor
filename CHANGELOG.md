@@ -23,6 +23,14 @@ All notable changes to WhaCP are documented here. The format follows
     authenticator code.
 
 ### Added
+- **Convert an addon domain into an account** (*Subdomains & addons* →
+  *Convert to account*).
+  - Creates a new login and system account; nothing is copied.
+  - Files are re-owned in place; databases (and database users only they
+    use), the DNS zone and the email domain change owner.
+  - Cron jobs, workers and FTP accounts (with their passwords) move to the
+    new account; the domain's subdomains go with it.
+  - Everything is put back if a step fails.
 - **Forms without page reloads.** Create, change and delete forms submit
   in the background.
   - The page updates in place, keeps its scroll position and shows the
