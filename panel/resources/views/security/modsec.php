@@ -104,7 +104,7 @@ $paranoia = [1 => '1 — few false positives (recommended)', 2 => '2 — more ru
     <p class="small wcp-muted mb-0 mt-2">Every installation first saves a copy of the Nginx configuration, the ModSecurity and rule configuration and the linker configuration; records are kept <?= (int) ($retention ?? 30) ?> days (Settings), the one in effect always.</p>
 </div>
 
-<?php $this->modalStart('ms-install', $connState === 'functional' ? 'Upgrade the ModSecurity connector' : 'Install ModSecurity'); ?>
+<?= $this->modalStart('ms-install', $connState === 'functional' ? 'Upgrade the ModSecurity connector' : 'Install ModSecurity', false, 'modal-dialog-centered') ?>
     <form method="post" action="<?= e($this->url('security.modsec.install')) ?>" data-wcp-busy>
         <?= $this->csrfField() ?>
         <?php if ($connState === 'functional'): ?><input type="hidden" name="upgrade" value="1"><p class="small">The connector in use stays in place until the new one works; if anything fails it stays in effect.</p><?php endif; ?>
@@ -118,7 +118,7 @@ $paranoia = [1 => '1 — few false positives (recommended)', 2 => '2 — more ru
         <p class="small wcp-muted">A build installs compilers and development packages (removed again if the installation fails), downloads the pinned ModSecurity releases (checksum-verified) and Nginx's own source, and builds as a temporary unprivileged account. It takes a few minutes; you can close this page.</p>
         <div class="modal-footer px-0 pb-0"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary"><?= $connState === 'functional' ? 'Upgrade' : 'Install' ?></button></div>
     </form>
-<?php $this->modalEnd(); ?>
+<?= $this->modalEnd() ?>
 <?php endif; ?>
 
 <div class="row g-3 mb-3">

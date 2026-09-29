@@ -135,7 +135,7 @@ final class ModSecurityTest extends HttpTestCase
         self::assertStringContainsString('ask your hosting provider', $this->request('GET', '/sites/' . $this->siteId . '/firewall')->body());
         $this->switchTo('admin');
         $page = $this->request('GET', '/security/modsec')->body();
-        foreach (['Connector installed, not usable', 'not binary compatible', 'Install ModSecurity', 'Install Core Rule Set', 'nginx-1.26.2.tar.gz', 'The Nginx program itself is never changed'] as $want) {
+        foreach (['Connector installed, not usable', 'not binary compatible', 'id="ms-install"', 'Install ModSecurity', 'Install Core Rule Set', 'nginx-1.26.2.tar.gz', 'The Nginx program itself is never changed'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
     }
