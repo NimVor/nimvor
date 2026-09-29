@@ -714,3 +714,15 @@ details.wcp-panel > summary { cursor: pointer; }
 
 /* Create/edit forms in a window: the window is the frame. */
 .modal .wcp-form-panel { background: none; border: 0 !important; padding: 0 !important; margin: 0 !important; }
+
+/* WordPress toolkit: installation header, tool strip and switches. */
+.wcp-wp-hero { background: linear-gradient(135deg, rgba(33, 117, 155, .08), rgba(13, 148, 136, .06)); }
+.wcp-wp-logo { width: 3.25rem; height: 3.25rem; border-radius: .9rem; display: grid; place-items: center; font-size: 1.8rem; color: #fff; background: #21759b; box-shadow: 0 4px 12px rgba(33, 117, 155, .3); flex-shrink: 0; }
+.wcp-wp-tools { display: flex; flex-wrap: wrap; gap: .5rem; padding-top: .75rem; border-top: 1px solid var(--wcp-card-border); }
+.wcp-wp-tool { display: inline-flex; flex-direction: column; align-items: center; gap: .2rem; min-width: 5.5rem; padding: .5rem .6rem; border-radius: .6rem; color: var(--bs-body-color); text-decoration: none; font-size: .78rem; border: 1px solid transparent; }
+.wcp-wp-tool i { font-size: 1.35rem; color: var(--bs-primary); }
+.wcp-wp-tool:hover, .wcp-wp-tool:focus-visible { background: var(--bs-body-bg); border-color: var(--wcp-card-border); }
+.wcp-wp-toggles > li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .6rem 0; border-bottom: 1px solid var(--wcp-card-border); }
+.wcp-wp-toggles > li:last-child { border-bottom: 0; }
+.wcp-wp-toggles .form-switch .form-check-input { width: 2.6em; height: 1.35em; cursor: pointer; }
+.min-w-0 { min-width: 0; }

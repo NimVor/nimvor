@@ -59,6 +59,11 @@ final class FilesController extends Controller
             return $this->render('errors/error', ['title' => 'Website not found', 'message' => 'This website does not exist or you do not have access to it.', 'status' => 404], 404);
         }
         $start = ltrim(substr((string) $site['document_root'], strlen((string) $site['root'])), '/');
+        // Opened at a folder (e.g. a WordPress installation's).
+        $want = trim((string) $request->query('path', ''), '/');
+        if ($want !== '' && strlen($want) <= 400 && !str_contains('/' . $want . '/', '/../') && preg_match('#^[^\x00-\x1f]+$#', $want)) {
+            $start = $want;
+        }
         return Response::html($this->view->render('files/manager', ['site' => $site, 'start' => $start, 'retention' => $this->settings->int('trash_retention_days')], 'layouts/tool'));
     }
 

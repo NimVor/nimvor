@@ -259,6 +259,14 @@ switch ($command) {
                     }
                 }
             }
+            // New WordPress installations: hardened once installed.
+            foreach ($c->get(\WhaCP\Services\WordPressToolsService::class)->autoHarden($c->get(\WhaCP\Services\SettingsService::class)->bool('wordpress_auto_harden')) as $line) {
+                out('[' . $srv['name'] . '] ' . $line);
+            }
+            // WordPress vulnerability protection: a daily check.
+            foreach ($c->get(\WhaCP\Services\WordPressToolsService::class)->dailyVulnerabilityCheck() as $line) {
+                out('[' . $srv['name'] . '] ' . $line);
+            }
             // Monthly bandwidth (measured by the monitoring pass above).
             foreach ($c->get(\WhaCP\Services\BandwidthLimitService::class)->reconcile() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);

@@ -195,6 +195,8 @@ final class Application
             $c->get(Logger::class),
             $cfg->int('agent.timeout', 30),
         ));
+        // Vulnerability answers are cached next to the panel's database.
+        $c->set(\WhaCP\Services\WordPressVulnerabilities::class, static fn () => new \WhaCP\Services\WordPressVulnerabilities(dirname($cfg->string('database.path')) . '/cache/wpvulnerability'));
         $c->set(\WhaCP\Security\Crypto::class, static fn () => new \WhaCP\Security\Crypto($cfg->string('security.key_file')));
         $c->set(\WhaCP\Support\Events::class, static function (Container $c): \WhaCP\Support\Events {
             $events = new \WhaCP\Support\Events();

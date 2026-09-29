@@ -682,6 +682,70 @@ with the **WordPress Toolkit** feature (Feature Manager).
   link is built from the website's own domain (never from WordPress's
   settings) and needs HTTPS on the website.
 
+The installation page is organised like other WordPress toolkits:
+a header with the version, security, vulnerability and update status and a
+tool strip (**File Manager** opened at the installation's folder,
+**Database** in the database browser, **Logs**, **Clone**, **Sync**,
+**Security**, **Back up**, **Restore points**), then tabs:
+
+- **Dashboard** switches: search engine indexing, **debugging** (WP_DEBUG,
+  WP_DEBUG_LOG, WP_DEBUG_DISPLAY, SCRIPT_DEBUG, SAVEQUERIES each),
+  maintenance mode, **password protection** (HTTP authentication for the
+  installation's address; the password is stored only as a SHA-512 crypt
+  hash; certificate renewal keeps working), **take over wp-cron.php**
+  (DISABLE_WP_CRON plus a cron job every 5 minutes running `wp cron event
+  run --due-now` as the website account, listed under Cron jobs),
+  **hotlink protection** (images, video, audio and PDF only served to the
+  website's own pages, direct visits and allowed sites) and
+  **vulnerability protection** (below). **Change administrator password**
+  sets a WordPress administrator's password and signs out their other
+  sessions.
+- **Security:** twelve hardening measures, each applied and **rolled back**
+  on its own; *Secure (recommended)* applies nine at once. Web server rules
+  (Nginx, checked with `nginx -t`, rolled back on failure):
+  - sensitive files blocked (wp-config.php, readme.html, license.txt, the
+    installer, dumps and logs);
+  - xmlrpc.php blocked (not in the recommended set: Jetpack and mobile
+    apps use it);
+  - author scans blocked;
+  - no PHP in wp-content/uploads or wp-includes;
+  - known attack tools refused.
+
+  WordPress settings, for which the toolkit records the value it replaced
+  and puts it back exactly on rollback:
+  - file editor off, pingbacks off, script concatenation off, debugging off;
+  - wp-config.php 0600;
+  - new security keys (these cannot be rolled back).
+
+  **Vulnerabilities** compares WordPress, the plugins and the themes with
+  the public WPVulnerability database (only names and versions are sent;
+  answers cached for 12 hours). *Vulnerability protection* puts the
+  website behind ModSecurity with the OWASP Core Rule Set in blocking mode
+  (ModSecurity must be installed and on; while *Detection only* is on
+  server-wide it only logs) and checks the installation every day,
+  notifying new findings.
+- **Database:** name, size, *Open in database browser* and *Change database
+  password* (a new random password set by the database user itself and
+  written to wp-config.php in one step; shown once; the panel's stored copy
+  is updated).
+- **Staging & restore:** *Clone* copies files and database to another
+  website of the same owner (for example a staging subdomain), with a new
+  database, the addresses replaced and search engines discouraged. *Sync*
+  copies files and/or the database from one installation to another of the
+  same owner (the target keeps its wp-config.php and address): open the
+  staging copy and sync it to the live site to publish. Before anything is
+  replaced a **restore point** (files and database) is saved in
+  `/var/backups/whacp/wordpress/<domain>/`; the newest five are kept and
+  can be put back from the tab. Databases are always the panel's records
+  of the owner's databases, never what a wp-config.php names.
+- **Logs:** the end of WordPress's debug log, with a link to the website's
+  web server and PHP logs.
+
+**Automatic hardening:** *Settings → Security → Harden new WordPress
+installations automatically* (on by default) applies the recommended
+measures to WordPress installed with the app installer, once its
+installation job has finished.
+
 How commands run:
 - **WP-CLI:** commands use WP-CLI 2.12.0. The agent downloads it once from
   GitHub, verifies it against a SHA-512 written into the agent, and keeps it

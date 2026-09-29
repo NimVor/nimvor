@@ -395,4 +395,15 @@ final class WordPressService
         $this->audit->record('wordpress.login', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'path' => $install['path'], 'admin_id' => $adminId], (int) $actor['id']);
         return rtrim($base, '/') . '/' . $file;
     }
+
+    /**
+     * The panel's ID of a database by name, within a visibility condition.
+     *
+     * @param array<string, mixed> $params
+     */
+    public function databaseId(string $name, string $cond, array $params): ?int
+    {
+        $id = $this->db->scalar("SELECT id FROM databases WHERE server_id = :srv AND name = :name AND {$cond}", ['srv' => $this->server->id(), 'name' => $name] + $params);
+        return $id === null || $id === false ? null : (int) $id;
+    }
 }

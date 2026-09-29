@@ -7,6 +7,17 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **WordPress Toolkit, second part.** The installation page has a header
+  with status and a tool strip (File Manager at the installation, Database
+  browser, Logs, Clone, Sync, Security, Back up, Restore points) and tabs.
+  New: debugging switches, password protection, wp-cron.php takeover (a
+  cron job), hotlink protection, vulnerability protection (ModSecurity with
+  the OWASP CRS plus daily checks against the WPVulnerability database),
+  administrator and database password changes, the debug log, twelve
+  security hardening measures each with rollback ("Secure" applies the
+  recommended nine), automatic hardening of new installations, and staging
+  (clone to another website with its own database, sync files and/or the
+  database back, restore points saved before anything is replaced).
 - **Dependencies are detected by capability.** Nginx modules (ModSecurity,
   Brotli) are missing, installed but not usable (with the reason) or
   working, whatever installed them (package, rpm, built from source, copied

@@ -360,6 +360,8 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/wordpress/{wp}/check', [\WhaCP\Http\Controllers\WordPressController::class, 'check'], ['name' => 'sites.wordpress.check', 'permission' => P::WEBSITES_VIEW]);
     $r->post('/sites/{id}/wordpress/{wp}/manage', [\WhaCP\Http\Controllers\WordPressController::class, 'manage'], ['name' => 'sites.wordpress.manage', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/wordpress/{wp}/login', [\WhaCP\Http\Controllers\WordPressController::class, 'login'], ['name' => 'sites.wordpress.login', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/wordpress/{wp}/tools', [\WhaCP\Http\Controllers\WordPressController::class, 'tool'], ['name' => 'sites.wordpress.tool', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/wordpress/{wp}/logs', [\WhaCP\Http\Controllers\WordPressController::class, 'logs'], ['name' => 'sites.wordpress.logs', 'permission' => P::WEBSITES_VIEW]);
     $r->post('/security/confirm', [SecurityController::class, 'confirm'], ['name' => 'security.confirm', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/undo', [SecurityController::class, 'undo'], ['name' => 'security.undo', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/servers', [ServersController::class, 'index'], ['name' => 'servers', 'permission' => P::SERVERS_MANAGE]);
