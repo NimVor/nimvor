@@ -149,6 +149,23 @@ sudo -u whacp -E php /opt/whacp/panel/bin/whacp schedule:run   # normally run by
 sudo -u whacp -E php /opt/whacp/panel/bin/whacp doctor
 ```
 
+## Navigation and dashboards
+
+- **Global search:** press **Ctrl+K** (⌘K on a Mac) or click *Search tools*
+  in the top bar, type a few letters and press Enter to open the first
+  match. It lists quick actions (create a website, a hosting account or a
+  panel user) and every area the signed-in user may open; areas a role or
+  plan does not allow are not listed.
+- **Administrators' dashboard:** a welcome strip with the server's name,
+  uptime, alerts and quick actions; live CPU, memory, disk and load; server,
+  services, websites, network and recent activity; and *Tools & settings*,
+  every area grouped as in the sidebar.
+- **Resellers' dashboard:** their customers (plan, websites, status), their
+  websites, plan use (limits with bars, unlimited resources listed) and
+  recent notifications, with quick actions. It shows nothing about the
+  server itself.
+- Hosting customers keep the simple layout (their websites, no sidebar).
+
 ## List pages for administrators and resellers
 
 *Websites*, *Databases*, *FTP* and *Security* share one layout: an info

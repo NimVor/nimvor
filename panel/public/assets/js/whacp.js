@@ -1249,4 +1249,43 @@
     window.addEventListener('popstate', function (e) {
         if (e.state && e.state.wcp) { window.location.reload(); }
     });
+
+    // Global search (Ctrl+K): filter the tools list; Enter opens the first.
+    function paletteFilter(input) {
+        var box = input.closest('[data-wcp-palette]');
+        var q = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        var shown = 0;
+        box.querySelectorAll('[data-wcp-palette-item]').forEach(function (a) {
+            var text = a.getAttribute('data-search') || '';
+            var ok = q.every(function (w) { return text.indexOf(w) !== -1; });
+            a.classList.toggle('d-none', !ok);
+            a.classList.remove('is-first');
+            if (ok) { shown++; }
+        });
+        box.querySelectorAll('[data-wcp-palette-group]').forEach(function (g) {
+            var n = g.nextElementSibling, any = false;
+            while (n && n.hasAttribute('data-wcp-palette-item')) { if (!n.classList.contains('d-none')) { any = true; } n = n.nextElementSibling; }
+            g.classList.toggle('d-none', !any);
+        });
+        var first = box.querySelector('[data-wcp-palette-item]:not(.d-none)');
+        if (first && q.length) { first.classList.add('is-first'); }
+        box.querySelector('[data-wcp-palette-empty]').classList.toggle('d-none', shown > 0);
+    }
+    document.addEventListener('input', function (e) {
+        if (e.target.matches('[data-wcp-palette-input]')) { paletteFilter(e.target); }
+    });
+    document.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+            var el = document.getElementById('wcp-palette');
+            if (el && window.bootstrap) { e.preventDefault(); bootstrap.Modal.getOrCreateInstance(el).show(); }
+        }
+        if (e.key === 'Enter' && e.target.matches('[data-wcp-palette-input]')) {
+            var first = e.target.closest('[data-wcp-palette]').querySelector('[data-wcp-palette-item]:not(.d-none)');
+            if (first) { e.preventDefault(); window.location.href = first.href; }
+        }
+    });
+    document.addEventListener('shown.bs.modal', function (e) {
+        var input = e.target.querySelector && e.target.querySelector('[data-wcp-palette-input]');
+        if (input) { input.value = ''; paletteFilter(input); input.focus(); }
+    });
 })();

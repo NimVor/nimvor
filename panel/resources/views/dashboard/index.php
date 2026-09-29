@@ -9,6 +9,46 @@ $sys = $info['system'] ?? [];
 <?php $this->start(); ?>Dashboard<?php $this->end('title'); ?>
 <?php $this->start(); ?><?= e($sys['hostname'] ?? 'Server overview') ?><?php $this->end('subtitle'); ?>
 
+<?php
+$hour = (int) date('G');
+$greet = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
+$who = !empty($user) ? ($user['display_name'] !== '' ? $user['display_name'] : $user['username']) : '';
+$P = \WhaCP\Security\Permissions::class;
+$quick = [];
+foreach ([
+    ['Create website', 'plus-circle', 'sites.create', $P::WEBSITES_MANAGE],
+    ['New account', 'person-plus', 'accounts.create', $P::USERS_MANAGE],
+    ['Databases', 'database-add', 'databases', $P::DATABASES_VIEW],
+    ['WordPress', 'wordpress', 'wordpress', $P::WEBSITES_VIEW],
+    ['Backups', 'cloud-arrow-up', 'backups', $P::BACKUPS_VIEW],
+    ['Security', 'shield-check', 'security', $P::SECURITY_VIEW],
+    ['Packages', 'box-seam', 'packages', $P::PACKAGES_MANAGE],
+    ['Settings', 'sliders', 'settings', $P::SETTINGS_VIEW],
+] as [$label, $icon, $route, $perm]) {
+    if ($this->hasRoute($route) && $this->can($perm)) {
+        $quick[] = [$label, $icon, $this->url($route)];
+    }
+}
+?>
+<section class="wcp-hero" aria-label="Welcome">
+    <div class="d-flex flex-wrap align-items-start gap-3">
+        <div class="me-auto">
+            <h2 class="h4"><?= e($greet) ?><?= $who !== '' ? ', ' . e($who) : '' ?></h2>
+            <div class="wcp-hero-sub"><?= e($sys['hostname'] ?? 'Your server') ?><?= isset($os['pretty_name']) ? ' · ' . e($os['pretty_name']) : '' ?><?= isset($sys['uptime_seconds']) ? ' · up ' . e(format_duration((float) $sys['uptime_seconds'])) : '' ?></div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <?php if ($summary !== null): ?><a class="wcp-hero-chip" href="<?= e($this->url('websites')) ?>"><i class="bi bi-globe2" aria-hidden="true"></i><?= (int) $summary['total'] ?> websites</a><?php endif; ?>
+            <?php if (!empty($alerts)): ?><a class="wcp-hero-chip" href="<?= e($this->url('monitoring')) ?>"><i class="bi bi-bell-fill" aria-hidden="true"></i><?= count($alerts) ?> alert<?= count($alerts) === 1 ? '' : 's' ?></a>
+            <?php else: ?><span class="wcp-hero-chip"><i class="bi bi-check-circle-fill" aria-hidden="true"></i>All systems normal</span><?php endif; ?>
+        </div>
+    </div>
+    <?php if ($quick !== []): ?>
+    <nav class="wcp-quick" aria-label="Quick actions">
+        <?php foreach ($quick as [$label, $icon, $url]): ?><a href="<?= e($url) ?>"><i class="bi bi-<?= e($icon) ?>" aria-hidden="true"></i><?= e($label) ?></a><?php endforeach; ?>
+    </nav>
+    <?php endif; ?>
+</section>
+
 <?php if (!empty($alerts)): ?>
     <div class="alert alert-<?= in_array('critical', array_column($alerts, 'severity'), true) ? 'danger' : 'warning' ?> d-flex align-items-start gap-2" role="alert">
         <i class="bi bi-bell-fill mt-1"></i>
@@ -171,4 +211,22 @@ $sys = $info['system'] ?? [];
     </div>
 </div>
 <div class="small text-body-secondary mt-3" data-live-status>Waiting for live data…</div>
+<?php $toolGroups = \WhaCP\View\Navigation::visible($this); unset($toolGroups['Overview']); ?>
+<?php if ($toolGroups !== []): ?>
+<section aria-labelledby="tools-title">
+    <div class="wcp-tools-head"><h2 id="tools-title">Tools &amp; settings</h2><span class="small text-body-secondary">Everything you can manage, in one place · press <kbd>Ctrl</kbd> <kbd>K</kbd> to search</span></div>
+    <?php $tone = 0; foreach ($toolGroups as $group => $items): ?>
+        <div class="wcp-tools-group"><?= e($group) ?></div>
+        <div class="wcp-tools">
+            <?php foreach ($items as $i): ?>
+                <a class="wcp-tool-card" href="<?= e($i['url']) ?>">
+                    <span class="wcp-tool-icon wcp-tone-<?= $tone % 6 ?>"><i class="bi bi-<?= e($i['icon']) ?>" aria-hidden="true"></i></span>
+                    <span class="min-w-0"><span class="d-block fw-semibold"><?= e($i['label']) ?></span><span class="d-block small text-body-secondary"><?= e($i['description']) ?></span></span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    <?php $tone++; endforeach; ?>
+</section>
+<?php endif; ?>
+
 <script src="<?= e($this->asset('assets/js/dashboard.js')) ?>" defer></script>

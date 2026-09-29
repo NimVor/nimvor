@@ -1,57 +1,9 @@
 <?php
 /** @var \WhaCP\View\View $this */
 
-use WhaCP\Security\Permissions as P;
+use WhaCP\View\Navigation;
 
-// [label, icon, route name or null (planned), permission, active prefix]
-$groups = [
-    'Overview' => [
-        ['Dashboard', 'speedometer2', 'dashboard', P::DASHBOARD_VIEW, '/'],
-    ],
-    'Hosting' => [
-        ['Websites', 'globe2', 'websites', P::WEBSITES_VIEW, '/websites'],
-        ['Domains', 'signpost-split', 'domains', P::WEBSITES_VIEW, '/domains'],
-        ['Databases', 'database', 'databases', P::DATABASES_VIEW, '/databases'],
-        ['PHP', 'filetype-php', 'php', P::PHP_VIEW, '/php'],
-        ['WordPress', 'wordpress', 'wordpress', P::WEBSITES_VIEW, '/wordpress'],
-        ['Cron Jobs', 'clock-history', 'cron', P::CRON_VIEW, '/cron'],
-        ['Workers', 'gear-wide-connected', 'workers', P::WORKERS_MANAGE, '/workers'],
-        ['Redis', 'lightning', 'redis', P::REDIS_MANAGE, '/redis'],
-        ['Memcached', 'memory', 'memcached', P::REDIS_MANAGE, '/memcached'],
-        ['DNS', 'signpost', 'dns', P::DNS_MANAGE, '/dns'],
-        ['Email', 'envelope', 'mail', P::MAIL_MANAGE, '/mail'],
-        ['SSL', 'shield-lock', 'ssl', P::SSL_VIEW, '/ssl'],
-    ],
-    'Operations' => [
-        ['Backups', 'archive', 'backups', P::BACKUPS_VIEW, '/backups'],
-        ['Monitoring', 'activity', 'monitoring', P::MONITORING_VIEW, '/monitoring'],
-        ['Notifications', 'bell', 'notifications', P::NOTIFICATIONS_VIEW, '/notifications'],
-        ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs'],
-    ],
-    'Security' => [
-        ['Security', 'shield-check', 'security', P::SECURITY_VIEW, '/security'],
-    ],
-    'Server' => [
-        ['Server', 'hdd-rack', 'server', P::SERVER_VIEW, '/server'],
-        ['All servers', 'diagram-3', 'servers', P::SERVERS_MANAGE, '/servers'],
-        ['Services', 'cpu', 'services', P::SERVICES_VIEW, '/services'],
-        ['IP addresses', 'ethernet', 'ips', P::SERVER_VIEW, '/ips'],
-        ['Resource limits', 'speedometer', 'limits', P::SERVER_VIEW, '/limits'],
-        ['Web terminal', 'terminal', 'terminal', P::SECURITY_MANAGE, '/terminal'],
-        ['Packages', 'box-seam', 'packages', P::PACKAGES_MANAGE, '/packages'],
-        ['FFmpeg', 'film', 'ffmpeg', P::SERVER_VIEW, '/ffmpeg'],
-        ['FTP server', 'hdd-network', 'ftp', P::SERVER_MANAGE, '/ftp'],
-        ['System accounts', 'people', 'system_users', P::SYSTEM_USERS_VIEW, '/system-users'],
-        ['Discovery', 'binoculars', 'discovery', P::WEBSITES_VIEW, '/discovery'],
-    ],
-    'Administration' => [
-        ['Users & roles', 'person-gear', 'users', P::USERS_VIEW, '/users'],
-        ['Plans', 'card-checklist', 'plans', P::PLANS_MANAGE, '/plans'],
-        ['Settings', 'sliders', 'settings', P::SETTINGS_VIEW, '/settings'],
-        ['Audit log', 'list-check', 'audit', P::AUDIT_VIEW, '/audit'],
-        ['Plugins', 'plug', 'plugins', P::PLUGINS_MANAGE, '/admin/plugins'],
-    ],
-];
+$groups = Navigation::visible($this);
 ?>
 <?php $siteMenu = $this->shared('site_menu'); ?>
 <nav class="wcp-sidebar" id="wcp-sidebar" aria-label="Main navigation">
@@ -68,34 +20,22 @@ $groups = [
         <div class="wcp-mode-pill is-write" title="The agent may apply changes. Every change is validated, backed up and audited."><i class="bi bi-pencil-square"></i> Write mode</div>
     <?php endif; ?>
     <div class="wcp-nav">
-        <?php foreach ($groups as $group => $items): ?>
-            <?php
-            $visible = array_filter($items, fn (array $i): bool => $i[2] === null || $this->can($i[3]));
-            if ($visible === []) {
-                continue;
-            }
-            ?>
+        <?php foreach ($groups as $group => $visible): ?>
             <div class="wcp-nav-group"><?= e($group) ?></div>
-            <?php foreach ($visible as [$label, $icon, $route, $perm, $prefix]): ?>
-                <?php if ($route === null): ?>
-                    <span class="wcp-nav-link is-planned" aria-disabled="true" title="Planned for a later release">
-                        <i class="bi bi-<?= e($icon) ?>"></i><span><?= e($label) ?></span><span class="wcp-soon">soon</span>
-                    </span>
-                <?php else: ?>
-                    <?php $inSite = $route === 'websites' && $siteMenu !== null; ?>
-                    <a class="wcp-nav-link<?= $this->isActive($prefix) || $inSite ? ' active' : '' ?>" href="<?= e($this->url($route)) ?>"<?= $this->isActive($prefix) ? ' aria-current="page"' : '' ?>>
-                        <i class="bi bi-<?= e($icon) ?>"></i><span><?= e($label) ?></span>
-                    </a>
-                    <?php if ($inSite): ?>
-                        <div class="wcp-subnav" data-wcp-site-menu>
-                            <div class="wcp-subnav-title" title="<?= e($siteMenu['site']['domain']) ?>"><?= e($siteMenu['site']['domain']) ?></div>
-                            <?php foreach ($siteMenu['items'] as $si): ?>
-                                <a class="wcp-subnav-link<?= $si['key'] === $siteMenu['active'] ? ' active' : '' ?>" href="<?= e($si['url']) ?>"<?= $si['key'] === $siteMenu['active'] ? ' aria-current="page"' : '' ?>>
-                                    <i class="bi bi-<?= e($si['icon']) ?>" aria-hidden="true"></i><span><?= e($si['label']) ?></span>
-                                </a>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
+            <?php foreach ($visible as $item): ?>
+                <?php $inSite = $item['route'] === 'websites' && $siteMenu !== null; $active = $this->isActive($item['prefix']); ?>
+                <a class="wcp-nav-link<?= $active || $inSite ? ' active' : '' ?>" href="<?= e($item['url']) ?>"<?= $active ? ' aria-current="page"' : '' ?>>
+                    <i class="bi bi-<?= e($item['icon']) ?>"></i><span><?= e($item['label']) ?></span>
+                </a>
+                <?php if ($inSite): ?>
+                    <div class="wcp-subnav" data-wcp-site-menu>
+                        <div class="wcp-subnav-title" title="<?= e($siteMenu['site']['domain']) ?>"><?= e($siteMenu['site']['domain']) ?></div>
+                        <?php foreach ($siteMenu['items'] as $si): ?>
+                            <a class="wcp-subnav-link<?= $si['key'] === $siteMenu['active'] ? ' active' : '' ?>" href="<?= e($si['url']) ?>"<?= $si['key'] === $siteMenu['active'] ? ' aria-current="page"' : '' ?>>
+                                <i class="bi bi-<?= e($si['icon']) ?>" aria-hidden="true"></i><span><?= e($si['label']) ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
             <?php endforeach; ?>
         <?php endforeach; ?>
@@ -109,5 +49,12 @@ $groups = [
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
+    <?php if (!empty($user)): ?>
+        <?php $who = $user['display_name'] !== '' ? $user['display_name'] : $user['username']; ?>
+        <a class="wcp-sidebar-account" href="<?= e($this->url('profile')) ?>" title="Profile">
+            <span class="wcp-avatar" aria-hidden="true"><?= e(mb_strtoupper(mb_substr((string) $who, 0, 1))) ?></span>
+            <span class="min-w-0"><span class="d-block text-truncate fw-medium"><?= e($who) ?></span><span class="d-block small text-truncate wcp-sidebar-role"><?= e($user['role_label']) ?></span></span>
+        </a>
+    <?php endif; ?>
 </nav>
 <div class="wcp-sidebar-backdrop" data-wcp-toggle="sidebar"></div>

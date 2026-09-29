@@ -46,6 +46,11 @@ $simple = $this->simpleLayout();
                 <?php endif; ?>
             </div>
             <div class="wcp-topbar-actions">
+                <?php if (!$simple): ?>
+                    <button class="wcp-search-trigger" type="button" data-bs-toggle="modal" data-bs-target="#wcp-palette" aria-label="Search tools (Ctrl+K)">
+                        <i class="bi bi-search" aria-hidden="true"></i><span class="d-none d-md-inline">Search tools…</span><kbd class="d-none d-md-inline">Ctrl K</kbd>
+                    </button>
+                <?php endif; ?>
                 <?= $this->section('actions') ?>
                 <?php $sw = isset($server_switcher) && is_callable($server_switcher) ? $server_switcher() : null; ?>
                 <?php if ($sw !== null && count($sw['servers']) > 1): ?>
@@ -96,6 +101,7 @@ $simple = $this->simpleLayout();
         </footer>
     </div>
 </div>
+<?php if (!$simple): ?><?= $this->partial('partials/palette') ?><?php endif; ?>
 <?= $this->partial('partials/confirm_modal') ?>
 <?= $this->partial('partials/job_modal') ?>
 <div class="toast-container position-fixed bottom-0 end-0 p-3" id="wcp-toasts"></div>

@@ -26,6 +26,10 @@ final class DashboardController extends Controller
         private readonly AuditLogRepository $audit,
         private readonly \WhaCP\Services\MonitoringService $monitoring,
         private readonly \WhaCP\Services\NotificationService $notifications,
+        private readonly ?\WhaCP\Repositories\UserRepository $users = null,
+        private readonly ?\WhaCP\Repositories\WebsiteRepository $websites = null,
+        private readonly ?\WhaCP\Services\PlanLimits $plans = null,
+        private readonly ?\WhaCP\Services\ServerContext $server = null,
     ) {
         parent::__construct($view, $session);
     }
@@ -35,6 +39,17 @@ final class DashboardController extends Controller
         // Hosting customers start from their websites.
         if ($this->view->simpleLayout()) {
             return Response::redirect('/websites');
+        }
+        // Resellers: their customers, websites and plan, not the server.
+        $user = $this->user($request);
+        if (($user['role_scope'] ?? 'all') === 'own' && $this->users !== null && $this->websites !== null && $this->plans !== null && $this->server !== null) {
+            $sites = $this->websites->all($this->server->id(), $user);
+            return $this->render('dashboard/reseller', [
+                'customers' => $this->users->manageableBy($user),
+                'sites' => $sites,
+                'usage' => $this->plans->usage((int) $user['id']),
+                'recent' => $this->notifications->list($user, [], 6),
+            ]);
         }
         $info = null;
         $summary = null;

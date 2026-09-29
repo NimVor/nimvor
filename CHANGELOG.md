@@ -7,6 +7,13 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Refreshed administrator and reseller interface.** Softer cards, a
+  polished sidebar with an account card, a sticky top bar and **global
+  search (Ctrl+K)** over every tool the viewer may open, with quick actions.
+  The dashboard opens with a welcome strip and quick actions, colour-coded
+  metrics and a **Tools & settings** grid of every area. **Resellers get
+  their own dashboard** (customers, websites, plan use, notifications)
+  instead of the server's, which showed server details they do not manage.
 - **WordPress Toolkit, second part.** The installation page has a header
   with status and a tool strip (File Manager at the installation, Database
   browser, Logs, Clone, Sync, Security, Back up, Restore points) and tabs.
