@@ -1,0 +1,85 @@
+package security
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+)
+
+func init() { hostScanEnabled = false }
+
+func TestHostScanFindings(t *testing.T) {
+	h := testhost.New(t)
+	put := func(p string, mode os.FileMode, body string) {
+		full := filepath.Join(h.Base, p)
+		os.MkdirAll(filepath.Dir(full), 0o755)
+		os.WriteFile(full, []byte(body), 0o644)
+		os.Chmod(full, mode)
+	}
+	put("usr/bin/passwd", 0o755|os.ModeSetuid, "x")            // a package's
+	put("usr/local/bin/rootme", 0o755|os.ModeSetuid, "x")      // no package
+	put("tmp/.x/sh", 0o755|os.ModeSetgid, "x")                 // untrusted place
+	put("etc/open.conf", 0o666, "x")                           // world-writable
+	put("home/whacp/shop.test/public_html/up.txt", 0o666, "x") // a website's own: not reported
+	os.MkdirAll(filepath.Join(h.Base, "var/lib/shared"), 0o777)
+	os.Chmod(filepath.Join(h.Base, "var/lib/shared"), 0o777|os.ModeSticky) // sticky: fine
+	put("etc/cron.d/backdoor", 0o644, "* * * * * root /tmp/x\n")
+	put("etc/cron.d/sysstat", 0o644, "x")                                           // a package's
+	put("etc/cron.d/whacp-websites", 0o644, "# Managed by WhaCP\n")                 // WhaCP's
+	put("etc/systemd/system/miner.service", 0o644, "[Service]\nExecStart=/tmp/m\n") // not a package's
+	put("etc/ld.so.preload", 0o644, "/lib/evil.so\n")
+	owned := map[string]bool{"/bin/passwd": true, "/etc/cron.d/sysstat": true, "/etc/cron.d/certbot": true} // merged-/usr spelling
+
+	r := Scan(t.Context(), h.Env, owned, time.Now())
+	paths := func(fs []Finding) string {
+		var l []string
+		for _, f := range fs {
+			l = append(l, f.Path)
+		}
+		return strings.Join(l, " ")
+	}
+	if got := paths(r.Setuid); got != "/tmp/.x/sh /usr/local/bin/rootme" {
+		t.Errorf("setuid: %q", got)
+	}
+	if got := paths(r.Writable); got != "/etc/open.conf" {
+		t.Errorf("writable: %q", got)
+	}
+	if got := paths(r.Persist); got != "/etc/cron.d/backdoor /etc/ld.so.preload /etc/systemd/system/miner.service /var/spool/cron/crontabs/deploy" {
+		t.Errorf("persistence: %q", got)
+	}
+	checks := map[string]Check{}
+	for _, c := range hostScanChecks(&r, false) {
+		checks[c.ID] = c
+	}
+	if checks["host_setuid"].Status != "fail" || checks["host_world_writable"].Status != "warn" || checks["host_persistence"].Status != "warn" || checks["host_capabilities"].Status != "pass" {
+		t.Errorf("checks: %+v", checks)
+	}
+	if c := hostScanChecks(nil, true); len(c) != 1 || c[0].Status != "info" {
+		t.Errorf("no scan yet: %+v", c)
+	}
+}
+
+func TestSysctlCheck(t *testing.T) {
+	h := testhost.New(t)
+	set := func(k, v string) {
+		p := filepath.Join(h.Base, "proc/sys", strings.ReplaceAll(k, ".", "/"))
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		os.WriteFile(p, []byte(v+"\n"), 0o644)
+	}
+	for _, s := range kernelSettings {
+		set(s.key, s.value)
+	}
+	if c := sysctlCheck(h.Env); c.Status != "pass" {
+		t.Fatalf("all good: %+v", c)
+	}
+	set("fs.protected_symlinks", "0")
+	set("kernel.yama.ptrace_scope", "0")
+	c := sysctlCheck(h.Env)
+	if c.Status != "warn" || !strings.Contains(c.Detail, "fs.protected_symlinks = 0") || !strings.Contains(c.Remedy, "kernel.yama.ptrace_scope = 1") || !strings.Contains(c.Detail, "debuggers") {
+		t.Errorf("%+v", c)
+	}
+}

@@ -7,6 +7,29 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Security hardening (medium-severity audit findings).**
+  - Website nginx and PHP-FPM configurations are no longer readable by
+    other accounts (0640, tightened on existing servers at agent start).
+  - Safer PHP session defaults: HttpOnly cookies, strict session IDs,
+    cookie-only sessions, and Secure cookies on HTTPS-only websites. A
+    website can still change them.
+  - New setting: new websites start with shell functions disabled.
+  - Outgoing mail limits per website account (Email → Sending limits).
+    Recipients are counted per hour at the mail server, PHP's mail() goes
+    through WhaCP's sendmail, and administrators and the website's owner
+    are notified when an account hits its limit.
+  - New setting: hosting customers may be kept to local-only database
+    users.
+  - New security audit checks:
+    - /proc process visibility (hidepid);
+    - kernel security settings;
+    - database exposure: listening address, remote administrators,
+      accounts without a password, global privileges, GRANT OPTION and
+      the test database;
+    - a daily host scan: set-user-ID programs and file capabilities not
+      installed by a package, world-writable system files, and cron jobs,
+      services or preloaded libraries not from a package or WhaCP.
+    Checks only report; nothing is changed automatically.
 - **Security hardening (low-severity audit findings).**
   - WordPress one-time sign-in links work only over HTTPS.
   - New servers use Mozilla's intermediate TLS ciphers.

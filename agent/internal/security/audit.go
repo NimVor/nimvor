@@ -118,6 +118,7 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 	if b, err := os.ReadFile(filepath.Join(env.Cfg.ProcDir, "mounts")); err == nil {
 		out = append(out, procCheck(string(b)))
 	}
+	out = append(out, hostChecks(env)...)
 	if c, ok := dnsRecursionCheck(ctx, env); ok {
 		out = append(out, c)
 	}
