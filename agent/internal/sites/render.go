@@ -109,6 +109,10 @@ func acme(b *strings.Builder, l Layout) {
 
 func body(b *strings.Builder, s Spec, l Layout) {
 	fmt.Fprintf(b, "    root %s;\n", s.DocumentRoot)
+	// A symbolic link is followed only when it and its target have the
+	// same owner: a website cannot link to another website's files (nginx
+	// may read those through its group).
+	b.WriteString("    disable_symlinks if_not_owner from=$document_root;\n")
 	if s.Kind == "php" {
 		b.WriteString("    index index.php index.html index.htm;\n")
 	} else {

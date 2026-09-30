@@ -27,7 +27,7 @@ func TestApplyCreatesSiteAndIsIdempotent(t *testing.T) {
 		t.Errorf("user not created: %+v", res)
 	}
 	conf := h.Read("etc/nginx/sites-available/whacp-new.test.conf")
-	for _, want := range []string{"server_name new.test www.new.test;", "root /home/whacp/new.test/public_html;", "fastcgi_pass unix:/run/php/whacp-new.test.sock;", "Managed by WhaCP"} {
+	for _, want := range []string{"server_name new.test www.new.test;", "root /home/whacp/new.test/public_html;", "disable_symlinks if_not_owner from=$document_root;", "fastcgi_pass unix:/run/php/whacp-new.test.sock;", "Managed by WhaCP"} {
 		if !strings.Contains(conf, want) {
 			t.Errorf("nginx config lacks %q:\n%s", want, conf)
 		}

@@ -27,6 +27,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -232,5 +233,86 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 	serve()
 	if code, _ := get(); code != http.StatusForbidden {
 		t.Fatalf("listing off again: HTTP %d", code)
+	}
+}
+
+// A website cannot serve another website's files through a symbolic link
+// (nginx reads both through its group); links within a website still
+// work.
+func TestRealHostSymlinksAcrossWebsites(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("needs root")
+	}
+	root := filesystem.Host()
+	cfg := config.Default()
+	cfg.SitesRoot = "/home/whacp-test"
+	cfg.StateDir = t.TempDir()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	jm, _ := jobs.NewManager(t.TempDir(), 1, time.Minute, log)
+	r := &hybrid{real: execx.NewSystemRunner(30 * time.Second)}
+	env := host.New(cfg, root, platform.Detect(root), r, jm, log)
+	env.Writer.Policy.Patterns = append(env.Writer.Policy.Patterns, cfg.StateDir+"/**")
+	m := &Manager{Env: env}
+	ctx := context.Background()
+	victim := Spec{Domain: "victim.whacp.test", User: "whacptest3", CreateUser: true, Kind: "static", Enabled: true}
+	attacker := Spec{Domain: "attacker.whacp.test", User: "whacptest4", CreateUser: true, Kind: "static", Enabled: true}
+	t.Cleanup(func() {
+		for _, s := range []Spec{victim, attacker} {
+			m.handleDelete(ctx, []byte(`{"domain":"`+s.Domain+`","user":"`+s.User+`","remove_files":true,"remove_user":true}`))
+		}
+		os.RemoveAll("/home/whacp-test")
+	})
+	for _, s := range []Spec{victim, attacker} {
+		if _, err := m.Apply(ctx, s); err != nil {
+			t.Fatalf("%s: %v", s.Domain, err)
+		}
+	}
+	vroot, aroot := "/home/whacp-test/victim.whacp.test", "/home/whacp-test/attacker.whacp.test"
+	// Group as the website folders give it (setgid, the web server's).
+	own := func(p, user string) {
+		if out, err := exec.Command("chown", "-h", user+":"+env.M.WebUser, p).CombinedOutput(); err != nil {
+			t.Fatalf("chown: %s", out)
+		}
+	}
+	os.WriteFile(vroot+"/public_html/secret.txt", []byte("victim-secret"), 0o640)
+	own(vroot+"/public_html/secret.txt", "whacptest3")
+	os.WriteFile(aroot+"/public_html/mine.txt", []byte("attacker-own"), 0o644)
+	own(aroot+"/public_html/mine.txt", "whacptest4")
+	os.Symlink(vroot+"/public_html/secret.txt", aroot+"/public_html/steal.txt")
+	own(aroot+"/public_html/steal.txt", "whacptest4")
+	os.Symlink("mine.txt", aroot+"/public_html/alias.txt")
+	own(aroot+"/public_html/alias.txt", "whacptest4")
+
+	if out, err := r.real.Run(ctx, "nginx", "-t"); err != nil {
+		t.Fatalf("nginx -t: %s", out)
+	}
+	if _, err := r.real.Run(ctx, "nginx", "-s", "reload"); err != nil {
+		if out, err := r.real.Run(ctx, "nginx"); err != nil {
+			t.Fatalf("nginx start: %s", out)
+		}
+		t.Cleanup(func() { r.real.Run(context.Background(), "nginx", "-s", "quit") })
+	}
+	time.Sleep(500 * time.Millisecond)
+	get := func(hostName, path string) (int, string) {
+		req, _ := http.NewRequest("GET", "http://127.0.0.1"+path, nil)
+		req.Host = hostName
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("GET: %v", err)
+		}
+		defer res.Body.Close()
+		b, _ := io.ReadAll(res.Body)
+		return res.StatusCode, string(b)
+	}
+	// nginx can read the victim's file (so the link would leak it)...
+	if code, body := get("victim.whacp.test", "/secret.txt"); code != 200 || body != "victim-secret" {
+		t.Fatalf("victim's own file: %d %q", code, body)
+	}
+	// ...but not through the attacker's link.
+	if code, body := get("attacker.whacp.test", "/steal.txt"); code == http.StatusOK || strings.Contains(body, "victim-secret") {
+		t.Fatalf("link to another website: %d %q", code, body)
+	}
+	if code, body := get("attacker.whacp.test", "/alias.txt"); code != 200 || body != "attacker-own" {
+		t.Fatalf("link within the website: %d %q", code, body)
 	}
 }
