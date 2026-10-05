@@ -27,6 +27,15 @@ import (
 // agent's command runner, as the website's account, on a log nginx created
 // (root-owned, in the account's logs folder).
 func TestRealHostStatsUpdate(t *testing.T) {
+	if os.Geteuid() == 0 && program(&host.Env{Root: filesystem.Host()}) == "" {
+		// Not a missing test prerequisite when the distribution does not
+		// package AWStats at all (EPEL 10): WhaCP reports the component
+		// as not available there.
+		if _, err := exec.LookPath("dnf"); err == nil && exec.Command("dnf", "-q", "list", "awstats").Run() != nil {
+			t.Log("AWStats is not packaged for this distribution; nothing to test")
+			return
+		}
+	}
 	if os.Geteuid() != 0 || program(&host.Env{Root: filesystem.Host()}) == "" {
 		t.Skip("needs root and AWStats")
 	}
