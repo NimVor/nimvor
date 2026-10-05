@@ -42,6 +42,9 @@ type Credential struct {
 	// Capabilities (root only, see Opts.Capabilities) is the unit's
 	// capability bounding set instead of none.
 	Capabilities []string
+	// Package runs a package transaction as root outside the agent's
+	// sandbox (see packages.go).
+	Package bool
 }
 
 // Opts customises a single run.
@@ -98,6 +101,7 @@ var defaultCandidates = map[string][]string{
 	// Valkey (RHEL 10) replaces Redis with the same protocol and options.
 	"redis-server":           {"/usr/bin/redis-server", "/usr/sbin/redis-server", "/usr/bin/valkey-server"},
 	"redis-cli":              {"/usr/bin/redis-cli", "/usr/bin/valkey-cli"},
+	"mysqladmin":             {"/usr/bin/mysqladmin", "/usr/bin/mariadb-admin"},
 	"useradd":                {"/usr/sbin/useradd"},
 	"userdel":                {"/usr/sbin/userdel"},
 	"usermod":                {"/usr/sbin/usermod"},
@@ -136,6 +140,7 @@ var defaultCandidates = map[string][]string{
 	"setsebool":              {"/usr/sbin/setsebool"},
 	"getsebool":              {"/usr/sbin/getsebool"},
 	"dpkg-query":             {"/usr/bin/dpkg-query"},
+	"dpkg":                   {"/usr/bin/dpkg"},
 	"phpenmod":               {"/usr/sbin/phpenmod"},
 	"phpdismod":              {"/usr/sbin/phpdismod"},
 	"apt-cache":              {"/usr/bin/apt-cache"},
@@ -280,6 +285,22 @@ func (r *SystemRunner) RunWith(ctx context.Context, id string, o Opts, args ...s
 	if o.Dir != "" {
 		dir = o.Dir
 	}
+	if o.As == nil && len(o.Capabilities) == 0 && PackageTransaction(id, args) {
+		// One package transaction at a time, also across agent restarts.
+		release, err := acquirePackageSlot(ctx, o.Output)
+		if err != nil {
+			return nil, err
+		}
+		defer release()
+		if r.transient() {
+			if err := r.waitPackageUnits(ctx, o.Output); err != nil {
+				return nil, err
+			}
+			o.As = &Credential{Home: "/root", Package: true}
+			return r.runTransient(ctx, bin, dir, env, o, timeout, args)
+		}
+		// No systemd (development containers): no sandbox to leave.
+	}
 	var cmd *exec.Cmd
 	switch {
 	case len(o.Capabilities) > 0 && r.transient():
@@ -413,7 +434,12 @@ func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeo
 		a = append(a, "--property=SupplementaryGroups="+strings.Join(g, " "))
 	}
 	hardening := transientHardening
-	if len(as.Capabilities) > 0 {
+	switch {
+	case as.Package:
+		hardening = packageHardening
+		binds = nil
+		a = append(a, "--description=WhaCP package transaction")
+	case len(as.Capabilities) > 0:
 		hardening = PrivilegedHardening(as.Capabilities)
 		binds = nil
 	}
@@ -526,16 +552,32 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 		w = io.MultiWriter(&buf, o.Output)
 	}
 	w = &lockedWriter{w: w}
+	// A package transaction's output keeps being read after the agent
+	// stops waiting (a closed pipe would kill dpkg or rpm half-way), into
+	// nothing once detached.
+	dw := &detachWriter{w: w}
+	if o.As.Package {
+		w = dw
+	}
 	stdout := w
 	if o.Stdout != nil {
 		stdout = o.Stdout
 	}
 	unit := transientUnit()
+	if o.As.Package {
+		unit = PackageUnitPrefix + strings.TrimPrefix(unit, "whacp-run-")
+	}
 	cmd := exec.CommandContext(ctx, r.paths["systemd-run"], TransientArgs(unit, sh, bin, dir, env, *o.As, timeout, in, out, errp, sendmailBinds(), args)...)
 	cmd.Env = baseEnv
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	cmd.Stdout, cmd.Stderr = w, w // systemd-run's own messages
 	cmd.Cancel = func() error {
+		if o.As.Package {
+			// Never stop a package transaction half-way (a broken dpkg or
+			// RPM state is worse than a late one): the unit finishes on
+			// its own, and the next transaction waits for it.
+			return cmd.Process.Kill()
+		}
 		// Stopping systemd-run alone would leave the unit running.
 		if sc, ok := r.paths["systemctl"]; ok {
 			stop := exec.Command(sc, "stop", "--no-block", unit)
@@ -588,6 +630,9 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 	if runErr == nil && ctx.Err() != nil {
 		runErr = fmt.Errorf("stopped: %w", ctx.Err())
 	}
+	if o.As.Package && ctx.Err() != nil {
+		runErr = fmt.Errorf("stopped waiting; the package transaction continues in %s: %w", unit, ctx.Err())
+	}
 	// If the command never opened a pipe (it failed to start), release the
 	// goroutine still waiting to open it: hold the other end open until its
 	// open has returned. (A single open-and-close could come before the
@@ -595,8 +640,41 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 	for _, p := range pipes {
 		releasePipe(p.path, p.flag, p.opened)
 	}
+	if o.As.Package && ctx.Err() != nil {
+		dw.detach()
+		return dw.snapshot(&buf), runErr
+	}
 	wg.Wait()
 	return buf.Bytes(), runErr
+}
+
+// detachWriter forwards writes until detached, then discards them.
+type detachWriter struct {
+	mu       sync.Mutex
+	w        io.Writer
+	detached bool
+}
+
+func (d *detachWriter) Write(p []byte) (int, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.detached {
+		return len(p), nil
+	}
+	return d.w.Write(p)
+}
+
+func (d *detachWriter) detach() {
+	d.mu.Lock()
+	d.detached = true
+	d.mu.Unlock()
+}
+
+// snapshot copies b once no more writes reach it.
+func (d *detachWriter) snapshot(b *limitedBuffer) []byte {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]byte(nil), b.Bytes()...)
 }
 
 // releasePipe opens the other end of a pipe (flag) until opened is

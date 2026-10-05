@@ -77,22 +77,29 @@ func InstallNative(ctx context.Context, env *host.Env, log io.Writer, pkgs []str
 	if len(pkgs) == 0 {
 		return nil
 	}
-	opts := execx.Opts{Output: log, Timeout: -1}
+	opts := execx.Opts{Output: log, Timeout: -1, Env: packageEnv}
 	if dnf(env) {
-		args := append([]string{"install", "-y", "-q", "--setopt=install_weak_deps=False", "--"}, pkgs...)
-		if _, err := env.Runner.RunWith(ctx, "dnf", opts, args...); err != nil {
-			return fmt.Errorf("dnf install failed; see the log above")
+		if err := ensureAvailable(ctx, env, log, pkgs); err != nil {
+			return err
 		}
-		return nil
+		args := append([]string{"install", "-y", "-q", "--setopt=install_weak_deps=False", "--"}, pkgs...)
+		return transact(ctx, env, log, "install", pkgs, func(ctx context.Context) ([]byte, error) {
+			return env.Runner.RunWith(ctx, "dnf", opts, args...)
+		})
 	}
-	if _, err := env.Runner.RunWith(ctx, "apt-get", opts, "update", "-q"); err != nil {
-		return fmt.Errorf("apt-get update failed")
+	if err := transact(ctx, env, log, "refresh the package index", nil, func(ctx context.Context) ([]byte, error) {
+		return env.Runner.RunWith(ctx, "apt-get", opts, append([]string{"update", "-q"}, aptLockWait...)...)
+	}); err != nil {
+		return err
 	}
-	args := append([]string{"install", "-y", "-q", "--no-install-recommends", "-o", "Dpkg::Options::=--force-confold", "--"}, pkgs...)
-	if _, err := env.Runner.RunWith(ctx, "apt-get", opts, args...); err != nil {
-		return fmt.Errorf("apt-get install failed; see the log above")
+	if err := ensureAvailable(ctx, env, log, pkgs); err != nil {
+		return err
 	}
-	return nil
+	args := append([]string{"install", "-y", "-q", "--no-install-recommends", "-o", "Dpkg::Options::=--force-confold"}, aptLockWait...)
+	args = append(append(args, "--"), pkgs...)
+	return transact(ctx, env, log, "install", pkgs, func(ctx context.Context) ([]byte, error) {
+		return env.Runner.RunWith(ctx, "apt-get", opts, args...)
+	})
 }
 
 // RemoveNative removes packages given by this system's own names, but only
@@ -107,17 +114,16 @@ func RemoveNative(ctx context.Context, env *host.Env, log io.Writer, pkgs []stri
 	if len(pkgs) == 0 {
 		return nil
 	}
-	opts := execx.Opts{Output: log, Timeout: -1}
+	opts := execx.Opts{Output: log, Timeout: -1, Env: packageEnv}
 	if dnf(env) {
 		// rpm -e --test fails, naming them, when other packages need these.
 		if out, err := env.Runner.Run(ctx, "rpm", append([]string{"-e", "--test", "--"}, pkgs...)...); err != nil {
 			return fmt.Errorf("other packages need %s: %s", strings.Join(pkgs, ", "), host.Why(out, err))
 		}
 		args := append([]string{"remove", "-y", "-q", "--noautoremove", "--"}, pkgs...)
-		if _, err := env.Runner.RunWith(ctx, "dnf", opts, args...); err != nil {
-			return fmt.Errorf("dnf remove failed; see the log above")
-		}
-		return nil
+		return transact(ctx, env, log, "remove", pkgs, func(ctx context.Context) ([]byte, error) {
+			return env.Runner.RunWith(ctx, "dnf", opts, args...)
+		})
 	}
 	out, err := env.Runner.Run(ctx, "apt-get", append([]string{"-s", "remove", "--"}, pkgs...)...)
 	if err != nil {
@@ -126,11 +132,11 @@ func RemoveNative(ctx context.Context, env *host.Env, log io.Writer, pkgs []stri
 	if extra := ExtraRemovals(string(out), pkgs); len(extra) > 0 {
 		return fmt.Errorf("removing %s would also remove %s; nothing was removed", strings.Join(pkgs, ", "), strings.Join(extra, ", "))
 	}
-	args := append([]string{"remove", "-y", "-q", "--"}, pkgs...)
-	if _, err := env.Runner.RunWith(ctx, "apt-get", opts, args...); err != nil {
-		return fmt.Errorf("apt-get remove failed; see the log above")
-	}
-	return nil
+	args := append(append([]string{"remove", "-y", "-q"}, aptLockWait...), "--")
+	args = append(args, pkgs...)
+	return transact(ctx, env, log, "remove", pkgs, func(ctx context.Context) ([]byte, error) {
+		return env.Runner.RunWith(ctx, "apt-get", opts, args...)
+	})
 }
 
 var aptRemv = regexp.MustCompile(`(?m)^Remv (\S+)`)
@@ -247,17 +253,13 @@ func Updates(ctx context.Context, env *host.Env) ([]Upgrade, error) {
 
 // Refresh downloads the package index.
 func Refresh(ctx context.Context, env *host.Env, log io.Writer) error {
-	opts := execx.Opts{Output: log, Timeout: -1}
-	if dnf(env) {
-		if _, err := env.Runner.RunWith(ctx, "dnf", opts, "-q", "makecache"); err != nil {
-			return fmt.Errorf("dnf makecache failed")
+	return transact(ctx, env, log, "refresh the package index", nil, func(ctx context.Context) ([]byte, error) {
+		opts := execx.Opts{Output: log, Timeout: -1, Env: packageEnv}
+		if dnf(env) {
+			return env.Runner.RunWith(ctx, "dnf", opts, "-q", "makecache")
 		}
-		return nil
-	}
-	if _, err := env.Runner.RunWith(ctx, "apt-get", opts, "update", "-q"); err != nil {
-		return fmt.Errorf("apt-get update failed")
-	}
-	return nil
+		return env.Runner.RunWith(ctx, "apt-get", opts, append([]string{"update", "-q"}, aptLockWait...)...)
+	})
 }
 
 // UpgradeAll installs every pending update, keeping local configuration.
@@ -265,19 +267,15 @@ func UpgradeAll(ctx context.Context, env *host.Env, log io.Writer) error {
 	if err := Refresh(ctx, env, log); err != nil {
 		return err
 	}
-	opts := execx.Opts{Output: log, Timeout: -1}
-	if dnf(env) {
-		// rpm keeps changed configuration files (new ones become .rpmnew).
-		if _, err := env.Runner.RunWith(ctx, "dnf", opts, "upgrade", "-y", "-q"); err != nil {
-			return fmt.Errorf("dnf upgrade failed; see the log above")
+	opts := execx.Opts{Output: log, Timeout: -1, Env: packageEnv}
+	return transact(ctx, env, log, "upgrade", nil, func(ctx context.Context) ([]byte, error) {
+		if dnf(env) {
+			// rpm keeps changed configuration files (new ones become .rpmnew).
+			return env.Runner.RunWith(ctx, "dnf", opts, "upgrade", "-y", "-q")
 		}
-		return nil
-	}
-	// "upgrade" never removes packages; confold keeps local config edits.
-	if _, err := env.Runner.RunWith(ctx, "apt-get", opts, "upgrade", "-y", "-q", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold"); err != nil {
-		return fmt.Errorf("apt-get upgrade failed; see the log above")
-	}
-	return nil
+		// "upgrade" never removes packages; confold keeps local config edits.
+		return env.Runner.RunWith(ctx, "apt-get", opts, append([]string{"upgrade", "-y", "-q", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold"}, aptLockWait...)...)
+	})
 }
 
 var instRe = regexp.MustCompile(`(?m)^Inst (\S+) (?:\[([^\]]+)\] )?\((\S+) ([^)]*)\)`)

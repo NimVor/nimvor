@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Runs inside an Ubuntu test VM (22.04, 26.04): installs what the
+# Runs inside an Ubuntu test VM (22.04, 24.04, 26.04): installs what the
 # real-host tests use, the way an administrator would, and starts the
 # services. Writes the PHP version websites are tested with to
 # /etc/whacp-ci-php.

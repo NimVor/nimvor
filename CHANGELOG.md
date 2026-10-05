@@ -6,6 +6,45 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Package installation on Ubuntu 24.04 and Rocky Linux / RHEL with
+  SELinux.** Package managers ran inside the agent's systemd sandbox. On
+  Ubuntu 24.04 APT could not switch to its download user
+  (`seteuid 42 failed`, `Method http has died`). On SELinux-enforcing RHEL
+  systems RPM could not run package scripts (`Error in PREIN scriptlet in
+  rpm package dovecot`, likewise redis and Remi's PHP), while `sudo dnf`
+  worked. Package transactions now run in their own short-lived systemd unit
+  with the environment of `sudo apt-get`/`dnf-automatic`. The agent keeps
+  its sandbox. See docs/architecture/package-management.md.
+- **One package transaction at a time** across all jobs, and across agent
+  restarts. APT waits for the dpkg lock. A transaction is never stopped
+  half-way.
+- **Specific errors instead of "dnf install failed".** Failures are
+  classified (package script with package, stage and exit status; not
+  available; repository; lock; dependency; signature; RPM database;
+  interrupted dpkg; disk full) and recovered where that is safe: waiting,
+  index refresh, `dpkg --configure -a`, `rpm --rebuilddb`. At most three
+  attempts; signature checks are never bypassed and dependencies never
+  forced.
+- **Repositories on Rocky/Alma/RHEL** are prepared when a package needs
+  them: Remi for PHP versions, EPEL with CRB for the rest. A package still
+  missing is reported as not available, naming the enabled repositories.
+- **Installed means working.** After installing, Nginx, Redis, MariaDB and
+  Memcached are started and checked (`nginx -t`, `redis-cli ping`,
+  `mysqladmin ping`); Postfix, Dovecot and BIND configurations are
+  validated; new PHP versions must run and pass `php-fpm -t`. A service
+  that does not start is reported with its cause (port conflict, SELinux
+  denial, permissions, …) and its log.
+- **Installer:** finds Go and Composer outside sudo's PATH and reports
+  their version and location; installs them with `--install-deps`; waits for
+  the APT lock; enables CRB with EPEL; prints the detected environment;
+  `--resume` continues an interrupted installation.
+- The package queue window shows each component's step (preparing
+  repositories, installing, recovering, health check) and, on failure,
+  the diagnosis.
+- CI: Ubuntu 24.04 joins the virtual-machine matrix, and the post-install
+  test installs a component through the installed agent.
+
 ### Added
 - **Security hardening (medium-severity audit findings).**
   - Website nginx and PHP-FPM configurations are no longer readable by

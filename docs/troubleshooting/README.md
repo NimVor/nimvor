@@ -32,3 +32,7 @@ run it manually as a non-root user, schemas cannot be listed.
 
 ### An error page shows a reference code
 Search the panel log for it: `grep <REFERENCE> /var/log/whacp/panel.log`.
+
+## Component installation fails
+
+See [Package management and component installation](../architecture/package-management.md): the queue window and the job log show the diagnosis (category, package, the package manager's own output) and what WhaCP already tried.

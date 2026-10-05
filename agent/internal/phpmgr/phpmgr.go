@@ -81,7 +81,19 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		packages := env.Platform.PHPPackages(in.Version, in.Extensions)
 		j := env.Jobs.Start("php.install", "php:"+in.Version, func(ctx context.Context, log io.Writer) (any, error) {
-			return nil, pkgs.InstallNative(ctx, env, log, packages)
+			if err := pkgs.InstallNative(ctx, env, log, packages); err != nil {
+				return nil, err
+			}
+			// Installed means working: the CLI runs and FPM accepts its
+			// configuration.
+			if out, err := env.Runner.Run(ctx, "php"+in.Version, "-v"); err != nil {
+				return nil, fmt.Errorf("PHP %s was installed, but its command line does not run: %s", in.Version, host.Why(out, err))
+			}
+			if err := env.FPMTest(ctx, in.Version); err != nil {
+				return nil, fmt.Errorf("PHP %s was installed, but PHP-FPM refuses its configuration: %v", in.Version, err)
+			}
+			fmt.Fprintf(log, "  ✓ PHP %s: command line and PHP-FPM configuration work\n", in.Version)
+			return nil, nil
 		})
 		return map[string]any{"job_id": j.ID, "packages": packages}, nil
 	}})

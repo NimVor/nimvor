@@ -29,7 +29,7 @@ func TestInstallRunsAptAsJob(t *testing.T) {
 	}
 	id := res.(map[string]any)["job_id"].(string)
 	j, _ := h.Env.Jobs.Wait(context.Background(), id)
-	if j.Status != "succeeded" || !h.Runner.Called("apt-get install -y -q --no-install-recommends -o Dpkg::Options::=--force-confold -- php8.4-fpm php8.4-cli php8.4-curl") {
+	if j.Status != "succeeded" || !h.Runner.Called("apt-get install -y -q --no-install-recommends -o Dpkg::Options::=--force-confold -o DPkg::Lock::Timeout=300 -- php8.4-fpm php8.4-cli php8.4-curl") {
 		t.Fatalf("job %+v calls %v", j, h.Runner.Calls)
 	}
 	if _, err := a.Handler(context.Background(), json.RawMessage(`{"version":"8.4","extensions":["curl;rm"]}`)); err == nil {

@@ -271,7 +271,7 @@ func (m *Manager) loadHistory() {
 		if _, ok := m.jobs[id]; !ok && idRe.MatchString(id) {
 			info, _ := os.Stat(l)
 			t := info.ModTime().UTC()
-			m.jobs[id] = &Job{ID: id, Kind: "unknown", Status: Failed, Error: "interrupted by an agent restart", CreatedAt: t, FinishedAt: &t}
+			m.jobs[id] = &Job{ID: id, Kind: "unknown", Status: Failed, Error: "interrupted by an agent restart (a package transaction it had started finishes on its own; run the action again to verify)", CreatedAt: t, FinishedAt: &t}
 		}
 	}
 }

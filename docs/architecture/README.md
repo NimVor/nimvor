@@ -77,3 +77,5 @@ operator can see *when* the server's configuration changed.
 The mandatory rules (Detect → Backup → Validate → Apply → Verify; no arbitrary
 commands; never reload invalid config; idempotency; secrets never exposed;
 audit everything) are listed in [CONTRIBUTING.md](../../CONTRIBUTING.md).
+
+- [Package management and component installation](package-management.md): how packages are installed, diagnosed and recovered on APT and DNF systems.

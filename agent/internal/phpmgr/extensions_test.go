@@ -140,15 +140,15 @@ func TestExtensionsDebian(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if j := waitJob(t, h, res); j.Status != jobs.Succeeded || !h.Runner.Called("apt-get install -y -q --no-install-recommends -o Dpkg::Options::=--force-confold -- php8.3-redis") {
+	if j := waitJob(t, h, res); j.Status != jobs.Succeeded || !h.Runner.Called("apt-get install -y -q --no-install-recommends -o Dpkg::Options::=--force-confold -o DPkg::Lock::Timeout=300 -- php8.3-redis") {
 		t.Fatalf("install: %+v %v", j, h.Runner.Calls)
 	}
 	res, _ = call(t, r, "php.extension_remove", map[string]any{"version": "8.3", "name": "igbinary"})
-	if j := waitJob(t, h, res); j.Status != jobs.Failed || !strings.Contains(j.Error, "php8.3-redis") || h.Runner.Called("apt-get remove -y -q -- php8.3-igbinary") {
+	if j := waitJob(t, h, res); j.Status != jobs.Failed || !strings.Contains(j.Error, "php8.3-redis") || h.Runner.Called("apt-get remove -y -q -o DPkg::Lock::Timeout=300 -- php8.3-igbinary") {
 		t.Fatalf("remove with dependents: %+v", j)
 	}
 	res, _ = call(t, r, "php.extension_remove", map[string]any{"version": "8.3", "name": "intl"})
-	if j := waitJob(t, h, res); j.Status != jobs.Succeeded || !h.Runner.Called("apt-get remove -y -q -- php8.3-intl") {
+	if j := waitJob(t, h, res); j.Status != jobs.Succeeded || !h.Runner.Called("apt-get remove -y -q -o DPkg::Lock::Timeout=300 -- php8.3-intl") {
 		t.Fatalf("remove: %+v %v", j, h.Runner.Calls)
 	}
 }

@@ -2,7 +2,7 @@ name: CI
 
 # Every push and pull request runs the quick jobs (unit, HTTP, smoke,
 # upgrade, browser, real-host on the Ubuntu 24.04 runner). The virtual
-# machines (AlmaLinux 9/10, Rocky Linux 9/10, Ubuntu 22.04/26.04) cost
+# machines (AlmaLinux 9/10, Rocky Linux 9/10, Ubuntu 22.04/24.04/26.04) cost
 # most of the minutes, so they run only when started by hand (Actions →
 # CI → Run workflow, once this file is on the default branch), for a push
 # whose commit message contains "[full ci]", and before every release (the
@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       vms:
-        description: Also run the real-host, install and post-install tests in VMs on all six other systems
+        description: Also run the real-host, install and post-install tests in VMs on all seven systems
         type: boolean
         default: true
   workflow_call: # the release workflow runs the whole suite first
@@ -121,8 +121,9 @@ jobs:
   # The same real-host tests, then the installer and the post-install test,
   # in KVM virtual machines booted from each distribution's own cloud image
   # (only when started by hand or for a release, see "on" above):
-  # AlmaLinux 9 (SELinux enforcing, firewalld, Remi's PHP), Ubuntu 22.04
-  # (PHP 8.3 from the ondrej/php PPA) and Ubuntu 26.04 (its own PHP).
+  # AlmaLinux and Rocky Linux 9 and 10 (SELinux enforcing, firewalld, Remi's
+  # PHP), Ubuntu 22.04 (PHP 8.3 from the ondrej/php PPA), 24.04 and 26.04
+  # (their own PHP).
   realhost-vm:
     name: realhost-vm (${{ matrix.os }} ${{ matrix.version }})
     if: ${{ inputs.vms || contains(github.event.head_commit.message, '[full ci]') }}
@@ -138,6 +139,7 @@ jobs:
           - { os: rocky, version: '9', setup: tests/rhel/setup.sh }
           - { os: rocky, version: '10', setup: tests/rhel/setup.sh }
           - { os: ubuntu, version: '22.04', setup: tests/ubuntu/setup.sh }
+          - { os: ubuntu, version: '24.04', setup: tests/ubuntu/setup.sh }
           - { os: ubuntu, version: '26.04', setup: tests/ubuntu/setup.sh }
     env:
       VM_WORK: ${{ github.workspace }}/.vm

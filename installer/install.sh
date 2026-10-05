@@ -21,7 +21,7 @@
 #
 # Usage (from a source checkout or release archive):
 #   sudo ./installer/install.sh [--install-deps] [--admin-user=NAME] [--admin-email=EMAIL]
-#                               [--port=8090] [--dry-run] [--yes] [--reinstall] [--force-unsupported]
+#                               [--port=8090] [--dry-run] [--yes] [--reinstall|--resume] [--force-unsupported]
 #                               [--enable-writes] [--public-https[=8443]]
 #                               [--agent-only --remote-access=0.0.0.0:8443 --allow-from=PANEL_IP[,...]]
 #
@@ -91,7 +91,7 @@ for arg in "$@"; do
         --install-deps) INSTALL_DEPS=1 ;;
         --dry-run) DRY_RUN=1 ;;
         --yes|-y) ASSUME_YES=1 ;;
-        --reinstall) REINSTALL=1 ;;
+        --reinstall|--resume) REINSTALL=1 ;;
         --force-unsupported) FORCE_UNSUPPORTED=1 ;;
         --enable-writes) ENABLE_WRITES=1 ;;
         --admin-user=*) ADMIN_USER="${arg#*=}" ;;
@@ -149,6 +149,17 @@ else
     die "${PRETTY_NAME:-unknown OS} is not supported (${SUPPORTED_LIST}). Use --force-unsupported to try anyway."
 fi
 command -v systemctl >/dev/null || die "systemd is required"
+[[ -d /run/systemd/system ]] || warn "systemd is not running as the init system (a container?): services cannot be started"
+ARCH=$(uname -m)
+SELINUX_MODE=none
+command -v getenforce >/dev/null && SELINUX_MODE=$(getenforce 2>/dev/null || echo unknown)
+FIREWALL=none
+if command -v firewall-cmd >/dev/null; then FIREWALL=firewalld; elif command -v ufw >/dev/null; then FIREWALL=ufw; fi
+ok "family $([[ $PKG == dnf ]] && echo rhel || echo debian), $ARCH, package manager $PKG, init $(ps -p 1 -o comm= 2>/dev/null || echo unknown), SELinux ${SELINUX_MODE,,}, firewall $FIREWALL"
+[[ $ARCH == x86_64 || $ARCH == aarch64 ]] || warn "architecture $ARCH is not tested"
+# APT waits for another package manager (e.g. unattended-upgrades) instead
+# of failing at once.
+APT_WAIT=(-o DPkg::Lock::Timeout=600)
 
 # ------------------------------------------------------- 2. requirements ----
 log "Checking requirements"
@@ -219,6 +230,11 @@ if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
         # the panel on 9, whose own PHP is older).
         log "Enabling the EPEL and Remi repositories"
         run dnf install -y -q epel-release
+        # EPEL's packages build on CRB (CodeReady Builder) on Rocky and Alma.
+        if [[ ${ID:-} != rhel ]] && ! dnf -q repolist --enabled 2>/dev/null | grep -qiE '^(crb|powertools)\b'; then
+            run dnf install -y -q dnf-plugins-core
+            run dnf config-manager --set-enabled crb
+        fi
         rpm -q remi-release >/dev/null 2>&1 || run dnf install -y -q "https://rpms.remirepo.net/enterprise/remi-release-${MAJOR}.rpm"
         if [[ $MAJOR == 9 && $php_ok -eq 0 ]]; then
             run dnf module reset -y -q php
@@ -228,8 +244,8 @@ if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
         run dnf install -y -q "${missing_pkgs[@]}"
     elif [[ $INSTALL_DEPS -eq 1 ]]; then
         log "Installing dependencies: ${missing_pkgs[*]}"
-        run apt-get update -q
-        run env DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends "${missing_pkgs[@]}"
+        run apt-get "${APT_WAIT[@]}" update -q
+        run env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=l apt-get "${APT_WAIT[@]}" install -y -q --no-install-recommends "${missing_pkgs[@]}"
     else
         die "missing packages: ${missing_pkgs[*]}. Install them ($PKG install ${missing_pkgs[*]}) or re-run with --install-deps."
     fi
@@ -286,8 +302,8 @@ if [[ -e $PREFIX || -e $CONF_DIR ]]; then
         confirm "WhaCP is already installed. Reinstall files (configuration, token and database are kept)?" || die "aborted"
     elif [[ ${#missing[@]} -gt 0 ]]; then
         die "an earlier WhaCP installation did not finish (missing: $(IFS=,; echo "${missing[*]}" | sed 's/,/, /g')).
-Complete it by running the installer again with --reinstall and the same options, e.g.:
-    sudo $0 --reinstall $*
+Complete it by running the installer again with --resume (or --reinstall) and the same options, e.g.:
+    sudo $0 --resume $*
 Existing configuration, agent token, panel key and database are kept; missing parts are created."
     else
         die "WhaCP is already installed in $PREFIX. To upgrade, run installer/upgrade.sh (it backs up, migrates and rolls back on failure). To repair this version's files, run the installer with --reinstall."
@@ -300,6 +316,26 @@ if [[ $AGENT_ONLY -eq 0 ]] && command -v ss >/dev/null && grep -q LISTEN <<<"$(s
 fi
 ok "no conflicts"
 
+# find_tool NAME CANDIDATES...: the first executable; sudo's PATH often
+# lacks /usr/local/go/bin or the folder Composer was installed to.
+find_tool() {
+    local name=$1 c; shift
+    for c in "$(command -v "$name" 2>/dev/null || true)" "$@"; do
+        [[ -n $c && -x $c && ! -d $c ]] && { printf '%s\n' "$c"; return 0; }
+    done
+    return 1
+}
+find_go() {
+    # Newest distribution Go (golang-1.xx) last, so an explicit install wins.
+    # shellcheck disable=SC2046
+    find_tool go /usr/local/go/bin/go /usr/lib/golang/bin/go /snap/bin/go $(ls -d /usr/lib/go-*/bin/go 2>/dev/null | sort -V -r) /usr/lib/go/bin/go
+}
+find_composer() {
+    local home=""
+    [[ -n ${SUDO_USER:-} ]] && home=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    find_tool composer /usr/local/bin/composer /usr/bin/composer /usr/local/bin/composer.phar /opt/composer/composer ${home:+"$home/.local/bin/composer"} ${home:+"$home/bin/composer"}
+}
+
 # --------------------------------------------------------- 4. build agent ----
 log "Preparing the agent binary"
 AGENT_SRC=""
@@ -310,24 +346,42 @@ stale=0
 if [[ -x $SRC_DIR/dist/whacp-agent && -d $SRC_DIR/agent ]] && [[ -n $(find "$SRC_DIR/agent" "$SRC_DIR/VERSION" \( -name '*.go' -o -name go.mod -o -name go.sum -o -name VERSION \) -newer "$SRC_DIR/dist/whacp-agent" -print -quit 2>/dev/null) ]]; then
     stale=1
 fi
-if [[ -x $SRC_DIR/dist/whacp-agent && ( $stale -eq 0 || -z $(command -v go) ) ]]; then
-    [[ $stale -eq 1 ]] && warn "the agent's sources are newer than dist/whacp-agent, but Go is not installed: installing the older build"
+GO=$(find_go || true)
+if [[ -z $GO && ( ! -x $SRC_DIR/dist/whacp-agent || $stale -eq 1 ) && $INSTALL_DEPS -eq 1 ]]; then
+    log "Installing Go to build the agent"
+    if [[ $PKG == dnf ]]; then run dnf install -y -q golang; else run env DEBIAN_FRONTEND=noninteractive apt-get "${APT_WAIT[@]}" install -y -q --no-install-recommends golang-go; fi
+    GO=$(find_go || true)
+fi
+if [[ -n $GO ]]; then
+    ok "Go detected: $("$GO" version 2>/dev/null | awk '{print $3}') ($GO)"
+fi
+if [[ -x $SRC_DIR/dist/whacp-agent && ( $stale -eq 0 || -z $GO ) ]]; then
+    [[ $stale -eq 1 ]] && warn "the agent's sources are newer than dist/whacp-agent, but Go was not found (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin): installing the older build"
     AGENT_SRC=$SRC_DIR/dist/whacp-agent
-elif command -v go >/dev/null; then
+elif [[ -n $GO ]]; then
     if [[ $stale -eq 1 ]]; then log "Rebuilding the agent: its sources are newer than dist/whacp-agent"; else log "Building agent from source"; fi
     run mkdir -p "$SRC_DIR/dist"
-    (cd "$SRC_DIR/agent" && run env CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$(cat "$SRC_DIR/VERSION")" -o "$SRC_DIR/dist/whacp-agent" ./cmd/whacp-agent)
+    # A Go older than go.mod asks for downloads the right toolchain itself
+    # (GOTOOLCHAIN=auto); GOPATH and caches stay out of the source tree.
+    (cd "$SRC_DIR/agent" && run env CGO_ENABLED=0 HOME="${HOME:-/root}" GOTOOLCHAIN=auto "$GO" build -trimpath -ldflags "-s -w -X main.version=$(cat "$SRC_DIR/VERSION")" -o "$SRC_DIR/dist/whacp-agent" ./cmd/whacp-agent)
     AGENT_SRC=$SRC_DIR/dist/whacp-agent
 else
-    die "no prebuilt agent (dist/whacp-agent) and Go is not installed to build it"
+    die "no prebuilt agent (dist/whacp-agent) and Go was not found (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin). Install Go, or re-run with --install-deps."
 fi
 ok "$AGENT_SRC"
 
-[[ $AGENT_ONLY -eq 1 || -f $SRC_DIR/panel/vendor/autoload.php ]] || {
-    command -v composer >/dev/null || die "panel/vendor is missing and composer is not installed (run 'composer install --no-dev' in panel/)"
+if [[ $AGENT_ONLY -eq 0 && ! -f $SRC_DIR/panel/vendor/autoload.php ]]; then
+    COMPOSER=$(find_composer || true)
+    if [[ -z $COMPOSER && $INSTALL_DEPS -eq 1 ]]; then
+        log "Installing Composer"
+        if [[ $PKG == dnf ]]; then run dnf install -y -q composer; else run env DEBIAN_FRONTEND=noninteractive apt-get "${APT_WAIT[@]}" install -y -q --no-install-recommends composer; fi
+        COMPOSER=$(find_composer || true)
+    fi
+    [[ -n $COMPOSER ]] || die "panel/vendor is missing and Composer was not found (looked in PATH, /usr/local/bin, /usr/bin and your ~/.local/bin). Install it, or re-run with --install-deps."
+    ok "Composer detected: $("$COMPOSER" --version 2>/dev/null | head -1) ($COMPOSER)"
     log "Installing panel PHP dependencies"
-    (cd "$SRC_DIR/panel" && run composer install --no-dev --no-interaction --optimize-autoloader -q)
-}
+    (cd "$SRC_DIR/panel" && run env COMPOSER_ALLOW_SUPERUSER=1 "$COMPOSER" install --no-dev --no-interaction --optimize-autoloader -q)
+fi
 
 # ----------------------------------------------------- 5. user and files ----
 log "Creating system user and directories"

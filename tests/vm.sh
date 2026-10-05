@@ -3,7 +3,7 @@
 # Boots a cloud image under KVM for the real-service tests (CI only):
 #   tests/vm.sh boot alma 9|10          AlmaLinux (SELinux stays enforcing)
 #   tests/vm.sh boot rocky 9|10         Rocky Linux (SELinux stays enforcing)
-#   tests/vm.sh boot ubuntu 22.04|26.04 Ubuntu LTS
+#   tests/vm.sh boot ubuntu 22.04|24.04|26.04 Ubuntu LTS
 #   tests/vm.sh ssh CMD...              run a command in the VM (as root)
 #   tests/vm.sh put SRC DST             copy a file or directory into the VM
 # The images are the distributions' own cloud images, as on a real server.

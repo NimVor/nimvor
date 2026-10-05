@@ -136,6 +136,38 @@ if [[ -e /usr/sbin/sendmail ]]; then
     pass "sendmail inside the account's unit is WhaCP's SMTP sendmail"
 fi
 
+# A component installed through the panel and the installed agent: the
+# package manager runs outside the agent's sandbox (Ubuntu 24.04: APT's
+# switch to _apt; RHEL with SELinux: RPM scriptlets), its maintainer
+# scripts create the service's user again, and the component is only
+# reported installed once its service runs (health check).
+if [[ -d /run/systemd/system ]]; then
+    if command -v dnf >/dev/null; then
+        MC_USER=memcached; dnf remove -y -q memcached >/dev/null
+    else
+        MC_USER=memcache; DEBIAN_FRONTEND=noninteractive apt-get purge -y -q memcached >/dev/null
+    fi
+    userdel "$MC_USER" 2>/dev/null || true
+    get /packages >/dev/null
+    out=$(curl --noproxy '*' -sS -b "$J/c" -c "$J/c" -H 'Accept: application/json' --data-urlencode "_token=$(token "$J/page")" --data-urlencode name=memcached "$P/packages/install")
+    PJOB=$(grep -o '"job_id":"[a-f0-9]*"' <<<"$out" | cut -d'"' -f4 || true)
+    [[ -n $PJOB ]] || fail "component install not started: $out"
+    st=
+    for _ in $(seq 1 600); do
+        st=$(curl --noproxy '*' -sS -b "$J/c" -H 'Accept: application/json' "$P/jobs/$PJOB" | grep -o '"status":"[a-z]*"' | head -1 | cut -d'"' -f4 || true)
+        [[ $st == succeeded || $st == failed ]] && break
+        sleep 1
+    done
+    if [[ $st != succeeded ]]; then
+        cat "/var/lib/whacp-agent/jobs/$PJOB.log" >&2 2>/dev/null || true
+        journalctl --no-pager -o cat -n 40 -u 'whacp-pkg-*' >&2 || true
+        fail "memcached through the agent: job $st"
+    fi
+    id "$MC_USER" >/dev/null 2>&1 || fail "the package's script did not create $MC_USER"
+    systemctl is-active --quiet memcached || fail "memcached installed but not running"
+    pass "memcached installed through the agent (package scripts ran, user $MC_USER created, service running)"
+fi
+
 # Clean up through the panel.
 CSRF_FROM=/sites/$SITE/settings
 post "/sites/$SITE/delete" "confirm_domain=$DOMAIN" remove_files=1 remove_user=1 >/dev/null

@@ -614,14 +614,41 @@
             state.appendChild(b);
             if (version) { state.appendChild(el('div', 'small text-body-secondary', version)); }
         }
+        // The step a component is at, from its job log (the agent writes
+        // these lines); on failure, the agent's diagnosis.
+        function phase(it) {
+            var log = it.log || '';
+            if (it.status === 'failed') {
+                var d = log.match(/Diagnosis: ([^\n]+)/);
+                return d ? d[1] : '';
+            }
+            if (it.status !== 'running') { return ''; }
+            var steps = [
+                [/Checking [^\n]*…\n(?![\s\S]*Attempt \d)/, 'Running health check…'],
+                [/Automatic recovery: [^\n]*\n(?![\s\S]*(Checking|succeeded on attempt))/, 'Recovering after a failed attempt…'],
+                [/Preparing repositories[^\n]*\n(?![\s\S]*(Checking|Attempt \d))/, 'Preparing repositories…'],
+                [/Waiting for (another package operation|a package transaction)[^\n]*\n$/, 'Waiting for another package operation…']
+            ];
+            for (var i = 0; i < steps.length; i++) {
+                if (steps[i][0].test(log)) {
+                    var a = log.match(/Attempt (\d)\/(\d) failed[^\n]*\n(?![\s\S]*succeeded on attempt)/g);
+                    return steps[i][1] + (a && i !== 0 ? ' (attempt ' + a.length + ' of 3 failed)' : '');
+                }
+            }
+            return 'Installing package…';
+        }
         function render() {
             itemsEl.textContent = '';
             var shown = null;
             queue.forEach(function (it) {
                 var li = el('li', 'list-group-item d-flex align-items-center gap-2');
                 li.setAttribute('data-wcp-pkg-item', it.name);
-                li.appendChild(el('span', 'fw-semibold', it.name));
-                li.appendChild(el('span', 'badge ms-auto ' + badges[it.status], labels[it.status]));
+                var name = el('div', 'me-auto');
+                name.appendChild(el('span', 'fw-semibold', it.name));
+                var ph = phase(it);
+                if (ph) { name.appendChild(el('div', 'small ' + (it.status === 'failed' ? 'text-danger-emphasis' : 'text-body-secondary'), ph)); }
+                li.appendChild(name);
+                li.appendChild(el('span', 'badge ' + badges[it.status], labels[it.status]));
                 itemsEl.appendChild(li);
                 if (it.status === 'running' || (!shown && it.log)) { shown = it; }
             });
@@ -636,7 +663,8 @@
         function finished(it) {
             if (it.status !== 'succeeded') {
                 setRow(it);
-                WhaCP.toast(it.name + ' was not installed. See the log in the queue.', 'danger');
+                var why = phase(it);
+                WhaCP.toast(it.name + ' was not installed' + (why ? ': ' + why : '') + '. The details are in the queue window.', 'danger');
                 return;
             }
             WhaCP.fetchJson(list.getAttribute('data-url')).then(function (res) {

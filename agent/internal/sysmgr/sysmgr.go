@@ -289,7 +289,11 @@ func Register(r *actions.Registry, env *host.Env) {
 			}
 			err := pkgs.Install(ctx, env, log, want)
 			restrictAgain(ctx, env, log)
-			return nil, err
+			if err != nil {
+				return nil, err
+			}
+			// Installed means working.
+			return nil, verifyComponents(ctx, env, log, want)
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})
