@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
 )
 
@@ -81,5 +82,24 @@ func TestSysctlCheck(t *testing.T) {
 	c := sysctlCheck(h.Env)
 	if c.Status != "warn" || !strings.Contains(c.Detail, "fs.protected_symlinks = 0") || !strings.Contains(c.Remedy, "kernel.yama.ptrace_scope = 1") || !strings.Contains(c.Detail, "debuggers") {
 		t.Errorf("%+v", c)
+	}
+}
+
+// RHEL: the package file list comes from rpm (seen on AlmaLinux: a query
+// format with a real line break was refused by the agent, the list stayed
+// empty).
+func TestOwnedFilesRPM(t *testing.T) {
+	h := testhost.New(t)
+	os.WriteFile(filepath.Join(h.Base, "etc/os-release"), []byte("ID=\"almalinux\"\nVERSION_ID=\"9.8\"\n"), 0o644)
+	h.Env.Platform = platform.Detect(h.Env.Root)
+	h.Respond = func(id string, a []string) (string, error, bool) {
+		if id == "rpm" {
+			return "/usr/bin/passwd\n/usr/bin/su\n", nil, true
+		}
+		return "", nil, false
+	}
+	owned, err := OwnedFiles(t.Context(), h.Env)
+	if err != nil || !owned["/usr/bin/passwd"] || len(owned) != 2 {
+		t.Fatalf("%v %v", owned, err)
 	}
 }

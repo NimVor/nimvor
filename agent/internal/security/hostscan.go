@@ -73,7 +73,9 @@ func under(p string, roots []string) bool {
 func OwnedFiles(ctx context.Context, env *host.Env) (map[string]bool, error) {
 	owned := map[string]bool{}
 	if env.Platform.PackageManager() == "dnf" {
-		out, err := env.Runner.Run(ctx, "rpm", "-qa", "--qf", "[%{FILENAMES}\n]")
+		// rpm expands the \n escape: the agent refuses arguments with real
+		// line breaks.
+		out, err := env.Runner.Run(ctx, "rpm", "-qa", "--qf", `[%{FILENAMES}\n]`)
 		if err != nil {
 			return nil, fmt.Errorf("rpm: %s", host.Output(out))
 		}
