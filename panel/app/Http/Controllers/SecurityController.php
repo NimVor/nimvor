@@ -195,6 +195,31 @@ final class SecurityController extends Controller
         return $this->act('/security/ssh', fn (): string => $this->security->addSshKey($request->string('user'), (string) $request->input('key', ''), $this->user($request)));
     }
 
+    /**
+     * The private key is shown on this response only: no redirect, no
+     * session, no cache.
+     */
+    public function generateSshKey(Request $request): Response
+    {
+        try {
+            $key = $this->security->generateSshKey(
+                $request->string('user'),
+                $request->string('comment'),
+                (string) $request->input('passphrase', ''),
+                (string) $request->input('passphrase_confirmation', ''),
+                $this->user($request),
+            );
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/security/ssh', $e);
+        }
+        [$ssh] = $this->read('ssh.status');
+        $port = (string) (((array) ((array) $ssh)['effective'] ?? [])['port'] ?? '22');
+        $host = (string) preg_replace('/:\d+$/', '', (string) $request->header('Host'));
+        return $this->render('security/ssh_key_created', ['key' => $key, 'sshPort' => $port, 'serverName' => preg_match('/^[A-Za-z0-9.-]+$/', $host) ? $host : 'your-server'])
+            ->withHeader('Cache-Control', 'no-store, max-age=0')
+            ->withHeader('Pragma', 'no-cache');
+    }
+
     public function removeSshKey(Request $request): Response
     {
         return $this->act('/security/ssh', fn (): string => $this->security->removeSshKey($request->string('user'), $request->string('fingerprint'), $this->user($request)));

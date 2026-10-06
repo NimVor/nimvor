@@ -75,6 +75,18 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertSame('', $this->lastCall('firewall.set_enabled')['allow_from']);
     }
 
+    public function testOnlyAdministratorsManageSshKeys(): void
+    {
+        $this->seedUser('op', 'operator');
+        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->app = $this->makeApp();
+        $this->login('op');
+        $this->agent->succeed('ssh.key_add', ['user' => 'root', 'key' => ['fingerprint' => 'x']]);
+        $this->post('/security/ssh/keys/generate', ['user' => 'root', 'passphrase' => '', 'passphrase_confirmation' => '']);
+        $this->post('/security/ssh/keys', ['user' => 'root', 'key' => 'ssh-ed25519 AAAA']);
+        self::assertSame(0, $this->calls('ssh.key_add'));
+    }
+
     public function testSshAndFail2ban(): void
     {
         $this->agent->succeed('security.pending', ['pending' => null]);
@@ -107,6 +119,41 @@ final class SecurityAndSystemTest extends HttpTestCase
         foreach (['ssh.key_add', 'ssh.key_remove'] as $a) {
             self::assertNotNull($db->scalar('SELECT id FROM audit_logs WHERE action = ?', [$a]), $a . ' audited');
         }
+        // Generated in the panel: the public key is allowed, the private
+        // key is shown once (not stored, logged or cached).
+        $this->agent->succeed('ssh.key_add', ['user' => 'root', 'key' => ['type' => 'ssh-rsa', 'fingerprint' => 'SHA256:gen']]);
+        $res = $this->post('/security/ssh/keys/generate', ['user' => 'root', 'comment' => 'office laptop;rm', 'passphrase' => 'correct horse 1', 'passphrase_confirmation' => 'correct horse 1']);
+        self::assertSame(200, $res->status());
+        self::assertStringContainsString('no-store', (string) $res->header('Cache-Control'));
+        $body = $res->body();
+        self::assertStringContainsString('-----BEGIN ENCRYPTED PRIVATE KEY-----', $body);
+        self::assertStringContainsString('SHA256:gen', $body);
+        $sent = $this->lastCall('ssh.key_add');
+        self::assertSame('root', $sent['user']);
+        self::assertMatchesRegularExpression('/^ssh-rsa AAAAB3NzaC1yc2E[A-Za-z0-9+\/=]+ office-laptop-rm$/', $sent['key']);
+        self::assertStringNotContainsString('PRIVATE', (string) json_encode($this->agent->requests));
+        preg_match('/-----BEGIN ENCRYPTED PRIVATE KEY-----.*?-----END ENCRYPTED PRIVATE KEY-----/s', html_entity_decode($body), $m);
+        $logged = (string) json_encode($db->fetchAll("SELECT * FROM audit_logs WHERE action = 'ssh.key_generate'"));
+        self::assertStringContainsString('SHA256:gen', $logged);
+        self::assertStringNotContainsString('PRIVATE', $logged);
+        self::assertStringNotContainsString('correct horse', $logged);
+        self::assertNull($this->flash('success'));
+        if (is_executable('/usr/bin/ssh-keygen')) {
+            $f = tempnam(sys_get_temp_dir(), 'k');
+            file_put_contents($f, $m[0] . "\n");
+            chmod($f, 0600);
+            exec('/usr/bin/ssh-keygen -y -P ' . escapeshellarg('correct horse 1') . ' -f ' . escapeshellarg($f) . ' 2>&1', $out, $rc);
+            self::assertSame(0, $rc, implode("\n", $out));
+            self::assertSame(implode(' ', array_slice(explode(' ', $sent['key']), 0, 2)), trim($out[0]));
+            exec('/usr/bin/ssh-keygen -y -P wrong -f ' . escapeshellarg($f) . ' 2>&1', $out2, $rc2);
+            self::assertNotSame(0, $rc2, 'the private key must need its passphrase');
+            unlink($f);
+        }
+        $calls = $this->calls('ssh.key_add');
+        $this->post('/security/ssh/keys/generate', ['user' => 'root', 'passphrase' => 'abcdefgh1', 'passphrase_confirmation' => 'different1']);
+        $this->post('/security/ssh/keys/generate', ['user' => 'root', 'passphrase' => 'short', 'passphrase_confirmation' => 'short']);
+        self::assertSame($calls, $this->calls('ssh.key_add'), 'mismatching or short passphrases are refused');
+
         // An expired password confirmation: asked again, nothing sent.
         $before = $this->calls('ssh.key_add');
         $this->session->set('_auth_confirmed_at', time() - 3600);

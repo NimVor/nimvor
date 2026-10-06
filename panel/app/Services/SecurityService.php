@@ -120,6 +120,61 @@ final class SecurityService
         return sprintf('Key %s added for %s. Test a new SSH connection with it before turning off password logins.', (string) ($k['fingerprint'] ?? ''), $user);
     }
 
+    /**
+     * Generates a key pair in the panel and allows its public key for an
+     * administrator. The private key is returned once, to be shown to the
+     * administrator and downloaded; it is never stored, logged or sent to
+     * the agent. RSA 4096 (PKCS#8 PEM, AES-256 encrypted with the
+     * passphrase when one is given): OpenSSH, Windows' OpenSSH and
+     * PuTTYgen read it; OpenSSH cannot read PEM Ed25519 keys.
+     *
+     * @param array<string, mixed> $actor
+     * @return array{private: string, public: string, fingerprint: string, user: string, encrypted: bool}
+     */
+    public function generateSshKey(string $user, string $comment, string $passphrase, string $confirmation, array $actor): array
+    {
+        self::administrator($actor);
+        if ($passphrase !== $confirmation) {
+            throw new UserFacingException('The passphrases do not match.');
+        }
+        if ($passphrase !== '' && (mb_strlen($passphrase) < 8 || strlen($passphrase) > 1024)) {
+            throw new UserFacingException('Use a passphrase of at least 8 characters, or leave it empty.');
+        }
+        $comment = trim((string) preg_replace('/[^A-Za-z0-9@._+-]+/', '-', $comment), '-');
+        if ($comment === '') {
+            $comment = $user . '@whacp';
+        }
+        $comment = substr($comment, 0, 64);
+        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_RSA, 'private_key_bits' => 4096]);
+        $details = $key === false ? false : openssl_pkey_get_details($key);
+        $pem = '';
+        $exported = $key !== false && ($passphrase === ''
+            ? openssl_pkey_export($key, $pem)
+            : openssl_pkey_export($key, $pem, $passphrase, ['encrypt_key_cipher' => OPENSSL_CIPHER_AES_256_CBC]));
+        if ($details === false || !$exported || !isset($details['rsa']['n'], $details['rsa']['e'])) {
+            throw new UserFacingException('The key pair could not be generated (OpenSSL).');
+        }
+        $public = 'ssh-rsa ' . base64_encode(self::sshString('ssh-rsa') . self::mpint($details['rsa']['e']) . self::mpint($details['rsa']['n'])) . ' ' . $comment;
+        $res = (array) $this->agent->call('ssh.key_add', ['user' => $user, 'key' => $public], 60);
+        $fp = (string) (((array) ($res['key'] ?? []))['fingerprint'] ?? '');
+        $this->audit->record('ssh.key_generate', 'server', 'ssh', AuditLogger::SUCCESS, ['user' => $user, 'fingerprint' => $fp, 'type' => 'ssh-rsa', 'comment' => $comment, 'passphrase' => $passphrase !== '']);
+        return ['private' => $pem, 'public' => $public, 'fingerprint' => $fp, 'user' => $user, 'encrypted' => $passphrase !== ''];
+    }
+
+    private static function sshString(string $s): string
+    {
+        return pack('N', strlen($s)) . $s;
+    }
+
+    private static function mpint(string $bigEndian): string
+    {
+        $b = ltrim($bigEndian, "\0");
+        if ($b !== '' && (ord($b[0]) & 0x80)) {
+            $b = "\0" . $b;
+        }
+        return self::sshString($b);
+    }
+
     /** @param array<string, mixed> $actor */
     public function removeSshKey(string $user, string $fingerprint, array $actor): string
     {

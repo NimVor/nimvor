@@ -125,7 +125,7 @@ final class Authenticate implements Middleware
         'roles.store', 'roles.update', 'roles.2fa', 'roles.delete',
         'tokens.store', 'security.policies.save',
         // SSH keys of administrators grant a root-capable login.
-        'security.ssh.key_add', 'security.ssh.key_remove',
+        'security.ssh.key_add', 'security.ssh.key_generate', 'security.ssh.key_remove',
     ];
 
     /** A local path to return to ('/' when the value is not one). */

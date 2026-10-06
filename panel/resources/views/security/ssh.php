@@ -66,7 +66,7 @@ $rootLabels = ['prohibit-password' => 'With SSH keys only', 'no' => 'Not allowed
 
 <div class="wcp-panel mt-3" id="ssh-keys">
     <h2 class="h6 mb-1">Administrator SSH keys</h2>
-    <p class="small wcp-muted mb-3">Public keys that let root and administrators (members of sudo, admin or wheel) sign in over SSH without a password. Add a key, test a new connection with it, then turn off password logins above. Create a key on your computer with <code>ssh-keygen -t ed25519</code> and paste the contents of the <code>.pub</code> file; the private key never leaves your computer.</p>
+    <p class="small wcp-muted mb-3">Public keys that let root and administrators (members of sudo, admin or wheel) sign in over SSH without a password. Generate a key here (or add a public key you already have), test a new connection with it, then turn off password logins above.</p>
     <?php if ($sshKeys === []): ?>
         <div class="small wcp-muted">No administrator accounts found (the agent may need an update).</div>
     <?php else: ?>
@@ -91,7 +91,36 @@ $rootLabels = ['prohibit-password' => 'With SSH keys only', 'no' => 'Not allowed
         </tbody>
     </table></div>
     <?php if ($canManageKeys): ?>
+    <form class="mb-4" method="post" action="<?= e($this->url('security.ssh.key_generate')) ?>" data-wcp-noajax data-wcp-busy autocomplete="off">
+        <?= $this->csrfField() ?>
+        <h3 class="h6 small fw-semibold mb-2">Generate a new key</h3>
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small" for="g-user">Account</label>
+                <select class="form-select form-select-sm" id="g-user" name="user">
+                    <?php foreach ($sshKeys as $a): ?><option value="<?= e((string) $a['user']) ?>"><?= e((string) $a['user']) ?></option><?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small" for="g-comment">Name</label>
+                <input class="form-control form-control-sm" id="g-comment" name="comment" maxlength="64" placeholder="e.g. office-laptop">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small" for="g-pass">Passphrase (recommended)</label>
+                <input class="form-control form-control-sm" id="g-pass" type="password" name="passphrase" minlength="8" autocomplete="new-password">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small" for="g-pass2">Repeat passphrase</label>
+                <input class="form-control form-control-sm" id="g-pass2" type="password" name="passphrase_confirmation" autocomplete="new-password">
+            </div>
+        </div>
+        <div class="pt-2 d-flex flex-wrap align-items-center gap-3">
+            <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Generate and allow key</button>
+            <span class="small wcp-muted">Creates an RSA 4096 key pair, allows it for the account at once and shows the private key one time for download. The passphrase protects the downloaded file; WhaCP does not keep the private key or the passphrase.</span>
+        </div>
+    </form>
     <form method="post" action="<?= e($this->url('security.ssh.key_add')) ?>" data-wcp-busy>
+        <h3 class="h6 small fw-semibold mb-2">Or add an existing public key</h3>
         <?= $this->csrfField() ?>
         <div class="row g-2 align-items-end">
             <div class="col-md-3">
@@ -106,7 +135,7 @@ $rootLabels = ['prohibit-password' => 'With SSH keys only', 'no' => 'Not allowed
             </div>
         </div>
         <div class="pt-2 d-flex flex-wrap align-items-center gap-3">
-            <button class="btn btn-sm btn-primary">Add key</button>
+            <button class="btn btn-sm btn-outline-primary">Add key</button>
             <span class="small wcp-muted">Ed25519, ECDSA or RSA (2048 bits or more). Your panel password is asked again before keys change.</span>
         </div>
     </form>

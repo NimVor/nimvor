@@ -11,7 +11,10 @@ All notable changes to WhaCP are documented here. The format follows
   remove the public keys of root and administrators (members of sudo,
   admin or wheel), so password logins can then be turned off without
   locking anyone out. Only plain Ed25519, ECDSA and RSA keys of at least
-  2048 bits are accepted. Changes need an administrator who confirmed
+  2048 bits are accepted. **Generate a new key** creates the key pair in the
+  panel (RSA 4096, protected with an optional passphrase), allows it at once
+  and offers the private key for download one time; WhaCP does not keep it.
+  Changes need an administrator who confirmed
   their password recently, and are audited. The last key cannot be
   removed while password logins are off.
 - **Broken package state is repaired automatically.** After an update, the
