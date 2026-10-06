@@ -6,6 +6,17 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Webmail and PHP websites on Rocky/Alma with only Remi's PHP:** WhaCP
+  never created `/run/php-fpm`, where its PHP-FPM pools put their sockets.
+  Without RHEL's own php-fpm package the folder did not exist, so the pool
+  could not start and Nginx answered 502. WhaCP now creates it (labelled for
+  SELinux) and keeps it across reboots (tmpfiles.d).
+- **Webmail failures now explain themselves:** a page that does not load
+  shows Nginx's error lines for the webmail socket, the PHP-FPM service's
+  state, journal and log, and the socket. Roundcube's harmless deprecation
+  notices are no longer logged.
+
 ### Changed
 - **Updates need one command and no manual steps:** `sudo
   ./installer/update.sh`. It gives root-owned files in the checkout back to

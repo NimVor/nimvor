@@ -183,12 +183,8 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 	if !e.Root.Exists(e.M.NginxAvailable) {
 		dirs.Mkdir(e.M.NginxAvailable, 0o755, agentfs.RootOwner)
 	}
-	if s.PHPVersion != "" && e.M.PHPSocketTmpfiles != "" {
-		// The socket folder is on a tmpfs: recreated at every boot.
-		dirs.Write(e.M.PHPSocketTmpfiles, []byte("# Managed by WhaCP: PHP-FPM sockets of websites.\nd "+e.M.PHPSocketDir+" 0755 root root -\n"), 0o644, agentfs.RootOwner)
-		if !e.Root.Exists(e.M.PHPSocketDir) {
-			dirs.Mkdir(e.M.PHPSocketDir, 0o755, agentfs.RootOwner)
-		}
+	if s.PHPVersion != "" {
+		e.EnsurePHPSocketDir(dirs)
 	}
 	// Its scheduled tasks are the panel's: no personal crontab or at jobs.
 	limits.DenyPersonalCron(e, dirs, nil)

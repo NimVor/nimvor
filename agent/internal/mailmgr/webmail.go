@@ -27,6 +27,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logging"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
@@ -120,6 +121,50 @@ func (e env) webmailLogs() string {
 		}
 		fmt.Fprintf(&b, "%s:\n%s\n", p, strings.Join(lines, "\n"))
 	}
+	return logging.Redact(b.String())
+}
+
+// webmailServeDiagnosis says why Nginx could not get the page from PHP-FPM
+// (a 502 or 504): Nginx's own error lines for the webmail socket (they name
+// the reason: no such file, permission denied, connection refused), the
+// state, journal and log of the version's PHP-FPM service, and the socket.
+func (e env) webmailServeDiagnosis(ctx context.Context, v string) string {
+	var b strings.Builder
+	sock := e.webmailSocket()
+	if data, err := e.Root.ReadFile("/var/log/nginx/error.log"); err == nil {
+		var keep []string
+		for _, l := range strings.Split(string(data), "\n") {
+			if strings.Contains(l, sock) || strings.Contains(l, "whacp-webmail") {
+				keep = append(keep, l)
+			}
+		}
+		if len(keep) > 8 {
+			keep = keep[len(keep)-8:]
+		}
+		if len(keep) > 0 {
+			fmt.Fprintf(&b, "/var/log/nginx/error.log:\n%s\n", strings.Join(keep, "\n"))
+		}
+	}
+	unit := e.M.FPMUnit(v)
+	state := "not running"
+	if e.UnitActive(ctx, unit) {
+		state = "running"
+	}
+	fmt.Fprintf(&b, "%s: %s\n", unit, state)
+	if j := strings.TrimSpace(e.JournalTail(ctx, unit, 15)); j != "" {
+		fmt.Fprintf(&b, "%s\n", j)
+	}
+	if lp := e.Platform.Paths().PHPFPMLog; lp != "" {
+		f := fmt.Sprintf(lp, platform.PHPTag(e.M.PHPCompact, v))
+		if data, err := e.Root.ReadFile(f); err == nil {
+			lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+			if len(lines) > 10 {
+				lines = lines[len(lines)-10:]
+			}
+			fmt.Fprintf(&b, "%s:\n%s\n", f, strings.Join(lines, "\n"))
+		}
+	}
+	b.WriteString(e.Describe(sock))
 	return logging.Redact(b.String())
 }
 
@@ -385,6 +430,9 @@ func (e env) renderWebmailPool(v string) string {
 		"php_admin_value[open_basedir] = " + basedir + "\n" +
 		"php_admin_value[upload_tmp_dir] = " + d + "/temp\nphp_admin_value[session.save_path] = " + d + "/temp\nphp_admin_value[sys_temp_dir] = " + d + "/temp\n" +
 		"php_admin_value[error_log] = " + d + "/logs/php-error.log\nphp_admin_flag[log_errors] = on\nphp_admin_flag[display_errors] = off\n" +
+		// Roundcube's plugins trigger deprecation notices on newer PHP
+		// (harmless); they would bury the real errors in the log.
+		"php_admin_value[error_reporting] = E_ALL & ~E_DEPRECATED\n" +
 		"php_admin_value[memory_limit] = 256M\nphp_admin_value[upload_max_filesize] = 25M\nphp_admin_value[post_max_size] = 30M\nphp_admin_value[max_execution_time] = 120\n" +
 		"php_admin_value[disable_functions] = " + disabled + "\n" +
 		e.prependLine("php_admin_value[auto_prepend_file] = ")
@@ -566,6 +614,9 @@ func registerWebmail(r *actions.Registry, e env) {
 		set.Mkdir(e.M.WebmailData+"/temp", 0o750, own)
 		set.Mkdir(e.M.WebmailData+"/logs", 0o750, own)
 		set.Mkdir(e.M.ACMERoot, 0o755, agentfs.RootOwner)
+		// The pool's socket folder: on a server without websites yet, no
+		// package created it (RHEL) and PHP-FPM could not bind the socket.
+		e.EnsurePHPSocketDir(set)
 		if e.needsConfigDirFile() {
 			set.Write(e.configDirFile(), []byte(e.renderConfigDirFile()), 0o644, agentfs.RootOwner)
 		}
@@ -584,12 +635,6 @@ func registerWebmail(r *actions.Registry, e env) {
 			set.Write(certKey, k, 0o600, agentfs.RootOwner)
 		}
 		set.Write(e.webmailPoolFile(v), []byte(e.renderWebmailPool(v)), 0o644, agentfs.RootOwner)
-		if e.M.PHPSocketTmpfiles != "" {
-			set.Write(e.M.PHPSocketTmpfiles, []byte("# Managed by WhaCP: PHP-FPM sockets of websites.\nd "+e.M.PHPSocketDir+" 0755 root root -\n"), 0o644, agentfs.RootOwner)
-			if !e.Root.Exists(e.M.PHPSocketDir) {
-				set.Mkdir(e.M.PHPSocketDir, 0o755, agentfs.RootOwner)
-			}
-		}
 		if !e.Root.Exists(e.M.NginxAvailable) {
 			set.Mkdir(e.M.NginxAvailable, 0o755, agentfs.RootOwner)
 		}
@@ -626,6 +671,11 @@ func registerWebmail(r *actions.Registry, e env) {
 		}
 		// SELinux: PHP-FPM (as the web server) writes Roundcube's data and
 		// connects to IMAP and submission.
+		// The socket folder WhaCP may just have created: its policy type, so
+		// PHP-FPM may create the socket and Nginx connect to it.
+		if e.M.PHPSocketTmpfiles != "" {
+			selinux.Restore(ctx, e.Env, e.M.PHPSocketDir)
+		}
 		if err := selinux.Label(ctx, e.Env, e.M.WebmailData, "httpd_sys_rw_content_t"); err != nil {
 			return fail("Roundcube's data folder could not be labelled for SELinux.", err)
 		}
@@ -663,7 +713,7 @@ func registerWebmail(r *actions.Registry, e env) {
 		}
 		if !e.Cfg.SimulateCommands && e.UnitActive(ctx, e.M.NginxUnit) {
 			if err := webmailProbe(ctx, in.Hostname); err != nil {
-				return fail("The webmail sign-in page did not load.", errors.New(err.Error()+"\n"+e.webmailLogs()))
+				return fail("The webmail sign-in page did not load.", errors.New(err.Error()+"\n"+e.webmailLogs()+e.webmailServeDiagnosis(ctx, v)))
 			}
 		}
 		notes := []string{"Users sign in at https://" + in.Hostname + "/ with their full email address and mailbox password."}

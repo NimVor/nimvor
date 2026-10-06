@@ -195,3 +195,26 @@ func TestWebmailOnPHP85(t *testing.T) {
 		t.Error("array_first turned off although Roundcube does not declare it")
 	}
 }
+
+// RHEL: no package creates the pools' socket folder for Remi's PHP
+// versions; webmail (like a website) adds it and its boot-time entry, else
+// PHP-FPM cannot bind the webmail socket (Nginx: 502).
+func TestEnsurePHPSocketDir(t *testing.T) {
+	h, _ := setup(t)
+	// (The test host is Ubuntu-shaped: its socket folder, RHEL's entry.)
+	dir := h.Env.M.PHPSocketDir
+	h.Env.M.PHPSocketTmpfiles = "/etc/tmpfiles.d/whacp-php-fpm.conf"
+	os.MkdirAll(filepath.Join(h.Base, "etc/tmpfiles.d"), 0o755) // always there on a real system
+	set := h.Env.Changes("socket-dir")
+	h.Env.EnsurePHPSocketDir(set)
+	if _, err := set.Commit(func() error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Stat(filepath.Join(h.Base, dir)); err != nil || !fi.IsDir() {
+		t.Fatalf("socket folder: %v", err)
+	}
+	b, _ := os.ReadFile(filepath.Join(h.Base, "etc/tmpfiles.d/whacp-php-fpm.conf"))
+	if !strings.Contains(string(b), "d "+dir+" 0755 root root -") {
+		t.Fatalf("tmpfiles entry: %q", b)
+	}
+}

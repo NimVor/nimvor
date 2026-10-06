@@ -131,6 +131,21 @@ func (e *Env) Changes(label string) *changeset.Set {
 	return changeset.New(e.Writer, filepath.Join(e.Cfg.StateDir, "config-backups"), label)
 }
 
+// EnsurePHPSocketDir adds to set the folder WhaCP's PHP-FPM pools (website
+// and webmail pools) create their sockets in, and its tmpfiles.d entry that
+// recreates it at every boot (it is on a tmpfs). On RHEL no PHP package
+// creates it for Remi's parallel versions: without it a pool cannot bind
+// its socket and Nginx answers 502.
+func (e *Env) EnsurePHPSocketDir(set *changeset.Set) {
+	if e.M.PHPSocketTmpfiles == "" {
+		return
+	}
+	set.Write(e.M.PHPSocketTmpfiles, []byte("# Managed by WhaCP: PHP-FPM sockets of websites.\nd "+e.M.PHPSocketDir+" 0755 root root -\n"), 0o644, agentfs.RootOwner)
+	if !e.Root.Exists(e.M.PHPSocketDir) {
+		set.Mkdir(e.M.PHPSocketDir, 0o755, agentfs.RootOwner)
+	}
+}
+
 // Decode strictly decodes params and maps validation errors.
 func Decode(params json.RawMessage, v any) error {
 	return actions.DecodeParams(params, v)
