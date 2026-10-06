@@ -446,9 +446,8 @@ func (e env) renderWebmailPool(v string) string {
 		"php_admin_value[open_basedir] = " + basedir + "\n" +
 		"php_admin_value[upload_tmp_dir] = " + d + "/temp\nphp_admin_value[session.save_path] = " + d + "/temp\nphp_admin_value[sys_temp_dir] = " + d + "/temp\n" +
 		"php_admin_value[error_log] = " + d + "/logs/php-error.log\nphp_admin_flag[log_errors] = on\nphp_admin_flag[display_errors] = off\n" +
-		// Roundcube's plugins trigger deprecation notices on newer PHP
-		// (harmless); they would bury the real errors in the log.
-		"php_admin_value[error_reporting] = E_ALL & ~E_DEPRECATED\n" +
+		// No error_reporting here: Roundcube sets its own and refuses to run
+		// when it cannot ("Wrong 'error_reporting' option value").
 		"php_admin_value[memory_limit] = 256M\nphp_admin_value[upload_max_filesize] = 25M\nphp_admin_value[post_max_size] = 30M\nphp_admin_value[max_execution_time] = 120\n" +
 		"php_admin_value[disable_functions] = " + disabled + "\n" +
 		e.prependLine("php_admin_value[auto_prepend_file] = ")

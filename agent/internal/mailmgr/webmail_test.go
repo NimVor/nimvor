@@ -220,3 +220,11 @@ func TestEnsurePHPSocketDir(t *testing.T) {
 		t.Fatalf("tmpfiles entry: %q", b)
 	}
 }
+
+// Roundcube must be able to set error_reporting itself.
+func TestWebmailPoolLeavesErrorReporting(t *testing.T) {
+	h, _ := setup(t)
+	if pool := (env{h.Env}).renderWebmailPool("8.3"); strings.Contains(pool, "error_reporting") {
+		t.Fatalf("the pool fixes error_reporting:\n%s", pool)
+	}
+}
