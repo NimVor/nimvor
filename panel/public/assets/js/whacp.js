@@ -540,23 +540,29 @@
         if (auto) { WhaCP.showJob(auto.getAttribute('data-wcp-autojob')); }
     });
 
-    // Top bar: the server's load averages, every 30 seconds while the tab is
+    // Top bar: the server's load averages, every 5 seconds while the tab is
     // visible (passive: an idle session still times out), and the update
-    // button when a newer WhaCP was found.
+    // button when a newer WhaCP was found. The dashboard sets the load from
+    // its own live data (WhaCP.setTopbarLoad), so both always agree.
+    WhaCP.setTopbarLoad = function (load) {
+        var span = document.querySelector('[data-wcp-topbar-load] span');
+        if (span && load && load.length === 3) {
+            span.textContent = load.map(function (v) { return Number(v).toFixed(2); }).join(' ');
+        }
+    };
     document.addEventListener('DOMContentLoaded', function () {
         var link = document.querySelector('[data-wcp-topbar-load]');
         if (!link) { return; }
-        var text = link.querySelector('span');
         var upd = document.querySelector('[data-wcp-topbar-update]');
+        var busy = false;
         setInterval(function () {
-            if (document.hidden) { return; }
+            if (document.hidden || busy) { return; }
+            busy = true;
             WhaCP.fetchJson(link.getAttribute('data-wcp-topbar-load')).then(function (res) {
-                if (res.load && res.load.length === 3) {
-                    text.textContent = res.load.map(function (v) { return Number(v).toFixed(2); }).join(' ');
-                }
+                WhaCP.setTopbarLoad(res.load);
                 if (upd) { upd.classList.toggle('d-none', !res.update); }
-            }).catch(function () { /* keep the last values */ });
-        }, 30000);
+            }).catch(function () { /* keep the last values */ }).then(function () { busy = false; });
+        }, 5000);
     });
 
     // WhaCP update page: follow the update's output while it runs. The

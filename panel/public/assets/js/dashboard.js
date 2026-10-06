@@ -149,6 +149,8 @@
         }
         if (m.load) {
             setMetric('load', m.load.load1.toFixed(2), m.load.load5.toFixed(2) + ' · ' + m.load.load15.toFixed(2) + ' (5/15 min)', null);
+            // The top bar shows the same values.
+            if (window.WhaCP && WhaCP.setTopbarLoad) { WhaCP.setTopbarLoad([m.load.load1, m.load.load5, m.load.load15]); }
         }
         var up = document.querySelector('[data-uptime]');
         if (up && m.uptime_seconds) { up.textContent = fmtDuration(m.uptime_seconds); }

@@ -9,7 +9,7 @@ All notable changes to WhaCP are documented here. The format follows
 ### Added
 - **Top bar for server administrators:** the host name, the operating
   system, the WhaCP version and the load averages (1, 5 and 15 minutes,
-  refreshed every 30 seconds). Clicking the load opens live monitoring.
+  refreshed every 5 seconds, and the same as the dashboard's Load card). Clicking the load opens live monitoring.
   The tool search moved to the sidebar, above Dashboard, and the
   "Write mode" label was removed from the sidebar. "Read-only mode" and
   "Agent offline" are still shown there.

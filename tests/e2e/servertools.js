@@ -36,6 +36,16 @@ const OUT = process.env.E2E_OUT || '/tmp';
     if (await page.locator('.wcp-server-tools button[aria-label="Restart all services"]').count() !== 1) { throw new Error('no restart-all button in the Server card'); }
     if (await page.locator('.wcp-topbar [aria-label="Restart all services"], .wcp-topbar [aria-label="Restart the server"]').count() !== 0) { throw new Error('server tools still in the top bar'); }
     step('top bar: host name, system, version, load ' + load.trim());
+    // On the dashboard the top bar shows the same load as the Load card.
+    await page.waitForFunction(() => {
+      const t = document.querySelector('[data-wcp-topbar-load] span').textContent.trim().split(' ');
+      const card = document.querySelector('[data-metric="load"]');
+      if (!card) { return false; }
+      const one = card.querySelector('[data-value]').textContent.trim();
+      const rest = (card.querySelector('[data-detail]').textContent.match(/[\d.]+/g) || []).slice(0, 2);
+      return t[0] === one && t[1] === rest[0] && t[2] === rest[1];
+    }, null, { timeout: 30000 });
+    step('top bar load matches the dashboard Load card');
     // The sidebar: search above Dashboard, no write-mode pill.
     const order = await page.evaluate(() => {
       const s = document.querySelector('.wcp-sidebar .wcp-search-trigger');
@@ -58,8 +68,11 @@ const OUT = process.env.E2E_OUT || '/tmp';
     if (!page.url().endsWith('/monitoring/live')) { throw new Error('load link: ' + page.url()); }
     step('load opens live monitoring');
 
-    // Process manager.
+    // Process manager (also: the top bar refreshes the load on other pages).
+    const polled = page.waitForResponse(r => r.url().includes('/topbar/status') && r.status() === 200, { timeout: 10000 });
     await page.goto(BASE + '/monitoring/processes');
+    await polled;
+    step('top bar refreshes the load every few seconds');
     const rows = await page.locator('.wcp-proc-table tbody tr[data-wcp-row]').count();
     if (rows < 5) { throw new Error('only ' + rows + ' processes listed'); }
     const ops = await page.locator('.wcp-proc-table tbody tr[data-wcp-row] a:has-text("Trace")').count();

@@ -1452,7 +1452,7 @@ domains, the site is a catch-all, or the account or folder already exists.
 
 For server administrators, the top bar shows:
 - the host name, the operating system and the WhaCP version;
-- the load averages for 1, 5 and 15 minutes, refreshed every 30 seconds.
+- the load averages for 1, 5 and 15 minutes, refreshed every 5 seconds (on the dashboard, with its Load card).
   Clicking them opens *Monitoring → Live*.
 
 The dashboard's *Server* card has three buttons:
