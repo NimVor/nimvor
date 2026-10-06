@@ -5,6 +5,7 @@ package ftpmgr
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -311,6 +312,7 @@ func TestRealHostShellModes(t *testing.T) {
 		reloadSSH()
 	})
 	do(t, r, "sftp.configure", map[string]any{"user": "rtftp", "enabled": true, "keys": []string{string(pub)}})
+	reloadSSH()
 	sshOpts := []string{"-i", key, "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes"}
 	run := func(cmd string) (string, error) {
 		var out []byte
@@ -329,7 +331,10 @@ func TestRealHostShellModes(t *testing.T) {
 	reloadSSH()
 	out, err := run(`id -un; pwd; ls ` + rtSites + `; cat ` + filepath.Join(other, "secret.txt") + `; ls /etc; grep -c . /etc/passwd; echo hi > public_html/from-jail.txt && echo WROTE; touch /usr/x 2>&1; ps -e -o comm= | sort -u | tr '\n' ' '; echo; grep NoNewPrivs /proc/self/status`)
 	if err != nil && !strings.Contains(out, "rtftp") {
-		t.Fatalf("jailed session: %v\n%s", err, out)
+		t.Fatalf("jailed session: %v\n%s\n%s", err, out, sshDiagnosis(env.M.SFTPKeysDir))
+	}
+	if strings.Contains(out, "Permission denied") {
+		t.Fatalf("jailed session refused:\n%s\n%s", out, sshDiagnosis(env.M.SFTPKeysDir))
 	}
 	t.Logf("jailed session:\n%s", out)
 	home := filepath.Join(rtSites, "rt-ftp.test")
@@ -371,4 +376,22 @@ func TestRealHostShellModes(t *testing.T) {
 	if out, _ := run("id -un"); strings.Contains(out, "rtftp\n") {
 		t.Fatalf("a command ran with the shell disabled:\n%s", out)
 	}
+}
+
+// sshDiagnosis: why sshd refused the test account (its log, the effective
+// settings for it, the account and its key file).
+func sshDiagnosis(keysDir string) string {
+	var b strings.Builder
+	for _, c := range [][]string{
+		{"journalctl", "--no-pager", "-n", "30", "-t", "sshd", "-t", "sshd-session", "--since", "-5min"},
+		{"sh", "-c", "sshd -T -C user=rtftp,host=localhost,addr=127.0.0.1 | grep -iE '^(authorizedkeysfile|forcecommand|chrootdirectory|pubkeyauthentication|allowusers|allowgroups|denyusers|denygroups|pubkeyacceptedalgorithms) '"},
+		{"getent", "passwd", "rtftp"},
+		{"chage", "-l", "rtftp"},
+		{"id", "rtftp"},
+		{"ls", "-ld", keysDir, filepath.Join(keysDir, "rtftp"), JailShell},
+	} {
+		out, _ := exec.Command(c[0], c[1:]...).CombinedOutput()
+		fmt.Fprintf(&b, "$ %s\n%s\n", strings.Join(c, " "), strings.TrimSpace(string(out)))
+	}
+	return b.String()
 }

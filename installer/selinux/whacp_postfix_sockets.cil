@@ -1,0 +1,12 @@
+; Managed by WhaCP (installer/install.sh).
+;
+; WhaCP's greylisting and mail limits are Postfix policy services started
+; by systemd socket units (whacp-greylist.socket, whacp-mailrate.socket).
+; Their sockets live in Postfix's private folder, where smtpd reaches them:
+; /var/spool/postfix/private (postfix_private_t). The distribution policy
+; does not let systemd (init_t) create a socket there ("avc: denied
+; { add_name } ... comm=systemd ... tclass=dir"), so the socket units
+; failed on SELinux-enforcing systems. This allows exactly that, nothing
+; else: the sockets take the folder's type, as Postfix's own do.
+(allow init_t postfix_private_t (dir (search getattr write add_name remove_name)))
+(allow init_t postfix_private_t (sock_file (create unlink getattr setattr)))

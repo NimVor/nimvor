@@ -46,6 +46,11 @@ func New(t *testing.T) *Host {
 	t.Helper()
 	_, file, _, _ := runtime.Caller(0)
 	src := filepath.Join(filepath.Dir(file), "../../tests/fixtures/ubuntu-host")
+	if _, err := os.Stat(src); err != nil {
+		// A compiled test binary run elsewhere (CI's virtual machines run
+		// it from its package folder in a copy of the repository).
+		src = "../../tests/fixtures/ubuntu-host"
+	}
 	base := t.TempDir()
 	if err := copyTree(src, base); err != nil {
 		t.Fatal(err)

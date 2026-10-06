@@ -7,6 +7,14 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Updating left the old agent running.** If Go was not found, the
+  installer used to install the outdated `dist/whacp-agent` after a
+  `git pull`. It now stops and asks for `--install-deps`. The agent's
+  version also names the commit it was built from.
+- **Greylisting and mail limits on SELinux systems.** SELinux denied systemd
+  creating their sockets in Postfix's private folder, so the socket units
+  failed. The installer now loads a minimal policy module that allows only
+  this. SELinux stays enforcing.
 - **Package installation on Ubuntu 24.04 and Rocky Linux / RHEL with
   SELinux.** Package managers ran inside the agent's systemd sandbox. On
   Ubuntu 24.04 APT could not switch to its download user

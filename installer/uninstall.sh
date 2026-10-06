@@ -38,6 +38,10 @@ if [[ -e /etc/systemd/system/whacp-greylist.service ]]; then
     systemctl disable --now whacp-greylist.service whacp-greylist.socket 2>/dev/null || true
     rm -f /etc/systemd/system/whacp-greylist.service /etc/systemd/system/whacp-greylist.socket
 fi
+# WhaCP's SELinux module (systemd sockets in Postfix's private folder).
+if command -v semodule >/dev/null && semodule -l 2>/dev/null | grep -q '^whacp_postfix_sockets\b'; then
+    semodule -r whacp_postfix_sockets || true
+fi
 # Drop-ins (write mode, remote access) must go too: a later read-only
 # install would otherwise inherit the lifted sandbox.
 rm -rf /etc/systemd/system/whacp-agent.service.d

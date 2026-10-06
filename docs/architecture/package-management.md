@@ -173,6 +173,14 @@ restarted again and again.
   `/usr/local/bin/composer`, `/usr/bin/composer`, `~/.local/bin/composer`).
   Each is reported with its version and path. With `--install-deps` they are
   installed from the distribution when missing.
+- A `dist/whacp-agent` older than the agent's sources (after `git pull`) is
+  rebuilt. When Go is missing the installer stops and says so (use
+  `--install-deps`); it no longer installs the old build. The agent's version
+  names the commit it was built from (`1.0.0-rc1+abc1234`).
+- On SELinux systems the installer loads a small policy module
+  (`installer/selinux/whacp_postfix_sockets.cil`): systemd may create the
+  greylisting and mail-limit sockets in Postfix's private folder. That is
+  all it allows. SELinux stays enforcing.
 - APT waits for the dpkg lock instead of failing.
 - Rocky/Alma: CRB is enabled together with EPEL.
 

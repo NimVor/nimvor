@@ -49,14 +49,10 @@ func TestRealHostGreylisting(t *testing.T) {
 	os.WriteFile(filepath.Join(unitDir, GreylistSocket), []byte(renderGreylistSocket("/var/spool/postfix")), 0o644)
 	os.WriteFile(filepath.Join(unitDir, GreylistService), []byte(renderGreylistService(bin, filepath.Join(dir, "greylist.json"))), 0o644)
 	if _, err := exec.LookPath("systemd-analyze"); err == nil {
-		out, err := exec.Command("systemd-analyze", "verify", "--man=no", filepath.Join(unitDir, GreylistService), filepath.Join(unitDir, GreylistSocket)).CombinedOutput()
-		// Offline verify cannot resolve the postfix user of the socket.
-		for _, l := range strings.Split(string(out), "\n") {
-			if l != "" && !strings.Contains(l, "postfix") && !strings.Contains(l, "Failed to prepare filename") && !strings.Contains(l, "kernel does not support IPv6") {
-				t.Errorf("systemd-analyze verify: %s", l)
-			}
+		out, _ := exec.Command("systemd-analyze", "verify", "--man=no", filepath.Join(unitDir, GreylistService), filepath.Join(unitDir, GreylistSocket)).CombinedOutput()
+		for _, l := range verifyErrors(out) {
+			t.Errorf("systemd-analyze verify: %s", l)
 		}
-		_ = err
 		// --offline needs systemd 250 or later (Ubuntu 22.04 has 249).
 		if help, _ := exec.Command("systemd-analyze", "--help").CombinedOutput(); strings.Contains(string(help), "--offline") {
 			sec, _ := exec.Command("systemd-analyze", "security", "--offline=true", "--no-pager", filepath.Join(unitDir, GreylistService)).CombinedOutput()
@@ -109,6 +105,7 @@ func TestRealHostGreylisting(t *testing.T) {
 			os.WriteFile(conf, b, 0o600)
 		}
 		writeCfg()
+		selinuxSockets(t)
 		start = func() {
 			if out, err := exec.Command("systemctl", "start", GreylistSocket).CombinedOutput(); err != nil {
 				t.Fatalf("socket: %s", out)

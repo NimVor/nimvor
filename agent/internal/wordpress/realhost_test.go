@@ -183,7 +183,7 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	if b, _ := exec.Command("stat", "-c", "%U %a", file).Output(); strings.TrimSpace(string(b)) != "whacpwt 600" {
 		t.Fatalf("sign-in file: %s", b)
 	}
-	phpBin := "php" + php
+	phpBin := cliPHP(php)
 	run := exec.Command(phpBin, file)
 	run.Env = []string{"REQUEST_METHOD=GET", "HTTP_HOST=wpt.test"}
 	run.Dir = filepath.Dir(file)
@@ -376,7 +376,7 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 		DB: &DBTarget{Name: "whacp_wpt_stg", User: "whacp_wpt_stg", Password: stgPass, Host: "localhost"}})
 	stgEval := func(code string) string {
 		t.Helper()
-		c := exec.Command("php"+php, WPCLIPath, "--allow-root", "--skip-plugins", "--skip-themes", "--path="+filepath.Join(stgRoot, "public_html"), "eval", code)
+		c := exec.Command(cliPHP(php), WPCLIPath, "--allow-root", "--skip-plugins", "--skip-themes", "--path="+filepath.Join(stgRoot, "public_html"), "eval", code)
 		out, err := c.CombinedOutput()
 		if err != nil {
 			t.Fatalf("staging eval: %v %s", err, out)
@@ -436,19 +436,25 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 		if in4.Core.Latest == "" || in4.Core.CheckedAt == 0 {
 			t.Fatalf("update check: %+v", in4.Core)
 		}
+		// Checksums first, on the pinned release: WordPress.org always has
+		// them for it (for a release published minutes ago it may not yet,
+		// which made this check fail after updating to the latest one).
+		if r := do("verify_core", nil, ""); r["ok"] != true {
+			t.Fatalf("verify: %v", r)
+		}
+		changed := filepath.Join(root, "public_html/wp-includes/class-wp.php")
+		f, _ := os.OpenFile(changed, os.O_APPEND|os.O_WRONLY, 0)
+		f.WriteString("\n// changed\n")
+		f.Close()
+		if r := do("verify_core", nil, ""); r["ok"] != false || !strings.Contains(strings.Join(anyStrings(r["files"]), " "), "wp-includes/class-wp.php") {
+			t.Fatalf("verify after a change: %v", r)
+		}
 		do("plugin_update", nil, "")
 		if in4.Core.Latest != in4.Version {
 			do("core_update", nil, "")
 			if in5, _ := info(ctx, env, target, false); in5.Version != in4.Core.Latest {
 				t.Fatalf("core update: %s, want %s", in5.Version, in4.Core.Latest)
 			}
-		}
-		if r := do("verify_core", nil, ""); r["ok"] != true {
-			t.Fatalf("verify: %v", r)
-		}
-		os.WriteFile(filepath.Join(root, "public_html/wp-includes/version.php"), []byte("<?php $wp_version = '1.0';\n"), 0o644)
-		if r := do("verify_core", nil, ""); r["ok"] != false || !strings.Contains(strings.Join(anyStrings(r["files"]), " "), "wp-includes/version.php") {
-			t.Fatalf("verify after a change: %v", r)
 		}
 	}
 	if strings.Contains(logBuf.String(), dbPass) || strings.Contains(logBuf.String(), newDB) || strings.Contains(logBuf.String(), "admin\" \"pass") {
@@ -474,4 +480,13 @@ func wpEvalEnv(t *testing.T, root, code string, env ...string) string {
 		t.Fatalf("eval %s: %v", code, err)
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// cliPHP is the command-line PHP of a version: Debian names it php8.3,
+// Remi's parallel versions on RHEL php83.
+func cliPHP(v string) string {
+	if p, err := exec.LookPath("php" + v); err == nil {
+		return p
+	}
+	return "php" + strings.ReplaceAll(v, ".", "")
 }

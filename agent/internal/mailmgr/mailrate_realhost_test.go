@@ -59,10 +59,8 @@ func TestRealHostMailRate(t *testing.T) {
 		os.WriteFile(filepath.Join(unitDir, MailRateSocket), []byte(renderMailRateSocket("/var/spool/postfix")), 0o644)
 		os.WriteFile(filepath.Join(unitDir, MailRateService), []byte(renderMailRateService(bin, filepath.Join(dir, "mailrate.json"))), 0o644)
 		out, _ := exec.Command("systemd-analyze", "verify", "--man=no", filepath.Join(unitDir, MailRateService), filepath.Join(unitDir, MailRateSocket)).CombinedOutput()
-		for _, l := range strings.Split(string(out), "\n") {
-			if l != "" && !strings.Contains(l, "postfix") && !strings.Contains(l, "Failed to prepare filename") && !strings.Contains(l, "kernel does not support IPv6") {
-				t.Errorf("systemd-analyze verify: %s", l)
-			}
+		for _, l := range verifyErrors(out) {
+			t.Errorf("systemd-analyze verify: %s", l)
 		}
 		if help, _ := exec.Command("systemd-analyze", "--help").CombinedOutput(); strings.Contains(string(help), "--offline") {
 			sec, _ := exec.Command("systemd-analyze", "security", "--offline=true", "--no-pager", filepath.Join(unitDir, MailRateService)).CombinedOutput()
@@ -145,11 +143,13 @@ func TestRealHostMailRate(t *testing.T) {
 				}
 			}
 		}
+		// Stopped, as the other mail tests leave it: a Postfix started here
+		// (outside systemd) would make systemctl start postfix fail later
+		// ("the Postfix mail system is already running").
 		exec.Command("postfix", "stop").Run()
 		for k, v := range prev {
 			exec.Command("postconf", "-e", k+"="+v).Run()
 		}
-		exec.Command("postfix", "start").Run()
 		svc.Process.Signal(os.Interrupt)
 		svc.Wait()
 		os.Remove(sock)

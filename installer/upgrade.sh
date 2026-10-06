@@ -298,6 +298,10 @@ install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent.service" "$UNIT_DIR/whac
 sed "s/127.0.0.1:8090/127.0.0.1:${port:-8090}/" "$SRC_DIR/installer/systemd/whacp-panel.service" > "$UNIT_DIR/whacp-panel.service"
 install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.service" "$UNIT_DIR/whacp-scheduler.service"
 install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.timer" "$UNIT_DIR/whacp-scheduler.timer"
+if command -v semodule >/dev/null && command -v getenforce >/dev/null && [[ $(getenforce) != Disabled && -f $SRC_DIR/installer/selinux/whacp_postfix_sockets.cil ]]; then
+    # systemd's greylisting and mail limit sockets in Postfix's private folder.
+    semodule -i "$SRC_DIR/installer/selinux/whacp_postfix_sockets.cil" || warn "could not install WhaCP's SELinux policy module"
+fi
 # Refresh drop-ins that are already enabled (write mode, remote access).
 [[ -f $UNIT_DIR/whacp-agent.service.d/10-write-mode.conf ]] && install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent-write-mode.conf" "$UNIT_DIR/whacp-agent.service.d/10-write-mode.conf"
 [[ -f $UNIT_DIR/whacp-agent.service.d/20-remote.conf ]] && install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent-remote.conf" "$UNIT_DIR/whacp-agent.service.d/20-remote.conf"

@@ -27,7 +27,7 @@ import (
 
 const termSites = "/srv/whacp-termtest"
 
-// realAccounts creates two website accounts, termA and termB, each with a
+// realAccounts creates two website accounts, terma and termb, each with a
 // private file, and an agent with the SFTP/shell, limits and terminal
 // actions on the real system.
 func realAccounts(t *testing.T) (*host.Env, *actions.Registry, *slogBuf) {
@@ -39,7 +39,7 @@ func realAccounts(t *testing.T) (*host.Env, *actions.Registry, *slogBuf) {
 		t.Fatal("the OpenSSH server is required (SSH/SFTP passwords are set through its configuration)")
 	}
 	os.MkdirAll(termSites, 0o755)
-	for i, u := range []string{"termA", "termB"} {
+	for i, u := range []string{"terma", "termb"} {
 		home := filepath.Join(termSites, strings.ToLower(u)+".test")
 		exec.Command("pkill", "-KILL", "-u", u).Run()
 		exec.Command("userdel", "-f", u).Run()
@@ -65,7 +65,7 @@ func realAccounts(t *testing.T) (*host.Env, *actions.Registry, *slogBuf) {
 	Register(r, env)
 	t.Cleanup(func() {
 		Shared.CloseAll("test done")
-		for _, u := range []string{"termA", "termB"} {
+		for _, u := range []string{"terma", "termb"} {
 			call(r, "sftp.configure", map[string]any{"user": u, "enabled": false})
 			exec.Command("pkill", "-KILL", "-u", u).Run()
 			time.Sleep(200 * time.Millisecond)
@@ -112,26 +112,26 @@ func TestRealHostLinuxPassword(t *testing.T) {
 	ctx := context.Background()
 	check := func(user, pw string) error { return checkPassword(ctx, env, user, pw) }
 
-	must(t, r, "sftp.configure", map[string]any{"user": "termA", "enabled": true, "password_login": true, "password": "First-Linux-Pass-1"})
-	must(t, r, "sftp.configure", map[string]any{"user": "termB", "enabled": true, "password_login": true, "password": "Bee-Linux-Pass-22"})
-	if err := check("termA", "First-Linux-Pass-1"); err != nil {
+	must(t, r, "sftp.configure", map[string]any{"user": "terma", "enabled": true, "password_login": true, "password": "First-Linux-Pass-1"})
+	must(t, r, "sftp.configure", map[string]any{"user": "termb", "enabled": true, "password_login": true, "password": "Bee-Linux-Pass-22"})
+	if err := check("terma", "First-Linux-Pass-1"); err != nil {
 		t.Fatalf("the account's password was refused: %v", err)
 	}
 	for _, pw := range []string{"wrong-password", "", "Bee-Linux-Pass-22"} {
-		if check("termA", pw) == nil {
-			t.Errorf("termA accepted %q", pw)
+		if check("terma", pw) == nil {
+			t.Errorf("terma accepted %q", pw)
 		}
 	}
 	// A new password replaces the old one at once.
-	must(t, r, "sftp.configure", map[string]any{"user": "termA", "enabled": true, "password_login": true, "password": "Second-Linux-Pass-2"})
-	if check("termA", "First-Linux-Pass-1") == nil || check("termA", "Second-Linux-Pass-2") != nil {
+	must(t, r, "sftp.configure", map[string]any{"user": "terma", "enabled": true, "password_login": true, "password": "Second-Linux-Pass-2"})
+	if check("terma", "First-Linux-Pass-1") == nil || check("terma", "Second-Linux-Pass-2") != nil {
 		t.Fatal("the password change did not take effect")
 	}
 	// A password set outside WhaCP (passwd/chpasswd, yescrypt on Ubuntu) works too.
-	if out, err := exec.Command("sh", "-c", "echo 'termA:Set-By-Chpasswd-3' | chpasswd").CombinedOutput(); err != nil {
+	if out, err := exec.Command("sh", "-c", "echo 'terma:Set-By-Chpasswd-3' | chpasswd").CombinedOutput(); err != nil {
 		t.Fatalf("chpasswd: %s", out)
 	}
-	if check("termA", "Set-By-Chpasswd-3") != nil || check("termA", "Second-Linux-Pass-2") == nil {
+	if check("terma", "Set-By-Chpasswd-3") != nil || check("terma", "Second-Linux-Pass-2") == nil {
 		t.Fatal("a password set with chpasswd is not the one checked")
 	}
 	// Password login off locks the account; suspension expires it.
@@ -140,17 +140,17 @@ func TestRealHostLinuxPassword(t *testing.T) {
 		t.Fatalf("ssh-keygen: %s", out)
 	}
 	pub, _ := os.ReadFile(keyFile + ".pub")
-	must(t, r, "sftp.configure", map[string]any{"user": "termA", "enabled": true, "password_login": false, "keys": []string{string(pub)}})
-	if check("termA", "Set-By-Chpasswd-3") == nil {
+	must(t, r, "sftp.configure", map[string]any{"user": "terma", "enabled": true, "password_login": false, "keys": []string{string(pub)}})
+	if check("terma", "Set-By-Chpasswd-3") == nil {
 		t.Fatal("a locked account was accepted")
 	}
-	must(t, r, "sftp.configure", map[string]any{"user": "termA", "enabled": true, "password_login": true, "password": "Third-Linux-Pass-4"})
-	must(t, r, "account.suspend", map[string]any{"user": "termA", "suspended": true})
-	if check("termA", "Third-Linux-Pass-4") == nil {
+	must(t, r, "sftp.configure", map[string]any{"user": "terma", "enabled": true, "password_login": true, "password": "Third-Linux-Pass-4"})
+	must(t, r, "account.suspend", map[string]any{"user": "terma", "suspended": true})
+	if check("terma", "Third-Linux-Pass-4") == nil {
 		t.Fatal("a suspended account was accepted")
 	}
-	must(t, r, "account.suspend", map[string]any{"user": "termA", "suspended": false})
-	if check("termA", "Third-Linux-Pass-4") != nil {
+	must(t, r, "account.suspend", map[string]any{"user": "terma", "suspended": false})
+	if check("terma", "Third-Linux-Pass-4") != nil {
 		t.Fatal("a resumed account was refused")
 	}
 	for _, secret := range []string{"First-Linux-Pass-1", "Second-Linux-Pass-2", "Third-Linux-Pass-4", "Bee-Linux-Pass-22", "Set-By-Chpasswd-3"} {
@@ -177,11 +177,11 @@ func TestRealHostTerminalSession(t *testing.T) {
 	m.Enabled = true
 	srv := serve(t, m)
 	ctx := context.Background()
-	must(t, r, "sftp.configure", map[string]any{"user": "termA", "enabled": true, "password_login": true, "password": "Terminal-A-Pass-1"})
-	must(t, r, "sftp.configure", map[string]any{"user": "termB", "enabled": true, "password_login": true, "password": "Terminal-B-Pass-2"})
-	must(t, r, "shell.set", map[string]any{"users": []string{"termA", "termB"}, "mode": "normal"})
-	must(t, r, "limits.set", map[string]any{"account": "acct991", "users": []string{"termA"}, "memory_mb": 256, "tasks_max": 64})
-	t.Cleanup(func() { call(r, "limits.set", map[string]any{"account": "acct991", "users": []string{"termA"}}) })
+	must(t, r, "sftp.configure", map[string]any{"user": "terma", "enabled": true, "password_login": true, "password": "Terminal-A-Pass-1"})
+	must(t, r, "sftp.configure", map[string]any{"user": "termb", "enabled": true, "password_login": true, "password": "Terminal-B-Pass-2"})
+	must(t, r, "shell.set", map[string]any{"users": []string{"terma", "termb"}, "mode": "normal"})
+	must(t, r, "limits.set", map[string]any{"account": "acct991", "users": []string{"terma"}, "memory_mb": 256, "tasks_max": 64})
+	t.Cleanup(func() { call(r, "limits.set", map[string]any{"account": "acct991", "users": []string{"terma"}}) })
 
 	open := func(user, pw string) (*client, string) {
 		t.Helper()
@@ -205,20 +205,20 @@ func TestRealHostTerminalSession(t *testing.T) {
 	}
 
 	// A wrong password (here: the other account's) gets no shell.
-	res, _ := m.Open(OpenParams{User: "termA", ClientIP: "127.0.0.1"})
+	res, _ := m.Open(OpenParams{User: "terma", ClientIP: "127.0.0.1"})
 	bad, _ := dial(t, srv, "https://HOST")
 	bad.send(opText, authMsg(res["ticket"].(string), "Terminal-B-Pass-2"))
 	bad.until(t, "auth_failed", "")
 	bad.c.Close()
 
-	a, idA := open("termA", "Terminal-A-Pass-1")
-	b, idB := open("termB", "Terminal-B-Pass-2")
+	a, idA := open("terma", "Terminal-A-Pass-1")
+	b, idB := open("termb", "Terminal-B-Pass-2")
 	homeB := filepath.Join(termSites, "termb.test")
 	out := run(a, `echo user=$(id -un) uid=$(id -u); echo "IDLINE $(id)"; echo "GROUPSLINE $(groups)"; grep -E '^(NoNewPrivs|Cap(Inh|Prm|Eff|Bnd|Amb))' /proc/self/status; cat /proc/self/cgroup; g=$(cut -d: -f3 /proc/self/cgroup); echo pids=$(cat /sys/fs/cgroup$g/pids.max) slicemem=$(cat /sys/fs/cgroup${g%/*}/memory.max); sudo -n id -u 2>&1; echo sudo-rc=$?; su -c 'id -u' root </dev/null 2>&1; echo su-rc=$?; cat `+homeB+`/private.txt 2>&1; cat /etc/shadow 2>&1 | head -1`)
-	t.Logf("termA session:\n%s", out)
-	for _, want := range []string{"user=termA uid=2891", UnitName(idA), "whacp-acct991.slice", "pids=512", "slicemem=268435456", "Permission denied"} {
+	t.Logf("terma session:\n%s", out)
+	for _, want := range []string{"user=terma uid=2891", UnitName(idA), "whacp-acct991.slice", "pids=512", "slicemem=268435456", "Permission denied"} {
 		if !strings.Contains(out, want) {
-			t.Errorf("termA session lacks %q", want)
+			t.Errorf("terma session lacks %q", want)
 		}
 	}
 	caps := statusRe.FindAllStringSubmatch(out, -1)
@@ -234,9 +234,9 @@ func TestRealHostTerminalSession(t *testing.T) {
 			t.Errorf("%s = %s, want %s", c[1], c[2], want)
 		}
 	}
-	for _, bad := range []string{"SECRET-OF-termB", "uid=0", "\n0\r\n", "root:"} {
+	for _, bad := range []string{"SECRET-OF-termb", "uid=0", "\n0\r\n", "root:"} {
 		if strings.Contains(out, bad) {
-			t.Errorf("termA session shows %q (root or another account's data)", bad)
+			t.Errorf("terma session shows %q (root or another account's data)", bad)
 		}
 	}
 	if strings.Contains(out, "sudo-rc=0") || strings.Contains(out, "su-rc=0") {
@@ -250,23 +250,23 @@ func TestRealHostTerminalSession(t *testing.T) {
 		re := regexp.MustCompile(`[ (,]` + regexp.QuoteMeta(g) + `[ ),\r]|[ (,]` + regexp.QuoteMeta(g) + `$`)
 		for _, l := range idLines {
 			if re.MatchString(strings.TrimRight(l, "\r")) {
-				t.Errorf("termA is in the privileged group %s: %s", g, l)
+				t.Errorf("terma is in the privileged group %s: %s", g, l)
 			}
 		}
 	}
 	// The other account's session is its own.
 	outB := run(b, "id -un; cat private.txt")
-	if !strings.Contains(outB, "termB") || !strings.Contains(outB, "SECRET-OF-termB") || strings.Contains(outB, "user=termA") {
-		t.Errorf("termB session:\n%s", outB)
+	if !strings.Contains(outB, "termb") || !strings.Contains(outB, "SECRET-OF-termb") || strings.Contains(outB, "user=terma") {
+		t.Errorf("termb session:\n%s", outB)
 	}
 
-	// Changing termA's password ends its session, not termB's.
-	must(t, r, "sftp.configure", map[string]any{"user": "termA", "enabled": true, "password_login": true, "password": "Terminal-A-Pass-NEW"})
+	// Changing terma's password ends its session, not termb's.
+	must(t, r, "sftp.configure", map[string]any{"user": "terma", "enabled": true, "password_login": true, "password": "Terminal-A-Pass-NEW"})
 	if _, e := a.until(t, "exit", ""); !strings.Contains(e["reason"].(string), "password") {
 		t.Fatalf("%v", e)
 	}
 	if !env.UnitActive(ctx, UnitName(idB)) {
-		t.Fatal("termB's session ended with termA's password change")
+		t.Fatal("termb's session ended with terma's password change")
 	}
 	waitInactive(t, env, UnitName(idA))
 
@@ -287,29 +287,29 @@ func TestRealHostTerminalSession(t *testing.T) {
 			os.Remove(ftpmgr.JailBwrap)
 		})
 	}
-	must(t, r, "shell.set", map[string]any{"users": []string{"termA"}, "mode": "jailed"})
+	must(t, r, "shell.set", map[string]any{"users": []string{"terma"}, "mode": "jailed"})
 	t.Cleanup(func() {
-		call(r, "shell.set", map[string]any{"users": []string{"termA"}, "mode": "disabled"})
+		call(r, "shell.set", map[string]any{"users": []string{"terma"}, "mode": "disabled"})
 		os.Remove(ftpmgr.JailShell)
 	})
-	j, idJ := open("termA", "Terminal-A-Pass-NEW")
+	j, idJ := open("terma", "Terminal-A-Pass-NEW")
 	out = run(j, `id -un; pwd; ls `+termSites+`; cat `+homeB+`/private.txt 2>&1; grep -E '^(NoNewPrivs|CapBnd|CapEff)' /proc/self/status; ps -e -o comm= | sort -u | tr '\n' ' '; echo; touch /usr/x 2>&1`)
 	t.Logf("jailed session:\n%s", out)
-	for _, want := range []string{"termA", "terma.test", "NoNewPrivs:\t1", "CapBnd:\t0000000000000000", "CapEff:\t0000000000000000", "Read-only file system"} {
+	for _, want := range []string{"terma", "terma.test", "NoNewPrivs:\t1", "CapBnd:\t0000000000000000", "CapEff:\t0000000000000000", "Read-only file system"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("jailed session lacks %q", want)
 		}
 	}
-	for _, bad := range []string{"termb.test", "SECRET-OF-termB", "systemd", "whacp-agent", "sshd"} {
+	for _, bad := range []string{"termb.test", "SECRET-OF-termb", "systemd", "whacp-agent", "sshd"} {
 		if strings.Contains(out, bad) {
 			t.Errorf("jailed session sees %q", bad)
 		}
 	}
 	// Disabling shell access ends the session.
-	must(t, r, "shell.set", map[string]any{"users": []string{"termA"}, "mode": "disabled"})
+	must(t, r, "shell.set", map[string]any{"users": []string{"terma"}, "mode": "disabled"})
 	j.until(t, "exit", "")
 	waitInactive(t, env, UnitName(idJ))
-	if _, err := m.Open(OpenParams{User: "termA"}); err == nil {
+	if _, err := m.Open(OpenParams{User: "terma"}); err == nil {
 		t.Fatal("a terminal was offered with shell access disabled")
 	}
 	for _, secret := range []string{"Terminal-A-Pass-1", "Terminal-B-Pass-2", "Terminal-A-Pass-NEW"} {

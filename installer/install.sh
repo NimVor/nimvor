@@ -355,15 +355,25 @@ fi
 if [[ -n $GO ]]; then
     ok "Go detected: $("$GO" version 2>/dev/null | awk '{print $3}') ($GO)"
 fi
-if [[ -x $SRC_DIR/dist/whacp-agent && ( $stale -eq 0 || -z $GO ) ]]; then
-    [[ $stale -eq 1 ]] && warn "the agent's sources are newer than dist/whacp-agent, but Go was not found (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin): installing the older build"
+if [[ $stale -eq 1 && -z $GO ]]; then
+    # Installing the older build would silently keep the old agent (and its
+    # fixed bugs) while the panel is updated.
+    die "the agent's sources are newer than dist/whacp-agent (e.g. after git pull), but Go was not found to rebuild it (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin). Re-run with --install-deps to install Go from the distribution, or install Go yourself."
+fi
+if [[ -x $SRC_DIR/dist/whacp-agent && $stale -eq 0 ]]; then
     AGENT_SRC=$SRC_DIR/dist/whacp-agent
 elif [[ -n $GO ]]; then
     if [[ $stale -eq 1 ]]; then log "Rebuilding the agent: its sources are newer than dist/whacp-agent"; else log "Building agent from source"; fi
     run mkdir -p "$SRC_DIR/dist"
+    # The version names the commit it was built from (agent:check, health).
+    AGENT_VERSION=$(cat "$SRC_DIR/VERSION")
+    if commit=$(git -C "$SRC_DIR" -c safe.directory="$SRC_DIR" rev-parse --short HEAD 2>/dev/null); then
+        AGENT_VERSION+="+$commit"
+        [[ -n $(git -C "$SRC_DIR" -c safe.directory="$SRC_DIR" status --porcelain -- agent 2>/dev/null) ]] && AGENT_VERSION+=".dirty"
+    fi
     # A Go older than go.mod asks for downloads the right toolchain itself
     # (GOTOOLCHAIN=auto); GOPATH and caches stay out of the source tree.
-    (cd "$SRC_DIR/agent" && run env CGO_ENABLED=0 HOME="${HOME:-/root}" GOTOOLCHAIN=auto "$GO" build -trimpath -ldflags "-s -w -X main.version=$(cat "$SRC_DIR/VERSION")" -o "$SRC_DIR/dist/whacp-agent" ./cmd/whacp-agent)
+    (cd "$SRC_DIR/agent" && run env CGO_ENABLED=0 HOME="${HOME:-/root}" GOTOOLCHAIN=auto "$GO" build -trimpath -ldflags "-s -w -X main.version=$AGENT_VERSION" -o "$SRC_DIR/dist/whacp-agent" ./cmd/whacp-agent)
     AGENT_SRC=$SRC_DIR/dist/whacp-agent
 else
     die "no prebuilt agent (dist/whacp-agent) and Go was not found (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin). Install Go, or re-run with --install-deps."
@@ -496,6 +506,13 @@ NOTE
     run install -d -m 0755 -o root -g root /home/whacp /var/www/whacp-acme
 fi
 run systemctl daemon-reload
+if [[ $PKG == dnf && $SELINUX_MODE != none && $SELINUX_MODE != Disabled ]] && command -v semodule >/dev/null; then
+    # Let systemd create the sockets of WhaCP's greylisting and mail limits
+    # in Postfix's private folder (installer/selinux/*.cil explains it).
+    # SELinux stays enforcing; this allows that one thing.
+    log "Installing WhaCP's SELinux policy module"
+    run semodule -i "$SRC_DIR/installer/selinux/whacp_postfix_sockets.cil"
+fi
 
 run systemctl enable --now whacp-agent.service
 if [[ $AGENT_ONLY -eq 0 ]]; then
