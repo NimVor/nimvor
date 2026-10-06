@@ -101,7 +101,7 @@ Every failed run is classified from the package manager's output:
 | `RPM_DATABASE` | `rpmdb open failed`, `DB_RUNRECOVERY`, … | `rpm --rebuilddb`, try again (once) |
 | `PACKAGE_SCRIPT` | `Error in PREIN scriptlet in rpm package X`, `%prein(X) scriptlet failed, exit status N`, `X package post-installation script subprocess returned error exit status N` | none; package, stage and exit status reported. Retried only when the script says a lock was busy ("try again later") |
 | `NOT_AVAILABLE` | `Unable to locate package`, `No match for argument` (or the pre-check) | RHEL: prepare repositories, re-check |
-| `DEPENDENCY` | `Unmet dependencies`, `nothing provides`, `conflicting requests` | none; `dnf check` / `apt-get check` output added |
+| `DEPENDENCY` | `Unmet dependencies`, `nothing provides`, `conflicting requests` | RHEL, `nothing provides`: enable EPEL and CRB (EPEL's packages need CRB's libraries, e.g. opendkim needs libmilter), try again (once). Otherwise none; `dnf check` / `apt-get check` output added, and the configured repositories that provide each missing library are named (read-only `dnf repoquery --enablerepo=*`) |
 | `SIGNATURE` | `NO_PUBKEY`, `GPG check FAILED` | none (never bypassed) |
 | `DISK_FULL` | `No space left on device`, … | none |
 

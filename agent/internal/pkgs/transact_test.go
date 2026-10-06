@@ -209,3 +209,70 @@ func TestRHELRepositoryPreparation(t *testing.T) {
 		t.Error("tried to install a missing package")
 	}
 }
+
+// An EPEL package whose libraries live in CRB (opendkim: libmilter): CRB is
+// enabled and the install tried again; still unresolvable, the repository
+// providing the library is named.
+func TestDependencyEnablesCRB(t *testing.T) {
+	h := testhost.New(t)
+	rhel(t, h)
+	repos := map[string]bool{"baseos": true, "appstream": true, "epel": true}
+	h.Respond = func(id string, a []string) (string, error, bool) {
+		cmd := strings.Join(a, " ")
+		switch {
+		case id == "rpm" && strings.Contains(cmd, "epel-release"):
+			return "epel-release\t9-10.el9\n", nil, true
+		case id == "rpm":
+			return "", errors.New("exit status 1"), true
+		case id == "dnf" && strings.HasPrefix(cmd, "-q repolist"):
+			var b strings.Builder
+			for r := range repos {
+				fmt.Fprintf(&b, "%s  %s\n", r, r)
+			}
+			return b.String(), nil, true
+		case id == "dnf" && strings.HasPrefix(cmd, "-q list --available --installed"):
+			return "opendkim.x86_64  2.11.0-0.36.el9  epel\n", nil, true
+		case id == "dnf" && strings.HasPrefix(cmd, "config-manager --set-enabled "):
+			repos[a[2]] = true
+		case id == "dnf" && strings.Contains(cmd, "-- opendkim") && !repos["crb"]:
+			return "Error: \n Problem: conflicting requests\n  - nothing provides libmilter.so.1.0()(64bit) needed by opendkim-2.11.0-0.36.el9.x86_64 from epel\n", errors.New("exit status 1"), true
+		}
+		return "", nil, false
+	}
+	var log strings.Builder
+	if err := InstallNative(context.Background(), h.Env, &log, []string{"opendkim"}); err != nil {
+		t.Fatalf("%v\n%s", err, log.String())
+	}
+	if !h.Runner.Called("dnf config-manager --set-enabled crb") || !strings.Contains(log.String(), "enabled the repositories EPEL's packages depend on") {
+		t.Errorf("CRB not enabled; log:\n%s", log.String())
+	}
+
+	// CRB already on and still nothing: the provider is named.
+	h2 := testhost.New(t)
+	rhel(t, h2)
+	h2.Respond = func(id string, a []string) (string, error, bool) {
+		cmd := strings.Join(a, " ")
+		switch {
+		case id == "rpm":
+			return "epel-release\t9-10.el9\ndnf-plugins-core\t4\n", nil, true
+		case id == "dnf" && strings.HasPrefix(cmd, "-q repolist"):
+			return "baseos x\nappstream x\nepel x\ncrb x\n", nil, true
+		case id == "dnf" && strings.HasPrefix(cmd, "-q list --available --installed"):
+			return "opendkim.x86_64  2.11.0-0.36.el9  epel\n", nil, true
+		case id == "dnf" && strings.Contains(cmd, "repoquery --enablerepo=*"):
+			return "sendmail-milter from devel\n", nil, true
+		case id == "dnf" && strings.Contains(cmd, "-- opendkim"):
+			return " Problem: conflicting requests\n  - nothing provides libmilter.so.1.0()(64bit) needed by opendkim-2.11.0-0.36.el9.x86_64 from epel\n", errors.New("exit status 1"), true
+		}
+		return "", nil, false
+	}
+	log.Reset()
+	err := InstallNative(context.Background(), h2.Env, &log, []string{"opendkim"})
+	var pe *Error
+	if !errors.As(err, &pe) || pe.Diagnosis.Category != CatDependency || !strings.Contains(pe.Diagnosis.Detail, "libmilter.so.1.0()(64bit) is provided by: sendmail-milter from devel") {
+		t.Fatalf("%v\n%s", err, log.String())
+	}
+	if pe.Attempts != 1 {
+		t.Errorf("retried an unchanged dependency problem: %d attempts", pe.Attempts)
+	}
+}

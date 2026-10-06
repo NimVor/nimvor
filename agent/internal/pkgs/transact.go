@@ -91,6 +91,14 @@ func transact(ctx context.Context, env *host.Env, log io.Writer, op string, pkgs
 			repaired[CatRPMDB] = true
 			step = "rebuilt the RPM database (rpm --rebuilddb)"
 			_, stepErr = env.Runner.RunWith(ctx, "rpm", execx.Opts{Output: log, Timeout: -1}, "--rebuilddb")
+		case d.Category == CatDependency && dnf(env) && !repaired[CatDependency] && len(nothingProvides(string(out))) > 0:
+			// EPEL's packages need libraries from CRB (e.g. opendkim:
+			// libmilter, libmemcached); the availability check only saw
+			// that the package itself exists.
+			repaired[CatDependency] = true
+			if prepareRHELRepos(ctx, env, log, []string{"epel-dependencies"}) {
+				step = "enabled the repositories EPEL's packages depend on"
+			}
 		case d.Category == CatRepository:
 			if stepErr = sleepCtx(ctx, retryDelays[attempt-1]); stepErr == nil {
 				step = "waited and refreshed the package index"
@@ -120,6 +128,9 @@ func transact(ctx context.Context, env *host.Env, log io.Writer, op string, pkgs
 			}
 		} else if out, err := env.Runner.Run(ctx, "apt-get", "-s", "check"); err != nil {
 			d.Detail += "\n(apt-get check)\n" + strings.TrimSpace(string(out))
+		}
+		if dnf(env) {
+			d.Detail += whoProvides(ctx, env, nothingProvides(d.Detail))
 		}
 		e.Diagnosis = d
 	}
@@ -369,4 +380,38 @@ func prepareRHELRepos(ctx context.Context, env *host.Env, log io.Writer, missing
 		refreshIndex(ctx, env, log)
 	}
 	return changed
+}
+
+var nothingProvidesRe = regexp.MustCompile(`nothing provides (\S+) needed by (\S+)`)
+
+// nothingProvides lists the capabilities DNF found no package for.
+func nothingProvides(out string) []string {
+	var caps []string
+	for _, m := range nothingProvidesRe.FindAllStringSubmatch(out, -1) {
+		caps = appendOnce(caps, m[1])
+	}
+	return caps
+}
+
+// whoProvides names, for capabilities no enabled repository provides, the
+// configured but disabled repositories that do (read-only query), so the
+// administrator knows which one to enable.
+func whoProvides(ctx context.Context, env *host.Env, caps []string) string {
+	if len(caps) == 0 {
+		return ""
+	}
+	if len(caps) > 5 {
+		caps = caps[:5]
+	}
+	var b strings.Builder
+	b.WriteString("\n(enabled repositories: " + strings.Join(enabledRepos(ctx, env), ", ") + ")")
+	for _, c := range caps {
+		out, err := env.Runner.Run(ctx, "dnf", append([]string{"-q", "repoquery", "--enablerepo=*", "--setopt=skip_if_unavailable=True", "--qf", "%{name} from %{repoid}", "--whatprovides", "--"}, c)...)
+		found := strings.Join(strings.Fields(strings.ReplaceAll(strings.TrimSpace(string(out)), "\n", "; ")), " ")
+		if err != nil || found == "" {
+			found = "no configured repository"
+		}
+		fmt.Fprintf(&b, "\n%s is provided by: %s", c, found)
+	}
+	return b.String()
 }
