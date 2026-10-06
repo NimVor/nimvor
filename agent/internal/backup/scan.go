@@ -45,7 +45,7 @@ func manifestMAC(key []byte, m *Manifest) string {
 		KeyID     string    `json:"key_id"`
 		Meta      string    `json:"meta"`
 		Files     []macFile `json:"files"`
-	}{m.Version, m.ID, m.Kind, m.Domain, m.CreatedAt, m.Encrypted, m.KeyID, string(m.Meta), nil}
+	}{m.Version, m.ID, m.Kind, m.Domain, m.CreatedAt, m.Encrypted, m.KeyID, macMeta(m.Meta), nil}
 	for _, f := range m.Files {
 		in.Files = append(in.Files, macFile{f.Name, f.Kind, f.Database, f.Size, f.SHA256, f.Unpacked})
 	}
@@ -55,6 +55,34 @@ func manifestMAC(key []byte, m *Manifest) string {
 	mac := hmac.New(sha256.New, derive.Sum(nil))
 	mac.Write(b)
 	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// macMeta is the form of a manifest's meta the MAC covers: compact JSON.
+// A manifest is stored indented, which re-indents its meta too; compacting
+// gives back the bytes it was created with (normalizeMeta), so the MAC
+// still matches after the manifest was written and read back.
+func macMeta(meta json.RawMessage) string {
+	if len(meta) == 0 {
+		return ""
+	}
+	var b bytes.Buffer
+	if err := json.Compact(&b, meta); err != nil {
+		return string(meta)
+	}
+	return b.String()
+}
+
+// normalizeMeta returns meta as encoding/json writes it (compact, HTML
+// characters escaped), the form macMeta gets back from a stored manifest.
+func normalizeMeta(meta json.RawMessage) json.RawMessage {
+	if len(meta) == 0 {
+		return meta
+	}
+	b, err := json.Marshal(meta)
+	if err != nil {
+		return meta
+	}
+	return b
 }
 
 // maxManifest bounds a manifest read from remote storage.

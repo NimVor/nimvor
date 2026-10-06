@@ -238,7 +238,7 @@ func keepLocal(k *bool, remote *Remote) bool {
 
 // CreateSite makes a website backup (called inside a job).
 func (s Service) CreateSite(ctx context.Context, r SiteRequest, cred *execx.Credential, log io.Writer) (*Manifest, error) {
-	m := &Manifest{Version: 1, ID: s.newID(), Kind: "site", Domain: r.Domain, Label: r.Label, CreatedAt: s.Env.Now().UTC(), Meta: r.Meta, Encrypted: r.Encrypt, Local: true, Files: []FileEntry{}}
+	m := &Manifest{Version: 1, ID: s.newID(), Kind: "site", Domain: r.Domain, Label: r.Label, CreatedAt: s.Env.Now().UTC(), Meta: normalizeMeta(r.Meta), Encrypted: r.Encrypt, Local: true, Files: []FileEntry{}}
 	var key []byte
 	if r.Encrypt {
 		k, err := s.key()

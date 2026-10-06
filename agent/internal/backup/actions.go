@@ -50,6 +50,7 @@ func jobTarget(domain string) string {
 // Register adds backup actions.
 func Register(r *actions.Registry, env *host.Env) {
 	s := Service{Env: env}
+	registerAccount(r, env, s)
 	r.Register(actions.Action{Name: "backup.create", Mutating: true, Description: "Back up website files and databases (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in SiteRequest
 		if err := host.Decode(p, &in); err != nil {

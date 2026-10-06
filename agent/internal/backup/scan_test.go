@@ -144,3 +144,37 @@ func TestCandidateManifests(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+// The MAC of a manifest with meta (the panel always sends some) still
+// matches after the manifest is written (indented) and read back, also
+// with characters encoding/json escapes; manifests made before this fix
+// from compact meta without such characters verify too.
+func TestManifestMACSurvivesStorage(t *testing.T) {
+	h, s := siteHost(t)
+	cred, _, _ := h.Env.Credential("example")
+	var log bytes.Buffer
+	for _, meta := range []string{`{"website":{"domain":"example.com","x":"<a&b>"},"panel_version":1}`, `{"b":1,"a":[1,2]}`} {
+		m, err := s.CreateSite(context.Background(), SiteRequest{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", Files: true, Encrypt: true, Meta: json.RawMessage(meta)}, cred, &log)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, _, err := s.Load("example.com", m.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		key, _ := s.key()
+		if got.Mac != manifestMAC(key, got) {
+			t.Errorf("meta %s: the stored manifest does not verify", meta)
+		}
+	}
+	// Before the fix the MAC covered the meta bytes as sent.
+	key, _ := s.key()
+	old := &Manifest{Version: 1, ID: "20260901T120000Z-abcdef", Kind: "site", Domain: "example.com", Encrypted: true, KeyID: KeyID(key), Meta: json.RawMessage(`{"website":{"domain":"example.com"},"panel_version":1}`)}
+	old.Mac = manifestMAC(key, old)
+	b, _ := json.MarshalIndent(old, "", "  ")
+	var back Manifest
+	json.Unmarshal(b, &back)
+	if back.Mac != manifestMAC(key, &back) {
+		t.Error("a manifest made before the fix does not verify")
+	}
+}

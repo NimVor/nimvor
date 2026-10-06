@@ -73,10 +73,19 @@ paths:
               - av.scan
               - av.status
               - av.update
+              - backup.account
+              - backup.account_delete
+              - backup.account_download
+              - backup.account_files
+              - backup.account_import
+              - backup.account_inspect
+              - backup.account_upload
               - backup.create
               - backup.delete
               - backup.download
               - backup.inspect
+              - backup.key_export
+              - backup.key_import
               - backup.key_info
               - backup.list
               - backup.remote_import
@@ -476,10 +485,19 @@ x-whacp-actions:
   av.scan: { mutating: true, description: "Scan a website for malware with ClamAV, as the website's account (job); optionally quarantine infected files inside the website." }
   av.status: { mutating: false, description: "ClamAV: installed, version and signature date, signature updates running." }
   av.update: { mutating: true, description: "Update the ClamAV signatures now (restarts the signature updater, which downloads them)." }
+  backup.account: { mutating: true, description: "Back up every website (files, databases) of a hosting account and write one account backup file with the panel's description of the account (job). Always encrypted." }
+  backup.account_delete: { mutating: true, description: "Delete an account backup file made or uploaded on this server." }
+  backup.account_download: { mutating: false, description: "Read a chunk of an account backup file (base64)." }
+  backup.account_files: { mutating: false, description: "Account backup files on this server (made here, uploaded, or in folders for mounted disks) with their descriptions." }
+  backup.account_import: { mutating: true, description: "Check an account backup file (key, authenticated descriptions, checksums) and put its website backups in the local backup folders so they can be restored (job)." }
+  backup.account_inspect: { mutating: false, description: "The description of an account backup file, and whether it can be restored on this server." }
+  backup.account_upload: { mutating: true, description: "Upload a chunk of an account backup file (base64) to the incoming folder." }
   backup.create: { mutating: true, description: "Back up website files and databases (job)." }
   backup.delete: { mutating: true, description: "Delete a backup (and its remote copy when remote is given)." }
   backup.download: { mutating: false, description: "Read a chunk of a stored backup file (base64)." }
   backup.inspect: { mutating: false, description: "The manifest of one backup." }
+  backup.key_export: { mutating: true, description: "The backup key encrypted with a passphrase (a key file to keep safe; the key itself never leaves the agent unencrypted)." }
+  backup.key_import: { mutating: true, description: "Install a backup key from a key file and its passphrase, when this server has no backup key yet (to restore backups made on another server)." }
   backup.key_info: { mutating: false, description: "Fingerprint of the backup encryption key (never the key)." }
   backup.list: { mutating: false, description: "Backups stored on this server for a website (or kind=server)." }
   backup.remote_import: { mutating: true, description: "Find the backups in a remote storage and make those encrypted with this server's backup key (with an authenticated manifest) restorable here; used to recover onto a new server." }
