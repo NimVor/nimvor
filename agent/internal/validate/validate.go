@@ -162,9 +162,11 @@ func Unit(field, u string) error {
 	return nil
 }
 
-var pkg = regexp.MustCompile(`^[a-z0-9][a-z0-9+.-]{1,80}$`)
+// Debian names are lower case; RPM names may have capitals and
+// underscores (ImageMagick, perl-Net_SSLeay). Never a leading "-".
+var pkg = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9+._-]{1,80}$`)
 
-// Package validates a Debian package name.
+// Package validates a package name (Debian or RPM).
 func Package(field, p string) error {
 	if !pkg.MatchString(p) {
 		return fail(field, "is not a valid package name")

@@ -255,6 +255,30 @@ final class NotificationsTest extends HttpTestCase
         self::assertGreaterThan(time() - 5, (int) $this->session->get('_auth_last_activity'), 'a page view is');
     }
 
+    /** The bell's dropdown: newest items (read or not), local links only, marked read over AJAX. */
+    public function testBellDropdownItems(): void
+    {
+        $n = $this->notifications();
+        $n->notify('b1', 'job', 'error', 'Backup <b>x</b> failed', ['website_id' => $this->site, 'link' => '/backups']);
+        $n->notify('b2', 'job', 'warning', 'Odd link', ['website_id' => $this->site, 'link' => '//evil.test/x']);
+        $this->login('cust');
+        $json = ['accept' => 'application/json'];
+        $res = json_decode($this->request('GET', '/notifications/summary', [], $json)->body(), true);
+        $items = array_column($res['items'], null, 'title');
+        self::assertSame('/backups', $items['Backup <b>x</b> failed']['link']);
+        self::assertSame('', $items['Odd link']['link'], 'only links inside the panel');
+        self::assertFalse($items['Odd link']['read']);
+        $csrf = ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\WhaCP\Security\Csrf::class)->token()];
+        $read = json_decode($this->request('POST', '/notifications/read', [], $csrf, json_encode(['ids' => [$items['Odd link']['id']]]))->body(), true);
+        self::assertSame(1, $read['unread']);
+        $res = json_decode($this->request('GET', '/notifications/summary', [], $json)->body(), true);
+        self::assertTrue(array_column($res['items'], null, 'title')['Odd link']['read'], 'read items stay in the list, marked read');
+        // The layout has the dropdown with a link to the full page.
+        $page = $this->request('GET', '/notifications')->body();
+        self::assertStringContainsString('data-wcp-bell-menu', $page);
+        self::assertStringContainsString('View all notifications', $page);
+    }
+
     public function testEmailPreference(): void
     {
         $this->login('cust');

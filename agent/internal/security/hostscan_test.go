@@ -62,13 +62,23 @@ func TestHostScanFindings(t *testing.T) {
 		t.Errorf("persistence: %q", got)
 	}
 	checks := map[string]Check{}
-	for _, c := range hostScanChecks(&r, false) {
+	for _, c := range hostScanChecks(h.Env, &r, false) {
 		checks[c.ID] = c
 	}
 	if checks["host_setuid"].Status != "fail" || checks["host_world_writable"].Status != "warn" || checks["host_persistence"].Status != "warn" || checks["host_capabilities"].Status != "pass" {
 		t.Errorf("checks: %+v", checks)
 	}
-	if c := hostScanChecks(nil, true); len(c) != 1 || c[0].Status != "info" {
+	// A finding fixed since the scan (or wrongly reported by an older
+	// scan, such as a socket) is not listed until the next scan.
+	os.Chmod(filepath.Join(h.Base, "etc/open.conf"), 0o644)
+	stale := r
+	stale.Writable = append(stale.Writable, Finding{Path: "/var/lib/mysql/mysql.sock"})
+	for _, c := range hostScanChecks(h.Env, &stale, false) {
+		if c.ID == "host_world_writable" && c.Status != "pass" {
+			t.Errorf("fixed or socket still listed: %+v", c)
+		}
+	}
+	if c := hostScanChecks(nil, nil, true); len(c) != 1 || c[0].Status != "info" {
 		t.Errorf("no scan yet: %+v", c)
 	}
 }

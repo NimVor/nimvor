@@ -53,7 +53,19 @@ final class NotificationsController extends Controller
         $latest = array_map(static fn (array $n): array => [
             'id' => (int) $n['id'], 'severity' => $n['severity'], 'title' => $n['title'], 'created_at' => $n['created_at'],
         ], $this->notifications->list($user, ['unread' => true], 5));
-        return Response::json(['success' => true, 'unread' => $this->notifications->unreadCount($user), 'latest' => $latest]);
+        // The bell's list: the newest ones, read or not.
+        $items = array_map(static function (array $n): array {
+            $link = (string) $n['link'];
+            return [
+                'id' => (int) $n['id'], 'severity' => (string) $n['severity'], 'title' => (string) $n['title'],
+                'body' => mb_strimwidth((string) $n['body'], 0, 160, '…'), 'ago' => time_ago((string) $n['created_at']),
+                'read' => (bool) $n['is_read'],
+                // Only links inside the panel.
+                'link' => str_starts_with($link, '/') && !str_starts_with($link, '//') ? $link : '',
+                'where' => (string) ($n['domain'] ?? ''),
+            ];
+        }, $this->notifications->list($user, [], 8));
+        return Response::json(['success' => true, 'unread' => $this->notifications->unreadCount($user), 'latest' => $latest, 'items' => $items]);
     }
 
     public function read(Request $request): Response

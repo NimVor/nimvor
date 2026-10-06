@@ -75,3 +75,17 @@ func TestBuildAccountNameIsReserved(t *testing.T) {
 		t.Fatal("whacp-build accepted as a website account")
 	}
 }
+
+// RPM names with capitals are packages too (ImageMagick on RHEL).
+func TestPackageNames(t *testing.T) {
+	for _, ok := range []string{"nginx", "php8.3-fpm", "libstdc++6", "ImageMagick", "perl-Net_SSLeay", "clamav-update"} {
+		if err := Package("p", ok); err != nil {
+			t.Errorf("%s: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"-y", "--nogpgcheck", "a b", "x;rm", "a/b", "*", "", "a"} {
+		if Package("p", bad) == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}

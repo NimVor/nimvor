@@ -112,6 +112,25 @@ final class Navigation
         ];
     }
 
+    /** Icon and description of each Security page (Tools & settings cards). */
+    public const SECURITY_CARDS = [
+        'security' => ['shield-check', 'Safety rating and one-click fixes'],
+        'security.firewall' => ['bricks', 'Open ports and allowed addresses'],
+        'security.ssh' => ['key', 'SSH settings and administrator keys'],
+        'security.fail2ban' => ['person-x', 'Bans addresses that guess passwords'],
+        'security.malware' => ['bug', 'Scan websites for malware'],
+        'security.shell' => ['terminal', 'Who may use a shell'],
+        'security.modsec' => ['shield-shaded', 'Web application firewall'],
+        'security.policies' => ['clipboard-check', 'Sign-in and password policies'],
+        'security.compilers' => ['code-square', 'Who may run compilers'],
+        'security.smtp' => ['envelope-x', 'Only the mail server sends mail'],
+        'security.egress' => ['box-arrow-up-right', 'Websites\' outgoing connections'],
+        'security.hulk' => ['shield-lock', 'Blocks panel and login attacks'],
+        'security.password_strength' => ['input-cursor-text', 'Required password strength'],
+        'security.forkbomb' => ['diagram-2', 'Process limits for accounts'],
+        'security.traceroute' => ['signpost-split', 'Who may run traceroute'],
+    ];
+
     /**
      * The areas a viewer may open, per group (routes that exist and that
      * the viewer's role and plan allow).
@@ -135,7 +154,7 @@ final class Navigation
                         continue;
                     }
                     $path = $view->url($cRoute);
-                    $children[] = ['label' => $cLabel, 'url' => $view->url($cRoute, [], $query), 'active' => self::childActive($view, $path, $query, $c[4] ?? [])];
+                    $children[] = ['label' => $cLabel, 'route' => $cRoute, 'url' => $view->url($cRoute, [], $query), 'active' => self::childActive($view, $path, $query, $c[4] ?? [])];
                 }
                 // One child only (e.g. a reseller's Email): the parent is enough.
                 if (count($children) < 2) {

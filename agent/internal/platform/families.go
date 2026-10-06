@@ -260,7 +260,7 @@ var rhelPackages = map[string]string{
 	"libnginx-mod-http-modsecurity": "",
 	"modsecurity-crs":               "",
 	"roundcube-core":                "roundcubemail",
-	"clamav-freshclam":              "clamav-update",
+	"clamav-freshclam":              "clamav-freshclam", // EPEL 9+ (clamav-update before)
 	// EPEL's build (no patent-encumbered codecs); RPM Fusion's is not used.
 	"ffmpeg":            "ffmpeg-free",
 	"roundcube-sqlite3": "",

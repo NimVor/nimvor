@@ -557,6 +557,91 @@
                 bell.setAttribute('aria-label', n > 0 ? 'Notifications (' + n + ' unread)' : 'Notifications');
             }).catch(function () { /* keep the last count */ });
         }
+        // The dropdown: the newest notifications, loaded when it opens;
+        // marking read (one or all) without leaving the page.
+        var sevIcon = { critical: 'x-octagon-fill text-danger', error: 'x-circle-fill text-danger', warning: 'exclamation-triangle-fill text-warning', success: 'check-circle-fill text-success', info: 'info-circle-fill text-primary' };
+        function markRead(body) {
+            return WhaCP.fetchJson(bell.getAttribute('data-wcp-bell-read'), { method: 'POST', body: JSON.stringify(body) }).then(function (res) {
+                var n = res.unread || 0;
+                badge.textContent = n > 99 ? '99+' : String(n);
+                badge.classList.toggle('d-none', n === 0);
+                return res;
+            });
+        }
+        function renderList(items) {
+            var list = document.querySelector('[data-wcp-bell-list]');
+            if (!list) { return; }
+            list.replaceChildren();
+            if (!items || items.length === 0) {
+                var none = document.createElement('div');
+                none.className = 'px-3 py-3 small text-body-secondary';
+                none.textContent = 'No notifications.';
+                list.appendChild(none);
+                return;
+            }
+            items.forEach(function (n) {
+                var row = document.createElement('div');
+                row.className = 'wcp-bell-item d-flex gap-2 px-3 py-2' + (n.read ? '' : ' is-unread');
+                var icon = document.createElement('i');
+                icon.className = 'bi bi-' + (sevIcon[n.severity] || sevIcon.info) + ' mt-1';
+                icon.setAttribute('aria-hidden', 'true');
+                var text = document.createElement(n.link ? 'a' : 'div');
+                text.className = 'flex-grow-1 min-w-0 text-reset text-decoration-none';
+                if (n.link) { text.href = n.link; }
+                var title = document.createElement('div');
+                title.className = 'small' + (n.read ? '' : ' fw-semibold');
+                title.textContent = n.title;
+                var meta = document.createElement('div');
+                meta.className = 'small text-body-secondary text-truncate';
+                meta.textContent = n.ago + (n.where ? ' · ' + n.where : '') + (n.body ? ' · ' + n.body : '');
+                text.appendChild(title);
+                text.appendChild(meta);
+                row.appendChild(icon);
+                row.appendChild(text);
+                if (!n.read) {
+                    if (n.link) { text.addEventListener('click', function () { markRead({ ids: [n.id] }).catch(function () {}); }); }
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-sm btn-link p-0 align-self-start';
+                    btn.title = 'Mark as read';
+                    btn.setAttribute('aria-label', 'Mark as read: ' + n.title);
+                    var ci = document.createElement('i');
+                    ci.className = 'bi bi-check2';
+                    ci.setAttribute('aria-hidden', 'true');
+                    btn.appendChild(ci);
+                    btn.addEventListener('click', function () {
+                        btn.disabled = true;
+                        markRead({ ids: [n.id] }).then(function () { n.read = true; renderList(items); }).catch(function (err) { btn.disabled = false; WhaCP.toast(err.message, 'danger'); });
+                    });
+                    row.appendChild(btn);
+                }
+                list.appendChild(row);
+            });
+        }
+        function load() {
+            WhaCP.fetchJson(bell.getAttribute('data-wcp-bell-url')).then(function (res) {
+                var n = res.unread || 0;
+                badge.textContent = n > 99 ? '99+' : String(n);
+                badge.classList.toggle('d-none', n === 0);
+                renderList(res.items || []);
+            }).catch(function (err) {
+                var list = document.querySelector('[data-wcp-bell-list]');
+                if (list) { list.textContent = err.message; }
+            });
+        }
+        document.addEventListener('show.bs.dropdown', function (ev) {
+            if (ev.target && ev.target.hasAttribute && ev.target.hasAttribute('data-wcp-bell')) {
+                bell = ev.target;
+                badge = bell.querySelector('[data-wcp-bell-count]');
+                load();
+            }
+        });
+        document.addEventListener('click', function (ev) {
+            var all = ev.target.closest && ev.target.closest('[data-wcp-bell-all]');
+            if (!all) { return; }
+            all.disabled = true;
+            markRead({ all: '1' }).then(load).catch(function (err) { WhaCP.toast(err.message, 'danger'); }).then(function () { all.disabled = false; });
+        });
         if (WhaCP.bellTimer) { return; }
         WhaCP.bellTimer = setInterval(function () {
             var b = document.querySelector('[data-wcp-bell]');

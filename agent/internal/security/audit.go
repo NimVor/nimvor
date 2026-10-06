@@ -122,7 +122,13 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 	}
 	out = append(out, databaseChecks(ctx, env)...)
 	out = append(out, nobodyMailCheck(ctx, env))
-	if b, err := os.ReadFile(filepath.Join(env.Cfg.ProcDir, "mounts")); err == nil {
+	// The host's mount table (PID 1's): the agent runs in its own mount
+	// namespace, whose /proc entry need not show the host's options.
+	b, err := os.ReadFile(filepath.Join(env.Cfg.ProcDir, "1", "mounts"))
+	if err != nil || !strings.Contains(string(b), " /proc ") {
+		b, err = os.ReadFile(filepath.Join(env.Cfg.ProcDir, "mounts"))
+	}
+	if err == nil {
 		c := procCheck(string(b))
 		if c.Status == "warn" {
 			c.Fix = "apply"

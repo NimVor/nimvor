@@ -67,6 +67,8 @@ func TestProcCheck(t *testing.T) {
 		"proc /proc proc rw,nosuid,nodev,noexec,relatime,hidepid=invisible 0 0\n":     "pass",
 		"sysfs /sys sysfs rw 0 0\nproc /proc proc rw,relatime,hidepid=2,gid=27 0 0\n": "pass",
 		"": "info",
+		// Mounted over: the last entry is the one in effect.
+		"proc /proc proc rw,relatime 0 0\nproc /proc proc rw,relatime,hidepid=invisible,gid=991 0 0\n": "pass",
 	} {
 		if c := procCheck(mounts); c.Status != want {
 			t.Errorf("%q: %+v", mounts, c)

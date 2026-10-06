@@ -134,7 +134,7 @@ foreach ([
                         <a class="small" href="<?= e($this->url('services')) ?>">All services</a>
                     <?php endif; ?>
                 </div>
-                <ul class="list-group list-group-flush" data-services>
+                <ul class="list-group list-group-flush" data-services<?php if ($this->can(\WhaCP\Security\Permissions::SERVICES_MANAGE)): ?> data-services-control="<?= e($this->url('services.control')) ?>"<?php endif; ?>>
                     <li class="list-group-item text-body-secondary"><span class="placeholder col-8"></span></li>
                     <li class="list-group-item text-body-secondary"><span class="placeholder col-6"></span></li>
                     <li class="list-group-item text-body-secondary"><span class="placeholder col-7"></span></li>
@@ -218,6 +218,19 @@ foreach ([
     <?php $tone = 0; foreach ($toolGroups as $group => $items): ?>
         <div class="wcp-tools-group"><?= e($group) ?></div>
         <div class="wcp-tools">
+            <?php
+            // Security's pages each get their own card (as in the sidebar).
+            if ($group === 'Security') {
+                $cards = [];
+                foreach ($items as $i) {
+                    foreach ($i['children'] !== [] ? $i['children'] : [['label' => $i['label'], 'route' => $i['route'], 'url' => $i['url']]] as $c) {
+                        [$icon, $desc] = \WhaCP\View\Navigation::SECURITY_CARDS[$c['route']] ?? [$i['icon'], $i['description']];
+                        $cards[] = ['label' => $c['label'] === 'Overview' ? 'Security overview' : $c['label'], 'url' => $c['url'], 'icon' => $icon, 'description' => $desc];
+                    }
+                }
+                $items = $cards;
+            }
+            ?>
             <?php foreach ($items as $i): ?>
                 <a class="wcp-tool-card" href="<?= e($i['url']) ?>">
                     <span class="wcp-tool-icon wcp-tone-<?= $tone % 6 ?>"><i class="bi bi-<?= e($i['icon']) ?>" aria-hidden="true"></i></span>

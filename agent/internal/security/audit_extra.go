@@ -304,12 +304,17 @@ func openResolver(conf string) (bool, string) {
 // older systems) need a gid= exception, chosen by the administrator.
 func procCheck(mounts string) Check {
 	c := Check{ID: "proc_hidepid", Title: "Process visibility", Severity: "low"}
+	// The last /proc entry is the one in effect (mounted over the others).
+	var opts []string
+	found := false
 	for _, line := range strings.Split(mounts, "\n") {
 		f := strings.Fields(line)
-		if len(f) < 4 || f[1] != "/proc" || f[2] != "proc" {
-			continue
+		if len(f) >= 4 && f[1] == "/proc" && f[2] == "proc" {
+			opts, found = strings.Split(f[3], ","), true
 		}
-		for _, o := range strings.Split(f[3], ",") {
+	}
+	if found {
+		for _, o := range opts {
 			if o == "hidepid=2" || o == "hidepid=invisible" || o == "hidepid=1" || o == "hidepid=noaccess" {
 				c.Status, c.Detail = "pass", "/proc is mounted with "+o+": accounts see only their own processes."
 				return c

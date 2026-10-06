@@ -357,8 +357,31 @@ func listPaths(fs []Finding) string {
 	return strings.Join(l, ", ")
 }
 
+// stillWritable keeps the findings that are still world-writable files or
+// folders: a scan is shown until the next one, and a fixed file (or one an
+// earlier scan reported wrongly, such as a socket) must not stay listed.
+func stillWritable(env *host.Env, list []Finding) []Finding {
+	var out []Finding
+	for _, f := range list {
+		real, err := env.Root.Path(f.Path)
+		if err != nil {
+			continue
+		}
+		info, err := os.Lstat(real)
+		if err != nil {
+			continue
+		}
+		m := info.Mode()
+		if m&fs.ModeSocket != 0 || m&fs.ModeSymlink != 0 || m.Perm()&0o002 == 0 || (info.IsDir() && m&fs.ModeSticky != 0) {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
 // hostScanChecks turns a scan into audit checks.
-func hostScanChecks(r *HostScan, running bool) []Check {
+func hostScanChecks(env *host.Env, r *HostScan, running bool) []Check {
 	if r == nil {
 		d := "The first host scan (set-user-ID programs, file capabilities, world-writable files, scheduled tasks) has not finished yet."
 		if running {
@@ -388,8 +411,12 @@ func hostScanChecks(r *HostScan, running bool) []Check {
 	}
 	out = append(out, c)
 	c = Check{ID: "host_world_writable", Title: "World-writable system files", Severity: "medium", Status: "pass", Detail: "No system file or folder is writable by every account" + suffix + "."}
-	if len(r.Writable) > 0 {
-		c.Status, c.Detail = "warn", "Writable by every account: "+listPaths(r.Writable)+suffix+"."
+	writable := r.Writable // the stored scan stays as it was
+	if env != nil {
+		writable = stillWritable(env, writable)
+	}
+	if len(writable) > 0 {
+		c.Status, c.Detail = "warn", "Writable by every account: "+listPaths(writable)+suffix+"."
 		c.Remedy = "Remove the write permission for others (chmod o-w PATH), or add the sticky bit to shared folders (chmod +t)."
 	}
 	out = append(out, c)
@@ -493,5 +520,5 @@ func hostChecks(env *host.Env) []Check {
 		}
 		return Scan(ctx, env, owned, time.Now())
 	})
-	return append(out, hostScanChecks(latest, running)...)
+	return append(out, hostScanChecks(env, latest, running)...)
 }

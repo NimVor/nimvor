@@ -87,6 +87,26 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertSame(0, $this->calls('ssh.key_add'));
     }
 
+    /** The dashboard's service widget controls services over JSON. */
+    public function testServiceControlAsJson(): void
+    {
+        $json = ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\WhaCP\Security\Csrf::class)->token()];
+        $this->agent->succeed('services.control', ['ok' => true]);
+        $res = $this->request('POST', '/services/control', [], $json, '{"unit":"nginx.service","op":"restart"}');
+        self::assertSame(200, $res->status());
+        self::assertSame(['success' => true, 'message' => 'Restart of nginx.service completed.'], json_decode($res->body(), true));
+        self::assertSame(['unit' => 'nginx.service', 'op' => 'restart'], $this->lastCall('services.control'));
+        $res = $this->request('POST', '/services/control', [], $json, '{"unit":"nginx.service; reboot","op":"restart"}');
+        self::assertSame(422, $res->status());
+        self::assertSame(1, $this->calls('services.control'));
+        $this->agent->fail('services.control', 409, 'conflict', 'Unit not allowed');
+        $res = $this->request('POST', '/services/control', [], $json, '{"unit":"whacp-agent.service","op":"stop"}');
+        self::assertSame(502, $res->status());
+        self::assertStringContainsString('Unit not allowed', $res->body());
+        // The widget has the controls only for users who may manage services.
+        self::assertStringContainsString('data-services-control="/services/control"', $this->request('GET', '/')->body());
+    }
+
     public function testSshAndFail2ban(): void
     {
         $this->agent->succeed('security.pending', ['pending' => null]);

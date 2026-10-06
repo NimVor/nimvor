@@ -63,10 +63,20 @@ $simple = $this->simpleLayout();
                 <?php endif; ?>
                 <?php $unreadCount = isset($notification_count) && is_callable($notification_count) ? $notification_count() : null; ?>
                 <?php if ($unreadCount !== null): ?>
-                    <a class="btn btn-sm btn-outline-secondary position-relative" href="<?= e($this->url('notifications')) ?>" data-wcp-bell data-wcp-bell-url="<?= e($this->url('notifications.summary')) ?>" aria-label="Notifications<?= $unreadCount > 0 ? ' (' . (int) $unreadCount . ' unread)' : '' ?>">
-                        <i class="bi bi-bell"></i>
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger<?= $unreadCount > 0 ? '' : ' d-none' ?>" data-wcp-bell-count><?= $unreadCount > 99 ? '99+' : (int) $unreadCount ?></span>
-                    </a>
+                    <div class="dropdown">
+                        <a class="btn btn-sm btn-outline-secondary position-relative" href="<?= e($this->url('notifications')) ?>" role="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" data-wcp-bell data-wcp-bell-url="<?= e($this->url('notifications.summary')) ?>" data-wcp-bell-read="<?= e($this->url('notifications.read')) ?>" aria-label="Notifications<?= $unreadCount > 0 ? ' (' . (int) $unreadCount . ' unread)' : '' ?>">
+                            <i class="bi bi-bell"></i>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger<?= $unreadCount > 0 ? '' : ' d-none' ?>" data-wcp-bell-count><?= $unreadCount > 99 ? '99+' : (int) $unreadCount ?></span>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end p-0 wcp-bell-menu" data-wcp-bell-menu>
+                            <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+                                <span class="fw-semibold">Notifications</span>
+                                <button class="btn btn-sm btn-link p-0" type="button" data-wcp-bell-all>Mark all read</button>
+                            </div>
+                            <div class="wcp-bell-list" data-wcp-bell-list><div class="px-3 py-3 small text-body-secondary">Loading…</div></div>
+                            <a class="d-block text-center small px-3 py-2 border-top" href="<?= e($this->url('notifications')) ?>">View all notifications</a>
+                        </div>
+                    </div>
                 <?php endif; ?>
                 <button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-theme-toggle aria-label="Toggle dark mode">
                     <i class="bi bi-circle-half"></i>

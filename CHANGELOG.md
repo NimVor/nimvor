@@ -7,6 +7,14 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Notification bell dropdown:** clicking the bell shows the newest
+  notifications. Each can be marked read without leaving the page, there is
+  a "Mark all read" button, and "View all notifications" opens the full page.
+- **Dashboard Services widget:** start or stop, and restart, each service
+  from its row (for users who may manage services). A service listed under
+  two names (mariadb/mysqld) appears once.
+- **Tools & settings** list each Security page as its own card, like the
+  other sections.
 - **Security → Overview fixes findings with one click**, each with an undo:
   - **Kernel security settings:** the recommended values are applied and
     kept in `/etc/sysctl.d/90-whacp-hardening.conf`; undo puts the earlier
@@ -59,6 +67,19 @@ All notable changes to WhaCP are documented here. The format follows
   the system's services are not affected.
 
 ### Fixed
+- **Process visibility stayed "not hidden" in the security overview** after
+  it was turned on. The agent read its own mount namespace's view of /proc;
+  it now reads the host's (PID 1's) mount table. A post-install test checks
+  it through the installed agent.
+- **World-writable findings stayed listed after a fix** until the next weekly
+  scan, including the sockets an older scan reported. The overview now checks
+  each listed file again when it is shown.
+- **clamav-freshclam showed as not installed after installing it** on
+  Rocky/Alma. EPEL 9 and 10 call the package clamav-freshclam (clamav-update
+  before), so WhaCP looked for the old name.
+- **ImageMagick could not be installed on Rocky/Alma** ("is not a valid
+  package name"). RPM package names may have capital letters and
+  underscores.
 - **The security overview no longer lists sockets as world-writable files**
   (for example the database server's `mysql.sock`). A socket must be
   writable to be connected to; the service decides who may use it.

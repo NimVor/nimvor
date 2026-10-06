@@ -41,9 +41,22 @@ function seed() {
     if (!(await page.textContent('body')).includes('Unread failures')) { throw new Error('dashboard failures card missing'); }
     step('bell and dashboard card');
 
+    // The bell opens a list loaded over AJAX; marking read stays on the page.
     await page.click('[data-wcp-bell]');
+    await page.waitForSelector('[data-wcp-bell-list] .wcp-bell-item');
+    if (await page.locator('[data-wcp-bell-list] .wcp-bell-item.is-unread').count() !== 3) { throw new Error('dropdown: expected 3 unread'); }
+    if (await page.locator('[data-wcp-bell-list] img').count() !== 0) { throw new Error('HTML in a title was rendered in the dropdown'); }
+    const url = page.url();
+    await page.click('[data-wcp-bell-list] .wcp-bell-item:has-text("Deploy shop.test finished") button[aria-label^="Mark as read"]');
+    await page.waitForFunction(() => document.querySelector('[data-wcp-bell-count]').textContent.trim() === '2');
+    if (page.url() !== url) { throw new Error('marking read in the dropdown left the page'); }
+    if (await page.locator('[data-wcp-bell-list] .wcp-bell-item.is-unread').count() !== 2) { throw new Error('dropdown not updated after marking read'); }
+    await page.screenshot({ path: OUT + '/notifications-bell.png' });
+    step('bell dropdown: list, escaped, mark one read');
+
+    await page.click('[data-wcp-bell-menu] a:has-text("View all notifications")');
     await page.waitForSelector('[data-wcp-notifications]');
-    if (await page.locator('[data-wcp-notifications] > li').count() !== 3) { throw new Error('expected 3 unread'); }
+    if (await page.locator('[data-wcp-notifications] > li').count() !== 2) { throw new Error('expected 2 unread'); }
     if (await page.locator('[data-wcp-notifications] img').count() !== 0) { throw new Error('HTML in a title was rendered'); }
     await page.screenshot({ path: OUT + '/notifications.png' });
     step('page lists unread, escaped');
@@ -53,7 +66,7 @@ function seed() {
     if (await page.locator('[data-wcp-notifications] > li').count() !== 1) { throw new Error('severity filter'); }
     await Promise.all([page.waitForNavigation(), page.click('[data-wcp-notifications] button[aria-label="Mark read"]')]);
     if (!page.url().includes('severity=error')) { throw new Error('filter lost after marking read: ' + page.url()); }
-    if (await count() !== '2') { throw new Error('count after one read: ' + await count()); }
+    if (await count() !== '1') { throw new Error('count after one read: ' + await count()); }
     step('filter and mark one read');
 
     await page.goto(BASE + '/notifications');

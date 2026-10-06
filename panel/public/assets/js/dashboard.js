@@ -67,11 +67,33 @@
         card.classList.toggle('is-crit', pct !== null && pct >= 90);
     }
 
+    // Start, stop and restart from the widget (users who may manage
+    // services): the same endpoint as the Services page, answered as JSON.
+    var busyUnit = null;
+    function control(url, unit, op, btn) {
+        if (op === 'stop' && !window.confirm('Stop ' + unit + '? Websites or mail that use it stop working until it is started again.')) { return; }
+        busyUnit = unit;
+        btn.disabled = true;
+        WhaCP.fetchJson(url, { method: 'POST', body: JSON.stringify({ unit: unit, op: op }) })
+            .then(function (res) { WhaCP.toast(res.message || (op + ' of ' + unit + ' completed.'), 'success'); })
+            .catch(function (err) { WhaCP.toast(err.message, 'danger'); })
+            .then(function () { busyUnit = null; tick(); });
+    }
+
     function renderServices(list) {
         var ul = root.querySelector('[data-services]');
         if (!ul) { return; }
+        var controlUrl = ul.getAttribute('data-services-control');
         ul.replaceChildren();
-        if (!list || list.length === 0) {
+        // One row per unit (mysqld.service is an alias of mariadb on RHEL).
+        var seen = {};
+        list = (list || []).filter(function (s) {
+            var key = s.unit + '|' + (s.description || '');
+            if (seen[s.unit] || seen[key]) { return false; }
+            seen[s.unit] = seen[key] = true;
+            return true;
+        });
+        if (list.length === 0) {
             var empty = document.createElement('li');
             empty.className = 'list-group-item text-body-secondary small';
             empty.textContent = 'No monitored services found.';
@@ -80,15 +102,33 @@
         }
         list.slice(0, 8).forEach(function (s) {
             var li = document.createElement('li');
-            li.className = 'list-group-item d-flex justify-content-between align-items-center small';
+            li.className = 'list-group-item d-flex justify-content-between align-items-center gap-2 small';
             var left = document.createElement('span');
+            left.className = 'text-truncate';
             var dot = document.createElement('span');
             dot.className = 'wcp-service-state' + (s.active_state === 'active' ? ' is-active' : (s.active_state === 'failed' ? ' is-failed' : ''));
             left.appendChild(dot);
             left.appendChild(document.createTextNode(s.unit.replace(/\.service$/, '')));
             var right = document.createElement('span');
-            right.className = 'text-body-secondary';
-            right.textContent = s.active_state === 'active' ? 'running' : s.active_state + ' (' + s.sub_state + ')';
+            right.className = 'd-flex align-items-center gap-1 text-body-secondary text-nowrap';
+            right.appendChild(document.createTextNode(s.active_state === 'active' ? 'running' : s.active_state + ' (' + s.sub_state + ')'));
+            if (controlUrl && /\.service$/.test(s.unit)) {
+                var active = s.active_state === 'active';
+                [[active ? 'stop' : 'start', active ? 'stop-fill' : 'play-fill', active ? 'Stop' : 'Start'], ['restart', 'arrow-clockwise', 'Restart']].forEach(function (b) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-sm btn-link p-0 ms-1 wcp-service-btn';
+                    btn.title = b[2] + ' ' + s.unit;
+                    btn.setAttribute('aria-label', b[2] + ' ' + s.unit);
+                    btn.disabled = busyUnit === s.unit;
+                    var icon = document.createElement('i');
+                    icon.className = 'bi bi-' + b[1];
+                    icon.setAttribute('aria-hidden', 'true');
+                    btn.appendChild(icon);
+                    btn.addEventListener('click', function () { control(controlUrl, s.unit, b[0], btn); });
+                    right.appendChild(btn);
+                });
+            }
             li.appendChild(left);
             li.appendChild(right);
             ul.appendChild(li);

@@ -839,3 +839,12 @@ body { letter-spacing: -.003em; }
 /* Brute force protection: command variables and the selection column. */
 .wcp-hulk-vars { columns: 2 22rem; padding-left: 1.1rem; }
 .wcp-col-check { width: 2.5rem; }
+
+/* Notification bell dropdown */
+.wcp-bell-menu { width: min(24rem, calc(100vw - 2rem)); }
+.wcp-bell-list { max-height: 22rem; overflow-y: auto; }
+.wcp-bell-item + .wcp-bell-item { border-top: 1px solid var(--bs-border-color-translucent); }
+.wcp-bell-item.is-unread { background: var(--bs-primary-bg-subtle); }
+.wcp-bell-item a:hover .small:first-child { text-decoration: underline; }
+.wcp-service-btn { color: var(--bs-secondary-color); line-height: 1; }
+.wcp-service-btn:hover { color: var(--bs-emphasis-color); }

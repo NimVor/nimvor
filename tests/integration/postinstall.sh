@@ -168,6 +168,18 @@ if [[ -d /run/systemd/system ]]; then
     pass "memcached installed through the agent (package scripts ran, user $MC_USER created, service running)"
 fi
 
+# Security overview fixes through the installed agent (in its own mount
+# namespace): hiding processes is reported as done, and taken back.
+CSRF_FROM=/security
+post /security/fix check=proc_hidepid op=apply >/dev/null
+runuser -u nobody -- test -e /proc/1/cmdline && fail "hide processes: nobody still sees PID 1"
+[[ $(get /security) == 200 ]] || fail "security overview after hiding processes"
+grep -q 'Show all processes again' "$J/page" || { grep -o 'Process visibility.\{0,400\}' "$J/page" >&2; fail "the overview does not show processes as hidden"; }
+post /security/fix check=proc_hidepid op=undo >/dev/null
+runuser -u nobody -- test -e /proc/1/cmdline || fail "processes still hidden after the undo"
+grep -q 'whacp-proc\|hidepid' /etc/fstab && fail "fstab keeps the /proc entry after the undo"
+pass "security overview: hiding processes is applied, reported and undone through the agent"
+
 # Clean up through the panel.
 CSRF_FROM=/sites/$SITE/settings
 post "/sites/$SITE/delete" "confirm_domain=$DOMAIN" remove_files=1 remove_user=1 >/dev/null
