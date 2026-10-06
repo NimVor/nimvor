@@ -338,6 +338,16 @@ find_composer() {
 
 # --------------------------------------------------------- 4. build agent ----
 log "Preparing the agent binary"
+if [[ -d $SRC_DIR/.git ]]; then
+    src_owner=$(stat -c %U "$SRC_DIR")
+    if [[ -n $(find "$SRC_DIR/.git" ! -user "$src_owner" -print -quit 2>/dev/null) ]]; then
+        # Typically after "sudo git pull": the owner's next git pull fails
+        # ("index file open failed: Permission denied") and this runs the
+        # old sources again.
+        warn "parts of $SRC_DIR/.git are not owned by $src_owner, so git pull as $src_owner fails and these sources may be out of date. Fix: sudo chown -R $src_owner: $SRC_DIR && git -C $SRC_DIR pull"
+    fi
+    ok "sources: commit $(git --no-optional-locks -C "$SRC_DIR" -c safe.directory="$SRC_DIR" log -1 --format='%h %cs %s' 2>/dev/null | cut -c1-80)"
+fi
 AGENT_SRC=""
 # A build older than the agent's sources (e.g. after git pull) is stale:
 # reinstalling would put the old agent back. Release archives ship the
@@ -366,10 +376,12 @@ elif [[ -n $GO ]]; then
     if [[ $stale -eq 1 ]]; then log "Rebuilding the agent: its sources are newer than dist/whacp-agent"; else log "Building agent from source"; fi
     run mkdir -p "$SRC_DIR/dist"
     # The version names the commit it was built from (agent:check, health).
+    # Read-only git: as root it must not rewrite .git/index (git pull by the
+    # checkout's owner would then fail).
     AGENT_VERSION=$(cat "$SRC_DIR/VERSION")
     if commit=$(git -C "$SRC_DIR" -c safe.directory="$SRC_DIR" rev-parse --short HEAD 2>/dev/null); then
         AGENT_VERSION+="+$commit"
-        [[ -n $(git -C "$SRC_DIR" -c safe.directory="$SRC_DIR" status --porcelain -- agent 2>/dev/null) ]] && AGENT_VERSION+=".dirty"
+        [[ -n $(git --no-optional-locks -C "$SRC_DIR" -c safe.directory="$SRC_DIR" status --porcelain -- agent 2>/dev/null) ]] && AGENT_VERSION+=".dirty"
     fi
     # A Go older than go.mod asks for downloads the right toolchain itself
     # (GOTOOLCHAIN=auto); GOPATH and caches stay out of the source tree.
@@ -378,7 +390,7 @@ elif [[ -n $GO ]]; then
 else
     die "no prebuilt agent (dist/whacp-agent) and Go was not found (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin). Install Go, or re-run with --install-deps."
 fi
-ok "$AGENT_SRC"
+ok "$AGENT_SRC ($("$AGENT_SRC" -version 2>/dev/null || echo 'version unknown'))"
 
 if [[ $AGENT_ONLY -eq 0 && ! -f $SRC_DIR/panel/vendor/autoload.php ]]; then
     COMPOSER=$(find_composer || true)
