@@ -65,7 +65,8 @@ func TestRealHostAdminSSHKey(t *testing.T) {
 		t.Fatalf("the key is not listed: %+v", Admins(env))
 	}
 	login := func() ([]byte, error) {
-		return exec.Command("ssh", "-i", key, "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "ConnectTimeout=10", name+"@127.0.0.1", "id -un").CombinedOutput()
+		// Standard output only: ssh warns about the host key on stderr.
+		return exec.Command("ssh", "-i", key, "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "ConnectTimeout=10", name+"@127.0.0.1", "id -un").Output()
 	}
 	var out []byte
 	for i := 0; i < 5; i++ {
