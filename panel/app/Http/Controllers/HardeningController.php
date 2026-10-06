@@ -17,7 +17,7 @@ use WhaCP\View\View;
 /** Security → Compiler Access, SMTP Restrictions, Shell Fork Bomb Protection, Traceroute (administrators). */
 final class HardeningController extends Controller
 {
-    private const PAGES = ['compilers', 'smtp', 'forkbomb', 'traceroute'];
+    private const PAGES = ['compilers', 'smtp', 'egress', 'forkbomb', 'traceroute'];
 
     public function __construct(
         View $view,
@@ -36,6 +36,11 @@ final class HardeningController extends Controller
     public function smtp(Request $request): Response
     {
         return $this->page($request, 'smtp');
+    }
+
+    public function egress(Request $request): Response
+    {
+        return $this->page($request, 'egress');
     }
 
     public function forkbomb(Request $request): Response
@@ -60,6 +65,17 @@ final class HardeningController extends Controller
     public function saveSmtp(Request $request): Response
     {
         return $this->act($request, 'smtp', fn (): string => $this->hardening->setSmtp($request->input('enabled') === '1', $this->user($request)));
+    }
+
+    public function saveEgress(Request $request): Response
+    {
+        return $this->act($request, 'egress', fn (): string => $this->hardening->setEgress(
+            $request->input('metadata_blocked') === '1',
+            $request->input('block_private') === '1',
+            (string) $request->input('tcp_ports', ''),
+            (string) $request->input('udp_ports', ''),
+            $this->user($request),
+        ));
     }
 
     public function saveForkbomb(Request $request): Response

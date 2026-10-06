@@ -104,6 +104,7 @@ final class Navigation
             ['Configure Security Policies', 'security.policies', P::SECURITY_VIEW],
             ['Compiler Access', 'security.compilers', P::SECURITY_VIEW],
             ['SMTP Restrictions', 'security.smtp', P::SECURITY_VIEW],
+            ['Outgoing Connections', 'security.egress', P::SECURITY_VIEW],
             ['cPHulk Brute Force Protection', 'security.hulk', P::SECURITY_VIEW],
             ['Password Strength Configuration', 'security.password_strength', P::SECURITY_VIEW],
             ['Shell Fork Bomb Protection', 'security.forkbomb', P::SECURITY_VIEW],

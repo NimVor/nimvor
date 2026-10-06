@@ -10,7 +10,8 @@ use WhaCP\Support\UserFacingException;
 
 /**
  * Server hardening switches (administrators): compiler access, SMTP
- * restrictions, shell fork bomb protection and traceroute. The agent
+ * restrictions, website accounts' outgoing connections, shell fork bomb
+ * protection and traceroute. The agent
  * applies them; every change is audited.
  */
 final class HardeningService
@@ -61,6 +62,39 @@ final class HardeningService
         $this->agent->call('hardening.smtp', ['enabled' => $enabled], 120);
         $this->record('hardening.smtp', ['enabled' => $enabled], $actor);
         return $enabled ? 'SMTP restrictions are on.' : 'SMTP restrictions are off.';
+    }
+
+    /**
+     * Website accounts' outgoing connections: cloud metadata services
+     * (blocked unless turned off), private networks, and the only remote
+     * ports allowed (comma- or space-separated; empty: any).
+     *
+     * @param array<string, mixed> $actor
+     */
+    public function setEgress(bool $metadataBlocked, bool $blockPrivate, string $tcp, string $udp, array $actor): string
+    {
+        $this->admin($actor);
+        $params = ['metadata_blocked' => $metadataBlocked, 'block_private' => $blockPrivate, 'tcp_ports' => self::ports($tcp, 'TCP'), 'udp_ports' => self::ports($udp, 'UDP')];
+        $this->agent->call('hardening.egress', $params, 120);
+        $this->record('hardening.egress', $params, $actor);
+        return 'Outgoing connection limits for website accounts saved.';
+    }
+
+    /** @return list<int> */
+    private static function ports(string $list, string $what): array
+    {
+        $out = [];
+        foreach (preg_split('/[\s,]+/', trim($list), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $p) {
+            if (!preg_match('/^[0-9]{1,5}$/', $p) || (int) $p < 1 || (int) $p > 65535) {
+                throw new UserFacingException($what . ' ports: "' . $p . '" is not a port number (1–65535).');
+            }
+            $out[(int) $p] = (int) $p;
+        }
+        if (count($out) > 64) {
+            throw new UserFacingException($what . ' ports: at most 64.');
+        }
+        ksort($out);
+        return array_values($out);
     }
 
     /** @param array<string, mixed> $actor */

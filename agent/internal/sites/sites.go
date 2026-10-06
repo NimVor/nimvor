@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/egress"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/limits"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/modsec"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/netmgr"
@@ -255,6 +256,12 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 		e.Log.Warn("access log permissions", "domain", s.Domain, "err", err)
 	}
 
+	if created {
+		// The new account's outgoing connections are limited as well.
+		if err := egress.Refresh(ctx, e); err != nil {
+			e.Log.Warn("outgoing connection limits not updated", "user", u.Name, "error", err)
+		}
+	}
 	res := &Result{Domain: s.Domain, Changed: append(dirsApplied.Changed, applied.Changed...), Backup: applied.Backup, User: UserInfo{u.Name, u.UID, u.GID}, Created: created}
 	if len(applied.Changed) == 0 {
 		return res, nil
@@ -496,6 +503,8 @@ func (m *Manager) handleDelete(ctx context.Context, p json.RawMessage) (any, err
 			} else if u, err := e.LookupUser(in.User); err == nil && u.UID >= 1000 && u.UID < 60000 {
 				if out, err := e.Runner.Run(ctx, "userdel", "--", in.User); err != nil {
 					warnings = append(warnings, "The system user could not be removed: "+host.Output(out))
+				} else if err := egress.Refresh(ctx, e); err != nil {
+					e.Log.Warn("outgoing connection limits not updated", "error", err)
 				}
 			}
 		}

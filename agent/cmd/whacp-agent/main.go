@@ -25,6 +25,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/discovery"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/egress"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
@@ -188,6 +189,11 @@ func run() int {
 			sysmgr.RepairAtStart(ctx, env)
 			// PHP-FPM services in their sandbox (after an update).
 			env.SandboxFPMServices(ctx)
+			// Website accounts' outgoing connection limits (cloud
+			// metadata blocked by default) for the current accounts.
+			if err := egress.Refresh(ctx, env); err != nil {
+				log.Warn("outgoing connection limits not applied", "error", err)
+			}
 		}()
 	}
 

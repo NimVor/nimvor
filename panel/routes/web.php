@@ -368,6 +368,8 @@ return static function (Router $r): void {
     $r->post('/security/compilers', [\WhaCP\Http\Controllers\HardeningController::class, 'saveCompilers'], ['name' => 'security.compilers.save', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/smtp', [\WhaCP\Http\Controllers\HardeningController::class, 'smtp'], ['name' => 'security.smtp', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/smtp', [\WhaCP\Http\Controllers\HardeningController::class, 'saveSmtp'], ['name' => 'security.smtp.save', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/egress', [\WhaCP\Http\Controllers\HardeningController::class, 'egress'], ['name' => 'security.egress', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/egress', [\WhaCP\Http\Controllers\HardeningController::class, 'saveEgress'], ['name' => 'security.egress.save', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/forkbomb', [\WhaCP\Http\Controllers\HardeningController::class, 'forkbomb'], ['name' => 'security.forkbomb', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/forkbomb', [\WhaCP\Http\Controllers\HardeningController::class, 'saveForkbomb'], ['name' => 'security.forkbomb.save', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/traceroute', [\WhaCP\Http\Controllers\HardeningController::class, 'traceroute'], ['name' => 'security.traceroute', 'permission' => P::SECURITY_VIEW]);

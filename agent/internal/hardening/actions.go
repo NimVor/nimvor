@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/egress"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
@@ -12,13 +13,34 @@ import (
 // Register adds the hardening.* actions.
 func Register(r *actions.Registry, env *host.Env) {
 	AllowPaths(env)
-	r.Register(actions.Action{Name: "hardening.status", Description: "Server hardening: compiler access (programs, allowed users), traceroute, shell fork bomb protection and SMTP restrictions.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	egress.AllowPaths(env)
+	r.Register(actions.Action{Name: "hardening.status", Description: "Server hardening: compiler access (programs, allowed users), traceroute, shell fork bomb protection, SMTP restrictions and website accounts' outgoing connections.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return map[string]any{
 			"compilers":  CompilerStatus(env),
 			"traceroute": TracerouteStatus(env),
 			"forkbomb":   map[string]any{"enabled": ForkBombEnabled(env), "file": ForkBombFile, "soft": ForkSoft, "hard": ForkHard},
 			"smtp":       SMTPStatus(ctx, env),
+			"egress":     egress.Status(ctx, env),
 		}, nil
+	}})
+	r.Register(actions.Action{Name: "hardening.egress", Mutating: true, Description: "Website accounts' outgoing connections (nftables table loaded at boot): metadata_blocked (cloud metadata services, on by default), block_private (private and link-local networks), tcp_ports/udp_ports (when set, the only remote ports allowed).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			MetadataBlocked bool  `json:"metadata_blocked"`
+			BlockPrivate    bool  `json:"block_private"`
+			TCPPorts        []int `json:"tcp_ports"`
+			UDPPorts        []int `json:"udp_ports"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		s := egress.Settings{MetadataAllowed: !in.MetadataBlocked, BlockPrivate: in.BlockPrivate, TCPPorts: in.TCPPorts, UDPPorts: in.UDPPorts}
+		if err := s.Normalize(); err != nil {
+			return nil, actions.InvalidParams(err.Error())
+		}
+		if err := egress.Set(ctx, env, s); err != nil {
+			return nil, actions.Failed("Outgoing connection limits were not changed.", err.Error())
+		}
+		return egress.Status(ctx, env), nil
 	}})
 	r.Register(actions.Action{Name: "hardening.compilers", Mutating: true, Description: "Restrict the C/C++ compilers and the assembler to root and the whacp-compiler group (mode 0750), with these members; or open them again (earlier owner and mode restored).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {

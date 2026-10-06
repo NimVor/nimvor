@@ -22,8 +22,9 @@ final class HardeningTest extends HttpTestCase
             'traceroute' => ['enabled' => false, 'programs' => [['path' => '/usr/bin/traceroute.db', 'mode' => '700', 'owner' => 'root:root']]],
             'forkbomb' => ['enabled' => true, 'file' => '/etc/security/limits.d/90-whacp-forkbomb.conf', 'soft' => 200, 'hard' => 300],
             'smtp' => ['enabled' => true, 'active' => true, 'available' => true, 'allowed' => ['root', 'postfix'], 'ports' => [25, 465, 587]],
+            'egress' => ['available' => true, 'active' => true, 'metadata_blocked' => true, 'block_private' => false, 'tcp_ports' => [80, 443], 'udp_ports' => [], 'accounts' => 3, 'metadata' => ['169.254.169.254', 'fd00:ec2::254']],
         ]);
-        foreach (['hardening.compilers', 'hardening.smtp', 'hardening.forkbomb', 'hardening.traceroute'] as $a) {
+        foreach (['hardening.compilers', 'hardening.smtp', 'hardening.egress', 'hardening.forkbomb', 'hardening.traceroute'] as $a) {
             $this->agent->succeed($a, []);
         }
     }
@@ -34,6 +35,7 @@ final class HardeningTest extends HttpTestCase
         foreach ([
             '/security/compilers' => ['Many common exploits require a working C compiler', 'x86_64-linux-gnu-gcc-13', 'root:whacp-compiler', 'value="shop" id="cc-u0" checked', 'Compiler Access'],
             '/security/smtp' => ['only the MTA, mailman, and root', 'root, postfix', '25, 465, 587', '>Disable<'],
+            '/security/egress' => ['cloud credentials', '169.254.169.254, fd00:ec2::254', 'id="eg-meta" checked', 'value="80, 443"', '3 website account(s)', 'Outgoing Connections'],
             '/security/forkbomb' => ['Fork Bomb Protection denies users', 'We recommend that you enable', 'Disable Protection'],
             '/security/traceroute' => ['packet routing statistics', '/usr/bin/traceroute.db', '>700<', 'Traceroute Status:', '>Enable<'],
         ] as $path => $wants) {
@@ -58,12 +60,18 @@ final class HardeningTest extends HttpTestCase
 
         $this->post('/security/smtp', ['enabled' => '1']);
         self::assertSame(['enabled' => true], $this->lastCall('hardening.smtp'));
+        $this->post('/security/egress', ['metadata_blocked' => '1', 'block_private' => '1', 'tcp_ports' => '443, 80 53,80', 'udp_ports' => '']);
+        self::assertSame(['metadata_blocked' => true, 'block_private' => true, 'tcp_ports' => [53, 80, 443], 'udp_ports' => []], $this->lastCall('hardening.egress'));
+        $this->post('/security/egress', ['tcp_ports' => '80; rm -rf /']);
+        self::assertSame(1, $this->calls('hardening.egress'), 'invalid ports are refused before the agent');
+        $this->post('/security/egress', []);
+        self::assertSame(['metadata_blocked' => false, 'block_private' => false, 'tcp_ports' => [], 'udp_ports' => []], $this->lastCall('hardening.egress'));
         $this->post('/security/forkbomb', ['enabled' => '0']);
         self::assertSame(['enabled' => false], $this->lastCall('hardening.forkbomb'));
         $this->post('/security/traceroute', ['enabled' => '0']);
         self::assertSame(['enabled' => false], $this->lastCall('hardening.traceroute'));
         $db = $this->app->container->get(Connection::class);
-        foreach (['hardening.compilers', 'hardening.smtp', 'hardening.forkbomb', 'hardening.traceroute'] as $a) {
+        foreach (['hardening.compilers', 'hardening.smtp', 'hardening.egress', 'hardening.forkbomb', 'hardening.traceroute'] as $a) {
             self::assertNotNull($db->scalar('SELECT id FROM audit_logs WHERE action = ?', [$a]), $a . ' audited');
         }
     }

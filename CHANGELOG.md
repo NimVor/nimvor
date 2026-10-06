@@ -26,6 +26,11 @@ All notable changes to WhaCP are documented here. The format follows
   service, with no capabilities and the system read-only, like the other
   commands WhaCP runs as that account. Updates rewrite existing schedules
   in the new form (`bin/whacp cron:sync`).
+- **Websites cannot reach the cloud metadata service** (169.254.169.254 and
+  the other providers' addresses), which hands out the server's cloud
+  credentials. Security → Outgoing Connections can also block private
+  networks and allow only chosen remote ports for websites' code. Root and
+  the system's services are not affected.
 
 ### Fixed
 - **Webmail and PHP websites answered 502 on Rocky/Alma when a Remi PHP
