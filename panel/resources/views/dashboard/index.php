@@ -107,7 +107,7 @@ foreach ([
     <div class="row g-3 mb-3">
         <div class="col-lg-4">
             <div class="card h-100">
-                <div class="card-header"><i class="bi bi-hdd-rack me-1"></i>Server</div>
+                <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-hdd-rack me-1"></i>Server</span><?= $this->partial('partials/server_tools') ?></div>
                 <div class="card-body">
                     <?php if ($info !== null): ?>
                         <dl class="wcp-dl">

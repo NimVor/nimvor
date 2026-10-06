@@ -1,7 +1,8 @@
 // End-to-end test of the server tools for administrators:
 // - top bar: host name, system, WhaCP version and load (the load opens the
-//   live monitoring page); restart-all-services, server restart and (only
-//   when a newer WhaCP was found) update buttons
+//   live monitoring page)
+// - the dashboard's Server card: restart-all-services, server restart and
+//   (only when a newer WhaCP was found) update buttons
 // - the tool search sits in the sidebar above Dashboard; no "Write mode" pill
 // - Monitoring → Processes: every process, filters, Trace / Stop / Kill and
 //   "end all processes of an account"
@@ -32,7 +33,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
     const load = await page.textContent('[data-wcp-topbar-load] span');
     if (!/^\d+\.\d\d \d+\.\d\d \d+\.\d\d$/.test(load.trim())) { throw new Error('load: ' + load); }
     if (await page.locator('[data-wcp-topbar-update]:not(.d-none)').count() !== 0) { throw new Error('the update button shows without an update'); }
-    if (await page.locator('.wcp-topbar button[aria-label="Restart all services"]').count() !== 1) { throw new Error('no restart-all button'); }
+    if (await page.locator('.wcp-server-tools button[aria-label="Restart all services"]').count() !== 1) { throw new Error('no restart-all button in the Server card'); }
+    if (await page.locator('.wcp-topbar [aria-label="Restart all services"], .wcp-topbar [aria-label="Restart the server"]').count() !== 0) { throw new Error('server tools still in the top bar'); }
     step('top bar: host name, system, version, load ' + load.trim());
     // The sidebar: search above Dashboard, no write-mode pill.
     const order = await page.evaluate(() => {
@@ -45,7 +47,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     if ((await page.textContent('.wcp-sidebar')).includes('Write mode')) { throw new Error('"Write mode" still shown'); }
     step('sidebar: search above Dashboard, no write-mode pill');
     // Server restart: a confirmation with the host name.
-    await page.click('.wcp-topbar button[aria-label="Restart the server"]');
+    await page.click('.wcp-server-tools button[aria-label="Restart the server"]');
     await page.waitForSelector('#wcp-reboot.show');
     const host = await page.textContent('#wcp-reboot label[for="wcp-reboot-confirm"] code');
     if (!host || !host.trim()) { throw new Error('the restart dialog does not name the host'); }

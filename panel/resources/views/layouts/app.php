@@ -64,18 +64,6 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
             <?php endif; ?>
             <div class="wcp-topbar-actions">
                 <?= $this->section('actions') ?>
-                <?php if ($serverAdmin && $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE)): ?>
-                    <a class="btn btn-sm btn-warning<?= !empty($update_available) && is_callable($update_available) && $update_available() ? '' : ' d-none' ?>" href="<?= e($this->url('whacp.update')) ?>" title="A WhaCP update is available" aria-label="A WhaCP update is available" data-wcp-topbar-update><i class="bi bi-cloud-arrow-down"></i></a>
-                <?php endif; ?>
-                <?php if ($serverAdmin && $this->can(\WhaCP\Security\Permissions::SERVICES_MANAGE) && $this->hasRoute('services.restart_all')): ?>
-                    <form method="post" action="<?= e($this->url('services.restart_all')) ?>" class="d-flex" data-wcp-noajax data-wcp-confirm="Restart every running service now (databases, PHP, mail, DNS, FTP, Nginx; never SSH), then WhaCP's agent and panel? Websites and mail pause for a few seconds.">
-                        <?= $this->csrfField() ?>
-                        <button class="btn btn-sm btn-outline-secondary" type="submit" title="Restart all services" aria-label="Restart all services"><i class="bi bi-arrow-repeat"></i></button>
-                    </form>
-                <?php endif; ?>
-                <?php if ($serverAdmin && $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE) && $topHost !== ''): ?>
-                    <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#wcp-reboot" title="Restart the server" aria-label="Restart the server"><i class="bi bi-power"></i></button>
-                <?php endif; ?>
                 <?php $sw = isset($server_switcher) && is_callable($server_switcher) ? $server_switcher() : null; ?>
                 <?php if ($sw !== null && count($sw['servers']) > 1): ?>
                     <form method="post" action="<?= e($this->url('servers.switch')) ?>" class="d-flex" data-wcp-noajax>

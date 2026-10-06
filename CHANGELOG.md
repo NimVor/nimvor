@@ -13,7 +13,7 @@ All notable changes to WhaCP are documented here. The format follows
   The tool search moved to the sidebar, above Dashboard, and the
   "Write mode" label was removed from the sidebar. "Read-only mode" and
   "Agent offline" are still shown there.
-- **Three top bar buttons:**
+- **Three buttons in the dashboard's Server card:**
   - **Restart all services:** every running service WhaCP manages, in
     order: databases and caches, PHP, mail, DNS and FTP, then Nginx after a
     configuration test, then the agent and the panel. SSH is never

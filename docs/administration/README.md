@@ -1455,7 +1455,7 @@ For server administrators, the top bar shows:
 - the load averages for 1, 5 and 15 minutes, refreshed every 30 seconds.
   Clicking them opens *Monitoring → Live*.
 
-The buttons next to them:
+The dashboard's *Server* card has three buttons:
 
 - **Restart all services** (needs *Manage services*):
   - Restarts every running service WhaCP manages, in this order:
