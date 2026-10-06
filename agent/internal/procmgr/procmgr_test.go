@@ -46,6 +46,8 @@ func TestSuspicious(t *testing.T) {
 		{Process{Name: "node", Command: "node app.js", UID: 1500, Listens: []string{"tcp 3000"}}, Links{Exe: "/home/x/.nvm/versions/node/bin/node"}},
 		{Process{Name: "php-fpm", Command: "php-fpm: pool example", UID: 1500}, Links{Exe: "/usr/sbin/php-fpm8.3"}},
 		{Process{Name: "bash", Command: "/bin/bash -c cd /srv && cat > /tmp/notes.txt"}, Links{Exe: "/usr/bin/bash"}},
+		// Updated in place (WhaCP's own services after an update, packages).
+		{Process{Name: "whacp-agent", Command: "/usr/local/bin/whacp-agent greylist-policy", UID: 62198}, Links{Exe: "/usr/local/bin/whacp-agent", Deleted: true, Replaced: true}},
 	} {
 		if got := Suspicious(c.p, c.l, true); len(got) > 0 {
 			t.Errorf("%s flagged: %v", c.p.Command, got)
@@ -120,5 +122,36 @@ func TestListUsesPrivilegedScan(t *testing.T) {
 	}
 	if !h.Runner.Called("whacp-agent -proc-scan") {
 		t.Fatalf("calls: %v", h.Runner.Calls)
+	}
+}
+
+func TestUnitOf(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(dir+"/42", 0o755)
+	os.WriteFile(dir+"/42/cgroup", []byte("0::/system.slice/whacp-greylist.service\n"), 0o644)
+	os.MkdirAll(dir+"/43", 0o755)
+	os.WriteFile(dir+"/43/cgroup", []byte("0::/user.slice/user-0.slice/session-3.scope\n"), 0o644)
+	if u := unitOf(dir, 42); u != "whacp-greylist.service" {
+		t.Fatalf("unit = %q", u)
+	}
+	if u := unitOf(dir, 43); u != "session-3.scope" {
+		t.Fatalf("scope = %q", u)
+	}
+}
+
+// A program replaced on disk (an update) is "replaced"; one removed for
+// good is only "deleted".
+func TestReplacedProgram(t *testing.T) {
+	dir := t.TempDir()
+	prog := dir + "/prog"
+	os.WriteFile(prog, []byte("new"), 0o755)
+	os.MkdirAll(dir+"/proc/7", 0o755)
+	os.Symlink(prog+" (deleted)", dir+"/proc/7/exe")
+	if l := links(dir+"/proc", "7"); !l.Deleted || !l.Replaced || l.Exe != prog {
+		t.Fatalf("replaced: %+v", l)
+	}
+	os.Remove(prog)
+	if l := links(dir+"/proc", "7"); !l.Deleted || l.Replaced {
+		t.Fatalf("removed: %+v", l)
 	}
 }

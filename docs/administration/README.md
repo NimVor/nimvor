@@ -1497,7 +1497,9 @@ time and command line.
     page showed, so a reused process number is never hit.
 - **Suspicious processes** are highlighted:
   - names of known cryptocurrency miners or backdoors, and mining pools;
-  - programs deleted from disk after they started;
+  - programs deleted from disk after they started. A program replaced by
+    an update (the same path exists again) is shown as a note to restart
+    the process instead;
   - programs run from `/tmp`, `/var/tmp`, `/dev/shm` or hidden folders;
   - scripts started from those folders;
   - user programs that call themselves kernel threads;

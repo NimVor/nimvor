@@ -29,11 +29,14 @@ const (
 
 // Links are what only a privileged reader sees of a process.
 type Links struct {
-	Exe     string   `json:"exe"`
-	Deleted bool     `json:"deleted"`
-	Cwd     string   `json:"cwd"`
-	FDs     int      `json:"fds"`
-	Sockets []uint64 `json:"sockets,omitempty"` // socket inodes
+	Exe     string `json:"exe"`
+	Deleted bool   `json:"deleted"`
+	// Replaced: the program was deleted because a new version took its
+	// place (an update; the process runs the old version until restarted).
+	Replaced bool     `json:"replaced,omitempty"`
+	Cwd      string   `json:"cwd"`
+	FDs      int      `json:"fds"`
+	Sockets  []uint64 `json:"sockets,omitempty"` // socket inodes
 }
 
 // Detail is one process for a trace.
@@ -50,6 +53,11 @@ func links(procDir string, pid string) Links {
 	if t, err := os.Readlink(filepath.Join(dir, "exe")); err == nil {
 		l.Exe = strings.TrimSuffix(t, " (deleted)")
 		l.Deleted = strings.HasSuffix(t, " (deleted)")
+		if l.Deleted {
+			if fi, err := os.Stat(l.Exe); err == nil && fi.Mode().IsRegular() {
+				l.Replaced = true
+			}
+		}
 	}
 	l.Cwd, _ = os.Readlink(filepath.Join(dir, "cwd"))
 	fds, _ := os.ReadDir(filepath.Join(dir, "fd"))

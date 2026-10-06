@@ -35,7 +35,8 @@ All notable changes to WhaCP are documented here. The format follows
     of one account. Root and WhaCP's own account are refused.
   - **Suspicious processes** are flagged:
     - names of known miners or backdoors, and mining pool addresses;
-    - programs deleted from disk after they started;
+    - programs deleted from disk after they started (not merely replaced
+      by an update, which is shown as a note);
     - programs run from /tmp, /var/tmp, /dev/shm or hidden folders;
     - scripts started from temporary folders;
     - user programs that pretend to be kernel threads;
@@ -114,6 +115,14 @@ All notable changes to WhaCP are documented here. The format follows
   the system's services are not affected.
 
 ### Fixed
+- **WhaCP's greylisting and mail-limit services were flagged as suspicious
+  processes after an update.** They run the agent's program and were not
+  restarted by the installer, so they kept running the replaced (deleted)
+  version. Now:
+  - the installer and `upgrade.sh` restart them where they run;
+  - the process manager reports a program replaced by an update as a note
+    ("updated after it started; restart it"), not as suspicious;
+  - accounts without a name (systemd's dynamic users) show their service.
 - **"Renewal of Let's Encrypt certificates: not scheduled" on Rocky/Alma.**
   EPEL's certbot installs `certbot-renew.timer` but does not turn it on,
   and WhaCP looked only for Debian's `certbot.timer`. WhaCP now turns the

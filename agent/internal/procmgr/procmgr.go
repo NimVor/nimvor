@@ -42,6 +42,11 @@ type Process struct {
 	Cwd        string   `json:"cwd,omitempty"`
 	Listens    []string `json:"listens,omitempty"`
 	Suspicious []string `json:"suspicious,omitempty"`
+	// Notes are worth knowing but not suspicious (e.g. an update waits
+	// for a restart).
+	Notes []string `json:"notes,omitempty"`
+	// Unit is the systemd service the process belongs to.
+	Unit string `json:"unit,omitempty"`
 }
 
 type stat struct {
@@ -214,6 +219,7 @@ func List(ctx context.Context, env *host.Env, interval time.Duration) Snapshot {
 		if p.User == "" {
 			p.User = strconv.Itoa(p.UID)
 		}
+		p.Unit = unitOf(procDir, pid)
 		cmd, _ := os.ReadFile(filepath.Join(procDir, strconv.Itoa(pid), "cmdline"))
 		p.Command = strings.TrimSpace(strings.ReplaceAll(string(cmd), "\x00", " "))
 		if len(p.Command) > 1000 {
@@ -233,6 +239,9 @@ func List(ctx context.Context, env *host.Env, interval time.Duration) Snapshot {
 			}
 			sort.Strings(p.Listens)
 			p.Suspicious = Suspicious(p, l, snap.Detailed)
+			if l.Replaced {
+				p.Notes = append(p.Notes, "its program was updated after it started; restart it to run the new version")
+			}
 		} else {
 			p.Suspicious = Suspicious(p, Links{}, false)
 		}
@@ -254,6 +263,28 @@ func List(ctx context.Context, env *host.Env, interval time.Duration) Snapshot {
 	})
 	sort.Strings(snap.Users)
 	return snap
+}
+
+// unitOf is the systemd service (or scope) a process runs in, from its
+// cgroup ("0::/system.slice/whacp-greylist.service" → "whacp-greylist.service").
+func unitOf(procDir string, pid int) string {
+	b, err := os.ReadFile(filepath.Join(procDir, strconv.Itoa(pid), "cgroup"))
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(b)), "\n") {
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		segs := strings.Split(parts[2], "/")
+		for i := len(segs) - 1; i >= 0; i-- {
+			if strings.HasSuffix(segs[i], ".service") || strings.HasSuffix(segs[i], ".scope") {
+				return segs[i]
+			}
+		}
+	}
+	return ""
 }
 
 func round2(v float64) float64 { return float64(int64(v*100+0.5)) / 100 }
@@ -286,7 +317,7 @@ func Suspicious(p Process, l Links, detailed bool) []string {
 	if strings.HasPrefix(p.Command, "[") && strings.HasSuffix(p.Command, "]") && (detailed && l.Exe != "") {
 		why = append(why, "pretends to be a kernel thread")
 	}
-	if detailed && l.Deleted {
+	if detailed && l.Deleted && !l.Replaced {
 		why = append(why, "its program was deleted from disk after it started")
 	}
 	for _, d := range tempDirs {

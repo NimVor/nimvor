@@ -106,6 +106,8 @@ start_services() {
     systemctl daemon-reload
     systemctl restart whacp-agent.service
     systemctl restart whacp-panel.service
+    # These run the agent's program too (only restarted where they run).
+    systemctl try-restart whacp-greylist.service whacp-mailrate.service 2>/dev/null || true
     systemctl start whacp-scheduler.timer 2>/dev/null || true
 }
 

@@ -62,7 +62,7 @@ $duration = static function (int $s): string {
             <?php foreach ($procs as $p): $sus = (array) ($p['suspicious'] ?? []); $kind = $sus !== [] ? 'suspicious user' : (!empty($p['kernel']) ? 'kernel' : 'user'); ?>
                 <tr data-wcp-row data-dt-kind="<?= e($kind) ?>" data-dt-owner="<?= e((string) $p['user']) ?>"<?= $sus !== [] ? ' class="table-danger"' : '' ?>>
                     <td class="font-monospace"><?= (int) $p['pid'] ?></td>
-                    <td><?= e((string) $p['user']) ?></td>
+                    <td><?= e((string) $p['user']) ?><?php if (!empty($p['unit']) && ctype_digit((string) $p['user'])): ?><div class="small wcp-muted" title="A temporary account systemd made for this service"><?= e(preg_replace('/\.service$/', '', (string) $p['unit'])) ?></div><?php endif; ?></td>
                     <td><?= (int) $p['nice'] ?></td>
                     <td class="text-end font-monospace"><?= number_format((float) $p['cpu_percent'], 1) ?></td>
                     <td class="text-end font-monospace"><?= number_format((float) $p['mem_percent'], 1) ?></td>
@@ -70,6 +70,7 @@ $duration = static function (int $s): string {
                     <td class="small">
                         <div class="font-monospace text-break wcp-proc-cmd"<?= !empty($p['exe']) ? ' title="' . e('Program: ' . $p['exe'] . (!empty($p['cwd']) ? "\nFolder: " . $p['cwd'] : '')) . '"' : '' ?>><?= e((string) $p['command']) ?></div>
                         <?php if (!empty($p['listens'])): ?><div class="wcp-muted">listens on <?= e(implode(', ', (array) $p['listens'])) ?></div><?php endif; ?>
+                        <?php foreach ((array) ($p['notes'] ?? []) as $note): ?><div class="text-body-secondary"><i class="bi bi-info-circle me-1" aria-hidden="true"></i><?= e((string) $note) ?><?= !empty($p['unit']) && str_ends_with((string) $p['unit'], '.service') ? ' (' . e((string) $p['unit']) . ')' : '' ?></div><?php endforeach; ?>
                         <?php foreach ($sus as $why): ?><div class="text-danger"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i><?= e((string) $why) ?></div><?php endforeach; ?>
                     </td>
                     <?php if ($canManage): ?>
@@ -93,4 +94,4 @@ $duration = static function (int $s): string {
     </div>
     <div class="wcp-pager" data-wcp-dt-pager></div>
 </div>
-<p class="small wcp-muted mt-2">CPU % is the share of one CPU over half a second (like top). Suspicious: programs named like miners or known backdoors, programs deleted from disk or run from /tmp, /dev/shm or hidden folders, scripts started from temporary folders, user programs pretending to be kernel threads, and shells or interpreters of website accounts listening on a port.</p>
+<p class="small wcp-muted mt-2">CPU % is the share of one CPU over half a second (like top). Suspicious: programs named like miners or known backdoors, programs deleted from disk (not merely replaced by an update) or run from /tmp, /dev/shm or hidden folders, scripts started from temporary folders, user programs pretending to be kernel threads, and shells or interpreters of website accounts listening on a port.</p>

@@ -587,6 +587,9 @@ if [[ $REINSTALL -eq 1 || $ENABLE_WRITES -eq 1 || -n $REMOTE_ACCESS ]]; then
     run systemctl restart whacp-agent.service
     [[ $AGENT_ONLY -eq 1 ]] || run systemctl restart whacp-panel.service
 fi
+# Greylisting and outgoing mail limits run the agent's program too: restart
+# them (only where they run) so they use the version just installed.
+run systemctl try-restart whacp-greylist.service whacp-mailrate.service
 
 # ---------------------------------------------------- 8. administrator ----
 if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
