@@ -7,7 +7,7 @@ $selected = array_column($accounts, 'id');
 ?>
 <?php $this->start(); ?>Terminate accounts<?php $this->end('title'); ?>
 <?php $this->start(); ?>Remove hosting accounts with their websites, email, databases and DNS zones<?php $this->end('subtitle'); ?>
-<?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('users')) ?>"><i class="bi bi-arrow-left"></i> Users</a><?php $this->end('actions'); ?>
+
 
 <?php if ($results !== null): ?>
     <div class="card" id="terminate-results">

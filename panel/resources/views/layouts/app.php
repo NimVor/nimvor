@@ -63,7 +63,6 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
                 </dl>
             <?php endif; ?>
             <div class="wcp-topbar-actions">
-                <?= $this->section('actions') ?>
                 <?php $sw = isset($server_switcher) && is_callable($server_switcher) ? $server_switcher() : null; ?>
                 <?php if ($sw !== null && count($sw['servers']) > 1): ?>
                     <form method="post" action="<?= e($this->url('servers.switch')) ?>" class="d-flex" data-wcp-noajax>
@@ -115,6 +114,8 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
             </div>
         </header>
         <main class="wcp-content">
+            <?php // The page's own buttons: top right of the page, not in the top bar. ?>
+            <?php if (trim($this->section('actions')) !== ''): ?><div class="wcp-page-actions"><?= $this->section('actions') ?></div><?php endif; ?>
             <?= $this->partial('partials/flash') ?>
             <?= $content ?>
         </main>

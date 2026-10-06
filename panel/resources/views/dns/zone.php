@@ -33,7 +33,7 @@ $sortLink = fn (string $k): string => $this->url('dns.zone', ['id' => $id], $k =
 <?php else: ?>
     <?php $this->start(); ?><span class="font-monospace"><?= e($zoneName) ?></span><?php $this->end('title'); ?>
     <?php $this->start(); ?>DNS zone<?php $this->end('subtitle'); ?>
-    <?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('dns')) ?>"><i class="bi bi-arrow-left"></i> DNS</a><?php $this->end('actions'); ?>
+
 <?php endif; ?>
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3 small">

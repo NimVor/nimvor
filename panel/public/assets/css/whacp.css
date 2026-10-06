@@ -886,3 +886,6 @@ button.wcp-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
     .wcp-sidebar-collapsed .wcp-sidebar { display: none; }
 }
 .wcp-col-result { min-width: 18rem; }
+/* The page's own buttons, top right of the page. */
+.wcp-page-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .5rem; margin-bottom: 1rem; }
+.wcp-rule-text { max-width: 32rem; }

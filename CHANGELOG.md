@@ -6,6 +6,19 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Page buttons moved out of the top bar:** each page's own buttons
+  (e.g. "Create account", "New user", "Save" in the editor) now sit at the
+  top right of the page. The "Back to …" buttons were removed: the sidebar
+  and its sub-menus lead everywhere.
+- **ModSecurity page in tabs:** Websites, Recent events, Vendors, Custom
+  rules, Installation. The server-wide settings open in a window from the
+  "Server-wide settings" button.
+- **Custom rules one at a time:** the Custom rules tab lists the rules in a
+  grid (ID, description, phase, action). "New rule" adds one in a window;
+  each rule can be edited or deleted. Every change is checked by Nginx
+  before it is used. Editing all rules as text is still possible.
+
 ### Added
 - **SSL/TLS → AutoSSL** (like cPanel's Manage AutoSSL):
   - The provider (Let's Encrypt), when the next check runs, and whether

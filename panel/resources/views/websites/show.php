@@ -7,7 +7,6 @@ $php = $site['php'] ?? null;
 <?php $this->start(); ?><?= e($site['domain']) ?><?php $this->end('title'); ?>
 <?php $this->start(); ?>Discovered website · <?= !empty($site['enabled']) ? 'enabled' : 'not enabled' ?> in Nginx<?php $this->end('subtitle'); ?>
 <?php $this->start(); ?>
-<a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('websites')) ?>"><i class="bi bi-arrow-left"></i> Websites</a>
 <?php if (!empty($site['enabled'])): ?>
     <a class="btn btn-sm btn-outline-primary" href="<?= e((!empty($site['https']) ? 'https://' : 'http://') . $site['domain']) ?>" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i> Open</a>
 <?php endif; ?>

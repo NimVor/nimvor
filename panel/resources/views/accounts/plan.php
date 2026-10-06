@@ -11,7 +11,7 @@ $over = array_filter($diff, static fn (array $r): bool => $r['over']);
 ?>
 <?php $this->start(); ?>Change plan: <?= e($account['username']) ?><?php $this->end('title'); ?>
 <?php $this->start(); ?>Upgrade or downgrade the hosting plan; the account's data is kept<?php $this->end('subtitle'); ?>
-<?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('users.edit', ['id' => (int) $account['id']])) ?>"><i class="bi bi-arrow-left"></i> Account</a><?php $this->end('actions'); ?>
+
 
 <div class="card mb-3">
     <div class="card-body">

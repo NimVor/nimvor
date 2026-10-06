@@ -27,7 +27,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
 ?>
 <?php if ($isNew): ?>
     <?php $this->start(); ?>New website<?php $this->end('title'); ?>
-    <?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('websites')) ?>"><i class="bi bi-arrow-left"></i> Websites</a><?php $this->end('actions'); ?>
+
 <?php else: ?>
     <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'settings']) ?>
 <?php endif; ?>

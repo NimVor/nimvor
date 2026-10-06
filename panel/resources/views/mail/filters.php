@@ -54,7 +54,7 @@ $modal = function (?int $n, ?array $f) use ($id, $mb): string {
 ?>
 <?php $this->start(); ?>Filters for <span class="font-monospace"><?= e($addr) ?></span><?php $this->end('title'); ?>
 <?php $this->start(); ?>Email filters and autoresponder<?php $this->end('subtitle'); ?>
-<?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('mail.domain', ['id' => $id])) ?>"><i class="bi bi-arrow-left"></i> <?= e((string) $domain['domain']) ?></a><?php $this->end('actions'); ?>
+
 <?php if ($agentError !== null): ?><?= $this->partial('partials/agent_error', ['error' => $agentError]) ?><?php return; endif; ?>
 <?php $r = $data['responder']; ?>
 

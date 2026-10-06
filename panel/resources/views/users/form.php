@@ -7,7 +7,7 @@ $roleId = (int) $val('role_id', 0);
 $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']) ? (bool) $old['is_active'] : (int) $editUser['is_active'] === 1);
 ?>
 <?php $this->start(); ?><?= $isNew ? 'New panel user' : 'Edit ' . e($editUser['username']) ?><?php $this->end('title'); ?>
-<?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('users')) ?>"><i class="bi bi-arrow-left"></i> Users</a><?php $this->end('actions'); ?>
+
 
 <div class="row">
     <div class="col-lg-7 col-xl-6">

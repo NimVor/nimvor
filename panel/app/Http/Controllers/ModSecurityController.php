@@ -104,6 +104,47 @@ final class ModSecurityController extends Controller
         });
     }
 
+    /** Custom rules one at a time: add, change or delete a rule; the whole set is checked again. */
+    public function saveRule(Request $request): Response
+    {
+        return $this->act($request, '/security/modsec#custom', function () use ($request): string {
+            $rules = ModSecurityService::splitRules($this->modsec->customRules());
+            $text = trim(str_replace("\r\n", "\n", (string) $request->input('rule', '')));
+            $comment = trim(str_replace(["\r\n", "\r"], "\n", mb_substr((string) $request->input('comment', ''), 0, 500)));
+            $index = $request->input('index', '');
+            $op = $request->string('op');
+            $target = null;
+            if ($index !== '' && $index !== null) {
+                $i = (int) $index;
+                // The rule must still be the one the page showed.
+                if (!isset($rules[$i]) || !hash_equals(hash('sha256', $rules[$i]['text']), $request->string('sha'))) {
+                    throw new \WhaCP\Support\UserFacingException('The custom rules changed since the page was loaded. Reload the page and try again.');
+                }
+                $target = $i;
+            }
+            if ($op === 'delete') {
+                if ($target === null) {
+                    throw new \WhaCP\Support\UserFacingException('Choose a rule to delete.');
+                }
+                array_splice($rules, $target, 1);
+                $this->modsec->saveCustomRules(ModSecurityService::joinRules($rules), $this->userId($request));
+                return 'Rule deleted; Nginx accepted the remaining rules.';
+            }
+            if ($text === '') {
+                throw new \WhaCP\Support\UserFacingException('Enter the rule.');
+            }
+            $new = ['text' => $text, 'comment' => $comment];
+            if ($target === null) {
+                $rules[] = $new;
+            } else {
+                $rules[$target] = $new;
+            }
+            $this->modsec->saveCustomRules(ModSecurityService::joinRules($rules), $this->userId($request));
+            $on = !empty(($this->modsec->status()['config']['custom']['enabled'] ?? false));
+            return ($target === null ? 'Rule added' : 'Rule saved') . '; Nginx accepted it.' . ($on ? '' : ' Turn "Custom rules" on in the server-wide settings to use them.');
+        });
+    }
+
     /** Install or upgrade the Nginx connector (a transaction on the server). */
     public function install(Request $request): Response
     {

@@ -7,7 +7,7 @@ $admin = $this->serverScope();
 ?>
 <?php $this->start(); ?>Bandwidth<?php $this->end('title'); ?>
 <?php $this->start(); ?>Monthly bandwidth of accounts with a limit — <?= e($month) ?><?php $this->end('subtitle'); ?>
-<?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('users')) ?>"><i class="bi bi-arrow-left"></i> Users</a><?php $this->end('actions'); ?>
+
 
 <nav class="wcp-pagetabs" aria-label="Show">
     <a class="<?= !$all ? 'active' : '' ?>" href="<?= e($this->url('accounts.bandwidth')) ?>">Over the limit</a>

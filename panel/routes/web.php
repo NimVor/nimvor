@@ -398,6 +398,7 @@ return static function (Router $r): void {
     $r->post('/security/traceroute', [\WhaCP\Http\Controllers\HardeningController::class, 'saveTraceroute'], ['name' => 'security.traceroute.save', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/modsec', [\WhaCP\Http\Controllers\ModSecurityController::class, 'index'], ['name' => 'security.modsec', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/modsec', [\WhaCP\Http\Controllers\ModSecurityController::class, 'configure'], ['name' => 'security.modsec.configure', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/modsec/rule', [\WhaCP\Http\Controllers\ModSecurityController::class, 'saveRule'], ['name' => 'security.modsec.rule', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/modsec/custom', [\WhaCP\Http\Controllers\ModSecurityController::class, 'saveCustom'], ['name' => 'security.modsec.custom', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/modsec/update', [\WhaCP\Http\Controllers\ModSecurityController::class, 'update'], ['name' => 'security.modsec.update', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/modsec/install', [\WhaCP\Http\Controllers\ModSecurityController::class, 'install'], ['name' => 'security.modsec.install', 'permission' => P::SECURITY_MANAGE]);

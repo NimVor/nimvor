@@ -9,7 +9,7 @@ $row = (array) ($plan['row'] ?? []);
 ?>
 <?php $this->start(); ?>Import <?= e($found['domain']) ?><?php $this->end('title'); ?>
 <?php $this->start(); ?>Move this website under WhaCP management<?php $this->end('subtitle'); ?>
-<?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('websites.show', ['id' => $found['id']])) ?>"><i class="bi bi-arrow-left"></i> Back</a><?php $this->end('actions'); ?>
+
 
 <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>
     WhaCP does not edit configuration it did not create. The import <strong>copies</strong> the website into a new WhaCP website, then switches Nginx over in one validated step. The old configuration file and the old files are kept; the import can be undone from the website's overview.

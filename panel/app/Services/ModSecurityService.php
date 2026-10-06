@@ -74,6 +74,78 @@ final class ModSecurityService
         return (string) (self::arr($this->agent->call('modsec.custom_get'))['rules'] ?? '');
     }
 
+    /**
+     * The custom rules file as single rules: each directive (with its
+     * continuation lines) and the comment lines right above it.
+     *
+     * @return list<array{text: string, comment: string, id: int|null, phase: string, action: string, msg: string}>
+     */
+    public static function splitRules(string $file): array
+    {
+        $rules = [];
+        $comment = [];
+        $cur = null;
+        foreach (preg_split('/\R/', str_replace("\r\n", "\n", $file)) ?: [] as $line) {
+            $t = trim($line);
+            if ($cur !== null) {
+                $cur[] = rtrim($line);
+                if (!str_ends_with(rtrim($line), '\\')) {
+                    $rules[] = self::describeRule(implode("\n", $cur), implode("\n", $comment));
+                    $cur = null;
+                    $comment = [];
+                }
+                continue;
+            }
+            if ($t === '') {
+                $comment = [];
+                continue;
+            }
+            if (str_starts_with($t, '#')) {
+                $comment[] = trim(ltrim($t, '#'));
+                continue;
+            }
+            if (str_ends_with(rtrim($line), '\\')) {
+                $cur = [rtrim($line)];
+                continue;
+            }
+            $rules[] = self::describeRule(rtrim($line), implode("\n", $comment));
+            $comment = [];
+        }
+        if ($cur !== null) {
+            $rules[] = self::describeRule(implode("\n", $cur), implode("\n", $comment));
+        }
+        return $rules;
+    }
+
+    /** @return array{text: string, comment: string, id: int|null, phase: string, action: string, msg: string} */
+    private static function describeRule(string $text, string $comment): array
+    {
+        $id = preg_match('/\bid:(\d+)/', $text, $m) ? (int) $m[1] : null;
+        $phase = preg_match('/\bphase:(\w+)/', $text, $m) ? $m[1] : '';
+        $action = preg_match('/\b(deny|block|drop|allow|pass|redirect)\b/', $text, $m) ? $m[1] : '';
+        $msg = preg_match("/\bmsg:'([^']*)'/", $text, $m) ? $m[1] : '';
+        return ['text' => $text, 'comment' => $comment, 'id' => $id, 'phase' => $phase, 'action' => $action, 'msg' => $msg];
+    }
+
+    /** @param list<array{text: string, comment: string}> $rules */
+    public static function joinRules(array $rules): string
+    {
+        $out = [];
+        foreach ($rules as $r) {
+            $c = trim($r['comment']);
+            $out[] = ($c !== '' ? implode("\n", array_map(static fn (string $l): string => '# ' . $l, explode("\n", $c))) . "\n" : '') . trim($r['text']);
+        }
+        return $out === [] ? '' : implode("\n\n", $out) . "\n";
+    }
+
+    /** A free rule ID for a new custom rule (10000–99999). @param list<array{id: int|null}> $rules */
+    public static function nextRuleId(array $rules): int
+    {
+        $used = array_filter(array_column($rules, 'id'));
+        $n = $used === [] ? 10001 : max($used) + 1;
+        return $n > 99999 ? 10000 : max(10001, $n);
+    }
+
     public function saveCustomRules(string $rules, int $userId): int
     {
         if (strlen($rules) > 65536) {

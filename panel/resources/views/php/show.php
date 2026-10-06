@@ -13,7 +13,6 @@ $fpmSettings = (array) ($fpm['settings'] ?? []);
 <?php $this->start(); ?>PHP <?= e($version) ?><?php $this->end('title'); ?>
 <?php $this->start(); ?>Extensions, php.ini and PHP-FPM settings<?php $this->end('subtitle'); ?>
 <?php $this->start(); ?>
-<a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('php')) ?>"><i class="bi bi-arrow-left"></i> All PHP versions</a>
 <?php $this->end('actions'); ?>
 
 <?php if ($agentError !== null): ?><?= $this->partial('partials/agent_error', ['error' => $agentError]) ?><?php endif; ?>

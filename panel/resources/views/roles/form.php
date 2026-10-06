@@ -9,7 +9,7 @@ foreach ($permissions as $p) {
 }
 ?>
 <?php $this->start(); ?><?= $isNew ? 'New role' : e($role['label']) ?><?php $this->end('title'); ?>
-<?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('users')) ?>"><i class="bi bi-arrow-left"></i> Users &amp; roles</a><?php $this->end('actions'); ?>
+
 
 <?php if ($readonly): ?>
     <div class="alert alert-info small"><i class="bi bi-lock me-1"></i>This is a built-in role. Its permissions are defined by WhaCP and shown read-only.</div>

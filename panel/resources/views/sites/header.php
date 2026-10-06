@@ -27,7 +27,6 @@ foreach ($items as $i) {
 </span>
 <?php $this->end('subtitle'); ?>
 <?php $this->start(); ?>
-<a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('websites')) ?>"><i class="bi bi-arrow-left"></i><span class="d-none d-sm-inline"> Websites</span></a>
 <?php if (!$this->simpleLayout()): ?>
 <button class="btn btn-sm btn-outline-secondary d-lg-none" type="button" data-wcp-toggle="sidebar" aria-controls="wcp-sidebar" data-wcp-site-menu-button><i class="bi bi-list-nested"></i> Website menu</button>
 <?php endif; ?>

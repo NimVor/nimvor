@@ -28,7 +28,7 @@ $routing = $v('mail_routing', (string) $defaults['mail_routing']);
 ?>
 <?php $this->start(); ?>Create a new account<?php $this->end('title'); ?>
 <?php $this->start(); ?>A hosting account with its first website, DNS, email and SSL<?php $this->end('subtitle'); ?>
-<?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('users')) ?>"><i class="bi bi-arrow-left"></i> Users</a><?php $this->end('actions'); ?>
+
 
 <form method="post" action="<?= e($this->url('accounts.store')) ?>" data-wcp-busy novalidate id="new-account">
     <?= $this->csrfField() ?>

@@ -26,7 +26,7 @@ $webmailUrl = !empty($webmail['enabled']) && !empty($webmail['hostname']) ? 'htt
 <?php else: ?>
     <?php $this->start(); ?><span class="font-monospace"><?= e($dom) ?></span><?php $this->end('title'); ?>
     <?php $this->start(); ?>Email domain<?php $this->end('subtitle'); ?>
-    <?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('mail')) ?>"><i class="bi bi-arrow-left"></i> Email</a><?php $this->end('actions'); ?>
+
 <?php endif; ?>
 <?= $this->partial('partials/secret', ['secret' => $secret ?? null]) ?>
 
