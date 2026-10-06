@@ -150,7 +150,7 @@ func TestRealHostGreylisting(t *testing.T) {
 		return strings.TrimSpace(string(out))
 	}
 	prev := map[string]string{}
-	for _, k := range []string{"inet_interfaces", "smtpd_recipient_restrictions", "maillog_file"} {
+	for _, k := range []string{"inet_interfaces", "mynetworks", "smtpd_recipient_restrictions", "maillog_file"} {
 		prev[k] = get(k)
 	}
 	set := func(k, v string) {
@@ -158,17 +158,22 @@ func TestRealHostGreylisting(t *testing.T) {
 			t.Fatalf("postconf %s: %s", k, out)
 		}
 	}
-	exec.Command("postfix", "stop").Run()
+	postfixStop()
 	set("inet_interfaces", "all")
+	// Only loopback is trusted: RHEL's default (mynetworks_style=host)
+	// trusts every address of this host, which is how the test connects.
+	set("mynetworks", "127.0.0.0/8 [::1]/128")
 	set("smtpd_recipient_restrictions", withGreylisting(prev["smtpd_recipient_restrictions"], true))
 	if _, err := os.Stat("/run/systemd/journal/socket"); err != nil {
 		set("maillog_file", "/var/log/postfix.log")
 	}
 	t.Cleanup(func() {
-		exec.Command("postfix", "stop").Run()
+		postfixStop()
 		for k, v := range prev {
 			exec.Command("postconf", "-e", k+"="+v).Run()
 		}
+		// Running again, under systemd, as before the test.
+		postfixStart()
 		stop()
 		if !withSystemd {
 			os.Remove(sock)
@@ -177,7 +182,7 @@ func TestRealHostGreylisting(t *testing.T) {
 	if out, err := exec.Command("postfix", "check").CombinedOutput(); err != nil {
 		t.Fatalf("postfix check: %s", out)
 	}
-	if out, err := exec.Command("postfix", "start").CombinedOutput(); err != nil {
+	if out, err := postfixStart(); err != nil {
 		t.Fatalf("postfix start: %s", out)
 	}
 
@@ -192,15 +197,22 @@ func TestRealHostGreylisting(t *testing.T) {
 	if remote == "" {
 		t.Skip("needs a non-loopback IPv4 address")
 	}
+	// The client address Postfix sees (the kernel picks the source address).
+	var src string
 	rcpt := func() error {
-		var c *smtp.Client
+		var conn net.Conn
 		var err error
 		for i := 0; i < 50; i++ {
-			if c, err = smtp.Dial(remote + ":25"); err == nil {
+			if conn, err = net.Dial("tcp", remote+":25"); err == nil {
 				break
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
+		if err != nil {
+			t.Fatalf("smtp: %v", err)
+		}
+		src = conn.LocalAddr().(*net.TCPAddr).IP.String()
+		c, err := smtp.NewClient(conn, remote)
 		if err != nil {
 			t.Fatalf("smtp: %v", err)
 		}
@@ -226,12 +238,12 @@ func TestRealHostGreylisting(t *testing.T) {
 	if err := greylist.Control(context.Background(), control, greylist.ControlRequest{Op: "report"}, &rep); err != nil {
 		t.Fatal(err)
 	}
-	if rep.Total != 1 || rep.Rows[0].IP != remote || rep.Rows[0].From != "sender@example.net" || rep.Rows[0].To != "postmaster@localhost" || rep.Rows[0].Status != "deferring" {
+	if rep.Total != 1 || rep.Rows[0].IP != src || rep.Rows[0].From != "sender@example.net" || rep.Rows[0].To != "postmaster@localhost" || rep.Rows[0].Status != "deferring" {
 		t.Fatalf("report: %+v", rep)
 	}
 	// State survives a restart; a trusted host is not deferred.
 	stop()
-	cfg.Trusted = []greylist.TrustedHost{{Range: remote, Comment: "test"}}
+	cfg.Trusted = []greylist.TrustedHost{{Range: src, Comment: "test"}}
 	writeCfg()
 	start()
 	if err := rcpt(); err != nil {

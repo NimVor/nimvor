@@ -171,7 +171,15 @@ func TestRealHostMail(t *testing.T) {
 	}
 	// Troubleshooter: the forwarder leads to alice's mailbox; unknown is refused.
 	tr := must("mail.trace", map[string]any{"address": "info@rt-mail.test"})
-	if b, _ := json.Marshal(tr["steps"]); !strings.Contains(string(b), `"result":"forward"`) || !strings.Contains(string(b), `"address":"alice@rt-mail.test","result":"mailbox"`) {
+	b, _ := json.Marshal(tr["steps"])
+	var steps []struct{ Address, Result string }
+	json.Unmarshal(b, &steps)
+	forward, mailbox := false, false
+	for _, st := range steps {
+		forward = forward || st.Result == "forward"
+		mailbox = mailbox || (st.Address == "alice@rt-mail.test" && st.Result == "mailbox")
+	}
+	if !forward || !mailbox {
 		t.Fatalf("trace: %s", b)
 	}
 	if b, _ := json.Marshal(must("mail.trace", map[string]any{"address": "nobody@rt-mail.test"})["steps"]); !strings.Contains(string(b), `"result":"rejected"`) {

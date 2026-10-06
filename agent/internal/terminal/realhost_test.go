@@ -199,7 +199,9 @@ func TestRealHostTerminalSession(t *testing.T) {
 	}
 	run := func(c *client, script string) string {
 		t.Helper()
-		c.send(opBinary, []byte(script+"; echo END-OF-CHECKS\n"))
+		// The terminal echoes the typed line: the marker is printed only
+		// when the shell runs it (the quotes split it in the typed text).
+		c.send(opBinary, []byte(script+"; echo END-OF-'CHECKS'\n"))
 		out, _ := c.until(t, "", "END-OF-CHECKS\r\n")
 		return out
 	}

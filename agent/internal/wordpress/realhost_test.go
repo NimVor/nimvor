@@ -473,7 +473,7 @@ func wpEval(t *testing.T, root, code string) string { return wpEvalEnv(t, root, 
 
 func wpEvalEnv(t *testing.T, root, code string, env ...string) string {
 	t.Helper()
-	c := exec.Command("php"+testhost.PHPVersion(), WPCLIPath, "--allow-root", "--skip-plugins", "--skip-themes", "--path="+filepath.Join(root, "public_html"), "eval", code)
+	c := exec.Command(cliPHP(testhost.PHPVersion()), WPCLIPath, "--allow-root", "--skip-plugins", "--skip-themes", "--path="+filepath.Join(root, "public_html"), "eval", code)
 	c.Env = append(os.Environ(), env...)
 	out, err := c.Output()
 	if err != nil {

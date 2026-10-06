@@ -38,14 +38,23 @@ func TestRealHostMailQueue(t *testing.T) {
 		prev, _ := exec.Command("postconf", "-h", "maillog_file").Output()
 		exec.Command("postconf", "-e", "maillog_file=/var/log/postfix.log").Run()
 		t.Cleanup(func() { exec.Command("postconf", "-e", "maillog_file="+strings.TrimSpace(string(prev))).Run() })
-		exec.Command("postfix", "stop").Run()
+		postfixStop()
 	}
 	if exec.Command("postfix", "status").Run() != nil {
-		if out, err := exec.Command("postfix", "start").CombinedOutput(); err != nil {
+		if out, err := postfixStart(); err != nil {
 			t.Fatalf("postfix start: %s", out)
 		}
-		t.Cleanup(func() { exec.Command("postfix", "stop").Run() })
+		t.Cleanup(func() { postfixStop() })
 	}
+	// Remote delivery stays deferred while the test runs, whatever DNS
+	// answers for the .invalid domain (a definite "not found" bounces it).
+	prevDefer, _ := exec.Command("postconf", "-h", "defer_transports").Output()
+	exec.Command("postconf", "-e", "defer_transports=smtp").Run()
+	exec.Command("postfix", "reload").Run()
+	t.Cleanup(func() {
+		exec.Command("postconf", "-e", "defer_transports="+strings.TrimSpace(string(prevDefer))).Run()
+		exec.Command("postfix", "reload").Run()
+	})
 	rcpt := fmt.Sprintf("n%d@whacp-queue-test.invalid", time.Now().UnixNano())
 	msg := "From: Tester <tester@example.com>\nTo: " + rcpt + "\nSubject: =?UTF-8?B?UXVldWUgdGVzdCDinJM=?=\n\nhello\n"
 	cmd := exec.Command("sendmail", "-f", "tester@example.com", rcpt)
@@ -83,7 +92,10 @@ func TestRealHostMailQueue(t *testing.T) {
 		time.Sleep(500 * time.Millisecond)
 	}
 	if id == "" {
-		t.Fatal("the test message did not show up in the queue")
+		q, _ := exec.Command("postqueue", "-p").CombinedOutput()
+		st, _ := exec.Command("postfix", "status").CombinedOutput()
+		lg, _ := exec.Command("journalctl", "--no-pager", "-n", "20", "-t", "postfix/smtp", "-t", "postfix/qmgr", "-t", "postfix/pickup", "-t", "postfix/error", "--since", "-2min").CombinedOutput()
+		t.Fatalf("the test message did not show up in the queue\n%s\n%s\n%s", st, q, lg)
 	}
 	t.Cleanup(func() { exec.Command("postsuper", "-d", id).Run() })
 	h := call("mail.queue_message", map[string]any{"id": id})["headers"].(map[string]any)

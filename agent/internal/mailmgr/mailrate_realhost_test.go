@@ -123,7 +123,7 @@ func TestRealHostMailRate(t *testing.T) {
 			t.Fatalf("postconf %s: %s", k, out)
 		}
 	}
-	exec.Command("postfix", "stop").Run()
+	postfixStop()
 	set("smtpd_recipient_restrictions", withMailRate(prev["smtpd_recipient_restrictions"], true))
 	set("authorized_submit_users", submitLimited(pub))
 	if _, err := os.Stat("/run/systemd/journal/socket"); err != nil {
@@ -143,13 +143,12 @@ func TestRealHostMailRate(t *testing.T) {
 				}
 			}
 		}
-		// Stopped, as the other mail tests leave it: a Postfix started here
-		// (outside systemd) would make systemctl start postfix fail later
-		// ("the Postfix mail system is already running").
-		exec.Command("postfix", "stop").Run()
+		postfixStop()
 		for k, v := range prev {
 			exec.Command("postconf", "-e", k+"="+v).Run()
 		}
+		// Running again, under systemd, as before the test.
+		postfixStart()
 		svc.Process.Signal(os.Interrupt)
 		svc.Wait()
 		os.Remove(sock)
@@ -157,7 +156,7 @@ func TestRealHostMailRate(t *testing.T) {
 	if out, err := exec.Command("postfix", "check").CombinedOutput(); err != nil {
 		t.Fatalf("postfix check: %s", out)
 	}
-	if out, err := exec.Command("postfix", "start").CombinedOutput(); err != nil {
+	if out, err := postfixStart(); err != nil {
 		t.Fatalf("postfix start: %s", out)
 	}
 	for i := 0; i < 50; i++ {

@@ -39,3 +39,26 @@ func selinuxSockets(t *testing.T) {
 		t.Fatalf("semodule -i: %s", out)
 	}
 }
+
+// Postfix is stopped and started through systemd where it runs (as the
+// agent does): a Postfix started by "postfix start" outside its unit makes
+// a later "systemctl start postfix" fail ("already running") and leaves the
+// unit's state wrong for the tests after.
+func underSystemd() bool {
+	_, err := os.Stat("/run/systemd/system")
+	return err == nil
+}
+
+func postfixStop() {
+	if underSystemd() {
+		exec.Command("systemctl", "stop", "postfix").Run()
+	}
+	exec.Command("postfix", "stop").Run()
+}
+
+func postfixStart() ([]byte, error) {
+	if underSystemd() {
+		return exec.Command("systemctl", "restart", "postfix").CombinedOutput()
+	}
+	return exec.Command("postfix", "start").CombinedOutput()
+}
