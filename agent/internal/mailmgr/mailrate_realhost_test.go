@@ -191,7 +191,7 @@ func TestRealHostMailRate(t *testing.T) {
 		}
 	}
 	if code, out := send(bin, bridge, true); code != 75 || !strings.Contains(out, "4.7.1") {
-		t.Fatalf("third message: want deferral (75, 4.7.1), got %d %s", code, out)
+		t.Fatalf("third message: want deferral (75, 4.7.1), got %d %s\n%s", code, out, mailDiagnosis("whacp-mailrate"))
 	}
 	// Root (a system account) is not limited.
 	if code, out := send(bin, bridge, false); code != 0 {

@@ -16,7 +16,7 @@ const DEV = path.resolve(__dirname, '../../.dev');
   const browser = await browserLaunch();
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   const errors = [];
-  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  page.on('pageerror', e => errors.push('pageerror: ' + e.message + ' (' + page.url() + ')\n' + (e.stack || '')));
   page.on('console', m => { if (m.type() === 'error' && !/status of 4\d\d/.test(m.text())) { errors.push('console: ' + m.text()); } });
   const step = (s) => console.log('STEP', s);
   const stamp = Date.now().toString(36);

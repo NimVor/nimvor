@@ -728,5 +728,5 @@
     if (fromUrl !== null) { state.cwd = fromUrl.replace(/^\/+|\/+$/g, ''); }
     buildTree();
     load();
-    list.focus();
+    if (list) { list.focus(); }
 })();

@@ -160,6 +160,8 @@ func TestRealHostLinuxPassword(t *testing.T) {
 	}
 }
 
+var ansiRe = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)`)
+
 var statusRe = regexp.MustCompile(`(?m)^(NoNewPrivs|CapInh|CapPrm|CapEff|CapBnd|CapAmb):\s*(\S+)`)
 
 // A real session per account: its own systemd unit as the account, no
@@ -203,7 +205,13 @@ func TestRealHostTerminalSession(t *testing.T) {
 		// when the shell runs it (the quotes split it in the typed text).
 		c.send(opBinary, []byte(script+"; echo END-OF-'CHECKS'\n"))
 		out, _ := c.until(t, "", "END-OF-CHECKS\r\n")
-		return out
+		// Only what the commands printed: not the echoed command line
+		// (it names the other account's files), without colours (RHEL's
+		// interactive grep colours its matches).
+		if i := strings.LastIndex(out, "END-OF-'CHECKS'"); i >= 0 {
+			out = out[i+len("END-OF-'CHECKS'"):]
+		}
+		return ansiRe.ReplaceAllString(out, "")
 	}
 
 	// A wrong password (here: the other account's) gets no shell.
@@ -295,9 +303,14 @@ func TestRealHostTerminalSession(t *testing.T) {
 		os.Remove(ftpmgr.JailShell)
 	})
 	j, idJ := open("terma", "Terminal-A-Pass-NEW")
-	out = run(j, `id -un; pwd; ls `+termSites+`; cat `+homeB+`/private.txt 2>&1; grep -E '^(NoNewPrivs|CapBnd|CapEff)' /proc/self/status; ps -e -o comm= | sort -u | tr '\n' ' '; echo; touch /usr/x 2>&1`)
+	out = run(j, `id -un; pwd; ls `+termSites+`; cat `+homeB+`/private.txt 2>&1; grep -E '^(NoNewPrivs|CapBnd|CapEff)' /proc/self/status; ps -e -o comm= | sort -u | tr '\n' ' '; echo; touch /usr/x 2>&1; echo 1 > /proc/sys/kernel/sysrq 2>&1 && echo SYSCTL-WRITTEN; grep -c . /proc/kmsg 2>&1 | head -1`)
 	t.Logf("jailed session:\n%s", out)
-	for _, want := range []string{"terma", "terma.test", "NoNewPrivs:\t1", "CapBnd:\t0000000000000000", "CapEff:\t0000000000000000", "Read-only file system"} {
+	// The jail's own /proc keeps kernel settings and logs out of reach (the
+	// unit leaves that to it, see jailCovers).
+	if strings.Contains(out, "SYSCTL-WRITTEN") {
+		t.Error("the jailed session changed a kernel setting")
+	}
+	for _, want := range []string{"terma", "terma.test", "NoNewPrivs:\t1", "CapBnd:\t0000000000000000", "CapEff:\t0000000000000000", "Read-only file system", "/proc/kmsg: Permission denied"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("jailed session lacks %q", want)
 		}

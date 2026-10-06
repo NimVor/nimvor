@@ -19,7 +19,7 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
   const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
   const page = await ctx.newPage();
   const errors = [];
-  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  page.on('pageerror', e => errors.push('pageerror: ' + e.message + ' (' + page.url() + ')\n' + (e.stack || '')));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   const step = (s) => console.log('STEP', s);
   const flash = async () => ((await page.$('.alert-success, .alert-danger')) ? (await page.textContent('.alert-success, .alert-danger')).trim() : '');

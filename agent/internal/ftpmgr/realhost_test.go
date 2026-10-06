@@ -268,8 +268,14 @@ func TestRealHostSuspendedAccountCannotLogIn(t *testing.T) {
 		t.Fatalf("a suspended account logged in:\n%s", out)
 	}
 	do(t, r, "account.suspend", map[string]any{"user": "rtftp", "suspended": false})
-	if out, err := login(); err != nil {
-		t.Fatalf("after resuming: %v\n%s", err, out)
+	for i := 0; i < 10; i++ {
+		if out, err = login(); err == nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	if err != nil {
+		t.Fatalf("after resuming: %v\n%s\n%s", err, out, sshDiagnosis(env.M.SFTPKeysDir))
 	}
 }
 

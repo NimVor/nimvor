@@ -12,7 +12,7 @@ const JOB = 'abcdef0123456789';
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   const errors = [];
-  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  page.on('pageerror', e => errors.push('pageerror: ' + e.message + ' (' + page.url() + ')\n' + (e.stack || '')));
   const step = (s) => console.log('STEP', s);
   // Bootstrap ignores Escape while the window is still fading in.
   const opened = async () => { await page.waitForSelector('#wcp-job.show'); await page.waitForTimeout(400); };

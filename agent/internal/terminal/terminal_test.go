@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
 )
 
@@ -108,6 +109,21 @@ func TestSystemdArgs(t *testing.T) {
 	} {
 		if !strings.Contains(a, want) {
 			t.Errorf("missing %q in\n%s", want, a)
+		}
+	}
+	if !strings.Contains(a, "--property=ProtectKernelTunables=yes") {
+		t.Error("a normal shell lost ProtectKernelTunables")
+	}
+	// A jailed session leaves /proc's covers to its jail (it needs its own
+	// /proc); everything else stays.
+	s.Mode = ftpmgr.ShellJailed
+	ja := strings.Join(SystemdArgs(s), "\n")
+	if strings.Contains(ja, "ProtectKernelTunables") || strings.Contains(ja, "ProtectKernelLogs") {
+		t.Errorf("jailed session keeps /proc covers:\n%s", ja)
+	}
+	for _, want := range []string{"--property=NoNewPrivileges=yes", "--property=CapabilityBoundingSet=", "--property=ProtectSystem=full", "--property=ProtectControlGroups=yes", "--slice=whacp-acct7.slice"} {
+		if !strings.Contains(ja, want) {
+			t.Errorf("jailed session lacks %q", want)
 		}
 	}
 	root := Spec{ID: "0123456789abcdef", User: "root", Mode: ModeRoot, Program: "/bin/bash", Args: []string{"-l"}, Home: "/root", TTY: "/dev/pts/1", Max: time.Hour}

@@ -680,9 +680,13 @@ func SystemdArgs(s Spec) []string {
 			a = append(a, "--property=SupplementaryGroups="+strings.Join(g, " "))
 		}
 		for _, p := range execx.TransientHardening() {
-			if !strings.HasPrefix(p, "KillMode=") && !strings.HasPrefix(p, "TimeoutStopSec=") {
-				a = append(a, "--property="+p)
+			if strings.HasPrefix(p, "KillMode=") || strings.HasPrefix(p, "TimeoutStopSec=") {
+				continue
 			}
+			if s.Mode == ftpmgr.ShellJailed && jailCovers(p) {
+				continue
+			}
+			a = append(a, "--property="+p)
 		}
 		if s.Slice != "" {
 			a = append(a, "--slice="+s.Slice)
@@ -694,6 +698,22 @@ func SystemdArgs(s Spec) []string {
 		tail[i] = strings.ReplaceAll(tail[i], "$", "$$")
 	}
 	return append(append(a, "--"), tail...)
+}
+
+// jailCovers: the unit settings a jailed session leaves to its bubblewrap
+// jail. ProtectKernelTunables and ProtectKernelLogs cover parts of /proc
+// with read-only or empty mounts; the kernel then refuses the jail its own
+// /proc ("bwrap: Can't mount proc on /newroot/proc: Operation not
+// permitted": a new proc mount needs a fully visible /proc). The jail gives
+// the shell a fresh /proc of its own PID namespace, in which bubblewrap
+// itself mounts /proc/sys, /proc/sysrq-trigger, /proc/irq and /proc/bus
+// read-only, and the account (no capabilities, no_new_privs, mapped to its
+// own UID) cannot write kernel settings or read /proc/kmsg (root only) in
+// any case. Every other setting (NoNewPrivileges, the empty capability
+// bounding set, ProtectSystem, ProtectControlGroups, the account's slice
+// limits) stays on the unit.
+func jailCovers(p string) bool {
+	return strings.HasPrefix(p, "ProtectKernelTunables=") || strings.HasPrefix(p, "ProtectKernelLogs=")
 }
 
 // systemdSpawn starts a session's unit.

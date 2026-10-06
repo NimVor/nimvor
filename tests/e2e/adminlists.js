@@ -16,7 +16,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
   const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
   const page = await ctx.newPage();
   const errors = [];
-  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  page.on('pageerror', e => errors.push('pageerror: ' + e.message + ' (' + page.url() + ')\n' + (e.stack || '')));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   const step = (s) => console.log('STEP', s);
   page.on('framenavigated', f => { if (f === page.mainFrame() && process.env.E2E_DEBUG) { console.log('NAV', f.url()); } });

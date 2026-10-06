@@ -18,7 +18,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
   const browser = await chromium.launch();
   const page = await (await browser.newContext({ viewport: { width: 1300, height: 900 } })).newPage();
   const errors = [];
-  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  page.on('pageerror', e => errors.push('pageerror: ' + e.message + ' (' + page.url() + ')\n' + (e.stack || '')));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   const step = s => console.log('STEP', s);
   const stamp = Date.now().toString(36);

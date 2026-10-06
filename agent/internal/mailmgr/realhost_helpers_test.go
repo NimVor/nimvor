@@ -3,6 +3,7 @@
 package mailmgr
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -61,4 +62,21 @@ func postfixStart() ([]byte, error) {
 		return exec.Command("systemctl", "restart", "postfix").CombinedOutput()
 	}
 	return exec.Command("postfix", "start").CombinedOutput()
+}
+
+// mailDiagnosis: why Postfix did not consult a policy service (its log,
+// the restrictions, the socket and SELinux denials).
+func mailDiagnosis(socket string) string {
+	var b strings.Builder
+	for _, c := range [][]string{
+		{"sh", "-c", "postconf mynetworks smtpd_recipient_restrictions smtpd_relay_restrictions authorized_submit_users inet_interfaces"},
+		{"sh", "-c", "ls -lZ /var/spool/postfix/private/" + socket + " 2>&1 || ls -l /var/spool/postfix/private/" + socket},
+		{"journalctl", "--no-pager", "-n", "25", "--since", "-3min", "-t", "postfix/smtpd", "-t", "postfix/postdrop", "-t", "postfix/pickup", "-t", "postfix/cleanup", "-t", "postfix/master"},
+		{"journalctl", "--no-pager", "-n", "15", "--since", "-3min", "-u", socket + ".service", "-u", socket + ".socket"},
+		{"sh", "-c", "command -v ausearch >/dev/null && ausearch -m AVC -ts recent 2>&1 | tail -20"},
+	} {
+		out, _ := exec.Command(c[0], c[1:]...).CombinedOutput()
+		fmt.Fprintf(&b, "$ %s\n%s\n", strings.Join(c, " "), strings.TrimSpace(string(out)))
+	}
+	return b.String()
 }

@@ -7,6 +7,17 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Web terminal with a jailed shell** failed to start the jail ("bwrap:
+  Can't mount proc"). Two of the session unit's /proc protections stopped
+  the jail from mounting its own /proc. A jailed session now leaves those
+  two to the jail. Inside the jail, `/proc/sys` is read-only and kernel
+  logs are root-only. The CI test checks both. Every other setting
+  (no_new_privs, no capabilities, ProtectSystem, the account's limits)
+  stays on the session unit.
+- **opendkim and other EPEL packages on Rocky/Alma** failed with "nothing
+  provides libmilter…". WhaCP now enables CRB, which EPEL's packages need,
+  and tries again. If it still fails, it names the repository that
+  provides the missing library.
 - **Updating left the old agent running.** If Go was not found, the
   installer used to install the outdated `dist/whacp-agent` after a
   `git pull`. It now stops and asks for `--install-deps`. The agent's
