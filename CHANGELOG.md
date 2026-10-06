@@ -7,6 +7,14 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Webmail and PHP websites answered 502 on Rocky/Alma when a Remi PHP
+  version had been installed without its SELinux setup.** This happened
+  when its install scripts failed, for example under the older agent. Its
+  PHP-FPM then ran outside the web server's SELinux domain, and SELinux
+  refused nginx the socket (`connect() ... (13: Permission denied)`). Before
+  loading PHP-FPM, WhaCP now checks the version's SELinux labels. If they
+  are missing, it records the same rules Remi's scripts would have,
+  relabels the files and restarts PHP-FPM.
 - **Webmail and PHP websites on Rocky/Alma with only Remi's PHP:** WhaCP
   never created `/run/php-fpm`, where its PHP-FPM pools put their sockets.
   Without RHEL's own php-fpm package the folder did not exist, so the pool

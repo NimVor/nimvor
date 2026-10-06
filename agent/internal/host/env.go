@@ -332,12 +332,21 @@ func (e *Env) ReloadNginx(ctx context.Context) error {
 	return e.Systemctl(ctx, "reload", e.M.NginxUnit)
 }
 
+// PrepareFPM, when set (by package selinux), repairs what a PHP-FPM
+// version needs before it is (re)loaded; true: it changed something that
+// takes a restart, not a reload.
+var PrepareFPM func(ctx context.Context, e *Env, v string) bool
+
 // ReloadFPM reloads (or starts) PHP-FPM for version v after a config test.
 func (e *Env) ReloadFPM(ctx context.Context, v string) error {
 	if err := e.FPMTest(ctx, v); err != nil {
 		return err
 	}
 	unit := e.M.FPMUnit(v)
+	if PrepareFPM != nil && PrepareFPM(ctx, e, v) && e.UnitActive(ctx, unit) {
+		// A reload keeps the old process (and its SELinux domain).
+		return e.Systemctl(ctx, "restart", unit)
+	}
 	if e.UnitActive(ctx, unit) {
 		return e.Systemctl(ctx, "reload", unit)
 	}
