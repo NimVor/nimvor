@@ -83,6 +83,22 @@ final class SslCenterController extends Controller
         return $this->page('hosts', ['hosts' => (array) ($store['hosts'] ?? []), 'sites' => $this->sitesByName($request), 'renewal' => $renewal, 'autoSsl' => $this->settings->bool('auto_ssl')], $error);
     }
 
+    /** Turns on certbot's renewal timer (EPEL's package leaves it off). */
+    public function enableRenewal(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        try {
+            $st = (array) $this->agent->call('ssl.renewal_enable', [], 60);
+        } catch (UserFacingException $e) {
+            $this->audit->record('ssl.renewal_enable', 'server', 'certbot', AuditLogger::FAILURE, ['error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/ssl/hosts', $e);
+        }
+        $this->audit->record('ssl.renewal_enable', 'server', 'certbot', AuditLogger::SUCCESS, ['method' => (string) ($st['method'] ?? '')]);
+        return $this->redirectWithSuccess('/ssl/hosts', 'Automatic renewal of Let\'s Encrypt certificates is on (' . (string) ($st['method'] ?? '') . ').');
+    }
+
     public function certificates(Request $request): Response
     {
         if ($r = $this->denied($request)) {
@@ -220,5 +236,68 @@ final class SslCenterController extends Controller
         $this->audit->record('ssl.tls', 'server', 'nginx', AuditLogger::SUCCESS, $profile);
         $moved = (int) ($res['migrated_vhosts'] ?? 0);
         return $this->redirectWithSuccess('/ssl/tls', 'TLS configuration applied and Nginx reloaded.' . ($moved > 0 ? ' ' . $moved . ' website configuration(s) now use it.' : ''));
+    }
+
+    /** Certificates and TLS of the panel, the mail server and the host name. */
+    public function services(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $error = null;
+        $svc = $this->call('ssl.services', [], $error);
+        return $this->page('services', ['svc' => $svc], $error);
+    }
+
+    public function serviceCert(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $service = $request->string('service');
+        $name = $request->string('cert_name');
+        try {
+            $this->agent->call('ssl.service_cert', ['service' => $service, 'cert_name' => $name], 120);
+        } catch (UserFacingException $e) {
+            $this->audit->record('ssl.service_cert', 'server', $service, AuditLogger::FAILURE, ['cert_name' => $name, 'error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/ssl/services', $e);
+        }
+        $this->audit->record('ssl.service_cert', 'server', $service, AuditLogger::SUCCESS, ['cert_name' => $name]);
+        $label = $service === 'panel' ? 'The panel' : 'The mail server';
+        return $this->redirectWithSuccess('/ssl/services', $name === '' ? $label . ' uses its previous certificate again.' : $label . ' now uses the certificate ' . $name . '.' . ($service === 'panel' ? ' Reload the page if the browser still shows the old one.' : ''));
+    }
+
+    public function mailTls(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $profile = ['protocols' => $request->string('protocols'), 'ciphers' => $request->string('ciphers')];
+        try {
+            $this->agent->call('ssl.mail_tls', $profile, 120);
+        } catch (UserFacingException $e) {
+            $this->audit->record('ssl.mail_tls', 'server', 'mail', AuditLogger::FAILURE, $profile + ['error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/ssl/services', $e);
+        }
+        $this->audit->record('ssl.mail_tls', 'server', 'mail', AuditLogger::SUCCESS, $profile);
+        return $this->redirectWithSuccess('/ssl/services', 'The mail server\'s TLS configuration was applied; Postfix and Dovecot were reloaded.');
+    }
+
+    public function hostnameIssue(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        // Expiry notices go to the administrator who asked.
+        $email = (string) ($this->user($request)['email'] ?? '');
+        $email = filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? $email : '';
+        try {
+            $res = (array) $this->agent->call('ssl.hostname_issue', ['email' => $email], 300);
+        } catch (UserFacingException $e) {
+            $this->audit->record('ssl.hostname_issue', 'server', 'hostname', AuditLogger::FAILURE, ['error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/ssl/services', $e);
+        }
+        $this->audit->record('ssl.hostname_issue', 'server', 'hostname', AuditLogger::SUCCESS);
+        return $this->redirectWithSuccess('/ssl/services', 'Let\'s Encrypt issued a certificate for the host name. Use it for the panel and the mail server below.');
     }
 }

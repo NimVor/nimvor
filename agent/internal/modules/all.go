@@ -21,6 +21,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/modsec"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/netmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/procmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/quota"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/redismgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/security"
@@ -73,5 +74,6 @@ func All() []Module {
 		adopt.Register,
 		phpmgr.Register,
 		services.Register,
+		procmgr.Register,
 	}
 }

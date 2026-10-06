@@ -56,7 +56,11 @@ final class Navigation
             ],
             'Operations' => [
                 ['Backups', 'archive', 'backups', P::BACKUPS_VIEW, '/backups', 'Backups, schedules and destinations'],
-                ['Monitoring', 'activity', 'monitoring', P::MONITORING_VIEW, '/monitoring', 'Metrics history and alerts'],
+                ['Monitoring', 'activity', 'monitoring', P::MONITORING_VIEW, '/monitoring', 'Metrics history, live statistics and processes', [
+                    ['History and alerts', 'monitoring', P::MONITORING_VIEW],
+                    ['Live', 'monitoring.live', P::MONITORING_VIEW],
+                    ['Processes', 'monitoring.processes', P::MONITORING_VIEW, [], ['/monitoring/processes']],
+                ]],
                 ['Notifications', 'bell', 'notifications', P::NOTIFICATIONS_VIEW, '/notifications', 'What happened and what failed'],
                 ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs', 'Web server, PHP and system logs'],
             ],

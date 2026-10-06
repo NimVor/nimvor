@@ -34,9 +34,11 @@ final class ServerController extends Controller
         }
         $settings = null;
         $timezones = [];
+        $graphical = null;
         try {
             $settings = (array) $this->agent->call('server.settings');
             $timezones = (array) $this->agent->call('server.timezones');
+            $graphical = (array) $this->agent->call('server.graphical');
         } catch (AgentException) {
         }
         return $this->render('server/index', [
@@ -45,6 +47,7 @@ final class ServerController extends Controller
             'firewall' => (array) $firewall,
             'settings' => $settings,
             'timezones' => $timezones,
+            'graphical' => $graphical,
         ]);
     }
 

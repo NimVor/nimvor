@@ -9,7 +9,10 @@ import (
 	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"math/big"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -75,5 +78,44 @@ func TestDeleteRefusedWhileReferenced(t *testing.T) {
 	a, _ := r.Lookup("ssl.delete")
 	if _, err := a.Handler(context.Background(), json.RawMessage(`{"cert_name":"example.com"}`)); err == nil || !strings.Contains(err.Error(), "still used") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// EPEL's certbot installs certbot-renew.timer without enabling it: the
+// status says so, and turning it on enables that timer by name.
+func TestRenewalTimerRHEL(t *testing.T) {
+	h := testhost.New(t)
+	active := map[string]bool{}
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		if id == "systemctl" && len(args) > 2 && args[0] == "is-active" {
+			if active[args[2]] {
+				return "active", nil, true
+			}
+			return "inactive", errors.New("exit status 3"), true
+		}
+		if id == "systemctl" && len(args) == 4 && args[0] == "enable" {
+			active[args[3]] = true
+		}
+		return "", nil, false
+	}
+	os.Remove(filepath.Join(h.Base, "etc/cron.d/certbot"))
+	os.MkdirAll(filepath.Join(h.Base, "usr/lib/systemd/system"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "usr/lib/systemd/system/certbot-renew.timer"), []byte("[Timer]\n"), 0o644)
+	st := RenewalStatus(context.Background(), h.Env)
+	if st["timer_active"] != false || st["can_enable"] != true {
+		t.Fatalf("before: %v", st)
+	}
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	a, _ := r.Lookup("ssl.renewal_enable")
+	out, err := a.Handler(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !h.Runner.Called("systemctl enable --now -- certbot-renew.timer") {
+		t.Fatalf("calls: %v", h.Runner.Calls)
+	}
+	if m := out.(map[string]any); m["timer_active"] != true || m["method"] != "certbot-renew.timer" {
+		t.Fatalf("after: %v", m)
 	}
 }

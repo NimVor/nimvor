@@ -16,9 +16,10 @@ $groups = Navigation::visible($this);
         <div class="wcp-mode-pill is-offline" title="The WhaCP agent is not reachable."><i class="bi bi-plug"></i> Agent offline</div>
     <?php elseif (empty($st['write_enabled'])): ?>
         <div class="wcp-mode-pill" title="The agent is in read-only mode: WhaCP observes the server but does not change it."><i class="bi bi-eye"></i> Read-only mode</div>
-    <?php else: ?>
-        <div class="wcp-mode-pill is-write" title="The agent may apply changes. Every change is validated, backed up and audited."><i class="bi bi-pencil-square"></i> Write mode</div>
     <?php endif; ?>
+    <button class="wcp-search-trigger wcp-sidebar-search" type="button" data-bs-toggle="modal" data-bs-target="#wcp-palette" aria-label="Search tools (Ctrl+K)">
+        <i class="bi bi-search" aria-hidden="true"></i><span>Search tools…</span><kbd>Ctrl K</kbd>
+    </button>
     <div class="wcp-nav">
         <?php foreach ($groups as $group => $visible): ?>
             <div class="wcp-nav-group"><?= e($group) ?></div>

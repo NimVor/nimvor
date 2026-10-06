@@ -540,6 +540,44 @@
         if (auto) { WhaCP.showJob(auto.getAttribute('data-wcp-autojob')); }
     });
 
+    // Top bar: the server's load averages, every 30 seconds while the tab is
+    // visible (passive: an idle session still times out), and the update
+    // button when a newer WhaCP was found.
+    document.addEventListener('DOMContentLoaded', function () {
+        var link = document.querySelector('[data-wcp-topbar-load]');
+        if (!link) { return; }
+        var text = link.querySelector('span');
+        var upd = document.querySelector('[data-wcp-topbar-update]');
+        setInterval(function () {
+            if (document.hidden) { return; }
+            WhaCP.fetchJson(link.getAttribute('data-wcp-topbar-load')).then(function (res) {
+                if (res.load && res.load.length === 3) {
+                    text.textContent = res.load.map(function (v) { return Number(v).toFixed(2); }).join(' ');
+                }
+                if (upd) { upd.classList.toggle('d-none', !res.update); }
+            }).catch(function () { /* keep the last values */ });
+        }, 30000);
+    });
+
+    // WhaCP update page: follow the update's output while it runs. The
+    // panel restarts during the update, so failed requests are retried.
+    document.addEventListener('DOMContentLoaded', function () {
+        var log = document.querySelector('[data-wcp-update-log]');
+        if (!log || log.getAttribute('data-running') !== '1') { return; }
+        var state = document.querySelector('[data-wcp-update-state]');
+        var timer = setInterval(function () {
+            WhaCP.fetchJson(log.getAttribute('data-wcp-update-log')).then(function (res) {
+                if (!res.success) { return; }
+                if (res.log) { log.textContent = res.log; log.scrollTop = log.scrollHeight; }
+                if (!res.running) {
+                    clearInterval(timer);
+                    if (state) { state.textContent = res.result === 'success' ? 'finished' : (res.result || 'stopped'); }
+                    WhaCP.toast(res.result === 'success' ? 'WhaCP was updated. Reload the page to use the new version.' : 'The update stopped: ' + (res.result || 'see the output'), res.result === 'success' ? 'success' : 'danger');
+                }
+            }).catch(function () { /* the panel is restarting */ });
+        }, 3000);
+    });
+
     // Notification bell: refresh the unread count every minute while the
     // tab is visible. The request does not count as activity, so an idle
     // session still times out.

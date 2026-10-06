@@ -185,6 +185,17 @@ final class SystemController extends Controller
         });
     }
 
+    /** The graphical login screen (GDM and the like): off or on again. */
+    public function graphical(Request $request): Response
+    {
+        return $this->act('/server', function () use ($request): string {
+            $on = $request->input('enabled') === '1';
+            $this->agent->call('server.graphical_set', ['enabled' => $on], 60);
+            $this->audit->record('server.graphical', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['enabled' => $on]);
+            return $on ? 'The graphical login screen is on again.' : 'The graphical login screen is off; the server boots to the text console.';
+        });
+    }
+
     public function reboot(Request $request): Response
     {
         return $this->act('/server', function () use ($request): string {

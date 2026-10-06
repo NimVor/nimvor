@@ -253,6 +253,10 @@ paths:
               - php.install
               - php.modules
               - php.set_enabled
+              - processes.kill_user
+              - processes.list
+              - processes.signal
+              - processes.trace
               - protect.hotlink
               - protect.password
               - protect.status
@@ -277,6 +281,8 @@ paths:
               - security.hide_processes
               - security.pending
               - security.undo
+              - server.graphical
+              - server.graphical_set
               - server.reboot
               - server.reboot_cancel
               - server.root_password
@@ -285,6 +291,7 @@ paths:
               - server.settings
               - server.timezones
               - services.control
+              - services.restart_all
               - services.status
               - sftp.configure
               - shell.set
@@ -307,13 +314,18 @@ paths:
               - ssl.custom
               - ssl.custom_delete
               - ssl.delete
+              - ssl.hostname_issue
               - ssl.inspect
               - ssl.issue
               - ssl.key
               - ssl.key_delete
               - ssl.keys
+              - ssl.mail_tls
               - ssl.renew
+              - ssl.renewal_enable
               - ssl.renewal_status
+              - ssl.service_cert
+              - ssl.services
               - ssl.store
               - ssl.tls_get
               - ssl.tls_set
@@ -330,6 +342,8 @@ paths:
               - terminal.status
               - whacp.restart
               - whacp.services
+              - whacp.update
+              - whacp.update_status
               - wordpress.copy
               - wordpress.info
               - wordpress.login
@@ -641,6 +655,10 @@ x-whacp-actions:
   php.install: { mutating: true, description: "Install a PHP version (FPM, CLI and common extensions) with the package manager." }
   php.modules: { mutating: false, description: "Loaded modules of a PHP version." }
   php.set_enabled: { mutating: true, description: "Start and enable, or stop and disable, the FPM service of a PHP version." }
+  processes.kill_user: { mutating: true, description: "Send a signal (TERM or KILL) to every process of one account (never root or WhaCP's own account)." }
+  processes.list: { mutating: false, description: "Every process: owner, priority, CPU and memory use, command line, executable and listening ports, and why a process looks suspicious (miners, deleted or temporary programs, fake kernel threads, shells listening on a port)." }
+  processes.signal: { mutating: true, description: "Send a signal (TERM, KILL, HUP, STOP, CONT) to one process; start (from processes.list) makes sure it is still the same process." }
+  processes.trace: { mutating: false, description: "One process in detail: executable, folders, open files, status, and (when strace is installed) its system calls for five seconds." }
   protect.hotlink: { mutating: true, description: "Turn hotlink protection of a website on or off: its images and media are only served to its own pages, direct visits and the allowed sites. Checked with nginx -t, rolled back on failure." }
   protect.password: { mutating: true, description: "Turn password protection (HTTP basic authentication) of a website path on or off. The password is stored only as a SHA-512 crypt hash. Checked with nginx -t, rolled back on failure." }
   protect.status: { mutating: false, description: "A website's protection: password-protected paths (user names only), hotlink protection and WordPress web server rules." }
@@ -665,6 +683,8 @@ x-whacp-actions:
   security.hide_processes: { mutating: true, description: "Mount /proc with hidepid=2 (each account sees only its own processes; members of whacp-proc see all), kept in /etc/fstab; or turn it off." }
   security.pending: { mutating: false, description: "The security change awaiting confirmation, if any." }
   security.undo: { mutating: true, description: "Roll back the pending firewall/SSH change now." }
+  server.graphical: { mutating: false, description: "Whether the graphical login screen (GDM, LightDM, SDDM) runs, and the default boot target." }
+  server.graphical_set: { mutating: true, description: "Turn the graphical login screen off (boot to the text console, stop the display manager) or on again." }
   server.reboot: { mutating: true, description: "Schedule a restart (requires the host name as confirmation)." }
   server.reboot_cancel: { mutating: true, description: "Cancel a scheduled restart." }
   server.root_password: { mutating: true, description: "Set the root password. It is hashed (SHA-512 crypt) in the agent and handed to chpasswd -e as a hash on standard input; it is never logged or returned." }
@@ -673,6 +693,7 @@ x-whacp-actions:
   server.settings: { mutating: false, description: "Host name, time zone, clock synchronisation and restart state." }
   server.timezones: { mutating: false, description: "Available time zones." }
   services.control: { mutating: true, description: "Start, stop, restart, reload, enable or disable an allowlisted service." }
+  services.restart_all: { mutating: true, description: "Restart every running service WhaCP manages (databases and caches, PHP-FPM, mail, DNS, FTP, Nginx last; never SSH), then WhaCP's agent and panel. Runs as a job." }
   services.status: { mutating: false, description: "Status of core services and PHP-FPM units." }
   sftp.configure: { mutating: true, description: "Turn SFTP access on or off for a website's system user: confined to the websites root (starting in its folder), SFTP only, with keys and/or a password. Validated with sshd -t, verified with sshd -T, rolled back on failure." }
   shell.set: { mutating: true, description: "Set the shell access of website accounts: disabled (SFTP only), jailed (a bubblewrap sandbox with only the account's website folder writable) or normal (/bin/bash). Applies while an account's SSH/SFTP login is on. Validated with sshd -t, verified with sshd -T, rolled back on failure." }
@@ -695,13 +716,18 @@ x-whacp-actions:
   ssl.custom: { mutating: true, description: "Install an uploaded certificate and private key after validating them." }
   ssl.custom_delete: { mutating: true, description: "Delete an uploaded (or installed from a server-made key) certificate and its key copy that no Nginx configuration uses." }
   ssl.delete: { mutating: true, description: "Delete a certbot certificate that no WhaCP site uses any more." }
+  ssl.hostname_issue: { mutating: true, description: "Obtain a Let's Encrypt certificate for the server's host name (an Nginx site answers the challenge on port 80 when no website uses the name). Use it for the panel or the mail server afterwards." }
   ssl.inspect: { mutating: false, description: "Details of a certificate file used by a site." }
   ssl.issue: { mutating: true, description: "Issue or expand a Let's Encrypt certificate (webroot)." }
   ssl.key: { mutating: false, description: "One key made on the server: its CSR and self-signed certificate (PEM) and details; never the private key." }
   ssl.key_delete: { mutating: true, description: "Delete a stored key with its CSR and self-signed certificate. Certificates already installed keep their own copy of the key." }
   ssl.keys: { mutating: false, description: "Private keys made on the server, with whether each has a CSR and a self-signed certificate; the keys themselves are never returned." }
+  ssl.mail_tls: { mutating: true, description: "The mail server's TLS: protocol versions (tls12: TLS 1.2 and 1.3; tls13: TLS 1.3 only) for IMAP and submission, and ciphers (default or Mozilla intermediate). Checked, reloaded, rolled back on failure." }
   ssl.renew: { mutating: true, description: "Force renewal of a certbot certificate and reload Nginx." }
+  ssl.renewal_enable: { mutating: true, description: "Turn on certbot's renewal timer." }
   ssl.renewal_status: { mutating: false, description: "Whether automatic certificate renewal is active." }
+  ssl.service_cert: { mutating: true, description: "Use a Let's Encrypt certificate for the panel's HTTPS site or the mail server (Postfix and Dovecot), or go back to the previous one (cert_name empty). Checked (nginx -t, postfix check, doveconf), reloaded, rolled back on failure." }
+  ssl.services: { mutating: false, description: "Certificates and TLS of WhaCP's own services: the panel's HTTPS site and the mail server (Postfix and Dovecot), the server's host name and the Let's Encrypt certificates that could be used." }
   ssl.store: { mutating: false, description: "Every certificate on the server (Let's Encrypt, uploaded or made here, and others Nginx uses) with where it is used, and every host name Nginx serves with the certificate that answers for it. No private keys." }
   ssl.tls_get: { mutating: false, description: "The server-wide TLS configuration WhaCP websites and webmail use, the snippet, and how many WhaCP virtual hosts still carry their own TLS lines." }
   ssl.tls_set: { mutating: true, description: "Set the server-wide TLS configuration: writes the snippet every WhaCP virtual host includes (moving vhosts that carry their own TLS lines to the include), checks with nginx -t and reloads; restores everything if the check or reload fails." }
@@ -718,6 +744,8 @@ x-whacp-actions:
   terminal.status: { mutating: false, description: "Web terminal: whether it is enabled, whether root shells are allowed (terminal_root), and the open sessions." }
   whacp.restart: { mutating: true, description: "Restart one of WhaCP's services (key: agent, panel, scheduler, greylist, dkim, ftpd). The agent and the panel restart two seconds after answering." }
   whacp.services: { mutating: false, description: "State of WhaCP's own services (agent, panel, scheduler, greylisting, DKIM, FTP)." }
+  whacp.update: { mutating: true, description: "Update WhaCP: runs installer/update.sh of the root-owned source checkout in its own unit (output in /var/log/whacp-update.log). The agent and the panel restart during it." }
+  whacp.update_status: { mutating: false, description: "WhaCP's source checkout (commit, branch, remote), whether the panel may update it, and the last update's output." }
   wordpress.copy: { mutating: true, description: "Staging and cloning (job): clone an installation to another folder with its own database, sync files and/or the database from one installation to another, or put back a restore point. Files are copied by tar as the source and target accounts; a restore point of the target is saved before anything is replaced." }
   wordpress.info: { mutating: true, description: "Overview of a WordPress installation: versions, updates, plugins, themes, settings (WP-CLI as the website account)." }
   wordpress.login: { mutating: true, description: "One-time sign-in link for a WordPress administrator (a file that deletes itself on first use and expires after a minute)." }

@@ -4,6 +4,10 @@
 $pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('title'))) : ($panel_name ?? 'WhaCP');
 // Hosting customers: no sidebar, the brand in the top bar leads to their websites.
 $simple = $this->simpleLayout();
+// Server administrators: the server's name, system, version and load in the top bar.
+$serverAdmin = !$simple && !empty($user) && \WhaCP\Hosting\Scope::isAll($user);
+$topStatus = $serverAdmin && isset($agent_status) && is_callable($agent_status) ? $agent_status() : null;
+$topHost = (string) ($topStatus['hostname'] ?? '');
 ?>
 <!doctype html>
 <html lang="en" data-bs-theme="light">
@@ -45,13 +49,33 @@ $simple = $this->simpleLayout();
                     <div class="wcp-subtitle"><?= $this->section('subtitle') ?></div>
                 <?php endif; ?>
             </div>
+            <?php if ($serverAdmin && $topStatus !== null): $load = (array) ($topStatus['load'] ?? []); ?>
+                <dl class="wcp-topbar-server d-none d-xl-flex" aria-label="Server">
+                    <div><dt>Hostname</dt><dd class="text-truncate" title="<?= e($topHost) ?>"><?= e($topHost !== '' ? $topHost : '—') ?></dd></div>
+                    <div><dt>OS</dt><dd class="text-truncate"><?= e((string) ($topStatus['os']['pretty_name'] ?? '—')) ?></dd></div>
+                    <div><dt>WhaCP</dt><dd><?= e((string) ($app_version ?? '')) ?></dd></div>
+                    <div><dt>Load averages</dt><dd>
+                        <?php $loadText = count($load) === 3 ? implode(' ', array_map(static fn ($v): string => number_format((float) $v, 2), $load)) : '—'; ?>
+                        <?php if ($this->can(\WhaCP\Security\Permissions::MONITORING_VIEW)): ?>
+                            <a href="<?= e($this->url('monitoring.live')) ?>" title="1, 5 and 15 minutes · live monitoring" data-wcp-topbar-load="<?= e($this->url('topbar.status')) ?>"><i class="bi bi-activity me-1" aria-hidden="true"></i><span><?= e($loadText) ?></span></a>
+                        <?php else: ?><span><?= e($loadText) ?></span><?php endif; ?>
+                    </dd></div>
+                </dl>
+            <?php endif; ?>
             <div class="wcp-topbar-actions">
-                <?php if (!$simple): ?>
-                    <button class="wcp-search-trigger" type="button" data-bs-toggle="modal" data-bs-target="#wcp-palette" aria-label="Search tools (Ctrl+K)">
-                        <i class="bi bi-search" aria-hidden="true"></i><span class="d-none d-md-inline">Search tools…</span><kbd class="d-none d-md-inline">Ctrl K</kbd>
-                    </button>
-                <?php endif; ?>
                 <?= $this->section('actions') ?>
+                <?php if ($serverAdmin && $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE)): ?>
+                    <a class="btn btn-sm btn-warning<?= !empty($update_available) && is_callable($update_available) && $update_available() ? '' : ' d-none' ?>" href="<?= e($this->url('whacp.update')) ?>" title="A WhaCP update is available" aria-label="A WhaCP update is available" data-wcp-topbar-update><i class="bi bi-cloud-arrow-down"></i></a>
+                <?php endif; ?>
+                <?php if ($serverAdmin && $this->can(\WhaCP\Security\Permissions::SERVICES_MANAGE) && $this->hasRoute('services.restart_all')): ?>
+                    <form method="post" action="<?= e($this->url('services.restart_all')) ?>" class="d-flex" data-wcp-noajax data-wcp-confirm="Restart every running service now (databases, PHP, mail, DNS, FTP, Nginx; never SSH), then WhaCP's agent and panel? Websites and mail pause for a few seconds.">
+                        <?= $this->csrfField() ?>
+                        <button class="btn btn-sm btn-outline-secondary" type="submit" title="Restart all services" aria-label="Restart all services"><i class="bi bi-arrow-repeat"></i></button>
+                    </form>
+                <?php endif; ?>
+                <?php if ($serverAdmin && $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE) && $topHost !== ''): ?>
+                    <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#wcp-reboot" title="Restart the server" aria-label="Restart the server"><i class="bi bi-power"></i></button>
+                <?php endif; ?>
                 <?php $sw = isset($server_switcher) && is_callable($server_switcher) ? $server_switcher() : null; ?>
                 <?php if ($sw !== null && count($sw['servers']) > 1): ?>
                     <form method="post" action="<?= e($this->url('servers.switch')) ?>" class="d-flex" data-wcp-noajax>
@@ -113,6 +137,24 @@ $simple = $this->simpleLayout();
 </div>
 <?php if (!$simple): ?><?= $this->partial('partials/palette') ?><?php endif; ?>
 <?= $this->partial('partials/confirm_modal') ?>
+<?php if ($serverAdmin && $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE) && $topHost !== ''): ?>
+    <div class="modal fade" id="wcp-reboot" tabindex="-1" aria-labelledby="wcp-reboot-title" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form class="modal-content" method="post" action="<?= e($this->url('server.reboot')) ?>" data-wcp-noajax>
+                <?= $this->csrfField() ?>
+                <div class="modal-header"><h2 class="modal-title h5" id="wcp-reboot-title"><i class="bi bi-power me-1"></i>Restart the server</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-body">
+                    <p class="small">Websites, mail and the panel are unavailable until the server is back (usually 1–3 minutes). Signed-in users are warned; you can cancel on the Server page until then.</p>
+                    <div class="row g-2">
+                        <div class="col-sm-5"><label class="form-label small" for="wcp-reboot-when">When</label><select class="form-select form-select-sm" id="wcp-reboot-when" name="minutes"><option value="1">in 1 minute</option><option value="5">in 5 minutes</option><option value="30">in 30 minutes</option><option value="60">in 1 hour</option></select></div>
+                        <div class="col-sm-7"><label class="form-label small" for="wcp-reboot-confirm">Type <code><?= e($topHost) ?></code> to confirm</label><input class="form-control form-control-sm" id="wcp-reboot-confirm" name="confirm" autocomplete="off" required pattern="<?= e(preg_quote($topHost, '/')) ?>"></div>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-danger"><i class="bi bi-power me-1"></i>Restart server</button></div>
+            </form>
+        </div>
+    </div>
+<?php endif; ?>
 <?= $this->partial('partials/job_modal') ?>
 <div class="toast-container position-fixed bottom-0 end-0 p-3" id="wcp-toasts"></div>
 <script src="<?= e($this->asset('assets/vendor/bootstrap/js/bootstrap.bundle.min.js')) ?>"></script>

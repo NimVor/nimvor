@@ -32,6 +32,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/logging"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
 )
 
 var mu sync.Mutex
@@ -369,6 +370,11 @@ func Register(r *actions.Registry, he *host.Env) {
 		if he.Root.Exists(le+"/fullchain.pem") && he.Root.Exists(le+"/privkey.pem") {
 			t = tls{cert: le + "/fullchain.pem", key: le + "/privkey.pem"}
 		}
+		// A certificate chosen under SSL/TLS → Service certificates wins.
+		if c, k, ok := tlsprofile.MailCert(he); ok {
+			t = tls{cert: c, key: k}
+		}
+		mailTLS := tlsprofile.LoadMail(he)
 		// Package files are snapshotted: postconf edits them in place.
 		type snap struct {
 			path string
@@ -404,7 +410,7 @@ func Register(r *actions.Registry, he *host.Env) {
 			set.Write(t.key, k, 0o600, agentfs.RootOwner)
 		}
 		e.writeData(set, d)
-		set.Write(he.M.DovecotDropIn, []byte(renderDovecot(dovecotParams{Dir: dir, Vmail: e.M.VmailDir, Hostname: in.Hostname, VmailUID: vmail.UID, TLS: t, IPv6: hasIPv6(), V24: v24})), 0o644, agentfs.RootOwner)
+		set.Write(he.M.DovecotDropIn, []byte(renderDovecot(dovecotParams{Dir: dir, Vmail: e.M.VmailDir, Hostname: in.Hostname, VmailUID: vmail.UID, TLS: t, IPv6: hasIPv6(), V24: v24, TLSLines: mailTLS.DovecotLines()})), 0o644, agentfs.RootOwner)
 		set.Mkdir(dir+"/sieve", 0o755, agentfs.RootOwner)
 		set.Write(dir+"/sieve/spam.sieve", []byte(RenderSpamSieve(d.Spam.NoJunkDomains)), 0o644, agentfs.RootOwner)
 		if b, err := he.Root.ReadFile(he.M.DovecotAuthConf); err == nil {
@@ -422,7 +428,7 @@ func Register(r *actions.Registry, he *host.Env) {
 			if out, err := he.Runner.Run(ctx, "doveconf", "-n"); err != nil {
 				return fmt.Errorf("doveconf: %s", host.Output(out))
 			}
-			for _, kv := range postfixSettings(dir, in.Hostname, t, hasIPv6(), d.Spam.Enabled) {
+			for _, kv := range postfixSettings(dir, in.Hostname, t, hasIPv6(), d.Spam.Enabled, mailTLS) {
 				if err := e.run(ctx, "postconf", "-e", kv[0]+"="+kv[1]); err != nil {
 					return err
 				}

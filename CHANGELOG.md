@@ -7,6 +7,52 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Top bar for server administrators:** the host name, the operating
+  system, the WhaCP version and the load averages (1, 5 and 15 minutes,
+  refreshed every 30 seconds). Clicking the load opens live monitoring.
+  The tool search moved to the sidebar, above Dashboard, and the
+  "Write mode" label was removed from the sidebar. "Read-only mode" and
+  "Agent offline" are still shown there.
+- **Three top bar buttons:**
+  - **Restart all services:** every running service WhaCP manages, in
+    order: databases and caches, PHP, mail, DNS and FTP, then Nginx after a
+    configuration test, then the agent and the panel. SSH is never
+    restarted.
+  - **Restart the server:** asks for the host name; it can still be
+    cancelled on the Server page.
+  - **Update WhaCP:** shown only when a newer version exists. The scheduler
+    looks for a newer commit on GitHub every six hours (the agent itself has
+    no network access). The update page runs `installer/update.sh` in its
+    own systemd unit and shows its output while it runs; the panel and the
+    agent restart during it. It needs a recent password confirmation.
+- **Process manager (Monitoring → Processes):**
+  - Lists every process with its owner, priority, CPU and memory use,
+    running time and command line.
+  - **Trace** shows a process's program, folder, status, open files and
+    connections, and five seconds of system calls (when strace is
+    installed; it is now on the Packages page).
+  - **Stop** (TERM) and **Kill** (KILL) a single process, or every process
+    of one account. Root and WhaCP's own account are refused.
+  - **Suspicious processes** are flagged:
+    - names of known miners or backdoors, and mining pool addresses;
+    - programs deleted from disk after they started;
+    - programs run from /tmp, /var/tmp, /dev/shm or hidden folders;
+    - scripts started from temporary folders;
+    - user programs that pretend to be kernel threads;
+    - shells or interpreters of website accounts that listen on a port.
+- **SSL/TLS → Services:**
+  - Choose the certificate of the panel's HTTPS site and of the mail
+    server (Postfix and Dovecot). Each can go back to its previous
+    certificate.
+  - Get a Let's Encrypt certificate for the server's host name.
+  - Set the mail server's TLS protocols (TLS 1.2+ or TLS 1.3 only) and
+    ciphers. These settings survive a mail reconfiguration.
+  - The panel's HTTPS follows the server-wide TLS configuration once a
+    certificate is chosen.
+  - Certificate renewals reload Postfix and Dovecot too.
+- **Graphical login screen (Server page):** turn GDM, LightDM or SDDM off
+  (boot to the text console, saving GNOME Shell's 250–400 MB of memory), or
+  on again. Nothing is uninstalled.
 - **Notification bell dropdown:** clicking the bell shows the newest
   notifications. Each can be marked read without leaving the page, there is
   a "Mark all read" button, and "View all notifications" opens the full page.
@@ -67,6 +113,13 @@ All notable changes to WhaCP are documented here. The format follows
   the system's services are not affected.
 
 ### Fixed
+- **"Renewal of Let's Encrypt certificates: not scheduled" on Rocky/Alma.**
+  EPEL's certbot installs `certbot-renew.timer` but does not turn it on,
+  and WhaCP looked only for Debian's `certbot.timer`. WhaCP now turns the
+  timer on in three cases:
+  - after issuing a certificate;
+  - when the agent starts and certificates exist;
+  - from a new "Turn on renewal" button on SSL/TLS → SSL hosts.
 - **Process visibility stayed "not hidden" in the security overview** after
   it was turned on. The agent read its own mount namespace's view of /proc;
   it now reads the host's (PID 1's) mount table. A post-install test checks

@@ -1191,9 +1191,34 @@ SSL/TLS section:
   and reloaded, and restored if either step fails. Website configurations
   written by earlier versions carry their own TLS lines; the first change
   moves them to the snippet. OCSP stapling is not offered (Let's Encrypt no
-  longer runs OCSP). The panel's own HTTPS, set up by the installer, is
-  not changed here. The snippet stays when WhaCP is uninstalled, because
-  the websites still use it.
+  longer runs OCSP). The panel's own HTTPS follows this configuration once
+  a certificate is chosen for it under *Services*. The snippet stays when
+  WhaCP is uninstalled, because the websites still use it.
+- **Services**: the certificates of WhaCP's own services.
+  - **Host name:** a Let's Encrypt certificate for the server's host name.
+    Nginx answers the challenge on port 80 when no website uses the name.
+  - **Panel and mail server:** each can use any Let's Encrypt certificate,
+    or go back to the one it used before.
+    - The panel's Nginx site is checked with `nginx -t` and reloaded.
+    - For the mail server, Postfix and Dovecot are checked with
+      `postfix check` and `doveconf -n`, then reloaded.
+    - Anything that fails is restored.
+  - **Mail server TLS:** the protocols (TLS 1.2 and 1.3, or TLS 1.3 only)
+    and ciphers for IMAP and submission. Port 25 keeps accepting what
+    sending servers offer.
+  - **Kept and renewed:** both choices survive *Set up email* again.
+    Renewals reload Postfix and Dovecot as well as Nginx.
+  - **cPanel equivalents:**
+    - "Apache SSL ciphers" is the TLS configuration (Nginx serves every
+      website).
+    - "Web Services" is the panel.
+    - WhaCP has no Web Disk (WebDAV) service.
+
+Renewal: Let's Encrypt certificates are renewed by certbot's timer
+(`certbot.timer` on Debian/Ubuntu, `certbot-renew.timer` from EPEL, which
+the package leaves off). WhaCP turns the timer on after issuing a
+certificate and when the agent starts with certificates present. *SSL
+hosts* also offers a *Turn on renewal* button.
 
 Before any certificate is installed (uploaded or for a stored key), it is
 checked: the key matches, the certificate is valid now (not expired, not
@@ -1422,3 +1447,72 @@ The original files and configuration file are kept. **Undo import** on the
 website's overview restores the old configuration and removes the WhaCP
 copy. Imports are refused when the configuration file also serves other
 domains, the site is a catch-all, or the account or folder already exists.
+
+## Top bar, processes and server tools
+
+For server administrators, the top bar shows:
+- the host name, the operating system and the WhaCP version;
+- the load averages for 1, 5 and 15 minutes, refreshed every 30 seconds.
+  Clicking them opens *Monitoring → Live*.
+
+The buttons next to them:
+
+- **Restart all services** (needs *Manage services*):
+  - Restarts every running service WhaCP manages, in this order:
+    1. databases and caches;
+    2. PHP-FPM;
+    3. mail, DNS and FTP;
+    4. Nginx, only after `nginx -t` passes;
+    5. the agent and the panel.
+  - SSH is never restarted.
+  - The job's output shows which service failed, if any.
+- **Restart the server** (needs *Manage server*): type the host name to
+  confirm. A scheduled restart can be cancelled on the Server page.
+- **Update** (needs *Manage server*), shown only when a newer version
+  exists:
+  - **Finding updates:** the installer records its source folder in
+    `/etc/whacp/source.json`. Every six hours the scheduler asks GitHub for
+    the newest commit of the checkout's branch. A private repository or a
+    remote outside GitHub shows "unknown", never "up to date".
+  - **When the panel runs the update:** *WhaCP updates* runs
+    `installer/update.sh` in its own unit (`whacp-update.service`; output in
+    `/var/log/whacp-update.log`), after a recent password confirmation.
+  - **Ownership check:** it runs only when root owns the checkout, its
+    `.git`, `installer` folder and scripts, and no other account can write
+    to them, because the script runs as root. Otherwise the page shows the
+    command to run over SSH.
+
+**Monitoring → Processes** lists every process with its owner, priority
+(nice), CPU (share of one CPU over half a second) and memory use, running
+time and command line.
+- **What you can do:**
+  - **Trace** shows the program, folders, status and open files and
+    connections, plus five seconds of system calls when `strace` is
+    installed (Packages → System call tracer).
+  - **Stop** sends TERM; **Kill** sends KILL.
+  - **End all processes of an account** never accepts root or WhaCP's own
+    account.
+  - PID 1, kernel threads and the agent itself cannot be signalled.
+  - A signal is sent only if the process still has the start time the
+    page showed, so a reused process number is never hit.
+- **Suspicious processes** are highlighted:
+  - names of known cryptocurrency miners or backdoors, and mining pools;
+  - programs deleted from disk after they started;
+  - programs run from `/tmp`, `/var/tmp`, `/dev/shm` or hidden folders;
+  - scripts started from those folders;
+  - user programs that call themselves kernel threads;
+  - shells and interpreters of website accounts listening on a port.
+- **How other accounts' processes are read:** reading another account's
+  program, folder and open files needs `CAP_SYS_PTRACE`, which the agent
+  does not hold. For those details the agent runs its own binary in a
+  read-only scan mode (`whacp-agent -proc-scan` / `-proc-detail <pid>`), or
+  `strace -p <pid>`. Each runs as a transient unit with only
+  `CAP_SYS_PTRACE` and `CAP_DAC_READ_SEARCH`, and only with exactly those
+  arguments.
+
+**Server → Graphical login screen**:
+- Turns GDM, LightDM or SDDM off: the server boots to the text console and
+  GNOME Shell no longer runs. It can be turned on again; nothing is
+  uninstalled.
+- The panel and SSH are not affected.
+

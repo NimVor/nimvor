@@ -8,7 +8,7 @@
 <?php $this->start(); ?>
 <button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-live-toggle aria-pressed="false"><i class="bi bi-pause-fill me-1" aria-hidden="true"></i><span>Pause</span></button>
 <?php $this->end('actions'); ?>
-<nav class="wcp-pagetabs" aria-label="Monitoring"><a href="<?= e($this->url('monitoring')) ?>">History and alerts</a><a class="active" href="<?= e($this->url('monitoring.live')) ?>" aria-current="page">Live</a></nav>
+<nav class="wcp-pagetabs" aria-label="Monitoring"><a href="<?= e($this->url('monitoring')) ?>">History and alerts</a><a class="active" href="<?= e($this->url('monitoring.live')) ?>" aria-current="page">Live</a><a href="<?= e($this->url('monitoring.processes')) ?>">Processes</a></nav>
 <div data-wcp-live="<?= e($this->url('monitoring.live.data')) ?>">
     <p class="small text-body-secondary" data-live-status aria-live="polite">Loading…</p>
     <div class="row g-3 mb-3" data-live-tiles>

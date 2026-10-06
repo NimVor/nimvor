@@ -4,10 +4,14 @@ package modules
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/monitoring"
 )
 
 // Module is implemented by each feature package.
@@ -19,7 +23,20 @@ func Register(r *actions.Registry, env *host.Env, version string, writeEnabled b
 		Name:        "agent.status",
 		Description: "Agent version, write mode and managed layout.",
 		Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+			// The panel's top bar: host name and load on every page.
+			hostname := ""
+			if b, err := os.ReadFile(filepath.Join(env.Cfg.ProcDir, "sys/kernel/hostname")); err == nil {
+				hostname = strings.TrimSpace(string(b))
+			}
+			var load any
+			if b, err := os.ReadFile(filepath.Join(env.Cfg.ProcDir, "loadavg")); err == nil {
+				if l, err := monitoring.ParseLoadavg(b); err == nil {
+					load = []float64{l.Load1, l.Load5, l.Load15}
+				}
+			}
 			return map[string]any{
+				"hostname":      hostname,
+				"load":          load,
 				"version":       version,
 				"write_enabled": writeEnabled,
 				"os":            env.Platform.Info(),

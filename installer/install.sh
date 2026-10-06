@@ -512,6 +512,16 @@ fi
 if [[ ! -f $CONF_DIR/agent.json ]]; then
     run install -m 0640 -o root -g whacp "$SRC_DIR/installer/config/agent.json" "$CONF_DIR/agent.json"
 fi
+# Where this installation came from: the panel's update button runs
+# installer/update.sh from here (only when root owns the checkout).
+if [[ $SRC_DIR != *[\"\\]* ]]; then
+    if [[ $DRY_RUN -eq 1 ]]; then
+        echo "    [dry-run] record $SRC_DIR in $CONF_DIR/source.json"
+    else
+        printf '{"path": "%s"}\n' "$SRC_DIR" > "$CONF_DIR/source.json"
+        chmod 0644 "$CONF_DIR/source.json"
+    fi
+fi
 if [[ $AGENT_ONLY -eq 0 && ! -f $CONF_DIR/panel.php ]]; then
     run install -m 0640 -o root -g whacp "$SRC_DIR/installer/config/panel.php" "$CONF_DIR/panel.php"
 fi

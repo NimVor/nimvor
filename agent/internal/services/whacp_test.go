@@ -77,3 +77,11 @@ func TestWhacpServices(t *testing.T) {
 		t.Fatal("the panel could be stopped")
 	}
 }
+
+func TestRestartPlanOrder(t *testing.T) {
+	got := RestartPlan([]string{"sshd.service", "nginx.service", "postfix.service", "php8.3-fpm.service", "mariadb.service", "whacp-panel.service", "chronyd.service", "redis.service"})
+	want := "mariadb.service redis.service php8.3-fpm.service postfix.service nginx.service"
+	if strings.Join(got, " ") != want {
+		t.Fatalf("plan = %v", got)
+	}
+}

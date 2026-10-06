@@ -70,7 +70,7 @@ type Opts struct {
 }
 
 // PrivilegedCommands may run with Opts.Capabilities.
-var PrivilegedCommands = map[string]bool{"setquota": true, "repquota": true, "quotaon": true, "quotacheck": true, "mount": true, "sysctl": true}
+var PrivilegedCommands = map[string]bool{"setquota": true, "repquota": true, "quotaon": true, "quotacheck": true, "mount": true, "sysctl": true, "whacp-agent": true, "strace": true}
 
 // PrivilegedCapabilities are the capabilities Opts.Capabilities may name.
 var PrivilegedCapabilities = map[string]bool{"CAP_SYS_ADMIN": true, "CAP_DAC_READ_SEARCH": true, "CAP_SYS_PTRACE": true, "CAP_NET_ADMIN": true}
@@ -83,6 +83,7 @@ var (
 	sysctlSetRe   = regexp.MustCompile(`^(kernel|fs|net)\.[a-z0-9_.]{1,80}=-?[0-9]{1,10}$`)
 	remountOptRe  = regexp.MustCompile(`^(usrquota|grpquota|prjquota|usrjquota=aquota\.user|grpjquota=aquota\.group|jqfmt=vfsv[01]|hidepid=[02]|gid=[0-9]{1,10})$`)
 	mountTargetRe = regexp.MustCompile(`^/[A-Za-z0-9._/-]*$`)
+	pidRe         = regexp.MustCompile(`^[1-9][0-9]{0,9}$`)
 )
 
 // privilegedArgs: what the commands run with added capabilities may be
@@ -93,6 +94,12 @@ func privilegedArgs(id string, args []string) bool {
 	switch id {
 	case "sysctl":
 		return (len(args) == 2 && args[0] == "-p" && args[1] == SysctlFile) || (len(args) == 2 && args[0] == "-w" && sysctlSetRe.MatchString(args[1]))
+	case "whacp-agent":
+		// The process manager's read-only scan modes only.
+		return (len(args) == 1 && args[0] == "-proc-scan") || (len(args) == 2 && args[0] == "-proc-detail" && pidRe.MatchString(args[1]))
+	case "strace":
+		// Watching one process (the process manager's trace) only.
+		return len(args) == 7 && strings.Join(args[:6], " ") == "-f -tt -qq -s 200 -p" && pidRe.MatchString(args[6])
 	case "mount":
 		if len(args) != 3 || args[0] != "-o" || !strings.HasPrefix(args[1], "remount,") || !mountTargetRe.MatchString(args[2]) || strings.Contains(args[2], "..") {
 			return false
@@ -121,6 +128,9 @@ const maxOutput = 1 << 20
 var defaultCandidates = map[string][]string{
 	"systemctl":   {"/usr/bin/systemctl", "/bin/systemctl"},
 	"systemd-run": {"/usr/bin/systemd-run", "/bin/systemd-run"},
+	// The agent itself (the process manager's privileged scan).
+	"whacp-agent": {"/usr/local/bin/whacp-agent"},
+	"strace":      {"/usr/bin/strace"},
 	"journalctl":  {"/usr/bin/journalctl", "/bin/journalctl"},
 	"nginx":       {"/usr/sbin/nginx", "/usr/bin/nginx"},
 	"ip":          {"/usr/sbin/ip", "/sbin/ip", "/usr/bin/ip", "/bin/ip"},

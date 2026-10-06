@@ -31,11 +31,12 @@ final class Authenticate implements Middleware
         private readonly \WhaCP\Services\NotificationService $notifications,
         private readonly \WhaCP\Services\SettingsService $settings,
         private readonly \WhaCP\Security\PasswordPolicy $passwordPolicy,
+        private readonly ?\WhaCP\Services\UpdateCheckService $updates = null,
     ) {
     }
 
     /** Automatic requests that must not keep an idle session alive. */
-    private const PASSIVE_ROUTES = ['notifications.summary'];
+    private const PASSIVE_ROUTES = ['notifications.summary', 'topbar.status'];
 
     public function process(Request $request, callable $next): Response
     {
@@ -55,6 +56,7 @@ final class Authenticate implements Middleware
                 $this->view->share('password_rules', fn (): string => $this->passwordPolicy->describe());
                 $this->view->share('notification_count', fn (): ?int => $this->authorizer->can($user, \WhaCP\Security\Permissions::NOTIFICATIONS_VIEW)
                     ? $this->notifications->unreadCount($user) : null);
+                $this->view->share('update_available', fn (): bool => $this->updates !== null && $this->updates->available());
                 $this->view->share('server_switcher', fn (): array => [
                     'current' => $this->serverContext->id(),
                     'servers' => $this->servers->visibleTo($user),
@@ -126,6 +128,8 @@ final class Authenticate implements Middleware
         'tokens.store', 'security.policies.save',
         // SSH keys of administrators grant a root-capable login.
         'security.ssh.key_add', 'security.ssh.key_generate', 'security.ssh.key_remove',
+        // Runs the installer as root and restarts everything.
+        'whacp.update.start',
     ];
 
     /** A local path to return to ('/' when the value is not one). */

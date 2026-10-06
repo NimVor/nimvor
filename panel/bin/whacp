@@ -401,6 +401,16 @@ switch ($command) {
                     }
                 }
             }
+            // A newer WhaCP for this server (the top bar's update button).
+            if ((int) $srv['id'] === 1) {
+                $updates = $c->get(\WhaCP\Services\UpdateCheckService::class);
+                if ($updates->due()) {
+                    $u = $updates->check();
+                    if (!empty($u['available'])) {
+                        out('[' . $srv['name'] . '] a WhaCP update is available');
+                    }
+                }
+            }
             // Greylisting: trusted providers' address ranges. Asked in the
             // first ten minutes of every sixth hour; the agent reads them at
             // most once a day and only while greylisting is on.

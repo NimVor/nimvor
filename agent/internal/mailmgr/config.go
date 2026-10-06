@@ -5,6 +5,8 @@ import (
 	"net"
 	"regexp"
 	"strings"
+
+	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
 )
 
 // DKIMUnit runs OpenDKIM with WhaCP's configuration.
@@ -24,6 +26,9 @@ type dovecotParams struct {
 	IPv6                 bool
 	// V24 selects Dovecot 2.4's configuration syntax (2.3 otherwise).
 	V24 bool
+	// TLSLines: ssl_min_protocol (and ssl_cipher_list) from the mail TLS
+	// profile; empty means TLS 1.2 or later with Dovecot's ciphers.
+	TLSLines string
 }
 
 // SpamSieve files messages the spam filter marked into Junk; it runs before
@@ -54,6 +59,9 @@ if allof (header :contains "X-Spam" "Yes", not envelope :domain :is "to" [` + st
 }
 
 func renderDovecot(p dovecotParams) string {
+	if p.TLSLines == "" {
+		p.TLSLines = "ssl_min_protocol = TLSv1.2\n"
+	}
 	listen := "*, ::"
 	if !p.IPv6 {
 		listen = "*"
@@ -74,8 +82,7 @@ auth_mechanisms = plain login
 ssl = required
 ssl_cert = <%[4]s
 ssl_key = <%[5]s
-ssl_min_protocol = TLSv1.2
-
+%[9]s
 passdb {
   driver = passwd-file
   args = scheme=SHA512-CRYPT username_format=%%Lu %[1]s/users
@@ -100,7 +107,7 @@ plugin {
   quota_grace = 10%%%%
   sieve_before = %[1]s/sieve/spam.sieve
 }
-%[8]s`, p.Dir, p.Vmail, p.VmailUID, p.TLS.cert, p.TLS.key, p.Hostname, listen, dovecotCommon())
+%[8]s`, p.Dir, p.Vmail, p.VmailUID, p.TLS.cert, p.TLS.key, p.Hostname, listen, dovecotCommon(), p.TLSLines)
 }
 
 func renderDovecot24(p dovecotParams, listen string) string {
@@ -119,8 +126,7 @@ auth_mechanisms = plain login
 ssl = required
 ssl_server_cert_file = %[3]s
 ssl_server_key_file = %[4]s
-ssl_min_protocol = TLSv1.2
-
+%[8]s
 passdb passwd-file {
   passwd_file_path = %[1]s/users
   default_password_scheme = SHA512-CRYPT
@@ -154,7 +160,7 @@ sieve_script whacp-spam {
   type = before
   path = %[1]s/sieve/spam.sieve
 }
-%[7]s`, p.Dir, p.VmailUID, p.TLS.cert, p.TLS.key, p.Hostname, listen, dovecotCommon())
+%[7]s`, p.Dir, p.VmailUID, p.TLS.cert, p.TLS.key, p.Hostname, listen, dovecotCommon(), p.TLSLines)
 }
 
 // dovecotCommon holds the parts both versions write the same way.
@@ -220,13 +226,13 @@ func hasIPv6() bool {
 }
 
 // postfixSettings are applied with postconf -e.
-func postfixSettings(dir, hostname string, t tls, ipv6 bool, spam bool) [][2]string {
+func postfixSettings(dir, hostname string, t tls, ipv6 bool, spam bool, mt tlsprofile.Mail) [][2]string {
 	// Only this machine may relay without signing in (applications here).
 	nets := "127.0.0.0/8"
 	if ipv6 {
 		nets += " [::1]/128"
 	}
-	return [][2]string{
+	return append([][2]string{
 		{"myhostname", hostname},
 		// RHEL's default is localhost only.
 		{"inet_interfaces", "all"},
@@ -244,7 +250,7 @@ func postfixSettings(dir, hostname string, t tls, ipv6 bool, spam bool) [][2]str
 		{"smtpd_tls_security_level", "may"},
 		// TLS 1.2 or later. The ">=TLSv1.2" form needs Postfix 3.6; RHEL 9
 		// ships 3.5, which then disables TLS entirely.
-		{"smtpd_tls_mandatory_protocols", "!SSLv2, !SSLv3, !TLSv1, !TLSv1.1"},
+		{"smtpd_tls_mandatory_protocols", mt.PostfixMandatoryProtocols()},
 		{"smtp_tls_security_level", "may"},
 		{"smtpd_sasl_type", "dovecot"},
 		{"smtpd_sasl_path", "private/auth"},
@@ -259,7 +265,7 @@ func postfixSettings(dir, hostname string, t tls, ipv6 bool, spam bool) [][2]str
 		{"milter_protocol", "6"},
 		{"smtpd_milters", smtpdMilters(spam)},
 		{"non_smtpd_milters", fmt.Sprintf("inet:127.0.0.1:%d", dkimPort)},
-	}
+	}, mt.PostfixCiphers()...)
 }
 
 // submission is the authenticated mail submission service (port 587).

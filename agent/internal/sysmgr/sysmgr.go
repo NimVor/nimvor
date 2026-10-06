@@ -59,6 +59,7 @@ var Components = map[string]string{
 	"unzip":               "Unzip archives",
 	"rsync":               "File synchronisation",
 	"htop":                "Process viewer",
+	"strace":              "System call tracer (Process Manager → Trace)",
 	"openssh-server":      "SSH server",
 	"mariadb-client":      "MariaDB command-line client",
 	"imagemagick":         "Image processing",
@@ -190,6 +191,7 @@ func run(ctx context.Context, env *host.Env, what string, id string, args ...str
 
 // Register adds package and server-management actions.
 func Register(r *actions.Registry, env *host.Env) {
+	registerGraphical(r, env)
 	r.Register(actions.Action{Name: "packages.list", Description: "Installable components and their versions.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		caps := capabilities(ctx, env)
 		names := make([]string, 0, len(Components))

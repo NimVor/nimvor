@@ -126,3 +126,30 @@ func TestPrivilegedCommands(t *testing.T) {
 		}
 	}
 }
+
+// The process manager's privileged commands take exactly their own
+// arguments.
+func TestProcessManagerPrivilegedArgs(t *testing.T) {
+	ptrace := Opts{Capabilities: []string{"CAP_SYS_PTRACE", "CAP_DAC_READ_SEARCH"}}
+	for _, c := range []struct {
+		id   string
+		args []string
+		ok   bool
+	}{
+		{"whacp-agent", []string{"-proc-scan"}, true},
+		{"whacp-agent", []string{"-proc-detail", "4242"}, true},
+		{"whacp-agent", []string{"-proc-detail", "0"}, false},
+		{"whacp-agent", []string{"-proc-detail", "1;id"}, false},
+		{"whacp-agent", []string{"-config", "/tmp/x.json"}, false},
+		{"whacp-agent", nil, false},
+		{"strace", []string{"-f", "-tt", "-qq", "-s", "200", "-p", "4242"}, true},
+		{"strace", []string{"-f", "-tt", "-qq", "-s", "200", "-o", "/etc/passwd", "-p", "4242"}, false},
+		{"strace", []string{"-f", "-tt", "-qq", "-s", "200", "-p", "4242", "sh"}, false},
+		{"strace", []string{"sh", "-c", "id"}, false},
+	} {
+		err := checkArgs(c.id, ptrace, c.args)
+		if (err == nil) != c.ok {
+			t.Errorf("%s %v: %v", c.id, c.args, err)
+		}
+	}
+}

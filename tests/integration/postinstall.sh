@@ -180,6 +180,41 @@ runuser -u nobody -- test -e /proc/1/cmdline || fail "processes still hidden aft
 grep -q 'whacp-proc\|hidepid' /etc/fstab && fail "fstab keeps the /proc entry after the undo"
 pass "security overview: hiding processes is applied, reported and undone through the agent"
 
+# Process manager through the installed agent: the privileged scan reads
+# another account's program (a copy of sleep in /var/tmp, run as nobody, is
+# flagged), and Kill reaches it after the start time is checked.
+cp /bin/sleep /var/tmp/whacp-e2e-sleep && chmod 0755 /var/tmp/whacp-e2e-sleep
+runuser -u nobody -- /var/tmp/whacp-e2e-sleep 600 &
+SPID=$!
+sleep 1
+SPID=$(pgrep -u nobody -f whacp-e2e-sleep | head -1)
+[[ -n $SPID ]] || fail "test process did not start"
+[[ $(get /monitoring/processes) == 200 ]] || fail "process manager page"
+grep -q 'could not be read' "$J/page" && { grep -o 'could not be read.\{0,400\}' "$J/page" >&2; fail "the privileged process scan failed"; }
+grep -q 'runs a program from /var/tmp' "$J/page" || fail "the process in /var/tmp was not flagged"
+START=$(awk '{print $22}' "/proc/$SPID/stat")
+CSRF_FROM=/monitoring/processes
+post /monitoring/processes/signal "pid=$SPID" "start=$((START + 1))" signal=KILL >/dev/null
+kill -0 "$SPID" 2>/dev/null || fail "a signal with the wrong start time was sent"
+post /monitoring/processes/signal "pid=$SPID" "start=$START" signal=KILL >/dev/null
+waitfor 10 "the process was not killed" sh -c "! kill -0 $SPID 2>/dev/null"
+rm -f /var/tmp/whacp-e2e-sleep
+pass "process manager: privileged scan flags /var/tmp programs; kill checks the start time"
+[[ $(get "/monitoring/processes/trace?pid=1&start=$(awk '{print $22}' /proc/1/stat)") == 200 ]] || fail "trace of PID 1"
+grep -q 'lib/systemd/systemd' "$J/page" || fail "the trace of PID 1 does not show its program (privileged detail)"
+pass "process trace reads PID 1's details"
+
+# Top bar, SSL services and the update page render on the installed panel.
+[[ $(get /) == 200 ]] || fail "dashboard"
+grep -q 'Load averages' "$J/page" || fail "top bar without load averages"
+grep -q "$(hostname -s)" "$J/page" || fail "top bar without the host name"
+[[ $(get /ssl/services) == 200 ]] || fail "SSL services page"
+grep -q 'Mail server (SMTP, submission, IMAP)' "$J/page" || fail "SSL services page content"
+[[ $(get /whacp/update) == 200 ]] || fail "update page"
+grep -q 'Source folder' "$J/page" || fail "update page content"
+[[ -s /etc/whacp/source.json ]] || fail "the installer did not record its source folder"
+pass "top bar, SSL services and update pages"
+
 # Clean up through the panel.
 CSRF_FROM=/sites/$SITE/settings
 post "/sites/$SITE/delete" "confirm_domain=$DOMAIN" remove_files=1 remove_user=1 >/dev/null

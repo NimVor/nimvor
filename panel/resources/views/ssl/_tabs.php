@@ -1,7 +1,7 @@
 <?php
 /** @var \WhaCP\View\View $this */
 /** @var string $tab */
-$tabs = [['hosts', 'SSL hosts', 'ssl.hosts'], ['certificates', 'Certificates', 'ssl.certificates'], ['keys', 'Keys and CSRs', 'ssl.keys'], ['tls', 'TLS configuration', 'ssl.tls']];
+$tabs = [['hosts', 'SSL hosts', 'ssl.hosts'], ['certificates', 'Certificates', 'ssl.certificates'], ['keys', 'Keys and CSRs', 'ssl.keys'], ['tls', 'TLS configuration', 'ssl.tls'], ['services', 'Services', 'ssl.services']];
 ?>
 <?php $this->start(); ?>SSL/TLS<?php $this->end('title'); ?>
 <?php $this->start(); ?>Hosts, certificates, keys and TLS settings of this server<?php $this->end('subtitle'); ?>

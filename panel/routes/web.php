@@ -149,6 +149,10 @@ return static function (Router $r): void {
     $r->get('/monitoring', [MonitoringController::class, 'index'], ['name' => 'monitoring', 'permission' => P::MONITORING_VIEW]);
     $r->get('/monitoring/live', [MonitoringController::class, 'live'], ['name' => 'monitoring.live', 'permission' => P::MONITORING_VIEW]);
     $r->get('/monitoring/live.json', [MonitoringController::class, 'liveData'], ['name' => 'monitoring.live.data', 'permission' => P::MONITORING_VIEW]);
+    $r->get('/monitoring/processes', [MonitoringController::class, 'processes'], ['name' => 'monitoring.processes', 'permission' => P::MONITORING_VIEW]);
+    $r->get('/monitoring/processes/trace', [MonitoringController::class, 'trace'], ['name' => 'monitoring.processes.trace', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/monitoring/processes/signal', [MonitoringController::class, 'signal'], ['name' => 'monitoring.processes.signal', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/monitoring/processes/kill-user', [MonitoringController::class, 'killUser'], ['name' => 'monitoring.processes.kill_user', 'permission' => P::SERVER_MANAGE]);
     $r->get('/sites/{id}/apps', [AppsController::class, 'show'], ['name' => 'sites.apps', 'permission' => P::APPS_INSTALL]);
     $r->post('/sites/{id}/apps/{app}', [AppsController::class, 'install'], ['name' => 'sites.apps.install', 'permission' => P::APPS_INSTALL]);
     $r->get('/logs', [LogsController::class, 'index'], ['name' => 'logs', 'permission' => P::LOGS_VIEW]);
@@ -303,6 +307,7 @@ return static function (Router $r): void {
     $r->get('/workers', [WorkersController::class, 'index'], ['name' => 'workers', 'permission' => P::WORKERS_MANAGE]);
     $r->get('/ssl', [DiscoveryController::class, 'ssl'], ['name' => 'ssl', 'permission' => P::SSL_VIEW]);
     $r->get('/ssl/hosts', [\WhaCP\Http\Controllers\SslCenterController::class, 'hosts'], ['name' => 'ssl.hosts', 'permission' => P::SSL_VIEW]);
+    $r->post('/ssl/renewal', [\WhaCP\Http\Controllers\SslCenterController::class, 'enableRenewal'], ['name' => 'ssl.renewal.enable', 'permission' => P::SSL_MANAGE]);
     $r->get('/ssl/certificates', [\WhaCP\Http\Controllers\SslCenterController::class, 'certificates'], ['name' => 'ssl.certificates', 'permission' => P::SSL_VIEW]);
     $r->post('/ssl/certificates/delete', [\WhaCP\Http\Controllers\SslCenterController::class, 'deleteCertificate'], ['name' => 'ssl.certificates.delete', 'permission' => P::SSL_MANAGE]);
     $r->get('/ssl/keys', [\WhaCP\Http\Controllers\SslCenterController::class, 'keys'], ['name' => 'ssl.keys', 'permission' => P::SSL_VIEW]);
@@ -310,6 +315,10 @@ return static function (Router $r): void {
     $r->post('/ssl/keys', [\WhaCP\Http\Controllers\SslCenterController::class, 'createCsr'], ['name' => 'ssl.keys.create', 'permission' => P::SSL_MANAGE]);
     $r->post('/ssl/keys/install', [\WhaCP\Http\Controllers\SslCenterController::class, 'installKey'], ['name' => 'ssl.keys.install', 'permission' => P::SSL_MANAGE]);
     $r->post('/ssl/keys/delete', [\WhaCP\Http\Controllers\SslCenterController::class, 'deleteKey'], ['name' => 'ssl.keys.delete', 'permission' => P::SSL_MANAGE]);
+    $r->get('/ssl/services', [\WhaCP\Http\Controllers\SslCenterController::class, 'services'], ['name' => 'ssl.services', 'permission' => P::SSL_VIEW]);
+    $r->post('/ssl/services/cert', [\WhaCP\Http\Controllers\SslCenterController::class, 'serviceCert'], ['name' => 'ssl.services.cert', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/ssl/services/mail-tls', [\WhaCP\Http\Controllers\SslCenterController::class, 'mailTls'], ['name' => 'ssl.services.mail_tls', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/ssl/services/hostname', [\WhaCP\Http\Controllers\SslCenterController::class, 'hostnameIssue'], ['name' => 'ssl.services.hostname', 'permission' => P::SERVER_MANAGE]);
     $r->get('/ssl/tls', [\WhaCP\Http\Controllers\SslCenterController::class, 'tls'], ['name' => 'ssl.tls', 'permission' => P::SSL_VIEW]);
     $r->post('/ssl/tls', [\WhaCP\Http\Controllers\SslCenterController::class, 'saveTls'], ['name' => 'ssl.tls.save', 'permission' => P::SERVER_MANAGE]);
     $r->get('/cron', [DiscoveryController::class, 'cron'], ['name' => 'cron', 'permission' => P::CRON_VIEW]);
@@ -333,8 +342,15 @@ return static function (Router $r): void {
     $r->post('/server/hostname', [SystemController::class, 'hostname'], ['name' => 'server.hostname', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/root-password', [SystemController::class, 'rootPassword'], ['name' => 'server.root_password', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/timezone', [SystemController::class, 'timezone'], ['name' => 'server.timezone', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/server/graphical', [SystemController::class, 'graphical'], ['name' => 'server.graphical', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/reboot', [SystemController::class, 'reboot'], ['name' => 'server.reboot', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/reboot/cancel', [SystemController::class, 'cancelReboot'], ['name' => 'server.reboot_cancel', 'permission' => P::SERVER_MANAGE]);
+    // Top bar: load, restart every service, WhaCP updates.
+    $r->get('/topbar/status', [\WhaCP\Http\Controllers\TopbarController::class, 'status'], ['name' => 'topbar.status', 'permission' => P::MONITORING_VIEW]);
+    $r->post('/services/restart-all', [\WhaCP\Http\Controllers\TopbarController::class, 'restartAll'], ['name' => 'services.restart_all', 'permission' => P::SERVICES_MANAGE]);
+    $r->get('/whacp/update', [\WhaCP\Http\Controllers\TopbarController::class, 'update'], ['name' => 'whacp.update', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/whacp/update/check', [\WhaCP\Http\Controllers\TopbarController::class, 'updateCheck'], ['name' => 'whacp.update.check', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/whacp/update', [\WhaCP\Http\Controllers\TopbarController::class, 'updateStart'], ['name' => 'whacp.update.start', 'permission' => P::SERVER_MANAGE]);
 
     // Security
     $r->get('/security', [SecurityController::class, 'index'], ['name' => 'security', 'permission' => P::SECURITY_VIEW]);

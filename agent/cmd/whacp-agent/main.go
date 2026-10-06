@@ -36,8 +36,10 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/modules"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/monitoring"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/procmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sendmail"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/server"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/sslmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sysmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/terminal"
 )
@@ -79,8 +81,17 @@ func run() int {
 	checkConfig := flag.Bool("check-config", false, "validate the configuration and token, then exit")
 	showPin := flag.Bool("pin", false, "print the TLS public-key pin for remote panels (creates the certificate if needed), then exit")
 	waitFor := flag.Duration("wait-jobs", 0, "wait up to this long until the running agent has no queued or running job, then exit (0: none; 3: still running; 1: error)")
+	procScan := flag.Bool("proc-scan", false, "print every process's executable, folder and sockets as JSON, then exit (run by the agent with CAP_SYS_PTRACE)")
+	procDetail := flag.Int("proc-detail", 0, "print one process's details as JSON, then exit (run by the agent with CAP_SYS_PTRACE)")
 	flag.Parse()
 
+	if *procScan || *procDetail > 0 {
+		if err := procmgr.ScanMain("/proc", *procDetail, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
 	if *showVersion {
 		fmt.Println("whacp-agent", version)
 		return 0
@@ -193,6 +204,13 @@ func run() int {
 			// metadata blocked by default) for the current accounts.
 			if err := egress.Refresh(ctx, env); err != nil {
 				log.Warn("outgoing connection limits not applied", "error", err)
+			}
+			// Certificates exist but nothing renews them (EPEL's certbot
+			// leaves its timer off).
+			if sslmgr.HasCertificates(env) {
+				if err := sslmgr.EnsureRenewal(ctx, env); err != nil {
+					log.Warn("certificate renewal is not scheduled", "error", err)
+				}
 			}
 		}()
 	}

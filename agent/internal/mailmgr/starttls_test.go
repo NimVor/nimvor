@@ -16,6 +16,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
 )
 
 // smtpServer answers like Postfix: STARTTLS either works or is refused
@@ -75,7 +77,7 @@ func TestStartTLSCheck(t *testing.T) {
 
 // Postfix before 3.6 rejects ">=TLSv1.2" and then disables TLS entirely.
 func TestPostfixProtocolsWorkOnPostfix35(t *testing.T) {
-	for _, kv := range postfixSettings("/etc/whacp-mail", "mail.test", tls{}, false, true) {
+	for _, kv := range postfixSettings("/etc/whacp-mail", "mail.test", tls{}, false, true, tlsprofile.MailDefault) {
 		if strings.Contains(kv[1], ">=") {
 			t.Errorf("%s = %s needs Postfix 3.6", kv[0], kv[1])
 		}

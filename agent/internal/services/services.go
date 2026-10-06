@@ -35,6 +35,8 @@ func Allowed(unit string) bool {
 // Register adds services.control.
 func Register(r *actions.Registry, env *host.Env) {
 	registerWhacp(r, env)
+	registerRestartAll(r, env)
+	registerSelfUpdate(r, env)
 	r.Register(actions.Action{Name: "services.control", Mutating: true, Description: "Start, stop, restart, reload, enable or disable an allowlisted service.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Unit string `json:"unit"`

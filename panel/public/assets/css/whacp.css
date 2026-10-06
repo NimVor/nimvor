@@ -848,3 +848,16 @@ body { letter-spacing: -.003em; }
 .wcp-bell-item a:hover .small:first-child { text-decoration: underline; }
 .wcp-service-btn { color: var(--bs-secondary-color); line-height: 1; }
 .wcp-service-btn:hover { color: var(--bs-emphasis-color); }
+
+/* Top bar: the server at a glance (administrators). */
+.wcp-topbar-server { align-items: stretch; gap: 1.25rem; margin: 0; min-width: 0; flex: 0 1 auto; font-size: .8rem; }
+.wcp-topbar-server > div { min-width: 0; max-width: 14rem; }
+.wcp-topbar-server dt { font-weight: 500; font-size: .7rem; color: var(--bs-secondary-color); white-space: nowrap; }
+.wcp-topbar-server dd { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wcp-topbar-server a { text-decoration: none; font-variant-numeric: tabular-nums; }
+/* The tool search, above the menu. */
+.wcp-sidebar-search { width: calc(100% - 1rem); margin: 0 .5rem .5rem; min-width: 0; background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .12); color: var(--wcp-sidebar-muted); }
+.wcp-sidebar-search:hover { color: #fff; border-color: rgba(255, 255, 255, .3); }
+.wcp-sidebar-search kbd { margin-left: auto; background: transparent; color: var(--wcp-sidebar-muted); border-color: rgba(255, 255, 255, .15); }
+.wcp-update-log { max-height: 28rem; overflow: auto; white-space: pre-wrap; }
+.wcp-proc-cmd { max-width: 48rem; max-height: 4.5em; overflow: hidden; }

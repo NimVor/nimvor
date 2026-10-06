@@ -25,6 +25,9 @@ foreach ($hosts as $h) {
     <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
     <span>AutoSSL for new websites is <strong><?= $autoSsl ? 'on' : 'off' ?></strong>.
         Renewal of Let's Encrypt certificates: <?php if ($renewal === null): ?>unknown<?php elseif (!empty($renewal['timer_active'])): ?><span class="wcp-state is-ok">active</span> <span class="wcp-muted small">(<?= e((string) $renewal['method']) ?>)</span><?php elseif (empty($renewal['certbot_installed'])): ?><span class="wcp-state is-warn">certbot is not installed</span><?php else: ?><span class="wcp-state is-error">not scheduled</span><?php endif; ?></span>
+    <?php if ($renewal !== null && empty($renewal['timer_active']) && !empty($renewal['can_enable']) && $this->can(\WhaCP\Security\Permissions::SSL_MANAGE)): ?>
+        <form method="post" action="<?= e($this->url('ssl.renewal.enable')) ?>" class="d-inline"><?= $this->csrfField() ?><button class="btn btn-sm btn-primary">Turn on renewal</button></form>
+    <?php endif; ?>
     <?php if ($this->hasRoute('settings')): ?><a class="ms-auto" href="<?= e($this->url('settings')) ?>#ssl">AutoSSL settings</a><?php endif; ?>
 </div>
 

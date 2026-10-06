@@ -13,6 +13,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -53,6 +54,7 @@ type customReq struct {
 
 // Register adds certificate actions.
 func Register(r *actions.Registry, env *host.Env) {
+	registerServices(r, env)
 	env.Writer.Policy.Patterns = append(env.Writer.Policy.Patterns, DeployHook)
 	registerKeys(r, env)
 	registerStore(r, env)
@@ -62,47 +64,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
 		}
-		if err := validate.Domain("cert_name", in.CertName); err != nil {
-			return nil, host.Invalid(err)
-		}
-		if len(in.Names) == 0 || len(in.Names) > 100 {
-			return nil, actions.InvalidParams("names: 1–100 domain names are required")
-		}
-		if err := validate.Domains("names", in.Names); err != nil {
-			return nil, host.Invalid(err)
-		}
-		if in.Email != "" && !emailRe.MatchString(in.Email) {
-			return nil, actions.InvalidParams("email: not a valid address")
-		}
-		if !env.Runner.Available("certbot") {
-			return nil, actions.Failed("certbot is not installed. Install it on the Packages page (package: certbot).", "")
-		}
-		if err := ensureACMERoot(env); err != nil {
-			return nil, err
-		}
-		if err := ensureDeployHook(env); err != nil {
-			env.Log.Warn("could not install certbot deploy hook", "error", err)
-		}
-		args := []string{"certonly", "--webroot", "--webroot-path", env.M.ACMERoot, "--cert-name", in.CertName,
-			"--non-interactive", "--agree-tos", "--keep-until-expiring", "--expand", "--no-eff-email"}
-		if in.Email != "" {
-			args = append(args, "--email", in.Email)
-		} else {
-			args = append(args, "--register-unsafely-without-email")
-		}
-		if in.Staging {
-			args = append(args, "--staging")
-		}
-		for _, n := range in.Names {
-			args = append(args, "-d", n)
-		}
-		out, err := env.Runner.RunWith(ctx, "certbot", execx.Opts{Timeout: 4 * time.Minute}, args...)
-		if err != nil {
-			return nil, actions.Failed("Let's Encrypt did not issue the certificate. Check that every domain's DNS points to this server and that port 80 is reachable.", host.Output(out))
-		}
-		live := filepath.Join(env.M.LiveDir(), in.CertName)
-		c := ssl.Inspect(env.Root, filepath.Join(live, "fullchain.pem"), filepath.Join(live, "privkey.pem"), env.Now())
-		return map[string]any{"cert_file": c.File, "key_file": c.KeyFile, "certificate": c}, nil
+		return Issue(ctx, env, in)
 	}})
 
 	r.Register(actions.Action{Name: "ssl.renew", Mutating: true, Timeout: 5 * time.Minute, Description: "Force renewal of a certbot certificate and reload Nginx.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
@@ -209,17 +171,83 @@ func Register(r *actions.Registry, env *host.Env) {
 	}})
 
 	r.Register(actions.Action{Name: "ssl.renewal_status", Description: "Whether automatic certificate renewal is active.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
-		status := map[string]any{"certbot_installed": env.Runner.Available("certbot"), "timer_active": false, "method": "none", "deploy_hook": env.Root.Exists(DeployHook)}
-		for _, t := range []string{"certbot.timer", "snap.certbot.renew.timer"} {
-			if env.UnitActive(ctx, t) {
-				status["timer_active"], status["method"] = true, t
+		return RenewalStatus(ctx, env), nil
+	}})
+
+	r.Register(actions.Action{Name: "ssl.renewal_enable", Mutating: true, Description: "Turn on certbot's renewal timer.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		if err := EnsureRenewal(ctx, env); err != nil {
+			return nil, actions.Failed("Automatic renewal could not be turned on.", err.Error())
+		}
+		return RenewalStatus(ctx, env), nil
+	}})
+}
+
+// renewalTimers are the timers certbot packages ship: Debian/Ubuntu
+// (certbot.timer, enabled on install), EPEL (certbot-renew.timer, NOT
+// enabled on install) and the snap.
+var renewalTimers = []string{"certbot.timer", "certbot-renew.timer", "snap.certbot.renew.timer"}
+
+// RenewalStatus reports whether certbot renews certificates on its own.
+func RenewalStatus(ctx context.Context, env *host.Env) map[string]any {
+	status := map[string]any{"certbot_installed": env.Runner.Available("certbot"), "timer_active": false, "method": "none", "deploy_hook": env.Root.Exists(DeployHook), "can_enable": false}
+	for _, t := range renewalTimers {
+		if env.UnitActive(ctx, t) {
+			status["timer_active"], status["method"] = true, t
+			return status
+		}
+	}
+	if env.Root.Exists("/etc/cron.d/certbot") {
+		status["timer_active"], status["method"] = true, "/etc/cron.d/certbot"
+		return status
+	}
+	status["can_enable"] = renewalTimer(env) != ""
+	return status
+}
+
+// HasCertificates reports whether certbot manages any certificate.
+func HasCertificates(env *host.Env) bool {
+	names, err := env.Root.ReadDir(env.M.LiveDir())
+	if err != nil {
+		return false
+	}
+	for _, n := range names {
+		if n.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
+// renewalTimer is the installed certbot timer, or "".
+func renewalTimer(env *host.Env) string {
+	for _, t := range renewalTimers {
+		for _, d := range []string{"/usr/lib/systemd/system", "/lib/systemd/system", "/etc/systemd/system"} {
+			if env.Root.Exists(filepath.Join(d, t)) {
+				return t
 			}
 		}
-		if status["method"] == "none" && env.Root.Exists("/etc/cron.d/certbot") {
-			status["timer_active"], status["method"] = true, "/etc/cron.d/certbot"
-		}
-		return status, nil
-	}})
+	}
+	return ""
+}
+
+// EnsureRenewal enables and starts certbot's renewal timer when nothing
+// renews certificates yet. The timer is called by its fixed name
+// (env.Systemctl takes services only).
+func EnsureRenewal(ctx context.Context, env *host.Env) error {
+	if st := RenewalStatus(ctx, env); st["timer_active"] == true {
+		return nil
+	}
+	t := renewalTimer(env)
+	if t == "" {
+		return fmt.Errorf("no certbot renewal timer is installed (install the certbot package)")
+	}
+	if out, err := env.Runner.Run(ctx, "systemctl", "enable", "--now", "--", t); err != nil {
+		return fmt.Errorf("systemctl enable --now %s failed: %s", t, host.Output(out))
+	}
+	if err := ensureDeployHook(env); err != nil {
+		env.Log.Warn("could not install certbot deploy hook", "error", err)
+	}
+	return nil
 }
 
 func ensureACMERoot(env *host.Env) error {
@@ -232,9 +260,19 @@ func ensureACMERoot(env *host.Env) error {
 	return nil
 }
 
+// deployHookScript reloads what uses certificates after a renewal: Nginx
+// (only with a valid configuration) and the mail server, which keeps its
+// certificate in memory too.
+const deployHookScript = "#!/bin/sh\n# Managed by WhaCP: reload the services that use certificates after a renewal (Nginx only if its configuration is valid).\n" +
+	"nginx -t -q && systemctl reload nginx\n" +
+	"for u in postfix.service dovecot.service; do systemctl -q is-active \"$u\" && systemctl reload \"$u\"; done\nexit 0\n"
+
 func ensureDeployHook(env *host.Env) error {
+	if b, err := env.Root.ReadFile(DeployHook); err == nil && string(b) == deployHookScript {
+		return nil
+	}
 	set := env.Changes("certbot-hook")
-	set.Write(DeployHook, []byte("#!/bin/sh\n# Managed by WhaCP: reload Nginx after a certificate renewal, only if the configuration is valid.\nnginx -t -q && systemctl reload nginx\n"), 0o755, agentfs.RootOwner)
+	set.Write(DeployHook, []byte(deployHookScript), 0o755, agentfs.RootOwner)
 	_, err := set.Apply()
 	return err
 }
@@ -298,4 +336,56 @@ func CheckCustom(in customReq, now time.Time) (ssl.Certificate, []byte, error) {
 		return ssl.Certificate{}, nil, actions.InvalidParams("the certificate is not valid for " + in.Domain + " (it covers " + strings.Join(append([]string{info.CommonName}, info.DNSNames...), ", ") + ")")
 	}
 	return info, []byte(full), nil
+}
+
+// Issue obtains or expands a Let's Encrypt certificate (webroot) and makes
+// sure it is renewed.
+func Issue(ctx context.Context, env *host.Env, in issueReq) (map[string]any, error) {
+	if err := validate.Domain("cert_name", in.CertName); err != nil {
+		return nil, host.Invalid(err)
+	}
+	if len(in.Names) == 0 || len(in.Names) > 100 {
+		return nil, actions.InvalidParams("names: 1–100 domain names are required")
+	}
+	if err := validate.Domains("names", in.Names); err != nil {
+		return nil, host.Invalid(err)
+	}
+	if in.Email != "" && !emailRe.MatchString(in.Email) {
+		return nil, actions.InvalidParams("email: not a valid address")
+	}
+	if !env.Runner.Available("certbot") {
+		return nil, actions.Failed("certbot is not installed. Install it on the Packages page (package: certbot).", "")
+	}
+	if err := ensureACMERoot(env); err != nil {
+		return nil, err
+	}
+	if err := ensureDeployHook(env); err != nil {
+		env.Log.Warn("could not install certbot deploy hook", "error", err)
+	}
+	args := []string{"certonly", "--webroot", "--webroot-path", env.M.ACMERoot, "--cert-name", in.CertName,
+		"--non-interactive", "--agree-tos", "--keep-until-expiring", "--expand", "--no-eff-email"}
+	if in.Email != "" {
+		args = append(args, "--email", in.Email)
+	} else {
+		args = append(args, "--register-unsafely-without-email")
+	}
+	if in.Staging {
+		args = append(args, "--staging")
+	}
+	for _, n := range in.Names {
+		args = append(args, "-d", n)
+	}
+	out, err := env.Runner.RunWith(ctx, "certbot", execx.Opts{Timeout: 4 * time.Minute}, args...)
+	if err == nil {
+		// EPEL's certbot does not enable its renewal timer.
+		if rerr := EnsureRenewal(ctx, env); rerr != nil {
+			env.Log.Warn("certificate renewal is not scheduled", "error", rerr)
+		}
+	}
+	if err != nil {
+		return nil, actions.Failed("Let's Encrypt did not issue the certificate. Check that every domain's DNS points to this server and that port 80 is reachable.", host.Output(out))
+	}
+	live := filepath.Join(env.M.LiveDir(), in.CertName)
+	c := ssl.Inspect(env.Root, filepath.Join(live, "fullchain.pem"), filepath.Join(live, "privkey.pem"), env.Now())
+	return map[string]any{"cert_file": c.File, "key_file": c.KeyFile, "certificate": c}, nil
 }

@@ -139,6 +139,22 @@ $mem = $metrics['memory'] ?? [];
                     </form>
                 </div>
             <?php endif; ?>
+            <?php $graphical = (array) ($graphical ?? []); if (!empty($graphical['display_manager'])): $gOn = !empty($graphical['active']) || ($graphical['default_target'] ?? '') === 'graphical.target'; ?>
+                <div class="col-md-8" id="graphical-login">
+                    <label class="form-label d-block">Graphical login screen</label>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="wcp-state <?= $gOn ? 'is-warn' : 'is-ok' ?>"><?= $gOn ? 'on' : 'off' ?></span>
+                        <span class="small wcp-muted"><?= e((string) $graphical['display_manager']) ?><?= !empty($graphical['active']) ? ', running' : '' ?> · boots to <?= e((string) ($graphical['default_target'] ?? '?')) ?></span>
+                        <?php if ($canManage): ?>
+                            <form method="post" action="<?= e($this->url('server.graphical')) ?>" class="ms-auto" data-wcp-confirm="<?= $gOn ? 'Turn the graphical login screen off? The server then boots to the text console; anyone signed in on the screen is signed out. SSH and the panel are not affected.' : 'Turn the graphical login screen on again?' ?>">
+                                <?= $this->csrfField() ?><input type="hidden" name="enabled" value="<?= $gOn ? '0' : '1' ?>">
+                                <button class="btn btn-sm <?= $gOn ? 'btn-outline-primary' : 'btn-outline-secondary' ?>"><?= $gOn ? 'Turn off' : 'Turn on' ?></button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                    <div class="form-text">A server does not need a desktop login screen: turned off, GNOME Shell and its helpers no longer run (often 250–400 MB of memory). Nothing is uninstalled.</div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
