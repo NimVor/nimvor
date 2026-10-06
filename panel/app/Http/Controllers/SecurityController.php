@@ -24,6 +24,8 @@ final class SecurityController extends Controller
         private readonly \WhaCP\Services\SettingsService $settings,
         private readonly \WhaCP\Services\AuditLogger $audit,
         private readonly \WhaCP\Core\Config $config,
+        private readonly \WhaCP\Services\JobTracker $jobs,
+        private readonly \WhaCP\Services\ServerContext $server,
     ) {
         parent::__construct($view, $session);
     }
@@ -110,12 +112,80 @@ final class SecurityController extends Controller
     private function link(array $c): array
     {
         $links = ['firewall' => 'security.firewall', 'ssh_root' => 'security.ssh', 'ssh_password' => 'security.ssh', 'fail2ban' => 'security.fail2ban', 'updates' => 'packages', 'ssh_version' => 'packages', 'nobody_mail' => 'security.smtp', 'database_version' => 'databases.server', 'package_index' => 'packages', 'dns_recursion' => 'dns', 'database_network' => 'databases.server', 'database_remote_admin' => 'databases.server', 'database_empty_password' => 'databases.server', 'database_global_privileges' => 'databases.server', 'database_grant_option' => 'databases.server', 'database_test' => 'databases.server'];
+        $fix = (string) ($c['fix'] ?? '');
         if (($c['id'] ?? '') === 'mysql_anonymous' && ($c['status'] ?? '') === 'fail') {
             $c['action'] = ['route' => 'security.mysql_anonymous', 'label' => 'Remove anonymous users'];
+        } elseif ($fix !== '' && isset(self::FIXES[$c['id'] ?? ''][$fix])) {
+            [$label, $confirm] = self::FIXES[$c['id']][$fix];
+            $c['action'] = ['route' => 'security.fix', 'label' => $label, 'confirm' => $confirm, 'undo' => $fix === 'undo', 'params' => ['check' => $c['id'], 'op' => $fix]];
+            if (isset($links[$c['id']])) {
+                $c['link'] = $links[$c['id']];
+            }
         } elseif (isset($links[$c['id'] ?? ''])) {
             $c['link'] = $links[$c['id']];
         }
         return $c;
+    }
+
+    /** Overview checks the panel can fix (and undo): label, confirmation. */
+    private const FIXES = [
+        'kernel_settings' => [
+            'apply' => ['Apply recommended settings', 'Apply the recommended kernel security settings now? They take effect at once and after restarts; the earlier values are kept so you can undo it.'],
+            'undo' => ['Undo kernel settings', 'Put the earlier kernel settings back?'],
+        ],
+        'proc_hidepid' => [
+            'apply' => ['Hide other accounts\' processes', 'Mount /proc so that each account sees only its own processes? Root and the group whacp-proc still see all. Monitoring tools running as another account must be added to whacp-proc. Test that SSH logins and service management still work.'],
+            'undo' => ['Show all processes again', 'Let every account see all processes again?'],
+        ],
+        'auto_updates' => [
+            'apply' => ['Turn on automatic security updates', 'Install security updates automatically every day? The package for it is installed if needed. The server is never restarted automatically.'],
+            'undo' => ['Turn off automatic updates', 'Stop installing security updates automatically?'],
+        ],
+        'database_network' => [
+            'apply' => ['Accept local connections only', 'Let only programs on this server connect to the database server (bind-address 127.0.0.1)? The database server is restarted; remote database users can no longer connect.'],
+        ],
+    ];
+
+    /** Applies (or undoes) one of the FIXES. Administrators only. */
+    public function fix(Request $request): Response
+    {
+        $check = $request->string('check');
+        $op = $request->string('op');
+        return $this->act('/security', function () use ($request, $check, $op): string {
+            if (($this->user($request)['role_name'] ?? '') !== 'admin') {
+                throw new UserFacingException('Only administrators change server-wide security settings.');
+            }
+            if (!isset(self::FIXES[$check][$op])) {
+                throw new UserFacingException('Unknown fix.');
+            }
+            $undo = $op === 'undo';
+            $record = fn (array $details = []) => $this->audit->record('security.fix', 'server', $check, \WhaCP\Services\AuditLogger::SUCCESS, ['check' => $check, 'op' => $op] + $details);
+            switch ($check) {
+                case 'kernel_settings':
+                    $res = (array) $this->agent->call('security.fix_kernel', ['undo' => $undo], 60);
+                    $record(['changed' => $res['changed'] ?? []]);
+                    return $undo ? 'The earlier kernel settings are back.' : 'Recommended kernel settings applied' . (!empty($res['changed']) ? ': ' . implode(', ', array_map('strval', (array) $res['changed'])) : '') . '.';
+                case 'proc_hidepid':
+                    $this->agent->call('security.hide_processes', ['enabled' => !$undo], 60);
+                    $record();
+                    return $undo ? 'Every account sees all processes again.' : 'Each account now sees only its own processes.';
+                case 'auto_updates':
+                    $job = (string) ((array) $this->agent->call('security.auto_updates', ['enabled' => !$undo]))['job_id'];
+                    $this->jobs->track($job, $undo ? 'Turn off automatic updates' : 'Turn on automatic security updates', 'server', (string) $this->server->id(), $this->userId($request));
+                    $this->flashJob($job);
+                    $record();
+                    return $undo ? 'Turning off automatic updates…' : 'Turning on automatic security updates…';
+                case 'database_network':
+                    $remote = $this->db->fetchAll("SELECT username, host FROM database_users WHERE server_id = ? AND host NOT IN ('localhost', '127.0.0.1', '::1') ORDER BY username", [$this->server->id()]);
+                    if ($remote !== []) {
+                        throw new UserFacingException('These database users connect from other hosts: ' . implode(', ', array_map(static fn (array $r): string => $r['username'] . '@' . $r['host'], $remote)) . '. Remove them (or change their host to localhost) first, or keep remote access.');
+                    }
+                    $this->agent->call('db.server_settings', ['settings' => ['bind_address' => '127.0.0.1'], 'restart' => true], 200);
+                    $record();
+                    return 'The database server now accepts connections from this server only.';
+            }
+            throw new UserFacingException('Unknown fix.');
+        });
     }
 
     public function dropAnonymousUsers(Request $request): Response

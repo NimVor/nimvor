@@ -7,6 +7,22 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Security → Overview fixes findings with one click**, each with an undo:
+  - **Kernel security settings:** the recommended values are applied and
+    kept in `/etc/sysctl.d/90-whacp-hardening.conf`; undo puts the earlier
+    values back. On a server that routes traffic for others, redirects are
+    left on.
+  - **Process visibility:** `/proc` uses `hidepid=2`, so each account sees
+    only its own processes. Root and the group `whacp-proc` (polkit is
+    added to it) still see all processes. The setting is kept in
+    `/etc/fstab`.
+  - **Automatic security updates:** unattended-upgrades on Debian/Ubuntu.
+    On RHEL, dnf-automatic installs security updates only, uses WhaCP's own
+    configuration and never restarts the server. The package is installed
+    when missing.
+  - **Database network access:** the database server accepts local
+    connections only (bind-address 127.0.0.1, also under Databases →
+    Server). This is refused while database users connect from other hosts.
 - **Administrator SSH keys in the panel** (Security → SSH). You can add or
   remove the public keys of root and administrators (members of sudo,
   admin or wheel), so password logins can then be turned off without
@@ -43,6 +59,9 @@ All notable changes to WhaCP are documented here. The format follows
   the system's services are not affected.
 
 ### Fixed
+- **The security overview no longer lists sockets as world-writable files**
+  (for example the database server's `mysql.sock`). A socket must be
+  writable to be connected to; the service decides who may use it.
 - **Webmail and PHP websites answered 502 on Rocky/Alma when a Remi PHP
   version had been installed without its SELinux setup.** This happened
   when its install scripts failed, for example under the older agent. Its

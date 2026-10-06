@@ -190,7 +190,10 @@ func Scan(ctx context.Context, env *host.Env, owned map[string]bool, now time.Ti
 					add(&res.Caps, Finding{Path: logical, Detail: "has file capabilities, not installed by a package", Recent: recent(fi)})
 				}
 			}
-			if mode.Perm()&0o002 != 0 && under(logical, writableRoots) {
+			// Sockets need write permission to be connected to (the
+			// database server's mysql.sock): who may use the service is
+			// up to the service, not the file mode.
+			if mode.Perm()&0o002 != 0 && mode&fs.ModeSocket == 0 && under(logical, writableRoots) {
 				if d.IsDir() && mode&fs.ModeSticky != 0 {
 					return nil // e.g. a shared temporary folder
 				}
@@ -459,7 +462,10 @@ func sysctlCheck(env *host.Env) Check {
 	c := Check{ID: "kernel_settings", Title: "Kernel security settings", Severity: "medium", Status: "pass", Detail: "The kernel's security settings have the recommended values."}
 	if len(bad) > 0 {
 		c.Status, c.Detail = "warn", "Settings differ from the recommended values: "+strings.Join(bad, "; ")+"."
-		c.Remedy = "Put these lines in /etc/sysctl.d/90-hardening.conf and run sysctl --system: " + strings.Join(lines, "; ")
+		c.Remedy = "Apply the recommended values (they are kept in " + SysctlFile + " and can be undone), or put these lines in a file in /etc/sysctl.d and run sysctl --system: " + strings.Join(lines, "; ")
+		c.Fix = "apply"
+	} else if KernelFixed(env) {
+		c.Fix = "undo"
 	}
 	return c
 }

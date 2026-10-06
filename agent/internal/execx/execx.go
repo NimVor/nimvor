@@ -70,10 +70,42 @@ type Opts struct {
 }
 
 // PrivilegedCommands may run with Opts.Capabilities.
-var PrivilegedCommands = map[string]bool{"setquota": true, "repquota": true, "quotaon": true, "quotacheck": true, "mount": true}
+var PrivilegedCommands = map[string]bool{"setquota": true, "repquota": true, "quotaon": true, "quotacheck": true, "mount": true, "sysctl": true}
 
 // PrivilegedCapabilities are the capabilities Opts.Capabilities may name.
-var PrivilegedCapabilities = map[string]bool{"CAP_SYS_ADMIN": true, "CAP_DAC_READ_SEARCH": true}
+var PrivilegedCapabilities = map[string]bool{"CAP_SYS_ADMIN": true, "CAP_DAC_READ_SEARCH": true, "CAP_SYS_PTRACE": true, "CAP_NET_ADMIN": true}
+
+// SysctlFile is the only file sysctl may load with added capabilities
+// (the security overview's kernel settings).
+const SysctlFile = "/etc/sysctl.d/90-whacp-hardening.conf"
+
+var (
+	sysctlSetRe   = regexp.MustCompile(`^(kernel|fs|net)\.[a-z0-9_.]{1,80}=-?[0-9]{1,10}$`)
+	remountOptRe  = regexp.MustCompile(`^(usrquota|grpquota|prjquota|usrjquota=aquota\.user|grpjquota=aquota\.group|jqfmt=vfsv[01]|hidepid=[02]|gid=[0-9]{1,10})$`)
+	mountTargetRe = regexp.MustCompile(`^/[A-Za-z0-9._/-]*$`)
+)
+
+// privilegedArgs: what the commands run with added capabilities may be
+// given (they run as root with CAP_SYS_ADMIN): sysctl only loads WhaCP's
+// file or sets one numeric kernel value; mount only remounts with quota or
+// /proc visibility options.
+func privilegedArgs(id string, args []string) bool {
+	switch id {
+	case "sysctl":
+		return (len(args) == 2 && args[0] == "-p" && args[1] == SysctlFile) || (len(args) == 2 && args[0] == "-w" && sysctlSetRe.MatchString(args[1]))
+	case "mount":
+		if len(args) != 3 || args[0] != "-o" || !strings.HasPrefix(args[1], "remount,") || !mountTargetRe.MatchString(args[2]) || strings.Contains(args[2], "..") {
+			return false
+		}
+		for _, o := range strings.Split(strings.TrimPrefix(args[1], "remount,"), ",") {
+			if !remountOptRe.MatchString(o) {
+				return false
+			}
+		}
+		return true
+	}
+	return true
+}
 
 // Runner executes allowlisted commands.
 type Runner interface {
@@ -164,7 +196,9 @@ var defaultCandidates = map[string][]string{
 	"quotaon":    {"/usr/sbin/quotaon", "/sbin/quotaon"},
 	"quotacheck": {"/usr/sbin/quotacheck", "/sbin/quotacheck"},
 	"mount":      {"/usr/bin/mount", "/bin/mount"},
-	"grubby":     {"/usr/sbin/grubby", "/sbin/grubby"},
+	// Kernel settings of the security overview (privilegedArgs).
+	"sysctl": {"/usr/sbin/sysctl", "/sbin/sysctl"},
+	"grubby": {"/usr/sbin/grubby", "/sbin/grubby"},
 	// Building the ModSecurity connector (only as WhaCP's build account).
 	"make": {"/usr/bin/make"},
 	// SMTP restrictions: only WhaCP's own table and rules file (checkArgs).
@@ -758,6 +792,9 @@ func checkArgs(id string, o Opts, args []string) error {
 			if !PrivilegedCapabilities[c] {
 				return fmt.Errorf("%w: capability %s", ErrNotAllowed, c)
 			}
+		}
+		if !privilegedArgs(id, args) {
+			return fmt.Errorf("%w: %s %s", ErrNotAllowed, id, strings.Join(args, " "))
 		}
 	}
 	return nil

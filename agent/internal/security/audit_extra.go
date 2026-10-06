@@ -124,7 +124,8 @@ func databaseAccountChecks(ctx context.Context, c dbmgr.Client, listening []List
 			for _, l := range listening {
 				if l.Proto == "tcp" && l.Port == port && !l.Local {
 					ch.Status, ch.Detail = "warn", fmt.Sprintf("The database server listens on all network addresses (port %d): only the firewall and its accounts' host names keep others out.", port)
-					ch.Remedy = "Unless remote database access is needed, set bind-address = 127.0.0.1 in the server's configuration (Databases → Server) and keep port " + strconv.Itoa(port) + " closed in the firewall."
+					ch.Remedy = "Unless remote database access is needed, accept local connections only (bind-address 127.0.0.1, also under Databases → Server) and keep port " + strconv.Itoa(port) + " closed in the firewall."
+					ch.Fix = "apply"
 				}
 			}
 		}
@@ -315,7 +316,7 @@ func procCheck(mounts string) Check {
 			}
 		}
 		c.Status, c.Detail = "warn", "Every account can list all processes and their command lines, including other websites'."
-		c.Remedy = "Mount /proc with hidepid=invisible (or hidepid=2) and gid= a group for monitoring tools, e.g. in /etc/fstab: proc /proc proc defaults,hidepid=invisible,gid=proc 0 0 (test that polkit and logins still work)."
+		c.Remedy = "Hide other accounts' processes: /proc is mounted with hidepid=2; members of the group " + ProcGroup + " (polkit, monitoring tools you add) still see all processes. Test that logins and service management still work."
 		return c
 	}
 	c.Status, c.Detail = "info", "The /proc mount could not be read."

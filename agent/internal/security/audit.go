@@ -21,6 +21,9 @@ type Check struct {
 	Severity string `json:"severity"` // low, medium, high
 	Detail   string `json:"detail"`
 	Remedy   string `json:"remedy,omitempty"`
+	// Fix: the panel can apply the remedy ("apply") or take back what it
+	// applied ("undo").
+	Fix string `json:"fix,omitempty"`
 }
 
 // Audit inspects the server and returns findings (read-only).
@@ -87,17 +90,21 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 			}
 		}
 	}
-	auto, remedy := false, "Run dpkg-reconfigure -plow unattended-upgrades."
+	auto, remedy := false, "Turn on automatic security updates (unattended-upgrades installs security updates daily)."
 	if env.Platform.PackageManager() == "dnf" {
-		remedy = "Install dnf-automatic (Server → Packages), set upgrade_type = security in /etc/dnf/automatic.conf and run systemctl enable --now dnf-automatic-install.timer."
+		remedy = "Turn on automatic security updates (dnf-automatic installs security updates daily, without restarting the server)."
 		auto = env.UnitActive(ctx, "dnf-automatic-install.timer") || env.UnitActive(ctx, "dnf-automatic.timer")
 	} else if b, err := env.Root.ReadFile("/etc/apt/apt.conf.d/20auto-upgrades"); err == nil {
 		auto = regexp.MustCompile(`Unattended-Upgrade\s+"1"`).Match(b)
 	}
 	if auto {
-		add(Check{ID: "auto_updates", Title: "Automatic security updates", Status: "pass", Severity: "medium", Detail: "Updates are installed automatically."})
+		c := Check{ID: "auto_updates", Title: "Automatic security updates", Status: "pass", Severity: "medium", Detail: "Updates are installed automatically."}
+		if AutoUpdatesManaged(env) {
+			c.Fix = "undo"
+		}
+		add(c)
 	} else {
-		add(Check{ID: "auto_updates", Title: "Automatic security updates", Status: "warn", Severity: "medium", Detail: "Security updates are not installed automatically.", Remedy: remedy})
+		add(Check{ID: "auto_updates", Title: "Automatic security updates", Status: "warn", Severity: "medium", Detail: "Security updates are not installed automatically.", Remedy: remedy, Fix: "apply"})
 	}
 	if env.Root.Exists("/var/run/reboot-required") || env.Root.Exists("/run/reboot-required") {
 		add(Check{ID: "reboot", Title: "Restart required", Status: "warn", Severity: "medium", Detail: "Updated system components are only used after a restart.", Remedy: "Restart the server at a quiet time under Server."})
@@ -116,7 +123,13 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 	out = append(out, databaseChecks(ctx, env)...)
 	out = append(out, nobodyMailCheck(ctx, env))
 	if b, err := os.ReadFile(filepath.Join(env.Cfg.ProcDir, "mounts")); err == nil {
-		out = append(out, procCheck(string(b)))
+		c := procCheck(string(b))
+		if c.Status == "warn" {
+			c.Fix = "apply"
+		} else if c.Status == "pass" && ProcHidden(env) {
+			c.Fix = "undo"
+		}
+		out = append(out, c)
 	}
 	out = append(out, hostChecks(env)...)
 	if c, ok := dnsRecursionCheck(ctx, env); ok {

@@ -24,7 +24,8 @@ import (
 // settings in WhaCP's own drop-in (zz-whacp.cnf, read after the
 // distribution's files), configuration validation and a restart that
 // checks the configuration first and waits for the server to answer.
-// Networking (bind-address, port) is shown but not changed here.
+// Of networking, only the listening address can be set (bind_address:
+// this server only, or every address); the port is shown, not changed.
 
 // DropInName is WhaCP's option file in the server's include directory.
 const DropInName = "zz-whacp.cnf"
@@ -62,6 +63,7 @@ var ServerSettings = []ServerSetting{
 	{Key: "interactive_timeout", Label: "Idle interactive timeout (s)", Help: "The same for interactive clients (the mysql command line).", Kind: kindInt, Min: 10, Max: 31536000, Dynamic: true, Group: "Connections"},
 	{Key: "max_allowed_packet", Label: "Largest packet", Help: "The largest query or row that can be sent, e.g. 64M. Imports of large rows need more.", Kind: kindSize, Min: 1 << 20, Max: gib, Dynamic: true, Group: "Connections"},
 	{Key: "thread_cache_size", Label: "Thread cache", Help: "Threads kept for reuse when connections close.", Kind: kindInt, Min: 0, Max: 16384, Dynamic: true, Group: "Connections"},
+	{Key: "bind_address", Label: "Listen on", Help: "127.0.0.1: only programs on this server can connect (recommended unless remote database access is needed). 0.0.0.0 or ::: every network address (the firewall and the accounts' host names decide who gets in). Needs a restart.", Kind: kindChoice, Choices: []string{"127.0.0.1", "0.0.0.0", "::"}, Group: "Connections"},
 	{Key: "skip_name_resolve", Label: "Skip host name lookups", Help: "Match remote users by IP address only (faster, no DNS). Users defined with host names then stop matching. Needs a restart.", Kind: kindBool, Group: "Connections"},
 	{Key: "innodb_buffer_pool_size", Label: "InnoDB buffer pool", Help: "Memory for cached InnoDB data and indexes, e.g. 1G; often 50–70% of the memory on a server used mainly for databases.", Kind: kindSize, Min: 32 << 20, Max: 1024 * gib, Dynamic: true, Group: "Memory and storage"},
 	{Key: "innodb_log_file_size", Label: "InnoDB redo log size", Help: "Size of the redo log, e.g. 256M. Needs a restart.", Kind: kindSize, Min: 8 << 20, Max: 512 * gib, Group: "Memory and storage"},

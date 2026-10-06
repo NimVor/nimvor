@@ -1,6 +1,7 @@
 package security
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,14 @@ func TestHostScanFindings(t *testing.T) {
 	put("home/whacp/shop.test/public_html/up.txt", 0o666, "x") // a website's own: not reported
 	os.MkdirAll(filepath.Join(h.Base, "var/lib/shared"), 0o777)
 	os.Chmod(filepath.Join(h.Base, "var/lib/shared"), 0o777|os.ModeSticky) // sticky: fine
+	// A server's socket must be connectable: not reported (mysql.sock).
+	os.MkdirAll(filepath.Join(h.Base, "var/lib/mysql"), 0o755)
+	if l, err := net.Listen("unix", filepath.Join(h.Base, "var/lib/mysql/mysql.sock")); err == nil {
+		defer l.Close()
+		os.Chmod(filepath.Join(h.Base, "var/lib/mysql/mysql.sock"), 0o777)
+	} else {
+		t.Logf("no socket: %v", err)
+	}
 	put("etc/cron.d/backdoor", 0o644, "* * * * * root /tmp/x\n")
 	put("etc/cron.d/sysstat", 0o644, "x")                                           // a package's
 	put("etc/cron.d/whacp-websites", 0o644, "# Managed by WhaCP\n")                 // WhaCP's

@@ -187,4 +187,52 @@ final class SecurityPolicyTest extends HttpTestCase
         $this->post('/security/mysql-anonymous');
         self::assertSame(1, $this->calls('db.drop_anonymous_users'), 'customers cannot');
     }
+
+    public function testOverviewFixesAndUndo(): void
+    {
+        $this->agent->succeed('security.audit', [
+            ['id' => 'kernel_settings', 'title' => 'Kernel security settings', 'status' => 'warn', 'severity' => 'medium', 'detail' => 'x', 'remedy' => 'y', 'fix' => 'apply'],
+            ['id' => 'proc_hidepid', 'title' => 'Process visibility', 'status' => 'pass', 'severity' => 'low', 'detail' => 'hidden', 'fix' => 'undo'],
+            ['id' => 'auto_updates', 'title' => 'Automatic security updates', 'status' => 'warn', 'severity' => 'medium', 'detail' => 'x', 'remedy' => 'y', 'fix' => 'apply'],
+            ['id' => 'database_network', 'title' => 'Database network access', 'status' => 'warn', 'severity' => 'medium', 'detail' => 'x', 'remedy' => 'y', 'fix' => 'apply'],
+            ['id' => 'unknown', 'title' => 'Other', 'status' => 'warn', 'severity' => 'low', 'detail' => 'x', 'fix' => 'apply'],
+        ]);
+        $this->agent->succeed('ssh.logins', ['logins' => []]);
+        $this->agent->succeed('fail2ban.status', ['running' => true, 'jails' => []]);
+        $this->agent->succeed('hardening.status', ['forkbomb' => ['enabled' => true], 'traceroute' => ['enabled' => false, 'programs' => []], 'compilers' => [], 'smtp' => []]);
+        $this->login('admin');
+        $page = $this->request('GET', '/security')->body();
+        foreach (['Apply recommended settings', 'Show all processes again', 'Turn on automatic security updates', 'Accept local connections only', 'name="check" value="kernel_settings"', 'name="op" value="undo"'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        self::assertSame(4, substr_count($page, 'action="/security/fix"'), 'only known fixes get a button');
+
+        $this->agent->succeed('security.fix_kernel', ['changed' => ['kernel.dmesg_restrict']]);
+        $this->post('/security/fix', ['check' => 'kernel_settings', 'op' => 'apply']);
+        self::assertSame(['undo' => false], $this->lastCall('security.fix_kernel'));
+        self::assertStringContainsString('kernel.dmesg_restrict', (string) $this->flash('success'));
+        $this->agent->succeed('security.hide_processes', ['enabled' => false]);
+        $this->post('/security/fix', ['check' => 'proc_hidepid', 'op' => 'undo']);
+        self::assertSame(['enabled' => false], $this->lastCall('security.hide_processes'));
+        $this->agent->succeed('security.auto_updates', ['job_id' => '4444444444444444']);
+        $this->post('/security/fix', ['check' => 'auto_updates', 'op' => 'apply']);
+        self::assertSame(['enabled' => true], $this->lastCall('security.auto_updates'));
+        self::assertSame('4444444444444444', $this->flash('job'));
+
+        // Remote database users: refused, nothing restarted.
+        $db = $this->app->container->get(\WhaCP\Database\Connection::class);
+        $db->run("INSERT INTO database_users (server_id, username, host, created_at) VALUES (1, 'app', '203.0.113.5', '2026-01-01')");
+        $this->agent->succeed('db.server_settings', ['changed' => ['bind_address']]);
+        $this->post('/security/fix', ['check' => 'database_network', 'op' => 'apply']);
+        self::assertSame(0, $this->calls('db.server_settings'));
+        self::assertStringContainsString('app@203.0.113.5', (string) json_encode($this->flash('error')));
+        $db->run("DELETE FROM database_users WHERE username = 'app'");
+        $this->post('/security/fix', ['check' => 'database_network', 'op' => 'apply']);
+        self::assertSame(['settings' => ['bind_address' => '127.0.0.1'], 'restart' => true], $this->lastCall('db.server_settings'));
+        // Unknown fixes do nothing; every change is audited.
+        $this->post('/security/fix', ['check' => 'database_network', 'op' => 'undo']);
+        $this->post('/security/fix', ['check' => 'firewall', 'op' => 'apply']);
+        self::assertSame(1, $this->calls('db.server_settings'));
+        self::assertSame(4, (int) $db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'security.fix'"));
+    }
 }

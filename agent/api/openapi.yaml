@@ -271,7 +271,10 @@ paths:
               - redis.keys
               - redis.password
               - security.audit
+              - security.auto_updates
               - security.confirm
+              - security.fix_kernel
+              - security.hide_processes
               - security.pending
               - security.undo
               - server.reboot
@@ -656,7 +659,10 @@ x-whacp-actions:
   redis.keys: { mutating: false, description: "List keys of a Redis database (SCAN, optionally limited to a key prefix)." }
   redis.password: { mutating: true, description: "Set or clear the default user's password." }
   security.audit: { mutating: false, description: "Security checks with findings and remedies (read-only)." }
+  security.auto_updates: { mutating: true, description: "Turn automatic security updates on (unattended-upgrades, or dnf-automatic with security updates only and no reboot; installed when missing) or off (job)." }
   security.confirm: { mutating: true, description: "Keep a firewall/SSH change (otherwise it is rolled back automatically)." }
+  security.fix_kernel: { mutating: true, description: "Apply the recommended kernel security settings (kept in /etc/sysctl.d/90-whacp-hardening.conf; send_redirects is left alone on a router), or undo them (the earlier values are put back)." }
+  security.hide_processes: { mutating: true, description: "Mount /proc with hidepid=2 (each account sees only its own processes; members of whacp-proc see all), kept in /etc/fstab; or turn it off." }
   security.pending: { mutating: false, description: "The security change awaiting confirmation, if any." }
   security.undo: { mutating: true, description: "Roll back the pending firewall/SSH change now." }
   server.reboot: { mutating: true, description: "Schedule a restart (requires the host name as confirmation)." }

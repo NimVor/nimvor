@@ -3,6 +3,7 @@ package security
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
@@ -117,6 +118,50 @@ func Register(r *actions.Registry, env *host.Env) {
 			admins = []string{}
 		}
 		return map[string]any{"effective": eff, "root_has_keys": rootKeys, "admins_with_keys": admins, "managed_file": env.M.SSHDropIn, "managed_config": managed}, nil
+	}})
+	env.Writer.Policy.Patterns = append(env.Writer.Policy.Patterns, fixPaths()...)
+	r.Register(actions.Action{Name: "security.fix_kernel", Mutating: true, Description: "Apply the recommended kernel security settings (kept in " + SysctlFile + "; send_redirects is left alone on a router), or undo them (the earlier values are put back).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Undo bool `json:"undo"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if in.Undo {
+			return map[string]any{"undone": true}, UndoKernel(ctx, env)
+		}
+		changed, err := FixKernel(ctx, env)
+		if err != nil {
+			return nil, err
+		}
+		if changed == nil {
+			changed = []string{}
+		}
+		return map[string]any{"changed": changed}, nil
+	}})
+	r.Register(actions.Action{Name: "security.hide_processes", Mutating: true, Description: "Mount /proc with hidepid=2 (each account sees only its own processes; members of " + ProcGroup + " see all), kept in /etc/fstab; or turn it off.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := HideProcesses(ctx, env, in.Enabled); err != nil {
+			return nil, err
+		}
+		return map[string]any{"enabled": in.Enabled}, nil
+	}})
+	r.Register(actions.Action{Name: "security.auto_updates", Mutating: true, Description: "Turn automatic security updates on (unattended-upgrades, or dnf-automatic with security updates only and no reboot; installed when missing) or off (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		j := env.Jobs.Start("security.auto_updates", "server:security", func(ctx context.Context, log io.Writer) (any, error) {
+			return map[string]any{"enabled": in.Enabled}, SetAutoUpdates(ctx, env, log, in.Enabled)
+		})
+		return map[string]any{"job_id": j.ID}, nil
 	}})
 	r.Register(actions.Action{Name: "ssh.keys", Description: "Administrators (root and members of sudo/admin/wheel) and the public keys in their authorized_keys.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return map[string]any{"admins": Admins(env)}, nil
