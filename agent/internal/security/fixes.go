@@ -336,9 +336,16 @@ func SetAutoUpdates(ctx context.Context, env *host.Env, log io.Writer, on bool) 
 		fmt.Fprintf(log, "Automatic security updates are %s (%s).\n", map[bool]string{true: "on", false: "off"}[on], aptAutoFile)
 		return nil
 	}
+	// The timer by its fixed name (env.Systemctl takes services only).
+	timer := func(verb ...string) error {
+		out, err := env.Runner.Run(ctx, "systemctl", append(verb, "--", dnfAutoTimer)...)
+		if err != nil {
+			return fmt.Errorf("systemctl %s %s failed: %s", strings.Join(verb, " "), dnfAutoTimer, host.Output(out))
+		}
+		return nil
+	}
 	if !on {
-		env.Systemctl(ctx, "disable", dnfAutoTimer)
-		env.Systemctl(ctx, "stop", dnfAutoTimer)
+		timer("disable", "--now")
 		for _, f := range []string{dnfAutoDropIn, dnfAutoConf} {
 			if env.Root.Exists(f) {
 				set.Remove(f)
@@ -367,10 +374,7 @@ func SetAutoUpdates(ctx context.Context, env *host.Env, log io.Writer, on bool) 
 	}
 	err = env.DaemonReload(ctx)
 	if err == nil {
-		err = env.Systemctl(ctx, "enable", dnfAutoTimer)
-	}
-	if err == nil {
-		err = env.Systemctl(ctx, "start", dnfAutoTimer)
+		err = timer("enable", "--now")
 	}
 	if err != nil {
 		applied.Rollback()

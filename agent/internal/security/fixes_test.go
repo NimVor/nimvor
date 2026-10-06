@@ -9,7 +9,11 @@ import (
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
 )
+
+func platformDetect(env *host.Env) platform.Platform { return platform.Detect(env.Root) }
 
 func writeSysctl(t *testing.T, base, key, v string) {
 	p := filepath.Join(base, "proc/sys", strings.ReplaceAll(key, ".", "/"))
@@ -48,7 +52,7 @@ func TestFixKernel(t *testing.T) {
 		t.Errorf("sysctl opts %+v", o)
 	}
 	c := sysctlCheck(env)
-	if c.Fix != "apply" { // the fake /proc did not change
+	if c.Fix != "apply" || strings.Contains(c.Detail, "send_redirects") { // the fake /proc did not change; a router keeps its redirects
 		t.Errorf("check %+v", c)
 	}
 	if err := UndoKernel(ctx, env); err != nil {
@@ -152,5 +156,33 @@ func TestPrivilegedArgs(t *testing.T) {
 		if _, err := r.RunWith(context.Background(), "mount", caps, args...); err == nil {
 			t.Errorf("mount %v allowed", args)
 		}
+	}
+}
+
+// On RHEL the install timer is started by its fixed name with WhaCP's
+// security-only configuration.
+func TestAutoUpdatesRHEL(t *testing.T) {
+	h, s := setup(t, "")
+	os.WriteFile(filepath.Join(h.Base, "etc/os-release"), []byte("ID=\"rocky\"\nID_LIKE=\"rhel centos fedora\"\nVERSION_ID=\"9.6\"\n"), 0o644)
+	env := s.env
+	env.Platform = platformDetect(env)
+	env.Writer.Policy.Patterns = append(env.Writer.Policy.Patterns, fixPaths()...)
+	if err := SetAutoUpdates(context.Background(), env, io.Discard, true); err != nil {
+		t.Fatal(err)
+	}
+	if !h.Runner.Called("systemctl enable --now -- dnf-automatic-install.timer") {
+		t.Fatalf("calls %v", h.Runner.Calls)
+	}
+	if b := h.Read("etc/whacp/dnf-automatic.conf"); !strings.Contains(b, "upgrade_type = security") || !strings.Contains(b, "reboot = never") {
+		t.Errorf("conf:\n%s", b)
+	}
+	if b := h.Read("etc/systemd/system/dnf-automatic-install.service.d/whacp.conf"); !strings.Contains(b, "ExecStart=\nExecStart=/usr/bin/dnf-automatic /etc/whacp/dnf-automatic.conf --timer --installupdates") {
+		t.Errorf("drop-in:\n%s", b)
+	}
+	if err := SetAutoUpdates(context.Background(), env, io.Discard, false); err != nil {
+		t.Fatal(err)
+	}
+	if !h.Runner.Called("systemctl disable --now -- dnf-automatic-install.timer") || h.Exists("etc/whacp/dnf-automatic.conf") {
+		t.Errorf("off: %v", h.Runner.Calls)
 	}
 }

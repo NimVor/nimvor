@@ -445,7 +445,13 @@ var kernelSettings = []kernelSetting{
 // (missing ones, e.g. without IPv6 or Yama, are skipped).
 func sysctlCheck(env *host.Env) Check {
 	var bad, lines []string
+	forwarding, _ := env.Root.ReadFile(filepath.Join(env.Cfg.ProcDir, "sys/net/ipv4/ip_forward"))
 	for _, s := range kernelSettings {
+		// A server that routes for others (containers, VPN) sends
+		// redirects; the fix leaves it alone, so the check does too.
+		if s.key == "net.ipv4.conf.all.send_redirects" && strings.TrimSpace(string(forwarding)) == "1" {
+			continue
+		}
 		b, err := env.Root.ReadFile(filepath.Join(env.Cfg.ProcDir, "sys", strings.ReplaceAll(s.key, ".", "/")))
 		if err != nil {
 			continue
