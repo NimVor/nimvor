@@ -560,14 +560,21 @@ fi
 if [[ -n $PUBLIC_HTTPS ]]; then
     log "Serving the panel over HTTPS on port ${PUBLIC_HTTPS}"
     if [[ ! -s $PANEL_CERT || ! -s $PANEL_CERT_KEY ]]; then
-        san="DNS:$(hostname -f 2>/dev/null || hostname)"
+        fqdn=$(hostname -f 2>/dev/null || hostname)
+        san="DNS:${fqdn}"
+        # The subject's CN holds at most 64 characters (cloud host names can
+        # be longer); clients check the name in subjectAltName, which has
+        # the full name.
+        cn=$fqdn
+        (( ${#cn} <= 64 )) || cn=$(hostname -s 2>/dev/null || true)
+        [[ -n $cn && ${#cn} -le 64 ]] || cn="WhaCP panel"
         for ip in $(hostname -I 2>/dev/null); do san="${san},IP:${ip}"; done
         run install -d -m 0755 "$(dirname "$PANEL_CERT")"
         run install -d -m 0700 "$(dirname "$PANEL_CERT_KEY")"
         if [[ $DRY_RUN -eq 1 ]]; then
             echo "    [dry-run] openssl req -x509 ... -addext subjectAltName=${san} -out $PANEL_CERT"
         else
-            out=$(openssl req -x509 -newkey rsa:2048 -nodes -days 825 -subj "/CN=$(hostname -f 2>/dev/null || hostname)" \
+            out=$(openssl req -x509 -newkey rsa:2048 -nodes -days 825 -subj "/CN=${cn}" \
                 -addext "subjectAltName=${san}" -keyout "$PANEL_CERT_KEY" -out "$PANEL_CERT" 2>&1) || { printf '%s\n' "$out" >&2; die "the certificate could not be created"; }
             chmod 0600 "$PANEL_CERT_KEY"
         fi

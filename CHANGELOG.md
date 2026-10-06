@@ -7,6 +7,10 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **`--public-https` on servers with a long host name** (cloud names over
+  64 characters) failed: "the certificate could not be created". The
+  certificate's CN now uses the short name when needed; the full name stays
+  in subjectAltName, which is what browsers check.
 - **Web terminal with a jailed shell** failed to start the jail ("bwrap:
   Can't mount proc"). Two of the session unit's /proc protections stopped
   the jail from mounting its own /proc. A jailed session now leaves those
