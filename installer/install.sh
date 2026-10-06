@@ -5,7 +5,8 @@
 # What it does:
 #   1. Detects the OS and checks requirements.
 #   2. Detects conflicts (existing WhaCP install, port in use).
-#   3. Optionally installs missing dependencies (only with --install-deps).
+#   3. Installs missing dependencies from the distribution's repositories
+#      (--no-install-deps: only report them).
 #   4. Creates the "whacp" system user and group.
 #   5. Installs the agent binary and the panel files.
 #   6. Writes /etc/whacp configuration and a fresh agent token.
@@ -20,7 +21,7 @@
 #   - overwrite an existing WhaCP installation (use --reinstall explicitly).
 #
 # Usage (from a source checkout or release archive):
-#   sudo ./installer/install.sh [--install-deps] [--admin-user=NAME] [--admin-email=EMAIL]
+#   sudo ./installer/install.sh [--no-install-deps] [--admin-user=NAME] [--admin-email=EMAIL]
 #                               [--port=8090] [--dry-run] [--yes] [--reinstall|--resume] [--force-unsupported]
 #                               [--enable-writes] [--public-https[=8443]]
 #                               [--agent-only --remote-access=0.0.0.0:8443 --allow-from=PANEL_IP[,...]]
@@ -38,6 +39,10 @@
 # will manage; --remote-access exposes it over TLS (pinned self-signed
 # certificate) to the addresses given with --allow-from. The installer
 # prints the address, pin and token to enter under "All servers" in the panel.
+#
+# A reinstall (--reinstall) keeps the configuration, token, database, write
+# mode, the panel's port and its public HTTPS port: no options are needed
+# again. To update a source checkout in one step: sudo ./installer/update.sh
 
 set -Eeuo pipefail
 umask 027
@@ -51,7 +56,8 @@ BIN=/usr/local/bin/whacp-agent
 PORT=8090
 ADMIN_USER=""
 ADMIN_EMAIL=""
-INSTALL_DEPS=0
+INSTALL_DEPS=1
+PORT_SET=0
 DRY_RUN=0
 ASSUME_YES=0
 REINSTALL=0
@@ -88,7 +94,8 @@ confirm() {
 
 for arg in "$@"; do
     case "$arg" in
-        --install-deps) INSTALL_DEPS=1 ;;
+        --install-deps) INSTALL_DEPS=1 ;;   # the default; kept for older instructions
+        --no-install-deps) INSTALL_DEPS=0 ;;
         --dry-run) DRY_RUN=1 ;;
         --yes|-y) ASSUME_YES=1 ;;
         --reinstall|--resume) REINSTALL=1 ;;
@@ -96,7 +103,7 @@ for arg in "$@"; do
         --enable-writes) ENABLE_WRITES=1 ;;
         --admin-user=*) ADMIN_USER="${arg#*=}" ;;
         --admin-email=*) ADMIN_EMAIL="${arg#*=}" ;;
-        --port=*) PORT="${arg#*=}" ;;
+        --port=*) PORT="${arg#*=}"; PORT_SET=1 ;;
         --agent-only) AGENT_ONLY=1 ;;
         --remote-access=*) REMOTE_ACCESS="${arg#*=}" ;;
         --allow-from=*) ALLOW_FROM="${arg#*=}" ;;
@@ -214,6 +221,21 @@ else
     PANEL_CERT=/etc/ssl/certs/whacp-panel.crt
     PANEL_CERT_KEY=/etc/ssl/private/whacp-panel.key
 fi
+# A reinstall keeps what the first installation chose: the panel's port and
+# its public HTTPS port (nothing to pass again).
+if [[ $REINSTALL -eq 1 ]]; then
+    if [[ $PORT_SET -eq 0 && -f /etc/systemd/system/whacp-panel.service ]]; then
+        prev=$(grep -oE '127\.0\.0\.1:[0-9]+' /etc/systemd/system/whacp-panel.service | head -1 | cut -d: -f2)
+        if [[ $prev =~ ^[0-9]+$ ]] && (( prev >= 1024 && prev <= 65535 )); then PORT=$prev; fi
+    fi
+    if [[ -z $PUBLIC_HTTPS && $AGENT_ONLY -eq 0 && -f $PANEL_SITE ]]; then
+        prev=$(grep -oE 'listen[[:space:]]+(\[::\]:)?[0-9]+[[:space:]]+ssl' "$PANEL_SITE" | grep -oE '[0-9]+' | head -1)
+        if [[ $prev =~ ^[0-9]+$ ]] && (( prev >= 1024 && prev <= 65535 && prev != PORT )); then
+            PUBLIC_HTTPS=$prev
+            ok "keeping the panel's public HTTPS port ${PUBLIC_HTTPS}"
+        fi
+    fi
+fi
 # nft: SMTP Restrictions and brute force protection blocks (the package's
 # own nftables.service is left as it is).
 command -v nft >/dev/null || [[ -x /usr/sbin/nft ]] || missing_pkgs+=(nftables)
@@ -247,7 +269,7 @@ if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
         run apt-get "${APT_WAIT[@]}" update -q
         run env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=l apt-get "${APT_WAIT[@]}" install -y -q --no-install-recommends "${missing_pkgs[@]}"
     else
-        die "missing packages: ${missing_pkgs[*]}. Install them ($PKG install ${missing_pkgs[*]}) or re-run with --install-deps."
+        die "missing packages: ${missing_pkgs[*]}. Install them ($PKG install ${missing_pkgs[*]}) or re-run without --no-install-deps."
     fi
 fi
 # Where AppArmor keeps unprivileged processes from creating user
@@ -338,13 +360,24 @@ find_composer() {
 
 # --------------------------------------------------------- 4. build agent ----
 log "Preparing the agent binary"
+src_owner=$(stat -c %U "$SRC_DIR" 2>/dev/null || echo root)
+# What the installer builds in a user's checkout (agent, panel/vendor)
+# stays that user's: root-owned files there break their next git pull or
+# build.
+give_back() {
+    [[ $src_owner != root && $DRY_RUN -eq 0 ]] || return 0
+    chown -R "$src_owner": "$@" 2>/dev/null || true
+}
 if [[ -d $SRC_DIR/.git ]]; then
-    src_owner=$(stat -c %U "$SRC_DIR")
     if [[ -n $(find "$SRC_DIR/.git" ! -user "$src_owner" -print -quit 2>/dev/null) ]]; then
         # Typically after "sudo git pull": the owner's next git pull fails
         # ("index file open failed: Permission denied") and this runs the
         # old sources again.
-        warn "parts of $SRC_DIR/.git are not owned by $src_owner, so git pull as $src_owner fails and these sources may be out of date. Fix: sudo chown -R $src_owner: $SRC_DIR && git -C $SRC_DIR pull"
+        if [[ $src_owner != root ]]; then
+            # The checkout is the owner's: give it back, so git pull works again.
+            run chown -R "$src_owner": "$SRC_DIR/.git"
+            ok "returned $SRC_DIR/.git to $src_owner (files owned by root, e.g. after sudo git pull, block git pull)"
+        fi
     fi
     ok "sources: commit $(git --no-optional-locks -C "$SRC_DIR" -c safe.directory="$SRC_DIR" log -1 --format='%h %cs %s' 2>/dev/null | cut -c1-80)"
 fi
@@ -368,7 +401,7 @@ fi
 if [[ $stale -eq 1 && -z $GO ]]; then
     # Installing the older build would silently keep the old agent (and its
     # fixed bugs) while the panel is updated.
-    die "the agent's sources are newer than dist/whacp-agent (e.g. after git pull), but Go was not found to rebuild it (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin). Re-run with --install-deps to install Go from the distribution, or install Go yourself."
+    die "the agent's sources are newer than dist/whacp-agent (e.g. after git pull), but Go was not found to rebuild it (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin). Re-run without --no-install-deps to install Go from the distribution, or install Go yourself."
 fi
 if [[ -x $SRC_DIR/dist/whacp-agent && $stale -eq 0 ]]; then
     AGENT_SRC=$SRC_DIR/dist/whacp-agent
@@ -388,21 +421,28 @@ elif [[ -n $GO ]]; then
     (cd "$SRC_DIR/agent" && run env CGO_ENABLED=0 HOME="${HOME:-/root}" GOTOOLCHAIN=auto "$GO" build -trimpath -ldflags "-s -w -X main.version=$AGENT_VERSION" -o "$SRC_DIR/dist/whacp-agent" ./cmd/whacp-agent)
     AGENT_SRC=$SRC_DIR/dist/whacp-agent
 else
-    die "no prebuilt agent (dist/whacp-agent) and Go was not found (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin). Install Go, or re-run with --install-deps."
+    die "no prebuilt agent (dist/whacp-agent) and Go was not found (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin). Install Go, or re-run without --no-install-deps."
 fi
+give_back "$SRC_DIR/dist"
 ok "$AGENT_SRC ($("$AGENT_SRC" -version 2>/dev/null || echo 'version unknown'))"
 
-if [[ $AGENT_ONLY -eq 0 && ! -f $SRC_DIR/panel/vendor/autoload.php ]]; then
+# panel/vendor older than composer.lock (after git pull) is refreshed.
+vendor_stale=0
+if [[ -f $SRC_DIR/panel/vendor/autoload.php && -f $SRC_DIR/panel/composer.lock && $SRC_DIR/panel/composer.lock -nt $SRC_DIR/panel/vendor/autoload.php ]]; then
+    vendor_stale=1
+fi
+if [[ $AGENT_ONLY -eq 0 && ( ! -f $SRC_DIR/panel/vendor/autoload.php || $vendor_stale -eq 1 ) ]]; then
     COMPOSER=$(find_composer || true)
     if [[ -z $COMPOSER && $INSTALL_DEPS -eq 1 ]]; then
         log "Installing Composer"
         if [[ $PKG == dnf ]]; then run dnf install -y -q composer; else run env DEBIAN_FRONTEND=noninteractive apt-get "${APT_WAIT[@]}" install -y -q --no-install-recommends composer; fi
         COMPOSER=$(find_composer || true)
     fi
-    [[ -n $COMPOSER ]] || die "panel/vendor is missing and Composer was not found (looked in PATH, /usr/local/bin, /usr/bin and your ~/.local/bin). Install it, or re-run with --install-deps."
+    [[ -n $COMPOSER ]] || die "panel/vendor is missing and Composer was not found (looked in PATH, /usr/local/bin, /usr/bin and your ~/.local/bin). Install it, or re-run without --no-install-deps."
     ok "Composer detected: $("$COMPOSER" --version 2>/dev/null | head -1) ($COMPOSER)"
     log "Installing panel PHP dependencies"
     (cd "$SRC_DIR/panel" && run env COMPOSER_ALLOW_SUPERUSER=1 "$COMPOSER" install --no-dev --no-interaction --optimize-autoloader -q)
+    give_back "$SRC_DIR/panel/vendor"
 fi
 
 # ----------------------------------------------------- 5. user and files ----

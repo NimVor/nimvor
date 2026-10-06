@@ -95,8 +95,20 @@ sudo ./installer/install.sh --reinstall --public-https
 
 By default WhaCP is **read-only**: the installer never edits Nginx, PHP-FPM,
 database, firewall or SSH configuration and never reloads existing services.
-Add `--enable-writes` to let WhaCP manage the server. Upgrade later with
-`sudo ./installer/upgrade.sh` (automatic rollback on failure). Details:
+Add `--enable-writes` to let WhaCP manage the server. Missing dependencies
+(PHP extensions, Go, Composer, Nginx for `--public-https`) are installed from
+the distribution's repositories (`--no-install-deps` only lists them).
+
+Update a source checkout with one command, with no options and no prompts. It
+pulls the latest version, rebuilds and reinstalls, and keeps the
+configuration, database, write mode and the panel's ports:
+
+```bash
+sudo ./installer/update.sh
+```
+
+Release archives are upgraded with `sudo ./installer/upgrade.sh`, which rolls
+back automatically on failure. Details:
 [docs/installation](docs/installation/README.md).
 
 ## Tests

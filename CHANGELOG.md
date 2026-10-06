@@ -6,6 +6,16 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Updates need one command and no manual steps:** `sudo
+  ./installer/update.sh`. It gives root-owned files in the checkout back to
+  their owner, pulls as that owner and reinstalls. Reinstalls keep the
+  panel's port and public HTTPS port, so no options need repeating.
+  Dependencies are installed by default (`--no-install-deps` to opt out).
+  The installer gives `.git`, `dist/` and `panel/vendor` back to the
+  checkout's owner instead of asking you to, and refreshes `panel/vendor`
+  when `composer.lock` changed.
+
 ### Fixed
 - **Rspamd on Rocky/Alma** failed: "rspamd is not available". EPEL does
   not carry it. WhaCP now adds the Rspamd project's own signed repository

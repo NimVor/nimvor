@@ -18,7 +18,7 @@
   the same sources. On a preview system the installer warns and the panel
   shows a "preview" badge; everything works the same. Other systems are
   refused (`--force-unsupported` to try anyway, best effort).
-- On AlmaLinux, Rocky Linux and RHEL, `--install-deps` enables EPEL and Remi
+- On AlmaLinux, Rocky Linux and RHEL, installing dependencies enables EPEL and Remi
   (PHP versions for websites, and PHP 8.3 for the panel on 9), and installs
   `policycoreutils-python-utils` for SELinux labels. SELinux stays enforcing:
   WhaCP labels what it creates (websites, mail storage, webmail data), sets
@@ -97,7 +97,7 @@ sudo ./installer/install.sh --dry-run
 sudo ./installer/install.sh --admin-user=admin --admin-email=you@example.com
 ```
 
-Options: `--install-deps` (apt-install missing PHP packages, opt-in),
+Options: `--no-install-deps` (only list missing packages; by default they are installed),
 `--port=8090`, `--yes`, `--reinstall` (replace program files, keep config and
 data), `--force-unsupported`, `--enable-writes` (see below),
 `--public-https[=8443]` (see "Opening the panel").
@@ -174,7 +174,7 @@ sudo ./installer/install.sh --reinstall --public-https=9443   # another port
 
 Then browse to `https://SERVER-IP:8443/`. The installer:
 
-- installs Nginx if needed (with `--install-deps`);
+- installs Nginx if needed (unless `--no-install-deps`);
 - creates a self-signed certificate for the server's addresses and host name;
 - adds WhaCP's own Nginx site (`whacp-panel.conf`) proxying to the panel,
   checks it with `nginx -t` (it is removed again if Nginx rejects it) and
@@ -228,9 +228,27 @@ key and database and creates only what is missing. Nothing outside
 WhaCP's own files is changed by the installer, so there is nothing else to
 undo.
 
-## Upgrade
+## Update (source checkout)
 
-From the new source tree or release archive:
+```bash
+sudo ./installer/update.sh
+```
+
+One command, with no options and no prompts:
+
+1. Files that root left in the checkout (for example after `sudo git pull`)
+   are given back to the checkout's owner.
+2. The latest version is pulled as that owner (fast-forward only; local
+   changes stop the update instead of being overwritten).
+3. `install.sh --reinstall --yes` runs from the new version. It installs
+   missing dependencies, rebuilds the agent and the panel's dependencies,
+   migrates the database, loads the SELinux policy module and restarts
+   WhaCP's services. The configuration, agent token, database, write mode
+   and the panel's ports (public HTTPS included) are kept.
+
+## Upgrade (release archive)
+
+From the new release archive:
 
 ```bash
 sudo ./installer/upgrade.sh           # asks for confirmation; --yes to skip
