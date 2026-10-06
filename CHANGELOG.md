@@ -145,6 +145,12 @@ All notable changes to WhaCP are documented here. The format follows
   the system's services are not affected.
 
 ### Fixed
+- **Building the ModSecurity connector failed on Rocky/Alma 9 and Ubuntu
+  22.04** ("the HTTP rewrite module requires the PCRE library"). Nginx
+  older than 1.21.5 (Rocky/Alma 9 ship 1.20, Ubuntu 22.04 ships 1.18) only
+  works with the original PCRE library, and the build installed only
+  PCRE2. For those versions the build now also installs `pcre-devel` /
+  `libpcre3-dev`, and removes it again if the installation fails.
 - **A failed ModSecurity installation filled the page with build output**,
   one word per line in a narrow column. The installation history now shows
   the build's error lines (or its last lines), with the full output behind

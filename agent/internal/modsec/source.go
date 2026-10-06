@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
@@ -26,15 +27,46 @@ import (
 // buildPackages are what compiling needs (this system's names): the base
 // set, libmodsecurity's development package, and what building
 // libmodsecurity itself needs when that package does not exist.
-func buildPackages(e *host.Env) (base []string, libPkg string, libBuild []string) {
+//
+// Nginx reads regular expressions with PCRE2 from 1.21.5 on; older ones
+// (Rocky/Alma 9 ship 1.20, Ubuntu 22.04 ships 1.18) only with the original
+// PCRE library, whose headers are then needed too (configure otherwise
+// stops: "the HTTP rewrite module requires the PCRE library").
+// libmodsecurity itself uses PCRE2.
+func buildPackages(e *host.Env, nginxVersion string) (base []string, libPkg string, libBuild []string) {
+	oldPCRE := nginxVersion != "" && versionLess(nginxVersion, "1.21.5")
 	if e.Platform.PackageManager() == "dnf" {
-		return []string{"gcc", "make", "pcre2-devel", "zlib-devel", "openssl-devel", "pkgconf-pkg-config", "dnf-plugins-core", "cpio"},
-			"libmodsecurity-devel",
+		base = []string{"gcc", "make", "pcre2-devel", "zlib-devel", "openssl-devel", "pkgconf-pkg-config", "dnf-plugins-core", "cpio"}
+		if oldPCRE {
+			base = append(base, "pcre-devel")
+		}
+		return base, "libmodsecurity-devel",
 			[]string{"gcc-c++", "libxml2-devel", "yajl-devel", "libcurl-devel", "lmdb-devel", "libmaxminddb-devel"}
 	}
-	return []string{"gcc", "make", "libc6-dev", "libpcre2-dev", "zlib1g-dev", "libssl-dev", "pkgconf"},
-		"libmodsecurity-dev",
+	base = []string{"gcc", "make", "libc6-dev", "libpcre2-dev", "zlib1g-dev", "libssl-dev", "pkgconf"}
+	if oldPCRE {
+		base = append(base, "libpcre3-dev")
+	}
+	return base, "libmodsecurity-dev",
 		[]string{"g++", "libxml2-dev", "libyajl-dev", "libcurl4-openssl-dev", "liblmdb-dev", "libmaxminddb-dev"}
+}
+
+// versionLess compares dotted version numbers ("1.20.1" < "1.21.5").
+func versionLess(a, b string) bool {
+	pa, pb := strings.Split(a, "."), strings.Split(b, ".")
+	for i := 0; i < len(pa) || i < len(pb); i++ {
+		var x, y int
+		if i < len(pa) {
+			x, _ = strconv.Atoi(strings.TrimFunc(pa[i], func(r rune) bool { return r < '0' || r > '9' }))
+		}
+		if i < len(pb) {
+			y, _ = strconv.Atoi(pb[i])
+		}
+		if x != y {
+			return x < y
+		}
+	}
+	return false
 }
 
 // installRecorded installs packages and records the ones that are new.
@@ -191,7 +223,7 @@ func (in *installer) fromSource(ctx context.Context) error {
 	if !in.n.Compat {
 		return actions.Conflict("This Nginx was built without --with-compat, so a module cannot be built for it separately. Install a connector built together with Nginx, or an Nginx package built with --with-compat.")
 	}
-	base, libPkg, libBuild := buildPackages(in.e)
+	base, libPkg, libBuild := buildPackages(in.e, in.n.Version)
 	if err := in.installRecorded(ctx, base); err != nil {
 		return fmt.Errorf("the build dependencies could not be installed: %v", err)
 	}
