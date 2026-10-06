@@ -540,6 +540,30 @@
         if (auto) { WhaCP.showJob(auto.getAttribute('data-wcp-autojob')); }
     });
 
+    // Sidebar groups fold; which are folded is remembered in this browser.
+    // The group holding the current page is always open.
+    document.addEventListener('DOMContentLoaded', function () {
+        var key = 'wcp-nav-folded';
+        var folded = [];
+        try { folded = JSON.parse(localStorage.getItem(key) || '[]') || []; } catch (e) { folded = []; }
+        function set(btn, open) {
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            var sec = document.getElementById(btn.getAttribute('aria-controls'));
+            if (sec) { sec.hidden = !open; }
+        }
+        document.querySelectorAll('[data-wcp-nav-toggle]').forEach(function (btn) {
+            var name = btn.getAttribute('data-wcp-nav-toggle');
+            if (folded.indexOf(name) !== -1 && !btn.hasAttribute('data-wcp-nav-current')) { set(btn, false); }
+            btn.addEventListener('click', function () {
+                var open = btn.getAttribute('aria-expanded') !== 'true';
+                set(btn, open);
+                folded = folded.filter(function (n) { return n !== name; });
+                if (!open) { folded.push(name); }
+                try { localStorage.setItem(key, JSON.stringify(folded)); } catch (e) { /* not remembered */ }
+            });
+        });
+    });
+
     // Top bar: the server's load averages, every 5 seconds while the tab is
     // visible (passive: an idle session still times out), and the update
     // button when a newer WhaCP was found. The dashboard sets the load from
@@ -555,7 +579,9 @@
         if (!link) { return; }
         var upd = document.querySelector('[data-wcp-topbar-update]');
         var busy = false;
-        setInterval(function () {
+        // Pages swapped in place run this again: one timer only.
+        if (WhaCP.topbarTimer) { clearInterval(WhaCP.topbarTimer); }
+        WhaCP.topbarTimer = setInterval(function () {
             if (document.hidden || busy) { return; }
             busy = true;
             WhaCP.fetchJson(link.getAttribute('data-wcp-topbar-load')).then(function (res) {
@@ -571,7 +597,8 @@
         var log = document.querySelector('[data-wcp-update-log]');
         if (!log || log.getAttribute('data-running') !== '1') { return; }
         var state = document.querySelector('[data-wcp-update-state]');
-        var timer = setInterval(function () {
+        if (WhaCP.updateTimer) { clearInterval(WhaCP.updateTimer); }
+        var timer = WhaCP.updateTimer = setInterval(function () {
             WhaCP.fetchJson(log.getAttribute('data-wcp-update-log')).then(function (res) {
                 if (!res.success) { return; }
                 if (res.log) { log.textContent = res.log; log.scrollTop = log.scrollHeight; }

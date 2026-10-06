@@ -323,6 +323,7 @@ paths:
               - ssl.mail_tls
               - ssl.renew
               - ssl.renewal_enable
+              - ssl.renewal_log
               - ssl.renewal_status
               - ssl.service_cert
               - ssl.services
@@ -716,7 +717,7 @@ x-whacp-actions:
   ssl.custom: { mutating: true, description: "Install an uploaded certificate and private key after validating them." }
   ssl.custom_delete: { mutating: true, description: "Delete an uploaded (or installed from a server-made key) certificate and its key copy that no Nginx configuration uses." }
   ssl.delete: { mutating: true, description: "Delete a certbot certificate that no WhaCP site uses any more." }
-  ssl.hostname_issue: { mutating: true, description: "Obtain a Let's Encrypt certificate for the server's host name (an Nginx site answers the challenge on port 80 when no website uses the name). Use it for the panel or the mail server afterwards." }
+  ssl.hostname_issue: { mutating: true, description: "Obtain a Let's Encrypt certificate for the server's host name as a job (certbot's output in the job log). An Nginx site answers the challenge on port 80 when no website uses the name. Use it for the panel or the mail server afterwards." }
   ssl.inspect: { mutating: false, description: "Details of a certificate file used by a site." }
   ssl.issue: { mutating: true, description: "Issue or expand a Let's Encrypt certificate (webroot)." }
   ssl.key: { mutating: false, description: "One key made on the server: its CSR and self-signed certificate (PEM) and details; never the private key." }
@@ -725,6 +726,7 @@ x-whacp-actions:
   ssl.mail_tls: { mutating: true, description: "The mail server's TLS: protocol versions (tls12: TLS 1.2 and 1.3; tls13: TLS 1.3 only) for IMAP and submission, and ciphers (default or Mozilla intermediate). Checked, reloaded, rolled back on failure." }
   ssl.renew: { mutating: true, description: "Force renewal of a certbot certificate and reload Nginx." }
   ssl.renewal_enable: { mutating: true, description: "Turn on certbot's renewal timer." }
+  ssl.renewal_log: { mutating: false, description: "What certbot did in its recent runs (renewals, certificates not yet due, failures), from /var/log/letsencrypt." }
   ssl.renewal_status: { mutating: false, description: "Whether automatic certificate renewal is active." }
   ssl.service_cert: { mutating: true, description: "Use a Let's Encrypt certificate for the panel's HTTPS site or the mail server (Postfix and Dovecot), or go back to the previous one (cert_name empty). Checked (nginx -t, postfix check, doveconf), reloaded, rolled back on failure." }
   ssl.services: { mutating: false, description: "Certificates and TLS of WhaCP's own services: the panel's HTTPS site and the mail server (Postfix and Dovecot), the server's host name and the Let's Encrypt certificates that could be used." }

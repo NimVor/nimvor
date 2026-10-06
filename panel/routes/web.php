@@ -307,6 +307,8 @@ return static function (Router $r): void {
     $r->get('/workers', [WorkersController::class, 'index'], ['name' => 'workers', 'permission' => P::WORKERS_MANAGE]);
     $r->get('/ssl', [DiscoveryController::class, 'ssl'], ['name' => 'ssl', 'permission' => P::SSL_VIEW]);
     $r->get('/ssl/hosts', [\WhaCP\Http\Controllers\SslCenterController::class, 'hosts'], ['name' => 'ssl.hosts', 'permission' => P::SSL_VIEW]);
+    $r->get('/ssl/autossl', [\WhaCP\Http\Controllers\SslCenterController::class, 'autossl'], ['name' => 'ssl.autossl', 'permission' => P::SSL_VIEW]);
+    $r->post('/ssl/autossl/run', [\WhaCP\Http\Controllers\SslCenterController::class, 'autosslRun'], ['name' => 'ssl.autossl.run', 'permission' => P::SSL_MANAGE]);
     $r->post('/ssl/renewal', [\WhaCP\Http\Controllers\SslCenterController::class, 'enableRenewal'], ['name' => 'ssl.renewal.enable', 'permission' => P::SSL_MANAGE]);
     $r->get('/ssl/certificates', [\WhaCP\Http\Controllers\SslCenterController::class, 'certificates'], ['name' => 'ssl.certificates', 'permission' => P::SSL_VIEW]);
     $r->post('/ssl/certificates/delete', [\WhaCP\Http\Controllers\SslCenterController::class, 'deleteCertificate'], ['name' => 'ssl.certificates.delete', 'permission' => P::SSL_MANAGE]);

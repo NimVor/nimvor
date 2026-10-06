@@ -56,6 +56,21 @@ const OUT = process.env.E2E_OUT || '/tmp';
     if (await page.locator('.wcp-topbar .wcp-search-trigger').count() !== 0) { throw new Error('the search is still in the top bar'); }
     if ((await page.textContent('.wcp-sidebar')).includes('Write mode')) { throw new Error('"Write mode" still shown'); }
     step('sidebar: search above Dashboard, no write-mode pill');
+    if (await page.locator('.wcp-sidebar-account').count() !== 0) { throw new Error('the profile block is still in the sidebar'); }
+    // Groups fold, stay folded after a reload; the current page's group stays open.
+    await page.click('[data-wcp-nav-toggle="Hosting"]');
+    if (await page.locator('#wcp-nav-hosting').isVisible()) { throw new Error('Hosting did not fold'); }
+    await page.reload();
+    if (await page.locator('#wcp-nav-hosting').isVisible()) { throw new Error('the folded group opened again after a reload'); }
+    await page.goto(BASE + '/ssl/autossl');
+    if (!(await page.locator('#wcp-nav-hosting').isVisible())) { throw new Error('the group of the current page is folded'); }
+    const sslMenu = await page.$$eval('[data-wcp-section-menu="ssl"] a', a => a.map(x => x.textContent.trim()));
+    if (JSON.stringify(sslMenu) !== JSON.stringify(['SSL hosts', 'AutoSSL', 'Certificates', 'Keys and CSRs', 'TLS configuration', 'Services SSL'])) { throw new Error('SSL menu: ' + JSON.stringify(sslMenu)); }
+    if (await page.locator('button:has-text("Run AutoSSL for all websites")').count() !== 1) { throw new Error('no Run AutoSSL button'); }
+    await page.click('[data-wcp-nav-toggle="Hosting"]'); await page.click('[data-wcp-nav-toggle="Hosting"]');
+    await page.evaluate(() => localStorage.removeItem('wcp-nav-folded'));
+    await page.goto(BASE + '/');
+    step('sidebar: no profile block, groups fold and are remembered, SSL menu, AutoSSL page');
     // Server restart: a confirmation with the host name.
     await page.click('.wcp-server-tools button[aria-label="Restart the server"]');
     await page.waitForSelector('#wcp-reboot.show');

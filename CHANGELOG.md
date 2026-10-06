@@ -7,6 +7,30 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **SSL/TLS → AutoSSL** (like cPanel's Manage AutoSSL):
+  - The provider (Let's Encrypt), when the next check runs, and whether
+    renewals are scheduled.
+  - **Run AutoSSL for all websites:** checks every website at once.
+  - The websites still waiting, an **AutoSSL log** of every attempt
+    (issued, failed, skipped, queued), and **certbot's renewal log**.
+- **New setting "Replace expired or invalid certificates"** (on by
+  default): every 6 hours, a website gets a new Let's Encrypt certificate
+  once its domain points here if its certificate:
+  - has expired;
+  - expires within 7 days without being renewed;
+  - does not cover its domain;
+  - or is self-signed.
+- **SSL in the sidebar** has its own pages as sub-menus (SSL hosts, AutoSSL,
+  Certificates, Keys and CSRs, TLS configuration, Services SSL). Each is
+  also a card under *Tools & settings* on the dashboard.
+- **Sidebar groups fold:** click a group's name. The choice is remembered
+  in the browser, and the group of the current page always stays open.
+
+### Changed
+- The profile block at the bottom of the sidebar was removed (the account
+  menu in the top right has Profile and Sign out).
+
+### Added
 - **Top bar for server administrators:** the host name, the operating
   system, the WhaCP version and the load averages (1, 5 and 15 minutes,
   refreshed every 5 seconds, and the same as the dashboard's Load card). Clicking the load opens live monitoring.
@@ -115,6 +139,13 @@ All notable changes to WhaCP are documented here. The format follows
   the system's services are not affected.
 
 ### Fixed
+- **"Get a certificate for the host name" ended without a message.** The
+  agent stopped the action after its default 30 seconds while certbot was
+  still working. It now runs as a job: the job window shows certbot's
+  output, and the result stays in the job history. Other new actions that
+  reload services got longer time limits too.
+- The top bar's load refresh started an extra timer each time a page
+  loaded in place.
 - **WhaCP's greylisting and mail-limit services were flagged as suspicious
   processes after an update.** They run the agent's program and were not
   restarted by the installer, so they kept running the replaced (deleted)

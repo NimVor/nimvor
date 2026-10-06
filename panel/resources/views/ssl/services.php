@@ -23,7 +23,7 @@ $mt = (array) ($svc['mail_tls'] ?? []);
         <?php if ($hasHostCert): ?><span class="wcp-state is-ok">Let's Encrypt certificate present</span>
         <?php else: ?><span class="wcp-state is-warn">no Let's Encrypt certificate</span><?php endif; ?></span>
     <?php if ($canManage && !$hasHostCert && $hostname !== ''): ?>
-        <form class="ms-auto" method="post" action="<?= e($this->url('ssl.services.hostname')) ?>" data-wcp-busy data-wcp-confirm="Ask Let's Encrypt for a certificate for <?= e($hostname) ?>? The name must point to this server and port 80 must be reachable.">
+        <form class="ms-auto" method="post" action="<?= e($this->url('ssl.services.hostname')) ?>" data-wcp-noajax data-wcp-busy data-wcp-confirm="Ask Let's Encrypt for a certificate for <?= e($hostname) ?>? The name must point to this server and port 80 must be reachable.">
             <?= $this->csrfField() ?><button class="btn btn-sm btn-primary"<?= empty($svc['certbot_installed']) ? ' disabled title="Install certbot on the Packages page first"' : '' ?>><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Get a certificate for the host name</button>
         </form>
     <?php endif; ?>
@@ -89,13 +89,13 @@ $serviceCard = function (string $key, string $title, string $icon, ?array $s, st
         <div class="card h-100">
             <div class="card-header"><i class="bi bi-signpost-split me-1"></i>Where each SSL setting is</div>
             <div class="card-body small">
-                <dl class="row mb-0">
-                    <dt class="col-sm-5">Websites' SSL ciphers</dt><dd class="col-sm-7">TLS configuration tab (Nginx serves every website and webmail; there is no Apache).</dd>
-                    <dt class="col-sm-5">Web services (panel) SSL</dt><dd class="col-sm-7">The panel card on this page; its ciphers follow the TLS configuration tab.</dd>
-                    <dt class="col-sm-5">Mail server SSL and ciphers</dt><dd class="col-sm-7">The mail cards on this page.</dd>
-                    <dt class="col-sm-5">Host name SSL</dt><dd class="col-sm-7">The host name bar above; renewed automatically like every Let's Encrypt certificate.</dd>
-                    <dt class="col-sm-5">Web Disk SSL</dt><dd class="col-sm-7">WhaCP has no Web Disk (WebDAV) service; files are reached over SFTP, FTPS and the File Manager.</dd>
-                </dl>
+                <table class="table table-sm align-top mb-0"><tbody>
+                    <tr><th class="fw-semibold w-40" scope="row">Websites' SSL ciphers</th><td>TLS configuration tab (Nginx serves every website and webmail; there is no Apache).</td></tr>
+                    <tr><th class="fw-semibold w-40" scope="row">Web services (panel) SSL</th><td>The panel card on this page; its ciphers follow the TLS configuration tab.</td></tr>
+                    <tr><th class="fw-semibold w-40" scope="row">Mail server SSL and ciphers</th><td>The mail cards on this page.</td></tr>
+                    <tr><th class="fw-semibold w-40" scope="row">Host name SSL</th><td>The host name bar above; renewed automatically like every Let's Encrypt certificate.</td></tr>
+                    <tr><th class="fw-semibold w-40" scope="row">Web Disk SSL</th><td>WhaCP has no Web Disk (WebDAV) service; files are reached over SFTP, FTPS and the File Manager.</td></tr>
+                </tbody></table>
             </div>
         </div>
     </div>

@@ -52,7 +52,14 @@ final class Navigation
                     ['Sending limits', 'mail.limits', P::SERVER_VIEW],
                     ['Tools', 'mail.admin.tools', P::SERVER_VIEW],
                 ]],
-                ['SSL', 'shield-lock', 'ssl', P::SSL_VIEW, '/ssl', 'Certificates and Let\'s Encrypt'],
+                ['SSL', 'shield-lock', 'ssl', P::SSL_VIEW, '/ssl', 'Certificates and Let\'s Encrypt', [
+                    ['SSL hosts', 'ssl.hosts', P::SSL_VIEW],
+                    ['AutoSSL', 'ssl.autossl', P::SSL_VIEW],
+                    ['Certificates', 'ssl.certificates', P::SSL_VIEW],
+                    ['Keys and CSRs', 'ssl.keys', P::SSL_VIEW],
+                    ['TLS configuration', 'ssl.tls', P::SSL_VIEW],
+                    ['Services SSL', 'ssl.services', P::SSL_VIEW],
+                ]],
             ],
             'Operations' => [
                 ['Backups', 'archive', 'backups', P::BACKUPS_VIEW, '/backups', 'Backups, schedules and destinations'],
@@ -117,6 +124,16 @@ final class Navigation
     }
 
     /** Icon and description of each Security page (Tools & settings cards). */
+    /** SSL/TLS's pages as dashboard cards: route => [icon, description]. */
+    public const SSL_CARDS = [
+        'ssl.hosts' => ['shield-lock', 'Every host name and the certificate that answers'],
+        'ssl.autossl' => ['arrow-repeat', 'Let\'s Encrypt for every website, renewals and logs'],
+        'ssl.certificates' => ['patch-check', 'Every certificate on the server'],
+        'ssl.keys' => ['key', 'Private keys and signing requests'],
+        'ssl.tls' => ['sliders', 'Protocols and ciphers of the websites'],
+        'ssl.services' => ['hdd-network', 'Panel, mail server and host name certificates'],
+    ];
+
     public const SECURITY_CARDS = [
         'security' => ['shield-check', 'Safety rating and one-click fixes'],
         'security.firewall' => ['bricks', 'Open ports and allowed addresses'],
@@ -159,6 +176,10 @@ final class Navigation
                     }
                     $path = $view->url($cRoute);
                     $children[] = ['label' => $cLabel, 'route' => $cRoute, 'url' => $view->url($cRoute, [], $query), 'active' => self::childActive($view, $path, $query, $c[4] ?? [])];
+                }
+                // SSL/TLS's and Monitoring's sub-pages are for server administrators.
+                if (in_array($route, ['ssl', 'monitoring'], true) && !$view->serverScope()) {
+                    $children = [];
                 }
                 // One child only (e.g. a reseller's Email): the parent is enough.
                 if (count($children) < 2) {

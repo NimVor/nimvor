@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
@@ -56,7 +57,7 @@ func registerGraphical(r *actions.Registry, env *host.Env) {
 	r.Register(actions.Action{Name: "server.graphical", Description: "Whether the graphical login screen (GDM, LightDM, SDDM) runs, and the default boot target.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return ReadGraphical(ctx, env), nil
 	}})
-	r.Register(actions.Action{Name: "server.graphical_set", Mutating: true, Description: "Turn the graphical login screen off (boot to the text console, stop the display manager) or on again.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "server.graphical_set", Timeout: 3 * time.Minute, Mutating: true, Description: "Turn the graphical login screen off (boot to the text console, stop the display manager) or on again.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Enabled bool `json:"enabled"`
 		}

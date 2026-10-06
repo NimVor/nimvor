@@ -129,4 +129,41 @@ final class AutoSslTest extends HttpTestCase
         $this->app->container->get(SettingsService::class)->update(['auto_ssl' => '0'], null);
         self::assertSame('', $this->state($this->site('other.test'))['auto_ssl']);
     }
+
+    public function testExpiredCertificateIsReplacedAndLogged(): void
+    {
+        $id = $this->site('shop.test');
+        $this->db->run("UPDATE websites SET https = 1, auto_ssl = 'done' WHERE id = ?", [$id]);
+        $this->dnsLookup->a['shop.test'] = ['203.0.113.10'];
+        $this->agent->succeed('ssl.store', ['hosts' => [
+            ['name' => 'shop.test', 'https' => true, 'covered' => true, 'certificate' => ['expired' => true, 'days_remaining' => -3]],
+        ], 'certificates' => []]);
+        $this->pass();
+        self::assertSame(1, $this->calls('ssl.issue'), 'replaced');
+        self::assertSame('done', $this->state($id)['auto_ssl']);
+        $log = $this->app->container->get(AutoSslService::class)->recentLog();
+        self::assertSame(['issued', 'queued'], array_column($log, 'result'));
+        self::assertStringContainsString('expired', (string) $log[1]['message']);
+        // Checked again only after a few hours.
+        $this->pass();
+        self::assertSame(1, $this->calls('ssl.issue'));
+    }
+
+    public function testRunForAllAndThePage(): void
+    {
+        $plain = $this->site('plain.test');
+        $this->dnsLookup->a['plain.test'] = ['203.0.113.10'];
+        $this->db->run("UPDATE websites SET auto_ssl = '' WHERE id = ?", [$plain]);
+        $this->agent->succeed('ssl.store', ['hosts' => [], 'certificates' => []]);
+        $this->agent->succeed('ssl.renewal_status', ['certbot_installed' => true, 'timer_active' => true, 'method' => 'certbot-renew.timer']);
+        $this->agent->succeed('ssl.renewal_log', ['lines' => ['2026-10-01 INFO Certificate not yet due for renewal']]);
+        $this->login('admin');
+        $page = $this->request('GET', '/ssl/autossl')->body();
+        self::assertStringContainsString('Run AutoSSL for all websites', $page);
+        self::assertStringContainsString('Certificate not yet due for renewal', $page);
+        $this->post('/ssl/autossl/run');
+        self::assertSame(1, $this->calls('ssl.issue'));
+        self::assertSame('done', $this->state($plain)['auto_ssl']);
+        self::assertStringContainsString('plain.test', $this->request('GET', '/ssl/autossl')->body());
+    }
 }

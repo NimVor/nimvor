@@ -24,9 +24,11 @@ final class NavigationTest extends HttpTestCase
         $this->agent->succeed('system.info', ['system' => ['hostname' => 'srv1', 'uptime_seconds' => 60], 'os' => ['pretty_name' => 'Ubuntu 24.04', 'supported' => true]]);
         $this->login('admin');
         $page = $this->request('GET', '/')->body();
-        foreach (['id="wcp-palette"', 'data-wcp-palette-item', 'Tools &amp; settings', 'Create website', 'wcp-hero', 'srv1', 'System accounts', 'wcp-sidebar-account'] as $want) {
+        foreach (['id="wcp-palette"', 'data-wcp-palette-item', 'Tools &amp; settings', 'Create website', 'wcp-hero', 'srv1', 'System accounts', 'data-wcp-nav-toggle="Hosting"', 'AutoSSL'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
+        // The account menu is in the top bar only.
+        self::assertStringNotContainsString('wcp-sidebar-account', $page);
     }
 
     public function testResellersSeeTheirAccountNotTheServer(): void

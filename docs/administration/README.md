@@ -1167,6 +1167,19 @@ SSL/TLS section:
   certificates that expire within the warning period, have expired, or do
   not cover the name. It also shows whether Let's Encrypt renewals are
   scheduled, and links to each website's SSL page.
+- **AutoSSL**:
+  - The provider (Let's Encrypt), the next scheduler check, and the
+    renewal timer's state.
+  - **Run AutoSSL for all websites:** websites without HTTPS, and those
+    whose certificate has expired, expires within 7 days without being
+    renewed, does not cover the domain or is self-signed, are queued. The
+    first three are handled at once, the rest by the scheduler (every 5
+    minutes).
+  - **Automatic replacement:** with *Replace expired or invalid
+    certificates* on (Settings → SSL/TLS), the same check runs every 6
+    hours.
+  - **Logs:** the websites still waiting, the AutoSSL log of every attempt,
+    and certbot's renewal log (`/var/log/letsencrypt`, the relevant lines).
 - **Certificates**: every certificate on the server (Let's Encrypt, the ones
   installed through WhaCP, and those other Nginx configurations use, shown
   read only) with names, issuer, validity, SHA-256 fingerprint, chain length
@@ -1195,8 +1208,9 @@ SSL/TLS section:
   a certificate is chosen for it under *Services*. The snippet stays when
   WhaCP is uninstalled, because the websites still use it.
 - **Services**: the certificates of WhaCP's own services.
-  - **Host name:** a Let's Encrypt certificate for the server's host name.
-    Nginx answers the challenge on port 80 when no website uses the name.
+  - **Host name:** a Let's Encrypt certificate for the server's host name,
+    as a job whose window shows certbot's output. Nginx answers the
+    challenge on port 80 when no website uses the name.
   - **Panel and mail server:** each can use any Let's Encrypt certificate,
     or go back to the one it used before.
     - The panel's Nginx site is checked with `nginx -t` and reloaded.

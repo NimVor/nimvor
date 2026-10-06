@@ -119,3 +119,14 @@ func TestRenewalTimerRHEL(t *testing.T) {
 		t.Fatalf("after: %v", m)
 	}
 }
+
+func TestRenewalLog(t *testing.T) {
+	h := testhost.New(t)
+	os.MkdirAll(filepath.Join(h.Base, "var/log/letsencrypt"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "var/log/letsencrypt/letsencrypt.log.1"), []byte("2026-10-01 03:00:01,000:DEBUG:certbot._internal.main:certbot version: 2.11\n2026-10-01 03:00:02,000:INFO:certbot._internal.renewal:Certificate not yet due for renewal\n"), 0o644)
+	os.WriteFile(filepath.Join(h.Base, "var/log/letsencrypt/letsencrypt.log"), []byte("2026-10-02 03:00:02,000:DEBUG:urllib3.connectionpool:error x\n2026-10-02 03:00:03,000:INFO:certbot._internal.renewal:Renewing an existing certificate for shop.test\n"), 0o644)
+	got := RenewalLog(h.Env, 10)
+	if len(got) != 2 || !strings.Contains(got[0], "not yet due") || !strings.Contains(got[1], "Renewing an existing certificate for shop.test") {
+		t.Fatalf("log: %q", got)
+	}
+}

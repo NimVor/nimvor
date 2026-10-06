@@ -861,3 +861,12 @@ body { letter-spacing: -.003em; }
 .wcp-sidebar-search kbd { margin-left: auto; background: transparent; color: var(--wcp-sidebar-muted); border-color: rgba(255, 255, 255, .15); }
 .wcp-update-log { max-height: 28rem; overflow: auto; white-space: pre-wrap; }
 .wcp-proc-cmd { max-width: 48rem; max-height: 4.5em; overflow: hidden; }
+
+/* Sidebar groups fold (the group with the current page stays open). */
+button.wcp-nav-group { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: 0; text-align: left; cursor: pointer; border-radius: .35rem; }
+button.wcp-nav-group:hover { color: var(--wcp-sidebar-fg); }
+button.wcp-nav-group:focus-visible { outline: 2px solid var(--wcp-accent); outline-offset: 1px; }
+button.wcp-nav-group i { font-size: .7rem; transition: transform .15s ease; }
+button.wcp-nav-group[aria-expanded="false"] i { transform: rotate(-90deg); }
+.wcp-nav-section[hidden] { display: none; }
+.w-40 { width: 40%; }

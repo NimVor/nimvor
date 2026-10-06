@@ -34,6 +34,8 @@ final class SslCenterController extends Controller
         private readonly ServerContext $server,
         private readonly SslService $ssl,
         private readonly SettingsService $settings,
+        private readonly \WhaCP\Services\AutoSslService $autoSsl,
+        private readonly \WhaCP\Services\JobTracker $jobs,
     ) {
         parent::__construct($view, $session);
     }
@@ -93,10 +95,10 @@ final class SslCenterController extends Controller
             $st = (array) $this->agent->call('ssl.renewal_enable', [], 60);
         } catch (UserFacingException $e) {
             $this->audit->record('ssl.renewal_enable', 'server', 'certbot', AuditLogger::FAILURE, ['error' => $e->getMessage()]);
-            return $this->redirectWithFailure('/ssl/hosts', $e);
+            return $this->redirectWithFailure('/ssl/autossl', $e);
         }
         $this->audit->record('ssl.renewal_enable', 'server', 'certbot', AuditLogger::SUCCESS, ['method' => (string) ($st['method'] ?? '')]);
-        return $this->redirectWithSuccess('/ssl/hosts', 'Automatic renewal of Let\'s Encrypt certificates is on (' . (string) ($st['method'] ?? '') . ').');
+        return $this->redirectWithSuccess('/ssl/autossl', 'Automatic renewal of Let\'s Encrypt certificates is on (' . (string) ($st['method'] ?? '') . ').');
     }
 
     public function certificates(Request $request): Response
@@ -292,12 +294,58 @@ final class SslCenterController extends Controller
         $email = (string) ($this->user($request)['email'] ?? '');
         $email = filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? $email : '';
         try {
-            $res = (array) $this->agent->call('ssl.hostname_issue', ['email' => $email], 300);
+            $res = (array) $this->agent->call('ssl.hostname_issue', ['email' => $email], 60);
         } catch (UserFacingException $e) {
             $this->audit->record('ssl.hostname_issue', 'server', 'hostname', AuditLogger::FAILURE, ['error' => $e->getMessage()]);
             return $this->redirectWithFailure('/ssl/services', $e);
         }
-        $this->audit->record('ssl.hostname_issue', 'server', 'hostname', AuditLogger::SUCCESS);
-        return $this->redirectWithSuccess('/ssl/services', 'Let\'s Encrypt issued a certificate for the host name. Use it for the panel and the mail server below.');
+        $this->jobs->track((string) $res['job_id'], 'Let\'s Encrypt for ' . (string) ($res['hostname'] ?? 'the host name'), 'server', (string) $this->server->id(), $this->userId($request));
+        $this->audit->record('ssl.hostname_issue', 'server', 'hostname', AuditLogger::SUCCESS, ['hostname' => $res['hostname'] ?? '']);
+        $this->flashJob((string) $res['job_id']);
+        return $this->redirectWithSuccess('/ssl/services', 'Asking Let\'s Encrypt for a certificate for ' . (string) ($res['hostname'] ?? 'the host name') . '; the window shows its progress. When it is issued, choose it for the panel and the mail server below.');
+    }
+
+    /** AutoSSL: provider, settings, next check, queue, log, certbot's renewals. */
+    public function autossl(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $error = null;
+        $renewal = $this->call('ssl.renewal_status', [], $error);
+        $renewLog = $error === null ? $this->call('ssl.renewal_log', [], $error) : null;
+        $last = $this->autoSsl->lastSchedulerRun();
+        $queued = $this->autoSsl->queued();
+        return $this->page('autossl', [
+            'renewal' => $renewal,
+            'renewLog' => (array) ($renewLog['lines'] ?? []),
+            'log' => $this->autoSsl->recentLog(300),
+            'queued' => $queued,
+            'nextCheck' => $last !== null ? $last + 300 : null,
+            'autoNew' => $this->settings->bool('auto_ssl'),
+            'autoReplace' => $this->settings->bool('auto_ssl_replace'),
+        ], $error);
+    }
+
+    /** Run AutoSSL for all websites now: queue them, then work through the first few. */
+    public function autosslRun(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        try {
+            $n = $this->autoSsl->queue(true);
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/ssl/autossl', $e);
+        }
+        $this->audit->record('ssl.autossl_run', 'server', 'autossl', AuditLogger::SUCCESS, ['queued' => $n]);
+        if ($n === 0) {
+            return $this->redirectWithSuccess('/ssl/autossl', 'Every website already has a valid certificate; nothing to do.');
+        }
+        // The first ones now (each can take up to a minute), the rest with
+        // the scheduler every 5 minutes.
+        @set_time_limit(300);
+        $done = $this->autoSsl->process(3);
+        return $this->redirectWithSuccess('/ssl/autossl', $n . ' website(s) queued; ' . count($done) . ' handled now, the rest within the next scheduler runs (every 5 minutes). See the log below.');
     }
 }

@@ -14,8 +14,10 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,7 +66,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
 		}
-		return Issue(ctx, env, in)
+		return Issue(ctx, env, in, nil)
 	}})
 
 	r.Register(actions.Action{Name: "ssl.renew", Mutating: true, Timeout: 5 * time.Minute, Description: "Force renewal of a certbot certificate and reload Nginx.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
@@ -174,6 +176,10 @@ func Register(r *actions.Registry, env *host.Env) {
 		return RenewalStatus(ctx, env), nil
 	}})
 
+	r.Register(actions.Action{Name: "ssl.renewal_log", Description: "What certbot did in its recent runs (renewals, certificates not yet due, failures), from /var/log/letsencrypt.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		return map[string]any{"lines": RenewalLog(env, 300)}, nil
+	}})
+
 	r.Register(actions.Action{Name: "ssl.renewal_enable", Mutating: true, Description: "Turn on certbot's renewal timer.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		if err := EnsureRenewal(ctx, env); err != nil {
 			return nil, actions.Failed("Automatic renewal could not be turned on.", err.Error())
@@ -202,6 +208,40 @@ func RenewalStatus(ctx context.Context, env *host.Env) map[string]any {
 	}
 	status["can_enable"] = renewalTimer(env) != ""
 	return status
+}
+
+// renewalLogRe picks the lines of certbot's debug log worth showing.
+var renewalLogRe = regexp.MustCompile(`(?i)(renewing an existing certificate|certificate not yet due for renewal|not yet due for renewal|congratulations|successfully received certificate|renewal configuration|all renewals succeeded|all renewals failed|the following (certificates|renewals) (are not due|succeeded|failed)|failed to renew|challenge failed|error|requesting a certificate|cert is due for renewal|processing /etc/letsencrypt/renewal/|hook .* ran with|running deploy-hook)`)
+
+// RenewalLog returns up to max interesting lines of certbot's logs, oldest
+// first (letsencrypt.log and its rotated copies .1 … .9).
+func RenewalLog(env *host.Env, max int) []string {
+	var out []string
+	for i := 9; i >= 0; i-- {
+		f := "/var/log/letsencrypt/letsencrypt.log"
+		if i > 0 {
+			f += "." + strconv.Itoa(i)
+		}
+		b, err := env.Root.ReadFile(f)
+		if err != nil || len(b) > 32<<20 {
+			continue
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			if renewalLogRe.MatchString(line) && !strings.Contains(line, "DEBUG:urllib3") && !strings.Contains(line, "acme.client") {
+				if len(line) > 400 {
+					line = line[:400] + "…"
+				}
+				out = append(out, line)
+			}
+		}
+	}
+	if len(out) > max {
+		out = out[len(out)-max:]
+	}
+	if out == nil {
+		out = []string{}
+	}
+	return out
 }
 
 // HasCertificates reports whether certbot manages any certificate.
@@ -340,7 +380,8 @@ func CheckCustom(in customReq, now time.Time) (ssl.Certificate, []byte, error) {
 
 // Issue obtains or expands a Let's Encrypt certificate (webroot) and makes
 // sure it is renewed.
-func Issue(ctx context.Context, env *host.Env, in issueReq) (map[string]any, error) {
+// log, when set, receives certbot's output as it runs.
+func Issue(ctx context.Context, env *host.Env, in issueReq, log io.Writer) (map[string]any, error) {
 	if err := validate.Domain("cert_name", in.CertName); err != nil {
 		return nil, host.Invalid(err)
 	}
@@ -375,7 +416,7 @@ func Issue(ctx context.Context, env *host.Env, in issueReq) (map[string]any, err
 	for _, n := range in.Names {
 		args = append(args, "-d", n)
 	}
-	out, err := env.Runner.RunWith(ctx, "certbot", execx.Opts{Timeout: 4 * time.Minute}, args...)
+	out, err := env.Runner.RunWith(ctx, "certbot", execx.Opts{Timeout: 4 * time.Minute, Output: log}, args...)
 	if err == nil {
 		// EPEL's certbot does not enable its renewal timer.
 		if rerr := EnsureRenewal(ctx, env); rerr != nil {

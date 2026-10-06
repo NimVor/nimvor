@@ -219,17 +219,20 @@ foreach ([
         <div class="wcp-tools-group"><?= e($group) ?></div>
         <div class="wcp-tools">
             <?php
-            // Security's pages each get their own card (as in the sidebar).
-            if ($group === 'Security') {
-                $cards = [];
-                foreach ($items as $i) {
-                    foreach ($i['children'] !== [] ? $i['children'] : [['label' => $i['label'], 'route' => $i['route'], 'url' => $i['url']]] as $c) {
-                        [$icon, $desc] = \WhaCP\View\Navigation::SECURITY_CARDS[$c['route']] ?? [$i['icon'], $i['description']];
-                        $cards[] = ['label' => $c['label'] === 'Overview' ? 'Security overview' : $c['label'], 'url' => $c['url'], 'icon' => $icon, 'description' => $desc];
-                    }
+            // Security's and SSL's pages each get their own card (as in the sidebar).
+            $cards = [];
+            foreach ($items as $i) {
+                $details = $group === 'Security' ? \WhaCP\View\Navigation::SECURITY_CARDS : ($i['route'] === 'ssl' ? \WhaCP\View\Navigation::SSL_CARDS : null);
+                if ($details === null || $i['children'] === []) {
+                    $cards[] = $i;
+                    continue;
                 }
-                $items = $cards;
+                foreach ($i['children'] as $c) {
+                    [$icon, $desc] = $details[$c['route']] ?? [$i['icon'], $i['description']];
+                    $cards[] = ['label' => $c['label'] === 'Overview' ? 'Security overview' : $c['label'], 'url' => $c['url'], 'icon' => $icon, 'description' => $desc];
+                }
             }
+            $items = $cards;
             ?>
             <?php foreach ($items as $i): ?>
                 <a class="wcp-tool-card" href="<?= e($i['url']) ?>">

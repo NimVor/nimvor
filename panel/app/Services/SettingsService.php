@@ -81,6 +81,10 @@ final class SettingsService
                 'category' => 'ssl', 'type' => 'bool', 'default' => true,
                 'label' => 'Automatic SSL for new websites', 'help' => 'Issue a Let\'s Encrypt certificate for a new website once its domain points to this server (its name servers are this panel\'s, or its address is this server\'s). Checked every few minutes for up to 3 days.',
             ],
+            'auto_ssl_replace' => [
+                'category' => 'ssl', 'type' => 'bool', 'default' => true,
+                'label' => 'Replace expired or invalid certificates', 'help' => 'Every few hours, a website whose certificate has expired, expires within 7 days without being renewed, does not cover its domain or is self-signed gets a new Let\'s Encrypt certificate once its domain points to this server. Every attempt is logged on SSL/TLS → AutoSSL.',
+            ],
             'av_scan_days' => [
                 'category' => 'security', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 30,
                 'label' => 'Scheduled malware scans (every N days)', 'help' => 'Scan every website with ClamAV every this many days, as the website\'s account, at night. 0 turns scheduled scans off.',

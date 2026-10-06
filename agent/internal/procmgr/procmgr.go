@@ -415,10 +415,10 @@ func Signal(env *host.Env, pid int, start uint64, sig string) error {
 }
 
 func Register(r *actions.Registry, env *host.Env) {
-	r.Register(actions.Action{Name: "processes.list", Description: "Every process: owner, priority, CPU and memory use, command line, executable and listening ports, and why a process looks suspicious (miners, deleted or temporary programs, fake kernel threads, shells listening on a port).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "processes.list", Timeout: 3 * time.Minute, Description: "Every process: owner, priority, CPU and memory use, command line, executable and listening ports, and why a process looks suspicious (miners, deleted or temporary programs, fake kernel threads, shells listening on a port).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return List(ctx, env, 500*time.Millisecond), nil
 	}})
-	r.Register(actions.Action{Name: "processes.trace", Description: "One process in detail: executable, folders, open files, status, and (when strace is installed) its system calls for five seconds.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "processes.trace", Timeout: 3 * time.Minute, Description: "One process in detail: executable, folders, open files, status, and (when strace is installed) its system calls for five seconds.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			PID   int    `json:"pid"`
 			Start uint64 `json:"start"`

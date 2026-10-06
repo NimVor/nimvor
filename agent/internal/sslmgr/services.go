@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
@@ -127,7 +129,7 @@ func registerServices(r *actions.Registry, env *host.Env) {
 		return out, nil
 	}})
 
-	r.Register(actions.Action{Name: "ssl.service_cert", Mutating: true, Description: "Use a Let's Encrypt certificate for the panel's HTTPS site or the mail server (Postfix and Dovecot), or go back to the previous one (cert_name empty). Checked (nginx -t, postfix check, doveconf), reloaded, rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "ssl.service_cert", Timeout: 3 * time.Minute, Mutating: true, Description: "Use a Let's Encrypt certificate for the panel's HTTPS site or the mail server (Postfix and Dovecot), or go back to the previous one (cert_name empty). Checked (nginx -t, postfix check, doveconf), reloaded, rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			Service  string `json:"service"`
 			CertName string `json:"cert_name"`
@@ -158,7 +160,7 @@ func registerServices(r *actions.Registry, env *host.Env) {
 		return nil, actions.InvalidParams("service: panel or mail")
 	}})
 
-	r.Register(actions.Action{Name: "ssl.mail_tls", Mutating: true, Description: "The mail server's TLS: protocol versions (tls12: TLS 1.2 and 1.3; tls13: TLS 1.3 only) for IMAP and submission, and ciphers (default or Mozilla intermediate). Checked, reloaded, rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "ssl.mail_tls", Timeout: 3 * time.Minute, Mutating: true, Description: "The mail server's TLS: protocol versions (tls12: TLS 1.2 and 1.3; tls13: TLS 1.3 only) for IMAP and submission, and ciphers (default or Mozilla intermediate). Checked, reloaded, rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var m tlsprofile.Mail
 		if err := host.Decode(raw, &m); err != nil {
 			return nil, err
@@ -175,7 +177,7 @@ func registerServices(r *actions.Registry, env *host.Env) {
 		}, m, "", "")
 	}})
 
-	r.Register(actions.Action{Name: "ssl.hostname_issue", Mutating: true, Description: "Obtain a Let's Encrypt certificate for the server's host name (an Nginx site answers the challenge on port 80 when no website uses the name). Use it for the panel or the mail server afterwards.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "ssl.hostname_issue", Mutating: true, Description: "Obtain a Let's Encrypt certificate for the server's host name as a job (certbot's output in the job log). An Nginx site answers the challenge on port 80 when no website uses the name. Use it for the panel or the mail server afterwards.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			Email string `json:"email"`
 		}
@@ -186,10 +188,25 @@ func registerServices(r *actions.Registry, env *host.Env) {
 		if validate.Domain("hostname", name) != nil || !strings.Contains(name, ".") {
 			return nil, actions.Conflict("The host name (" + name + ") is not a full domain name; set one such as server.example.com on the Server page first.")
 		}
-		if err := ensureHostnameSite(ctx, env, name); err != nil {
-			return nil, err
+		if !env.Runner.Available("certbot") {
+			return nil, actions.Failed("certbot is not installed. Install it on the Packages page (package: certbot).", "")
 		}
-		return Issue(ctx, env, issueReq{CertName: name, Names: []string{name}, Email: in.Email})
+		j := env.Jobs.Start("ssl.hostname_issue", "ssl:"+name, func(ctx context.Context, log io.Writer) (any, error) {
+			fmt.Fprintf(log, "Host name: %s\n", name)
+			if err := ensureHostnameSite(ctx, env, name); err != nil {
+				return nil, err
+			}
+			fmt.Fprintln(log, "Nginx answers Let's Encrypt's check for the host name on port 80.")
+			fmt.Fprintln(log, "Asking Let's Encrypt (this can take a minute)…")
+			res, err := Issue(ctx, env, issueReq{CertName: name, Names: []string{name}, Email: in.Email}, log)
+			if err != nil {
+				fmt.Fprintln(log, "Let's Encrypt did not issue the certificate. The host name must point to this server (its A record) and port 80 must be reachable from the internet.")
+				return nil, err
+			}
+			fmt.Fprintf(log, "Certificate issued: %s\nUse it for the panel or the mail server on SSL/TLS → Services SSL.\n", res["cert_file"])
+			return res, nil
+		})
+		return map[string]any{"job_id": j.ID, "hostname": name}, nil
 	}})
 }
 

@@ -22,7 +22,15 @@ $groups = Navigation::visible($this);
     </button>
     <div class="wcp-nav">
         <?php foreach ($groups as $group => $visible): ?>
-            <div class="wcp-nav-group"><?= e($group) ?></div>
+            <?php
+            $gid = 'wcp-nav-' . preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $group));
+            $hasActive = false;
+            foreach ($visible as $it) {
+                $hasActive = $hasActive || $this->isActive($it['prefix']) || ($it['route'] === 'websites' && $siteMenu !== null) || array_filter(array_column($it['children'], 'active')) !== [];
+            }
+            ?>
+            <button class="wcp-nav-group" type="button" aria-expanded="true" aria-controls="<?= e($gid) ?>" data-wcp-nav-toggle="<?= e((string) $group) ?>"<?= $hasActive ? ' data-wcp-nav-current' : '' ?>><span><?= e($group) ?></span><i class="bi bi-chevron-down" aria-hidden="true"></i></button>
+            <div class="wcp-nav-section" id="<?= e($gid) ?>">
             <?php foreach ($visible as $item): ?>
                 <?php $inSite = $item['route'] === 'websites' && $siteMenu !== null; $active = $this->isActive($item['prefix']); ?>
                 <a class="wcp-nav-link<?= $active || $inSite ? ' active' : '' ?>" href="<?= e($item['url']) ?>"<?= $active ? ' aria-current="page"' : '' ?>>
@@ -46,6 +54,7 @@ $groups = Navigation::visible($this);
                     </div>
                 <?php endif; ?>
             <?php endforeach; ?>
+            </div>
         <?php endforeach; ?>
         <?php
         $pluginItems = isset($plugin_nav) && is_callable($plugin_nav) ? array_filter($plugin_nav(), fn (array $i): bool => $this->can($i['permission'])) : [];
@@ -57,12 +66,5 @@ $groups = Navigation::visible($this);
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
-    <?php if (!empty($user)): ?>
-        <?php $who = $user['display_name'] !== '' ? $user['display_name'] : $user['username']; ?>
-        <a class="wcp-sidebar-account" href="<?= e($this->url('profile')) ?>" title="Profile">
-            <span class="wcp-avatar" aria-hidden="true"><?= e(mb_strtoupper(mb_substr((string) $who, 0, 1))) ?></span>
-            <span class="min-w-0"><span class="d-block text-truncate fw-medium"><?= e($who) ?></span><span class="d-block small text-truncate wcp-sidebar-role"><?= e($user['role_label']) ?></span></span>
-        </a>
-    <?php endif; ?>
 </nav>
 <div class="wcp-sidebar-backdrop" data-wcp-toggle="sidebar"></div>
