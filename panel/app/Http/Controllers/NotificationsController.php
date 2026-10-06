@@ -53,7 +53,7 @@ final class NotificationsController extends Controller
         $latest = array_map(static fn (array $n): array => [
             'id' => (int) $n['id'], 'severity' => $n['severity'], 'title' => $n['title'], 'created_at' => $n['created_at'],
         ], $this->notifications->list($user, ['unread' => true], 5));
-        // The bell's list: the newest ones, read or not.
+        // The bell's list: the newest unread ones (the page lists them all).
         $items = array_map(static function (array $n): array {
             $link = (string) $n['link'];
             return [
@@ -64,7 +64,7 @@ final class NotificationsController extends Controller
                 'link' => str_starts_with($link, '/') && !str_starts_with($link, '//') ? $link : '',
                 'where' => (string) ($n['domain'] ?? ''),
             ];
-        }, $this->notifications->list($user, [], 8));
+        }, $this->notifications->list($user, ['unread' => true], 8));
         return Response::json(['success' => true, 'unread' => $this->notifications->unreadCount($user), 'latest' => $latest, 'items' => $items]);
     }
 

@@ -272,7 +272,11 @@ final class NotificationsTest extends HttpTestCase
         $read = json_decode($this->request('POST', '/notifications/read', [], $csrf, json_encode(['ids' => [$items['Odd link']['id']]]))->body(), true);
         self::assertSame(1, $read['unread']);
         $res = json_decode($this->request('GET', '/notifications/summary', [], $json)->body(), true);
-        self::assertTrue(array_column($res['items'], null, 'title')['Odd link']['read'], 'read items stay in the list, marked read');
+        self::assertArrayNotHasKey('Odd link', array_column($res['items'], null, 'title'), 'read items leave the dropdown');
+        $this->request('POST', '/notifications/read', [], $csrf, json_encode(['all' => '1']));
+        $res = json_decode($this->request('GET', '/notifications/summary', [], $json)->body(), true);
+        self::assertSame([], $res['items'], 'empty once everything is read');
+        self::assertSame(0, $res['unread']);
         // The layout has the dropdown with a link to the full page.
         $page = $this->request('GET', '/notifications')->body();
         self::assertStringContainsString('data-wcp-bell-menu', $page);

@@ -51,6 +51,7 @@ function seed() {
     await page.waitForFunction(() => document.querySelector('[data-wcp-bell-count]').textContent.trim() === '2');
     if (page.url() !== url) { throw new Error('marking read in the dropdown left the page'); }
     if (await page.locator('[data-wcp-bell-list] .wcp-bell-item.is-unread').count() !== 2) { throw new Error('dropdown not updated after marking read'); }
+    if (await page.locator('[data-wcp-bell-list] .wcp-bell-item').count() !== 2) { throw new Error('a read notification stays in the dropdown'); }
     await page.screenshot({ path: OUT + '/notifications-bell.png' });
     step('bell dropdown: list, escaped, mark one read');
 
@@ -76,6 +77,13 @@ function seed() {
     await Promise.all([page.waitForNavigation(), page.click('.card-header a.nav-link:has-text("All")')]);
     if (await page.locator('[data-wcp-notifications] > li').count() < 3) { throw new Error('all view'); }
     step('mark all read');
+
+    // The dropdown lists unread notifications only: empty now.
+    await page.click('[data-wcp-bell]');
+    await page.waitForFunction(() => /No unread notifications/.test(document.querySelector('[data-wcp-bell-list]').textContent));
+    if (await page.locator('[data-wcp-bell-list] .wcp-bell-item').count() !== 0) { throw new Error('the dropdown is not empty after everything was read'); }
+    await page.click('[data-wcp-bell]');
+    step('dropdown empty once everything is read');
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();

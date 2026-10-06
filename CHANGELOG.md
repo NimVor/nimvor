@@ -54,7 +54,8 @@ All notable changes to WhaCP are documented here. The format follows
   (boot to the text console, saving GNOME Shell's 250–400 MB of memory), or
   on again. Nothing is uninstalled.
 - **Notification bell dropdown:** clicking the bell shows the newest
-  notifications. Each can be marked read without leaving the page, there is
+  unread notifications (a notification marked read leaves the list, so it is
+  empty once everything is read; the full page keeps them all). Each can be marked read without leaving the page, there is
   a "Mark all read" button, and "View all notifications" opens the full page.
 - **Dashboard Services widget:** start or stop, and restart, each service
   from its row (for users who may manage services). A service listed under

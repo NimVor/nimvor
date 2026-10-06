@@ -613,7 +613,7 @@
             if (!items || items.length === 0) {
                 var none = document.createElement('div');
                 none.className = 'px-3 py-3 small text-body-secondary';
-                none.textContent = 'No notifications.';
+                none.textContent = 'No unread notifications.';
                 list.appendChild(none);
                 return;
             }
@@ -649,7 +649,7 @@
                     btn.appendChild(ci);
                     btn.addEventListener('click', function () {
                         btn.disabled = true;
-                        markRead({ ids: [n.id] }).then(function () { n.read = true; renderList(items); }).catch(function (err) { btn.disabled = false; WhaCP.toast(err.message, 'danger'); });
+                        markRead({ ids: [n.id] }).then(function () { renderList(items.filter(function (x) { return x.id !== n.id; })); }).catch(function (err) { btn.disabled = false; WhaCP.toast(err.message, 'danger'); });
                     });
                     row.appendChild(btn);
                 }
