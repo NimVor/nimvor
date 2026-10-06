@@ -27,9 +27,13 @@ func verifyErrors(out []byte) []string {
 // selinuxSockets installs the installer's SELinux module that lets systemd
 // create the policy sockets in Postfix's private folder (as the installer
 // does on SELinux systems).
-func selinuxSockets(t *testing.T) {
+func selinuxEnabled() bool {
 	out, err := exec.Command("getenforce").Output()
-	if err != nil || strings.TrimSpace(string(out)) == "Disabled" {
+	return err == nil && strings.TrimSpace(string(out)) != "Disabled"
+}
+
+func selinuxSockets(t *testing.T) {
+	if !selinuxEnabled() {
 		return
 	}
 	module := "../../../installer/selinux/whacp_postfix_sockets.cil"

@@ -94,7 +94,16 @@ func TestRealHostMailRate(t *testing.T) {
 	os.Mkdir(state, 0o700)
 	os.Mkdir(run, 0o700)
 	sock := "/var/spool/postfix/private/whacp-mailrate"
-	svc := exec.Command(bin, "mailrate-policy", "-config", filepath.Join(dir, "mailrate.json"), "-state", state, "-run", run, "-listen", sock)
+	args := []string{bin, "mailrate-policy", "-config", filepath.Join(dir, "mailrate.json"), "-state", state, "-run", run, "-listen", sock}
+	if selinuxEnabled() {
+		// As in production: a service started by systemd (its SELinux
+		// domain, which the installer's module lets smtpd reach), not a
+		// child of this test (unconfined_t).
+		selinuxSockets(t)
+		args = append([]string{"systemd-run", "--quiet", "--collect", "--wait", "--unit=whacp-mailrate-test", "--property=Type=exec"}, args...)
+		t.Cleanup(func() { exec.Command("systemctl", "stop", "whacp-mailrate-test").Run() })
+	}
+	svc := exec.Command(args[0], args[1:]...)
 	svc.Stderr = os.Stderr
 	if err := svc.Start(); err != nil {
 		t.Fatal(err)

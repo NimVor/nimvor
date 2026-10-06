@@ -315,7 +315,12 @@ func TestRealHostTerminalSession(t *testing.T) {
 			t.Errorf("jailed session lacks %q", want)
 		}
 	}
-	for _, bad := range []string{"termb.test", "SECRET-OF-termb", "systemd", "whacp-agent", "sshd"} {
+	// The other website is neither listed nor readable (cat's own error
+	// names the path it was given, which does not exist in the jail).
+	if regexp.MustCompile(`(?m)^termb\.test\r?$`).MatchString(out) || !strings.Contains(out, "termb.test/private.txt: No such file or directory") {
+		t.Error("the jailed session sees the other website")
+	}
+	for _, bad := range []string{"SECRET-OF-termb", "systemd", "whacp-agent", "sshd"} {
 		if strings.Contains(out, bad) {
 			t.Errorf("jailed session sees %q", bad)
 		}

@@ -483,9 +483,15 @@ func testWebmail(t *testing.T, env *host.Env, must func(string, any) map[string]
 		t.Helper()
 		req, _ := http.NewRequest(http.MethodPost, base+path, strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		// A POST is not retried on a kept-alive connection the server has
+		// just closed ("EOF"): start it on a new one.
+		if tr, ok := client.Transport.(interface{ CloseIdleConnections() }); ok {
+			tr.CloseIdleConnections()
+		}
 		resp, err := client.Transport.RoundTrip(withCookies(req, jar))
 		if err != nil {
-			t.Fatal(err)
+			lg, _ := exec.Command("sh", "-c", "tail -n 20 /var/log/nginx/error.log; journalctl --no-pager -n 20 --since -3min -u 'php*-fpm*'").CombinedOutput()
+			t.Fatalf("POST %s: %v\n%s", path, err, lg)
 		}
 		defer resp.Body.Close()
 		if rc := resp.Cookies(); len(rc) > 0 {
