@@ -35,8 +35,13 @@ func TestRealHostCronJobSandbox(t *testing.T) {
 	for _, email := range []string{"", "owner@example.test"} {
 		jobs := []Job{{ID: 1, Schedule: "* * * * *", Command: "id -un; grep -E '^(CapEff|CapBnd|NoNewPrivs)' /proc/self/status; touch /etc/whacp-cron-escape && echo WROTE-ETC; echo 100%", Enabled: true, Email: email}}
 		out, scripts := render(SiteJobs{Domain: domain, User: name, Root: home, Jobs: jobs}, "")
+		// As cron.apply creates them: the scripts' folder is searchable by
+		// everyone, a website's folder only by its group.
+		os.MkdirAll(ScriptDir, 0o755)
+		os.Chmod(ScriptDir, 0o755)
 		dir := filepath.Join(ScriptDir, FileName(domain))
 		os.MkdirAll(dir, 0o750)
+		os.Chmod(dir, 0o750)
 		os.Chown(dir, 0, gid)
 		t.Cleanup(func() { os.RemoveAll(dir) })
 		for f, body := range scripts {
@@ -58,7 +63,8 @@ func TestRealHostCronJobSandbox(t *testing.T) {
 		os.Remove(filepath.Join(home, "logs/cron-1.log"))
 		res, err := exec.Command("/bin/sh", "-c", line).CombinedOutput()
 		if err != nil {
-			t.Fatalf("%s: %v %s", line, err, res)
+			j, _ := exec.Command("journalctl", "--no-pager", "-n", "20", "-o", "cat").CombinedOutput()
+			t.Fatalf("%s: %v %s\njournal:\n%s", line, err, res, j)
 		}
 		log, _ := os.ReadFile(filepath.Join(home, "logs/cron-1.log"))
 		for _, want := range []string{name + "\n", "CapEff:\t0000000000000000", "CapBnd:\t0000000000000000", "NoNewPrivs:\t1", "100%\n", " exit=0"} {

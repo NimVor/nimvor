@@ -90,7 +90,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
       await page.screenshot({ path: OUT + '/adminlists-' + shot + '.png', fullPage: true });
     }
     const items = await page.$$eval('[data-wcp-section-menu="security"] a', (as) => as.map((a) => a.textContent.trim()));
-    const want = ['Overview', 'Firewall', 'SSH', 'Brute-force protection', 'Malware scan', 'Shell access', 'ModSecurity', 'Configure Security Policies', 'Compiler Access', 'SMTP Restrictions', 'cPHulk Brute Force Protection', 'Password Strength Configuration', 'Shell Fork Bomb Protection', 'Traceroute Enable/Disable'];
+    const want = ['Overview', 'Firewall', 'SSH', 'Brute-force protection', 'Malware scan', 'Shell access', 'ModSecurity', 'Configure Security Policies', 'Compiler Access', 'SMTP Restrictions', 'Outgoing Connections', 'cPHulk Brute Force Protection', 'Password Strength Configuration', 'Shell Fork Bomb Protection', 'Traceroute Enable/Disable'];
     if (want.some((w, i) => items[i] !== w)) { throw new Error('security menu order: ' + items.join(', ')); }
     step('security menu in order: ' + items.join(', '));
     await page.goto(BASE + '/security/hulk#countries');

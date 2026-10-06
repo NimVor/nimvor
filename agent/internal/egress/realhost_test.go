@@ -44,9 +44,16 @@ func TestRealHostEgressMetadata(t *testing.T) {
 	if out, err := exec.Command("useradd", "-M", "-d", cfg.SitesRoot+"/egress.test", "-s", "/usr/sbin/nologin", name).CombinedOutput(); err != nil {
 		t.Fatalf("useradd: %v %s", err, out)
 	}
+	// The folder for the rules: removed afterwards when the test created it
+	// (an /etc/whacp left behind reads as an unfinished installation).
+	_, statErr := os.Stat("/etc/whacp")
+	createdDir := os.IsNotExist(statErr)
 	t.Cleanup(func() {
 		Set(context.Background(), env, Settings{MetadataAllowed: true})
 		exec.Command("userdel", name).Run()
+		if createdDir {
+			os.Remove("/etc/whacp")
+		}
 	})
 	if err := Refresh(ctx, env); err != nil {
 		t.Fatal(err)
