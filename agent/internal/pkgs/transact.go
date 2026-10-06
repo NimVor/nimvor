@@ -305,11 +305,17 @@ var remiPHPRe = regexp.MustCompile(`^php[0-9]{2}-php-`)
 // only these well-known repositories; it reports whether it changed
 // anything.
 func prepareRHELRepos(ctx context.Context, env *host.Env, log io.Writer, missing []string) bool {
-	needRemi, needEPEL := false, false
+	needRemi, needEPEL, needRspamd := false, false, false
 	for _, p := range missing {
-		if remiPHPRe.MatchString(p) {
+		switch {
+		case remiPHPRe.MatchString(p):
 			needRemi = true
-		} else {
+		case p == "rspamd" || strings.HasPrefix(p, "rspamd-"):
+			// Not in EPEL for EL9 and later: the Rspamd project's own
+			// repository (signed; dnf imports its key from rspamd.com).
+			needRspamd = true
+			needEPEL = true
+		default:
 			needEPEL = true
 		}
 	}
@@ -368,6 +374,19 @@ func prepareRHELRepos(ctx context.Context, env *host.Env, log io.Writer, missing
 			}
 		} else if !enabled["crb"] && !enabled["powertools"] {
 			enable("crb")
+		}
+	}
+	if needRspamd && !enabled["rspamd"] {
+		if _, ok := inst["dnf-plugins-core"]; ok || install("dnf-plugins-core (dnf config-manager)", "dnf-plugins-core") {
+			inst["dnf-plugins-core"] = "1"
+			url := "https://rspamd.com/rpm-stable/centos-" + major + "/rspamd.repo"
+			fmt.Fprintf(log, "Preparing repositories: adding the Rspamd project's repository (%s).\n", url)
+			if out, err := env.Runner.RunWith(ctx, "dnf", opts, "config-manager", "--add-repo", url); err != nil {
+				fmt.Fprintf(log, "Could not add the Rspamd repository: %s\n", host.Output(out))
+			} else {
+				enabled["rspamd"] = true
+				changed = true
+			}
 		}
 	}
 	if needRemi {

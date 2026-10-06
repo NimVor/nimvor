@@ -163,7 +163,7 @@ func TestRHELRepositoryPreparation(t *testing.T) {
 		case id == "dnf" && strings.HasPrefix(cmd, "-q list --available --installed"):
 			var b strings.Builder
 			for _, p := range a[5:] {
-				if (strings.HasPrefix(p, "php80-") && repos["remi-safe"]) || (p == "pure-ftpd" && repos["epel"]) || p == "dovecot" {
+				if (strings.HasPrefix(p, "php80-") && repos["remi-safe"]) || (p == "pure-ftpd" && repos["epel"]) || (p == "rspamd" && repos["rspamd"]) || p == "dovecot" {
 					fmt.Fprintf(&b, "%s.x86_64  1.0-1.el9  repo\n", p)
 				}
 			}
@@ -177,6 +177,8 @@ func TestRHELRepositoryPreparation(t *testing.T) {
 			repos["remi"] = true
 		case id == "dnf" && strings.HasPrefix(cmd, "config-manager --set-enabled "):
 			repos[a[2]] = true
+		case id == "dnf" && strings.HasPrefix(cmd, "config-manager --add-repo ") && strings.HasSuffix(cmd, "/rspamd.repo"):
+			repos["rspamd"] = true
 		}
 		return "", nil, false
 	}
@@ -199,13 +201,20 @@ func TestRHELRepositoryPreparation(t *testing.T) {
 	if !h.Runner.Called("dnf install -y -q -- epel-release") || !h.Runner.Called("dnf config-manager --set-enabled crb") {
 		t.Errorf("EPEL and CRB expected; calls:\n%s", strings.Join(h.Runner.Calls, "\n"))
 	}
+	// Rspamd comes from its project's repository.
+	if err := InstallNative(context.Background(), h.Env, &log, []string{"rspamd"}); err != nil {
+		t.Fatalf("%v\n%s", err, log.String())
+	}
+	if !h.Runner.Called("dnf config-manager --add-repo https://rspamd.com/rpm-stable/centos-9/rspamd.repo") {
+		t.Errorf("Rspamd repository not added; calls:\n%s", strings.Join(h.Runner.Calls, "\n"))
+	}
 	// Still missing after that: a precise answer, nothing installed.
-	err := InstallNative(context.Background(), h.Env, &log, []string{"rspamd"})
+	err := InstallNative(context.Background(), h.Env, &log, []string{"clamav-unofficial"})
 	var pe *Error
 	if !errors.As(err, &pe) || pe.Diagnosis.Category != CatNotAvailable || !strings.Contains(pe.Diagnosis.Detail, "Enabled repositories:") || !strings.Contains(pe.Diagnosis.Detail, "epel") {
 		t.Fatalf("%v %+v", err, pe)
 	}
-	if h.Runner.Called("dnf install -y -q --setopt=install_weak_deps=False -- rspamd") {
+	if h.Runner.Called("dnf install -y -q --setopt=install_weak_deps=False -- clamav-unofficial") {
 		t.Error("tried to install a missing package")
 	}
 }

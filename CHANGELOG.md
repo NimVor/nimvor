@@ -7,6 +7,9 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Rspamd on Rocky/Alma** failed: "rspamd is not available". EPEL does
+  not carry it. WhaCP now adds the Rspamd project's own signed repository
+  when rspamd is installed.
 - **`--public-https` on servers with a long host name** (cloud names over
   64 characters) failed: "the certificate could not be created". The
   certificate's CN now uses the short name when needed; the full name stays

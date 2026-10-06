@@ -123,6 +123,9 @@ Only when something is missing does it prepare repositories, and only these:
 
 - PHP versions (`phpNN-php-*`): Remi's repository (`remi-release`, from
   `rpms.remirepo.net`), and `remi-safe` enabled;
+- Rspamd: the Rspamd project's repository
+  (`https://rspamd.com/rpm-stable/centos-N/rspamd.repo`, signed; EPEL does
+  not carry it for EL9 and later);
 - anything else: EPEL (`epel-release`; on RHEL itself the Fedora project's
   `epel-release-latest-N`) and CRB, which EPEL's packages need
   (`dnf config-manager --set-enabled crb`; on RHEL a note to enable
