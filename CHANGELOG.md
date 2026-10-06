@@ -14,6 +14,50 @@ All notable changes to WhaCP are documented here. The format follows
 - **ModSecurity page in tabs:** Websites, Recent events, Vendors, Custom
   rules, Installation. The server-wide settings open in a window from the
   "Server-wide settings" button.
+- **Sidebar:** "Users & roles" is now two pages, **Users** and **Roles**,
+  and **Bandwidth Limits** has its own entry. **Logs** has a sub-menu for
+  every kind of log: web server, PHP-FPM, mail, database, security, SSL,
+  system, services and WhaCP logs, and links to the audit log, AutoSSL
+  log, ModSecurity events, mail delivery reports and failed logins.
+- **Roles:**
+  - Every permission in the role editor lists the pages it opens. The list
+    is built from the panel's routes, so it stays complete when pages are
+    added.
+  - The descriptions were updated for the newer pages: ModSecurity, the
+    process manager, IP addresses, mail and database servers, bandwidth,
+    the root terminal, and more.
+  - The editor has a search box and "All" / "None" for each group.
+- **Built-in roles are editable** (Operator, Viewer, Reseller, Hosting
+  customer):
+  - A changed role keeps its permissions when WhaCP is updated;
+    **Reset to WhaCP defaults** brings back the defaults.
+  - Administrator stays full access.
+  - Nobody can grant a permission they do not hold themselves.
+  - Reseller and customer roles cannot be given server-wide permissions.
+- **Packages:**
+  - Stats at the top: updates pending, security updates, the package index
+    date, and components installed, not installed, failed or not usable,
+    and in the queue.
+  - **Updates** and **Components** are in tabs.
+- **Installation queue window:**
+  - Two panes: on the left the queue, with each component's state
+    (queued, in process, installed, failed); on the right the output of
+    the selected component (by default the one installing).
+  - Several components can be ticked and added at once while the window
+    is open.
+  - "Installation queue" sits at the top right of the Packages page.
+- **Resource limits:** Limited accounts and Disk quotas are in tabs;
+  "Apply the plans now" is at the top right.
+- **IP addresses:** "Add an address" and "Add an IPv6 range" open windows
+  from buttons at the top right.
+- **Servers:** "Connect a server" opens a window from the top right.
+- **Server:**
+  - System, Disks, Network interfaces and Server settings are in tabs.
+  - Each setting has its own window: Host name, Time zone, Root password,
+    Graphical login screen, Restart the server.
+  - After a save, the page returns to the Server settings tab.
+- **Plans:** a new plan and edits to a plan are done in a window ("New
+  plan" at the top right, the pencil on each row).
 - **Custom rules one at a time:** the Custom rules tab lists the rules in a
   grid (ID, description, phase, action). "New rule" adds one in a window;
   each rule can be edited or deleted. Every change is checked by Nginx

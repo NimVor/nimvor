@@ -47,7 +47,35 @@ final class LogsController extends Controller
             $error = $e;
         }
         $sources[] = ['id' => 'panel', 'label' => 'WhaCP panel log', 'group' => 'WhaCP', 'kind' => 'file'];
-        return $this->render('logs/index', ['sources' => $sources, 'agentError' => $error, 'site' => null, 'initialSource' => (string) $request->query('source', '')]);
+        // Logs → <kind> in the sidebar shows only that kind of log.
+        $view = (string) $request->query('view', '');
+        if (isset(self::CATEGORIES[$view])) {
+            $sources = array_values(array_filter($sources, static fn (array $s): bool => self::category((string) $s['id']) === $view));
+        }
+        return $this->render('logs/index', ['sources' => $sources, 'agentError' => $error, 'site' => null, 'initialSource' => (string) $request->query('source', ''), 'category' => self::CATEGORIES[$view] ?? null]);
+    }
+
+    /** The kinds of server logs (Logs' sub-menu): view => title. */
+    public const CATEGORIES = [
+        'web' => 'Web server logs', 'php' => 'PHP-FPM logs', 'mail' => 'Mail server logs', 'database' => 'Database server logs',
+        'security' => 'Security logs', 'ssl' => 'SSL and Let\'s Encrypt logs', 'system' => 'System logs', 'services' => 'Service logs', 'whacp' => 'WhaCP logs',
+    ];
+
+    /** Which kind a log source belongs to. */
+    public static function category(string $id): string
+    {
+        $unit = str_starts_with($id, 'journal:') ? substr($id, 8) : '';
+        return match (true) {
+            str_starts_with($id, 'nginx:') || $unit === 'nginx.service' => 'web',
+            str_starts_with($id, 'php:') || (bool) preg_match('/^php.*fpm/', $unit) => 'php',
+            $id === 'system:mail' || (bool) preg_match('/^(postfix|dovecot|rspamd|whacp-opendkim|whacp-greylist|whacp-mailrate)/', $unit) => 'mail',
+            $id === 'system:mysql' || (bool) preg_match('/^(mariadb|mysql)/', $unit) => 'database',
+            in_array($id, ['system:auth', 'system:fail2ban', 'system:ufw'], true) || (bool) preg_match('/^(fail2ban|sshd?|ssh)\./', $unit) => 'security',
+            $id === 'system:letsencrypt' || $unit === 'certbot.service' => 'ssl',
+            $id === 'system:syslog' => 'system',
+            $id === 'panel' || $unit === 'whacp-agent.service' || str_starts_with($unit, 'whacp-panel') => 'whacp',
+            default => 'services',
+        };
     }
 
     public function site(Request $request, string $id): Response

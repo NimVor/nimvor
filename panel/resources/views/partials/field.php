@@ -9,7 +9,7 @@
  * @var array<string, string> $attrs
  */
 $err = $errors[$name] ?? null;
-$id = 'f-' . $name;
+$id = ($idPrefix ?? 'f-') . $name;
 $attrs ??= [];
 ?>
 <div class="mb-3">

@@ -69,7 +69,7 @@ final class Permissions
     {
         return [
             self::DASHBOARD_VIEW => ['label' => 'View dashboard', 'group' => 'Overview'],
-            self::MONITORING_VIEW => ['label' => 'View monitoring', 'group' => 'Overview'],
+            self::MONITORING_VIEW => ['label' => 'View monitoring, live load and running processes', 'group' => 'Overview'],
             self::NOTIFICATIONS_VIEW => ['label' => 'See notifications (job results and alerts, within the role\'s scope)', 'group' => 'Overview'],
 
             self::WEBSITES_VIEW => ['label' => 'View websites', 'group' => 'Hosting'],
@@ -80,8 +80,8 @@ final class Permissions
             self::DATABASES_MANAGE => ['label' => 'Manage databases and database users', 'group' => 'Hosting'],
             self::SSL_VIEW => ['label' => 'View certificates', 'group' => 'Hosting'],
             self::SSL_MANAGE => ['label' => 'Issue, renew and remove certificates', 'group' => 'Hosting'],
-            self::FILES_MANAGE => ['label' => 'Use the file manager', 'group' => 'Hosting'],
-            self::LOGS_VIEW => ['label' => 'View logs', 'group' => 'Hosting'],
+            self::FILES_MANAGE => ['label' => 'Use the file manager and a website\'s terminal', 'group' => 'Hosting'],
+            self::LOGS_VIEW => ['label' => 'View logs (web, PHP, mail, database, security, system)', 'group' => 'Hosting'],
             self::CRON_VIEW => ['label' => 'View cron jobs', 'group' => 'Hosting'],
             self::CRON_MANAGE => ['label' => 'Manage cron jobs', 'group' => 'Hosting'],
             self::WORKERS_MANAGE => ['label' => 'Manage background workers', 'group' => 'Hosting'],
@@ -96,20 +96,20 @@ final class Permissions
             self::DISCOVERY_RUN => ['label' => 'Run server discovery', 'group' => 'Hosting'],
             self::IMPORT_RUN => ['label' => 'Import existing websites', 'group' => 'Hosting'],
 
-            self::SERVER_VIEW => ['label' => 'View server information', 'group' => 'Server'],
-            self::SERVER_MANAGE => ['label' => 'Reboot, update and configure the server', 'group' => 'Server'],
+            self::SERVER_VIEW => ['label' => 'View server information, IP addresses, mail and database server status', 'group' => 'Server'],
+            self::SERVER_MANAGE => ['label' => 'Configure the server: reboot, update, host name, IP addresses, mail and database servers, resource limits, processes, server backups', 'group' => 'Server'],
             self::SERVICES_VIEW => ['label' => 'View services', 'group' => 'Server'],
             self::SERVICES_MANAGE => ['label' => 'Start, stop and restart services', 'group' => 'Server'],
             self::SYSTEM_USERS_VIEW => ['label' => 'View system accounts', 'group' => 'Server'],
-            self::PACKAGES_MANAGE => ['label' => 'Install and update packages', 'group' => 'Server'],
+            self::PACKAGES_MANAGE => ['label' => 'Install and update packages and server components', 'group' => 'Server'],
             self::SERVERS_MANAGE => ['label' => 'Add and remove servers', 'group' => 'Server'],
-            self::SECURITY_VIEW => ['label' => 'View security status', 'group' => 'Security'],
-            self::SECURITY_MANAGE => ['label' => 'Change firewall, SSH and Fail2ban', 'group' => 'Security'],
+            self::SECURITY_VIEW => ['label' => 'View security status, firewall events and scans', 'group' => 'Security'],
+            self::SECURITY_MANAGE => ['label' => 'Change security: firewall, SSH, ModSecurity, brute-force protection, malware scans, policies, the root terminal', 'group' => 'Security'],
 
             self::USERS_VIEW => ['label' => 'View panel users', 'group' => 'Administration'],
-            self::USERS_MANAGE => ['label' => 'Create, edit and delete panel users', 'group' => 'Administration'],
-            self::ROLES_MANAGE => ['label' => 'Create and edit custom roles', 'group' => 'Administration'],
-            self::PLANS_MANAGE => ['label' => 'Manage hosting plans', 'group' => 'Administration'],
+            self::USERS_MANAGE => ['label' => 'Create, edit, suspend and terminate users and hosting accounts; bandwidth limits', 'group' => 'Administration'],
+            self::ROLES_MANAGE => ['label' => 'Create and edit roles (never beyond one\'s own permissions)', 'group' => 'Administration'],
+            self::PLANS_MANAGE => ['label' => 'Manage hosting plans and feature lists', 'group' => 'Administration'],
             self::SETTINGS_VIEW => ['label' => 'View settings', 'group' => 'Administration'],
             self::SETTINGS_MANAGE => ['label' => 'Change settings', 'group' => 'Administration'],
             self::AUDIT_VIEW => ['label' => 'View audit log', 'group' => 'Administration'],
@@ -125,6 +125,18 @@ final class Permissions
         self::FILES_MANAGE, self::LOGS_VIEW, self::CRON_VIEW, self::CRON_MANAGE, self::WORKERS_MANAGE,
         self::DEPLOY_MANAGE, self::BACKUPS_VIEW, self::BACKUPS_MANAGE, self::APPS_INSTALL, self::API_TOKENS, self::FTP_MANAGE, self::DNS_MANAGE, self::MAIL_MANAGE,
     ];
+
+    /**
+     * What an own-scope role (reseller, hosting customer) may be given:
+     * their hosting permissions and, for resellers, their customers and
+     * plans. Server-wide permissions would reach past their own objects.
+     *
+     * @return list<string>
+     */
+    public static function ownScopeAllowed(): array
+    {
+        return array_merge(self::HOSTING_SELF, [self::USERS_VIEW, self::USERS_MANAGE, self::PLANS_MANAGE]);
+    }
 
     /**
      * Default system roles. "*" grants every permission.

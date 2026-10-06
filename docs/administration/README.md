@@ -14,6 +14,32 @@ Custom roles (Administration → Roles) combine any permissions with either
 *all resources* or *own resources* scope. Plugins can add permissions; they
 are granted to administrators when the plugin is enabled.
 
+The role editor lists, under every permission, the pages it opens
+("Opens: Security › ModSecurity · Web terminal…"). The list is built from
+the panel's routes, so new pages appear in it without a separate update.
+A search box finds a permission by name or page; "All" / "None" tick a
+whole group.
+
+Built-in roles can be changed too (Operator, Viewer, Reseller, Hosting
+customer):
+
+- The change is kept when WhaCP is updated. The role shows *changed*.
+- If an update adds default permissions the role lacks, the editor lists
+  them.
+- **Reset to WhaCP defaults** brings back the defaults.
+
+Three limits keep this safe:
+
+- **Administrator always has every permission.** It cannot be edited, so
+  the server is never left without a full administrator.
+- **Nobody can grant a permission they do not hold themselves**, to any
+  role, including their own. A user who can edit roles cannot raise
+  their own access this way.
+- **Own-scope roles (Reseller, Hosting customer) take only hosting
+  permissions**, plus users and plans for resellers. Server-wide
+  permissions (server, security, packages, settings…) are locked for them,
+  because they would reach beyond the account's own objects.
+
 Permissions are defined in code (`panel/app/Security/Permissions.php`) and
 synchronised into the database by `bin/whacp migrate`. At least one active
 administrator must always exist: the panel refuses to delete, disable or
@@ -27,7 +53,7 @@ demote the last one. Users cannot delete or disable themselves.
   when the user's password changes or the account is disabled.
 - **Two-factor sign-in:** each user can turn it on under *Profile* by
   scanning the QR code with any TOTP authenticator app (6 digits, 30 s).
-  Administrators can require it per role (*Users & roles → role → Sign-in
+  Administrators can require it per role (*Roles → role → Sign-in
   policy*); members without it can then only reach their profile until they
   set it up. A code works once; the previous
   and next codes are accepted for clock drift. Ten single-use recovery codes

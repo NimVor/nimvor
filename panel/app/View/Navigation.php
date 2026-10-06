@@ -69,7 +69,23 @@ final class Navigation
                     ['Processes', 'monitoring.processes', P::MONITORING_VIEW, [], ['/monitoring/processes']],
                 ]],
                 ['Notifications', 'bell', 'notifications', P::NOTIFICATIONS_VIEW, '/notifications', 'What happened and what failed'],
-                ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs', 'Web server, PHP and system logs'],
+                ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs', 'Web server, PHP, mail, security and WhaCP logs', [
+                    ['All server logs', 'logs', P::LOGS_VIEW],
+                    ['Web server', 'logs', P::LOGS_VIEW, ['view' => 'web']],
+                    ['PHP-FPM', 'logs', P::LOGS_VIEW, ['view' => 'php']],
+                    ['Mail server', 'logs', P::LOGS_VIEW, ['view' => 'mail']],
+                    ['Database server', 'logs', P::LOGS_VIEW, ['view' => 'database']],
+                    ['Security', 'logs', P::LOGS_VIEW, ['view' => 'security']],
+                    ['SSL / Let\'s Encrypt', 'logs', P::LOGS_VIEW, ['view' => 'ssl']],
+                    ['System', 'logs', P::LOGS_VIEW, ['view' => 'system']],
+                    ['Services', 'logs', P::LOGS_VIEW, ['view' => 'services']],
+                    ['WhaCP', 'logs', P::LOGS_VIEW, ['view' => 'whacp']],
+                    ['Audit log', 'audit', P::AUDIT_VIEW],
+                    ['AutoSSL log', 'ssl.autossl', P::SSL_VIEW],
+                    ['ModSecurity events', 'security.modsec', P::SECURITY_VIEW, ['tab' => 'events']],
+                    ['Mail delivery reports', 'mail.admin.reports', P::SERVER_VIEW],
+                    ['Failed logins', 'security.hulk', P::SECURITY_VIEW, ['tab' => 'report']],
+                ]],
             ],
             'Security' => [
                 ['Security', 'shield-check', 'security', P::SECURITY_VIEW, '/security', 'Firewall, SSH, Fail2ban, ModSecurity, malware', self::securityChildren()],
@@ -88,8 +104,10 @@ final class Navigation
                 ['Discovery', 'binoculars', 'discovery', P::WEBSITES_VIEW, '/discovery', 'Websites found on the server'],
             ],
             'Administration' => [
-                ['Users & roles', 'person-gear', 'users', P::USERS_VIEW, '/users', 'Accounts, customers and roles'],
+                ['Users', 'people', 'users', P::USERS_VIEW, '/users', 'Accounts, customers and resellers'],
+                ['Roles', 'person-badge', 'roles', P::USERS_VIEW, '/roles', 'What each kind of user may do'],
                 ['Plans', 'card-checklist', 'plans', P::PLANS_MANAGE, '/plans', 'Hosting plans and their limits'],
+                ['Bandwidth Limits', 'speedometer2', 'accounts.bandwidth', P::USERS_MANAGE, '/accounts/bandwidth', 'Monthly traffic per account, exceeders and resets'],
                 ['Settings', 'sliders', 'settings', P::SETTINGS_VIEW, '/settings', 'Panel settings'],
                 ['Audit log', 'list-check', 'audit', P::AUDIT_VIEW, '/audit', 'Who changed what'],
                 ['Plugins', 'plug', 'plugins', P::PLUGINS_MANAGE, '/admin/plugins', 'Panel plugins'],
@@ -177,8 +195,8 @@ final class Navigation
                     $path = $view->url($cRoute);
                     $children[] = ['label' => $cLabel, 'route' => $cRoute, 'url' => $view->url($cRoute, [], $query), 'active' => self::childActive($view, $path, $query, $c[4] ?? [])];
                 }
-                // SSL/TLS's and Monitoring's sub-pages are for server administrators.
-                if (in_array($route, ['ssl', 'monitoring'], true) && !$view->serverScope()) {
+                // SSL/TLS's, Monitoring's and Logs' sub-pages are for server administrators.
+                if (in_array($route, ['ssl', 'monitoring', 'logs'], true) && !$view->serverScope()) {
                     $children = [];
                 }
                 // One child only (e.g. a reseller's Email): the parent is enough.
@@ -189,6 +207,72 @@ final class Navigation
             }
         }
         return $out;
+    }
+
+    /**
+     * What each permission opens, by menu page: every route a permission
+     * guards is matched to the deepest menu entry above its path. Built
+     * from the routes themselves, so the role editor stays complete when
+     * pages are added.
+     *
+     * @return array<string, list<string>> permission => page labels
+     */
+    public static function coverage(\WhaCP\Http\Router $router): array
+    {
+        $entries = [];
+        $top = [];
+        foreach (self::groups() as $items) {
+            foreach ($items as $item) {
+                $top[rtrim($item[4], '/')] = true;
+                $entries[] = [rtrim($item[4], '/'), $item[0]];
+            }
+        }
+        foreach (self::groups() as $items) {
+            foreach ($items as $item) {
+                [$label, , , , $prefix] = $item;
+                foreach ($item[6] ?? [] as $c) {
+                    if (($c[3] ?? []) !== [] || !$router->has($c[1])) {
+                        continue;
+                    }
+                    try {
+                        $path = rtrim($router->url($c[1]), '/');
+                    } catch (\InvalidArgumentException) {
+                        continue;
+                    }
+                    if (!isset($top[$path])) {
+                        $entries[] = [$path, $c[0] === $label ? $label : $label . ' › ' . $c[0]];
+                    }
+                }
+            }
+        }
+        $site = [
+            '/' => 'Dashboard', '/sites' => 'Website pages (files, PHP, SSL, logs… of a website)',
+            '/api' => 'API (the same actions with a token)', '/topbar' => 'Top bar server status',
+            '/whacp' => 'WhaCP update',
+        ];
+        $out = [];
+        foreach ($router->routes() as $r) {
+            if ($r->permission === null) {
+                continue;
+            }
+            $best = '';
+            $bestLen = -1;
+            foreach ($entries as [$path, $label]) {
+                if ($path !== '' && ($r->pattern === $path || str_starts_with($r->pattern, $path . '/')) && strlen($path) > $bestLen) {
+                    [$best, $bestLen] = [$label, strlen($path)];
+                }
+            }
+            if ($best === '') {
+                $first = '/' . explode('/', ltrim($r->pattern, '/'))[0];
+                $best = $site[$first] ?? ucfirst(str_replace(['-', '_'], ' ', ltrim($first, '/')));
+            }
+            $out[$r->permission][$best] = true;
+        }
+        return array_map(static function (array $labels): array {
+            $l = array_keys($labels);
+            sort($l, SORT_NATURAL | SORT_FLAG_CASE);
+            return $l;
+        }, $out);
     }
 
     /**

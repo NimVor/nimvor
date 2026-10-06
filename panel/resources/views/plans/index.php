@@ -4,15 +4,18 @@
 /** @var array<string, mixed>|null $edit */
 use WhaCP\Services\PlanService;
 
-$form = $old !== [] ? $old : ($edit ?? []);
+$errorsAll = (array) ($errors ?? []);
+// Which window a refused save reopens: the plan's, or New plan.
+$failedId = $old !== [] ? (int) ($old['plan_id'] ?? 0) : -1;
+// /plans?edit=ID (older links) opens that plan's window.
+$openId = $failedId >= 0 ? $failedId : (is_array($edit ?? null) ? (int) $edit['id'] : -1);
 $lim = static fn ($v): string => (int) $v === 0 ? '∞' : (string) (int) $v;
 $admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
 ?>
 <?php $this->start(); ?>Hosting plans<?php $this->end('title'); ?>
 <?php $this->start(); ?>Limits for hosting customers<?= $admin ? ' and resellers' : '' ?><?php $this->end('subtitle'); ?>
-<div class="row g-3">
-    <div class="col-xl-8">
-        <div class="card">
+<?php $this->start(); ?><button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#plan-new"><i class="bi bi-plus-lg me-1"></i>New plan</button><?php $this->end('actions'); ?>
+<div class="card">
             <?php if ($plans === []): ?>
                 <div class="card-body text-body-secondary">No plans yet. Users without a plan are unlimited.</div>
             <?php else: ?>
@@ -34,7 +37,7 @@ $admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
                             <td class="text-center text-nowrap small"><?= (int) ($p['cpu_percent'] ?? 0) > 0 ? (int) $p['cpu_percent'] . '%' : '∞' ?> / <?= (int) ($p['memory_mb'] ?? 0) > 0 ? e(format_bytes((int) $p['memory_mb'] * 1048576, 0)) : '∞' ?></td>
                             <td class="text-center"><?= (int) $p['users'] ?></td>
                             <td class="text-end text-nowrap">
-                                <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('plans', [], ['edit' => (int) $p['id']])) ?>" title="Edit"><i class="bi bi-pencil"></i></a>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#plan-edit-<?= (int) $p['id'] ?>" title="Edit" aria-label="Edit <?= e($p['name']) ?>"><i class="bi bi-pencil"></i></button>
                                 <form class="d-inline" method="post" action="<?= e($this->url('plans.delete', ['id' => (int) $p['id']])) ?>" data-wcp-confirm="Delete the plan <?= e($p['name']) ?>?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button></form>
                             </td>
                         </tr>
@@ -42,44 +45,51 @@ $admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
                     </tbody>
                 </table></div>
             <?php endif; ?>
-            <div class="card-footer small text-body-secondary">0 means unlimited. A reseller's plan also caps the total used by the reseller and all of their customers. Disk use is measured hourly.</div>
-        </div>
-    </div>
-    <div class="col-xl-4">
-        <div class="card">
-            <div class="card-header"><?= $edit ? 'Edit ' . e($edit['name']) : 'New plan' ?></div>
-            <div class="card-body">
-                <form method="post" action="<?= e($this->url('plans.store')) ?>" data-wcp-busy>
-                    <?= $this->csrfField() ?>
-                    <?php if ($edit): ?><input type="hidden" name="plan_id" value="<?= (int) $edit['id'] ?>"><?php endif; ?>
-                    <?= $this->partial('partials/field', ['name' => 'name', 'label' => 'Name', 'value' => (string) ($form['name'] ?? ''), 'attrs' => ['required' => 'required', 'maxlength' => '60']]) ?>
-                    <?= $this->partial('partials/field', ['name' => 'description', 'label' => 'Description (optional)', 'value' => (string) ($form['description'] ?? ''), 'attrs' => ['maxlength' => '300']]) ?>
-                    <div class="row g-2">
-                        <?php foreach (PlanService::FIELDS as $f => $label): if ($f === 'max_customers' && !$admin) { continue; } ?>
-                            <div class="col-6"><?= $this->partial('partials/field', ['name' => $f, 'label' => $label, 'type' => 'number', 'value' => (string) ($form[$f] ?? '0'), 'attrs' => ['min' => '0']]) ?></div>
-                        <?php endforeach; ?>
-                    </div>
-                    <fieldset class="border rounded p-2 mb-3"><legend class="float-none w-auto px-1 mb-0 small fw-semibold">Resource limits (CPU, memory)</legend>
-                        <div class="row g-2">
-                            <?php foreach (PlanService::LIMITS as $f => [$label, $min, $max, $unit]): ?>
-                                <div class="col-6"><?= $this->partial('partials/field', ['name' => $f, 'label' => $label . ($unit !== '' ? ' (' . $unit . ')' : ''), 'type' => 'number', 'value' => (string) ($form[$f] ?? '0'), 'attrs' => ['min' => '0', 'max' => (string) $max]]) ?></div>
-                            <?php endforeach; ?>
-                        </div>
-                        <div class="form-text mt-0">0 = no limit. Applied with cgroups to all of an account's websites (PHP), cron jobs and workers together, and to its SSH/SFTP logins; changes apply at once.<?= $admin ? '' : ' Your own plan\'s limits cap these.' ?></div>
-                    </fieldset>
-                    <div class="form-check mb-3"><input type="hidden" name="ffmpeg" value="0"><input class="form-check-input" type="checkbox" id="p-ffmpeg" name="ffmpeg" value="1"<?= !empty($form['ffmpeg']) ? ' checked' : '' ?>><label class="form-check-label" for="p-ffmpeg">FFmpeg (audio and video processing)</label><div class="form-text mt-0">The plan's accounts may run the server's FFmpeg<?= $admin ? '' : ' (when your own plan includes it)' ?>.</div></div>
-                    <?php if ($admin): $fl = (string) ($form['feature_list_id'] ?? ''); ?>
-                        <label class="form-label" for="p-features">Feature list</label>
-                        <select class="form-select form-select-sm mb-1" id="p-features" name="feature_list_id">
-                            <option value="">All features</option>
-                            <?php foreach ($featureLists ?? [] as $l): ?><option value="<?= (int) $l['id'] ?>"<?= $fl === (string) $l['id'] ? ' selected' : '' ?>><?= e($l['name']) ?></option><?php endforeach; ?>
-                        </select>
-                        <div class="form-text mt-0 mb-3">Which panel features the plan's accounts can use. <a href="<?= e($this->url('features')) ?>">Manage feature lists</a></div>
-                    <?php endif; ?>
-                    <button class="btn btn-sm btn-primary"><?= $edit ? 'Save' : 'Create plan' ?></button>
-                    <?php if ($edit): ?><a class="btn btn-sm btn-link" href="<?= e($this->url('plans')) ?>">Cancel</a><?php endif; ?>
-                </form>
-            </div>
-        </div>
-    </div>
+    <div class="card-footer small text-body-secondary">0 means unlimited. A reseller's plan also caps the total used by the reseller and all of their customers. Disk use is measured hourly.</div>
 </div>
+
+<?php
+$planForm = function (array $form, int $pid, string $px, array $ferr) use ($admin, $featureLists): void { ?>
+<form method="post" action="<?= e($this->url('plans.store')) ?>" data-wcp-busy>
+    <?= $this->csrfField() ?>
+    <?php if ($pid > 0): ?><input type="hidden" name="plan_id" value="<?= $pid ?>"><?php endif; ?>
+    <?= $this->partial('partials/field', ['idPrefix' => $px, 'errors' => $ferr, 'name' => 'name', 'label' => 'Name', 'value' => (string) ($form['name'] ?? ''), 'attrs' => ['required' => 'required', 'maxlength' => '60']]) ?>
+    <?= $this->partial('partials/field', ['idPrefix' => $px, 'errors' => $ferr, 'name' => 'description', 'label' => 'Description (optional)', 'value' => (string) ($form['description'] ?? ''), 'attrs' => ['maxlength' => '300']]) ?>
+    <div class="row g-2">
+        <?php foreach (PlanService::FIELDS as $f => $label): if ($f === 'max_customers' && !$admin) { continue; } ?>
+            <div class="col-6"><?= $this->partial('partials/field', ['idPrefix' => $px, 'errors' => $ferr, 'name' => $f, 'label' => $label, 'type' => 'number', 'value' => (string) ($form[$f] ?? '0'), 'attrs' => ['min' => '0']]) ?></div>
+        <?php endforeach; ?>
+    </div>
+    <fieldset class="border rounded p-2 mb-3"><legend class="float-none w-auto px-1 mb-0 small fw-semibold">Resource limits (CPU, memory)</legend>
+        <div class="row g-2">
+            <?php foreach (PlanService::LIMITS as $f => [$label, $min, $max, $unit]): ?>
+                <div class="col-6"><?= $this->partial('partials/field', ['idPrefix' => $px, 'errors' => $ferr, 'name' => $f, 'label' => $label . ($unit !== '' ? ' (' . $unit . ')' : ''), 'type' => 'number', 'value' => (string) ($form[$f] ?? '0'), 'attrs' => ['min' => '0', 'max' => (string) $max]]) ?></div>
+            <?php endforeach; ?>
+        </div>
+        <div class="form-text mt-0">0 = no limit. Applied with cgroups to all of an account's websites (PHP), cron jobs and workers together, and to its SSH/SFTP logins; changes apply at once.<?= $admin ? '' : ' Your own plan\'s limits cap these.' ?></div>
+    </fieldset>
+    <div class="form-check mb-3"><input type="hidden" name="ffmpeg" value="0"><input class="form-check-input" type="checkbox" id="<?= e($px) ?>ffmpeg" name="ffmpeg" value="1"<?= !empty($form['ffmpeg']) ? ' checked' : '' ?>><label class="form-check-label" for="<?= e($px) ?>ffmpeg">FFmpeg (audio and video processing)</label><div class="form-text mt-0">The plan's accounts may run the server's FFmpeg<?= $admin ? '' : ' (when your own plan includes it)' ?>.</div></div>
+    <?php if ($admin): $fl = (string) ($form['feature_list_id'] ?? ''); ?>
+        <label class="form-label" for="<?= e($px) ?>features">Feature list</label>
+        <select class="form-select form-select-sm mb-1" id="<?= e($px) ?>features" name="feature_list_id">
+            <option value="">All features</option>
+            <?php foreach ($featureLists ?? [] as $l): ?><option value="<?= (int) $l['id'] ?>"<?= $fl === (string) $l['id'] ? ' selected' : '' ?>><?= e($l['name']) ?></option><?php endforeach; ?>
+        </select>
+        <div class="form-text mt-0 mb-3">Which panel features the plan's accounts can use. <a href="<?= e($this->url('features')) ?>">Manage feature lists</a></div>
+    <?php endif; ?>
+    <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $pid > 0 ? 'Save plan' : 'Create plan' ?></button>
+    </div>
+</form>
+<?php };
+echo $this->modalStart('plan-new', 'New plan', $openId === 0);
+$planForm($failedId === 0 ? $old : [], 0, 'pn-', $failedId === 0 ? $errorsAll : []);
+echo $this->modalEnd();
+foreach ($plans as $p) {
+    $pid = (int) $p['id'];
+    echo $this->modalStart('plan-edit-' . $pid, 'Edit plan ' . $p['name'], $openId === $pid);
+    $planForm($failedId === $pid ? $old : $p, $pid, 'pe' . $pid . '-', $failedId === $pid ? $errorsAll : []);
+    echo $this->modalEnd();
+}
+?>

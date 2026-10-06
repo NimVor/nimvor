@@ -50,11 +50,20 @@ const OUT = process.env.E2E_OUT || '/tmp';
 
     const planName = 'Basic ' + stamp;
     await page.goto(BASE + '/plans');
-    await page.fill('#f-name', planName);
-    await page.selectOption('#p-features', { label: listName });
-    await nav(() => page.click('form[action="/plans"] button[type=submit], form[action="/plans"] button.btn-primary'));
+    await page.click('button[data-bs-target="#plan-new"]');
+    await page.waitForSelector('#plan-new.show');
+    await page.fill('#pn-name', planName);
+    await page.selectOption('#pn-features', { label: listName });
+    await nav(() => page.click('#plan-new button.btn-primary'));
     if (!(await main()).includes(planName)) { throw new Error('plan not listed'); }
-    step('plan using the feature list');
+    // Edit it in its own window.
+    await page.click('tr:has-text("' + planName + '") button[data-bs-target^="#plan-edit-"]');
+    const editId = await (await page.waitForSelector('.modal.show[id^="plan-edit-"]')).evaluate(m => m.id);
+    if ((await page.inputValue('#' + editId + ' input[name=name]')) !== planName) { throw new Error('edit window not filled'); }
+    await page.fill('#' + editId + ' input[name=description]', 'edited in a window');
+    await nav(() => page.click('#' + editId + ' button.btn-primary'));
+    if (!(await main()).includes('edited in a window')) { throw new Error('plan edit not saved'); }
+    step('plan created and edited in windows, using the feature list');
 
     // ---- Create a New Account on that plan
     const user = 'cu' + stamp;
@@ -66,7 +75,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     const password = await page.inputValue('#a-password');
     if (password.length < 16 || await page.inputValue('#a-password2') !== password) { throw new Error('generated password'); }
     await page.fill('#a-email', user + '@example.test');
-    await page.selectOption('#a-plan', { label: planName });
+    await page.selectOption('#a-plan', { label: planName + ' — edited in a window' });
     await nav(() => page.click('main form button[type=submit]:has-text("Create account")'));
     const userUrl = page.url();
     if (!/\/users\/\d+\/edit$/.test(userUrl)) { throw new Error('account not created: ' + page.url() + ' ' + (await main()).slice(0, 300)); }

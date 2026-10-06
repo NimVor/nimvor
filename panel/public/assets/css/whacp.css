@@ -889,3 +889,15 @@ button.wcp-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 /* The page's own buttons, top right of the page. */
 .wcp-page-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .5rem; margin-bottom: 1rem; }
 .wcp-rule-text { max-width: 32rem; }
+.wcp-perm-search{max-width:16rem}
+.wcp-perm-pages{margin-top:.1rem;line-height:1.35}
+.wcp-badge-wrap{white-space:normal;text-align:left}
+.wcp-maxw-28 { max-width: 28rem; }
+.wcp-stat.is-plain { background: var(--bs-tertiary-bg); border-color: var(--wcp-card-border); }
+.wcp-stat.is-warn { background: rgba(217, 119, 6, .07); border-color: rgba(217, 119, 6, .3); }
+.wcp-stat.is-warn .wcp-stat-num { color: #d97706; }
+.wcp-stat .wcp-stat-date { font-size: 1.15rem; padding: .22rem 0; }
+.wcp-pkg-items .list-group-item { cursor: pointer; }
+.wcp-pkg-items .list-group-item.is-selected { background: var(--bs-secondary-bg); box-shadow: inset 3px 0 0 var(--bs-primary); }
+.wcp-pkg-add { max-height: 14rem; overflow-y: auto; }
+.wcp-pkg-out { height: 30rem; }

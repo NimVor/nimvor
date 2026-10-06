@@ -4,9 +4,8 @@
 ?>
 <?php $this->start(); ?>Servers<?php $this->end('title'); ?>
 <?php $this->start(); ?>Manage several servers from this panel<?php $this->end('subtitle'); ?>
-<div class="row g-3">
-    <div class="col-xl-8">
-        <div class="card">
+<?php $this->start(); ?><button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#server-connect"><i class="bi bi-plus-lg me-1"></i>Connect a server</button><?php $this->end('actions'); ?>
+<div class="card">
             <div class="table-responsive"><table class="table align-middle mb-0">
                 <thead><tr><th>Server</th><th>Agent</th><th>Status</th><th>Websites</th><th class="text-end">Actions</th></tr></thead>
                 <tbody>
@@ -29,26 +28,19 @@
                 <?php endforeach; ?>
                 </tbody>
             </table></div>
-        </div>
-    </div>
-    <div class="col-xl-4">
-        <div class="card">
-            <div class="card-header"><i class="bi bi-plus-lg me-1"></i>Connect a server</div>
-            <div class="card-body">
-                <ol class="small ps-3">
-                    <li>Install WhaCP's agent on the new server with <code>install.sh --agent-only --remote-access 0.0.0.0:8443 --allow-from <em>this server's IP</em></code>.</li>
-                    <li>The installer prints the <strong>pin</strong> and <strong>token</strong>. Compare the pin over a trusted channel (e.g. your SSH session) — it proves you are talking to that machine.</li>
-                </ol>
-                <form method="post" action="<?= e($this->url('servers.store')) ?>" data-wcp-busy>
-                    <?= $this->csrfField() ?>
-                    <?= $this->partial('partials/field', ['name' => 'name', 'label' => 'Name', 'value' => (string) ($old['name'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'web2']]) ?>
-                    <?= $this->partial('partials/field', ['name' => 'url', 'label' => 'Agent address', 'value' => (string) ($old['url'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'https://203.0.113.10:8443']]) ?>
-                    <?= $this->partial('partials/field', ['name' => 'pin', 'label' => 'Certificate pin', 'value' => (string) ($old['pin'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'sha256//…']]) ?>
-                    <?= $this->partial('partials/field', ['name' => 'token', 'label' => 'Agent token', 'type' => 'password', 'value' => '', 'attrs' => ['required' => 'required', 'autocomplete' => 'off']]) ?>
-                    <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Test and connect</button>
-                    <div class="form-text">The token is stored encrypted. Requests are refused unless the server presents exactly this pinned key.</div>
-                </form>
-            </div>
-        </div>
-    </div>
 </div>
+<?= $this->modalStart('server-connect', 'Connect a server', ($old ?? []) !== [], '') ?>
+<ol class="small ps-3">
+    <li>Install WhaCP's agent on the new server with <code>install.sh --agent-only --remote-access 0.0.0.0:8443 --allow-from <em>this server's IP</em></code>.</li>
+    <li>The installer prints the <strong>pin</strong> and <strong>token</strong>. Compare the pin over a trusted channel (e.g. your SSH session) — it proves you are talking to that machine.</li>
+</ol>
+<form method="post" action="<?= e($this->url('servers.store')) ?>" data-wcp-busy>
+    <?= $this->csrfField() ?>
+    <?= $this->partial('partials/field', ['name' => 'name', 'label' => 'Name', 'value' => (string) ($old['name'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'web2']]) ?>
+    <?= $this->partial('partials/field', ['name' => 'url', 'label' => 'Agent address', 'value' => (string) ($old['url'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'https://203.0.113.10:8443']]) ?>
+    <?= $this->partial('partials/field', ['name' => 'pin', 'label' => 'Certificate pin', 'value' => (string) ($old['pin'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'sha256//…']]) ?>
+    <?= $this->partial('partials/field', ['name' => 'token', 'label' => 'Agent token', 'type' => 'password', 'value' => '', 'attrs' => ['required' => 'required', 'autocomplete' => 'off']]) ?>
+    <div class="form-text mb-3">The token is stored encrypted. Requests are refused unless the server presents exactly this pinned key.</div>
+    <div class="d-flex justify-content-end gap-2"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Test and connect</button></div>
+</form>
+<?= $this->modalEnd() ?>

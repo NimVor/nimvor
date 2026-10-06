@@ -125,7 +125,7 @@ final class SystemController extends Controller
 
     public function hostname(Request $request): Response
     {
-        return $this->act('/server', function () use ($request): string {
+        return $this->act('/server#settings', function () use ($request): string {
             $h = $request->string('hostname');
             $this->agent->call('server.set_hostname', ['hostname' => $h]);
             $this->audit->record('server.hostname', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['hostname' => $h]);
@@ -172,12 +172,12 @@ final class SystemController extends Controller
             return $this->redirectWithFailure('/server#root-password', $e);
         }
         $this->audit->record('server.root_password', 'server', (string) $this->server->id());
-        return $this->redirectWithSuccess('/server', 'The root password was changed.');
+        return $this->redirectWithSuccess('/server#settings', 'The root password was changed.');
     }
 
     public function timezone(Request $request): Response
     {
-        return $this->act('/server', function () use ($request): string {
+        return $this->act('/server#settings', function () use ($request): string {
             $tz = $request->string('timezone');
             $this->agent->call('server.set_timezone', ['timezone' => $tz]);
             $this->audit->record('server.timezone', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['timezone' => $tz]);
@@ -188,7 +188,7 @@ final class SystemController extends Controller
     /** The graphical login screen (GDM and the like): off or on again. */
     public function graphical(Request $request): Response
     {
-        return $this->act('/server', function () use ($request): string {
+        return $this->act('/server#settings', function () use ($request): string {
             $on = $request->input('enabled') === '1';
             $this->agent->call('server.graphical_set', ['enabled' => $on], 60);
             $this->audit->record('server.graphical', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['enabled' => $on]);
@@ -198,7 +198,7 @@ final class SystemController extends Controller
 
     public function reboot(Request $request): Response
     {
-        return $this->act('/server', function () use ($request): string {
+        return $this->act('/server#settings', function () use ($request): string {
             $minutes = max(1, (int) $request->input('minutes', 1));
             $this->agent->call('server.reboot', ['confirm' => $request->string('confirm'), 'minutes' => $minutes]);
             $this->audit->record('server.reboot', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['minutes' => $minutes]);
@@ -208,7 +208,7 @@ final class SystemController extends Controller
 
     public function cancelReboot(Request $request): Response
     {
-        return $this->act('/server', function (): string {
+        return $this->act('/server#settings', function (): string {
             $this->agent->call('server.reboot_cancel');
             $this->audit->record('server.reboot_cancel', 'server', (string) $this->server->id());
             return 'Restart cancelled.';

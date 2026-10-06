@@ -13,6 +13,7 @@ $errors ??= [];
 $old ??= [];
 ?>
 <?= $this->partial('ips/_tabs', get_defined_vars()) ?>
+<?php if ($canManage): ?><?php $this->start(); ?><button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#ip-add"><i class="bi bi-plus-lg me-1"></i>Add an address</button><?php $this->end('actions'); ?><?php endif; ?>
 
 <div class="wcp-infobar">
     <i class="bi bi-info-circle" aria-hidden="true"></i>
@@ -63,7 +64,7 @@ $old ??= [];
                 <?= $this->modalEnd() ?><?php $editWindows[] = ob_get_clean(); ?>
                 <?php endif; ?>
             <?php endforeach; ?>
-            <tr class="<?= $pool === [] ? '' : 'd-none' ?>" data-wcp-dt-empty><td colspan="6" class="text-center py-4 wcp-muted">The pool is empty. Add the server's addresses below, or rebuild the pool.</td></tr>
+            <tr class="<?= $pool === [] ? '' : 'd-none' ?>" data-wcp-dt-empty><td colspan="6" class="text-center py-4 wcp-muted">The pool is empty. Add the server's addresses (Add an address), or rebuild the pool.</td></tr>
             </tbody>
         </table>
     </div>
@@ -72,8 +73,8 @@ $old ??= [];
 <?= implode('', $editWindows ?? []) ?>
 
 <div class="row g-3 mt-0">
-    <div class="col-lg-6">
-        <div class="card h-100">
+    <div class="col-12">
+        <div class="card">
             <div class="card-header"><i class="bi bi-hdd-network me-1"></i>Addresses on the server, not in the pool</div>
             <div class="card-body small">
                 <?php if ($server === null): ?><span class="wcp-muted">Unknown (the agent did not answer).</span>
@@ -86,21 +87,18 @@ $old ??= [];
             </div>
         </div>
     </div>
-    <?php if ($canManage): ?>
-    <div class="col-lg-6">
-        <form class="card h-100" method="post" action="<?= e($this->url('ips.store')) ?>" data-wcp-busy>
-            <?= $this->csrfField() ?>
-            <div class="card-header"><i class="bi bi-plus-lg me-1"></i>Add an address</div>
-            <div class="card-body">
-                <div class="row g-2">
-                    <div class="col-sm-7"><label class="form-label small" for="ip-new">Address</label><input class="form-control form-control-sm font-monospace<?= isset($errors['address']) ? ' is-invalid' : '' ?>" id="ip-new" name="address" value="<?= e((string) ($old['address'] ?? '')) ?>" placeholder="203.0.113.20 or 2001:db8::20" required><?php if (isset($errors['address'])): ?><div class="invalid-feedback"><?= e($errors['address']) ?></div><?php endif; ?></div>
-                    <div class="col-sm-5"><label class="form-label small" for="ip-kind">Assignment</label><select class="form-select form-select-sm" id="ip-kind" name="kind"><option value="shared">Shared</option><option value="dedicated">Dedicated</option></select></div>
-                    <div class="col-12"><label class="form-label small" for="ip-reason">Comment</label><input class="form-control form-control-sm" id="ip-reason" name="reason" maxlength="300"></div>
-                </div>
-                <div class="form-text">The address must already be configured on this server; it is checked.</div>
-            </div>
-            <div class="card-footer text-end"><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Add</button></div>
-        </form>
-    </div>
-    <?php endif; ?>
 </div>
+<?php if ($canManage): ?>
+<?= $this->modalStart('ip-add', 'Add an address', isset($errors['address']), '') ?>
+    <form method="post" action="<?= e($this->url('ips.store')) ?>" data-wcp-busy>
+        <?= $this->csrfField() ?>
+        <div class="row g-2">
+            <div class="col-sm-7"><label class="form-label small" for="ip-new">Address</label><input class="form-control form-control-sm font-monospace<?= isset($errors['address']) ? ' is-invalid' : '' ?>" id="ip-new" name="address" value="<?= e((string) ($old['address'] ?? '')) ?>" placeholder="203.0.113.20 or 2001:db8::20" required><?php if (isset($errors['address'])): ?><div class="invalid-feedback"><?= e($errors['address']) ?></div><?php endif; ?></div>
+            <div class="col-sm-5"><label class="form-label small" for="ip-kind">Assignment</label><select class="form-select form-select-sm" id="ip-kind" name="kind"><option value="shared">Shared</option><option value="dedicated">Dedicated</option></select></div>
+            <div class="col-12"><label class="form-label small" for="ip-reason">Comment</label><input class="form-control form-control-sm" id="ip-reason" name="reason" maxlength="300"></div>
+        </div>
+        <div class="form-text">The address must already be configured on this server; it is checked.</div>
+        <div class="d-flex justify-content-end gap-2 mt-3"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Add</button></div>
+    </form>
+<?= $this->modalEnd() ?>
+<?php endif; ?>

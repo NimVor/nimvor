@@ -25,7 +25,7 @@ $fmt = static function (array $l): string {
 ?>
 <?php $this->start(); ?>Resource limits<?php $this->end('title'); ?>
 <?php $this->start(); ?>CPU, memory, processes and disk speed of hosting accounts (cgroups)<?php $this->end('subtitle'); ?>
-<?php $this->start(); ?><?php if ($this->can(P::SERVER_MANAGE)): ?><form method="post" action="<?= e($this->url('limits.apply')) ?>" data-wcp-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-repeat me-1"></i>Apply the plans now</button></form><?php endif; ?><?php $this->end('actions'); ?>
+<?php $this->start(); ?><?php if ($this->can(P::SERVER_MANAGE)): ?><form method="post" action="<?= e($this->url('limits.apply')) ?>" data-wcp-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-primary"><i class="bi bi-arrow-repeat me-1"></i>Apply the plans now</button></form><?php endif; ?><?php $this->end('actions'); ?>
 <?php if ($agentError !== null): ?><?= $this->partial('partials/agent_error', ['error' => $agentError]) ?><?php endif; ?>
 
 <div class="wcp-infobar">
@@ -34,6 +34,12 @@ $fmt = static function (array $l): string {
     <?php if ($status !== null && empty($status['cgroup_v2'])): ?><strong class="text-danger">This server does not use cgroup v2, which limits need.</strong><?php endif; ?></span>
 </div>
 
+<div class="wcp-subtabs" role="tablist">
+    <button class="active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#accounts" aria-controls="accounts" aria-selected="true"><i class="bi bi-cpu me-1"></i>Limited accounts <span class="badge text-bg-light border"><?= count($accounts) ?></span></button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#disk-quotas" aria-controls="disk-quotas" aria-selected="false"><i class="bi bi-hdd me-1"></i>Disk quotas<?php if ($quota !== null): ?> <span class="badge text-bg-light border"><?= ($quota['state'] ?? '') === 'on' ? 'on' : 'off' ?></span><?php endif; ?></button>
+</div>
+<div class="tab-content">
+<div class="tab-pane fade show active" id="accounts" role="tabpanel">
 <div class="wcp-panel" data-wcp-dt>
     <div class="wcp-actionbar"><div class="fw-semibold">Limited accounts <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($accounts) ?></span></div>
         <div class="wcp-actionbar-end"><div class="wcp-search"><input class="form-control form-control-sm" type="search" placeholder="Search" aria-label="Search accounts" data-wcp-dt-search><i class="bi bi-search" aria-hidden="true"></i></div></div></div>
@@ -65,7 +71,9 @@ $fmt = static function (array $l): string {
     <div class="wcp-pager" data-wcp-dt-pager></div>
 </div>
 
-<div class="wcp-panel mt-4" id="disk-quotas">
+</div>
+<div class="tab-pane fade" id="disk-quotas" role="tabpanel">
+<div class="wcp-panel">
     <div class="wcp-actionbar"><div class="fw-semibold">Disk quotas</div>
         <div class="wcp-actionbar-end">
             <?php if ($quotaJob !== ''): ?><button type="button" class="btn btn-sm btn-link" data-wcp-job-open="<?= e($quotaJob) ?>">Last log</button><?php endif; ?>
@@ -91,7 +99,7 @@ $fmt = static function (array $l): string {
     <?php if ($quotaRows !== []): ?>
     <div class="wcp-dtable table-responsive">
         <table class="table align-middle">
-            <thead><tr><th>System user</th><th>Account</th><th class="text-end">Used</th><th class="text-end">Limit</th><th style="width:30%">Use</th></tr></thead>
+            <thead><tr><th>System user</th><th>Account</th><th class="text-end">Used</th><th class="text-end">Limit</th><th class="wcp-stat-bar">Use</th></tr></thead>
             <tbody>
             <?php foreach ($quotaRows as $q): $used = (int) $q['used_kb'] * 1024; $hard = (int) $q['hard_kb'] * 1024; $pct = $hard > 0 ? (int) min(100, round(100 * $used / $hard)) : null; ?>
                 <tr>
@@ -106,4 +114,6 @@ $fmt = static function (array $l): string {
         </table>
     </div>
     <?php endif; ?>
+</div>
+</div>
 </div>

@@ -742,22 +742,29 @@
     });
 
     // Packages page: "Install" adds a component to a queue without leaving
-    // the page. The agent installs queued components one after another; the
-    // queue window shows each one's state and the log of the one running,
-    // and each row turns into "Installed" when its component is done.
+    // the page. The agent installs queued components one after another. The
+    // queue window has two panes: the queue (each component's state) with a
+    // list to add more components at once, and the output of the component
+    // selected (by default the one installing). Each row on the page turns
+    // into "Installed" when its component is done.
     document.addEventListener('DOMContentLoaded', function () {
         var list = document.querySelector('[data-wcp-pkg-list]');
         var modalEl = document.getElementById('wcp-pkg-queue');
         if (!list || !modalEl) { return; }
         var itemsEl = modalEl.querySelector('[data-wcp-pkg-items]');
+        var emptyEl = modalEl.querySelector('[data-wcp-pkg-empty]');
         var logEl = modalEl.querySelector('[data-wcp-pkg-log]');
         var logNameEl = modalEl.querySelector('[data-wcp-pkg-logname]');
-        var showBtn = document.querySelector('[data-wcp-pkg-show]');
+        var addEl = modalEl.querySelector('[data-wcp-pkg-add]');
+        var addNone = modalEl.querySelector('[data-wcp-pkg-add-none]');
+        var addBtn = modalEl.querySelector('[data-wcp-pkg-add-btn]');
+        var showBtns = document.querySelectorAll('[data-wcp-pkg-show]');
         var countEl = document.querySelector('[data-wcp-pkg-count]');
         var queue = [];
+        var selected = null;
         var timer = null;
         var badges = { queued: 'text-bg-secondary', running: 'text-bg-info', succeeded: 'text-bg-success', failed: 'text-bg-danger' };
-        var labels = { queued: 'Queued', running: 'Installing…', succeeded: 'Installed', failed: 'Failed' };
+        var labels = { queued: 'Queued', running: 'In process…', succeeded: 'Installed', failed: 'Failed' };
 
         function el(tag, cls, text) {
             var e = document.createElement(tag);
@@ -769,6 +776,10 @@
             var found = null;
             list.querySelectorAll('[data-wcp-pkg]').forEach(function (r) { if (r.getAttribute('data-wcp-pkg') === name) { found = r; } });
             return found;
+        }
+        function stat(key, delta) {
+            var e = document.querySelector('[data-wcp-pkg-stat="' + key + '"]');
+            if (e) { e.textContent = String(Math.max(0, parseInt(e.textContent, 10) + delta)); }
         }
         function pending(it) { return it.status === 'queued' || it.status === 'running'; }
         function setRow(it, version) {
@@ -812,40 +823,88 @@
             }
             return 'Installing package…';
         }
+        // Components that can still be added: an Install form on the page
+        // and not already waiting in the queue.
+        function addable() {
+            var names = [];
+            list.querySelectorAll('[data-wcp-pkg]').forEach(function (r) {
+                var n = r.getAttribute('data-wcp-pkg');
+                if (r.querySelector('[data-wcp-pkg-install]') && !queue.some(function (it) { return it.name === n && pending(it); })) { names.push(n); }
+            });
+            return names;
+        }
+        function renderAdd() {
+            var checked = {};
+            addEl.querySelectorAll('input:checked').forEach(function (c) { checked[c.value] = true; });
+            addEl.textContent = '';
+            var names = addable();
+            names.forEach(function (n) {
+                var id = 'pkg-add-' + n.replace(/[^A-Za-z0-9_-]/g, '_');
+                var d = el('div', 'form-check');
+                var c = el('input', 'form-check-input');
+                c.type = 'checkbox'; c.value = n; c.id = id; c.checked = !!checked[n];
+                var l = el('label', 'form-check-label small', n);
+                l.htmlFor = id;
+                var desc = row(n).querySelector('.text-body-secondary');
+                if (desc) { l.appendChild(el('span', 'text-body-secondary', ' — ' + desc.textContent)); }
+                d.appendChild(c); d.appendChild(l);
+                addEl.appendChild(d);
+            });
+            addNone.hidden = names.length > 0;
+            syncAddBtn();
+        }
+        function syncAddBtn() { addBtn.disabled = addEl.querySelector('input:checked') === null; }
         function render() {
             itemsEl.textContent = '';
-            var shown = null;
+            var auto = null;
             queue.forEach(function (it) {
                 var li = el('li', 'list-group-item d-flex align-items-center gap-2');
                 li.setAttribute('data-wcp-pkg-item', it.name);
+                li.setAttribute('tabindex', '0');
+                li.setAttribute('role', 'button');
+                li.setAttribute('aria-label', it.name + ': ' + labels[it.status] + ' (show output)');
                 var name = el('div', 'me-auto');
                 name.appendChild(el('span', 'fw-semibold', it.name));
                 var ph = phase(it);
                 if (ph) { name.appendChild(el('div', 'small ' + (it.status === 'failed' ? 'text-danger-emphasis' : 'text-body-secondary'), ph)); }
                 li.appendChild(name);
-                li.appendChild(el('span', 'badge ' + badges[it.status], labels[it.status]));
+                var b = el('span', 'badge ' + badges[it.status]);
+                if (it.status === 'running') { b.appendChild(el('span', 'spinner-border spinner-border-sm me-1')); }
+                b.appendChild(document.createTextNode(labels[it.status]));
+                li.appendChild(b);
                 itemsEl.appendChild(li);
-                if (it.status === 'running' || (!shown && it.log)) { shown = it; }
+                if (it.status === 'running' || (!auto && it.log)) { auto = it; }
             });
+            var shown = queue.filter(function (it) { return it.name === selected; })[0] || auto;
+            itemsEl.querySelectorAll('[data-wcp-pkg-item]').forEach(function (li) { li.classList.toggle('is-selected', !!shown && li.getAttribute('data-wcp-pkg-item') === shown.name); });
             if (shown) {
-                logNameEl.textContent = shown.name;
-                logEl.textContent = shown.log;
-                logEl.scrollTop = logEl.scrollHeight;
+                logNameEl.textContent = 'Output: ' + shown.name + ' (' + labels[shown.status].replace('…', '') + ')';
+                var atEnd = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 8;
+                logEl.textContent = shown.log || (shown.status === 'queued' ? 'Waiting for its turn…' : '');
+                if (atEnd) { logEl.scrollTop = logEl.scrollHeight; }
             }
-            countEl.textContent = String(queue.filter(pending).length);
-            showBtn.classList.toggle('d-none', queue.length === 0);
+            emptyEl.hidden = queue.length > 0;
+            var waiting = queue.filter(pending).length;
+            countEl.textContent = String(waiting);
+            var q = document.querySelector('[data-wcp-pkg-stat="queue"]');
+            if (q) { q.textContent = String(waiting); }
+            renderAdd();
         }
         function finished(it) {
             if (it.status !== 'succeeded') {
                 setRow(it);
+                if (it.counted === 'pending') { stat('pending', -1); stat('failed', 1); }
                 var why = phase(it);
                 WhaCP.toast(it.name + ' was not installed' + (why ? ': ' + why : '') + '. The details are in the queue window.', 'danger');
                 return;
             }
+            stat('installed', 1);
+            stat(it.counted, -1);
             WhaCP.fetchJson(list.getAttribute('data-url')).then(function (res) {
                 var p = (res.packages || []).filter(function (x) { return x.name === it.name; })[0];
                 setRow(it, p && p.installed ? p.version : '');
-            }).catch(function () { setRow(it); });
+                render();
+            }).catch(function () { setRow(it); render(); });
             WhaCP.toast(it.name + ' installed.', 'success');
         }
         function poll() {
@@ -865,30 +924,56 @@
                 }).catch(function () { it.busy = false; });
             });
         }
-        showBtn.addEventListener('click', function () { bootstrap.Modal.getOrCreateInstance(modalEl).show(); });
-        list.addEventListener('submit', function (e) {
-            var form = e.target.closest('[data-wcp-pkg-install]');
-            if (!form) { return; }
-            e.preventDefault();
-            var name = form.querySelector('input[name=name]').value;
-            if (queue.some(function (it) { return it.name === name && pending(it); })) { return; }
+        // Queue one component; resolves when the server has accepted it.
+        function enqueue(name) {
+            var r = row(name);
+            var form = r ? r.querySelector('[data-wcp-pkg-install]') : null;
+            if (!form || queue.some(function (it) { return it.name === name && pending(it); })) { return Promise.resolve(); }
             var button = form.querySelector('button');
             button.disabled = true;
-            WhaCP.fetchJson(list.getAttribute('data-install-url'), { method: 'POST', body: JSON.stringify({ name: name }) }).then(function (res) {
+            return WhaCP.fetchJson(list.getAttribute('data-install-url'), { method: 'POST', body: JSON.stringify({ name: name }) }).then(function (res) {
                 button.disabled = false;
-                var it = { name: name, job: res.job_id, status: 'queued', offset: 0, log: '', form: form };
+                // Which stat tile counts it now: "Failed / not usable" (an
+                // earlier failure, or present but not usable) or "Not installed".
+                var prev = queue.filter(function (x) { return x.name === name; })[0];
+                var failedBefore = (prev && prev.status === 'failed') || /not usable/.test(r.querySelector('[data-wcp-pkg-state]').textContent);
+                var it = { name: name, job: res.job_id, status: 'queued', offset: 0, log: '', form: form, counted: failedBefore ? 'failed' : 'pending' };
                 queue = queue.filter(function (x) { return x.name !== name; });
                 queue.push(it);
                 setRow(it);
                 render();
-                bootstrap.Modal.getOrCreateInstance(modalEl).show();
                 if (!timer) { timer = setInterval(poll, 1000); }
                 poll();
             }).catch(function (err) {
                 button.disabled = false;
-                WhaCP.toast(err.message, 'danger');
+                WhaCP.toast(name + ': ' + err.message, 'danger');
             });
+        }
+        function show() { bootstrap.Modal.getOrCreateInstance(modalEl).show(); }
+        showBtns.forEach(function (b) { b.addEventListener('click', function () { render(); show(); }); });
+        itemsEl.addEventListener('click', function (e) {
+            var li = e.target.closest('[data-wcp-pkg-item]');
+            if (li) { selected = li.getAttribute('data-wcp-pkg-item'); logEl.scrollTop = 0; render(); logEl.scrollTop = logEl.scrollHeight; }
         });
+        itemsEl.addEventListener('keydown', function (e) {
+            if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-wcp-pkg-item]')) { e.preventDefault(); e.target.click(); }
+        });
+        addEl.addEventListener('change', syncAddBtn);
+        modalEl.addEventListener('click', function (e) { if (e.target.closest('[data-wcp-check-all]')) { setTimeout(syncAddBtn, 0); } });
+        // Several at once: the server is asked one after the other, so the
+        // queue keeps the order they were ticked in the list.
+        addBtn.addEventListener('click', function () {
+            var names = Array.prototype.map.call(addEl.querySelectorAll('input:checked'), function (c) { return c.value; });
+            addBtn.disabled = true;
+            names.reduce(function (p, n) { return p.then(function () { return enqueue(n); }); }, Promise.resolve()).then(render);
+        });
+        list.addEventListener('submit', function (e) {
+            var form = e.target.closest('[data-wcp-pkg-install]');
+            if (!form) { return; }
+            e.preventDefault();
+            enqueue(form.querySelector('input[name=name]').value).then(show);
+        });
+        render();
     });
     // Website dashboard: "Search features…" filters the action list as a
     // combobox (arrows move, Enter opens, Escape closes).
@@ -952,6 +1037,8 @@
     // database" from the dashboard) and focuses its first field.
     function openFromHash() {
         var id = decodeURIComponent(window.location.hash.slice(1));
+        // A link from the menu (?tab=events) opens that tab when there is no hash.
+        if (!id) { id = new URLSearchParams(window.location.search).get('tab') || ''; }
         if (!id || !/^[A-Za-z][\w-]*$/.test(id) || !window.bootstrap) { return; }
         var el = document.getElementById(id);
         if (!el) { return; }
@@ -987,6 +1074,40 @@
     document.addEventListener('DOMContentLoaded', function () {
         var m = document.querySelector('.modal[data-wcp-modal-open]');
         if (m && window.bootstrap) { bootstrap.Modal.getOrCreateInstance(m).show(); }
+    });
+
+    // Check-list helpers: <button data-wcp-check-all="#box"> / data-wcp-check-none
+    // tick or untick every enabled checkbox inside #box.
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest && e.target.closest('[data-wcp-check-all], [data-wcp-check-none]');
+        if (!b) { return; }
+        var all = b.hasAttribute('data-wcp-check-all');
+        var box = document.querySelector(b.getAttribute(all ? 'data-wcp-check-all' : 'data-wcp-check-none'));
+        if (!box) { return; }
+        box.querySelectorAll('input[type=checkbox]:not([disabled])').forEach(function (c) { c.checked = all; });
+    });
+    // List filter: <input data-wcp-filter-list="#list"> hides [data-wcp-filter-item]
+    // entries without every typed word, and [data-wcp-filter-group]s left empty.
+    document.addEventListener('input', function (e) {
+        var sel = e.target.getAttribute && e.target.getAttribute('data-wcp-filter-list');
+        if (!sel) { return; }
+        var list = document.querySelector(sel);
+        if (!list) { return; }
+        var words = e.target.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+        var shown = 0;
+        list.querySelectorAll('[data-wcp-filter-group]').forEach(function (g) {
+            var n = 0;
+            g.querySelectorAll('[data-wcp-filter-item]').forEach(function (it) {
+                var t = it.textContent.toLowerCase();
+                var ok = words.every(function (w) { return t.indexOf(w) !== -1; });
+                it.hidden = !ok;
+                if (ok) { n++; }
+            });
+            g.hidden = n === 0;
+            shown += n;
+        });
+        var empty = list.querySelector('[data-wcp-filter-empty]');
+        if (empty) { empty.hidden = shown !== 0; }
     });
 
     // Table filter: <input data-wcp-filter="#table-id"> hides rows whose

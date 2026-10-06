@@ -53,6 +53,11 @@ final class RoleRepository
         $this->db->run('UPDATE roles SET label = ?, description = ?, scope = ? WHERE id = ? AND is_system = 0', [$label, $description, $scope, $id]);
     }
 
+    public function setCustomized(int $id, bool $customized): void
+    {
+        $this->db->run('UPDATE roles SET customized = ? WHERE id = ? AND is_system = 1', [$customized ? 1 : 0, $id]);
+    }
+
     public function delete(int $id): void
     {
         $this->db->run('DELETE FROM roles WHERE id = ? AND is_system = 0', [$id]);
@@ -117,6 +122,11 @@ final class RoleRepository
                     [$roleName, $role['label'], $role['description'], $role['scope'], gmdate('c')]
                 );
                 $roleId = (int) $db->scalar('SELECT id FROM roles WHERE name = ?', [$roleName]);
+                // A built-in role an administrator changed keeps its grants
+                // (Administrator always has everything).
+                if ($role['permissions'] !== ['*'] && (int) $db->scalar('SELECT customized FROM roles WHERE id = ?', [$roleId]) === 1) {
+                    continue;
+                }
                 $grants = $role['permissions'] === ['*'] ? array_merge($names, $pluginPerms) : $role['permissions'];
                 $db->run('DELETE FROM role_permissions WHERE role_id = ?', [$roleId]);
                 foreach ($grants as $perm) {

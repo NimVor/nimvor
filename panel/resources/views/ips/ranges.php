@@ -12,6 +12,7 @@ $errors ??= [];
 $old ??= [];
 ?>
 <?= $this->partial('ips/_tabs', get_defined_vars()) ?>
+<?php if ($canManage): ?><?php $this->start(); ?><button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#range-add"><i class="bi bi-plus-lg me-1"></i>Add an IPv6 range</button><?php $this->end('actions'); ?><?php endif; ?>
 
 <div class="wcp-infobar">
     <i class="bi bi-diagram-2" aria-hidden="true"></i>
@@ -42,19 +43,20 @@ $old ??= [];
         </div>
     </div>
 <?php endforeach; ?>
-<?php if ($canManage): ?>
-    <div class="col-xl-6">
-        <form class="card h-100" method="post" action="<?= e($this->url('ips.ranges.store')) ?>" data-wcp-busy>
-            <?= $this->csrfField() ?>
-            <div class="card-header"><i class="bi bi-plus-lg me-1"></i>Add an IPv6 range</div>
-            <div class="card-body">
-                <label class="form-label small" for="rg-p">Range</label>
-                <input class="form-control form-control-sm font-monospace<?= isset($errors['prefix']) ? ' is-invalid' : '' ?>" id="rg-p" name="prefix" value="<?= e((string) ($old['prefix'] ?? '')) ?>" placeholder="2001:db8:100::/64" required>
-                <?php if (isset($errors['prefix'])): ?><div class="invalid-feedback"><?= e($errors['prefix']) ?></div><?php endif; ?>
-                <label class="form-label small mt-2" for="rg-n">Note</label><input class="form-control form-control-sm" id="rg-n" name="note" maxlength="300">
-            </div>
-            <div class="card-footer text-end"><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Add range</button></div>
-        </form>
-    </div>
+<?php if ($ranges === []): ?>
+    <div class="col-12"><div class="wcp-panel p-4 text-center wcp-muted">No IPv6 range yet.<?= $canManage ? ' Use "Add an IPv6 range" at the top right.' : '' ?></div></div>
 <?php endif; ?>
 </div>
+<?php if ($canManage): ?>
+<?= $this->modalStart('range-add', 'Add an IPv6 range', isset($errors['prefix']), '') ?>
+    <form method="post" action="<?= e($this->url('ips.ranges.store')) ?>" data-wcp-busy>
+        <?= $this->csrfField() ?>
+        <label class="form-label small" for="rg-p">Range</label>
+        <input class="form-control form-control-sm font-monospace<?= isset($errors['prefix']) ? ' is-invalid' : '' ?>" id="rg-p" name="prefix" value="<?= e((string) ($old['prefix'] ?? '')) ?>" placeholder="2001:db8:100::/64" required>
+        <?php if (isset($errors['prefix'])): ?><div class="invalid-feedback"><?= e($errors['prefix']) ?></div><?php endif; ?>
+        <label class="form-label small mt-2" for="rg-n">Note</label><input class="form-control form-control-sm" id="rg-n" name="note" maxlength="300">
+        <div class="form-text">A range your provider routes to this server. WhaCP adds a local route for it and keeps it at boot.</div>
+        <div class="d-flex justify-content-end gap-2 mt-3"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Add range</button></div>
+    </form>
+<?= $this->modalEnd() ?>
+<?php endif; ?>

@@ -454,10 +454,12 @@ return static function (Router $r): void {
     $r->post('/plans/{id}/delete', [PlansController::class, 'destroy'], ['name' => 'plans.delete', 'permission' => P::PLANS_MANAGE]);
     $r->get('/admin/plugins', [PluginsController::class, 'index'], ['name' => 'plugins', 'permission' => P::PLUGINS_MANAGE]);
     $r->post('/admin/plugins/{name}/toggle', [PluginsController::class, 'toggle'], ['name' => 'plugins.toggle', 'permission' => P::PLUGINS_MANAGE]);
+    $r->get('/roles', [RolesController::class, 'index'], ['name' => 'roles', 'permission' => P::USERS_VIEW]);
     $r->get('/roles/new', [RolesController::class, 'create'], ['name' => 'roles.create', 'permission' => P::ROLES_MANAGE]);
     $r->post('/roles', [RolesController::class, 'store'], ['name' => 'roles.store', 'permission' => P::ROLES_MANAGE]);
     $r->get('/roles/{id}/edit', [RolesController::class, 'edit'], ['name' => 'roles.edit', 'permission' => P::USERS_VIEW]);
     $r->post('/roles/{id}', [RolesController::class, 'update'], ['name' => 'roles.update', 'permission' => P::ROLES_MANAGE]);
+    $r->post('/roles/{id}/reset', [RolesController::class, 'reset'], ['name' => 'roles.reset', 'permission' => P::ROLES_MANAGE]);
     $r->post('/roles/{id}/two-factor', [RolesController::class, 'twoFactorPolicy'], ['name' => 'roles.2fa', 'permission' => P::ROLES_MANAGE]);
     $r->post('/roles/{id}/delete', [RolesController::class, 'destroy'], ['name' => 'roles.delete', 'permission' => P::ROLES_MANAGE]);
     $r->get('/settings', [SettingsController::class, 'index'], ['name' => 'settings', 'permission' => P::SETTINGS_VIEW]);
