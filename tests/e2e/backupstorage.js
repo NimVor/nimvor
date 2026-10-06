@@ -17,14 +17,16 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
 
     await page.goto(BASE + '/backups');
-    await page.click('summary:has-text("Add storage")');
+    await page.click('[data-bs-target="#storages"]');
+    await page.click('button[data-bs-target="#storage-add"]');
+    await page.waitForSelector('#storage-add.show');
     const state = async () => page.evaluate(() => {
-      const f = document.querySelector('#st-type').form;
+      const f = document.querySelector('#sa-type').form;
       const vis = (n) => { const el = f.elements[n]; return !!el && !el.disabled && el.offsetParent !== null; };
       return ['endpoint', 'host', 'password', 'tls', 'private_key', 'client_id', 'path', 'prefix'].filter(vis).join(',');
     });
     const expect = async (type, want) => {
-      await page.selectOption('#st-type', type);
+      await page.selectOption('#sa-type', type);
       const got = await state();
       if (got !== want) { throw new Error(type + ': visible fields ' + got + ', want ' + want); }
       step(type + ': ' + got);
@@ -35,11 +37,11 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await expect('gdrive', 'client_id,prefix');
     await expect('local', 'path,prefix');
 
-    await page.fill('input[name=name]', 'E2E disk');
-    await page.fill('input[name=path]', '/etc/whacp');
-    await Promise.all([page.waitForNavigation(), page.click('button:has-text("Test and save")')]);
-    await page.waitForSelector('.invalid-feedback');
-    if (await page.inputValue('#st-type') !== 'local') { throw new Error('type not kept after validation error'); }
+    await page.fill('#storage-add input[name=name]', 'E2E disk');
+    await page.fill('#storage-add input[name=path]', '/etc/whacp');
+    await Promise.all([page.waitForNavigation(), page.click('#storage-add button:has-text("Test and add")')]);
+    await page.waitForSelector('#storage-add.show .invalid-feedback');
+    if (await page.inputValue('#sa-type') !== 'local') { throw new Error('type not kept after validation error'); }
     if (!(await state()).startsWith('path')) { throw new Error('local fields not shown after validation error'); }
     step('local path outside allowed roots refused');
     if (errors.length) { throw new Error(errors.join('\n')); }

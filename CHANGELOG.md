@@ -56,6 +56,9 @@ All notable changes to WhaCP are documented here. The format follows
   - Each setting has its own window: Host name, Time zone, Root password,
     Graphical login screen, Restart the server.
   - After a save, the page returns to the Server settings tab.
+- **Backups page in tabs:** Website backups, Server configuration, Remote
+  storage, Account backups. Backing up the server configuration, the
+  server backup schedule and adding or editing a storage open in windows.
 - **Plans:** a new plan and edits to a plan are done in a window ("New
   plan" at the top right, the pencil on each row).
 - **Custom rules one at a time:** the Custom rules tab lists the rules in a
@@ -64,6 +67,35 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **Account backups** (*Backups → Account backups*):
+  - **What the file holds.** One `.whacp-account` file per hosting
+    account, with every website's files and databases (encrypted) and the
+    account's description: profile, plan, websites, databases and their
+    users, DNS zones and cron jobs.
+  - **Where files come from.** Download it, or upload a file. Files copied
+    to `/backup`, `/backups`, `/srv/backup(s)`, `/mnt` or `/media` are
+    listed too.
+  - **Restoring.** Restoring checks the file first: it must be made with
+    this server's backup key, its description is authenticated, and the
+    checksums must match. It then recreates the account with a new
+    password shown once, its websites, databases, database users, DNS
+    zones and cron jobs, and restores each website.
+  - **When.** It works after the account was terminated, and on another
+    server once that server's key is imported.
+- **Backup key download and import:**
+  - The key can be downloaded encrypted with a passphrase (PBKDF2-SHA256,
+    AES-256-GCM, done by the agent).
+  - Administrators only, after re-entering the panel password. Every
+    download is audited.
+  - A key file is imported on a new server when that server has no key
+    yet.
+  - See the trade-off documented under *Backups → The backup key*.
+- **Several remote storages:**
+  - Each storage can be tested again, turned on or off (on only after a
+    passing test) and edited (settings tested before they are saved;
+    secrets kept when left empty).
+  - Only storages that are turned on are offered for new backups.
+  - A schedule whose storage was turned off keeps its backups locally.
 - **SSL/TLS → AutoSSL** (like cPanel's Manage AutoSSL):
   - The provider (Let's Encrypt), when the next check runs, and whether
     renewals are scheduled.
@@ -202,6 +234,13 @@ All notable changes to WhaCP are documented here. The format follows
   the system's services are not affected.
 
 ### Fixed
+- **Recovery from remote storage refused real website backups:**
+  - The authentication of a website backup's manifest covered its panel
+    metadata as sent. The manifest is stored indented, which changed those
+    bytes, so every website backup made from the panel failed the check.
+    *Find backups* on a new server listed them all as "not authenticated".
+  - The check now covers the metadata in compact form.
+  - Backups made before the fix verify too.
 - **Building the ModSecurity connector failed on Rocky/Alma 9 and Ubuntu
   22.04** ("the HTTP rewrite module requires the PCRE library"). Nginx
   older than 1.21.5 (Rocky/Alma 9 ship 1.20, Ubuntu 22.04 ships 1.18) only

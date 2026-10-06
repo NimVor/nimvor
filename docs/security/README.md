@@ -78,5 +78,7 @@ whole.
   `/etc/whacp`; it flags world-readable secrets and a stopped scheduler.
 - Stay in read-only mode until you need write mode; remote agents should
   allow only the panel's IP.
-- Keep a copy of the backup key (*Backups → key*) off the server: without it
+- Keep a copy of the backup key off the server (*Backups → Server
+  configuration → Download the key*: encrypted with a passphrase you
+  choose, administrators only, after the panel password, audited): without it
   encrypted backups cannot be restored.

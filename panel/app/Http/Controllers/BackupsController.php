@@ -30,6 +30,10 @@ final class BackupsController extends SiteController
         private readonly BackupScheduler $scheduler,
         private readonly JobTracker $jobs,
         private readonly SettingsService $settings,
+        private readonly \WhaCP\Repositories\UserRepository $users,
+        private readonly \WhaCP\Security\PasswordHasher $hasher,
+        private readonly \WhaCP\Services\AuditLogger $audit,
+        private readonly \WhaCP\Services\AccountBackupService $accountBackups,
     ) {
         parent::__construct($view, $session, $sites, $server);
     }
@@ -155,11 +159,14 @@ final class BackupsController extends SiteController
             'storages' => $admin ? $this->backups->storages() : [],
             'keyInfo' => $admin ? $this->backups->keyInfo() : null,
             'panelUrl' => $this->settings->string('panel_url'),
+            'accountFiles' => $admin ? $this->accountBackups->files() : [],
+            'accounts' => $admin ? $this->accountBackups->accounts() : [],
+            'isAdminRole' => ($user['role_name'] ?? '') === 'admin',
         ]);
     }
 
     /** @param callable(): (string|array{0: string, 1: string}) $fn */
-    private function adminAct(Request $request, callable $fn): Response
+    private function adminAct(Request $request, callable $fn, string $to = '/backups#server'): Response
     {
         if (!Scope::isAll($this->user($request))) {
             return $this->redirectWithError('/backups', 'Only administrators can manage server backups and storage.');
@@ -167,15 +174,15 @@ final class BackupsController extends SiteController
         try {
             $res = $fn();
         } catch (ValidationException $e) {
-            return $this->backWithErrors('/backups', $e, $request->all());
+            return $this->backWithErrors($to, $e, $request->all());
         } catch (UserFacingException $e) {
-            return $this->redirectWithFailure('/backups', $e);
+            return $this->redirectWithFailure($to, $e);
         }
         if (is_array($res)) {
             $this->flashJob($res[1]);
             $res = $res[0];
         }
-        return $this->redirectWithSuccess('/backups', $res);
+        return $this->redirectWithSuccess($to, $res);
     }
 
     public function createServer(Request $request): Response
@@ -229,7 +236,7 @@ final class BackupsController extends SiteController
     public function storeStorage(Request $request): Response
     {
         if (!Scope::isAll($this->user($request))) {
-            return $this->redirectWithError('/backups', 'Only administrators can manage server backups and storage.');
+            return $this->redirectWithError('/backups#storages', 'Only administrators can manage server backups and storage.');
         }
         try {
             $pending = $this->backups->buildStorage($request->all());
@@ -249,11 +256,11 @@ final class BackupsController extends SiteController
             }
             $this->backups->insertStorage($pending['name'], $pending['cfg']);
         } catch (ValidationException $e) {
-            return $this->backWithErrors('/backups', $e, $request->all());
+            return $this->backWithErrors('/backups#storages', $e, $request->all());
         } catch (UserFacingException $e) {
-            return $this->redirectWithFailure('/backups', $e);
+            return $this->redirectWithFailure('/backups#storages', $e);
         }
-        return $this->redirectWithSuccess('/backups', 'Storage connected and tested.');
+        return $this->redirectWithSuccess('/backups#storages', 'Storage connected and tested.');
     }
 
     /** Show the host key / certificate the server presented. */
@@ -261,13 +268,13 @@ final class BackupsController extends SiteController
     {
         $p = $this->session->get(self::PENDING);
         if (!Scope::isAll($this->user($request)) || !is_array($p) || !isset($p['trust'])) {
-            return Response::redirect('/backups');
+            return Response::redirect('/backups#storages');
         }
         try {
             $pending = $this->backups->unseal($p['sealed'] ?? null);
         } catch (UserFacingException $e) {
             $this->session->remove(self::PENDING);
-            return $this->redirectWithFailure('/backups', $e);
+            return $this->redirectWithFailure('/backups#storages', $e);
         }
         return $this->render('backups/confirm_storage', [
             'name' => $pending['name'],
@@ -281,10 +288,10 @@ final class BackupsController extends SiteController
         $p = $this->session->get(self::PENDING);
         $this->session->remove(self::PENDING);
         if (!Scope::isAll($this->user($request)) || !is_array($p) || !isset($p['trust'])) {
-            return Response::redirect('/backups');
+            return Response::redirect('/backups#storages');
         }
         if ($request->input('cancel') !== null) {
-            return $this->redirectWithSuccess('/backups', 'The storage was not added.');
+            return $this->redirectWithSuccess('/backups#storages', 'The storage was not added.');
         }
         try {
             $pending = $this->backups->unseal($p['sealed'] ?? null);
@@ -292,11 +299,11 @@ final class BackupsController extends SiteController
             $this->backups->testStorage($pending['cfg']);
             $this->backups->insertStorage($pending['name'], $pending['cfg']);
         } catch (ValidationException $e) {
-            return $this->backWithErrors('/backups', $e, []);
+            return $this->backWithErrors('/backups#storages', $e, []);
         } catch (UserFacingException $e) {
-            return $this->redirectWithFailure('/backups', $e);
+            return $this->redirectWithFailure('/backups#storages', $e);
         }
-        return $this->redirectWithSuccess('/backups', 'Storage connected and tested.');
+        return $this->redirectWithSuccess('/backups#storages', 'Storage connected and tested.');
     }
 
     /** Google sends the administrator back here after the consent page. */
@@ -305,25 +312,25 @@ final class BackupsController extends SiteController
         $p = $this->session->get(self::PENDING);
         $this->session->remove(self::PENDING);
         if (!Scope::isAll($this->user($request)) || !is_array($p) || ($p['kind'] ?? '') !== 'gdrive') {
-            return $this->redirectWithError('/backups', 'No Google Drive connection is in progress. Add the storage again.');
+            return $this->redirectWithError('/backups#storages', 'No Google Drive connection is in progress. Add the storage again.');
         }
         if (!hash_equals((string) ($p['state'] ?? ''), (string) $request->query('state', ''))) {
-            return $this->redirectWithError('/backups', 'The Google Drive connection could not be verified (state mismatch). Add the storage again.');
+            return $this->redirectWithError('/backups#storages', 'The Google Drive connection could not be verified (state mismatch). Add the storage again.');
         }
         $error = (string) $request->query('error', '');
         $code = (string) $request->query('code', '');
         if ($error !== '' || $code === '') {
-            return $this->redirectWithError('/backups', $error === 'access_denied' ? 'Google Drive access was not granted.' : 'Google did not return an authorisation code' . ($error !== '' ? ' (' . $error . ')' : '') . '.');
+            return $this->redirectWithError('/backups#storages', $error === 'access_denied' ? 'Google Drive access was not granted.' : 'Google did not return an authorisation code' . ($error !== '' ? ' (' . $error . ')' : '') . '.');
         }
         try {
             $pending = $this->backups->unseal($p['sealed'] ?? null);
             $this->backups->googleComplete($pending, $code, $this->backups->googleRedirectUri($this->settings->string('panel_url')));
         } catch (ValidationException $e) {
-            return $this->backWithErrors('/backups', $e, []);
+            return $this->backWithErrors('/backups#storages', $e, []);
         } catch (UserFacingException $e) {
-            return $this->redirectWithFailure('/backups', $e);
+            return $this->redirectWithFailure('/backups#storages', $e);
         }
-        return $this->redirectWithSuccess('/backups', 'Google Drive connected. Backups go to the "WhaCP backups" folder.');
+        return $this->redirectWithSuccess('/backups#storages', 'Google Drive connected. Backups go to the "WhaCP backups" folder.');
     }
 
     /** Find backups kept in a storage (recovery onto a new server). */
@@ -339,7 +346,7 @@ final class BackupsController extends SiteController
                 $msg .= ' Not added (' . count($r['skipped']) . '): ' . implode('; ', array_slice($r['skipped'], 0, 5)) . (count($r['skipped']) > 5 ? '; …' : '') . '.';
             }
             return $msg;
-        });
+        }, '/backups#storages');
     }
 
     public function deleteStorage(Request $request, string $storage): Response
@@ -347,7 +354,98 @@ final class BackupsController extends SiteController
         return $this->adminAct($request, function () use ($storage): string {
             $this->backups->deleteStorage((int) $storage);
             return 'Storage removed.';
-        });
+        }, '/backups#storages');
+    }
+
+    public function testStorage(Request $request, string $storage): Response
+    {
+        return $this->adminAct($request, function () use ($storage): string {
+            $r = $this->backups->retestStorage((int) $storage);
+            if (!$r['ok']) {
+                throw new UserFacingException('The test failed: ' . $r['error'], 'The storage was turned off.', 'Check its settings (Edit) and test again.');
+            }
+            return 'The storage works: it can be turned on.';
+        }, '/backups#storages');
+    }
+
+    public function activateStorage(Request $request, string $storage): Response
+    {
+        return $this->adminAct($request, function () use ($request, $storage): string {
+            $on = $request->input('active') === '1';
+            $this->backups->setStorageActive((int) $storage, $on);
+            return $on ? 'Storage turned on: new backups can use it.' : 'Storage turned off: new backups do not use it (backups already there stay restorable).';
+        }, '/backups#storages');
+    }
+
+    public function updateStorage(Request $request, string $storage): Response
+    {
+        if (!Scope::isAll($this->user($request))) {
+            return $this->redirectWithError('/backups', 'Only administrators can manage server backups and storage.');
+        }
+        try {
+            $this->backups->updateStorage((int) $storage, $request->all());
+        } catch (ValidationException $e) {
+            return $this->backWithErrors('/backups#storage-edit-' . (int) $storage, $e, $request->all() + ['storage_id' => (string) (int) $storage]);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/backups#storages', $e);
+        }
+        return $this->redirectWithSuccess('/backups#storages', 'Storage saved and tested.');
+    }
+
+    /**
+     * The backup key, encrypted with a passphrase, as a file to keep safe.
+     * Administrators only, after re-entering their panel password; every
+     * download is in the audit log.
+     */
+    public function downloadKey(Request $request): Response
+    {
+        $user = $this->user($request);
+        if (($user['role_name'] ?? '') !== 'admin') {
+            return $this->redirectWithError('/backups#server', 'Only administrators can download the backup key.');
+        }
+        $hash = $this->users->passwordHash((int) $user['id']);
+        if ($hash === null || !$this->hasher->verify((string) $request->input('current_password', ''), $hash)) {
+            $this->audit->record('backup.key_export', 'server', (string) $this->server->id(), \WhaCP\Services\AuditLogger::DENIED, ['reason' => 'wrong panel password']);
+            return $this->redirectWithError('/backups#key-download', 'Your panel password is not correct.');
+        }
+        $pass = (string) $request->input('passphrase', '');
+        if ($pass !== (string) $request->input('passphrase_confirmation', '')) {
+            return $this->redirectWithError('/backups#key-download', 'The passphrases do not match.');
+        }
+        if (mb_strlen($pass) < 12) {
+            return $this->redirectWithError('/backups#key-download', 'Use a passphrase of at least 12 characters.');
+        }
+        try {
+            $res = $this->backups->exportKey($pass);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/backups#server', $e);
+        }
+        $name = 'whacp-backup-key-' . preg_replace('/[^a-f0-9]/', '', $res['key_id']) . '.json';
+        return new Response($res['file'], 200, [
+            'Content-Type' => 'application/json',
+            'Content-Disposition' => 'attachment; filename="' . $name . '"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    /** Install a backup key from a key file (a server without a key yet). */
+    public function importKey(Request $request): Response
+    {
+        $user = $this->user($request);
+        if (($user['role_name'] ?? '') !== 'admin') {
+            return $this->redirectWithError('/backups#server', 'Only administrators can import a backup key.');
+        }
+        $file = $_FILES['key_file'] ?? null;
+        if (!is_array($file) || ($file['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name']) || (int) $file['size'] > 4096) {
+            return $this->redirectWithError('/backups#key-import', 'Choose the key file (whacp-backup-key-….json).');
+        }
+        try {
+            $res = $this->backups->importKey((string) file_get_contents((string) $file['tmp_name']), (string) $request->input('passphrase', ''));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/backups#key-import', $e);
+        }
+        return $this->redirectWithSuccess('/backups#server', $res['already'] ? 'This server already has that backup key.' : 'Backup key ' . $res['key_id'] . ' installed: backups encrypted with it can be restored here.');
     }
 
     public function storeServerSchedule(Request $request): Response

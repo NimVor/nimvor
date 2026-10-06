@@ -36,7 +36,13 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     await p.fill('#username', user); await p.fill('#password', pass);
     await Promise.all([p.waitForNavigation(), p.click('button[type=submit]')]);
   };
-  const submit = async (p, selector) => Promise.all([p.waitForNavigation(), p.click(selector)]);
+  // Forms and links may load the next page in place (AJAX layer) or
+  // navigate: wait until the network is quiet either way.
+  const submit = async (p, selector) => {
+    await p.click(selector);
+    await p.waitForTimeout(250);
+    await p.waitForLoadState('networkidle');
+  };
   const stamp = Date.now().toString(36);
   const domain = 'dash' + stamp + '.example.test';
   try {
@@ -57,12 +63,14 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     await page.fill('#f-domain', domain);
     const ownerValue = await page.$eval('#f-owner', (s, u) => [...s.options].find(o => o.textContent.startsWith(u + ' ')).value, 'cust' + stamp);
     await page.selectOption('#f-owner', ownerValue);
-    await submit(page, 'main form[action="/websites/new"] button[type=submit]');
+    // The form is sent by the AJAX layer (the next page loads in place).
+    await Promise.all([page.waitForResponse(r => r.url().endsWith('/websites/new') && r.request().method() === 'POST'), page.click('main form[action="/websites/new"] button[type=submit]')]);
+    await page.waitForLoadState('networkidle');
     await page.goto(BASE + '/websites');
     const manage = await page.$(`a[href^="/sites/"]:has-text("${domain}")`) || await page.$(`tr:has-text("${domain}") a[href^="/sites/"]`);
     if (!manage) { throw new Error('website not listed'); }
     const site = (await manage.getAttribute('href')).replace(/\/$/, '');
-    await submit(page, `a[href="${site}"]`);
+    await page.goto(BASE + site);
     step('website created and opened: ' + site);
 
     // ---- Site page: details and tiles

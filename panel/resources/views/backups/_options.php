@@ -5,6 +5,8 @@
 /** @var bool $alwaysEncrypted server backups: private keys inside */
 $prefix ??= 'b';
 $alwaysEncrypted ??= false;
+// New backups go to storages that are turned on.
+$storages = array_values(array_filter($storages, static fn (array $s): bool => $s['active'] ?? true));
 ?>
 <?php if ($alwaysEncrypted): ?>
 <div class="small text-body-secondary"><i class="bi bi-lock me-1"></i>Always encrypted (AES-256): it contains private keys.</div>

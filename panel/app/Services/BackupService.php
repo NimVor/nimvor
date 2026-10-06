@@ -45,13 +45,152 @@ final class BackupService
         'local' => 'Local folder (mounted disk or NAS)',
     ];
 
-    /** @return list<array<string, mixed>> without secrets */
-    public function storages(): array
+    /**
+     * @param bool $activeOnly only storages turned on (offered for new backups)
+     * @return list<array<string, mixed>> without secrets
+     */
+    public function storages(bool $activeOnly = false): array
     {
+        $rows = $this->db->fetchAll('SELECT * FROM backup_storages' . ($activeOnly ? ' WHERE active = 1' : '') . ' ORDER BY name');
         return array_map(function (array $r): array {
             $cfg = $this->storageConfig((int) $r['id']);
-            return ['id' => (int) $r['id'], 'name' => $r['name'], 'kind' => $r['kind'], 'where' => self::describe($cfg), 'prefix' => $cfg['prefix'] ?? '', 'created_at' => $r['created_at']];
-        }, $this->db->fetchAll('SELECT * FROM backup_storages ORDER BY name'));
+            return [
+                'id' => (int) $r['id'], 'name' => $r['name'], 'kind' => $r['kind'], 'where' => self::describe($cfg), 'prefix' => $cfg['prefix'] ?? '',
+                'created_at' => $r['created_at'], 'active' => (int) ($r['active'] ?? 1) === 1, 'test_ok' => (int) ($r['test_ok'] ?? 1) === 1,
+                'test_error' => (string) ($r['test_error'] ?? ''), 'tested_at' => $r['tested_at'] ?? null, 'fields' => self::editableFields($cfg),
+            ];
+        }, $rows);
+    }
+
+    /**
+     * The settings of a storage the edit window shows (never secrets).
+     *
+     * @param array<string, mixed> $cfg
+     * @return array<string, mixed>
+     */
+    private static function editableFields(array $cfg): array
+    {
+        $keep = ['type', 'prefix', 'endpoint', 'region', 'bucket', 'path_style', 'host', 'port', 'username', 'tls', 'path'];
+        return array_intersect_key($cfg, array_flip($keep));
+    }
+
+    /**
+     * The agent "remote" parameter of a storage a new backup may use: it must
+     * be turned on (restores, downloads and deletions use any storage).
+     *
+     * @return array<string, mixed>
+     */
+    public function activeStorageConfig(int $id): array
+    {
+        if ((int) $this->db->scalar('SELECT active FROM backup_storages WHERE id = ?', [$id]) !== 1) {
+            throw new UserFacingException('That remote storage is turned off.', 'Only storages that are turned on receive new backups.', 'Test it and turn it on under Backups → Remote storage, or choose another.');
+        }
+        return $this->storageConfig($id);
+    }
+
+    public function storageActive(int $id): bool
+    {
+        return (int) $this->db->scalar('SELECT active FROM backup_storages WHERE id = ?', [$id]) === 1;
+    }
+
+    /**
+     * Test a saved storage again and record the result.
+     *
+     * @return array{ok: bool, error: string}
+     */
+    public function retestStorage(int $id): array
+    {
+        $cfg = $this->storageConfig($id);
+        $error = '';
+        try {
+            $trust = $this->testStorage($cfg);
+            if ($trust !== []) {
+                // A pinned key is always sent: something else answered.
+                $error = 'The server presented a key that is not the one confirmed when the storage was added.';
+            }
+        } catch (AgentException $e) {
+            $error = trim($e->getMessage() . ' ' . $e->reason());
+        }
+        $ok = $error === '';
+        $this->db->run('UPDATE backup_storages SET test_ok = ?, test_error = ?, tested_at = ?' . ($ok ? '' : ', active = 0') . ' WHERE id = ?', [$ok ? 1 : 0, mb_substr($error, 0, 500), gmdate('c'), $id]);
+        $this->audit->record('backup.storage_test', 'backup_storage', (string) $id, $ok ? AuditLogger::SUCCESS : AuditLogger::FAILURE, ['error' => $error !== '' ? mb_substr($error, 0, 300) : null]);
+        return ['ok' => $ok, 'error' => $error];
+    }
+
+    /** Turn a storage on (only after a successful test) or off. */
+    public function setStorageActive(int $id, bool $active): void
+    {
+        $row = $this->db->fetch('SELECT * FROM backup_storages WHERE id = ?', [$id]) ?? throw new UserFacingException('The remote storage no longer exists.');
+        if ($active && ((int) $row['test_ok'] !== 1 || $row['tested_at'] === null)) {
+            throw new UserFacingException('Test the storage first.', 'Its last connection test did not succeed.', 'Use "Test" and turn it on once the test passes.');
+        }
+        $this->db->run('UPDATE backup_storages SET active = ? WHERE id = ?', [$active ? 1 : 0, $id]);
+        $this->audit->record($active ? 'backup.storage_on' : 'backup.storage_off', 'backup_storage', (string) $id, AuditLogger::SUCCESS, ['name' => $row['name']]);
+    }
+
+    /**
+     * Change a storage: its name, sub-folder and settings. Secret fields
+     * left empty keep their value. The server of an SFTP or FTP storage
+     * (whose key was confirmed) is not changed here: add a new storage.
+     * The changed settings are tested before they are saved.
+     *
+     * @param array<string, mixed> $input
+     */
+    public function updateStorage(int $id, array $input): void
+    {
+        $row = $this->db->fetch('SELECT * FROM backup_storages WHERE id = ?', [$id]) ?? throw new UserFacingException('The remote storage no longer exists.');
+        $cfg = $this->storageConfig($id);
+        $type = (string) $cfg['type'];
+        $str = static fn (string $k): string => is_scalar($input[$k] ?? null) ? trim((string) $input[$k]) : '';
+        $form = ['type' => $type, 'name' => '__edit__' . $id] + array_map('strval', array_filter(self::editableFields($cfg), 'is_scalar'));
+        foreach (['prefix', 'endpoint', 'region', 'bucket', 'username', 'tls', 'path', 'port'] as $k) {
+            if (array_key_exists($k, $input)) {
+                $form[$k] = $str($k);
+            }
+        }
+        $form['path_style'] = !empty($input['path_style']);
+        // Secrets: empty keeps the stored one.
+        foreach (['access_key', 'secret_key', 'password', 'private_key', 'client_id', 'client_secret'] as $k) {
+            $form[$k] = $str($k) !== '' ? (string) $input[$k] : (string) ($cfg[$k] ?? '');
+        }
+        if (in_array($type, ['sftp', 'ftp'], true)) {
+            $form['host'] = (string) $cfg['host'];
+            if ($str('host') !== '' && $str('host') !== (string) $cfg['host']) {
+                throw new ValidationException(['host' => 'The server of a storage cannot be changed (its key was confirmed for this server). Add a new storage instead.']);
+            }
+            if ((int) $form['port'] !== (int) ($cfg['port'] ?? 0)) {
+                throw new ValidationException(['port' => 'The port of a storage cannot be changed. Add a new storage instead.']);
+            }
+        }
+        $name = $str('name');
+        if ($name === '' || mb_strlen($name) > 60) {
+            throw new ValidationException(['name' => 'Enter a name (up to 60 characters).']);
+        }
+        if ($this->db->scalar('SELECT COUNT(*) FROM backup_storages WHERE name = ? AND id <> ?', [$name, $id]) > 0) {
+            throw new ValidationException(['name' => 'A storage with this name exists.']);
+        }
+        if ($type === 'gdrive') {
+            // Its access comes from Google's consent page: only the name and sub-folder change.
+            $new = $cfg;
+            $prefix = trim($str('prefix'), '/');
+            if (!preg_match('#^[A-Za-z0-9._/-]{0,200}$#', $prefix) || str_contains($prefix, '..')) {
+                throw new ValidationException(['prefix' => 'Use letters, digits and . _ / -']);
+            }
+            $new['prefix'] = $prefix;
+        } else {
+            $new = $this->buildStorage($form)['cfg'];
+            foreach (['host_key', 'tls_pin', 'folder_id'] as $k) {
+                if (isset($cfg[$k])) {
+                    $new[$k] = $cfg[$k];
+                }
+            }
+        }
+        $trust = $this->testStorage($new);
+        if ($trust !== []) {
+            throw new UserFacingException('The storage presented a key that was not confirmed.', '', 'Add it as a new storage to confirm its key.');
+        }
+        $this->db->run('UPDATE backup_storages SET name = ?, config_enc = ?, test_ok = 1, test_error = \'\', tested_at = ? WHERE id = ?', [$name, $this->crypto->encrypt((string) json_encode($new)), gmdate('c'), $id]);
+        $this->audit->record('backup.storage_update', 'backup_storage', (string) $id, AuditLogger::SUCCESS, ['name' => $name, 'was' => $row['name'], 'where' => self::describe($new)]);
     }
 
     /** @param array<string, mixed> $cfg */
@@ -88,7 +227,9 @@ final class BackupService
         $errors = [];
         $str = static fn (string $k): string => is_scalar($input[$k] ?? null) ? trim((string) $input[$k]) : '';
         $name = $str('name');
-        if ($name === '' || mb_strlen($name) > 60) {
+        if (str_starts_with($name, '__edit__')) {
+            // updateStorage checks the name itself.
+        } elseif ($name === '' || mb_strlen($name) > 60) {
             $errors['name'] = 'Enter a name (up to 60 characters).';
         } elseif ($this->db->scalar('SELECT COUNT(*) FROM backup_storages WHERE name = ?', [$name]) > 0) {
             $errors['name'] = 'A storage with this name exists.';
@@ -204,7 +345,8 @@ final class BackupService
         if ($this->db->scalar('SELECT COUNT(*) FROM backup_storages WHERE name = ?', [$name]) > 0) {
             throw new ValidationException(['name' => 'A storage with this name exists.']);
         }
-        $this->db->run('INSERT INTO backup_storages (name, kind, config_enc, created_at) VALUES (?, ?, ?, ?)', [$name, (string) $cfg['type'], $this->crypto->encrypt((string) json_encode($cfg)), gmdate('c')]);
+        // Added only after a successful test: on, with that test recorded.
+        $this->db->run('INSERT INTO backup_storages (name, kind, config_enc, created_at, active, test_ok, tested_at) VALUES (?, ?, ?, ?, 1, 1, ?)', [$name, (string) $cfg['type'], $this->crypto->encrypt((string) json_encode($cfg)), gmdate('c'), gmdate('c')]);
         $id = $this->db->lastInsertId();
         $this->audit->record('backup.storage_create', 'backup_storage', (string) $id, AuditLogger::SUCCESS, ['name' => $name, 'type' => $cfg['type'], 'where' => self::describe($cfg), 'pinned' => $cfg['host_key'] ?? $cfg['tls_pin'] ?? null]);
         return $id;
@@ -376,7 +518,7 @@ final class BackupService
             'meta' => ['website' => WebsiteService::spec($site, false), 'panel_version' => 1],
         ];
         if ($storageId !== null) {
-            $params['remote'] = $this->storageConfig($storageId);
+            $params['remote'] = $this->activeStorageConfig($storageId);
             $params['keep_local'] = (bool) ($opts['keep_local'] ?? true);
         }
         $res = (array) $this->agent->call('backup.create', $params);
@@ -402,7 +544,7 @@ final class BackupService
         $label = mb_substr(trim((string) ($opts['label'] ?? '')), 0, 100);
         $params = ['encrypt' => $encrypt, 'label' => $label];
         if ($storageId !== null) {
-            $params['remote'] = $this->storageConfig($storageId);
+            $params['remote'] = $this->activeStorageConfig($storageId);
             $params['keep_local'] = (bool) ($opts['keep_local'] ?? true);
         }
         $res = (array) $this->agent->call('backup.server', $params);
@@ -639,5 +781,35 @@ final class BackupService
         } catch (AgentException) {
             return null;
         }
+    }
+
+    /**
+     * The backup key encrypted with a passphrase (PBKDF2 + AES-GCM, done by
+     * the agent): a key file to keep safe, useless without the passphrase.
+     *
+     * @return array{key_id: string, file: string}
+     */
+    public function exportKey(string $passphrase): array
+    {
+        $res = (array) $this->agent->call('backup.key_export', ['passphrase' => $passphrase], 60);
+        $this->audit->record('backup.key_export', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['key_id' => (string) ($res['key_id'] ?? '')]);
+        return ['key_id' => (string) ($res['key_id'] ?? ''), 'file' => (string) ($res['file'] ?? '')];
+    }
+
+    /**
+     * Install a backup key from a key file, on a server that has none yet.
+     *
+     * @return array{key_id: string, already: bool}
+     */
+    public function importKey(string $file, string $passphrase): array
+    {
+        try {
+            $res = (array) $this->agent->call('backup.key_import', ['file' => $file, 'passphrase' => $passphrase], 60);
+        } catch (AgentException $e) {
+            $this->audit->record('backup.key_import', 'server', (string) $this->server->id(), AuditLogger::FAILURE, ['error' => mb_substr($e->getMessage() . ' ' . $e->reason(), 0, 300)]);
+            throw $e;
+        }
+        $this->audit->record('backup.key_import', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['key_id' => (string) ($res['key_id'] ?? ''), 'already' => !empty($res['already'])]);
+        return ['key_id' => (string) ($res['key_id'] ?? ''), 'already' => !empty($res['already'])];
     }
 }

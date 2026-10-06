@@ -1405,9 +1405,34 @@ loopback addresses are accepted: Memcached has no authentication.
 
 ## Backup destinations
 
+*Backups* has four tabs for administrators: **Website backups**, **Server
+configuration**, **Remote storage** and **Account backups**. Forms open in
+windows: back up the server configuration, the server backup schedule,
+add or edit a storage, back up an account, upload an account file, and
+download or import the backup key.
+
 *Backups → Remote storage → Add storage* keeps copies off the server. Each
 storage is tested (upload, list and delete of a probe file) before it is
 saved; credentials are stored encrypted with the panel key.
+
+Several storages can be connected:
+
+- **On or off.** Only storages that are turned on are offered for new
+  backups and schedules. A storage can be turned on only when its last
+  test passed.
+- **Test.** Runs the probe again. A failed test turns the storage off and
+  shows the error.
+- **Schedules.** A schedule whose storage was turned off keeps its backups
+  on this server only, and its log says so.
+- **Turning off does not delete.** Backups already in the storage stay
+  restorable.
+- **Edit.** Changes the name, the sub-folder and the settings; secret
+  fields left empty keep their value. The changed settings are tested
+  before they are saved.
+- **What edit cannot change.** The host and port of an SFTP or FTP storage
+  stay fixed, because its key was confirmed for that server: add a new
+  storage instead. A Google Drive storage changes only its name and
+  sub-folder.
 
 | Type | Notes |
 |------|-------|
@@ -1429,8 +1454,88 @@ otherwise.
 Server backups contain `/etc/whacp` (agent token, panel key) and TLS
 private keys, so they are always encrypted with the backup key, also when
 kept only on this server. Without that key they cannot be restored: keep a
-copy of `/var/lib/whacp-agent/backup.key` off the server. Server backups
-made unencrypted by earlier versions can still be restored.
+copy off the server. Server backups made unencrypted by earlier versions
+can still be restored.
+
+### The backup key
+
+*Backups → Server configuration → Encryption key*:
+
+- **Download the key.** Administrators only. Re-enter your panel password
+  and choose a passphrase of at least 12 characters. You get
+  `whacp-backup-key-<id>.json`: the key encrypted with the passphrase by
+  the agent (PBKDF2-SHA256 with 600,000 iterations, AES-256-GCM). The
+  file alone decrypts nothing.
+- **Keep them apart.** Keep the file and the passphrase in separate safe
+  places.
+- **Audit.** Every download, and every refused attempt, is in the audit
+  log.
+- **Import a key.** On a new server, before restoring backups made
+  elsewhere: the key file and its passphrase. A server that already has a
+  different key keeps its own, because its own encrypted backups need it.
+
+**Security trade-off.** Before this, the key never left the agent. Now an
+administrator session can obtain the key file. The protections:
+
+- administrator role only, the panel password again, and a passphrase the
+  agent applies;
+- the key itself never passes the panel unencrypted;
+- every download is audited.
+
+Still, anyone who controls an administrator session and knows the panel
+password can download the key file with a passphrase of their choosing.
+Treat the panel password accordingly, and use two-factor sign-in for
+administrators.
+
+### Account backups
+
+*Backups → Account backups → Back up an account* writes one
+`.whacp-account` file per hosting account. It holds:
+
+- every website's files and databases, as encrypted website backups;
+- the account's description: profile, plan, reseller, websites
+  (subdomains and addon domains with their parents), databases, database
+  users and their grants, DNS zones and cron jobs.
+
+The description is authenticated with the backup key. Files are listed
+from three places:
+
+- the account backups made on this server;
+- uploaded files (**Upload a backup file**, sent in 4 MiB parts);
+- `/backup`, `/backups`, `/srv/backup(s)`, `/mnt` and `/media`, two folder
+  levels deep (copy files there with `scp`, for example).
+
+They can be downloaded, and the ones made or uploaded here can be deleted.
+
+**Restore…** shows what the file holds and what restoring does here
+(created, already in the account, or belonging to someone else and
+skipped). Then:
+
+1. **Check and import.** Type the account name. The agent checks the file:
+   it must be made with this server's backup key (on another server,
+   import that key first), with an authenticated description, and every
+   website manifest and every part checksum must match. Only then does it
+   put the website backups in place. A changed or foreign file is
+   refused, and nothing is left behind.
+2. **Recreate the account and restore its websites.** This creates:
+   - the account, with a new panel password shown once and never stored,
+     its plan when one with that name exists here, and its reseller when
+     that reseller exists;
+   - its websites, main websites first;
+   - its databases, and its database users with new passwords (shown
+     once; update the websites' configuration);
+   - its DNS zones (records not there yet are added) and its cron jobs.
+
+   Then each website's files and databases are restored by jobs.
+   Websites, databases or zones that belong to another account are
+   skipped and reported. The report stays on the restore page.
+
+This works after the account was terminated, and on another server.
+
+Not in account backups: email (mailboxes and messages), SSL certificates
+(AutoSSL issues them again once the domains point to the server) and FTP
+accounts. Restoring an account needs *Create, edit, suspend and terminate
+users*.
 
 ## Restoring server configuration
 
@@ -1445,13 +1550,15 @@ never restored automatically; *Extract for review only* unpacks the whole
 backup into `/var/lib/whacp-agent/restore/` (root only) to copy from by
 hand.
 
-**Recovering on a new server.** Keep a copy of
-`/var/lib/whacp-agent/backup.key` off the server: nothing can be recovered
-without it.
+**Recovering on a new server.** Keep a copy of the backup key off the
+server (*Download the key*, or `/var/lib/whacp-agent/backup.key` as root):
+nothing can be recovered without it.
 
 1. Install the same (or a newer) WhaCP version with `--enable-writes`.
-2. Before making any backup there, copy the old key to
-   `/var/lib/whacp-agent/backup.key` (owner root, mode 0600).
+2. Before making any backup there, import the old key (*Backups → Server
+   configuration → Import a key*), or copy it to
+   `/var/lib/whacp-agent/backup.key` (owner root, mode 0600). Account
+   backup files can then be restored directly (*Account backups*).
 3. Add the same remote storage (same sub-folder) and press **Find
    backups** on it. WhaCP lists the storage and adds the backups it can
    trust; it says which it skipped and why.

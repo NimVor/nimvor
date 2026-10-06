@@ -66,8 +66,8 @@ final class BackupScheduler
             $errors['retention'] = 'Keep between 1 and 365 backups.';
         }
         $storage = filter_var($input['storage_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
-        if ($storage !== null && $this->db->scalar('SELECT COUNT(*) FROM backup_storages WHERE id = ?', [$storage]) === 0) {
-            $errors['storage_id'] = 'Choose a storage.';
+        if ($storage !== null && $this->db->scalar('SELECT COUNT(*) FROM backup_storages WHERE id = ? AND active = 1', [$storage]) === 0) {
+            $errors['storage_id'] = 'Choose a storage that is turned on.';
         }
         $files = filter_var($input['include_files'] ?? true, FILTER_VALIDATE_BOOL);
         $dbs = filter_var($input['include_databases'] ?? true, FILTER_VALIDATE_BOOL);
@@ -147,6 +147,12 @@ final class BackupScheduler
                 'encrypt' => (int) $s['encrypt'] === 1, 'storage_id' => $s['storage_id'] === null ? null : (int) $s['storage_id'],
                 'keep_local' => (int) $s['keep_local'] === 1, 'label' => ucfirst((string) $s['frequency']) . ' backup', 'schedule_id' => (int) $s['id'],
             ];
+            // A storage turned off since: kept on this server only.
+            $offStorage = $opts['storage_id'] !== null && !$this->backups->storageActive((int) $opts['storage_id']);
+            if ($offStorage) {
+                $opts['storage_id'] = null;
+                $opts['keep_local'] = true;
+            }
             try {
                 if ($s['kind'] === 'server') {
                     $job = $this->backups->createServer($opts, null);
@@ -159,7 +165,7 @@ final class BackupScheduler
                     $this->jobs->track($job, 'Scheduled backup of ' . $what, 'website', (string) $site['id'], null);
                 }
                 $this->db->run("UPDATE backup_schedules SET last_status = 'started' WHERE id = ?", [(int) $s['id']]);
-                $log[] = "Started backup of {$what} (job {$job}).";
+                $log[] = "Started backup of {$what} (job {$job})." . ($offStorage ? ' Its remote storage is turned off: kept on this server only.' : '');
             } catch (\Throwable $e) {
                 $this->db->run('UPDATE backup_schedules SET last_status = ? WHERE id = ?', ['failed: ' . mb_substr($e->getMessage(), 0, 200), (int) $s['id']]);
                 $this->audit->record('backup.scheduled', 'backup_schedule', (string) $s['id'], AuditLogger::FAILURE, ['error' => $e->getMessage()]);

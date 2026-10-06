@@ -975,6 +975,70 @@
         });
         render();
     });
+    // Backups → Account backups: upload a .whacp-account file in parts of
+    // 4 MiB (the agent appends each at its offset), then open its restore page.
+    document.addEventListener('DOMContentLoaded', function () {
+        var box = document.querySelector('[data-wcp-account-upload]');
+        if (!box) { return; }
+        var input = box.querySelector('[data-wcp-account-file]');
+        var start = box.querySelector('[data-wcp-account-start]');
+        var bar = box.querySelector('[data-wcp-account-progress]');
+        var status = box.querySelector('[data-wcp-account-status]');
+        var CHUNK = 4 * 1024 * 1024;
+        input.addEventListener('change', function () {
+            var f = input.files[0];
+            start.disabled = !f || !/\.whacp-account$/.test(f.name);
+            status.textContent = f && start.disabled ? 'Choose a file ending in .whacp-account.' : '';
+        });
+        start.addEventListener('click', function () {
+            var f = input.files[0];
+            if (!f) { return; }
+            var name = f.name.replace(/[^A-Za-z0-9._-]/g, '_').replace(/^[^A-Za-z0-9]+/, '');
+            start.disabled = true;
+            input.disabled = true;
+            bar.classList.remove('d-none');
+            var inner = bar.querySelector('.progress-bar');
+            function send(offset) {
+                var fd = new FormData();
+                fd.append('_token', box.getAttribute('data-csrf'));
+                fd.append('name', name);
+                fd.append('offset', String(offset));
+                fd.append('final', offset + CHUNK >= f.size ? '1' : '0');
+                fd.append('chunk', f.slice(offset, offset + CHUNK), 'chunk');
+                return fetch(box.getAttribute('data-url'), { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': box.getAttribute('data-csrf'), 'Accept': 'application/json' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        if (!res.success) { throw new Error((res.error && res.error.message) || 'Upload failed.'); }
+                        var done = Math.min(f.size, offset + CHUNK);
+                        var pct = f.size ? Math.round(100 * done / f.size) : 100;
+                        inner.style.width = pct + '%';
+                        status.textContent = 'Uploaded ' + pct + '%';
+                        if (done < f.size) { return send(done); }
+                        status.textContent = 'Uploaded. Opening the restore page…';
+                        window.location.href = box.getAttribute('data-restore-url') + '?path=' + encodeURIComponent(res.data.path);
+                    });
+            }
+            send(0).catch(function (err) {
+                status.textContent = err.message;
+                status.classList.add('text-danger');
+                start.disabled = false;
+                input.disabled = false;
+            });
+        });
+    });
+    // <span data-wcp-reload-when-done="JOB">: reload the page once that agent
+    // job has finished (e.g. an account backup being imported).
+    document.addEventListener('DOMContentLoaded', function () {
+        var el = document.querySelector('[data-wcp-reload-when-done]');
+        if (!el) { return; }
+        var job = el.getAttribute('data-wcp-reload-when-done');
+        var timer = setInterval(function () {
+            if (!document.body.contains(el)) { clearInterval(timer); return; }
+            WhaCP.fetchJson('/jobs/' + encodeURIComponent(job) + '?offset=0').then(function (res) {
+                if (res.done) { clearInterval(timer); window.location.reload(); }
+            }).catch(function () {});
+        }, 2000);
+    });
     // Website dashboard: "Search features…" filters the action list as a
     // combobox (arrows move, Enter opens, Escape closes).
     document.addEventListener('DOMContentLoaded', function () {
