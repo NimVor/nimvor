@@ -323,12 +323,18 @@ func TestRealHostShellModes(t *testing.T) {
 	run := func(cmd string) (string, error) {
 		var out []byte
 		var err error
-		for i := 0; i < 5; i++ {
+		// Right after a configuration change sshd may refuse the first
+		// connections (Ubuntu 24.04, socket activation): a few tries, then
+		// sshd's view of the account if it still refuses.
+		for i := 0; i < 8; i++ {
 			out, err = exec.Command("ssh", append(sshOpts, "rtftp@127.0.0.1", cmd)...).CombinedOutput()
-			if err == nil || !strings.Contains(string(out), "Connection refused") {
+			if err == nil || !(strings.Contains(string(out), "Connection refused") || strings.Contains(string(out), "Permission denied (publickey)")) {
 				break
 			}
 			time.Sleep(time.Second)
+		}
+		if strings.Contains(string(out), "Permission denied (publickey)") {
+			out = append(out, "\n"+sshDiagnosis(env.M.SFTPKeysDir)...)
 		}
 		return string(out), err
 	}

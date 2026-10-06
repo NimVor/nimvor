@@ -202,7 +202,15 @@ func TestRealHostBuildConnectorFromSource(t *testing.T) {
 // The pinned Core Rule Set release downloads, matches its checksum and
 // unpacks into rules WhaCP can load (nothing is installed).
 func TestRealHostCRSRelease(t *testing.T) {
-	b, err := download(context.Background(), DefaultCRSSource.Client, DefaultCRSSource.URL)
+	// GitHub's release downloads fail now and then: three tries.
+	var b []byte
+	var err error
+	for i := 0; i < 3; i++ {
+		if b, err = download(context.Background(), DefaultCRSSource.Client, DefaultCRSSource.URL); err == nil {
+			break
+		}
+		time.Sleep(time.Duration(5*(i+1)) * time.Second)
+	}
 	if err != nil {
 		t.Skipf("no network: %v", err)
 	}
