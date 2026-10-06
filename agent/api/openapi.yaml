@@ -295,6 +295,9 @@ paths:
               - sites.permissions
               - sites.usage
               - ssh.configure
+              - ssh.key_add
+              - ssh.key_remove
+              - ssh.keys
               - ssh.logins
               - ssh.status
               - ssl.csr_create
@@ -677,6 +680,9 @@ x-whacp-actions:
   sites.permissions: { mutating: true, description: "Check (dry_run) or repair the ownership and permissions of a website's files: the account's owner, its or the web server's group, no world-writable files, no set-ID files, readable by the owner. Links are never followed." }
   sites.usage: { mutating: false, description: "Disk use of website directories (read-only)." }
   ssh.configure: { mutating: true, description: "Harden the SSH server (validated with sshd -t, auto-reverted unless confirmed)." }
+  ssh.key_add: { mutating: true, description: "Add a public key (one line, no options; Ed25519, ECDSA, RSA ≥ 2048 bits) to an administrator's ~/.ssh/authorized_keys." }
+  ssh.key_remove: { mutating: true, description: "Remove a key (by SHA256 fingerprint) from an administrator's authorized_keys; the last one is kept while password logins are off." }
+  ssh.keys: { mutating: false, description: "Administrators (root and members of sudo/admin/wheel) and the public keys in their authorized_keys." }
   ssh.logins: { mutating: false, description: "SSH logins of the last seven days: accepted and failed counts, the last of each (read from the journal)." }
   ssh.status: { mutating: false, description: "Effective SSH server settings and key-based access." }
   ssl.csr_create: { mutating: true, description: "Generate a private key (kept on the server, never returned) and a certificate signing request for it; optionally a self-signed certificate from the same key." }

@@ -98,6 +98,45 @@ final class SecurityService
         return $this->recordGuarded('ssh.configure', (array) $this->agent->call('ssh.configure', $s, 90), $s);
     }
 
+    /** @return list<array<string, mixed>> administrators and their SSH keys */
+    public function sshKeys(): array
+    {
+        return array_values(array_map(static fn ($a): array => (array) json_decode((string) json_encode($a), true), (array) (((array) $this->agent->call('ssh.keys'))['admins'] ?? [])));
+    }
+
+    /**
+     * Adds a public key for an administrator (root or a sudo/wheel member).
+     * Grants a root-capable login: administrators only, with a recently
+     * confirmed password (step-up on the route).
+     *
+     * @param array<string, mixed> $actor
+     */
+    public function addSshKey(string $user, string $key, array $actor): string
+    {
+        self::administrator($actor);
+        $res = (array) $this->agent->call('ssh.key_add', ['user' => $user, 'key' => trim($key)], 60);
+        $k = (array) ($res['key'] ?? []);
+        $this->audit->record('ssh.key_add', 'server', 'ssh', AuditLogger::SUCCESS, ['user' => $user, 'fingerprint' => $k['fingerprint'] ?? '', 'type' => $k['type'] ?? '', 'comment' => $k['comment'] ?? '']);
+        return sprintf('Key %s added for %s. Test a new SSH connection with it before turning off password logins.', (string) ($k['fingerprint'] ?? ''), $user);
+    }
+
+    /** @param array<string, mixed> $actor */
+    public function removeSshKey(string $user, string $fingerprint, array $actor): string
+    {
+        self::administrator($actor);
+        $this->agent->call('ssh.key_remove', ['user' => $user, 'fingerprint' => $fingerprint], 60);
+        $this->audit->record('ssh.key_remove', 'server', 'ssh', AuditLogger::SUCCESS, ['user' => $user, 'fingerprint' => $fingerprint]);
+        return 'Key removed from ' . $user . '.';
+    }
+
+    /** @param array<string, mixed> $actor */
+    private static function administrator(array $actor): void
+    {
+        if (($actor['role_name'] ?? '') !== 'admin') {
+            throw new UserFacingException('Only administrators manage the server\'s SSH keys.');
+        }
+    }
+
     public function confirm(string $id): void
     {
         $this->agent->call('security.confirm', ['id' => $id]);

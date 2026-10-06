@@ -345,6 +345,8 @@ return static function (Router $r): void {
     $r->post('/security/firewall/toggle', [SecurityController::class, 'toggleFirewall'], ['name' => 'security.firewall.toggle', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/ssh', [SecurityController::class, 'ssh'], ['name' => 'security.ssh', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/ssh', [SecurityController::class, 'configureSsh'], ['name' => 'security.ssh.configure', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/ssh/keys', [SecurityController::class, 'addSshKey'], ['name' => 'security.ssh.key_add', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/ssh/keys/remove', [SecurityController::class, 'removeSshKey'], ['name' => 'security.ssh.key_remove', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/fail2ban', [SecurityController::class, 'fail2ban'], ['name' => 'security.fail2ban', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/fail2ban', [SecurityController::class, 'configureFail2ban'], ['name' => 'security.fail2ban.configure', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/fail2ban/unban', [SecurityController::class, 'unban'], ['name' => 'security.fail2ban.unban', 'permission' => P::SECURITY_MANAGE]);

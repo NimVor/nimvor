@@ -140,7 +140,15 @@ final class SecurityController extends Controller
     public function ssh(Request $request): Response
     {
         [$ssh, $err] = $this->read('ssh.status');
-        return $this->page('ssh', ['ssh' => (array) $ssh, 'agentError' => $err]);
+        $keys = [];
+        if ($err === null) {
+            try {
+                $keys = $this->security->sshKeys();
+            } catch (AgentException) {
+                // Agents before key management: the settings still work.
+            }
+        }
+        return $this->page('ssh', ['ssh' => (array) $ssh, 'sshKeys' => $keys, 'agentError' => $err]);
     }
 
     public function fail2ban(Request $request): Response
@@ -180,6 +188,16 @@ final class SecurityController extends Controller
     public function configureSsh(Request $request): Response
     {
         return $this->act('/security/ssh', fn (): string => $this->security->configureSsh($request->all()));
+    }
+
+    public function addSshKey(Request $request): Response
+    {
+        return $this->act('/security/ssh', fn (): string => $this->security->addSshKey($request->string('user'), (string) $request->input('key', ''), $this->user($request)));
+    }
+
+    public function removeSshKey(Request $request): Response
+    {
+        return $this->act('/security/ssh', fn (): string => $this->security->removeSshKey($request->string('user'), $request->string('fingerprint'), $this->user($request)));
     }
 
     public function configureFail2ban(Request $request): Response

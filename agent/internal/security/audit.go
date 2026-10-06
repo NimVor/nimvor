@@ -48,7 +48,7 @@ func Audit(ctx context.Context, env *host.Env) []Check {
 			add(Check{ID: "ssh_root", Title: "SSH root login", Status: "pass", Severity: "high", Detail: "root login: " + ssh["permitrootlogin"] + "."})
 		}
 		if ssh["passwordauthentication"] == "yes" {
-			add(Check{ID: "ssh_password", Title: "SSH password logins", Status: "warn", Severity: "medium", Detail: "Password logins are allowed, which invites brute-force attacks.", Remedy: "Add an SSH key for an administrator, then turn off password logins."})
+			add(Check{ID: "ssh_password", Title: "SSH password logins", Status: "warn", Severity: "medium", Detail: "Password logins are allowed, which invites brute-force attacks.", Remedy: "Add an SSH key for an administrator (Security → SSH → Administrator SSH keys), test it, then turn off password logins."})
 		} else {
 			add(Check{ID: "ssh_password", Title: "SSH password logins", Status: "pass", Severity: "medium", Detail: "Only key-based logins are accepted."})
 		}

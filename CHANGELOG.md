@@ -7,6 +7,13 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Administrator SSH keys in the panel** (Security → SSH). You can add or
+  remove the public keys of root and administrators (members of sudo,
+  admin or wheel), so password logins can then be turned off without
+  locking anyone out. Only plain Ed25519, ECDSA and RSA keys of at least
+  2048 bits are accepted. Changes need an administrator who confirmed
+  their password recently, and are audited. The last key cannot be
+  removed while password logins are off.
 - **Broken package state is repaired automatically.** After an update, the
   agent checks the installed packages. It reinstalls packages whose install
   script failed (for example under the older agent's sandbox) and installs

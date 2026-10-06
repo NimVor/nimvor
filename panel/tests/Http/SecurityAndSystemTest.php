@@ -86,6 +86,34 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertSame(2222, $call['port']);
         self::assertFalse($call['password_authentication']);
 
+        // Administrator SSH keys: listed, added and removed (administrators
+        // only, with a recently confirmed password), audited.
+        $this->agent->succeed('ssh.keys', ['admins' => [
+            ['user' => 'root', 'home' => '/root', 'keys' => []],
+            ['user' => 'ops', 'home' => '/home/ops', 'keys' => [['type' => 'ssh-ed25519', 'bits' => 256, 'comment' => 'ops@<laptop>', 'fingerprint' => 'SHA256:abc']], 'other_lines' => 1],
+        ]]);
+        $page = $this->request('GET', '/security/ssh')->body();
+        foreach (['Administrator SSH keys', 'ops@&lt;laptop&gt;', 'SHA256:abc', 'name="key"', '<option value="root">'] as $want) {
+            self::assertStringContainsString($want, $page);
+        }
+        $this->agent->succeed('ssh.key_add', ['user' => 'root', 'key' => ['type' => 'ssh-ed25519', 'fingerprint' => 'SHA256:new', 'comment' => 'me']]);
+        $this->post('/security/ssh/keys', ['user' => 'root', 'key' => "  ssh-ed25519 AAAA me\n"]);
+        self::assertSame(['user' => 'root', 'key' => 'ssh-ed25519 AAAA me'], $this->lastCall('ssh.key_add'));
+        self::assertStringContainsString('SHA256:new', (string) $this->flash('success'));
+        $this->agent->succeed('ssh.key_remove', ['removed' => 'SHA256:abc']);
+        $this->post('/security/ssh/keys/remove', ['user' => 'ops', 'fingerprint' => 'SHA256:abc']);
+        self::assertSame(['user' => 'ops', 'fingerprint' => 'SHA256:abc'], $this->lastCall('ssh.key_remove'));
+        $db = $this->app->container->get(\WhaCP\Database\Connection::class);
+        foreach (['ssh.key_add', 'ssh.key_remove'] as $a) {
+            self::assertNotNull($db->scalar('SELECT id FROM audit_logs WHERE action = ?', [$a]), $a . ' audited');
+        }
+        // An expired password confirmation: asked again, nothing sent.
+        $before = $this->calls('ssh.key_add');
+        $this->session->set('_auth_confirmed_at', time() - 3600);
+        $res = $this->post('/security/ssh/keys', ['user' => 'root', 'key' => 'ssh-ed25519 AAAA me']);
+        self::assertStringStartsWith('/confirm-password', (string) $res->header('Location'));
+        self::assertSame($before, $this->calls('ssh.key_add'));
+
         $this->agent->succeed('fail2ban.status', ['installed' => true, 'running' => true, 'jails' => [['name' => 'sshd', 'currently_banned' => 1, 'total_banned' => 3, 'currently_failed' => 0, 'banned_ips' => ['203.0.113.9']]], 'managed_config' => '']);
         self::assertStringContainsString('203.0.113.9', $this->request('GET', '/security/fail2ban')->body());
         $this->agent->succeed('fail2ban.configure', ['ok' => true]);

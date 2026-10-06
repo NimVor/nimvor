@@ -118,6 +118,36 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"effective": eff, "root_has_keys": rootKeys, "admins_with_keys": admins, "managed_file": env.M.SSHDropIn, "managed_config": managed}, nil
 	}})
+	r.Register(actions.Action{Name: "ssh.keys", Description: "Administrators (root and members of sudo/admin/wheel) and the public keys in their authorized_keys.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+		return map[string]any{"admins": Admins(env)}, nil
+	}})
+	r.Register(actions.Action{Name: "ssh.key_add", Mutating: true, Description: "Add a public key (one line, no options; Ed25519, ECDSA, RSA ≥ 2048 bits) to an administrator's ~/.ssh/authorized_keys.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			User string `json:"user"`
+			Key  string `json:"key"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		k, err := AddKey(ctx, env, in.User, in.Key)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"user": in.User, "key": k}, nil
+	}})
+	r.Register(actions.Action{Name: "ssh.key_remove", Mutating: true, Description: "Remove a key (by SHA256 fingerprint) from an administrator's authorized_keys; the last one is kept while password logins are off.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			User        string `json:"user"`
+			Fingerprint string `json:"fingerprint"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := RemoveKey(ctx, env, in.User, in.Fingerprint); err != nil {
+			return nil, err
+		}
+		return map[string]any{"removed": in.Fingerprint}, nil
+	}})
 	r.Register(actions.Action{Name: "ssh.logins", Description: "SSH logins of the last seven days: accepted and failed counts, the last of each (read from the journal).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return Logins(ctx, env, time.Now()), nil
 	}})
