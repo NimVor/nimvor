@@ -7,6 +7,7 @@ $groups = Navigation::visible($this);
 ?>
 <?php $siteMenu = $this->shared('site_menu'); ?>
 <nav class="wcp-sidebar" id="wcp-sidebar" aria-label="Main navigation">
+    <div class="wcp-sidebar-head">
     <a class="wcp-brand" href="<?= e($this->url('dashboard')) ?>">
         <img src="<?= e($this->asset('assets/img/logo.svg')) ?>" alt="" width="28" height="28">
         <span><?= e($panel_name ?? 'WhaCP') ?></span>
@@ -20,6 +21,7 @@ $groups = Navigation::visible($this);
     <button class="wcp-search-trigger wcp-sidebar-search" type="button" data-bs-toggle="modal" data-bs-target="#wcp-palette" aria-label="Search tools (Ctrl+K)">
         <i class="bi bi-search" aria-hidden="true"></i><span>Search tools…</span><kbd>Ctrl K</kbd>
     </button>
+    </div>
     <div class="wcp-nav">
         <?php foreach ($groups as $group => $visible): ?>
             <?php
@@ -33,11 +35,12 @@ $groups = Navigation::visible($this);
             <div class="wcp-nav-section" id="<?= e($gid) ?>">
             <?php foreach ($visible as $item): ?>
                 <?php $inSite = $item['route'] === 'websites' && $siteMenu !== null; $active = $this->isActive($item['prefix']); ?>
-                <a class="wcp-nav-link<?= $active || $inSite ? ' active' : '' ?>" href="<?= e($item['url']) ?>"<?= $active ? ' aria-current="page"' : '' ?>>
-                    <i class="bi bi-<?= e($item['icon']) ?>"></i><span><?= e($item['label']) ?></span>
+                <?php $hasSub = !$inSite && $item['children'] !== []; $subOpen = $hasSub && ($active || array_filter(array_column($item['children'], 'active')) !== []); $subId = 'wcp-sub-' . preg_replace('/[^a-z0-9]+/', '-', (string) $item['route']); ?>
+                <a class="wcp-nav-link<?= $active || $inSite ? ' active' : '' ?><?= $hasSub ? ' has-sub' : '' ?>" href="<?= e($item['url']) ?>"<?= $active ? ' aria-current="page"' : '' ?><?= $hasSub ? ' data-wcp-subnav-toggle aria-controls="' . e($subId) . '" aria-expanded="' . ($subOpen ? 'true' : 'false') . '"' : '' ?>>
+                    <i class="bi bi-<?= e($item['icon']) ?>"></i><span><?= e($item['label']) ?></span><?php if ($hasSub): ?><i class="bi bi-chevron-down wcp-nav-caret" aria-hidden="true"></i><?php endif; ?>
                 </a>
-                <?php if (!$inSite && $item['children'] !== [] && ($active || array_filter(array_column($item['children'], 'active')) !== [])): ?>
-                    <div class="wcp-subnav" data-wcp-section-menu="<?= e($item['route']) ?>">
+                <?php if ($hasSub): ?>
+                    <div class="wcp-subnav" id="<?= e($subId) ?>" data-wcp-section-menu="<?= e($item['route']) ?>"<?= $subOpen ? '' : ' hidden' ?>>
                         <?php foreach ($item['children'] as $ch): ?>
                             <a class="wcp-subnav-link<?= $ch['active'] ? ' active' : '' ?>" href="<?= e($ch['url']) ?>"<?= $ch['active'] ? ' aria-current="page"' : '' ?>><span><?= e($ch['label']) ?></span></a>
                         <?php endforeach; ?>

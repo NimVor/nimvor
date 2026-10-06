@@ -39,7 +39,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
         <?php endif; ?>
         <header class="wcp-topbar">
             <?php if (!$simple): ?>
-            <button class="btn btn-link wcp-sidebar-toggle d-lg-none" type="button" data-wcp-toggle="sidebar" aria-label="Toggle navigation">
+            <button class="btn btn-link wcp-sidebar-toggle" type="button" data-wcp-toggle="sidebar" aria-label="Show or hide the menu" aria-controls="wcp-sidebar">
                 <i class="bi bi-list"></i>
             </button>
             <?php endif; ?>

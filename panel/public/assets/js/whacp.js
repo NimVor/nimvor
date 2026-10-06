@@ -60,12 +60,31 @@
         t.show();
     };
 
-    // Sidebar toggle (mobile).
+    // Sidebar toggle: phones slide it in; on wider screens it is hidden or
+    // shown, and that is remembered in this browser.
+    function desktop() { return window.matchMedia('(min-width: 992px)').matches; }
+    try { if (localStorage.getItem('wcp-sidebar-hidden') === '1') { document.documentElement.classList.add('wcp-sidebar-collapsed'); } } catch (e) { /* not remembered */ }
     document.addEventListener('click', function (e) {
         var t = e.target.closest('[data-wcp-toggle="sidebar"]');
-        if (t) {
-            document.getElementById('wcp-sidebar').classList.toggle('is-open');
+        if (!t) { return; }
+        if (desktop() && t.classList.contains('wcp-sidebar-toggle')) {
+            var hidden = document.documentElement.classList.toggle('wcp-sidebar-collapsed');
+            try { localStorage.setItem('wcp-sidebar-hidden', hidden ? '1' : '0'); } catch (err) { /* not remembered */ }
+            return;
         }
+        document.getElementById('wcp-sidebar').classList.toggle('is-open');
+    });
+    // Entries with sub-pages (Security, SSL, …) open them in place; the
+    // entry's own page is the sub-menu's first item.
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest('[data-wcp-subnav-toggle]');
+        if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) { return; }
+        var sub = document.getElementById(a.getAttribute('aria-controls'));
+        if (!sub) { return; }
+        e.preventDefault();
+        var open = sub.hidden;
+        sub.hidden = !open;
+        a.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
 
     // Theme toggle.

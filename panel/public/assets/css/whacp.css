@@ -870,3 +870,18 @@ button.wcp-nav-group i { font-size: .7rem; transition: transform .15s ease; }
 button.wcp-nav-group[aria-expanded="false"] i { transform: rotate(-90deg); }
 .wcp-nav-section[hidden] { display: none; }
 .w-40 { width: 40%; }
+
+/* Sidebar: the brand, status and search stay at the top; the menu scrolls. */
+.wcp-sidebar { overflow: hidden; padding-bottom: 0; }
+.wcp-sidebar-head { flex-shrink: 0; }
+.wcp-sidebar .wcp-nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .15) transparent; margin: 0 -.75rem; padding: 0 .75rem 1.25rem; }
+/* Compact group headings. */
+button.wcp-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
+/* Entries with sub-pages open them in place. */
+.wcp-nav-link .wcp-nav-caret { margin-left: auto; width: auto; font-size: .7rem; opacity: .6; transition: transform .15s ease; }
+.wcp-nav-link[aria-expanded="false"] .wcp-nav-caret { transform: rotate(-90deg); }
+.wcp-subnav[hidden] { display: none; }
+/* Desktop: the menu button hides and shows the sidebar (remembered). */
+@media (min-width: 992px) {
+    .wcp-sidebar-collapsed .wcp-sidebar { display: none; }
+}

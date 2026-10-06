@@ -25,6 +25,12 @@ All notable changes to WhaCP are documented here. The format follows
   also a card under *Tools & settings* on the dashboard.
 - **Sidebar groups fold:** click a group's name. The choice is remembered
   in the browser, and the group of the current page always stays open.
+- **Sidebar sub-menus open in place:** clicking Security, SSL, Email,
+  Databases or Monitoring shows its pages without loading one first.
+  Group headings are closer together. The logo, status and search stay at
+  the top while only the menu scrolls.
+- **The menu button hides and shows the sidebar on wide screens too** (the
+  choice is remembered).
 
 ### Changed
 - The profile block at the bottom of the sidebar was removed (the account

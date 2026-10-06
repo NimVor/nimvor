@@ -71,6 +71,20 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.evaluate(() => localStorage.removeItem('wcp-nav-folded'));
     await page.goto(BASE + '/');
     step('sidebar: no profile block, groups fold and are remembered, SSL menu, AutoSSL page');
+    // Entries with sub-pages open them in place; the brand stays while the menu scrolls.
+    const here = page.url();
+    await page.click('#wcp-sidebar a[data-wcp-subnav-toggle]:has-text("Security")');
+    if (page.url() !== here || !(await page.isVisible('#wcp-sub-security'))) { throw new Error('Security did not open its sub-menu in place'); }
+    await page.locator('.wcp-sidebar .wcp-nav').evaluate(n => { n.scrollTop = n.scrollHeight; });
+    if (!(await page.isVisible('.wcp-sidebar .wcp-brand')) || !(await page.isVisible('.wcp-sidebar .wcp-search-trigger'))) { throw new Error('the brand or search scrolled away'); }
+    // The menu button hides and shows the sidebar on a wide screen (remembered).
+    await page.click('.wcp-sidebar-toggle');
+    if (await page.isVisible('#wcp-sidebar')) { throw new Error('the sidebar did not hide'); }
+    await page.reload();
+    if (await page.isVisible('#wcp-sidebar')) { throw new Error('the hidden sidebar came back after a reload'); }
+    await page.click('.wcp-sidebar-toggle');
+    if (!(await page.isVisible('#wcp-sidebar'))) { throw new Error('the sidebar did not come back'); }
+    step('sidebar: sub-menus open in place, only the menu scrolls, hide/show remembered');
     // Server restart: a confirmation with the host name.
     await page.click('.wcp-server-tools button[aria-label="Restart the server"]');
     await page.waitForSelector('#wcp-reboot.show');
