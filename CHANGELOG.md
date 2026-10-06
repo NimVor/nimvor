@@ -15,6 +15,18 @@ All notable changes to WhaCP are documented here. The format follows
   administrator's confirmation (**Remove duplicates**), because it removes
   packages.
 
+### Security
+- **Websites' PHP runs in a sandbox.** PHP-FPM services get a systemd
+  drop-in: PHP code cannot gain privileges through setuid programs
+  (NoNewPrivileges), the service keeps only the capabilities it needs, and
+  the system is read-only for it. Resource-limited accounts' own PHP-FPM
+  services get the same settings.
+- **Every cron job runs in a sandbox**, not only those of accounts with
+  resource limits. Each job runs as the website account in a transient
+  service, with no capabilities and the system read-only, like the other
+  commands WhaCP runs as that account. Updates rewrite existing schedules
+  in the new form (`bin/whacp cron:sync`).
+
 ### Fixed
 - **Webmail and PHP websites answered 502 on Rocky/Alma when a Remi PHP
   version had been installed without its SELinux setup.** This happened

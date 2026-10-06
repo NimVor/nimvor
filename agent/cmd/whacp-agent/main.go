@@ -186,6 +186,8 @@ func run() int {
 			// Packages an earlier transaction left broken (failed install
 			// scripts, missing dependencies) are repaired after an update.
 			sysmgr.RepairAtStart(ctx, env)
+			// PHP-FPM services in their sandbox (after an update).
+			env.SandboxFPMServices(ctx)
 		}()
 	}
 

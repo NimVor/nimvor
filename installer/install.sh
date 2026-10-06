@@ -733,6 +733,8 @@ if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
         curl -fsSk "https://127.0.0.1:${PUBLIC_HTTPS}/healthz" >/dev/null && ok "panel answers over HTTPS on port ${PUBLIC_HTTPS}" || warn "the panel does not answer on https://127.0.0.1:${PUBLIC_HTTPS}/: journalctl -u nginx"
     fi
     runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" discovery:run || warn "initial discovery failed"
+    # Cron schedules in the new agent's form (each job sandboxed).
+    runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" cron:sync || warn "some cron schedules were not written again (see above)"
 fi
 
 if [[ $AGENT_ONLY -eq 1 ]]; then

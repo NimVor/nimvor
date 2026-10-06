@@ -45,10 +45,14 @@ func TestApplyCreatesSiteAndIsIdempotent(t *testing.T) {
 	if !h.Exists("etc/nginx/sites-enabled/whacp-new.test.conf") || !h.Exists("home/whacp/new.test/public_html/index.html") {
 		t.Error("link or index missing")
 	}
-	for _, c := range []string{"nginx -t", "php-fpm8.3 -t", "systemctl reload -- php8.3-fpm.service", "systemctl reload -- nginx.service"} {
+	// The first time, PHP-FPM is restarted into its sandbox (drop-in).
+	for _, c := range []string{"nginx -t", "php-fpm8.3 -t", "systemctl restart -- php8.3-fpm.service", "systemctl reload -- nginx.service"} {
 		if !h.Runner.Called(c) {
 			t.Errorf("expected call %q; calls=%v", c, h.Runner.Calls)
 		}
+	}
+	if d := h.Read("etc/systemd/system/php8.3-fpm.service.d/whacp-sandbox.conf"); !strings.Contains(d, "[Service]\nNoNewPrivileges=yes\n") || !strings.Contains(d, "ProtectSystem=full\n") || strings.Contains(d, "CAP_SYS_ADMIN") {
+		t.Errorf("sandbox drop-in:\n%s", d)
 	}
 	calls := len(h.Runner.Calls)
 	res, err = m.Apply(context.Background(), spec())
@@ -56,8 +60,20 @@ func TestApplyCreatesSiteAndIsIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, c := range h.Runner.Calls[calls:] {
-		if strings.HasPrefix(c, "systemctl reload") || strings.HasPrefix(c, "useradd") {
+		if strings.HasPrefix(c, "systemctl reload") || strings.HasPrefix(c, "systemctl restart") || strings.HasPrefix(c, "useradd") {
 			t.Errorf("second apply must not reload or create users: %s", c)
+		}
+	}
+	// Changes after that reload PHP-FPM (the sandbox is in place).
+	calls = len(h.Runner.Calls)
+	s := spec()
+	s.Aliases = []string{"www.new.test", "shop.new.test"}
+	if _, err := m.Apply(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range h.Runner.Calls[calls:] {
+		if strings.HasPrefix(c, "systemctl restart") {
+			t.Errorf("restarted again: %s", c)
 		}
 	}
 }

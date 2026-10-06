@@ -1,8 +1,11 @@
 // Package cronmgr manages website cron jobs.
 //
 // Each website gets one file, /etc/cron.d/whacp-site-<domain>, that WhaCP
-// owns completely. Jobs always run as the website's (unprivileged) account
-// inside the website directory and append their output to
+// owns completely. Jobs always run as the website's (unprivileged) account,
+// in the sandbox of every command WhaCP runs as the account (a transient
+// service: no capabilities, NoNewPrivileges, read-only system; in the
+// account's slice when it has resource limits), inside the website
+// directory, and append their output to
 // <root>/logs/cron-<id>.log, framed by "### whacp-run" lines (start, end
 // with exit code) so the panel can list the runs. A job can also have its
 // output mailed (MAILTO for that job, output through tee).
@@ -92,7 +95,7 @@ func (s *SiteJobs) validate(env *host.Env) error {
 	return nil
 }
 
-// ScriptDir holds the job scripts of accounts with resource limits.
+// ScriptDir holds the job scripts.
 const ScriptDir = "/etc/whacp-cron"
 
 // jobBody is what a run executes as the website account: the command,
@@ -108,42 +111,67 @@ func jobBody(s SiteJobs, j Job) (body, out string) {
 	return run, out
 }
 
-// Render produces the cron.d file. "%" is escaped because cron turns it
-// into a newline.
+// Render produces the cron.d file of an account without resource limits.
 func Render(s SiteJobs) string {
 	out, _ := render(s, "")
 	return out
 }
 
-// ScriptPath is a job's script (accounts with resource limits).
+// ScriptPath is a job's script (runs as the account).
 func ScriptPath(domain string, id int) string {
 	return filepath.Join(ScriptDir, FileName(domain), fmt.Sprintf("%d.sh", id))
 }
 
-// render returns the cron.d file and, for an account with resource limits
-// (slice set), the job scripts. Such jobs are started by root's cron line
-// with systemd-run as the account, in its slice: root's line holds only
-// validated names and numbers; the command is in the script, which only
-// root and the account can read and which runs as the account.
+// LauncherPath is a job's launcher: root's cron line runs it, and it
+// starts the script as the account in its sandbox. Only root can read it.
+func LauncherPath(domain string, id int) string {
+	return filepath.Join(ScriptDir, FileName(domain), fmt.Sprintf("%d.run", id))
+}
+
+// jobSandbox is the sandbox every cron job runs in: the same as commands
+// WhaCP runs as the account (execx.TransientHardening): no capabilities,
+// no privilege gain through setuid binaries, the system read-only.
+func jobSandbox() string {
+	var b strings.Builder
+	for _, p := range execx.TransientHardening() {
+		b.WriteString(" --property=" + p)
+	}
+	return b.String()
+}
+
+// render returns the cron.d file and the job scripts and launchers. Every
+// job is started by root's cron line through its launcher, which runs
+// systemd-run as the account, in a sandboxed transient service (in the
+// account's slice when it has resource limits). Root's line and the
+// launcher hold only validated names and numbers (the sandbox makes the
+// command too long for a cron line: Debian's cron stops at 1000
+// characters); the command is in the script, which only root and the
+// account can read and which runs as the account. A job that mails its
+// output passes it to cron (--pipe); the others write their log inside the
+// script, as the account.
 func render(s SiteJobs, slice string) (string, map[string]string) {
 	var b strings.Builder
 	scripts := map[string]string{}
 	fmt.Fprintf(&b, "# Managed by WhaCP. Do not edit: changes are overwritten from the panel.\n# Website: %s\n", s.Domain)
 	b.WriteString("SHELL=/bin/sh\nPATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\nMAILTO=\"\"\n\n")
+	sandbox := jobSandbox()
 	for _, j := range s.Jobs {
 		run, out := jobBody(s, j)
 		mailto := `MAILTO=""`
+		pipe := ""
 		if j.Email != "" {
 			mailto = `MAILTO="` + j.Email + `"`
+			pipe = " --pipe"
 		}
-		var line string
-		if slice == "" {
-			line = fmt.Sprintf("%s %s cd %s && %s %s", j.Schedule, s.User, s.Root, run, out)
-			line = strings.ReplaceAll(line, "%", `\%`)
-		} else {
-			scripts[ScriptPath(s.Domain, j.ID)] = fmt.Sprintf("# Managed by WhaCP: job %d of %s (runs as %s in %s).\ncd %s || exit 1\n%s %s\n", j.ID, s.Domain, s.User, slice, s.Root, run, out)
-			line = fmt.Sprintf("%s root /usr/bin/systemd-run --quiet --collect --wait --pipe --uid=%s --gid=%s --slice=%s --working-directory=%s --property=NoNewPrivileges=yes -- /bin/sh %s", j.Schedule, s.User, s.User, slice, s.Root, ScriptPath(s.Domain, j.ID))
+		where := "its sandbox"
+		sliceArg := ""
+		if slice != "" {
+			where = slice
+			sliceArg = " --slice=" + slice
 		}
+		scripts[ScriptPath(s.Domain, j.ID)] = fmt.Sprintf("# Managed by WhaCP: job %d of %s (runs as %s in %s).\ncd %s || exit 1\n%s %s\n", j.ID, s.Domain, s.User, where, s.Root, run, out)
+		scripts[LauncherPath(s.Domain, j.ID)] = fmt.Sprintf("# Managed by WhaCP: starts job %d of %s as %s in %s.\nexec /usr/bin/systemd-run --quiet --collect --wait%s --uid=%s --gid=%s%s --working-directory=%s%s -- /bin/sh %s\n", j.ID, s.Domain, s.User, where, pipe, s.User, s.User, sliceArg, s.Root, sandbox, ScriptPath(s.Domain, j.ID))
+		line := fmt.Sprintf("%s root /bin/sh %s", j.Schedule, LauncherPath(s.Domain, j.ID))
 		if !j.Enabled {
 			line = "# disabled: " + line
 		}
@@ -223,10 +251,11 @@ func Register(r *actions.Registry, env *host.Env) {
 		} else {
 			set.Write(path, []byte(content), 0o644, agentfs.RootOwner)
 		}
-		// Job scripts (resource-limited accounts): exactly these.
+		// Job scripts: exactly these.
 		dir := filepath.Join(ScriptDir, FileName(in.Domain))
 		old, _ := env.Root.Glob(filepath.Join(dir, "*.sh"))
-		for _, f := range old {
+		launchers, _ := env.Root.Glob(filepath.Join(dir, "*.run"))
+		for _, f := range append(old, launchers...) {
 			if _, keep := scripts[f]; !keep {
 				set.Remove(f)
 			}
@@ -236,7 +265,11 @@ func Register(r *actions.Registry, env *host.Env) {
 			set.Mkdir(ScriptDir, 0o755, agentfs.RootOwner)
 			set.Mkdir(dir, 0o750, group)
 			for f, body := range scripts {
-				set.Write(f, []byte(body), 0o640, group)
+				if strings.HasSuffix(f, ".run") {
+					set.Write(f, []byte(body), 0o700, agentfs.RootOwner)
+				} else {
+					set.Write(f, []byte(body), 0o640, group)
+				}
 			}
 		}
 		a, err := set.Apply()

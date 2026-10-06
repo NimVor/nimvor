@@ -61,6 +61,9 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		filepath.Join(m.CronDir, "whacp-*"),
 		filepath.Join(m.UnitDir, "whacp-worker-*.service"),
 		filepath.Join(m.UnitDir, "whacp-fpm-*.service"),
+		// The sandbox drop-in of the PHP-FPM services (EnsureFPMSandbox).
+		filepath.Join(m.UnitDir, fmt.Sprintf(m.PHPFPMUnit, "*")+".d"),
+		filepath.Join(m.UnitDir, fmt.Sprintf(m.PHPFPMUnit, "*")+".d", FPMSandboxFile),
 		"/etc/whacp-fpm/**",
 		"/etc/whacp-cron/**",
 		m.SSHDropIn,
@@ -343,8 +346,14 @@ func (e *Env) ReloadFPM(ctx context.Context, v string) error {
 		return err
 	}
 	unit := e.M.FPMUnit(v)
-	if PrepareFPM != nil && PrepareFPM(ctx, e, v) && e.UnitActive(ctx, unit) {
-		// A reload keeps the old process (and its SELinux domain).
+	restart := PrepareFPM != nil && PrepareFPM(ctx, e, v)
+	sandboxed, err := e.EnsureFPMSandbox(ctx, v)
+	if err != nil {
+		e.Log.Warn("php-fpm sandbox not applied", "version", v, "error", err)
+	}
+	if (restart || sandboxed) && e.UnitActive(ctx, unit) {
+		// A reload keeps the old process (its SELinux domain, its
+		// sandbox).
 		return e.Systemctl(ctx, "restart", unit)
 	}
 	if e.UnitActive(ctx, unit) {

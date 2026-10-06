@@ -13,6 +13,7 @@ declare(strict_types=1);
  *   bin/whacp users:count                 Print the number of panel users
  *   bin/whacp agent:check                 Check connectivity with the agent
  *   bin/whacp discovery:run               Run read-only discovery and store a snapshot
+ *   bin/whacp cron:sync                   Write every website's cron schedule on this server again
  *   bin/whacp schedule:run                Record metrics and alerts, start due backups, apply retention
  *   bin/whacp user:2fa-reset <username>   Turn off two-factor sign-in for a user (lost phone)
  *   bin/whacp user:verify-ip <username> <ip>   Let a user sign in from an address without an emailed code
@@ -24,6 +25,7 @@ declare(strict_types=1);
 use WhaCP\Agent\AgentClient;
 use WhaCP\Agent\AgentException;
 use WhaCP\Core\Application;
+use WhaCP\Database\Connection;
 use WhaCP\Repositories\RoleRepository;
 use WhaCP\Repositories\UserRepository;
 use WhaCP\Security\PasswordHasher;
@@ -204,6 +206,35 @@ switch ($command) {
             out('Discovery stored: ' . count(DiscoveryService::websites($result['data'])) . ' website(s).');
         } catch (AgentException $e) {
             fail($e->getMessage() . ' ' . $e->remedy());
+        }
+        break;
+
+    case 'cron:sync':
+        // After an update of the agent: every schedule is written again in
+        // the agent's current form (e.g. each job in its sandbox).
+        $context = $c->get(\WhaCP\Services\ServerContext::class);
+        $context->force(1);
+        $sites = $c->get(\WhaCP\Repositories\WebsiteRepository::class);
+        $cron = $c->get(\WhaCP\Services\CronService::class);
+        $done = 0;
+        $failed = 0;
+        foreach ($c->get(Connection::class)->fetchAll('SELECT DISTINCT j.website_id FROM cron_jobs j JOIN websites w ON w.id = j.website_id WHERE w.server_id = 1 ORDER BY j.website_id') as $row) {
+            $site = $sites->find(1, (int) $row['website_id'], null);
+            if ($site === null) {
+                continue;
+            }
+            try {
+                $cron->apply($site);
+                $done++;
+            } catch (AgentException $e) {
+                $failed++;
+                out($site['domain'] . ': ' . $e->getMessage());
+            }
+        }
+        $context->force(null);
+        out("Cron schedules written: {$done}" . ($failed > 0 ? ", failed: {$failed}" : '') . '.');
+        if ($failed > 0) {
+            exit(1);
         }
         break;
 
@@ -417,5 +448,5 @@ switch ($command) {
         break;
 
     default:
-        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  user:verify-ip <username> <ip>\n  hulk:geo-import <file>\n  hulk:unblock <ip|user|all>\n  agent:check\n  discovery:run\n  schedule:run\n  doctor\n  modsec:installs\n  modsec:rollback <installation id>");
+        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  user:verify-ip <username> <ip>\n  hulk:geo-import <file>\n  hulk:unblock <ip|user|all>\n  agent:check\n  discovery:run\n  cron:sync\n  schedule:run\n  doctor\n  modsec:installs\n  modsec:rollback <installation id>");
 }

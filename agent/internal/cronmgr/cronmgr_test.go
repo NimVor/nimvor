@@ -14,21 +14,23 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
 )
 
-func TestRenderEscapesPercentAndRoundTrips(t *testing.T) {
-	out := Render(SiteJobs{Domain: "a.test", User: "asite", Root: "/home/whacp/a.test", Jobs: []Job{
+// Root's lines only start the launchers; the commands, "%" included (cron
+// would turn it into a newline in a line), are in the scripts.
+func TestRenderKeepsCommandsInScripts(t *testing.T) {
+	out, scripts := render(SiteJobs{Domain: "a.test", User: "asite", Root: "/home/whacp/a.test", Jobs: []Job{
 		{ID: 1, Schedule: "*/5 * * * *", Command: "php artisan schedule:run", Enabled: true},
 		{ID: 2, Schedule: "0 3 * * *", Command: "date +%Y-%m-%d", Enabled: true},
 		{ID: 3, Schedule: "@daily", Command: "echo off", Enabled: false},
-	}})
-	if !strings.Contains(out, `date +\%Y-\%m-\%d`) {
-		t.Errorf("percent not escaped:\n%s", out)
-	}
+	}}, "")
 	jobs := cron.Parse([]byte(out), "/etc/cron.d/x", "")
-	if len(jobs) != 2 || jobs[0].User != "asite" || jobs[0].Schedule != "*/5 * * * *" {
-		t.Fatalf("parsed = %+v", jobs)
+	if len(jobs) != 2 || jobs[0].User != "root" || jobs[0].Schedule != "*/5 * * * *" || jobs[0].Command != "/bin/sh /etc/whacp-cron/whacp-site-a_test/1.run" || strings.Contains(out, "%") {
+		t.Fatalf("parsed = %+v\n%s", jobs, out)
 	}
-	if !strings.Contains(jobs[0].Command, ">> /home/whacp/a.test/logs/cron-1.log 2>&1") {
-		t.Errorf("output redirection missing: %s", jobs[0].Command)
+	if !strings.Contains(scripts["/etc/whacp-cron/whacp-site-a_test/2.sh"], "( date +%Y-%m-%d )") || !strings.Contains(scripts["/etc/whacp-cron/whacp-site-a_test/1.sh"], ">> /home/whacp/a.test/logs/cron-1.log 2>&1") {
+		t.Errorf("scripts: %v", scripts)
+	}
+	if _, ok := scripts["/etc/whacp-cron/whacp-site-a_test/3.run"]; !ok {
+		t.Error("a disabled job keeps its launcher (enabling it changes only the line)")
 	}
 }
 
@@ -41,7 +43,7 @@ func TestApplyValidatesAndWritesOwnedFile(t *testing.T) {
 	if _, err := a.Handler(context.Background(), json.RawMessage(good)); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(h.Read("etc/cron.d/whacp-site-a_test"), "*/5 * * * * example cd /home/whacp/a.test") {
+	if !strings.Contains(h.Read("etc/cron.d/whacp-site-a_test"), "*/5 * * * * root /bin/sh /etc/whacp-cron/whacp-site-a_test/1.run\n") {
 		t.Fatalf("file:\n%s", h.Read("etc/cron.d/whacp-site-a_test"))
 	}
 	for _, bad := range []string{
@@ -80,37 +82,50 @@ func TestRunNowUsesUnprivilegedShell(t *testing.T) {
 	}
 }
 
-// Runs are framed in the log (start, end with exit code): the rendered
-// line, unescaped as cron does, is run by a real shell.
+// Runs are framed in the log (start, end with exit code): the job's
+// script is run by a real shell.
 func TestRenderedJobFramesRunsWithExitCode(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "logs"), 0o755)
-	out := Render(SiteJobs{Domain: "a.test", User: "asite", Root: dir, Jobs: []Job{{ID: 7, Schedule: "* * * * *", Command: "echo hello; exit 3", Enabled: true}}})
-	if !strings.Contains(out, "MAILTO=\"\"\n* * * * *") {
+	out, scripts := render(SiteJobs{Domain: "a.test", User: "asite", Root: dir, Jobs: []Job{{ID: 7, Schedule: "* * * * *", Command: "echo hello 100%; exit 3", Enabled: true}}}, "")
+	if !strings.Contains(out, "MAILTO=\"\"\n* * * * * root /bin/sh /etc/whacp-cron/whacp-site-a_test/7.run\n") {
 		t.Errorf("job without email must not be mailed:\n%s", out)
 	}
-	jobs := cron.Parse([]byte(out), "/etc/cron.d/x", "")
-	cmd := strings.ReplaceAll(jobs[0].Command, `\%`, "%")
-	if err := exec.Command("sh", "-c", cmd).Run(); err != nil {
-		t.Fatalf("%s: %v", cmd, err)
+	if err := exec.Command("sh", "-c", scripts["/etc/whacp-cron/whacp-site-a_test/7.sh"]).Run(); err != nil {
+		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(filepath.Join(dir, "logs/cron-7.log"))
 	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
-	if len(lines) != 3 || !strings.HasPrefix(lines[0], RunMarker+" start 20") || lines[1] != "hello" || !strings.HasPrefix(lines[2], RunMarker+" end 20") || !strings.HasSuffix(lines[2], " exit=3") {
+	if len(lines) != 3 || !strings.HasPrefix(lines[0], RunMarker+" start 20") || lines[1] != "hello 100%" || !strings.HasPrefix(lines[2], RunMarker+" end 20") || !strings.HasSuffix(lines[2], " exit=3") {
 		t.Fatalf("log:\n%s", b)
 	}
 }
 
+// Every job runs as the account in the sandbox of commands run as the
+// account (not only those of accounts with resource limits), and only a
+// job that mails its output passes it to cron.
 func TestEmailedJobsUseMailtoAndTee(t *testing.T) {
-	out := Render(SiteJobs{Domain: "a.test", User: "asite", Root: "/home/whacp/a.test", Jobs: []Job{
+	out, scripts := render(SiteJobs{Domain: "a.test", User: "asite", Root: "/home/whacp/a.test", Jobs: []Job{
 		{ID: 1, Schedule: "@daily", Command: "php x.php", Enabled: true, Email: "owner@example.test"},
 		{ID: 2, Schedule: "@daily", Command: "php y.php", Enabled: true},
-	}})
-	if !strings.Contains(out, "MAILTO=\"owner@example.test\"\n@daily asite cd") || !strings.Contains(out, "2>&1 | tee -a /home/whacp/a.test/logs/cron-1.log\n") {
+	}}, "")
+	if !strings.Contains(out, "MAILTO=\"owner@example.test\"\n@daily root /bin/sh /etc/whacp-cron/whacp-site-a_test/1.run\n") || !strings.Contains(scripts["/etc/whacp-cron/whacp-site-a_test/1.sh"], "2>&1 | tee -a /home/whacp/a.test/logs/cron-1.log\n") {
 		t.Errorf("mailed job:\n%s", out)
 	}
-	if !strings.Contains(out, "MAILTO=\"\"\n@daily asite cd /home/whacp/a.test && { echo \"### whacp-run start") {
+	if !strings.Contains(out, "MAILTO=\"\"\n@daily root /bin/sh /etc/whacp-cron/whacp-site-a_test/2.run\n") {
 		t.Errorf("the next job must not inherit MAILTO:\n%s", out)
+	}
+	if strings.Contains(out, "php ") {
+		t.Errorf("command in root's line:\n%s", out)
+	}
+	l1, l2 := scripts["/etc/whacp-cron/whacp-site-a_test/1.run"], scripts["/etc/whacp-cron/whacp-site-a_test/2.run"]
+	if !strings.Contains(l1, " --pipe ") || strings.Contains(l2, "--pipe") || strings.Contains(l2, "--slice") {
+		t.Errorf("launchers:\n%s\n%s", l1, l2)
+	}
+	for _, p := range []string{"--uid=asite --gid=asite", "--property=NoNewPrivileges=yes", "--property=CapabilityBoundingSet= ", "--property=ProtectSystem=full", "-- /bin/sh /etc/whacp-cron/whacp-site-a_test/2.sh\n"} {
+		if !strings.Contains(l2, p) {
+			t.Errorf("launcher lacks %q:\n%s", p, l2)
+		}
 	}
 	h := testhost.New(t)
 	r := actions.NewRegistry(true)
@@ -166,12 +181,52 @@ func TestRunNowDoesNotFollowLogSymlinksOutOfTheWebsite(t *testing.T) {
 func TestLimitedAccountJobsRunInSlice(t *testing.T) {
 	s := SiteJobs{Domain: "shop.test", User: "shop", Root: "/home/whacp/shop.test", Jobs: []Job{{ID: 4, Schedule: "*/5 * * * *", Command: "php artisan schedule:run 'x%y'", Enabled: true}}}
 	out, scripts := render(s, "whacp-acct2.slice")
-	line := "*/5 * * * * root /usr/bin/systemd-run --quiet --collect --wait --pipe --uid=shop --gid=shop --slice=whacp-acct2.slice --working-directory=/home/whacp/shop.test --property=NoNewPrivileges=yes -- /bin/sh /etc/whacp-cron/whacp-site-shop_test/4.sh"
-	if !strings.Contains(out, line) || strings.Contains(out, "artisan") {
+	if !strings.Contains(out, "*/5 * * * * root /bin/sh /etc/whacp-cron/whacp-site-shop_test/4.run\n") || strings.Contains(out, "artisan") {
 		t.Fatalf("cron file (the command must not be in root's line):\n%s", out)
+	}
+	launcher := scripts["/etc/whacp-cron/whacp-site-shop_test/4.run"]
+	if !strings.HasPrefix(strings.SplitN(launcher, "\n", 2)[1], "exec /usr/bin/systemd-run --quiet --collect --wait --uid=shop --gid=shop --slice=whacp-acct2.slice --working-directory=/home/whacp/shop.test --property=NoNewPrivileges=yes") {
+		t.Fatalf("launcher:\n%s", launcher)
 	}
 	body := scripts["/etc/whacp-cron/whacp-site-shop_test/4.sh"]
 	if !strings.Contains(body, "( php artisan schedule:run 'x%y' )") || !strings.Contains(body, ">> /home/whacp/shop.test/logs/cron-4.log 2>&1") {
 		t.Fatalf("script:\n%s", body)
+	}
+}
+
+// Debian's cron ignores lines over 1000 characters: the longest website
+// name, account name and schedule still fit.
+func TestCronLinesStayShort(t *testing.T) {
+	d := strings.Repeat("a", 63) + "." + strings.Repeat("b", 63) + "." + strings.Repeat("c", 63) + "." + strings.Repeat("d", 57) + ".com"
+	sched := "0,5,10,15,20,25,30,35,40,45,50,55 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 1,2,3,4,5,6,7,8,9,10 1,2,3,4,5,6,7,8,9,10,11,12 0,1,2,3,4,5,6"
+	out, _ := render(SiteJobs{Domain: d, User: strings.Repeat("u", 31), Root: "/home/whacp/" + d, Jobs: []Job{{ID: 999999999, Schedule: sched, Command: "x", Email: "a@b.test", Enabled: false}}}, "whacp-acct999999999.slice")
+	for _, l := range strings.Split(out, "\n") {
+		if len(l) > 999 {
+			t.Errorf("%d characters: %s", len(l), l)
+		}
+	}
+}
+
+// The launcher is root's alone; the script is readable by the account
+// (it runs it) and neither is writable by it.
+func TestApplyWritesLauncherForRootOnly(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	a, _ := r.Lookup("cron.apply")
+	if _, err := a.Handler(context.Background(), json.RawMessage(`{"domain":"a.test","user":"example","root":"/home/whacp/a.test","jobs":[{"id":1,"schedule":"@daily","command":"id","enabled":true}]}`)); err != nil {
+		t.Fatal(err)
+	}
+	for f, mode := range map[string]os.FileMode{"etc/whacp-cron/whacp-site-a_test/1.run": 0o700, "etc/whacp-cron/whacp-site-a_test/1.sh": 0o640} {
+		st, err := os.Stat(filepath.Join(h.Base, f))
+		if err != nil || st.Mode().Perm() != mode {
+			t.Errorf("%s: %v %v", f, st, err)
+		}
+	}
+	if _, err := a.Handler(context.Background(), json.RawMessage(`{"domain":"a.test","user":"example","root":"/home/whacp/a.test","jobs":[]}`)); err != nil {
+		t.Fatal(err)
+	}
+	if h.Exists("etc/whacp-cron/whacp-site-a_test/1.run") || h.Exists("etc/whacp-cron/whacp-site-a_test/1.sh") {
+		t.Error("launcher or script left behind")
 	}
 }

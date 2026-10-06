@@ -316,6 +316,8 @@ log "Health checks"
 health || rollback_and_die "health checks failed"
 trap - ERR
 ok "WhaCP $NEW is running"
+# Cron schedules in the new agent's form (each job sandboxed).
+panel_cli cron:sync || warn "some cron schedules were not written again (see above)"
 
 # Keep the newest $KEEP backups.
 ls -1d "$BACKUP_ROOT"/*/ 2>/dev/null | sort | head -n -$KEEP | xargs -r rm -rf
