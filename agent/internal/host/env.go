@@ -93,6 +93,9 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		"/etc/my.cnf.d/zz-whacp.cnf",
 		m.WebmailDir + "/**",
 		"/etc/tmpfiles.d/whacp-*.conf",
+		// The PHP-FPM pools' socket folder, created when missing
+		// (EnsurePHPSocketDir; only the folder, not what is in it).
+		m.PHPSocketDir,
 		m.NginxAvailable,
 		filepath.Join(filepath.Dir(m.NginxAvailable), "whacp-tls.conf"),
 		m.WebmailData + "/**",

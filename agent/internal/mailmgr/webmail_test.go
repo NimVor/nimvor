@@ -205,6 +205,8 @@ func TestEnsurePHPSocketDir(t *testing.T) {
 	dir := h.Env.M.PHPSocketDir
 	h.Env.M.PHPSocketTmpfiles = "/etc/tmpfiles.d/whacp-php-fpm.conf"
 	os.MkdirAll(filepath.Join(h.Base, "etc/tmpfiles.d"), 0o755) // always there on a real system
+	// Missing, as on the RHEL server that showed the bug: WhaCP creates it.
+	os.RemoveAll(filepath.Join(h.Base, dir))
 	set := h.Env.Changes("socket-dir")
 	h.Env.EnsurePHPSocketDir(set)
 	if _, err := set.Commit(func() error { return nil }); err != nil {
