@@ -6,6 +6,15 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Broken package state is repaired automatically.** After an update, the
+  agent checks the installed packages. It reinstalls packages whose install
+  script failed (for example under the older agent's sandbox) and installs
+  missing dependencies, as a job on Server → Packages. Server → Packages
+  lists any problem left. Removing duplicate package versions needs the
+  administrator's confirmation (**Remove duplicates**), because it removes
+  packages.
+
 ### Fixed
 - **Webmail and PHP websites answered 502 on Rocky/Alma when a Remi PHP
   version had been installed without its SELinux setup.** This happened

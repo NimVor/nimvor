@@ -156,6 +156,29 @@ the cause classified (`PORT_CONFLICT`, `SELINUX_DENIAL`, `PERMISSION_ERROR`,
 `USER_GROUP_ERROR`, `MISSING_FILE`, `CONFIGURATION_ERROR`). It is not
 restarted again and again.
 
+### Repairing broken package state (`agent/internal/pkgs/repair.go`)
+
+A transaction that failed or was interrupted can leave packages that are
+installed but not set up. `packages.health` finds them, without changing
+anything:
+
+| Problem | Found by | Repair |
+|---|---|---|
+| An install script failed (RPM) | `Error in POSTIN … scriptlet in rpm package X` in `/var/log/dnf.rpm.log*`, for packages not installed again since (install time ≤ failure) | `dnf reinstall X`, once per failure |
+| Package not fully installed (dpkg) | `dpkg --audit` | `dpkg --configure -a` |
+| Missing dependency | `dnf check --dependencies`, `apt-get -s check` | installs it (the exact version an `=` dependency names); on Debian `apt-get install -f` only when its simulation removes nothing |
+| Duplicate versions (RPM) | `dnf check --duplicates` | `dnf remove --duplicates`, **only** on the administrator's confirmation (it removes packages) |
+
+`packages.repair` runs the repair as a job; Server → Packages shows the
+problems with **Repair** and, for duplicates, **Remove duplicates** (its own
+confirmation). When the agent starts (after an installation or update of
+WhaCP), it checks by itself and starts the repair job when something can be
+repaired without asking. The same set of problems starts it only once, and a
+package whose script fails again after its reinstall is reported ("repair
+tried") instead of being reinstalled at every start
+(`/var/lib/whacp-agent/pkgs-repair.json`). Removal scripts that failed
+(PREUN/POSTUN) are not repaired by installing again and are not reported.
+
 ### Idempotency and interruption
 
 - Installing an installed package is a no-op for APT and DNF; the health

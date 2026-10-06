@@ -313,6 +313,28 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"job_id": j.ID}, nil
 	}})
 
+	r.Register(actions.Action{Name: "packages.health", Description: "Broken package state: install scripts that failed, missing dependencies, duplicates.", Timeout: 2 * time.Minute, Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+		if !pkgs.Available(env) {
+			return nil, actions.Failed("The package manager is not available on this system.", "")
+		}
+		h := pkgs.CheckHealth(ctx, env)
+		return map[string]any{"checked": h.Checked, "problems": h.Problems, "repairable": h.Repairable(), "duplicates": h.Duplicates()}, nil
+	}})
+	r.Register(actions.Action{Name: "packages.repair", Mutating: true, Description: "Repair broken package state: reinstall packages whose install script failed, install missing dependencies; remove_duplicates (confirmed) also removes older duplicate versions (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			RemoveDuplicates bool `json:"remove_duplicates"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		j := env.Jobs.Start("packages.repair", "server:packages", func(ctx context.Context, log io.Writer) (any, error) {
+			h, err := pkgs.Repair(ctx, env, log, pkgs.RepairOptions{RemoveDuplicates: in.RemoveDuplicates})
+			restrictAgain(ctx, env, log)
+			return map[string]any{"problems": h.Problems}, err
+		})
+		return map[string]any{"job_id": j.ID}, nil
+	}})
+
 	r.Register(actions.Action{Name: "server.settings", Description: "Host name, time zone, clock synchronisation and restart state.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return Read(ctx, env), nil
 	}})
@@ -392,6 +414,28 @@ func Register(r *actions.Registry, env *host.Env) {
 
 // restrictAgain applies WhaCP's limits on installed programs again after a
 // package job (package updates reset file modes on RHEL).
+// RepairAtStart checks the installed packages when the agent starts (after
+// an installation or update of WhaCP) and, when an earlier package
+// transaction left something to repair without asking, starts the repair
+// as a job the Packages page lists. The same problems start it once.
+func RepairAtStart(ctx context.Context, env *host.Env) {
+	if !pkgs.Available(env) {
+		return
+	}
+	h := pkgs.CheckHealth(ctx, env)
+	if !pkgs.AutoRepairDue(env, h) {
+		return
+	}
+	pkgs.MarkAutoRepair(env, h)
+	env.Log.Info("package problems found; repairing them", "problems", len(h.Problems))
+	env.Jobs.Start("packages.repair", "server:packages", func(ctx context.Context, log io.Writer) (any, error) {
+		fmt.Fprintln(log, "Started automatically by the agent: an earlier package installation left problems behind.")
+		after, err := pkgs.Repair(ctx, env, log, pkgs.RepairOptions{})
+		restrictAgain(ctx, env, log)
+		return map[string]any{"problems": after.Problems}, err
+	})
+}
+
 func restrictAgain(ctx context.Context, env *host.Env, log io.Writer) {
 	if err := ffmpegmgr.Reapply(ctx, env); err != nil {
 		fmt.Fprintf(log, "FFmpeg could not be limited to its group again: %v\n", err)

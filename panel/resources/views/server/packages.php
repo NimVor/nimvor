@@ -2,7 +2,10 @@
 /** @var \WhaCP\View\View $this */
 /** @var list<array<string, mixed>> $packages */
 /** @var array<string, mixed>|null $updates */
+/** @var array<string, mixed>|null $health */
 $ups = (array) ($updates['updates'] ?? []);
+$problems = (array) ($health['problems'] ?? []);
+$kinds = ['failed_script' => 'install script failed', 'missing_dependency' => 'missing dependency', 'duplicate' => 'duplicate version', 'half_configured' => 'not fully installed'];
 ?>
 <?php // The install queue polls on its own: forms here submit normally. ?>
 <?php $this->start(); ?>off<?php $this->end('ajax'); ?>
@@ -12,6 +15,29 @@ $ups = (array) ($updates['updates'] ?? []);
 <form method="post" action="<?= e($this->url('packages.refresh')) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat"></i> Check for updates</button></form>
 <?php $this->end('actions'); ?>
 <?php if ($agentError !== null): ?><?= $this->partial('partials/agent_error', ['error' => $agentError]) ?><?php endif; ?>
+<?php if ($problems !== []): ?>
+<div class="card mb-3 border-warning">
+    <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-bandaid"></i>Package problems
+        <span class="small text-body-secondary">left by an earlier installation or update that did not finish</span>
+        <div class="ms-auto d-flex gap-2">
+            <?php if (!empty($health['repairable'])): ?>
+                <form method="post" action="<?= e($this->url('packages.repair')) ?>" data-wcp-confirm="Repair now? Packages whose install script failed are reinstalled and missing dependencies installed. Nothing is removed."><?= $this->csrfField() ?><button class="btn btn-sm btn-primary">Repair</button></form>
+            <?php endif; ?>
+            <?php if (!empty($health['duplicates'])): ?>
+                <form method="post" action="<?= e($this->url('packages.repair')) ?>" data-wcp-confirm="Remove the older versions of duplicate packages (dnf remove --duplicates)? This removes packages left by an interrupted update; the newer versions stay installed."><?= $this->csrfField() ?><input type="hidden" name="remove_duplicates" value="1"><button class="btn btn-sm btn-outline-danger">Remove duplicates</button></form>
+            <?php endif; ?>
+        </div>
+    </div>
+    <div class="table-responsive wcp-scroll-400"><table class="table table-sm mb-0">
+        <thead><tr><th>Package</th><th>Problem</th><th>Details</th></tr></thead>
+        <tbody>
+        <?php foreach ($problems as $p): ?>
+            <tr><td><?= e((string) ($p['package'] ?? '')) ?></td><td><?= e($kinds[$p['kind'] ?? ''] ?? (string) ($p['kind'] ?? '')) ?><?= !empty($p['tried']) ? ' <span class="badge text-bg-secondary">repair tried</span>' : '' ?></td><td class="small text-body-secondary"><?= e((string) ($p['detail'] ?? '')) ?></td></tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table></div>
+</div>
+<?php endif; ?>
 <div class="row g-3">
     <div class="col-xl-7">
         <div class="card">

@@ -112,6 +112,26 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertStringContainsString('Nginx does not load it.', $page);
         self::assertStringContainsString('openssl', $page);
         self::assertStringContainsString('Install all updates', $page);
+        self::assertStringNotContainsString('Package problems', $page);
+
+        // Broken package state: repair (nothing removed), duplicates only
+        // on their own confirmation.
+        $this->agent->succeed('packages.health', ['checked' => true, 'repairable' => true, 'duplicates' => true, 'problems' => [
+            ['kind' => 'failed_script', 'package' => 'php82-php-fpm', 'detail' => 'its POSTIN script failed', 'automatic' => true],
+            ['kind' => 'duplicate', 'package' => 'kernel-tools-5.14.0-570', 'detail' => 'is a duplicate with <b>x</b>', 'automatic' => false],
+        ]]);
+        $page = $this->request('GET', '/packages')->body();
+        self::assertStringContainsString('Package problems', $page);
+        self::assertStringContainsString('install script failed', $page);
+        self::assertStringContainsString('&lt;b&gt;x&lt;/b&gt;', $page);
+        self::assertStringContainsString('Remove duplicates', $page);
+        $this->agent->succeed('packages.repair', ['job_id' => '3333333333333333']);
+        $this->post('/packages/repair');
+        self::assertSame(['remove_duplicates' => false], $this->lastCall('packages.repair'));
+        self::assertSame('3333333333333333', $this->flash('job'));
+        $this->post('/packages/repair', ['remove_duplicates' => '1']);
+        self::assertSame(['remove_duplicates' => true], $this->lastCall('packages.repair'));
+
         $this->agent->succeed('packages.install', ['job_id' => '1111111111111111']);
         $this->post('/packages/install', ['name' => 'fail2ban']);
         self::assertSame('1111111111111111', $this->flash('job'));

@@ -44,12 +44,17 @@ final class SystemController extends Controller
                 return Response::json(['success' => false, 'error' => $e->toArray()], 503);
             }
         }
-        $data = ['packages' => [], 'updates' => null, 'agentError' => null];
+        $data = ['packages' => [], 'updates' => null, 'health' => null, 'agentError' => null];
         try {
             $data['packages'] = (array) $this->agent->call('packages.list');
             $data['updates'] = (array) $this->agent->call('packages.updates', [], 150);
         } catch (AgentException $e) {
             $data['agentError'] = $e;
+        }
+        try {
+            // Broken package state (agents before this check lack the action).
+            $data['health'] = (array) $this->agent->call('packages.health', [], 150);
+        } catch (AgentException) {
         }
         return $this->render('server/packages', $data);
     }
@@ -103,6 +108,19 @@ final class SystemController extends Controller
     public function upgrade(Request $request): Response
     {
         return $this->act('/packages', fn (): array => ['Installing updates…', $this->job($request, 'packages.upgrade', [], 'Install updates')]);
+    }
+
+    /**
+     * Repairs broken package state. Removing duplicate versions removes
+     * packages, so it needs its own confirmation (remove_duplicates).
+     */
+    public function repair(Request $request): Response
+    {
+        $dups = $request->input('remove_duplicates') === '1';
+        return $this->act('/packages', fn (): array => [
+            $dups ? 'Removing duplicate packages and repairing…' : 'Repairing packages…',
+            $this->job($request, 'packages.repair', ['remove_duplicates' => $dups], $dups ? 'Remove duplicate packages' : 'Repair packages'),
+        ]);
     }
 
     public function hostname(Request $request): Response

@@ -329,6 +329,7 @@ return static function (Router $r): void {
     $r->post('/packages/install', [SystemController::class, 'install'], ['name' => 'packages.install', 'permission' => P::PACKAGES_MANAGE]);
     $r->post('/packages/refresh', [SystemController::class, 'refresh'], ['name' => 'packages.refresh', 'permission' => P::PACKAGES_MANAGE]);
     $r->post('/packages/upgrade', [SystemController::class, 'upgrade'], ['name' => 'packages.upgrade', 'permission' => P::PACKAGES_MANAGE]);
+    $r->post('/packages/repair', [SystemController::class, 'repair'], ['name' => 'packages.repair', 'permission' => P::PACKAGES_MANAGE]);
     $r->post('/server/hostname', [SystemController::class, 'hostname'], ['name' => 'server.hostname', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/root-password', [SystemController::class, 'rootPassword'], ['name' => 'server.root_password', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/timezone', [SystemController::class, 'timezone'], ['name' => 'server.timezone', 'permission' => P::SERVER_MANAGE]);

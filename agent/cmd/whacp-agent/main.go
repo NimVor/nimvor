@@ -37,6 +37,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sendmail"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/server"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/sysmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/terminal"
 )
 
@@ -182,6 +183,9 @@ func run() int {
 			for _, line := range modsec.RecoverInstalls(context.Background(), env, io.Discard) {
 				log.Warn("modsec: " + line)
 			}
+			// Packages an earlier transaction left broken (failed install
+			// scripts, missing dependencies) are repaired after an update.
+			sysmgr.RepairAtStart(ctx, env)
 		}()
 	}
 
