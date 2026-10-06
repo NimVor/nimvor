@@ -131,20 +131,36 @@ func (e env) webmailLogs() string {
 func (e env) webmailServeDiagnosis(ctx context.Context, v string) string {
 	var b strings.Builder
 	sock := e.webmailSocket()
-	if data, err := e.Root.ReadFile("/var/log/nginx/error.log"); err == nil {
+	tail := func(file string, n int, match func(string) bool) {
+		data, err := e.Root.ReadFile(file)
+		if err != nil {
+			return
+		}
 		var keep []string
 		for _, l := range strings.Split(string(data), "\n") {
-			if strings.Contains(l, sock) || strings.Contains(l, "whacp-webmail") {
+			if l != "" && match(l) {
 				keep = append(keep, l)
 			}
 		}
-		if len(keep) > 8 {
-			keep = keep[len(keep)-8:]
+		if len(keep) > n {
+			keep = keep[len(keep)-n:]
 		}
 		if len(keep) > 0 {
-			fmt.Fprintf(&b, "/var/log/nginx/error.log:\n%s\n", strings.Join(keep, "\n"))
+			fmt.Fprintf(&b, "%s:\n%s\n", file, strings.Join(keep, "\n"))
 		}
 	}
+	all := func(string) bool { return true }
+	// The webmail site's own error log (its server block sets one), then
+	// the server's, for lines about the webmail socket.
+	tail("/var/log/nginx/whacp-webmail.error.log", 8, all)
+	// Whether the probe reached the webmail site at all (else another
+	// server block answered for the host name).
+	tail("/var/log/nginx/whacp-webmail.access.log", 3, all)
+	tail("/var/log/nginx/error.log", 8, func(l string) bool { return strings.Contains(l, sock) || strings.Contains(l, "whacp-webmail") })
+	// SELinux denials of Nginx or PHP-FPM.
+	tail("/var/log/audit/audit.log", 6, func(l string) bool {
+		return strings.Contains(l, "denied") && (strings.Contains(l, `comm="nginx"`) || strings.Contains(l, `comm="php-fpm"`) || strings.Contains(l, "whacp-webmail"))
+	})
 	unit := e.M.FPMUnit(v)
 	state := "not running"
 	if e.UnitActive(ctx, unit) {
