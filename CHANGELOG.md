@@ -145,6 +145,10 @@ All notable changes to WhaCP are documented here. The format follows
   the system's services are not affected.
 
 ### Fixed
+- **A failed ModSecurity installation filled the page with build output**,
+  one word per line in a narrow column. The installation history now shows
+  the build's error lines (or its last lines), with the full output behind
+  "Show the full output" in a scrollable box.
 - **"Get a certificate for the host name" ended without a message.** The
   agent stopped the action after its default 30 seconds while certbot was
   still working. It now runs as a job: the job window shows certbot's

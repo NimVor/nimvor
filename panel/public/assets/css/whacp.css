@@ -885,3 +885,4 @@ button.wcp-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 @media (min-width: 992px) {
     .wcp-sidebar-collapsed .wcp-sidebar { display: none; }
 }
+.wcp-col-result { min-width: 18rem; }

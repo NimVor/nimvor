@@ -17,6 +17,18 @@ $loaded = (bool) ($status['module_loaded'] ?? false);
 $conn = (array) ($status['connector'] ?? []);
 $connState = (string) ($conn['state'] ?? ($loaded ? 'functional' : 'missing'));
 $installs ??= [];
+// A failed build's error carries the whole compiler output: the table shows
+// its error lines (or its last lines), the rest is behind "Show the full output".
+$errSummary = static function (string $err): array {
+    $lines = array_values(array_filter(array_map('trim', preg_split('/\R/', $err) ?: []), static fn (string $l): bool => $l !== ''));
+    if (count($lines) <= 3 && mb_strlen($err) <= 400) {
+        return [$err, false];
+    }
+    $hits = array_values(array_filter($lines, static fn (string $l): bool => (bool) preg_match('/\b(error|failed|fatal|not found|cannot|no such)\b/i', $l) && !preg_match('/^checking\b/i', $l)));
+    $pick = $hits !== [] ? array_slice($hits, -3) : array_slice($lines, -3);
+    $short = implode(' … ', array_map(static fn (string $l): string => mb_strimwidth($l, 0, 220, '…'), $pick));
+    return [$lines[0] !== $pick[0] ? mb_strimwidth($lines[0], 0, 160, '…') . ' — ' . $short : $short, true];
+};
 $active = (bool) ($status['active'] ?? false);
 $vendorNames = [];
 foreach ((array) ($status['vendors'] ?? []) as $v) {
@@ -77,18 +89,21 @@ $paranoia = [1 => '1 — few false positives (recommended)', 2 => '2 — more ru
     <?php if ($installs !== []): ?>
     <div class="wcp-dtable table-responsive">
         <table class="table align-middle">
-            <thead><tr><th>Started</th><th>What</th><th>Result</th><th>Sources</th><th></th></tr></thead>
+            <thead><tr><th>Started</th><th>What</th><th class="wcp-col-result">Result</th><th>Sources</th><th></th></tr></thead>
             <tbody>
             <?php foreach (array_slice($installs, 0, 20) as $in): $st = (string) $in['status']; ?>
                 <tr>
-                    <td class="small text-nowrap"><?= e(str_replace('T', ' ', substr((string) $in['started_at'], 0, 16))) ?> UTC<div class="wcp-muted font-monospace" style="font-size:.75em"><?= e((string) $in['id']) ?></div></td>
+                    <td class="small text-nowrap"><?= e(str_replace('T', ' ', substr((string) $in['started_at'], 0, 16))) ?> UTC<div class="wcp-muted font-monospace small"><?= e((string) $in['id']) ?></div></td>
                     <td class="small"><?= e((string) ($in['method'] ?? '')) ?><?php if (!empty($in['nginx_version'])): ?><div class="wcp-muted">Nginx <?= e((string) $in['nginx_version']) ?><?= !empty($in['os']) ? ' · ' . e((string) $in['os']) : '' ?></div><?php endif; ?></td>
                     <td class="small">
                         <?php if ($st === 'committed'): ?><span class="wcp-state is-ok">Done</span><?= !empty($in['can_roll_back']) ? ' <span class="wcp-muted">in effect</span>' : '' ?>
                         <?php elseif ($st === 'rolled_back'): ?><span class="wcp-state is-warn">Rolled back</span>
                         <?php elseif ($st === 'running'): ?><span class="wcp-state is-warn">Running</span>
                         <?php else: ?><span class="wcp-state is-error">Rollback incomplete</span><?php endif; ?>
-                        <?php if (!empty($in['error'])): ?><div class="text-break"><?= e((string) $in['error']) ?></div><?php endif; ?>
+                        <?php if (!empty($in['error'])): [$errShort, $errLong] = $errSummary((string) $in['error']); ?>
+                            <div class="text-break mt-1"><?= e($errShort) ?></div>
+                            <?php if ($errLong): ?><details class="mt-1"><summary class="small">Show the full output</summary><pre class="wcp-db-create small mb-0 mt-1 wcp-update-log"><?= e((string) $in['error']) ?></pre></details><?php endif; ?>
+                        <?php endif; ?>
                         <?php if ($st === 'rollback_failed'): ?><div>Backup for manual recovery: <code><?= e((string) $in['folder']) ?>/snapshot</code></div><?php endif; ?>
                     </td>
                     <td class="small"><?php foreach ((array) ($in['sources'] ?? []) as $src): $src = (array) $src; ?><div><?= e(trim($src['name'] . ' ' . ($src['version'] ?? ''))) ?> <span class="wcp-muted">— <?= e((string) ($src['origin'] ?? '')) ?></span></div><?php endforeach; ?><?php if (!empty($in['module'])): ?><div class="font-monospace wcp-muted text-break"><?= e((string) $in['module']) ?></div><?php endif; ?></td>
