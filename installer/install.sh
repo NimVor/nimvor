@@ -88,7 +88,16 @@ run()  {
 confirm() {
     [[ $ASSUME_YES -eq 1 ]] && return 0
     local reply
-    read -r -p "$1 [y/N] " reply
+    # Ask on the terminal: standard input may be a pasted block of commands
+    # or already used up by an earlier command, which answered "no" silently.
+    if ! { exec 3</dev/tty; } 2>/dev/null; then
+        die "$1 — no terminal to ask on. Run the installer again with --yes to answer yes."
+    fi
+    if ! read -r -u 3 -p "$1 [y/N] " reply; then
+        exec 3<&-
+        die "$1 — no answer could be read. Run the installer again with --yes to answer yes."
+    fi
+    exec 3<&-
     [[ $reply =~ ^[Yy]$ ]]
 }
 
