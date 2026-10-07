@@ -25,6 +25,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
 
@@ -103,9 +104,16 @@ func Register(r *actions.Registry, env *host.Env) {
 		if !installed(env) {
 			return out, nil
 		}
-		if b, err := env.Runner.Run(ctx, "clamscan", "--version"); err == nil {
-			// "ClamAV 1.4.3/27781/Sat Sep 27 08:24:27 2026"
-			out["version"] = strings.TrimSpace(string(b))
+		// "ClamAV 1.4.3/27781/2026-09-27": engine / signatures / their date.
+		// Read from the package and the signature database's header:
+		// clamscan itself only runs as an unprivileged account.
+		engine := ""
+		for _, v := range pkgs.InstalledNative(ctx, env, []string{"clamav"}) {
+			engine = strings.SplitN(strings.SplitN(v, "+", 2)[0], "-", 2)[0]
+		}
+		out["version"] = "ClamAV " + engine
+		if ver, date, ok := Signatures(env); ok {
+			out["version"] = fmt.Sprintf("ClamAV %s/%d/%s", engine, ver, date)
 		}
 		for _, u := range FreshclamUnits {
 			if env.UnitActive(ctx, u) {
@@ -285,4 +293,48 @@ func mkdirAll(root *os.Root, dir string, uid, gid int) error {
 		}
 	}
 	return nil
+}
+
+// DatabaseDir holds the signatures (Debian and RHEL alike).
+const DatabaseDir = "/var/lib/clamav"
+
+// Signatures reads the daily signature database's header ("ClamAV-VDB:
+// 07 Oct 2026 08-24 -0400:28146:355728:90:…"): its version and date.
+func Signatures(env *host.Env) (int, string, bool) {
+	best, date := 0, ""
+	for _, name := range []string{"daily.cld", "daily.cvd"} {
+		real, err := env.Root.Path(DatabaseDir + "/" + name)
+		if err != nil {
+			continue
+		}
+		f, err := os.Open(real)
+		if err != nil {
+			continue
+		}
+		head := make([]byte, 512)
+		n, _ := io.ReadFull(f, head)
+		f.Close()
+		v, d, ok := ParseHeader(string(head[:n]))
+		if ok && v > best {
+			best, date = v, d
+		}
+	}
+	return best, date, best > 0
+}
+
+// ParseHeader reads a ClamAV database header: version and date (YYYY-MM-DD).
+func ParseHeader(h string) (int, string, bool) {
+	f := strings.Split(strings.TrimRight(h, "\x00 "), ":")
+	if len(f) < 4 || f[0] != "ClamAV-VDB" {
+		return 0, "", false
+	}
+	v, err := strconv.Atoi(f[2])
+	if err != nil || v <= 0 {
+		return 0, "", false
+	}
+	date := ""
+	if t, err := time.Parse("02 Jan 2006 15-04 -0700", strings.TrimSpace(f[1])); err == nil {
+		date = t.UTC().Format("2006-01-02")
+	}
+	return v, date, true
 }

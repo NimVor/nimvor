@@ -31,11 +31,11 @@ final class AvService
     ) {
     }
 
-    /** @return array{installed: bool, version: string, freshclam: bool} */
+    /** @return array{installed: bool, version: string, freshclam: bool, updater_log: string} */
     public function status(): array
     {
         $s = (array) $this->agent->call('av.status');
-        return ['installed' => !empty($s['installed']), 'version' => (string) ($s['version'] ?? ''), 'freshclam' => !empty($s['freshclam'])];
+        return ['installed' => !empty($s['installed']), 'version' => (string) ($s['version'] ?? ''), 'freshclam' => !empty($s['freshclam']), 'updater_log' => (string) ($s['updater_log'] ?? '')];
     }
 
     public function updateSignatures(?int $userId): void

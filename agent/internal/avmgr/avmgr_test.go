@@ -160,3 +160,40 @@ func TestScanRunsAsTheWebsiteAndQuarantinesInside(t *testing.T) {
 		}
 	}
 }
+
+// Rocky Linux 9 report: the page said "No signatures downloaded yet" while
+// they were there. The status ran clamscan --version as root, which the
+// runner refuses; it now reads the database header (no clamscan).
+func TestStatusReadsSignatureHeader(t *testing.T) {
+	h := testhost.New(t)
+	os.MkdirAll(filepath.Join(h.Base, "var/lib/clamav"), 0o755)
+	os.MkdirAll(filepath.Join(h.Base, "usr/bin"), 0o755)
+	head := "ClamAV-VDB:07 Oct 2026 08-24 -0400:28146:355728:90:X:X:svc.clamav-publisher:1759840000"
+	os.WriteFile(filepath.Join(h.Base, "var/lib/clamav/daily.cld"), append([]byte(head), make([]byte, 512-len(head))...), 0o644)
+	h.Respond = func(id string, a []string) (string, error, bool) {
+		if id == "dpkg-query" {
+			return "clamav\tii \t1.4.3+dfsg-0ubuntu0.24.04.1\n", nil, true
+		}
+		return "", nil, false
+	}
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	a, _ := r.Lookup("av.status")
+	res, err := a.Handler(context.Background(), json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := res.(map[string]any)
+	if m["installed"] != true || m["version"] != "ClamAV 1.4.3/28146/2026-10-07" {
+		t.Fatalf("status %v", m)
+	}
+	if h.Runner.Called("clamscan --version") {
+		t.Fatal("ran clamscan as root")
+	}
+	if v, d, ok := ParseHeader(head); !ok || v != 28146 || d != "2026-10-07" {
+		t.Fatalf("header: %d %s %v", v, d, ok)
+	}
+	if _, _, ok := ParseHeader("garbage"); ok {
+		t.Fatal("garbage accepted")
+	}
+}
