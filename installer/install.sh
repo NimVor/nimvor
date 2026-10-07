@@ -536,9 +536,11 @@ if [[ $AGENT_ONLY -eq 0 && ( ! -f $SRC_DIR/panel/vendor/autoload.php || $vendor_
     # (A PHP script or phar; a shell wrapper runs as it is.)
     COMPOSER_CMD=("$COMPOSER")
     if [[ $COMPOSER == *.phar ]] || head -n1 "$COMPOSER" 2>/dev/null | grep -q 'php'; then COMPOSER_CMD=("$PHP_BIN" "$COMPOSER"); fi
-    ok "Composer detected: $("${COMPOSER_CMD[@]}" --version 2>/dev/null | head -1) ($COMPOSER)"
+    # COMPOSER_ALLOW_SUPERUSER and no stdin: as root Composer otherwise
+    # asks "Continue as root/super user?" and waits, invisibly here.
+    ok "Composer detected: $(COMPOSER_ALLOW_SUPERUSER=1 "${COMPOSER_CMD[@]}" --version --no-interaction </dev/null 2>/dev/null | head -1) ($COMPOSER)"
     log "Installing panel PHP dependencies"
-    (cd "$SRC_DIR/panel" && run env COMPOSER_ALLOW_SUPERUSER=1 "${COMPOSER_CMD[@]}" install --no-dev --no-interaction --optimize-autoloader -q)
+    (cd "$SRC_DIR/panel" && run env COMPOSER_ALLOW_SUPERUSER=1 "${COMPOSER_CMD[@]}" install --no-dev --no-interaction --optimize-autoloader -q </dev/null)
     give_back "$SRC_DIR/panel/vendor"
 fi
 
