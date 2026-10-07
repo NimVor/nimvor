@@ -234,6 +234,12 @@ All notable changes to WhaCP are documented here. The format follows
   the system's services are not affected.
 
 ### Fixed
+- **Brotli on Ubuntu/Debian:**
+  - WhaCP installed `libnginx-mod-brotli`, a name these systems don't
+    have. Their package is `libnginx-mod-http-brotli-filter`, which WhaCP
+    now installs.
+  - Components a repository does not list at all are now also shown as
+    "Not available on this system".
 - **Packages:** components the system's repositories do not offer (Brotli
   and the ModSecurity Nginx module on Ubuntu 22.04) are shown as "Not
   available on this system" instead of an Install button that always

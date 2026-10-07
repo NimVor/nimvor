@@ -214,16 +214,26 @@ func unavailable(ctx context.Context, env *host.Env, pkgs []string) (missing []s
 	if err != nil {
 		return nil, false
 	}
-	// Missing: no candidate, or "Unable to locate package"; anything else
-	// (including output WhaCP does not recognise) counts as available.
+	// Missing: no candidate, "Unable to locate package", or not listed at
+	// all (apt-cache policy prints nothing for a name no repository has).
+	// Output WhaCP does not recognise counts as available.
 	cands := parsePolicy(string(out))
+	// Empty output means "none of these exists" only where apt has package
+	// lists to search (it prints nothing for unknown names).
+	recognised := len(cands) > 0 || strings.Contains(string(out), "Unable to locate package") || (strings.TrimSpace(string(out)) == "" && aptHasLists(env))
 	for _, p := range query {
 		c, listed := cands[p]
-		if (listed && (c == "" || c == "(none)")) || strings.Contains(string(out), "Unable to locate package "+p) {
+		if (listed && (c == "" || c == "(none)")) || strings.Contains(string(out), "Unable to locate package "+p) || (!listed && recognised) {
 			missing = append(missing, p)
 		}
 	}
 	return missing, true
+}
+
+// aptHasLists reports whether apt has downloaded package lists.
+func aptHasLists(env *host.Env) bool {
+	m, err := env.Root.Glob("/var/lib/apt/lists/*_Packages*")
+	return err == nil && len(m) > 0
 }
 
 var policyHeadRe = regexp.MustCompile(`^(\S+):$`)

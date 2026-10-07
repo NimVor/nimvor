@@ -154,18 +154,26 @@ func TestPackagesByCapability(t *testing.T) {
 // module on Ubuntu 22.04) are listed as unavailable, not as installable.
 func TestPackagesNotInTheRepositories(t *testing.T) {
 	h := testhost.New(t)
+	os.MkdirAll(filepath.Join(h.Base, "var/lib/apt/lists"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "var/lib/apt/lists/archive.ubuntu.com_ubuntu_dists_noble_main_binary-amd64_Packages"), []byte("Package: x\n"), 0o644)
 	h.Respond = func(id string, args []string) (string, error, bool) {
 		switch {
 		case id == "dpkg-query":
 			return "", fmt.Errorf("not found"), true
 		case id == "apt-cache" && args[0] == "policy":
+			// The ModSecurity module has no candidate; the Brotli filter
+			// (Debian's name for the Brotli module) is not listed at all,
+			// as apt-cache does for names no repository has.
 			var b strings.Builder
 			for _, p := range args[2:] {
-				cand := "1.0-1"
-				if p == "libnginx-mod-brotli" || p == "libnginx-mod-http-modsecurity" {
-					cand = "(none)"
+				switch p {
+				case "libnginx-mod-http-brotli-filter":
+					continue
+				case "libnginx-mod-http-modsecurity":
+					fmt.Fprintf(&b, "%s:\n  Installed: (none)\n  Candidate: (none)\n", p)
+				default:
+					fmt.Fprintf(&b, "%s:\n  Installed: (none)\n  Candidate: 1.0-1\n", p)
 				}
-				fmt.Fprintf(&b, "%s:\n  Installed: (none)\n  Candidate: %s\n", p, cand)
 			}
 			return b.String(), nil, true
 		}
@@ -178,6 +186,9 @@ func TestPackagesNotInTheRepositories(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range res.([]Package) {
+		if p.Name == "libnginx-mod-brotli" && p.Package != "libnginx-mod-http-brotli-filter" {
+			t.Errorf("brotli package name on Debian/Ubuntu: %q", p.Package)
+		}
 		want := p.Name == "libnginx-mod-brotli" || p.Name == "libnginx-mod-http-modsecurity"
 		if p.Unavailable != want {
 			t.Errorf("%s: unavailable %v, want %v", p.Name, p.Unavailable, want)

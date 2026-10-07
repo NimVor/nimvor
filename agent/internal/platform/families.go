@@ -106,7 +106,20 @@ func (d debianFamily) Managed() Managed {
 
 func (d debianFamily) PackageManager() string { return "apt" }
 
-func (d debianFamily) PackageName(name string) (string, bool) { return name, true }
+// debianPackages maps WhaCP's component names to Debian/Ubuntu package
+// names where they differ.
+var debianPackages = map[string]string{
+	// Debian's Brotli module is split in two packages; the filter (on the
+	// fly compression) is the one WhaCP checks and uses.
+	"libnginx-mod-brotli": "libnginx-mod-http-brotli-filter",
+}
+
+func (d debianFamily) PackageName(name string) (string, bool) {
+	if n, ok := debianPackages[name]; ok {
+		return n, true
+	}
+	return name, true
+}
 
 func (d debianFamily) PHPPackages(v string, exts []string) []string {
 	pkgs := []string{"php" + v + "-fpm", "php" + v + "-cli"}
