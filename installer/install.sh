@@ -171,33 +171,64 @@ APT_WAIT=(-o DPkg::Lock::Timeout=600)
 # ------------------------------------------------------- 2. requirements ----
 log "Checking requirements"
 missing_pkgs=()
+# PHP_BIN: the PHP (>= 8.3) the panel, its scheduler and this installer
+# run, which need not be the system's default "php" (Ubuntu 22.04).
+find_php() {
+    local c
+    for c in "$(command -v php 2>/dev/null || true)" /usr/bin/php8.5 /usr/bin/php8.4 /usr/bin/php8.3 /opt/remi/php83/root/usr/bin/php; do
+        [[ -n $c && -x $c ]] || continue
+        "$c" -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);' 2>/dev/null && { printf '%s\n' "$c"; return 0; }
+    done
+    return 1
+}
+# The system's "php" as found: installing PHP 8.3 (or Composer, which
+# pulls in the distribution's PHP) may switch it; keep_system_php puts it
+# back, so websites' cron jobs and scripts calling "php" keep their version.
+php_before=""
+[[ -e /usr/bin/php ]] && php_before=$(readlink -f /usr/bin/php)
+keep_system_php() {
+    [[ -n $php_before && $DRY_RUN -eq 0 && -e /usr/bin/php ]] || return 0
+    if [[ $(readlink -f /usr/bin/php) != "$php_before" ]] && command -v update-alternatives >/dev/null; then
+        update-alternatives --set php "$php_before" >/dev/null 2>&1 && ok "the system's php stays $php_before"
+    fi
+}
 php_ok=0
 if [[ $AGENT_ONLY -eq 1 ]]; then
     php_ok=1 # the panel is not installed on this server
-elif command -v php >/dev/null; then
-    if php -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);'; then
-        php_ok=1
-        ok "PHP $(php -r 'echo PHP_VERSION;')"
-        # extension -> package (Ubuntu: sodium and openssl ship in php-common)
-        if [[ $PKG == dnf ]]; then
-            declare -A ext_pkg=([pdo_sqlite]=php-pdo [curl]=php-common [mbstring]=php-mbstring [sodium]=php-sodium [openssl]=php-common)
-        else
-            declare -A ext_pkg=([pdo_sqlite]=php-sqlite3 [curl]=php-curl [mbstring]=php-mbstring [sodium]=php-common [openssl]=php-common)
-        fi
-        # Read the module list once: with pipefail, "php -m | grep -q" fails
-        # when grep exits early and php gets SIGPIPE (seen on AlmaLinux 10:
-        # an installed extension reported missing).
-        php_modules=$(php -m)
-        for ext in pdo_sqlite curl mbstring sodium openssl; do
-            if grep -qix "${ext}" <<<"$php_modules"; then ok "php extension ${ext}"; else missing_pkgs+=("${ext_pkg[$ext]}"); fi
-        done
+elif PHP_BIN=$(find_php); then
+    php_ok=1
+    ok "PHP $("$PHP_BIN" -r 'echo PHP_VERSION;') ($PHP_BIN)"
+    # extension -> package (Ubuntu: sodium and openssl ship in php-common);
+    # a versioned binary (php8.3) takes that version's packages.
+    pv=""
+    [[ $PHP_BIN =~ php([0-9]\.[0-9])$ ]] && pv=${BASH_REMATCH[1]}
+    if [[ $PKG == dnf ]]; then
+        declare -A ext_pkg=([pdo_sqlite]=php-pdo [curl]=php-common [mbstring]=php-mbstring [sodium]=php-sodium [openssl]=php-common)
     else
-        warn "PHP $(php -r 'echo PHP_VERSION;') is older than 8.3"
+        declare -A ext_pkg=([pdo_sqlite]=php${pv}-sqlite3 [curl]=php${pv}-curl [mbstring]=php${pv}-mbstring [sodium]=php${pv}-common [openssl]=php${pv}-common)
     fi
+    # Read the module list once: with pipefail, "php -m | grep -q" fails
+    # when grep exits early and php gets SIGPIPE (seen on AlmaLinux 10:
+    # an installed extension reported missing).
+    php_modules=$("$PHP_BIN" -m)
+    for ext in pdo_sqlite curl mbstring sodium openssl; do
+        if grep -qix "${ext}" <<<"$php_modules"; then ok "php extension ${ext}"; else missing_pkgs+=("${ext_pkg[$ext]}"); fi
+    done
+elif command -v php >/dev/null; then
+    warn "PHP $(php -r 'echo PHP_VERSION;') is older than 8.3: the panel gets PHP 8.3 of its own"
+fi
+# Ubuntu releases whose own PHP is older than 8.3 (22.04): the panel's PHP
+# 8.3 comes from the ondrej/php PPA (signed by its Launchpad key). Only the
+# panel uses it: the system's default "php" stays what it was.
+PHP_PPA=0
+if [[ $php_ok -eq 0 && ${ID:-} == ubuntu ]] && dpkg --compare-versions "${VERSION_ID:-0}" lt 24.04; then
+    PHP_PPA=1
 fi
 if [[ $php_ok -eq 0 ]]; then
     if [[ $PKG == dnf ]]; then
         missing_pkgs+=(php-cli php-pdo php-mbstring php-sodium)
+    elif [[ $PHP_PPA -eq 1 ]]; then
+        missing_pkgs+=(php8.3-cli php8.3-sqlite3 php8.3-curl php8.3-mbstring)
     else
         missing_pkgs+=(php-cli php-sqlite3 php-curl php-mbstring)
     fi
@@ -265,9 +296,16 @@ if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
         log "Installing dependencies: ${missing_pkgs[*]}"
         run dnf install -y -q "${missing_pkgs[@]}"
     elif [[ $INSTALL_DEPS -eq 1 ]]; then
+        if [[ $PHP_PPA -eq 1 ]] && ! grep -rqs 'ondrej/php' /etc/apt/sources.list /etc/apt/sources.list.d/; then
+            log "Adding the ondrej/php repository (PHP 8.3 for the panel; Ubuntu ${VERSION_ID} ships PHP 8.1)"
+            run apt-get "${APT_WAIT[@]}" update -q
+            run env DEBIAN_FRONTEND=noninteractive apt-get "${APT_WAIT[@]}" install -y -q --no-install-recommends software-properties-common gnupg ca-certificates
+            run env LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php
+        fi
         log "Installing dependencies: ${missing_pkgs[*]}"
         run apt-get "${APT_WAIT[@]}" update -q
         run env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=l apt-get "${APT_WAIT[@]}" install -y -q --no-install-recommends "${missing_pkgs[@]}"
+        keep_system_php
     else
         die "missing packages: ${missing_pkgs[*]}. Install them ($PKG install ${missing_pkgs[*]}) or re-run without --no-install-deps."
     fi
@@ -295,8 +333,16 @@ PROFILE
         warn "The AppArmor profile for jailed shells could not be loaded; jailed shells stay unavailable"
     fi
 fi
-if [[ ${ID:-} == ubuntu && ${VERSION_ID:-} == "22.04" && $php_ok -eq 0 ]]; then
-    warn "Ubuntu 22.04 ships PHP 8.1; WhaCP's panel needs PHP >= 8.3 (e.g. from a PHP PPA). Existing sites are unaffected: the panel only uses the CLI binary."
+if [[ $AGENT_ONLY -eq 1 ]]; then
+    PHP_BIN=/usr/bin/php
+else
+    if PHP_BIN=$(find_php); then
+        ok "panel PHP: $PHP_BIN ($("$PHP_BIN" -r 'echo PHP_VERSION;'))"
+    elif [[ $DRY_RUN -eq 1 ]]; then
+        PHP_BIN=/usr/bin/php8.3
+    else
+        die "PHP >= 8.3 was not found after installing dependencies. Install PHP 8.3 (CLI with pdo_sqlite, curl, mbstring), or re-run without --no-install-deps."
+    fi
 fi
 
 # ------------------------------------------------------------ 3. conflicts ----
@@ -314,7 +360,7 @@ install_missing() {
     for f in panel.php panel.key; do [[ -s $CONF_DIR/$f ]] || echo "$CONF_DIR/$f"; done
     [[ -f /etc/systemd/system/whacp-panel.service ]] || echo "whacp-panel.service"
     if [[ -f $PREFIX/panel/VERSION && -s $CONF_DIR/panel.php ]]; then
-        users=$(runuser -u whacp -- env WHACP_CONFIG="$CONF_DIR/panel.php" php "$PREFIX/panel/bin/whacp" users:count 2>/dev/null || true)
+        users=$(runuser -u whacp -- env WHACP_CONFIG="$CONF_DIR/panel.php" "$PHP_BIN" "$PREFIX/panel/bin/whacp" users:count 2>/dev/null || true)
         [[ $users =~ ^[1-9][0-9]*$ ]] || echo "the first administrator (panel database)"
     fi
 }
@@ -389,11 +435,56 @@ stale=0
 if [[ -x $SRC_DIR/dist/whacp-agent && -d $SRC_DIR/agent ]] && [[ -n $(find "$SRC_DIR/agent" "$SRC_DIR/VERSION" \( -name '*.go' -o -name go.mod -o -name go.sum -o -name VERSION \) -newer "$SRC_DIR/dist/whacp-agent" -print -quit 2>/dev/null) ]]; then
     stale=1
 fi
+# The agent needs the Go its go.mod names. Go 1.21 and later fetch a newer
+# toolchain themselves (GOTOOLCHAIN=auto, checked against Go's checksum
+# database); older ones (Ubuntu 22.04 ships 1.18) cannot, so WhaCP then
+# downloads Go from go.dev into its own folder (the system's Go is not
+# touched) and checks the archive's SHA-256 before unpacking it.
+GO_MIN=$(awk '$1 == "go" { print $2; exit }' "$SRC_DIR/agent/go.mod" 2>/dev/null)
+GO_MIN=${GO_MIN:-1.24}
+GO_FETCH_VERSION=1.24.7
+GO_DIR=/usr/local/lib/whacp-go
+ver_ge() { [[ $(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1) == "$2" ]]; }
+go_version() { local v; v=$("$1" env GOVERSION 2>/dev/null || "$1" version 2>/dev/null | awk '{print $3}'); printf '%s\n' "${v#go}"; }
+# Builds the agent: as new as go.mod, or able to fetch that toolchain.
+go_usable() { local v; v=$(go_version "$1"); [[ -n $v ]] && { ver_ge "$v" "$GO_MIN" || ver_ge "$v" 1.21; }; }
+fetch_go() {
+    local arch f tmp sum
+    case $ARCH in x86_64) arch=amd64 ;; aarch64) arch=arm64 ;; *) return 1 ;; esac
+    f="go${GO_FETCH_VERSION}.linux-${arch}.tar.gz"
+    log "Downloading Go ${GO_FETCH_VERSION} from go.dev to build the agent (into $GO_DIR)"
+    if [[ $DRY_RUN -eq 1 ]]; then echo "    [dry-run] https://dl.google.com/go/$f (SHA-256 checked) -> $GO_DIR"; return 0; fi
+    tmp=$(mktemp -d)
+    if ! curl -fsSL --proto '=https' --tlsv1.2 --retry 3 -o "$tmp/$f" "https://dl.google.com/go/$f" \
+        || ! sum=$(curl -fsSL --proto '=https' --tlsv1.2 --retry 3 "https://dl.google.com/go/$f.sha256"); then
+        rm -rf "$tmp"; warn "Go could not be downloaded from go.dev"; return 1
+    fi
+    sum=$(tr -d '[:space:]' <<<"$sum")
+    if [[ ! $sum =~ ^[0-9a-f]{64}$ ]] || ! printf '%s  %s\n' "$sum" "$tmp/$f" | sha256sum -c --quiet; then
+        rm -rf "$tmp"; warn "the downloaded Go archive failed its SHA-256 check; it was not used"; return 1
+    fi
+    rm -rf "$GO_DIR.new" && mkdir -p "$GO_DIR.new" && tar -C "$GO_DIR.new" -xzf "$tmp/$f" || { rm -rf "$tmp" "$GO_DIR.new"; return 1; }
+    rm -rf "$GO_DIR" && mv "$GO_DIR.new" "$GO_DIR"
+    rm -rf "$tmp"
+    ok "Go ${GO_FETCH_VERSION} in $GO_DIR"
+}
 GO=$(find_go || true)
-if [[ -z $GO && ( ! -x $SRC_DIR/dist/whacp-agent || $stale -eq 1 ) && $INSTALL_DEPS -eq 1 ]]; then
-    log "Installing Go to build the agent"
-    if [[ $PKG == dnf ]]; then run dnf install -y -q golang; else run env DEBIAN_FRONTEND=noninteractive apt-get "${APT_WAIT[@]}" install -y -q --no-install-recommends golang-go; fi
-    GO=$(find_go || true)
+if [[ -x $GO_DIR/go/bin/go ]] && { [[ -z $GO ]] || ! go_usable "$GO"; } && go_usable "$GO_DIR/go/bin/go"; then
+    GO=$GO_DIR/go/bin/go
+fi
+if [[ ( ! -x $SRC_DIR/dist/whacp-agent || $stale -eq 1 ) && $INSTALL_DEPS -eq 1 ]] && { [[ -z $GO ]] || ! go_usable "$GO"; }; then
+    [[ -n $GO ]] && warn "Go $(go_version "$GO") ($GO) is too old to build the agent (it needs ${GO_MIN})"
+    if [[ -z $GO && $PKG == dnf ]]; then
+        log "Installing Go to build the agent"
+        run dnf install -y -q golang
+        GO=$(find_go || true)
+    fi
+    if [[ -z $GO ]] || ! go_usable "$GO"; then
+        fetch_go && GO=$GO_DIR/go/bin/go
+    fi
+fi
+if [[ -n $GO && $DRY_RUN -eq 0 ]] && ! go_usable "$GO"; then
+    die "Go $(go_version "$GO") ($GO) is too old to build the agent (it needs ${GO_MIN}). Re-run without --no-install-deps to download a suitable Go, or install Go ${GO_MIN} or later."
 fi
 if [[ -n $GO ]]; then
     ok "Go detected: $("$GO" version 2>/dev/null | awk '{print $3}') ($GO)"
@@ -436,12 +527,18 @@ if [[ $AGENT_ONLY -eq 0 && ( ! -f $SRC_DIR/panel/vendor/autoload.php || $vendor_
     if [[ -z $COMPOSER && $INSTALL_DEPS -eq 1 ]]; then
         log "Installing Composer"
         if [[ $PKG == dnf ]]; then run dnf install -y -q composer; else run env DEBIAN_FRONTEND=noninteractive apt-get "${APT_WAIT[@]}" install -y -q --no-install-recommends composer; fi
+        keep_system_php
         COMPOSER=$(find_composer || true)
     fi
     [[ -n $COMPOSER ]] || die "panel/vendor is missing and Composer was not found (looked in PATH, /usr/local/bin, /usr/bin and your ~/.local/bin). Install it, or re-run without --no-install-deps."
-    ok "Composer detected: $("$COMPOSER" --version 2>/dev/null | head -1) ($COMPOSER)"
+    # Run by the panel's PHP: the distribution's Composer would use the
+    # system's php (8.1 on Ubuntu 22.04) and refuse the panel's requirements.
+    # (A PHP script or phar; a shell wrapper runs as it is.)
+    COMPOSER_CMD=("$COMPOSER")
+    if [[ $COMPOSER == *.phar ]] || head -n1 "$COMPOSER" 2>/dev/null | grep -q 'php'; then COMPOSER_CMD=("$PHP_BIN" "$COMPOSER"); fi
+    ok "Composer detected: $("${COMPOSER_CMD[@]}" --version 2>/dev/null | head -1) ($COMPOSER)"
     log "Installing panel PHP dependencies"
-    (cd "$SRC_DIR/panel" && run env COMPOSER_ALLOW_SUPERUSER=1 "$COMPOSER" install --no-dev --no-interaction --optimize-autoloader -q)
+    (cd "$SRC_DIR/panel" && run env COMPOSER_ALLOW_SUPERUSER=1 "${COMPOSER_CMD[@]}" install --no-dev --no-interaction --optimize-autoloader -q)
     give_back "$SRC_DIR/panel/vendor"
 fi
 
@@ -543,14 +640,19 @@ ok "$CONF_DIR"
 # --------------------------------------------------------- 7. services ----
 log "Installing systemd services"
 run install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent.service" /etc/systemd/system/whacp-agent.service
-run install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.service" /etc/systemd/system/whacp-scheduler.service
+if [[ $DRY_RUN -eq 1 ]]; then
+    echo "    [dry-run] /etc/systemd/system/whacp-scheduler.service (PHP $PHP_BIN)"
+else
+    sed "s#/usr/bin/php #${PHP_BIN} #" "$SRC_DIR/installer/systemd/whacp-scheduler.service" > /etc/systemd/system/whacp-scheduler.service
+    chmod 0644 /etc/systemd/system/whacp-scheduler.service
+fi
 run install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.timer" /etc/systemd/system/whacp-scheduler.timer
 if [[ $AGENT_ONLY -eq 1 ]]; then
     :
 elif [[ $DRY_RUN -eq 1 ]]; then
     echo "    [dry-run] install whacp-panel.service (port $PORT)"
 else
-    sed "s/127.0.0.1:8090/127.0.0.1:${PORT}/" "$SRC_DIR/installer/systemd/whacp-panel.service" > /etc/systemd/system/whacp-panel.service
+    sed -e "s/127.0.0.1:8090/127.0.0.1:${PORT}/" -e "s#/usr/bin/php #${PHP_BIN} #" "$SRC_DIR/installer/systemd/whacp-panel.service" > /etc/systemd/system/whacp-panel.service
     chmod 0644 /etc/systemd/system/whacp-panel.service
 fi
 if [[ $ENABLE_WRITES -eq 1 ]]; then
@@ -579,7 +681,7 @@ fi
 run systemctl enable --now whacp-agent.service
 if [[ $AGENT_ONLY -eq 0 ]]; then
     log "Initialising the panel database"
-    run runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" migrate
+    run runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" migrate
     run systemctl enable --now whacp-panel.service
     run systemctl enable --now whacp-scheduler.timer
 fi
@@ -593,13 +695,13 @@ run systemctl try-restart whacp-greylist.service whacp-mailrate.service
 
 # ---------------------------------------------------- 8. administrator ----
 if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
-    users=$(runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" users:count 2>/dev/null || echo 0)
+    users=$(runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" users:count 2>/dev/null || echo 0)
     if [[ $users == 0 ]]; then
         log "Creating the first administrator"
         if [[ -z $ADMIN_USER ]]; then read -r -p "  Admin username [admin]: " ADMIN_USER; ADMIN_USER=${ADMIN_USER:-admin}; fi
         if [[ -z $ADMIN_EMAIL ]]; then read -r -p "  Admin email: " ADMIN_EMAIL; fi
         ADMIN_PASS="$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20)"
-        printf '%s\n' "$ADMIN_PASS" | runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" user:create "$ADMIN_USER" "$ADMIN_EMAIL" --role=admin
+        printf '%s\n' "$ADMIN_PASS" | runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" user:create "$ADMIN_USER" "$ADMIN_EMAIL" --role=admin
         CREATED_PASS=$ADMIN_PASS
     else
         ok "administrator already exists"
@@ -709,7 +811,7 @@ NGINX
         grep -q "'trusted_proxies' => \[[^]]*'127.0.0.1'" "$CONF_DIR/panel.php" || warn "add '127.0.0.1' to 'trusted_proxies' in $CONF_DIR/panel.php by hand"
         systemctl restart whacp-panel.service
         # The web terminal's WebSocket listener (loopback; Nginx proxies to it).
-        set_terminal=$(php -r '$f = $argv[1]; $c = json_decode((string) file_get_contents($f), true);
+        set_terminal=$("$PHP_BIN" -r '$f = $argv[1]; $c = json_decode((string) file_get_contents($f), true);
             if (!is_array($c)) { exit(1); }
             if (($c["terminal_listen"] ?? "") === "") { $c["terminal_listen"] = "127.0.0.1:" . $argv[2];
                 file_put_contents($f, json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"); echo "set"; }' "$CONF_DIR/agent.json" "$TERMINAL_PORT") \
@@ -738,16 +840,16 @@ if [[ $DRY_RUN -eq 0 ]]; then
     systemctl is-active --quiet whacp-agent && ok "whacp-agent is running" || warn "whacp-agent is not running: journalctl -u whacp-agent"
 fi
 if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
-    runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" agent:check && ok "panel can reach the agent" || warn "panel cannot reach the agent"
+    runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" agent:check && ok "panel can reach the agent" || warn "panel cannot reach the agent"
     for _ in 1 2 3 4 5; do curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null 2>&1 && break; sleep 1; done
     curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null && ok "panel answers on 127.0.0.1:${PORT}" || warn "panel is not answering: journalctl -u whacp-panel"
     if [[ -n $PUBLIC_HTTPS ]]; then
         for _ in 1 2 3 4 5; do curl -fsSk "https://127.0.0.1:${PUBLIC_HTTPS}/healthz" >/dev/null 2>&1 && break; sleep 1; done
         curl -fsSk "https://127.0.0.1:${PUBLIC_HTTPS}/healthz" >/dev/null && ok "panel answers over HTTPS on port ${PUBLIC_HTTPS}" || warn "the panel does not answer on https://127.0.0.1:${PUBLIC_HTTPS}/: journalctl -u nginx"
     fi
-    runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" discovery:run || warn "initial discovery failed"
+    runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" discovery:run || warn "initial discovery failed"
     # Cron schedules in the new agent's form (each job sandboxed).
-    runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php php "$PREFIX/panel/bin/whacp" cron:sync || warn "some cron schedules were not written again (see above)"
+    runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" cron:sync || warn "some cron schedules were not written again (see above)"
 fi
 
 if [[ $AGENT_ONLY -eq 1 ]]; then

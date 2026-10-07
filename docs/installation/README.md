@@ -25,9 +25,20 @@
   the booleans it needs (`httpd_can_network_connect` for proxies and
   webmail, `ftpd_full_access` for FTP) and labels a moved SSH port. firewalld
   is used for the firewall, and Rspamd comes from rspamd.com's repository.
-- PHP ≥ 8.3 CLI with `pdo_sqlite`, `curl`, `mbstring` (Ubuntu 22.04 ships
-  PHP 8.1 — install 8.3 from a PHP repository first; your websites are not
-  affected, WhaCP only uses the CLI binary).
+- PHP ≥ 8.3 CLI with `pdo_sqlite`, `curl`, `mbstring`.
+  - **Ubuntu 22.04** ships PHP 8.1. The installer adds the `ondrej/php`
+    PPA (signed) and installs `php8.3-cli` for the panel only.
+  - The system's default `php` stays as it was, so websites' cron jobs and
+    scripts keep their version.
+  - The panel's services run `/usr/bin/php8.3`.
+- **Go** to build the agent from a git checkout (release archives include
+  it):
+  - The installer uses the system's Go when it is recent enough: 1.24, or
+    1.21 or later, which downloads 1.24 itself.
+  - Otherwise (Ubuntu 22.04 ships Go 1.18) it downloads Go 1.24 from go.dev
+    into `/usr/local/lib/whacp-go`, after checking the archive's SHA-256.
+    The system's Go is not changed.
+- Composer is installed when missing and run with the panel's PHP.
 - To build from source: Go ≥ 1.24 and Composer (or ship `dist/whacp-agent`
   and `panel/vendor`).
 
@@ -211,7 +222,7 @@ ssh -L 8090:127.0.0.1:8090 you@server
 
 ```bash
 systemctl status whacp-agent whacp-panel whacp-scheduler.timer
-sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp doctor
+sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp doctor   # Ubuntu 22.04: php8.3
 curl -s http://127.0.0.1:8090/healthz
 ```
 

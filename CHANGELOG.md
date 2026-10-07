@@ -234,6 +234,14 @@ All notable changes to WhaCP are documented here. The format follows
   the system's services are not affected.
 
 ### Fixed
+- **Installer on Ubuntu 22.04:**
+  - **PHP:** the installer stopped with only a warning about PHP 8.1. It
+    now installs PHP 8.3 for the panel from the `ondrej/php` PPA. The
+    system's default `php` is left as it was, and the panel's services,
+    Composer and `upgrade.sh` use the panel's own PHP.
+  - **Go:** the agent did not build with the distribution's Go 1.18. When
+    the system's Go is too old, the installer now downloads Go 1.24 from
+    go.dev into `/usr/local/lib/whacp-go` and checks its SHA-256 first.
 - **Recovery from remote storage refused real website backups:**
   - The authentication of a website backup's manifest covered its panel
     metadata as sent. The manifest is stored indented, which changed those

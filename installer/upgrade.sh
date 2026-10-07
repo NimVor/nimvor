@@ -63,8 +63,12 @@ for arg in "$@"; do
     esac
 done
 
-panel_cli() { runuser -u "$PANEL_USER" -- env WHACP_CONFIG="$CONF_DIR/panel.php" php "$PREFIX/panel/bin/whacp" "$@"; }
-db_path() { php -r '$c = require $argv[1]; echo $c["database"]["path"] ?? "/var/lib/whacp/whacp.sqlite";' "$CONF_DIR/panel.php"; }
+# The panel's PHP (>= 8.3) as installed, which need not be the system's
+# default "php" (Ubuntu 22.04: PHP 8.3 next to the system's 8.1).
+PHP_BIN=$(grep -oE '^ExecStart=[^ ]+' /etc/systemd/system/whacp-panel.service 2>/dev/null | head -1 | cut -d= -f2)
+[[ -n $PHP_BIN && -x $PHP_BIN ]] || PHP_BIN=$(command -v php || echo /usr/bin/php)
+panel_cli() { runuser -u "$PANEL_USER" -- env WHACP_CONFIG="$CONF_DIR/panel.php" "$PHP_BIN" "$PREFIX/panel/bin/whacp" "$@"; }
+db_path() { "$PHP_BIN" -r '$c = require $argv[1]; echo $c["database"]["path"] ?? "/var/lib/whacp/whacp.sqlite";' "$CONF_DIR/panel.php"; }
 installed_version() { cat "$PREFIX/panel/VERSION" 2>/dev/null || echo "0.4.0"; }
 
 [[ $JOB_WAIT =~ ^([0-9]+[smh])+$|^0$ ]] || die "--wait needs a duration such as 30m, 2h or 0"
@@ -125,7 +129,7 @@ health() {
 
 # db_ok <sqlite file>: SQLite finds no corruption in it.
 db_ok() {
-    [[ $(php -r '$p = new PDO("sqlite:" . $argv[1], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); echo $p->query("PRAGMA integrity_check")->fetchColumn();' "$1" 2>/dev/null) == ok ]]
+    [[ $("$PHP_BIN" -r '$p = new PDO("sqlite:" . $argv[1], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); echo $p->query("PRAGMA integrity_check")->fetchColumn();' "$1" 2>/dev/null) == ok ]]
 }
 
 # write_sums / verify_backup <backup dir>: a checksum of every file in an
@@ -192,7 +196,7 @@ if [[ $ROLLBACK -eq 1 ]]; then
     latest=${latest%/}
     verify_backup "$latest" || die "the backup $(basename "$latest") failed verification; nothing was changed"
     since=$(backup_time "$latest")
-    changes=$(php -r '$p = new PDO("sqlite:" . $argv[1]); $s = $p->prepare("SELECT COUNT(*) FROM audit_logs WHERE created_at >= ?"); $s->execute([$argv[2]]); echo (int) $s->fetchColumn();' "$(db_path)" "$since" 2>/dev/null || echo "?")
+    changes=$("$PHP_BIN" -r '$p = new PDO("sqlite:" . $argv[1]); $s = $p->prepare("SELECT COUNT(*) FROM audit_logs WHERE created_at >= ?"); $s->execute([$argv[2]]); echo (int) $s->fetchColumn();' "$(db_path)" "$since" 2>/dev/null || echo "?")
     warn "Rolling back restores WhaCP $(cat "$latest/version" 2>/dev/null) and the panel database as it was at $since."
     warn "Everything changed in the panel since then is lost from the panel ($changes change(s) in the audit log since then)."
     warn "What was already done on the server stays there: e.g. a website created since then keeps running but no longer appears in the panel."
@@ -224,7 +228,7 @@ fi
 "$AGENT_SRC" -config "$CONF_DIR/agent.json" -check-config >/dev/null || die "the new agent rejects $CONF_DIR/agent.json; nothing was changed"
 ok "new agent accepts the existing configuration"
 [[ -f $SRC_DIR/panel/vendor/autoload.php ]] || die "panel/vendor is missing (run 'composer install --no-dev' in panel/)"
-php -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);' || die "the panel needs PHP >= 8.3"
+"$PHP_BIN" -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);' || die "the panel needs PHP >= 8.3 ($PHP_BIN)"
 confirm "Upgrade now? WhaCP's panel is unavailable for a few seconds; websites are not affected." || die "aborted"
 log "Waiting for running jobs"
 wait_jobs "$AGENT_SRC" || die "jobs are still running; nothing was changed. Try again later or pass --wait=<longer>"
@@ -260,7 +264,7 @@ if [[ -f $DB ]]; then
     # the database file. The checkpoint must complete (busy = 0), otherwise
     # the copy could miss the latest changes.
     for i in 1 2 3 4 5 6 7 8 9 10; do
-        busy=$(php -r '$p = new PDO("sqlite:" . $argv[1], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); echo $p->query("PRAGMA wal_checkpoint(TRUNCATE)")->fetch(PDO::FETCH_NUM)[0];' "$DB" 2>/dev/null || echo error)
+        busy=$("$PHP_BIN" -r '$p = new PDO("sqlite:" . $argv[1], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); echo $p->query("PRAGMA wal_checkpoint(TRUNCATE)")->fetch(PDO::FETCH_NUM)[0];' "$DB" 2>/dev/null || echo error)
         [[ $busy == 0 ]] && break
         sleep 1
     done
