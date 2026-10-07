@@ -219,12 +219,37 @@ if [[ $newest != "${NEW/-/\~}" && $ALLOW_DOWNGRADE -eq 0 ]]; then
 fi
 
 AGENT_SRC=$SRC_DIR/dist/whacp-agent
-if [[ ! -x $AGENT_SRC || ${WHACP_REBUILD:-1} == 1 && -n $(command -v go) ]]; then
-    log "Building the agent"
-    mkdir -p "$SRC_DIR/dist"
-    (cd "$SRC_DIR/agent" && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$NEW" -o "$AGENT_SRC" ./cmd/whacp-agent)
+# Go as install.sh finds it: sudo's PATH often lacks it, and the installer
+# may have put it in /usr/local/lib/whacp-go (Ubuntu 22.04) or found the
+# distribution's /usr/lib/go-1.xx.
+find_go() {
+    local c
+    # shellcheck disable=SC2046
+    for c in "$(command -v go 2>/dev/null || true)" /usr/local/lib/whacp-go/go/bin/go /usr/local/go/bin/go /usr/lib/golang/bin/go $(ls -d /usr/lib/go-*/bin/go 2>/dev/null | sort -V -r) /usr/lib/go/bin/go; do
+        [[ -n $c && -x $c && ! -d $c ]] || continue
+        # Go 1.21+ fetches the toolchain go.mod asks for; older Go cannot.
+        local v; v=$("$c" env GOVERSION 2>/dev/null); v=${v#go}
+        [[ -n $v && $(printf '%s\n1.21\n' "$v" | sort -V | head -1) == 1.21 ]] && { printf '%s\n' "$c"; return 0; }
+    done
+    return 1
+}
+GO=$(find_go || true)
+# A build older than the agent's sources (after git pull) must not be
+# installed: the upgrade would keep the old agent.
+stale=0
+if [[ ! -x $AGENT_SRC ]] || [[ -d $SRC_DIR/agent && -n $(find "$SRC_DIR/agent" "$SRC_DIR/VERSION" \( -name '*.go' -o -name go.mod -o -name go.sum -o -name VERSION \) -newer "$AGENT_SRC" -print -quit 2>/dev/null) ]]; then
+    stale=1
 fi
-[[ -x $AGENT_SRC ]] || die "no agent binary (dist/whacp-agent) and Go is not installed"
+if [[ -n $GO && ( $stale -eq 1 || ${WHACP_REBUILD:-1} == 1 ) ]]; then
+    log "Building the agent ($("$GO" env GOVERSION 2>/dev/null))"
+    mkdir -p "$SRC_DIR/dist"
+    version=$NEW
+    if commit=$(git -C "$SRC_DIR" -c safe.directory="$SRC_DIR" rev-parse --short HEAD 2>/dev/null); then version+="+$commit"; fi
+    (cd "$SRC_DIR/agent" && CGO_ENABLED=0 HOME="${HOME:-/root}" GOTOOLCHAIN=auto "$GO" build -trimpath -ldflags "-s -w -X main.version=$version" -o "$AGENT_SRC" ./cmd/whacp-agent)
+    stale=0
+fi
+[[ -x $AGENT_SRC ]] || die "no agent binary (dist/whacp-agent) and no usable Go (1.21 or later) was found; run installer/install.sh --reinstall, which installs Go"
+[[ $stale -eq 0 ]] || die "dist/whacp-agent is older than the agent's sources (after git pull) and no usable Go (1.21 or later) was found to rebuild it; run installer/install.sh --reinstall, which installs Go"
 "$AGENT_SRC" -config "$CONF_DIR/agent.json" -check-config >/dev/null || die "the new agent rejects $CONF_DIR/agent.json; nothing was changed"
 ok "new agent accepts the existing configuration"
 [[ -f $SRC_DIR/panel/vendor/autoload.php ]] || die "panel/vendor is missing (run 'composer install --no-dev' in panel/)"
