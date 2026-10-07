@@ -93,7 +93,17 @@ func Register(r *actions.Registry, env *host.Env) {
 			if err := env.FPMTest(ctx, in.Version); err != nil {
 				return nil, fmt.Errorf("PHP %s was installed, but PHP-FPM refuses its configuration: %v", in.Version, err)
 			}
-			fmt.Fprintf(log, "  ✓ PHP %s: command line and PHP-FPM configuration work\n", in.Version)
+			// RHEL packages do not enable their services (Debian's do): PHP-FPM
+			// must also start at boot, or websites on this version stop
+			// working after a restart.
+			unit := env.M.FPMUnit(in.Version)
+			if err := env.Systemctl(ctx, "enable", unit); err != nil {
+				return nil, fmt.Errorf("PHP %s was installed, but PHP-FPM could not be enabled at boot: %v", in.Version, err)
+			}
+			if err := env.Systemctl(ctx, "start", unit); err != nil {
+				return nil, fmt.Errorf("PHP %s was installed, but PHP-FPM did not start: %v", in.Version, err)
+			}
+			fmt.Fprintf(log, "  ✓ PHP %s: command line and PHP-FPM configuration work; %s is running and starts at boot\n", in.Version, unit)
 			return nil, nil
 		})
 		return map[string]any{"job_id": j.ID, "packages": packages}, nil

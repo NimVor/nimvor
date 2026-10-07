@@ -67,6 +67,9 @@ func (c Client) Status(ctx context.Context, units []string) ([]Service, error) {
 // ParseShow parses `systemctl show` output (blank-line separated records).
 func ParseShow(out string) []Service {
 	var services []Service
+	// An alias (mysqld.service for mariadb.service on RHEL) is shown with
+	// the unit's own Id: list each unit once.
+	seen := map[string]bool{}
 	for _, block := range strings.Split(strings.ReplaceAll(out, "\r\n", "\n"), "\n\n") {
 		block = strings.TrimSpace(block)
 		if block == "" {
@@ -87,9 +90,10 @@ func ParseShow(out string) []Service {
 			SubState:      kv["SubState"],
 			UnitFileState: kv["UnitFileState"],
 		}
-		if s.Unit == "" {
+		if s.Unit == "" || seen[s.Unit] {
 			continue
 		}
+		seen[s.Unit] = true
 		s.MainPID, _ = strconv.Atoi(kv["MainPID"])
 		if m, err := strconv.ParseUint(kv["MemoryCurrent"], 10, 64); err == nil {
 			s.MemoryBytes = &m

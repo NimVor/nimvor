@@ -32,6 +32,9 @@ func TestInstallRunsAptAsJob(t *testing.T) {
 	if j.Status != "succeeded" || !h.Runner.Called("apt-get install -y -q --no-install-recommends -o Dpkg::Options::=--force-confold -o DPkg::Lock::Timeout=300 -- php8.4-fpm php8.4-cli php8.4-curl") {
 		t.Fatalf("job %+v calls %v", j, h.Runner.Calls)
 	}
+	if !h.Runner.Called("systemctl enable -- php8.4-fpm.service") || !h.Runner.Called("systemctl start -- php8.4-fpm.service") {
+		t.Fatalf("PHP-FPM not enabled and started: %v", h.Runner.Calls)
+	}
 	if _, err := a.Handler(context.Background(), json.RawMessage(`{"version":"8.4","extensions":["curl;rm"]}`)); err == nil {
 		t.Fatal("bad extension accepted")
 	}

@@ -71,3 +71,13 @@ func TestDiscoverUnits(t *testing.T) {
 		t.Fatalf("units = %v", units)
 	}
 }
+
+// RHEL: mysqld.service is an alias of mariadb.service; systemctl show
+// answers both with Id=mariadb.service, listed once.
+func TestParseShowAliasOnce(t *testing.T) {
+	block := "Id=mariadb.service\nDescription=MariaDB 10.5 database server\nLoadState=loaded\nActiveState=active\nSubState=running\n"
+	got := ParseShow(block + "\n" + block + "\nId=nginx.service\nLoadState=loaded\nActiveState=active\n")
+	if len(got) != 2 || got[0].Unit != "mariadb.service" || got[1].Unit != "nginx.service" {
+		t.Fatalf("%+v", got)
+	}
+}
