@@ -243,6 +243,7 @@ var (
 
 // SystemRunner is the production Runner.
 type SystemRunner struct {
+	mu      sync.RWMutex
 	paths   map[string]string
 	timeout time.Duration
 }
@@ -258,17 +259,48 @@ func NewSystemRunner(timeout time.Duration) *SystemRunner {
 	return r
 }
 
+func isExecutable(p string) bool {
+	info, err := os.Stat(p)
+	return err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0
+}
+
 func firstExecutable(cands []string) string {
 	for _, c := range cands {
-		if info, err := os.Stat(c); err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0 {
+		if isExecutable(c) {
 			return c
 		}
 	}
 	return ""
 }
 
+// path returns the allowlisted command's binary. The allowlist is looked up
+// again when the binary is not where it was: a program installed after the
+// agent started (firewalld or UFW from the Packages page, ClamAV, …) is
+// found without restarting the agent, and one removed is reported missing.
+func (r *SystemRunner) path(id string) (string, bool) {
+	cands, known := defaultCandidates[id]
+	r.mu.RLock()
+	p, ok := r.paths[id]
+	r.mu.RUnlock()
+	if ok && (!known || isExecutable(p)) {
+		return p, true
+	}
+	if !known {
+		return "", false
+	}
+	p = firstExecutable(cands)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if p == "" {
+		delete(r.paths, id)
+		return "", false
+	}
+	r.paths[id] = p
+	return p, true
+}
+
 func (r *SystemRunner) resolve(id string) (string, error) {
-	if p, ok := r.paths[id]; ok {
+	if p, ok := r.path(id); ok {
 		return p, nil
 	}
 	switch {
@@ -290,6 +322,11 @@ func (r *SystemRunner) resolve(id string) (string, error) {
 		return "", fmt.Errorf("%w: %s", ErrUnavailable, id)
 	}
 	return "", fmt.Errorf("%w: %s", ErrNotAllowed, id)
+}
+
+func (r *SystemRunner) mustPath(id string) string {
+	p, _ := r.path(id)
+	return p
 }
 
 // Available reports whether the command is allowlisted and installed.
@@ -394,7 +431,7 @@ var baseEnv = []string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/
 
 // transient reports whether commands as other accounts go through PID 1.
 func (r *SystemRunner) transient() bool {
-	if _, ok := r.paths["systemd-run"]; !ok {
+	if _, ok := r.path("systemd-run"); !ok {
 		return false
 	}
 	_, err := os.Stat("/run/systemd/system")
@@ -614,7 +651,7 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 	if o.As.Package {
 		unit = PackageUnitPrefix + strings.TrimPrefix(unit, "whacp-run-")
 	}
-	cmd := exec.CommandContext(ctx, r.paths["systemd-run"], TransientArgs(unit, sh, bin, dir, env, *o.As, timeout, in, out, errp, sendmailBinds(), args)...)
+	cmd := exec.CommandContext(ctx, r.mustPath("systemd-run"), TransientArgs(unit, sh, bin, dir, env, *o.As, timeout, in, out, errp, sendmailBinds(), args)...)
 	cmd.Env = baseEnv
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	cmd.Stdout, cmd.Stderr = w, w // systemd-run's own messages
@@ -626,7 +663,7 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 			return cmd.Process.Kill()
 		}
 		// Stopping systemd-run alone would leave the unit running.
-		if sc, ok := r.paths["systemctl"]; ok {
+		if sc, ok := r.path("systemctl"); ok {
 			stop := exec.Command(sc, "stop", "--no-block", unit)
 			stop.Env = baseEnv
 			_ = stop.Run()

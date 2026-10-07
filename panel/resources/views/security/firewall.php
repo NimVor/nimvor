@@ -60,7 +60,7 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
 ?>
 <?= $this->partial('security/_header', get_defined_vars()) ?>
 <?php if ($fw !== [] && empty($fw['installed'])): ?>
-    <div class="wcp-infobar"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>The firewall (UFW) is not installed. Install it from <a href="<?= e($this->url('packages')) ?>">Packages</a>.</span></div>
+    <div class="wcp-infobar"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>The firewall (<?= ($fw['backend'] ?? '') === 'firewalld' ? 'firewalld' : 'UFW' ?>) is not installed. Install it from <a href="<?= e($this->url('packages')) ?>">Packages</a>.</span></div>
 <?php elseif ($fw !== []): ?>
 <?php $required = (array) ($fw['required'] ?? []); $myIp ??= ''; $active = !empty($fw['active']); ?>
 <div class="wcp-panel mb-3">

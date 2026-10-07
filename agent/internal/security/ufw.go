@@ -157,6 +157,10 @@ func Firewall(ctx context.Context, env *host.Env) (FirewallStatus, error) {
 	if useFirewalld(env) {
 		return firewalldStatus(ctx, env)
 	}
+	if env.Platform.PackageManager() == "dnf" {
+		// The RHEL family's firewall is firewalld, not UFW.
+		return FirewallStatus{Backend: "firewalld", Rules: []Rule{}}, nil
+	}
 	st := FirewallStatus{Backend: "ufw", Installed: env.Runner.Available("ufw"), Rules: []Rule{}}
 	if !st.Installed {
 		return st, nil

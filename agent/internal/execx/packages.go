@@ -127,7 +127,7 @@ func acquirePackageSlot(ctx context.Context, log io.Writer) (release func(), err
 // activePackageUnits lists running package transaction units (e.g. one an
 // earlier agent started before it was restarted).
 func (r *SystemRunner) activePackageUnits(ctx context.Context) []string {
-	sc, ok := r.paths["systemctl"]
+	sc, ok := r.path("systemctl")
 	if !ok {
 		return nil
 	}

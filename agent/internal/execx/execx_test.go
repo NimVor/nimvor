@@ -3,6 +3,8 @@ package execx
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -151,5 +153,29 @@ func TestProcessManagerPrivilegedArgs(t *testing.T) {
 		if (err == nil) != c.ok {
 			t.Errorf("%s %v: %v", c.id, c.args, err)
 		}
+	}
+}
+
+// A program installed after the agent started is found without a restart,
+// and one removed is reported missing.
+func TestAllowlistedCommandInstalledLater(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "firewall-cmd")
+	saved := defaultCandidates["firewall-cmd"]
+	defaultCandidates["firewall-cmd"] = []string{bin}
+	defer func() { defaultCandidates["firewall-cmd"] = saved }()
+	r := NewSystemRunner(time.Second)
+	if r.Available("firewall-cmd") {
+		t.Fatal("available before it is installed")
+	}
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !r.Available("firewall-cmd") {
+		t.Fatal("not found after it was installed")
+	}
+	os.Remove(bin)
+	if r.Available("firewall-cmd") {
+		t.Fatal("still available after it was removed")
 	}
 }
