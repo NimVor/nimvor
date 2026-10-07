@@ -149,3 +149,38 @@ func TestPackagesByCapability(t *testing.T) {
 		}
 	}
 }
+
+// Components the repositories do not offer (Brotli and the ModSecurity
+// module on Ubuntu 22.04) are listed as unavailable, not as installable.
+func TestPackagesNotInTheRepositories(t *testing.T) {
+	h := testhost.New(t)
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		switch {
+		case id == "dpkg-query":
+			return "", fmt.Errorf("not found"), true
+		case id == "apt-cache" && args[0] == "policy":
+			var b strings.Builder
+			for _, p := range args[2:] {
+				cand := "1.0-1"
+				if p == "libnginx-mod-brotli" || p == "libnginx-mod-http-modsecurity" {
+					cand = "(none)"
+				}
+				fmt.Fprintf(&b, "%s:\n  Installed: (none)\n  Candidate: %s\n", p, cand)
+			}
+			return b.String(), nil, true
+		}
+		return "", nil, false
+	}
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	res, err := call(t, r, "packages.list", `{}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range res.([]Package) {
+		want := p.Name == "libnginx-mod-brotli" || p.Name == "libnginx-mod-http-modsecurity"
+		if p.Unavailable != want {
+			t.Errorf("%s: unavailable %v, want %v", p.Name, p.Unavailable, want)
+		}
+	}
+}

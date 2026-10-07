@@ -234,6 +234,13 @@ All notable changes to WhaCP are documented here. The format follows
   the system's services are not affected.
 
 ### Fixed
+- **Packages:** components the system's repositories do not offer (Brotli
+  and the ModSecurity Nginx module on Ubuntu 22.04) are shown as "Not
+  available on this system" instead of an Install button that always
+  failed. ModSecurity links to its build from source.
+- **Installation queue window:** the queue is narrower and scrolls, keeps
+  the component being installed in view, and installed components leave
+  the list (failed ones stay with Retry). The last output stays shown.
 - **Installer on Ubuntu 22.04:**
   - **PHP:** the installer stopped with only a warning about PHP 8.1. It
     now installs PHP 8.3 for the panel from the `ondrej/php` PPA. The

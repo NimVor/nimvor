@@ -159,6 +159,12 @@ func refreshIndex(ctx context.Context, env *host.Env, log io.Writer) error {
 	return err
 }
 
+// Unavailable returns the packages the enabled repositories do not offer
+// (and that are not installed); ok is false when that cannot be told.
+func Unavailable(ctx context.Context, env *host.Env, pkgs []string) ([]string, bool) {
+	return unavailable(ctx, env, pkgs)
+}
+
 // unavailable returns the packages the enabled repositories do not offer
 // (and that are not installed). ok is false when that cannot be told; the
 // installation then reports what the package manager says.

@@ -87,6 +87,9 @@ type Package struct {
 	Reason string `json:"reason,omitempty"`
 	// Source: "package", or "other" when it works without the package.
 	Source string `json:"source,omitempty"`
+	// Unavailable: not installed and not offered by the enabled
+	// repositories (e.g. Brotli on Ubuntu 22.04); Install would fail.
+	Unavailable bool `json:"unavailable,omitempty"`
 }
 
 // commandOf maps components to the program that provides them.
@@ -204,18 +207,35 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		sort.Strings(names)
 		inst := pkgs.Installed(ctx, env, names)
+		// Which missing components the repositories cannot provide.
+		var query []string
+		for _, n := range names {
+			if _, ok := inst[n]; !ok && caps[n].State != capability.Functional {
+				if native, has := env.Platform.PackageName(n); has && native != "" {
+					query = append(query, native)
+				}
+			}
+		}
+		notOffered := map[string]bool{}
+		if len(query) > 0 {
+			if missing, ok := pkgs.Unavailable(ctx, env, query); ok {
+				for _, m := range missing {
+					notOffered[m] = true
+				}
+			}
+		}
 		out := make([]Package, 0, len(names))
 		for _, n := range names {
 			v, ok := inst[n]
 			native, _ := env.Platform.PackageName(n)
-			p := Package{Name: n, Package: native, Description: Components[n], Installed: ok, Version: v}
+			p := Package{Name: n, Package: native, Description: Components[n], Installed: ok, Version: v, Unavailable: !ok && native != "" && notOffered[native]}
 			if c, has := caps[n]; has {
 				p.State, p.Reason = c.State, c.Reason
 				switch {
 				case ok:
 					p.Source = "package"
 				case c.State == capability.Functional:
-					p.Installed, p.Source = true, "other"
+					p.Installed, p.Source, p.Unavailable = true, "other", false
 				}
 			}
 			out = append(out, p)

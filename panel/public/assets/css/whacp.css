@@ -901,3 +901,5 @@ button.wcp-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .wcp-pkg-items .list-group-item.is-selected { background: var(--bs-secondary-bg); box-shadow: inset 3px 0 0 var(--bs-primary); }
 .wcp-pkg-add { max-height: 14rem; overflow-y: auto; }
 .wcp-pkg-out { height: 30rem; }
+.wcp-pkg-items { max-height: 22rem; overflow-y: auto; }
+.wcp-pkg-items .list-group-item.is-running { background: var(--bs-info-bg-subtle); }

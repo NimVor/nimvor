@@ -762,6 +762,7 @@
         var countEl = document.querySelector('[data-wcp-pkg-count]');
         var queue = [];
         var selected = null;
+        var lastDone = null; // its output stays shown after it left the list
         var timer = null;
         var badges = { queued: 'text-bg-secondary', running: 'text-bg-info', succeeded: 'text-bg-success', failed: 'text-bg-danger' };
         var labels = { queued: 'Queued', running: 'In process…', succeeded: 'Installed', failed: 'Failed' };
@@ -858,7 +859,7 @@
             itemsEl.textContent = '';
             var auto = null;
             queue.forEach(function (it) {
-                var li = el('li', 'list-group-item d-flex align-items-center gap-2');
+                var li = el('li', 'list-group-item d-flex align-items-center gap-2' + (it.status === 'running' ? ' is-running' : ''));
                 li.setAttribute('data-wcp-pkg-item', it.name);
                 li.setAttribute('tabindex', '0');
                 li.setAttribute('role', 'button');
@@ -875,13 +876,21 @@
                 itemsEl.appendChild(li);
                 if (it.status === 'running' || (!auto && it.log)) { auto = it; }
             });
-            var shown = queue.filter(function (it) { return it.name === selected; })[0] || auto;
+            var shown = queue.filter(function (it) { return it.name === selected; })[0] || auto || lastDone;
             itemsEl.querySelectorAll('[data-wcp-pkg-item]').forEach(function (li) { li.classList.toggle('is-selected', !!shown && li.getAttribute('data-wcp-pkg-item') === shown.name); });
             if (shown) {
                 logNameEl.textContent = 'Output: ' + shown.name + ' (' + labels[shown.status].replace('…', '') + ')';
                 var atEnd = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 8;
                 logEl.textContent = shown.log || (shown.status === 'queued' ? 'Waiting for its turn…' : '');
                 if (atEnd) { logEl.scrollTop = logEl.scrollHeight; }
+            }
+            // Keep the component being installed in view in a long list.
+            var running = itemsEl.querySelector('.is-running');
+            if (running) {
+                var top = running.offsetTop - itemsEl.offsetTop;
+                if (top < itemsEl.scrollTop || top + running.offsetHeight > itemsEl.scrollTop + itemsEl.clientHeight) {
+                    itemsEl.scrollTop = Math.max(0, top - itemsEl.clientHeight / 2);
+                }
             }
             emptyEl.hidden = queue.length > 0;
             var waiting = queue.filter(pending).length;
@@ -906,6 +915,15 @@
                 render();
             }).catch(function () { setRow(it); render(); });
             WhaCP.toast(it.name + ' installed.', 'success');
+            // Installed components leave the queue (failed ones stay, with
+            // Retry); the output pane keeps showing the last one.
+            setTimeout(function () {
+                if (queue.indexOf(it) < 0 || it.status !== 'succeeded') { return; }
+                queue.splice(queue.indexOf(it), 1);
+                lastDone = it;
+                if (selected === it.name) { selected = null; }
+                render();
+            }, 2500);
         }
         function poll() {
             var open = queue.filter(pending);

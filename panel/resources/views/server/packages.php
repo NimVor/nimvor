@@ -8,8 +8,12 @@ $problems = (array) ($health['problems'] ?? []);
 // "installed" without "functional": present but not usable.
 $stats = ['installed' => 0, 'pending' => 0, 'failed' => 0];
 foreach ($packages as $p) {
+    if (!$p['installed'] && !empty($p['unavailable'])) {
+        continue; // not offered by this system's repositories
+    }
     $stats[(string) ($p['state'] ?? '') === 'installed' ? 'failed' : ($p['installed'] ? 'installed' : 'pending')]++;
 }
+$unavailableCount = count(array_filter($packages, static fn (array $p): bool => !$p['installed'] && !empty($p['unavailable'])));
 $kinds = ['failed_script' => 'install script failed', 'missing_dependency' => 'missing dependency', 'duplicate' => 'duplicate version', 'half_configured' => 'not fully installed'];
 ?>
 <?php // The install queue polls on its own: forms here submit normally. ?>
@@ -84,7 +88,7 @@ $kinds = ['failed_script' => 'install script failed', 'missing_dependency' => 'm
 <div class="tab-pane fade" id="components" role="tabpanel">
 <div class="card">
     <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-box-seam"></i>Components
-        <span class="ms-auto small text-body-secondary">Install several at once from the installation queue.</span>
+        <span class="ms-auto small text-body-secondary">Install several at once from the installation queue.<?= $unavailableCount > 0 ? ' ' . $unavailableCount . ' not available on this system.' : '' ?></span>
     </div>
     <ul class="list-group list-group-flush" data-wcp-pkg-list data-url="<?= e($this->url('packages')) ?>" data-install-url="<?= e($this->url('packages.install')) ?>">
         <?php foreach ($packages as $p): ?>
@@ -103,6 +107,13 @@ $kinds = ['failed_script' => 'install script failed', 'missing_dependency' => 'm
                         <span class="badge text-bg-warning" title="<?= e((string) ($p['reason'] ?? '')) ?>"><i class="bi bi-exclamation-triangle"></i> Present, not usable</span>
                         <div class="small text-body-secondary text-wrap wcp-maxw-28"><?= e((string) ($p['reason'] ?? '')) ?></div>
                         <form method="post" action="<?= e($this->url('packages.install')) ?>" data-wcp-pkg-install><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($p['name']) ?>"><button class="btn btn-sm btn-outline-primary">Install package</button></form>
+                    <?php elseif (!empty($p['unavailable'])): ?>
+                        <span class="badge text-bg-light border" title="The enabled package repositories of this system do not offer it"><i class="bi bi-slash-circle"></i> Not available on this system</span>
+                        <?php if ($p['name'] === 'libnginx-mod-http-modsecurity' && $this->hasRoute('security.modsec')): ?>
+                            <div class="small"><a href="<?= e($this->url('security.modsec', [], ['tab' => 'installs'])) ?>">Build it from source under Security → ModSecurity</a></div>
+                        <?php else: ?>
+                            <div class="small text-body-secondary text-wrap wcp-maxw-28">No package for this release; a newer OS release or a build by hand provides it.</div>
+                        <?php endif; ?>
                     <?php else: ?>
                         <form method="post" action="<?= e($this->url('packages.install')) ?>" data-wcp-pkg-install><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($p['name']) ?>"><button class="btn btn-sm btn-outline-primary">Install</button></form>
                     <?php endif; ?>
@@ -125,8 +136,8 @@ $kinds = ['failed_script' => 'install script failed', 'missing_dependency' => 'm
             <div class="modal-body">
                 <p class="small text-body-secondary mb-2">Components are installed one after another. Add as many as you like; you can close this window and the installation continues on the server.</p>
                 <div class="row g-3">
-                    <div class="col-lg-5">
-                        <div class="fw-semibold small mb-1">Queue</div>
+                    <div class="col-lg-4">
+                        <div class="fw-semibold small mb-1">Queue <span class="fw-normal text-body-secondary">(installed components leave the list)</span></div>
                         <ul class="list-group mb-2 wcp-pkg-items" data-wcp-pkg-items aria-label="Queued components"></ul>
                         <p class="small text-body-secondary" data-wcp-pkg-empty>Nothing queued yet.</p>
                         <div class="border rounded p-2" data-wcp-pkg-addbox>
@@ -137,7 +148,7 @@ $kinds = ['failed_script' => 'install script failed', 'missing_dependency' => 'm
                             <button type="button" class="btn btn-sm btn-primary mt-2" data-wcp-pkg-add-btn disabled><i class="bi bi-plus-lg me-1"></i>Add to queue</button>
                         </div>
                     </div>
-                    <div class="col-lg-7">
+                    <div class="col-lg-8">
                         <div class="small fw-semibold mb-1" data-wcp-pkg-logname>Output</div>
                         <pre class="wcp-pre wcp-joblog wcp-pkg-out mb-0" data-wcp-pkg-log aria-live="polite">Select a component in the queue to see its output.</pre>
                     </div>

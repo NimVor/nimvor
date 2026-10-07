@@ -53,10 +53,12 @@ const OUT = process.env.E2E_OUT || '/tmp';
 
     for (const n of [a, b]) {
       await page.waitForSelector(`${row(n)} [data-wcp-pkg-state] :text("Installed")`, { timeout: 30000 });
-      await page.waitForSelector(`${modal} [data-wcp-pkg-item="${n}"] :text("Installed")`);
       if (await page.locator(`${row(n)} [data-wcp-pkg-install]`).count() !== 0) { throw new Error(n + ' still offers Install'); }
+      // Installed components leave the queue list shortly after.
+      await page.waitForSelector(`${modal} [data-wcp-pkg-item="${n}"]`, { state: 'detached', timeout: 10000 });
     }
-    step('both rows show Installed; the queue shows both installed');
+    if (!(await page.isVisible(`${modal} [data-wcp-pkg-empty]`))) { throw new Error('empty queue not said'); }
+    step('both rows show Installed; installed components left the queue list');
     if ((await page.textContent(`${modal} [data-wcp-pkg-log]`)).trim() === '') { throw new Error('no installation log shown'); }
     if (!(await page.evaluate(() => window.__noReload === 1))) { throw new Error('the page was reloaded'); }
     step('log shown; the page was never reloaded');
@@ -65,13 +67,12 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.keyboard.press('Escape');
     await page.waitForSelector(modal, { state: 'hidden' });
     await page.click('[data-wcp-pkg-show]');
-    await page.waitForSelector(`${modal}.show [data-wcp-pkg-item="${a}"]`);
+    await page.waitForSelector(`${modal}.show`);
     step('the Queue button reopens the window');
     if ((await statNum('installed')) !== installed0 + 2) { throw new Error('installed stat not updated'); }
 
-    // Two panes; pick an item to see its output.
-    await page.click(`${modal} [data-wcp-pkg-item="${a}"]`);
-    if (!(await page.textContent(`${modal} [data-wcp-pkg-logname]`)).includes(a)) { throw new Error('selected output not shown'); }
+    // The output of the last installed component stays shown.
+    if (!(await page.textContent(`${modal} [data-wcp-pkg-logname]`)).includes(b)) { throw new Error('last output not kept: ' + await page.textContent(`${modal} [data-wcp-pkg-logname]`)); }
     // Add several components at once from inside the window.
     const more = await page.$$eval(`${modal} [data-wcp-pkg-add] input`, i => i.map(x => x.value));
     if (more.length >= 2) {
@@ -79,8 +80,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
       await page.check(`${modal} [data-wcp-pkg-add] input[value="${more[1]}"]`);
       await page.click(`${modal} [data-wcp-pkg-add-btn]`);
       for (const n of more.slice(0, 2)) {
-        await page.waitForSelector(`${modal} [data-wcp-pkg-item="${n}"]`);
-        await page.waitForSelector(`${modal} [data-wcp-pkg-item="${n}"] :text("Installed")`, { timeout: 30000 });
+        await page.waitForSelector(`${row(n)} [data-wcp-pkg-state] :text("Installed")`, { timeout: 30000 });
+        await page.waitForSelector(`${modal} [data-wcp-pkg-item="${n}"]`, { state: 'detached', timeout: 10000 });
       }
       if (await page.$(`${modal} [data-wcp-pkg-add] input[value="${more[0]}"]`)) { throw new Error('an installed component is still offered'); }
       if (!(await page.isVisible(modal))) { throw new Error('the window closed'); }
