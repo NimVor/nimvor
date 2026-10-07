@@ -584,8 +584,39 @@ func SetSMTP(ctx context.Context, env *host.Env, enabled bool) error {
 		env.Runner.Run(ctx, "nft", "delete", "table", "inet", "whacp_smtp")
 		return err
 	}
+	return denyNobodySubmit(ctx, env)
+}
+
+// denyNobodySubmit keeps the pseudo-user "nobody" from handing mail to
+// Postfix's sendmail (authorized_submit_users), which the network rules
+// do not cover. What else the setting holds is kept.
+func denyNobodySubmit(ctx context.Context, env *host.Env) error {
+	if !env.Runner.Available("postconf") {
+		return nil
+	}
+	out, err := env.Runner.Run(ctx, "postconf", "-h", "authorized_submit_users")
+	if err != nil {
+		return nil // no Postfix configuration to read
+	}
+	cur := strings.TrimSpace(string(out))
+	if NobodyDenied(cur) {
+		return nil
+	}
+	val := "!nobody, " + cur
+	if cur == "" {
+		val = "!nobody, static:anyone"
+	}
+	if out, err := env.Runner.Run(ctx, "postconf", "-e", "authorized_submit_users="+val); err != nil {
+		return fmt.Errorf("SMTP restrictions are on, but Postfix's authorized_submit_users could not be set: %s", host.Output(out))
+	}
 	return nil
 }
+
+var nobodyDeniedRe = regexp.MustCompile(`(^|[\s,])!\s*nobody\b`)
+
+// NobodyDenied reports whether an authorized_submit_users value refuses
+// "nobody".
+func NobodyDenied(v string) bool { return nobodyDeniedRe.MatchString(v) }
 
 // AllowPaths lets the agent write this package's files.
 func AllowPaths(env *host.Env) {

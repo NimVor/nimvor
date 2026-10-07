@@ -120,6 +120,19 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"effective": eff, "root_has_keys": rootKeys, "admins_with_keys": admins, "managed_file": env.M.SSHDropIn, "managed_config": managed}, nil
 	}})
 	env.Writer.Policy.Patterns = append(env.Writer.Policy.Patterns, fixPaths()...)
+	r.Register(actions.Action{Name: "security.host_known", Mutating: true, Description: "Mark the scheduled tasks and services the latest host scan lists as known (pinned by content: a changed file is reported again), or forget the marks.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Forget bool `json:"forget"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		marked, err := MarkPersistKnown(env, in.Forget)
+		if err != nil {
+			return nil, actions.Conflict(err.Error())
+		}
+		return map[string]any{"marked": marked}, nil
+	}})
 	r.Register(actions.Action{Name: "security.fix_kernel", Mutating: true, Description: "Apply the recommended kernel security settings (kept in " + SysctlFile + "; send_redirects is left alone on a router), or undo them (the earlier values are put back).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Undo bool `json:"undo"`

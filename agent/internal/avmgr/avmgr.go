@@ -112,6 +112,11 @@ func Register(r *actions.Registry, env *host.Env) {
 				out["freshclam"] = true
 			}
 		}
+		// No signature database yet: the updater's last messages say why
+		// (still downloading, mirror refused, no network…).
+		if strings.Count(out["version"].(string), "/") < 2 {
+			out["updater_log"] = env.JournalTail(ctx, FreshclamUnits[0], 12)
+		}
 		return out, nil
 	}})
 	r.Register(actions.Action{Name: "av.update", Mutating: true, Description: "Update the ClamAV signatures now (restarts the signature updater, which downloads them).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {

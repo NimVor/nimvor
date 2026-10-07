@@ -141,6 +141,10 @@ final class SecurityController extends Controller
             'apply' => ['Turn on automatic security updates', 'Install security updates automatically every day? The package for it is installed if needed. The server is never restarted automatically.'],
             'undo' => ['Turn off automatic updates', 'Stop installing security updates automatically?'],
         ],
+        'host_persistence' => [
+            'apply' => ['Mark these as known', 'Mark every listed scheduled task and service as known? Only do this if you recognise them all (for example your hosting provider\'s). Each is pinned by its content: if one changes later, it is reported again.'],
+            'undo' => ['Forget the files marked as known', 'Report the scheduled tasks and services you marked as known again?'],
+        ],
         'database_network' => [
             'apply' => ['Accept local connections only', 'Let only programs on this server connect to the database server (bind-address 127.0.0.1)? The database server is restarted; remote database users can no longer connect.'],
         ],
@@ -175,6 +179,11 @@ final class SecurityController extends Controller
                     $this->flashJob($job);
                     $record();
                     return $undo ? 'Turning off automatic updates…' : 'Turning on automatic security updates…';
+                case 'host_persistence':
+                    $res = (array) $this->agent->call('security.host_known', ['forget' => $undo]);
+                    $marked = array_map('strval', (array) ($res['marked'] ?? []));
+                    $record(['files' => $marked]);
+                    return $undo ? 'The files marked as known are reported again.' : 'Marked as known: ' . implode(', ', $marked) . '.';
                 case 'database_network':
                     $remote = $this->db->fetchAll("SELECT username, host FROM database_users WHERE server_id = ? AND host NOT IN ('localhost', '127.0.0.1', '::1') ORDER BY username", [$this->server->id()]);
                     if ($remote !== []) {

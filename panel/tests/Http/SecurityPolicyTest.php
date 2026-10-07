@@ -234,5 +234,13 @@ final class SecurityPolicyTest extends HttpTestCase
         $this->post('/security/fix', ['check' => 'firewall', 'op' => 'apply']);
         self::assertSame(1, $this->calls('db.server_settings'));
         self::assertSame(4, (int) $db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'security.fix'"));
+
+        // Scheduled tasks the administrator recognises: marked as known.
+        $this->agent->succeed('security.host_known', ['marked' => ['/etc/cron.hourly/fstrim']]);
+        $this->post('/security/fix', ['check' => 'host_persistence', 'op' => 'apply']);
+        self::assertSame(['forget' => false], $this->lastCall('security.host_known'));
+        self::assertStringContainsString('/etc/cron.hourly/fstrim', (string) $this->flash('success'));
+        $this->post('/security/fix', ['check' => 'host_persistence', 'op' => 'undo']);
+        self::assertSame(['forget' => true], $this->lastCall('security.host_known'));
     }
 }

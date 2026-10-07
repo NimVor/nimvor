@@ -290,6 +290,7 @@ paths:
               - security.confirm
               - security.fix_kernel
               - security.hide_processes
+              - security.host_known
               - security.pending
               - security.undo
               - server.graphical
@@ -704,6 +705,7 @@ x-whacp-actions:
   security.confirm: { mutating: true, description: "Keep a firewall/SSH change (otherwise it is rolled back automatically)." }
   security.fix_kernel: { mutating: true, description: "Apply the recommended kernel security settings (kept in /etc/sysctl.d/90-whacp-hardening.conf; send_redirects is left alone on a router), or undo them (the earlier values are put back)." }
   security.hide_processes: { mutating: true, description: "Mount /proc with hidepid=2 (each account sees only its own processes; members of whacp-proc see all), kept in /etc/fstab; or turn it off." }
+  security.host_known: { mutating: true, description: "Mark the scheduled tasks and services the latest host scan lists as known (pinned by content: a changed file is reported again), or forget the marks." }
   security.pending: { mutating: false, description: "The security change awaiting confirmation, if any." }
   security.undo: { mutating: true, description: "Roll back the pending firewall/SSH change now." }
   server.graphical: { mutating: false, description: "Whether the graphical login screen (GDM, LightDM, SDDM) runs, and the default boot target." }

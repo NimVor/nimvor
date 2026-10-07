@@ -36,6 +36,9 @@ var dbSupport = map[string]map[string]string{
 
 var dbVersionRe = regexp.MustCompile(`^(\d+)\.(\d+)\.\d+`)
 
+// distroPackageRe: a version of the operating system's own package.
+var distroPackageRe = regexp.MustCompile(`(?i)ubuntu|deb|\.el\d|el\d`)
+
 // dbSupported says whether a server version still gets upstream fixes.
 // Series not in the table are short-term releases (MariaDB rolling or MySQL
 // innovation) that are supported until the next one.
@@ -61,7 +64,7 @@ func dbSupported(version string, now time.Time) (string, string) {
 	if now.Before(end) {
 		return "pass", fmt.Sprintf("The system is running a supported database: %s %s (supported until %s).", name, series, eol)
 	}
-	if regexp.MustCompile(`(?i)ubuntu|deb|el\d`).MatchString(version) {
+	if distroPackageRe.MatchString(version) {
 		return "warn", fmt.Sprintf("%s %s is past its upstream end of support (%s); it only gets fixes from the operating system's packages.", name, series, eol)
 	}
 	return "fail", fmt.Sprintf("%s %s is no longer supported (ended %s).", name, series, eol)
@@ -78,10 +81,22 @@ func databaseChecks(ctx context.Context, env *host.Env) []Check {
 		return []Check{{ID: "mysql_anonymous", Title: "MySQL anonymous users", Status: "info", Severity: "low", Detail: "The database server could not be checked (is it running?)."}}
 	}
 	out := []Check{}
-	st, detail := dbSupported(rows[0][0], time.Now())
+	version := rows[0][0]
+	// RHEL-family servers report "10.5.27-MariaDB" without the distribution;
+	// the package's release (10.5.27-1.el9_5) says it is the operating
+	// system's own, which gets its security fixes.
+	for _, v := range pkgs.InstalledNative(ctx, env, []string{"mariadb-server", "mysql-server"}) {
+		version += " (package " + v + ")"
+		break
+	}
+	st, detail := dbSupported(version, time.Now())
 	c1 := Check{ID: "database_version", Title: "Supported database", Status: st, Severity: "high", Detail: detail}
-	if st != "pass" && st != "info" {
-		c1.Remedy = "Upgrade the database server to a long-term supported release."
+	switch {
+	case st == "warn" && distroPackageRe.MatchString(version):
+		c1.Severity = "low"
+		c1.Remedy = "Keep it updated under Server → Packages (the operating system's security fixes arrive there). A newer series (MariaDB 10.11 or later) needs MariaDB's own repository and a dump and restore of every database; WhaCP does not do that move."
+	case st != "pass" && st != "info":
+		c1.Remedy = "Upgrade the database server to a long-term supported release (a dump and restore of every database; WhaCP does not do that move)."
 	}
 	out = append(out, c1)
 	if n, _ := strconv.Atoi(rows[1][0]); n > 0 {
@@ -198,7 +213,7 @@ func nobodyMailCheck(ctx context.Context, env *host.Env) Check {
 	problems := []string{}
 	if env.Runner.Available("postconf") {
 		out, err := env.Runner.Run(ctx, "postconf", "-h", "authorized_submit_users")
-		if err == nil && !regexp.MustCompile(`!\s*nobody\b`).Match(out) {
+		if err == nil && !hardening.NobodyDenied(string(out)) {
 			problems = append(problems, "it can send mail with sendmail (Postfix authorized_submit_users)")
 		}
 	}
@@ -208,7 +223,7 @@ func nobodyMailCheck(ctx context.Context, env *host.Env) Check {
 	if len(problems) == 0 {
 		return Check{ID: "nobody_mail", Title: "“nobody” may not send email", Status: "pass", Severity: "medium", Detail: "The pseudo-user “nobody” is not permitted to send email."}
 	}
-	return Check{ID: "nobody_mail", Title: "“nobody” may not send email", Status: "warn", Severity: "medium", Detail: "The pseudo-user “nobody” " + strings.Join(problems, " and ") + ".", Remedy: "Turn on Security → SMTP Restrictions; set “Local accounts that may send mail with sendmail” to !nobody, static:anyone under Email → Mail server."}
+	return Check{ID: "nobody_mail", Title: "“nobody” may not send email", Status: "warn", Severity: "medium", Detail: "The pseudo-user “nobody” " + strings.Join(problems, " and ") + ".", Remedy: "Turn on Security → SMTP Restrictions (if it is already on, turn it off and on again: that also refuses sendmail to “nobody”), or set “Local accounts that may send mail with sendmail” to !nobody, static:anyone under Email → Mail server."}
 }
 
 // indexCheck: update checks are only as current as the package index.

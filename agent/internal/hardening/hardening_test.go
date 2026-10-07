@@ -179,6 +179,29 @@ func TestSMTPRestrictions(t *testing.T) {
 	}
 }
 
+// Turning SMTP restrictions on also refuses sendmail to "nobody", keeping
+// what authorized_submit_users already holds.
+func TestSMTPRestrictionsDenyNobodySubmit(t *testing.T) {
+	h, r := setup(t)
+	h.Respond = func(id string, a []string) (string, error, bool) {
+		if id == "postconf" && strings.Join(a, " ") == "-h authorized_submit_users" {
+			return "static:anyone\n", nil, true
+		}
+		return "", nil, false
+	}
+	if _, err := call(t, r, "hardening.smtp", map[string]any{"enabled": true}); err != nil {
+		t.Fatal(err)
+	}
+	if !h.Runner.Called("postconf -e authorized_submit_users=!nobody, static:anyone") {
+		t.Fatalf("nobody not refused: %v", h.Runner.Calls)
+	}
+	for v, want := range map[string]bool{"!nobody, static:anyone": true, "!nobody,!texthash:/x, static:anyone": true, "static:anyone": false, "nobodyelse": false, "! nobody": true} {
+		if NobodyDenied(v) != want {
+			t.Errorf("NobodyDenied(%q) != %v", v, want)
+		}
+	}
+}
+
 func TestNftOnlyRunsWhaCPsTable(t *testing.T) {
 	var runner execx.SimRunner
 	for _, args := range [][]string{{"-f", "/tmp/x.nft"}, {"flush", "ruleset"}, {"delete", "table", "inet", "firewalld"}} {

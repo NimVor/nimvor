@@ -421,14 +421,20 @@ func hostScanChecks(env *host.Env, r *HostScan, running bool) []Check {
 	}
 	out = append(out, c)
 	c = Check{ID: "host_persistence", Title: "Scheduled tasks and services", Severity: "medium", Status: "pass", Detail: "Every system cron job, systemd unit and boot script was installed by a package or WhaCP" + suffix + "."}
-	if len(r.Persist) > 0 {
-		c.Status, c.Detail = "info", "Not installed by a package or WhaCP (review that you know them): "+listPaths(r.Persist)+suffix+"."
-		for _, p := range r.Persist {
+	persist, knownN := unknownPersist(env, r.Persist)
+	if knownN > 0 {
+		c.Detail = fmt.Sprintf("Every system cron job, systemd unit and boot script was installed by a package or WhaCP, or marked as known (%d unchanged since)%s.", knownN, suffix)
+		c.Fix = "undo"
+	}
+	if len(persist) > 0 {
+		c.Status, c.Detail = "info", "Not installed by a package or WhaCP (review that you know them): "+listPaths(persist)+suffix+"."
+		for _, p := range persist {
 			if p.Recent || p.Path == "/etc/ld.so.preload" {
 				c.Status = "warn"
 			}
 		}
-		c.Remedy = "Remove the ones you do not recognise (and disable the services: systemctl disable --now UNIT)."
+		c.Remedy = "Remove the ones you do not recognise (and disable the services: systemctl disable --now UNIT). If you know them all (for example your hosting provider's), mark them as known: a file changed later is reported again."
+		c.Fix = "apply"
 	}
 	return append(out, c)
 }
