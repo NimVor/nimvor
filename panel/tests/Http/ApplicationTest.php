@@ -161,6 +161,28 @@ final class ApplicationTest extends TestCase
         }
     }
 
+    public function testCliOnlyPhpVersionOffersFpmInstall(): void
+    {
+        $app = $this->app();
+        $this->seedUser($app, 'admin', 'admin');
+        $this->login($app, 'admin');
+        // PHP 8.3 with only the command line (as the installer leaves it for
+        // the panel), and the repositories offer only 8.3.
+        $this->agent->succeed('discovery.inventory', [
+            'websites' => ['websites' => [], 'catch_all_vhosts' => 0, 'warnings' => []],
+            'php' => ['versions' => [['version' => '8.3', 'is_default' => true, 'pool_count' => 0, 'cli_binary' => '/usr/bin/php8.3', 'fpm_binary' => '']], 'pools' => [], 'warnings' => []],
+            'databases' => ['installed' => false, 'schemas' => [], 'warnings' => []],
+            'redis' => ['installed' => false, 'warnings' => []],
+            'certificates' => [], 'cron' => ['jobs' => [], 'warnings' => []], 'users' => [], 'services' => [],
+        ]);
+        $this->agent->succeed('php.available', ['8.3']);
+        $this->agent->succeed('services.status', []);
+        $body = $this->request($app, 'GET', '/php')->body();
+        self::assertStringContainsString('Install PHP-FPM', $body);
+        self::assertStringContainsString('<option value="8.3">PHP 8.3</option>', $body);
+        self::assertStringNotContainsString('No other versions available', $body);
+    }
+
     public function testPreviewOperatingSystemIsMarked(): void
     {
         $app = $this->app();

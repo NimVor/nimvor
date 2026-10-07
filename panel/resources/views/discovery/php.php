@@ -9,7 +9,10 @@ $pools = $php['pools'] ?? [];
 <?= $this->partial('partials/discovery_bar', ['discoveredAt' => $discoveredAt]) ?>
 
 <?php
-$installed = array_column($versions, 'version');
+// A version counts as installed for websites only with its PHP-FPM: a
+// CLI-only version (such as the one the panel itself runs on) can still be
+// installed from the list.
+$installed = array_column(array_filter($versions, static fn (array $v): bool => !empty($v['fpm_binary'])), 'version');
 $canManage = $this->can(\WhaCP\Security\Permissions::PHP_MANAGE);
 $installable = array_values(array_diff($php_available ?? [], $installed));
 ?>
@@ -24,7 +27,7 @@ $installable = array_values(array_diff($php_available ?? [], $installed));
                 </select>
                 <button class="btn btn-sm btn-primary text-nowrap" type="submit"<?= $installable === [] ? ' disabled' : '' ?>><span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span><i class="bi bi-download me-1"></i>Install</button>
             </form>
-            <span class="small text-body-secondary">Versions offered by the server's package repositories (FPM, CLI and common extensions are installed). Add a repository such as a PHP PPA to get more versions.</span>
+            <span class="small text-body-secondary">Versions offered by the server's package repositories (FPM, CLI and common extensions are installed). On Ubuntu each release offers one PHP version; more come from a third-party repository such as the ondrej/php PPA (<code>add-apt-repository ppa:ondrej/php</code>), on AlmaLinux/Rocky from Remi.</span>
         </div>
     </div>
 <?php endif; ?>
@@ -60,6 +63,13 @@ $installable = array_values(array_diff($php_available ?? [], $installed));
                             <button class="btn btn-sm btn-outline-<?= $running ? 'warning' : 'success' ?> w-100" type="submit"><?= $running ? 'Stop &amp; disable' : 'Start &amp; enable' ?></button>
                         </form>
                         <a class="btn btn-sm btn-outline-primary w-100 mt-2" href="<?= e($this->url('php.show', ['version' => $v['version']])) ?>"><i class="bi bi-gear me-1"></i>Settings</a>
+                    <?php elseif ($canManage): ?>
+                        <p class="small text-body-secondary mt-2 mb-2">Only the command line is installed: websites cannot use this version until PHP-FPM is installed.</p>
+                        <form method="post" action="<?= e($this->url('php.install')) ?>" data-wcp-busy>
+                            <?= $this->csrfField() ?>
+                            <input type="hidden" name="version" value="<?= e($v['version']) ?>">
+                            <button class="btn btn-sm btn-primary w-100" type="submit"><span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span><i class="bi bi-download me-1"></i>Install PHP-FPM</button>
+                        </form>
                     <?php endif; ?>
                 </div>
             </div>
