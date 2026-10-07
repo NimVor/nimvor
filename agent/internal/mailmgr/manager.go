@@ -14,6 +14,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/systemd"
 )
 
 // Mail server manager: service state and versions, configuration checks,
@@ -212,7 +213,13 @@ func registerManager(r *actions.Registry, e env) {
 			if out, err := e.Runner.Run(ctx, "systemctl", "is-enabled", "--", s.unit); err == nil {
 				enabled = strings.TrimSpace(string(out)) == "enabled"
 			}
-			services = append(services, map[string]any{"unit": s.unit, "name": s.name, "active": e.UnitActive(ctx, s.unit), "enabled": enabled, "version": s.version})
+			// Not installed (Rspamd) or not set up yet (WhaCP's OpenDKIM unit
+			// is written when email is set up): nothing to start.
+			installed := true
+			if st, err := (systemd.Client{Runner: e.Runner}).Status(ctx, []string{s.unit}); err == nil && (len(st) == 0 || st[0].LoadState == "not-found") {
+				installed = false
+			}
+			services = append(services, map[string]any{"unit": s.unit, "name": s.name, "active": e.UnitActive(ctx, s.unit), "enabled": enabled, "version": s.version, "installed": installed})
 		}
 		checks := map[string]string{}
 		if out, err := e.Runner.Run(ctx, "postfix", "check"); err != nil {

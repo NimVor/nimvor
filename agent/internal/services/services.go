@@ -9,6 +9,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/systemd"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
 
@@ -73,6 +74,9 @@ func Register(r *actions.Registry, env *host.Env) {
 			if out, err := env.Runner.Run(ctx, "sshd", "-t"); err != nil {
 				return nil, actions.Failed("The SSH configuration test failed; SSH was not restarted.", host.Output(out))
 			}
+		}
+		if st, err := (systemd.Client{Runner: env.Runner}).Status(ctx, []string{in.Unit}); err == nil && len(st) > 0 && st[0].LoadState == "not-found" {
+			return nil, actions.Conflict(in.Unit + " is not installed on this server (or, for WhaCP's own services, not set up yet).")
 		}
 		if err := env.Systemctl(ctx, in.Op, in.Unit); err != nil {
 			return nil, actions.Failed("The service operation failed.", err.Error())

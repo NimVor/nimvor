@@ -33,6 +33,7 @@ final class MailAdminTest extends HttpTestCase
             'services' => [
                 ['unit' => 'postfix.service', 'name' => 'Postfix', 'active' => true, 'enabled' => true, 'version' => '3.8.6'],
                 ['unit' => 'dovecot.service', 'name' => 'Dovecot', 'active' => false, 'enabled' => true, 'version' => '2.3.21'],
+                ['unit' => 'whacp-opendkim.service', 'name' => 'OpenDKIM', 'active' => false, 'enabled' => false, 'version' => '', 'installed' => false],
             ],
             'checks' => ['postfix' => '', 'dovecot' => 'doveconf: Error: <b>broken</b>'],
             'values' => ['postfix' => ['message_size_limit' => '52428800', 'maximal_queue_lifetime' => '5d', 'relayhost' => ''], 'dovecot' => ['login_greeting' => '']],
@@ -66,6 +67,9 @@ final class MailAdminTest extends HttpTestCase
     {
         $this->login('admin');
         $page = $this->request('GET', '/mail/admin/server')->body();
+        // Not set up yet: no Start button that can only fail.
+        self::assertStringContainsString('created by Email → Set up and start', $page);
+        self::assertStringNotContainsString('name="unit" value="whacp-opendkim.service"', $page);
         foreach (['3.8.6', 'Stopped', '&lt;b&gt;broken&lt;/b&gt;', 'name="postfix[message_size_limit]"', 'value="50"', 'status=sent &lt;x&gt;', 'value="start"', 'value="/mail/admin/server"'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }

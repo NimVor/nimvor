@@ -28,10 +28,11 @@ $choices = ['smtpd_helo_required' => ['yes', 'no'], 'disable_vrfy_command' => ['
                 <tr>
                     <td class="fw-semibold"><?= e($s['name']) ?><div class="small wcp-muted font-monospace"><?= e($s['unit']) ?></div></td>
                     <td class="small"><?= e($s['version'] !== '' ? $s['version'] : '—') ?></td>
-                    <td class="small"><?= $s['active'] ? '<span class="wcp-state is-ok">Running</span>' : '<span class="wcp-state is-error">Stopped</span>' ?> <span class="wcp-muted"><?= $s['enabled'] ? 'starts at boot' : 'not started at boot' ?></span></td>
+                    <?php $missing = ($s['installed'] ?? true) === false; ?>
+                    <td class="small"><?php if ($missing): ?><span class="wcp-state">Not installed</span> <span class="wcp-muted"><?= $s['name'] === 'OpenDKIM' ? 'created by Email → Set up and start' : 'install it under Server → Packages' ?></span><?php else: ?><?= $s['active'] ? '<span class="wcp-state is-ok">Running</span>' : '<span class="wcp-state is-error">Stopped</span>' ?> <span class="wcp-muted"><?= $s['enabled'] ? 'starts at boot' : 'not started at boot' ?></span><?php endif; ?></td>
                     <td class="small"><?php if ($check === null): ?><span class="wcp-muted">—</span><?php elseif ($check === ''): ?><span class="wcp-state is-ok">Valid</span><?php else: ?><span class="wcp-state is-error">Problem</span><div class="wcp-muted text-break"><?= e(mb_strimwidth((string) $check, 0, 200, '…')) ?></div><?php endif; ?></td>
                     <td class="text-end text-nowrap">
-                        <?php if ($canServices): foreach ($s['active'] ? ['reload' => 'Reload', 'restart' => 'Restart'] : ['start' => 'Start'] as $op => $label): ?>
+                        <?php if ($canServices && !$missing): foreach ($s['active'] ? ['reload' => 'Reload', 'restart' => 'Restart'] : ['start' => 'Start'] as $op => $label): ?>
                             <form class="d-inline" method="post" action="<?= e($this->url('services.control')) ?>" data-wcp-busy<?= $op === 'restart' ? ' data-wcp-confirm="Restart ' . e($s['name']) . '? Connections in progress are dropped; clients reconnect."' : '' ?>><?= $this->csrfField() ?><input type="hidden" name="unit" value="<?= e($s['unit']) ?>"><input type="hidden" name="op" value="<?= e($op) ?>"><input type="hidden" name="return_to" value="/mail/admin/server"><button class="btn btn-sm btn-outline-secondary"><?= e($label) ?></button></form>
                         <?php endforeach; endif; ?>
                     </td>
