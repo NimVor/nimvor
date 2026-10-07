@@ -67,6 +67,7 @@ final class MailAdminTest extends HttpTestCase
     {
         $this->login('admin');
         $page = $this->request('GET', '/mail/admin/server')->body();
+        self::assertStringNotContainsString('Email is not set up on this server yet', $page, 'an agent without the field counts as set up');
         // Not set up yet: no Start button that can only fail.
         self::assertStringContainsString('created by Email → Set up and start', $page);
         self::assertStringNotContainsString('name="unit" value="whacp-opendkim.service"', $page);
@@ -140,5 +141,20 @@ final class MailAdminTest extends HttpTestCase
         self::assertSame(0, $this->calls('mail.settings_set'));
         self::assertSame(0, $this->calls('mail.trace'));
         self::assertSame(0, $this->calls('mail.repair_permissions'));
+    }
+
+    public function testServerSettingsLockedUntilEmailIsSetUp(): void
+    {
+        $this->agent->succeed('mail.server_status', ['configured' => false,
+            'services' => [['unit' => 'postfix.service', 'name' => 'Postfix', 'active' => true, 'enabled' => false, 'version' => '3.5.25']],
+            'checks' => ['postfix' => '', 'dovecot' => ''],
+            'values' => ['postfix' => ['message_size_limit' => '10485760'], 'dovecot' => []],
+            'labels' => ['postfix' => ['message_size_limit' => 'Largest message (MB)'], 'dovecot' => []]]);
+        $this->agent->succeed('mail.log_tail', ['source' => 'journal', 'lines' => []]);
+        $this->login('admin');
+        $page = $this->request('GET', '/mail/admin/server')->body();
+        self::assertStringContainsString('Email is not set up on this server yet', $page);
+        self::assertStringContainsString('name="postfix[message_size_limit]" value="10" disabled', $page);
+        self::assertStringNotContainsString('Check and apply', $page);
     }
 }

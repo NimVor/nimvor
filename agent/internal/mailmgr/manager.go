@@ -233,6 +233,7 @@ func registerManager(r *actions.Registry, e env) {
 			checks["dovecot"] = ""
 		}
 		d, _ := e.load()
+		configured := e.configured()
 		values := map[string]map[string]string{"postfix": {}, "dovecot": {}}
 		for _, k := range sortedSettingKeys(PostfixSettings) {
 			values["postfix"][k] = e.postconfValue(ctx, k)
@@ -247,7 +248,7 @@ func registerManager(r *actions.Registry, e env) {
 		for k, s := range DovecotSettings {
 			labels["dovecot"][k] = s.label
 		}
-		return map[string]any{"services": services, "checks": checks, "values": values, "labels": labels}, nil
+		return map[string]any{"services": services, "checks": checks, "values": values, "labels": labels, "configured": configured}, nil
 	}})
 
 	r.Register(actions.Action{Name: "mail.settings_set", Mutating: true, Description: "Change managed Postfix settings (postconf, postfix check, reload) and Dovecot settings (drop-in, doveconf -n, reload); the previous values come back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
