@@ -42,6 +42,18 @@ fi
 if command -v semodule >/dev/null && semodule -l 2>/dev/null | grep -q '^whacp_postfix_sockets\b'; then
     semodule -r whacp_postfix_sockets || true
 fi
+# WhaCP's nftables tables (firewall protections, SMTP restrictions,
+# outgoing limits of website accounts, brute force blocks): unloaded with
+# their units, so nothing WhaCP added keeps dropping traffic.
+for svc in whacp-flood whacp-smtp-restrict whacp-egress; do
+    systemctl disable --now "$svc.service" 2>/dev/null || true
+    rm -f "/etc/systemd/system/$svc.service"
+done
+if command -v nft >/dev/null; then
+    for t in whacp_flood whacp_smtp whacp_egress whacp_hulk; do
+        nft delete table inet "$t" 2>/dev/null || true
+    done
+fi
 # Drop-ins (write mode, remote access) must go too: a later read-only
 # install would otherwise inherit the lifted sandbox.
 rm -rf /etc/systemd/system/whacp-agent.service.d

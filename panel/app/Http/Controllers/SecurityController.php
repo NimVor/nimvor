@@ -213,7 +213,24 @@ final class SecurityController extends Controller
         /** @var list<string> $proxies */
         $proxies = (array) $this->config->get('security.trusted_proxies', []);
         $ip = $request->ip($proxies);
-        return $this->page('firewall', ['fw' => (array) $fw, 'agentError' => $err, 'myIp' => SecurityService::publicAddress($ip) ? $ip : '']);
+        $protection = null;
+        if ($err === null) {
+            try {
+                $protection = (array) $this->agent->call('firewall.protection');
+            } catch (AgentException) {
+                // An agent without firewall protections: no panel for them.
+            }
+        }
+        return $this->page('firewall', ['fw' => (array) $fw, 'agentError' => $err, 'myIp' => SecurityService::publicAddress($ip) ? $ip : '', 'protection' => $protection]);
+    }
+
+    /** Firewall → Protection (CSF-style flood and connection limits). */
+    public function protection(Request $request): Response
+    {
+        /** @var list<string> $proxies */
+        $proxies = (array) $this->config->get('security.trusted_proxies', []);
+        $mine = $request->input('exempt_me') === '1' ? $request->ip($proxies) : '';
+        return $this->act('/security/firewall#fw-protect', fn (): string => $this->security->setProtection($request->all(), $mine));
     }
 
     public function ssh(Request $request): Response

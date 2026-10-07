@@ -165,6 +165,8 @@ paths:
               - files.trash_restore
               - files.upload
               - files.write
+              - firewall.protection
+              - firewall.protection_set
               - firewall.rule_add
               - firewall.rule_delete
               - firewall.set_enabled
@@ -580,6 +582,8 @@ x-whacp-actions:
   files.trash_restore: { mutating: true, description: "Put trash items back where they were (under a \"(restored)\" name when that one is taken)." }
   files.upload: { mutating: true, description: "Upload a file chunk (base64)." }
   files.write: { mutating: true, description: "Save a text file." }
+  firewall.protection: { mutating: false, description: "Firewall protections in the manner of CSF (SYN flood, connection limits, port flood, invalid packets, ping rate): the applied configuration, whether its nftables table is loaded, and what each protection dropped." }
+  firewall.protection_set: { mutating: true, description: "Apply the firewall protections (nftables table inet whacp_flood, next to UFW or firewalld; it only drops or rejects). Undone automatically unless confirmed." }
   firewall.rule_add: { mutating: true, description: "Add a UFW rule (auto-reverted unless confirmed)." }
   firewall.rule_delete: { mutating: true, description: "Delete a UFW rule (auto-reverted unless confirmed)." }
   firewall.set_enabled: { mutating: true, description: "Enable or disable the firewall (auto-reverted unless confirmed). Enabling first opens SSH, the panel and the agent's remote listener, optionally the ports of listening services (allow_services) and every port for one address (allow_from); undoing removes them again." }

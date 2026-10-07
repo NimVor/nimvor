@@ -120,7 +120,7 @@ $retention = (int) $v['hulk_retention'];
 
 <div class="tab-pane fade" id="countries" role="tabpanel">
     <div class="wcp-panel mb-3">
-        <p class="small mb-2">Whitelisted countries are never blocked. Blacklisted countries cannot sign in to WhaCP or reach the login services (SSH, FTP, IMAP/POP3, SMTP submission).</p>
+        <p class="small mb-2">Whitelisted countries are never blocked. Blacklisted countries cannot sign in to WhaCP or reach the login services (SSH, FTP, IMAP/POP3, SMTP submission), or, if you choose so below, any service of the server.</p>
         <?php if (!$geoLoaded): ?>
             <div class="wcp-infobar mb-2"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>The country database is not loaded yet. It is downloaded automatically each month from DB-IP (IP to Country Lite, CC BY 4.0) while brute force protection is on. If the server cannot reach download.db-ip.com, download the CSV there and upload it here, or run <code>sudo -u whacp -E php /opt/whacp/panel/bin/whacp hulk:geo-import FILE</code>.</span></div>
         <?php else: ?>
@@ -146,6 +146,11 @@ $retention = (int) $v['hulk_retention'];
                     <button class="btn btn-sm btn-primary">Save</button>
                 <?php endif; ?>
                 <input class="form-control form-control-sm ms-auto wcp-w-30" type="search" placeholder="Search countries" aria-label="Search countries" data-wcp-dt-search>
+            </div>
+            <div class="px-3 py-2 border-bottom small">
+                <span class="fw-medium me-2">Block blacklisted countries on</span>
+                <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="scope" id="h-cc-login" value="login"<?= empty($v['hulk_countries_all']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="h-cc-login">WhaCP and the login services</label></div>
+                <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="scope" id="h-cc-all" value="all"<?= !empty($v['hulk_countries_all']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="h-cc-all">every port, websites included (like CSF's CC_DENY)</label></div>
             </div>
             <div class="wcp-dtable table-responsive">
                 <table class="table align-middle">

@@ -67,6 +67,14 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **Firewall protections in the manner of CSF** (*Security → Firewall →
+  Protection*), next to UFW or firewalld (no second firewall manager):
+  invalid-packet filter, per-address SYN flood, connection and port flood
+  limits per port, ping rate limit and exempt addresses, in the nftables
+  table `inet whacp_flood` (it only drops or rejects). Changes are undone
+  after 2 minutes unless confirmed; the page shows what each protection
+  dropped. Brute force protection can block blacklisted countries on every
+  port (CC_DENY), not only the login services.
 - **More PHP versions from the PHP page.** A button adds the repository
   with other PHP versions after a confirmation: on Ubuntu Ondřej Surý's
   PPA, with its signing key pinned in the agent (fingerprint

@@ -2,6 +2,7 @@ package security
 
 import (
 	"context"
+	"errors"
 	"encoding/json"
 	"io"
 	"time"
@@ -17,7 +18,10 @@ type Service struct {
 }
 
 // NewService builds the service and recovers any unconfirmed change.
-func NewService(env *host.Env) *Service { return &Service{env: env, guard: NewGuard(env)} }
+func NewService(env *host.Env) *Service {
+	AllowProtectionPaths(env)
+	return &Service{env: env, guard: NewGuard(env)}
+}
 
 func guarded(p *Pending, err error) (any, error) {
 	if err != nil {
@@ -34,6 +38,21 @@ func Register(r *actions.Registry, env *host.Env) {
 	s := NewService(env)
 	r.Register(actions.Action{Name: "security.audit", Description: "Security checks with findings and remedies (read-only).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return Audit(ctx, env), nil
+	}})
+	r.Register(actions.Action{Name: "firewall.protection", Description: "Firewall protections in the manner of CSF (SYN flood, connection limits, port flood, invalid packets, ping rate): the applied configuration, whether its nftables table is loaded, and what each protection dropped.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+		return ProtectionStatus(ctx, env), nil
+	}})
+	r.Register(actions.Action{Name: "firewall.protection_set", Mutating: true, Description: "Apply the firewall protections (nftables table inet whacp_flood, next to UFW or firewalld; it only drops or rejects). Undone automatically unless confirmed.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in Protection
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		pending, err := s.SetProtection(ctx, in)
+		var ae *actions.Error
+		if err != nil && !errors.As(err, &ae) {
+			return nil, actions.Failed("The firewall protections were not applied.", err.Error())
+		}
+		return guarded(pending, err)
 	}})
 	r.Register(actions.Action{Name: "security.pending", Description: "The security change awaiting confirmation, if any.", Handler: func(context.Context, json.RawMessage) (any, error) {
 		return map[string]any{"pending": s.guard.Current()}, nil

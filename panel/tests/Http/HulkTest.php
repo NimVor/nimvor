@@ -208,6 +208,14 @@ final class HulkTest extends HttpTestCase
         self::assertEquals(['DE' => 'whitelist', 'KP' => 'blacklist'], $this->app->container->get(HulkService::class)->countries());
         $sync = $this->lastCall('hulk.sync');
         self::assertSame([['from' => '198.51.100.0', 'to' => '198.51.100.255'], ['from' => '2001:db8:77::', 'to' => '2001:db8:77:ffff:ffff:ffff:ffff:ffff']], $sync['countries']);
+        self::assertFalse($sync['countries_all'], 'login services only by default');
+        // Every port (CC_DENY).
+        $this->post('/security/hulk/countries', ['scope' => 'all', 'country' => ['KP' => 'blacklist']]);
+        self::assertTrue($this->lastCall('hulk.sync')['countries_all']);
+        $this->post('/security/hulk/countries', ['scope' => 'everywhere']);
+        self::assertTrue($this->lastCall('hulk.sync')['countries_all'], 'an unknown scope changes nothing');
+        $this->post('/security/hulk/countries', ['scope' => 'login']);
+        self::assertFalse($this->lastCall('hulk.sync')['countries_all']);
         // Bulk marking.
         $this->post('/security/hulk/countries', ['bulk' => 'blacklist', 'selected' => ['FR', 'IT']]);
         self::assertSame('blacklist', $this->app->container->get(HulkService::class)->countries()['IT']);

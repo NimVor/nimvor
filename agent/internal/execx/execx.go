@@ -222,6 +222,9 @@ const (
 	NftRulesFile  = "/etc/whacp/smtp-restrict.nft"
 	NftHulkFile   = "/etc/whacp/hulk.nft"
 	NftEgressFile = "/etc/whacp/egress.nft"
+	// NftFloodFile: the firewall's flood and connection limits (Security →
+	// Firewall → Protection), loaded by its own unit.
+	NftFloodFile = "/etc/whacp/flood.nft"
 )
 
 // nftAllowed are the only nft command lines WhaCP runs.
@@ -229,7 +232,8 @@ func nftAllowed(args []string) bool {
 	switch strings.Join(args, " ") {
 	case "-c -f " + NftRulesFile, "-f " + NftRulesFile, "list table inet whacp_smtp", "delete table inet whacp_smtp", "--version",
 		"-c -f " + NftHulkFile, "-f " + NftHulkFile, "list table inet whacp_hulk", "delete table inet whacp_hulk",
-		"-c -f " + NftEgressFile, "-f " + NftEgressFile, "list table inet whacp_egress", "delete table inet whacp_egress":
+		"-c -f " + NftEgressFile, "-f " + NftEgressFile, "list table inet whacp_egress", "delete table inet whacp_egress",
+		"-c -f " + NftFloodFile, "list table inet whacp_flood":
 		return true
 	}
 	return false

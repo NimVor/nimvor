@@ -196,4 +196,86 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
     </div>
     <div class="wcp-pager" data-wcp-dt-pager></div>
 </div>
+<?php if (is_array($protection ?? null)):
+    $pc = (array) ($protection['config'] ?? []);
+    $fresh = empty($pc['enabled']) && empty($pc['syn_rate']) && empty($pc['conn_limits']) && empty($pc['port_flood']) && empty($pc['icmp_rate']) && empty($pc['invalid']);
+    $limits = static fn (array $l, bool $proto): string => implode(', ', array_map(static fn (array $x): string => ($proto ? $x['proto'] . '/' : '') . $x['port'] . ':' . $x['max'], $l));
+    $dropped = (array) ($protection['dropped'] ?? []);
+    $pon = !empty($pc['enabled']);
+    $dis = $canManage ? '' : ' disabled';
+    ?>
+<div class="wcp-panel mt-3" id="fw-protect">
+    <div class="wcp-statusbar">
+        <span class="fw-medium">Protection</span>
+        <span><?= !empty($protection['active']) ? '<span class="wcp-state is-ok">On</span>' : '<span class="wcp-state">Off</span>' ?></span>
+        <span class="small wcp-muted">Flood and connection limits in the manner of CSF, next to the firewall: they only drop or refuse traffic, never open a port.</span>
+    </div>
+    <?php if (empty($protection['available'])): ?>
+        <div class="wcp-infobar m-3"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>nftables is not installed. Install <strong>nftables</strong> from <a href="<?= e($this->url('packages')) ?>">Packages</a>.</span></div>
+    <?php else: ?>
+    <?php if (!empty($protection['active']) && $dropped !== []): ?>
+        <div class="px-3 pt-3 small">
+            <span class="fw-medium me-1">Dropped since loaded:</span>
+            <?php $names = ['invalid' => 'invalid packets', 'syn' => 'SYN flood', 'icmp' => 'ping flood'];
+            foreach ($dropped as $k => $n): $k = (string) $k;
+                $label = $names[$k] ?? (str_starts_with($k, 'conn:') ? 'connections to port ' . substr($k, 5) : (str_starts_with($k, 'rate:') ? 'flood on ' . substr($k, 5) : $k)); ?>
+                <span class="badge text-bg-light border fw-normal me-1"><?= e($label) ?>: <?= number_format((int) $n) ?></span>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+    <form class="p-3" method="post" action="<?= e($this->url('security.firewall.protection')) ?>" data-wcp-busy>
+        <?= $this->csrfField() ?>
+        <div class="form-check form-switch mb-3">
+            <input type="hidden" name="enabled" value="0">
+            <input class="form-check-input" type="checkbox" role="switch" id="pr-on" name="enabled" value="1"<?= $pon ? ' checked' : '' ?><?= $dis ?>>
+            <label class="form-check-label fw-medium" for="pr-on">Turn on the protections below</label>
+        </div>
+        <div class="form-check mb-3">
+            <input type="hidden" name="invalid" value="0">
+            <input class="form-check-input" type="checkbox" id="pr-invalid" name="invalid" value="1"<?= ($fresh || !empty($pc['invalid'])) ? ' checked' : '' ?><?= $dis ?>>
+            <label class="form-check-label" for="pr-invalid">Drop invalid packets <span class="small wcp-muted">(of no known connection, and impossible TCP flags used by port scans: NULL, Xmas, SYN+FIN; CSF's PACKET_FILTER)</span></label>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label small fw-medium" for="pr-syn">SYN flood: new connections per second per address</label>
+                <input class="form-control form-control-sm" id="pr-syn" name="syn_rate" inputmode="numeric" value="<?= e((string) ($fresh ? 100 : (int) ($pc['syn_rate'] ?? 0))) ?>"<?= $dis ?>>
+                <div class="form-text">0 turns it off. Above it, new connections from that address are dropped (CSF's SYNFLOOD).</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-medium" for="pr-icmp">Ping: echo requests per second per address</label>
+                <input class="form-control form-control-sm" id="pr-icmp" name="icmp_rate" inputmode="numeric" value="<?= e((string) ($fresh ? 5 : (int) ($pc['icmp_rate'] ?? 0))) ?>"<?= $dis ?>>
+                <div class="form-text">0 turns it off (CSF's ICMP_IN_RATE).</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-medium" for="pr-conn">Connection limits: port:connections at once per address</label>
+                <input class="form-control form-control-sm font-monospace" id="pr-conn" name="conn_limits" placeholder="22:10, 80:150, 443:150" value="<?= e($limits((array) ($pc['conn_limits'] ?? []), false)) ?>"<?= $dis ?>>
+                <div class="form-text">TCP. Above the limit, new connections are refused (CSF's CONNLIMIT). Keep web ports generous: browsers open several connections.</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-medium" for="pr-flood">Port flood: protocol/port:new connections per minute per address</label>
+                <input class="form-control form-control-sm font-monospace" id="pr-flood" name="port_flood" placeholder="tcp/22:20, tcp/25:60, udp/53:600" value="<?= e($limits((array) ($pc['port_flood'] ?? []), true)) ?>"<?= $dis ?>>
+                <div class="form-text">Above the rate, new connections are dropped until it falls (CSF's PORTFLOOD).</div>
+            </div>
+            <div class="col-12">
+                <label class="form-label small fw-medium" for="pr-exempt">Exempt addresses and networks</label>
+                <textarea class="form-control form-control-sm font-monospace" id="pr-exempt" name="exempt" rows="2" placeholder="203.0.113.4, 10.0.0.0/8"<?= $dis ?>><?= e(implode(', ', (array) ($pc['exempt'] ?? []))) ?></textarea>
+                <div class="form-text">These skip the protections (monitoring, your office, a load balancer). The firewall's own rules still apply to them.</div>
+                <?php if ($myIp !== ''): ?>
+                    <div class="form-check mt-1">
+                        <input class="form-check-input" type="checkbox" id="pr-me" name="exempt_me" value="1" checked<?= $dis ?>>
+                        <label class="form-check-label small" for="pr-me">Exempt my address <code><?= e($myIp) ?></code></label>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php if ($canManage): ?>
+            <div class="d-flex align-items-center gap-3 mt-3">
+                <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Apply</button>
+                <span class="small wcp-muted">Applied at once; undone after 2 minutes unless you click <strong>Keep change</strong>.</span>
+            </div>
+        <?php endif; ?>
+    </form>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
 <?php endif; ?>

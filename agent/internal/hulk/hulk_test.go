@@ -68,6 +68,14 @@ func TestRulesAndValidation(t *testing.T) {
 			t.Errorf("missing %q in\n%s", want, r)
 		}
 	}
+	if !strings.Contains(r, "} ip saddr @country4 counter drop") {
+		t.Errorf("countries not limited to the login services:\n%s", r)
+	}
+	// Countries blocked on every port (CC_DENY).
+	s.CountriesAll = true
+	if r := rules(s, []int{2222}, now); !strings.Contains(r, "\t\tip saddr @country4 counter drop\n") || !strings.Contains(r, "\t\tip6 saddr @country6 counter drop\n") {
+		t.Errorf("countries not blocked on every port:\n%s", r)
+	}
 	for _, bad := range []State{
 		{Blocks: []Block{{IP: "x; flush ruleset", Until: now + 10}}},
 		{Blocks: []Block{{IP: "203.0.113.5", Until: now + 400*86400}}},

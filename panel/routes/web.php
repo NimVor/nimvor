@@ -378,6 +378,7 @@ return static function (Router $r): void {
     $r->post('/security/firewall/rules', [SecurityController::class, 'addRule'], ['name' => 'security.firewall.add', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/firewall/rules/delete', [SecurityController::class, 'deleteRule'], ['name' => 'security.firewall.delete', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/firewall/toggle', [SecurityController::class, 'toggleFirewall'], ['name' => 'security.firewall.toggle', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/firewall/protection', [SecurityController::class, 'protection'], ['name' => 'security.firewall.protection', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/ssh', [SecurityController::class, 'ssh'], ['name' => 'security.ssh', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/ssh', [SecurityController::class, 'configureSsh'], ['name' => 'security.ssh.configure', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/ssh/keys', [SecurityController::class, 'addSshKey'], ['name' => 'security.ssh.key_add', 'permission' => P::SECURITY_MANAGE]);

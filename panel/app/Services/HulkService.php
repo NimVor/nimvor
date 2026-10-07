@@ -444,7 +444,7 @@ final class HulkService
             $blocks[] = ['ip' => (string) $b['ip'], 'until' => (int) $b['until'], 'all' => (int) $b['firewall'] === 1];
         }
         $black = array_keys(array_filter($this->countries(), static fn (string $s): bool => $s === 'blacklist'));
-        $this->agent->call('hulk.sync', ['enabled' => true, 'blocks' => $blocks, 'countries' => $this->geo->ranges($black), 'whitelist' => $this->whitelist()], 120);
+        $this->agent->call('hulk.sync', ['enabled' => true, 'blocks' => $blocks, 'countries' => $this->geo->ranges($black), 'whitelist' => $this->whitelist(), 'countries_all' => $this->settings->bool('hulk_countries_all')], 120);
     }
 
     private function syncQuietly(): void

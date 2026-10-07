@@ -39,6 +39,9 @@ type State struct {
 	Blocks    []Block  `json:"blocks"`
 	Countries []Range  `json:"countries"`
 	Whitelist []string `json:"whitelist"`
+	// CountriesAll blocks blacklisted countries on every port (CSF's
+	// CC_DENY), not only the login services.
+	CountriesAll bool `json:"countries_all,omitempty"`
 }
 
 // Limits of one state.
@@ -150,7 +153,11 @@ func rules(s State, sshPorts []int, now int64) string {
 	b.WriteString("\t\tiifname \"lo\" accept\n\t\tip saddr @allow4 accept\n\t\tip6 saddr @allow6 accept\n")
 	b.WriteString("\t\tip saddr @block4 counter drop\n\t\tip6 saddr @block6 counter drop\n")
 	fmt.Fprintf(&b, "\t\t%s ip saddr @login4 counter reject with tcp reset\n\t\t%s ip6 saddr @login6 counter reject with tcp reset\n", dport, dport)
-	fmt.Fprintf(&b, "\t\t%s ip saddr @country4 counter drop\n\t\t%s ip6 saddr @country6 counter drop\n", dport, dport)
+	if s.CountriesAll {
+		b.WriteString("\t\tip saddr @country4 counter drop\n\t\tip6 saddr @country6 counter drop\n")
+	} else {
+		fmt.Fprintf(&b, "\t\t%s ip saddr @country4 counter drop\n\t\t%s ip6 saddr @country6 counter drop\n", dport, dport)
+	}
 	b.WriteString("\t}\n}\n")
 	return b.String()
 }

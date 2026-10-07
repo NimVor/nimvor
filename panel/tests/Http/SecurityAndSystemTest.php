@@ -49,6 +49,36 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertStringContainsString('locked out', (string) $this->flash('error'));
     }
 
+    public function testFirewallProtection(): void
+    {
+        $this->agent->succeed('security.pending', ['pending' => null]);
+        $this->agent->succeed('firewall.status', ['installed' => true, 'active' => true, 'rules' => [], 'ssh_port' => 22, 'ssh_allowed' => true]);
+        $this->agent->succeed('firewall.protection', ['available' => true, 'active' => true,
+            'config' => ['enabled' => true, 'invalid' => true, 'syn_rate' => 80, 'icmp_rate' => 0, 'conn_limits' => [['port' => 22, 'proto' => 'tcp', 'max' => 10]], 'port_flood' => [['port' => 53, 'proto' => 'udp', 'max' => 600]], 'exempt' => ['203.0.113.4']],
+            'dropped' => ['syn' => 1234, 'conn:22' => 5]]);
+        $page = $this->request('GET', '/security/firewall')->body();
+        foreach (['id="fw-protect"', 'value="80"', 'value="22:10"', 'value="udp/53:600"', '203.0.113.4', 'SYN flood: 1,234', 'connections to port 22: 5'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+
+        $pending = ['id' => 'feedfeedfeed', 'kind' => 'firewall', 'summary' => 'firewall protections: SYN flood 100/s', 'deadline' => gmdate('c', time() + 120)];
+        $this->agent->succeed('firewall.protection_set', ['changed' => true, 'pending' => $pending]);
+        $this->post('/security/firewall/protection', ['enabled' => '1', 'invalid' => '1', 'syn_rate' => '100', 'icmp_rate' => '', 'conn_limits' => '22:10, 443:150', 'port_flood' => 'tcp/22:20 udp/53:600', 'exempt' => '10.0.0.0/8', 'exempt_me' => '1']);
+        $sent = $this->lastCall('firewall.protection_set');
+        self::assertSame(['enabled' => true, 'invalid' => true, 'syn_rate' => 100, 'icmp_rate' => 0,
+            'conn_limits' => [['port' => 22, 'proto' => 'tcp', 'max' => 10], ['port' => 443, 'proto' => 'tcp', 'max' => 150]],
+            'port_flood' => [['port' => 22, 'proto' => 'tcp', 'max' => 20], ['port' => 53, 'proto' => 'udp', 'max' => 600]],
+            'exempt' => ['10.0.0.0/8', $this->remoteIp]], $sent);
+        self::assertStringContainsString('confirm within 2 minutes', (string) $this->flash('success'));
+
+        // Bad input never reaches the agent.
+        foreach ([['conn_limits' => '22'], ['conn_limits' => 'udp/53:5'], ['port_flood' => 'icmp/1:5'], ['port_flood' => 'tcp/70000:5'], ['syn_rate' => 'lots'], ['exempt' => '1.2.3.4; flush ruleset']] as $bad) {
+            $this->post('/security/firewall/protection', $bad + ['enabled' => '1']);
+            self::assertNotNull($this->flash('error'), json_encode($bad));
+        }
+        self::assertSame(1, $this->calls('firewall.protection_set'));
+    }
+
     public function testTurningTheFirewallOnKeepsAccess(): void
     {
         $this->agent->succeed('security.pending', ['pending' => null]);

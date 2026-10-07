@@ -122,6 +122,13 @@ final class HulkController extends Controller
                 $marks[(string) $code] = (string) $status;
             }
         }
+        $scope = (string) $request->input('scope', '');
+        if ($scope !== '') {
+            if (!in_array($scope, ['login', 'all'], true)) {
+                return $this->redirectWithError('/security/hulk#countries', 'Choose where blacklisted countries are blocked.');
+            }
+            $this->settings->update(['hulk_countries_all' => $scope === 'all' ? '1' : '0'], (int) $this->user($request)['id']);
+        }
         $n = $this->hulk->setCountries($marks);
         try {
             $this->hulk->sync();

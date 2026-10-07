@@ -79,6 +79,69 @@ final class SecurityService
         return $msg;
     }
 
+    /**
+     * Firewall protections (CSF-style): the form's values, checked and sent
+     * to the agent as one guarded change. $myIp, when given, is exempted.
+     *
+     * @param array<string, mixed> $in
+     */
+    public function setProtection(array $in, string $myIp = ''): string
+    {
+        $num = static function (mixed $v, string $what, int $max): int {
+            $v = trim((string) $v);
+            if ($v === '') {
+                return 0;
+            }
+            if (!preg_match('/^\d{1,7}$/', $v) || (int) $v > $max) {
+                throw new UserFacingException(sprintf('%s: a number from 0 to %d.', $what, $max));
+            }
+            return (int) $v;
+        };
+        $p = [
+            'enabled' => ($in['enabled'] ?? '') === '1',
+            'invalid' => ($in['invalid'] ?? '') === '1',
+            'syn_rate' => $num($in['syn_rate'] ?? '', 'SYN flood', 100000),
+            'icmp_rate' => $num($in['icmp_rate'] ?? '', 'Ping', 10000),
+            'conn_limits' => self::portLimits((string) ($in['conn_limits'] ?? ''), false, 'Connection limits'),
+            'port_flood' => self::portLimits((string) ($in['port_flood'] ?? ''), true, 'Port flood'),
+            'exempt' => array_values(array_filter(preg_split('/[\s,]+/', (string) ($in['exempt'] ?? '')) ?: [], static fn (string $e): bool => $e !== '')),
+        ];
+        foreach ($p['exempt'] as $e) {
+            if (!HulkService::validEntry($e)) {
+                throw new UserFacingException(sprintf('Exempt: "%s" is not an IP address or network.', mb_substr($e, 0, 60)));
+            }
+        }
+        if (self::publicAddress($myIp) && !in_array($myIp, $p['exempt'], true)) {
+            $p['exempt'][] = $myIp;
+        }
+        return $this->recordGuarded('firewall.protection', (array) $this->agent->call('firewall.protection_set', $p, 90), $p);
+    }
+
+    /**
+     * "22:10, 80:150" (connection limits) or "tcp/80:300, udp/53:600" (new
+     * connections per minute).
+     *
+     * @return list<array{port: int, proto: string, max: int}>
+     */
+    public static function portLimits(string $text, bool $withProto, string $what): array
+    {
+        $out = [];
+        foreach (preg_split('/[\s,;]+/', trim($text)) ?: [] as $item) {
+            if ($item === '') {
+                continue;
+            }
+            $re = $withProto ? '/^(?:(tcp|udp)\/)?(\d{1,5}):(\d{1,7})$/i' : '/^()(\d{1,5}):(\d{1,6})$/';
+            if (!preg_match($re, $item, $m) || (int) $m[2] < 1 || (int) $m[2] > 65535 || (int) $m[3] < 1) {
+                throw new UserFacingException(sprintf('%s: "%s" is not %s.', $what, mb_substr($item, 0, 40), $withProto ? 'like tcp/80:300' : 'like 22:10'));
+            }
+            $out[] = ['port' => (int) $m[2], 'proto' => strtolower($m[1] !== '' ? $m[1] : 'tcp'), 'max' => (int) $m[3]];
+        }
+        if (count($out) > 50) {
+            throw new UserFacingException($what . ': at most 50 ports.');
+        }
+        return $out;
+    }
+
     /** An address worth allowing (not loopback, private tunnels are fine). */
     public static function publicAddress(string $ip): bool
     {

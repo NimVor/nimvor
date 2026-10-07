@@ -483,6 +483,18 @@ All under **Security** in the sidebar (administrators).
   and the added rules are removed, so a mistake cannot lock you out.
   The last rule opening SSH or the panel cannot be deleted while the
   firewall is on.
+- **Firewall → Protection** (in the manner of CSF/LFD, next to UFW or
+  firewalld, which stay in charge): drop invalid packets and impossible
+  TCP flags (PACKET_FILTER), new connections per second per address (SYN
+  flood), connections at once per address and port (CONNLIMIT, refused
+  with a TCP reset), new connections per minute per address and port
+  (PORTFLOOD) and pings per second per address (ICMP_IN_RATE). Exempt
+  addresses skip them (your own is added when you apply). They live in the
+  nftables table `inet whacp_flood`, loaded at boot by
+  `whacp-flood.service` from `/etc/whacp/flood.nft`; it only drops or
+  rejects, so it never opens what the firewall closes. Every change is
+  undone after 2 minutes unless you click **Keep change**. The page shows
+  how many packets each protection dropped since it was loaded.
 - **Configure Security Policies**: *Limit logins to verified IP
   addresses* (a WhaCP sign-in from a new address needs a 6-digit code sent
   to the user's email; addresses already used count as verified;
@@ -503,6 +515,8 @@ All under **Security** in the sidebar (administrators).
   restores the table after a restart. Commands run as the panel's account
   (not root) with a 15-second limit and shell-quoted variables. Countries
   use DB-IP's IP to Country Lite database (CC BY 4.0), downloaded monthly;
+  blacklisted countries are blocked from WhaCP and the login ports, or
+  from every port when you choose so on the Countries tab (CSF's CC_DENY);
   without Internet access import it with `bin/whacp hulk:geo-import FILE`.
   If you block yourself: `bin/whacp hulk:unblock <ip|user|all>`. When
   protection is first turned on with an empty whitelist, your own address
