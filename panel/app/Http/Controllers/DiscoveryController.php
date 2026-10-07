@@ -44,6 +44,7 @@ final class DiscoveryController extends Controller
     {
         $available = [];
         $services = [];
+        $repository = null;
         if ($this->view->can(\WhaCP\Security\Permissions::PHP_MANAGE)) {
             try {
                 $available = (array) $this->agent->call('php.available');
@@ -54,6 +55,14 @@ final class DiscoveryController extends Controller
             }
         }
         $this->view->share('php_available', $available);
+        if ($this->view->can(\WhaCP\Security\Permissions::PHP_MANAGE)) {
+            try {
+                $repository = (array) $this->agent->call('php.repository');
+            } catch (AgentException) {
+                // An agent without the action: no repository card.
+            }
+        }
+        $this->view->share('php_repository', $repository);
         $this->view->share('php_services', $services);
         return $this->page($request, 'discovery/php', 'PHP', static function (array $inv): array {
             $usage = [];

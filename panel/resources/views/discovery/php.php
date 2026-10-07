@@ -27,9 +27,48 @@ $installable = array_values(array_diff($php_available ?? [], $installed));
                 </select>
                 <button class="btn btn-sm btn-primary text-nowrap" type="submit"<?= $installable === [] ? ' disabled' : '' ?>><span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span><i class="bi bi-download me-1"></i>Install</button>
             </form>
-            <span class="small text-body-secondary">Versions offered by the server's package repositories (FPM, CLI and common extensions are installed). On Ubuntu each release offers one PHP version; more come from a third-party repository such as the ondrej/php PPA (<code>add-apt-repository ppa:ondrej/php</code>), on AlmaLinux/Rocky from Remi.</span>
+            <span class="small text-body-secondary flex-grow-1">Versions offered by the server's package repositories (FPM, CLI and common extensions are installed).</span>
+            <?php $repo = $php_repository ?? null; ?>
+            <?php if (is_array($repo) && ($repo['kind'] ?? '') !== ''): ?>
+                <?php if (!empty($repo['enabled'])): ?>
+                    <span class="small"><span class="wcp-state is-ok"><?= e((string) $repo['name']) ?> enabled</span></span>
+                <?php elseif (!empty($repo['supported']) && $this->can(\WhaCP\Security\Permissions::PACKAGES_MANAGE)): ?>
+                    <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#php-repo"><i class="bi bi-plus-circle me-1"></i>More PHP versions: add <?= e((string) $repo['name']) ?></button>
+                <?php elseif (!empty($repo['supported'])): ?>
+                    <span class="small text-body-secondary">More versions: an administrator can add <?= e((string) $repo['name']) ?>.</span>
+                <?php else: ?>
+                    <span class="small text-body-secondary"><?= e((string) ($repo['note'] ?? '')) ?></span>
+                <?php endif; ?>
+            <?php endif; ?>
         </div>
     </div>
+<?php endif; ?>
+
+<?php if (is_array($php_repository ?? null) && !empty($php_repository['supported']) && empty($php_repository['enabled']) && $this->can(\WhaCP\Security\Permissions::PACKAGES_MANAGE)): $repo = $php_repository; ?>
+    <?= $this->modalStart('php-repo', 'Add ' . $repo['name'], false, 'modal-md') ?>
+    <form method="post" action="<?= e($this->url('php.repository')) ?>" data-wcp-busy>
+        <?= $this->csrfField() ?>
+        <input type="hidden" name="confirm" value="yes">
+        <?php if ($repo['kind'] === 'ondrej-ppa'): ?>
+            <p>Ubuntu offers one PHP version per release. Ondřej Surý's PPA, the usual source on Ubuntu, offers the others (such as 7.4, 8.1, 8.2, 8.4) and their updates.</p>
+            <ul class="small">
+                <li>A third-party repository: its packages are signed by its maintainer, not by Ubuntu. Updates of PHP come from it from then on.</li>
+                <li>WhaCP pins its signing key (fingerprint <code class="text-break">14AA 40EC 0831 7567 56D7 F66C 4F4E A0AA E526 7A6C</code>) and trusts it for this repository only.</li>
+                <li>If APT refuses the repository, it is removed again.</li>
+            </ul>
+        <?php else: ?>
+            <p>Remi's repository, the usual source on AlmaLinux, Rocky Linux and RHEL, offers PHP versions side by side (with EPEL, which it needs).</p>
+            <ul class="small">
+                <li>A third-party repository: its packages are signed by its maintainer. The key is imported by DNF from the repository's release package.</li>
+            </ul>
+        <?php endif; ?>
+        <p class="small mb-3"><a href="<?= e((string) $repo['url']) ?>" target="_blank" rel="noopener noreferrer">About this repository <i class="bi bi-box-arrow-up-right"></i></a></p>
+        <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-sm btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Add the repository</button>
+        </div>
+    </form>
+    <?= $this->modalEnd() ?>
 <?php endif; ?>
 
 <div class="row g-3 mb-3">

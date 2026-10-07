@@ -450,3 +450,21 @@ func whoProvides(ctx context.Context, env *host.Env, caps []string) string {
 	}
 	return b.String()
 }
+
+// RepoEnabled reports whether the repository with this ID (dnf) is enabled.
+func RepoEnabled(ctx context.Context, env *host.Env, id string) bool {
+	for _, r := range enabledRepos(ctx, env) {
+		if strings.EqualFold(r, id) {
+			return true
+		}
+	}
+	return false
+}
+
+// EnableRemi adds and enables Remi's repository of PHP versions (RHEL
+// family), as installing a missing PHP version does, and reports whether
+// it is enabled afterwards.
+func EnableRemi(ctx context.Context, env *host.Env, log io.Writer) bool {
+	prepareRHELRepos(ctx, env, log, []string{"php83-php-fpm"})
+	return RepoEnabled(ctx, env, "remi-safe")
+}

@@ -183,6 +183,9 @@ return static function (Router $r): void {
     $r->get('/domains', [DomainsController::class, 'index'], ['name' => 'domains', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/php', [DiscoveryController::class, 'php'], ['name' => 'php', 'permission' => P::PHP_VIEW]);
     $r->post('/php/install', [PhpController::class, 'install'], ['name' => 'php.install', 'permission' => P::PHP_MANAGE]);
+    // Adding a third-party package repository changes what the server trusts:
+    // package managers only, not operators.
+    $r->post('/php/repository', [PhpController::class, 'enableRepository'], ['name' => 'php.repository', 'permission' => P::PACKAGES_MANAGE]);
     $r->post('/php/{version}/toggle', [PhpController::class, 'toggle'], ['name' => 'php.toggle', 'permission' => P::PHP_MANAGE]);
     $r->get('/php/{version}/modules', [PhpController::class, 'modules'], ['name' => 'php.modules', 'permission' => P::PHP_VIEW]);
     $r->get('/php/{version}', [PhpController::class, 'show'], ['name' => 'php.show', 'permission' => P::PHP_MANAGE]);

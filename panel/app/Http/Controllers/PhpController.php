@@ -28,6 +28,30 @@ final class PhpController extends Controller
         parent::__construct($view, $session);
     }
 
+    /**
+     * Adds the third-party repository with more PHP versions (Ubuntu:
+     * Ondřej Surý's PPA with its pinned key; RHEL family: Remi).
+     */
+    public function enableRepository(Request $request): Response
+    {
+        if (!$this->view->can(\WhaCP\Security\Permissions::PHP_MANAGE)) {
+            return $this->redirectWithError('/php', 'You cannot manage PHP versions.');
+        }
+        if ($request->string('confirm') !== 'yes') {
+            return $this->redirectWithError('/php', 'Confirm that the repository should be added.');
+        }
+        try {
+            $res = (array) $this->agent->call('php.repository.enable', []);
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/php', $e);
+        }
+        $name = (string) ($res['repository'] ?? 'PHP repository');
+        $this->jobs->track((string) $res['job_id'], 'Add ' . $name, 'php', 'repository', $this->userId($request));
+        $this->audit->record('php.repository.enable', 'php', $name, AuditLogger::SUCCESS);
+        $this->flashJob((string) $res['job_id']);
+        return $this->redirectWithSuccess('/php', 'Adding ' . $name . '. Its PHP versions appear in the list once the package index is refreshed.');
+    }
+
     public function install(Request $request): Response
     {
         $version = $request->string('version');

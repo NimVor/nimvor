@@ -67,6 +67,15 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **More PHP versions from the PHP page.** A button adds the repository
+  with other PHP versions after a confirmation: on Ubuntu Ondřej Surý's
+  PPA, with its signing key pinned in the agent (fingerprint
+  `14AA40EC0831756756D7F66C4F4EA0AAE5267A6C`) and trusted for that
+  repository only (`Signed-By`); on the RHEL family Remi's repository.
+  If APT refuses the PPA it is removed again. It needs the
+  *Install and update packages* permission (operators cannot add it).
+  A PHP version installed only as the command line now offers
+  *Install PHP-FPM*.
 - **Account backups** (*Backups → Account backups*):
   - **What the file holds.** One `.whacp-account` file per hosting
     account, with every website's files and databases (encrypted) and the

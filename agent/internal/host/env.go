@@ -123,6 +123,11 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		"/etc/php/*/cli/conf.d/99-whacp.ini",
 		// Website statistics: WhaCP's own AWStats configurations.
 		"/etc/awstats/awstats.whacp-*.conf",
+		// More PHP versions on Ubuntu: WhaCP's source of the ondrej/php PPA
+		// and its pinned key (phpmgr), nothing else under /etc/apt.
+		"/etc/apt/keyrings",
+		"/etc/apt/keyrings/whacp-ondrej-php.asc",
+		"/etc/apt/sources.list.d/whacp-ondrej-php.sources",
 	}
 	return &Env{
 		Cfg: cfg, Root: root, Platform: p, M: m, Runner: r, Jobs: j, Log: log,

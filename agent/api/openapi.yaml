@@ -261,6 +261,8 @@ paths:
               - php.ini_set
               - php.install
               - php.modules
+              - php.repository
+              - php.repository.enable
               - php.set_enabled
               - processes.kill_user
               - processes.list
@@ -673,6 +675,8 @@ x-whacp-actions:
   php.ini_set: { mutating: true, description: "Write WhaCP's php.ini settings for a PHP version (allowed directives only; empty removes them), checked with php-fpm -t (warnings count as errors) and applied with a reload; rolled back on failure." }
   php.install: { mutating: true, description: "Install a PHP version (FPM, CLI and common extensions) with the package manager." }
   php.modules: { mutating: false, description: "Loaded modules of a PHP version." }
+  php.repository: { mutating: false, description: "The third-party repository with more PHP versions for this system, and whether it is enabled." }
+  php.repository.enable: { mutating: true, description: "Add the repository with more PHP versions (Ubuntu: Ondřej Surý's PPA, pinned key; RHEL family: Remi) and refresh the package index." }
   php.set_enabled: { mutating: true, description: "Start and enable, or stop and disable, the FPM service of a PHP version." }
   processes.kill_user: { mutating: true, description: "Send a signal (TERM or KILL) to every process of one account (never root or WhaCP's own account)." }
   processes.list: { mutating: false, description: "Every process: owner, priority, CPU and memory use, command line, executable and listening ports, and why a process looks suspicious (miners, deleted or temporary programs, fake kernel threads, shells listening on a port)." }
