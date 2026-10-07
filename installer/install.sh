@@ -693,7 +693,13 @@ if [[ $REINSTALL -eq 1 || $ENABLE_WRITES -eq 1 || -n $REMOTE_ACCESS ]]; then
 fi
 # Greylisting and outgoing mail limits run the agent's program too: restart
 # them (only where they run) so they use the version just installed.
-run systemctl try-restart whacp-greylist.service whacp-mailrate.service
+# Mail helpers WhaCP set up earlier run the new code (a fresh server has
+# none yet: "try-restart" of a unit that does not exist fails).
+for unit in whacp-greylist.service whacp-mailrate.service; do
+    if [[ -f /etc/systemd/system/$unit ]]; then
+        run systemctl try-restart "$unit" || warn "$unit could not be restarted (systemctl status $unit)"
+    fi
+done
 
 # ---------------------------------------------------- 8. administrator ----
 if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
