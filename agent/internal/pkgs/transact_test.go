@@ -219,6 +219,38 @@ func TestRHELRepositoryPreparation(t *testing.T) {
 	}
 }
 
+// AlmaLinux 9 report: the availability check's output was not recognised,
+// so dnf install itself said "Unable to find a match: rspamd". That
+// failure now adds Rspamd's repository and tries again.
+func TestNotAvailableFromInstallPreparesRepositories(t *testing.T) {
+	h := testhost.New(t)
+	rhel(t, h)
+	added := false
+	h.Respond = func(id string, a []string) (string, error, bool) {
+		cmd := strings.Join(a, " ")
+		switch {
+		case id == "rpm":
+			return "", errors.New("exit status 1"), true
+		case id == "dnf" && strings.HasPrefix(cmd, "-q repolist"):
+			return "repo id  repo name\nbaseos  BaseOS\nappstream  AppStream\n", nil, true
+		case id == "dnf" && strings.HasPrefix(cmd, "-q list --available --installed"):
+			return "Failed to set locale, defaulting to C.UTF-8\n", errors.New("exit status 1"), true
+		case id == "dnf" && strings.HasPrefix(cmd, "config-manager --add-repo ") && strings.HasSuffix(cmd, "/rspamd.repo"):
+			added = true
+		case id == "dnf" && strings.HasPrefix(cmd, "install -y -q --setopt=install_weak_deps=False -- rspamd") && !added:
+			return "Error: Unable to find a match: rspamd\n", errors.New("exit status 1"), true
+		}
+		return "", nil, false
+	}
+	var log strings.Builder
+	if err := InstallNative(context.Background(), h.Env, &log, []string{"rspamd"}); err != nil {
+		t.Fatalf("%v\n%s", err, log.String())
+	}
+	if !added || !strings.Contains(log.String(), "Automatic recovery: enabled the repositories rspamd come from") {
+		t.Fatalf("repository not added on NOT_AVAILABLE:\n%s", log.String())
+	}
+}
+
 // An EPEL package whose libraries live in CRB (opendkim: libmilter): CRB is
 // enabled and the install tried again; still unresolvable, the repository
 // providing the library is named.

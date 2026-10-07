@@ -99,6 +99,14 @@ func transact(ctx context.Context, env *host.Env, log io.Writer, op string, pkgs
 			if prepareRHELRepos(ctx, env, log, []string{"epel-dependencies"}) {
 				step = "enabled the repositories EPEL's packages depend on"
 			}
+		case d.Category == CatNotAvailable && dnf(env) && !repaired[CatNotAvailable] && len(d.Missing) > 0:
+			// The availability check could not tell (its output was not
+			// recognised), so the repositories missing packages come from
+			// (EPEL, Remi, Rspamd's) were not prepared before the install.
+			repaired[CatNotAvailable] = true
+			if prepareRHELRepos(ctx, env, log, d.Missing) {
+				step = "enabled the repositories " + strings.Join(d.Missing, ", ") + " come from"
+			}
 		case d.Category == CatRepository:
 			if stepErr = sleepCtx(ctx, retryDelays[attempt-1]); stepErr == nil {
 				step = "waited and refreshed the package index"
@@ -184,7 +192,8 @@ func unavailable(ctx context.Context, env *host.Env, pkgs []string) (missing []s
 		// matches, else lists those that do ("name.arch version repo").
 		out, err := env.Runner.Run(ctx, "dnf", append([]string{"-q", "list", "--available", "--installed", "--"}, query...)...)
 		if err != nil {
-			if strings.Contains(string(out), "No matching Packages") {
+			// dnf 4 "No matching Packages to list", dnf 5 "No matching packages to list".
+			if strings.Contains(strings.ToLower(string(out)), "no matching packages") {
 				return query, true
 			}
 			return nil, false
@@ -262,7 +271,11 @@ func parsePolicy(out string) map[string]string {
 // as not available, naming the enabled repositories.
 func ensureAvailable(ctx context.Context, env *host.Env, log io.Writer, pkgs []string) error {
 	missing, ok := unavailable(ctx, env, pkgs)
-	if !ok || len(missing) == 0 {
+	if !ok {
+		fmt.Fprintf(log, "Could not check which of %s the repositories offer; installing.\n", strings.Join(pkgs, ", "))
+		return nil
+	}
+	if len(missing) == 0 {
 		return nil
 	}
 	if dnf(env) && prepareRHELRepos(ctx, env, log, missing) {
