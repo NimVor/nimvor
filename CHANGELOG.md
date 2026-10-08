@@ -67,6 +67,11 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **PHP Manager** (EasyApache style): tick PHP versions and extensions,
+  review what changes (install, update, switch on or off, remove, kept,
+  unchanged), apply as one job; the PHP profile is kept and can be exported
+  and imported. Versions used by websites or by the panel are never
+  removed. Agent: `php.profile_plan`, `php.profile_apply`, `php.catalog`.
 - **Server → Components**: every part of the server (web, PHP, database,
   email, DNS, FTP, Redis, Memcached, firewall, Fail2ban, ClamAV, Let's
   Encrypt) with its steps (packages, set up, running, starts at boot,

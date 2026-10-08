@@ -351,3 +351,29 @@ func IndexRefreshed(env *host.Env) time.Time {
 
 // IndexStaleAfter is when update information stops being trustworthy.
 const IndexStaleAfter = 7 * 24 * time.Hour
+
+// UpgradeNative updates installed packages (this system's names) to the
+// repositories' versions, keeping local configuration; packages that are
+// not installed are not installed by it.
+func UpgradeNative(ctx context.Context, env *host.Env, log io.Writer, pkgs []string) error {
+	for _, p := range pkgs {
+		if err := validate.Package("package", p); err != nil {
+			return err
+		}
+	}
+	if len(pkgs) == 0 {
+		return nil
+	}
+	opts := execx.Opts{Output: log, Timeout: -1, Env: packageEnv}
+	if dnf(env) {
+		args := append([]string{"upgrade", "-y", "-q", "--"}, pkgs...)
+		return transact(ctx, env, log, "update", pkgs, func(ctx context.Context) ([]byte, error) {
+			return env.Runner.RunWith(ctx, "dnf", opts, args...)
+		})
+	}
+	args := append([]string{"install", "--only-upgrade", "-y", "-q", "-o", "Dpkg::Options::=--force-confold"}, aptLockWait...)
+	args = append(append(args, "--"), pkgs...)
+	return transact(ctx, env, log, "update", pkgs, func(ctx context.Context) ([]byte, error) {
+		return env.Runner.RunWith(ctx, "apt-get", opts, args...)
+	})
+}

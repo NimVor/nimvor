@@ -255,6 +255,7 @@ paths:
               - packages.updates
               - packages.upgrade
               - php.available
+              - php.catalog
               - php.extension_install
               - php.extension_remove
               - php.extension_set
@@ -265,6 +266,8 @@ paths:
               - php.ini_set
               - php.install
               - php.modules
+              - php.profile_apply
+              - php.profile_plan
               - php.repository
               - php.repository.enable
               - php.set_enabled
@@ -674,6 +677,7 @@ x-whacp-actions:
   packages.updates: { mutating: false, description: "Pending package updates (from the last package index refresh)." }
   packages.upgrade: { mutating: true, description: "Install all pending updates, keeping existing configuration files (job)." }
   php.available: { mutating: false, description: "PHP versions offered by the configured package repositories." }
+  php.catalog: { mutating: false, description: "The PHP extensions WhaCP manages (name, description) and those a new version gets by default." }
   php.extension_install: { mutating: true, description: "Install a PHP extension's package for a version (job); PHP-FPM is reloaded." }
   php.extension_remove: { mutating: true, description: "Remove a PHP extension's package for a version (job), only if nothing else would be removed with it; PHP-FPM is reloaded." }
   php.extension_set: { mutating: true, description: "Switch a PHP extension on or off for a version (Debian: phpenmod/phpdismod; RHEL: its php.d line); PHP-FPM is checked and reloaded, and the change undone on failure." }
@@ -684,6 +688,8 @@ x-whacp-actions:
   php.ini_set: { mutating: true, description: "Write WhaCP's php.ini settings for a PHP version (allowed directives only; empty removes them), checked with php-fpm -t (warnings count as errors) and applied with a reload; rolled back on failure." }
   php.install: { mutating: true, description: "Install a PHP version (FPM, CLI and common extensions) with the package manager." }
   php.modules: { mutating: false, description: "Loaded modules of a PHP version." }
+  php.profile_apply: { mutating: true, description: "Apply a PHP profile (job): the plan is computed again; removals need confirm_removals. Versions used by websites or by the panel are never removed." }
+  php.profile_plan: { mutating: false, description: "Compare a PHP profile (versions and extensions) with the server: what would be installed, updated, switched on or off, removed, left unchanged or kept (read-only)." }
   php.repository: { mutating: false, description: "The third-party repository with more PHP versions for this system, and whether it is enabled." }
   php.repository.enable: { mutating: true, description: "Add the repository with more PHP versions (Ubuntu: Ondřej Surý's PPA, pinned key; RHEL family: Remi) and refresh the package index." }
   php.set_enabled: { mutating: true, description: "Start and enable, or stop and disable, the FPM service of a PHP version." }

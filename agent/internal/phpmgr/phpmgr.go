@@ -27,23 +27,9 @@ func Register(r *actions.Registry, env *host.Env) {
 	registerIni(r, env)
 	registerFPMGlobal(r, env)
 	registerRepository(r, env)
+	registerProfile(r, env)
 	r.Register(actions.Action{Name: "php.available", Description: "PHP versions offered by the configured package repositories.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
-		if env.Platform.PackageManager() == "dnf" {
-			// Remi's parallel versions: php83-php-fpm.x86_64 …
-			out, err := env.Runner.Run(ctx, "dnf", "-q", "--cacheonly", "list", "php[0-9][0-9]-php-fpm")
-			if err != nil {
-				// No metadata cached yet.
-				if out, err = env.Runner.Run(ctx, "dnf", "-q", "list", "php[0-9][0-9]-php-fpm"); err != nil {
-					return []string{}, nil
-				}
-			}
-			return ParseAvailableRemi(string(out)), nil
-		}
-		out, err := env.Runner.Run(ctx, "apt-cache", "search", "--names-only", `^php[0-9]+\.[0-9]+-fpm$`)
-		if err != nil {
-			return []string{}, nil
-		}
-		return ParseAvailable(string(out)), nil
+		return Available(ctx, env), nil
 	}})
 	r.Register(actions.Action{Name: "php.modules", Description: "Loaded modules of a PHP version.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
@@ -144,6 +130,26 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"version": in.Version, "enabled": true}, nil
 	}})
+}
+
+// Available lists the PHP versions the configured repositories offer.
+func Available(ctx context.Context, env *host.Env) []string {
+	if env.Platform.PackageManager() == "dnf" {
+		// Remi's parallel versions: php83-php-fpm.x86_64 …
+		out, err := env.Runner.Run(ctx, "dnf", "-q", "--cacheonly", "list", "php[0-9][0-9]-php-fpm")
+		if err != nil {
+			// No metadata cached yet.
+			if out, err = env.Runner.Run(ctx, "dnf", "-q", "list", "php[0-9][0-9]-php-fpm"); err != nil {
+				return []string{}
+			}
+		}
+		return ParseAvailableRemi(string(out))
+	}
+	out, err := env.Runner.Run(ctx, "apt-cache", "search", "--names-only", `^php[0-9]+\.[0-9]+-fpm$`)
+	if err != nil {
+		return []string{}
+	}
+	return ParseAvailable(string(out))
 }
 
 // SitesUsing lists websites (managed or not) whose FastCGI backend is a

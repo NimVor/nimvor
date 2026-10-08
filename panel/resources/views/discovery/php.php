@@ -5,6 +5,7 @@ $pools = $php['pools'] ?? [];
 ?>
 <?php $this->start(); ?>PHP<?php $this->end('title'); ?>
 <?php $this->start(); ?>Installed versions and PHP-FPM pools<?php $this->end('subtitle'); ?>
+<?php $this->start(); ?><?php if ($this->can(\WhaCP\Security\Permissions::PACKAGES_MANAGE)): ?><a class="btn btn-sm btn-outline-primary" href="<?= e($this->url('php.manager')) ?>"><i class="bi bi-ui-checks me-1" aria-hidden="true"></i>PHP Manager</a><?php endif; ?><?php $this->end('actions'); ?>
 
 <?= $this->partial('partials/discovery_bar', ['discoveredAt' => $discoveredAt]) ?>
 

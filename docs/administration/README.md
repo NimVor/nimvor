@@ -492,6 +492,29 @@ installed or removed from there. Every other page (Packages, Services,
 Firewall, PHP, Email, DNS, FTP …) stays as it was; Components links to
 them.
 
+## PHP Manager
+
+**Server → PHP Manager** (also a button on the PHP page; needs *Install and
+update packages*), in the manner of cPanel's EasyApache:
+
+1. **PHP versions**: tick the versions the server should have. Each shows
+   whether it is installed or offered by the repositories, how many
+   websites use it, and until when it gets security fixes.
+2. **Extensions**: tick the extensions every ticked version gets.
+3. **Review changes**: what applying does, grouped as *to install*, *to
+   update*, *to switch on*, *to switch off*, *to remove*, *kept or not
+   possible* and *no change*. Nothing has changed yet.
+4. **Apply**: one job (see its log). Removals need a tick to confirm. The
+   agent computes the plan again when the job starts; a version websites
+   use, and the PHP version WhaCP's panel runs on, are never removed.
+   Each version is tested (`php-fpm -t`) and started at boot afterwards.
+
+The applied selection is kept as the server's **PHP profile**: it is the
+starting selection next time, and **Export profile** / **Import profile**
+move it to another server (an imported profile is reviewed first). The
+PHP page and each version's page (extensions, php.ini, PHP-FPM) stay as
+they were.
+
 ## Server security settings
 
 All under **Security** in the sidebar (administrators).

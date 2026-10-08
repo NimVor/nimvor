@@ -186,6 +186,11 @@ return static function (Router $r): void {
     // Adding a third-party package repository changes what the server trusts:
     // package managers only, not operators.
     $r->post('/php/repository', [PhpController::class, 'enableRepository'], ['name' => 'php.repository', 'permission' => P::PACKAGES_MANAGE]);
+    $r->get('/php/manager', [\WhaCP\Http\Controllers\PhpManagerController::class, 'index'], ['name' => 'php.manager', 'permission' => P::PACKAGES_MANAGE]);
+    $r->post('/php/manager/review', [\WhaCP\Http\Controllers\PhpManagerController::class, 'review'], ['name' => 'php.manager.review', 'permission' => P::PACKAGES_MANAGE]);
+    $r->post('/php/manager/apply', [\WhaCP\Http\Controllers\PhpManagerController::class, 'apply'], ['name' => 'php.manager.apply', 'permission' => P::PACKAGES_MANAGE]);
+    $r->get('/php/manager/export', [\WhaCP\Http\Controllers\PhpManagerController::class, 'export'], ['name' => 'php.manager.export', 'permission' => P::PACKAGES_MANAGE]);
+    $r->post('/php/manager/import', [\WhaCP\Http\Controllers\PhpManagerController::class, 'import'], ['name' => 'php.manager.import', 'permission' => P::PACKAGES_MANAGE]);
     $r->post('/php/{version}/toggle', [PhpController::class, 'toggle'], ['name' => 'php.toggle', 'permission' => P::PHP_MANAGE]);
     $r->get('/php/{version}/modules', [PhpController::class, 'modules'], ['name' => 'php.modules', 'permission' => P::PHP_VIEW]);
     $r->get('/php/{version}', [PhpController::class, 'show'], ['name' => 'php.show', 'permission' => P::PHP_MANAGE]);
