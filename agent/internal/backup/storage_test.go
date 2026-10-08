@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 )
 
 // fakeDrive implements the parts of the Drive v3 API the client uses.
@@ -273,5 +275,62 @@ func TestFileRemoteRedactsPasswordAndPassesSecretsOnStdin(t *testing.T) {
 	k := Remote{Type: "sftp", Host: "h.example.com", Username: "bk", PrivateKey: "-----BEGIN OPENSSH PRIVATE KEY-----\nx\n-----END OPENSSH PRIVATE KEY-----", HostKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"}
 	if err := k.Open(s.Env).Put(context.Background(), "a/b", src); err == nil || err.Error() != "curl: (78) No such file" {
 		t.Errorf("message mangled: %v", err)
+	}
+}
+
+func TestLocalBackupsFolderIsCreatedButMountPointsAreNot(t *testing.T) {
+	h, s := siteHost(t)
+	for _, p := range []string{"/backups", "/backup", "/srv/backups", "/backups/web1"} {
+		if err := (&Remote{Type: "local", Path: p}).Validate(); err != nil {
+			t.Errorf("%s refused: %v", p, err)
+		}
+	}
+	for _, p := range []string{"/mnt", "/media", "/srv", "/backupsx", "/etc/backups"} {
+		if err := (&Remote{Type: "local", Path: p}).Validate(); err == nil {
+			t.Errorf("%s accepted", p)
+		}
+	}
+	ctx := context.Background()
+	src := filepath.Join(t.TempDir(), "x")
+	os.WriteFile(src, []byte("backup data"), 0o600)
+
+	// /backups/web1 does not exist: the storage test creates it (0700).
+	reg := actions.NewRegistry(true)
+	Register(reg, s.Env)
+	a, _ := reg.Lookup("backup.remote_test")
+	b, _ := json.Marshal(map[string]any{"remote": Remote{Type: "local", Path: "/backups/web1"}})
+	res, err := a.Handler(ctx, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.(map[string]any)["created"] != true {
+		t.Errorf("result = %v", res)
+	}
+	for _, d := range []string{"backups", "backups/web1"} {
+		fi, err := os.Stat(filepath.Join(h.Base, d))
+		if err != nil || fi.Mode().Perm() != 0o700 {
+			t.Errorf("%s: %v %v", d, fi, err)
+		}
+	}
+	if err := (&Remote{Type: "local", Path: "/backups/web1"}).Open(s.Env).Put(ctx, "k", src); err != nil {
+		t.Errorf("put into the created folder: %v", err)
+	}
+	// Existing: nothing created.
+	if created, err := (&localDir{R: Remote{Type: "local", Path: "/backups/web1"}, Env: s.Env}).Ensure(); created || err != nil {
+		t.Errorf("existing folder: %v %v", created, err)
+	}
+	// A missing folder under /mnt is never created (the disk may be unmounted).
+	b, _ = json.Marshal(map[string]any{"remote": Remote{Type: "local", Path: "/mnt/nas2"}})
+	if _, err := a.Handler(ctx, b); err == nil {
+		t.Error("missing /mnt folder accepted")
+	}
+	if _, err := os.Stat(filepath.Join(h.Base, "mnt/nas2")); err == nil {
+		t.Error("/mnt/nas2 was created")
+	}
+	// A symbolic link on the way is refused, not followed.
+	os.MkdirAll(filepath.Join(h.Base, "srv"), 0o755)
+	os.Symlink(t.TempDir(), filepath.Join(h.Base, "srv/backups"))
+	if _, err := (&localDir{R: Remote{Type: "local", Path: "/srv/backups/x"}, Env: s.Env}).Ensure(); err == nil || !strings.Contains(err.Error(), "symbolic link") {
+		t.Errorf("symlink: %v", err)
 	}
 }

@@ -86,6 +86,21 @@ final class BackupsAdminTest extends HttpTestCase
         self::assertSame('ssh-ed25519 AAAA', $cfg['host_key']);
     }
 
+    public function testLocalFolderChoices(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('backup.remote_test', ['ok' => true, 'created' => true]);
+        // /backups itself is accepted (the agent creates it when missing).
+        $this->post('/backups/storages', ['name' => 'Local', 'type' => 'local', 'path' => '/backups', 'prefix' => '']);
+        self::assertSame('/backups', $this->lastCall('backup.remote_test')['remote']['path']);
+        self::assertSame(1, (int) $this->app->container->get(\WhaCP\Database\Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'backup.storage_folder_create'"));
+        // A mount root or a folder elsewhere is refused before the agent is asked.
+        foreach (['/mnt', '/media', '/etc/backups', '/backups/../etc'] as $i => $p) {
+            $this->post('/backups/storages', ['name' => 'Bad' . $i, 'type' => 'local', 'path' => $p, 'prefix' => '']);
+        }
+        self::assertSame(1, $this->calls('backup.remote_test'));
+    }
+
     public function testKeyDownloadNeedsAnAdministratorAndThePanelPassword(): void
     {
         $this->agent->succeed('backup.key_export', ['key_id' => 'abcd', 'file' => "{\"format\":\"whacp-backup-key\"}\n"]);

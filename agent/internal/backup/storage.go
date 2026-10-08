@@ -140,9 +140,24 @@ func (r *Remote) validateDrive() error {
 // Local destinations must live under these roots (mounted disks, NAS).
 var localRoots = []string{"/mnt/", "/media/", "/backup/", "/backups/", "/srv/backup/", "/srv/backups/"}
 
+// creatableRoots are local backup folders on this server's own disk:
+// WhaCP may use them as they are and creates them when missing. Under
+// /mnt and /media a missing folder means the disk is not mounted, so
+// those are never created (backups would fill the system disk instead).
+var creatableRoots = []string{"/backup", "/backups", "/srv/backup", "/srv/backups"}
+
+func creatable(p string) bool {
+	for _, root := range creatableRoots {
+		if p == root || strings.HasPrefix(p, root+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Remote) validateLocal() error {
 	p := path.Clean("/" + strings.TrimSpace(r.Path))
-	ok := false
+	ok := creatable(p)
 	for _, root := range localRoots {
 		if strings.HasPrefix(p+"/", root) && p+"/" != root {
 			ok = true
@@ -171,7 +186,10 @@ func (l *localDir) base() (string, error) {
 	}
 	info, err := os.Lstat(real)
 	if err != nil || !info.IsDir() {
-		return "", fmt.Errorf("%s does not exist or is not a folder (is the disk mounted?)", l.R.Path)
+		if creatable(l.R.Path) {
+			return "", fmt.Errorf("%s does not exist or is not a folder", l.R.Path)
+		}
+		return "", fmt.Errorf("%s does not exist or is not a folder: is the disk mounted? (WhaCP does not create folders under /mnt or /media, so that backups never fill the system disk while a disk is missing)", l.R.Path)
 	}
 	if st, ok := info.Sys().(*syscall.Stat_t); ok && (st.Uid != 0 && os.Geteuid() == 0 || info.Mode().Perm()&0o002 != 0) {
 		return "", fmt.Errorf("%s must belong to root and not be writable by others", l.R.Path)
@@ -180,6 +198,46 @@ func (l *localDir) base() (string, error) {
 		return "", fmt.Errorf("%s must not be or contain a symbolic link", l.R.Path)
 	}
 	return real, nil
+}
+
+// Ensure creates a missing destination under one of the creatable roots,
+// each missing folder owned by root with mode 0700. It reports whether it
+// created something. Existing folders are left as they are (base checks
+// them); a symbolic link on the way is refused.
+func (l *localDir) Ensure() (bool, error) {
+	if !creatable(l.R.Path) {
+		return false, nil
+	}
+	created := false
+	cur := ""
+	for _, part := range strings.Split(strings.TrimPrefix(l.R.Path, "/"), "/") {
+		cur += "/" + part
+		real, err := l.Env.Root.Path(cur)
+		if err != nil {
+			return created, err
+		}
+		info, err := os.Lstat(real)
+		switch {
+		case err == nil && info.Mode()&os.ModeSymlink != 0:
+			return created, fmt.Errorf("%s is a symbolic link", cur)
+		case err == nil && !info.IsDir():
+			return created, fmt.Errorf("%s exists and is not a folder", cur)
+		case err == nil:
+			continue
+		case !os.IsNotExist(err):
+			return created, err
+		}
+		if err := os.Mkdir(real, 0o700); err != nil {
+			return created, fmt.Errorf("could not create %s: %w", cur, err)
+		}
+		if os.Geteuid() == 0 {
+			if err := os.Lchown(real, 0, 0); err != nil {
+				return true, err
+			}
+		}
+		created = true
+	}
+	return created, nil
 }
 
 func (l *localDir) open() (*os.Root, error) {

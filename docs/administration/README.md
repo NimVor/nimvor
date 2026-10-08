@@ -1609,7 +1609,7 @@ Several storages can be connected:
 | SFTP | Password or unencrypted private key. On the first connection WhaCP shows the server's host key fingerprint; after you confirm it the key is pinned and backups refuse any other key. |
 | FTP | Explicit TLS (FTPS) by default, implicit TLS on port 990, or plain FTP only when chosen explicitly. Certificates are verified; a self-signed certificate is shown for confirmation and its public key is pinned. |
 | Google Drive | Needs the panel on `https://` (set *Public panel URL*) and an OAuth client (*Web application*) with the Drive API enabled and `https://<panel>/backups/storages/google/callback` as redirect URI. WhaCP asks only for the `drive.file` scope (files it created) and stores backups in a "WhaCP backups" folder. |
-| Local folder | An existing folder under `/mnt`, `/media`, `/backup(s)` or `/srv/backup(s)`, owned by root, not world-writable and without symbolic links — typically a second disk or a mounted NAS share. |
+| Local folder | `/backups`, `/backup`, `/srv/backup(s)` or a folder in them: created when missing (root only, mode 0700) when the storage is tested. Or a folder of a mounted disk or NAS share under `/mnt` or `/media`, which must exist: WhaCP never creates one there, so backups do not fill the system disk while that disk is not mounted. Owned by root, not world-writable, no symbolic links. A folder on the server's own disk is not off the server. |
 
 The optional sub-folder separates servers that share one destination.
 

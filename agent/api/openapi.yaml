@@ -511,7 +511,7 @@ x-whacp-actions:
   backup.key_info: { mutating: false, description: "Fingerprint of the backup encryption key (never the key)." }
   backup.list: { mutating: false, description: "Backups stored on this server for a website (or kind=server)." }
   backup.remote_import: { mutating: true, description: "Find the backups in a remote storage and make those encrypted with this server's backup key (with an authenticated manifest) restorable here; used to recover onto a new server." }
-  backup.remote_test: { mutating: false, description: "Check that remote storage settings work. Returns an SFTP server's host key (to pin) and creates the Google Drive folder when none is set." }
+  backup.remote_test: { mutating: true, description: "Check that remote storage settings work. Returns an SFTP server's host key (to pin), creates the Google Drive folder when none is set, and creates a missing local folder under /backup(s) or /srv/backup(s) (never under /mnt or /media)." }
   backup.restore: { mutating: true, description: "Restore website files and/or databases from a backup (job)." }
   backup.server: { mutating: true, description: "Archive the server configuration (nginx, PHP, MySQL, Redis, certificates, WhaCP) (job)." }
   backup.server_restore: { mutating: true, description: "Restore components (nginx, php, mysql, redis, letsencrypt, fail2ban, cron) of a server backup after a safety backup, validating and rolling back on failure; or extract it for manual review (job)." }

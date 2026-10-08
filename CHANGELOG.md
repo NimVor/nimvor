@@ -7,6 +7,13 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Backups, local folder storage:**
+  - `/backups` (also `/backup`, `/srv/backup(s)`) is accepted itself, not only
+    a folder in it.
+  - When missing, the folder is created (root only) when the storage is
+    tested.
+  - Folders under `/mnt` and `/media` are still never created: a missing one
+    means the disk is not mounted, and the message now says so.
 - **Setup wizard, Redis memory limit:** the step called an agent action
   that does not exist (`redis.status`); it now reads `redis.info`. A new
   test checks that every agent action the panel calls exists in the agent.

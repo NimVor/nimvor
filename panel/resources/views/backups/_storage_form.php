@@ -76,7 +76,7 @@ $secret = $edit ? ['placeholder' => 'unchanged', 'autocomplete' => 'new-password
     </div>
     <div class="row g-2" data-wcp-kind="local"<?= $edit && $kind !== 'local' ? ' hidden' : '' ?>>
         <?php if (!$edit || $kind === 'local'): ?>
-        <div class="col-md-8"><?= $f('path', 'Folder', ['attrs' => ['required' => 'required', 'placeholder' => '/mnt/backup-disk/whacp'], 'help' => 'An existing folder under /mnt, /media, /backup(s) or /srv/backup(s), owned by root. Use a separate disk or a mounted NAS share.']) ?></div>
+        <div class="col-md-8"><?= $f('path', 'Folder', ['attrs' => ['required' => 'required', 'placeholder' => '/backups'], 'help' => '/backups (or /backup, /srv/backups, a folder in them) is created when missing, for root only. A folder of a mounted disk or NAS share under /mnt or /media must exist: WhaCP never creates it, so backups do not fill this server\'s disk while that disk is missing. A folder on this server\'s own disk is not off the server: for safety, use a separate disk, a NAS or a remote storage.']) ?></div>
         <?php endif; ?>
     </div>
     <div class="row g-2">

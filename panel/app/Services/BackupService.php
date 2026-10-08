@@ -295,8 +295,10 @@ final class BackupService
                 break;
             case 'local':
                 $path = '/' . trim($str('path'), '/');
-                if (!preg_match('#^/(mnt|media|backup|backups|srv/backups?)/[A-Za-z0-9._/-]+$#', $path) || str_contains($path, '..')) {
-                    $errors['path'] = 'Enter a folder under /mnt, /media, /backup(s) or /srv/backup(s).';
+                // /backup(s) and /srv/backup(s) themselves are allowed (created
+                // when missing); under /mnt and /media only a folder of a disk.
+                if (!(preg_match('#^/(mnt|media)/[A-Za-z0-9._/-]+$#', $path) || preg_match('#^/(backups?|srv/backups?)(/[A-Za-z0-9._/-]+)?$#', $path)) || str_contains($path, '..')) {
+                    $errors['path'] = 'Enter /backups (or a folder in it, also /backup, /srv/backup(s)), or a folder of a mounted disk under /mnt or /media.';
                 }
                 $cfg['path'] = $path;
                 break;
@@ -332,6 +334,9 @@ final class BackupService
         if (($cfg['type'] ?? '') === 'ftp' && empty($cfg['tls_pin']) && !empty($res['tls_pin'])) {
             $cfg['tls_pin'] = (string) $res['tls_pin'];
             $trust = ['tls_pin' => $cfg['tls_pin'], 'tls_subject' => (string) ($res['tls_subject'] ?? '')];
+        }
+        if (($cfg['type'] ?? '') === 'local' && !empty($res['created'])) {
+            $this->audit->record('backup.storage_folder_create', 'backup_storage', (string) $cfg['path'], AuditLogger::SUCCESS, ['path' => $cfg['path']]);
         }
         if (($cfg['type'] ?? '') === 'gdrive' && !empty($res['folder_id'])) {
             $cfg['folder_id'] = (string) $res['folder_id'];

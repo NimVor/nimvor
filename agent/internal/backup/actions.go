@@ -234,7 +234,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"exists": true, "key_id": KeyID(b), "path": s.keyPath()}, nil
 	}})
-	r.Register(actions.Action{Name: "backup.remote_test", Description: "Check that remote storage settings work. Returns an SFTP server's host key (to pin) and creates the Google Drive folder when none is set.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "backup.remote_test", Mutating: true, Description: "Check that remote storage settings work. Returns an SFTP server's host key (to pin), creates the Google Drive folder when none is set, and creates a missing local folder under /backup(s) or /srv/backup(s) (never under /mnt or /media).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Remote Remote `json:"remote"`
 		}
@@ -293,6 +293,12 @@ func Register(r *actions.Registry, env *host.Env) {
 				in.Remote.FolderID = id
 			}
 			out["folder_id"] = in.Remote.FolderID
+		case "local":
+			created, err := (&localDir{R: in.Remote, Env: env}).Ensure()
+			if err != nil {
+				return fail(err)
+			}
+			out["created"] = created
 		}
 		st := in.Remote.Open(env)
 		keys, err := st.List(ctx, in.Remote.Key(""))
