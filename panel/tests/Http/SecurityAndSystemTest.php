@@ -49,6 +49,24 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertStringContainsString('locked out', (string) $this->flash('error'));
     }
 
+    // Rocky Linux 9: firewalld was already on, so the website ports were never
+    // opened. Each listening service not allowed gets an Allow button.
+    public function testAllowListedPortInOneClick(): void
+    {
+        $this->agent->succeed('security.pending', ['pending' => null]);
+        $this->agent->succeed('firewall.status', ['installed' => true, 'active' => true, 'backend' => 'firewalld', 'rules' => [['spec' => 'service ssh', 'action' => 'allow', 'port' => 'ssh', 'ssh' => true]], 'ssh_port' => 22, 'ssh_allowed' => true, 'required' => [
+            ['port' => '22', 'proto' => 'tcp', 'service' => 'SSH', 'critical' => true, 'open' => true],
+            ['port' => '443', 'proto' => 'tcp', 'service' => 'Websites and webmail (HTTPS)', 'critical' => false, 'open' => false],
+        ]]);
+        $this->agent->succeed('firewall.rule_add', ['changed' => true, 'pending' => ['id' => 'aaaabbbbcccc', 'kind' => 'firewall', 'summary' => 'firewall: allow 443/tcp', 'deadline' => gmdate('c', time() + 120)]]);
+        $page = $this->request('GET', '/security/firewall')->body();
+        self::assertStringContainsString('aria-label="Allow 443/tcp"', $page);
+        self::assertStringNotContainsString('aria-label="Allow 22/tcp"', $page, 'already allowed');
+        self::assertStringContainsString('name="comment" value="Websites and webmail HTTPS"', $page);
+        $this->post('/security/firewall/rules', ['action' => 'allow', 'port' => '443', 'proto' => 'tcp', 'from' => '', 'comment' => 'Websites and webmail HTTPS']);
+        self::assertSame(['action' => 'allow', 'port' => '443', 'proto' => 'tcp', 'from' => '', 'comment' => 'Websites and webmail HTTPS'], $this->lastCall('firewall.rule_add'));
+    }
+
     public function testFirewallProtection(): void
     {
         $this->agent->succeed('security.pending', ['pending' => null]);

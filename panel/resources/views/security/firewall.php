@@ -89,7 +89,7 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
     <div class="small text-body-secondary mb-2">SSH and the panel are always opened before the firewall is turned on, and their last rule cannot be deleted while it is on. Service ports are those of services listening on this server.</div>
     <div class="wcp-dtable table-responsive">
         <table class="table align-middle">
-            <thead><tr><th>Port</th><th>Protocol</th><th>Used by</th><th>Status</th></tr></thead>
+            <thead><tr><th>Port</th><th>Protocol</th><th>Used by</th><th>Status</th><?php if ($canManage && $active): ?><th></th><?php endif; ?></tr></thead>
             <tbody>
             <?php foreach ($required as $p): ?>
                 <tr>
@@ -97,6 +97,17 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
                     <td class="small"><?= e(strtoupper((string) $p['proto'])) ?></td>
                     <td><?= e((string) $p['service']) ?><?php if (!empty($p['critical'])): ?> <span class="badge text-bg-light border fw-normal">access</span><?php endif; ?></td>
                     <td><?= !empty($p['open']) ? '<span class="wcp-state is-ok">Allowed</span>' : '<span class="wcp-state is-warn">' . ($active ? 'Not allowed' : 'Opened when turned on') . '</span>' ?></td>
+                    <?php if ($canManage && $active): ?>
+                        <td class="text-end">
+                            <?php if (empty($p['open'])): ?>
+                                <form method="post" action="<?= e($this->url('security.firewall.add')) ?>" data-wcp-busy>
+                                    <?= $this->csrfField() ?>
+                                    <input type="hidden" name="action" value="allow"><input type="hidden" name="port" value="<?= e((string) $p['port']) ?>"><input type="hidden" name="proto" value="<?= e((string) $p['proto']) ?>"><input type="hidden" name="from" value="<?= e((string) ($p['from'] ?? '')) ?>"><input type="hidden" name="comment" value="<?= e(substr(trim((string) preg_replace(['/[^A-Za-z0-9 ._:\/-]+/', '/ {2,}/'], ' ', (string) $p['service'])), 0, 60)) ?>">
+                                    <button class="btn btn-sm btn-outline-primary" aria-label="Allow <?= e($p['port'] . '/' . $p['proto']) ?>">Allow</button>
+                                </form>
+                            <?php endif; ?>
+                        </td>
+                    <?php endif; ?>
                 </tr>
             <?php endforeach; ?>
             </tbody>
