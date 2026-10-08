@@ -157,4 +157,19 @@ final class WebHostSettingsTest extends HttpTestCase
         $this->settings->update(['default_php_version' => '8.4'], null);
         self::assertStringContainsString('<option value="8.3" selected>PHP 8.3', $this->request('GET', '/websites/new')->body());
     }
+
+    public function testSecurityPoliciesNeedARecentPasswordConfirmation(): void
+    {
+        $this->login('admin');
+        $this->session->set('_auth_confirmed_at', time() - 3600);
+        $res = $this->post('/settings/tweak', ['tab' => 'policy', 'password_min_length' => '20']);
+        self::assertStringStartsWith('/confirm-password', (string) $res->header('Location'));
+        self::assertSame(12, $this->fresh('password_min_length'));
+        // Other tabs are not affected.
+        $this->post('/settings/tweak', ['tab' => 'general', 'panel_name' => 'Acme']);
+        self::assertSame('Acme', $this->fresh('panel_name'));
+        $this->session->set('_auth_confirmed_at', time());
+        $this->post('/settings/tweak', ['tab' => 'policy', 'password_min_length' => '20']);
+        self::assertSame(20, $this->fresh('password_min_length'));
+    }
 }

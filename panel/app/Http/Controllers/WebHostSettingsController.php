@@ -61,6 +61,7 @@ final class WebHostSettingsController extends Controller
         private readonly AgentClient $agent,
         private readonly HulkService $hulk,
         private readonly AuditLogger $audit,
+        private readonly \WhaCP\Security\AuthService $auth,
     ) {
         parent::__construct($view, $session);
     }
@@ -201,6 +202,12 @@ final class WebHostSettingsController extends Controller
         $back = '/settings/tweak#' . $tab;
         if (!$this->mayEdit($request, $tab)) {
             return $this->redirectWithError($back, 'You may not change these settings' . ($tab === 'policy' || $tab === 'hulk' ? ': only administrators manage security policies and brute force protection.' : '.'));
+        }
+        // Sign-in policies need the password confirmed recently, as on
+        // Security → Configure Security Policies (security.policies.save).
+        if ($tab === 'policy' && !$this->auth->recentlyConfirmed()) {
+            $this->session->flash('error', 'Confirm your password to continue, then submit again.');
+            return Response::redirect('/confirm-password?return=' . rawurlencode('/settings/tweak#policy'));
         }
         $keys = array_keys(array_filter($tabs[$tab], static fn (string $k): bool => !array_key_exists($k, self::OWN_PAGE), ARRAY_FILTER_USE_KEY));
         $reset = (string) $request->input('reset', '');

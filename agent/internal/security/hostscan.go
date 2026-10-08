@@ -469,6 +469,10 @@ var kernelSettings = []kernelSetting{
 	{"net.ipv4.conf.all.accept_redirects", equals(0), "0", ""},
 	{"net.ipv4.conf.all.send_redirects", equals(0), "0", "a server that routes for others sends redirects"},
 	{"net.ipv4.conf.all.accept_source_route", equals(0), "0", ""},
+	// Reverse-path filtering drops spoofed source addresses. Loose mode
+	// (2) also suits servers with several network interfaces, which strict
+	// mode (1) can break.
+	{"net.ipv4.conf.all.rp_filter", atLeast(1), "2", ""},
 	{"net.ipv6.conf.all.accept_redirects", equals(0), "0", ""},
 	{"kernel.yama.ptrace_scope", atLeast(1), "1", "debuggers can then attach only to their own child processes"},
 	{"kernel.unprivileged_bpf_disabled", atLeast(1), "1", "some monitoring tools load BPF programs without root"},

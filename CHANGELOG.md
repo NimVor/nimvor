@@ -7,6 +7,12 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Tweak Settings, Security policies tab:** saving now needs the password
+  confirmed in the last 15 minutes, like Security → Configure Security
+  Policies. Without it, the tab bypassed that step-up check.
+- **Kernel security settings:** the check and its fix now include
+  reverse-path filtering (`net.ipv4.conf.all.rp_filter`; loose mode 2 is
+  applied, strict mode 1 also passes).
 - **PHP 8.5, OPcache:** OPcache is built into PHP from 8.5 and has no
   package of its own. WhaCP looked for `php8.5-opcache`, so a profile with
   OPcache (the default) never matched; the setup wizard reported "PHP 8.5

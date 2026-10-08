@@ -102,6 +102,17 @@ func TestSysctlCheck(t *testing.T) {
 	if c.Status != "warn" || !strings.Contains(c.Detail, "fs.protected_symlinks = 0") || !strings.Contains(c.Remedy, "kernel.yama.ptrace_scope = 1") || !strings.Contains(c.Detail, "debuggers") {
 		t.Errorf("%+v", c)
 	}
+	// Reverse-path filtering: loose (2) and strict (1) pass, off is reported.
+	set("fs.protected_symlinks", "1")
+	set("kernel.yama.ptrace_scope", "1")
+	set("net.ipv4.conf.all.rp_filter", "1")
+	if c := sysctlCheck(h.Env); c.Status != "pass" {
+		t.Errorf("strict rp_filter: %+v", c)
+	}
+	set("net.ipv4.conf.all.rp_filter", "0")
+	if c := sysctlCheck(h.Env); c.Status != "warn" || !strings.Contains(c.Remedy, "net.ipv4.conf.all.rp_filter = 2") {
+		t.Errorf("rp_filter off: %+v", c)
+	}
 }
 
 // RHEL: the package file list comes from rpm (seen on AlmaLinux: a query
