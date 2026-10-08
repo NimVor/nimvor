@@ -142,4 +142,48 @@ final class SetupWizardTest extends HttpTestCase
         $s->update(['server_setup' => '{"profile":"web","steps":{}}'], null);
         self::assertSame(200, $this->request('GET', '/')->status());
     }
+
+    public function testPackagesNotInstalledByTheirJobAreReportedNotRetried(): void
+    {
+        $this->login('admin');
+        self::assertSame('running', $this->step('packages')['step']['status']);
+        // The job succeeded, yet postfix is still missing.
+        $res = $this->step('packages', ['after_job' => self::JOB, 'round' => '1']);
+        self::assertSame('fail', $res['step']['status']);
+        self::assertStringContainsString('Still not installed after their job: postfix', $res['step']['detail']);
+        self::assertSame(1, $this->calls('packages.install'), 'not installed again');
+        // A new run tries again.
+        self::assertSame('running', $this->step('packages')['step']['status']);
+        self::assertSame(2, $this->calls('packages.install'));
+    }
+
+    public function testPhpStillDifferentAfterApplyingNamesWhatIsLeft(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('discovery.php', ['versions' => [['version' => '8.3', 'fpm_binary' => '/x']]]);
+        $this->agent->succeed('php.available', ['8.3', '8.4']);
+        $this->agent->succeed('php.catalog', ['extensions' => [], 'defaults' => ['intl']]);
+        $this->agent->succeed('php.extensions', []);
+        $this->agent->succeed('php.profile_plan', ['changes' => true, 'removals' => false, 'items' => [
+            ['action' => 'unchanged', 'version' => '8.3'],
+            ['action' => 'update', 'version' => '8.3', 'detail' => 'Update available'],
+            ['action' => 'install', 'version' => '8.4', 'extension' => 'intl'],
+        ]]);
+        $this->agent->succeed('php.profile_apply', ['job_id' => self::JOB]);
+        self::assertSame('running', $this->step('php')['step']['status']);
+        $res = $this->step('php', ['after_job' => self::JOB, 'round' => '1']);
+        self::assertSame('fail', $res['step']['status']);
+        self::assertSame('Applied, but still to do: PHP 8.3 (update: Update available), PHP 8.4 intl (install). See the job log; the PHP Manager shows the same review.', $res['step']['detail']);
+        self::assertSame(1, $this->calls('php.profile_apply'), 'not applied again');
+    }
+
+    public function testRedisLimitUsesTheAgentsInfo(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('components.status', [['id' => 'redis', 'name' => 'Redis', 'installed' => true, 'ready' => true, 'steps' => []]]);
+        $this->agent->succeed('redis.info', ['maxmemory' => '0']);
+        $this->agent->succeed('redis.configure', ['ok' => true]);
+        self::assertSame('ok', $this->step('caches')['step']['status']);
+        self::assertSame(['maxmemory_mb' => 256, 'policy' => 'allkeys-lru'], $this->lastCall('redis.configure'));
+    }
 }

@@ -6,6 +6,16 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Setup wizard, Redis memory limit:** the step called an agent action
+  that does not exist (`redis.status`); it now reads `redis.info`. A new
+  test checks that every agent action the panel calls exists in the agent.
+- **Setup wizard, PHP and packages:** a step whose job succeeded but left
+  something undone no longer repeats the same job until it gives up.
+  - The PHP step now names what is still to do, for example "PHP 8.4 intl
+    (install)".
+  - The packages step names the packages its job did not install.
+
 ### Changed
 - **Page buttons moved out of the top bar:** each page's own buttons
   (e.g. "Create account", "New user", "Save" in the editor) now sit at the

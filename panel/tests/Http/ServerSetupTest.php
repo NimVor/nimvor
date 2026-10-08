@@ -47,7 +47,7 @@ final class ServerSetupTest extends HttpTestCase
         $this->agent->succeed('mail.configure', ['ok' => true]);
         $this->agent->succeed('dns.configure', ['ok' => true]);
         $this->agent->succeed('ftp.configure', ['ok' => true]);
-        $this->agent->succeed('redis.status', ['maxmemory' => '0']);
+        $this->agent->succeed('redis.info', ['maxmemory' => '0']);
         $this->agent->succeed('redis.configure', ['ok' => true]);
         $this->agent->succeed('services.control', ['active' => true]);
         $this->agent->succeed('firewall.status', ['installed' => true, 'active' => true, 'required' => [['port' => '22', 'proto' => 'tcp', 'service' => 'SSH', 'critical' => true, 'open' => true]]]);

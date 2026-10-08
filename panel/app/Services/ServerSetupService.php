@@ -251,8 +251,12 @@ final class ServerSetupService
         if ($first || $state === null || ($state['profile'] ?? '') !== $profile || ($state['options'] ?? null) != $opts) {
             $state = ['profile' => $profile, 'options' => $opts, 'started_at' => gmdate('c'), 'finished_at' => null, 'steps' => [], 'via' => 'wizard'];
         }
+        $this->attempted = $afterJob === null ? [] : array_values(array_map('strval', (array) ($state['attempted'][$id] ?? [])));
         $result = $this->stepAfter($profile, $opts, $id, $afterJob, $round);
-        if ($result['status'] !== 'running') {
+        $state['attempted'][$id] = $this->attempted;
+        if ($result['status'] === 'running') {
+            $this->save($state);
+        } else {
             $state['steps'][$id] = ['status' => $result['status'], 'detail' => $result['detail']];
             $steps = self::steps($profile);
             if ($id === end($steps)) {
@@ -288,6 +292,7 @@ final class ServerSetupService
             }
         }
         $this->async = true;
+        $this->resumed = $afterJob !== null;
         try {
             [$status, $detail] = $this->call($profile, $opts, $id);
         } catch (SetupJobStarted $e) {
@@ -297,6 +302,7 @@ final class ServerSetupService
             return ['status' => 'running', 'detail' => $e->getMessage(), 'job_id' => $e->job];
         } finally {
             $this->async = false;
+            $this->resumed = false;
         }
         // Verified after its job: nothing left to do means done.
         if ($afterJob !== null && $status === 'skip') {
@@ -307,6 +313,12 @@ final class ServerSetupService
 
     /** Wizard mode: a step that starts a job returns instead of waiting. */
     private bool $async = false;
+
+    /** Wizard mode: the step runs again after its job succeeded. */
+    private bool $resumed = false;
+
+    /** Wizard mode: what the step's earlier jobs of this run already tried (packages). @var list<string> */
+    private array $attempted = [];
 
     /** @param array<string, mixed> $state */
     private function save(array $state): void
@@ -384,8 +396,16 @@ final class ServerSetupService
         if ($missing === []) {
             return ['skip', 'Every component of the profile is installed.'];
         }
+        // The wizard installs a batch per job: what its earlier jobs
+        // installed without success is reported, not tried again.
+        $left = array_values(array_diff($missing, $this->attempted));
+        if ($left === []) {
+            return ['fail', 'Still not installed after their job: ' . implode(', ', $missing) . '. See the job log, or install them under Server → Packages.'];
+        }
+        $missing = $left;
         $this->say('   Installing: ' . implode(', ', $missing));
         foreach (array_chunk($missing, 10) as $chunk) {
+            $this->attempted = array_values(array_unique(array_merge($this->attempted, $chunk)));
             $job = (string) ((array) $this->agent->call('packages.install', ['names' => $chunk]))['job_id'];
             $this->wait($job, 'Install ' . implode(', ', $chunk));
         }
@@ -452,6 +472,10 @@ final class ServerSetupService
         $exts = array_values(array_unique($exts));
         $profileData = ['versions' => $versions, 'extensions' => $exts];
         $plan = (array) $this->agent->call('php.profile_plan', $profileData, 120);
+        if (!empty($plan['changes']) && $this->resumed) {
+            // Applied, yet still different: applying again would not help.
+            return ['fail', 'Applied, but still to do: ' . self::pending($plan) . '. See the job log; the PHP Manager shows the same review.'];
+        }
         if (empty($plan['changes'])) {
             $this->rememberPhp($profileData, null);
             return ['skip', 'PHP ' . implode(', ', $versions) . ' with the default extensions are installed.'];
@@ -462,6 +486,19 @@ final class ServerSetupService
         $this->rememberPhp($profileData, $job);
         $skipped = array_diff($opts['php'], $want);
         return ['ok', 'PHP ' . implode(', ', $versions) . ' with ' . count($exts) . ' extensions.' . ($skipped !== [] ? ' Not offered: PHP ' . implode(', ', $skipped) . '.' : '')];
+    }
+
+    /** What a PHP plan still changes, briefly. @param array<string, mixed> $plan */
+    private static function pending(array $plan): string
+    {
+        $out = [];
+        foreach ((array) ($plan['items'] ?? []) as $it) {
+            if (!in_array($it['action'] ?? '', ['unchanged', 'blocked'], true)) {
+                $out[] = 'PHP ' . $it['version'] . (($it['extension'] ?? '') !== '' ? ' ' . $it['extension'] : '') . ' (' . $it['action'] . (($it['detail'] ?? '') !== '' ? ': ' . $it['detail'] : '') . ')';
+            }
+        }
+        $more = count($out) > 6 ? ' and ' . (count($out) - 6) . ' more' : '';
+        return implode(', ', array_slice($out, 0, 6)) . $more;
     }
 
     /** @param array{versions: list<string>, extensions: list<string>} $p */
@@ -545,7 +582,7 @@ final class ServerSetupService
         if (empty($c['installed'])) {
             return ['fail', 'Redis is not installed (see the first step).'];
         }
-        $st = (array) $this->agent->call('redis.status');
+        $st = (array) $this->agent->call('redis.info');
         $max = (string) ($st['maxmemory'] ?? '');
         if ($max === '') {
             return ['skip', 'Redis is not answering yet; set its memory limit on the Redis page.'];
