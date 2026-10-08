@@ -111,6 +111,8 @@ final class Navigation
                 ['Roles', 'person-badge', 'roles', P::USERS_VIEW, '/roles', 'What each kind of user may do'],
                 ['Plans', 'card-checklist', 'plans', P::PLANS_MANAGE, '/plans', 'Hosting plans and their limits'],
                 ['Bandwidth Limits', 'speedometer2', 'accounts.bandwidth', P::USERS_MANAGE, '/accounts/bandwidth', 'Monthly traffic per account, exceeders and resets'],
+                ['Basic WebHost Settings', 'house-gear', 'settings.basic', P::SETTINGS_VIEW, '/settings/basic', 'Contact, panel address, name servers, defaults for new accounts'],
+                ['Tweak Settings', 'sliders2', 'settings.tweak', P::SETTINGS_VIEW, '/settings/tweak', 'Every setting with its default: search, change, reset'],
                 ['Settings', 'sliders', 'settings', P::SETTINGS_VIEW, '/settings', 'Panel settings'],
                 ['Audit log', 'list-check', 'audit', P::AUDIT_VIEW, '/audit', 'Who changed what'],
                 ['Plugins', 'plug', 'plugins', P::PLUGINS_MANAGE, '/admin/plugins', 'Panel plugins'],

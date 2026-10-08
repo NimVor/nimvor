@@ -44,13 +44,21 @@ final class AccountsController extends Controller
     public function create(Request $request): Response
     {
         $ip = trim($this->settings->string('dns_default_ipv4'));
+        $php = $this->sites->phpVersions();
+        $defaults = AccountOptions::DEFAULTS;
+        foreach (['dns_dkim', 'dns_spf', 'dns_dmarc', 'spam_filter', 'spam_box'] as $k) {
+            $defaults[$k] = $this->settings->bool('account_' . $k);
+        }
+        $defaults['mail_routing'] = $this->settings->string('account_mail_routing');
+        $defaults['plan_id'] = $this->settings->int('default_plan_id') > 0 ? (string) $this->settings->int('default_plan_id') : '';
+        $defaults['php_version'] = $this->sites->defaultPhpVersion($php);
         return $this->render('accounts/create', [
             'plans' => $this->plans->visible($this->user($request)),
-            'phpVersions' => $this->sites->phpVersions(),
+            'phpVersions' => $php,
             'canReseller' => Scope::isAll($this->user($request)),
             'spf' => DnsService::spf(filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false ? $ip : null),
             'nameservers' => $this->dns->nameservers(),
-            'defaults' => AccountOptions::DEFAULTS,
+            'defaults' => $defaults,
         ]);
     }
 

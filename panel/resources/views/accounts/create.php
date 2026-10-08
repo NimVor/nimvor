@@ -72,7 +72,7 @@ $routing = $v('mail_routing', (string) $defaults['mail_routing']);
                         <div class="col-md-6">
                             <label class="form-label" for="a-php">PHP version</label>
                             <select class="form-select" id="a-php" name="php_version">
-                                <?php foreach ($phpVersions as $pv): ?><option value="<?= e($pv) ?>"<?= $v('php_version') === $pv ? ' selected' : '' ?>>PHP <?= e($pv) ?></option><?php endforeach; ?>
+                                <?php foreach ($phpVersions as $pv): ?><option value="<?= e($pv) ?>"<?= $v('php_version', (string) ($defaults['php_version'] ?? '')) === $pv ? ' selected' : '' ?>>PHP <?= e($pv) ?></option><?php endforeach; ?>
                                 <?php if ($phpVersions === []): ?><option value="">No PHP-FPM installed</option><?php endif; ?>
                             </select>
                         </div>
@@ -86,7 +86,7 @@ $routing = $v('mail_routing', (string) $defaults['mail_routing']);
                     <label class="form-label" for="a-plan">Hosting plan</label>
                     <select class="form-select<?= $cls('plan_id') ?>" id="a-plan" name="plan_id">
                         <option value="">No plan (unlimited)</option>
-                        <?php foreach ($plans as $p): ?><option value="<?= (int) $p['id'] ?>"<?= $v('plan_id') === (string) $p['id'] ? ' selected' : '' ?>><?= e($p['name']) ?><?= $p['description'] !== '' ? ' — ' . e($p['description']) : '' ?></option><?php endforeach; ?>
+                        <?php foreach ($plans as $p): ?><option value="<?= (int) $p['id'] ?>"<?= $v('plan_id', (string) ($defaults['plan_id'] ?? '')) === (string) $p['id'] ? ' selected' : '' ?>><?= e($p['name']) ?><?= $p['description'] !== '' ? ' — ' . e($p['description']) : '' ?></option><?php endforeach; ?>
                     </select>
                     <?= $err('plan_id') ?>
                     <div class="form-text">Disk, bandwidth, websites, domains, databases, email and FTP accounts. <a href="<?= e($this->url('plans')) ?>">Manage plans</a></div>

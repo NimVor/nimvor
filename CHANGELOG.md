@@ -67,6 +67,24 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **Basic WebHost Settings** (Administration), with four tabs: contact
+  email for alerts, basic configuration (panel name and URL, default IPv4
+  for new zones, hostmaster), name servers, and defaults for new accounts.
+  The account and website forms start with these defaults:
+  - plan and PHP version;
+  - DKIM, SPF and DMARC records;
+  - email routing;
+  - spam filter and Spam folder.
+- **Tweak Settings** (Administration): every panel setting in tabs, with
+  its default, a *Changed* mark, **Reset to default** per setting or per
+  tab, search across all tabs, and an "only changed" filter.
+  - Security policies and brute force protection need an administrator,
+    as on their own pages.
+  - Saving brute force settings applies its rules.
+  - Settings whose page prevents lock-outs (brute force on/off, verified
+    IP addresses) stay on that page.
+- **Settings with a fixed list of values** are now checked against it,
+  for example the brute force protection type.
 - **Setup wizard** (Server → Setup wizard): opens on an administrator's
   first dashboard visit, unless the installer already set the server up.
   - **What is done and what is left:** the server setup, components, two-factor

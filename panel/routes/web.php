@@ -491,6 +491,10 @@ return static function (Router $r): void {
     $r->post('/roles/{id}/two-factor', [RolesController::class, 'twoFactorPolicy'], ['name' => 'roles.2fa', 'permission' => P::ROLES_MANAGE]);
     $r->post('/roles/{id}/delete', [RolesController::class, 'destroy'], ['name' => 'roles.delete', 'permission' => P::ROLES_MANAGE]);
     $r->get('/settings', [SettingsController::class, 'index'], ['name' => 'settings', 'permission' => P::SETTINGS_VIEW]);
+    $r->get('/settings/basic', [\WhaCP\Http\Controllers\WebHostSettingsController::class, 'basic'], ['name' => 'settings.basic', 'permission' => P::SETTINGS_VIEW]);
+    $r->post('/settings/basic', [\WhaCP\Http\Controllers\WebHostSettingsController::class, 'saveBasic'], ['name' => 'settings.basic.save', 'permission' => P::SETTINGS_MANAGE]);
+    $r->get('/settings/tweak', [\WhaCP\Http\Controllers\WebHostSettingsController::class, 'tweak'], ['name' => 'settings.tweak', 'permission' => P::SETTINGS_VIEW]);
+    $r->post('/settings/tweak', [\WhaCP\Http\Controllers\WebHostSettingsController::class, 'saveTweak'], ['name' => 'settings.tweak.save', 'permission' => P::SETTINGS_MANAGE]);
     $r->post('/settings', [SettingsController::class, 'update'], ['name' => 'settings.update', 'permission' => P::SETTINGS_MANAGE]);
     $r->post('/settings/mail', [SettingsController::class, 'mail'], ['name' => 'settings.mail', 'permission' => P::SETTINGS_MANAGE]);
     $r->post('/settings/mail/test', [SettingsController::class, 'testMail'], ['name' => 'settings.mail.test', 'permission' => P::SETTINGS_MANAGE]);

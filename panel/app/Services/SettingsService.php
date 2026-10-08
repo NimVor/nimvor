@@ -178,6 +178,7 @@ final class SettingsService
             ],
             'hulk_user_scope' => [
                 'category' => 'hulk', 'type' => 'string', 'default' => 'all', 'max_length' => 5,
+                'options' => ['local' => 'Apply protection to local addresses only', 'all' => 'Apply protection to local and remote addresses'],
                 'label' => 'Protection type', 'help' => 'local or all',
             ],
             'hulk_user_lock_root' => [
@@ -272,6 +273,40 @@ final class SettingsService
                 'category' => 'hulk', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 20,
                 'label' => 'Country database download attempt', 'help' => '',
             ],
+            // Defaults for new accounts and websites (Basic WebHost Settings).
+            'default_plan_id' => [
+                'category' => 'accounts', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 1000000,
+                'label' => 'Default hosting plan', 'help' => 'Chosen first in the form for a new account. None: no plan (unlimited).',
+            ],
+            'default_php_version' => [
+                'category' => 'accounts', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 5, 'pattern' => '/^[5-9]\.[0-9]{1,2}$/',
+                'label' => 'Default PHP version for new websites', 'help' => 'Chosen first for a new account or website when installed. Empty: the newest installed.',
+            ],
+            'account_dns_dkim' => [
+                'category' => 'accounts', 'type' => 'bool', 'default' => true,
+                'label' => 'New accounts: DKIM record', 'help' => 'The new account\'s DNS zone gets a DKIM record (signed outgoing email).',
+            ],
+            'account_dns_spf' => [
+                'category' => 'accounts', 'type' => 'bool', 'default' => true,
+                'label' => 'New accounts: SPF record', 'help' => 'The new account\'s DNS zone gets an SPF record naming this server.',
+            ],
+            'account_dns_dmarc' => [
+                'category' => 'accounts', 'type' => 'bool', 'default' => true,
+                'label' => 'New accounts: DMARC record', 'help' => 'The new account\'s DNS zone gets a DMARC record.',
+            ],
+            'account_mail_routing' => [
+                'category' => 'accounts', 'type' => 'string', 'default' => 'auto', 'max_length' => 6,
+                'options' => ['auto' => 'Automatically detect configuration', 'local' => 'Local mail exchanger', 'backup' => 'Backup mail exchanger', 'remote' => 'Remote mail exchanger'],
+                'label' => 'New accounts: email routing', 'help' => 'Whether this server accepts the new domain\'s email.',
+            ],
+            'account_spam_filter' => [
+                'category' => 'accounts', 'type' => 'bool', 'default' => true,
+                'label' => 'New accounts: spam filter', 'help' => 'Incoming email of the new account is checked for spam.',
+            ],
+            'account_spam_box' => [
+                'category' => 'accounts', 'type' => 'bool', 'default' => true,
+                'label' => 'New accounts: move spam to the Spam folder', 'help' => 'Instead of only marking it.',
+            ],
             'trash_retention_days' => [
                 'category' => 'general', 'type' => 'int', 'default' => 30, 'min' => 0, 'max' => 365,
                 'label' => 'File Manager trash: keep deleted files (days)', 'help' => 'Files deleted in the File Manager can be restored from its Trash for this many days, then they are deleted for good. 0 keeps them until the trash is emptied.',
@@ -291,6 +326,12 @@ final class SettingsService
         }
         $this->cache ??= $this->repository->all();
         return $this->cache[$key] ?? $defs[$key]['default'];
+    }
+
+    /** Whether a setting has its default value. */
+    public function isDefault(string $key): bool
+    {
+        return $this->get($key) === (self::definitions()[$key]['default'] ?? null);
     }
 
     public function bool(string $key): bool
@@ -351,10 +392,21 @@ final class SettingsService
                     continue;
                 }
                 $clean[$key] = $v;
+            } elseif (isset($def['options'])) {
+                $v = is_scalar($raw) ? (string) $raw : '';
+                if (!isset($def['options'][$v])) {
+                    $errors[$key] = 'Choose one of the options.';
+                    continue;
+                }
+                $clean[$key] = $v;
             } else {
                 $v = is_scalar($raw) ? trim((string) $raw) : '';
                 if (($v === '' && empty($def['optional'])) || mb_strlen($v) > ($def['max_length'] ?? 255) || preg_match('/[\x00-\x1F\x7F]/u', $v)) {
                     $errors[$key] = sprintf('Enter between 1 and %d printable characters.', $def['max_length'] ?? 255);
+                    continue;
+                }
+                if ($v !== '' && isset($def['pattern']) && !preg_match($def['pattern'], $v)) {
+                    $errors[$key] = 'This value is not valid here.';
                     continue;
                 }
                 $clean[$key] = $v;

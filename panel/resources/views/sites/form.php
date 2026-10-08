@@ -69,7 +69,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         <select class="form-select<?= $cls('php_version') ?>" id="f-php" name="php_version">
                             <?php if ($phpVersions === []): ?><option value="">No PHP-FPM installed</option><?php endif; ?>
                             <?php foreach (array_reverse($phpVersions) as $pv): ?>
-                                <option value="<?= e($pv) ?>"<?= (string) $v('php_version') === $pv ? ' selected' : '' ?>>PHP <?= e($pv) ?></option>
+                                <option value="<?= e($pv) ?>"<?= (string) $v('php_version', $defaultPhp ?? '') === $pv ? ' selected' : '' ?>>PHP <?= e($pv) ?></option>
                             <?php endforeach; ?>
                         </select>
                         <?= $err('php_version') ?>

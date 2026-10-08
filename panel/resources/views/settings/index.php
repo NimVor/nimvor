@@ -52,6 +52,10 @@ $field = function (string $key, array $def) use ($old, $values): string {
 ?>
 <?php $this->start(); ?>Settings<?php $this->end('title'); ?>
 <?php $this->start(); ?>All settings by category; related pages keep their own<?php $this->end('subtitle'); ?>
+<?php $this->start(); ?>
+    <?php if ($this->hasRoute('settings.basic')): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('settings.basic')) ?>"><i class="bi bi-house-gear me-1" aria-hidden="true"></i>Basic WebHost Settings</a><?php endif; ?>
+    <?php if ($this->hasRoute('settings.tweak')): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('settings.tweak')) ?>"><i class="bi bi-sliders2 me-1" aria-hidden="true"></i>Tweak Settings</a><?php endif; ?>
+<?php $this->end('actions'); ?>
 
 <div class="row g-3" data-wcp-settings-tabs>
     <div class="col-lg-3">

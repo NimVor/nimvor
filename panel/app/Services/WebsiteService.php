@@ -515,6 +515,22 @@ final class WebsiteService
     }
 
     /** Whether new websites start with shell functions disabled (Settings). */
+    /**
+     * The PHP version new websites start with: the configured default when
+     * it is installed, else the newest installed ('' when none).
+     *
+     * @param list<string> $installed
+     */
+    public function defaultPhpVersion(array $installed): string
+    {
+        $want = $this->settings?->string('default_php_version') ?? '';
+        if ($want !== '' && in_array($want, $installed, true)) {
+            return $want;
+        }
+        usort($installed, 'version_compare');
+        return (string) (end($installed) ?: '');
+    }
+
     public function hardenNewSites(): bool
     {
         return $this->settings !== null && $this->settings->bool('php_harden_new_sites');

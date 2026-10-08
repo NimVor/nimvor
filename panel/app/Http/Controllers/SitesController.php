@@ -55,9 +55,11 @@ final class SitesController extends Controller
 
     public function create(Request $request): Response
     {
+        $php = $this->service->phpVersions();
         return $this->render('sites/form', [
             'site' => null,
-            'phpVersions' => $this->service->phpVersions(),
+            'phpVersions' => $php,
+            'defaultPhp' => $this->service->defaultPhpVersion($php),
             'hardenDefault' => $this->service->hardenNewSites(),
             'owners' => \WhaCP\Hosting\Scope::isAll($this->user($request)) ? $this->users->all() : [],
         ]);

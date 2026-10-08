@@ -101,6 +101,53 @@ checks the settings.
 
 Infrastructure settings (paths, cookies, proxies) are in `/etc/whacp/panel.php`.
 
+### Basic WebHost Settings
+
+**Administration → Basic WebHost Settings** has the essentials of a new
+server, in four tabs:
+
+- **Contact information:** the server contact email, which receives alerts
+  and notifications through the email settings.
+- **Basic configuration:** the host name (changed on the Server page), the
+  panel's name and public URL, the default IPv4 address for new DNS zones
+  (the server's addresses are offered), and the hostmaster address.
+- **Name servers:** up to four, used in the NS records of new zones.
+- **New accounts:** what the forms for a new account or website start with:
+  - the hosting plan and PHP version (when that version is not installed,
+    the newest installed one);
+  - DKIM, SPF and DMARC records;
+  - email routing;
+  - the spam filter and the Spam folder.
+
+  Each can still be changed in the form.
+
+### Tweak Settings
+
+**Administration → Tweak Settings** lists every panel setting in tabs:
+General, Accounts and websites, DNS, SSL/TLS, Monitoring, Security,
+Security policies and Brute force protection.
+
+- **Each setting** shows its description, its default and its key.
+- **Changed settings** are marked *Changed* and have **Reset to default**.
+  **Reset this tab to defaults** resets the whole tab.
+- **The search** looks through every tab at once (name, description or
+  key). **Only settings changed from the default** lists what differs.
+- **Saving** checks every value, saves only that tab and records the
+  change in the audit log.
+
+Rules:
+
+- Security policies and brute force protection are changed by
+  administrators only, as on their own pages.
+- Saving brute force settings applies its rules at once.
+- Two settings are changed only on their own page, because turning them
+  on also keeps you from being locked out: brute force protection itself
+  (your address is whitelisted) and "Limit logins to verified IP
+  addresses" (current addresses count as verified). Tweak Settings shows
+  them with a link.
+- The Settings page and the pages that own settings stay as they were.
+  They all edit the same values.
+
 ## Audit log
 
 Recorded: sign-in success/failure/throttling (including the two-factor
