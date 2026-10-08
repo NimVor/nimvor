@@ -14,9 +14,31 @@
 #   8. Creates the first administrator.
 #   9. Runs health checks.
 #
+# Server profile (fresh servers): after installing, WhaCP sets the server up
+# for hosting with one of these profiles (bin/whacp setup:apply):
+#   full     web server, PHP 8.3 + 8.4, MariaDB, email (Postfix, Dovecot,
+#            OpenDKIM, Rspamd), DNS (BIND, authoritative only), FTP, Redis,
+#            Memcached, ClamAV, firewall + protections, fail2ban, hardening,
+#            automatic security updates, hosting plans, weekly backups
+#   web      the same without email, DNS and ClamAV
+#   minimal  web server, PHP, MariaDB, firewall, fail2ban, certificates,
+#            plans and backups
+#   none     nothing: WhaCP only observes until you enable write mode
+# Default: full with 4 GB of memory or more, web with 2 GB, minimal below,
+# but only on a fresh server (no web, mail, DNS or database service running
+# yet) and never with --reinstall or --agent-only; otherwise none. You are
+# asked before anything is set up (--yes answers yes). A profile needs write
+# mode, which it turns on. Run it later at any time:
+#   sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp setup:apply --profile=full
+# PHP 8.4 (and 8.3 on older systems) comes from a third-party repository
+# where the system has none: Ondřej Surý's PPA on Ubuntu (pinned signing
+# key), Remi's repository on the RHEL family. --no-third-party-repos keeps
+# to the system's repositories (fewer PHP versions).
+#
 # What it never does:
 #   - modify Nginx, PHP-FPM, MySQL/MariaDB, Redis, firewall or SSH configuration
-#     (except with --public-https, which adds its own Nginx site and opens its port);
+#     (except with --public-https, which adds its own Nginx site and opens its
+#     port, and with a server profile, through the panel's own actions);
 #   - reload or restart any existing service (--public-https reloads Nginx);
 #   - overwrite an existing WhaCP installation (use --reinstall explicitly).
 #
@@ -24,6 +46,8 @@
 #   sudo ./installer/install.sh [--no-install-deps] [--admin-user=NAME] [--admin-email=EMAIL]
 #                               [--port=8090] [--dry-run] [--yes] [--reinstall|--resume] [--force-unsupported]
 #                               [--enable-writes] [--public-https[=8443]]
+#                               [--profile=full|web|minimal|none] [--hostname=server.example.com]
+#                               [--php=8.3,8.4] [--no-third-party-repos]
 #                               [--agent-only --remote-access=0.0.0.0:8443 --allow-from=PANEL_IP[,...]]
 #
 # --public-https serves the panel at https://SERVER-IP:8443/ (or the port
@@ -68,6 +92,11 @@ REMOTE_ACCESS=""
 ALLOW_FROM=""
 PUBLIC_HTTPS=""
 TERMINAL_PORT=8091
+PROFILE=""
+PROFILE_SET=0
+SETUP_HOSTNAME=""
+SETUP_PHP=""
+THIRD_PARTY_REPOS=1
 # Supported: tested and recommended for production. Preview: installs and
 # is tested the same way, but not yet recommended for production.
 SUPPORTED_UBUNTU=("22.04" "24.04")
@@ -118,7 +147,11 @@ for arg in "$@"; do
         --allow-from=*) ALLOW_FROM="${arg#*=}" ;;
         --public-https) PUBLIC_HTTPS=8443 ;;
         --public-https=*) PUBLIC_HTTPS="${arg#*=}" ;;
-        -h|--help) sed -n '2,40p' "$0"; exit 0 ;;
+        --profile=*) PROFILE="${arg#*=}"; PROFILE_SET=1 ;;
+        --hostname=*) SETUP_HOSTNAME="${arg#*=}" ;;
+        --php=*) SETUP_PHP="${arg#*=}" ;;
+        --no-third-party-repos) THIRD_PARTY_REPOS=0 ;;
+        -h|--help) sed -n '2,70p' "$0"; exit 0 ;;
         *) die "unknown option: $arg" ;;
     esac
 done
@@ -130,6 +163,10 @@ if [[ -n $PUBLIC_HTTPS ]]; then
     [[ $AGENT_ONLY -eq 0 ]] || die "--public-https serves the panel; --agent-only installs no panel"
 fi
 [[ -z $ADMIN_USER || $ADMIN_USER =~ ^[a-z][a-z0-9._-]{2,31}$ ]] || die "--admin-user is not a valid username"
+[[ -z $PROFILE || $PROFILE =~ ^(full|web|minimal|none)$ ]] || die "--profile must be full, web, minimal or none"
+[[ $PROFILE_SET -eq 0 || $PROFILE == none || $AGENT_ONLY -eq 0 ]] || die "--profile sets up a hosting server; --agent-only installs no panel"
+[[ -z $SETUP_HOSTNAME || $SETUP_HOSTNAME =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || die "--hostname must be the server's full host name, e.g. server.example.com"
+[[ -z $SETUP_PHP || $SETUP_PHP =~ ^[5-9]\.[0-9]{1,2}(,[5-9]\.[0-9]{1,2})*$ ]] || die "--php takes versions separated by commas, e.g. 8.2,8.3,8.4"
 if [[ -n $REMOTE_ACCESS ]]; then
     [[ $REMOTE_ACCESS =~ ^([0-9.]+|\[[0-9a-fA-F:]+\]):[0-9]{1,5}$ ]] || die "--remote-access must be ADDRESS:PORT, e.g. 0.0.0.0:8443"
     [[ -n $ALLOW_FROM ]] || die "--remote-access requires --allow-from=<panel server IP>"
@@ -176,6 +213,88 @@ ok "family $([[ $PKG == dnf ]] && echo rhel || echo debian), $ARCH, package mana
 # APT waits for another package manager (e.g. unattended-upgrades) instead
 # of failing at once.
 APT_WAIT=(-o DPkg::Lock::Timeout=600)
+
+# ---------------------------------------------------- 1b. server profile ----
+log "Server profile"
+MEM_MB=$(awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || true)
+MEM_MB=${MEM_MB:-0}
+DISK_FREE_GB=$(df -Pm / 2>/dev/null | awk 'NR==2 {print int($4/1024)}' || true)
+ok "memory ${MEM_MB} MB, free disk ${DISK_FREE_GB:-?} GB on /"
+if [[ -z $PROFILE ]]; then
+    busy=()
+    # A server that already serves websites, mail, DNS or databases was set
+    # up by hand: WhaCP does not change it unless asked (--profile=…).
+    for u in nginx apache2 httpd postfix exim4 named bind9 mariadb mysql mysqld; do
+        if systemctl is-active --quiet "$u" 2>/dev/null; then busy+=("$u"); fi
+    done
+    if [[ $REINSTALL -eq 1 || $AGENT_ONLY -eq 1 || -d $PREFIX/panel ]]; then
+        PROFILE=none
+    elif (( ${#busy[@]} > 0 )); then
+        PROFILE=none
+        warn "running already: ${busy[*]}. No server profile is applied (your configuration is left alone); choose one with --profile=full|web|minimal"
+    elif (( MEM_MB >= 3800 )); then PROFILE=full
+    elif (( MEM_MB >= 1800 )); then PROFILE=web
+    else PROFILE=minimal
+    fi
+fi
+if [[ $PROFILE != none ]]; then
+    case $PROFILE in
+        full) desc="full hosting server: web, PHP, MariaDB, email, DNS (authoritative), FTP, Redis, Memcached, ClamAV, firewall, fail2ban" ;;
+        web) desc="web hosting only: web, PHP, MariaDB, FTP, Redis, Memcached, firewall, fail2ban" ;;
+        *) desc="minimal: web, PHP, MariaDB, firewall, fail2ban" ;;
+    esac
+    ok "profile $PROFILE ($desc)"
+    [[ $PROFILE != full ]] || (( MEM_MB >= 3800 )) || warn "the full profile wants 4 GB of memory (ClamAV alone uses about 1.5 GB); you have ${MEM_MB} MB"
+    (( ${DISK_FREE_GB:-0} >= 20 )) || warn "only ${DISK_FREE_GB:-?} GB free on /: websites, mail and weekly backups need room (20 GB or more recommended)"
+    if [[ $THIRD_PARTY_REPOS -eq 1 ]]; then
+        ok "PHP ${SETUP_PHP:-8.3,8.4}: where the system offers fewer versions, $([[ $PKG == dnf ]] && echo "Remi's repository" || echo "Ondřej Surý's PPA (pinned signing key)") is added — a third-party repository; --no-third-party-repos keeps to the system's"
+    else
+        ok "PHP ${SETUP_PHP:-8.3,8.4} from the system's repositories only (--no-third-party-repos): versions it lacks are skipped"
+    fi
+    if [[ $PROFILE == full ]]; then
+        # Email needs outgoing port 25 and a reverse DNS (PTR) name that
+        # matches the host name; both are set by the hosting provider.
+        if timeout 6 bash -c 'exec 3<>/dev/tcp/gmail-smtp-in.l.google.com/25' 2>/dev/null; then
+            ok "outgoing port 25 is open"
+        else
+            warn "outgoing port 25 seems blocked: this server cannot deliver email to other servers. Ask your provider to open it, or relay through a smarthost"
+        fi
+        pub_ip=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<NF;i++) if ($i=="src") print $(i+1)}' || true)
+        fqdn=${SETUP_HOSTNAME:-$(hostname -f 2>/dev/null || hostname)}
+        ptr=""
+        if [[ -n $pub_ip ]]; then
+            if command -v dig >/dev/null; then ptr=$(dig +short +time=3 +tries=1 -x "$pub_ip" 2>/dev/null | head -1 || true); ptr=${ptr%.}
+            else ptr=$(getent hosts "$pub_ip" 2>/dev/null | awk '{print $2}' | head -1 || true); fi
+        fi
+        if [[ -z $pub_ip ]]; then
+            warn "the server's address could not be determined: check its reverse DNS (PTR) name for email"
+        elif [[ $pub_ip =~ ^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.) ]]; then
+            warn "$pub_ip is a private address (behind NAT): set the reverse DNS (PTR) name of the public address to $fqdn for email"
+        elif [[ -z $ptr ]]; then
+            warn "$pub_ip has no reverse DNS (PTR) name: other mail servers may reject this server's email. Ask your provider to set it to $fqdn"
+        elif [[ ${ptr,,} != "${fqdn,,}" ]]; then
+            warn "reverse DNS of $pub_ip is $ptr, not the host name $fqdn: set one to match the other for email delivery"
+        else
+            ok "reverse DNS of $pub_ip is $ptr"
+        fi
+        [[ $fqdn == *.* ]] || warn "the host name ($fqdn) is not a full name: email is set up only with --hostname=server.example.com"
+    fi
+    if [[ $DRY_RUN -eq 0 && $ASSUME_YES -eq 0 ]] && ! { exec 3</dev/tty; } 2>/dev/null; then
+        # No terminal to ask on (a script): no profile unless --yes.
+        PROFILE=none
+        warn "no terminal to ask whether to set up the server: no profile applied (--yes or --profile=… with --yes to apply one)"
+    elif [[ $DRY_RUN -eq 0 ]]; then
+        exec 3<&- 2>/dev/null || true
+        if confirm "Set up this server as: $desc? (Turns on write mode, the firewall and the services above; existing settings are left alone. No: install WhaCP only.)"; then
+            ENABLE_WRITES=1
+        else
+            PROFILE=none
+            ok "no profile: set the server up later with bin/whacp setup:apply --profile=…"
+        fi
+    fi
+else
+    ok "no server profile"
+fi
 
 # ------------------------------------------------------- 2. requirements ----
 log "Checking requirements"
@@ -869,6 +988,20 @@ if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
     runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" cron:sync || warn "some cron schedules were not written again (see above)"
 fi
 
+# --------------------------------------------------- 10. server profile ----
+SETUP_FAILED=0
+if [[ $PROFILE != none && $AGENT_ONLY -eq 0 && $DRY_RUN -eq 0 ]]; then
+    log "Setting up the server ($PROFILE)"
+    setup_args=(setup:apply "--profile=$PROFILE")
+    [[ -z $SETUP_HOSTNAME ]] || setup_args+=("--hostname=$SETUP_HOSTNAME")
+    [[ -z $SETUP_PHP ]] || setup_args+=("--php=$SETUP_PHP")
+    [[ $THIRD_PARTY_REPOS -eq 1 ]] || setup_args+=(--no-third-party-repos)
+    if ! runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" "${setup_args[@]}"; then
+        SETUP_FAILED=1
+        warn "some setup steps failed (see above). WhaCP itself is installed; fix the cause and run: sudo -u whacp WHACP_CONFIG=$CONF_DIR/panel.php $PHP_BIN $PREFIX/panel/bin/whacp ${setup_args[*]}"
+    fi
+fi
+
 if [[ $AGENT_ONLY -eq 1 ]]; then
     cat <<EOF
 
@@ -897,10 +1030,23 @@ fi
 cat <<EOF
 
 WhaCP is installed ($({ [[ $ENABLE_WRITES -eq 1 ]] || grep -q '"allow_write_actions": true' "$CONF_DIR/agent.json" 2>/dev/null; } && echo "write mode" || echo "read-only discovery mode")).
+EOF
+if [[ $PROFILE == none ]]; then
+    cat <<EOF
 Nothing in your existing Nginx, PHP, database, SSL or cron configuration was
 changed. WhaCP only ever edits files it creates itself (named whacp-*).
 
 EOF
+else
+    cat <<EOF
+The server is set up as: $PROFILE$([[ $SETUP_FAILED -eq 1 ]] && echo " (some steps failed: see above)").
+Server → Components shows each part and what is left to do. The setup can
+run again at any time (finished steps are skipped); its last results:
+
+    sudo -u whacp WHACP_CONFIG=$CONF_DIR/panel.php $PHP_BIN $PREFIX/panel/bin/whacp setup:status
+
+EOF
+fi
 if [[ -n $PUBLIC_HTTPS ]]; then
     cat <<EOF
 Open the panel in your browser:

@@ -38,17 +38,23 @@ final class BackupScheduler
     public function list(?array $site): array
     {
         return $site === null
-            ? $this->db->fetchAll("SELECT sc.*, st.name AS storage_name FROM backup_schedules sc LEFT JOIN backup_storages st ON st.id = sc.storage_id WHERE sc.server_id = ? AND sc.kind = 'server' ORDER BY sc.id", [$this->server->id()])
+            ? $this->db->fetchAll("SELECT sc.*, st.name AS storage_name FROM backup_schedules sc LEFT JOIN backup_storages st ON st.id = sc.storage_id WHERE sc.server_id = ? AND (sc.kind = 'server' OR sc.all_sites = 1) ORDER BY sc.id", [$this->server->id()])
             : $this->db->fetchAll('SELECT sc.*, st.name AS storage_name FROM backup_schedules sc LEFT JOIN backup_storages st ON st.id = sc.storage_id WHERE sc.website_id = ? ORDER BY sc.id', [(int) $site['id']]);
     }
 
+    /** Websites of every account backed up by an all-websites schedule at once. */
+    public const ALL_SITES_PARALLEL = 2;
+
     /**
      * @param array<string, mixed>|null $site
-     * @param array<string, mixed> $input
+     * @param array<string, mixed> $input with $site null, scope "all_sites"
+     *        backs up every website (each its own backup) instead of the
+     *        server configuration
      */
     public function create(?array $site, array $input): int
     {
         $errors = [];
+        $all = $site === null && ($input['scope'] ?? '') === 'all_sites';
         $freq = (string) ($input['frequency'] ?? 'daily');
         if (!in_array($freq, ['daily', 'weekly'], true)) {
             $errors['frequency'] = 'Choose daily or weekly.';
@@ -71,20 +77,20 @@ final class BackupScheduler
         }
         $files = filter_var($input['include_files'] ?? true, FILTER_VALIDATE_BOOL);
         $dbs = filter_var($input['include_databases'] ?? true, FILTER_VALIDATE_BOOL);
-        if ($site !== null && !$files && !$dbs) {
+        if (($site !== null || $all) && !$files && !$dbs) {
             $errors['include_files'] = 'Back up the files, the databases or both.';
         }
         if ($errors !== []) {
             throw new ValidationException($errors);
         }
         $this->db->run(
-            'INSERT INTO backup_schedules (server_id, website_id, kind, frequency, hour, weekday, include_files, include_databases, encrypt, storage_id, keep_local, retention, enabled, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)',
-            [$this->server->id(), $site === null ? null : (int) $site['id'], $site === null ? 'server' : 'site', $freq, $hour, $weekday, $files ? 1 : 0, $dbs ? 1 : 0,
+            'INSERT INTO backup_schedules (server_id, website_id, kind, all_sites, frequency, hour, weekday, include_files, include_databases, encrypt, storage_id, keep_local, retention, enabled, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)',
+            [$this->server->id(), $site === null ? null : (int) $site['id'], $site === null && !$all ? 'server' : 'site', $all ? 1 : 0, $freq, $hour, $weekday, $files ? 1 : 0, $dbs ? 1 : 0,
                 filter_var($input['encrypt'] ?? true, FILTER_VALIDATE_BOOL) || $site === null ? 1 : 0, $storage,
                 $storage === null ? 1 : (filter_var($input['keep_local'] ?? true, FILTER_VALIDATE_BOOL) ? 1 : 0), $retention, gmdate('c')]
         );
         $id = $this->db->lastInsertId();
-        $this->audit->record('backup.schedule_create', $site === null ? 'server' : 'website', (string) ($site['id'] ?? $this->server->id()), AuditLogger::SUCCESS, ['frequency' => $freq, 'hour' => $hour, 'retention' => $retention]);
+        $this->audit->record('backup.schedule_create', $site === null ? 'server' : 'website', (string) ($site['id'] ?? $this->server->id()), AuditLogger::SUCCESS, ['frequency' => $freq, 'hour' => $hour, 'retention' => $retention] + ($all ? ['scope' => 'all_sites'] : []));
         return $id;
     }
 
@@ -92,7 +98,7 @@ final class BackupScheduler
     public function delete(?array $site, int $id): void
     {
         $n = $site === null
-            ? $this->db->run("DELETE FROM backup_schedules WHERE id = ? AND server_id = ? AND kind = 'server'", [$id, $this->server->id()])->rowCount()
+            ? $this->db->run("DELETE FROM backup_schedules WHERE id = ? AND server_id = ? AND (kind = 'server' OR all_sites = 1)", [$id, $this->server->id()])->rowCount()
             : $this->db->run('DELETE FROM backup_schedules WHERE id = ? AND website_id = ?', [$id, (int) $site['id']])->rowCount();
         if ($n === 0) {
             throw new UserFacingException('Schedule not found.');
@@ -138,6 +144,10 @@ final class BackupScheduler
         $log = [];
         $this->backups->refresh();
         foreach ($this->db->fetchAll('SELECT * FROM backup_schedules WHERE server_id = ?', [$this->server->id()]) as $s) {
+            if ((int) ($s['all_sites'] ?? 0) === 1) {
+                $log = array_merge($log, $this->runAllSites($s, $now));
+                continue;
+            }
             if (!self::isDue($s, $now)) {
                 continue;
             }
@@ -182,6 +192,73 @@ final class BackupScheduler
     }
 
     /**
+     * An all-websites schedule: when due, a round starts; each pass then
+     * starts the backups of the websites not yet backed up in this round,
+     * ALL_SITES_PARALLEL at a time, until every website has one.
+     *
+     * @param array<string, mixed> $s
+     * @return list<string>
+     */
+    private function runAllSites(array $s, DateTimeImmutable $now): array
+    {
+        $id = (int) $s['id'];
+        if (self::isDue($s, $now)) {
+            $s['last_run_at'] = $now->format(DATE_ATOM);
+            $s['last_status'] = 'running';
+            $this->db->run("UPDATE backup_schedules SET last_run_at = ?, last_status = 'running' WHERE id = ?", [$s['last_run_at'], $id]);
+        }
+        if ($s['last_run_at'] === null || !str_starts_with((string) $s['last_status'], 'running')) {
+            return [];
+        }
+        $since = (new DateTimeImmutable((string) $s['last_run_at']))->setTimezone(new DateTimeZone('UTC'))->format('c');
+        $running = (int) $this->db->scalar("SELECT COUNT(*) FROM backups WHERE schedule_id = ? AND status = 'running'", [$id]);
+        // Websites without a backup of this round (started, finished or failed).
+        $todo = $this->db->fetchAll(
+            'SELECT w.id FROM websites w WHERE w.server_id = ? AND NOT EXISTS (SELECT 1 FROM backups b WHERE b.schedule_id = ? AND b.website_id = w.id AND b.created_at >= ?) ORDER BY w.id',
+            [$this->server->id(), $id, $since]
+        );
+        if ($todo === [] && $running === 0) {
+            $round = $this->db->fetchAll('SELECT status, COUNT(*) AS n FROM backups WHERE schedule_id = ? AND created_at >= ? GROUP BY status', [$id, $since]);
+            $by = array_column($round, 'n', 'status');
+            $failed = (int) ($by['failed'] ?? 0);
+            $this->db->run('UPDATE backup_schedules SET last_status = ? WHERE id = ?', [sprintf('%d website(s) backed up%s', (int) ($by['completed'] ?? 0), $failed > 0 ? ", {$failed} failed" : ''), $id]);
+            if ($failed > 0) {
+                $this->notifications->notify('schedule:' . $id . ':' . substr($since, 0, 16), 'job', 'error', 'Scheduled backup of every website: ' . $failed . ' failed', ['link' => '/backups', 'body' => 'See the backups of the websites concerned.']);
+            }
+            return ["All-websites schedule {$id}: round finished."];
+        }
+        $log = [];
+        $opts = [
+            'files' => (int) $s['include_files'] === 1, 'databases' => (int) $s['include_databases'] === 1,
+            'encrypt' => (int) $s['encrypt'] === 1, 'storage_id' => $s['storage_id'] === null ? null : (int) $s['storage_id'],
+            'keep_local' => (int) $s['keep_local'] === 1, 'label' => ucfirst((string) $s['frequency']) . ' backup (every website)', 'schedule_id' => $id,
+        ];
+        if ($opts['storage_id'] !== null && !$this->backups->storageActive((int) $opts['storage_id'])) {
+            $opts['storage_id'] = null;
+            $opts['keep_local'] = true;
+        }
+        foreach (array_slice($todo, 0, max(0, self::ALL_SITES_PARALLEL - $running)) as $row) {
+            $site = $this->sites->find($this->server->id(), (int) $row['id'], null);
+            if ($site === null) {
+                continue;
+            }
+            try {
+                $job = $this->backups->createSite($site, $opts, null);
+                $this->jobs->track($job, 'Scheduled backup of ' . $site['domain'], 'website', (string) $site['id'], null);
+                $log[] = "Started backup of {$site['domain']} (job {$job}).";
+            } catch (\Throwable $e) {
+                // Recorded as a failed backup of this round, so the round moves on.
+                $this->db->run(
+                    "INSERT INTO backups (server_id, website_id, schedule_id, kind, domain, label, status, error, created_at, finished_at) VALUES (?, ?, ?, 'site', ?, ?, 'failed', ?, ?, ?)",
+                    [$this->server->id(), (int) $site['id'], $id, (string) $site['domain'], $opts['label'], mb_substr($e->getMessage(), 0, 500), gmdate('c'), gmdate('c')]
+                );
+                $log[] = "Backup of {$site['domain']} could not start: " . $e->getMessage();
+            }
+        }
+        return $log;
+    }
+
+    /**
      * Delete completed backups beyond each schedule's retention.
      *
      * @return list<string>
@@ -190,12 +267,18 @@ final class BackupScheduler
     {
         $log = [];
         foreach ($this->db->fetchAll('SELECT * FROM backup_schedules WHERE server_id = ?', [$this->server->id()]) as $s) {
-            $old = $this->db->fetchAll(
-                "SELECT id FROM backups WHERE schedule_id = ? AND status = 'completed' ORDER BY id DESC LIMIT -1 OFFSET ?",
-                [(int) $s['id'], (int) $s['retention']]
-            );
+            // An all-websites schedule keeps its retention per website.
+            $old = (int) ($s['all_sites'] ?? 0) === 1
+                ? $this->db->fetchAll(
+                    "SELECT id, website_id FROM (SELECT id, website_id, ROW_NUMBER() OVER (PARTITION BY website_id ORDER BY id DESC) AS n FROM backups WHERE schedule_id = ? AND status = 'completed') WHERE n > ?",
+                    [(int) $s['id'], (int) $s['retention']]
+                )
+                : $this->db->fetchAll(
+                    "SELECT id, ? AS website_id FROM backups WHERE schedule_id = ? AND status = 'completed' ORDER BY id DESC LIMIT -1 OFFSET ?",
+                    [$s['website_id'], (int) $s['id'], (int) $s['retention']]
+                );
             foreach ($old as $row) {
-                $site = $s['website_id'] === null ? null : $this->sites->find($this->server->id(), (int) $s['website_id'], null);
+                $site = $row['website_id'] === null ? null : $this->sites->find($this->server->id(), (int) $row['website_id'], null);
                 $b = $this->backups->find($site, (int) $row['id']);
                 if ($b === null) {
                     continue;

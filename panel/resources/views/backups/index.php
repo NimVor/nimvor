@@ -67,7 +67,7 @@ $whereLabel = ['backups' => 'Made here', 'uploaded' => 'Uploaded', 'folder' => '
                 <div class="card-header d-flex align-items-center"><i class="bi bi-calendar-check me-1"></i>Schedules
                     <?php if ($canManage): ?><button type="button" class="btn btn-sm btn-link ms-auto p-0" data-bs-toggle="modal" data-bs-target="#server-schedule">Add</button><?php endif; ?></div>
                 <div class="card-body small">
-                    <?php if ($schedules === []): ?><span class="text-body-secondary">No automatic server backup. Add a schedule to back up the configuration every day or week.</span><?php endif; ?>
+                    <?php if ($schedules === []): ?><span class="text-body-secondary">No automatic backup. Add a schedule to back up the server configuration or every website every day or week.</span><?php endif; ?>
                     <?= $this->partial('backups/_schedules', ['schedules' => $schedules, 'deleteRoute' => 'backups.schedules.delete', 'routeParams' => []]) ?>
                 </div>
             </div>
@@ -191,7 +191,7 @@ $whereLabel = ['backups' => 'Made here', 'uploaded' => 'Uploaded', 'folder' => '
         <div class="d-flex justify-content-end gap-2 mt-3"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Start backup</button></div>
     </form>
 <?= $this->modalEnd() ?>
-<?= $this->modalStart('server-schedule', 'Server backup schedule', false, '') ?>
+<?= $this->modalStart('server-schedule', 'Backup schedule', false, '') ?>
     <?= $this->partial('backups/_schedule_form', ['action' => $this->url('backups.schedules.store'), 'site' => false, 'storages' => $storages]) ?>
 <?= $this->modalEnd() ?>
 <?= $this->modalStart('storage-add', 'Add remote storage', $addFailed) ?>

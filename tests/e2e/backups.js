@@ -74,6 +74,21 @@ const DEV_ROOT = process.env.E2E_DEV_ROOT || path.join(__dirname, '../../.dev/ro
     await page.waitForSelector('#server-schedule', { state: 'hidden' });
     step('server backup and schedule in windows; key created');
 
+    // A schedule for every website (each its own backup, retention per website).
+    const everySite = async () => (await main()).split('· every website').length - 1;
+    const before = await everySite();
+    await page.click('button[data-bs-target="#server-schedule"]');
+    await page.waitForSelector('#server-schedule.show');
+    await page.check('#s-scope-all');
+    await page.selectOption('#server-schedule #s-freq', 'weekly');
+    await page.selectOption('#server-schedule #s-day', '6');
+    await nav(() => page.click('#server-schedule button.btn-outline-primary'));
+    await page.goto(BASE + '/backups#server');
+    if (await everySite() !== before + 1) { throw new Error('every-website schedule not listed: ' + (await main()).slice(0, 400)); }
+    if (!(await main()).includes('Every Saturday at 03:00 · every website')) { throw new Error('schedule description'); }
+    if (!(await main()).includes('per website')) { throw new Error('retention per website not shown'); }
+    step('schedule for every website added');
+
     // Key download: wrong panel password refused; then a passphrase-protected file.
     await page.click('button[data-bs-target="#key-download"]');
     await page.waitForSelector('#key-download.show');

@@ -111,7 +111,8 @@ sudo ./installer/install.sh --admin-user=admin --admin-email=you@example.com
 Options: `--no-install-deps` (only list missing packages; by default they are installed),
 `--port=8090`, `--yes`, `--reinstall` (replace program files, keep config and
 data), `--force-unsupported`, `--enable-writes` (see below),
-`--public-https[=8443]` (see "Opening the panel").
+`--public-https[=8443]` (see "Opening the panel"), `--profile=`,
+`--hostname=`, `--php=`, `--no-third-party-repos` (see "Server profile").
 
 ### Write mode
 
@@ -131,6 +132,77 @@ Even in write mode WhaCP only writes files it created, validates every
 configuration before reloading (e.g. `nginx -t`), keeps the previous version
 and rolls back on failure. Existing websites stay untouched until you
 **import** them (Websites → a discovered site → *Import into WhaCP*).
+
+### Server profile
+
+On a fresh server the installer then sets the server up for hosting, in
+the manner of cPanel's installer. It shows the profile and asks first
+(`--yes` answers yes; with no terminal and no `--yes`, no profile is
+applied):
+
+| Profile | Sets up |
+|---|---|
+| `full` (4 GB of memory or more) | Nginx, PHP 8.3 + 8.4 with the default extensions, MariaDB, email (Postfix, Dovecot, OpenDKIM, Rspamd), DNS (BIND, authoritative only), FTP (TLS required), Redis (256 MB limit), Memcached, ClamAV, Let's Encrypt, firewall with the components' ports and protections, Fail2ban, kernel hardening, SMTP restrictions, automatic security updates |
+| `web` (2 GB or more) | the same without email, DNS, ClamAV and SMTP restrictions |
+| `minimal` (less) | Nginx, PHP, MariaDB, Let's Encrypt, firewall, Fail2ban, kernel hardening, automatic security updates |
+| `none` | nothing (the behaviour before profiles) |
+
+Every profile also creates the hosting plans **Starter**, **Business**,
+**Pro** and **Email only** with the feature lists **Hosting**, **Hosting
+with SSH** and **Email only**, and weekly backups on this server (every
+website on Sundays at 02:00 and the server configuration at 01:00, four of
+each kept). Edit or remove them like any other plan or schedule.
+
+```bash
+sudo ./installer/install.sh --profile=full --hostname=server.example.com \
+     --admin-user=admin --admin-email=you@example.com
+```
+
+Options: `--profile=full|web|minimal|none`, `--hostname=` (the mail
+server's name; default the system's full host name), `--php=8.2,8.3,8.4`
+(default 8.3,8.4), `--no-third-party-repos`.
+
+- **Default.** By memory as in the table, but only on a fresh server: when
+  Nginx, Apache, Postfix, Exim, BIND or MariaDB/MySQL already runs, with
+  `--reinstall`, `--agent-only`, or over an existing installation, the
+  default is `none` (your configuration is left alone). Choose a profile
+  explicitly to set up such a server.
+- **Write mode.** A profile turns write mode on.
+- **Third-party repositories.** PHP versions the system does not offer
+  (PHP 8.4 on Ubuntu 22.04/24.04 and RHEL 9) come from Ondřej Surý's PPA
+  on Ubuntu (its signing key pinned by fingerprint) or Remi's repository on
+  the RHEL family. These are third-party repositories: their packages are
+  trusted like the system's. `--no-third-party-repos` keeps to the
+  system's repositories and installs only the versions they offer.
+- **Checks.** Memory, free disk, and for `full`: whether outgoing port 25 is
+  open and whether the server's reverse DNS (PTR) name matches its host
+  name. They warn; they do not stop the installation.
+- **Firewall.** Turning the firewall on, opening the components' ports and
+  the protections are guarded changes (undone after 2 minutes unless
+  kept). The setup keeps each one only after reading the firewall again and
+  finding SSH, the panel and the agent's listener allowed; otherwise it
+  undoes the change at once and reports the step as failed.
+- **Consent.** Choosing a profile with email and DNS is the consent to
+  WhaCP editing Postfix's, Dovecot's and BIND's configuration (the same
+  confirmation the Email and DNS pages ask for; backups are kept).
+- **Idempotent.** Each step leaves alone what is already in place: an
+  existing mail, DNS or FTP setup, fail2ban jails, firewall protections, a
+  Redis memory limit, plans and schedules with these names. Installed PHP
+  versions and extensions are never removed. A failed step is reported and
+  the next ones still run.
+
+Run it again, or later on a server installed with `none`:
+
+```bash
+sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp setup:apply --profile=web
+sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp setup:status
+```
+
+(`php` is the PHP the panel runs on: on Ubuntu 22.04 the installer
+prints its path.) `--only=step,step` runs some steps only (`packages`,
+`php_repository`, `php`, `mail`, `dns`, `ftp`, `caches`, `services`,
+`firewall`, `ports`, `protection`, `fail2ban`, `hardening`,
+`auto_updates`, `plans`, `backups`, `profile`).
 
 ### Scheduler
 
@@ -165,8 +237,11 @@ firewall for the panel's address only.
 | `/opt/whacp/plugins` | plugins installed by an administrator (none enabled by default) |
 | user/group `whacp` | panel identity, agent socket group |
 
-It does **not** touch Nginx, PHP-FPM, MySQL/MariaDB, Redis, certificates, cron,
-firewall or SSH, and it does not reload any existing service.
+Without a server profile it does **not** touch Nginx, PHP-FPM,
+MySQL/MariaDB, Redis, certificates, cron, firewall or SSH, and it does not
+reload any existing service. A profile makes its changes through the
+panel's own actions (see "Server profile"), never by editing files from the
+installer.
 
 ## Accessing the panel
 

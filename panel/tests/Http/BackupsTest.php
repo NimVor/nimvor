@@ -361,4 +361,49 @@ final class BackupsTest extends HttpTestCase
         self::assertSame(2, (int) $this->db->scalar("SELECT COUNT(*) FROM backups WHERE schedule_id = ? AND status = 'completed'", [$sched]));
         self::assertSame(2, $this->calls('backup.delete'));
     }
+
+    public function testEveryWebsiteScheduleBacksUpEachWebsiteAFewAtATime(): void
+    {
+        $tz = new \DateTimeZone('UTC');
+        $admin = (array) $this->app->container->get(UserRepository::class)->find((int) $this->db->scalar("SELECT id FROM users WHERE username = 'admin'"));
+        foreach (['blog.test', 'docs.test'] as $d) {
+            $this->app->container->get(WebsiteService::class)->create(['domain' => $d, 'kind' => 'static'], $admin);
+        }
+        $this->post('/backups/schedules', ['scope' => 'all_sites', 'frequency' => 'daily', 'hour' => '3', 'retention' => '2', 'include_files' => '1', 'include_databases' => '1']);
+        $sched = (int) $this->db->scalar('SELECT id FROM backup_schedules WHERE all_sites = 1');
+        self::assertGreaterThan(0, $sched);
+        self::assertSame('site', $this->db->scalar('SELECT kind FROM backup_schedules WHERE id = ?', [$sched]));
+        self::assertStringContainsString('every website', $this->request('GET', '/backups')->body());
+        $this->db->run("UPDATE backup_schedules SET created_at = '2026-01-01T00:00:00+00:00'");
+        $this->agent->succeed('jobs.get', ['id' => 'cccccccccccccccc', 'status' => 'running']);
+        $scheduler = $this->app->container->get(BackupScheduler::class);
+
+        $scheduler->run(new DateTimeImmutable('2026-09-02T03:05:00', $tz));
+        self::assertSame(BackupScheduler::ALL_SITES_PARALLEL, $this->calls('backup.create'), 'a few websites at a time');
+        $scheduler->run(new DateTimeImmutable('2026-09-02T03:10:00', $tz));
+        self::assertSame(2, $this->calls('backup.create'), 'waits while they run');
+        $this->completeJob();
+        $scheduler->run(new DateTimeImmutable('2026-09-02T03:15:00', $tz));
+        self::assertSame(3, $this->calls('backup.create'), 'the next website once one finished');
+        $scheduler->run(new DateTimeImmutable('2026-09-02T03:20:00', $tz));
+        self::assertSame(3, $this->calls('backup.create'), 'each website once per round');
+        self::assertSame(3, (int) $this->db->scalar('SELECT COUNT(DISTINCT website_id) FROM backups WHERE schedule_id = ?', [$sched]));
+        self::assertSame('3 website(s) backed up', $this->db->scalar('SELECT last_status FROM backup_schedules WHERE id = ?', [$sched]));
+        $scheduler->run(new DateTimeImmutable('2026-09-02T03:25:00', $tz));
+        self::assertSame(3, $this->calls('backup.create'));
+
+        // Retention per website: two kept for each.
+        foreach (['a', 'b'] as $i => $x) {
+            $this->db->run("INSERT INTO backups (website_id, schedule_id, kind, domain, backup_id, status, created_at) VALUES (?, ?, 'site', 'shop.test', ?, 'completed', ?)", [$this->siteId, $sched, "2026090{$i}T030000Z-00000{$x}", '2026-09-0' . ($i + 3)]);
+        }
+        $this->agent->succeed('backup.delete', ['deleted' => 'x']);
+        $scheduler->prune();
+        self::assertSame(1, $this->calls('backup.delete'), 'only the oldest of the website with three');
+        self::assertSame(2, (int) $this->db->scalar("SELECT COUNT(*) FROM backups WHERE schedule_id = ? AND website_id = ? AND status = 'completed'", [$sched, $this->siteId]));
+        self::assertSame(4, (int) $this->db->scalar("SELECT COUNT(*) FROM backups WHERE schedule_id = ? AND status = 'completed'", [$sched]));
+
+        // Removed like a server schedule.
+        $this->post('/backups/schedules/' . $sched . '/delete');
+        self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM backup_schedules WHERE id = ?', [$sched]));
+    }
 }

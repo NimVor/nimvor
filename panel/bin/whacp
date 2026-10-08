@@ -20,6 +20,9 @@ declare(strict_types=1);
  *   bin/whacp hulk:unblock <ip|user|all>   Remove brute force protection blocks
  *   bin/whacp hulk:geo-import <file>   Load the DB-IP country database (brute force protection countries)
  *   bin/whacp doctor                      Check the installation (exit code 1 on failures)
+ *   bin/whacp setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]
+ *                                         Set up the server for a profile (idempotent; exit code 1 when a step failed)
+ *   bin/whacp setup:status                The last server setup and each step's result
  */
 
 use WhaCP\Agent\AgentClient;
@@ -47,6 +50,8 @@ $positional = [];
 foreach ($args as $arg) {
     if (preg_match('/^--([a-z-]+)=(.*)$/', $arg, $m)) {
         $options[$m[1]] = $m[2];
+    } elseif (preg_match('/^--([a-z-]+)$/', $arg, $m)) {
+        $options[$m[1]] = true;
     } else {
         $positional[] = $arg;
     }
@@ -186,6 +191,54 @@ switch ($command) {
             out(sprintf('[%s] %-24s %s', $label, $r['check'], $r['detail']));
         }
         exit($failed ? 1 : 0);
+
+    case 'setup:apply':
+        $profile = (string) ($options['profile'] ?? '');
+        isset(\WhaCP\Services\ServerSetupService::PROFILES[$profile]) || fail('usage: bin/whacp setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]');
+        $c->get(\WhaCP\Services\ServerContext::class)->force(1);
+        $setupOpts = [
+            'hostname' => is_string($options['hostname'] ?? null) ? $options['hostname'] : '',
+            'third_party_repos' => !isset($options['no-third-party-repos']),
+        ];
+        if (is_string($options['php'] ?? null)) {
+            $setupOpts['php'] = array_values(array_filter(array_map('trim', explode(',', $options['php']))));
+        }
+        if (is_string($options['only'] ?? null)) {
+            $setupOpts['only'] = array_values(array_intersect(array_map('trim', explode(',', $options['only'])), array_keys(\WhaCP\Services\ServerSetupService::STEPS)));
+        }
+        out('Setting up this server: ' . \WhaCP\Services\ServerSetupService::PROFILE_NAMES[$profile] . '.');
+        try {
+            $results = $c->get(\WhaCP\Services\ServerSetupService::class)->run($profile, $setupOpts, static fn (string $l) => out($l));
+        } catch (ValidationException $e) {
+            fail(implode(' ', $e->errors()));
+        } catch (AgentException $e) {
+            fail($e->getMessage() . ' ' . $e->remedy());
+        }
+        out('');
+        out('Summary:');
+        $failedSteps = 0;
+        foreach ($results as $r) {
+            $failedSteps += $r['status'] === 'fail' ? 1 : 0;
+            out(sprintf('  [%s] %s', ['ok' => 'DONE', 'skip' => ' OK ', 'fail' => 'FAIL'][$r['status']] ?? $r['status'], $r['label']));
+        }
+        if ($failedSteps > 0) {
+            out('');
+            out($failedSteps . ' step(s) failed (see above). Fix the cause and run the same command again: finished steps are skipped. The setup wizard in the panel shows the same steps.');
+            exit(1);
+        }
+        break;
+
+    case 'setup:status':
+        $last = $c->get(\WhaCP\Services\ServerSetupService::class)->last();
+        if ($last === null) {
+            out('The server setup has not run yet.');
+            break;
+        }
+        out('Profile: ' . (\WhaCP\Services\ServerSetupService::PROFILE_NAMES[$last['profile']] ?? $last['profile']) . ', started ' . $last['started_at'] . ($last['finished_at'] ? ', finished ' . $last['finished_at'] : ', not finished'));
+        foreach ((array) $last['steps'] as $id => $st) {
+            out(sprintf('  [%s] %-34s %s', ['ok' => 'DONE', 'skip' => ' OK ', 'fail' => 'FAIL'][$st['status']] ?? $st['status'], \WhaCP\Services\ServerSetupService::STEPS[$id] ?? $id, $st['detail']));
+        }
+        break;
 
     case 'users:count':
         out((string) $c->get(UserRepository::class)->count());

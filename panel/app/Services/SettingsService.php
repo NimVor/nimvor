@@ -236,6 +236,10 @@ final class SettingsService
                 'category' => 'server', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 2000,
                 'label' => 'PHP profile', 'help' => 'PHP Manager: the PHP versions and extensions last applied (JSON).',
             ],
+            'server_setup' => [
+                'category' => 'server', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 12000,
+                'label' => 'Server setup', 'help' => 'The last run of the server setup (profile, options, each step\'s result; JSON).',
+            ],
             'components_expected' => [
                 'category' => 'server', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 300,
                 'label' => 'Components this server should have', 'help' => 'Server → Components. Empty: the installed ones.',

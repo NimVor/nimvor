@@ -515,6 +515,30 @@ move it to another server (an imported profile is reviewed first). The
 PHP page and each version's page (extensions, php.ini, PHP-FPM) stay as
 they were.
 
+## Server setup
+
+The installer's server profiles (**Full**, **Web only**, **Minimal**; see
+the installation guide) run `bin/whacp setup:apply`, which uses the same
+actions as the panel's pages, one step after another: install the
+components' packages, PHP versions and extensions (PHP Manager), email,
+DNS, FTP, a Redis memory limit, start the services and enable them at
+boot, the firewall and the components' ports, firewall protections,
+Fail2ban, hardening, automatic security updates, hosting plans with
+feature lists, weekly backups, and the server profile on the Components
+page. Steps leave alone what is already in place and can run again at any
+time; `bin/whacp setup:status` shows the last run, step by step.
+
+| Plan | Websites | Disk | Email accounts | Databases | Feature list |
+|---|---|---|---|---|---|
+| Starter | 1 | 5 GB | 5 | 2 | Hosting (no SSH) |
+| Business | 5 | 20 GB | 25 | 10 | Hosting (no SSH) |
+| Pro | 20 | 50 GB | 100 | 50 | Hosting with SSH |
+| Email only | 1 | 10 GB | 50 | — | Email only (email, DNS, SSL, backups) |
+
+Resource limits: Starter 1 CPU and 1 GB of memory, Business 2 CPUs and
+2 GB, Pro 4 CPUs and 4 GB, Email only half a CPU and 256 MB. Change them
+under Plans like any other plan.
+
 ## Server security settings
 
 All under **Security** in the sidebar (administrators).
@@ -1469,6 +1493,13 @@ configuration**, **Remote storage** and **Account backups**. Forms open in
 windows: back up the server configuration, the server backup schedule,
 add or edit a storage, back up an account, upload an account file, and
 download or import the backup key.
+
+The **Backup schedule** window backs up either the server configuration or
+**every website**. A schedule for every website gives each website its own
+backup (files and databases, encrypted), websites added later included.
+Two run at a time, and the next one starts when one finishes. The number
+kept applies to each website, and the schedule's last run says how many
+were backed up and how many failed.
 
 *Backups → Remote storage → Add storage* keeps copies off the server. Each
 storage is tested (upload, list and delete of a probe file) before it is

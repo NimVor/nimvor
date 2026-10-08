@@ -17,10 +17,10 @@ $describe = static function (array $s): string {
         <?php foreach ($schedules as $s): ?>
             <li class="list-group-item px-0 d-flex align-items-start gap-2">
                 <div class="small">
-                    <div class="fw-semibold"><?= e($describe($s)) ?></div>
+                    <div class="fw-semibold"><?= e($describe($s)) ?><?php if ((int) ($s['all_sites'] ?? 0) === 1): ?> · every website<?php elseif ($s['kind'] === 'server' && $deleteRoute === 'backups.schedules.delete'): ?> · server configuration<?php endif; ?></div>
                     <div class="text-body-secondary">
                         <?php if ($s['kind'] === 'site'): ?><?= (int) $s['include_files'] ? 'files' : '' ?><?= (int) $s['include_files'] && (int) $s['include_databases'] ? ' + ' : '' ?><?= (int) $s['include_databases'] ? 'databases' : '' ?> · <?php endif; ?>
-                        keep <?= (int) $s['retention'] ?> · <?= (int) $s['encrypt'] ? 'encrypted' : 'not encrypted' ?><?= $s['storage_name'] !== null ? ' · copy to ' . e($s['storage_name']) : '' ?>
+                        keep <?= (int) $s['retention'] ?><?= (int) ($s['all_sites'] ?? 0) === 1 ? ' per website' : '' ?> · <?= (int) $s['encrypt'] ? 'encrypted' : 'not encrypted' ?><?= $s['storage_name'] !== null ? ' · copy to ' . e($s['storage_name']) : '' ?>
                     </div>
                     <div class="text-body-secondary">Last run: <?= $s['last_run_at'] === null ? 'never' : e(substr((string) $s['last_run_at'], 0, 16)) . ' (' . e($s['last_status']) . ')' ?></div>
                 </div>

@@ -107,7 +107,7 @@ jobs:
         run: |
           (cd panel && composer install --no-dev --no-interaction --no-progress --optimize-autoloader)
           mkdir -p dist && (cd agent && CGO_ENABLED=0 go build -trimpath -o ../dist/whacp-agent ./cmd/whacp-agent)
-          sudo installer/install.sh --yes --enable-writes --admin-user=admin --admin-email=admin@whacp.test
+          sudo installer/install.sh --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@whacp.test
           sudo tests/integration/postinstall.sh
           sudo tests/integration/public-https.sh
       - name: Agent sandbox diagnostics (Ubuntu)
@@ -183,7 +183,7 @@ jobs:
       - name: Installer and post-install end-to-end
         if: always()
         run: |
-          tests/vm.sh ssh 'cd /root/whacp && installer/install.sh --install-deps --yes --enable-writes --admin-user=admin --admin-email=admin@whacp.test'
+          tests/vm.sh ssh 'cd /root/whacp && installer/install.sh --install-deps --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@whacp.test'
           tests/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp agent:check'
           tests/vm.sh ssh 'cd /root/whacp && tests/integration/postinstall.sh'
           tests/vm.sh ssh 'cd /root/whacp && tests/integration/public-https.sh'

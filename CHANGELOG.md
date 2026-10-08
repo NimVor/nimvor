@@ -67,6 +67,28 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **Server profiles in the installer** (`--profile=full|web|minimal|none`;
+  default by memory on a fresh server, `none` where web, mail, DNS or
+  database services already run). After installing, `bin/whacp
+  setup:apply` sets the server up through the panel's own actions:
+  - packages, then PHP 8.3 + 8.4 with the default extensions (`--php=`);
+  - email (`--hostname=`), DNS (authoritative only) and FTP;
+  - a Redis memory limit, then services started and enabled at boot;
+  - the firewall with the components' ports and protections;
+  - Fail2ban, kernel hardening, SMTP restrictions (full profile only) and
+    automatic security updates;
+  - hosting plans (Starter, Business, Pro, Email only) with feature lists;
+  - weekly backups.
+
+  Steps are idempotent: nothing is removed and existing settings are left
+  alone. Guarded firewall changes are kept only when SSH, the panel and the
+  agent stay reachable. The installer checks memory, disk, outgoing port 25
+  and reverse DNS. It states the third-party PHP repository it would add
+  (Ondřej Surý's PPA or Remi); `--no-third-party-repos` keeps to the
+  system's repositories. `bin/whacp setup:status` shows the last run.
+- **Backups for every website**: a schedule can back up every website (each
+  its own backup, two at a time, retention per website, websites added
+  later included) as well as the server configuration.
 - **PHP Manager** (EasyApache style): tick PHP versions and extensions,
   review what changes (install, update, switch on or off, remove, kept,
   unchanged), apply as one job; the PHP profile is kept and can be exported
