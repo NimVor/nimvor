@@ -239,7 +239,14 @@ func (s *Site) Write(p, content string, expected time.Time) (*ReadResult, error)
 	if err := s.atomicWrite(p, strings.NewReader(content), mode); err != nil {
 		return nil, friendly(err)
 	}
-	info, _ := s.root.Stat(p)
+	// The write succeeded; re-stat for the result. Something may have
+	// changed the path concurrently (a racing request, or the account's own
+	// processes), so a failed stat is not fatal — report what we wrote
+	// rather than dereferencing a nil FileInfo.
+	info, err := s.root.Stat(p)
+	if err != nil {
+		return &ReadResult{Path: p, Size: int64(len(content))}, nil
+	}
 	return &ReadResult{Path: p, Size: info.Size(), ModTime: info.ModTime().UTC()}, nil
 }
 
