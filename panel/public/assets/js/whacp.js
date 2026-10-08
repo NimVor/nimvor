@@ -417,7 +417,7 @@
         var modalEl = document.getElementById('dns-record');
         if (!modalEl || !window.bootstrap) { return; }
         var form = modalEl.querySelector('[data-wcp-dns-form]');
-        form.action = action || form.getAttribute('data-store');
+        form.setAttribute('action', action || form.getAttribute('data-store'));
         if (rec) { dnsFill(form, rec); }
         modalEl.querySelector('.modal-title').textContent = title;
         modalEl.querySelector('[data-wcp-dns-shortcuts]').classList.toggle('d-none', title !== 'Add record');
@@ -1500,12 +1500,19 @@
     // forms, and pages that load their own scripts
     // (<body data-wcp-ajax="off">). Anything unexpected falls back to a
     // normal page load.
+    // The form's address. Not form.action: a field named "action" (such as
+    // a firewall rule's Allow/Deny) shadows that property, and the form
+    // would be sent to "[object HTMLInputElement]".
+    function formUrl(form) {
+        return new URL(form.getAttribute('action') || window.location.href, window.location.href).href;
+    }
+
     function ajaxEligible(form) {
         if (!window.fetch || !window.DOMParser || !window.history.pushState) { return false; }
         if (document.body.getAttribute('data-wcp-ajax') === 'off') { return false; }
         if ((form.getAttribute('method') || 'get').toLowerCase() !== 'post' || form.hasAttribute('target')) { return false; }
         if (form.closest('[data-wcp-noajax]') || !form.closest('.wcp-content, .wcp-topbar-actions')) { return false; }
-        var action = new URL(form.action, window.location.href);
+        var action = new URL(formUrl(form));
         return action.origin === window.location.origin;
     }
 
@@ -1605,7 +1612,7 @@
         // The pressed button may send elsewhere (formaction) or open a window.
         var pressed = e.submitter && e.submitter.form === form ? e.submitter : null;
         if (pressed && (pressed.hasAttribute('formtarget') || (pressed.getAttribute('formmethod') || 'post').toLowerCase() !== 'post')) { return; }
-        var actionUrl = pressed && pressed.hasAttribute('formaction') ? pressed.formAction : form.action;
+        var actionUrl = pressed && pressed.hasAttribute('formaction') ? pressed.formAction : formUrl(form);
         if (new URL(actionUrl, window.location.href).origin !== window.location.origin) { return; }
         if (form.getAttribute('aria-busy') === 'true') { e.preventDefault(); return; }
         e.preventDefault();
