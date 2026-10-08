@@ -204,3 +204,33 @@ func TestExtensionsRHEL(t *testing.T) {
 		t.Errorf("curl install: %v", err)
 	}
 }
+
+// PHP 8.5 has OPcache built in: no package, always there; nothing to
+// install, remove or switch, and a profile wanting it has nothing to do.
+func TestOpcacheBuiltIntoPHP85(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	var op ExtensionState
+	for _, st := range ExtensionStates(context.Background(), h.Env, "8.5") {
+		if st.Name == "opcache" {
+			op = st
+		}
+	}
+	if !op.Installed || !op.Enabled || !op.BuiltIn || op.Package != "" || op.Protected == "" {
+		t.Fatalf("opcache on 8.5 = %+v", op)
+	}
+	for _, st := range ExtensionStates(context.Background(), h.Env, "8.4") {
+		if st.Name == "opcache" && (st.BuiltIn || st.Package != "php8.4-opcache") {
+			t.Fatalf("opcache on 8.4 = %+v", st)
+		}
+	}
+	for _, a := range []string{"php.extension_install", "php.extension_remove", "php.extension_set"} {
+		if _, err := call(t, r, a, map[string]any{"version": "8.5", "name": "opcache", "enabled": false}); err == nil || !strings.Contains(err.Error(), "built into PHP 8.5") {
+			t.Errorf("%s: %v", a, err)
+		}
+	}
+	if x, _ := findExtension("opcache"); x.pkg(h.Env, "8.5") != "" || x.pkg(h.Env, "8.10") != "" || x.pkg(h.Env, "8.4") == "" {
+		t.Error("package names")
+	}
+}

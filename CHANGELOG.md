@@ -7,6 +7,11 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **PHP 8.5, OPcache:** OPcache is built into PHP from 8.5 and has no
+  package of its own. WhaCP looked for `php8.5-opcache`, so a profile with
+  OPcache (the default) never matched; the setup wizard reported "PHP 8.5
+  opcache (install)". OPcache now counts as built in on PHP 8.5 and later:
+  shown as installed and on, with nothing to install, remove or switch.
 - **Backups, local folder storage:**
   - `/backups` (also `/backup`, `/srv/backup(s)`) is accepted itself, not only
     a folder in it.

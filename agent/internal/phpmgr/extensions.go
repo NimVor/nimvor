@@ -78,7 +78,17 @@ func tag(env *host.Env, v string) string {
 	return v
 }
 
+// BuiltIn reports whether the extension is compiled into PHP v: OPcache is
+// part of PHP itself from 8.5 (no package; always loaded, configured with
+// opcache.enable).
+func (e Extension) BuiltIn(v string) bool {
+	return e.Name == "opcache" && !versionLess(v, "8.5")
+}
+
 func (e Extension) pkg(env *host.Env, v string) string {
+	if e.BuiltIn(v) {
+		return ""
+	}
 	if rhel(env) {
 		if e.RHEL == "" {
 			return ""
@@ -109,6 +119,8 @@ type ExtensionState struct {
 	Enabled     bool   `json:"enabled"`
 	// Protected says why it cannot be switched off or removed ("" if it can).
 	Protected string `json:"protected,omitempty"`
+	// BuiltIn: compiled into PHP (no package to install or remove).
+	BuiltIn bool `json:"built_in,omitempty"`
 }
 
 // moduleIni is the ini file loading module m for version v ("" if none).
@@ -193,6 +205,12 @@ func ExtensionStates(ctx context.Context, env *host.Env, v string) []ExtensionSt
 	out := []ExtensionState{}
 	for _, e := range Extensions {
 		st := ExtensionState{Name: e.Name, Description: e.Description, Package: e.pkg(env, v), Enabled: true}
+		if e.BuiltIn(v) {
+			st.Installed, st.BuiltIn = true, true
+			st.Protected = "built into PHP " + v + " (turn it off with opcache.enable in php.ini)"
+			out = append(out, st)
+			continue
+		}
 		if st.Package != "" {
 			st.Version, st.Installed = inst[st.Package]
 		} else {
@@ -300,6 +318,9 @@ func registerExtensions(r *actions.Registry, env *host.Env) {
 		if err != nil {
 			return nil, err
 		}
+		if e.BuiltIn(in.Version) {
+			return nil, actions.Conflict(e.Name + " is built into PHP " + in.Version + ": there is nothing to install, remove or switch (turn it off with opcache.enable in php.ini).")
+		}
 		pkg := e.pkg(env, in.Version)
 		if pkg == "" {
 			return nil, actions.Conflict(e.Name + " is part of PHP " + in.Version + "'s base packages on this system; switch it on instead.")
@@ -326,6 +347,9 @@ func registerExtensions(r *actions.Registry, env *host.Env) {
 		e, err := in.check(env)
 		if err != nil {
 			return nil, err
+		}
+		if e.BuiltIn(in.Version) {
+			return nil, actions.Conflict(e.Name + " is built into PHP " + in.Version + ": there is nothing to install, remove or switch (turn it off with opcache.enable in php.ini).")
 		}
 		pkg := e.pkg(env, in.Version)
 		if pkg == "" {
@@ -356,6 +380,9 @@ func registerExtensions(r *actions.Registry, env *host.Env) {
 		e, err := in.check(env)
 		if err != nil {
 			return nil, err
+		}
+		if e.BuiltIn(in.Version) {
+			return nil, actions.Conflict(e.Name + " is built into PHP " + in.Version + ": there is nothing to install, remove or switch (turn it off with opcache.enable in php.ini).")
 		}
 		if !in.Enabled && panelVersion(env, in.Version) && panelNeeds[e.Name] {
 			return nil, actions.Conflict("WhaCP's panel runs on PHP " + in.Version + " and needs " + e.Name + ".")
