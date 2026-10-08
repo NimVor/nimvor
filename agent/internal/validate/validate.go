@@ -243,9 +243,14 @@ func GitURL(field, u string) error {
 
 var branch = regexp.MustCompile(`^[A-Za-z0-9._/-]{1,100}$`)
 
-// GitRef validates a branch or tag name.
+// GitRef validates a branch or tag name. Beyond the character set, it
+// applies git's own refname rules that matter here: a ref never begins or
+// ends with "/" or "-", and never contains "//" or "..". This also keeps an
+// absolute-looking value such as "/etc/shadow" from being accepted as a ref.
 func GitRef(field, b string) error {
-	if !branch.MatchString(b) || strings.HasPrefix(b, "-") || strings.Contains(b, "..") {
+	if !branch.MatchString(b) ||
+		strings.HasPrefix(b, "-") || strings.HasPrefix(b, "/") || strings.HasSuffix(b, "/") ||
+		strings.Contains(b, "//") || strings.Contains(b, "..") {
 		return fail(field, "is not a valid branch name")
 	}
 	return nil
