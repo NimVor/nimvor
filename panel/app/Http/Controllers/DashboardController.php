@@ -51,6 +51,10 @@ final class DashboardController extends Controller
                 'recent' => $this->notifications->list($user, [], 6),
             ]);
         }
+        // An administrator's first visit opens the setup wizard (once).
+        if ($this->view->can(Permissions::SERVER_MANAGE) && !$this->settings->bool('setup_wizard_seen') && $this->settings->string('server_setup') === '') {
+            return Response::redirect('/setup');
+        }
         $info = null;
         $summary = null;
         $agentError = null;
@@ -67,6 +71,7 @@ final class DashboardController extends Controller
             'summary' => $summary,
             'agentError' => $agentError,
             'refreshSeconds' => $this->settings->int('dashboard_refresh_seconds'),
+            'setupCard' => $this->view->can(Permissions::SERVER_MANAGE) && !$this->settings->bool('setup_wizard_done'),
             'recentAudit' => $this->view->can(Permissions::AUDIT_VIEW) ? $this->audit->recent(6) : [],
             'alerts' => $this->view->can(Permissions::MONITORING_VIEW) ? $this->monitoring->openAlerts() : [],
             'failures' => $this->view->can(Permissions::NOTIFICATIONS_VIEW)

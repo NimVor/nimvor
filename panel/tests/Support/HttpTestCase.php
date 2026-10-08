@@ -60,6 +60,9 @@ abstract class HttpTestCase extends TestCase
         $app->container->instance(SessionInterface::class, $this->session);
         $app->container->instance(AgentTransport::class, $this->agent);
         $app->migrate();
+        // The dashboard opens the setup wizard on the first visit; tests
+        // about other pages start past it (SetupWizardTest resets it).
+        $app->container->get(\WhaCP\Services\SettingsService::class)->update(['setup_wizard_seen' => true, 'setup_wizard_done' => true], null);
         return $app;
     }
 

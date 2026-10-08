@@ -1701,4 +1701,106 @@
         var input = e.target.querySelector && e.target.querySelector('[data-wcp-palette-input]');
         if (input) { input.value = ''; paletteFilter(input); input.focus(); }
     });
+    // Setup wizard: the profile's steps run one after another from here.
+    // A step that starts a job returns its id; its log is shown and the step
+    // is called again (after_job) when the job ends.
+    document.addEventListener('DOMContentLoaded', function () {
+        var form = document.querySelector('[data-wcp-setup]');
+        if (!form) { return; }
+        var icons = { ok: 'bi-check-circle-fill text-success', skip: 'bi-check-circle text-success', fail: 'bi-x-circle-fill text-danger', running: 'bi-hourglass-split text-primary', '': 'bi-circle text-body-secondary' };
+        var states = { ok: 'Done', skip: 'Already in place', fail: 'Failed', running: 'Running…', '': 'Not run' };
+        function chosen() { var r = form.querySelector('input[name="profile"]:checked'); return r ? r.value : ''; }
+        function showSteps() {
+            form.querySelectorAll('[data-setup-steps]').forEach(function (ol) { ol.hidden = ol.getAttribute('data-setup-steps') !== chosen(); });
+        }
+        form.querySelectorAll('input[name="profile"]').forEach(function (r) { r.addEventListener('change', showSteps); });
+        function setRow(row, status, detail) {
+            row.setAttribute('data-status', status);
+            row.querySelector('[data-step-icon]').className = 'bi mt-1 ' + (icons[status] || icons['']);
+            row.querySelector('[data-step-state]').textContent = states[status] || status;
+            if (detail !== undefined) { row.querySelector('[data-step-detail]').textContent = detail; }
+        }
+        function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+        // Follows a job's log in the step's row until it ends.
+        function follow(row, jobId) {
+            var log = row.querySelector('[data-step-log]');
+            var btn = row.querySelector('[data-step-job]');
+            btn.hidden = false;
+            btn.onclick = function () { WhaCP.showJob(jobId); };
+            log.hidden = false;
+            var offset = 0;
+            function poll() {
+                return WhaCP.fetchJson('/jobs/' + jobId + '?offset=' + offset).then(function (res) {
+                    if (res.log) {
+                        log.textContent = (log.textContent + res.log).split('\n').slice(-12).join('\n');
+                    }
+                    offset = res.offset || offset;
+                    if (res.done) { return; }
+                    return sleep(2000).then(poll);
+                }, function () { return sleep(4000).then(poll); });
+            }
+            return poll();
+        }
+        function runStep(params, row, afterJob, round) {
+            var body = Object.assign({}, params, { step: row.getAttribute('data-step'), after_job: afterJob || '', round: round });
+            return WhaCP.fetchJson(form.getAttribute('data-step-url'), { method: 'POST', body: JSON.stringify(body) }).then(function (res) {
+                var st = res.step;
+                if (st.status === 'running') {
+                    setRow(row, 'running', st.detail);
+                    return follow(row, st.job_id).then(function () { return runStep(params, row, st.job_id, round + 1); });
+                }
+                setRow(row, st.status, st.detail);
+                return st.status;
+            });
+        }
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (form.getAttribute('data-running')) { return; }
+            var params = {
+                profile: chosen(),
+                hostname: form.querySelector('[name="hostname"]').value.trim(),
+                php: Array.prototype.map.call(form.querySelectorAll('input[name="php"]:checked'), function (c) { return c.value; }),
+                third_party_repos: form.querySelector('[name="third_party_repos"]').checked
+            };
+            var summary = form.querySelector('[data-setup-summary]');
+            if (params.php.length === 0) { summary.textContent = 'Choose at least one PHP version.'; return; }
+            var rows = Array.prototype.slice.call(form.querySelectorAll('[data-setup-steps="' + params.profile + '"] [data-step]'));
+            var run = form.querySelector('[data-setup-run]');
+            form.setAttribute('data-running', '1');
+            run.disabled = true;
+            run.querySelector('.spinner-border').classList.remove('d-none');
+            form.querySelectorAll('input').forEach(function (i) { i.disabled = true; });
+            rows.forEach(function (r) {
+                setRow(r, '', '');
+                r.querySelector('[data-step-log]').hidden = true;
+                r.querySelector('[data-step-log]').textContent = '';
+                r.querySelector('[data-step-job]').hidden = true;
+            });
+            var failed = 0;
+            var stopped = '';
+            var chain = Promise.resolve();
+            rows.forEach(function (row, i) {
+                chain = chain.then(function () {
+                    if (stopped) { return; }
+                    summary.textContent = 'Step ' + (i + 1) + ' of ' + rows.length + ': ' + row.querySelector('.fw-medium').textContent + '…';
+                    setRow(row, 'running', '');
+                    return runStep(params, row, '', 0).then(function (st) {
+                        if (st === 'fail') { failed++; }
+                    }, function (err) {
+                        failed++;
+                        setRow(row, 'fail', err.message);
+                        // Refused (permissions, invalid options): stop here.
+                        if (err.details && !err.details.code) { stopped = err.message; }
+                    });
+                });
+            });
+            chain.then(function () {
+                run.querySelector('.spinner-border').classList.add('d-none');
+                form.removeAttribute('data-running');
+                summary.textContent = stopped !== '' ? 'Stopped: ' + stopped
+                    : (failed === 0 ? 'The setup finished: every step is done or was already in place.' : 'The setup finished; ' + failed + ' step(s) failed. Fix the cause (see each step) and run it again: finished steps are skipped.');
+                form.querySelector('[data-setup-reload]').hidden = false;
+            });
+        });
+    });
 })();

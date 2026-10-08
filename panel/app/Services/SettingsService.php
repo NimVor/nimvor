@@ -236,6 +236,14 @@ final class SettingsService
                 'category' => 'server', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 2000,
                 'label' => 'PHP profile', 'help' => 'PHP Manager: the PHP versions and extensions last applied (JSON).',
             ],
+            'setup_wizard_seen' => [
+                'category' => 'server', 'type' => 'bool', 'default' => false,
+                'label' => 'Setup wizard opened', 'help' => 'The dashboard opens the setup wizard once, for the first administrator visit.',
+            ],
+            'setup_wizard_done' => [
+                'category' => 'server', 'type' => 'bool', 'default' => false,
+                'label' => 'Setup wizard closed', 'help' => 'The dashboard no longer offers the setup wizard.',
+            ],
             'server_setup' => [
                 'category' => 'server', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 12000,
                 'label' => 'Server setup', 'help' => 'The last run of the server setup (profile, options, each step\'s result; JSON).',

@@ -903,3 +903,6 @@ button.wcp-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .wcp-pkg-out { height: 30rem; }
 .wcp-pkg-items { max-height: 22rem; overflow-y: auto; }
 .wcp-pkg-items .list-group-item.is-running { background: var(--bs-info-bg-subtle); }
+
+/* Setup wizard: the tail of a running step's job log. */
+.wcp-setup-log { max-height: 12rem; overflow: auto; white-space: pre-wrap; word-break: break-word; }

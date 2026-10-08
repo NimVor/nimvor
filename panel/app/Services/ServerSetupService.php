@@ -107,6 +107,9 @@ final class ServerSetupService
     /** @var callable(string): void */
     private $out;
 
+    /** The administrator running the setup (the wizard); null from the command line. */
+    public ?int $actorId = null;
+
     /** Between two reads of a job's log (tests set 0). */
     public int $pollMicroseconds = 1_000_000;
 
@@ -152,20 +155,9 @@ final class ServerSetupService
      */
     public function run(string $profile, array $options = [], ?callable $out = null): array
     {
-        if (!isset(self::PROFILES[$profile])) {
-            throw new ValidationException(['profile' => 'Choose full, web or minimal.']);
-        }
-        $php = array_values(array_unique(array_filter($options['php'] ?? self::PHP_DEFAULT, static fn ($v): bool => is_string($v) && (bool) preg_match('/^[5-9]\.[0-9]{1,2}$/', $v))));
-        if ($php === []) {
-            throw new ValidationException(['php' => 'Choose at least one PHP version, e.g. 8.3,8.4.']);
-        }
-        $hostname = strtolower(trim((string) ($options['hostname'] ?? '')));
-        if ($hostname !== '' && !preg_match('/^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/', $hostname)) {
-            throw new ValidationException(['hostname' => 'Enter the server\'s full host name, e.g. server.example.com.']);
-        }
+        $opts = $this->options($profile, $options);
         $this->out = $out ?? static function (string $line): void {
         };
-        $opts = ['hostname' => $hostname, 'php' => $php, 'third_party_repos' => (bool) ($options['third_party_repos'] ?? true)];
         $only = $options['only'] ?? null;
         $state = ['profile' => $profile, 'options' => $opts, 'started_at' => gmdate('c'), 'finished_at' => null, 'steps' => []];
         $results = [];
@@ -175,15 +167,7 @@ final class ServerSetupService
             }
             $this->say('');
             $this->say('== ' . self::STEPS[$id]);
-            try {
-                [$status, $detail] = $this->{'step' . str_replace('_', '', ucwords($id, '_'))}($profile, $opts);
-            } catch (AgentException $e) {
-                [$status, $detail] = ['fail', trim($e->getMessage() . ' ' . $e->reason() . ' ' . $e->remedy())];
-            } catch (ValidationException $e) {
-                [$status, $detail] = ['fail', implode(' ', $e->errors())];
-            } catch (UserFacingException $e) {
-                [$status, $detail] = ['fail', $e->getMessage()];
-            }
+            [$status, $detail] = $this->call($profile, $opts, $id);
             $this->say(sprintf('   %s: %s', ['ok' => 'done', 'skip' => 'nothing to do', 'fail' => 'FAILED'][$status] ?? $status, $detail));
             $results[] = ['id' => $id, 'label' => self::STEPS[$id], 'status' => $status, 'detail' => mb_substr($detail, 0, 300)];
             $state['steps'][$id] = ['status' => $status, 'detail' => mb_substr($detail, 0, 300)];
@@ -195,6 +179,134 @@ final class ServerSetupService
         $this->audit->record('server.setup', 'server', (string) $this->server->id(), $failed === [] ? AuditLogger::SUCCESS : AuditLogger::FAILURE, ['profile' => $profile, 'failed' => $failed]);
         return $results;
     }
+
+    /**
+     * Validated options.
+     *
+     * @param array<string, mixed> $options
+     * @return array{hostname: string, php: list<string>, third_party_repos: bool}
+     */
+    public function options(string $profile, array $options): array
+    {
+        if (!isset(self::PROFILES[$profile])) {
+            throw new ValidationException(['profile' => 'Choose full, web or minimal.']);
+        }
+        $php = array_values(array_unique(array_filter((array) ($options['php'] ?? self::PHP_DEFAULT), static fn ($v): bool => is_string($v) && (bool) preg_match('/^[5-9]\.[0-9]{1,2}$/', $v))));
+        if ($php === [] || count($php) !== count((array) ($options['php'] ?? self::PHP_DEFAULT))) {
+            throw new ValidationException(['php' => 'Choose at least one PHP version, e.g. 8.3,8.4.']);
+        }
+        usort($php, 'version_compare');
+        $hostname = strtolower(trim((string) ($options['hostname'] ?? '')));
+        if ($hostname !== '' && !preg_match('/^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/', $hostname)) {
+            throw new ValidationException(['hostname' => 'Enter the server\'s full host name, e.g. server.example.com.']);
+        }
+        return ['hostname' => $hostname, 'php' => $php, 'third_party_repos' => (bool) ($options['third_party_repos'] ?? true)];
+    }
+
+    /**
+     * Runs one step, its exceptions turned into a failed result.
+     *
+     * @param array<string, mixed> $opts
+     * @return array{0: string, 1: string}
+     */
+    private function call(string $profile, array $opts, string $id): array
+    {
+        try {
+            return $this->{'step' . str_replace('_', '', ucwords($id, '_'))}($profile, $opts);
+        } catch (SetupJobStarted $e) {
+            throw $e;
+        } catch (AgentException $e) {
+            return ['fail', trim($e->getMessage() . ' ' . $e->reason() . ' ' . $e->remedy())];
+        } catch (ValidationException $e) {
+            return ['fail', implode(' ', $e->errors())];
+        } catch (UserFacingException $e) {
+            return ['fail', $e->getMessage()];
+        }
+    }
+
+    /** Steps whose job is the whole step: done when the job succeeded. */
+    private const ONE_JOB_STEPS = ['php_repository', 'auto_updates'];
+
+    /** Jobs one step may start before it counts as stuck. */
+    public const MAX_ROUNDS = 3;
+
+    /**
+     * One step for the setup wizard, which runs the steps from the browser:
+     * a step that starts a job returns "running" with the job id; the
+     * browser follows the job and calls the step again with that job id
+     * (after_job), and the step then checks what is left. The result is
+     * remembered with the profile.
+     *
+     * @param array<string, mixed> $options
+     * @return array{id: string, label: string, status: string, detail: string, job_id?: string}
+     */
+    public function runStep(string $profile, array $options, string $id, ?string $afterJob = null, int $round = 0): array
+    {
+        $opts = $this->options($profile, $options);
+        if (!in_array($id, self::steps($profile), true)) {
+            throw new ValidationException(['step' => 'This step is not part of the profile.']);
+        }
+        $state = $this->last();
+        $first = $id === self::steps($profile)[0] && $afterJob === null;
+        if ($first || $state === null || ($state['profile'] ?? '') !== $profile || ($state['options'] ?? null) != $opts) {
+            $state = ['profile' => $profile, 'options' => $opts, 'started_at' => gmdate('c'), 'finished_at' => null, 'steps' => [], 'via' => 'wizard'];
+        }
+        $result = $this->stepAfter($profile, $opts, $id, $afterJob, $round);
+        if ($result['status'] !== 'running') {
+            $state['steps'][$id] = ['status' => $result['status'], 'detail' => $result['detail']];
+            $steps = self::steps($profile);
+            if ($id === end($steps)) {
+                $state['finished_at'] = gmdate('c');
+                $failed = array_keys(array_filter((array) $state['steps'], static fn (array $s): bool => $s['status'] === 'fail'));
+                $this->audit->record('server.setup', 'server', (string) $this->server->id(), $failed === [] ? AuditLogger::SUCCESS : AuditLogger::FAILURE, ['profile' => $profile, 'failed' => $failed, 'via' => 'wizard']);
+            }
+            $this->save($state);
+        }
+        return ['id' => $id, 'label' => self::STEPS[$id]] + $result;
+    }
+
+    /**
+     * @param array<string, mixed> $opts
+     * @return array{status: string, detail: string, job_id?: string}
+     */
+    private function stepAfter(string $profile, array $opts, string $id, ?string $afterJob, int $round): array
+    {
+        if ($afterJob !== null) {
+            if (!preg_match('/^[a-f0-9]{16}$/', $afterJob)) {
+                throw new ValidationException(['after_job' => 'Unknown job.']);
+            }
+            $job = (array) $this->agent->call('jobs.get', ['id' => $afterJob]);
+            $st = (string) ($job['status'] ?? '');
+            if ($st !== 'succeeded' && $st !== 'failed') {
+                return ['status' => 'running', 'detail' => 'Still running.', 'job_id' => $afterJob];
+            }
+            if ($st === 'failed') {
+                return ['status' => 'fail', 'detail' => 'The job failed: ' . mb_substr((string) ($job['error'] ?? 'see its log'), 0, 250)];
+            }
+            if (in_array($id, self::ONE_JOB_STEPS, true)) {
+                return ['status' => 'ok', 'detail' => 'Done (see the job log).'];
+            }
+        }
+        $this->async = true;
+        try {
+            [$status, $detail] = $this->call($profile, $opts, $id);
+        } catch (SetupJobStarted $e) {
+            if ($round >= self::MAX_ROUNDS) {
+                return ['status' => 'fail', 'detail' => 'Still not done after ' . self::MAX_ROUNDS . ' jobs: see the job logs, then run the setup again.'];
+            }
+            return ['status' => 'running', 'detail' => $e->getMessage(), 'job_id' => $e->job];
+        } finally {
+            $this->async = false;
+        }
+        // Verified after its job: nothing left to do means done.
+        if ($afterJob !== null && $status === 'skip') {
+            $status = 'ok';
+        }
+        return ['status' => $status, 'detail' => mb_substr($detail, 0, 300)];
+    }
+
+    /** Wizard mode: a step that starts a job returns instead of waiting. */
+    private bool $async = false;
 
     /** @param array<string, mixed> $state */
     private function save(array $state): void
@@ -214,7 +326,10 @@ final class ServerSetupService
     /** Waits for an agent job, printing its log. Throws when it fails. */
     private function wait(string $job, string $what): void
     {
-        $this->jobs->track($job, $what, 'server', (string) $this->server->id(), null);
+        $this->jobs->track($job, $what, 'server', (string) $this->server->id(), $this->actorId);
+        if ($this->async) {
+            throw new SetupJobStarted($job, $what . '…');
+        }
         $offset = 0;
         $until = time() + self::JOB_TIMEOUT;
         do {
@@ -644,3 +759,4 @@ final class ServerSetupService
         return ['ok', self::PROFILE_NAMES[$profile] . ': Server → Components checks ' . implode(', ', self::PROFILES[$profile]) . '.'];
     }
 }
+

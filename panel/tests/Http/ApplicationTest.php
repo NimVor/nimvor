@@ -74,6 +74,7 @@ final class ApplicationTest extends TestCase
         $app->container->instance(SessionInterface::class, $this->session);
         $app->container->instance(AgentTransport::class, $this->agent);
         $app->migrate();
+        $app->container->get(\WhaCP\Services\SettingsService::class)->update(['setup_wizard_seen' => true, 'setup_wizard_done' => true], null);
         return $app;
     }
 

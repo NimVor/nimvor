@@ -48,6 +48,14 @@ foreach ([
     </nav>
     <?php endif; ?>
 </section>
+<?php if (!empty($setupCard)): ?>
+    <div class="wcp-infobar mt-3" data-setup-card>
+        <i class="bi bi-magic" aria-hidden="true"></i>
+        <span class="me-auto">Finish setting up this server: the setup wizard shows what is done and what is left.</span>
+        <a class="btn btn-sm btn-primary" href="<?= e($this->url('setup')) ?>">Open the setup wizard</a>
+        <form method="post" action="<?= e($this->url('setup.dismiss')) ?>" class="d-inline"><?= $this->csrfField() ?><button class="btn btn-sm btn-link">Hide</button></form>
+    </div>
+<?php endif; ?>
 
 <?php if (!empty($alerts)): ?>
     <div class="alert alert-<?= in_array('critical', array_column($alerts, 'severity'), true) ? 'danger' : 'warning' ?> d-flex align-items-start gap-2" role="alert">

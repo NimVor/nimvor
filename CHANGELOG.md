@@ -67,6 +67,17 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **Setup wizard** (Server → Setup wizard): opens on an administrator's
+  first dashboard visit, unless the installer already set the server up.
+  - **What is done and what is left:** the server setup, components, two-factor
+    sign-in, remote backups and the backup key, a first hosting account.
+  - **Profile and options:** Full, Web only or Minimal (recommended by
+    memory), with the host name, PHP versions and third-party repository
+    choice.
+  - **Steps run from the browser**, one request each. A step that installs
+    packages follows its job log and is verified when the job ends.
+  - **Results are kept**, and a dashboard card leads back to the wizard
+    until it is closed.
 - **Server profiles in the installer** (`--profile=full|web|minimal|none`;
   default by memory on a fresh server, `none` where web, mail, DNS or
   database services already run). After installing, `bin/whacp

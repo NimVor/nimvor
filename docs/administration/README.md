@@ -515,6 +515,38 @@ move it to another server (an imported profile is reviewed first). The
 PHP page and each version's page (extensions, php.ini, PHP-FPM) stay as
 they were.
 
+## Setup wizard
+
+**Server → Setup wizard** (administrators). It opens by itself on an
+administrator's first visit to the dashboard, unless the installer already
+set the server up. Afterwards the dashboard shows a card leading back to
+it until you close the wizard, and it stays under Server.
+
+- **What is done and what is left:**
+  - the server setup;
+  - every component this server should have, ready;
+  - two-factor sign-in for your account;
+  - backups kept off the server, and the backup key downloaded;
+  - a first hosting account.
+
+  Each open item links to its page.
+- **Server profile:** **Full hosting server**, **Web hosting only** or
+  **Minimal**. The one that fits the server's memory is marked
+  *Recommended*.
+- **Options:** the host name for email, the PHP versions, and whether a
+  third-party PHP repository may be added.
+- **Steps:** the profile's steps run one after another while the page is
+  open. A step that installs packages shows the tail of its job log (*Job
+  log* opens all of it) and is checked again when the job ends. Each step
+  ends as *Done*, *Already in place* or *Failed* with the reason. A step
+  that still has work after three jobs is reported as failed instead of
+  repeating. The results are kept: reopening the page shows them, and
+  *Run the setup again* skips what is in place.
+
+Running it needs every permission it acts on: packages, PHP, services,
+security, email, DNS, FTP, plans, backups and settings. In practice that
+means the administrator role.
+
 ## Server setup
 
 The installer's server profiles (**Full**, **Web only**, **Minimal**; see

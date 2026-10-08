@@ -354,6 +354,9 @@ return static function (Router $r): void {
     $r->post('/services/control', [ServicesController::class, 'control'], ['name' => 'services.control', 'permission' => P::SERVICES_MANAGE]);
     $r->post('/services/whacp/{key}/restart', [ServicesController::class, 'restartWhacp'], ['name' => 'services.whacp.restart', 'permission' => P::SERVICES_MANAGE]);
     $r->get('/packages', [SystemController::class, 'packages'], ['name' => 'packages', 'permission' => P::PACKAGES_MANAGE]);
+    $r->get('/setup', [\WhaCP\Http\Controllers\SetupController::class, 'index'], ['name' => 'setup', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/setup/step', [\WhaCP\Http\Controllers\SetupController::class, 'step'], ['name' => 'setup.step', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/setup/dismiss', [\WhaCP\Http\Controllers\SetupController::class, 'dismiss'], ['name' => 'setup.dismiss', 'permission' => P::SERVER_MANAGE]);
     $r->get('/components', [\WhaCP\Http\Controllers\ComponentsController::class, 'index'], ['name' => 'components', 'permission' => P::SERVER_VIEW]);
     $r->post('/components/profile', [\WhaCP\Http\Controllers\ComponentsController::class, 'profile'], ['name' => 'components.profile', 'permission' => P::SERVER_MANAGE]);
     $r->post('/components/{id}/{step}', [\WhaCP\Http\Controllers\ComponentsController::class, 'fix'], ['name' => 'components.fix', 'permission' => P::SERVER_VIEW]);
