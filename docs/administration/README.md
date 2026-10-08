@@ -517,6 +517,29 @@ include. Administrators and other staff roles are not limited. Deleting a
 list gives its plans every feature again. Lists store the features they
 turn off, so features added in later versions are on for existing lists.
 
+## Health
+
+**Server → Health** answers "is anything wrong?" on one page. It is built
+from the checks the panel already has, grouped into sections:
+
+| Section | Checks |
+|---|---|
+| WhaCP and the server | the `bin/whacp doctor` checks: PHP, the panel's files and database, the agent, the scheduler, core services, backups configured |
+| Resources | each disk, memory, swap and load (the Monitoring alert thresholds) |
+| Components | each component this server should have that is not ready |
+| Security | the security audit's failures and high-severity items; other recommendations counted |
+| Updates | pending updates (security ones) and a stale package index |
+| Certificates | websites with expired or soon-expiring certificates |
+| Backups and tasks | failed backups (7 days) and failed tasks (24 hours) |
+
+- **Sorting:** the worst items come first in each section, and the top of
+  the page counts problems, items to look at and OK.
+- **Links:** each item that needs action has **Open**, which goes to the
+  page where it is fixed.
+- **When the agent cannot be reached,** a section says *Not checked*
+  instead of failing the page.
+- **It only reads.**
+
 ## Components
 
 **Server → Components** shows each part of the server (web server, PHP,

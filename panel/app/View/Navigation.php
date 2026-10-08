@@ -92,6 +92,7 @@ final class Navigation
             ],
             'Server' => [
                 ['Server', 'hdd-rack', 'server', P::SERVER_VIEW, '/server', 'Hostname, time, updates and reboot'],
+                ['Health', 'heart-pulse', 'server.health', P::SERVER_VIEW, '/server/health', 'Is anything wrong? Every check in one place'],
                 ['Setup wizard', 'magic', 'setup', P::SERVER_MANAGE, '/setup', 'Server profile, what is done and what is left'],
                 ['Components', 'puzzle', 'components', P::SERVER_VIEW, '/components', 'Web, PHP, email, DNS, FTP, caches, security: what each needs'],
                 ['PHP Manager', 'filetype-php', 'php.manager', P::PACKAGES_MANAGE, '/php/manager', 'Choose the PHP versions and extensions, review, apply'],

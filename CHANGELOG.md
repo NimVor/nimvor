@@ -89,6 +89,12 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **Server → Health:** one page that shows whether anything is wrong.
+  - It gathers the panel's checks: WhaCP itself (the doctor checks),
+    resources, components, the security audit, updates, certificates,
+    failed backups and tasks.
+  - The worst items come first, each with a link to its fix.
+  - Parts the agent cannot answer are marked *Not checked*.
 - **Basic WebHost Settings** (Administration), with four tabs: contact
   email for alerts, basic configuration (panel name and URL, default IPv4
   for new zones, hostmaster), name servers, and defaults for new accounts.

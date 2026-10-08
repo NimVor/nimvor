@@ -350,6 +350,7 @@ return static function (Router $r): void {
 
     // Server
     $r->get('/server', [ServerController::class, 'index'], ['name' => 'server', 'permission' => P::SERVER_VIEW]);
+    $r->get('/server/health', [\WhaCP\Http\Controllers\ServerHealthController::class, 'index'], ['name' => 'server.health', 'permission' => P::SERVER_VIEW]);
     $r->get('/services', [ServerController::class, 'services'], ['name' => 'services', 'permission' => P::SERVICES_VIEW]);
     $r->post('/services/control', [ServicesController::class, 'control'], ['name' => 'services.control', 'permission' => P::SERVICES_MANAGE]);
     $r->post('/services/whacp/{key}/restart', [ServicesController::class, 'restartWhacp'], ['name' => 'services.whacp.restart', 'permission' => P::SERVICES_MANAGE]);
