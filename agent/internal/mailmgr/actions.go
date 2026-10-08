@@ -818,3 +818,6 @@ func Register(r *actions.Registry, he *host.Env) {
 		return map[string]any{"source": src, "deleted": true}, nil
 	}})
 }
+
+// Configured reports whether email was set up (Email → Set up and start).
+func Configured(h *host.Env) bool { return env{h}.configured() }

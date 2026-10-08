@@ -67,6 +67,12 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **Server → Components**: every part of the server (web, PHP, database,
+  email, DNS, FTP, Redis, Memcached, firewall, Fail2ban, ClamAV, Let's
+  Encrypt) with its steps (packages, set up, running, starts at boot,
+  ports open) and a fix per step; *What this server should have* (the
+  server profile). The agent's `components.status` reports the steps;
+  `firewall.allow_ports` opens a component's ports in one guarded change.
 - **Firewall protections in the manner of CSF** (*Security → Firewall →
   Protection*), next to UFW or firewalld (no second firewall manager):
   invalid-packet filter, per-address SYN flood, connection and port flood

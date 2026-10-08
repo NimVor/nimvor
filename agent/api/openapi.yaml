@@ -93,6 +93,7 @@ paths:
               - backup.restore
               - backup.server
               - backup.server_restore
+              - components.status
               - cron.apply
               - cron.log
               - cron.run
@@ -165,6 +166,7 @@ paths:
               - files.trash_restore
               - files.upload
               - files.write
+              - firewall.allow_ports
               - firewall.protection
               - firewall.protection_set
               - firewall.rule_add
@@ -510,6 +512,7 @@ x-whacp-actions:
   backup.restore: { mutating: true, description: "Restore website files and/or databases from a backup (job)." }
   backup.server: { mutating: true, description: "Archive the server configuration (nginx, PHP, MySQL, Redis, certificates, WhaCP) (job)." }
   backup.server_restore: { mutating: true, description: "Restore components (nginx, php, mysql, redis, letsencrypt, fail2ban, cron) of a server backup after a safety backup, validating and rolling back on failure; or extract it for manual review (job)." }
+  components.status: { mutating: false, description: "Each part of the server (web, PHP, database, email, DNS, FTP, caches, security) with its steps: installed, set up, running, started at boot, ports open in the firewall (read-only)." }
   cron.apply: { mutating: true, description: "Write the complete cron schedule of a website." }
   cron.log: { mutating: false, description: "The end (up to 512 KiB) of a website cron job's log, read confined to the website." }
   cron.run: { mutating: true, description: "Run a cron command now as the website user (job)." }
@@ -582,6 +585,7 @@ x-whacp-actions:
   files.trash_restore: { mutating: true, description: "Put trash items back where they were (under a \"(restored)\" name when that one is taken)." }
   files.upload: { mutating: true, description: "Upload a file chunk (base64)." }
   files.write: { mutating: true, description: "Save a text file." }
+  firewall.allow_ports: { mutating: true, description: "Allow several ports from anywhere in one change (a component's ports), auto-reverted unless confirmed; ports already allowed are skipped." }
   firewall.protection: { mutating: false, description: "Firewall protections in the manner of CSF (SYN flood, connection limits, port flood, invalid packets, ping rate): the applied configuration, whether its nftables table is loaded, and what each protection dropped." }
   firewall.protection_set: { mutating: true, description: "Apply the firewall protections (nftables table inet whacp_flood, next to UFW or firewalld; it only drops or rejects). Undone automatically unless confirmed." }
   firewall.rule_add: { mutating: true, description: "Add a UFW rule (auto-reverted unless confirmed)." }

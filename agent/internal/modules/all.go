@@ -5,6 +5,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/apps"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/avmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/backup"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/components"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/cronmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/dbmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/deploy"
@@ -51,6 +52,7 @@ func All() []Module {
 		cronmgr.Register,
 		statsmgr.Register,
 		avmgr.Register,
+		components.Register,
 		ffmpegmgr.Register,
 		hardening.Register,
 		hulk.Register,

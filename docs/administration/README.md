@@ -470,6 +470,28 @@ include. Administrators and other staff roles are not limited. Deleting a
 list gives its plans every feature again. Lists store the features they
 turn off, so features added in later versions are on for existing lists.
 
+## Components
+
+**Server → Components** shows each part of the server (web server, PHP,
+database, email, DNS, FTP, Redis, Memcached, firewall, Fail2ban, malware
+scanner, Let's Encrypt) with every step it needs and a fix per step:
+
+| Step | Checked | Fix |
+|---|---|---|
+| Packages | its packages are installed | **Install** (the Packages queue; job log) |
+| Set up | WhaCP's setup was done (email, DNS hosting, FTP server) | **Set up** opens that page |
+| Running | its services run | **Start** |
+| Starts at boot | its services are enabled (RHEL packages do not enable them) | **Start at boot** |
+| Ports open | the firewall allows its ports (when the firewall is on) | **Open ports**: all of them in one change, undone after 2 minutes unless you click **Keep change** |
+
+The steps to fix are read from the agent when you click, never from the
+page. **What this server should have** (administrators) chooses the
+components checked first; the others are listed under *Not used on this
+server*. Until it is set, the installed components count. Nothing is
+installed or removed from there. Every other page (Packages, Services,
+Firewall, PHP, Email, DNS, FTP …) stays as it was; Components links to
+them.
+
 ## Server security settings
 
 All under **Security** in the sidebar (administrators).

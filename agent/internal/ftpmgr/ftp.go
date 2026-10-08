@@ -318,3 +318,21 @@ var probe = func(ctx context.Context, addr string) error {
 	}
 	return last
 }
+
+// Configured reports whether WhaCP's FTP server was set up.
+func Configured(env *host.Env) bool { return env.Root.Exists(ftpPaths(env).conf) }
+
+// PassiveRange is the configured passive port range ("30000:30049"; "" when
+// there is none).
+func PassiveRange(env *host.Env) string {
+	b, err := env.Root.ReadFile(ftpPaths(env).conf)
+	if err != nil {
+		return ""
+	}
+	for _, l := range strings.Split(string(b), "\n") {
+		if f := strings.Fields(l); len(f) == 3 && f[0] == "PassivePortRange" {
+			return f[1] + ":" + f[2]
+		}
+	}
+	return ""
+}

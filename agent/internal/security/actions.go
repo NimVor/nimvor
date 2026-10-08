@@ -2,8 +2,8 @@ package security
 
 import (
 	"context"
-	"errors"
 	"encoding/json"
+	"errors"
 	"io"
 	"time"
 
@@ -90,6 +90,16 @@ func Register(r *actions.Registry, env *host.Env) {
 		st.Listening = Listening(env)
 		st.Required = RequiredPorts(ctx, env, st.Rules)
 		return st, nil
+	}})
+	r.Register(actions.Action{Name: "firewall.allow_ports", Mutating: true, Description: "Allow several ports from anywhere in one change (a component's ports), auto-reverted unless confirmed; ports already allowed are skipped.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Ports   []PortSpec `json:"ports"`
+			Comment string     `json:"comment"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		return guarded(s.AllowPorts(ctx, in.Ports, in.Comment))
 	}})
 	r.Register(actions.Action{Name: "firewall.rule_add", Mutating: true, Description: "Add a UFW rule (auto-reverted unless confirmed).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in RuleInput

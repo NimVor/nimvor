@@ -232,6 +232,10 @@ final class SettingsService
                 'category' => 'hulk', 'type' => 'bool', 'default' => true,
                 'label' => 'Send a notification when the system detects a brute force user', 'help' => '',
             ],
+            'components_expected' => [
+                'category' => 'server', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 300,
+                'label' => 'Components this server should have', 'help' => 'Server → Components. Empty: the installed ones.',
+            ],
             'hulk_countries_all' => [
                 'category' => 'hulk', 'type' => 'bool', 'default' => false,
                 'label' => 'Block blacklisted countries on every port', 'help' => 'Like CSF\'s CC_DENY: blacklisted countries cannot reach any service, websites included. Otherwise only WhaCP and the login services.',

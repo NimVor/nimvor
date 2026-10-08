@@ -349,6 +349,9 @@ return static function (Router $r): void {
     $r->post('/services/control', [ServicesController::class, 'control'], ['name' => 'services.control', 'permission' => P::SERVICES_MANAGE]);
     $r->post('/services/whacp/{key}/restart', [ServicesController::class, 'restartWhacp'], ['name' => 'services.whacp.restart', 'permission' => P::SERVICES_MANAGE]);
     $r->get('/packages', [SystemController::class, 'packages'], ['name' => 'packages', 'permission' => P::PACKAGES_MANAGE]);
+    $r->get('/components', [\WhaCP\Http\Controllers\ComponentsController::class, 'index'], ['name' => 'components', 'permission' => P::SERVER_VIEW]);
+    $r->post('/components/profile', [\WhaCP\Http\Controllers\ComponentsController::class, 'profile'], ['name' => 'components.profile', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/components/{id}/{step}', [\WhaCP\Http\Controllers\ComponentsController::class, 'fix'], ['name' => 'components.fix', 'permission' => P::SERVER_VIEW]);
     $r->get('/ffmpeg', [\WhaCP\Http\Controllers\FfmpegController::class, 'index'], ['name' => 'ffmpeg', 'permission' => P::SERVER_VIEW]);
     $r->post('/ffmpeg/install', [\WhaCP\Http\Controllers\FfmpegController::class, 'install'], ['name' => 'ffmpeg.install', 'permission' => P::PACKAGES_MANAGE]);
     $r->post('/ffmpeg/uninstall', [\WhaCP\Http\Controllers\FfmpegController::class, 'uninstall'], ['name' => 'ffmpeg.uninstall', 'permission' => P::PACKAGES_MANAGE]);

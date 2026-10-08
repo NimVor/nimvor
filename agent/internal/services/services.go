@@ -17,7 +17,7 @@ import (
 var controllable = []string{
 	"nginx.service", "php*-fpm.service", "php*-php-fpm.service", "mariadb.service", "mysql.service", "mysqld.service",
 	"redis-server.service", "redis.service", "valkey.service", "memcached.service", "whacp-ftpd.service", "named.service", "postfix.service", "dovecot.service", "whacp-opendkim.service", "rspamd.service", "cron.service", "crond.service", "fail2ban.service", "ssh.service", "sshd.service",
-	"whacp-worker-*.service", "whacp-panel.service",
+	"clamav-freshclam.service", "whacp-worker-*.service", "whacp-panel.service",
 }
 
 // neverStop protects remote access and the panel itself.

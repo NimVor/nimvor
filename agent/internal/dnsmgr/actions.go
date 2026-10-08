@@ -384,3 +384,6 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"zone": z.Name, "deleted": true}, nil
 	}})
 }
+
+// Configured reports whether named loads WhaCP's zone list.
+func Configured(env *host.Env) bool { return configured(env, dnsPaths(env)) }

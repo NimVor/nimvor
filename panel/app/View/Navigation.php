@@ -92,6 +92,7 @@ final class Navigation
             ],
             'Server' => [
                 ['Server', 'hdd-rack', 'server', P::SERVER_VIEW, '/server', 'Hostname, time, updates and reboot'],
+                ['Components', 'puzzle', 'components', P::SERVER_VIEW, '/components', 'Web, PHP, email, DNS, FTP, caches, security: what each needs'],
                 ['All servers', 'diagram-3', 'servers', P::SERVERS_MANAGE, '/servers', 'Other servers managed from here'],
                 ['Services', 'cpu', 'services', P::SERVICES_VIEW, '/services', 'Start, stop and restart services'],
                 ['IP addresses', 'ethernet', 'ips', P::SERVER_VIEW, '/ips', 'Addresses and their websites'],
