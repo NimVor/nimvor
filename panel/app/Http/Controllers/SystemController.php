@@ -162,9 +162,14 @@ final class SystemController extends Controller
         $old = strtolower(trim((string) $request->query('old', '')));
         $report = null;
         $error = null;
+        $webmail = [];
         if ($old !== '') {
             try {
                 $report = (array) $this->agent->call('server.hostname_references', ['old' => $old], 60);
+                // Webmail keeps its own host name and certificate from when it
+                // was turned on; flag it when it still answers on the old name.
+                $mail = (array) $this->agent->call('mail.status');
+                $webmail = (array) ($mail['webmail'] ?? []);
             } catch (AgentException $e) {
                 $error = $e->getMessage();
             }
@@ -173,7 +178,28 @@ final class SystemController extends Controller
             'old' => $old,
             'report' => $report,
             'error' => $error,
+            'webmailStale' => !empty($webmail['enabled']) && strtolower((string) ($webmail['hostname'] ?? '')) === $old,
+            'webmailHostname' => (string) ($webmail['hostname'] ?? ''),
         ]);
+    }
+
+    /** Re-apply webmail so it answers on, and gets its cert for, the current host name. */
+    public function hostnameWebmail(Request $request): Response
+    {
+        return $this->act('/server/hostname-references', function () use ($request): string {
+            $sys = (array) $this->agent->call('system.info');
+            $h = strtolower((string) (((array) ($sys['system'] ?? []))['hostname'] ?? ''));
+            if ($h === '') {
+                throw new UserFacingException('The server host name could not be read.');
+            }
+            $webmail = (array) (((array) $this->agent->call('mail.status'))['webmail'] ?? []);
+            if (empty($webmail['enabled'])) {
+                return 'Webmail is not turned on; nothing to re-apply.';
+            }
+            $this->agent->call('mail.webmail_configure', ['enabled' => true, 'hostname' => $h, 'php_version' => (string) ($webmail['php'] ?? '')], 180);
+            $this->audit->record('mail.webmail_configure', 'server', 'mail', AuditLogger::SUCCESS, ['hostname' => $h, 'reason' => 'hostname references cleanup']);
+            return 'Webmail now answers on ' . $h . ' and uses its Let\'s Encrypt certificate when one exists for that name.';
+        });
     }
 
     /** Re-apply the mail server so Postfix/Dovecot use the current host name. */

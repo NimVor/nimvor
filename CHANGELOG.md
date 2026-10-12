@@ -163,10 +163,12 @@ All notable changes to WhaCP are documented here. The format follows
   names, Postfix's greeting — keep the old value. A read-only scan
   (`server.hostname_references`) finds every place a given previous host name
   still appears in `/etc/hosts`, WhaCP's Nginx sites, the hosted DNS zones and
-  the mail server, grouped with guidance and deep links, plus a one-click
-  "Re-apply mail server" when Postfix still greets with the old name. It only
-  reads configuration; customer DNS zones are listed, never rewritten
-  automatically.
+  the mail server, grouped with guidance and deep links, plus one-click
+  "Re-apply mail server" (when Postfix still greets with the old name) and
+  "Re-apply webmail" (when Roundcube still answers on it with a self-signed
+  certificate — re-applying picks up the host name's Let's Encrypt
+  certificate). It only reads configuration; customer DNS zones are listed,
+  never rewritten automatically.
 - **Choice of certificate authority: Let's Encrypt, ZeroSSL or Buypass.**
   WhaCP can now issue from ZeroSSL and Buypass Go in addition to Let's
   Encrypt, still through certbot and the same webroot/renewal/deploy

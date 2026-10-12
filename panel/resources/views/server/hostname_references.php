@@ -38,7 +38,7 @@ $meta = [
 <?php if ($error !== null): ?>
     <div class="alert alert-danger small"><i class="bi bi-exclamation-octagon me-1"></i><?= e($error) ?></div>
 <?php elseif ($report !== null): ?>
-    <?php if ($findings === [] && !$mailStale): ?>
+    <?php if ($findings === [] && !$mailStale && empty($webmailStale)): ?>
         <div class="alert alert-success small"><i class="bi bi-check-circle me-1"></i>No references to <code><?= e($old) ?></code> were found in the managed configuration. The current host name is <code><?= e($current) ?></code>.</div>
     <?php else: ?>
         <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i><?= count($findings) ?> reference<?= count($findings) === 1 ? '' : 's' ?> to <code><?= e($old) ?></code> found. The current host name is <code><?= e($current) ?></code>. Fix each below; nothing is changed automatically.</div>
@@ -50,6 +50,18 @@ $meta = [
                     <form method="post" action="<?= e($this->url('server.hostname_references.mail')) ?>" data-wcp-busy data-wcp-confirm="Re-apply the mail server with the host name <?= e($current) ?>?">
                         <?= $this->csrfField() ?>
                         <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Re-apply mail server</button>
+                    </form>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($webmailStale)): ?>
+            <div class="card mb-3 border-warning">
+                <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+                    <div class="flex-grow-1 small"><i class="bi bi-window me-1"></i>Webmail still answers on <code><?= e((string) $webmailHostname) ?></code> with a self-signed certificate for that name. Re-apply it on <code><?= e($current) ?></code> to use the Let's Encrypt certificate you issued for the host name.</div>
+                    <form method="post" action="<?= e($this->url('server.hostname_references.webmail')) ?>" data-wcp-busy data-wcp-confirm="Re-apply webmail on <?= e($current) ?>?">
+                        <?= $this->csrfField() ?>
+                        <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Re-apply webmail</button>
                     </form>
                 </div>
             </div>

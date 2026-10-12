@@ -71,18 +71,26 @@ final class HostnameChangeTest extends HttpTestCase
             ],
         ]);
 
+        // Mail still greets with the old name, and webmail still answers on it.
+        $this->agent->succeed('mail.status', ['configured' => true, 'webmail' => ['enabled' => true, 'hostname' => 'vmi123.contaboserver.net', 'php' => '8.3']]);
+
         $page = $this->request('GET', '/server/hostname-references', [], [], '', ['old' => 'vmi123.contaboserver.net'])->body();
         self::assertSame(['old' => 'vmi123.contaboserver.net'], $this->lastCall('server.hostname_references'));
         self::assertStringContainsString('DNS zones', $page);
         self::assertStringContainsString('db.shop.test', $page);
         self::assertStringContainsString('Re-apply mail server', $page);
+        self::assertStringContainsString('Re-apply webmail', $page);
 
         // Re-applying mail uses the current host name from system.info.
         $this->agent->succeed('system.info', ['system' => ['hostname' => 'vc100.oursvrs.com']]);
-        $this->agent->succeed('mail.status', ['configured' => true]);
         $this->agent->succeed('mail.configure', ['hostname' => 'vc100.oursvrs.com']);
         $this->post('/server/hostname-references/mail');
         self::assertSame('vc100.oursvrs.com', $this->lastCall('mail.configure')['hostname']);
+
+        // Re-applying webmail re-points it to the current host name, keeping PHP.
+        $this->agent->succeed('mail.webmail_configure', ['enabled' => true, 'hostname' => 'vc100.oursvrs.com']);
+        $this->post('/server/hostname-references/webmail');
+        self::assertSame(['enabled' => true, 'hostname' => 'vc100.oursvrs.com', 'php_version' => '8.3'], $this->lastCall('mail.webmail_configure'));
     }
 
     public function testHostnameReferencesIsAdminOnly(): void

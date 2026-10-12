@@ -373,6 +373,7 @@ return static function (Router $r): void {
     $r->post('/server/hostname', [SystemController::class, 'hostname'], ['name' => 'server.hostname', 'permission' => P::SERVER_MANAGE]);
     $r->get('/server/hostname-references', [SystemController::class, 'hostnameReferences'], ['name' => 'server.hostname_references', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/hostname-references/mail', [SystemController::class, 'hostnameRemail'], ['name' => 'server.hostname_references.mail', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/server/hostname-references/webmail', [SystemController::class, 'hostnameWebmail'], ['name' => 'server.hostname_references.webmail', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/root-password', [SystemController::class, 'rootPassword'], ['name' => 'server.root_password', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/timezone', [SystemController::class, 'timezone'], ['name' => 'server.timezone', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/graphical', [SystemController::class, 'graphical'], ['name' => 'server.graphical', 'permission' => P::SERVER_MANAGE]);
