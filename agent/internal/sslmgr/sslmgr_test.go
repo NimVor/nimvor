@@ -53,11 +53,11 @@ func TestIssueUsesWebrootAndStoresNothingItself(t *testing.T) {
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
 	a, _ := r.Lookup("ssl.issue")
-	_, err := a.Handler(context.Background(), json.RawMessage(`{"cert_name":"new.test","names":["new.test","www.new.test"],"email":"ops@example.com"}`))
+	_, err := a.Handler(context.Background(), json.RawMessage(`{"cert_name":"new.test","names":["new.test","www.new.test"],"email":"ops@whacp.io"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "certbot certonly --webroot --webroot-path /var/www/whacp-acme --cert-name new.test --non-interactive --agree-tos --keep-until-expiring --expand --no-eff-email --email ops@example.com -d new.test -d www.new.test"
+	want := "certbot certonly --webroot --webroot-path /var/www/whacp-acme --cert-name new.test --non-interactive --agree-tos --keep-until-expiring --expand --no-eff-email --email ops@whacp.io -d new.test -d www.new.test"
 	if !h.Runner.Called(want) {
 		t.Fatalf("calls: %v", h.Runner.Calls)
 	}
@@ -67,6 +67,42 @@ func TestIssueUsesWebrootAndStoresNothingItself(t *testing.T) {
 	for _, bad := range []string{`{"cert_name":"x.test","names":["x.test"],"email":"a@b.c --staging"}`, `{"cert_name":"x.test","names":["*.x.test"]}`, `{"cert_name":"x.test","names":[]}`} {
 		if _, err := a.Handler(context.Background(), json.RawMessage(bad)); err == nil {
 			t.Errorf("accepted %s", bad)
+		}
+	}
+}
+
+// A placeholder contact at a reserved domain (e.g. the installer's
+// you@example.com) is dropped so issuance is not blocked by Let's
+// Encrypt's "forbidden domain" rejection; certbot is asked to register
+// without a contact, and the result records the ignored address.
+func TestIssueDropsReservedContactEmail(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	a, _ := r.Lookup("ssl.issue")
+	res, err := a.Handler(context.Background(), json.RawMessage(`{"cert_name":"shop.test","names":["shop.test"],"email":"you@example.com"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.(map[string]any)["email_ignored"] != "you@example.com" {
+		t.Errorf("email_ignored not recorded: %+v", res)
+	}
+	for _, c := range h.Runner.Calls {
+		if strings.Contains(c, "--email you@example.com") {
+			t.Errorf("forbidden contact passed to certbot: %s", c)
+		}
+	}
+	if !h.Runner.Called("certbot certonly --webroot --webroot-path /var/www/whacp-acme --cert-name shop.test --non-interactive --agree-tos --keep-until-expiring --expand --no-eff-email --register-unsafely-without-email -d shop.test") {
+		t.Fatalf("did not register without a contact: %v", h.Runner.Calls)
+	}
+	for _, ok := range []string{"ops@example.company", "admin@whacp.io", "ops@mail.realdomain.net"} {
+		if reservedEmailDomain(ok) {
+			t.Errorf("%s wrongly treated as reserved", ok)
+		}
+	}
+	for _, bad := range []string{"you@example.com", "a@foo.test", "x@host.localhost", "y@dev.invalid"} {
+		if !reservedEmailDomain(bad) {
+			t.Errorf("%s should be treated as reserved", bad)
 		}
 	}
 }

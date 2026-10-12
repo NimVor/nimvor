@@ -43,6 +43,13 @@ All notable changes to WhaCP are documented here. The format follows
     (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9) is the remaining GA gate.
 
 ### Fixed
+- **Placeholder contact email no longer blocks all SSL.** If the admin
+  address was left at a reserved/example domain (e.g. the install docs'
+  `you@example.com`), Let's Encrypt rejected the account with "contact email
+  has forbidden domain" and *every* certificate — website and host-name —
+  failed to issue. WhaCP now drops such an address and issues the
+  certificate without a contact, noting in the job log that a real email
+  should be set for renewal notices.
 - **Clearer Let's Encrypt failures.** When certbot cannot reach Let's
   Encrypt to register the account (connection refused, DNS failure, timeout,
   or a wrong server clock), the error now says to check outbound HTTPS to

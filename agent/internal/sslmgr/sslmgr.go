@@ -394,6 +394,20 @@ func Issue(ctx context.Context, env *host.Env, in issueReq, log io.Writer) (map[
 	if in.Email != "" && !emailRe.MatchString(in.Email) {
 		return nil, actions.InvalidParams("email: not a valid address")
 	}
+	// Let's Encrypt rejects contact emails at reserved/example domains
+	// (RFC 2606 and localhost); such an address — e.g. the installer's
+	// you@example.com placeholder — otherwise fails every issuance at
+	// account registration ("contact email has forbidden domain"). Issue
+	// the certificate without a contact instead, and note it so the
+	// administrator knows to set a real address for expiry notices.
+	emailIgnored := ""
+	if in.Email != "" && reservedEmailDomain(in.Email) {
+		emailIgnored = in.Email
+		in.Email = ""
+		if log != nil {
+			fmt.Fprintf(log, "Ignoring the contact address %s: Let's Encrypt forbids that domain. Issuing without a contact; set a real email address for renewal notices.\n", emailIgnored)
+		}
+	}
 	if !env.Runner.Available("certbot") {
 		return nil, actions.Failed("certbot is not installed. Install it on the Packages page (package: certbot).", "")
 	}
@@ -428,7 +442,32 @@ func Issue(ctx context.Context, env *host.Env, in issueReq, log io.Writer) (map[
 	}
 	live := filepath.Join(env.M.LiveDir(), in.CertName)
 	c := ssl.Inspect(env.Root, filepath.Join(live, "fullchain.pem"), filepath.Join(live, "privkey.pem"), env.Now())
-	return map[string]any{"cert_file": c.File, "key_file": c.KeyFile, "certificate": c}, nil
+	res := map[string]any{"cert_file": c.File, "key_file": c.KeyFile, "certificate": c}
+	if emailIgnored != "" {
+		res["email_ignored"] = emailIgnored
+	}
+	return res, nil
+}
+
+// reservedEmailDomain reports whether email is at a domain Let's Encrypt
+// will not accept as a contact: the RFC 2606 example/test/invalid domains
+// and localhost (and the .local mDNS suffix).
+func reservedEmailDomain(email string) bool {
+	at := strings.LastIndexByte(email, '@')
+	if at < 0 {
+		return false
+	}
+	d := strings.ToLower(email[at+1:])
+	switch d {
+	case "localhost", "example.com", "example.net", "example.org":
+		return true
+	}
+	for _, suffix := range []string{".example", ".test", ".invalid", ".localhost", ".local"} {
+		if strings.HasSuffix(d, suffix) {
+			return true
+		}
+	}
+	return false
 }
 
 // acmeFailureHeadline turns certbot's output into a one-line explanation

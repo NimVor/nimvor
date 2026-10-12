@@ -108,6 +108,12 @@ sudo ./installer/install.sh --dry-run
 sudo ./installer/install.sh --admin-user=admin --admin-email=you@example.com
 ```
 
+Use your **real** email for `--admin-email`: it becomes the Let's Encrypt
+contact for expiry notices. An `example.com` (or other reserved-domain)
+address is rejected by Let's Encrypt — WhaCP will still issue certificates,
+but without a renewal-notice contact until you set a real address in your
+profile.
+
 Options: `--no-install-deps` (only list missing packages; by default they are installed),
 `--port=8090`, `--yes`, `--reinstall` (replace program files, keep config and
 data), `--force-unsupported`, `--enable-writes` (see below),
