@@ -159,6 +159,46 @@ func TestScanRunsAsTheWebsiteAndQuarantinesInside(t *testing.T) {
 			t.Errorf("accepted %s", bad)
 		}
 	}
+
+	// Path-scoped scan: only the named file is handed to clamscan, and a
+	// traversal path is refused.
+	os.WriteFile(filepath.Join(root, "public_html/up.php"), []byte("<?php uploaded"), 0o644)
+	var scanned []string
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id == "clamscan" {
+			scanned = args
+		}
+		return "Known viruses: 8700000\nScanned files: 1\nTotal errors: 0\n", nil
+	}
+	res, err = call(`{` + site + `,"paths":["public_html/up.php"]}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if job, _ = h.Env.Jobs.Wait(context.Background(), res.(map[string]any)["job_id"].(string)); job.Status != "succeeded" {
+		t.Fatalf("path scan: %+v", job)
+	}
+	wantTarget := filepath.Join(root, "public_html/up.php")
+	hasTarget, hasRoot := false, false
+	for _, a := range scanned {
+		if a == wantTarget {
+			hasTarget = true
+		}
+		if a == root {
+			hasRoot = true
+		}
+	}
+	if !hasTarget || hasRoot {
+		t.Fatalf("path scan passed wrong targets: %v", scanned)
+	}
+	for _, bad := range []string{
+		`{` + site + `,"paths":["../../etc/secret"]}`,
+		`{` + site + `,"paths":["public_html/../../../etc/secret"]}`,
+		`{` + site + `,"paths":[""]}`,
+	} {
+		if _, err := call(bad); err == nil {
+			t.Errorf("accepted traversal path: %s", bad)
+		}
+	}
 }
 
 // Rocky Linux 9 report: the page said "No signatures downloaded yet" while

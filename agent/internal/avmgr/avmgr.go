@@ -87,6 +87,56 @@ type site struct {
 	User       string `json:"user"`
 	Root       string `json:"root"`
 	Quarantine bool   `json:"quarantine"`
+	// Paths, when set, are specific files or folders (relative to the site
+	// root) to scan instead of the whole website — used to scan just the
+	// files that were uploaded or extracted. Each is validated to stay
+	// inside the site root.
+	Paths []string `json:"paths"`
+}
+
+// scanTargets resolves s.Paths to real, in-root paths to hand clamscan. It
+// rejects traversal, absolute paths and the quarantine folder. With no
+// paths it scans the whole site root.
+func scanTargets(env *host.Env, real, siteRoot string, paths []string) ([]string, error) {
+	if len(paths) == 0 {
+		return []string{real}, nil
+	}
+	if len(paths) > 1000 {
+		return nil, actions.InvalidParams("paths: too many (max 1000)")
+	}
+	seen := map[string]bool{}
+	targets := make([]string, 0, len(paths))
+	for _, rel := range paths {
+		rel = strings.TrimPrefix(strings.TrimSpace(rel), "/")
+		if rel == "" || rel == "." {
+			return nil, actions.InvalidParams("paths: empty path")
+		}
+		abs := filepath.Join(siteRoot, rel)
+		if err := validate.Within("path", siteRoot, abs); err != nil {
+			return nil, host.Invalid(err)
+		}
+		if first := strings.SplitN(filepath.ToSlash(rel), "/", 2)[0]; first == QuarantineDir {
+			continue // never rescan the quarantine folder
+		}
+		rp, err := env.Root.Path(abs)
+		if err != nil {
+			return nil, err
+		}
+		// The resolved real path must stay within the site's real root even
+		// through symlinks (no escaping via a symlinked component).
+		if rp != real && !strings.HasPrefix(rp, real+string(os.PathSeparator)) {
+			return nil, actions.InvalidParams("path: outside the website")
+		}
+		if seen[rp] {
+			continue
+		}
+		seen[rp] = true
+		targets = append(targets, rp)
+	}
+	if len(targets) == 0 {
+		return nil, actions.InvalidParams("paths: nothing to scan")
+	}
+	return targets, nil
 }
 
 func installed(env *host.Env) bool { return env.Runner.Available("clamscan") }
@@ -139,7 +189,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return nil, actions.Failed("The signature updater (clamav-freshclam) could not be started.", "")
 	}})
-	r.Register(actions.Action{Name: "av.scan", Mutating: true, Description: "Scan a website for malware with ClamAV, as the website's account (job); optionally quarantine infected files inside the website.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "av.scan", Mutating: true, Description: "Scan a website for malware with ClamAV, as the website's account (job); optionally quarantine infected files inside the website. With paths, scans only those files or folders (relative to the website), e.g. just-uploaded or just-extracted files.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var s site
 		if err := host.Decode(p, &s); err != nil {
 			return nil, err
@@ -167,24 +217,41 @@ func Register(r *actions.Registry, env *host.Env) {
 		if info, err := os.Lstat(real); err != nil || !info.IsDir() {
 			return nil, actions.NotFound("The website folder does not exist.")
 		}
-		mu.Lock()
-		if running[s.Domain] {
-			mu.Unlock()
-			return nil, actions.Conflict("A scan of " + s.Domain + " is running.")
+		targets, err := scanTargets(env, real, s.Root, s.Paths)
+		if err != nil {
+			return nil, err
 		}
-		running[s.Domain] = true
-		mu.Unlock()
+		// A whole-site scan is exclusive per website; targeted scans (an
+		// upload or an extraction) may run concurrently — they cover
+		// different files and do not conflict.
+		fullScan := len(s.Paths) == 0
+		if fullScan {
+			mu.Lock()
+			if running[s.Domain] {
+				mu.Unlock()
+				return nil, actions.Conflict("A scan of " + s.Domain + " is running.")
+			}
+			running[s.Domain] = true
+			mu.Unlock()
+		}
 		j := env.Jobs.Start("av.scan", "site:"+s.Domain, func(ctx context.Context, log io.Writer) (any, error) {
-			defer func() { mu.Lock(); delete(running, s.Domain); mu.Unlock() }()
-			fmt.Fprintf(log, "Scanning %s as %s…\n", s.Root, s.User)
+			if fullScan {
+				defer func() { mu.Lock(); delete(running, s.Domain); mu.Unlock() }()
+			}
+			if fullScan {
+				fmt.Fprintf(log, "Scanning %s as %s…\n", s.Root, s.User)
+			} else {
+				fmt.Fprintf(log, "Scanning %d path(s) of %s as %s…\n", len(targets), s.Domain, s.User)
+			}
 			pr, pw := io.Pipe()
 			var res Result
 			done := make(chan struct{})
 			go func() { res = Parse(pr, real); io.Copy(io.Discard, pr); close(done) }()
 			// Exit status 1: infected files found; 2: an error, which may be
 			// only files the account cannot read (the scan still completed).
-			stderr, runErr := env.Runner.RunWith(ctx, "clamscan", execx.Opts{As: cred, Dir: real, Stdout: pw, Timeout: 6 * time.Hour},
-				"--recursive", "--infected", "--stdout", "--exclude-dir=^"+regexp.QuoteMeta(filepath.Join(real, QuarantineDir)), real)
+			args := append([]string{"--recursive", "--infected", "--stdout",
+				"--exclude-dir=^" + regexp.QuoteMeta(filepath.Join(real, QuarantineDir))}, targets...)
+			stderr, runErr := env.Runner.RunWith(ctx, "clamscan", execx.Opts{As: cred, Dir: real, Stdout: pw, Timeout: 6 * time.Hour}, args...)
 			pw.Close()
 			<-done
 			if runErr != nil && !execx.ExitCode(runErr, 1) && !(execx.ExitCode(runErr, 2) && res.Signatures > 0) {
