@@ -69,11 +69,17 @@ final class SiteToolsTest extends HttpTestCase
         $this->post($base, ['name' => 'Queue', 'command' => 'php artisan queue:work', 'directory' => 'app', 'env' => "APP_ENV=production\nBAD LINE", 'restart' => 'always']);
         self::assertArrayHasKey('env', (array) $this->flash('errors'));
 
-        $this->post($base, ['name' => 'Queue', 'command' => 'php artisan queue:work', 'directory' => 'app', 'env' => "APP_ENV=production", 'restart' => 'always', 'enabled' => '1']);
+        // Too many copies is rejected.
+        $this->post($base, ['name' => 'Queue', 'command' => 'php artisan queue:work', 'directory' => 'app', 'env' => 'APP_ENV=production', 'restart' => 'always', 'procs' => '99', 'enabled' => '1']);
+        self::assertArrayHasKey('procs', (array) $this->flash('errors'));
+
+        $this->post($base, ['name' => 'Queue', 'command' => 'php artisan queue:work', 'directory' => 'app', 'env' => "APP_ENV=production", 'restart' => 'always', 'procs' => '3', 'enabled' => '1']);
         $call = $this->lastCall('workers.apply');
         self::assertSame('shop-queue', $call['slug']);
         self::assertSame(['APP_ENV' => 'production'], $call['env']);
+        self::assertSame(3, $call['procs']);
         self::assertTrue($call['enabled']);
+        self::assertSame(3, (int) $this->app->container->get(Connection::class)->scalar('SELECT procs FROM workers WHERE slug = ?', ['shop-queue']));
         self::assertStringContainsString('Queue', $this->request('GET', $base)->body());
 
         // Disabling the website stops its workers.

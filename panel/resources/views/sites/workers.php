@@ -35,13 +35,14 @@ $fmtMem = static fn (?int $b): string => $b === null ? '' : number_format($b / 1
                     <?php if (isset($errors['env'])): ?><div class="invalid-feedback"><?= e($errors['env']) ?></div><?php endif; ?>
                     <div class="form-text mb-3">One KEY=value per line. Stored in a root-only file, readable by the process.</div>
                     <div class="row g-2">
-                        <div class="col-6">
+                        <div class="col-4">
                             <label class="form-label" for="w-restart">Restart</label>
                             <select class="form-select" id="w-restart" name="restart">
                                 <?php foreach (WorkerService::RESTART as $k => $label): ?><option value="<?= e($k) ?>"<?= ($form['restart'] ?? 'always') === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="col-6"><?= $this->partial('partials/field', ['name' => 'memory_mb', 'label' => 'Memory limit (MB)', 'type' => 'number', 'value' => (string) ($form['memory_mb'] ?? '0'), 'attrs' => ['min' => '0', 'max' => '65536']]) ?></div>
+                        <div class="col-4"><?= $this->partial('partials/field', ['name' => 'memory_mb', 'label' => 'Memory (MB, each)', 'type' => 'number', 'value' => (string) ($form['memory_mb'] ?? '0'), 'attrs' => ['min' => '0', 'max' => '65536']]) ?></div>
+                        <div class="col-4"><?= $this->partial('partials/field', ['name' => 'procs', 'label' => 'Copies', 'type' => 'number', 'value' => (string) ($form['procs'] ?? '1'), 'help' => 'Identical processes to run.', 'attrs' => ['min' => '1', 'max' => (string) WorkerService::MAX_PROCS]]) ?></div>
                     </div>
                     <div class="form-check form-switch mb-3"><input type="hidden" name="enabled" value="0"><input class="form-check-input" type="checkbox" role="switch" id="w-en" name="enabled" value="1"<?= ($form['enabled'] ?? true) ? ' checked' : '' ?>><label class="form-check-label" for="w-en">Running</label></div>
                     <button class="btn btn-primary btn-sm" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $edit ? 'Save and restart' : 'Create worker' ?></button>
@@ -59,10 +60,10 @@ $fmtMem = static fn (?int $b): string => $b === null ? '' : number_format($b / 1
                         <?php foreach ($workers as $w): $st = $status[$w['unit']] ?? null; ?>
                             <tr>
                                 <td><?= e($w['name']) ?><div class="small text-body-secondary"><code><?= e($w['unit']) ?></code></div></td>
-                                <td><code class="small text-break"><?= e($w['command']) ?></code><div class="small text-body-secondary">in <?= e($w['directory'] === '' ? '(website root)' : $w['directory']) ?> · restart: <?= e(WorkerService::RESTART[$w['restart']] ?? $w['restart']) ?><?= (int) $w['memory_mb'] > 0 ? ' · max ' . (int) $w['memory_mb'] . ' MB' : '' ?></div></td>
+                                <td><code class="small text-break"><?= e($w['command']) ?></code><div class="small text-body-secondary">in <?= e($w['directory'] === '' ? '(website root)' : $w['directory']) ?> · restart: <?= e(WorkerService::RESTART[$w['restart']] ?? $w['restart']) ?><?= (int) $w['memory_mb'] > 0 ? ' · max ' . (int) $w['memory_mb'] . ' MB each' : '' ?><?= (int) ($w['procs'] ?? 1) > 1 ? ' · ' . (int) $w['procs'] . ' copies' : '' ?></div></td>
                                 <td class="text-nowrap">
                                     <?php if ($st === null): ?><span class="text-body-secondary small">unknown</span>
-                                    <?php else: ?><?= $this->statusBadge((string) $st['active_state']) ?><div class="small text-body-secondary"><?= e($fmtMem(isset($st['memory_bytes']) ? (int) $st['memory_bytes'] : null)) ?></div><?php endif; ?>
+                                    <?php else: ?><?= $this->statusBadge((string) $st['active_state']) ?><div class="small text-body-secondary"><?php if ((int) ($st['procs_total'] ?? 1) > 1): ?><?= (int) ($st['procs_running'] ?? 0) ?>/<?= (int) $st['procs_total'] ?> up · <?php endif; ?><?= e($fmtMem(isset($st['memory_bytes']) ? (int) $st['memory_bytes'] : null)) ?></div><?php endif; ?>
                                 </td>
                                 <td class="text-end text-nowrap">
                                     <?php if ($this->can(\WhaCP\Security\Permissions::LOGS_VIEW)): ?>

@@ -17,6 +17,9 @@ final class WorkerService
 {
     public const RESTART = ['always' => 'Always', 'on-failure' => 'On failure', 'no' => 'Never'];
 
+    /** How many identical copies of one worker may run (matches the agent). */
+    public const MAX_PROCS = 20;
+
     public function __construct(
         private readonly Connection $db,
         private readonly AgentClient $agent,
@@ -51,6 +54,7 @@ final class WorkerService
         $env = json_decode((string) $r['env'], true);
         $r['env'] = is_array($env) ? $env : [];
         $r['enabled'] = (int) $r['enabled'] === 1;
+        $r['procs'] = max(1, (int) ($r['procs'] ?? 1));
         $r['unit'] = 'whacp-worker-' . $r['slug'] . '.service';
         return $r;
     }
@@ -106,6 +110,10 @@ final class WorkerService
         if ($mem < 0 || $mem > 65536) {
             $errors['memory_mb'] = 'Enter 0 (no limit) up to 65536 MB.';
         }
+        $procs = (int) ($input['procs'] ?? 1);
+        if ($procs < 1 || $procs > self::MAX_PROCS) {
+            $errors['procs'] = 'Run 1 to ' . self::MAX_PROCS . ' copies.';
+        }
         $env = [];
         foreach (preg_split('/\R/', (string) ($input['env'] ?? '')) ?: [] as $line) {
             $line = trim($line);
@@ -125,7 +133,7 @@ final class WorkerService
         if ($errors !== []) {
             throw new ValidationException($errors);
         }
-        return ['name' => $name, 'command' => $command, 'directory' => $dir, 'restart' => $restart, 'memory_mb' => $mem, 'env' => $env, 'enabled' => filter_var($input['enabled'] ?? true, FILTER_VALIDATE_BOOL)];
+        return ['name' => $name, 'command' => $command, 'directory' => $dir, 'restart' => $restart, 'memory_mb' => $mem, 'procs' => $procs, 'env' => $env, 'enabled' => filter_var($input['enabled'] ?? true, FILTER_VALIDATE_BOOL)];
     }
 
     /**
@@ -143,14 +151,14 @@ final class WorkerService
             $this->limits?->assertCanCreate('workers', $site['owner_id'] === null ? null : (int) $site['owner_id']);
             $slug = $this->slug($site, $v['name']);
             $this->db->run(
-                'INSERT INTO workers (server_id, website_id, slug, name, directory, command, env, restart, memory_mb, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$this->server->id(), (int) $site['id'], $slug, $v['name'], $v['directory'], $v['command'], json_encode($v['env'], JSON_THROW_ON_ERROR | JSON_FORCE_OBJECT), $v['restart'], $v['memory_mb'], $v['enabled'] ? 1 : 0, $now, $now]
+                'INSERT INTO workers (server_id, website_id, slug, name, directory, command, env, restart, memory_mb, procs, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$this->server->id(), (int) $site['id'], $slug, $v['name'], $v['directory'], $v['command'], json_encode($v['env'], JSON_THROW_ON_ERROR | JSON_FORCE_OBJECT), $v['restart'], $v['memory_mb'], $v['procs'], $v['enabled'] ? 1 : 0, $now, $now]
             );
             $id = $this->db->lastInsertId();
         } else {
             $this->db->run(
-                'UPDATE workers SET name = ?, directory = ?, command = ?, env = ?, restart = ?, memory_mb = ?, enabled = ?, updated_at = ? WHERE id = ? AND website_id = ?',
-                [$v['name'], $v['directory'], $v['command'], json_encode($v['env'], JSON_THROW_ON_ERROR | JSON_FORCE_OBJECT), $v['restart'], $v['memory_mb'], $v['enabled'] ? 1 : 0, $now, $id, (int) $site['id']]
+                'UPDATE workers SET name = ?, directory = ?, command = ?, env = ?, restart = ?, memory_mb = ?, procs = ?, enabled = ?, updated_at = ? WHERE id = ? AND website_id = ?',
+                [$v['name'], $v['directory'], $v['command'], json_encode($v['env'], JSON_THROW_ON_ERROR | JSON_FORCE_OBJECT), $v['restart'], $v['memory_mb'], $v['procs'], $v['enabled'] ? 1 : 0, $now, $id, (int) $site['id']]
             );
         }
         $worker = $this->find($site, $id);
@@ -161,8 +169,8 @@ final class WorkerService
                 $this->db->run('DELETE FROM workers WHERE id = ?', [$id]);
             } else {
                 $this->db->run(
-                    'UPDATE workers SET name = ?, directory = ?, command = ?, env = ?, restart = ?, memory_mb = ?, enabled = ?, updated_at = ? WHERE id = ?',
-                    [$previous['name'], $previous['directory'], $previous['command'], json_encode($previous['env'], JSON_FORCE_OBJECT), $previous['restart'], $previous['memory_mb'], $previous['enabled'] ? 1 : 0, $previous['updated_at'], $id]
+                    'UPDATE workers SET name = ?, directory = ?, command = ?, env = ?, restart = ?, memory_mb = ?, procs = ?, enabled = ?, updated_at = ? WHERE id = ?',
+                    [$previous['name'], $previous['directory'], $previous['command'], json_encode($previous['env'], JSON_FORCE_OBJECT), $previous['restart'], $previous['memory_mb'], max(1, (int) ($previous['procs'] ?? 1)), $previous['enabled'] ? 1 : 0, $previous['updated_at'], $id]
                 );
             }
             $this->audit->record($previous === null ? 'worker.create' : 'worker.update', 'website', (string) $site['id'], AuditLogger::FAILURE, ['domain' => $site['domain'], 'worker' => $v['name'], 'error' => $e->getMessage()]);
@@ -188,6 +196,7 @@ final class WorkerService
             'env' => (object) $worker['env'],
             'restart' => $worker['restart'],
             'memory_mb' => (int) $worker['memory_mb'],
+            'procs' => max(1, (int) ($worker['procs'] ?? 1)),
             'enabled' => (bool) $worker['enabled'] && (bool) $site['enabled'] && empty($site['account_suspended']),
         ], 120);
     }
