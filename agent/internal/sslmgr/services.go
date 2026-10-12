@@ -16,6 +16,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/changeset"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ssl"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsaudit"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
@@ -208,7 +209,46 @@ func registerServices(r *actions.Registry, env *host.Env) {
 		})
 		return map[string]any{"job_id": j.ID, "hostname": name}, nil
 	}})
+
+	r.Register(actions.Action{Name: "tls.audit", Timeout: 3 * time.Minute, Description: "Probe this server's own TLS endpoints and report weak protocols (TLS 1.0/1.1 accepted), weak cipher suites, and certificate problems (SHA-1, expired, untrusted chain, host-name mismatch). Read-only; it never changes any configuration. The panel passes the website and mail endpoints to check; each is dialed on this server (loopback), with the given name used for SNI and host-name verification.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var in struct {
+			Endpoints []tlsaudit.Endpoint `json:"endpoints"`
+		}
+		if err := host.Decode(raw, &in); err != nil {
+			return nil, err
+		}
+		eps := make([]tlsaudit.Endpoint, 0, len(in.Endpoints))
+		for _, ep := range in.Endpoints {
+			if ep.Port < 1 || ep.Port > 65535 {
+				return nil, actions.InvalidParams("each endpoint needs a port between 1 and 65535")
+			}
+			if ep.ServerName != "" && !hostnameRe.MatchString(ep.ServerName) {
+				return nil, actions.InvalidParams("server_name must be a host name")
+			}
+			if ep.StartTLS != "" && ep.StartTLS != "smtp" {
+				return nil, actions.InvalidParams("starttls must be empty or \"smtp\"")
+			}
+			// The agent only audits its own server: always dial loopback, so
+			// it can never be used to probe a third party.
+			ep.Host = ""
+			eps = append(eps, ep)
+		}
+		if len(eps) == 0 {
+			return nil, actions.InvalidParams("no endpoints to audit")
+		}
+		results := tlsaudit.Audit(ctx, eps)
+		n := map[string]int{"high": 0, "medium": 0}
+		for _, res := range results {
+			for _, f := range res.Findings {
+				n[f.Severity]++
+			}
+		}
+		return map[string]any{"results": results, "high": n["high"], "medium": n["medium"]}, nil
+	}})
 }
+
+// hostnameRe accepts a DNS host name for SNI (letters, digits, hyphen, dots).
+var hostnameRe = regexp.MustCompile(`^(?i)[a-z0-9]([a-z0-9-]{0,62}\.?)+[a-z0-9]$`)
 
 // ensureHostnameSite makes Nginx answer the ACME challenge for the host
 // name on port 80, unless a website already serves it (WhaCP's websites

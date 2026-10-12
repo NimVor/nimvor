@@ -363,6 +363,7 @@ paths:
               - terminal.kill
               - terminal.open
               - terminal.status
+              - tls.audit
               - whacp.restart
               - whacp.services
               - whacp.update
@@ -788,6 +789,7 @@ x-whacp-actions:
   terminal.kill: { mutating: true, description: "End a web terminal session (id), or every session of a panel sign-in (owner)." }
   terminal.open: { mutating: true, description: "Prepare a web terminal session for a website account (its shell access must be jailed or normal) or, when terminal_root is on, a root shell. Returns a single-use ticket valid for a minute, which the browser sends over the WebSocket together with the account's Linux password (checked by the agent with PAM's unix_chkpwd; the panel never sees it). Accounts in privileged groups are refused." }
   terminal.status: { mutating: false, description: "Web terminal: whether it is enabled, whether root shells are allowed (terminal_root), and the open sessions." }
+  tls.audit: { mutating: false, description: "Probe this server's own TLS endpoints and report weak protocols (TLS 1.0/1.1 accepted), weak cipher suites, and certificate problems (SHA-1, expired, untrusted chain, host-name mismatch). Read-only; it never changes any configuration. The panel passes the website and mail endpoints to check; each is dialed on this server (loopback), with the given name used for SNI and host-name verification." }
   whacp.restart: { mutating: true, description: "Restart one of WhaCP's services (key: agent, panel, scheduler, greylist, dkim, ftpd). The agent and the panel restart two seconds after answering." }
   whacp.services: { mutating: false, description: "State of WhaCP's own services (agent, panel, scheduler, greylisting, DKIM, FTP)." }
   whacp.update: { mutating: true, description: "Update WhaCP: runs installer/update.sh of the root-owned source checkout in its own unit (output in /var/log/whacp-update.log). The agent and the panel restart during it." }
