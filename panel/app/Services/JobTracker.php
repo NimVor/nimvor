@@ -19,6 +19,7 @@ final class JobTracker
         private readonly ServerContext $server,
         private readonly DiscoveryService $discovery,
         private readonly NotificationService $notifications,
+        private readonly AvService $av,
     ) {
     }
 
@@ -31,14 +32,18 @@ final class JobTracker
     /** How long an unfinished job is followed before it is given up on. */
     private const SETTLE_WINDOW = 2 * 86400;
 
-    public function track(string $jobId, string $kind, string $targetType, string $targetId, ?int $userId): void
+    /**
+     * @param string|null $scanPath when set (an extract job), the website path
+     *                               to scan for malware once the job succeeds
+     */
+    public function track(string $jobId, string $kind, string $targetType, string $targetId, ?int $userId, ?string $scanPath = null): void
     {
         if (!preg_match('/^[a-f0-9]{16}$/', $jobId)) {
             return;
         }
         $this->db->run(
-            'INSERT OR IGNORE INTO agent_jobs (server_id, job_id, kind, target_type, target_id, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [$this->server->id(), $jobId, $kind, $targetType, $targetId, $userId, gmdate('c')]
+            'INSERT OR IGNORE INTO agent_jobs (server_id, job_id, kind, target_type, target_id, user_id, scan_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [$this->server->id(), $jobId, $kind, $targetType, $targetId, $userId, ($scanPath !== null && $scanPath !== '') ? $scanPath : null, gmdate('c')]
         );
     }
 
@@ -159,6 +164,15 @@ final class JobTracker
         )->rowCount();
         if ($done === 0) {
             return; // recorded by another request or pass
+        }
+        // Scan-on-extract: when an extract job succeeds, scan the folder it
+        // unpacked into for malware (always quarantining). A scanner problem
+        // never bubbles up — scanUploaded swallows it.
+        if ($status === 'succeeded' && $job['target_type'] === 'website' && ($job['scan_path'] ?? null) !== null) {
+            $site = $this->db->fetch('SELECT * FROM websites WHERE id = ? AND server_id = ?', [(int) $job['target_id'], (int) $job['server_id']]);
+            if ($site !== null) {
+                $this->av->scanUploaded((array) $site, $job['user_id'] !== null ? (int) $job['user_id'] : null, 'extract', [(string) $job['scan_path']]);
+            }
         }
         $label = (string) $job['kind'];
         $failed = $status === 'failed';

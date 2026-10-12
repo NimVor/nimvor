@@ -103,7 +103,13 @@ final class FilesController extends Controller
             return Response::json(['success' => false, 'error' => $e->toArray()], $e->status() >= 400 && $e->status() < 600 ? $e->status() : 502);
         }
         if (is_array($data) && isset($data['job_id'])) {
-            $this->jobs->track((string) $data['job_id'], ($op === 'compress' ? 'Compress in ' : 'Extract in ') . $site['domain'], 'website', (string) $site['id'], $this->userId($request));
+            // After an extract succeeds, scan the folder it unpacked into.
+            $scanPath = null;
+            if ($op === 'extract') {
+                $dest = trim((string) ($params['dest'] ?? ''), '/');
+                $scanPath = $dest !== '' ? $dest : (str_contains((string) ($params['path'] ?? ''), '/') ? substr((string) $params['path'], 0, (int) strrpos((string) $params['path'], '/')) : '');
+            }
+            $this->jobs->track((string) $data['job_id'], ($op === 'compress' ? 'Compress in ' : 'Extract in ') . $site['domain'], 'website', (string) $site['id'], $this->userId($request), $scanPath);
         }
         if ($mutating) {
             $this->audit->record('files.' . $op, 'website', (string) $site['id'], AuditLogger::SUCCESS, [
