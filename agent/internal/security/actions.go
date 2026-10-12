@@ -54,6 +54,16 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return guarded(pending, err)
 	}})
+	r.Register(actions.Action{Name: "security.integrity", Description: "File integrity check: package-owned files verified with dpkg/rpm and WhaCP-owned files compared against a baseline, classified and graded (read-only).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+		return CheckIntegrity(ctx, env, time.Now()), nil
+	}})
+	r.Register(actions.Action{Name: "security.integrity_baseline", Mutating: true, Description: "Record the current state of the WhaCP-owned files (agent binary, agent configuration) as the integrity baseline. Run after an install or upgrade.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+		n, err := WriteIntegrityBaseline(env)
+		if err != nil {
+			return nil, actions.Failed("The integrity baseline could not be written.", err.Error())
+		}
+		return map[string]any{"baselined": n}, nil
+	}})
 	r.Register(actions.Action{Name: "security.pending", Description: "The security change awaiting confirmation, if any.", Handler: func(context.Context, json.RawMessage) (any, error) {
 		return map[string]any{"pending": s.guard.Current()}, nil
 	}})
