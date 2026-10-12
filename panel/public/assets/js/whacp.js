@@ -362,6 +362,9 @@
     // storage type…). data-wcp-kind may list several kinds; inputs in
     // hidden groups are disabled so they are neither validated nor sent.
     function applyKind(select) {
+        // Radio cards call this for every option on load; act only on the
+        // selected one so the checked card wins (a <select> has no .checked).
+        if (select.type === 'radio' && !select.checked) { return; }
         var kind = select.value;
         var scope = select.form || document;
         scope.querySelectorAll('[data-wcp-kind]').forEach(function (el) {

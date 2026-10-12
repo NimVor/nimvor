@@ -71,7 +71,6 @@ if ($site['https'] && $cert !== null) {
                     <?php endif; ?>
                     <div class="form-check small mb-3"><input class="form-check-input" type="checkbox" name="staging" value="1" id="le-st"><label class="form-check-label" for="le-st">Use the staging environment (test, untrusted certificate)</label></div>
                     <button class="btn btn-sm btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Issue certificate</button>
-                    <p class="small text-body-secondary mt-2 mb-0">All domains must point to this server and port 80 must be open. Issuing takes up to a minute.</p>
                 </form>
             </div>
         </div>

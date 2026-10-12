@@ -191,6 +191,7 @@ $webmailUrl = !empty($webmail['enabled']) && !empty($webmail['hostname']) ? 'htt
                 </dl>
             </div>
         </div>
+<?php if ($this->serverScope()): ?>
         <div class="card wcp-danger-card">
             <div class="card-header"><i class="bi bi-exclamation-octagon me-1"></i>Danger zone</div>
             <div class="card-body small">
@@ -201,5 +202,6 @@ $webmailUrl = !empty($webmail['enabled']) && !empty($webmail['hostname']) ? 'htt
                 </form>
             </div>
         </div>
+<?php endif; ?>
     </div>
 </div>

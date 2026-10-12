@@ -172,6 +172,7 @@ $sortLink = fn (string $k): string => $this->url('dns.zone', ['id' => $id], $k =
     </div>
 </div>
 
+<?php if ($this->serverScope()): /* Zone-wide settings and deletion are for administrators; a hosting customer manages only the records above. */ ?>
 <div class="row g-3">
     <div class="col-lg-6">
         <div class="card h-100">
@@ -202,3 +203,4 @@ $sortLink = fn (string $k): string => $this->url('dns.zone', ['id' => $id], $k =
         </div>
     </div>
 </div>
+<?php endif; ?>

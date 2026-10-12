@@ -57,12 +57,31 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                 <div class="card-header"><i class="bi bi-diagram-3 me-1"></i>Application</div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="form-label" for="f-kind">Type</label>
-                        <select class="form-select<?= $cls('kind') ?>" id="f-kind" name="kind" data-wcp-toggle-kind>
-                            <?php foreach (\WhaCP\Services\WebsiteService::KINDS as $k => $label): ?>
-                                <option value="<?= e($k) ?>"<?= $kind === $k ? ' selected' : '' ?>><?= e($label) ?></option>
+                        <span class="form-label d-block">Type</span>
+                        <?php
+                        // Image cards instead of a dropdown. Node.js and Python
+                        // are hosted as a reverse proxy to the app's local port,
+                        // so they select the "proxy" type.
+                        $kindCards = [
+                            ['php', 'PHP application', 'filetype-php'],
+                            ['static', 'Static site', 'file-earmark-code'],
+                            ['proxy', 'Node.js', 'hexagon'],
+                            ['proxy', 'Python', 'filetype-py'],
+                        ];
+                        $kindChosen = false;
+                        ?>
+                        <div class="row row-cols-2 row-cols-sm-4 g-2" role="radiogroup" aria-label="Application type">
+                            <?php foreach ($kindCards as $i => [$k, $label, $icon]): $checked = !$kindChosen && $kind === $k; if ($checked) { $kindChosen = true; } ?>
+                                <div class="col">
+                                    <input type="radio" class="btn-check" name="kind" id="f-kind-<?= $i ?>" value="<?= e($k) ?>" data-wcp-toggle-kind autocomplete="off"<?= $checked ? ' checked' : '' ?>>
+                                    <label class="btn btn-outline-secondary w-100 h-100 py-3 d-flex flex-column align-items-center justify-content-center gap-1" for="f-kind-<?= $i ?>">
+                                        <i class="bi bi-<?= e($icon) ?> fs-4" aria-hidden="true"></i>
+                                        <span class="small"><?= e($label) ?></span>
+                                    </label>
+                                </div>
                             <?php endforeach; ?>
-                        </select>
+                        </div>
+                        <?= $err('kind') ?>
                     </div>
                     <div class="mb-3" data-wcp-kind="php">
                         <label class="form-label" for="f-php">PHP version</label>
@@ -93,6 +112,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
             </div>
         </div>
         <div class="col-lg-6">
+            <?php if ($serverPhp): /* Admins/operators set the account and owner; a hosting customer owns what they create and the account is derived from the domain. */ ?>
             <div class="card mb-3">
                 <div class="card-header"><i class="bi bi-person me-1"></i>System user</div>
                 <div class="card-body">
@@ -112,6 +132,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                     <?php endif; ?>
                 </div>
             </div>
+            <?php endif; ?>
             <?php if ($serverPhp || !$isNew): ?>
             <div class="card mb-3" data-wcp-kind="php" id="php">
                 <div class="card-header"><i class="bi bi-filetype-php me-1"></i>PHP settings</div>
@@ -225,7 +246,6 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         </tbody>
                     </table>
                 </div>
-                <div class="card-footer small text-body-secondary">Empty means the server's default. Paths must be inside <code><?= e((string) $site['root']) ?></code>. Directives removed from PHP (magic_quotes, safe_mode, register_globals, …) no longer exist in PHP 8 and are not listed.</div>
             </div>
             <?php endif; ?>
             <div class="card mb-3" id="requests">
@@ -243,6 +263,5 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
     </div>
     <div class="d-flex gap-2 align-items-center">
         <button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $isNew ? 'Create website' : 'Save and apply' ?></button>
-        <span class="small text-body-secondary">The configuration is generated, tested with <code>nginx -t</code> and <code>php-fpm -t</code>, and only then applied. On any error the previous configuration is kept.</span>
     </div>
 </form>

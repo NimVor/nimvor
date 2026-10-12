@@ -85,7 +85,6 @@ $sftpKeys = array_map(static fn ($k): string => (string) ((array) $k)['key'], (a
             <?php if ($ftpReady): ?>
             <div class="card-footer small">
                 <strong>Connect with:</strong> host <code><?= e($host) ?></code>, port 21, <?= $tlsOptional ? 'FTP with explicit TLS (recommended)' : '<strong>FTP with explicit TLS</strong> (FTPS) — plain FTP is refused' ?>, passive mode.
-                <?php if ($cert !== []): ?><br>The server uses a self-signed certificate; accept it once in your client after checking its SHA-256 fingerprint <code class="text-break"><?= e(implode(':', str_split((string) $cert['sha256'], 2))) ?></code>.<?php endif; ?>
             </div>
             <?php endif; ?>
         </div>

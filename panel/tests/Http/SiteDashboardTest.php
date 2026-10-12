@@ -186,11 +186,15 @@ final class SiteDashboardTest extends HttpTestCase
         $this->post('/mail/domains/' . $id . '/mailboxes', ['local' => 'info', 'password' => 'a-long-password-1', 'quota_mb' => '1']);
 
         $page = $this->request('GET', '/mail/domains/' . $id)->body();
-        foreach (['class="wcp-crumbs"', 'id="new-mailbox"', 'id="new-alias"', 'id="mail-dns"', 'id="mail-clients"', '<th>Usage</th>', 'Almost full', 'Stop hosting email', 'No forwarders'] as $s) {
+        foreach (['class="wcp-crumbs"', 'id="new-mailbox"', 'id="new-alias"', 'id="mail-dns"', 'id="mail-clients"', '<th>Usage</th>', 'Almost full', 'No forwarders'] as $s) {
             self::assertStringContainsString($s, $page, $s);
         }
-        // Administrators get the website's menu on it as well.
+        // Hosting customers do not get the "Danger zone" (stop hosting email) on their own domain.
+        self::assertStringNotContainsString('Stop hosting email', $page, 'customers do not see the danger zone');
+        // Administrators get the website's menu on it as well, and the danger zone.
         $this->switchTo('admin');
-        self::assertStringContainsString('data-wcp-site-menu', $this->request('GET', '/mail/domains/' . $id)->body(), 'administrators see the website too');
+        $adminPage = $this->request('GET', '/mail/domains/' . $id)->body();
+        self::assertStringContainsString('data-wcp-site-menu', $adminPage, 'administrators see the website too');
+        self::assertStringContainsString('Stop hosting email', $adminPage, 'administrators see the danger zone');
     }
 }

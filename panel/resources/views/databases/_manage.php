@@ -42,7 +42,7 @@ $hostFields = function (string $idp, bool $withLocal, string $col = 'col-md-4') 
     </div>
     <?php return (string) ob_get_clean();
 };
-$remoteNote = 'Remote connections also need the database server to accept them (its bind-address) and port 3306 open in the firewall' . ($this->can(P::SERVER_MANAGE) ? '.' : '; ask your hosting provider if they do not work.');
+$remoteNote = 'For remote connections, use the server\'s address' . (!empty($serverIp) ? ' (' . $serverIp . ')' : '') . ' on port 3306.';
 // "10.11.6-MariaDB-0ubuntu…" → "MariaDB 10.11.6"; otherwise "MySQL 8.0.36".
 $server = null;
 if (!empty($live['version'])) {
