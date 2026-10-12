@@ -43,6 +43,12 @@ All notable changes to WhaCP are documented here. The format follows
     (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9) is the remaining GA gate.
 
 ### Fixed
+- **Host name change now propagates.** Changing the server's host name
+  rewrites `/etc/hosts` so the machine resolves its own name to its real
+  address instead of Debian's `127.0.1.1` placeholder (which failed the mail
+  host-name check), and — when mail is set up — re-applies the mail server so
+  Postfix and Dovecot pick up the new name, rather than leaving each service
+  file to be edited by hand.
 - **Tweak Settings, Security policies tab:** saving now needs the password
   confirmed in the last 15 minutes, like Security → Configure Security
   Policies. Without it, the tab bypassed that step-up check.

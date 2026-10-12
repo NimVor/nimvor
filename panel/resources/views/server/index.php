@@ -147,7 +147,7 @@ $gOn = !empty($graphical['active']) || ($graphical['default_target'] ?? '') === 
         <?= $this->csrfField() ?>
         <label class="form-label" for="s-host">Host name</label>
         <input class="form-control" id="s-host" name="hostname" value="<?= e((string) (($settings['hostname'] ?? '') !== '' ? $settings['hostname'] : ($sys['hostname'] ?? ''))) ?>" required>
-        <div class="form-text">A fully qualified name such as server1.example.com. Point its DNS A record at this server before issuing its certificate.</div>
+        <div class="form-text">A fully qualified name such as server1.example.com. Point its DNS A record at this server before issuing its certificate. WhaCP updates <code>/etc/hosts</code> and, if mail is set up, the mail server for you.</div>
         <div class="d-flex justify-content-end gap-2 mt-3"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save</button></div>
     </form>
 <?= $this->modalEnd() ?>

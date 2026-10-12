@@ -30,6 +30,7 @@ final class SystemController extends Controller
         private readonly \WhaCP\Repositories\UserRepository $users,
         private readonly \WhaCP\Security\PasswordHasher $hasher,
         private readonly \WhaCP\Security\PasswordPolicy $policy,
+        private readonly \WhaCP\Services\SiteOverview $overview,
     ) {
         parent::__construct($view, $session);
     }
@@ -127,9 +128,26 @@ final class SystemController extends Controller
     {
         return $this->act('/server#settings', function () use ($request): string {
             $h = $request->string('hostname');
-            $this->agent->call('server.set_hostname', ['hostname' => $h]);
-            $this->audit->record('server.hostname', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['hostname' => $h]);
-            return 'Host name changed. Add it to /etc/hosts if tools such as sudo warn that they cannot resolve it.';
+            $ip = $this->overview->serverIp();
+            $this->agent->call('server.set_hostname', array_filter(['hostname' => $h, 'ip' => $ip]));
+            $this->audit->record('server.hostname', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['hostname' => $h, 'ip' => $ip]);
+
+            // Keep the mail server's own host name (HELO, greeting, the
+            // certificate name) in step, so the change does not have to be
+            // repeated by hand in Postfix and Dovecot.
+            $mailMsg = '';
+            try {
+                $mail = (array) $this->agent->call('mail.status');
+                if (!empty($mail['configured'])) {
+                    $this->agent->call('mail.configure', ['hostname' => $h, 'confirm_edit_package_config' => true], 180);
+                    $this->audit->record('mail.configure', 'server', 'mail', AuditLogger::SUCCESS, ['hostname' => $h, 'reason' => 'hostname change']);
+                    $mailMsg = ' The mail server was reconfigured to use it.';
+                }
+            } catch (AgentException) {
+                $mailMsg = ' The mail server could not be updated automatically — reapply it under Email if you host mail.';
+            }
+
+            return 'Host name changed to ' . $h . '.' . ($ip !== null ? ' /etc/hosts now resolves it to ' . $ip . '.' : '') . $mailMsg;
         });
     }
 

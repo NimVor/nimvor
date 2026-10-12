@@ -1,0 +1,61 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WhaCP\Tests\Http;
+
+use WhaCP\Tests\Support\HttpTestCase;
+
+/**
+ * Changing the server host name passes the server's address to the agent
+ * (so /etc/hosts resolves the name) and re-applies the mail server when
+ * mail is set up, instead of leaving it to be edited by hand.
+ */
+final class HostnameChangeTest extends HttpTestCase
+{
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seedUser('admin', 'admin');
+        $this->seedUser('cust', 'customer');
+        $this->agent->succeed('system.info', ['system' => ['interfaces' => [
+            ['name' => 'eth0', 'addresses' => ['194.146.12.157/24', 'fe80::1/64']],
+        ]]]);
+        $this->agent->succeed('server.set_hostname', ['hostname' => 'mail.host.test', 'ip' => '194.146.12.157', 'hosts_updated' => true]);
+    }
+
+    public function testPropagatesAddressAndMail(): void
+    {
+        $this->agent->succeed('mail.status', ['configured' => true, 'hostname' => 'old.host.test']);
+        $this->agent->succeed('mail.configure', ['hostname' => 'mail.host.test']);
+
+        $this->login('admin');
+        $this->post('/server/hostname', ['hostname' => 'mail.host.test']);
+
+        $call = $this->lastCall('server.set_hostname');
+        self::assertSame('mail.host.test', $call['hostname']);
+        self::assertSame('194.146.12.157', $call['ip'], 'the server address is passed so the agent can fix /etc/hosts');
+
+        self::assertSame(1, $this->calls('mail.configure'), 'mail is reconfigured with the new host name');
+        self::assertSame('mail.host.test', $this->lastCall('mail.configure')['hostname']);
+        self::assertStringContainsString('194.146.12.157', (string) $this->flash('success'));
+    }
+
+    public function testSkipsMailWhenNotConfigured(): void
+    {
+        $this->agent->succeed('mail.status', ['configured' => false]);
+
+        $this->login('admin');
+        $this->post('/server/hostname', ['hostname' => 'mail.host.test']);
+
+        self::assertSame('mail.host.test', $this->lastCall('server.set_hostname')['hostname']);
+        self::assertSame(0, $this->calls('mail.configure'), 'mail is left alone when it is not set up');
+    }
+
+    public function testCustomersCannot(): void
+    {
+        $this->login('cust');
+        $this->post('/server/hostname', ['hostname' => 'evil.host.test']);
+        self::assertSame(0, $this->calls('server.set_hostname'));
+    }
+}

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os/exec"
 	"regexp"
 	"sort"
@@ -18,6 +19,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ffmpegmgr"
@@ -190,6 +192,125 @@ func run(ctx context.Context, env *host.Env, what string, id string, args ...str
 		return actions.Failed(what+" failed.", host.Output(out))
 	}
 	return nil
+}
+
+// primaryIPv4 is the server's first global unicast IPv4 address, used when
+// the panel does not tell us which address to map the host name to.
+func primaryIPv4() string {
+	ifs, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, i := range ifs {
+		if i.Flags&net.FlagUp == 0 || i.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := i.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, a := range addrs {
+			ipn, ok := a.(*net.IPNet)
+			if !ok {
+				continue
+			}
+			ip := ipn.IP.To4()
+			if ip != nil && ip.IsGlobalUnicast() && !ip.IsPrivate() {
+				return ip.String()
+			}
+		}
+	}
+	return ""
+}
+
+// hostsManagedBegin/End delimit the one line WhaCP owns in /etc/hosts.
+const (
+	hostsManagedBegin = "# BEGIN WhaCP host name"
+	hostsManagedEnd   = "# END WhaCP host name"
+)
+
+// applyEtcHosts keeps /etc/hosts in step with the server's host name: the
+// fully-qualified name (and its short form) resolve to ip when known, so
+// the machine does not answer with Debian's 127.0.1.1 placeholder — which
+// otherwise fails the mail host-name check and breaks HELO/greeting. All
+// other entries (localhost, operator-added names) are left untouched; the
+// host-name line lives in a marked block that is rewritten in place.
+func applyEtcHosts(env *host.Env, fqdn, ip string) (bool, error) {
+	var existing string
+	if b, err := env.Root.ReadFile("/etc/hosts"); err == nil {
+		existing = string(b)
+	}
+	short := fqdn
+	if i := strings.IndexByte(fqdn, '.'); i > 0 {
+		short = fqdn[:i]
+	}
+
+	// The mapping WhaCP owns. With a real address, map it there; otherwise
+	// fall back to Debian's 127.0.1.1 so the name at least resolves locally.
+	target := ip
+	if target == "" {
+		target = "127.0.1.1"
+	}
+	names := fqdn
+	if short != fqdn {
+		names = fqdn + " " + short
+	}
+	managed := hostsManagedBegin + "\n" + target + "\t" + names + "\n" + hostsManagedEnd
+
+	var kept []string
+	var haveLocalhost bool
+	inBlock := false
+	for _, line := range strings.Split(existing, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == hostsManagedBegin {
+			inBlock = true
+			continue
+		}
+		if trimmed == hostsManagedEnd {
+			inBlock = false
+			continue
+		}
+		if inBlock {
+			continue
+		}
+		fields := strings.Fields(trimmed)
+		// Drop Debian's 127.0.1.1 placeholder and any stray line that already
+		// maps our own names, so resolution cannot return a second address.
+		if len(fields) > 0 && fields[0] == "127.0.1.1" {
+			continue
+		}
+		if len(fields) > 1 && (contains(fields[1:], fqdn) || contains(fields[1:], short)) && fields[0] != "127.0.0.1" {
+			continue
+		}
+		if len(fields) > 0 && fields[0] == "127.0.0.1" {
+			haveLocalhost = true
+		}
+		kept = append(kept, line)
+	}
+
+	// Trim trailing blank lines left by removals.
+	for len(kept) > 0 && strings.TrimSpace(kept[len(kept)-1]) == "" {
+		kept = kept[:len(kept)-1]
+	}
+
+	var out []string
+	if !haveLocalhost {
+		out = append(out, "127.0.0.1\tlocalhost")
+	}
+	out = append(out, kept...)
+	out = append(out, managed)
+	content := strings.Join(out, "\n") + "\n"
+
+	return env.Writer.WriteFile("/etc/hosts", []byte(content), 0o644, agentfs.RootOwner)
+}
+
+func contains(ss []string, v string) bool {
+	for _, s := range ss {
+		if s == v {
+			return true
+		}
+	}
+	return false
 }
 
 // Register adds package and server-management actions.
@@ -391,9 +512,10 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"changed": true}, nil
 	}})
-	r.Register(actions.Action{Name: "server.set_hostname", Mutating: true, Description: "Change the host name.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "server.set_hostname", Mutating: true, Description: "Change the host name and keep /etc/hosts in step so the machine resolves its own name to its real address.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Hostname string `json:"hostname"`
+			IP       string `json:"ip"`
 		}
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
@@ -402,7 +524,22 @@ func Register(r *actions.Registry, env *host.Env) {
 		if len(in.Hostname) > 253 || !hostnameRe.MatchString(in.Hostname) {
 			return nil, actions.InvalidParams("hostname: use letters, digits and hyphens, e.g. web1 or web1.example.com")
 		}
-		return map[string]any{"hostname": in.Hostname}, run(ctx, env, "Changing the host name", "hostnamectl", "set-hostname", "--", in.Hostname)
+		ip := strings.TrimSpace(in.IP)
+		if ip != "" {
+			if parsed := net.ParseIP(ip); parsed == nil || parsed.IsLoopback() {
+				return nil, actions.InvalidParams("ip: give the server's own public address, or leave it empty")
+			}
+		} else {
+			ip = primaryIPv4()
+		}
+		if err := run(ctx, env, "Changing the host name", "hostnamectl", "set-hostname", "--", in.Hostname); err != nil {
+			return nil, err
+		}
+		hostsChanged, err := applyEtcHosts(env, in.Hostname, ip)
+		if err != nil {
+			return nil, actions.Failed("The host name was changed, but /etc/hosts could not be updated.", err.Error())
+		}
+		return map[string]any{"hostname": in.Hostname, "ip": ip, "hosts_updated": hostsChanged}, nil
 	}})
 	r.Register(actions.Action{Name: "server.set_timezone", Mutating: true, Description: "Change the time zone.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
