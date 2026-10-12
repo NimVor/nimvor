@@ -30,6 +30,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/ssl"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/sslmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
 
@@ -741,9 +742,28 @@ func registerWebmail(r *actions.Registry, e env) {
 				return fail("The webmail sign-in page did not load.", errors.New(err.Error()+"\n"+e.webmailLogs()+e.webmailServeDiagnosis(ctx, v)))
 			}
 		}
+		// With a self-signed certificate, try to obtain a Let's Encrypt one
+		// now: the site is up and serves the ACME challenge on port 80, so
+		// certbot (webroot) can validate the host name. On success switch the
+		// vhost to it; a failure (the name does not point here yet, a rate
+		// limit) leaves the self-signed certificate and the note below.
+		if cert == e.M.WebmailDir+"/tls.crt" && !e.Cfg.SimulateCommands && e.Runner.Available("certbot") {
+			if _, ierr := sslmgr.IssueFor(ctx, e.Env, in.Hostname, []string{in.Hostname}, nil); ierr == nil {
+				le := "/etc/letsencrypt/live/" + in.Hostname
+				if e.Root.Exists(le+"/fullchain.pem") && e.Root.Exists(le+"/privkey.pem") {
+					vh.Cert, vh.Key = le+"/fullchain.pem", le+"/privkey.pem"
+					cs := e.Changes("webmail-cert")
+					cs.Write(e.webmailVhost(), []byte(e.renderWebmailVhost(vh)), 0o644, agentfs.RootOwner)
+					if _, cerr := cs.Commit(func() error { return e.NginxTest(ctx) }); cerr == nil {
+						_ = e.ReloadNginx(ctx)
+						cert = le + "/fullchain.pem"
+					}
+				}
+			}
+		}
 		notes := []string{"Users sign in at https://" + in.Hostname + "/ with their full email address and mailbox password."}
 		if cert == e.M.WebmailDir+"/tls.crt" {
-			notes = append(notes, "A self-signed certificate is used; point "+in.Hostname+" at this server, issue a Let's Encrypt certificate for it and turn webmail on again to use it.")
+			notes = append(notes, "A self-signed certificate is used: Let's Encrypt could not issue one for "+in.Hostname+" yet. Make sure it points to this server (its A record) and port 80 is reachable, then save again.")
 		}
 		return map[string]any{"enabled": true, "hostname": in.Hostname, "php": v, "url": "https://" + in.Hostname + "/", "certificate": cert, "notes": notes}, nil
 	}})

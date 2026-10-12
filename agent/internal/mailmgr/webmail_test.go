@@ -166,6 +166,27 @@ func TestWebmail(t *testing.T) {
 	if _, err := call(t, r, "mail.webmail_configure", map[string]any{"enabled": true, "hostname": "hn.example.net"}); err != nil && strings.Contains(err.Error(), "already answers") {
 		t.Fatalf("host-name challenge site wrongly blocked webmail: %v", err)
 	}
+
+	// Auto-issue: with no certificate for the name, webmail obtains a Let's
+	// Encrypt one (its site serves the ACME challenge) and switches to it.
+	prevResp := h.Respond
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		if id == "certbot" && len(args) > 0 && args[0] == "certonly" {
+			dir := filepath.Join(h.Base, "etc/letsencrypt/live/wm.example.net")
+			os.MkdirAll(dir, 0o755)
+			c, k, _ := selfSigned("wm.example.net")
+			os.WriteFile(filepath.Join(dir, "fullchain.pem"), c, 0o644)
+			os.WriteFile(filepath.Join(dir, "privkey.pem"), k, 0o600)
+			return "", nil, true
+		}
+		return prevResp(id, args)
+	}
+	if _, err := call(t, r, "mail.webmail_configure", map[string]any{"enabled": true, "hostname": "wm.example.net"}); err != nil {
+		t.Fatalf("webmail with auto-issue: %v", err)
+	}
+	if vh := h.Read("etc/nginx/sites-available/whacp-webmail.conf"); !strings.Contains(vh, "ssl_certificate /etc/letsencrypt/live/wm.example.net/fullchain.pem;") {
+		t.Errorf("webmail did not switch to the issued Let's Encrypt certificate:\n%s", vh)
+	}
 }
 
 // Roundcube 1.6.11 declares array_first(), which PHP 8.5 has built in:

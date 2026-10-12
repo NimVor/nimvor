@@ -383,6 +383,14 @@ func CheckCustom(in customReq, now time.Time) (ssl.Certificate, []byte, error) {
 	return info, []byte(full), nil
 }
 
+// IssueFor obtains a Let's Encrypt certificate for names (stored under
+// certName) with the webroot method, for callers in other packages — e.g.
+// webmail issuing for its own host name once its site serves the ACME
+// challenge. log may be nil.
+func IssueFor(ctx context.Context, env *host.Env, certName string, names []string, log io.Writer) (map[string]any, error) {
+	return Issue(ctx, env, issueReq{CertName: certName, Names: names}, log)
+}
+
 // Issue obtains or expands a Let's Encrypt certificate (webroot) and makes
 // sure it is renewed.
 // log, when set, receives certbot's output as it runs.
