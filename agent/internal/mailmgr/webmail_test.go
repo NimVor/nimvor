@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/mchkhawarshahzad/whacp/agent/internal/ssl"
 )
 
 func TestWebmail(t *testing.T) {
@@ -132,6 +135,16 @@ func TestWebmail(t *testing.T) {
 		t.Fatalf("incompatible PHP: %v", err)
 	}
 	delete(h.Fail, "php8.3 -d")
+
+	// A rename to a host name without a Let's Encrypt certificate
+	// regenerates the self-signed certificate for the new name instead of
+	// reusing the old one (which would keep presenting the previous name).
+	if _, err := call(t, r, "mail.webmail_configure", map[string]any{"enabled": true, "hostname": "newmail.example.net"}); err != nil {
+		t.Fatal(err)
+	}
+	if c := ssl.Inspect(h.Env.Root, "/etc/whacp-webmail/tls.crt", "/etc/whacp-webmail/tls.key", time.Now()); !c.Covers("newmail.example.net") || c.Covers("webmail.example.net") {
+		t.Errorf("self-signed webmail cert not regenerated for the new host name (covers %v)", c.DNSNames)
+	}
 
 	if _, err := call(t, r, "mail.webmail_configure", map[string]any{"enabled": false}); err != nil {
 		t.Fatal(err)

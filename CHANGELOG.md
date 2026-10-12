@@ -43,6 +43,13 @@ All notable changes to WhaCP are documented here. The format follows
     (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9) is the remaining GA gate.
 
 ### Fixed
+- **Webmail's self-signed certificate follows a host-name change.** Webmail
+  only generated its self-signed certificate when none existed, so after the
+  server was renamed, re-applying webmail on the new name (when it has no
+  Let's Encrypt certificate yet) reused the old certificate and kept
+  presenting the previous host name. It now regenerates the self-signed
+  certificate whenever the existing one does not cover the current webmail
+  host name.
 - **Update no longer reverts the panel's certificate.** `update.sh` runs
   `install.sh --reinstall`, which rewrote the panel's HTTPS Nginx site and so
   reset its `ssl_certificate` to the self-signed default — discarding a

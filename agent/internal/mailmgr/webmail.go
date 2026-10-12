@@ -29,6 +29,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/ssl"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
 
@@ -641,13 +642,19 @@ func registerWebmail(r *actions.Registry, e env) {
 		}
 		set.Write(e.M.WebmailDir+"/defaults.inc.php", defaults, mode, agentfs.Owner{UID: 0, GID: acct.GID})
 		set.Write(e.M.WebmailDir+"/config.inc.php", []byte(renderRoundcube(e.M.WebmailData, key, e.roundcubeLegacy())), 0o640, agentfs.Owner{UID: 0, GID: acct.GID})
-		if cert == e.M.WebmailDir+"/tls.crt" && !e.Root.Exists(cert) {
-			c, k, err := selfSigned(in.Hostname)
-			if err != nil {
-				return nil, actions.Failed("Could not create the webmail certificate.", err.Error())
+		if cert == e.M.WebmailDir+"/tls.crt" {
+			// Generate the self-signed certificate when it is missing, or
+			// when the existing one does not cover the (possibly changed)
+			// host name — otherwise a rename leaves webmail presenting the
+			// old name's certificate.
+			if !e.Root.Exists(cert) || !ssl.Inspect(e.Root, cert, certKey, e.Now()).Covers(in.Hostname) {
+				c, k, err := selfSigned(in.Hostname)
+				if err != nil {
+					return nil, actions.Failed("Could not create the webmail certificate.", err.Error())
+				}
+				set.Write(cert, c, 0o644, agentfs.RootOwner)
+				set.Write(certKey, k, 0o600, agentfs.RootOwner)
 			}
-			set.Write(cert, c, 0o644, agentfs.RootOwner)
-			set.Write(certKey, k, 0o600, agentfs.RootOwner)
 		}
 		set.Write(e.webmailPoolFile(v), []byte(e.renderWebmailPool(v)), 0o644, agentfs.RootOwner)
 		if !e.Root.Exists(e.M.NginxAvailable) {
