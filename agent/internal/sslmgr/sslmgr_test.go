@@ -71,6 +71,31 @@ func TestIssueUsesWebrootAndStoresNothingItself(t *testing.T) {
 	}
 }
 
+// A failure to reach Let's Encrypt (account registration, connection, DNS,
+// clock) is reported as an outbound-connectivity problem, not as the
+// inbound DNS/port-80 advice that only fits an authorization failure.
+func TestACMEFailureHeadline(t *testing.T) {
+	outbound := []string{
+		"Unable to register an account with ACME server",
+		"Error creating new account :: ...",
+		"HTTPSConnectionPool: Connection refused",
+		"Network is unreachable",
+		"Temporary failure in name resolution",
+		"The read operation timed out",
+	}
+	for _, o := range outbound {
+		if h := acmeFailureHeadline(o); !strings.Contains(h, "reached to register the account") {
+			t.Errorf("for %q got %q", o, h)
+		}
+	}
+	if h := acmeFailureHeadline("too many certificates already issued"); !strings.Contains(h, "rate-limiting") {
+		t.Errorf("rate limit not detected: %q", h)
+	}
+	if h := acmeFailureHeadline("challenge failed for domain shop.test"); !strings.Contains(h, "port 80 is reachable") {
+		t.Errorf("authorization failure headline changed: %q", h)
+	}
+}
+
 func TestDeleteRefusedWhileReferenced(t *testing.T) {
 	h := testhost.New(t)
 	r := actions.NewRegistry(true)

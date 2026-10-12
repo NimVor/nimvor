@@ -424,9 +424,35 @@ func Issue(ctx context.Context, env *host.Env, in issueReq, log io.Writer) (map[
 		}
 	}
 	if err != nil {
-		return nil, actions.Failed("Let's Encrypt did not issue the certificate. Check that every domain's DNS points to this server and that port 80 is reachable.", host.Output(out))
+		return nil, actions.Failed(acmeFailureHeadline(string(out)), host.Output(out))
 	}
 	live := filepath.Join(env.M.LiveDir(), in.CertName)
 	c := ssl.Inspect(env.Root, filepath.Join(live, "fullchain.pem"), filepath.Join(live, "privkey.pem"), env.Now())
 	return map[string]any{"cert_file": c.File, "key_file": c.KeyFile, "certificate": c}, nil
+}
+
+// acmeFailureHeadline turns certbot's output into a one-line explanation
+// aimed at the actual cause. A failure to register the ACME account (or any
+// connection/DNS/timeout error) is about the server reaching Let's Encrypt
+// outbound — not about inbound DNS or port 80 — so the default "point your
+// DNS at this server" advice is wrong and misleading for those.
+func acmeFailureHeadline(out string) string {
+	l := strings.ToLower(out)
+	switch {
+	case strings.Contains(l, "unable to register an account") ||
+		strings.Contains(l, "error creating new account") ||
+		strings.Contains(l, "newaccount") ||
+		strings.Contains(l, "connection refused") ||
+		strings.Contains(l, "network is unreachable") ||
+		strings.Contains(l, "no route to host") ||
+		strings.Contains(l, "timeout") || strings.Contains(l, "timed out") ||
+		strings.Contains(l, "temporary failure in name resolution") ||
+		strings.Contains(l, "could not connect") ||
+		strings.Contains(l, "failed to establish a new connection"):
+		return "Let's Encrypt could not be reached to register the account. From this server, check outbound HTTPS to acme-v02.api.letsencrypt.org (port 443), that DNS resolves, and that the server clock is correct."
+	case strings.Contains(l, "too many") || strings.Contains(l, "ratelimited") || strings.Contains(l, "rate limit"):
+		return "Let's Encrypt is rate-limiting this server or domain. Wait before trying again, or use the staging environment to test."
+	default:
+		return "Let's Encrypt did not issue the certificate. Check that every domain's DNS points to this server and that port 80 is reachable."
+	}
 }

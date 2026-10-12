@@ -43,6 +43,13 @@ All notable changes to WhaCP are documented here. The format follows
     (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9) is the remaining GA gate.
 
 ### Fixed
+- **Clearer Let's Encrypt failures.** When certbot cannot reach Let's
+  Encrypt to register the account (connection refused, DNS failure, timeout,
+  or a wrong server clock), the error now says to check outbound HTTPS to
+  `acme-v02.api.letsencrypt.org`, DNS and the clock — instead of the
+  inbound "point your DNS here and open port 80" advice, which only fits an
+  authorization failure. Rate-limit responses are called out too. Applies to
+  both website and host-name certificates.
 - **Host name change now propagates.** Changing the server's host name
   rewrites `/etc/hosts` so the machine resolves its own name to its real
   address instead of Debian's `127.0.1.1` placeholder (which failed the mail
