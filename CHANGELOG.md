@@ -6,6 +6,42 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+- **GA security program (WhaCP 1.0).** Closed the boundaries that could allow
+  cross-customer compromise, privilege escalation, sandbox escape or unsafe
+  privileged operations, each with permanent tests:
+  - **Cross-site PHP isolation (item 50):** a real-host test runs as a real
+    website account and proves it cannot reach another site's files, PHP-FPM
+    socket, worker environment or the host's secrets.
+  - **Filesystem TOCTOU / race (item 181):** a concurrent symlink-swap test;
+    it also found and fixed a nil-pointer crash in the file-manager write
+    path under concurrent modification.
+  - **Sandbox escape (items 90–91):** a real-host probe confirms the kernel
+    denies shared-`/tmp`, `/proc`, device, privilege-gain and SUID escapes.
+  - **Agent RPC adversarial audit:** every validator is driven with
+    traversal, null-byte, shell-metacharacter, Unicode and over-long inputs;
+    `GitRef` tightened to git's own refname rule.
+  - **File integrity monitoring (items 104–106):** `dpkg --verify` / `rpm -Va`
+    plus a WhaCP baseline, graded by severity (`security.integrity`).
+  - **TLS configuration audit (items 70–71):** read-only probe of the
+    server's own endpoints for weak protocols, weak ciphers and certificate
+    problems (`tls.audit`).
+  - **Loopback / shared-cache control (item 80):** opt-in nftables isolation
+    stops one website reaching another's Redis/Memcached on loopback, with
+    per-account exceptions; off by default.
+  - **Secure PHP profiles (items 33–35):** Recommended / Balanced /
+    Compatibility / Custom `disable_functions`; Recommended is the default
+    for new websites; existing sites are unchanged.
+  - **Automatic restore rollback (item 152):** a failed website-file restore
+    puts the previous files back from the safety backup and verifies them.
+  - **OS vulnerability advisories (item 164):** OS-native advisories only
+    (`packages.advisories`), with no automatic upgrades.
+  - **Negative tests:** a route sweep confirms bad object ids, traversal
+    parameters, missing sessions and invalid API tokens deny cleanly (never a
+    500 with a side effect).
+  - Status: implemented and passing locally; the cross-OS real-host matrix
+    (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9) is the remaining GA gate.
+
 ### Fixed
 - **Tweak Settings, Security policies tab:** saving now needs the password
   confirmed in the last 15 minutes, like Security → Configure Security
