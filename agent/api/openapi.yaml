@@ -734,7 +734,7 @@ x-whacp-actions:
   server.reboot: { mutating: true, description: "Schedule a restart (requires the host name as confirmation)." }
   server.reboot_cancel: { mutating: true, description: "Cancel a scheduled restart." }
   server.root_password: { mutating: true, description: "Set the root password. It is hashed (SHA-512 crypt) in the agent and handed to chpasswd -e as a hash on standard input; it is never logged or returned." }
-  server.set_hostname: { mutating: true, description: "Change the host name." }
+  server.set_hostname: { mutating: true, description: "Change the host name and keep /etc/hosts in step so the machine resolves its own name to its real address." }
   server.set_timezone: { mutating: true, description: "Change the time zone." }
   server.settings: { mutating: false, description: "Host name, time zone, clock synchronisation and restart state." }
   server.timezones: { mutating: false, description: "Available time zones." }
