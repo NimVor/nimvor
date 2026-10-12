@@ -50,24 +50,68 @@ final class AvService
      * @param array<string, mixed> $site
      * @return string the agent job id
      */
-    public function scan(array $site, ?int $userId, string $source = 'manual'): string
+    /**
+     * Start a scan. With $paths (relative to the website) only those files
+     * or folders are scanned — used for scan-on-upload and scan-on-extract,
+     * which always quarantine so an infected upload cannot be served. A
+     * whole-site scan ($paths null) is exclusive per website; targeted scans
+     * are not and may run alongside others.
+     *
+     * @param array<string, mixed> $site
+     * @param list<string>|null    $paths
+     */
+    public function scan(array $site, ?int $userId, string $source = 'manual', ?array $paths = null): string
     {
-        if ($this->running((int) $site['id']) !== null) {
+        if ($paths === null && $this->running((int) $site['id']) !== null) {
             throw new UserFacingException('A scan of ' . $site['domain'] . ' is running.');
         }
-        $quarantine = $this->settings->bool('av_quarantine');
-        $res = (array) $this->agent->call('av.scan', [
-            'domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root'], 'quarantine' => $quarantine,
-        ]);
+        // Targeted upload/extract scans always quarantine; whole-site scans
+        // follow the administrator's setting.
+        $quarantine = $paths !== null ? true : $this->settings->bool('av_quarantine');
+        $params = ['domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root'], 'quarantine' => $quarantine];
+        if ($paths !== null) {
+            $params['paths'] = array_values($paths);
+        }
+        $res = (array) $this->agent->call('av.scan', $params);
         $job = (string) ($res['job_id'] ?? '');
         $this->db->run(
-            'INSERT INTO av_scans (server_id, website_id, job_id, source, user_id, status, quarantine, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [$this->server->id(), (int) $site['id'], $job, $source, $userId, 'running', $quarantine ? 1 : 0, gmdate('c')]
+            'INSERT INTO av_scans (server_id, website_id, job_id, source, user_id, status, quarantine, paths, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$this->server->id(), (int) $site['id'], $job, $source, $userId, 'running', $quarantine ? 1 : 0, json_encode(array_values($paths ?? []), JSON_UNESCAPED_SLASHES), gmdate('c')]
         );
         if ($source === 'manual') {
             $this->audit->record('av.scan', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain']], $userId);
         }
         return $job;
+    }
+
+    /**
+     * Scan files just uploaded or extracted, when the policy is on and
+     * ClamAV is installed. Returns the scan job id, or '' when skipped
+     * (scanner unavailable, policy off, or the file is larger than the
+     * configured maximum). Never throws: a scan problem must not fail the
+     * upload, but an infected file is still quarantined by the scan.
+     *
+     * @param array<string, mixed> $site
+     * @param list<string>         $paths
+     */
+    public function scanUploaded(array $site, ?int $userId, string $source, array $paths, int $bytes = 0): string
+    {
+        $setting = $source === 'extract' ? 'av_scan_on_extract' : 'av_scan_on_upload';
+        if ($paths === [] || !$this->settings->bool($setting)) {
+            return '';
+        }
+        $maxMb = $this->settings->int('av_scan_max_mb');
+        if ($source !== 'extract' && $maxMb > 0 && $bytes > $maxMb * 1048576) {
+            return '';
+        }
+        try {
+            if (empty($this->status()['installed'])) {
+                return '';
+            }
+            return $this->scan($site, $userId, $source, $paths);
+        } catch (\Throwable) {
+            return '';
+        }
     }
 
     /** @return array<string, mixed>|null the website's running scan */

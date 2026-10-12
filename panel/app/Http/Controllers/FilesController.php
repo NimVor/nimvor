@@ -42,6 +42,7 @@ final class FilesController extends Controller
         private readonly AuditLogger $audit,
         private readonly \WhaCP\Services\JobTracker $jobs,
         private readonly \WhaCP\Services\SettingsService $settings,
+        private readonly \WhaCP\Services\AvService $av,
     ) {
         parent::__construct($view, $session);
     }
@@ -139,6 +140,12 @@ final class FilesController extends Controller
         }
         if ($final) {
             $this->audit->record('files.upload', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'path' => $path, 'size' => $res['size'] ?? 0]);
+            // Scan the finished upload for malware (when enabled and ClamAV is
+            // installed); an infected file is quarantined so it is not served.
+            $scanJob = $this->av->scanUploaded($site, $this->userId($request), 'upload', [$path], (int) ($res['size'] ?? 0));
+            if ($scanJob !== '') {
+                $res = (array) $res + ['scan_job_id' => $scanJob];
+            }
         }
         return Response::json(['success' => true, 'data' => $res]);
     }

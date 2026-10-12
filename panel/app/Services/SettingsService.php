@@ -98,6 +98,18 @@ final class SettingsService
                 'category' => 'security', 'type' => 'bool', 'default' => false,
                 'label' => 'Quarantine infected files', 'help' => 'Move files a malware scan finds into the website\'s .whacp-quarantine folder (unreadable) instead of only reporting them.',
             ],
+            'av_scan_on_upload' => [
+                'category' => 'security', 'type' => 'bool', 'default' => true,
+                'label' => 'Scan files uploaded in the File Manager', 'help' => 'When ClamAV is installed, scan each file uploaded through the File Manager as soon as it finishes, as the website\'s account. Infected files are quarantined (made unreadable) so they cannot be served.',
+            ],
+            'av_scan_on_extract' => [
+                'category' => 'security', 'type' => 'bool', 'default' => true,
+                'label' => 'Scan archives extracted in the File Manager', 'help' => 'When ClamAV is installed, scan the files written by a .zip/.tar extraction. Infected files are quarantined.',
+            ],
+            'av_scan_max_mb' => [
+                'category' => 'security', 'type' => 'int', 'default' => 512, 'min' => 0, 'max' => 10240,
+                'label' => 'Maximum size to scan on upload (MB)', 'help' => 'Skip scanning an uploaded file larger than this, to bound resource use. 0 scans files of any size. Scheduled and manual whole-site scans are not affected.',
+            ],
             'terminal_idle_minutes' => [
                 'category' => 'security', 'type' => 'int', 'default' => 15, 'min' => 1, 'max' => 240,
                 'label' => 'Web terminal idle timeout (minutes)', 'help' => 'A web terminal closes after this many minutes without input.',
