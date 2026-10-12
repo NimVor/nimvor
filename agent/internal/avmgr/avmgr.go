@@ -13,7 +13,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -243,26 +245,9 @@ func Register(r *actions.Registry, env *host.Env) {
 			} else {
 				fmt.Fprintf(log, "Scanning %d path(s) of %s as %s…\n", len(targets), s.Domain, s.User)
 			}
-			pr, pw := io.Pipe()
-			var res Result
-			done := make(chan struct{})
-			go func() { res = Parse(pr, real); io.Copy(io.Discard, pr); close(done) }()
-			// Exit status 1: infected files found; 2: an error, which may be
-			// only files the account cannot read (the scan still completed).
-			args := append([]string{"--recursive", "--infected", "--stdout",
-				"--exclude-dir=^" + regexp.QuoteMeta(filepath.Join(real, QuarantineDir))}, targets...)
-			stderr, runErr := env.Runner.RunWith(ctx, "clamscan", execx.Opts{As: cred, Dir: real, Stdout: pw, Timeout: 6 * time.Hour}, args...)
-			pw.Close()
-			<-done
-			if runErr != nil && !execx.ExitCode(runErr, 1) && !(execx.ExitCode(runErr, 2) && res.Signatures > 0) {
-				if strings.Contains(string(stderr), "No supported database files") || (execx.ExitCode(runErr, 2) && res.Signatures == 0) {
-					return nil, errNoSignatures
-				}
-				return nil, fmt.Errorf("the scan did not complete: %w: %s", runErr, lastLine(stderr))
-			}
-			// Without signatures (or a summary) nothing was checked: never "clean".
-			if res.Signatures == 0 {
-				return nil, errNoSignatures
+			res, err := runClamscan(ctx, env, real, cred, targets, true, 6*time.Hour)
+			if err != nil {
+				return nil, err
 			}
 			fmt.Fprintf(log, "Scanned %d files: %d infected, %d errors.\n", res.Scanned, len(res.Infected), res.Errors)
 			if s.Quarantine && len(res.Infected) > 0 {
@@ -272,6 +257,209 @@ func Register(r *actions.Registry, env *host.Env) {
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})
+	r.Register(actions.Action{Name: "av.quarantine_list", Description: "List a website's quarantined files (moved there by a malware scan): where each came from, its size and when it was quarantined.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		real, _, _, err := openSite(env, p)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"items": quarantineList(real)}, nil
+	}})
+	r.Register(actions.Action{Name: "av.release", Mutating: true, Description: "Release a file from a website's quarantine back to where it came from, after re-scanning it. Refuses if the file is still infected or its original location is now occupied.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			site
+			Path string `json:"path"` // quarantine-relative, e.g. "20260101-120000/public_html/x.php"
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		real, cred, _, err := openSite(env, mustJSON(in.site))
+		if err != nil {
+			return nil, err
+		}
+		return release(ctx, env, real, cred, in.Path)
+	}})
+}
+
+// QuarantineEntry is one file sitting in a website's quarantine.
+type QuarantineEntry struct {
+	QuarantinePath string `json:"quarantine_path"` // relative to the quarantine folder
+	Path           string `json:"path"`            // where it came from (site-relative)
+	Size           int64  `json:"size"`
+	QuarantinedAt  string `json:"quarantined_at"` // RFC3339, from the batch folder name
+}
+
+// quarantineList reports the regular files under the website's quarantine
+// folder. Symlinks and other non-regular entries are ignored and never
+// descended into, so the listing cannot be steered out of the website.
+func quarantineList(real string) []QuarantineEntry {
+	items := []QuarantineEntry{}
+	base := filepath.Join(real, QuarantineDir)
+	_ = filepath.WalkDir(base, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if len(items) >= 10000 {
+			return filepath.SkipAll
+		}
+		if d.IsDir() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil || !info.Mode().IsRegular() {
+			return nil
+		}
+		qrel, err := filepath.Rel(base, p)
+		if err != nil {
+			return nil
+		}
+		qrel = filepath.ToSlash(qrel)
+		stamp, orig, _ := strings.Cut(qrel, "/")
+		at := ""
+		if t, e := time.Parse("20060102-150405", stamp); e == nil {
+			at = t.UTC().Format(time.RFC3339)
+		}
+		items = append(items, QuarantineEntry{QuarantinePath: qrel, Path: orig, Size: info.Size(), QuarantinedAt: at})
+		return nil
+	})
+	return items
+}
+
+// release re-scans a quarantined file and, when it is clean and its original
+// location is free, moves it back there. Every path stays inside the website
+// (os.Root), a symlink is never followed, and a still-infected file is left
+// in quarantine (mode 0) and refused.
+func release(ctx context.Context, env *host.Env, real string, cred *execx.Credential, qpath string) (any, error) {
+	clean := path.Clean(filepath.ToSlash(strings.TrimPrefix(strings.TrimSpace(qpath), "/")))
+	if clean == "." || clean == "" || clean == ".." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../") || strings.HasPrefix(clean, "/") {
+		return nil, actions.InvalidParams("path: invalid quarantine path")
+	}
+	stamp, orig, ok := strings.Cut(clean, "/")
+	if !ok || orig == "" || stamp == "" {
+		return nil, actions.InvalidParams("path: a quarantine path is <batch>/<original path>")
+	}
+	if strings.SplitN(orig, "/", 2)[0] == QuarantineDir {
+		return nil, actions.InvalidParams("path: cannot restore into the quarantine")
+	}
+	if !installed(env) {
+		return nil, actions.Conflict("ClamAV is not installed, so the file cannot be re-scanned before release.")
+	}
+	root, err := os.OpenRoot(real)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	qrel := QuarantineDir + "/" + clean
+	// The original location must be free; never overwrite.
+	if _, err := root.Lstat(orig); err == nil {
+		return nil, actions.Conflict("A file already exists where this one came from; move it first.")
+	}
+	// Make the quarantined file readable by the account for the re-scan.
+	f, err := root.OpenFile(qrel, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, actions.NotFound("The quarantined file was not found.")
+	}
+	if info, err := f.Stat(); err != nil || !info.Mode().IsRegular() {
+		f.Close()
+		return nil, actions.InvalidParams("path: not a regular file")
+	}
+	f.Chmod(0o600)
+	f.Close()
+	res, err := runClamscan(ctx, env, real, cred, []string{filepath.Join(real, qrel)}, false, 30*time.Minute)
+	if err != nil {
+		reChmod0(root, qrel)
+		return nil, err
+	}
+	if len(res.Infected) > 0 {
+		reChmod0(root, qrel)
+		sig := res.Infected[0].Signature
+		return nil, actions.Conflict("The file is still infected (" + sig + ") and was not released.")
+	}
+	if err := renameIn(root, qrel, orig); err != nil {
+		reChmod0(root, qrel)
+		return nil, actions.Failed("The file could not be restored.", err.Error())
+	}
+	if f, err := root.OpenFile(orig, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0); err == nil {
+		f.Chmod(0o644)
+		f.Close()
+	}
+	return map[string]any{"released": true, "path": orig}, nil
+}
+
+// reChmod0 puts a quarantined file's restrictive mode back after a refused
+// release, without following a symlink.
+func reChmod0(root *os.Root, qrel string) {
+	if f, err := root.OpenFile(qrel, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0); err == nil {
+		f.Chmod(0)
+		f.Close()
+	}
+}
+
+// openSite validates a site payload and returns its real root and the
+// website account's credential. Used by the quarantine actions, which take
+// the same {domain, user, root} shape as a scan.
+func openSite(env *host.Env, p json.RawMessage) (real string, cred *execx.Credential, uid int, err error) {
+	var s site
+	if err = host.Decode(p, &s); err != nil {
+		return "", nil, 0, err
+	}
+	if err = validate.Domain("domain", s.Domain); err != nil {
+		return "", nil, 0, host.Invalid(err)
+	}
+	if s.Root == "" {
+		s.Root = filepath.Join(env.Cfg.SitesRoot, s.Domain)
+	}
+	if err = validate.Within("root", env.Cfg.SitesRoot, s.Root); err != nil {
+		return "", nil, 0, host.Invalid(err)
+	}
+	c, u, err := env.Credential(s.User)
+	if err != nil {
+		return "", nil, 0, actions.InvalidParams("user: " + err.Error())
+	}
+	real, err = env.Root.Path(s.Root)
+	if err != nil {
+		return "", nil, 0, err
+	}
+	if info, err := os.Lstat(real); err != nil || !info.IsDir() {
+		return "", nil, 0, actions.NotFound("The website folder does not exist.")
+	}
+	return real, c, u.UID, nil
+}
+
+// mustJSON re-encodes a value for a nested Decode; the site struct has just
+// been decoded from JSON, so it always round-trips.
+func mustJSON(v any) json.RawMessage {
+	b, _ := json.Marshal(v)
+	return b
+}
+
+// runClamscan scans targets as cred, parsing infected files and the summary.
+// It returns errNoSignatures when the signature database is missing (so a
+// scan is never reported "clean" without having checked anything).
+func runClamscan(ctx context.Context, env *host.Env, real string, cred *execx.Credential, targets []string, excludeQuarantine bool, timeout time.Duration) (Result, error) {
+	pr, pw := io.Pipe()
+	var res Result
+	done := make(chan struct{})
+	go func() { res = Parse(pr, real); io.Copy(io.Discard, pr); close(done) }()
+	args := []string{"--recursive", "--infected", "--stdout"}
+	if excludeQuarantine {
+		args = append(args, "--exclude-dir=^"+regexp.QuoteMeta(filepath.Join(real, QuarantineDir)))
+	}
+	args = append(args, targets...)
+	// Exit status 1: infected files found; 2: an error, which may be only
+	// files the account cannot read (the scan still completed).
+	stderr, runErr := env.Runner.RunWith(ctx, "clamscan", execx.Opts{As: cred, Dir: real, Stdout: pw, Timeout: timeout}, args...)
+	pw.Close()
+	<-done
+	if runErr != nil && !execx.ExitCode(runErr, 1) && !(execx.ExitCode(runErr, 2) && res.Signatures > 0) {
+		if strings.Contains(string(stderr), "No supported database files") || (execx.ExitCode(runErr, 2) && res.Signatures == 0) {
+			return res, errNoSignatures
+		}
+		return res, fmt.Errorf("the scan did not complete: %w: %s", runErr, lastLine(stderr))
+	}
+	if res.Signatures == 0 {
+		return res, errNoSignatures
+	}
+	return res, nil
 }
 
 var errNoSignatures = fmt.Errorf("ClamAV has no virus signatures yet: update the signatures (Security → Malware scan) and scan again")

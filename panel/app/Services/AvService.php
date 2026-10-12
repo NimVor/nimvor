@@ -114,6 +114,38 @@ final class AvService
         }
     }
 
+    /**
+     * The files currently in a website's quarantine (moved there by a scan):
+     * where each came from, its size and when it was quarantined.
+     *
+     * @param array<string, mixed> $site
+     * @return list<array<string, mixed>>
+     */
+    public function quarantined(array $site): array
+    {
+        $res = (array) $this->agent->call('av.quarantine_list', ['domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root']]);
+        $items = [];
+        foreach ((array) ($res['items'] ?? []) as $i) {
+            $items[] = (array) $i;
+        }
+        return $items;
+    }
+
+    /**
+     * Release a file from a website's quarantine. The agent re-scans it first
+     * and refuses if it is still infected or its original location is taken.
+     * Returns the restored path (relative to the website).
+     *
+     * @param array<string, mixed> $site
+     */
+    public function release(array $site, ?int $userId, string $path): string
+    {
+        $res = (array) $this->agent->call('av.release', ['domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root'], 'path' => $path]);
+        $restored = (string) ($res['path'] ?? $path);
+        $this->audit->record('av.release', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'quarantine_path' => $path, 'restored' => $restored], $userId);
+        return $restored;
+    }
+
     /** @return array<string, mixed>|null the website's running scan */
     public function running(int $siteId): ?array
     {

@@ -85,6 +85,7 @@ final class AvController extends Controller
         }
         $status = null;
         $error = null;
+        $quarantined = [];
         try {
             $status = $this->av->status();
             if ($this->av->running((int) $site['id']) !== null) {
@@ -93,11 +94,43 @@ final class AvController extends Controller
         } catch (AgentException $e) {
             $error = $e;
         }
+        // A quarantine-listing problem must not blank the whole scan page.
+        if ($error === null && !empty($status['installed'])) {
+            try {
+                $quarantined = $this->av->quarantined($site);
+            } catch (AgentException) {
+            }
+        }
         return $this->render('sites/malware', [
             'site' => $site, 'tab' => 'malware', 'agentError' => $error, 'status' => $status,
             'scans' => $this->av->history((int) $site['id']), 'running' => $this->av->running((int) $site['id']),
             'quarantine' => $this->settings->bool('av_quarantine'), 'days' => $this->settings->int('av_scan_days'),
+            'quarantined' => $quarantined,
         ]);
+    }
+
+    /**
+     * Release a file from a website's quarantine. Administrators only (the
+     * route requires security.manage); the agent re-scans it before restoring
+     * and refuses if it is still infected.
+     */
+    public function release(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->redirectWithError('/websites', 'Website not found.');
+        }
+        $to = '/sites/' . (int) $site['id'] . '/malware';
+        $path = (string) $request->input('path');
+        if ($path === '') {
+            return $this->redirectWithError($to, 'No quarantined file was given.');
+        }
+        try {
+            $restored = $this->av->release($site, $this->userId($request), $path);
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure($to, $e);
+        }
+        return $this->redirectWithSuccess($to, 'Released ' . $restored . ' from quarantine (it was re-scanned and is clean).');
     }
 
     public function scan(Request $request, string $id): Response

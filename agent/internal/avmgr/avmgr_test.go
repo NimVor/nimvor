@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -198,6 +199,109 @@ func TestScanRunsAsTheWebsiteAndQuarantinesInside(t *testing.T) {
 		if _, err := call(bad); err == nil {
 			t.Errorf("accepted traversal path: %s", bad)
 		}
+	}
+}
+
+func TestQuarantineListAndRelease(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	call := func(name, params string) (any, error) {
+		a, _ := r.Lookup(name)
+		return a.Handler(context.Background(), json.RawMessage(params))
+	}
+	site := `"domain":"a.test","user":"example","root":"/home/whacp/a.test"`
+	root := filepath.Join(h.Base, "home/whacp/a.test")
+	os.MkdirAll(filepath.Join(root, "public_html"), 0o755)
+	list := func() []QuarantineEntry {
+		lst, err := call("av.quarantine_list", `{`+site+`}`)
+		if err != nil {
+			t.Fatalf("quarantine_list: %v", err)
+		}
+		return lst.(map[string]any)["items"].([]QuarantineEntry)
+	}
+	infect := func(id string, o execx.Opts, args []string) (string, error) {
+		dir := args[len(args)-1]
+		return dir + "/public_html/evil.php: Php.Webshell FOUND\nKnown viruses: 8700000\nScanned files: 1\nTotal errors: 0\n", nil
+	}
+	quarantineOne := func() string {
+		os.WriteFile(filepath.Join(root, "public_html/evil.php"), []byte("<?php evil"), 0o644)
+		h.Runner.Handler = infect
+		res, err := call("av.scan", `{`+site+`,"quarantine":true}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		h.Env.Jobs.Wait(context.Background(), res.(map[string]any)["job_id"].(string))
+		if _, err := os.Lstat(filepath.Join(root, "public_html/evil.php")); !os.IsNotExist(err) {
+			t.Fatal("the infected file was not quarantined")
+		}
+		items := list()
+		if len(items) != 1 || items[0].Path != "public_html/evil.php" {
+			t.Fatalf("quarantine list: %+v", items)
+		}
+		return items[0].QuarantinePath
+	}
+
+	// List reports where a quarantined file came from; release re-scans it
+	// and, finding it clean, moves it back (0644) and empties the entry.
+	qpath := quarantineOne()
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if o.As == nil || o.As.UID < 1000 {
+			t.Errorf("the re-scan must run as the website's account: %+v", o.As)
+		}
+		return "Known viruses: 8700000\nScanned files: 1\nTotal errors: 0\n", nil
+	}
+	rr, err := call("av.release", `{`+site+`,"path":`+strconv.Quote(qpath)+`}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m := rr.(map[string]any); m["released"] != true || m["path"] != "public_html/evil.php" {
+		t.Fatalf("release: %+v", m)
+	}
+	if info, err := os.Stat(filepath.Join(root, "public_html/evil.php")); err != nil || info.Mode().Perm() != 0o644 {
+		t.Fatalf("not restored at 0644: %v %v", info, err)
+	}
+	if left := list(); len(left) != 0 {
+		t.Errorf("still in quarantine after release: %+v", left)
+	}
+
+	// A re-scan that still finds it infected refuses the release; the file
+	// stays quarantined with its restrictive mode.
+	qpath = quarantineOne()
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		target := args[len(args)-1]
+		return target + ": Php.Webshell FOUND\nKnown viruses: 8700000\nScanned files: 1\nTotal errors: 0\n", nil
+	}
+	if _, err := call("av.release", `{`+site+`,"path":`+strconv.Quote(qpath)+`}`); err == nil || !strings.Contains(err.Error(), "still infected") {
+		t.Fatalf("a still-infected file must not be released: %v", err)
+	}
+	matches, _ := filepath.Glob(filepath.Join(root, QuarantineDir, "*", "public_html/evil.php"))
+	if len(matches) != 1 {
+		t.Fatalf("the file left quarantine after a refused release: %v", matches)
+	}
+	if info, _ := os.Stat(matches[0]); info.Mode().Perm() != 0 {
+		t.Errorf("the refused file's mode was not restored: %o", info.Mode().Perm())
+	}
+
+	// Release refuses to overwrite an occupied original location.
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		return "Known viruses: 8700000\nScanned files: 1\nTotal errors: 0\n", nil
+	}
+	os.WriteFile(filepath.Join(root, "public_html/evil.php"), []byte("something new"), 0o644)
+	if _, err := call("av.release", `{`+site+`,"path":`+strconv.Quote(qpath)+`}`); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("release over an occupied path not refused: %v", err)
+	}
+
+	// Traversal, absolute and quarantine-targeting release paths are refused.
+	for _, bad := range []string{"../etc/secret", "20260101-000000/../../etc/x", "20260101-000000/.whacp-quarantine/x", ".", ""} {
+		if _, err := call("av.release", `{`+site+`,"path":`+strconv.Quote(bad)+`}`); err == nil {
+			t.Errorf("accepted a bad release path: %q", bad)
+		}
+	}
+	// Without ClamAV a release is refused (it cannot be re-scanned first).
+	h.Runner.Unavailable["clamscan"] = true
+	if _, err := call("av.release", `{`+site+`,"path":`+strconv.Quote(qpath)+`}`); err == nil || !strings.Contains(err.Error(), "not installed") {
+		t.Fatalf("release without a scanner not refused: %v", err)
 	}
 }
 

@@ -108,6 +108,7 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/disk-usage', [\WhaCP\Http\Controllers\DiskUsageController::class, 'scan'], ['name' => 'sites.disk.scan', 'permission' => P::FILES_MANAGE]);
     $r->get('/sites/{id}/malware', [\WhaCP\Http\Controllers\AvController::class, 'show'], ['name' => 'sites.malware', 'permission' => P::WEBSITES_VIEW]);
     $r->post('/sites/{id}/malware/scan', [\WhaCP\Http\Controllers\AvController::class, 'scan'], ['name' => 'sites.malware.scan', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/malware/release', [\WhaCP\Http\Controllers\AvController::class, 'release'], ['name' => 'sites.malware.release', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/sites/{id}/stats', [\WhaCP\Http\Controllers\StatsController::class, 'show'], ['name' => 'sites.stats', 'permission' => P::LOGS_VIEW]);
     $r->post('/sites/{id}/stats/enable', [\WhaCP\Http\Controllers\StatsController::class, 'enable'], ['name' => 'sites.stats.enable', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/stats/update', [\WhaCP\Http\Controllers\StatsController::class, 'update'], ['name' => 'sites.stats.update', 'permission' => P::WEBSITES_MANAGE]);
