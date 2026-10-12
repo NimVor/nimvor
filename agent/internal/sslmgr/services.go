@@ -259,9 +259,7 @@ var hostnameRe = regexp.MustCompile(`^(?i)[a-z0-9]([a-z0-9-]{0,62}\.?)+[a-z0-9]$
 // name on port 80, unless a website already serves it (WhaCP's websites
 // all answer the challenge).
 func ensureHostnameSite(ctx context.Context, env *host.Env, name string) error {
-	if env.Root.Exists(hostnameSite(env)) {
-		return nil
-	}
+	// A website that already serves this name answers the challenge itself.
 	for _, w := range env.Discovery.Websites(ctx).Websites {
 		if w.Domain == name {
 			return nil
@@ -272,10 +270,6 @@ func ensureHostnameSite(ctx context.Context, env *host.Env, name string) error {
 			}
 		}
 	}
-	defer env.LockWebConfig()()
-	if err := ensureACMERoot(env); err != nil {
-		return err
-	}
 	listen := "    listen 80;\n"
 	if env.IPv6() {
 		listen += "    listen [::]:80;\n"
@@ -284,6 +278,17 @@ func ensureHostnameSite(ctx context.Context, env *host.Env, name string) error {
 		"    server_name " + name + ";\n" +
 		"    location ^~ /.well-known/acme-challenge/ {\n        root " + env.M.ACMERoot + ";\n        default_type \"text/plain\";\n        try_files $uri =404;\n    }\n" +
 		"    location / {\n        return 404;\n    }\n}\n"
+	// Idempotent only when the existing site already serves this exact name.
+	// After a host-name change the old file names the previous host, so it
+	// must be rewritten — otherwise Nginx no longer matches the new name and
+	// the ACME challenge 404s.
+	if b, err := env.Root.ReadFile(hostnameSite(env)); err == nil && string(b) == conf {
+		return nil
+	}
+	defer env.LockWebConfig()()
+	if err := ensureACMERoot(env); err != nil {
+		return err
+	}
 	set := env.Changes("hostname-site")
 	set.Write(hostnameSite(env), []byte(conf), 0o644, agentfs.RootOwner)
 	set.Link(hostnameSite(env), hostnameLink(env))

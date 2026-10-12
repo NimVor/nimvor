@@ -1,6 +1,7 @@
 package sslmgr
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,34 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
 )
+
+// After the server host name changes, the challenge site must be rewritten
+// to serve the new name — otherwise Nginx no longer matches it and the ACME
+// webroot check 404s. ensureHostnameSite used to skip the rewrite whenever
+// the file already existed.
+func TestHostnameSiteRewrittenAfterRename(t *testing.T) {
+	h := testhost.New(t)
+	site := filepath.Join(h.Base, "etc/nginx/sites-available/whacp-hostname.conf")
+	os.WriteFile(site, []byte("server {\n    listen 80;\n    server_name vmi3612939.contaboserver.net;\n}\n"), 0o644)
+
+	if err := ensureHostnameSite(context.Background(), h.Env, "vc100.oursvrs.com"); err != nil {
+		t.Fatalf("ensureHostnameSite: %v", err)
+	}
+	got := h.Read("etc/nginx/sites-available/whacp-hostname.conf")
+	if !strings.Contains(got, "server_name vc100.oursvrs.com;") {
+		t.Errorf("challenge site not updated to the new host name:\n%s", got)
+	}
+	if strings.Contains(got, "contaboserver.net") {
+		t.Errorf("old host name left in the challenge site:\n%s", got)
+	}
+	if !strings.Contains(got, "/.well-known/acme-challenge/") {
+		t.Errorf("challenge location missing:\n%s", got)
+	}
+	// Re-running with the same name is a no-op (idempotent).
+	if err := ensureHostnameSite(context.Background(), h.Env, "vc100.oursvrs.com"); err != nil {
+		t.Fatal(err)
+	}
+}
 
 const panelConf = `# Managed by WhaCP (install.sh --public-https): the panel over HTTPS.
 server {
