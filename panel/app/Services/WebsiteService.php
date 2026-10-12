@@ -345,6 +345,8 @@ final class WebsiteService
                 'max_execution_seconds' => (int) ($php['max_execution_seconds'] ?? 60),
                 'max_children' => (int) ($php['max_children'] ?? 5),
                 'harden' => (bool) ($php['harden'] ?? false),
+                'profile' => (string) ($php['profile'] ?? ''),
+                'disable_functions' => (string) ($php['disable_functions'] ?? ''),
                 'pm' => (string) ($php['pm'] ?? 'ondemand'),
                 'start_servers' => (int) ($php['start_servers'] ?? 0),
                 'min_spare_servers' => (int) ($php['min_spare_servers'] ?? 0),
@@ -536,6 +538,13 @@ final class WebsiteService
         return $this->settings !== null && $this->settings->bool('php_harden_new_sites');
     }
 
+    /** The PHP security profile applied to new websites (Recommended by default). */
+    public function defaultPhpProfile(): string
+    {
+        $p = $this->settings !== null ? $this->settings->string('default_php_security_profile') : '';
+        return in_array($p, ['recommended', 'balanced', 'compatibility'], true) ? $p : 'recommended';
+    }
+
     /**
      * @param array<string, mixed> $input
      * @param array<string, mixed>|null $existing
@@ -627,6 +636,28 @@ final class WebsiteService
             $settings[$k] = $v;
         }
         $settings['harden'] = filter_var($input['harden'] ?? ($existing['php_settings']['harden'] ?? $this->hardenNewSites()), FILTER_VALIDATE_BOOL);
+        // PHP security profile (items 33–35). A new website starts on the
+        // configured default (Recommended); an existing website keeps its
+        // own profile, so changing the default never alters a live site.
+        $profile = (string) ($input['php_profile'] ?? ($existing['php_settings']['profile'] ?? ($existing === null ? $this->defaultPhpProfile() : '')));
+        if (!in_array($profile, ['', 'recommended', 'balanced', 'compatibility', 'custom'], true)) {
+            $errors['php_profile'] = 'Choose Recommended, Balanced, Compatibility or Custom.';
+            $profile = $existing === null ? $this->defaultPhpProfile() : '';
+        }
+        $settings['profile'] = $profile;
+        $settings['disable_functions'] = '';
+        if ($profile === 'custom') {
+            // A custom list is the admin's explicit choice; keep only valid
+            // PHP function names.
+            $raw = (string) ($input['disable_functions'] ?? ($existing['php_settings']['disable_functions'] ?? ''));
+            $fns = [];
+            foreach (preg_split('/[\s,]+/', strtolower($raw), -1, PREG_SPLIT_NO_EMPTY) as $fn) {
+                if (preg_match('/^[a-z_][a-z0-9_]{0,63}$/', $fn)) {
+                    $fns[$fn] = true;
+                }
+            }
+            $settings['disable_functions'] = implode(',', array_keys($fns));
+        }
         $pm = (string) ($input['pm'] ?? ($existing['php_settings']['pm'] ?? 'ondemand'));
         if (!in_array($pm, ['ondemand', 'dynamic', 'static'], true)) {
             $errors['pm'] = 'Choose on demand, dynamic or static.';

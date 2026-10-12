@@ -221,8 +221,8 @@ func RenderPool(s Spec, l Layout) string {
 	if l.Sendmail != "" {
 		defaults = append(defaults, iniLine{"sendmail_path", l.Sendmail, true})
 	}
-	if s.PHP.Harden {
-		defaults = append(defaults, iniLine{"disable_functions", "exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec", true})
+	if df := DisableFunctionsFor(s.PHP); df != "" {
+		defaults = append(defaults, iniLine{"disable_functions", df, true})
 	}
 	b.WriteString(poolINI(defaults, s.PHP.INI))
 	return b.String()

@@ -113,6 +113,11 @@ final class SettingsService
                 'category' => 'security', 'type' => 'bool', 'default' => false,
                 'label' => 'Disable shell functions for new websites', 'help' => 'New websites start with exec, system, shell_exec, passthru, proc_open, popen and pcntl_exec disabled. Some applications (for example Composer or queue workers run from PHP) need them; an administrator can turn this off per website.',
             ],
+            'default_php_security_profile' => [
+                'category' => 'security', 'type' => 'string', 'default' => 'recommended',
+                'options' => ['recommended' => 'Recommended', 'balanced' => 'Balanced', 'compatibility' => 'Compatibility'],
+                'label' => 'PHP security profile for new websites', 'help' => 'Recommended disables the dangerous functions (exec, system, shell_exec, passthru, popen, proc_open, proc_get_status, proc_terminate and pcntl_*). Balanced keeps process-control functions that queue workers may need. Compatibility disables nothing. The profile applies to new websites only; existing websites keep their own, and an administrator can change any website\'s profile or set a custom list.',
+            ],
             'wordpress_auto_harden' => [
                 'category' => 'security', 'type' => 'bool', 'default' => true,
                 'label' => 'Harden new WordPress installations automatically', 'help' => 'WordPress installed with the app installer gets the recommended security measures (web server rules and WordPress settings) as soon as it is installed. Each measure can be rolled back in the WordPress toolkit.',

@@ -129,11 +129,38 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         <?php endforeach; ?>
                     </div>
                     <?php if ($serverPhp): ?>
-                    <div class="form-check form-switch mt-3">
-                        <input type="hidden" name="harden" value="0">
-                        <input class="form-check-input" type="checkbox" role="switch" id="f-harden" name="harden" value="1"<?= filter_var($v('harden', $hardenDefault ?? false), FILTER_VALIDATE_BOOL) ? ' checked' : '' ?>>
-                        <label class="form-check-label" for="f-harden">Disable shell functions (exec, system, …)</label>
+                    <?php
+                        // PHP security profile (disable_functions). A new website
+                        // defaults to Recommended; an existing one keeps its own
+                        // choice, and "Keep current" leaves a legacy site unchanged.
+                        $profileNow = (string) $v('profile', (($site ?? null) === null) ? ($profileDefault ?? 'recommended') : '');
+                        $profileOpts = ['recommended' => 'Recommended — disable exec, system, shell_exec, passthru, popen, proc_open, proc_* and pcntl_*', 'balanced' => 'Balanced — disable the shell functions, keep process control for queue workers', 'compatibility' => 'Compatibility — disable nothing', 'custom' => 'Custom — a list you choose'];
+                        if ($profileNow === '') {
+                            $profileOpts = ['' => 'Keep current'] + $profileOpts;
+                        }
+                    ?>
+                    <div class="mt-3">
+                        <label class="form-label small" for="f-php-profile">PHP security profile</label>
+                        <select class="form-select form-select-sm<?= $cls('php_profile') ?>" id="f-php-profile" name="php_profile">
+                            <?php foreach ($profileOpts as $pv => $pl): ?>
+                                <option value="<?= $pv ?>"<?= $profileNow === $pv ? ' selected' : '' ?>><?= htmlspecialchars($pl) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="mt-1<?= $profileNow === 'custom' ? '' : ' d-none' ?>" data-wcp-php-custom>
+                            <input class="form-control form-control-sm<?= $cls('disable_functions') ?>" name="disable_functions" value="<?= htmlspecialchars((string) $v('disable_functions', '')) ?>" placeholder="exec, system, shell_exec">
+                            <div class="form-text">Comma-separated function names to disable.</div>
+                        </div>
                     </div>
+                    <script>
+                    (function () {
+                        var sel = document.getElementById('f-php-profile');
+                        if (!sel) return;
+                        sel.addEventListener('change', function () {
+                            var box = sel.closest('.mt-3').querySelector('[data-wcp-php-custom]');
+                            if (box) box.classList.toggle('d-none', sel.value !== 'custom');
+                        });
+                    })();
+                    </script>
                     <details class="mt-3"<?= array_intersect(array_keys($errors ?? []), ['pm', 'start_servers', 'min_spare_servers', 'max_spare_servers', 'idle_timeout_seconds', 'max_requests', 'request_timeout_seconds', 'slowlog_seconds']) !== [] ? ' open' : '' ?>>
                         <summary class="small fw-semibold">Advanced PHP-FPM</summary>
                         <div class="row g-2 mt-1">

@@ -81,7 +81,9 @@ final class PhpForCustomersTest extends HttpTestCase
 
         $this->app->container->get(\WhaCP\Services\SettingsService::class)->update(['php_harden_new_sites' => '1'], 1);
         $this->login('admin');
-        self::assertMatchesRegularExpression('/id="f-harden" name="harden" value="1" checked/', $this->request('GET', '/websites/new')->body());
+        // The new-website form offers the PHP security profile, defaulting to
+        // Recommended (the hardening control is now the profile selector).
+        self::assertMatchesRegularExpression('/name="php_profile"[\s\S]*?<option value="recommended" selected/', $this->request('GET', '/websites/new')->body());
         self::assertTrue($harden($sites->create(['domain' => 'on.test', 'kind' => 'php', 'php_version' => '8.3'], $admin)));
         // An administrator can still create one without it.
         self::assertFalse($harden($sites->create(['domain' => 'free.test', 'kind' => 'php', 'php_version' => '8.3', 'harden' => '0'], $admin)));

@@ -22,6 +22,12 @@ type PHPSettings struct {
 	MaxExecSeconds int  `json:"max_execution_seconds"`
 	MaxChildren    int  `json:"max_children"`
 	Harden         bool `json:"harden"`
+	// Profile selects the disable_functions set: "recommended", "balanced",
+	// "compatibility" or "custom". Empty keeps the legacy Harden behaviour so
+	// existing websites are unchanged. With "custom", DisableFunctions is the
+	// explicit comma-separated list.
+	Profile          string `json:"profile"`
+	DisableFunctions string `json:"disable_functions"`
 	// PHP-FPM process manager: ondemand (default), dynamic or static.
 	PM string `json:"pm"`
 	// dynamic: processes at start and idle ones kept (0: derived from
@@ -167,6 +173,16 @@ func (s *Spec) Normalize(sitesRoot, stateDir string) error {
 		return err
 	}
 	p.INI = ini
+	// PHP security profile (items 33–35). Empty keeps the legacy Harden
+	// behaviour for existing websites; a named profile sets disable_functions.
+	if p.Profile != "" && !validProfiles[p.Profile] {
+		return fail("php.profile", "must be recommended, balanced, compatibility or custom")
+	}
+	if p.Profile == ProfileCustom {
+		p.DisableFunctions = normalizeFuncList(p.DisableFunctions)
+	} else {
+		p.DisableFunctions = ""
+	}
 	defaults := map[*int]int{&p.MemoryLimitMB: 256, &p.UploadMaxMB: 64, &p.MaxExecSeconds: 60, &p.MaxChildren: 5, &s.ClientMaxBodyMB: 0}
 	for ptr, def := range defaults {
 		if *ptr == 0 {

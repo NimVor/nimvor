@@ -61,6 +61,7 @@ final class SitesController extends Controller
             'phpVersions' => $php,
             'defaultPhp' => $this->service->defaultPhpVersion($php),
             'hardenDefault' => $this->service->hardenNewSites(),
+            'profileDefault' => $this->service->defaultPhpProfile(),
             'owners' => \WhaCP\Hosting\Scope::isAll($this->user($request)) ? $this->users->all() : [],
         ]);
     }
@@ -195,7 +196,7 @@ final class SitesController extends Controller
         if ($site === null) {
             return $this->notFound();
         }
-        return $this->render('sites/form', ['site' => $site, 'phpVersions' => $this->service->phpVersions(), 'owners' => [], 'tab' => 'settings']);
+        return $this->render('sites/form', ['site' => $site, 'phpVersions' => $this->service->phpVersions(), 'owners' => [], 'tab' => 'settings', 'profileDefault' => $this->service->defaultPhpProfile()]);
     }
 
     public function update(Request $request, string $id): Response
