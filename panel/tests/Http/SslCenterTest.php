@@ -102,19 +102,47 @@ final class SslCenterTest extends HttpTestCase
     {
         $this->login('admin');
         $this->agent->succeed('ssl.services', ['hostname' => 'server.test', 'certbot_installed' => true, 'lets_encrypt' => [], 'mail_tls' => []]);
-        $this->agent->succeed('ssl.account', ['provider' => "Let's Encrypt", 'certbot_installed' => true, 'registered' => false, 'email' => '', 'account_uri' => '', 'terms_url' => 'https://letsencrypt.org/repository/']);
+        $this->agent->succeed('ssl.account', [
+            'providers' => [['id' => 'letsencrypt', 'label' => "Let's Encrypt", 'requires_eab' => false, 'terms_url' => 'https://letsencrypt.org/repository/'], ['id' => 'zerossl', 'label' => 'ZeroSSL', 'requires_eab' => true, 'terms_url' => 'https://zerossl.com/terms/']],
+            'provider' => 'letsencrypt', 'label' => "Let's Encrypt", 'requires_eab' => false,
+            'certbot_installed' => true, 'registered' => false, 'email' => '', 'account_uri' => '', 'terms_url' => 'https://letsencrypt.org/repository/',
+        ]);
 
         $page = $this->request('GET', '/ssl/services')->body();
-        self::assertStringContainsString('Let\'s Encrypt account', $page);
-        self::assertStringContainsString('no saved Let\'s Encrypt account', $page);
+        self::assertStringContainsString('Certificate authority', $page);
+        self::assertStringContainsString('has no saved', $page);
         self::assertStringContainsString('action="/ssl/services/account"', $page);
+        self::assertStringContainsString('<option value="zerossl"', $page, 'provider selector lists ZeroSSL');
         self::assertStringContainsString('Register account', $page);
 
-        // Registering passes the email and the accepted ToS to the agent.
-        $this->agent->succeed('ssl.account_register', ['registered' => true, 'updated' => false, 'email' => 'ops@real.test', 'account_uri' => 'https://acme-v02.api.letsencrypt.org/acme/acct/9']);
-        $this->post('/ssl/services/account', ['email' => 'ops@real.test', 'agree_tos' => '1']);
-        self::assertSame(['email' => 'ops@real.test', 'agree_tos' => true, 'staging' => false], $this->lastCall('ssl.account_register'));
-        self::assertStringContainsString('registered with ops@real.test', (string) $this->flash('success'));
+        // Registering passes provider, email and the accepted ToS to the agent,
+        // and makes the provider active.
+        $this->agent->succeed('ssl.account_register', ['provider' => 'letsencrypt', 'registered' => true, 'updated' => false, 'email' => 'ops@real.test', 'account_uri' => 'https://acme-v02.api.letsencrypt.org/acme/acct/9']);
+        $this->post('/ssl/services/account', ['provider' => 'letsencrypt', 'email' => 'ops@real.test', 'agree_tos' => '1']);
+        self::assertSame(['provider' => 'letsencrypt', 'email' => 'ops@real.test', 'agree_tos' => true, 'staging' => false, 'eab_kid' => '', 'eab_hmac_key' => ''], $this->lastCall('ssl.account_register'));
+        self::assertStringContainsString('active certificate authority', (string) $this->flash('success'));
+    }
+
+    public function testZeroSSLProviderShowsEabFieldsAndRegisters(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('ssl.services', ['hostname' => 'server.test', 'certbot_installed' => true, 'lets_encrypt' => [], 'mail_tls' => []]);
+        $this->agent->succeed('ssl.account', [
+            'providers' => [['id' => 'letsencrypt', 'label' => "Let's Encrypt", 'requires_eab' => false, 'terms_url' => 'x'], ['id' => 'zerossl', 'label' => 'ZeroSSL', 'requires_eab' => true, 'terms_url' => 'https://zerossl.com/terms/']],
+            'provider' => 'zerossl', 'label' => 'ZeroSSL', 'requires_eab' => true,
+            'certbot_installed' => true, 'registered' => false, 'email' => '', 'account_uri' => '', 'terms_url' => 'https://zerossl.com/terms/',
+        ]);
+
+        $page = $this->request('GET', '/ssl/services', [], [], '', ['provider' => 'zerossl'])->body();
+        self::assertStringContainsString('EAB key ID', $page);
+        self::assertStringContainsString('EAB HMAC key', $page);
+
+        $this->agent->succeed('ssl.account_register', ['provider' => 'zerossl', 'registered' => true, 'updated' => false, 'email' => 'ops@real.test', 'account_uri' => 'https://acme.zerossl.com/acct/5']);
+        $this->post('/ssl/services/account', ['provider' => 'zerossl', 'email' => 'ops@real.test', 'agree_tos' => '1', 'eab_kid' => 'KID1', 'eab_hmac_key' => 'SECRET']);
+        self::assertSame(['provider' => 'zerossl', 'email' => 'ops@real.test', 'agree_tos' => true, 'staging' => false, 'eab_kid' => 'KID1', 'eab_hmac_key' => 'SECRET'], $this->lastCall('ssl.account_register'));
+        // The EAB HMAC secret must not be written to the audit log.
+        $row = $this->app->container->get(Connection::class)->fetch("SELECT details FROM audit_logs WHERE action = 'ssl.account_register' ORDER BY id DESC LIMIT 1");
+        self::assertStringNotContainsString('SECRET', (string) ($row['details'] ?? ''), 'EAB HMAC key must never be logged');
     }
 
     public function testCustomersCannotRegisterLetsEncryptAccount(): void

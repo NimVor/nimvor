@@ -180,10 +180,15 @@ func registerServices(r *actions.Registry, env *host.Env) {
 
 	r.Register(actions.Action{Name: "ssl.hostname_issue", Mutating: true, Description: "Obtain a Let's Encrypt certificate for the server's host name as a job (certbot's output in the job log). An Nginx site answers the challenge on port 80 when no website uses the name. Use it for the panel or the mail server afterwards.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
-			Email string `json:"email"`
+			Email    string `json:"email"`
+			Provider string `json:"provider"`
 		}
 		if err := host.Decode(raw, &in); err != nil {
 			return nil, err
+		}
+		p, ok := provider(in.Provider)
+		if !ok {
+			return nil, actions.InvalidParams("provider: unknown certificate authority")
 		}
 		name := serverHostname(env)
 		if validate.Domain("hostname", name) != nil || !strings.Contains(name, ".") {
@@ -197,11 +202,11 @@ func registerServices(r *actions.Registry, env *host.Env) {
 			if err := ensureHostnameSite(ctx, env, name); err != nil {
 				return nil, err
 			}
-			fmt.Fprintln(log, "Nginx answers Let's Encrypt's check for the host name on port 80.")
-			fmt.Fprintln(log, "Asking Let's Encrypt (this can take a minute)…")
-			res, err := Issue(ctx, env, issueReq{CertName: name, Names: []string{name}, Email: in.Email}, log)
+			fmt.Fprintf(log, "Nginx answers the %s check for the host name on port 80.\n", p.Label)
+			fmt.Fprintf(log, "Asking %s (this can take a minute)…\n", p.Label)
+			res, err := Issue(ctx, env, issueReq{CertName: name, Names: []string{name}, Email: in.Email, Provider: p.ID}, log)
 			if err != nil {
-				fmt.Fprintln(log, "Let's Encrypt did not issue the certificate. The host name must point to this server (its A record) and port 80 must be reachable from the internet.")
+				fmt.Fprintf(log, "%s did not issue the certificate. The host name must point to this server (its A record) and port 80 must be reachable from the internet.\n", p.Label)
 				return nil, err
 			}
 			fmt.Fprintf(log, "Certificate issued: %s\nUse it for the panel or the mail server on SSL/TLS → Services SSL.\n", res["cert_file"])

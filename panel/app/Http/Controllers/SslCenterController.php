@@ -249,43 +249,56 @@ final class SslCenterController extends Controller
         $error = null;
         $svc = $this->call('ssl.services', [], $error);
         $account = null;
+        $activeProvider = $this->settings->string('acme_provider') ?: 'letsencrypt';
+        // ?provider= lets the admin preview another CA's account before
+        // switching to it; the active one is the stored setting.
+        $shown = (string) $request->input('provider', $activeProvider);
         if ($error === null) {
             try {
-                $account = (array) $this->agent->call('ssl.account');
+                $account = (array) $this->agent->call('ssl.account', ['provider' => $shown]);
             } catch (AgentException) {
                 $account = null;
             }
         }
-        return $this->page('services', ['svc' => $svc, 'account' => $account, 'defaultEmail' => (string) ($this->user($request)['email'] ?? '')], $error);
+        return $this->page('services', ['svc' => $svc, 'account' => $account, 'activeProvider' => $activeProvider, 'defaultEmail' => (string) ($this->user($request)['email'] ?? '')], $error);
     }
 
     /**
-     * Register the Let's Encrypt account (or update its contact email) after
-     * the administrator accepts the Terms of Service. Issuing certificates
-     * registers implicitly too, but a bad contact (e.g. an example.com
-     * address) then fails every certificate; registering here surfaces the
-     * problem once, up front.
+     * Register the ACME account for a provider (Let's Encrypt, ZeroSSL or
+     * Buypass), or update its contact email, after the administrator accepts
+     * the Terms of Service. Issuing certificates registers implicitly too,
+     * but a bad contact (e.g. an example.com address) or a missing ZeroSSL
+     * EAB then fails every certificate; registering here surfaces the
+     * problem once, up front, and makes the provider the active one.
      */
     public function accountRegister(Request $request): Response
     {
         if ($r = $this->denied($request)) {
             return $r;
         }
+        $provider = (string) $request->input('provider', 'letsencrypt');
         $params = [
+            'provider' => $provider,
             'email' => strtolower(trim($request->string('email'))),
             'agree_tos' => $request->input('agree_tos') === '1',
             'staging' => $request->input('staging') === '1',
+            'eab_kid' => trim($request->string('eab_kid')),
+            'eab_hmac_key' => trim($request->string('eab_hmac_key')),
         ];
         try {
             $res = (array) $this->agent->call('ssl.account_register', $params, 120);
         } catch (UserFacingException $e) {
-            $this->audit->record('ssl.account_register', 'server', 'lets-encrypt', AuditLogger::FAILURE, ['email' => $params['email'], 'error' => $e->getMessage()]);
-            return $this->redirectWithFailure('/ssl/services#lets-encrypt-account', $e);
+            // The EAB HMAC key is a secret; never record it.
+            $this->audit->record('ssl.account_register', 'server', $provider, AuditLogger::FAILURE, ['provider' => $provider, 'email' => $params['email'], 'error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/ssl/services?provider=' . urlencode($provider) . '#lets-encrypt-account', $e);
         }
-        $this->audit->record('ssl.account_register', 'server', 'lets-encrypt', AuditLogger::SUCCESS, ['email' => $params['email'], 'updated' => (bool) ($res['updated'] ?? false)]);
+        // The registered provider becomes the active certificate authority.
+        $this->settings->update(['acme_provider' => $provider], $this->userId($request));
+        $this->audit->record('ssl.account_register', 'server', $provider, AuditLogger::SUCCESS, ['provider' => $provider, 'email' => $params['email'], 'updated' => (bool) ($res['updated'] ?? false)]);
+        $label = ['letsencrypt' => "Let's Encrypt", 'zerossl' => 'ZeroSSL', 'buypass' => 'Buypass Go'][$provider] ?? $provider;
         return $this->redirectWithSuccess('/ssl/services#lets-encrypt-account', ($res['updated'] ?? false)
-            ? 'The Let\'s Encrypt account contact was updated to ' . $params['email'] . '.'
-            : 'A Let\'s Encrypt account was registered with ' . $params['email'] . '. Certificates can now be issued.');
+            ? 'The ' . $label . ' account contact was updated to ' . $params['email'] . '. It is the active certificate authority.'
+            : 'A ' . $label . ' account was registered with ' . $params['email'] . '. It is now the active certificate authority; certificates can be issued.');
     }
 
     public function serviceCert(Request $request): Response
@@ -330,8 +343,9 @@ final class SslCenterController extends Controller
         // Expiry notices go to the administrator who asked.
         $email = (string) ($this->user($request)['email'] ?? '');
         $email = filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? $email : '';
+        $provider = $this->settings->string('acme_provider') ?: 'letsencrypt';
         try {
-            $res = (array) $this->agent->call('ssl.hostname_issue', ['email' => $email], 60);
+            $res = (array) $this->agent->call('ssl.hostname_issue', ['email' => $email, 'provider' => $provider], 60);
         } catch (UserFacingException $e) {
             $this->audit->record('ssl.hostname_issue', 'server', 'hostname', AuditLogger::FAILURE, ['error' => $e->getMessage()]);
             return $this->redirectWithFailure('/ssl/services', $e);

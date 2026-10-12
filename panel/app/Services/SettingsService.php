@@ -77,9 +77,14 @@ final class SettingsService
                 'category' => 'dns', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 15,
                 'label' => 'Default IPv4 for new zones', 'help' => 'The public address new zones point @ and www to. Empty leaves the A records out.',
             ],
+            'acme_provider' => [
+                'category' => 'ssl', 'type' => 'string', 'default' => 'letsencrypt',
+                'options' => ['letsencrypt' => 'Let\'s Encrypt', 'zerossl' => 'ZeroSSL', 'buypass' => 'Buypass Go'],
+                'label' => 'Certificate authority', 'help' => 'The ACME provider used to issue Let\'s Encrypt-style certificates (for new and automatic SSL, the host name and services). Register the chosen provider\'s account on SSL/TLS → Services SSL first; ZeroSSL needs External Account Binding credentials.',
+            ],
             'auto_ssl' => [
                 'category' => 'ssl', 'type' => 'bool', 'default' => true,
-                'label' => 'Automatic SSL for new websites', 'help' => 'Issue a Let\'s Encrypt certificate for a new website once its domain points to this server (its name servers are this panel\'s, or its address is this server\'s). Checked every few minutes for up to 3 days.',
+                'label' => 'Automatic SSL for new websites', 'help' => 'Issue a certificate from the configured provider for a new website once its domain points to this server (its name servers are this panel\'s, or its address is this server\'s). Checked every few minutes for up to 3 days.',
             ],
             'auto_ssl_replace' => [
                 'category' => 'ssl', 'type' => 'bool', 'default' => true,

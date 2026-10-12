@@ -1,8 +1,10 @@
 package sslmgr
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
@@ -68,5 +70,71 @@ func TestLetsEncryptAccountFreshRegister(t *testing.T) {
 	}
 	if !h.Runner.Called("certbot register --non-interactive --agree-tos -m ops@whacp.io") {
 		t.Fatalf("did not register a new account: %v", h.Runner.Calls)
+	}
+}
+
+// ZeroSSL needs External Account Binding credentials and is registered
+// against its own ACME directory (--server).
+func TestZeroSSLAccountNeedsEAB(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+
+	// The provider is reported as needing EAB.
+	st, _ := call(t, r, "ssl.account", `{"provider":"zerossl"}`)
+	if st["requires_eab"] != true || st["provider"] != "zerossl" {
+		t.Fatalf("zerossl status = %+v", st)
+	}
+
+	// Registration without EAB is refused.
+	if _, err := call(t, r, "ssl.account_register", `{"provider":"zerossl","email":"ops@whacp.io","agree_tos":true}`); err == nil {
+		t.Error("registered ZeroSSL without EAB")
+	}
+	// With EAB it registers against ZeroSSL's directory.
+	if _, err := call(t, r, "ssl.account_register", `{"provider":"zerossl","email":"ops@whacp.io","agree_tos":true,"eab_kid":"KID1","eab_hmac_key":"HMAC1"}`); err != nil {
+		t.Fatal(err)
+	}
+	if !h.Runner.Called("certbot register --non-interactive --agree-tos -m ops@whacp.io --eab-kid KID1 --eab-hmac-key HMAC1 --server https://acme.zerossl.com/v2/DV90") {
+		t.Fatalf("ZeroSSL register args wrong: %v", h.Runner.Calls)
+	}
+}
+
+// Buypass has no EAB and registers against its own directory.
+func TestBuypassAccountRegister(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	if _, err := call(t, r, "ssl.account_register", `{"provider":"buypass","email":"ops@whacp.io","agree_tos":true}`); err != nil {
+		t.Fatal(err)
+	}
+	if !h.Runner.Called("certbot register --non-interactive --agree-tos -m ops@whacp.io --server https://api.buypass.com/acme/directory") {
+		t.Fatalf("Buypass register args wrong: %v", h.Runner.Calls)
+	}
+	// An unknown provider is refused.
+	if _, err := call(t, r, "ssl.account_register", `{"provider":"nope","email":"ops@whacp.io","agree_tos":true}`); err == nil {
+		t.Error("accepted an unknown provider")
+	}
+}
+
+// Issuance against a non-default CA adds --server for that provider.
+func TestIssueAgainstAlternateProvider(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	a, _ := r.Lookup("ssl.issue")
+	if _, err := a.Handler(context.Background(), []byte(`{"cert_name":"shop.test","names":["shop.test"],"email":"ops@whacp.io","provider":"buypass"}`)); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, c := range h.Runner.Calls {
+		if strings.Contains(c, "--server https://api.buypass.com/acme/directory") && strings.Contains(c, "certonly") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("issuance did not target Buypass: %v", h.Runner.Calls)
+	}
+	if _, err := a.Handler(context.Background(), []byte(`{"cert_name":"x.test","names":["x.test"],"provider":"nope"}`)); err == nil {
+		t.Error("accepted an unknown provider at issuance")
 	}
 }

@@ -151,13 +151,24 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
-- **Let's Encrypt account (SSL/TLS → Services SSL).** A card shows whether
-  certbot holds a Let's Encrypt account, its contact email and account URL,
-  and warns when none is registered. Administrators can register the account
-  — or update its contact email — up front after accepting the Terms of
-  Service, instead of relying on implicit registration at first issuance
-  (where a bad contact silently fails every certificate). Reserved/example
-  and invalid addresses are refused with a clear message.
+- **Choice of certificate authority: Let's Encrypt, ZeroSSL or Buypass.**
+  WhaCP can now issue from ZeroSSL and Buypass Go in addition to Let's
+  Encrypt, still through certbot and the same webroot/renewal/deploy
+  machinery. A certificate-authority setting selects the active provider for
+  new and automatic SSL, the host name and services; Let's Encrypt stays the
+  default and existing certificates and renewals are unchanged. ZeroSSL needs
+  External Account Binding credentials (an EAB key id and HMAC key from your
+  ZeroSSL account), entered once at registration and never stored. The
+  provider's directory URL is a fixed, vetted constant (certbot's `--server`
+  is never given a free-form URL).
+- **ACME account card (SSL/TLS → Services SSL).** A card shows whether
+  certbot holds an account for the chosen provider, its contact email and
+  account URL, warns when none is registered, and lets administrators pick a
+  provider and register (or update the contact) up front after accepting its
+  Terms of Service — instead of relying on implicit registration at first
+  issuance (where a bad contact or missing EAB silently fails every
+  certificate). Reserved/example and invalid addresses are refused with a
+  clear message.
 - **Server → Health:** one page that shows whether anything is wrong.
   - It gathers the panel's checks: WhaCP itself (the doctor checks),
     resources, components, the security audit, updates, certificates,

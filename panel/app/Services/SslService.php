@@ -21,7 +21,14 @@ final class SslService
         private readonly AgentClient $agent,
         private readonly WebsiteService $sites,
         private readonly AuditLogger $audit,
+        private readonly SettingsService $settings,
     ) {
+    }
+
+    /** The configured ACME certificate authority (letsencrypt by default). */
+    private function provider(): string
+    {
+        return $this->settings->string('acme_provider') ?: 'letsencrypt';
     }
 
     /** @param array<string, mixed> $site */
@@ -35,7 +42,7 @@ final class SslService
         }
         $names = array_merge([$site['domain']], $includeAliases ? $site['aliases'] : []);
         try {
-            $res = (array) $this->agent->call('ssl.issue', ['cert_name' => $site['domain'], 'names' => $names, 'email' => $email, 'staging' => $staging], 320);
+            $res = (array) $this->agent->call('ssl.issue', ['cert_name' => $site['domain'], 'names' => $names, 'email' => $email, 'staging' => $staging, 'provider' => $this->provider()], 320);
         } catch (AgentException $e) {
             $this->audit->record('ssl.issue', 'website', (string) $site['id'], AuditLogger::FAILURE, ['domain' => $site['domain'], 'error' => $e->getMessage()]);
             throw $e;

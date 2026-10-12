@@ -39,6 +39,10 @@ type issueReq struct {
 	Names    []string `json:"names"`
 	Email    string   `json:"email"`
 	Staging  bool     `json:"staging"`
+	// Provider selects the certificate authority (default: letsencrypt).
+	// Its directory URL is added as certbot's --server for non-default CAs;
+	// the account must already be registered (ssl.account_register).
+	Provider string `json:"provider"`
 }
 
 type customReq struct {
@@ -425,7 +429,16 @@ func Issue(ctx context.Context, env *host.Env, in issueReq, log io.Writer) (map[
 	} else {
 		args = append(args, "--register-unsafely-without-email")
 	}
-	if in.Staging {
+	p, ok := provider(in.Provider)
+	if !ok {
+		return nil, actions.InvalidParams("provider: unknown certificate authority")
+	}
+	if p.Directory != "" {
+		// A non-default CA (ZeroSSL, Buypass): point certbot at its ACME
+		// directory. The account must already be registered for it, with
+		// EAB where the provider needs it (ssl.account_register).
+		args = append(args, "--server", p.Directory)
+	} else if in.Staging {
 		args = append(args, "--staging")
 	}
 	for _, n := range in.Names {
