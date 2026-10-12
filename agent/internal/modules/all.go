@@ -25,6 +25,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/procmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/quota"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/redismgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/runtimemgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/security"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/services"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sites"
@@ -77,5 +78,6 @@ func All() []Module {
 		phpmgr.Register,
 		services.Register,
 		procmgr.Register,
+		runtimemgr.Register,
 	}
 }

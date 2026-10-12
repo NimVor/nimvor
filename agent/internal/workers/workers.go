@@ -20,6 +20,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/runtimemgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/systemd"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
 )
@@ -39,11 +40,17 @@ type Spec struct {
 	// Procs is how many identical copies of the command to run (e.g. several
 	// queue workers). 1 (or 0) keeps a single service; more add sibling
 	// services. The memory limit applies to each copy.
-	Procs   int  `json:"procs"`
-	Enabled bool `json:"enabled"`
+	Procs int `json:"procs"`
+	// Runtime selects a WhaCP-managed language runtime for the command, e.g.
+	// "node:20.17.0" or "python:3.12"; "" or "system" uses the system's own.
+	Runtime string `json:"runtime"`
+	Enabled bool   `json:"enabled"`
 	// slice is the account's slice when it has resource limits (set by
 	// the agent from its own record, never from the request).
 	slice string
+	// runtimeBin is the runtime's bin directory (resolved from Runtime),
+	// prepended to PATH in the launcher; empty for the system runtime.
+	runtimeBin string
 }
 
 var envKey = regexp.MustCompile(`^[A-Z_][A-Z0-9_]{0,63}$`)
@@ -120,6 +127,11 @@ func (s *Spec) validate(env *host.Env) error {
 	if s.Procs < 1 || s.Procs > MaxProcs {
 		return &validate.Error{Field: "procs", Message: fmt.Sprintf("must be 1 to %d", MaxProcs)}
 	}
+	bin, err := runtimemgr.BinDir(env, s.Runtime)
+	if err != nil {
+		return &validate.Error{Field: "runtime", Message: err.Error()}
+	}
+	s.runtimeBin = bin
 	if len(s.Env) > 50 {
 		return &validate.Error{Field: "env", Message: "at most 50 variables"}
 	}
@@ -139,6 +151,9 @@ func shQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) 
 func (s Spec) script() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "#!/bin/sh\n# Managed by WhaCP: worker %q of %s. Do not edit.\n", s.Name, s.Domain)
+	if s.runtimeBin != "" {
+		fmt.Fprintf(&b, "export PATH=%s:$PATH\n", shQuote(s.runtimeBin))
+	}
 	keys := make([]string, 0, len(s.Env))
 	for k := range s.Env {
 		keys = append(keys, k)

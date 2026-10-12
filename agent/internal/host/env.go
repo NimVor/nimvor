@@ -114,6 +114,7 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		cfg.StateDir + "/**",
 		cfg.BackupDir + "/**",
 		WorkersDir + "/**",
+		RuntimesDir + "/**",
 		// Website accounts' personal crontab and at jobs are refused.
 		"/etc/cron.deny", "/etc/at.deny",
 		// The host-name → address mapping, kept in step with the server's
@@ -475,6 +476,11 @@ func (e *Env) StripSetID(ctx context.Context, cred *execx.Credential, dir string
 // listing) and each launcher is 0640 root:<account's group>, readable by
 // its own account only (it carries the worker's environment variables).
 const WorkersDir = "/var/lib/whacp-workers"
+
+// RuntimesDir holds extra language runtimes (Node.js, Python) that WhaCP
+// installs side by side, each under <kind>/<version>, so a website's
+// workers can run on a chosen version without touching the system packages.
+const RuntimesDir = "/opt/whacp/runtimes"
 
 // TrashDir is the name of the trash folder WhaCP keeps inside the folder
 // that holds the data it removes (the websites root, the mail root).

@@ -180,3 +180,37 @@ func TestApplyRunsSeveralCopies(t *testing.T) {
 }
 
 func itoa(n int) string { return string(rune('0' + n)) }
+
+func TestWorkerUsesSelectedRuntime(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	apply, _ := r.Lookup("workers.apply")
+	base := `"slug":"app","name":"App","domain":"a.test","user":"example","command":"node server.js","enabled":true`
+
+	// A runtime that is not installed is refused.
+	if _, err := apply.Handler(context.Background(), json.RawMessage(`{`+base+`,"runtime":"node:20.17.0"}`)); err == nil {
+		t.Fatal("a missing runtime was accepted")
+	}
+
+	// Install a managed Node runtime (just its bin/node), then the launcher
+	// must put its bin folder on PATH.
+	bin := filepath.Join(h.Base, "opt/whacp/runtimes/node/20.17.0/bin")
+	os.MkdirAll(bin, 0o755)
+	os.WriteFile(filepath.Join(bin, "node"), []byte("#!node\n"), 0o755)
+	if _, err := apply.Handler(context.Background(), json.RawMessage(`{`+base+`,"runtime":"node:20.17.0"}`)); err != nil {
+		t.Fatal(err)
+	}
+	script := h.Read("var/lib/whacp-workers/app.sh")
+	if !strings.Contains(script, "export PATH='/opt/whacp/runtimes/node/20.17.0/bin':$PATH") {
+		t.Errorf("launcher does not use the runtime:\n%s", script)
+	}
+
+	// The system runtime leaves PATH alone.
+	if _, err := apply.Handler(context.Background(), json.RawMessage(`{`+base+`,"runtime":"system"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(h.Read("var/lib/whacp-workers/app.sh"), "runtimes/node") {
+		t.Error("the system runtime should not change PATH")
+	}
+}

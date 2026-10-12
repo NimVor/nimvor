@@ -295,6 +295,9 @@ paths:
               - redis.key_get
               - redis.keys
               - redis.password
+              - runtime.install
+              - runtime.remove
+              - runtime.status
               - security.audit
               - security.auto_updates
               - security.confirm
@@ -726,6 +729,9 @@ x-whacp-actions:
   redis.key_get: { mutating: false, description: "Read one Redis key (strings up to 1 MiB, collections up to 500 elements)." }
   redis.keys: { mutating: false, description: "List keys of a Redis database (SCAN, optionally limited to a key prefix)." }
   redis.password: { mutating: true, description: "Set or clear the default user's password." }
+  runtime.install: { mutating: true, description: "Install a Node.js runtime (an official nodejs.org release, verified) side by side under the runtimes directory (job)." }
+  runtime.remove: { mutating: true, description: "Remove a WhaCP-managed runtime." }
+  runtime.status: { mutating: false, description: "List the Node.js and Python runtimes available on the server (WhaCP-managed and the system's own)." }
   security.audit: { mutating: false, description: "Security checks with findings and remedies (read-only)." }
   security.auto_updates: { mutating: true, description: "Turn automatic security updates on (unattended-upgrades, or dnf-automatic with security updates only and no reboot; installed when missing) or off (job)." }
   security.confirm: { mutating: true, description: "Keep a firewall/SSH change (otherwise it is rolled back automatically)." }
