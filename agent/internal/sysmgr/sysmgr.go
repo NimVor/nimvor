@@ -316,6 +316,7 @@ func contains(ss []string, v string) bool {
 // Register adds package and server-management actions.
 func Register(r *actions.Registry, env *host.Env) {
 	registerGraphical(r, env)
+	registerHostnameRefs(r, env)
 	r.Register(actions.Action{Name: "packages.list", Description: "Installable components and their versions.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		caps := capabilities(ctx, env)
 		names := make([]string, 0, len(Components))

@@ -252,7 +252,7 @@ final class SslCenterController extends Controller
         $activeProvider = $this->settings->string('acme_provider') ?: 'letsencrypt';
         // ?provider= lets the admin preview another CA's account before
         // switching to it; the active one is the stored setting.
-        $shown = (string) $request->input('provider', $activeProvider);
+        $shown = (string) $request->query('provider', $activeProvider);
         if ($error === null) {
             try {
                 $account = (array) $this->agent->call('ssl.account', ['provider' => $shown]);

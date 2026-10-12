@@ -152,6 +152,50 @@ final class SystemController extends Controller
     }
 
     /**
+     * Find where a previous host name still appears in the managed
+     * configuration (read-only). A host-name change updates /etc/hosts and
+     * the mail server, but artefacts created earlier — DNS zone records,
+     * Nginx server names — keep the old name until edited; this lists them.
+     */
+    public function hostnameReferences(Request $request): Response
+    {
+        $old = strtolower(trim((string) $request->query('old', '')));
+        $report = null;
+        $error = null;
+        if ($old !== '') {
+            try {
+                $report = (array) $this->agent->call('server.hostname_references', ['old' => $old], 60);
+            } catch (AgentException $e) {
+                $error = $e->getMessage();
+            }
+        }
+        return $this->render('server/hostname_references', [
+            'old' => $old,
+            'report' => $report,
+            'error' => $error,
+        ]);
+    }
+
+    /** Re-apply the mail server so Postfix/Dovecot use the current host name. */
+    public function hostnameRemail(Request $request): Response
+    {
+        return $this->act('/server/hostname-references', function () use ($request): string {
+            $sys = (array) $this->agent->call('system.info');
+            $h = strtolower((string) (((array) ($sys['system'] ?? []))['hostname'] ?? ''));
+            if ($h === '') {
+                throw new UserFacingException('The server host name could not be read.');
+            }
+            $mail = (array) $this->agent->call('mail.status');
+            if (empty($mail['configured'])) {
+                return 'Email is not set up on this server; nothing to re-apply.';
+            }
+            $this->agent->call('mail.configure', ['hostname' => $h, 'confirm_edit_package_config' => true], 180);
+            $this->audit->record('mail.configure', 'server', 'mail', AuditLogger::SUCCESS, ['hostname' => $h, 'reason' => 'hostname references cleanup']);
+            return 'The mail server was re-applied with the host name ' . $h . '. Re-publish each mail domain\'s DNS so its records point to it.';
+        });
+    }
+
+    /**
      * The root password: administrators only, confirmed with their own
      * panel password. The password is never logged, stored or returned.
      */

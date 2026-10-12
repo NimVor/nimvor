@@ -305,6 +305,7 @@ paths:
               - security.undo
               - server.graphical
               - server.graphical_set
+              - server.hostname_references
               - server.reboot
               - server.reboot_cancel
               - server.root_password
@@ -733,6 +734,7 @@ x-whacp-actions:
   security.undo: { mutating: true, description: "Roll back the pending firewall/SSH change now." }
   server.graphical: { mutating: false, description: "Whether the graphical login screen (GDM, LightDM, SDDM) runs, and the default boot target." }
   server.graphical_set: { mutating: true, description: "Turn the graphical login screen off (boot to the text console, stop the display manager) or on again." }
+  server.hostname_references: { mutating: false, description: "Find where a previous host name still appears in the server's managed configuration: /etc/hosts, WhaCP's Nginx sites, the mail server (Postfix myhostname) and the hosted DNS zones. Read-only." }
   server.reboot: { mutating: true, description: "Schedule a restart (requires the host name as confirmation)." }
   server.reboot_cancel: { mutating: true, description: "Cancel a scheduled restart." }
   server.root_password: { mutating: true, description: "Set the root password. It is hashed (SHA-512 crypt) in the agent and handed to chpasswd -e as a hash on standard input; it is never logged or returned." }

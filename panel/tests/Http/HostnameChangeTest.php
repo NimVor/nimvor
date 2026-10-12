@@ -58,4 +58,38 @@ final class HostnameChangeTest extends HttpTestCase
         $this->post('/server/hostname', ['hostname' => 'evil.host.test']);
         self::assertSame(0, $this->calls('server.set_hostname'));
     }
+
+    public function testHostnameReferencesAuditListsFindingsAndReappliesMail(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('server.hostname_references', [
+            'old' => 'vmi123.contaboserver.net', 'current' => 'vc100.oursvrs.com',
+            'mail_hostname' => 'vmi123.contaboserver.net', 'mail_stale' => true, 'count' => 2,
+            'findings' => [
+                ['category' => 'dns', 'path' => '/etc/bind/whacp/db.shop.test', 'sample' => '@ IN MX 10 vmi123.contaboserver.net.'],
+                ['category' => 'nginx', 'path' => '/etc/nginx/sites-available/whacp-hostname.conf', 'sample' => 'server_name vmi123.contaboserver.net;'],
+            ],
+        ]);
+
+        $page = $this->request('GET', '/server/hostname-references', [], [], '', ['old' => 'vmi123.contaboserver.net'])->body();
+        self::assertSame(['old' => 'vmi123.contaboserver.net'], $this->lastCall('server.hostname_references'));
+        self::assertStringContainsString('DNS zones', $page);
+        self::assertStringContainsString('db.shop.test', $page);
+        self::assertStringContainsString('Re-apply mail server', $page);
+
+        // Re-applying mail uses the current host name from system.info.
+        $this->agent->succeed('system.info', ['system' => ['hostname' => 'vc100.oursvrs.com']]);
+        $this->agent->succeed('mail.status', ['configured' => true]);
+        $this->agent->succeed('mail.configure', ['hostname' => 'vc100.oursvrs.com']);
+        $this->post('/server/hostname-references/mail');
+        self::assertSame('vc100.oursvrs.com', $this->lastCall('mail.configure')['hostname']);
+    }
+
+    public function testHostnameReferencesIsAdminOnly(): void
+    {
+        $this->login('cust');
+        self::assertNotSame(200, $this->request('GET', '/server/hostname-references', [], [], '', ['old' => 'x.test'])->status());
+        $this->post('/server/hostname-references/mail');
+        self::assertSame(0, $this->calls('mail.configure'));
+    }
 }

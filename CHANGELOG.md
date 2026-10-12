@@ -43,6 +43,13 @@ All notable changes to WhaCP are documented here. The format follows
     (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9) is the remaining GA gate.
 
 ### Fixed
+- **Host-name certificate after a rename.** The temporary Nginx site that
+  answers Let's Encrypt's HTTP challenge for the server host name was created
+  once and never rewritten, so after the host name changed it still carried
+  the old `server_name`; Nginx no longer matched the new name and the
+  challenge returned 404 (`unauthorized … Invalid response … 404`). It is now
+  rewritten whenever the host name differs, so re-issuing the host-name
+  certificate works after a rename.
 - **Placeholder contact email no longer blocks all SSL.** If the admin
   address was left at a reserved/example domain (e.g. the install docs'
   `you@example.com`), Let's Encrypt rejected the account with "contact email
@@ -151,6 +158,15 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **Host-name references audit (Server → "find the old name").** After a
+  host-name change, names recorded earlier — DNS zone records, Nginx server
+  names, Postfix's greeting — keep the old value. A read-only scan
+  (`server.hostname_references`) finds every place a given previous host name
+  still appears in `/etc/hosts`, WhaCP's Nginx sites, the hosted DNS zones and
+  the mail server, grouped with guidance and deep links, plus a one-click
+  "Re-apply mail server" when Postfix still greets with the old name. It only
+  reads configuration; customer DNS zones are listed, never rewritten
+  automatically.
 - **Choice of certificate authority: Let's Encrypt, ZeroSSL or Buypass.**
   WhaCP can now issue from ZeroSSL and Buypass Go in addition to Let's
   Encrypt, still through certbot and the same webroot/renewal/deploy
