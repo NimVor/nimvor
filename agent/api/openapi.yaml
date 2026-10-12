@@ -247,6 +247,7 @@ paths:
               - modsec.update
               - net.addresses
               - net.ipv6_ranges
+              - packages.advisories
               - packages.health
               - packages.install
               - packages.list
@@ -671,6 +672,7 @@ x-whacp-actions:
   modsec.update: { mutating: true, description: "Update the rule packages (OWASP CRS and the connector) with the package manager as a background job, then check with nginx -t and reload. If the new rules break the configuration, the Core Rule Set is turned off and the rest restored." }
   net.addresses: { mutating: false, description: "The server's IP addresses (per interface), default gateways and the routed IPv6 ranges WhaCP makes local." }
   net.ipv6_ranges: { mutating: true, description: "Set the routed IPv6 ranges (exactly these) whose addresses websites may use: each becomes a local route on lo, kept at boot by whacp-ipv6-ranges.service. Ranges overlapping an interface's on-link prefix or containing a gateway are refused." }
+  packages.advisories: { mutating: false, description: "Pending updates with the vulnerability information the OS provides: advisory id, severity and CVEs on RHEL (dnf updateinfo), security vs normal from the security pocket on Debian/Ubuntu. No automatic upgrades." }
   packages.health: { mutating: false, description: "Broken package state: install scripts that failed, missing dependencies, duplicates." }
   packages.install: { mutating: true, description: "Install allowlisted components: name, or names for several at once (job)." }
   packages.list: { mutating: false, description: "Installable components and their versions." }

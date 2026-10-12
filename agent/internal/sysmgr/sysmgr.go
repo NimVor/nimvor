@@ -263,6 +263,20 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return res, nil
 	}})
+	r.Register(actions.Action{Name: "packages.advisories", Description: "Pending updates with the vulnerability information the OS provides: advisory id, severity and CVEs on RHEL (dnf updateinfo), security vs normal from the security pocket on Debian/Ubuntu. No automatic upgrades.", Timeout: 2 * time.Minute, Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+		if !pkgs.Available(env) {
+			return nil, actions.Failed("The package manager is not available on this system.", "")
+		}
+		advs, err := pkgs.Advisories(ctx, env)
+		if err != nil {
+			return nil, actions.Failed("The advisory check failed.", err.Error())
+		}
+		n := map[string]int{"security": 0, "normal": 0, "unknown": 0}
+		for _, a := range advs {
+			n[a.Kind]++
+		}
+		return map[string]any{"advisories": advs, "count": len(advs), "security": n["security"], "normal": n["normal"], "unknown": n["unknown"]}, nil
+	}})
 	r.Register(actions.Action{Name: "packages.refresh", Mutating: true, Description: "Refresh the package index (apt-get update or dnf makecache) (job).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		j := env.Jobs.Start("packages.refresh", "server:packages", func(ctx context.Context, log io.Writer) (any, error) {
 			return nil, pkgs.Refresh(ctx, env, log)
