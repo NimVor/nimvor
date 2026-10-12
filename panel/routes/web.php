@@ -360,6 +360,9 @@ return static function (Router $r): void {
     $r->get('/setup', [\WhaCP\Http\Controllers\SetupController::class, 'index'], ['name' => 'setup', 'permission' => P::SERVER_MANAGE]);
     $r->post('/setup/step', [\WhaCP\Http\Controllers\SetupController::class, 'step'], ['name' => 'setup.step', 'permission' => P::SERVER_MANAGE]);
     $r->post('/setup/dismiss', [\WhaCP\Http\Controllers\SetupController::class, 'dismiss'], ['name' => 'setup.dismiss', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/runtimes', [\WhaCP\Http\Controllers\RuntimeController::class, 'index'], ['name' => 'runtimes', 'permission' => P::SERVER_VIEW]);
+    $r->post('/runtimes/install', [\WhaCP\Http\Controllers\RuntimeController::class, 'install'], ['name' => 'runtimes.install', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/runtimes/remove', [\WhaCP\Http\Controllers\RuntimeController::class, 'remove'], ['name' => 'runtimes.remove', 'permission' => P::SERVER_MANAGE]);
     $r->get('/components', [\WhaCP\Http\Controllers\ComponentsController::class, 'index'], ['name' => 'components', 'permission' => P::SERVER_VIEW]);
     $r->post('/components/profile', [\WhaCP\Http\Controllers\ComponentsController::class, 'profile'], ['name' => 'components.profile', 'permission' => P::SERVER_MANAGE]);
     $r->post('/components/{id}/{step}', [\WhaCP\Http\Controllers\ComponentsController::class, 'fix'], ['name' => 'components.fix', 'permission' => P::SERVER_VIEW]);

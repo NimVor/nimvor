@@ -96,6 +96,7 @@ final class Navigation
                 ['Setup wizard', 'magic', 'setup', P::SERVER_MANAGE, '/setup', 'Server profile, what is done and what is left'],
                 ['Components', 'puzzle', 'components', P::SERVER_VIEW, '/components', 'Web, PHP, email, DNS, FTP, caches, security: what each needs'],
                 ['PHP Manager', 'filetype-php', 'php.manager', P::PACKAGES_MANAGE, '/php/manager', 'Choose the PHP versions and extensions, review, apply'],
+                ['Runtimes', 'hexagon', 'runtimes', P::SERVER_VIEW, '/runtimes', 'Node.js and Python versions for website workers'],
                 ['All servers', 'diagram-3', 'servers', P::SERVERS_MANAGE, '/servers', 'Other servers managed from here'],
                 ['Services', 'cpu', 'services', P::SERVICES_VIEW, '/services', 'Start, stop and restart services'],
                 ['IP addresses', 'ethernet', 'ips', P::SERVER_VIEW, '/ips', 'Addresses and their websites'],

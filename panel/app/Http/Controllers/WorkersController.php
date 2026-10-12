@@ -21,6 +21,7 @@ final class WorkersController extends SiteController
         WebsiteRepository $sites,
         ServerContext $server,
         private readonly WorkerService $workers,
+        private readonly \WhaCP\Services\RuntimeService $runtimes,
     ) {
         parent::__construct($view, $session, $sites, $server);
     }
@@ -50,6 +51,7 @@ final class WorkersController extends SiteController
             'workers' => $workers,
             'status' => $this->workers->status($workers),
             'edit' => $editId > 0 ? $this->workers->find($site, $editId) : null,
+            'runtimes' => $this->runtimes->selectable(),
         ]);
     }
 
