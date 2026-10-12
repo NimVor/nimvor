@@ -248,7 +248,44 @@ final class SslCenterController extends Controller
         }
         $error = null;
         $svc = $this->call('ssl.services', [], $error);
-        return $this->page('services', ['svc' => $svc], $error);
+        $account = null;
+        if ($error === null) {
+            try {
+                $account = (array) $this->agent->call('ssl.account');
+            } catch (AgentException) {
+                $account = null;
+            }
+        }
+        return $this->page('services', ['svc' => $svc, 'account' => $account, 'defaultEmail' => (string) ($this->user($request)['email'] ?? '')], $error);
+    }
+
+    /**
+     * Register the Let's Encrypt account (or update its contact email) after
+     * the administrator accepts the Terms of Service. Issuing certificates
+     * registers implicitly too, but a bad contact (e.g. an example.com
+     * address) then fails every certificate; registering here surfaces the
+     * problem once, up front.
+     */
+    public function accountRegister(Request $request): Response
+    {
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $params = [
+            'email' => strtolower(trim($request->string('email'))),
+            'agree_tos' => $request->input('agree_tos') === '1',
+            'staging' => $request->input('staging') === '1',
+        ];
+        try {
+            $res = (array) $this->agent->call('ssl.account_register', $params, 120);
+        } catch (UserFacingException $e) {
+            $this->audit->record('ssl.account_register', 'server', 'lets-encrypt', AuditLogger::FAILURE, ['email' => $params['email'], 'error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/ssl/services#lets-encrypt-account', $e);
+        }
+        $this->audit->record('ssl.account_register', 'server', 'lets-encrypt', AuditLogger::SUCCESS, ['email' => $params['email'], 'updated' => (bool) ($res['updated'] ?? false)]);
+        return $this->redirectWithSuccess('/ssl/services#lets-encrypt-account', ($res['updated'] ?? false)
+            ? 'The Let\'s Encrypt account contact was updated to ' . $params['email'] . '.'
+            : 'A Let\'s Encrypt account was registered with ' . $params['email'] . '. Certificates can now be issued.');
     }
 
     public function serviceCert(Request $request): Response

@@ -60,6 +60,7 @@ func Register(r *actions.Registry, env *host.Env) {
 	env.Writer.Policy.Patterns = append(env.Writer.Policy.Patterns, DeployHook)
 	registerKeys(r, env)
 	registerStore(r, env)
+	registerAccount(r, env)
 
 	r.Register(actions.Action{Name: "ssl.issue", Mutating: true, Timeout: 5 * time.Minute, Description: "Issue or expand a Let's Encrypt certificate (webroot).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in issueReq

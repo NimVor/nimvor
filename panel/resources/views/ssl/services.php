@@ -29,6 +29,46 @@ $mt = (array) ($svc['mail_tls'] ?? []);
     <?php endif; ?>
 </div>
 
+<?php $acct = $account ?? null; ?>
+<?php if ($acct !== null): ?>
+    <?php $registered = !empty($acct['registered']); $acctEmail = (string) ($acct['email'] ?? ''); ?>
+    <div class="card mb-3" id="lets-encrypt-account">
+        <div class="card-header d-flex align-items-center"><i class="bi bi-person-badge me-1"></i>Let's Encrypt account
+            <span class="ms-auto"><?= $registered ? $this->statusBadge('active', 'registered') : $this->statusBadge('warning', 'not registered') ?></span>
+        </div>
+        <div class="card-body small">
+            <?php if (!$registered): ?>
+                <div class="alert alert-warning d-flex gap-2 mb-3" role="status">
+                    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                    <div>The system has no saved Let's Encrypt account. Register one below before issuing certificates. Use a real email address — Let's Encrypt refuses example/placeholder domains, which otherwise makes every certificate fail.</div>
+                </div>
+            <?php else: ?>
+                <dl class="wcp-dl mb-3">
+                    <dt>Contact email</dt><dd><?= $acctEmail !== '' ? e($acctEmail) : '<span class="text-body-secondary">none — Let\'s Encrypt cannot send expiry notices</span>' ?></dd>
+                    <?php if (!empty($acct['account_uri'])): ?><dt>Account</dt><dd class="font-monospace text-truncate"><?= e((string) $acct['account_uri']) ?></dd><?php endif; ?>
+                </dl>
+            <?php endif; ?>
+            <?php if ($canManage): ?>
+                <form method="post" action="<?= e($this->url('ssl.services.account')) ?>" data-wcp-busy>
+                    <?= $this->csrfField() ?>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-sm-6">
+                            <label class="form-label" for="le-acct-email"><?= $registered ? 'Contact email' : 'Account email' ?></label>
+                            <input class="form-control form-control-sm" id="le-acct-email" type="email" name="email" maxlength="254" required value="<?= e($acctEmail !== '' ? $acctEmail : (string) ($defaultEmail ?? '')) ?>" placeholder="you@your-real-domain.com">
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="form-check"><input class="form-check-input" type="checkbox" value="1" name="agree_tos" id="le-acct-tos" required><label class="form-check-label" for="le-acct-tos">I agree to the <a href="<?= e((string) ($acct['terms_url'] ?? 'https://letsencrypt.org/repository/')) ?>" target="_blank" rel="noopener">Terms of Service</a></label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" value="1" name="staging" id="le-acct-staging"><label class="form-check-label" for="le-acct-staging">Staging (test) environment</label></div>
+                        </div>
+                    </div>
+                    <button class="btn btn-sm btn-primary mt-3"<?= empty($acct['certbot_installed']) ? ' disabled title="Install certbot on the Packages page first"' : '' ?>><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $registered ? 'Update registration' : 'Register account' ?></button>
+                    <?php if ($registered): ?><span class="text-body-secondary ms-2">Updating overwrites the saved contact; it is optional and not required to use Let's Encrypt.</span><?php endif; ?>
+                </form>
+            <?php endif; ?>
+        </div>
+    </div>
+<?php endif; ?>
+
 <?php
 $serviceCard = function (string $key, string $title, string $icon, ?array $s, string $missing, string $note) use ($les, $canManage, $hostname): void {
     $c = $s['certificate'] ?? null; ?>

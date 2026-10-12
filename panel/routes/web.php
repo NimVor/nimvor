@@ -342,6 +342,7 @@ return static function (Router $r): void {
     $r->post('/ssl/services/cert', [\WhaCP\Http\Controllers\SslCenterController::class, 'serviceCert'], ['name' => 'ssl.services.cert', 'permission' => P::SERVER_MANAGE]);
     $r->post('/ssl/services/mail-tls', [\WhaCP\Http\Controllers\SslCenterController::class, 'mailTls'], ['name' => 'ssl.services.mail_tls', 'permission' => P::SERVER_MANAGE]);
     $r->post('/ssl/services/hostname', [\WhaCP\Http\Controllers\SslCenterController::class, 'hostnameIssue'], ['name' => 'ssl.services.hostname', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/ssl/services/account', [\WhaCP\Http\Controllers\SslCenterController::class, 'accountRegister'], ['name' => 'ssl.services.account', 'permission' => P::SERVER_MANAGE]);
     $r->get('/ssl/tls', [\WhaCP\Http\Controllers\SslCenterController::class, 'tls'], ['name' => 'ssl.tls', 'permission' => P::SSL_VIEW]);
     $r->post('/ssl/tls', [\WhaCP\Http\Controllers\SslCenterController::class, 'saveTls'], ['name' => 'ssl.tls.save', 'permission' => P::SERVER_MANAGE]);
     $r->get('/cron', [DiscoveryController::class, 'cron'], ['name' => 'cron', 'permission' => P::CRON_VIEW]);

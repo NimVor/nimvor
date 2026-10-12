@@ -98,6 +98,32 @@ final class SslCenterTest extends HttpTestCase
         self::assertStringContainsString('2 website configuration(s)', (string) $this->flash('success'));
     }
 
+    public function testLetsEncryptAccountCardAndRegistration(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('ssl.services', ['hostname' => 'server.test', 'certbot_installed' => true, 'lets_encrypt' => [], 'mail_tls' => []]);
+        $this->agent->succeed('ssl.account', ['provider' => "Let's Encrypt", 'certbot_installed' => true, 'registered' => false, 'email' => '', 'account_uri' => '', 'terms_url' => 'https://letsencrypt.org/repository/']);
+
+        $page = $this->request('GET', '/ssl/services')->body();
+        self::assertStringContainsString('Let\'s Encrypt account', $page);
+        self::assertStringContainsString('no saved Let\'s Encrypt account', $page);
+        self::assertStringContainsString('action="/ssl/services/account"', $page);
+        self::assertStringContainsString('Register account', $page);
+
+        // Registering passes the email and the accepted ToS to the agent.
+        $this->agent->succeed('ssl.account_register', ['registered' => true, 'updated' => false, 'email' => 'ops@real.test', 'account_uri' => 'https://acme-v02.api.letsencrypt.org/acme/acct/9']);
+        $this->post('/ssl/services/account', ['email' => 'ops@real.test', 'agree_tos' => '1']);
+        self::assertSame(['email' => 'ops@real.test', 'agree_tos' => true, 'staging' => false], $this->lastCall('ssl.account_register'));
+        self::assertStringContainsString('registered with ops@real.test', (string) $this->flash('success'));
+    }
+
+    public function testCustomersCannotRegisterLetsEncryptAccount(): void
+    {
+        $this->login('cust');
+        $this->post('/ssl/services/account', ['email' => 'x@real.test', 'agree_tos' => '1']);
+        self::assertSame(0, $this->calls('ssl.account_register'));
+    }
+
     public function testCustomersKeepTheirOwnPage(): void
     {
         $this->login('cust');

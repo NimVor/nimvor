@@ -151,6 +151,13 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **Let's Encrypt account (SSL/TLS → Services SSL).** A card shows whether
+  certbot holds a Let's Encrypt account, its contact email and account URL,
+  and warns when none is registered. Administrators can register the account
+  — or update its contact email — up front after accepting the Terms of
+  Service, instead of relying on implicit registration at first issuance
+  (where a bad contact silently fails every certificate). Reserved/example
+  and invalid addresses are refused with a clear message.
 - **Server → Health:** one page that shows whether anything is wrong.
   - It gathers the panel's checks: WhaCP itself (the doctor checks),
     resources, components, the security audit, updates, certificates,
