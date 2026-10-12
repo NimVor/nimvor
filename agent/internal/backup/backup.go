@@ -599,6 +599,7 @@ func (s Service) Restore(ctx context.Context, r RestoreRequest, cred *execx.Cred
 		}
 	}
 	if r.Files {
+		var safety *Manifest
 		if r.Safety {
 			fmt.Fprintln(log, "Creating a safety backup of the current files first…")
 			sm, err := s.CreateSite(ctx, SiteRequest{Domain: r.Domain, User: r.User, Root: r.Root, Files: true, Label: "Before restoring " + m.ID, Encrypt: m.Encrypted}, cred, log)
@@ -606,21 +607,28 @@ func (s Service) Restore(ctx context.Context, r RestoreRequest, cred *execx.Cred
 				return nil, fmt.Errorf("the safety backup failed, nothing was restored: %v", err)
 			}
 			result["safety_backup"] = sm.ID
+			safety = sm
 		}
 		f, _ := part("files", "")
-		rd, done, err := s.open(m, paths[f.Name])
-		if err != nil {
-			return nil, err
-		}
 		root, _ := s.real(r.Root)
 		fmt.Fprintf(log, "Restoring website files into %s…\n", r.Root)
-		out, err := s.Env.Runner.RunWith(ctx, "tar", execx.Opts{As: cred, Dir: root, Stdin: rd, Output: log, Timeout: -1}, "-C", root, "--no-same-owner", "-xf", "-")
-		done()
-		if err != nil {
-			return nil, fmt.Errorf("restoring files failed: %v %s", err, host.Output(out))
+		err := s.extractFiles(ctx, m, paths[f.Name], cred, root, log)
+		if err == nil {
+			err = s.Env.StripSetID(ctx, cred, root)
 		}
-		if err := s.Env.StripSetID(ctx, cred, root); err != nil {
-			return nil, err
+		if err != nil {
+			// The restore failed part-way. If a safety backup was taken,
+			// put the previous files back so the website is never left in a
+			// half-restored state; report whether that rollback succeeded.
+			if safety == nil {
+				return nil, fmt.Errorf("restoring files failed: %v", err)
+			}
+			fmt.Fprintln(log, "The restore failed; rolling back to the safety backup of the previous files…")
+			if rbErr := s.rollbackFiles(ctx, safety, cred, r, root, log); rbErr != nil {
+				return nil, fmt.Errorf("restoring files failed: %v; AND the automatic rollback also failed: %v — the previous files are in safety backup %s, restore it manually", err, rbErr, safety.ID)
+			}
+			fmt.Fprintln(log, "Rollback complete: the previous files were restored.")
+			return nil, fmt.Errorf("restoring files failed: %v; the previous files were restored from the safety backup (%s)", err, safety.ID)
 		}
 		result["files"] = true
 	}
@@ -643,6 +651,55 @@ func (s Service) Restore(ctx context.Context, r RestoreRequest, cred *execx.Cred
 	result["databases"] = restored
 	fmt.Fprintln(log, "Restore complete.")
 	return result, nil
+}
+
+// extractFiles unpacks a backup's files archive into root as the site
+// account. The reader is decrypted/decompressed by s.open.
+func (s Service) extractFiles(ctx context.Context, m *Manifest, path string, cred *execx.Credential, root string, log io.Writer) error {
+	rd, done, err := s.open(m, path)
+	if err != nil {
+		return err
+	}
+	defer done()
+	out, err := s.Env.Runner.RunWith(ctx, "tar", execx.Opts{As: cred, Dir: root, Stdin: rd, Output: log, Timeout: -1}, "-C", root, "--no-same-owner", "-xf", "-")
+	if err != nil {
+		return fmt.Errorf("%v %s", err, host.Output(out))
+	}
+	return nil
+}
+
+// rollbackFiles restores the safety backup's files over root after a failed
+// restore, then verifies the result, so a website is never left half
+// restored. The safety backup was just created locally by CreateSite, so
+// its archive is on disk and needs no download.
+func (s Service) rollbackFiles(ctx context.Context, safety *Manifest, cred *execx.Credential, r RestoreRequest, root string, log io.Writer) error {
+	_, dir, err := s.Load(r.Domain, safety.ID)
+	if err != nil {
+		return fmt.Errorf("the safety backup could not be loaded: %v", err)
+	}
+	var files FileEntry
+	ok := false
+	for _, f := range safety.Files {
+		if f.Kind == "files" {
+			files, ok = f, true
+			break
+		}
+	}
+	if !ok {
+		return fmt.Errorf("the safety backup has no files archive")
+	}
+	if err := s.extractFiles(ctx, safety, filepath.Join(dir, files.Name), cred, root, log); err != nil {
+		return err
+	}
+	if err := s.Env.StripSetID(ctx, cred, root); err != nil {
+		return err
+	}
+	// Verify the rollback produced readable content (the root exists and the
+	// archive extracted without error above).
+	if _, err := os.Stat(root); err != nil {
+		return fmt.Errorf("the website root is missing after rollback: %v", err)
+	}
+	return nil
 }
 
 // serverPaths are archived by a server configuration backup.
