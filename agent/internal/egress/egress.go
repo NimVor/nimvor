@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -67,10 +68,34 @@ type Settings struct {
 	// website accounts may connect to.
 	TCPPorts []int `json:"tcp_ports"`
 	UDPPorts []int `json:"udp_ports"`
+	// LoopbackIsolation, when on, stops website accounts reaching the shared
+	// cache and service ports on the loopback interface (Redis, Memcached …),
+	// which have no per-tenant authentication and would otherwise let one
+	// website read another's cache. It is off by default so hosting is never
+	// changed without an administrator's choice. LoopbackPorts are the guarded
+	// TCP ports (default 6379 and 11211 when the list is empty). LoopbackAllow
+	// maps a website account name to the guarded ports it may still reach (the
+	// controlled exceptions, e.g. the one site that owns a Redis instance).
+	LoopbackIsolation bool             `json:"loopback_isolation"`
+	LoopbackPorts     []int            `json:"loopback_ports"`
+	LoopbackAllow     map[string][]int `json:"loopback_allow"`
+}
+
+// DefaultLoopbackPorts are the shared services guarded by loopback isolation:
+// Redis (6379, 6380) and Memcached (11211). Database ports are not guarded —
+// they authenticate each user, and a website reaching its own database over
+// loopback is normal.
+var DefaultLoopbackPorts = []int{6379, 6380, 11211}
+
+func (s Settings) loopbackPorts() []int {
+	if len(s.LoopbackPorts) > 0 {
+		return s.LoopbackPorts
+	}
+	return DefaultLoopbackPorts
 }
 
 func (s Settings) blocksAnything() bool {
-	return !s.MetadataAllowed || s.BlockPrivate || len(s.TCPPorts) > 0 || len(s.UDPPorts) > 0
+	return !s.MetadataAllowed || s.BlockPrivate || len(s.TCPPorts) > 0 || len(s.UDPPorts) > 0 || s.LoopbackIsolation
 }
 
 // Normalize checks the ports and sorts them.
@@ -93,8 +118,39 @@ func (s *Settings) Normalize() error {
 		sort.Ints(out)
 		*ps = out
 	}
+	// Loopback isolation: validate the guarded ports and the per-account
+	// exceptions.
+	clean := func(in []int) ([]int, error) {
+		seen := map[int]bool{}
+		var out []int
+		for _, p := range in {
+			if p < 1 || p > 65535 {
+				return nil, fmt.Errorf("loopback port %d is not between 1 and 65535", p)
+			}
+			if !seen[p] {
+				seen[p] = true
+				out = append(out, p)
+			}
+		}
+		sort.Ints(out)
+		return out, nil
+	}
+	var err error
+	if s.LoopbackPorts, err = clean(s.LoopbackPorts); err != nil {
+		return err
+	}
+	for name, ports := range s.LoopbackAllow {
+		if !accountNameRe.MatchString(name) {
+			return fmt.Errorf("loopback_allow has an invalid account name %q", name)
+		}
+		if s.LoopbackAllow[name], err = clean(ports); err != nil {
+			return err
+		}
+	}
 	return nil
 }
+
+var accountNameRe = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
 
 var mu sync.Mutex
 
@@ -125,6 +181,18 @@ func uids(env *host.Env) []string {
 	return out
 }
 
+// loopbackAllowByUID resolves the per-account loopback exceptions to a map
+// keyed by UID string, for Rules. Unknown accounts are skipped.
+func loopbackAllowByUID(env *host.Env, s Settings) map[string][]int {
+	out := map[string][]int{}
+	for name, ports := range s.LoopbackAllow {
+		if u, err := env.LookupUser(name); err == nil && len(ports) > 0 {
+			out[strconv.Itoa(u.UID)] = ports
+		}
+	}
+	return out
+}
+
 func join(l []string) string { return strings.Join(l, ", ") }
 
 func ints(l []int) string {
@@ -135,11 +203,39 @@ func ints(l []int) string {
 	return join(s)
 }
 
-// Rules renders the table for the website accounts' UIDs.
-func Rules(s Settings, ids []string) string {
+// Rules renders the table for the website accounts' UIDs. allow maps a UID
+// (string) to the guarded loopback ports it may still reach, when loopback
+// isolation is on.
+func Rules(s Settings, ids []string, allow map[string][]int) string {
 	var b strings.Builder
 	b.WriteString("# Managed by WhaCP: outgoing connections of website accounts.\n")
-	fmt.Fprintf(&b, "table inet %s\ndelete table inet %s\ntable inet %s {\n\tchain output {\n\t\ttype filter hook output priority 0; policy accept;\n\t\toifname \"lo\" accept\n", table, table, table)
+	fmt.Fprintf(&b, "table inet %s\ndelete table inet %s\ntable inet %s {\n\tchain output {\n\t\ttype filter hook output priority 0; policy accept;\n", table, table, table)
+	// Loopback isolation must come before the blanket loopback accept: for
+	// website accounts, the guarded cache ports on 127.0.0.1/::1 are rejected
+	// unless the account is allowlisted. Everything else on loopback is still
+	// accepted.
+	if s.LoopbackIsolation && len(ids) > 0 {
+		lp := ints(s.loopbackPorts())
+		var denied []string
+		for _, uid := range ids {
+			if ports := allow[uid]; len(ports) > 0 {
+				fmt.Fprintf(&b, "\t\tmeta skuid %s ip daddr 127.0.0.0/8 tcp dport { %s } accept comment \"loopback allow\"\n", uid, ints(ports))
+				fmt.Fprintf(&b, "\t\tmeta skuid %s ip6 daddr ::1 tcp dport { %s } accept comment \"loopback allow\"\n", uid, ints(ports))
+				// An account allowed every guarded port needs no reject rule.
+				if len(ports) < len(s.loopbackPorts()) {
+					denied = append(denied, uid)
+				}
+			} else {
+				denied = append(denied, uid)
+			}
+		}
+		if len(denied) > 0 {
+			who := "meta skuid { " + join(denied) + " } "
+			fmt.Fprintf(&b, "\t\t%sip daddr 127.0.0.0/8 tcp dport { %s } counter reject with tcp reset comment \"shared cache\"\n", who, lp)
+			fmt.Fprintf(&b, "\t\t%sip6 daddr ::1 tcp dport { %s } counter reject with tcp reset comment \"shared cache\"\n", who, lp)
+		}
+	}
+	b.WriteString("\t\toifname \"lo\" accept\n")
 	if len(ids) > 0 {
 		who := "meta skuid { " + join(ids) + " } "
 		if !s.MetadataAllowed {
@@ -182,8 +278,13 @@ func Status(ctx context.Context, env *host.Env) map[string]any {
 	if udp == nil {
 		udp = []int{}
 	}
+	lb := s.LoopbackAllow
+	if lb == nil {
+		lb = map[string][]int{}
+	}
 	return map[string]any{"available": available, "active": active, "metadata_blocked": !s.MetadataAllowed, "block_private": s.BlockPrivate,
-		"tcp_ports": tcp, "udp_ports": udp, "accounts": len(uids(env)), "metadata": append(append([]string{}, Metadata4...), Metadata6...)}
+		"tcp_ports": tcp, "udp_ports": udp, "accounts": len(uids(env)), "metadata": append(append([]string{}, Metadata4...), Metadata6...),
+		"loopback_isolation": s.LoopbackIsolation, "loopback_ports": s.loopbackPorts(), "loopback_allow": lb}
 }
 
 // Set saves the settings and applies them.
@@ -246,7 +347,7 @@ func apply(ctx context.Context, env *host.Env, s Settings, force bool) error {
 		}
 		return env.DaemonReload(ctx)
 	}
-	rules := Rules(s, uids(env))
+	rules := Rules(s, uids(env), loopbackAllowByUID(env, s))
 	cur, _ := env.Root.ReadFile(execx.NftEgressFile)
 	curUnit, _ := env.Root.ReadFile(unitPath)
 	if !force && string(cur) == rules && string(curUnit) == unit() {

@@ -128,3 +128,49 @@ func TestRefreshWithoutNft(t *testing.T) {
 		t.Error("available without nft")
 	}
 }
+
+// Loopback isolation (item 80): website accounts are refused the shared
+// cache ports on loopback, except an allowlisted account and port.
+func TestLoopbackIsolation(t *testing.T) {
+	h := setup(t)
+	ctx := context.Background()
+	if err := Set(ctx, h.Env, Settings{MetadataAllowed: true, LoopbackIsolation: true, LoopbackAllow: map[string][]int{"shop": {6379}}}); err != nil {
+		t.Fatal(err)
+	}
+	rules := h.Read(execx.NftEgressFile)
+	for _, want := range []string{
+		// shop (1600) may still reach Redis on loopback.
+		"meta skuid 1600 ip daddr 127.0.0.0/8 tcp dport { 6379 } accept",
+		"meta skuid 1600 ip6 daddr ::1 tcp dport { 6379 } accept",
+		// both accounts are refused the full guarded set (shop's 6379 is
+		// accepted first above, so only its other ports are rejected).
+		"meta skuid { 1600, 1601 } ip daddr 127.0.0.0/8 tcp dport { 6379, 6380, 11211 } counter reject with tcp reset",
+		"meta skuid { 1600, 1601 } ip6 daddr ::1 tcp dport { 6379, 6380, 11211 } counter reject with tcp reset",
+	} {
+		if !strings.Contains(rules, want) {
+			t.Errorf("rules lack %q:\n%s", want, rules)
+		}
+	}
+	// The blanket loopback accept comes after the isolation rules.
+	iso := strings.Index(rules, "shared cache")
+	lo := strings.Index(rules, `oifname "lo" accept`)
+	if iso < 0 || lo < 0 || iso > lo {
+		t.Errorf("the shared-cache reject must precede the loopback accept (iso=%d lo=%d)", iso, lo)
+	}
+	st := Status(ctx, h.Env)
+	if st["loopback_isolation"] != true {
+		t.Errorf("status loopback_isolation: %v", st["loopback_isolation"])
+	}
+	// An account allowed every guarded port gets no reject rule of its own.
+	if err := Set(ctx, h.Env, Settings{MetadataAllowed: true, LoopbackIsolation: true, LoopbackPorts: []int{6379}, LoopbackAllow: map[string][]int{"shop": {6379}}}); err != nil {
+		t.Fatal(err)
+	}
+	rules = h.Read(execx.NftEgressFile)
+	if strings.Contains(rules, "meta skuid { 1600, 1601 }") || !strings.Contains(rules, "meta skuid { 1601 }") {
+		t.Errorf("a fully-allowed account should be dropped from the reject set:\n%s", rules)
+	}
+	// An invalid account name in the exceptions is refused.
+	if err := Set(ctx, h.Env, Settings{LoopbackIsolation: true, LoopbackAllow: map[string][]int{"bad name!": {6379}}}); err == nil {
+		t.Error("an invalid account name was accepted")
+	}
+}

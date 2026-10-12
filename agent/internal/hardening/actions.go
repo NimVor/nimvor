@@ -23,17 +23,21 @@ func Register(r *actions.Registry, env *host.Env) {
 			"egress":     egress.Status(ctx, env),
 		}, nil
 	}})
-	r.Register(actions.Action{Name: "hardening.egress", Mutating: true, Description: "Website accounts' outgoing connections (nftables table loaded at boot): metadata_blocked (cloud metadata services, on by default), block_private (private and link-local networks), tcp_ports/udp_ports (when set, the only remote ports allowed).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "hardening.egress", Mutating: true, Description: "Website accounts' outgoing connections (nftables table loaded at boot): metadata_blocked (cloud metadata services, on by default), block_private (private and link-local networks), tcp_ports/udp_ports (when set, the only remote ports allowed), loopback_isolation (stop website accounts reaching the shared cache ports on loopback — Redis, Memcached — off by default), loopback_ports (the guarded ports), loopback_allow (account name → ports it may still reach).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
-			MetadataBlocked bool  `json:"metadata_blocked"`
-			BlockPrivate    bool  `json:"block_private"`
-			TCPPorts        []int `json:"tcp_ports"`
-			UDPPorts        []int `json:"udp_ports"`
+			MetadataBlocked   bool             `json:"metadata_blocked"`
+			BlockPrivate      bool             `json:"block_private"`
+			TCPPorts          []int            `json:"tcp_ports"`
+			UDPPorts          []int            `json:"udp_ports"`
+			LoopbackIsolation bool             `json:"loopback_isolation"`
+			LoopbackPorts     []int            `json:"loopback_ports"`
+			LoopbackAllow     map[string][]int `json:"loopback_allow"`
 		}
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
 		}
-		s := egress.Settings{MetadataAllowed: !in.MetadataBlocked, BlockPrivate: in.BlockPrivate, TCPPorts: in.TCPPorts, UDPPorts: in.UDPPorts}
+		s := egress.Settings{MetadataAllowed: !in.MetadataBlocked, BlockPrivate: in.BlockPrivate, TCPPorts: in.TCPPorts, UDPPorts: in.UDPPorts,
+			LoopbackIsolation: in.LoopbackIsolation, LoopbackPorts: in.LoopbackPorts, LoopbackAllow: in.LoopbackAllow}
 		if err := s.Normalize(); err != nil {
 			return nil, actions.InvalidParams(err.Error())
 		}
