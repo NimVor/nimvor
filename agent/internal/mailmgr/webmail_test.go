@@ -157,6 +157,15 @@ func TestWebmail(t *testing.T) {
 	if !h.Exists("etc/whacp-webmail/config.inc.php") {
 		t.Error("configuration removed when turning off")
 	}
+
+	// WhaCP's own host-name challenge site (ACME on port 80) must not count
+	// as a website owning the name — webmail can still use it on 443.
+	os.WriteFile(filepath.Join(h.Base, "etc/nginx/sites-available/whacp-hostname.conf"),
+		[]byte("server {\n    listen 80;\n    server_name hn.example.net;\n    location /.well-known/acme-challenge/ { root /var/www/whacp-acme; }\n    location / { return 404; }\n}\n"), 0o644)
+	os.Symlink("/etc/nginx/sites-available/whacp-hostname.conf", filepath.Join(h.Base, "etc/nginx/sites-enabled/whacp-hostname.conf"))
+	if _, err := call(t, r, "mail.webmail_configure", map[string]any{"enabled": true, "hostname": "hn.example.net"}); err != nil && strings.Contains(err.Error(), "already answers") {
+		t.Fatalf("host-name challenge site wrongly blocked webmail: %v", err)
+	}
 }
 
 // Roundcube 1.6.11 declares array_first(), which PHP 8.5 has built in:

@@ -588,7 +588,10 @@ func registerWebmail(r *actions.Registry, e env) {
 		for _, w := range e.Discovery.Websites(ctx).Websites {
 			mine := false
 			for _, f := range w.ConfigFiles {
-				mine = mine || f == e.webmailVhost() || f == e.webmailLink()
+				// Webmail's own site, and WhaCP's host-name challenge site
+				// (port 80, ACME only), do not count as a website owning the
+				// name — webmail can still answer for it on 443.
+				mine = mine || f == e.webmailVhost() || f == e.webmailLink() || filepath.Base(f) == "whacp-hostname.conf"
 			}
 			if !mine && (w.Domain == in.Hostname || contains(w.Aliases, in.Hostname)) {
 				return nil, actions.Conflict("The website " + w.Domain + " already answers for " + in.Hostname + ". Choose another host name for webmail.")
