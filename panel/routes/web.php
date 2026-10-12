@@ -425,6 +425,13 @@ return static function (Router $r): void {
     $r->post('/security/forkbomb', [\WhaCP\Http\Controllers\HardeningController::class, 'saveForkbomb'], ['name' => 'security.forkbomb.save', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/traceroute', [\WhaCP\Http\Controllers\HardeningController::class, 'traceroute'], ['name' => 'security.traceroute', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/traceroute', [\WhaCP\Http\Controllers\HardeningController::class, 'saveTraceroute'], ['name' => 'security.traceroute.save', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/integrity', [\WhaCP\Http\Controllers\SecurityChecksController::class, 'integrity'], ['name' => 'security.integrity', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/integrity/run', [\WhaCP\Http\Controllers\SecurityChecksController::class, 'runIntegrity'], ['name' => 'security.integrity.run', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/integrity/baseline', [\WhaCP\Http\Controllers\SecurityChecksController::class, 'setBaseline'], ['name' => 'security.integrity.baseline', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/tls', [\WhaCP\Http\Controllers\SecurityChecksController::class, 'tls'], ['name' => 'security.tls', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/tls/run', [\WhaCP\Http\Controllers\SecurityChecksController::class, 'runTls'], ['name' => 'security.tls.run', 'permission' => P::SECURITY_VIEW]);
+    $r->get('/security/advisories', [\WhaCP\Http\Controllers\SecurityChecksController::class, 'advisories'], ['name' => 'security.advisories', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/advisories/run', [\WhaCP\Http\Controllers\SecurityChecksController::class, 'runAdvisories'], ['name' => 'security.advisories.run', 'permission' => P::SECURITY_VIEW]);
     $r->get('/security/modsec', [\WhaCP\Http\Controllers\ModSecurityController::class, 'index'], ['name' => 'security.modsec', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/modsec', [\WhaCP\Http\Controllers\ModSecurityController::class, 'configure'], ['name' => 'security.modsec.configure', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/modsec/rule', [\WhaCP\Http\Controllers\ModSecurityController::class, 'saveRule'], ['name' => 'security.modsec.rule', 'permission' => P::SECURITY_MANAGE]);
