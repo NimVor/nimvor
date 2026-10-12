@@ -850,6 +850,19 @@ fi
 # name (replace it with a real one for a domain; see the installation guide).
 if [[ -n $PUBLIC_HTTPS ]]; then
     log "Serving the panel over HTTPS on port ${PUBLIC_HTTPS}"
+    # On a reinstall/update, keep the certificate the administrator chose for
+    # the panel on Services SSL (it is written into this vhost); rewriting the
+    # vhost with the self-signed default would silently revert that choice.
+    # Only a fresh install (no vhost yet) falls back to the default below.
+    if [[ -s $PANEL_SITE ]]; then
+        cur_cert=$(awk '$1=="ssl_certificate"{print $2}' "$PANEL_SITE" | tr -d ';' | head -1)
+        cur_key=$(awk '$1=="ssl_certificate_key"{print $2}' "$PANEL_SITE" | tr -d ';' | head -1)
+        if [[ -n $cur_cert && -s $cur_cert && -n $cur_key && -s $cur_key ]]; then
+            PANEL_CERT=$cur_cert
+            PANEL_CERT_KEY=$cur_key
+            ok "keeping the panel's chosen certificate ($PANEL_CERT)"
+        fi
+    fi
     if [[ ! -s $PANEL_CERT || ! -s $PANEL_CERT_KEY ]]; then
         fqdn=$(hostname -f 2>/dev/null || hostname)
         san="DNS:${fqdn}"

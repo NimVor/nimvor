@@ -43,6 +43,13 @@ All notable changes to WhaCP are documented here. The format follows
     (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9) is the remaining GA gate.
 
 ### Fixed
+- **Update no longer reverts the panel's certificate.** `update.sh` runs
+  `install.sh --reinstall`, which rewrote the panel's HTTPS Nginx site and so
+  reset its `ssl_certificate` to the self-signed default — discarding a
+  certificate chosen on SSL/TLS → Services SSL (e.g. a Let's Encrypt one),
+  which then showed as "unused". The installer now reads the certificate the
+  existing panel site already uses and keeps it; only a fresh install (no
+  panel site yet) falls back to the self-signed default.
 - **Host-name certificate after a rename.** The temporary Nginx site that
   answers Let's Encrypt's HTTP challenge for the server host name was created
   once and never rewritten, so after the host name changed it still carried
