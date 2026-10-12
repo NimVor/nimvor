@@ -78,7 +78,7 @@ final class MailGreylistController extends Controller
     private function change(string $action, callable $change, string $done, array $details = []): Response
     {
         try {
-            $params = $change(self::params((array) $this->state()['config']));
+            $params = $change(self::params((array) ($this->state()['config'] ?? [])));
             $this->agent->call('mail.greylist_set', $params, 180);
         } catch (UserFacingException $e) {
             $this->audit->record($action, 'server', 'greylisting', AuditLogger::FAILURE, $details + ['error' => $e->getMessage()]);

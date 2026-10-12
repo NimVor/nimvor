@@ -21,6 +21,15 @@ final class FakeTransport implements AgentTransport
 
     public bool $down = false;
 
+    /** When true, any action without an explicit response returns empty OK. */
+    public bool $okByDefault = false;
+
+    /** Make every unconfigured action return a generic success (empty data). */
+    public function succeedAny(): void
+    {
+        $this->okByDefault = true;
+    }
+
     /** @param array<string, mixed> $data */
     public function succeed(string $action, mixed $data): void
     {
@@ -42,7 +51,15 @@ final class FakeTransport implements AgentTransport
         if ($this->down) {
             throw new AgentUnavailableException('The WhaCP agent is not reachable.', 'socket missing', 'start it', 'agent_unavailable');
         }
-        return $this->responses[$path] ?? new AgentHttpResponse(404, (string) json_encode([
+        if (isset($this->responses[$path])) {
+            return $this->responses[$path];
+        }
+        if ($this->okByDefault && str_starts_with($path, '/v1/actions/')) {
+            return new AgentHttpResponse(200, (string) json_encode([
+                'success' => true, 'action' => substr($path, strlen('/v1/actions/')), 'message' => 'OK', 'data' => [], 'request_id' => 'test',
+            ]));
+        }
+        return new AgentHttpResponse(404, (string) json_encode([
             'success' => false, 'error' => ['code' => 'unknown_action', 'message' => 'nope'],
         ]));
     }
