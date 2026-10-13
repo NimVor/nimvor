@@ -152,6 +152,17 @@ func BinDir(env *host.Env, selection string) (string, error) {
 			return rt.Bin, nil
 		}
 	}
+	// A Python site may select one of the system's own interpreters
+	// (e.g. python3.10 from the distribution or installed via Packages),
+	// which is not WhaCP-managed; resolve it to the directory holding
+	// python<version>.
+	if kind == "python" {
+		for _, dir := range []string{"/usr/local/bin", "/usr/bin"} {
+			if env.Root.Exists(dir + "/python" + ver) {
+				return dir, nil
+			}
+		}
+	}
 	return "", fmt.Errorf("the %s %s runtime is not installed", kind, ver)
 }
 

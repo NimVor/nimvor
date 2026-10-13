@@ -37,22 +37,40 @@ final class RuntimeService
     }
 
     /**
-     * The runtimes a worker may select: the managed Node and Python runtimes,
-     * as selection strings ("node:20.17.0").
+     * The runtimes a worker (or a Node.js/Python site) may select, as
+     * selection strings ("node:20.17.0", "python:3.12"). This includes the
+     * WhaCP-managed runtimes and the system's own Python interpreters (which
+     * come from the distribution or Packages), since there is no managed
+     * Python install path. The system Node is offered as "system" instead.
      *
      * @return list<string>
      */
     public function selectable(): array
     {
-        $out = [];
         try {
             $s = $this->status();
         } catch (\WhaCP\Agent\AgentException) {
             return [];
         }
+        $out = [];
+        $seen = [];
+        $add = static function (string $sel) use (&$out, &$seen): void {
+            if (!isset($seen[$sel])) {
+                $seen[$sel] = true;
+                $out[] = $sel;
+            }
+        };
         foreach (['node', 'python'] as $kind) {
             foreach ($s[$kind] as $rt) {
-                $out[] = $kind . ':' . (string) ($rt['version'] ?? '');
+                $add($kind . ':' . (string) ($rt['version'] ?? ''));
+            }
+        }
+        // System Python interpreters (python3.10, python3.11, …) are
+        // selectable by their version too; the system Node is "system".
+        foreach ($s['system'] as $rt) {
+            $v = (string) ($rt['version'] ?? '');
+            if (($rt['kind'] ?? '') === 'python' && $v !== '' && $v !== 'system') {
+                $add('python:' . $v);
             }
         }
         return $out;

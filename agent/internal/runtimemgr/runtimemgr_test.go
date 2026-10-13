@@ -192,4 +192,13 @@ func TestStatusReportsSystemInterpreters(t *testing.T) {
 	if !py || !node {
 		t.Fatalf("system interpreters not reported: %+v", st.System)
 	}
+
+	// A Python site may select a system interpreter by version; BinDir
+	// resolves it to the directory holding python<version>.
+	if bin, err := BinDir(h.Env, "python:3.12"); err != nil || bin != "/usr/bin" {
+		t.Fatalf("system python BinDir: %q %v", bin, err)
+	}
+	if _, err := BinDir(h.Env, "python:3.99"); err == nil {
+		t.Fatal("a missing system python should be an error")
+	}
 }

@@ -46,6 +46,15 @@ final class RuntimeTest extends HttpTestCase
         self::assertSame(1, (int) $this->app->container->get(Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'runtime.remove'"));
     }
 
+    public function testSelectableIncludesSystemPython(): void
+    {
+        // A Node.js/Python site can choose a managed runtime or a system
+        // Python interpreter (python3.12 here).
+        $sel = $this->app->container->get(\WhaCP\Services\RuntimeService::class)->selectable();
+        self::assertContains('node:20.17.0', $sel);
+        self::assertContains('python:3.12', $sel, 'system Python versions are selectable');
+    }
+
     public function testCustomersCannotReachRuntimeManagement(): void
     {
         $this->login('cust');
