@@ -68,8 +68,8 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         $kindCards = array_values(array_filter([
                             ['php', 'PHP application', 'filetype-php', 'type_php'],
                             ['static', 'Static site', 'file-earmark-code', 'type_static'],
-                            ['proxy', 'Node.js', 'hexagon', 'type_nodejs'],
-                            ['proxy', 'Python', 'filetype-py', 'type_python'],
+                            ['nodejs', 'Node.js', 'hexagon', 'type_nodejs'],
+                            ['python', 'Python', 'filetype-py', 'type_python'],
                             ['proxy', 'Reverse proxy', 'hdd-network', 'type_proxy'],
                         ], static fn (array $c): bool => !empty($allowedTypes[$c[3]])));
                         $kindChosen = false;
@@ -103,6 +103,35 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         <?= $err('proxy_pass') ?>
                         <div class="form-text">Your app must listen on this local port (run it as a Worker).</div>
                     </div>
+                    <?php
+                    $runtimes ??= [];
+                    foreach (['nodejs' => 'node', 'python' => 'python'] as $ak => $rp):
+                        if (empty($allowedTypes['type_' . $ak])) {
+                            continue;
+                        }
+                        $opts = array_values(array_filter($runtimes, static fn (string $r): bool => str_starts_with($r, $rp . ':')));
+                    ?>
+                    <div data-wcp-kind="<?= e($ak) ?>">
+                        <div class="row g-2">
+                            <div class="col-sm-7">
+                                <label class="form-label" for="f-rt-<?= e($ak) ?>"><?= $ak === 'python' ? 'Python' : 'Node.js' ?> version</label>
+                                <select class="form-select<?= $cls('app_runtime') ?>" id="f-rt-<?= e($ak) ?>" name="app_runtime">
+                                    <?php if ($opts === []): ?><option value="">None installed — ask your provider</option><?php endif; ?>
+                                    <?php foreach ($opts as $r): ?><option value="<?= e($r) ?>"<?= (string) $v('app_runtime') === $r ? ' selected' : '' ?>><?= e(ucfirst($rp)) ?> <?= e(substr($r, strlen($rp) + 1)) ?></option><?php endforeach; ?>
+                                </select>
+                                <?= $err('app_runtime') ?>
+                            </div>
+                            <div class="col-sm-5">
+                                <label class="form-label" for="f-port-<?= e($ak) ?>">App port</label>
+                                <input class="form-control<?= $cls('app_port') ?>" id="f-port-<?= e($ak) ?>" name="app_port" type="number" min="1024" max="65535" value="<?= e($v('app_port', $ak === 'python' ? '8000' : '3000')) ?>">
+                                <?= $err('app_port') ?>
+                            </div>
+                        </div>
+                        <label class="form-label mt-2" for="f-cmd-<?= e($ak) ?>">Start command <span class="text-body-secondary small">(optional)</span></label>
+                        <input class="form-control font-monospace" id="f-cmd-<?= e($ak) ?>" name="app_command" value="<?= e($v('app_command')) ?>" placeholder="<?= $ak === 'python' ? 'gunicorn app:app --bind 127.0.0.1:$PORT' : 'node server.js' ?>">
+                        <div class="form-text">We run your app as a background service on the chosen runtime and serve it over your domain. <code>PORT</code> is set for you. You can edit it later under Runtime.</div>
+                    </div>
+                    <?php endforeach; ?>
                     <div class="mb-0">
                         <label class="form-label" for="f-docsub">Document root</label>
                         <div class="input-group">

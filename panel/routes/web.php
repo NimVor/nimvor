@@ -316,6 +316,10 @@ return static function (Router $r): void {
     $r->post('/terminal/sessions/{id}/close', [\WhaCP\Http\Controllers\TerminalController::class, 'close'], ['name' => 'terminal.close', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/redis/browser', [RedisBrowserController::class, 'browse'], ['name' => 'redis.browser', 'permission' => P::REDIS_MANAGE]);
     $r->post('/redis/browser/api', [RedisBrowserController::class, 'api'], ['name' => 'redis.browser.api', 'permission' => P::REDIS_MANAGE]);
+    $r->get('/sites/{id}/nodejs', [\WhaCP\Http\Controllers\SiteRuntimeController::class, 'index'], ['name' => 'sites.nodejs', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/nodejs', [\WhaCP\Http\Controllers\SiteRuntimeController::class, 'update'], ['name' => 'sites.nodejs.update', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/python', [\WhaCP\Http\Controllers\SiteRuntimeController::class, 'index'], ['name' => 'sites.python', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/python', [\WhaCP\Http\Controllers\SiteRuntimeController::class, 'update'], ['name' => 'sites.python.update', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/mongo', [\WhaCP\Http\Controllers\SiteMongoController::class, 'index'], ['name' => 'sites.mongo', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/mongo/databases', [\WhaCP\Http\Controllers\SiteMongoController::class, 'createDatabase'], ['name' => 'sites.mongo.database_create', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/mongo/databases/drop', [\WhaCP\Http\Controllers\SiteMongoController::class, 'dropDatabase'], ['name' => 'sites.mongo.database_drop', 'permission' => P::WEBSITES_MANAGE]);

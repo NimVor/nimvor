@@ -41,6 +41,8 @@ final class SiteMenu
         ['firewall', 'Web firewall', 'shield-shaded', 'sites.firewall', P::WEBSITES_VIEW],
         ['redis', 'Redis', 'lightning', 'sites.redis', P::WEBSITES_MANAGE],
         ['memcached', 'Memcached', 'hdd-stack', 'sites.memcached', P::WEBSITES_VIEW],
+        ['nodejs', 'Runtime', 'hexagon', 'sites.nodejs', P::WEBSITES_MANAGE],
+        ['python', 'Runtime', 'filetype-py', 'sites.python', P::WEBSITES_MANAGE],
         ['settings', 'PHP & settings', 'sliders', 'sites.edit', P::WEBSITES_MANAGE],
         ['advanced', 'Advanced', 'tools', 'sites.advanced', P::WEBSITES_MANAGE],
     ];
@@ -53,8 +55,13 @@ final class SiteMenu
      */
     public static function items(View $view, array $site): array
     {
+        // The Node.js/Python "Runtime" entry only applies to that app type.
+        $appType = \WhaCP\Services\WebsiteService::appType($site);
         $out = [];
         foreach (self::ITEMS as [$key, $label, $icon, $route, $perm]) {
+            if (($key === 'nodejs' || $key === 'python') && $key !== $appType) {
+                continue;
+            }
             if ($view->hasRoute($route) && $view->can($perm) && $view->routeAllowed($route)) {
                 $out[] = ['key' => $key, 'label' => $label, 'icon' => $icon, 'url' => $view->url($route, ['id' => (int) $site['id']])];
             }

@@ -149,6 +149,25 @@ final class WorkerService
      * @param array<string, mixed> $site
      * @param array<string, mixed> $input
      */
+    /**
+     * Re-apply a worker on a different runtime, keeping everything else.
+     *
+     * @param array<string, mixed> $site
+     * @param array<string, mixed> $worker
+     */
+    public function changeRuntime(array $site, array $worker, string $runtime): void
+    {
+        $env = [];
+        foreach ((array) ($worker['env'] ?? []) as $k => $v) {
+            $env[] = $k . '=' . $v;
+        }
+        $this->save($site, (int) $worker['id'], [
+            'name' => $worker['name'], 'command' => $worker['command'], 'directory' => $worker['directory'],
+            'runtime' => $runtime, 'env' => implode("\n", $env), 'restart' => $worker['restart'],
+            'procs' => $worker['procs'], 'memory_mb' => $worker['memory_mb'], 'enabled' => $worker['enabled'],
+        ]);
+    }
+
     public function save(array $site, ?int $id, array $input): void
     {
         $v = self::validate($input);

@@ -40,6 +40,8 @@ final class SitesController extends Controller
         private readonly \WhaCP\Services\AddonConversionService $conversion,
         private readonly \WhaCP\Services\FeatureService $features,
         private readonly \WhaCP\Services\SiteHealthService $health,
+        private readonly \WhaCP\Services\RuntimeService $runtimes,
+        private readonly \WhaCP\Services\WorkerService $workers,
     ) {
         parent::__construct($view, $session);
     }
@@ -72,12 +74,14 @@ final class SitesController extends Controller
             'profileDefault' => $this->service->defaultPhpProfile(),
             'owners' => \WhaCP\Hosting\Scope::isAll($user) ? $this->users->all() : [],
             'allowedTypes' => $allowedTypes,
+            'runtimes' => $this->runtimes->selectable(),
         ]);
     }
 
     public function store(Request $request): Response
     {
         $input = $request->all();
+        $appKind = in_array((string) ($input['kind'] ?? ''), ['nodejs', 'python'], true);
         try {
             $id = $this->service->create($input, $this->user($request));
         } catch (ValidationException $e) {
@@ -86,7 +90,47 @@ final class SitesController extends Controller
             $this->session->flash('old', array_diff_key($input, ['_token' => 1]));
             return $this->redirectWithFailure('/websites/new', $e);
         }
+        // For a Node.js/Python site, start the app as a Worker on the chosen
+        // runtime (best effort — the Runtime page lets them fix it otherwise).
+        if ($appKind) {
+            $this->provisionApp($request, $id, $input);
+            return $this->redirectWithSuccess('/sites/' . $id . '/' . ($input['kind'] === 'python' ? 'python' : 'nodejs'), 'Website created. Set up your app below.');
+        }
         return $this->redirectWithSuccess('/sites/' . $id, 'Website created. Nginx and PHP-FPM were validated and reloaded.');
+    }
+
+    /**
+     * Create the "app" Worker for a new Node.js/Python site when a start
+     * command was given. Never fails the site creation.
+     *
+     * @param array<string, mixed> $input
+     */
+    private function provisionApp(Request $request, int $siteId, array $input): void
+    {
+        $command = trim((string) ($input['app_command'] ?? ''));
+        if ($command === '') {
+            return;
+        }
+        $site = $this->sites->find($this->server->id(), $siteId, null);
+        if ($site === null) {
+            return;
+        }
+        $port = preg_match('/:(\d+)/', (string) $site['proxy_pass'], $m) ? $m[1] : '3000';
+        try {
+            $this->workers->save($site, null, [
+                'name' => 'app',
+                'command' => $command,
+                'directory' => trim((string) ($input['app_dir'] ?? ''), " /"),
+                'runtime' => (string) $site['app_runtime'],
+                'env' => "PORT=" . $port . "\n" . (string) ($input['app_env'] ?? ''),
+                'restart' => 'always',
+                'procs' => 1,
+                'memory_mb' => 0,
+                'enabled' => true,
+            ]);
+        } catch (ValidationException | UserFacingException | AgentException) {
+            // The site exists; the Runtime page lets them start the app.
+        }
     }
 
     public function show(Request $request, string $id): Response

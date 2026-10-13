@@ -61,10 +61,11 @@ final class HostingFixesTest extends HttpTestCase
         $id = (int) $this->db->scalar('SELECT id FROM backup_schedules');
         self::assertGreaterThan(0, $id);
 
-        // The customer sees it, but cannot remove it.
+        // By default the customer does not see the administrator's schedule
+        // (the auto_backups feature is off) and cannot remove it.
         $this->switchTo('cust');
         $page = $this->request('GET', $base . '/backups')->body();
-        self::assertStringContainsString('Every day at 03:00', $page);
+        self::assertStringNotContainsString('Every day at 03:00', $page);
         self::assertStringNotContainsString('/backup-schedules/' . $id . '/delete', $page);
         $this->post($base . '/backup-schedules/' . $id . '/delete');
         self::assertSame(1, (int) $this->db->scalar('SELECT COUNT(*) FROM backup_schedules'));

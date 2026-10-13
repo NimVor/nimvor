@@ -23,6 +23,26 @@ final class WebsiteService
 {
     public const KINDS = ['php' => 'PHP application', 'static' => 'Static files', 'proxy' => 'Reverse proxy (Node.js, Python, …)'];
 
+    /**
+     * Node.js and Python sites. They are reverse-proxy sites behind a managed
+     * runtime; the agent kind stays "proxy", the runtime is stored in
+     * app_runtime, and the app runs as a Worker.
+     */
+    public const APP_KINDS = ['nodejs' => 'Node.js app', 'python' => 'Python app'];
+    private const APP_RUNTIME_PREFIX = ['nodejs' => 'node', 'python' => 'python'];
+
+    /** The app type of a website from its runtime: 'nodejs', 'python' or ''. */
+    public static function appType(array $site): string
+    {
+        $rt = (string) ($site['app_runtime'] ?? '');
+        foreach (self::APP_RUNTIME_PREFIX as $type => $prefix) {
+            if (str_starts_with($rt, $prefix . ':')) {
+                return $type;
+            }
+        }
+        return '';
+    }
+
     public function __construct(
         private readonly WebsiteRepository $sites,
         private readonly AgentClient $agent,
@@ -52,12 +72,35 @@ final class WebsiteService
         if ($this->features === null) {
             return true;
         }
-        if ($kind === 'proxy') {
-            return $this->features->enabledFor($actor, 'type_proxy')
+        return match ($kind) {
+            'nodejs' => $this->features->enabledFor($actor, 'type_nodejs'),
+            'python' => $this->features->enabledFor($actor, 'type_python'),
+            'proxy' => $this->features->enabledFor($actor, 'type_proxy')
                 || $this->features->enabledFor($actor, 'type_nodejs')
-                || $this->features->enabledFor($actor, 'type_python');
+                || $this->features->enabledFor($actor, 'type_python'),
+            default => $this->features->enabledFor($actor, self::KIND_FEATURE[$kind] ?? 'type_php'),
+        };
+    }
+
+    /**
+     * Change the runtime of a Node.js/Python website. The runtime is panel
+     * state (the agent site is a reverse proxy either way), so no re-apply is
+     * needed; the caller updates the app Worker to match.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function setRuntime(array $site, string $runtime): void
+    {
+        $type = self::appType($site);
+        if ($type === '') {
+            throw new UserFacingException('This is not a Node.js or Python website.');
         }
-        return $this->features->enabledFor($actor, self::KIND_FEATURE[$kind] ?? 'type_php');
+        $prefix = self::APP_RUNTIME_PREFIX[$type];
+        if (preg_match('/^' . $prefix . ':[0-9][0-9A-Za-z.]{0,31}$/', $runtime) !== 1) {
+            throw new ValidationException(['app_runtime' => 'Choose a ' . self::APP_KINDS[$type] . ' version.']);
+        }
+        $this->sites->update((int) $site['id'], ['app_runtime' => $runtime]);
+        $this->audit->record('website.runtime', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['runtime' => $runtime]);
     }
 
     /** @return list<string> installed PHP versions with FPM */
@@ -115,12 +158,15 @@ final class WebsiteService
      */
     public function create(array $input, array $actor, ?array $parent = null): int
     {
-        $data = $this->validate($input, null, Scope::isAll($actor));
         // A top-level site's type must be one the account's plan includes
-        // (children inherit their parent's kind).
-        if ($parent === null && !$this->kindAllowed($actor, (string) $data['row']['kind'])) {
-            throw new ValidationException(['kind' => 'Creating ' . (self::KINDS[$data['row']['kind']] ?? (string) $data['row']['kind']) . ' websites is not included in your hosting plan.']);
+        // (children inherit their parent's kind). Check the requested type
+        // before it is mapped (nodejs/python map to the proxy agent kind).
+        $rawKind = (string) ($input['kind'] ?? 'php');
+        if ($parent === null && !$this->kindAllowed($actor, $rawKind)) {
+            $label = self::APP_KINDS[$rawKind] ?? self::KINDS[$rawKind] ?? $rawKind;
+            throw new ValidationException(['kind' => 'Creating ' . $label . ' websites is not included in your hosting plan.']);
         }
+        $data = $this->validate($input, null, Scope::isAll($actor));
         $serverId = $this->server->id();
         // A subdomain or addon domain belongs to its parent's owner.
         $ownerId = $parent !== null ? ($parent['owner_id'] === null ? null : (int) $parent['owner_id']) : $this->resolveOwner($input, $actor);
@@ -616,9 +662,36 @@ final class WebsiteService
             }
         }
 
-        $kind = (string) ($input['kind'] ?? $existing['kind'] ?? 'php');
-        if (!isset(self::KINDS[$kind])) {
+        // nodejs/python are reverse-proxy sites bound to a runtime. On edit a
+        // site keeps its app type (the kind cannot be changed after creation),
+        // so a normal edit never loses the runtime.
+        $existingAppType = $existing !== null ? self::appType($existing) : '';
+        if ($existingAppType !== '') {
+            $kind = $existingAppType;
+        } else {
+            $requested = (string) ($input['kind'] ?? '');
+            $kind = $requested !== '' ? $requested : ($existing !== null ? (string) $existing['kind'] : 'php');
+        }
+        $appRuntime = (string) ($existing['app_runtime'] ?? '');
+        $proxy = (string) ($existing['proxy_pass'] ?? '');
+        if (isset(self::APP_KINDS[$kind])) {
+            $prefix = self::APP_RUNTIME_PREFIX[$kind];
+            $appRuntime = trim((string) ($input['app_runtime'] ?? $appRuntime));
+            if (preg_match('/^' . $prefix . ':[0-9][0-9A-Za-z.]{0,31}$/', $appRuntime) !== 1) {
+                $errors['app_runtime'] = 'Choose a ' . self::APP_KINDS[$kind] . ' version (install one under Runtimes).';
+            }
+            $port = (int) ($input['app_port'] ?? (preg_match('/:(\d+)/', $proxy, $m) ? (int) $m[1] : 0));
+            if ($port < 1024 || $port > 65535) {
+                $errors['app_port'] = 'Enter a port between 1024 and 65535 (where your app listens).';
+            } else {
+                $proxy = 'http://127.0.0.1:' . $port;
+            }
+            $kind = 'proxy'; // the agent renders it as a reverse proxy
+        } elseif (!isset(self::KINDS[$kind])) {
             $errors['kind'] = 'Choose a website type.';
+            $appRuntime = '';
+        } else {
+            $appRuntime = '';
         }
         $php = '';
         if ($kind === 'php') {
@@ -628,9 +701,8 @@ final class WebsiteService
                 $errors['php_version'] = $available === [] ? 'No PHP-FPM version is installed. Install one on the PHP page first.' : 'Choose an installed PHP version.';
             }
         }
-        $proxy = '';
-        if ($kind === 'proxy') {
-            $proxy = trim((string) ($input['proxy_pass'] ?? ''));
+        if ($kind === 'proxy' && $appRuntime === '') {
+            $proxy = trim((string) ($input['proxy_pass'] ?? $proxy));
             if (!preg_match('#^http://(127\.0\.0\.1|\[::1\]|localhost):[0-9]{2,5}(/[A-Za-z0-9._~/-]*)?$#', $proxy)) {
                 $errors['proxy_pass'] = 'Enter a local address such as http://127.0.0.1:3000.';
             }
@@ -753,6 +825,7 @@ final class WebsiteService
             'root' => $root,
             'document_root' => $docroot,
             'kind' => $kind,
+            'app_runtime' => $appRuntime,
             'php_version' => $php,
             'php_settings' => $settings,
             'proxy_pass' => $proxy,
