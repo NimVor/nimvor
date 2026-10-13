@@ -52,6 +52,30 @@ final class AppsTest extends HttpTestCase
         self::assertSame('shop_wp1', $this->lastCall('apps.install')['db']['name']);
     }
 
+    public function testStagedInstallCreatesDatabaseAndOffersFinish(): void
+    {
+        $this->agent->succeed('apps.install', ['job_id' => 'bbbbbbbbbbbbbbbb']);
+        $base = '/sites/' . $this->siteId . '/apps';
+        self::assertStringContainsString('More applications', $this->request('GET', $base)->body());
+
+        $this->post($base . '/joomla', []);
+        $call = $this->lastCall('apps.install');
+        self::assertSame('joomla', $call['app']);
+        self::assertSame('public_html', $call['path'], 'staged apps install into the document root');
+        self::assertArrayHasKey('name', $call['db'], 'a database was created for the staged app');
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM app_installs WHERE app = 'joomla'"));
+
+        // Once the job succeeds, the page offers the web-installer handoff.
+        $this->db->run("UPDATE app_installs SET status = 'succeeded' WHERE app = 'joomla'");
+        self::assertStringContainsString('shop.test/installation/', $this->request('GET', $base)->body());
+    }
+
+    public function testUnknownAppIsRejected(): void
+    {
+        $this->post('/sites/' . $this->siteId . '/apps/magento', []);
+        self::assertSame(0, $this->calls('apps.install'));
+    }
+
     public function testRefusalRemovesTheDatabase(): void
     {
         $this->agent->fail('apps.install', 409, 'conflict', 'The folder public_html is not empty.');

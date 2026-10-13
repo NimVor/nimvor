@@ -23,7 +23,34 @@ final class AppInstallerService
     public const APPS = [
         'wordpress' => ['title' => 'WordPress', 'description' => 'Blog and website builder. Installed into the document root with a new database and an administrator account.'],
         'laravel' => ['title' => 'Laravel', 'description' => 'PHP framework skeleton via Composer, with the database configured in .env. The website is served from <folder>/public.'],
+        'joomla' => ['title' => 'Joomla', 'description' => 'Content management system. Staged into the document root with a new database; finish in its web installer.', 'staged' => true],
+        'drupal' => ['title' => 'Drupal', 'description' => 'Content management framework. Staged into the document root with a new database; finish in its web installer.', 'staged' => true],
+        'phpbb' => ['title' => 'phpBB', 'description' => 'Forum software. Staged into the document root with a new database; finish in its web installer.', 'staged' => true],
+        'smf' => ['title' => 'SMF', 'description' => 'Simple Machines Forum. Staged into the document root with a new database; finish in its web installer.', 'staged' => true],
+        'prestashop' => ['title' => 'PrestaShop', 'description' => 'E-commerce platform. Staged into the document root with a new database; finish in its web installer.', 'staged' => true],
+        'opencart' => ['title' => 'OpenCart', 'description' => 'E-commerce platform. Staged with a new database; the website is served from <folder>/upload.', 'staged' => true],
+        'abantecart' => ['title' => 'AbanteCart', 'description' => 'E-commerce platform. Staged with a new database; the website is served from <folder>/public_html.', 'staged' => true],
     ];
+
+    /** Staged apps: where their web installer lives and the web root subfolder. */
+    public const STAGED = [
+        'joomla' => ['finish' => '/installation/', 'docroot' => ''],
+        'drupal' => ['finish' => '/core/install.php', 'docroot' => ''],
+        'phpbb' => ['finish' => '/install/', 'docroot' => ''],
+        'smf' => ['finish' => '/install.php', 'docroot' => ''],
+        'prestashop' => ['finish' => '/install/', 'docroot' => ''],
+        'opencart' => ['finish' => '/install/', 'docroot' => 'upload'],
+        'abantecart' => ['finish' => '/install/', 'docroot' => 'public_html'],
+    ];
+
+    /** @param array<string, mixed> $site */
+    public static function finishUrl(array $site, string $app): string
+    {
+        if (!isset(self::STAGED[$app])) {
+            return '';
+        }
+        return ($site['https'] ? 'https://' : 'http://') . $site['domain'] . self::STAGED[$app]['finish'];
+    }
 
     public function __construct(
         private readonly Connection $db,
@@ -81,6 +108,10 @@ final class AppInstallerService
             }
             $adminPassword = Crypto::password(20);
             $params['admin_password'] = $adminPassword;
+        } elseif (isset(self::STAGED[$app])) {
+            // Staged apps install into the document root; their own web
+            // installer finishes setup with the database created below.
+            $params['path'] = self::relativeDocroot($site);
         } else {
             $params['path'] = trim((string) ($input['path'] ?? 'app'), " /");
             if (!preg_match('#^[A-Za-z0-9._-]{1,60}$#', $params['path']) || in_array($params['path'], ['logs', 'tmp', 'backups', '.ssh', '.', '..'], true)) {
@@ -161,10 +192,13 @@ final class AppInstallerService
                 continue;
             }
             $this->db->run('UPDATE app_installs SET status = ?, error = ?, finished_at = ? WHERE id = ?', [$status, mb_substr((string) ($job['error'] ?? ''), 0, 500), gmdate('c'), (int) $i['id']]);
-            if ($status === 'succeeded' && $i['app'] === 'laravel') {
+            // Point the website at the app's web root when it is a subfolder
+            // (Laravel's public/, OpenCart's upload/, AbanteCart's public_html/).
+            $sub = $i['app'] === 'laravel' ? 'public' : (string) (self::STAGED[$i['app']]['docroot'] ?? '');
+            if ($status === 'succeeded' && $sub !== '') {
                 $fresh = $this->sites->find((int) $site['server_id'], (int) $site['id'], null);
                 if ($fresh !== null) {
-                    $this->websites->patch($fresh, ['document_root' => rtrim((string) $fresh['root'], '/') . '/' . $i['path'] . '/public'], 'app.document_root');
+                    $this->websites->patch($fresh, ['document_root' => rtrim((string) $fresh['root'], '/') . '/' . $i['path'] . '/' . $sub], 'app.document_root');
                 }
             }
         }

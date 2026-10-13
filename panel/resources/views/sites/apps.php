@@ -46,6 +46,28 @@ $isPhp = $site['kind'] === 'php';
         </div>
     </div>
 </div>
+<?php
+$stagedIcons = ['joomla' => 'bi-journal-richtext', 'drupal' => 'bi-droplet', 'phpbb' => 'bi-chat-left-text', 'smf' => 'bi-chat-square-dots', 'prestashop' => 'bi-bag', 'opencart' => 'bi-cart', 'abantecart' => 'bi-cart4'];
+?>
+<div class="card mt-3" id="apps-staged">
+    <div class="card-header"><i class="bi bi-box-seam me-1"></i>More applications</div>
+    <div class="card-body">
+        <p class="small text-body-secondary mb-3">Each is downloaded (verified where the vendor publishes a checksum), unpacked into <code><?= e($docroot) ?></code> (which must be empty) with a fresh database, then you finish setup in its own installer. The database name, user and password are listed under <a href="<?= e($this->url('databases')) ?>">Databases</a>.</p>
+        <div class="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4">
+            <?php foreach (A::STAGED as $app => $meta): ?>
+                <div class="col">
+                    <form method="post" action="<?= e($this->url('sites.apps.install', ['id' => $id, 'app' => $app])) ?>" data-wcp-busy data-wcp-confirm="Install <?= e(A::APPS[$app]['title']) ?> into <?= e($docroot) ?>? The folder must be empty.">
+                        <?= $this->csrfField() ?>
+                        <button class="btn btn-outline-secondary w-100 text-start py-2"<?= $isPhp ? '' : ' disabled' ?>>
+                            <i class="bi <?= e($stagedIcons[$app] ?? 'bi-box') ?> me-1"></i><?= e(A::APPS[$app]['title']) ?>
+                        </button>
+                    </form>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+
 <?php if ($installs !== []): ?>
     <div class="card mt-3">
         <div class="card-header"><i class="bi bi-clock-history me-1"></i>Installations</div>
@@ -59,7 +81,8 @@ $isPhp = $site['kind'] === 'php';
                     <td class="small"><?= e((string) ($i['database_name'] ?? '—')) ?></td>
                     <td><?= $this->statusBadge($i['status'] === 'running' ? 'activating' : (string) $i['status'], (string) $i['status']) ?><?php if ($i['error'] !== ''): ?><div class="small text-danger"><?= e($i['error']) ?></div><?php endif; ?></td>
                     <td class="text-end"><?php if ($i['job_id'] !== ''): ?><button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-job-open="<?= e($i['job_id']) ?>" title="Log"><i class="bi bi-terminal"></i></button><?php endif; ?>
-                        <?php if ($i['status'] === 'succeeded' && $i['app'] === 'wordpress'): ?><a class="btn btn-sm btn-outline-primary" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/wp-admin/" target="_blank" rel="noopener noreferrer">Log in</a><?php endif; ?></td>
+                        <?php if ($i['status'] === 'succeeded' && $i['app'] === 'wordpress'): ?><a class="btn btn-sm btn-outline-primary" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/wp-admin/" target="_blank" rel="noopener noreferrer">Log in</a><?php endif; ?>
+                        <?php if ($i['status'] === 'succeeded' && ($f = A::finishUrl($site, (string) $i['app'])) !== ''): ?><a class="btn btn-sm btn-primary" href="<?= e($f) ?>" target="_blank" rel="noopener noreferrer">Finish setup</a><?php endif; ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
