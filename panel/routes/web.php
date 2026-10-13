@@ -79,8 +79,10 @@ return static function (Router $r): void {
     $r->get('/sites/{id}', [SitesController::class, 'show'], ['name' => 'sites.show', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/sites/{id}/settings', [SitesController::class, 'edit'], ['name' => 'sites.edit', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/advanced', [SitesController::class, 'advanced'], ['name' => 'sites.advanced', 'permission' => P::WEBSITES_MANAGE]);
-    $r->get('/sites/{id}/domains', [SitesController::class, 'domains'], ['name' => 'sites.domains', 'permission' => P::WEBSITES_MANAGE]);
-    $r->post('/sites/{id}/domains', [SitesController::class, 'storeDomain'], ['name' => 'sites.domains.store', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/subdomains', [SitesController::class, 'subdomains'], ['name' => 'sites.subdomains', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/subdomains', [SitesController::class, 'storeSubdomain'], ['name' => 'sites.subdomains.store', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/addons', [SitesController::class, 'addons'], ['name' => 'sites.addons', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/addons', [SitesController::class, 'storeAddon'], ['name' => 'sites.addons.store', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/convert', [\WhaCP\Http\Controllers\AddonConversionController::class, 'convert'], ['name' => 'sites.convert', 'permission' => P::USERS_MANAGE]);
     $r->post('/sites/{id}/settings', [SitesController::class, 'update'], ['name' => 'sites.update', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/toggle', [SitesController::class, 'toggle'], ['name' => 'sites.toggle', 'permission' => P::WEBSITES_MANAGE]);

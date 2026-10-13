@@ -313,10 +313,12 @@ final class HostingFixesTest extends HttpTestCase
         $this->login('cust');
         $this->post('/dns/zones', ['website_id' => (string) $this->siteId]);
         $user = (string) $this->db->scalar('SELECT system_user FROM websites WHERE id = ?', [$this->siteId]);
-        $base = '/sites/' . $this->siteId . '/domains';
-        self::assertSame(200, $this->request('GET', $base)->status());
+        $sub = '/sites/' . $this->siteId . '/subdomains';
+        $addon = '/sites/' . $this->siteId . '/addons';
+        self::assertSame(200, $this->request('GET', $sub)->status());
+        self::assertSame(200, $this->request('GET', $addon)->status());
 
-        $this->post($base, ['type' => 'subdomain', 'subdomain' => 'blog', 'dns' => '1']);
+        $this->post($sub, ['type' => 'subdomain', 'subdomain' => 'blog', 'dns' => '1']);
         $apply = $this->lastCall('sites.apply');
         self::assertSame(['blog.shop.test', $user], [$apply['domain'], $apply['user']]);
         self::assertArrayNotHasKey('new_user', $apply, "the parent's account is reused");
@@ -324,21 +326,21 @@ final class HostingFixesTest extends HttpTestCase
         self::assertSame([$this->siteId, $this->custId], [(int) $child['parent_id'], (int) $child['owner_id']]);
         self::assertContains(['name' => 'blog', 'type' => 'A', 'ttl' => 0, 'value' => '203.0.113.10', 'priority' => 0, 'weight' => 0, 'port' => 0], $this->lastCall('dns.zone_apply')['records']);
 
-        $this->post($base, ['type' => 'addon', 'domain' => 'other-shop.test', 'www' => '1']);
+        $this->post($addon, ['type' => 'addon', 'domain' => 'other-shop.test', 'www' => '1']);
         $apply = $this->lastCall('sites.apply');
         self::assertSame(['other-shop.test', $user, ['www.other-shop.test']], [$apply['domain'], $apply['user'], $apply['aliases']]);
-        $page = $this->request('GET', $base)->body();
-        self::assertStringContainsString('blog.shop.test', $page);
-        self::assertStringContainsString('other-shop.test', $page);
+        self::assertStringContainsString('blog.shop.test', $this->request('GET', $sub)->body());
+        self::assertStringContainsString('other-shop.test', $this->request('GET', $addon)->body());
 
         // Refused: bad labels, a subdomain as addon, someone else's website.
         $before = $this->calls('sites.apply');
-        $this->post($base, ['type' => 'subdomain', 'subdomain' => 'bad_label!']);
-        $this->post($base, ['type' => 'subdomain', 'subdomain' => 'www']);
-        $this->post($base, ['type' => 'addon', 'domain' => 'x.shop.test']);
+        $this->post($sub, ['type' => 'subdomain', 'subdomain' => 'bad_label!']);
+        $this->post($sub, ['type' => 'subdomain', 'subdomain' => 'www']);
+        $this->post($addon, ['type' => 'addon', 'domain' => 'x.shop.test']);
         $this->switchTo('mallory');
-        self::assertSame(404, $this->request('GET', $base)->status());
-        $this->post($base, ['type' => 'subdomain', 'subdomain' => 'evil']);
+        self::assertSame(404, $this->request('GET', $sub)->status());
+        self::assertSame(404, $this->request('GET', $addon)->status());
+        $this->post($sub, ['type' => 'subdomain', 'subdomain' => 'evil']);
         self::assertSame($before, $this->calls('sites.apply'));
     }
 
@@ -369,7 +371,7 @@ final class HostingFixesTest extends HttpTestCase
     {
         $this->agent->succeed('sites.delete', ['warnings' => []]);
         $this->login('cust');
-        $this->post('/sites/' . $this->siteId . '/domains', ['type' => 'addon', 'domain' => 'static-sibling.test']);
+        $this->post('/sites/' . $this->siteId . '/addons', ['type' => 'addon', 'domain' => 'static-sibling.test']);
         $child = (int) $this->db->scalar("SELECT id FROM websites WHERE domain = 'static-sibling.test'");
         $this->post('/sites/' . $child . '/delete', ['confirm_domain' => 'static-sibling.test', 'remove_user' => '1']);
         self::assertFalse($this->lastCall('sites.delete')['remove_user'], 'the parent still runs as that account');

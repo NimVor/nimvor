@@ -83,7 +83,7 @@ final class AddonConversionTest extends HttpTestCase
     public function testAddonBecomesAnAccountWithWhatBelongsToIt(): void
     {
         $this->login('admin');
-        $page = $this->request('GET', '/sites/' . $this->shop . '/domains')->body();
+        $page = $this->request('GET', '/sites/' . $this->shop . '/addons')->body();
         self::assertStringContainsString('Convert to account', $page);
         self::assertStringContainsString('other_db', $page, 'the window lists what moves');
 
@@ -149,7 +149,7 @@ final class AddonConversionTest extends HttpTestCase
 
         // Customers cannot; a reseller cannot reach another account's website.
         $this->switchTo('cust');
-        self::assertStringNotContainsString('Convert to account', $this->request('GET', '/sites/' . $this->shop . '/domains')->body());
+        self::assertStringNotContainsString('Convert to account', $this->request('GET', '/sites/' . $this->shop . '/addons')->body());
         $this->post('/sites/' . $this->addon . '/convert', $this->form());
         self::assertSame(0, count($this->agentCalls('sites.apply')), 'customers cannot convert');
         $this->switchTo('resell');

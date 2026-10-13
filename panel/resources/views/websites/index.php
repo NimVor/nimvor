@@ -179,7 +179,8 @@ $showOwner = $this->can(P::USERS_VIEW);
                                     <summary class="wcp-op-more" title="More" aria-label="More actions for <?= e($m['domain']) ?>"><i class="bi bi-three-dots-vertical"></i></summary>
                                     <div class="wcp-dropmenu">
                                         <a href="<?= e($this->url('sites.edit', ['id' => $id])) ?>"><i class="bi bi-sliders"></i>PHP &amp; settings</a>
-                                        <?php if ($this->hasRoute('sites.domains')): ?><a href="<?= e($this->url('sites.domains', ['id' => $id])) ?>"><i class="bi bi-diagram-3"></i>Subdomains &amp; addons</a><?php endif; ?>
+                                        <?php if ($this->hasRoute('sites.subdomains')): ?><a href="<?= e($this->url('sites.subdomains', ['id' => $id])) ?>"><i class="bi bi-diagram-3"></i>Subdomains</a><?php endif; ?>
+                                        <?php if ($this->hasRoute('sites.addons')): ?><a href="<?= e($this->url('sites.addons', ['id' => $id])) ?>"><i class="bi bi-plus-square"></i>Addon domains</a><?php endif; ?>
                                         <a href="<?= e($this->url('sites.advanced', ['id' => $id])) ?>"><i class="bi bi-tools"></i>Advanced</a>
                                         <a class="is-danger" href="<?= e($this->url('sites.advanced', ['id' => $id])) ?>#delete-website"><i class="bi bi-trash"></i>Delete website</a>
                                     </div>

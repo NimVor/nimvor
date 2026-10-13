@@ -103,8 +103,8 @@ final class SitesController extends Controller
         ]);
     }
 
-    /** Subdomains and addon domains created from this website. */
-    public function domains(Request $request, string $id): Response
+    /** Subdomains created from this website (their own page). */
+    public function subdomains(Request $request, string $id): Response
     {
         $site = $this->site($request, $id);
         if ($site === null) {
@@ -112,26 +112,48 @@ final class SitesController extends Controller
         }
         $children = $this->sites->children($this->server->id(), (int) $site['id']);
         $sub = array_values(array_filter($children, static fn (array $c): bool => str_ends_with((string) $c['domain'], '.' . $site['domain'])));
-        $addon = array_values(array_filter($children, static fn (array $c): bool => !str_ends_with((string) $c['domain'], '.' . $site['domain'])));
         $zone = $this->dns->forWebsite((int) $site['id']);
-        $user = $this->user($request);
-        return $this->render('sites/domains', [
-            'site' => $site, 'subdomains' => $sub, 'addons' => $addon, 'tab' => 'domains',
-            // "Convert to account": administrators and resellers (route permission).
-            'plans' => $this->plans->visible($user),
-            'moves' => array_combine(array_map(static fn (array $a): int => (int) $a['id'], $addon), array_map(fn (array $a): array => $this->conversion->preview($a), $addon)) ?: [],
+        return $this->render('sites/subdomains', [
+            'site' => $site, 'subdomains' => $sub, 'tab' => 'subdomains',
             'hasZone' => $zone !== null && $this->dns->zone((int) $zone['id'], $this->user($request)) !== null,
         ]);
     }
 
-    public function storeDomain(Request $request, string $id): Response
+    /** Addon domains created from this website (their own page). */
+    public function addons(Request $request, string $id): Response
     {
         $site = $this->site($request, $id);
         if ($site === null) {
             return $this->notFound();
         }
-        $type = $request->string('type') === 'addon' ? 'addon' : 'subdomain';
-        $back = '/sites/' . (int) $id . '/domains';
+        $children = $this->sites->children($this->server->id(), (int) $site['id']);
+        $addon = array_values(array_filter($children, static fn (array $c): bool => !str_ends_with((string) $c['domain'], '.' . $site['domain'])));
+        $user = $this->user($request);
+        return $this->render('sites/addons', [
+            'site' => $site, 'addons' => $addon, 'tab' => 'addons',
+            // "Convert to account": administrators and resellers (route permission).
+            'plans' => $this->plans->visible($user),
+            'moves' => array_combine(array_map(static fn (array $a): int => (int) $a['id'], $addon), array_map(fn (array $a): array => $this->conversion->preview($a), $addon)) ?: [],
+        ]);
+    }
+
+    public function storeSubdomain(Request $request, string $id): Response
+    {
+        return $this->storeChild($request, $id, 'subdomain');
+    }
+
+    public function storeAddon(Request $request, string $id): Response
+    {
+        return $this->storeChild($request, $id, 'addon');
+    }
+
+    private function storeChild(Request $request, string $id, string $type): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        $back = '/sites/' . (int) $id . '/' . ($type === 'subdomain' ? 'subdomains' : 'addons');
         try {
             $res = $this->service->createChild($site, $type, $request->all(), $this->user($request));
         } catch (ValidationException $e) {

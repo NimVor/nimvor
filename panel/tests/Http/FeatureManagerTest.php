@@ -112,6 +112,16 @@ final class FeatureManagerTest extends HttpTestCase
         self::assertSame(200, $this->request('GET', '/sites/' . $subSite . '/files')->status());
     }
 
+    public function testSubdomainsAndAddonsAreSeparateFeatures(): void
+    {
+        $list = $this->app->container->get(FeatureService::class)->save(null, ['name' => 'NoAddons', 'features' => $this->except(['addon_domains'])], 1);
+        $this->db->run('UPDATE plans SET feature_list_id = ? WHERE id = ?', [$list, $this->plan]);
+        $this->login('cust');
+        self::assertSame(200, $this->request('GET', '/sites/' . $this->site . '/subdomains')->status());
+        self::assertSame(403, $this->request('GET', '/sites/' . $this->site . '/addons')->status());
+        self::assertSame(403, $this->post('/sites/' . $this->site . '/addons', ['type' => 'addon', 'domain' => 'x.test'])->status());
+    }
+
     public function testDefaultOffFeaturesAreOffUnlessAListOptsIn(): void
     {
         $features = $this->app->container->get(FeatureService::class);
