@@ -36,6 +36,7 @@ final class SiteMenu
         ['malware', 'Malware scan', 'bug', 'sites.malware', P::WEBSITES_VIEW],
         ['firewall', 'Web firewall', 'shield-shaded', 'sites.firewall', P::WEBSITES_VIEW],
         ['redis', 'Redis', 'lightning', 'sites.redis', P::WEBSITES_MANAGE],
+        ['memcached', 'Memcached', 'hdd-stack', 'sites.memcached', P::WEBSITES_VIEW],
         ['settings', 'PHP & settings', 'sliders', 'sites.edit', P::WEBSITES_MANAGE],
         ['advanced', 'Advanced', 'tools', 'sites.advanced', P::WEBSITES_MANAGE],
     ];

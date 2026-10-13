@@ -145,6 +145,23 @@ final class SitesController extends Controller
         ]);
     }
 
+    /** Per-site Memcached: connection details and status (local, shared). */
+    public function memcached(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        $status = null;
+        $error = null;
+        try {
+            $status = (array) $this->agent->call('memcached.status');
+        } catch (AgentException $e) {
+            $error = $e;
+        }
+        return $this->render('sites/memcached', ['site' => $site, 'tab' => 'memcached', 'status' => $status, 'agentError' => $error]);
+    }
+
     public function storeSubdomain(Request $request, string $id): Response
     {
         return $this->storeChild($request, $id, 'subdomain');

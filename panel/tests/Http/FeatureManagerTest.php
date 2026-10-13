@@ -168,6 +168,28 @@ final class FeatureManagerTest extends HttpTestCase
         self::assertSame(403, $this->post('/sites/' . $this->site . '/addons', ['type' => 'addon', 'domain' => 'x.test'])->status());
     }
 
+    public function testMemcachedPageIsGatedAndInformational(): void
+    {
+        $this->agent->succeed('memcached.status', ['installed' => true, 'active' => true, 'config' => ['port' => 11211]]);
+        $this->login('cust');
+        $page = $this->request('GET', '/sites/' . $this->site . '/memcached')->body();
+        self::assertStringContainsString('127.0.0.1', $page);
+        self::assertStringContainsString('Connect your application', $page);
+
+        $list = $this->app->container->get(FeatureService::class)->save(null, ['name' => 'NoCache', 'features' => $this->except(['memcached'])], 1);
+        $this->db->run('UPDATE plans SET feature_list_id = ? WHERE id = ?', [$list, $this->plan]);
+        self::assertSame(403, $this->request('GET', '/sites/' . $this->site . '/memcached')->status());
+    }
+
+    public function testWebFirewallIsGatedByItsFeature(): void
+    {
+        $list = $this->app->container->get(FeatureService::class)->save(null, ['name' => 'NoFirewall', 'features' => $this->except(['firewall'])], 1);
+        $this->db->run('UPDATE plans SET feature_list_id = ? WHERE id = ?', [$list, $this->plan]);
+        $this->login('cust');
+        self::assertSame(403, $this->request('GET', '/sites/' . $this->site . '/firewall')->status());
+        self::assertStringNotContainsString('/sites/' . $this->site . '/firewall', $this->request('GET', '/sites/' . $this->site)->body());
+    }
+
     public function testDefaultOffFeaturesAreOffUnlessAListOptsIn(): void
     {
         $features = $this->app->container->get(FeatureService::class);
