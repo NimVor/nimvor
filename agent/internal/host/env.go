@@ -101,6 +101,8 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.PHPSocketDir,
 		m.NginxAvailable,
 		filepath.Join(filepath.Dir(m.NginxAvailable), "whacp-tls.conf"),
+		// WhaCP's managed Nginx tuning drop-in (http context), nothing else in conf.d.
+		filepath.Join(filepath.Dir(m.NginxAvailable), "conf.d", "zz-whacp-tuning.conf"),
 		m.WebmailData + "/**",
 		filepath.Join(m.UnitDir, "whacp-opendkim.service"),
 		filepath.Join(m.UnitDir, "whacp-ftpd.service"),

@@ -99,6 +99,7 @@ final class Navigation
                 ['Runtimes', 'hexagon', 'runtimes', P::SERVER_VIEW, '/runtimes', 'Node.js and Python versions for website workers'],
                 ['MongoDB', 'database', 'mongo', P::SERVER_VIEW, '/mongo', 'MongoDB databases and users'],
                 ['Cloudflare', 'cloud', 'cloudflare', P::SERVER_VIEW, '/cloudflare', 'CDN and DNS through your Cloudflare account'],
+                ['Nginx', 'hdd-network', 'nginx', P::SERVER_VIEW, '/nginx', 'Web server state, config test and tuning'],
                 ['All servers', 'diagram-3', 'servers', P::SERVERS_MANAGE, '/servers', 'Other servers managed from here'],
                 ['Services', 'cpu', 'services', P::SERVICES_VIEW, '/services', 'Start, stop and restart services'],
                 ['IP addresses', 'ethernet', 'ips', P::SERVER_VIEW, '/ips', 'Addresses and their websites'],

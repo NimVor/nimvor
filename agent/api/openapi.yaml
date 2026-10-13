@@ -256,6 +256,10 @@ paths:
               - mongo.user_password
               - net.addresses
               - net.ipv6_ranges
+              - nginx.reload
+              - nginx.status
+              - nginx.test
+              - nginx.tuning_apply
               - packages.advisories
               - packages.health
               - packages.install
@@ -697,6 +701,10 @@ x-whacp-actions:
   mongo.user_password: { mutating: true, description: "Change a MongoDB user's password." }
   net.addresses: { mutating: false, description: "The server's IP addresses (per interface), default gateways and the routed IPv6 ranges WhaCP makes local." }
   net.ipv6_ranges: { mutating: true, description: "Set the routed IPv6 ranges (exactly these) whose addresses websites may use: each becomes a local route on lo, kept at boot by whacp-ipv6-ranges.service. Ranges overlapping an interface's on-link prefix or containing a gateway are refused." }
+  nginx.reload: { mutating: true, description: "Reload Nginx (after validating the configuration)." }
+  nginx.status: { mutating: false, description: "Nginx: installed, running and whether the current configuration is valid." }
+  nginx.test: { mutating: false, description: "Validate the Nginx configuration (nginx -t)." }
+  nginx.tuning_apply: { mutating: true, description: "Apply WhaCP's server-wide Nginx tuning (a managed conf.d drop-in), validated with nginx -t and rolled back if invalid." }
   packages.advisories: { mutating: false, description: "Pending updates with the vulnerability information the OS provides: advisory id, severity and CVEs on RHEL (dnf updateinfo), security vs normal from the security pocket on Debian/Ubuntu. No automatic upgrades." }
   packages.health: { mutating: false, description: "Broken package state: install scripts that failed, missing dependencies, duplicates." }
   packages.install: { mutating: true, description: "Install allowlisted components: name, or names for several at once (job)." }

@@ -360,6 +360,10 @@ return static function (Router $r): void {
     $r->get('/setup', [\WhaCP\Http\Controllers\SetupController::class, 'index'], ['name' => 'setup', 'permission' => P::SERVER_MANAGE]);
     $r->post('/setup/step', [\WhaCP\Http\Controllers\SetupController::class, 'step'], ['name' => 'setup.step', 'permission' => P::SERVER_MANAGE]);
     $r->post('/setup/dismiss', [\WhaCP\Http\Controllers\SetupController::class, 'dismiss'], ['name' => 'setup.dismiss', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/nginx', [\WhaCP\Http\Controllers\NginxController::class, 'index'], ['name' => 'nginx', 'permission' => P::SERVER_VIEW]);
+    $r->post('/nginx/test', [\WhaCP\Http\Controllers\NginxController::class, 'test'], ['name' => 'nginx.test', 'permission' => P::SERVER_VIEW]);
+    $r->post('/nginx/reload', [\WhaCP\Http\Controllers\NginxController::class, 'reload'], ['name' => 'nginx.reload', 'permission' => P::SERVICES_MANAGE]);
+    $r->post('/nginx/tuning', [\WhaCP\Http\Controllers\NginxController::class, 'tuning'], ['name' => 'nginx.tuning', 'permission' => P::SERVER_MANAGE]);
     $r->get('/cloudflare', [\WhaCP\Http\Controllers\CloudflareController::class, 'index'], ['name' => 'cloudflare', 'permission' => P::SERVER_VIEW]);
     $r->post('/cloudflare/connect', [\WhaCP\Http\Controllers\CloudflareController::class, 'connect'], ['name' => 'cloudflare.connect', 'permission' => P::SERVER_MANAGE]);
     $r->post('/cloudflare/disconnect', [\WhaCP\Http\Controllers\CloudflareController::class, 'disconnect'], ['name' => 'cloudflare.disconnect', 'permission' => P::SERVER_MANAGE]);

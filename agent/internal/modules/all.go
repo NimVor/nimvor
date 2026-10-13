@@ -22,6 +22,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/modsec"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/mongomgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/netmgr"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/nginxmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/procmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/quota"
@@ -81,5 +82,6 @@ func All() []Module {
 		procmgr.Register,
 		runtimemgr.Register,
 		mongomgr.Register,
+		nginxmgr.Register,
 	}
 }

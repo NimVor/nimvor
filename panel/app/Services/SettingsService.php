@@ -110,6 +110,30 @@ final class SettingsService
                 'category' => 'security', 'type' => 'int', 'default' => 512, 'min' => 0, 'max' => 10240,
                 'label' => 'Maximum size to scan on upload (MB)', 'help' => 'Skip scanning an uploaded file larger than this, to bound resource use. 0 scans files of any size. Scheduled and manual whole-site scans are not affected.',
             ],
+            'nginx_client_max_body_mb' => [
+                'category' => 'server', 'type' => 'int', 'default' => 128, 'min' => 1, 'max' => 4096,
+                'label' => 'Max upload size (MB)', 'help' => 'Nginx client_max_body_size, server-wide.',
+            ],
+            'nginx_keepalive' => [
+                'category' => 'server', 'type' => 'int', 'default' => 65, 'min' => 1, 'max' => 3600,
+                'label' => 'Keep-alive timeout (s)', 'help' => 'Nginx keepalive_timeout.',
+            ],
+            'nginx_body_timeout' => [
+                'category' => 'server', 'type' => 'int', 'default' => 60, 'min' => 1, 'max' => 3600,
+                'label' => 'Request body timeout (s)', 'help' => 'Nginx client_body_timeout.',
+            ],
+            'nginx_send_timeout' => [
+                'category' => 'server', 'type' => 'int', 'default' => 60, 'min' => 1, 'max' => 3600,
+                'label' => 'Send timeout (s)', 'help' => 'Nginx send_timeout.',
+            ],
+            'nginx_gzip' => [
+                'category' => 'server', 'type' => 'bool', 'default' => true,
+                'label' => 'Gzip compression', 'help' => 'Compress text responses (HTML, CSS, JS, JSON, SVG).',
+            ],
+            'nginx_hide_version' => [
+                'category' => 'server', 'type' => 'bool', 'default' => true,
+                'label' => 'Hide Nginx version', 'help' => 'server_tokens off — do not reveal the Nginx version in responses and error pages.',
+            ],
             'terminal_idle_minutes' => [
                 'category' => 'security', 'type' => 'int', 'default' => 15, 'min' => 1, 'max' => 240,
                 'label' => 'Web terminal idle timeout (minutes)', 'help' => 'A web terminal closes after this many minutes without input.',
