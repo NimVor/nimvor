@@ -92,8 +92,11 @@ final class PlanLimits
         }
         $in = implode(',', array_map('intval', $owners));
         $sql = match ($resource) {
-            // Subdomains and addon domains have limits of their own.
-            'websites' => "SELECT COUNT(*) FROM websites WHERE owner_id IN ({$in}) AND parent_id IS NULL",
+            // Primary sites and addon domains count toward the website limit
+            // (an addon domain is a separate site); subdomains do not — they
+            // have their own limit.
+            'websites' => "SELECT COUNT(*) FROM websites c LEFT JOIN websites p ON p.id = c.parent_id
+                WHERE c.owner_id IN ({$in}) AND (c.parent_id IS NULL OR c.domain NOT LIKE '%.' || p.domain)",
             'databases' => "SELECT COUNT(*) FROM databases WHERE owner_id IN ({$in})",
             'cron_jobs' => "SELECT COUNT(*) FROM cron_jobs c JOIN websites w ON w.id = c.website_id WHERE w.owner_id IN ({$in})",
             'workers' => "SELECT COUNT(*) FROM workers k JOIN websites w ON w.id = k.website_id WHERE w.owner_id IN ({$in})",

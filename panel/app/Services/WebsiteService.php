@@ -510,7 +510,13 @@ final class WebsiteService
         if ($child['kind'] === 'php' && $child['php_version'] === '') {
             $child['php_version'] = $this->phpVersions()[0] ?? '';
         }
-        $this->limits->assertCanCreate($type === 'subdomain' ? 'subdomains' : 'addon_domains', $parent['owner_id'] === null ? null : (int) $parent['owner_id']);
+        $ownerId = $parent['owner_id'] === null ? null : (int) $parent['owner_id'];
+        $this->limits->assertCanCreate($type === 'subdomain' ? 'subdomains' : 'addon_domains', $ownerId);
+        // An addon domain is a separate site, so it also counts against the
+        // website limit (subdomains do not — they have their own limit).
+        if ($type === 'addon') {
+            $this->limits->assertCanCreate('websites', $ownerId);
+        }
         $id = $this->create($child, $actor, $parent);
         $dns = false;
         if ($type === 'subdomain' && !empty($input['dns'])) {

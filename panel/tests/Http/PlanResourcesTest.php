@@ -34,7 +34,7 @@ final class PlanResourcesTest extends HttpTestCase
         $this->db = $this->app->container->get(Connection::class);
         $plans = $this->app->container->get(PlanService::class);
         $users = $this->app->container->get(UserRepository::class);
-        $planId = $plans->save((array) $users->find($admin), null, ['name' => 'Starter', 'max_websites' => '1', 'max_subdomains' => '1', 'max_addon_domains' => '1', 'max_parked_domains' => '1', 'max_email_accounts' => '1', 'max_email_quota_mb' => '500', 'max_ftp_accounts' => '1', 'bandwidth_mb' => '10', 'disk_quota_mb' => '100']);
+        $planId = $plans->save((array) $users->find($admin), null, ['name' => 'Starter', 'max_websites' => '2', 'max_subdomains' => '2', 'max_addon_domains' => '2', 'max_parked_domains' => '1', 'max_email_accounts' => '1', 'max_email_quota_mb' => '500', 'max_ftp_accounts' => '1', 'bandwidth_mb' => '10', 'disk_quota_mb' => '100']);
         $this->db->run('UPDATE users SET plan_id = ? WHERE id = ?', [$planId, $this->cust]);
         $this->siteId = $this->app->container->get(WebsiteService::class)->create(['domain' => 'shop.test', 'kind' => 'static', 'aliases' => 'www.shop.test'], (array) $users->find($this->cust));
     }
@@ -56,18 +56,33 @@ final class PlanResourcesTest extends HttpTestCase
         } catch (UserFacingException $e) {
             self::assertStringContainsString('parked domains', $e->getMessage());
         }
-        // Subdomains and addon domains: one each; they do not count as websites.
+        // The primary site (shop.test) already uses one of the two website
+        // slots. A subdomain does not count as a website; an addon domain does.
         $sites->createChild($this->site(), 'subdomain', ['subdomain' => 'blog'], $cust);
         $sites->createChild($this->site(), 'addon', ['domain' => 'other.test'], $cust);
-        foreach ([['subdomain', ['subdomain' => 'shop']], ['addon', ['domain' => 'third.test']]] as [$type, $in]) {
-            try {
-                $sites->createChild($this->site(), $type, $in, $cust);
-                self::fail($type . ' over the limit accepted');
-            } catch (UserFacingException $e) {
-                self::assertStringContainsString($type === 'subdomain' ? 'subdomains' : 'addon domains', $e->getMessage());
-            }
+        // Websites now at the cap (shop.test + other.test). A subdomain is
+        // still allowed — it does not consume a website slot.
+        $sites->createChild($this->site(), 'subdomain', ['subdomain' => 'docs'], $cust);
+        // A further addon is refused by the website cap even though the addon
+        // limit is not yet reached.
+        try {
+            $sites->createChild($this->site(), 'addon', ['domain' => 'third.test'], $cust);
+            self::fail('addon over the website limit accepted');
+        } catch (UserFacingException $e) {
+            self::assertStringContainsString('websites', $e->getMessage());
         }
-        self::assertSame(3, (int) $this->db->scalar('SELECT COUNT(*) FROM websites'));
+        // A subdomain beyond its own limit is refused by the subdomain cap.
+        try {
+            $sites->createChild($this->site(), 'subdomain', ['subdomain' => 'shop'], $cust);
+            self::fail('subdomain over the limit accepted');
+        } catch (UserFacingException $e) {
+            self::assertStringContainsString('subdomains', $e->getMessage());
+        }
+        // Four rows (primary + two subdomains + one addon); the website count
+        // enforced by the plan is two (primary + addon).
+        self::assertSame(4, (int) $this->db->scalar('SELECT COUNT(*) FROM websites'));
+        self::assertSame(2, $this->app->container->get(\WhaCP\Services\PlanLimits::class)->count('websites', [$this->cust]));
+        // A new top-level site is refused by the website cap.
         $this->expectException(UserFacingException::class);
         $sites->create(['domain' => 'second.test', 'kind' => 'static'], $cust);
     }
