@@ -112,6 +112,35 @@ final class FeatureManagerTest extends HttpTestCase
         self::assertSame(200, $this->request('GET', '/sites/' . $subSite . '/files')->status());
     }
 
+    public function testDefaultOffFeaturesAreOffUnlessAListOptsIn(): void
+    {
+        $features = $this->app->container->get(FeatureService::class);
+        $users = $this->app->container->get(UserRepository::class);
+        $cust = (array) $users->find($this->cust);
+
+        // A list that opts into nothing extra: default-off features stay off,
+        // default-on ones (type_php) stay on.
+        $list = $features->save(null, ['name' => 'NoAuto', 'features' => $this->except(['auto_backups', 'type_nodejs'])], 1);
+        $this->db->run('UPDATE plans SET feature_list_id = ? WHERE id = ?', [$list, $this->plan]);
+        self::assertFalse($features->enabledFor($cust, 'auto_backups'), 'scheduled backups off by default');
+        self::assertFalse($features->enabledFor($cust, 'type_nodejs'), 'node sites off by default');
+        self::assertTrue($features->enabledFor($cust, 'type_php'), 'php sites on by default');
+        self::assertTrue($features->enabledFor($cust, 'type_proxy'), 'opted-in default-off feature is on');
+        self::assertSame([], array_column($this->db->fetchAll('SELECT feature FROM feature_list_enabled WHERE list_id = ? AND feature = ?', [$list, 'auto_backups']), 'feature'));
+
+        // Opt in: now on.
+        $features->save($list, ['name' => 'NoAuto', 'features' => $this->except([])], 1);
+        self::assertTrue($features->enabledFor($cust, 'auto_backups'));
+        self::assertTrue($features->enabledFor($cust, 'type_nodejs'));
+
+        // A plan with no list: default-off features are off, default-on on.
+        // A new service instance avoids the request cache after a raw update.
+        $this->db->run('UPDATE plans SET feature_list_id = NULL WHERE id = ?', [$this->plan]);
+        $fresh = new FeatureService($this->db);
+        self::assertContains('auto_backups', $fresh->disabledFor($cust));
+        self::assertNotContains('type_php', $fresh->disabledFor($cust));
+    }
+
     public function testOnlyAdministratorsManageListsAndDeletingOneRestoresEveryFeature(): void
     {
         $features = $this->app->container->get(FeatureService::class);

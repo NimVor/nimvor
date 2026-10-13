@@ -18,14 +18,28 @@ $form = function (?array $l) use ($catalogue): string {
                         <div class="col-md-7"><label class="form-label" for="fl-desc-<?= e($id) ?>">Description</label><input class="form-control" id="fl-desc-<?= e($id) ?>" name="description" maxlength="300" value="<?= e((string) ($l['description'] ?? '')) ?>"></div>
                     </div>
                     <div class="fw-medium mb-2">Features included</div>
-                    <div class="row row-cols-1 row-cols-md-2 g-1">
-                        <?php foreach ($catalogue as $key => [$label]): $on = $l === null || !in_array($key, $l['disabled'], true); ?>
+                    <?php
+                    $defaultOff = \WhaCP\Services\FeatureService::DEFAULT_OFF;
+                    $optIn = $l['enabled_optin'] ?? [];
+                    $disabled = $l['disabled'] ?? [];
+                    // Group features by their 4th catalogue element.
+                    $groups = [];
+                    foreach ($catalogue as $key => $meta) {
+                        $groups[$meta[3] ?? 'Other'][$key] = $meta[0];
+                    }
+                    foreach ($groups as $group => $items): ?>
+                        <div class="text-uppercase small text-body-secondary fw-semibold mt-3 mb-1"><?= e((string) $group) ?></div>
+                        <div class="row row-cols-1 row-cols-md-2 g-1">
+                        <?php foreach ($items as $key => $label):
+                            $isOff = in_array($key, $defaultOff, true);
+                            $on = $l === null ? !$isOff : ($isOff ? in_array($key, $optIn, true) : !in_array($key, $disabled, true)); ?>
                             <div class="col"><div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" role="switch" name="features[]" value="<?= e($key) ?>" id="fl-<?= e($id) ?>-<?= e($key) ?>"<?= $on ? ' checked' : '' ?>>
-                                <label class="form-check-label" for="fl-<?= e($id) ?>-<?= e($key) ?>"><?= e($label) ?></label>
+                                <label class="form-check-label" for="fl-<?= e($id) ?>-<?= e($key) ?>"><?= e($label) ?><?php if ($isOff): ?> <span class="badge text-bg-light border text-body-secondary">off by default</span><?php endif; ?></label>
                             </div></div>
                         <?php endforeach; ?>
-                    </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
                 <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save</button></div>
             </form>
@@ -45,7 +59,14 @@ $form = function (?array $l) use ($catalogue): string {
         <table class="table align-middle">
             <thead><tr><th>Feature list</th><th>Features</th><th class="text-end">Plans</th><th></th></tr></thead>
             <tbody>
-            <?php foreach ($lists as $l): $off = $l['disabled']; ?>
+            <?php
+            $defaultOff = \WhaCP\Services\FeatureService::DEFAULT_OFF;
+            foreach ($lists as $l):
+                $off = array_values(array_unique(array_merge(
+                    $l['disabled'],
+                    array_values(array_diff($defaultOff, $l['enabled_optin'] ?? []))
+                )));
+            ?>
                 <tr>
                     <td><span class="fw-semibold"><?= e($l['name']) ?></span><?php if ($l['description'] !== ''): ?><div class="small text-body-secondary"><?= e($l['description']) ?></div><?php endif; ?></td>
                     <td class="small"><?= $total - count($off) ?> of <?= $total ?><?php if ($off !== []): ?><div class="text-body-secondary">Off: <?= e(implode(', ', array_map(static fn (string $k): string => $catalogue[$k][0] ?? $k, $off))) ?></div><?php endif; ?></td>
