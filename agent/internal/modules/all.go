@@ -20,6 +20,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/mailmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/mcmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/modsec"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/mongomgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/netmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/procmgr"
@@ -79,5 +80,6 @@ func All() []Module {
 		services.Register,
 		procmgr.Register,
 		runtimemgr.Register,
+		mongomgr.Register,
 	}
 }

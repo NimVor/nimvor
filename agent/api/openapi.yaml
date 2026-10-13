@@ -247,6 +247,13 @@ paths:
               - modsec.status
               - modsec.trim
               - modsec.update
+              - mongo.database_create
+              - mongo.database_drop
+              - mongo.overview
+              - mongo.status
+              - mongo.user_create
+              - mongo.user_drop
+              - mongo.user_password
               - net.addresses
               - net.ipv6_ranges
               - packages.advisories
@@ -681,6 +688,13 @@ x-whacp-actions:
   modsec.status: { mutating: false, description: "ModSecurity: the Nginx connector as a capability (missing, installed but not loaded or usable, functional; from a package or not), the OWASP Core Rule Set found, the server-wide configuration, rule vendors, websites' modes and the audit log size." }
   modsec.trim: { mutating: true, description: "Keep the ModSecurity audit log small: above 50 MiB its last 5 MiB are kept." }
   modsec.update: { mutating: true, description: "Update the rule packages (OWASP CRS and the connector) with the package manager as a background job, then check with nginx -t and reload. If the new rules break the configuration, the Core Rule Set is turned off and the rest restored." }
+  mongo.database_create: { mutating: true, description: "Create a MongoDB database (an empty collection makes it exist)." }
+  mongo.database_drop: { mutating: true, description: "Drop a MongoDB database (requires confirm = name)." }
+  mongo.overview: { mutating: false, description: "MongoDB databases (with sizes) and users." }
+  mongo.status: { mutating: false, description: "MongoDB: installed, running, version." }
+  mongo.user_create: { mutating: true, description: "Create a MongoDB user scoped to one database with a role." }
+  mongo.user_drop: { mutating: true, description: "Drop a MongoDB user." }
+  mongo.user_password: { mutating: true, description: "Change a MongoDB user's password." }
   net.addresses: { mutating: false, description: "The server's IP addresses (per interface), default gateways and the routed IPv6 ranges WhaCP makes local." }
   net.ipv6_ranges: { mutating: true, description: "Set the routed IPv6 ranges (exactly these) whose addresses websites may use: each becomes a local route on lo, kept at boot by whacp-ipv6-ranges.service. Ranges overlapping an interface's on-link prefix or containing a gateway are refused." }
   packages.advisories: { mutating: false, description: "Pending updates with the vulnerability information the OS provides: advisory id, severity and CVEs on RHEL (dnf updateinfo), security vs normal from the security pocket on Debian/Ubuntu. No automatic upgrades." }
