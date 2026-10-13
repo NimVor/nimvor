@@ -316,6 +316,8 @@ return static function (Router $r): void {
     $r->post('/terminal/sessions/{id}/close', [\WhaCP\Http\Controllers\TerminalController::class, 'close'], ['name' => 'terminal.close', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/redis/browser', [RedisBrowserController::class, 'browse'], ['name' => 'redis.browser', 'permission' => P::REDIS_MANAGE]);
     $r->post('/redis/browser/api', [RedisBrowserController::class, 'api'], ['name' => 'redis.browser.api', 'permission' => P::REDIS_MANAGE]);
+    $r->get('/sites/{id}/security', [SitesController::class, 'security'], ['name' => 'sites.security', 'permission' => P::WEBSITES_VIEW]);
+    $r->get('/sites/{id}/health', [SitesController::class, 'health'], ['name' => 'sites.health', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/sites/{id}/memcached', [SitesController::class, 'memcached'], ['name' => 'sites.memcached', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/sites/{id}/redis', [RedisBrowserController::class, 'siteBrowse'], ['name' => 'sites.redis', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/redis/api', [RedisBrowserController::class, 'siteApi'], ['name' => 'sites.redis.api', 'permission' => P::WEBSITES_MANAGE]);

@@ -168,6 +168,20 @@ final class FeatureManagerTest extends HttpTestCase
         self::assertSame(403, $this->post('/sites/' . $this->site . '/addons', ['type' => 'addon', 'domain' => 'x.test'])->status());
     }
 
+    public function testSiteSecurityAndHealthPagesAreGated(): void
+    {
+        $this->login('cust');
+        $sec = $this->request('GET', '/sites/' . $this->site . '/security')->body();
+        self::assertStringContainsString('HTTPS is off', $sec);
+        self::assertStringContainsString('You can fix this', $sec);
+        self::assertStringContainsString('No successful backup yet', $this->request('GET', '/sites/' . $this->site . '/health')->body());
+
+        $list = $this->app->container->get(FeatureService::class)->save(null, ['name' => 'NoSecHealth', 'features' => $this->except(['site_security', 'site_health'])], 1);
+        $this->db->run('UPDATE plans SET feature_list_id = ? WHERE id = ?', [$list, $this->plan]);
+        self::assertSame(403, $this->request('GET', '/sites/' . $this->site . '/security')->status());
+        self::assertSame(403, $this->request('GET', '/sites/' . $this->site . '/health')->status());
+    }
+
     public function testMemcachedPageIsGatedAndInformational(): void
     {
         $this->agent->succeed('memcached.status', ['installed' => true, 'active' => true, 'config' => ['port' => 11211]]);

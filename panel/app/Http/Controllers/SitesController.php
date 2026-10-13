@@ -39,6 +39,7 @@ final class SitesController extends Controller
         private readonly \WhaCP\Services\PlanService $plans,
         private readonly \WhaCP\Services\AddonConversionService $conversion,
         private readonly \WhaCP\Services\FeatureService $features,
+        private readonly \WhaCP\Services\SiteHealthService $health,
     ) {
         parent::__construct($view, $session);
     }
@@ -143,6 +144,26 @@ final class SitesController extends Controller
             'plans' => $this->plans->visible($user),
             'moves' => array_combine(array_map(static fn (array $a): int => (int) $a['id'], $addon), array_map(fn (array $a): array => $this->conversion->preview($a), $addon)) ?: [],
         ]);
+    }
+
+    /** Security overview for a website, with fix guidance. */
+    public function security(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        return $this->render('sites/security', ['site' => $site, 'tab' => 'security', 'checks' => $this->health->security($site)]);
+    }
+
+    /** Health overview for a website, with fix guidance. */
+    public function health(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        return $this->render('sites/health', ['site' => $site, 'tab' => 'health', 'checks' => $this->health->health($site, $this->user($request))]);
     }
 
     /** Per-site Memcached: connection details and status (local, shared). */
