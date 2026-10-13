@@ -316,6 +316,13 @@ return static function (Router $r): void {
     $r->post('/terminal/sessions/{id}/close', [\WhaCP\Http\Controllers\TerminalController::class, 'close'], ['name' => 'terminal.close', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/redis/browser', [RedisBrowserController::class, 'browse'], ['name' => 'redis.browser', 'permission' => P::REDIS_MANAGE]);
     $r->post('/redis/browser/api', [RedisBrowserController::class, 'api'], ['name' => 'redis.browser.api', 'permission' => P::REDIS_MANAGE]);
+    $r->get('/sites/{id}/cloudflare', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'index'], ['name' => 'sites.cloudflare', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/cloudflare/connect', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'connect'], ['name' => 'sites.cloudflare.connect', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/cloudflare/disconnect', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'disconnect'], ['name' => 'sites.cloudflare.disconnect', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/cloudflare/ssl', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'ssl'], ['name' => 'sites.cloudflare.ssl', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/cloudflare/always-https', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'alwaysHttps'], ['name' => 'sites.cloudflare.always_https', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/cloudflare/proxy', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'proxy'], ['name' => 'sites.cloudflare.proxy', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/cloudflare/purge', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'purge'], ['name' => 'sites.cloudflare.purge', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/security', [SitesController::class, 'security'], ['name' => 'sites.security', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/sites/{id}/health', [SitesController::class, 'health'], ['name' => 'sites.health', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/sites/{id}/memcached', [SitesController::class, 'memcached'], ['name' => 'sites.memcached', 'permission' => P::WEBSITES_VIEW]);

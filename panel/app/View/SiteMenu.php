@@ -25,6 +25,7 @@ final class SiteMenu
         ['subdomains', 'Subdomains', 'diagram-3', 'sites.subdomains', P::WEBSITES_MANAGE],
         ['addons', 'Addon domains', 'plus-square', 'sites.addons', P::WEBSITES_MANAGE],
         ['ssl', 'SSL / HTTPS', 'shield-lock', 'sites.ssl', P::SSL_VIEW],
+        ['cloudflare', 'Cloudflare', 'cloud', 'sites.cloudflare', P::WEBSITES_MANAGE],
         ['backups', 'Backups', 'archive', 'sites.backups', P::BACKUPS_VIEW],
         ['apps', 'Applications', 'grid-3x3-gap', 'sites.apps', P::APPS_INSTALL],
         ['wordpress', 'WordPress', 'wordpress', 'sites.wordpress', P::WEBSITES_VIEW],
