@@ -98,6 +98,7 @@ final class Navigation
                 ['PHP Manager', 'filetype-php', 'php.manager', P::PACKAGES_MANAGE, '/php/manager', 'Choose the PHP versions and extensions, review, apply'],
                 ['Runtimes', 'hexagon', 'runtimes', P::SERVER_VIEW, '/runtimes', 'Node.js and Python versions for website workers'],
                 ['MongoDB', 'database', 'mongo', P::SERVER_VIEW, '/mongo', 'MongoDB databases and users'],
+                ['Cloudflare', 'cloud', 'cloudflare', P::SERVER_VIEW, '/cloudflare', 'CDN and DNS through your Cloudflare account'],
                 ['All servers', 'diagram-3', 'servers', P::SERVERS_MANAGE, '/servers', 'Other servers managed from here'],
                 ['Services', 'cpu', 'services', P::SERVICES_VIEW, '/services', 'Start, stop and restart services'],
                 ['IP addresses', 'ethernet', 'ips', P::SERVER_VIEW, '/ips', 'Addresses and their websites'],

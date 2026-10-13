@@ -360,6 +360,13 @@ return static function (Router $r): void {
     $r->get('/setup', [\WhaCP\Http\Controllers\SetupController::class, 'index'], ['name' => 'setup', 'permission' => P::SERVER_MANAGE]);
     $r->post('/setup/step', [\WhaCP\Http\Controllers\SetupController::class, 'step'], ['name' => 'setup.step', 'permission' => P::SERVER_MANAGE]);
     $r->post('/setup/dismiss', [\WhaCP\Http\Controllers\SetupController::class, 'dismiss'], ['name' => 'setup.dismiss', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/cloudflare', [\WhaCP\Http\Controllers\CloudflareController::class, 'index'], ['name' => 'cloudflare', 'permission' => P::SERVER_VIEW]);
+    $r->post('/cloudflare/connect', [\WhaCP\Http\Controllers\CloudflareController::class, 'connect'], ['name' => 'cloudflare.connect', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/cloudflare/disconnect', [\WhaCP\Http\Controllers\CloudflareController::class, 'disconnect'], ['name' => 'cloudflare.disconnect', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/cloudflare/proxy', [\WhaCP\Http\Controllers\CloudflareController::class, 'proxy'], ['name' => 'cloudflare.proxy', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/cloudflare/ssl', [\WhaCP\Http\Controllers\CloudflareController::class, 'ssl'], ['name' => 'cloudflare.ssl', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/cloudflare/always-https', [\WhaCP\Http\Controllers\CloudflareController::class, 'alwaysHttps'], ['name' => 'cloudflare.always_https', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/cloudflare/purge', [\WhaCP\Http\Controllers\CloudflareController::class, 'purge'], ['name' => 'cloudflare.purge', 'permission' => P::SERVER_MANAGE]);
     $r->get('/mongo', [\WhaCP\Http\Controllers\MongoController::class, 'index'], ['name' => 'mongo', 'permission' => P::SERVER_VIEW]);
     $r->post('/mongo/databases', [\WhaCP\Http\Controllers\MongoController::class, 'createDatabase'], ['name' => 'mongo.database_create', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mongo/databases/drop', [\WhaCP\Http\Controllers\MongoController::class, 'dropDatabase'], ['name' => 'mongo.database_drop', 'permission' => P::SERVER_MANAGE]);
