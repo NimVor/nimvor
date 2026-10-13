@@ -316,6 +316,12 @@ return static function (Router $r): void {
     $r->post('/terminal/sessions/{id}/close', [\WhaCP\Http\Controllers\TerminalController::class, 'close'], ['name' => 'terminal.close', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/redis/browser', [RedisBrowserController::class, 'browse'], ['name' => 'redis.browser', 'permission' => P::REDIS_MANAGE]);
     $r->post('/redis/browser/api', [RedisBrowserController::class, 'api'], ['name' => 'redis.browser.api', 'permission' => P::REDIS_MANAGE]);
+    $r->get('/sites/{id}/mongo', [\WhaCP\Http\Controllers\SiteMongoController::class, 'index'], ['name' => 'sites.mongo', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/mongo/databases', [\WhaCP\Http\Controllers\SiteMongoController::class, 'createDatabase'], ['name' => 'sites.mongo.database_create', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/mongo/databases/drop', [\WhaCP\Http\Controllers\SiteMongoController::class, 'dropDatabase'], ['name' => 'sites.mongo.database_drop', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/mongo/users', [\WhaCP\Http\Controllers\SiteMongoController::class, 'createUser'], ['name' => 'sites.mongo.user_create', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/mongo/users/password', [\WhaCP\Http\Controllers\SiteMongoController::class, 'setPassword'], ['name' => 'sites.mongo.user_password', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/mongo/users/drop', [\WhaCP\Http\Controllers\SiteMongoController::class, 'dropUser'], ['name' => 'sites.mongo.user_drop', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/cloudflare', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'index'], ['name' => 'sites.cloudflare', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/cloudflare/connect', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'connect'], ['name' => 'sites.cloudflare.connect', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/cloudflare/disconnect', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'disconnect'], ['name' => 'sites.cloudflare.disconnect', 'permission' => P::WEBSITES_MANAGE]);

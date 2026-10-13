@@ -20,6 +20,7 @@ final class SiteMenu
         ['ftp', 'FTP / SFTP', 'hdd-network', 'sites.ftp', P::FTP_MANAGE],
         ['terminal', 'Terminal', 'terminal', 'sites.terminal', P::FILES_MANAGE],
         ['databases', 'Databases', 'database', 'sites.databases', P::DATABASES_VIEW],
+        ['mongo', 'MongoDB', 'database-fill-gear', 'sites.mongo', P::WEBSITES_MANAGE],
         ['mail', 'Email', 'envelope', 'sites.mail', P::MAIL_MANAGE],
         ['dns', 'DNS', 'signpost', 'sites.dns', P::DNS_MANAGE],
         ['subdomains', 'Subdomains', 'diagram-3', 'sites.subdomains', P::WEBSITES_MANAGE],
