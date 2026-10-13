@@ -1,130 +1,119 @@
-# Feature expansion audit (40-section request)
+# Feature-expansion integration audit (2026-10)
 
-Audited against the code on `claude/sleepy-ptolemy-bdv6ib` (panel migrations
-up to `0024_av_scans`, agent actions as registered in `internal/modules`).
-Facts that shape the whole plan:
+This records the eight feature areas added in the `claude/sleepy-ptolemy-bdv6ib`
+branch and a go / no-go for each, plus the cross-cutting checks. It supersedes
+nothing; it is the hand-off note for real-host validation.
 
-- **Web server is nginx**, not Apache. "Apache configuration" items (index
-  protection, ModSecurity) are mapped to nginx equivalents.
-- **Mail stack is Postfix + Dovecot + Rspamd** (Rspamd replaces spamd and
-  has a built-in greylisting module, currently turned off by WhaCP).
-- **PHP runs in one php-fpm master per PHP version**, with a pool per
-  website. cgroups apply per process tree, so per-account limits for PHP
-  need per-account FPM masters (see D.1).
-- Privileged work already goes through the Go agent (fixed action catalogue,
-  validation, change sets with rollback, audit log). Everything below keeps
-  that model.
+Testing note: this work was built and unit/HTTP-tested in CI-less development
+(the real-host VM matrix is billing-blocked). Logic, command composition,
+validation, permissions and rollback are covered by Go (`FakeRunner`,
+`httptest`) and PHP (`HttpTestCase` with the fake agent transport) tests. Steps
+that can only run against real services — package installs, live `nginx -t`,
+real downloads, `mongosh`, a real Cloudflare account — are marked **real-host**
+and are the agenda for end-to-end verification.
 
-## A. Existing (working; extend, do not duplicate)
+## 1. File Manager security scanner — GO
 
-| Request | Where it is |
-| --- | --- |
-| 6.1 Hostname | `server.set_hostname`, Server page |
-| 6.3 Reboot (confirmation, cancel) | `server.reboot`, `server.reboot_cancel` |
-| 6.4 Service restart | `services.control`, Services page (status + restart/reload) |
-| 2.4 Email forwarding | mail aliases (`mail.alias_save`), Email → domain |
-| 15 DKIM / SPF / DMARC records | generated on mail domains and new zones (`SiteProvisioner`, `DnsService::spf`) |
-| 29.1-2 Install a certificate, Let's Encrypt | `ssl.issue`, `ssl.custom`, `ssl.inspect`, per-site SSL page |
-| 29.3 AutoSSL | `AutoSslService` + setting `auto_ssl` |
-| 4.4 Confirmation before destructive actions | `data-wcp-confirm` modal (optionally type-to-confirm), used on deletes |
-| 33 WordPress install | App installer (`apps.install`: WordPress, Laravel) |
-| Malware scanning | ClamAV (`av.*`), Security → Malware scan |
+- Agent `avmgr`: path-scoped `av.scan`, scan-on-upload/extract, quarantine
+  listing (`av.quarantine_list`) and admin-only release (`av.release`) that
+  re-scans before restoring and is confined with `os.Root` (no symlink
+  escape). Infected files quarantined mode 0 outside the web root.
+- Panel: scan-on-upload/extract policy and size cap, quarantine card on the
+  site Malware page, release gated to `security.manage`, audited.
+- Tests: agent `avmgr` suite; panel `MalwareScanTest`, `FilesTest`.
+- Real-host: EICAR end-to-end with real ClamAV.
 
-## B. Partial (exists, needs enhancement)
+## 2. Background process manager — GO
 
-| Request | Today | Missing |
-| --- | --- | --- |
-| 3.1 Disk usage | per-website total (`sites.usage`) | per-directory breakdown, background job |
-| 4.1 Central settings | `/settings` (panel), mail/DNS/SSL/server settings on their own pages | one categorised page over the same `SettingsService` |
-| 4.2 AJAX / 4.3 modals | forms post with `data-wcp-busy` (full page), a few modals | JSON responses + modal forms across admin pages |
-| 7 Monitoring | `/monitoring`: CPU, memory, load, disk, rx/tx history, alerts | top processes, CPU info, per-interface table, live polling page |
-| 8 Quota override | plan `disk_quota_mb`, usage measured (not enforced on the filesystem) | per-account override; filesystem enforcement is a separate decision |
-| 9 Suspension | website enable/disable; `users.is_active` (login only) | account-level suspend covering sites, mail, DB, FTP/SFTP, cron |
-| 11/14 Mail server | `mail.status`, install/configure | status per service, versions, reload, logs, structured settings |
-| 18 MariaDB | `db.overview`, databases/users pages | server status/variables, service control, structured config |
-| 21 Plan change | plan select on the user page | diff view, immediate re-application of limits |
-| 22/23 Bandwidth | monthly bandwidth per site, alerts | exceeders list, suspend from it, reset |
-| 30 Database browser | tables, rows, edit/delete, structure, query | search, sort/filter, DDL (columns, indexes, FKs), history, CSV import/export |
-| 31 Zone editor | records A/AAAA/CNAME/MX/TXT/NS/SRV/CAA | record-specific forms for all fields, bulk ops, import/export, conflict warnings |
-| 33 WordPress | install only | detection, updates, plugins/themes, health |
+- The existing workers subsystem (systemd units per site, sandbox, slice,
+  memory limit, restart policy, env, live status, logs) was audited and gained
+  `numprocs` (N identical copies: primary unit plus `-2`, `-3`… siblings;
+  scale-down stops/removes extras; status aggregates counts and memory).
+- Tests: agent `workers` suite; panel `SiteToolsTest`.
+- Real-host: confirm multi-copy units start and the aggregated status reads
+  back on a live systemd.
 
-## C. Missing
+## 3. Node.js & Python runtime managers — GO (Node) / PARTIAL (Python)
 
-1 cgroups · 2.1 email filters · 2.2 email routers (per-domain routing exists as an
-account option only) · 2.3 autoresponders · 3.2 index protection (nginx `autoindex`) ·
-3.3 permission repair · 5 FFmpeg · 6.2 root password · 10 mail queue manager ·
-12 mail statistics · 13 Postfix manager · 15 checker (SPF/DKIM/DMARC/rDNS lookups) ·
-16 ModSecurity · 17 web terminal · 19 site IP · 20 addon → account · 24 bulk
-termination · 25 feature manager · 26 IP management · 27 greylisting · 28 email
-administration tools · 29.4-7 SSL hosts, CSR, storage manager, TLS configuration ·
-32 Softaculous.
+- Agent `runtimemgr`: install Node.js versions side by side under
+  `/opt/whacp/runtimes/node/<v>` (official nodejs.org tarball verified against
+  SHASUMS256.txt, unpacked in Go with traversal/symlink guards); discover
+  managed + system Node/Python; per-worker runtime selection (launcher PATH).
+- Panel: Server → Runtimes (install/remove Node, see system interpreters);
+  worker Runtime dropdown.
+- Python: discovered and selectable; extra versions install via Packages
+  (a managed parallel-install build is not included).
+- Tests: agent `runtimemgr` + `workers`; panel `RuntimeTest`, `SiteToolsTest`.
+- Real-host: a real Node download/verify/unpack and a worker running on it.
 
-## D. Architecture changes
+## 4A. MongoDB manager — GO
 
-1. **cgroups (1, 21, 22).** systemd cgroup v2 slices, one per account
-   (`whacp-acct-<user>.slice`, CPUQuota/MemoryMax/TasksMax/IO weights),
-   persisted as unit drop-ins (so they survive reboots). To put PHP in the
-   account's slice, each account needs its **own php-fpm master unit** in
-   that slice instead of a pool in the shared master; cron, workers and
-   site-account commands already run as systemd units and can join the
-   slice. Network bandwidth is not a cgroup v2 controller; per-account
-   shaping needs tc + eBPF or nftables marks, which is a separate project.
-2. **Feature lists (25, 5, 32, 33).** New tables `feature_lists`,
-   `feature_list_items`, `plans.feature_list_id`; a `Features` service
-   consulted by the router (per-route feature key) and by the agent calls
-   that grant capabilities (e.g. FFmpeg, shell).
-3. **Account suspension (9, 22, 24).** `users.suspended_at` + reason; the
-   agent disables sites (maintenance page), mail login, database users,
-   FTP/SFTP, cron and workers, and restores them on unsuspend.
-4. **IP management (19, 26).** Tables `ips`, `ip_reservations`,
-   `ipv6_ranges`, `websites.ipv4/ipv6`; nginx `listen` per site address;
-   the agent adds addresses with netplan (Ubuntu) / NetworkManager (RHEL).
-5. **Web terminal (17).** Needs a long-lived WebSocket endpoint; php-fpm
-   cannot serve one. A small agent-side PTY bridge behind nginx, running
-   sessions through the account's jailed shell (depends on shell access).
-6. **Mail (2, 10-14, 27, 28).** Sieve scripts per mailbox (filters,
-   autoresponders; Dovecot Sieve is installed), Postfix `transport_maps`
-   (routers), `postqueue`/`postsuper` (queue), log parsing (statistics),
-   Rspamd greylist module (greylisting), structured `postconf -e` settings.
-7. **ModSecurity (16).** nginx connector `libnginx-mod-http-modsecurity`
-   and OWASP CRS; per-site `modsecurity on|off` + rule set include.
+- Agent `mongomgr`: status, overview (databases + users), database
+  create/drop, user create/password/drop with scoped roles, via `mongosh`.
+  Names validated + single-quote escaped; password-bearing scripts fed on
+  stdin (never argv).
+- Panel: Server → MongoDB (admin), audited.
+- Tests: agent `mongomgr` suite; panel `MongoTest`.
+- Real-host: against a live `mongod` (with and without auth / admin URI).
 
-## E. Dependencies
+## 4B. MySQL alongside MariaDB — GO (existing)
 
-| Need | Ubuntu 22.04 / 24.04 | AlmaLinux 9 |
-| --- | --- | --- |
-| cgroup v2 + systemd | default | default |
-| FFmpeg | `ffmpeg` (universe) | RPM Fusion only (third-party repository) |
-| ModSecurity for nginx | `libnginx-mod-http-modsecurity`, `modsecurity-crs` | no package in BaseOS/AppStream/EPEL |
-| Greylisting | Rspamd (installed with spam filter) | same |
-| Web terminal | none extra if built into the agent | same |
-| Softaculous | commercial licence + vendor installer | same |
-| Purchase SSL (29.5) | a CA/reseller account and its API | same |
-| rDNS | set at the IP provider; WhaCP can only check it | same |
+- `dbmgr`/`mysqlwire` already speak the shared MySQL/MariaDB wire protocol, so
+  database/user management works against either server; which server is
+  installed is a Packages/Components choice. No new code required.
+- Real-host: run the `dbmgr` suite against a real MySQL (not only MariaDB).
 
-## Blocked or needing a decision
+## 5. Application installer — GO
 
-- **Softaculous (32)** and **SSL purchase (29.5)**: need a licence / reseller
-  account; they cannot be built or tested without one.
-- **Web terminal (17)** builds on shell access (see "Shell access" below).
-- **Root password (6.2)** and **shell access**: sensitive; the shell-access
-  groundwork is committed but the action that enables it awaits approval.
-- **cgroups for PHP (1)**: per-account FPM masters change how every website
-  runs; needs agreement before implementation.
-- **FFmpeg / ModSecurity on AlmaLinux**: only from third-party repositories.
+- WordPress and Laravel install unattended (unchanged). Seven more apps —
+  Joomla, Drupal, phpBB, SMF, PrestaShop, OpenCart, AbanteCart — are
+  catalog-driven **staged** installs: download (checksum-verified where the
+  vendor publishes one, else HTTPS), unpack (`tar.gz`/`tar.bz2`/`zip` in Go
+  with traversal/symlink guards, chown to the site account), set the document
+  root, create the database, and hand off to the app's web installer.
+- Panel: Apps page offers the staged apps and a "Finish setup" link.
+- Tests: agent `apps` suite (framework, checksum, guards); panel `AppsTest`.
+- Real-host: confirm each vendor URL, strip depth and document-root subfolder,
+  and a full web-installer run per app.
 
-## Phases
+## 6. Cloudflare integration — GO
 
-1. Accounts and plans: feature manager, suspension, quota override, plan
-   change with diff, bandwidth exceeders + reset, bulk termination.
-2. Mail: filters, autoresponders, routers, queue, statistics, service manager,
-   Postfix/Dovecot settings, greylisting, checkers.
-3. Files and websites: disk usage by folder, index protection, permission
-   repair, FFmpeg per plan.
-4. Monitoring and server: live stats, CPU info, bandwidth monitor, central
-   settings, WhaCP service controls.
-5. DNS, SSL and database: zone editor, CSR/SSL hosts/storage, database browser,
-   MariaDB manager.
-6. IPs: pool, reservations, IPv6 ranges, site IPs, migration wizard.
-7. cgroups (after the FPM decision), ModSecurity, WordPress toolkit.
-8. Items blocked on external decisions (terminal, Softaculous, SSL purchase).
+- Panel `CloudflareService`: one encrypted API token per server; list zones,
+  DNS record proxy toggle, SSL mode, Always Use HTTPS, cache purge. Injectable
+  HTTP transport; identifiers validated; API errors surfaced.
+- Panel: Server → Cloudflare (admin), audited.
+- Tests: panel `CloudflareTest` (fake transport).
+- Real-host: against a real Cloudflare account/token.
+
+## 7. Nginx config & service manager — GO
+
+- Agent `nginxmgr`: status, `nginx -t`, reload, and http-context tuning
+  (client_max_body_size, keepalive/body/send timeouts, gzip, server_tokens)
+  as a managed `conf.d` drop-in, validated and auto-rolled-back if invalid.
+- Panel: Server → Nginx (admin), bounded values stored as settings, audited.
+- Tests: agent `nginxmgr` suite; panel `NginxManagerTest`, `CentralSettingsTest`.
+- Real-host: apply tuning and confirm `nginx -t` + reload on a live server.
+
+## Cross-cutting
+
+- **Security** — every new privileged path runs through the existing
+  changeset/validator + `execx` allowlist. New allowlist entries: `mongosh`,
+  `mongodump`, `mongorestore`; new writable roots: `/opt/whacp/runtimes/**`
+  and the single Nginx tuning drop-in. Archive extraction (runtimes, apps)
+  guards traversal and symlink escape and caps size. Secrets (DB and Mongo
+  passwords, Cloudflare token) never reach argv or the clear.
+- **Permissions** — server-wide features (runtimes, MongoDB, Cloudflare,
+  Nginx) require `server.view`/`server.manage`; quarantine release requires
+  `security.manage`; app install requires `apps.install`. Covered by the
+  "customers are 403" tests in each panel suite.
+- **Tests** — full Go agent suite green (74 packages); panel suites for the
+  new areas green. The one-process full PHP suite can exceed a 300 s
+  `max_execution_time` while seeding bcrypt users; run it with
+  `-d max_execution_time=0`.
+- **OpenAPI** — regenerated for every new agent action.
+
+## Go / no-go
+
+All eight areas are **GO for merge** at the code/unit-test level. The branch
+is ready for the real-host pass; the **real-host** items above are its
+checklist. No area is blocked.
