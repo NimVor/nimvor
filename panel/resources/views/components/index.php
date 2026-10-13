@@ -54,7 +54,7 @@ $expected ??= [];
                             </div>
                             <?php if ($st === 'todo'):
                                 $fix = $fixFor[$s['id']] ?? null;
-                                $viaPage = $s['id'] === 'setup' || ($s['id'] === 'installed' && $id === 'php') || ($s['id'] === 'running' && $id === 'firewall');
+                                $viaPage = $s['id'] === 'setup' || ($s['id'] === 'installed' && ($id === 'php' || $id === 'mongodb')) || ($s['id'] === 'running' && $id === 'firewall');
                                 if ($viaPage && $page !== null && $this->hasRoute($page) && $this->routeAllowed($page)): ?>
                                     <a class="btn btn-sm btn-outline-primary text-nowrap" href="<?= e($this->url($page)) ?>"><?= $s['id'] === 'setup' ? 'Set up' : 'Open' ?></a>
                                 <?php elseif (!$viaPage && $fix !== null && $this->can($fix[1])): ?>

@@ -30,6 +30,44 @@ final class MongoService
         ];
     }
 
+    /** @return array{kind: string, name: string, url: string, version: string, supported: bool, enabled: bool, note: string} */
+    public function repository(): array
+    {
+        $r = (array) $this->agent->call('mongo.repository');
+        return [
+            'kind' => (string) ($r['kind'] ?? ''),
+            'name' => (string) ($r['name'] ?? ''),
+            'url' => (string) ($r['url'] ?? ''),
+            'version' => (string) ($r['version'] ?? ''),
+            'supported' => !empty($r['supported']),
+            'enabled' => !empty($r['enabled']),
+            'note' => (string) ($r['note'] ?? ''),
+        ];
+    }
+
+    /** Add MongoDB's repository (async). Returns the job id. */
+    public function enableRepository(?int $userId): string
+    {
+        $job = (string) ((array) $this->agent->call('mongo.repository.enable'))['job_id'];
+        $this->audit->record('mongo.repository.enable', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, [], $userId);
+        return $job;
+    }
+
+    /** Install MongoDB and start the service (async). Returns the job id. */
+    public function install(?int $userId): string
+    {
+        $job = (string) ((array) $this->agent->call('mongo.install'))['job_id'];
+        $this->audit->record('mongo.install', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, [], $userId);
+        return $job;
+    }
+
+    /** Start, stop, restart or enable the mongod service. */
+    public function service(string $op, ?int $userId): void
+    {
+        $this->agent->call('services.control', ['unit' => 'mongod.service', 'op' => $op]);
+        $this->audit->record('service.' . $op, 'service', 'mongod', AuditLogger::SUCCESS, [], $userId);
+    }
+
     /** @return array{databases: list<array<string, mixed>>, users: list<array<string, mixed>>} */
     public function overview(): array
     {

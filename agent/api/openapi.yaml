@@ -249,7 +249,10 @@ paths:
               - modsec.update
               - mongo.database_create
               - mongo.database_drop
+              - mongo.install
               - mongo.overview
+              - mongo.repository
+              - mongo.repository.enable
               - mongo.status
               - mongo.user_create
               - mongo.user_drop
@@ -694,7 +697,10 @@ x-whacp-actions:
   modsec.update: { mutating: true, description: "Update the rule packages (OWASP CRS and the connector) with the package manager as a background job, then check with nginx -t and reload. If the new rules break the configuration, the Core Rule Set is turned off and the rest restored." }
   mongo.database_create: { mutating: true, description: "Create a MongoDB database (an empty collection makes it exist)." }
   mongo.database_drop: { mutating: true, description: "Drop a MongoDB database (requires confirm = name)." }
+  mongo.install: { mutating: true, description: "Install MongoDB (mongodb-org) from its repository, then enable and start the mongod service." }
   mongo.overview: { mutating: false, description: "MongoDB databases (with sizes) and users." }
+  mongo.repository: { mutating: false, description: "MongoDB's third-party repository for this system, and whether it is enabled." }
+  mongo.repository.enable: { mutating: true, description: "Add MongoDB Inc.'s signed repository (APT: key fetched over TLS, trusted for this repository only; DNF: per-repo gpgkey) and refresh the package index." }
   mongo.status: { mutating: false, description: "MongoDB: installed, running, version." }
   mongo.user_create: { mutating: true, description: "Create a MongoDB user scoped to one database with a role." }
   mongo.user_drop: { mutating: true, description: "Drop a MongoDB user." }

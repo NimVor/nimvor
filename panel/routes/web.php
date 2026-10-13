@@ -381,6 +381,9 @@ return static function (Router $r): void {
     $r->post('/mongo/users', [\WhaCP\Http\Controllers\MongoController::class, 'createUser'], ['name' => 'mongo.user_create', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mongo/users/password', [\WhaCP\Http\Controllers\MongoController::class, 'setPassword'], ['name' => 'mongo.user_password', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mongo/users/drop', [\WhaCP\Http\Controllers\MongoController::class, 'dropUser'], ['name' => 'mongo.user_drop', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mongo/repository', [\WhaCP\Http\Controllers\MongoController::class, 'enableRepository'], ['name' => 'mongo.repository_enable', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mongo/install', [\WhaCP\Http\Controllers\MongoController::class, 'install'], ['name' => 'mongo.install', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mongo/service', [\WhaCP\Http\Controllers\MongoController::class, 'service'], ['name' => 'mongo.service', 'permission' => P::SERVER_MANAGE]);
     $r->get('/runtimes', [\WhaCP\Http\Controllers\RuntimeController::class, 'index'], ['name' => 'runtimes', 'permission' => P::SERVER_VIEW]);
     $r->post('/runtimes/install', [\WhaCP\Http\Controllers\RuntimeController::class, 'install'], ['name' => 'runtimes.install', 'permission' => P::SERVER_MANAGE]);
     $r->post('/runtimes/remove', [\WhaCP\Http\Controllers\RuntimeController::class, 'remove'], ['name' => 'runtimes.remove', 'permission' => P::SERVER_MANAGE]);

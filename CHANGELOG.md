@@ -172,6 +172,17 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **MongoDB installation (Server → MongoDB, Components, Packages).** MongoDB
+  is not in the base operating-system repositories, so the MongoDB page now
+  installs it in two guided steps: *Add repository* adds MongoDB Inc.'s own
+  signed repository (on APT the signing key is fetched over TLS from MongoDB's
+  official key server and trusted for that repository only; on the RHEL family
+  a per-repo `gpgkey` is used), and *Install MongoDB* installs `mongodb-org`
+  and enables and starts the `mongod` service. The page also starts, stops and
+  restarts the service. MongoDB now appears on the Components page (install via
+  its page, then start / start-at-boot) and `mongodb-org` is listed on the
+  Packages page. New agent actions: `mongo.repository`,
+  `mongo.repository.enable`, `mongo.install`. Tracks MongoDB 8.0 by default.
 - **Host-name references audit (Server → "find the old name").** After a
   host-name change, names recorded earlier — DNS zone records, Nginx server
   names, Postfix's greeting — keep the old value. A read-only scan

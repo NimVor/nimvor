@@ -134,6 +134,8 @@ var defs = []def{
 		units: func(env *host.Env, _ map[string]bool) []string { return []string{env.M.RedisUnit} }},
 	{id: "memcached", name: "Memcached", desc: "Memory cache for websites (local connections only).", packages: []string{"memcached"},
 		units: func(env *host.Env, _ map[string]bool) []string { return []string{env.M.MemcachedUnit} }},
+	{id: "mongodb", name: "MongoDB", desc: "MongoDB NoSQL database server (local connections only). Install it from the MongoDB page, which adds MongoDB's repository first.", packages: []string{"mongodb-org"},
+		units: func(*host.Env, map[string]bool) []string { return []string{"mongod.service"} }},
 	{id: "firewall", name: "Firewall", desc: "UFW, or firewalld on AlmaLinux, Rocky Linux and RHEL.", packages: []string{"ufw"},
 		units: func(env *host.Env, _ map[string]bool) []string {
 			if env.Platform.PackageManager() == "dnf" {

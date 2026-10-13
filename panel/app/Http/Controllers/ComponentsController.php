@@ -29,7 +29,7 @@ final class ComponentsController extends Controller
     /** Where each component's own settings are. */
     public const PAGES = [
         'web' => 'websites', 'php' => 'php', 'database' => 'databases.server', 'mail' => 'mail', 'dns' => 'dns',
-        'ftp' => 'ftp', 'redis' => 'redis', 'memcached' => 'memcached', 'firewall' => 'security.firewall',
+        'ftp' => 'ftp', 'redis' => 'redis', 'memcached' => 'memcached', 'mongodb' => 'mongo', 'firewall' => 'security.firewall',
         'fail2ban' => 'security.fail2ban', 'clamav' => 'security.malware', 'certbot' => 'ssl.autossl',
     ];
 

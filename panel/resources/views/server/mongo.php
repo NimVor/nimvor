@@ -5,12 +5,16 @@
  * @var \WhaCP\View\View $this
  * @var array{installed: bool, running: bool, version: string, auth: bool}|null $status
  * @var array{databases: list<array<string, mixed>>, users: list<array<string, mixed>>} $overview
+ * @var array{kind: string, name: string, url: string, version: string, supported: bool, enabled: bool, note: string}|null $repository
  */
 use WhaCP\Security\Permissions as P;
 
 $status ??= null;
 $overview ??= ['databases' => [], 'users' => []];
+$repository ??= null;
 $canManage = $this->can(P::SERVER_MANAGE);
+$canInstall = $this->can(P::PACKAGES_MANAGE);
+$canServices = $this->can(P::SERVICES_MANAGE);
 $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB admin', 'dbOwner' => 'Owner'];
 ?>
 <?php $this->start(); ?>MongoDB<?php $this->end('title'); ?>
@@ -28,22 +32,78 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
 <?php endif; ?>
 
 <?php if (!$status['installed']): ?>
-    <div class="card"><div class="wcp-empty-state">
-        <i class="bi bi-database" aria-hidden="true"></i>
-        <div class="fw-medium">MongoDB is not installed</div>
-        <div class="small mb-3">Install the <code>mongodb-org</code> packages under Packages, then manage its databases and users here.</div>
-        <?php if ($this->can(P::PACKAGES_MANAGE) && $this->hasRoute('packages')): ?><a class="btn btn-primary" href="<?= e($this->url('packages')) ?>">Open Packages</a><?php endif; ?>
-    </div></div>
+    <?php $repoEnabled = $repository !== null && $repository['enabled']; $repoSupported = $repository !== null && $repository['supported']; ?>
+    <div class="card mb-3">
+        <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-box-seam" aria-hidden="true"></i>Install MongoDB</div>
+        <div class="card-body">
+            <p class="small text-body-secondary mb-3">MongoDB is not in the base operating-system repositories, so WhaCP installs it from MongoDB Inc.'s own signed repository. First add the repository, then install MongoDB — the server is enabled and started for you. Both steps run in the background.</p>
+
+            <ol class="list-unstyled mb-0">
+                <li class="d-flex align-items-start gap-3 py-2 border-top">
+                    <i class="bi <?= $repoEnabled ? 'bi-check-circle-fill text-success' : 'bi-1-circle text-body-secondary' ?> fs-5" aria-hidden="true"></i>
+                    <div class="flex-grow-1">
+                        <div class="fw-medium">MongoDB <?= e($repository['version'] ?? '8.0') ?> repository</div>
+                        <?php if ($repository === null): ?>
+                            <div class="small text-body-secondary">The repository status could not be read from the agent.</div>
+                        <?php elseif ($repoEnabled): ?>
+                            <div class="small text-success-emphasis">Enabled (<?= e($repository['name']) ?>).</div>
+                        <?php elseif (!$repoSupported): ?>
+                            <div class="small text-body-secondary"><?= e($repository['note'] !== '' ? $repository['note'] : 'Not available on this operating system.') ?></div>
+                        <?php else: ?>
+                            <div class="small text-body-secondary">The signing key is fetched over TLS from MongoDB's official key server and trusted for this repository only.</div>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($canInstall && $repoSupported && !$repoEnabled): ?>
+                        <form method="post" action="<?= e($this->url('mongo.repository_enable')) ?>" data-wcp-busy data-wcp-confirm="Add MongoDB Inc.'s signed repository to this server?">
+                            <?= $this->csrfField() ?>
+                            <button class="btn btn-sm btn-outline-primary text-nowrap"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Add repository</button>
+                        </form>
+                    <?php endif; ?>
+                </li>
+                <li class="d-flex align-items-start gap-3 py-2 border-top">
+                    <i class="bi bi-2-circle text-body-secondary fs-5" aria-hidden="true"></i>
+                    <div class="flex-grow-1">
+                        <div class="fw-medium">Install the server</div>
+                        <div class="small text-body-secondary">Installs <code>mongodb-org</code> (server, shell and tools), then enables and starts the <code>mongod</code> service.</div>
+                    </div>
+                    <?php if ($canInstall && $repoEnabled): ?>
+                        <form method="post" action="<?= e($this->url('mongo.install')) ?>" data-wcp-busy data-wcp-confirm="Install MongoDB <?= e($repository['version'] ?? '8.0') ?> now?">
+                            <?= $this->csrfField() ?>
+                            <button class="btn btn-sm btn-primary text-nowrap"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Install MongoDB</button>
+                        </form>
+                    <?php elseif (!$canInstall): ?>
+                        <span class="small text-body-secondary text-nowrap">Needs package permission</span>
+                    <?php else: ?>
+                        <span class="small text-body-secondary text-nowrap">Add the repository first</span>
+                    <?php endif; ?>
+                </li>
+            </ol>
+        </div>
+    </div>
     <?php return; ?>
 <?php endif; ?>
 
 <div class="wcp-infobar mb-3">
     <i class="bi bi-database-check" aria-hidden="true"></i>
-    <span>MongoDB <?= e($status['version'] !== '' ? $status['version'] : '(version unknown)') ?> · <?= $status['running'] ? 'running' : 'stopped' ?><?= $status['auth'] ? ' · authentication on' : '' ?></span>
+    <span class="me-auto">MongoDB <?= e($status['version'] !== '' ? $status['version'] : '(version unknown)') ?> · <?= $status['running'] ? 'running' : 'stopped' ?><?= $status['auth'] ? ' · authentication on' : '' ?></span>
+    <?php if ($canServices && $status['running']): ?>
+        <form method="post" action="<?= e($this->url('mongo.service')) ?>" data-wcp-busy data-wcp-confirm="Restart the MongoDB service?">
+            <?= $this->csrfField() ?><input type="hidden" name="op" value="restart">
+            <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Restart</button>
+        </form>
+    <?php endif; ?>
 </div>
 
 <?php if (!$status['running']): ?>
-    <div class="card"><div class="card-body small text-body-secondary">The MongoDB service is not running. Start it under Services, then reload this page.</div></div>
+    <div class="card"><div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <span class="small text-body-secondary me-auto">The MongoDB service (<code>mongod</code>) is not running.</span>
+        <?php if ($canServices): ?>
+            <form method="post" action="<?= e($this->url('mongo.service')) ?>" data-wcp-busy>
+                <?= $this->csrfField() ?><input type="hidden" name="op" value="start">
+                <button class="btn btn-sm btn-primary"><i class="bi bi-play-fill me-1" aria-hidden="true"></i>Start MongoDB</button>
+            </form>
+        <?php endif; ?>
+    </div></div>
     <?php return; ?>
 <?php endif; ?>
 

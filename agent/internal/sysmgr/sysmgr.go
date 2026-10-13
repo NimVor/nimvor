@@ -36,6 +36,7 @@ var Components = map[string]string{
 	"mariadb-server":      "MariaDB database server",
 	"redis-server":        "Redis cache server",
 	"memcached":           "Memcached cache server",
+	"mongodb-org":         "MongoDB NoSQL database server (needs MongoDB's repository)",
 	"pure-ftpd":           "FTP server (FTPS accounts for websites)",
 	"bind9":               "DNS server (BIND) for hosted zones",
 	"postfix":             "Mail server (SMTP)",

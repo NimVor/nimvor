@@ -53,12 +53,43 @@ final class MongoTest extends HttpTestCase
         self::assertSame(0, $this->calls('mongo.database_create'));
     }
 
-    public function testNotInstalledShowsInstallPrompt(): void
+    public function testNotInstalledOffersRepositoryThenInstall(): void
     {
         $this->agent->succeed('mongo.status', ['installed' => false, 'running' => false, 'version' => '', 'auth' => false]);
+        $this->agent->succeed('mongo.repository', ['kind' => 'apt-ubuntu', 'name' => 'MongoDB 8.0 (apt)', 'url' => 'https://repo.mongodb.org/apt/ubuntu', 'version' => '8.0', 'supported' => true, 'enabled' => false, 'note' => '']);
         $this->login('admin');
         $page = $this->request('GET', '/mongo')->body();
-        self::assertStringContainsString('MongoDB is not installed', $page);
-        self::assertSame(0, $this->calls('mongo.overview'));
+        self::assertStringContainsString('Install MongoDB', $page);
+        self::assertStringContainsString('Add repository', $page);
+        self::assertSame(0, $this->calls('mongo.overview'), 'nothing is queried when MongoDB is not installed');
+
+        // Repository must be added before install is offered.
+        self::assertStringNotContainsString('action="/mongo/install"', $page, 'install is not offered until the repository is enabled');
+
+        $this->agent->succeed('mongo.repository.enable', ['job_id' => 'cccccccccccccccc']);
+        $this->post('/mongo/repository', []);
+        self::assertSame(1, $this->calls('mongo.repository.enable'));
+    }
+
+    public function testInstallOfferedOnceRepositoryEnabled(): void
+    {
+        $this->agent->succeed('mongo.status', ['installed' => false, 'running' => false, 'version' => '', 'auth' => false]);
+        $this->agent->succeed('mongo.repository', ['kind' => 'apt-ubuntu', 'name' => 'MongoDB 8.0 (apt)', 'url' => '', 'version' => '8.0', 'supported' => true, 'enabled' => true, 'note' => '']);
+        $this->login('admin');
+        $page = $this->request('GET', '/mongo')->body();
+        self::assertStringContainsString('action="/mongo/install"', $page);
+
+        $this->agent->succeed('mongo.install', ['job_id' => 'dddddddddddddddd']);
+        $this->post('/mongo/install', []);
+        self::assertSame(1, $this->calls('mongo.install'));
+    }
+
+    public function testCustomersCannotInstallOrEnableRepository(): void
+    {
+        $this->login('cust');
+        self::assertSame(403, $this->post('/mongo/repository', [])->status());
+        self::assertSame(403, $this->post('/mongo/install', [])->status());
+        self::assertSame(403, $this->post('/mongo/service', ['op' => 'start'])->status());
+        self::assertSame(0, $this->calls('mongo.install'));
     }
 }

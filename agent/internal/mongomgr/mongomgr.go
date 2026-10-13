@@ -111,6 +111,7 @@ type User struct {
 // Register adds the MongoDB actions.
 func Register(r *actions.Registry, env *host.Env) {
 	c := Client{Env: env}
+	registerRepo(r, env)
 
 	r.Register(actions.Action{Name: "mongo.status", Description: "MongoDB: installed, running, version.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		st := Status{Installed: installed(env), Auth: env.Root.Exists(AdminURIFile)}
@@ -129,7 +130,7 @@ func Register(r *actions.Registry, env *host.Env) {
 
 	r.Register(actions.Action{Name: "mongo.overview", Description: "MongoDB databases (with sizes) and users.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		if !installed(env) {
-			return nil, actions.Conflict("MongoDB is not installed. Install it under Server → Packages (mongodb-org).")
+			return nil, actions.Conflict("MongoDB is not installed. Enable its repository and install it on the MongoDB page.")
 		}
 		dbs, err := c.databases(ctx)
 		if err != nil {
