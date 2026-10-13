@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 )
 
 func TestRepositoryOfUbuntu(t *testing.T) {
@@ -54,6 +56,22 @@ func TestRepoConfiguredDetectsExistingSource(t *testing.T) {
 	}
 	if !repoConfigured(h.Env) {
 		t.Fatal("an existing MongoDB source should be detected")
+	}
+}
+
+// The agent's writer only permits WhaCP-managed paths; the repository files
+// must be among them or enabling the repository fails on a real host.
+func TestRepositoryPathsAreWritable(t *testing.T) {
+	h, _ := setup(t)
+	for _, d := range []string{"etc/apt/keyrings", "etc/apt/sources.list.d", "etc/yum.repos.d"} {
+		if err := os.MkdirAll(filepath.Join(h.Base, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, p := range []string{aptKeyring, aptSources, dnfRepoFile} {
+		if _, err := h.Env.Writer.WriteFile(p, []byte("x"), 0o644, agentfs.RootOwner); err != nil {
+			t.Fatalf("writer refused %s: %v", p, err)
+		}
 	}
 }
 

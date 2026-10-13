@@ -135,6 +135,11 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		"/etc/apt/keyrings",
 		"/etc/apt/keyrings/whacp-ondrej-php.asc",
 		"/etc/apt/sources.list.d/whacp-ondrej-php.sources",
+		// MongoDB's repository (mongomgr): WhaCP's key, APT source and DNF
+		// repo file, nothing else under /etc/apt or /etc/yum.repos.d.
+		"/etc/apt/keyrings/whacp-mongodb-*.asc",
+		"/etc/apt/sources.list.d/whacp-mongodb-*.sources",
+		"/etc/yum.repos.d/whacp-mongodb-*.repo",
 	}
 	return &Env{
 		Cfg: cfg, Root: root, Platform: p, M: m, Runner: r, Jobs: j, Log: log,
