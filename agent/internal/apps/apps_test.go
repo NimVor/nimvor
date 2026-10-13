@@ -105,6 +105,35 @@ func TestStagedChecksumMismatchStops(t *testing.T) {
 	}
 }
 
+func TestStagedNoDBAppNeedsNoDatabase(t *testing.T) {
+	tarball := stagedTarGz(t, map[string]string{"index.php": "<?php // grav"})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write(tarball) }))
+	t.Cleanup(srv.Close)
+	Catalog["flatapp"] = AppDef{Name: "Flat App", Format: "targz", Strip: 1, NoDB: true, Finish: "/"}
+	Catalog["dbapp"] = AppDef{Name: "DB App", Format: "targz", Strip: 1, Finish: "/"}
+	t.Cleanup(func() { delete(Catalog, "flatapp"); delete(Catalog, "dbapp") })
+	h, _ := setup(t)
+	req := request()
+	req.App = "flatapp"
+	req.Root = "/home/whacp/shop.test"
+	req.DB = DB{} // no database supplied
+	cred, _, _ := h.Env.Credential("example")
+	if _, err := Install(context.Background(), h.Env, Sources{Client: srv.Client(), CatalogBase: srv.URL}, req, cred, io.Discard); err != nil {
+		t.Fatalf("a flat-file app should install without a database: %v", err)
+	}
+	// Validation: the NoDB app passes with no database; a database-backed app
+	// with no database is rejected (validate runs in the action handler).
+	noDB := req
+	if err := noDB.validate(h.Env); err != nil {
+		t.Errorf("NoDB app rejected despite needing no database: %v", err)
+	}
+	dbReq := req
+	dbReq.App = "dbapp"
+	if err := dbReq.validate(h.Env); err == nil {
+		t.Fatal("a database-backed app with no database must be rejected")
+	}
+}
+
 func TestExtractionGuards(t *testing.T) {
 	// stripPath drops the top folder; the folder itself yields nothing.
 	if rel, ok := stripPath("pkg/sub/x.php", 1); !ok || rel != "sub/x.php" {

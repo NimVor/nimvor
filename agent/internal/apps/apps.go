@@ -77,6 +77,7 @@ type AppDef struct {
 	DocRoot string   // web root relative to the install folder ("" = the folder)
 	Ext     []string // required PHP extensions
 	Finish  string   // path under the site URL that runs the app's installer
+	NoDB    bool     // the app needs no database (flat-file, e.g. Grav)
 }
 
 // Catalog of staged applications. URLs are the vendors' official "latest
@@ -90,6 +91,11 @@ var Catalog = map[string]AppDef{
 	"prestashop": {Name: "PrestaShop", URL: "https://github.com/PrestaShop/PrestaShop/releases/latest/download/prestashop.zip", Format: "zip", Strip: 0, Ext: []string{"pdo_mysql", "gd", "intl", "zip", "curl"}, Finish: "/install/"},
 	"opencart":   {Name: "OpenCart", URL: "https://github.com/opencart/opencart/releases/latest/download/opencart.zip", Format: "zip", Strip: 0, DocRoot: "upload", Ext: []string{"mysqli", "gd", "curl", "zip"}, Finish: "/install/"},
 	"abantecart": {Name: "AbanteCart", URL: "https://github.com/abantecart/abantecart-src/archive/refs/heads/master.tar.gz", Format: "targz", Strip: 1, DocRoot: "public_html", Ext: []string{"mysqli", "gd", "curl", "zip"}, Finish: "/install/"},
+	"nextcloud":  {Name: "Nextcloud", URL: "https://download.nextcloud.com/server/releases/latest.tar.bz2", SumURL: "https://download.nextcloud.com/server/releases/latest.tar.bz2.sha256", SumAlgo: "sha256", Format: "tarbz2", Strip: 1, Ext: []string{"pdo_mysql", "gd", "curl", "zip", "mbstring", "xml"}, Finish: "/index.php"},
+	"matomo":     {Name: "Matomo", URL: "https://builds.matomo.org/matomo.zip", Format: "zip", Strip: 1, Ext: []string{"pdo_mysql", "gd", "curl", "mbstring"}, Finish: "/index.php"},
+	"moodle":     {Name: "Moodle", URL: "https://download.moodle.org/download.php/direct/stable405/moodle-latest-405.tgz", Format: "targz", Strip: 1, Ext: []string{"pdo_mysql", "gd", "curl", "intl", "xml", "zip", "mbstring"}, Finish: "/install.php"},
+	"mediawiki":  {Name: "MediaWiki", URL: "https://releases.wikimedia.org/mediawiki/1.43/mediawiki-1.43.1.tar.gz", Format: "targz", Strip: 1, Ext: []string{"mysqli", "mbstring", "xml", "intl"}, Finish: "/mw-config/index.php"},
+	"grav":       {Name: "Grav", URL: "https://getgrav.org/download/core/grav/latest", Format: "zip", Strip: 1, NoDB: true, Ext: []string{"gd", "curl", "mbstring", "zip", "json"}, Finish: "/"},
 }
 
 // Request describes an installation.
@@ -146,20 +152,23 @@ func (r *Request) validate(env *host.Env) error {
 	if err := validate.PHPVersion("php_version", r.PHPVersion); err != nil {
 		return err
 	}
-	if err := validate.DBIdentifier("db.name", r.DB.Name); err != nil {
-		return err
-	}
-	if err := validate.DBIdentifier("db.user", r.DB.User); err != nil {
-		return err
-	}
-	if r.DB.Password == "" || len(r.DB.Password) > 200 || strings.ContainsAny(r.DB.Password, "\x00\n\r") {
-		return &validate.Error{Field: "db.password", Message: "is required"}
-	}
-	if r.DB.Host == "" {
-		r.DB.Host = "localhost"
-	}
-	if r.DB.Host != "localhost" && r.DB.Host != "127.0.0.1" {
-		return &validate.Error{Field: "db.host", Message: "must be localhost"}
+	// Flat-file staged apps (e.g. Grav) need no database; everything else does.
+	if !(staged && Catalog[r.App].NoDB) {
+		if err := validate.DBIdentifier("db.name", r.DB.Name); err != nil {
+			return err
+		}
+		if err := validate.DBIdentifier("db.user", r.DB.User); err != nil {
+			return err
+		}
+		if r.DB.Password == "" || len(r.DB.Password) > 200 || strings.ContainsAny(r.DB.Password, "\x00\n\r") {
+			return &validate.Error{Field: "db.password", Message: "is required"}
+		}
+		if r.DB.Host == "" {
+			r.DB.Host = "localhost"
+		}
+		if r.DB.Host != "localhost" && r.DB.Host != "127.0.0.1" {
+			return &validate.Error{Field: "db.host", Message: "must be localhost"}
+		}
 	}
 	if !urlRe.MatchString(r.URL) {
 		return &validate.Error{Field: "url", Message: "must be the website address, e.g. https://example.com"}
