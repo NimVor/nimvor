@@ -132,15 +132,28 @@ func Register(r *actions.Registry, env *host.Env) {
 		if !installed(env) {
 			return nil, actions.Conflict("MongoDB is not installed. Enable its repository and install it on the MongoDB page.")
 		}
-		dbs, err := c.databases(ctx)
-		if err != nil {
-			return nil, actions.Failed("MongoDB could not be queried.", err.Error())
+		// The two reads are independent: a failure listing users (for
+		// example a permission error on an authenticated server) must not
+		// hide the databases, and vice versa. Only fail when both fail.
+		dbs, dbErr := c.databases(ctx)
+		users, userErr := c.users(ctx)
+		if dbErr != nil && userErr != nil {
+			return nil, actions.Failed("MongoDB could not be queried.", strings.TrimSpace(dbErr.Error()+"; "+userErr.Error()))
 		}
-		users, err := c.users(ctx)
-		if err != nil {
-			return nil, actions.Failed("MongoDB users could not be read.", err.Error())
+		if dbs == nil {
+			dbs = []Database{}
 		}
-		return map[string]any{"databases": dbs, "users": users}, nil
+		if users == nil {
+			users = []User{}
+		}
+		out := map[string]any{"databases": dbs, "users": users}
+		if dbErr != nil {
+			out["databases_error"] = dbErr.Error()
+		}
+		if userErr != nil {
+			out["users_error"] = userErr.Error()
+		}
+		return out, nil
 	}})
 
 	r.Register(actions.Action{Name: "mongo.database_create", Mutating: true, Description: "Create a MongoDB database (an empty collection makes it exist).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
@@ -296,9 +309,11 @@ func (c Client) databases(ctx context.Context) ([]Database, error) {
 	return dbs, nil
 }
 
-// users lists users across databases (excluding internal databases).
+// users lists users across databases (excluding internal databases). It uses
+// the usersInfo command (the supported way), not a direct read of the
+// admin.system.users collection, which modern MongoDB restricts.
 func (c Client) users(ctx context.Context) ([]User, error) {
-	script := "print(JSON.stringify(db.getSiblingDB('admin').system.users.find({},{user:1,db:1,roles:1}).toArray()))"
+	script := "print(JSON.stringify(db.adminCommand({usersInfo:{forAllDBs:true}}).users))"
 	out, err := c.eval(ctx, script)
 	if err != nil {
 		return nil, err

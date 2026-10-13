@@ -3,6 +3,7 @@ package mongomgr
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -65,7 +66,7 @@ func TestOverviewParsesDatabasesAndUsers(t *testing.T) {
 		switch {
 		case strings.Contains(script, "listDatabases"):
 			return `[{"name":"admin","sizeOnDisk":40960,"empty":false},{"name":"shop","sizeOnDisk":8192,"empty":false},{"name":"local","sizeOnDisk":1,"empty":false}]`, nil
-		case strings.Contains(script, "system.users"):
+		case strings.Contains(script, "usersInfo"):
 			return `[{"user":"root","db":"admin","roles":[{"role":"root","db":"admin"}]},{"user":"shopuser","db":"shop","roles":[{"role":"readWrite","db":"shop"}]}]`, nil
 		}
 		return "", nil
@@ -82,6 +83,36 @@ func TestOverviewParsesDatabasesAndUsers(t *testing.T) {
 	users := m["users"].([]User)
 	if len(users) != 1 || users[0].User != "shopuser" || users[0].DB != "shop" || users[0].Roles[0] != "readWrite" {
 		t.Fatalf("users: %+v", users)
+	}
+}
+
+// A failure listing users must not hide the databases: the overview still
+// returns the databases and reports the users error.
+func TestOverviewReturnsDatabasesWhenUsersFail(t *testing.T) {
+	h, r := setup(t)
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id != "mongosh" {
+			return "", nil
+		}
+		script := args[len(args)-1]
+		if strings.Contains(script, "listDatabases") {
+			return `[{"name":"shop","sizeOnDisk":8192,"empty":false}]`, nil
+		}
+		if strings.Contains(script, "usersInfo") {
+			return "not authorized", fmt.Errorf("exit status 1")
+		}
+		return "", nil
+	}
+	res, err := call(t, r, "mongo.overview", `{}`)
+	if err != nil {
+		t.Fatalf("overview should not fail when only users fail: %v", err)
+	}
+	m := res.(map[string]any)
+	if dbs := m["databases"].([]Database); len(dbs) != 1 || dbs[0].Name != "shop" {
+		t.Fatalf("databases: %+v", dbs)
+	}
+	if m["users_error"] == nil {
+		t.Fatal("a users error should be reported")
 	}
 }
 

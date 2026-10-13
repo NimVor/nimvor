@@ -33,8 +33,9 @@ final class MongoController extends Controller
     public function index(Request $request): Response
     {
         $status = null;
-        $overview = ['databases' => [], 'users' => []];
+        $overview = ['databases' => [], 'users' => [], 'databases_error' => '', 'users_error' => ''];
         $repository = null;
+        $overviewError = null;
         $error = null;
         try {
             $status = $this->mongo->status();
@@ -47,12 +48,18 @@ final class MongoController extends Controller
                 }
             }
             if ($status['installed'] && $status['running']) {
-                $overview = $this->mongo->overview();
+                // A failure reading the databases/users must not blank the
+                // whole page with no explanation — show it in place.
+                try {
+                    $overview = $this->mongo->overview();
+                } catch (AgentException $e) {
+                    $overviewError = $e;
+                }
             }
         } catch (AgentException $e) {
             $error = $e;
         }
-        return $this->render('server/mongo', ['tab' => 'mongo', 'status' => $status, 'overview' => $overview, 'repository' => $repository, 'agentError' => $error]);
+        return $this->render('server/mongo', ['tab' => 'mongo', 'status' => $status, 'overview' => $overview, 'repository' => $repository, 'overviewError' => $overviewError, 'agentError' => $error]);
     }
 
     public function enableRepository(Request $request): Response

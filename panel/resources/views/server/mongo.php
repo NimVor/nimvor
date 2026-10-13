@@ -10,8 +10,9 @@
 use WhaCP\Security\Permissions as P;
 
 $status ??= null;
-$overview ??= ['databases' => [], 'users' => []];
+$overview ??= ['databases' => [], 'users' => [], 'databases_error' => '', 'users_error' => ''];
 $repository ??= null;
+$overviewError ??= null;
 $canManage = $this->can(P::SERVER_MANAGE);
 $canInstall = $this->can(P::PACKAGES_MANAGE);
 $canServices = $this->can(P::SERVICES_MANAGE);
@@ -106,6 +107,16 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
     </div></div>
     <?php return; ?>
 <?php endif; ?>
+
+<?php if ($overviewError !== null): ?>
+    <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill mt-1" aria-hidden="true"></i>
+        <div>MongoDB is running, but its databases and users could not be read: <?= e($overviewError->getMessage()) ?></div>
+    </div>
+<?php endif; ?>
+<?php foreach (['databases_error' => 'databases', 'users_error' => 'users'] as $key => $what): if (($overview[$key] ?? '') !== ''): ?>
+    <div class="alert alert-warning small" role="alert">The <?= e($what) ?> could not be listed: <?= e((string) $overview[$key]) ?></div>
+<?php endif; endforeach; ?>
 
 <div class="card mb-3">
     <div class="card-header">Databases</div>

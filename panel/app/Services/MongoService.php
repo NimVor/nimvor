@@ -68,13 +68,15 @@ final class MongoService
         $this->audit->record('service.' . $op, 'service', 'mongod', AuditLogger::SUCCESS, [], $userId);
     }
 
-    /** @return array{databases: list<array<string, mixed>>, users: list<array<string, mixed>>} */
+    /** @return array{databases: list<array<string, mixed>>, users: list<array<string, mixed>>, databases_error: string, users_error: string} */
     public function overview(): array
     {
         $o = (array) $this->agent->call('mongo.overview');
         return [
             'databases' => array_map(static fn ($d): array => (array) $d, (array) ($o['databases'] ?? [])),
             'users' => array_map(static fn ($u): array => (array) $u, (array) ($o['users'] ?? [])),
+            'databases_error' => (string) ($o['databases_error'] ?? ''),
+            'users_error' => (string) ($o['users_error'] ?? ''),
         ];
     }
 
