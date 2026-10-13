@@ -23,6 +23,7 @@ final class AppsController extends SiteController
         ServerContext $server,
         private readonly AppInstallerService $apps,
         private readonly JobTracker $jobs,
+        private readonly \WhaCP\Services\AppCatalogService $catalog,
     ) {
         parent::__construct($view, $session, $sites, $server);
     }
@@ -43,6 +44,8 @@ final class AppsController extends SiteController
             'secret' => $this->session->pullFlash('secret'),
             'docroot' => AppInstallerService::relativeDocroot($site),
             'email' => (string) ($this->user($request)['email'] ?? ''),
+            'catalog' => $this->catalog->forCustomer(),
+            'installerEnabled' => $this->catalog->installerEnabled(),
         ]);
     }
 

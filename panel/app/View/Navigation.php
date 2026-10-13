@@ -119,6 +119,7 @@ final class Navigation
                 ['Basic WebHost Settings', 'house-gear', 'settings.basic', P::SETTINGS_VIEW, '/settings/basic', 'Contact, panel address, name servers, defaults for new accounts'],
                 ['Tweak Settings', 'sliders2', 'settings.tweak', P::SETTINGS_VIEW, '/settings/tweak', 'Every setting with its default: search, change, reset'],
                 ['Settings', 'sliders', 'settings', P::SETTINGS_VIEW, '/settings', 'Panel settings'],
+                ['Application Manager', 'grid-3x3-gap', 'apps.manager', P::SETTINGS_VIEW, '/apps-manager', 'Installer categories and applications, and what customers can install'],
                 ['Audit log', 'list-check', 'audit', P::AUDIT_VIEW, '/audit', 'Who changed what'],
                 ['Plugins', 'plug', 'plugins', P::PLUGINS_MANAGE, '/admin/plugins', 'Panel plugins'],
             ],

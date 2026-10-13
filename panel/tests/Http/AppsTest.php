@@ -56,7 +56,9 @@ final class AppsTest extends HttpTestCase
     {
         $this->agent->succeed('apps.install', ['job_id' => 'bbbbbbbbbbbbbbbb']);
         $base = '/sites/' . $this->siteId . '/apps';
-        self::assertStringContainsString('More applications', $this->request('GET', $base)->body());
+        $page = $this->request('GET', $base)->body();
+        self::assertStringContainsString('Joomla', $page);
+        self::assertStringContainsString('data-app-cat', $page, 'the category sidebar renders');
 
         $this->post($base . '/joomla', []);
         $call = $this->lastCall('apps.install');

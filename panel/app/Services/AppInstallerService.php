@@ -30,6 +30,11 @@ final class AppInstallerService
         'prestashop' => ['title' => 'PrestaShop', 'description' => 'E-commerce platform. Staged into the document root with a new database; finish in its web installer.', 'staged' => true],
         'opencart' => ['title' => 'OpenCart', 'description' => 'E-commerce platform. Staged with a new database; the website is served from <folder>/upload.', 'staged' => true],
         'abantecart' => ['title' => 'AbanteCart', 'description' => 'E-commerce platform. Staged with a new database; the website is served from <folder>/public_html.', 'staged' => true],
+        'nextcloud' => ['title' => 'Nextcloud', 'description' => 'Self-hosted files, calendar and collaboration. Staged; finish in its web installer.', 'staged' => true],
+        'moodle' => ['title' => 'Moodle', 'description' => 'Learning management system. Staged; finish in its web installer.', 'staged' => true],
+        'matomo' => ['title' => 'Matomo', 'description' => 'Privacy-friendly web analytics. Staged; finish in its web installer.', 'staged' => true],
+        'mediawiki' => ['title' => 'MediaWiki', 'description' => 'The wiki engine behind Wikipedia. Staged; finish in its web installer.', 'staged' => true],
+        'grav' => ['title' => 'Grav', 'description' => 'Flat-file CMS — no database. Staged; ready to use after install.', 'staged' => true],
     ];
 
     /** Staged apps: where their web installer lives and the web root subfolder. */
@@ -41,6 +46,11 @@ final class AppInstallerService
         'prestashop' => ['finish' => '/install/', 'docroot' => ''],
         'opencart' => ['finish' => '/install/', 'docroot' => 'upload'],
         'abantecart' => ['finish' => '/install/', 'docroot' => 'public_html'],
+        'nextcloud' => ['finish' => '/index.php', 'docroot' => ''],
+        'moodle' => ['finish' => '/install.php', 'docroot' => ''],
+        'matomo' => ['finish' => '/index.php', 'docroot' => ''],
+        'mediawiki' => ['finish' => '/mw-config/index.php', 'docroot' => ''],
+        'grav' => ['finish' => '/', 'docroot' => ''],
     ];
 
     /** @param array<string, mixed> $site */
@@ -61,6 +71,7 @@ final class AppInstallerService
         private readonly \WhaCP\Repositories\WebsiteRepository $sites,
         private readonly AuditLogger $audit,
         private readonly ServerContext $server,
+        private readonly AppCatalogService $catalog,
     ) {
     }
 
@@ -80,11 +91,14 @@ final class AppInstallerService
      */
     public function install(array $site, string $app, array $input, array $actor): array
     {
-        if (!isset(self::APPS[$app])) {
-            throw new UserFacingException('Unknown application.');
+        if (!$this->catalog->installableBy($app, $actor)) {
+            throw new UserFacingException('This application is not available for installation.');
         }
+        $catalogRow = $this->catalog->find($app);
+        $appName = (string) ($catalogRow['name'] ?? (self::APPS[$app]['title'] ?? $app));
+        $needsDb = (int) ($catalogRow['needs_db'] ?? 1) === 1;
         if ($site['kind'] !== 'php' || $site['php_version'] === '') {
-            throw new UserFacingException(self::APPS[$app]['title'] . ' needs a PHP website.', '', 'Change the website type to PHP under Settings first.');
+            throw new UserFacingException($appName . ' needs a PHP website.', '', 'Change the website type to PHP under Settings first.');
         }
         $errors = [];
         $params = [
@@ -124,46 +138,52 @@ final class AppInstallerService
         }
 
         // A database and user for the application (password kept encrypted
-        // so it can be looked up later under Databases).
-        $base = substr(preg_replace('/[^a-z0-9]/', '', strtolower(explode('.', (string) $site['domain'])[0])) ?: 'site', 0, 10) . ($app === 'wordpress' ? '_wp' : '_app');
+        // so it can be looked up later under Databases). Flat-file apps
+        // (e.g. Grav) need none.
         $created = null;
-        for ($i = 0; $i < 10 && $created === null; $i++) {
-            $name = $i === 0 ? $base : $base . $i;
-            try {
-                $created = $this->databases->create(['name' => $name, 'create_user' => true, 'username' => $name, 'store_password' => true, 'website_id' => (int) $site['id']], $actor);
-            } catch (ValidationException $e) {
-                if (!isset($e->errors()['name']) && !isset($e->errors()['username'])) {
-                    throw $e;
+        $database = null;
+        if ($needsDb) {
+            $base = substr(preg_replace('/[^a-z0-9]/', '', strtolower(explode('.', (string) $site['domain'])[0])) ?: 'site', 0, 10) . ($app === 'wordpress' ? '_wp' : '_app');
+            for ($i = 0; $i < 10 && $created === null; $i++) {
+                $name = $i === 0 ? $base : $base . $i;
+                try {
+                    $created = $this->databases->create(['name' => $name, 'create_user' => true, 'username' => $name, 'store_password' => true, 'website_id' => (int) $site['id']], $actor);
+                } catch (ValidationException $e) {
+                    if (!isset($e->errors()['name']) && !isset($e->errors()['username'])) {
+                        throw $e;
+                    }
                 }
             }
+            if ($created === null) {
+                throw new UserFacingException('No free database name was found for the application.');
+            }
+            $database = $this->dbRepo->database($this->server->id(), (int) $created['database_id'], null);
+            $params['db'] = ['name' => $database['name'], 'user' => $created['user'], 'password' => $created['password'], 'host' => 'localhost'];
         }
-        if ($created === null) {
-            throw new UserFacingException('No free database name was found for the application.');
-        }
-        $database = $this->dbRepo->database($this->server->id(), (int) $created['database_id'], null);
-        $params['db'] = ['name' => $database['name'], 'user' => $created['user'], 'password' => $created['password'], 'host' => 'localhost'];
 
         try {
             $res = (array) $this->agent->call('apps.install', $params);
         } catch (AgentException $e) {
             // Nothing was installed: remove the database we just created.
-            try {
-                $this->databases->drop((array) $database, (string) $database['name']);
-                foreach ($this->dbRepo->users($this->server->id(), $actor) as $u) {
-                    if ($u['username'] === $created['user']) {
-                        $this->databases->dropUser($u);
+            if ($database !== null) {
+                try {
+                    $this->databases->drop((array) $database, (string) $database['name']);
+                    foreach ($this->dbRepo->users($this->server->id(), $actor) as $u) {
+                        if ($u['username'] === $created['user']) {
+                            $this->databases->dropUser($u);
+                        }
                     }
+                } catch (\Throwable) {
                 }
-            } catch (\Throwable) {
             }
             throw $e;
         }
         $job = (string) $res['job_id'];
         $this->db->run(
             'INSERT INTO app_installs (website_id, app, path, database_id, admin_user, job_id, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [(int) $site['id'], $app, $params['path'], (int) $database['id'], $params['admin_user'] ?? '', $job, (int) $actor['id'], gmdate('c')]
+            [(int) $site['id'], $app, $params['path'], $database !== null ? (int) $database['id'] : null, $params['admin_user'] ?? '', $job, (int) $actor['id'], gmdate('c')]
         );
-        $this->audit->record('app.install', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'app' => $app, 'path' => $params['path'], 'database' => $database['name']]);
+        $this->audit->record('app.install', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'app' => $app, 'path' => $params['path'], 'database' => $database !== null ? $database['name'] : '']);
         $out = ['job' => $job];
         if ($adminPassword !== null) {
             $out += ['admin_user' => $params['admin_user'], 'admin_password' => $adminPassword];

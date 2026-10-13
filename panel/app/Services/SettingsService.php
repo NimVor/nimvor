@@ -110,6 +110,10 @@ final class SettingsService
                 'category' => 'security', 'type' => 'int', 'default' => 512, 'min' => 0, 'max' => 10240,
                 'label' => 'Maximum size to scan on upload (MB)', 'help' => 'Skip scanning an uploaded file larger than this, to bound resource use. 0 scans files of any size. Scheduled and manual whole-site scans are not affected.',
             ],
+            'apps_installer_enabled' => [
+                'category' => 'general', 'type' => 'bool', 'default' => true,
+                'label' => 'Application installer', 'help' => 'Let customers install applications (WordPress, Joomla, …) from the Apps page. Off hides the installer for everyone.',
+            ],
             'nginx_client_max_body_mb' => [
                 'category' => 'server', 'type' => 'int', 'default' => 128, 'min' => 1, 'max' => 4096,
                 'label' => 'Max upload size (MB)', 'help' => 'Nginx client_max_body_size, server-wide.',

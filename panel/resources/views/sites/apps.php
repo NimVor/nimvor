@@ -1,72 +1,106 @@
 <?php
-/** @var \WhaCP\View\View $this */
-/** @var array<string, mixed> $site */
-/** @var list<array<string, mixed>> $installs */
+/**
+ * Website → Apps: a Softaculous-style installer — categories on the left, the
+ * selected category's applications on the right, each with an install modal.
+ *
+ * @var \WhaCP\View\View $this
+ * @var array<string, mixed> $site
+ * @var list<array<string, mixed>> $installs
+ * @var list<array<string, mixed>> $catalog   categories, each with 'apps'
+ * @var bool $installerEnabled
+ */
 use WhaCP\Services\AppInstallerService as A;
 
 $id = (int) $site['id'];
 $isPhp = $site['kind'] === 'php';
+$catalog ??= [];
+$installerEnabled ??= true;
 ?>
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'apps']) ?>
 <?= $this->partial('partials/secret', ['secret' => $secret]) ?>
+
+<?php if (!$installerEnabled): ?>
+    <div class="card"><div class="wcp-empty-state"><i class="bi bi-box" aria-hidden="true"></i><div class="fw-medium">The application installer is turned off</div><div class="small">Ask your hosting provider to enable it.</div></div></div>
+    <?php return; ?>
+<?php endif; ?>
 <?php if (!$isPhp): ?>
     <div class="alert alert-info small">Applications need a PHP website. Change the type under <a href="<?= e($this->url('sites.edit', ['id' => $id])) ?>">Settings</a>.</div>
 <?php endif; ?>
-<div class="row g-3">
-    <div class="col-lg-6">
-        <div class="card h-100" id="app-wordpress">
-            <div class="card-header"><i class="bi bi-wordpress me-1"></i><?= e(A::APPS['wordpress']['title']) ?></div>
-            <div class="card-body">
-                <p class="small text-body-secondary"><?= e(A::APPS['wordpress']['description']) ?> Installed into <code><?= e($docroot) ?></code>, which must be empty.</p>
-                <form method="post" action="<?= e($this->url('sites.apps.install', ['id' => $id, 'app' => 'wordpress'])) ?>" data-wcp-busy>
-                    <?= $this->csrfField() ?>
-                    <?= $this->partial('partials/field', ['name' => 'title', 'label' => 'Site title', 'value' => (string) ($old['title'] ?? $site['domain'])]) ?>
-                    <div class="row g-2">
-                        <div class="col-sm-5"><?= $this->partial('partials/field', ['name' => 'admin_user', 'label' => 'Admin user', 'value' => (string) ($old['admin_user'] ?? 'admin')]) ?></div>
-                        <div class="col-sm-7"><?= $this->partial('partials/field', ['name' => 'admin_email', 'label' => 'Admin email', 'type' => 'email', 'value' => (string) ($old['admin_email'] ?? $email)]) ?></div>
-                    </div>
-                    <button class="btn btn-sm btn-primary"<?= $isPhp ? '' : ' disabled' ?>><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Install WordPress</button>
-                    <div class="form-text">A database, a database user and a strong administrator password are created for you; the password is shown once.</div>
-                </form>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="card h-100" id="app-laravel">
-            <div class="card-header"><i class="bi bi-braces-asterisk me-1"></i><?= e(A::APPS['laravel']['title']) ?></div>
-            <div class="card-body">
-                <p class="small text-body-secondary"><?= e(A::APPS['laravel']['description']) ?> Requires Composer (under Packages).</p>
-                <form method="post" action="<?= e($this->url('sites.apps.install', ['id' => $id, 'app' => 'laravel'])) ?>" data-wcp-busy>
-                    <?= $this->csrfField() ?>
-                    <?= $this->partial('partials/field', ['name' => 'path', 'label' => 'Folder', 'value' => (string) ($old['path'] ?? 'app'), 'help' => 'A new folder inside the website.']) ?>
-                    <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="migrate" value="1" id="l-mig" checked><label class="form-check-label" for="l-mig">Run database migrations</label></div>
-                    <button class="btn btn-sm btn-primary"<?= $isPhp ? '' : ' disabled' ?>><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Install Laravel</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-<?php
-$stagedIcons = ['joomla' => 'bi-journal-richtext', 'drupal' => 'bi-droplet', 'phpbb' => 'bi-chat-left-text', 'smf' => 'bi-chat-square-dots', 'prestashop' => 'bi-bag', 'opencart' => 'bi-cart', 'abantecart' => 'bi-cart4'];
-?>
-<div class="card mt-3" id="apps-staged">
-    <div class="card-header"><i class="bi bi-box-seam me-1"></i>More applications</div>
-    <div class="card-body">
-        <p class="small text-body-secondary mb-3">Each is downloaded (verified where the vendor publishes a checksum), unpacked into <code><?= e($docroot) ?></code> (which must be empty) with a fresh database, then you finish setup in its own installer. The database name, user and password are listed under <a href="<?= e($this->url('databases')) ?>">Databases</a>.</p>
-        <div class="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4">
-            <?php foreach (A::STAGED as $app => $meta): ?>
-                <div class="col">
-                    <form method="post" action="<?= e($this->url('sites.apps.install', ['id' => $id, 'app' => $app])) ?>" data-wcp-busy data-wcp-confirm="Install <?= e(A::APPS[$app]['title']) ?> into <?= e($docroot) ?>? The folder must be empty.">
-                        <?= $this->csrfField() ?>
-                        <button class="btn btn-outline-secondary w-100 text-start py-2"<?= $isPhp ? '' : ' disabled' ?>>
-                            <i class="bi <?= e($stagedIcons[$app] ?? 'bi-box') ?> me-1"></i><?= e(A::APPS[$app]['title']) ?>
-                        </button>
-                    </form>
-                </div>
+<?php if ($catalog === []): ?>
+    <div class="card"><div class="wcp-empty-state"><i class="bi bi-box" aria-hidden="true"></i><div class="fw-medium">No applications are available</div></div></div>
+    <?php return; ?>
+<?php endif; ?>
+
+<div class="row g-3" id="app-installer">
+    <div class="col-lg-3">
+        <div class="list-group" role="tablist">
+            <?php foreach ($catalog as $ci => $cat): ?>
+                <button type="button" class="list-group-item list-group-item-action d-flex align-items-center gap-2<?= $ci === 0 ? ' active' : '' ?>" data-app-cat="<?= e((string) $cat['slug']) ?>">
+                    <i class="bi <?= e((string) $cat['icon']) ?>" aria-hidden="true"></i>
+                    <span class="flex-grow-1"><?= e((string) $cat['name']) ?></span>
+                    <span class="badge rounded-pill text-bg-light border"><?= count($cat['apps']) ?></span>
+                </button>
             <?php endforeach; ?>
         </div>
     </div>
+    <div class="col-lg-9">
+        <?php foreach ($catalog as $ci => $cat): ?>
+            <div class="app-cat-panel<?= $ci === 0 ? '' : ' d-none' ?>" data-app-cat-panel="<?= e((string) $cat['slug']) ?>">
+                <div class="row g-3 row-cols-1 row-cols-md-2 row-cols-xl-3">
+                    <?php foreach ($cat['apps'] as $app): $slug = (string) $app['slug']; ?>
+                        <div class="col">
+                            <div class="card h-100">
+                                <div class="card-body d-flex flex-column">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <i class="bi <?= e((string) $app['icon']) ?> fs-4" aria-hidden="true"></i>
+                                        <span class="fw-semibold"><?= e((string) $app['name']) ?></span>
+                                    </div>
+                                    <p class="small text-body-secondary flex-grow-1"><?= e((string) $app['description']) ?></p>
+                                    <button class="btn btn-sm btn-primary align-self-start" type="button" data-bs-toggle="modal" data-bs-target="#app-<?= e($slug) ?>"<?= $isPhp ? '' : ' disabled' ?>><i class="bi bi-download me-1"></i>Install</button>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
 </div>
+
+<?php
+// One install modal per catalog app.
+foreach ($catalog as $cat):
+    foreach ($cat['apps'] as $app):
+        $slug = (string) $app['slug'];
+        $needsDb = (int) ($app['needs_db'] ?? 1) === 1;
+        $action = $this->url('sites.apps.install', ['id' => $id, 'app' => $slug]);
+        ?>
+        <?= $this->modalStart('app-' . $slug, 'Install ' . (string) $app['name']) ?>
+            <form method="post" action="<?= e($action) ?>" data-wcp-busy>
+                <div class="p-3">
+                    <?= $this->csrfField() ?>
+                    <p class="small text-body-secondary"><?= e((string) $app['description']) ?></p>
+                    <?php if ($slug === 'wordpress'): ?>
+                        <?= $this->partial('partials/field', ['name' => 'title', 'label' => 'Site title', 'value' => (string) $site['domain']]) ?>
+                        <div class="row g-2">
+                            <div class="col-sm-5"><?= $this->partial('partials/field', ['name' => 'admin_user', 'label' => 'Admin user', 'value' => 'admin']) ?></div>
+                            <div class="col-sm-7"><?= $this->partial('partials/field', ['name' => 'admin_email', 'label' => 'Admin email', 'type' => 'email', 'value' => (string) $email]) ?></div>
+                        </div>
+                        <div class="form-text mb-2">Installed into <code><?= e($docroot) ?></code> (must be empty). A database and a strong admin password are created; the password is shown once.</div>
+                    <?php elseif ($slug === 'laravel'): ?>
+                        <?= $this->partial('partials/field', ['name' => 'path', 'label' => 'Folder', 'value' => 'app', 'help' => 'A new folder inside the website; served from <folder>/public.']) ?>
+                        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="migrate" value="1" id="mig-<?= e($slug) ?>" checked><label class="form-check-label" for="mig-<?= e($slug) ?>">Run database migrations</label></div>
+                    <?php else: ?>
+                        <div class="form-text mb-2">
+                            Staged into <code><?= e($docroot) ?></code> (must be empty)<?= $needsDb ? ' with a new database' : ' (no database needed)' ?>.
+                            <?php if ($needsDb): ?>The database credentials appear under Databases; finish setup in the application's own installer (a “Finish setup” link appears below once ready).<?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                    <button class="btn btn-primary btn-sm" type="submit"<?= $isPhp ? '' : ' disabled' ?>><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Install <?= e((string) $app['name']) ?></button>
+                </div>
+            </form>
+        <?= $this->modalEnd() ?>
+    <?php endforeach; endforeach; ?>
 
 <?php if ($installs !== []): ?>
     <div class="card mt-3">
@@ -89,3 +123,19 @@ $stagedIcons = ['joomla' => 'bi-journal-richtext', 'drupal' => 'bi-droplet', 'ph
         </table></div>
     </div>
 <?php endif; ?>
+
+<script>
+(function () {
+    var root = document.getElementById('app-installer');
+    if (!root) return;
+    root.querySelectorAll('[data-app-cat]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var slug = btn.getAttribute('data-app-cat');
+            root.querySelectorAll('[data-app-cat]').forEach(function (b) { b.classList.toggle('active', b === btn); });
+            root.querySelectorAll('[data-app-cat-panel]').forEach(function (p) {
+                p.classList.toggle('d-none', p.getAttribute('data-app-cat-panel') !== slug);
+            });
+        });
+    });
+})();
+</script>

@@ -360,6 +360,10 @@ return static function (Router $r): void {
     $r->get('/setup', [\WhaCP\Http\Controllers\SetupController::class, 'index'], ['name' => 'setup', 'permission' => P::SERVER_MANAGE]);
     $r->post('/setup/step', [\WhaCP\Http\Controllers\SetupController::class, 'step'], ['name' => 'setup.step', 'permission' => P::SERVER_MANAGE]);
     $r->post('/setup/dismiss', [\WhaCP\Http\Controllers\SetupController::class, 'dismiss'], ['name' => 'setup.dismiss', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/apps-manager', [\WhaCP\Http\Controllers\AppManagerController::class, 'index'], ['name' => 'apps.manager', 'permission' => P::SETTINGS_VIEW]);
+    $r->post('/apps-manager/installer', [\WhaCP\Http\Controllers\AppManagerController::class, 'installer'], ['name' => 'apps.manager.installer', 'permission' => P::SETTINGS_MANAGE]);
+    $r->post('/apps-manager/category', [\WhaCP\Http\Controllers\AppManagerController::class, 'category'], ['name' => 'apps.manager.category', 'permission' => P::SETTINGS_MANAGE]);
+    $r->post('/apps-manager/app', [\WhaCP\Http\Controllers\AppManagerController::class, 'app'], ['name' => 'apps.manager.app', 'permission' => P::SETTINGS_MANAGE]);
     $r->get('/nginx', [\WhaCP\Http\Controllers\NginxController::class, 'index'], ['name' => 'nginx', 'permission' => P::SERVER_VIEW]);
     $r->post('/nginx/test', [\WhaCP\Http\Controllers\NginxController::class, 'test'], ['name' => 'nginx.test', 'permission' => P::SERVER_VIEW]);
     $r->post('/nginx/reload', [\WhaCP\Http\Controllers\NginxController::class, 'reload'], ['name' => 'nginx.reload', 'permission' => P::SERVICES_MANAGE]);
