@@ -1,8 +1,12 @@
 package apps
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"io"
@@ -17,6 +21,108 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/sites"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
 )
+
+// stagedTarGz builds a tar.gz with a single top folder "pkg/" holding the
+// given files (keyed by path under pkg/).
+func stagedTarGz(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	tw.WriteHeader(&tar.Header{Name: "pkg/", Mode: 0o755, Typeflag: tar.TypeDir})
+	for name, body := range files {
+		tw.WriteHeader(&tar.Header{Name: "pkg/" + name, Mode: 0o644, Size: int64(len(body)), Typeflag: tar.TypeReg})
+		tw.Write([]byte(body))
+	}
+	tw.Close()
+	gz.Close()
+	return buf.Bytes()
+}
+
+func TestStagedInstallVerifiesAndUnpacks(t *testing.T) {
+	tarball := stagedTarGz(t, map[string]string{"index.php": "<?php // app", "sub/app.php": "<?php // sub"})
+	sum := sha256.Sum256(tarball)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".sum") {
+			io.WriteString(w, hex.EncodeToString(sum[:])+"  testapp.tar.gz\n")
+			return
+		}
+		w.Write(tarball)
+	}))
+	t.Cleanup(srv.Close)
+
+	Catalog["testapp"] = AppDef{Name: "Test App", Format: "targz", Strip: 1, SumURL: "x", SumAlgo: "sha256", Finish: "/install/"}
+	t.Cleanup(func() { delete(Catalog, "testapp") })
+
+	h, _ := setup(t)
+	req := request()
+	req.App = "testapp"
+	req.Root = "/home/whacp/shop.test"
+	src := Sources{Client: srv.Client(), CatalogBase: srv.URL}
+	cred, _, _ := h.Env.Credential("example")
+	var log strings.Builder
+	res, err := Install(context.Background(), h.Env, src, req, cred, &log)
+	if err != nil {
+		t.Fatalf("%v\n%s", err, log.String())
+	}
+	if res["staged"] != true || res["finish_url"] != "https://shop.test/install/" || res["document_root"] != "public_html" {
+		t.Fatalf("res = %+v", res)
+	}
+	root := filepath.Join(h.Base, "home/whacp/shop.test/public_html")
+	for _, f := range []string{"index.php", "sub/app.php"} {
+		if _, err := os.Stat(filepath.Join(root, f)); err != nil {
+			t.Errorf("missing extracted file %s: %v", f, err)
+		}
+	}
+	// WhaCP's placeholder page was replaced.
+	if b, _ := os.ReadFile(filepath.Join(root, "index.html")); sites.PlaceholderIndex(b, "shop.test") {
+		t.Error("placeholder page left behind")
+	}
+	if !strings.Contains(log.String(), "Checksum verified") {
+		t.Error("checksum was not verified")
+	}
+}
+
+func TestStagedChecksumMismatchStops(t *testing.T) {
+	tarball := stagedTarGz(t, map[string]string{"index.php": "x"})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".sum") {
+			io.WriteString(w, strings.Repeat("0", 64)+"  testapp.tar.gz\n")
+			return
+		}
+		w.Write(tarball)
+	}))
+	t.Cleanup(srv.Close)
+	Catalog["testapp"] = AppDef{Name: "Test App", Format: "targz", Strip: 1, SumURL: "x", SumAlgo: "sha256", Finish: "/install/"}
+	t.Cleanup(func() { delete(Catalog, "testapp") })
+	h, _ := setup(t)
+	req := request()
+	req.App = "testapp"
+	req.Root = "/home/whacp/shop.test"
+	cred, _, _ := h.Env.Credential("example")
+	if _, err := Install(context.Background(), h.Env, Sources{Client: srv.Client(), CatalogBase: srv.URL}, req, cred, io.Discard); err == nil || !strings.Contains(err.Error(), "checksum") {
+		t.Fatalf("a checksum mismatch must stop the install: %v", err)
+	}
+}
+
+func TestExtractionGuards(t *testing.T) {
+	// stripPath drops the top folder; the folder itself yields nothing.
+	if rel, ok := stripPath("pkg/sub/x.php", 1); !ok || rel != "sub/x.php" {
+		t.Errorf("stripPath = %q %v", rel, ok)
+	}
+	if _, ok := stripPath("pkg/", 1); ok {
+		t.Error("the stripped folder itself should be skipped")
+	}
+	// safeJoin refuses anything escaping the destination.
+	for _, bad := range []string{"../evil", "../../etc/passwd", "/etc/passwd", "a/../../evil"} {
+		if _, ok := safeJoin("/srv/app", bad); ok {
+			t.Errorf("safeJoin accepted an escape: %s", bad)
+		}
+	}
+	if p, ok := safeJoin("/srv/app", "sub/x.php"); !ok || p != "/srv/app/sub/x.php" {
+		t.Errorf("safeJoin good path: %q %v", p, ok)
+	}
+}
 
 func serve(t *testing.T, body []byte, sum string) Sources {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +224,7 @@ func TestActionValidation(t *testing.T) {
 		return err
 	}
 	for name, mut := range map[string]func(*Request){
-		"app":       func(r *Request) { r.App = "drupal" },
+		"app":       func(r *Request) { r.App = "magento" },
 		"path":      func(r *Request) { r.Path = "../../etc" },
 		"logs":      func(r *Request) { r.Path = "logs" },
 		"db host":   func(r *Request) { r.DB.Host = "10.0.0.1" },

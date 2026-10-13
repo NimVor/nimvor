@@ -9,17 +9,24 @@
 package apps
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"compress/bzip2"
+	"compress/gzip"
 	"context"
 	"crypto/rand"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -37,10 +44,14 @@ import (
 type Sources struct {
 	WordPressURL string
 	Client       *http.Client
+	// CatalogBase, when set, overrides every staged app's download URL with
+	// CatalogBase/<app>.<ext> (and its checksum with CatalogBase/<app>.sum).
+	// Used by tests to serve archives locally.
+	CatalogBase string
 }
 
 // DefaultSources are the official download locations.
-var DefaultSources = Sources{WordPressURL: "https://wordpress.org/latest.tar.gz", Client: &http.Client{Timeout: 5 * time.Minute}}
+var DefaultSources = Sources{WordPressURL: "https://wordpress.org/latest.tar.gz", Client: &http.Client{Timeout: 15 * time.Minute}}
 
 const maxDownload = 200 << 20
 
@@ -52,9 +63,38 @@ type DB struct {
 	Host     string `json:"host"`
 }
 
+// AppDef describes a "staged" application: one that WhaCP downloads, verifies
+// and unpacks into the website, leaving its own web-based installer to finish
+// setup (with the database WhaCP created). WordPress and Laravel are not here
+// — they are installed unattended by bespoke code.
+type AppDef struct {
+	Name    string   // human name
+	URL     string   // archive URL (https)
+	SumURL  string   // checksum sidecar URL ("" = none published)
+	SumAlgo string   // "sha256" or "sha1"
+	Format  string   // "targz" or "zip"
+	Strip   int      // leading path components to drop
+	DocRoot string   // web root relative to the install folder ("" = the folder)
+	Ext     []string // required PHP extensions
+	Finish  string   // path under the site URL that runs the app's installer
+}
+
+// Catalog of staged applications. URLs are the vendors' official "latest
+// stable" downloads; the per-app Strip/DocRoot/Ext are confirmed on a real
+// host. Verified against a published checksum where the vendor provides one.
+var Catalog = map[string]AppDef{
+	"joomla":     {Name: "Joomla", URL: "https://downloads.joomla.org/cms/joomla5/latest?format=tar.gz", Format: "targz", Strip: 0, Ext: []string{"mysqli", "json", "mbstring", "xml", "zip", "gd"}, Finish: "/installation/"},
+	"drupal":     {Name: "Drupal", URL: "https://www.drupal.org/download-latest/tar.gz", Format: "targz", Strip: 1, Ext: []string{"pdo_mysql", "gd", "xml", "mbstring"}, Finish: "/core/install.php"},
+	"phpbb":      {Name: "phpBB", URL: "https://download.phpbb.com/pub/release/3.3/latest/phpBB-latest.tar.bz2", Format: "tarbz2", Strip: 1, Ext: []string{"mysqli", "json", "gd"}, Finish: "/install/"},
+	"smf":        {Name: "SMF (Simple Machines Forum)", URL: "https://download.simplemachines.org/index.php?thanks;filename=smf_latest_install.tar.gz", Format: "targz", Strip: 0, Ext: []string{"mysqli", "gd"}, Finish: "/install.php"},
+	"prestashop": {Name: "PrestaShop", URL: "https://github.com/PrestaShop/PrestaShop/releases/latest/download/prestashop.zip", Format: "zip", Strip: 0, Ext: []string{"pdo_mysql", "gd", "intl", "zip", "curl"}, Finish: "/install/"},
+	"opencart":   {Name: "OpenCart", URL: "https://github.com/opencart/opencart/releases/latest/download/opencart.zip", Format: "zip", Strip: 0, DocRoot: "upload", Ext: []string{"mysqli", "gd", "curl", "zip"}, Finish: "/install/"},
+	"abantecart": {Name: "AbanteCart", URL: "https://github.com/abantecart/abantecart-src/archive/refs/heads/master.tar.gz", Format: "targz", Strip: 1, DocRoot: "public_html", Ext: []string{"mysqli", "gd", "curl", "zip"}, Finish: "/install/"},
+}
+
 // Request describes an installation.
 type Request struct {
-	App        string `json:"app"` // wordpress, laravel
+	App        string `json:"app"` // wordpress, laravel, or a Catalog key
 	Domain     string `json:"domain"`
 	User       string `json:"user"`
 	Root       string `json:"root"`
@@ -77,8 +117,9 @@ var (
 )
 
 func (r *Request) validate(env *host.Env) error {
-	if r.App != "wordpress" && r.App != "laravel" {
-		return &validate.Error{Field: "app", Message: "must be wordpress or laravel"}
+	_, staged := Catalog[r.App]
+	if r.App != "wordpress" && r.App != "laravel" && !staged {
+		return &validate.Error{Field: "app", Message: "unknown application"}
 	}
 	if err := validate.Domain("domain", r.Domain); err != nil {
 		return err
@@ -163,8 +204,14 @@ func emptyTarget(env *host.Env, r Request, dir string) (bool, error) {
 }
 
 // download fetches url to a root-only temporary file and returns its path
-// and SHA-1.
+// and SHA-1 (WordPress's checksum algorithm).
 func download(ctx context.Context, env *host.Env, client *http.Client, url string, log io.Writer) (string, string, error) {
+	return downloadSum(ctx, env, client, url, "sha1", log)
+}
+
+// downloadSum fetches url to a root-only temporary file and returns its path
+// and the hex digest in the requested algorithm ("sha1" or "sha256").
+func downloadSum(ctx context.Context, env *host.Env, client *http.Client, url, algo string, log io.Writer) (string, string, error) {
 	dir := filepath.Join(env.Cfg.StateDir, "downloads")
 	if _, err := env.Writer.MkdirAll(dir, 0o700, agentfs.RootOwner); err != nil {
 		return "", "", err
@@ -173,12 +220,11 @@ func download(ctx context.Context, env *host.Env, client *http.Client, url strin
 	if err != nil {
 		return "", "", err
 	}
-	f, err := os.CreateTemp(real, "app-*.tar.gz")
+	f, err := os.CreateTemp(real, "app-*.archive")
 	if err != nil {
 		return "", "", err
 	}
 	defer f.Close()
-	fmt.Fprintf(log, "Downloading %s…\n", url)
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	req.Header.Set("User-Agent", "WhaCP")
 	res, err := client.Do(req)
@@ -191,13 +237,202 @@ func download(ctx context.Context, env *host.Env, client *http.Client, url strin
 		os.Remove(f.Name())
 		return "", "", fmt.Errorf("download failed: HTTP %d", res.StatusCode)
 	}
-	h := sha1.New()
+	var h hash.Hash
+	if algo == "sha256" {
+		h = sha256.New()
+	} else {
+		h = sha1.New()
+	}
 	n, err := io.Copy(io.MultiWriter(f, h), io.LimitReader(res.Body, maxDownload+1))
 	if err != nil || n > maxDownload {
 		os.Remove(f.Name())
 		return "", "", fmt.Errorf("download failed or too large")
 	}
 	return f.Name(), hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// extractArchive unpacks a .tar.gz, .tar.bz2 or .zip into dest, dropping the
+// first strip path components. Entries must stay inside dest; a symlink may
+// only point inside dest; special files are skipped. Each extracted file is
+// owned by the website account (uid/gid).
+func extractArchive(format, archive, dest string, strip, uid, gid int) error {
+	if err := os.MkdirAll(dest, 0o750); err != nil {
+		return err
+	}
+	if format == "zip" {
+		return extractZip(archive, dest, strip, uid, gid)
+	}
+	f, err := os.Open(archive)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	var dr io.Reader = f
+	if format == "tarbz2" {
+		dr = bzip2.NewReader(f)
+	} else {
+		gz, err := gzip.NewReader(f)
+		if err != nil {
+			return err
+		}
+		defer gz.Close()
+		dr = gz
+	}
+	tr := tar.NewReader(dr)
+	var total int64
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		rel, ok := stripPath(hdr.Name, strip)
+		if !ok {
+			continue
+		}
+		target, ok := safeJoin(dest, rel)
+		if !ok {
+			return fmt.Errorf("unsafe path in archive: %s", hdr.Name)
+		}
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0o750); err != nil {
+				return err
+			}
+			os.Chown(target, uid, gid)
+		case tar.TypeReg:
+			if total += hdr.Size; total > maxUnpack {
+				return fmt.Errorf("the archive is too large")
+			}
+			if err := writeFile(target, tr, os.FileMode(hdr.Mode)&0o755, uid, gid); err != nil {
+				return err
+			}
+		case tar.TypeSymlink:
+			if err := safeSymlink(dest, target, hdr.Linkname, uid, gid); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func extractZip(archive, dest string, strip, uid, gid int) error {
+	zr, err := zip.OpenReader(archive)
+	if err != nil {
+		return err
+	}
+	defer zr.Close()
+	var total int64
+	for _, zf := range zr.File {
+		rel, ok := stripPath(zf.Name, strip)
+		if !ok {
+			continue
+		}
+		target, ok := safeJoin(dest, rel)
+		if !ok {
+			return fmt.Errorf("unsafe path in archive: %s", zf.Name)
+		}
+		info := zf.FileInfo()
+		if info.IsDir() {
+			if err := os.MkdirAll(target, 0o750); err != nil {
+				return err
+			}
+			os.Chown(target, uid, gid)
+			continue
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			rc, err := zf.Open()
+			if err != nil {
+				return err
+			}
+			link, _ := io.ReadAll(io.LimitReader(rc, 4096))
+			rc.Close()
+			if err := safeSymlink(dest, target, string(link), uid, gid); err != nil {
+				return err
+			}
+			continue
+		}
+		if total += int64(zf.UncompressedSize64); total > maxUnpack {
+			return fmt.Errorf("the archive is too large")
+		}
+		rc, err := zf.Open()
+		if err != nil {
+			return err
+		}
+		err = writeFile(target, rc, info.Mode()&0o755, uid, gid)
+		rc.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+const maxUnpack = 2 << 30 // 2 GiB unpacked
+
+// stripPath drops the first n path components; ok is false for the stripped
+// prefix itself and for empty results.
+func stripPath(name string, n int) (string, bool) {
+	clean := path.Clean(strings.TrimPrefix(strings.ReplaceAll(name, "\\", "/"), "./"))
+	if clean == "." || clean == "" {
+		return "", false
+	}
+	parts := strings.Split(clean, "/")
+	if len(parts) <= n {
+		return "", false
+	}
+	return strings.Join(parts[n:], "/"), true
+}
+
+// safeJoin joins rel onto dest, refusing anything that escapes dest.
+func safeJoin(dest, rel string) (string, bool) {
+	if strings.HasPrefix(rel, "/") || rel == ".." || strings.HasPrefix(rel, "../") || strings.Contains(rel, "/../") {
+		return "", false
+	}
+	target := filepath.Join(dest, filepath.FromSlash(rel))
+	if target != dest && !strings.HasPrefix(target, dest+string(os.PathSeparator)) {
+		return "", false
+	}
+	return target, true
+}
+
+func writeFile(target string, r io.Reader, mode os.FileMode, uid, gid int) error {
+	if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
+		return err
+	}
+	w, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode|0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(w, io.LimitReader(r, maxUnpack)); err != nil {
+		w.Close()
+		return err
+	}
+	w.Close()
+	return os.Chown(target, uid, gid)
+}
+
+// safeSymlink creates a symlink only when its target stays within dest.
+func safeSymlink(dest, target, link string, uid, gid int) error {
+	var resolved string
+	if filepath.IsAbs(link) {
+		resolved = filepath.Clean(link)
+	} else {
+		resolved = filepath.Join(filepath.Dir(target), link)
+	}
+	if resolved != dest && !strings.HasPrefix(resolved, dest+string(os.PathSeparator)) {
+		return fmt.Errorf("unsafe symlink: %s -> %s", target, link)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
+		return err
+	}
+	_ = os.Remove(target)
+	if err := os.Symlink(link, target); err != nil {
+		return err
+	}
+	return os.Lchown(target, uid, gid)
 }
 
 func fetchText(ctx context.Context, client *http.Client, url string) (string, error) {
@@ -293,6 +528,9 @@ func Install(ctx context.Context, env *host.Env, src Sources, r Request, cred *e
 	}
 	// Check PHP extensions first, so nothing is downloaded or written in vain.
 	need := map[string][]string{"wordpress": {"mysqli", "json"}, "laravel": {"pdo_mysql", "mbstring", "xml", "curl", "zip"}}[r.App]
+	if def, ok := Catalog[r.App]; ok {
+		need = def.Ext
+	}
 	check := fmt.Sprintf(`$m = array_filter(%s, fn ($e) => !extension_loaded($e)); if ($m) { echo implode(" ", $m); exit(1); }`, phpArray(need))
 	if out, err := env.Runner.RunWith(ctx, php, execx.Opts{As: cred, Dir: root, Timeout: time.Minute}, "-r", check); err != nil {
 		missing := strings.TrimSpace(string(out))
@@ -381,7 +619,75 @@ func Install(ctx context.Context, env *host.Env, src Sources, r Request, cred *e
 		}
 		return map[string]any{"app": "laravel", "path": r.Path, "document_root": filepath.Join(r.Path, "public")}, nil
 	}
+	if def, ok := Catalog[r.App]; ok {
+		return installStaged(ctx, env, src, r, def, cred, target, log)
+	}
 	return nil, fmt.Errorf("unknown app")
+}
+
+// installStaged downloads def's archive (verified against its checksum when
+// the vendor publishes one), unpacks it into target, and hands off to the
+// application's own web installer. The database has already been created by
+// the panel; its credentials are shown to the user, who finishes setup there.
+func installStaged(ctx context.Context, env *host.Env, src Sources, r Request, def AppDef, cred *execx.Credential, target string, log io.Writer) (map[string]any, error) {
+	url := def.URL
+	if src.CatalogBase != "" {
+		// Tests point the whole catalog at a local server.
+		url = src.CatalogBase + "/" + r.App + "." + archiveExt(def.Format)
+	}
+	algo := def.SumAlgo
+	if algo == "" {
+		algo = "sha256"
+	}
+	fmt.Fprintf(log, "Downloading %s…\n", def.Name)
+	file, got, err := downloadSum(ctx, env, src.Client, url, algo, log)
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(file)
+	sumURL := def.SumURL
+	if src.CatalogBase != "" && def.SumURL != "" {
+		sumURL = src.CatalogBase + "/" + r.App + ".sum"
+	}
+	if sumURL != "" {
+		want, err := fetchText(ctx, src.Client, sumURL)
+		if err != nil {
+			return nil, fmt.Errorf("the %s checksum could not be downloaded", def.Name)
+		}
+		want = strings.Fields(want)[0]
+		if !strings.EqualFold(want, got) {
+			return nil, fmt.Errorf("the %s download does not match its published checksum", def.Name)
+		}
+		fmt.Fprintln(log, "Checksum verified.")
+	} else {
+		fmt.Fprintln(log, "Downloaded over HTTPS (the vendor publishes no checksum file).")
+	}
+	// Remove WhaCP's placeholder page, then unpack confined to the install
+	// folder, owned by the website account.
+	os.Remove(filepath.Join(target, "index.html"))
+	if err := extractArchive(def.Format, file, target, def.Strip, int(cred.UID), int(cred.GID)); err != nil {
+		return nil, fmt.Errorf("unpacking %s failed: %v", def.Name, err)
+	}
+	fmt.Fprintf(log, "Unpacked %s.\n", def.Name)
+	docroot := r.Path
+	if def.DocRoot != "" {
+		docroot = filepath.Join(r.Path, def.DocRoot)
+	}
+	return map[string]any{
+		"app": r.App, "path": r.Path, "document_root": docroot,
+		"staged": true, "finish_url": strings.TrimRight(r.URL, "/") + def.Finish,
+	}, nil
+}
+
+func archiveExt(format string) string {
+	switch format {
+	case "zip":
+		return "zip"
+	case "tarbz2":
+		return "tar.bz2"
+	default:
+		return "tar.gz"
+	}
 }
 
 func phpArray(items []string) string {
@@ -396,7 +702,7 @@ func shQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) 
 
 // Register adds apps.install.
 func Register(r *actions.Registry, env *host.Env) {
-	r.Register(actions.Action{Name: "apps.install", Mutating: true, Description: "Install WordPress or Laravel into a website (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "apps.install", Mutating: true, Description: "Install an application (WordPress, Laravel, or a staged app like Joomla, Drupal, phpBB, SMF, PrestaShop, OpenCart, AbanteCart) into a website (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in Request
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
