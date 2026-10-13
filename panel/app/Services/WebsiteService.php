@@ -33,7 +33,31 @@ final class WebsiteService
         private readonly DiscoveryService $discovery,
         private readonly ?DnsService $dns = null,
         private readonly ?SettingsService $settings = null,
+        private readonly ?FeatureService $features = null,
     ) {
+    }
+
+    /** Which feature a site kind needs; null when the kind needs none. */
+    private const KIND_FEATURE = ['php' => 'type_php', 'static' => 'type_static', 'proxy' => 'type_proxy'];
+
+    /**
+     * Whether this actor's plan allows creating a site of this kind. A
+     * reverse-proxy site counts as allowed when any of the proxy-family types
+     * (plain reverse proxy, Node.js, Python) is included.
+     *
+     * @param array<string, mixed> $actor
+     */
+    private function kindAllowed(array $actor, string $kind): bool
+    {
+        if ($this->features === null) {
+            return true;
+        }
+        if ($kind === 'proxy') {
+            return $this->features->enabledFor($actor, 'type_proxy')
+                || $this->features->enabledFor($actor, 'type_nodejs')
+                || $this->features->enabledFor($actor, 'type_python');
+        }
+        return $this->features->enabledFor($actor, self::KIND_FEATURE[$kind] ?? 'type_php');
     }
 
     /** @return list<string> installed PHP versions with FPM */
@@ -92,6 +116,11 @@ final class WebsiteService
     public function create(array $input, array $actor, ?array $parent = null): int
     {
         $data = $this->validate($input, null, Scope::isAll($actor));
+        // A top-level site's type must be one the account's plan includes
+        // (children inherit their parent's kind).
+        if ($parent === null && !$this->kindAllowed($actor, (string) $data['row']['kind'])) {
+            throw new ValidationException(['kind' => 'Creating ' . (self::KINDS[$data['row']['kind']] ?? (string) $data['row']['kind']) . ' websites is not included in your hosting plan.']);
+        }
         $serverId = $this->server->id();
         // A subdomain or addon domain belongs to its parent's owner.
         $ownerId = $parent !== null ? ($parent['owner_id'] === null ? null : (int) $parent['owner_id']) : $this->resolveOwner($input, $actor);

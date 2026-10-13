@@ -38,6 +38,7 @@ final class SitesController extends Controller
         private readonly \WhaCP\Services\IpService $ips,
         private readonly \WhaCP\Services\PlanService $plans,
         private readonly \WhaCP\Services\AddonConversionService $conversion,
+        private readonly \WhaCP\Services\FeatureService $features,
     ) {
         parent::__construct($view, $session);
     }
@@ -56,13 +57,20 @@ final class SitesController extends Controller
     public function create(Request $request): Response
     {
         $php = $this->service->phpVersions();
+        $user = $this->user($request);
+        // Which site-creation types this account's plan includes (staff: all).
+        $allowedTypes = [];
+        foreach (['type_php', 'type_static', 'type_nodejs', 'type_python', 'type_proxy'] as $t) {
+            $allowedTypes[$t] = $this->features->enabledFor($user, $t);
+        }
         return $this->render('sites/form', [
             'site' => null,
             'phpVersions' => $php,
             'defaultPhp' => $this->service->defaultPhpVersion($php),
             'hardenDefault' => $this->service->hardenNewSites(),
             'profileDefault' => $this->service->defaultPhpProfile(),
-            'owners' => \WhaCP\Hosting\Scope::isAll($this->user($request)) ? $this->users->all() : [],
+            'owners' => \WhaCP\Hosting\Scope::isAll($user) ? $this->users->all() : [],
+            'allowedTypes' => $allowedTypes,
         ]);
     }
 

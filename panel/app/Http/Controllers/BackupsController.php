@@ -34,8 +34,29 @@ final class BackupsController extends SiteController
         private readonly \WhaCP\Security\PasswordHasher $hasher,
         private readonly \WhaCP\Services\AuditLogger $audit,
         private readonly \WhaCP\Services\AccountBackupService $accountBackups,
+        private readonly \WhaCP\Services\FeatureService $features,
     ) {
         parent::__construct($view, $session, $sites, $server);
+    }
+
+    /**
+     * A hosting account that is not allowed to see WhaCP's scheduled
+     * (automatic) backups. Those are the backup copies with a schedule_id.
+     *
+     * @param array<string, mixed> $user
+     */
+    private function hidesAutoBackups(array $user): bool
+    {
+        return ($user['role_scope'] ?? 'all') === 'own' && !$this->features->enabledFor($user, 'auto_backups');
+    }
+
+    /**
+     * @param list<array<string, mixed>> $backups
+     * @return list<array<string, mixed>>
+     */
+    private function withoutAuto(array $backups): array
+    {
+        return array_values(array_filter($backups, static fn (array $b): bool => empty($b['schedule_id'])));
     }
 
     private function refresh(): void
@@ -55,10 +76,18 @@ final class BackupsController extends SiteController
             return $this->siteNotFound();
         }
         $this->refresh();
+        $user = $this->user($request);
+        $backups = $this->backups->list($site);
+        $schedules = $this->scheduler->list($site);
+        if ($this->hidesAutoBackups($user)) {
+            // Hide the scheduled copies and the schedule itself from the customer.
+            $backups = $this->withoutAuto($backups);
+            $schedules = [];
+        }
         return $this->render('sites/backups', [
             'site' => $site,
-            'backups' => $this->backups->list($site),
-            'schedules' => $this->scheduler->list($site),
+            'backups' => $backups,
+            'schedules' => $schedules,
             'storages' => Scope::isAll($this->user($request)) ? $this->backups->storages() : [],
             'databases' => $this->backups->siteDatabases($site),
             // Automatic backups are set up by administrators only.
@@ -93,8 +122,12 @@ final class BackupsController extends SiteController
 
     public function restore(Request $request, string $id, string $backup): Response
     {
-        return $this->act($request, $id, 'backups', function (array $site) use ($request, $backup): array {
+        $hideAuto = $this->hidesAutoBackups($this->user($request));
+        return $this->act($request, $id, 'backups', function (array $site) use ($request, $backup, $hideAuto): array {
             $b = $this->backups->find($site, (int) $backup) ?? throw new UserFacingException('Backup not found.');
+            if ($hideAuto && !empty($b['schedule_id'])) {
+                throw new UserFacingException('Backup not found.');
+            }
             $dbs = array_values(array_filter(array_map('strval', (array) $request->input('restore_databases', []))));
             $job = $this->backups->restore($site, $b, $request->input('restore_files') === '1', $dbs, $request->string('confirm_domain'), $this->userId($request));
             $this->jobs->track($job, 'Restore ' . $site['domain'], 'website', (string) $site['id'], $this->userId($request));
@@ -104,8 +137,12 @@ final class BackupsController extends SiteController
 
     public function delete(Request $request, string $id, string $backup): Response
     {
-        return $this->act($request, $id, 'backups', function (array $site) use ($backup): string {
+        $hideAuto = $this->hidesAutoBackups($this->user($request));
+        return $this->act($request, $id, 'backups', function (array $site) use ($backup, $hideAuto): string {
             $b = $this->backups->find($site, (int) $backup) ?? throw new UserFacingException('Backup not found.');
+            if ($hideAuto && !empty($b['schedule_id'])) {
+                throw new UserFacingException('Backup not found.');
+            }
             $this->backups->delete($b);
             return 'Backup deleted.';
         });
@@ -115,7 +152,7 @@ final class BackupsController extends SiteController
     {
         $site = $this->site($request, $id);
         $b = $site === null ? null : $this->backups->find($site, (int) $backup);
-        if ($b === null) {
+        if ($b === null || ($this->hidesAutoBackups($this->user($request)) && !empty($b['schedule_id']))) {
             return Response::html('Not found', 404);
         }
         return $this->stream($b, (string) $request->query('file', ''), '/sites/' . (int) $id . '/backups');
@@ -151,9 +188,13 @@ final class BackupsController extends SiteController
         $user = $this->user($request);
         $this->refresh();
         $admin = Scope::isAll($user);
+        $customerBackups = $this->backups->listForUser($user);
+        if ($this->hidesAutoBackups($user)) {
+            $customerBackups = $this->withoutAuto($customerBackups);
+        }
         return $this->render('backups/index', [
             'admin' => $admin,
-            'backups' => $this->backups->listForUser($user),
+            'backups' => $customerBackups,
             'serverBackups' => $admin ? $this->backups->list(null) : [],
             'schedules' => $admin ? $this->scheduler->list(null) : [],
             'storages' => $admin ? $this->backups->storages() : [],

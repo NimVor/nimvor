@@ -112,6 +112,52 @@ final class FeatureManagerTest extends HttpTestCase
         self::assertSame(200, $this->request('GET', '/sites/' . $subSite . '/files')->status());
     }
 
+    public function testSiteCreationTypesAreGatedByTheList(): void
+    {
+        $this->login('cust'); // plan with no list: default-off types (proxy/node/python) off
+        $form = $this->request('GET', '/websites/new')->body();
+        self::assertStringContainsString('PHP application', $form);
+        self::assertStringContainsString('Static site', $form);
+        self::assertStringNotContainsString('Reverse proxy', $form, 'proxy type hidden when not included');
+        self::assertStringNotContainsString('Node.js', $form);
+
+        // Enforced server-side even if the form is bypassed.
+        $before = (int) $this->db->scalar('SELECT COUNT(*) FROM websites');
+        $this->post('/websites/new', ['domain' => 'node.test', 'kind' => 'proxy', 'proxy_pass' => 'http://127.0.0.1:3000']);
+        self::assertArrayHasKey('kind', (array) $this->flash('errors'));
+        self::assertSame($before, (int) $this->db->scalar('SELECT COUNT(*) FROM websites'));
+
+        // A static site (on by default) is allowed.
+        $this->post('/websites/new', ['domain' => 'static2.test', 'kind' => 'static']);
+        self::assertNotNull($this->db->scalar("SELECT id FROM websites WHERE domain = 'static2.test'"));
+
+        // Opt the plan into every type: proxy is now shown and allowed.
+        $list = $this->app->container->get(FeatureService::class)->save(null, ['name' => 'All types', 'features' => $this->except([])], 1);
+        $this->db->run('UPDATE plans SET feature_list_id = ? WHERE id = ?', [$list, $this->plan]);
+        self::assertStringContainsString('Reverse proxy', $this->request('GET', '/websites/new')->body());
+    }
+
+    public function testScheduledBackupsHiddenFromCustomerUnlessOptedIn(): void
+    {
+        $serverId = (int) $this->db->scalar('SELECT server_id FROM websites WHERE id = ?', [$this->site]);
+        $this->db->run('INSERT INTO backup_schedules (server_id, website_id, kind, frequency, created_at) VALUES (?, ?, ?, ?, ?)', [$serverId, $this->site, 'site', 'daily', 'x']);
+        $sched = (int) $this->db->lastInsertId();
+        $ins = 'INSERT INTO backups (server_id, website_id, schedule_id, kind, domain, backup_id, label, manifest, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+        $this->db->run($ins, [$serverId, $this->site, null, 'site', 'shop.test', 'manual01', 'MANUALBACKUP', '{}', 'succeeded', 'x']);
+        $this->db->run($ins, [$serverId, $this->site, $sched, 'site', 'shop.test', 'auto0001', 'AUTOBACKUP', '{}', 'succeeded', 'x']);
+        $this->agent->succeed('backups.refresh', ['ok' => true]);
+
+        $this->login('cust');
+        $page = $this->request('GET', '/sites/' . $this->site . '/backups')->body();
+        self::assertStringContainsString('MANUALBACKUP', $page);
+        self::assertStringNotContainsString('AUTOBACKUP', $page, 'scheduled backups are hidden by default');
+
+        // Opt in: the scheduled copy appears.
+        $list = $this->app->container->get(FeatureService::class)->save(null, ['name' => 'Auto', 'features' => $this->except([])], 1);
+        $this->db->run('UPDATE plans SET feature_list_id = ? WHERE id = ?', [$list, $this->plan]);
+        self::assertStringContainsString('AUTOBACKUP', $this->request('GET', '/sites/' . $this->site . '/backups')->body());
+    }
+
     public function testSubdomainsAndAddonsAreSeparateFeatures(): void
     {
         $list = $this->app->container->get(FeatureService::class)->save(null, ['name' => 'NoAddons', 'features' => $this->except(['addon_domains'])], 1);

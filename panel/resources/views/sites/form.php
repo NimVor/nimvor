@@ -62,12 +62,16 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         // Image cards instead of a dropdown. Node.js and Python
                         // are hosted as a reverse proxy to the app's local port,
                         // so they select the "proxy" type.
-                        $kindCards = [
-                            ['php', 'PHP application', 'filetype-php'],
-                            ['static', 'Static site', 'file-earmark-code'],
-                            ['proxy', 'Node.js', 'hexagon'],
-                            ['proxy', 'Python', 'filetype-py'],
-                        ];
+                        // Each card names the feature it needs; cards whose
+                        // feature is off for this account are not shown.
+                        $allowedTypes ??= ['type_php' => true, 'type_static' => true, 'type_nodejs' => true, 'type_python' => true, 'type_proxy' => true];
+                        $kindCards = array_values(array_filter([
+                            ['php', 'PHP application', 'filetype-php', 'type_php'],
+                            ['static', 'Static site', 'file-earmark-code', 'type_static'],
+                            ['proxy', 'Node.js', 'hexagon', 'type_nodejs'],
+                            ['proxy', 'Python', 'filetype-py', 'type_python'],
+                            ['proxy', 'Reverse proxy', 'hdd-network', 'type_proxy'],
+                        ], static fn (array $c): bool => !empty($allowedTypes[$c[3]])));
                         $kindChosen = false;
                         ?>
                         <div class="row row-cols-2 row-cols-sm-4 g-2" role="radiogroup" aria-label="Application type">
