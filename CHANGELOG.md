@@ -172,6 +172,32 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **Customer portal: plan-controlled features and new per-site pages.** The
+  Feature Manager gained flags (grouped in the admin UI) for MongoDB,
+  Memcached, Cloudflare, Node.js, Python, the Web firewall, Site security,
+  Site health, and the five site-creation types, plus a default-off mechanism
+  (a feature is off unless the plan opts in) used for showing scheduled
+  backups to customers and for creating Node.js/Python/reverse-proxy sites.
+  Building on it:
+  - **Subdomains and Addon domains** are now separate pages with separate
+    feature flags.
+  - **Site-creation types** (PHP, static, Node.js, Python, reverse proxy) are
+    gated per plan and enforced server-side; PHP and static are on by default.
+  - **Automatic (scheduled) backups** are hidden from customers unless the
+    plan enables `auto_backups` (off by default).
+  - **Per-site Memcached** (connection help) and the **Web firewall**
+    (ModSecurity) are feature-gated per site.
+  - **Site security** and **Site health** pages give customers a plain-language
+    check of HTTPS, certificate, malware, PHP version, uptime and backups,
+    each with how to fix it and who can.
+  - **Per-site Cloudflare** lets a customer connect their own Cloudflare API
+    token (stored encrypted) and manage SSL mode, Always-HTTPS, the proxy and
+    cache for just their zone.
+  - **Per-account MongoDB** lets customers manage their own databases and
+    users, name-prefixed and tenant-isolated like MySQL.
+  - **Node.js and Python are first-class site types** with a managed runtime
+    version, an auto-started app Worker, and a per-site Runtime page to change
+    the version.
 - **MongoDB installation (Server → MongoDB, Components, Packages).** MongoDB
   is not in the base operating-system repositories, so the MongoDB page now
   installs it in two guided steps: *Add repository* adds MongoDB Inc.'s own
