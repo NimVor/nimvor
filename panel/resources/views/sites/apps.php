@@ -8,6 +8,7 @@
  * @var list<array<string, mixed>> $installs
  * @var list<array<string, mixed>> $catalog   categories, each with 'apps'
  * @var bool $installerEnabled
+ * @var list<array{id: int, domain: string, docroot: string, is_php: bool}> $targets
  */
 use WhaCP\Services\AppInstallerService as A;
 
@@ -15,6 +16,7 @@ $id = (int) $site['id'];
 $isPhp = $site['kind'] === 'php';
 $catalog ??= [];
 $installerEnabled ??= true;
+$targets ??= [['id' => $id, 'domain' => (string) $site['domain'], 'docroot' => $docroot ?? 'public_html', 'is_php' => $isPhp]];
 ?>
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'apps']) ?>
 <?= $this->partial('partials/secret', ['secret' => $secret]) ?>
@@ -80,19 +82,31 @@ foreach ($catalog as $cat):
                 <div class="p-3">
                     <?= $this->csrfField() ?>
                     <p class="small text-body-secondary"><?= e((string) $app['description']) ?></p>
+                    <?php $multi = count($targets) > 1; ?>
+                    <?php if ($multi): ?>
+                        <div class="mb-3">
+                            <label class="form-label" for="tgt-<?= e($slug) ?>">Install on</label>
+                            <select class="form-select" id="tgt-<?= e($slug) ?>" name="target_id">
+                                <?php foreach ($targets as $t): ?>
+                                    <option value="<?= (int) $t['id'] ?>"<?= $t['is_php'] ? '' : ' disabled' ?>><?= e((string) $t['domain']) ?><?= (int) $t['id'] === (int) $site['id'] ? ' — main domain' : ' — subdomain' ?><?= $t['is_php'] ? '' : ' (not a PHP site)' ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="form-text">Choose this website or one of its subdomains; the application installs into the chosen site's document root.</div>
+                        </div>
+                    <?php endif; ?>
                     <?php if ($slug === 'wordpress'): ?>
                         <?= $this->partial('partials/field', ['name' => 'title', 'label' => 'Site title', 'value' => (string) $site['domain']]) ?>
                         <div class="row g-2">
                             <div class="col-sm-5"><?= $this->partial('partials/field', ['name' => 'admin_user', 'label' => 'Admin user', 'value' => 'admin']) ?></div>
                             <div class="col-sm-7"><?= $this->partial('partials/field', ['name' => 'admin_email', 'label' => 'Admin email', 'type' => 'email', 'value' => (string) $email]) ?></div>
                         </div>
-                        <div class="form-text mb-2">Installed into <code><?= e($docroot) ?></code> (must be empty). A database and a strong admin password are created; the password is shown once.</div>
+                        <div class="form-text mb-2"><?php if ($multi): ?>Installed into the selected website's document root (must be empty).<?php else: ?>Installed into <code><?= e($docroot) ?></code> (must be empty).<?php endif; ?> A database and a strong admin password are created; the password is shown once.</div>
                     <?php elseif ($slug === 'laravel'): ?>
                         <?= $this->partial('partials/field', ['name' => 'path', 'label' => 'Folder', 'value' => 'app', 'help' => 'A new folder inside the website; served from <folder>/public.']) ?>
                         <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="migrate" value="1" id="mig-<?= e($slug) ?>" checked><label class="form-check-label" for="mig-<?= e($slug) ?>">Run database migrations</label></div>
                     <?php else: ?>
                         <div class="form-text mb-2">
-                            Staged into <code><?= e($docroot) ?></code> (must be empty)<?= $needsDb ? ' with a new database' : ' (no database needed)' ?>.
+                            <?php if ($multi): ?>Staged into the selected website's document root (must be empty)<?php else: ?>Staged into <code><?= e($docroot) ?></code> (must be empty)<?php endif; ?><?= $needsDb ? ' with a new database' : ' (no database needed)' ?>.
                             <?php if ($needsDb): ?>The database credentials appear under Databases; finish setup in the application's own installer (a “Finish setup” link appears below once ready).<?php endif; ?>
                         </div>
                     <?php endif; ?>

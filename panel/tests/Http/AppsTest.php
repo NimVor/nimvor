@@ -12,14 +12,15 @@ use WhaCP\Tests\Support\HttpTestCase;
 final class AppsTest extends HttpTestCase
 {
     private int $siteId;
+    private int $adminId;
     private Connection $db;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $admin = $this->seedUser('admin', 'admin');
+        $this->adminId = $this->seedUser('admin', 'admin');
         $this->login('admin');
-        $this->siteId = $this->app->container->get(WebsiteService::class)->create(['domain' => 'shop.test', 'kind' => 'php', 'php_version' => '8.3'], (array) $this->app->container->get(UserRepository::class)->find($admin));
+        $this->siteId = $this->app->container->get(WebsiteService::class)->create(['domain' => 'shop.test', 'kind' => 'php', 'php_version' => '8.3'], (array) $this->app->container->get(UserRepository::class)->find($this->adminId));
         $this->db = $this->app->container->get(Connection::class);
         foreach (['db.create', 'db.user_create', 'db.grant', 'db.drop', 'db.user_drop'] as $a) {
             $this->agent->succeed($a, ['ok' => true]);
@@ -100,6 +101,30 @@ final class AppsTest extends HttpTestCase
         $this->request('GET', $base);
         self::assertSame('/home/whacp/shop.test/app/public', $this->db->scalar('SELECT document_root FROM websites WHERE id = ?', [$this->siteId]));
         self::assertSame('succeeded', $this->db->scalar('SELECT status FROM app_installs'));
+    }
+
+    public function testInstallOnASubdomainTarget(): void
+    {
+        // A subdomain of the website: the Apps page offers it as an install
+        // target, and the install runs against the subdomain's own root.
+        $sub = $this->app->container->get(WebsiteService::class)->createChild(
+            $this->app->container->get(\WhaCP\Repositories\WebsiteRepository::class)->find(1, $this->siteId, null),
+            'subdomain',
+            ['subdomain' => 'blog'],
+            (array) $this->app->container->get(UserRepository::class)->find($this->adminId)
+        )['id'];
+
+        $base = '/sites/' . $this->siteId . '/apps';
+        $page = $this->request('GET', $base)->body();
+        self::assertStringContainsString('Install on', $page, 'the target selector appears once a subdomain exists');
+        self::assertStringContainsString('blog.shop.test', $page);
+
+        $this->agent->succeed('apps.install', ['job_id' => 'cccccccccccccccc']);
+        $this->post($base . '/wordpress', ['title' => 'Blog', 'admin_user' => 'owner', 'admin_email' => 'owner@shop.test', 'target_id' => (string) $sub]);
+        $call = $this->lastCall('apps.install');
+        self::assertSame('blog.shop.test', $call['domain'], 'the install targets the chosen subdomain');
+        self::assertSame('http://blog.shop.test', $call['url']);
+        self::assertSame(1, (int) $this->db->scalar('SELECT COUNT(*) FROM app_installs WHERE app = ? AND website_id = ?', ['wordpress', $sub]));
     }
 
     public function testStaticSitesAreRefused(): void
