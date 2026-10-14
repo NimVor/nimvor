@@ -96,6 +96,43 @@
         try { localStorage.setItem('wcp-theme', next); } catch (err) { /* ignore */ }
     });
 
+    // App installer (Website → Apps): the category buttons switch which
+    // category's application panel is shown.
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-app-cat]');
+        if (!btn) { return; }
+        var root = btn.closest('#app-installer');
+        if (!root) { return; }
+        var slug = btn.getAttribute('data-app-cat');
+        root.querySelectorAll('[data-app-cat]').forEach(function (b) { b.classList.toggle('active', b === btn); });
+        root.querySelectorAll('[data-app-cat-panel]').forEach(function (p) {
+            p.classList.toggle('d-none', p.getAttribute('data-app-cat-panel') !== slug);
+        });
+    });
+
+    // Website → Settings: the custom disable_functions box shows only when the
+    // PHP security profile is "custom".
+    document.addEventListener('change', function (e) {
+        var sel = e.target.closest('#f-php-profile');
+        if (!sel) { return; }
+        var wrap = sel.closest('.mt-3');
+        var box = wrap ? wrap.querySelector('[data-wcp-php-custom]') : null;
+        if (box) { box.classList.toggle('d-none', sel.value !== 'custom'); }
+    });
+
+    // MongoDB "Change password" modal: fill the hidden user/db fields from the
+    // button that opened it.
+    document.addEventListener('show.bs.modal', function (e) {
+        var modal = e.target;
+        if (!modal || modal.id !== 'mongo-pw') { return; }
+        var b = e.relatedTarget;
+        if (!b) { return; }
+        var user = modal.querySelector('#mpw-user');
+        var db = modal.querySelector('#mpw-db');
+        if (user) { user.value = b.getAttribute('data-user') || ''; }
+        if (db) { db.value = b.getAttribute('data-db') || ''; }
+    });
+
     // Loading state on submit for forms marked data-wcp-busy.
     document.addEventListener('submit', function (e) {
         var form = e.target;

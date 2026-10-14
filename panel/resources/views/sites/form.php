@@ -205,16 +205,6 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                             <div class="form-text">Comma-separated function names to disable.</div>
                         </div>
                     </div>
-                    <script>
-                    (function () {
-                        var sel = document.getElementById('f-php-profile');
-                        if (!sel) return;
-                        sel.addEventListener('change', function () {
-                            var box = sel.closest('.mt-3').querySelector('[data-wcp-php-custom]');
-                            if (box) box.classList.toggle('d-none', sel.value !== 'custom');
-                        });
-                    })();
-                    </script>
                     <details class="mt-3"<?= array_intersect(array_keys($errors ?? []), ['pm', 'start_servers', 'min_spare_servers', 'max_spare_servers', 'idle_timeout_seconds', 'max_requests', 'request_timeout_seconds', 'slowlog_seconds']) !== [] ? ' open' : '' ?>>
                         <summary class="small fw-semibold">Advanced PHP-FPM</summary>
                         <div class="row g-2 mt-1">

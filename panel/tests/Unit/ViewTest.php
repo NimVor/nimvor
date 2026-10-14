@@ -57,4 +57,32 @@ final class ViewTest extends TestCase
         self::assertStringContainsString('href="/websites"', $html);
         self::assertStringNotContainsString('is-planned', $html, 'every sidebar entry is implemented');
     }
+
+    /**
+     * The Content-Security-Policy forbids inline scripts (script-src 'self'),
+     * so a template must never carry an inline <script> block; page behaviour
+     * belongs in an external asset loaded from the panel. Only <script src=…>
+     * (and JSON data blocks, which do not execute) are allowed.
+     */
+    public function testNoViewUsesInlineScripts(): void
+    {
+        $dir = dirname(__DIR__, 2) . '/resources/views';
+        $offenders = [];
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $file) {
+            if ($file->getExtension() !== 'php') {
+                continue;
+            }
+            // Match a <script> opening tag whose attributes carry neither a
+            // src nor a non-JavaScript type (e.g. application/json data).
+            if (preg_match_all('/<script\b([^>]*)>/i', (string) file_get_contents($file->getPathname()), $m)) {
+                foreach ($m[1] as $attrs) {
+                    if (!preg_match('/\bsrc\s*=/i', $attrs) && !preg_match('/\btype\s*=\s*["\']?(?!text\/javascript|application\/javascript)[^"\'\s>]+/i', $attrs)) {
+                        $offenders[] = str_replace($dir . '/', '', $file->getPathname());
+                    }
+                }
+            }
+        }
+        self::assertSame([], $offenders, 'inline <script> blocks violate the Content-Security-Policy; move the code to an external asset');
+    }
 }

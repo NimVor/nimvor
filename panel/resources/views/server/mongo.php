@@ -230,11 +230,4 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
         </div>
     </form>
 <?= $this->modalEnd() ?>
-<script>
-document.getElementById('mongo-pw')?.addEventListener('show.bs.modal', function (e) {
-    var b = e.relatedTarget; if (!b) return;
-    this.querySelector('#mpw-user').value = b.getAttribute('data-user') || '';
-    this.querySelector('#mpw-db').value = b.getAttribute('data-db') || '';
-});
-</script>
 <?php endif; ?>

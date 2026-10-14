@@ -123,19 +123,3 @@ foreach ($catalog as $cat):
         </table></div>
     </div>
 <?php endif; ?>
-
-<script>
-(function () {
-    var root = document.getElementById('app-installer');
-    if (!root) return;
-    root.querySelectorAll('[data-app-cat]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var slug = btn.getAttribute('data-app-cat');
-            root.querySelectorAll('[data-app-cat]').forEach(function (b) { b.classList.toggle('active', b === btn); });
-            root.querySelectorAll('[data-app-cat-panel]').forEach(function (p) {
-                p.classList.toggle('d-none', p.getAttribute('data-app-cat-panel') !== slug);
-            });
-        });
-    });
-})();
-</script>
