@@ -121,4 +121,22 @@ final class TenantIsolationTest extends HttpTestCase
             self::assertStringNotContainsString('victim_test_db', $res->status() === 200 ? $res->body() : '', "{$method} {$url}");
         }
     }
+
+    /**
+     * The app installer takes an install target in the request body
+     * (`target_id`). A customer must not be able to point it at another
+     * tenant's website to install an application there.
+     */
+    public function testAppInstallTargetCannotCrossTenants(): void
+    {
+        $before = count($this->agent->requests);
+        // Our own site is the URL; the victim's site is smuggled in target_id.
+        $this->post('/sites/' . $this->mine . '/apps/wordpress', [
+            'target_id' => (string) $this->theirs,
+            'admin_user' => 'owner', 'admin_email' => 'owner@alice.test', 'title' => 'x',
+        ]);
+        $calls = array_filter(array_slice($this->agent->requests, $before), static fn (array $c): bool => !preg_match('#^/v1/(actions/)?(discovery\.|system\.|agent\.status|health)#', $c['path']));
+        self::assertSame([], array_values(array_column($calls, 'path')), 'the install must not reach the agent for another tenant');
+        self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM app_installs WHERE website_id = ?', [$this->theirs]), 'no install was recorded against the victim site');
+    }
 }
