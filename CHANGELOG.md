@@ -206,6 +206,17 @@ All notable changes to WhaCP are documented here. The format follows
   (e.g. `{ "name": 1 }`). Both are JSON objects parsed with EJSON inside
   `mongosh` as data, validated and bounded; they apply on the admin and the
   customer page alike, confined to the account's own databases on the latter.
+- **MongoDB admin password and authentication toggle (Server → MongoDB).** Two
+  top actions: set the WhaCP MongoDB administrator's password (creates or resets
+  the `whacpAdmin` account in the `admin` database and stores only a root-only
+  connection string), and turn authentication on or off (restarts the service).
+  Enabling authentication is **refused unless an admin password is set first**,
+  so the panel and the server owner can never be locked out; the config change
+  rolls back on a failed restart, and the stored credentials are dropped only
+  after MongoDB is confirmed running with authentication off. New agent actions
+  `mongo.admin_password` and `mongo.auth_set`; passwords are parsed inside
+  `mongosh` and percent-encoded into the stored URI, never placed on the command
+  line. (Needs verification against a live mongod before being relied on.)
 - **Dedicated MongoDB permissions.** Admin MongoDB access now has its own
   permission pair — **View MongoDB** (`mongo.view`) and **Manage MongoDB**
   (`mongo.manage`) — instead of riding on the broad `server.view` /

@@ -75,6 +75,25 @@ final class MongoTest extends HttpTestCase
         self::assertSame(1, $this->calls('mongo.config_set'));
     }
 
+    public function testAdminPasswordAndAuthToggle(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('mongo.admin_password', ['user' => 'whacpAdmin']);
+        $this->post('/mongo/admin-password', ['password' => 'longenough-admin']);
+        self::assertSame('longenough-admin', $this->lastCall('mongo.admin_password')['password']);
+
+        $this->agent->succeed('mongo.auth_set', ['authorization' => true]);
+        $this->post('/mongo/auth', ['enable' => '1']);
+        self::assertTrue($this->lastCall('mongo.auth_set')['enable']);
+        $this->post('/mongo/auth', ['enable' => '0']);
+        self::assertFalse($this->lastCall('mongo.auth_set')['enable']);
+
+        // A customer cannot reach either endpoint.
+        $this->login('cust');
+        self::assertSame(403, $this->post('/mongo/admin-password', ['password' => 'longenough-admin'])->status());
+        self::assertSame(403, $this->post('/mongo/auth', ['enable' => '1'])->status());
+    }
+
     public function testMongoPermissionsAreIndependentOfServerPermissions(): void
     {
         // A role with only the MongoDB permissions — no server.view/manage —

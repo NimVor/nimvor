@@ -66,6 +66,10 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		filepath.Join(m.UnitDir, fmt.Sprintf(m.PHPFPMUnit, "*")+".d", FPMSandboxFile),
 		"/etc/whacp-fpm/**",
 		"/etc/whacp-cron/**",
+		// MongoDB admin connection string (mongomgr): root-only, holds the
+		// credentials WhaCP uses to reach MongoDB once authentication is on.
+		"/etc/whacp",
+		"/etc/whacp/mongo-admin.uri",
 		m.SSHDropIn,
 		m.SFTPDropIn,
 		m.SFTPKeysDir + "/**",

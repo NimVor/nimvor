@@ -98,6 +98,20 @@ final class MongoService
         $this->audit->record('mongo.user_create', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['user' => $user, 'db' => $db, 'role' => $role], $userId);
     }
 
+    /** Create or reset the WhaCP MongoDB admin user and store its credentials. */
+    public function setAdminPassword(string $password, ?int $userId): void
+    {
+        $this->agent->call('mongo.admin_password', ['password' => $password], 60);
+        $this->audit->record('mongo.admin_password', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, [], $userId);
+    }
+
+    /** Enable or disable MongoDB authentication (restarts the service). */
+    public function setAuthorization(bool $enable, ?int $userId): void
+    {
+        $this->agent->call('mongo.auth_set', ['enable' => $enable], 120);
+        $this->audit->record('mongo.auth_set', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['enable' => $enable], $userId);
+    }
+
     public function setPassword(string $user, string $db, string $password, ?int $userId): void
     {
         $this->agent->call('mongo.user_password', ['user' => $user, 'db' => $db, 'password' => $password]);

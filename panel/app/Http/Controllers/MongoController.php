@@ -95,6 +95,33 @@ final class MongoController extends Controller
         return $this->redirectWithSuccess('/mongo', 'MongoDB configuration saved and the service restarted.');
     }
 
+    public function adminPassword(Request $request): Response
+    {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
+            return $this->redirectWithError('/mongo', 'You may not do this.');
+        }
+        try {
+            $this->mongo->setAdminPassword((string) $request->input('password'), $this->userId($request));
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/mongo', $e);
+        }
+        return $this->redirectWithSuccess('/mongo', 'The MongoDB admin password was set.');
+    }
+
+    public function auth(Request $request): Response
+    {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
+            return $this->redirectWithError('/mongo', 'You may not do this.');
+        }
+        $enable = $request->input('enable') === '1';
+        try {
+            $this->mongo->setAuthorization($enable, $this->userId($request));
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/mongo', $e);
+        }
+        return $this->redirectWithSuccess('/mongo', $enable ? 'Authentication enabled; MongoDB restarted.' : 'Authentication disabled; MongoDB restarted.');
+    }
+
     public function backup(Request $request): Response
     {
         if (!$this->view->can(P::MONGO_MANAGE)) {

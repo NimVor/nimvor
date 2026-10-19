@@ -23,6 +23,18 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
 <?php $this->start(); ?>Databases and users on the MongoDB server<?php $this->end('subtitle'); ?>
 <?php $this->start(); ?>
     <?php if ($canManage && $status !== null && $status['installed'] && $status['running']): ?>
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-admin"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Admin password</button>
+        <?php if ($status['auth']): ?>
+            <form class="d-inline" method="post" action="<?= e($this->url('mongo.auth')) ?>" data-wcp-busy data-wcp-confirm="Turn OFF MongoDB authentication? Anyone who can reach the server will be able to connect without a password. MongoDB restarts.">
+                <?= $this->csrfField() ?><input type="hidden" name="enable" value="0">
+                <button class="btn btn-sm btn-outline-warning"><i class="bi bi-unlock me-1" aria-hidden="true"></i>Disable auth</button>
+            </form>
+        <?php else: ?>
+            <form class="d-inline" method="post" action="<?= e($this->url('mongo.auth')) ?>" data-wcp-busy data-wcp-confirm="Turn ON MongoDB authentication? Set an admin password first, or this is refused. MongoDB restarts and clients must then authenticate.">
+                <?= $this->csrfField() ?><input type="hidden" name="enable" value="1">
+                <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-shield-check me-1" aria-hidden="true"></i>Enable auth</button>
+            </form>
+        <?php endif; ?>
         <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-user"><i class="bi bi-person-plus me-1" aria-hidden="true"></i>Add user</button>
         <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-db"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add database</button>
     <?php endif; ?>
@@ -314,6 +326,19 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
 <?php endif; ?>
 
 <?php if ($canManage): ?>
+<?= $this->modalStart('mongo-admin', 'MongoDB admin password') ?>
+    <form method="post" action="<?= e($this->url('mongo.admin_password')) ?>" data-wcp-busy>
+        <div class="p-3">
+            <?= $this->csrfField() ?>
+            <p class="small text-body-secondary">Sets the password of WhaCP's MongoDB administrator (<code>whacpAdmin</code>, in the <code>admin</code> database). WhaCP uses this account to manage the server once authentication is on. Set it <strong>before</strong> enabling authentication.</p>
+            <label class="form-label" for="madm-pw">New admin password</label>
+            <input class="form-control font-monospace" id="madm-pw" name="password" type="text" minlength="8" maxlength="256" required autocomplete="off" spellcheck="false">
+            <div class="form-text">8 to 256 characters. Store it somewhere safe — WhaCP keeps only the server-side connection string, not a copy it shows you later.</div>
+            <button class="btn btn-primary btn-sm mt-3" type="submit">Save admin password</button>
+        </div>
+    </form>
+<?= $this->modalEnd() ?>
+
 <?= $this->modalStart('mongo-db', 'Add database') ?>
     <form method="post" action="<?= e($this->url('mongo.database_create')) ?>" data-wcp-busy>
         <div class="p-3">
