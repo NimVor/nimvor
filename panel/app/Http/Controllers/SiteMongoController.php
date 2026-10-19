@@ -146,6 +146,10 @@ final class SiteMongoController extends SiteController
                 case 'delete':
                     $n = $this->mongo->deleteDocument($site, $db, trim((string) $request->input('collection')), (string) $request->input('id'), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['deleted' => $n]]);
+                case 'insert':
+                    return Response::json(['success' => true, 'data' => $this->mongo->insertDocument($site, $db, trim((string) $request->input('collection')), (string) $request->input('document'), $this->userId($request))]);
+                case 'update':
+                    return Response::json(['success' => true, 'data' => $this->mongo->updateDocument($site, $db, trim((string) $request->input('collection')), (string) $request->input('id'), (string) $request->input('document'), $this->userId($request))]);
                 default:
                     return Response::json(['success' => false, 'error' => ['message' => 'Unknown operation.']], 400);
             }

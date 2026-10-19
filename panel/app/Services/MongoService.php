@@ -143,6 +143,22 @@ final class MongoService
         return (int) ($o['deleted'] ?? 0);
     }
 
+    /** Insert one document (EJSON). Returns the inserted _id (EJSON). */
+    public function insertDocument(string $db, string $collection, string $document, ?int $userId): array
+    {
+        $o = (array) $this->agent->call('mongo.document_insert', ['db' => $db, 'collection' => $collection, 'document' => $document]);
+        $this->audit->record('mongo.document_insert', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
+        return ['inserted_id' => $o['inserted_id'] ?? null];
+    }
+
+    /** Replace the document with this _id (EJSON) by a new document (EJSON). */
+    public function updateDocument(string $db, string $collection, string $id, string $document, ?int $userId): array
+    {
+        $o = (array) $this->agent->call('mongo.document_update', ['db' => $db, 'collection' => $collection, 'id' => $id, 'document' => $document]);
+        $this->audit->record('mongo.document_update', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
+        return ['matched' => (int) ($o['matched'] ?? 0), 'modified' => (int) ($o['modified'] ?? 0)];
+    }
+
     // --- Configuration and log ---
 
     /** @return array{path: string, port: int, bind_ip: string, db_path: string, log_path: string, authorization: bool, raw: string} */

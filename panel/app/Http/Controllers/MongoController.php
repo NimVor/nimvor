@@ -251,6 +251,16 @@ final class MongoController extends Controller
                     }
                     $n = $this->mongo->deleteDocument($db, trim((string) $request->input('collection')), (string) $request->input('id'), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['deleted' => $n]]);
+                case 'insert':
+                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    return Response::json(['success' => true, 'data' => $this->mongo->insertDocument($db, trim((string) $request->input('collection')), (string) $request->input('document'), $this->userId($request))]);
+                case 'update':
+                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    return Response::json(['success' => true, 'data' => $this->mongo->updateDocument($db, trim((string) $request->input('collection')), (string) $request->input('id'), (string) $request->input('document'), $this->userId($request))]);
                 default:
                     return Response::json(['success' => false, 'error' => ['message' => 'Unknown operation.']], 400);
             }

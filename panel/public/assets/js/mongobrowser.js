@@ -51,6 +51,7 @@
         setActiveCollection(null);
         curLabel.textContent = 'No collection selected';
         filterIn.disabled = true; runBtn.disabled = true;
+        if (newBtn) { newBtn.disabled = true; }
         setPaging();
         placeholder(pane, state.db ? 'Choose a collection to browse its documents.' : 'Choose a database, then a collection.');
         collList.replaceChildren();
@@ -101,6 +102,7 @@
         setActiveCollection(name);
         curLabel.textContent = name;
         filterIn.disabled = false; runBtn.disabled = false;
+        if (newBtn) { newBtn.disabled = false; }
         loadDocuments();
     }
 
@@ -144,6 +146,16 @@
             head.appendChild(el('span', 'badge text-bg-secondary', '#' + (state.skip + i + 1)));
             var id = (doc && typeof doc._id !== 'undefined') ? idLabel(doc._id) : '(no _id)';
             head.appendChild(el('code', 'small text-truncate me-auto', '_id: ' + id));
+            if (canDelete) {
+                var edit = el('button', 'btn btn-sm btn-outline-secondary py-0', 'Edit');
+                edit.type = 'button';
+                edit.addEventListener('click', function () { openEditor('edit', doc); });
+                head.appendChild(edit);
+                var dup = el('button', 'btn btn-sm btn-outline-secondary py-0', 'Duplicate');
+                dup.type = 'button';
+                dup.addEventListener('click', function () { openEditor('duplicate', doc); });
+                head.appendChild(dup);
+            }
             if (canDelete && doc && typeof doc._id !== 'undefined') {
                 var del = el('button', 'btn btn-sm btn-outline-danger py-0', 'Delete');
                 del.type = 'button';
@@ -178,8 +190,66 @@
         }).catch(function (e) { btn.disabled = false; fail(e); });
     }
 
+    // --- Document editor (new / edit / duplicate) ---
+
+    var editorEl = document.getElementById('mb-editor');
+    var editor = null, editorMode = 'new', editorId = null;
+    if (editorEl && window.bootstrap) { editor = new bootstrap.Modal(editorEl); }
+    var newBtn = root.querySelector('[data-mb-new]');
+
+    function openEditor(mode, doc) {
+        if (!editor) { return; }
+        editorMode = mode;
+        editorId = null;
+        var ta = editorEl.querySelector('[data-mb-editor-json]');
+        var help = editorEl.querySelector('[data-mb-editor-help]');
+        editorEl.querySelector('[data-mb-editor-json]').classList.remove('is-invalid');
+        if (mode === 'new') {
+            editorEl.querySelector('#mb-editor-title').textContent = 'New document in ' + state.collection;
+            ta.value = '{\n  \n}';
+            help.textContent = 'A new _id is generated if you omit it.';
+        } else if (mode === 'edit') {
+            editorId = doc._id;
+            editorEl.querySelector('#mb-editor-title').textContent = 'Edit document';
+            ta.value = JSON.stringify(doc, null, 2);
+            help.textContent = 'The _id cannot be changed; MongoDB rejects a different _id.';
+        } else { // duplicate
+            var copy = Object.assign({}, doc);
+            delete copy._id;
+            editorEl.querySelector('#mb-editor-title').textContent = 'Duplicate document';
+            ta.value = JSON.stringify(copy, null, 2);
+            help.textContent = 'Saved as a new document with a new _id.';
+        }
+        editor.show();
+    }
+
+    if (editorEl) {
+        editorEl.querySelector('[data-mb-editor-form]').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var ta = editorEl.querySelector('[data-mb-editor-json]');
+            var errEl = editorEl.querySelector('[data-mb-editor-err]');
+            var text = ta.value.trim();
+            try { JSON.parse(text); } catch (ex) {
+                ta.classList.add('is-invalid');
+                errEl.textContent = 'Enter a valid JSON object: ' + ex.message;
+                return;
+            }
+            ta.classList.remove('is-invalid');
+            var ok = editorEl.querySelector('[data-mb-editor-ok]');
+            ok.disabled = true;
+            var done = function () { ok.disabled = false; editor.hide(); loadDocuments(); };
+            var failed = function (ee) { ok.disabled = false; fail(ee); };
+            if (editorMode === 'edit') {
+                post('update', { collection: state.collection, id: JSON.stringify(editorId), document: text }).then(done).catch(failed);
+            } else {
+                post('insert', { collection: state.collection, document: text }).then(done).catch(failed);
+            }
+        });
+    }
+
     // --- Wiring ---
 
+    if (newBtn) { newBtn.addEventListener('click', function () { openEditor('new', {}); }); }
     dbSel.addEventListener('change', function () { state.db = dbSel.value; loadCollections(); });
     collFilter.addEventListener('input', applyCollFilter);
     runBtn.addEventListener('click', function () { state.skip = 0; loadDocuments(); });

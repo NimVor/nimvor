@@ -139,6 +139,24 @@ final class SiteMongoService
         return (int) ($o['deleted'] ?? 0);
     }
 
+    /** Insert one document (EJSON) into the account's own database. */
+    public function insertDocument(array $site, string $db, string $collection, string $document, ?int $userId): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.document_insert', ['db' => $db, 'collection' => $collection, 'document' => $document]);
+        $this->audit->record('mongo.document_insert', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
+        return ['inserted_id' => $o['inserted_id'] ?? null];
+    }
+
+    /** Replace a document (found by _id EJSON) in the account's own database. */
+    public function updateDocument(array $site, string $db, string $collection, string $id, string $document, ?int $userId): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.document_update', ['db' => $db, 'collection' => $collection, 'id' => $id, 'document' => $document]);
+        $this->audit->record('mongo.document_update', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
+        return ['matched' => (int) ($o['matched'] ?? 0), 'modified' => (int) ($o['modified'] ?? 0)];
+    }
+
     /**
      * Prepend the account prefix to a customer-supplied name, removing a
      * prefix they may have typed themselves so it is never doubled.

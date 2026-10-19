@@ -101,6 +101,14 @@ final class MongoTest extends HttpTestCase
         self::assertSame(1, ((array) json_decode($res->body(), true))['data']['deleted']);
         self::assertSame('"a1"', $this->lastCall('mongo.document_delete')['id']);
 
+        // Insert and update (replace by _id) reach the agent with the document.
+        $this->agent->succeed('mongo.document_insert', ['inserted_id' => 'x1']);
+        $this->post('/mongo/browse', ['op' => 'insert', 'db' => 'shop', 'collection' => 'orders', 'document' => '{"name":"x"}']);
+        self::assertSame('{"name":"x"}', $this->lastCall('mongo.document_insert')['document']);
+        $this->agent->succeed('mongo.document_update', ['matched' => 1, 'modified' => 1]);
+        $this->post('/mongo/browse', ['op' => 'update', 'db' => 'shop', 'collection' => 'orders', 'id' => '"a1"', 'document' => '{"_id":"a1","name":"y"}']);
+        self::assertSame('"a1"', $this->lastCall('mongo.document_update')['id']);
+
         // An unknown op is a clean 400, not a 500.
         self::assertSame(400, $this->post('/mongo/browse', ['op' => 'nope', 'db' => 'shop'])->status());
     }

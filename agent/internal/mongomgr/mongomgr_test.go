@@ -139,6 +139,10 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 			return `[{"name":"orders","count":3},{"name":"items","count":10}]`, nil
 		case strings.Contains(script, "deleteOne"):
 			return `{"deleted":1}`, nil
+		case strings.Contains(script, "insertOne"):
+			return `{"inserted_id":"64f1"}`, nil
+		case strings.Contains(script, "replaceOne"):
+			return `{"matched":1,"modified":1}`, nil
 		case strings.Contains(script, "find(q)"):
 			return `{"documents":[{"_id":"64f0","name":"a"}],"total":1}`, nil
 		}
@@ -161,6 +165,26 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 	del := mustCall(t, r, "mongo.document_delete", `{"db":"shop","collection":"orders","id":"\"64f0\""}`)
 	if del["deleted"].(int64) != 1 {
 		t.Fatalf("delete: %+v", del)
+	}
+
+	ins := mustCall(t, r, "mongo.document_insert", `{"db":"shop","collection":"orders","document":"{\"name\":\"a\"}"}`)
+	if !strings.Contains(string(ins["inserted_id"].(json.RawMessage)), "64f1") {
+		t.Fatalf("insert: %v", ins["inserted_id"])
+	}
+	upd := mustCall(t, r, "mongo.document_update", `{"db":"shop","collection":"orders","id":"\"64f0\"","document":"{\"name\":\"b\"}"}`)
+	if upd["matched"].(int64) != 1 || upd["modified"].(int64) != 1 {
+		t.Fatalf("update: %+v", upd)
+	}
+
+	// Bad JSON / missing _id are refused before mongosh runs.
+	if _, err := call(t, r, "mongo.document_insert", `{"db":"shop","collection":"orders","document":"not json"}`); err == nil {
+		t.Error("a non-JSON document must be rejected")
+	}
+	if _, err := call(t, r, "mongo.document_insert", `{"db":"shop","collection":"orders","document":"[1,2]"}`); err == nil {
+		t.Error("a non-object document must be rejected")
+	}
+	if _, err := call(t, r, "mongo.document_update", `{"db":"shop","collection":"orders","id":"bad","document":"{}"}`); err == nil {
+		t.Error("a non-EJSON _id must be rejected")
 	}
 
 	// A bad filter and a bad collection name are refused before mongosh runs.

@@ -43,6 +43,9 @@
                 <input class="form-control font-monospace" type="text" placeholder='Filter, e.g. { "status": "active" }' aria-label="JSON filter" data-mb-filter autocomplete="off" spellcheck="false" disabled>
                 <button class="btn btn-primary" type="button" data-mb-run disabled>Run</button>
             </div>
+            <?php if ($canDelete): ?>
+            <button class="btn btn-sm btn-outline-primary ms-2" type="button" data-mb-new disabled><i class="bi bi-plus-lg me-1"></i>New document</button>
+            <?php endif; ?>
             <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Paging">
                 <button class="btn btn-outline-secondary" type="button" data-mb-prev disabled><i class="bi bi-chevron-left"></i></button>
                 <button class="btn btn-outline-secondary" type="button" data-mb-next disabled><i class="bi bi-chevron-right"></i></button>
@@ -54,5 +57,25 @@
         </div>
     </section>
 </div>
+
+<?php if ($canDelete): ?>
+<div class="modal fade" id="mb-editor" tabindex="-1" aria-labelledby="mb-editor-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <form class="modal-content" data-mb-editor-form novalidate>
+            <div class="modal-header"><h2 class="modal-title h6" id="mb-editor-title">Document</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body">
+                <label class="form-label small" for="mb-editor-json">Document (JSON / Extended JSON)</label>
+                <textarea class="form-control font-monospace" id="mb-editor-json" rows="16" spellcheck="false" data-mb-editor-json></textarea>
+                <div class="invalid-feedback" data-mb-editor-err></div>
+                <div class="form-text" data-mb-editor-help></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" data-mb-editor-ok>Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php $this->start(); ?><script src="<?= e($this->asset('assets/js/mongobrowser.js')) ?>" defer></script><?php $this->end('scripts'); ?>

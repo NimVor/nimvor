@@ -457,6 +457,87 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"deleted": res.Deleted}, nil
 	}})
 
+	r.Register(actions.Action{Name: "mongo.document_insert", Mutating: true, Description: "Insert one document (EJSON) into a collection.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB       string `json:"db"`
+			Coll     string `json:"collection"`
+			Document string `json:"document"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		doc := strings.TrimSpace(in.Document)
+		if doc == "" || len(doc) > 1<<20 || !json.Valid([]byte(doc)) || doc[0] != '{' {
+			return nil, actions.InvalidParams("document: a JSON object, up to 1 MB")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		lit, _ := json.Marshal(doc)
+		script := fmt.Sprintf(
+			"var r=db.getSiblingDB(%s).getCollection(%s).insertOne(EJSON.parse(%s));print(EJSON.stringify({inserted_id:r.insertedId},null,0,{relaxed:true}))",
+			jsString(in.DB), jsString(in.Coll), string(lit))
+		out, err := c.run(ctx, script, true)
+		if err != nil {
+			return nil, actions.Failed("The document could not be inserted.", lastLine(out))
+		}
+		var res struct {
+			InsertedID json.RawMessage `json:"inserted_id"`
+		}
+		_ = json.Unmarshal(trimToJSON(out), &res)
+		if len(res.InsertedID) == 0 {
+			res.InsertedID = json.RawMessage("null")
+		}
+		return map[string]any{"inserted_id": res.InsertedID}, nil
+	}})
+
+	r.Register(actions.Action{Name: "mongo.document_update", Mutating: true, Description: "Replace one document (found by _id) with a new document (EJSON).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB       string `json:"db"`
+			Coll     string `json:"collection"`
+			ID       string `json:"id"`       // EJSON of the _id value
+			Document string `json:"document"` // EJSON of the whole replacement document
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		id := strings.TrimSpace(in.ID)
+		doc := strings.TrimSpace(in.Document)
+		if id == "" || len(id) > 4096 || !json.Valid([]byte(id)) {
+			return nil, actions.InvalidParams("id: the document _id as EJSON")
+		}
+		if doc == "" || len(doc) > 1<<20 || !json.Valid([]byte(doc)) || doc[0] != '{' {
+			return nil, actions.InvalidParams("document: a JSON object, up to 1 MB")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		idLit, _ := json.Marshal(id)
+		docLit, _ := json.Marshal(doc)
+		// replaceOne enforces MongoDB's immutable-_id rule: a replacement whose
+		// _id differs from the matched document is rejected by the server.
+		script := fmt.Sprintf(
+			"var r=db.getSiblingDB(%s).getCollection(%s).replaceOne({_id:EJSON.parse(%s)},EJSON.parse(%s));"+
+				"print(JSON.stringify({matched:r.matchedCount,modified:r.modifiedCount}))",
+			jsString(in.DB), jsString(in.Coll), string(idLit), string(docLit))
+		out, err := c.run(ctx, script, true)
+		if err != nil {
+			return nil, actions.Failed("The document could not be updated.", lastLine(out))
+		}
+		var res struct {
+			Matched  int64 `json:"matched"`
+			Modified int64 `json:"modified"`
+		}
+		_ = json.Unmarshal(trimToJSON(out), &res)
+		return map[string]any{"matched": res.Matched, "modified": res.Modified}, nil
+	}})
+
 	// --- Configuration and log ---
 
 	r.Register(actions.Action{Name: "mongo.config_get", Description: "Read MongoDB's configuration (port, bindIp, paths, authorization) and the raw file.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {

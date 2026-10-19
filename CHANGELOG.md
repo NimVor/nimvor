@@ -193,6 +193,14 @@ All notable changes to WhaCP are documented here. The format follows
   and **restores the previous configuration automatically if it fails to
   start**. The page also shows the tail of MongoDB's log. Editing needs
   `server.manage`.
+- **MongoDB document editing in the browser.** The database browser can now
+  insert a new document, edit a document in place, and duplicate one, with a
+  JSON/Extended-JSON editor; values round-trip through EJSON so BSON types
+  (ObjectId, dates, numbers) are preserved, and `replaceOne` enforces
+  MongoDB's immutable-`_id` rule. Editing needs `server.manage` (admin) or the
+  site owner (customer page, confined to the account's own databases). Driven
+  by `mongosh` with the document passed as data on stdin (never the command
+  line); no inline script.
 - **MongoDB database browser (Server → MongoDB).** A full-page browser (the
   same tool layout as the SQL web browser) reached from a **Browse** button on
   each database: a collections sidebar with document counts and a filter, and a

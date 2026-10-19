@@ -90,14 +90,25 @@ final class SiteMongoTest extends HttpTestCase
         $this->agent->succeed('mongo.documents', ['documents' => [['_id' => 'a1']], 'total' => 1, 'skip' => 0, 'limit' => 50]);
         self::assertSame(200, $this->post($base . '/browse', ['op' => 'documents', 'db' => $this->prefix . 'shop', 'collection' => 'orders'])->status());
 
-        // A database outside the account's prefix is refused before the agent.
+        // Insert and update into the account's own database work.
+        $this->agent->succeed('mongo.document_insert', ['inserted_id' => 'n1']);
+        self::assertSame(200, $this->post($base . '/browse', ['op' => 'insert', 'db' => $this->prefix . 'shop', 'collection' => 'orders', 'document' => '{"a":1}'])->status());
+        $this->agent->succeed('mongo.document_update', ['matched' => 1, 'modified' => 1]);
+        self::assertSame(200, $this->post($base . '/browse', ['op' => 'update', 'db' => $this->prefix . 'shop', 'collection' => 'orders', 'id' => '"a1"', 'document' => '{"a":2}'])->status());
+
+        // A database outside the account's prefix is refused before the agent,
+        // for every operation including the new writes.
         $this->agent->succeed('mongo.document_delete', ['deleted' => 1]);
-        foreach ([['collections', []], ['documents', ['collection' => 'c']], ['delete', ['collection' => 'c', 'id' => '"a1"']]] as [$op, $extra]) {
+        foreach ([
+            ['collections', []], ['documents', ['collection' => 'c']], ['delete', ['collection' => 'c', 'id' => '"a1"']],
+            ['insert', ['collection' => 'c', 'document' => '{"a":1}']], ['update', ['collection' => 'c', 'id' => '"a1"', 'document' => '{"a":1}']],
+        ] as [$op, $extra]) {
             $res = $this->post($base . '/browse', ['op' => $op, 'db' => 'otheracct_secret'] + $extra);
             self::assertSame(403, $res->status(), $op . ' on another account must be refused');
         }
         self::assertSame(1, $this->calls('mongo.collections'), 'only the owned-db collections call reached the agent');
         self::assertSame(0, $this->calls('mongo.document_delete'), 'no delete reached the agent for another account');
+        self::assertSame(1, $this->calls('mongo.document_insert'), 'only the owned-db insert reached the agent');
     }
 
     public function testMongoIsGatedByFeature(): void
