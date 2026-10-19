@@ -193,6 +193,16 @@ All notable changes to WhaCP are documented here. The format follows
   and **restores the previous configuration automatically if it fails to
   start**. The page also shows the tail of MongoDB's log. Editing needs
   `server.manage`.
+- **MongoDB user management in the browser.** A Users tab in the database
+  browser lists the users defined on the selected database with their roles,
+  and (for an administrator with `server.manage`, or the site owner) creates a
+  user with a role on that database, changes a user's password, or drops a user
+  — all through a small form, no shell. Passwords are passed to the agent as a
+  JSON argument parsed inside `mongosh`, never on the command line. On the
+  customer **Site → MongoDB** page the created user name is prefixed with the
+  account's system user and every operation is confined to the account's own
+  databases and users (refused before the agent otherwise). New agent action
+  `mongo.database_users` lists one database's users.
 - **MongoDB schema analysis in the browser.** A Schema tab in the database
   browser samples the current collection (up to 1000 documents) and shows each
   top-level field with the BSON types it holds and how often it is present, so

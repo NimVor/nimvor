@@ -112,6 +112,20 @@ final class SiteMongoTest extends HttpTestCase
         $this->agent->succeed('mongo.schema', ['sampled' => 2, 'fields' => [['field' => '_id', 'total' => 2, 'types' => [['type' => 'objectId', 'count' => 2]]]]]);
         self::assertSame(200, $this->post($base . '/browse', ['op' => 'schema', 'db' => $this->prefix . 'shop', 'collection' => 'orders'])->status());
 
+        // Users on the account's own database: list, create (prefixed), change
+        // password and drop.
+        $this->agent->succeed('mongo.database_users', ['users' => [['user' => $this->prefix . 'u', 'roles' => ['readWrite']]]]);
+        $res = $this->post($base . '/browse', ['op' => 'users', 'db' => $this->prefix . 'shop']);
+        self::assertSame($this->prefix . 'u', ((array) json_decode($res->body(), true))['data']['users'][0]['user']);
+        $this->agent->succeed('mongo.user_create', ['user' => $this->prefix . 'app', 'db' => $this->prefix . 'shop']);
+        $res = $this->post($base . '/browse', ['op' => 'user_create', 'db' => $this->prefix . 'shop', 'user' => 'app', 'password' => 'longenough1', 'role' => 'readWrite']);
+        self::assertSame(200, $res->status());
+        self::assertSame($this->prefix . 'app', $this->lastCall('mongo.user_create')['user'], 'the created user name is prefixed');
+        $this->agent->succeed('mongo.user_password', ['user' => $this->prefix . 'u', 'db' => $this->prefix . 'shop']);
+        self::assertSame(200, $this->post($base . '/browse', ['op' => 'user_password', 'db' => $this->prefix . 'shop', 'user' => $this->prefix . 'u', 'password' => 'longenough2'])->status());
+        $this->agent->succeed('mongo.user_drop', ['dropped' => $this->prefix . 'u', 'db' => $this->prefix . 'shop']);
+        self::assertSame(200, $this->post($base . '/browse', ['op' => 'user_drop', 'db' => $this->prefix . 'shop', 'user' => $this->prefix . 'u'])->status());
+
         // Importing into the account's own collection works.
         $this->agent->succeed('mongo.import', ['inserted' => 2, 'errors' => 0, 'total' => 2]);
         $res = $this->post($base . '/browse', ['op' => 'import', 'db' => $this->prefix . 'shop', 'collection' => 'orders', 'format' => 'json', 'content' => '[{"a":1},{"a":2}]']);
@@ -142,6 +156,8 @@ final class SiteMongoTest extends HttpTestCase
             ['aggregate', ['collection' => 'c', 'pipeline' => '[{"$match":{}}]']],
             ['schema', ['collection' => 'c']],
             ['import', ['collection' => 'c', 'format' => 'json', 'content' => '[{"a":1}]']],
+            ['users', []], ['user_create', ['user' => 'u', 'password' => 'longenough1']],
+            ['user_password', ['user' => 'otheracct_u', 'password' => 'longenough1']], ['user_drop', ['user' => 'otheracct_u']],
         ] as [$op, $extra]) {
             $res = $this->post($base . '/browse', ['op' => $op, 'db' => 'otheracct_secret'] + $extra);
             self::assertSame(403, $res->status(), $op . ' on another account must be refused');
@@ -151,6 +167,8 @@ final class SiteMongoTest extends HttpTestCase
         self::assertSame(1, $this->calls('mongo.document_insert'), 'only the owned-db insert reached the agent');
         self::assertSame(1, $this->calls('mongo.import'), 'only the owned-db import reached the agent');
         self::assertSame(1, $this->calls('mongo.schema'), 'only the owned-db schema analysis reached the agent');
+        self::assertSame(1, $this->calls('mongo.database_users'), 'only the owned-db user listing reached the agent');
+        self::assertSame(1, $this->calls('mongo.user_create'), 'only the owned-db user creation reached the agent');
         self::assertSame(1, $this->calls('mongo.index_create'), 'only the owned-db index create reached the agent');
     }
 

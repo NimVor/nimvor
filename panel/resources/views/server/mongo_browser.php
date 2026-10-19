@@ -45,6 +45,7 @@
                 <button class="btn btn-outline-secondary" type="button" data-mb-tab="aggregate" disabled>Aggregation</button>
                 <button class="btn btn-outline-secondary" type="button" data-mb-tab="schema" disabled>Schema</button>
                 <button class="btn btn-outline-secondary" type="button" data-mb-tab="indexes" disabled>Indexes</button>
+                <button class="btn btn-outline-secondary" type="button" data-mb-tab="users" disabled>Users</button>
             </div>
             <span data-mb-doc-tools class="d-flex align-items-center gap-2">
                 <div class="input-group input-group-sm wcp-db-filter">
@@ -68,6 +69,7 @@
             </span>
             <?php if ($canDelete): ?>
             <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newindex disabled><i class="bi bi-plus-lg me-1"></i>New index</button>
+            <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newuser disabled><i class="bi bi-person-plus me-1"></i>New user</button>
             <?php endif; ?>
             <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Paging" data-mb-pager>
                 <button class="btn btn-outline-secondary" type="button" data-mb-prev disabled><i class="bi bi-chevron-left"></i></button>
@@ -152,6 +154,39 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="submit" class="btn btn-primary" data-mb-import-ok>Import</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="mb-user" tabindex="-1" aria-labelledby="mb-user-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" data-mb-user-form novalidate>
+            <div class="modal-header"><h2 class="modal-title h6" id="mb-user-title">New user</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body">
+                <div class="mb-2" data-mb-user-namewrap>
+                    <label class="form-label small mb-1" for="mb-user-name">User name</label>
+                    <input class="form-control form-control-sm font-monospace" id="mb-user-name" data-mb-user-name autocomplete="off" spellcheck="false">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-1" for="mb-user-pass">Password</label>
+                    <input class="form-control form-control-sm font-monospace" type="text" id="mb-user-pass" data-mb-user-pass autocomplete="off" spellcheck="false">
+                    <div class="form-text">8 to 256 characters.</div>
+                </div>
+                <div class="mb-1" data-mb-user-rolewrap>
+                    <label class="form-label small mb-1" for="mb-user-role">Role on this database</label>
+                    <select class="form-select form-select-sm" id="mb-user-role" data-mb-user-role>
+                        <option value="read">read (read-only)</option>
+                        <option value="readWrite" selected>readWrite</option>
+                        <option value="dbAdmin">dbAdmin</option>
+                        <option value="dbOwner">dbOwner</option>
+                    </select>
+                </div>
+                <div class="invalid-feedback d-block" data-mb-user-err></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" data-mb-user-ok>Save</button>
             </div>
         </form>
     </div>

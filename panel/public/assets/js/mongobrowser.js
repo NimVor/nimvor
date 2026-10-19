@@ -123,7 +123,7 @@
     function setTab(tab) {
         state.tab = tab;
         Array.prototype.forEach.call(tabBtns, function (b) { b.classList.toggle('active', b.getAttribute('data-mb-tab') === tab); });
-        var docs = tab === 'documents', idx = tab === 'indexes';
+        var docs = tab === 'documents', idx = tab === 'indexes', usr = tab === 'users';
         if (docTools) { docTools.classList.toggle('d-none', !docs); }
         if (pagerEl) { pagerEl.classList.toggle('d-none', !docs); }
         rangeEl.classList.toggle('d-none', !docs);
@@ -131,7 +131,11 @@
             newIndexBtn.classList.toggle('d-none', !idx);
             newIndexBtn.disabled = !idx || !state.collection;
         }
-        if (docs) { state.skip = 0; loadDocuments(); } else if (idx) { loadIndexes(); } else if (tab === 'schema') { loadSchema(); } else { renderAggregate(); }
+        if (newUserBtn) {
+            newUserBtn.classList.toggle('d-none', !usr);
+            newUserBtn.disabled = !usr || !state.db;
+        }
+        if (docs) { state.skip = 0; loadDocuments(); } else if (idx) { loadIndexes(); } else if (tab === 'schema') { loadSchema(); } else if (usr) { loadUsers(); } else { renderAggregate(); }
     }
 
     // --- Schema analysis ---
@@ -217,6 +221,62 @@
                 });
             }).catch(function (e) { run.disabled = false; status.textContent = ''; fail(e); });
         });
+    }
+
+    // --- Users ---
+
+    function loadUsers() {
+        placeholder(pane, 'Loading users…');
+        call('users').then(function (d) {
+            renderUsers((d && d.users) || []);
+        }).catch(function (e) { placeholder(pane, 'The users could not be listed.'); fail(e); });
+    }
+
+    function renderUsers(users) {
+        var wrap = el('div', 'p-2');
+        wrap.appendChild(el('div', 'small text-body-secondary mb-2', 'Users defined on ' + state.db + '.'));
+        if (!users.length) {
+            wrap.appendChild(el('div', 'small text-body-secondary', 'This database has no users yet.'));
+            pane.replaceChildren(wrap);
+            return;
+        }
+        var table = el('table', 'table table-sm align-middle');
+        var thead = el('thead');
+        var hr = el('tr');
+        ['User', 'Roles', ''].forEach(function (h) { hr.appendChild(el('th', 'small', h)); });
+        thead.appendChild(hr);
+        table.appendChild(thead);
+        var tb = el('tbody');
+        users.forEach(function (u) {
+            var tr = el('tr');
+            tr.appendChild(el('td', 'font-monospace small', u.user));
+            tr.appendChild(el('td', 'small', (u.roles || []).join(', ')));
+            var act = el('td', 'text-end');
+            if (canDelete) {
+                var pw = el('button', 'btn btn-sm btn-outline-secondary py-0 me-1', 'Change password');
+                pw.type = 'button';
+                pw.addEventListener('click', function () { openUser('password', u.user); });
+                act.appendChild(pw);
+                var drop = el('button', 'btn btn-sm btn-outline-danger py-0', 'Drop');
+                drop.type = 'button';
+                drop.addEventListener('click', function () { dropUser(u.user, drop); });
+                act.appendChild(drop);
+            }
+            tr.appendChild(act);
+            tb.appendChild(tr);
+        });
+        table.appendChild(tb);
+        wrap.appendChild(table);
+        pane.replaceChildren(wrap);
+    }
+
+    function dropUser(name, btn) {
+        if (!window.confirm('Drop the user "' + name + '"? Applications using it will lose access.')) { return; }
+        btn.disabled = true;
+        call('user_drop', { user: name }).then(function () {
+            WhaCP.toast('User dropped.', 'success');
+            loadUsers();
+        }).catch(function (e) { btn.disabled = false; fail(e); });
     }
 
     // --- Documents pane ---
@@ -372,6 +432,26 @@
     var importModal = null;
     if (importEl && window.bootstrap) { importModal = new bootstrap.Modal(importEl); }
 
+    var newUserBtn = root.querySelector('[data-mb-newuser]');
+    var userEl = document.getElementById('mb-user');
+    var userModal = null, userMode = 'new';
+    if (userEl && window.bootstrap) { userModal = new bootstrap.Modal(userEl); }
+
+    // mode 'new' creates a user; mode 'password' changes one user's password.
+    function openUser(mode, name) {
+        if (!userModal) { return; }
+        userMode = mode;
+        userEl.querySelector('[data-mb-user-form]').reset();
+        userEl.querySelector('[data-mb-user-err]').textContent = '';
+        var nameIn = userEl.querySelector('[data-mb-user-name]');
+        nameIn.value = name || '';
+        nameIn.readOnly = mode === 'password';
+        userEl.querySelector('[data-mb-user-namewrap]').classList.toggle('d-none', mode === 'password' && !name);
+        userEl.querySelector('[data-mb-user-rolewrap]').classList.toggle('d-none', mode === 'password');
+        userEl.querySelector('#mb-user-title').textContent = mode === 'password' ? 'Change password for ' + name : 'New user on ' + state.db;
+        userModal.show();
+    }
+
     function loadIndexes() {
         placeholder(pane, 'Loading…');
         call('indexes', { collection: state.collection }).then(function (d) {
@@ -489,6 +569,31 @@
         });
     }
 
+    if (userEl) {
+        userEl.querySelector('[data-mb-user-form]').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var errEl = userEl.querySelector('[data-mb-user-err]');
+            errEl.textContent = '';
+            var name = userEl.querySelector('[data-mb-user-name]').value.trim();
+            var pass = userEl.querySelector('[data-mb-user-pass]').value;
+            if (name === '') { errEl.textContent = 'Enter a user name.'; return; }
+            if (pass.length < 8) { errEl.textContent = 'The password must be at least 8 characters.'; return; }
+            var ok = userEl.querySelector('[data-mb-user-ok]');
+            ok.disabled = true;
+            var done = function () {
+                ok.disabled = false; userModal.hide();
+                WhaCP.toast(userMode === 'password' ? 'Password changed.' : 'User created.', 'success');
+                loadUsers();
+            };
+            var failed = function (ee) { ok.disabled = false; errEl.textContent = (ee.details && ee.details.message) || ee.message || 'Failed.'; };
+            if (userMode === 'password') {
+                call('user_password', { user: name, password: pass }).then(done).catch(failed);
+            } else {
+                call('user_create', { user: name, password: pass, role: userEl.querySelector('[data-mb-user-role]').value }).then(done).catch(failed);
+            }
+        });
+    }
+
     // --- Wiring ---
 
     Array.prototype.forEach.call(tabBtns, function (b) {
@@ -501,6 +606,9 @@
             indexEl.querySelector('#mb-index-title').textContent = 'New index on ' + state.collection;
             indexModal.show();
         });
+    }
+    if (newUserBtn && userModal) {
+        newUserBtn.addEventListener('click', function () { openUser('new', ''); });
     }
     if (newBtn) { newBtn.addEventListener('click', function () { openEditor('new', {}); }); }
     Array.prototype.forEach.call(root.querySelectorAll('[data-mb-export-format]'), function (item) {

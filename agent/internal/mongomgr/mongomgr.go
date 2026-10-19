@@ -385,6 +385,44 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"dropped": in.User, "db": in.DB}, nil
 	}})
 
+	r.Register(actions.Action{Name: "mongo.database_users", Description: "List the users defined on one database.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB string `json:"db"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) {
+			return nil, actions.InvalidParams("db: invalid database name")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		out, err := c.eval(ctx, "print(JSON.stringify(db.getSiblingDB("+jsString(in.DB)+").getUsers().users))")
+		if err != nil {
+			return nil, actions.Failed("The users could not be listed.", err.Error())
+		}
+		var raw []struct {
+			User  string `json:"user"`
+			Roles []struct {
+				Role string `json:"role"`
+				DB   string `json:"db"`
+			} `json:"roles"`
+		}
+		if err := json.Unmarshal(trimToJSON(out), &raw); err != nil {
+			return nil, actions.Failed("The users could not be listed.", "unexpected output: "+lastLine(out))
+		}
+		users := []map[string]any{}
+		for _, u := range raw {
+			roleNames := make([]string, 0, len(u.Roles))
+			for _, role := range u.Roles {
+				roleNames = append(roleNames, role.Role)
+			}
+			users = append(users, map[string]any{"user": u.User, "roles": roleNames})
+		}
+		return map[string]any{"users": users}, nil
+	}})
+
 	// --- Database browser (read, plus delete one document) ---
 
 	r.Register(actions.Action{Name: "mongo.collections", Description: "List a database's collections with document counts.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {

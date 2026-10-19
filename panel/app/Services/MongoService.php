@@ -110,6 +110,20 @@ final class MongoService
         $this->audit->record('mongo.user_drop', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['user' => $user, 'db' => $db], $userId);
     }
 
+    /**
+     * The users defined on one database (for the browser's Users tab).
+     *
+     * @return list<array{user: string, roles: list<string>}>
+     */
+    public function databaseUsers(string $db): array
+    {
+        $o = (array) $this->agent->call('mongo.database_users', ['db' => $db]);
+        return array_map(
+            static fn ($u): array => ['user' => (string) ($u['user'] ?? ''), 'roles' => array_map('strval', (array) ($u['roles'] ?? []))],
+            (array) ($o['users'] ?? []),
+        );
+    }
+
     // --- Database browser ---
 
     /** @return list<array{name: string, count: int}> */

@@ -179,6 +179,17 @@ final class SiteMongoController extends SiteController
                     return Response::json(['success' => true, 'data' => $this->mongo->import($site, $db, trim((string) $request->input('collection')), $request->input('format') === 'jsonl' ? 'jsonl' : 'json', (string) $request->input('content'), $this->userId($request))]);
                 case 'schema':
                     return Response::json(['success' => true, 'data' => $this->mongo->schema($site, $db, trim((string) $request->input('collection')), (int) $request->input('sample', 1000))]);
+                case 'users':
+                    return Response::json(['success' => true, 'data' => ['users' => $this->mongo->databaseUsers($site, $db)]]);
+                case 'user_create':
+                    $created = $this->mongo->createUser($site, trim((string) $request->input('user')), (string) $request->input('password'), $db, (string) $request->input('role', 'readWrite'), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['user' => $created]]);
+                case 'user_password':
+                    $this->mongo->setPassword($site, trim((string) $request->input('user')), $db, (string) $request->input('password'), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['user' => trim((string) $request->input('user'))]]);
+                case 'user_drop':
+                    $this->mongo->dropUser($site, trim((string) $request->input('user')), $db, $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['dropped' => trim((string) $request->input('user'))]]);
                 case 'indexes':
                     return Response::json(['success' => true, 'data' => $this->mongo->indexes($site, $db, trim((string) $request->input('collection')))]);
                 case 'index_create':

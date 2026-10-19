@@ -97,6 +97,22 @@ final class SiteMongoService
         $this->audit->record('mongo.user_drop', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['user' => $user, 'db' => $db], $userId);
     }
 
+    /**
+     * The users defined on one of the account's own databases.
+     *
+     * @param array<string, mixed> $site
+     * @return list<array{user: string, roles: list<string>}>
+     */
+    public function databaseUsers(array $site, string $db): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.database_users', ['db' => $db]);
+        return array_map(
+            static fn ($u): array => ['user' => (string) ($u['user'] ?? ''), 'roles' => array_map('strval', (array) ($u['roles'] ?? []))],
+            (array) ($o['users'] ?? []),
+        );
+    }
+
     // --- Database browser (confined to the account's own databases) ---
 
     /**

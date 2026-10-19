@@ -138,6 +138,21 @@ final class MongoTest extends HttpTestCase
         self::assertSame('price', $body['data']['fields'][1]['field']);
         self::assertSame(500, $this->lastCall('mongo.schema')['sample']);
 
+        // Users: list, create, change password, drop — all scoped to the db.
+        $this->agent->succeed('mongo.database_users', ['users' => [['user' => 'shopu', 'roles' => ['readWrite']]]]);
+        $res = $this->post('/mongo/browse', ['op' => 'users', 'db' => 'shop']);
+        $body = (array) json_decode($res->body(), true);
+        self::assertSame('shopu', $body['data']['users'][0]['user']);
+        self::assertSame(['readWrite'], $body['data']['users'][0]['roles']);
+        $this->agent->succeed('mongo.user_create', ['user' => 'newu', 'db' => 'shop']);
+        self::assertSame(200, $this->post('/mongo/browse', ['op' => 'user_create', 'db' => 'shop', 'user' => 'newu', 'password' => 'longenough1', 'role' => 'read'])->status());
+        self::assertSame('shop', $this->lastCall('mongo.user_create')['db']);
+        self::assertSame('read', $this->lastCall('mongo.user_create')['role']);
+        $this->agent->succeed('mongo.user_password', ['user' => 'newu', 'db' => 'shop']);
+        self::assertSame(200, $this->post('/mongo/browse', ['op' => 'user_password', 'db' => 'shop', 'user' => 'newu', 'password' => 'longenough2'])->status());
+        $this->agent->succeed('mongo.user_drop', ['dropped' => 'newu', 'db' => 'shop']);
+        self::assertSame(200, $this->post('/mongo/browse', ['op' => 'user_drop', 'db' => 'shop', 'user' => 'newu'])->status());
+
         // An unknown op is a clean 400, not a 500.
         self::assertSame(400, $this->post('/mongo/browse', ['op' => 'nope', 'db' => 'shop'])->status());
 
@@ -186,6 +201,13 @@ final class MongoTest extends HttpTestCase
         // A viewer may not import (a write); the agent is never reached.
         self::assertSame(403, $this->post('/mongo/browse', ['op' => 'import', 'db' => 'shop', 'collection' => 'c', 'format' => 'json', 'content' => '[{"a":1}]'])->status());
         self::assertSame(0, $this->calls('mongo.import'));
+        // A viewer may list users (read) but not create, change or drop them.
+        $this->agent->succeed('mongo.database_users', ['users' => []]);
+        self::assertSame(200, $this->post('/mongo/browse', ['op' => 'users', 'db' => 'shop'])->status());
+        self::assertSame(403, $this->post('/mongo/browse', ['op' => 'user_create', 'db' => 'shop', 'user' => 'u', 'password' => 'longenough1'])->status());
+        self::assertSame(403, $this->post('/mongo/browse', ['op' => 'user_password', 'db' => 'shop', 'user' => 'u', 'password' => 'longenough1'])->status());
+        self::assertSame(403, $this->post('/mongo/browse', ['op' => 'user_drop', 'db' => 'shop', 'user' => 'u'])->status());
+        self::assertSame(0, $this->calls('mongo.user_create'));
         self::assertSame(0, $this->calls('mongo.index_create'));
 
         $this->login('cust');

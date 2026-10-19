@@ -514,6 +514,27 @@ func TestUserCreateValidationAndScript(t *testing.T) {
 	}
 }
 
+func TestDatabaseUsersListsOneDatabase(t *testing.T) {
+	h, r := setup(t)
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if strings.Contains(strings.Join(args, " "), "getUsers()") {
+			return `[{"user":"shop_u","db":"shop","roles":[{"role":"readWrite","db":"shop"}]},{"user":"shop_ro","db":"shop","roles":[{"role":"read","db":"shop"}]}]`, nil
+		}
+		return "", nil
+	}
+	res := mustCall(t, r, "mongo.database_users", `{"db":"shop"}`)
+	users := res["users"].([]map[string]any)
+	if len(users) != 2 || users[0]["user"].(string) != "shop_u" {
+		t.Fatalf("users: %+v", users)
+	}
+	if roles := users[0]["roles"].([]string); len(roles) != 1 || roles[0] != "readWrite" {
+		t.Fatalf("roles: %+v", users[0]["roles"])
+	}
+	if _, err := call(t, r, "mongo.database_users", `{"db":"a b"}`); err == nil {
+		t.Error("an invalid database name must be rejected")
+	}
+}
+
 func TestActionsNeedMongoInstalled(t *testing.T) {
 	h, r := setup(t)
 	h.Runner.Unavailable["mongosh"] = true

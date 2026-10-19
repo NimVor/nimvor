@@ -289,6 +289,26 @@ final class MongoController extends Controller
                     return Response::json(['success' => true, 'data' => $this->mongo->import($db, trim((string) $request->input('collection')), $request->input('format') === 'jsonl' ? 'jsonl' : 'json', (string) $request->input('content'), $this->userId($request))]);
                 case 'schema':
                     return Response::json(['success' => true, 'data' => $this->mongo->schema($db, trim((string) $request->input('collection')), (int) $request->input('sample', 1000))]);
+                case 'users':
+                    return Response::json(['success' => true, 'data' => ['users' => $this->mongo->databaseUsers($db)]]);
+                case 'user_create':
+                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    $this->mongo->createUser(trim((string) $request->input('user')), (string) $request->input('password'), $db, (string) $request->input('role', 'readWrite'), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['user' => trim((string) $request->input('user'))]]);
+                case 'user_password':
+                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    $this->mongo->setPassword(trim((string) $request->input('user')), $db, (string) $request->input('password'), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['user' => trim((string) $request->input('user'))]]);
+                case 'user_drop':
+                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    $this->mongo->dropUser(trim((string) $request->input('user')), $db, $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['dropped' => trim((string) $request->input('user'))]]);
                 case 'indexes':
                     return Response::json(['success' => true, 'data' => $this->mongo->indexes($db, trim((string) $request->input('collection')))]);
                 case 'index_create':
