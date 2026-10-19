@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -171,6 +173,114 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 	if _, err := call(t, r, "mongo.document_delete", `{"db":"shop","collection":"orders","id":"nope"}`); err == nil {
 		t.Error("a non-EJSON _id must be rejected")
 	}
+}
+
+const sampleConf = "net:\n  port: 27017\n  bindIp: 127.0.0.1\nstorage:\n  dbPath: /var/lib/mongodb\nsystemLog:\n  destination: file\n  path: /var/log/mongodb/mongod.log\nsecurity:\n  authorization: disabled\n"
+
+func writeHostFile(t *testing.T, h *testhost.Host, path, body string) {
+	t.Helper()
+	full := filepath.Join(h.Base, strings.TrimPrefix(path, "/"))
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConfigGetParsesTheFile(t *testing.T) {
+	h, r := setup(t)
+	writeHostFile(t, h, ConfigFile, sampleConf)
+	cfg := mustCallAny(t, r, "mongo.config_get", `{}`).(Config)
+	if cfg.Port != 27017 || cfg.BindIp != "127.0.0.1" || cfg.DBPath != "/var/lib/mongodb" || cfg.Authorization {
+		t.Fatalf("parsed config: %+v", cfg)
+	}
+	if !strings.Contains(cfg.Raw, "authorization: disabled") {
+		t.Fatal("raw file not returned")
+	}
+}
+
+func TestConfigSetRewritesAndRestarts(t *testing.T) {
+	h, r := setup(t)
+	writeHostFile(t, h, ConfigFile, sampleConf)
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id == "systemctl" && len(args) >= 2 && args[0] == "is-active" {
+			return "active\n", nil
+		}
+		return "", nil
+	}
+	cfg := mustCallAny(t, r, "mongo.config_set", `{"port":27018,"bind_ip":"0.0.0.0","authorization":true}`).(Config)
+	if cfg.Port != 27018 || cfg.BindIp != "0.0.0.0" || !cfg.Authorization {
+		t.Fatalf("returned config: %+v", cfg)
+	}
+	on := readHostFile(t, h, ConfigFile)
+	if !strings.Contains(on, "port: 27018") || !strings.Contains(on, "bindIp: 0.0.0.0") || !strings.Contains(on, "authorization: enabled") {
+		t.Fatalf("file not rewritten:\n%s", on)
+	}
+
+	// A bad port is refused before anything is written.
+	if _, err := call(t, r, "mongo.config_set", `{"port":0,"bind_ip":"127.0.0.1"}`); err == nil {
+		t.Error("a bad port must be rejected")
+	}
+}
+
+func TestConfigSetRollsBackWhenRestartFails(t *testing.T) {
+	h, r := setup(t)
+	writeHostFile(t, h, ConfigFile, sampleConf)
+	var restarts int
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id == "systemctl" && len(args) >= 1 && args[0] == "restart" {
+			restarts++
+			if restarts == 1 {
+				return "job failed", fmt.Errorf("exit status 1")
+			}
+			return "", nil // the rollback restart succeeds
+		}
+		if id == "systemctl" && len(args) >= 2 && args[0] == "is-active" {
+			return "active\n", nil
+		}
+		return "", nil
+	}
+	if _, err := call(t, r, "mongo.config_set", `{"port":27099,"bind_ip":"127.0.0.1","authorization":true}`); err == nil {
+		t.Fatal("a failed restart must return an error")
+	}
+	if on := readHostFile(t, h, ConfigFile); strings.Contains(on, "27099") || !strings.Contains(on, "port: 27017") {
+		t.Fatalf("the previous configuration was not restored:\n%s", on)
+	}
+	if restarts < 2 {
+		t.Fatalf("expected a rollback restart, got %d restarts", restarts)
+	}
+}
+
+func TestLogTail(t *testing.T) {
+	h, r := setup(t)
+	writeHostFile(t, h, ConfigFile, sampleConf)
+	writeHostFile(t, h, "/var/log/mongodb/mongod.log", "line one\nline two\nline three\n")
+	res := mustCall(t, r, "mongo.log", `{"lines":2}`)
+	if res["path"].(string) != "/var/log/mongodb/mongod.log" {
+		t.Fatalf("path: %v", res["path"])
+	}
+	if res["lines"].(string) != "line two\nline three" {
+		t.Fatalf("tail: %q", res["lines"])
+	}
+}
+
+func readHostFile(t *testing.T, h *testhost.Host, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(h.Base, strings.TrimPrefix(path, "/")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func mustCallAny(t *testing.T, r *actions.Registry, name, params string) any {
+	t.Helper()
+	res, err := call(t, r, name, params)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	return res
 }
 
 func mustCall(t *testing.T, r *actions.Registry, name, params string) map[string]any {

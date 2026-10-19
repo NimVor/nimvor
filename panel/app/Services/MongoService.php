@@ -142,4 +142,34 @@ final class MongoService
         $this->audit->record('mongo.document_delete', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
         return (int) ($o['deleted'] ?? 0);
     }
+
+    // --- Configuration and log ---
+
+    /** @return array{path: string, port: int, bind_ip: string, db_path: string, log_path: string, authorization: bool, raw: string} */
+    public function config(): array
+    {
+        $c = (array) $this->agent->call('mongo.config_get');
+        return [
+            'path' => (string) ($c['path'] ?? '/etc/mongod.conf'),
+            'port' => (int) ($c['port'] ?? 27017),
+            'bind_ip' => (string) ($c['bind_ip'] ?? '127.0.0.1'),
+            'db_path' => (string) ($c['db_path'] ?? ''),
+            'log_path' => (string) ($c['log_path'] ?? ''),
+            'authorization' => (bool) ($c['authorization'] ?? false),
+            'raw' => (string) ($c['raw'] ?? ''),
+        ];
+    }
+
+    public function setConfig(int $port, string $bindIp, bool $authorization, ?int $userId): void
+    {
+        $this->agent->call('mongo.config_set', ['port' => $port, 'bind_ip' => $bindIp, 'authorization' => $authorization], 120);
+        $this->audit->record('mongo.config_set', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['port' => $port, 'bind_ip' => $bindIp, 'authorization' => $authorization], $userId);
+    }
+
+    /** @return array{path: string, lines: string} */
+    public function log(int $lines = 300): array
+    {
+        $l = (array) $this->agent->call('mongo.log', ['lines' => $lines]);
+        return ['path' => (string) ($l['path'] ?? ''), 'lines' => (string) ($l['lines'] ?? '')];
+    }
 }

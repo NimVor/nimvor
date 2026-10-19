@@ -55,11 +55,40 @@ final class MongoController extends Controller
                 } catch (AgentException $e) {
                     $overviewError = $e;
                 }
+                try {
+                    $config = $this->mongo->config();
+                } catch (AgentException) {
+                }
+                try {
+                    $log = $this->mongo->log();
+                } catch (AgentException) {
+                }
             }
         } catch (AgentException $e) {
             $error = $e;
         }
-        return $this->render('server/mongo', ['tab' => 'mongo', 'status' => $status, 'overview' => $overview, 'repository' => $repository, 'overviewError' => $overviewError, 'agentError' => $error]);
+        return $this->render('server/mongo', [
+            'tab' => 'mongo', 'status' => $status, 'overview' => $overview, 'repository' => $repository,
+            'overviewError' => $overviewError, 'agentError' => $error,
+            'config' => $config ?? null, 'log' => $log ?? null,
+        ]);
+    }
+
+    public function config(Request $request): Response
+    {
+        if (!$this->view->can(P::SERVER_MANAGE)) {
+            return $this->redirectWithError('/mongo', 'You may not do this.');
+        }
+        $port = (int) $request->input('port', 0);
+        if ($port < 1 || $port > 65535) {
+            return $this->redirectWithError('/mongo', 'Enter a port between 1 and 65535.');
+        }
+        try {
+            $this->mongo->setConfig($port, trim((string) $request->input('bind_ip')), $request->input('authorization') === '1', $this->userId($request));
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/mongo', $e);
+        }
+        return $this->redirectWithSuccess('/mongo', 'MongoDB configuration saved and the service restarted.');
     }
 
     public function enableRepository(Request $request): Response

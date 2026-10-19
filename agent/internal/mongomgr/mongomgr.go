@@ -13,14 +13,27 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 )
+
+// ConfigFile is MongoDB's main configuration file (Debian/Ubuntu and the
+// RHEL packages both use this path).
+const ConfigFile = "/etc/mongod.conf"
+
+// defaultLogPath is where mongod logs when systemLog.path is not set.
+const defaultLogPath = "/var/log/mongodb/mongod.log"
+
+var bindIpRe = regexp.MustCompile(`^[0-9A-Za-z.:_-]+(,[0-9A-Za-z.:_-]+)*$`)
 
 // AdminURIFile holds the admin connection string when auth is enabled.
 const AdminURIFile = "/etc/whacp/mongo-admin.uri"
@@ -443,6 +456,97 @@ func Register(r *actions.Registry, env *host.Env) {
 		_ = json.Unmarshal(trimToJSON(out), &res)
 		return map[string]any{"deleted": res.Deleted}, nil
 	}})
+
+	// --- Configuration and log ---
+
+	r.Register(actions.Action{Name: "mongo.config_get", Description: "Read MongoDB's configuration (port, bindIp, paths, authorization) and the raw file.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+		raw, err := env.Root.ReadFile(ConfigFile)
+		if err != nil {
+			return nil, actions.Conflict("MongoDB's configuration file was not found at " + ConfigFile + ".")
+		}
+		return parseConfig(string(raw)), nil
+	}})
+
+	r.Register(actions.Action{Name: "mongo.config_set", Mutating: true, Description: "Set MongoDB's port, bindIp and authorization, then restart (rolls back on failure).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Port          int    `json:"port"`
+			BindIp        string `json:"bind_ip"`
+			Authorization bool   `json:"authorization"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if in.Port < 1 || in.Port > 65535 {
+			return nil, actions.InvalidParams("port: 1 to 65535")
+		}
+		in.BindIp = strings.TrimSpace(in.BindIp)
+		if in.BindIp == "" || len(in.BindIp) > 200 || !bindIpRe.MatchString(in.BindIp) {
+			return nil, actions.InvalidParams("bind_ip: comma-separated IP addresses or host names")
+		}
+		old, err := env.Root.ReadFile(ConfigFile)
+		if err != nil {
+			return nil, actions.Conflict("MongoDB's configuration file was not found at " + ConfigFile + ".")
+		}
+		next, err := applyConfig(string(old), in.Port, in.BindIp, in.Authorization)
+		if err != nil {
+			return nil, actions.Conflict(err.Error())
+		}
+		if _, err := env.Writer.WriteFile(ConfigFile, []byte(next), 0o644, agentfs.RootOwner); err != nil {
+			return nil, actions.Failed("The configuration could not be written.", err.Error())
+		}
+		if err := c.restart(ctx); err != nil {
+			// Put the working configuration back and restart, so a bad change
+			// never leaves MongoDB down.
+			_, _ = env.Writer.WriteFile(ConfigFile, old, 0o644, agentfs.RootOwner)
+			_ = c.restart(ctx)
+			return nil, actions.Failed("MongoDB did not restart with the new configuration; the previous configuration was restored.", err.Error())
+		}
+		return parseConfig(next), nil
+	}})
+
+	r.Register(actions.Action{Name: "mongo.log", Description: "The tail of MongoDB's log.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Lines int `json:"lines"`
+		}
+		_ = host.Decode(p, &in)
+		if in.Lines <= 0 || in.Lines > 2000 {
+			in.Lines = 300
+		}
+		path := parseConfig(string(readFileOrEmpty(env, ConfigFile))).LogPath
+		b, err := c.logTail(path, 256*1024)
+		if err != nil {
+			return nil, actions.Conflict("MongoDB's log could not be read at " + path + ".")
+		}
+		lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+		if len(lines) > in.Lines {
+			lines = lines[len(lines)-in.Lines:]
+		}
+		return map[string]any{"path": path, "lines": strings.Join(lines, "\n")}, nil
+	}})
+}
+
+// restart restarts MongoDB and waits briefly for it to come active.
+func (c Client) restart(ctx context.Context) error {
+	if out, err := c.Env.Runner.Run(ctx, "systemctl", "restart", "--", "mongod"); err != nil {
+		return fmt.Errorf("%w: %s", err, lastLine(out))
+	}
+	for i := 0; i < 15; i++ {
+		for _, u := range Units {
+			if c.Env.UnitActive(ctx, u) {
+				return nil
+			}
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("mongod did not become active")
+}
+
+func readFileOrEmpty(env *host.Env, path string) []byte {
+	b, err := env.Root.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	return b
 }
 
 // collections lists a database's collections with estimated document counts.
@@ -523,6 +627,158 @@ func (c Client) users(ctx context.Context) ([]User, error) {
 		users = append(users, User{User: u.User, DB: u.DB, Roles: roleNames})
 	}
 	return users, nil
+}
+
+// Config is the subset of mongod.conf WhaCP reads and (for a few keys) edits.
+type Config struct {
+	Path          string `json:"path"`
+	Port          int    `json:"port"`
+	BindIp        string `json:"bind_ip"`
+	DBPath        string `json:"db_path"`
+	LogPath       string `json:"log_path"`
+	Authorization bool   `json:"authorization"`
+	Raw           string `json:"raw"`
+}
+
+// parseConfig reads the flat YAML that mongod.conf uses. It tracks the current
+// top-level section and the indented keys under it; anything it does not know
+// is ignored (the raw text is returned for display).
+func parseConfig(raw string) Config {
+	c := Config{Path: ConfigFile, Port: 27017, BindIp: "127.0.0.1", Raw: raw}
+	section := ""
+	for _, line := range strings.Split(raw, "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "#") {
+			continue
+		}
+		indented := strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")
+		if !indented {
+			if strings.HasSuffix(t, ":") {
+				section = strings.TrimSpace(strings.TrimSuffix(t, ":"))
+			} else {
+				section = ""
+			}
+			continue
+		}
+		kv := strings.SplitN(t, ":", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		key, val := strings.TrimSpace(kv[0]), strings.TrimSpace(kv[1])
+		switch section + "." + key {
+		case "net.port":
+			if n, err := strconv.Atoi(val); err == nil {
+				c.Port = n
+			}
+		case "net.bindIp":
+			c.BindIp = val
+		case "storage.dbPath":
+			c.DBPath = val
+		case "systemLog.path":
+			c.LogPath = val
+		case "security.authorization":
+			c.Authorization = val == "enabled"
+		}
+	}
+	if c.LogPath == "" {
+		c.LogPath = defaultLogPath
+	}
+	return c
+}
+
+func authStr(on bool) string {
+	if on {
+		return "enabled"
+	}
+	return "disabled"
+}
+
+// applyConfig rewrites port, bindIp and authorization in the existing file,
+// preserving every other line and the file's indentation. Unknown layouts are
+// refused rather than guessed at, so the file is never corrupted.
+func applyConfig(raw string, port int, bindIp string, auth bool) (string, error) {
+	lines := strings.Split(raw, "\n")
+	section := ""
+	sawPort, sawBind, sawAuth, hasSecurity := false, false, false, false
+	for i, line := range lines {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "#") {
+			continue
+		}
+		if !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
+			if strings.HasSuffix(t, ":") {
+				section = strings.TrimSpace(strings.TrimSuffix(t, ":"))
+				if section == "security" {
+					hasSecurity = true
+				}
+			} else {
+				section = ""
+			}
+			continue
+		}
+		kv := strings.SplitN(t, ":", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(kv[0])
+		indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+		switch section + "." + key {
+		case "net.port":
+			lines[i] = indent + "port: " + strconv.Itoa(port)
+			sawPort = true
+		case "net.bindIp":
+			lines[i] = indent + "bindIp: " + bindIp
+			sawBind = true
+		case "security.authorization":
+			lines[i] = indent + "authorization: " + authStr(auth)
+			sawAuth = true
+		}
+	}
+	if !sawPort || !sawBind {
+		return "", fmt.Errorf("net.port and net.bindIp were not found in %s; edit the file directly", ConfigFile)
+	}
+	out := strings.Join(lines, "\n")
+	if !sawAuth {
+		if hasSecurity {
+			return "", fmt.Errorf("the security section is present without an authorization key; edit %s directly", ConfigFile)
+		}
+		if !strings.HasSuffix(out, "\n") {
+			out += "\n"
+		}
+		out += "security:\n  authorization: " + authStr(auth) + "\n"
+	}
+	return out, nil
+}
+
+// logTail returns the last n bytes of a log file (trimmed to whole lines),
+// opened without following symlinks.
+func (c Client) logTail(path string, n int64) ([]byte, error) {
+	real, err := c.Env.Root.Path(path)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(real, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil || !st.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s is not a regular file", path)
+	}
+	off := st.Size() - n
+	if off < 0 {
+		off = 0
+	}
+	b := make([]byte, st.Size()-off)
+	k, _ := f.ReadAt(b, off)
+	b = b[:k]
+	if off > 0 {
+		if i := bytes.IndexByte(b, '\n'); i >= 0 {
+			b = b[i+1:]
+		}
+	}
+	return b, nil
 }
 
 // trimToJSON returns the first JSON array/object in mongosh's output, so any

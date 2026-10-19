@@ -90,6 +90,8 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-whacp-sieve.conf"),
 		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-whacp-tuning.conf"),
 		"/etc/rspamd/local.d/*",
+		// MongoDB's main configuration file (port, bindIp, authorization).
+		"/etc/mongod.conf",
 		// MariaDB/MySQL server settings WhaCP manages (its own drop-in only).
 		"/etc/mysql/mariadb.conf.d/zz-whacp.cnf",
 		"/etc/mysql/mysql.conf.d/zz-whacp.cnf",

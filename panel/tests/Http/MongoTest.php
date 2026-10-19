@@ -45,6 +45,31 @@ final class MongoTest extends HttpTestCase
         self::assertSame(3, (int) $this->app->container->get(Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action LIKE 'mongo.%'"));
     }
 
+    public function testConfigurationAndLog(): void
+    {
+        $this->agent->succeed('mongo.config_get', [
+            'path' => '/etc/mongod.conf', 'port' => 27017, 'bind_ip' => '127.0.0.1',
+            'db_path' => '/var/lib/mongodb', 'log_path' => '/var/log/mongodb/mongod.log',
+            'authorization' => false, 'raw' => "net:\n  port: 27017\nsecurity:\n  authorization: disabled\n",
+        ]);
+        $this->agent->succeed('mongo.log', ['path' => '/var/log/mongodb/mongod.log', 'lines' => "started\nlistening on 27017"]);
+        $this->login('admin');
+        $page = $this->request('GET', '/mongo')->body();
+        foreach (['Configuration', 'name="port"', 'name="bind_ip"', 'authorization', 'listening on 27017', '/var/log/mongodb/mongod.log'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+
+        // Saving the configuration reaches the agent with validated values.
+        $this->agent->succeed('mongo.config_set', ['path' => '/etc/mongod.conf', 'port' => 27018, 'bind_ip' => '0.0.0.0', 'authorization' => true, 'raw' => '']);
+        $this->post('/mongo/config', ['port' => '27018', 'bind_ip' => '0.0.0.0', 'authorization' => '1']);
+        self::assertSame(['port' => 27018, 'bind_ip' => '0.0.0.0', 'authorization' => true], $this->lastCall('mongo.config_set'));
+        self::assertSame(1, (int) $this->app->container->get(Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'mongo.config_set'"));
+
+        // A bad port never reaches the agent.
+        $this->post('/mongo/config', ['port' => '0', 'bind_ip' => '127.0.0.1']);
+        self::assertSame(1, $this->calls('mongo.config_set'));
+    }
+
     public function testDatabaseBrowser(): void
     {
         $this->login('admin');

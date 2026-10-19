@@ -183,6 +183,71 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
     <?php endif; ?>
 </div>
 
+<?php if (($config ?? null) !== null): ?>
+<div class="card mt-3">
+    <div class="card-header"><i class="bi bi-sliders2 me-1" aria-hidden="true"></i>Configuration</div>
+    <div class="card-body">
+        <?php if ($canManage): ?>
+        <form method="post" action="<?= e($this->url('mongo.config')) ?>" data-wcp-busy data-wcp-confirm="Save the MongoDB configuration and restart the service? The previous configuration is restored automatically if it fails to start.">
+            <?= $this->csrfField() ?>
+            <div class="row g-3">
+                <div class="col-sm-3">
+                    <label class="form-label small mb-1" for="cfg-port">Port</label>
+                    <input class="form-control form-control-sm" type="number" id="cfg-port" name="port" min="1" max="65535" value="<?= e((string) $config['port']) ?>">
+                </div>
+                <div class="col-sm-5">
+                    <label class="form-label small mb-1" for="cfg-bind">Bind IP</label>
+                    <input class="form-control form-control-sm font-monospace" id="cfg-bind" name="bind_ip" value="<?= e($config['bind_ip']) ?>" placeholder="127.0.0.1">
+                    <div class="form-text">Comma-separated. Keep <code>127.0.0.1</code> unless remote access is intended.</div>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label small mb-1 d-block">Authentication</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="cfg-auth" name="authorization" value="1"<?= $config['authorization'] ? ' checked' : '' ?>>
+                        <label class="form-check-label small" for="cfg-auth">Require authentication (<code>security.authorization</code>)</label>
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-sm btn-primary mt-3" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save &amp; restart</button>
+        </form>
+        <?php else: ?>
+        <dl class="row small mb-0">
+            <dt class="col-sm-3">Port</dt><dd class="col-sm-9 font-monospace"><?= e((string) $config['port']) ?></dd>
+            <dt class="col-sm-3">Bind IP</dt><dd class="col-sm-9 font-monospace"><?= e($config['bind_ip']) ?></dd>
+            <dt class="col-sm-3">Authentication</dt><dd class="col-sm-9"><?= $config['authorization'] ? 'Required' : 'Disabled' ?></dd>
+        </dl>
+        <?php endif; ?>
+        <dl class="row small mt-3 mb-0 text-body-secondary">
+            <dt class="col-sm-3">Data path</dt><dd class="col-sm-9 font-monospace"><?= e($config['db_path'] !== '' ? $config['db_path'] : '—') ?></dd>
+            <dt class="col-sm-3">Config file</dt><dd class="col-sm-9 font-monospace"><?= e($config['path']) ?></dd>
+        </dl>
+        <?php if (trim($config['raw']) !== ''): ?>
+        <details class="mt-2">
+            <summary class="small">View configuration file</summary>
+            <pre class="small border rounded p-2 mt-2 mb-0 wcp-mongo-json"><?= e($config['raw']) ?></pre>
+        </details>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (($log ?? null) !== null): ?>
+<div class="card mt-3">
+    <div class="card-header d-flex align-items-center">
+        <span class="me-auto"><i class="bi bi-journal-text me-1" aria-hidden="true"></i>Log</span>
+        <span class="small text-body-secondary font-monospace"><?= e($log['path']) ?></span>
+    </div>
+    <div class="card-body">
+        <?php if (trim($log['lines']) === ''): ?>
+            <div class="small text-body-secondary">The log is empty.</div>
+        <?php else: ?>
+            <pre class="small border rounded p-2 mb-0 wcp-mongo-json"><?= e($log['lines']) ?></pre>
+        <?php endif; ?>
+        <a class="btn btn-sm btn-outline-secondary mt-2" href="<?= e($this->url('mongo')) ?>"><i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Refresh</a>
+    </div>
+</div>
+<?php endif; ?>
+
 <?php if ($canManage): ?>
 <?= $this->modalStart('mongo-db', 'Add database') ?>
     <form method="post" action="<?= e($this->url('mongo.database_create')) ?>" data-wcp-busy>

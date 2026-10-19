@@ -186,6 +186,13 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **MongoDB configuration and log (Server → MongoDB).** View and edit the
+  common settings — port, bind IP and whether authentication is required —
+  with the raw `mongod.conf` shown read-only; saving validates the values,
+  writes the file through the agent's allowlisted writer, restarts MongoDB,
+  and **restores the previous configuration automatically if it fails to
+  start**. The page also shows the tail of MongoDB's log. Editing needs
+  `server.manage`.
 - **MongoDB database browser (Server → MongoDB).** A full-page browser (the
   same tool layout as the SQL web browser) reached from a **Browse** button on
   each database: a collections sidebar with document counts and a filter, and a
