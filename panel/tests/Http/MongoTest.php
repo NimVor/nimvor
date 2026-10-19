@@ -45,11 +45,51 @@ final class MongoTest extends HttpTestCase
         self::assertSame(3, (int) $this->app->container->get(Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action LIKE 'mongo.%'"));
     }
 
-    public function testCustomersCannotReachMongo(): void
+    public function testDatabaseBrowser(): void
     {
+        $this->login('admin');
+        // The browser card renders and loads its external script.
+        $page = $this->request('GET', '/mongo')->body();
+        self::assertStringContainsString('Database browser', $page);
+        self::assertStringContainsString('assets/js/mongobrowser.js', $page);
+
+        $this->agent->succeed('mongo.collections', ['collections' => [['name' => 'orders', 'count' => 3]]]);
+        $res = $this->post('/mongo/browse', ['op' => 'collections', 'db' => 'shop']);
+        self::assertSame(200, $res->status());
+        $body = (array) json_decode($res->body(), true);
+        self::assertTrue($body['success']);
+        self::assertSame('orders', $body['data']['collections'][0]['name']);
+        self::assertSame(['db' => 'shop'], $this->lastCall('mongo.collections'));
+
+        $this->agent->succeed('mongo.documents', ['documents' => [['_id' => 'a1', 'name' => 'x']], 'total' => 1, 'skip' => 0, 'limit' => 50]);
+        $res = $this->post('/mongo/browse', ['op' => 'documents', 'db' => 'shop', 'collection' => 'orders', 'filter' => '{"name":"x"}', 'skip' => '0', 'limit' => '50']);
+        $body = (array) json_decode($res->body(), true);
+        self::assertSame(1, $body['data']['total']);
+        self::assertSame('{"name":"x"}', $this->lastCall('mongo.documents')['filter']);
+
+        $this->agent->succeed('mongo.document_delete', ['deleted' => 1]);
+        $res = $this->post('/mongo/browse', ['op' => 'delete', 'db' => 'shop', 'collection' => 'orders', 'id' => '"a1"']);
+        self::assertSame(1, ((array) json_decode($res->body(), true))['data']['deleted']);
+        self::assertSame('"a1"', $this->lastCall('mongo.document_delete')['id']);
+
+        // An unknown op is a clean 400, not a 500.
+        self::assertSame(400, $this->post('/mongo/browse', ['op' => 'nope', 'db' => 'shop'])->status());
+    }
+
+    public function testBrowserDeleteNeedsManageAndCustomersCannotReachMongo(): void
+    {
+        // A read-only viewer may browse but not delete a document.
+        $this->seedUser('viewer', 'viewer');
+        $this->login('viewer');
+        $this->agent->succeed('mongo.collections', ['collections' => []]);
+        self::assertSame(200, $this->post('/mongo/browse', ['op' => 'collections', 'db' => 'shop'])->status());
+        self::assertSame(403, $this->post('/mongo/browse', ['op' => 'delete', 'db' => 'shop', 'collection' => 'c', 'id' => '"a1"'])->status());
+        self::assertSame(0, $this->calls('mongo.document_delete'));
+
         $this->login('cust');
         self::assertSame(403, $this->request('GET', '/mongo')->status());
         self::assertSame(403, $this->post('/mongo/databases', ['name' => 'x'])->status());
+        self::assertSame(403, $this->post('/mongo/browse', ['op' => 'collections', 'db' => 'shop'])->status());
         self::assertSame(0, $this->calls('mongo.database_create'));
     }
 

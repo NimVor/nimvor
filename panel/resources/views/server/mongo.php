@@ -182,6 +182,43 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
     <?php endif; ?>
 </div>
 
+<?php if ($status !== null && !empty($status['running'])): ?>
+<div class="card mt-3" id="mongo-browser"
+     data-browse-url="<?= e($this->url('mongo.browse')) ?>"
+     data-can-delete="<?= $canManage ? '1' : '0' ?>">
+    <div class="card-header"><i class="bi bi-table me-1" aria-hidden="true"></i>Database browser</div>
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-sm-4">
+                <label class="form-label small mb-1" for="mb-db">Database</label>
+                <select class="form-select form-select-sm" id="mb-db" data-mb="db">
+                    <option value="">Choose a database…</option>
+                    <?php foreach ($overview['databases'] as $d): ?><option value="<?= e((string) ($d['name'] ?? '')) ?>"><?= e((string) ($d['name'] ?? '')) ?></option><?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small mb-1" for="mb-coll">Collection</label>
+                <select class="form-select form-select-sm" id="mb-coll" data-mb="collection" disabled></select>
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small mb-1" for="mb-filter">Filter (JSON)</label>
+                <input class="form-control form-control-sm font-monospace" id="mb-filter" data-mb="filter" placeholder='{ "field": "value" }' autocomplete="off">
+            </div>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+            <button class="btn btn-sm btn-primary" type="button" data-mb-run><i class="bi bi-search me-1" aria-hidden="true"></i>Run</button>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-mb-prev disabled>Prev</button>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-mb-next disabled>Next</button>
+            </div>
+            <span class="small text-body-secondary" data-mb-status></span>
+        </div>
+        <div class="mt-3" data-mb-results></div>
+    </div>
+</div>
+<script src="<?= e($this->asset('assets/js/mongobrowser.js')) ?>"></script>
+<?php endif; ?>
+
 <?php if ($canManage): ?>
 <?= $this->modalStart('mongo-db', 'Add database') ?>
     <form method="post" action="<?= e($this->url('mongo.database_create')) ?>" data-wcp-busy>

@@ -109,4 +109,37 @@ final class MongoService
         $this->agent->call('mongo.user_drop', ['user' => $user, 'db' => $db]);
         $this->audit->record('mongo.user_drop', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['user' => $user, 'db' => $db], $userId);
     }
+
+    // --- Database browser ---
+
+    /** @return list<array{name: string, count: int}> */
+    public function collections(string $db): array
+    {
+        $o = (array) $this->agent->call('mongo.collections', ['db' => $db]);
+        return array_map(static fn ($c): array => ['name' => (string) ($c['name'] ?? ''), 'count' => (int) ($c['count'] ?? 0)], (array) ($o['collections'] ?? []));
+    }
+
+    /**
+     * Find documents in a collection. The filter is a JSON object (EJSON).
+     *
+     * @return array{documents: mixed, total: int, skip: int, limit: int}
+     */
+    public function documents(string $db, string $collection, string $filter, int $skip, int $limit): array
+    {
+        $o = (array) $this->agent->call('mongo.documents', ['db' => $db, 'collection' => $collection, 'filter' => $filter, 'skip' => $skip, 'limit' => $limit], 90);
+        return [
+            'documents' => $o['documents'] ?? [],
+            'total' => (int) ($o['total'] ?? 0),
+            'skip' => (int) ($o['skip'] ?? $skip),
+            'limit' => (int) ($o['limit'] ?? $limit),
+        ];
+    }
+
+    /** Delete one document by its _id (EJSON value). Returns the number deleted. */
+    public function deleteDocument(string $db, string $collection, string $id, ?int $userId): int
+    {
+        $o = (array) $this->agent->call('mongo.document_delete', ['db' => $db, 'collection' => $collection, 'id' => $id]);
+        $this->audit->record('mongo.document_delete', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
+        return (int) ($o['deleted'] ?? 0);
+    }
 }

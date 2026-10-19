@@ -167,4 +167,38 @@ final class MongoController extends Controller
         }
         return $this->redirectWithSuccess('/mongo', 'Dropped user ' . $user . '.');
     }
+
+    /**
+     * Database browser (JSON): list collections, read documents, delete one.
+     * Reads need server.view; deleting a document needs server.manage.
+     */
+    public function browse(Request $request): Response
+    {
+        $op = $request->string('op');
+        $db = trim((string) $request->input('db'));
+        try {
+            switch ($op) {
+                case 'collections':
+                    return Response::json(['success' => true, 'data' => ['collections' => $this->mongo->collections($db)]]);
+                case 'documents':
+                    return Response::json(['success' => true, 'data' => $this->mongo->documents(
+                        $db,
+                        trim((string) $request->input('collection')),
+                        (string) $request->input('filter', ''),
+                        (int) $request->input('skip', 0),
+                        (int) $request->input('limit', 50),
+                    )]);
+                case 'delete':
+                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    $n = $this->mongo->deleteDocument($db, trim((string) $request->input('collection')), (string) $request->input('id'), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['deleted' => $n]]);
+                default:
+                    return Response::json(['success' => false, 'error' => ['message' => 'Unknown operation.']], 400);
+            }
+        } catch (AgentException $e) {
+            return Response::json(['success' => false, 'error' => $e->toArray()], $e->status() >= 400 && $e->status() < 600 ? $e->status() : 502);
+        }
+    }
 }

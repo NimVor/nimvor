@@ -186,6 +186,14 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **MongoDB database browser (Server → MongoDB).** Browse a database's
+  collections (with document counts), read documents with an optional JSON
+  filter and paging, and delete a document by its `_id`. The agent reads
+  through `mongosh` with the filter and `_id` passed as data (parsed with
+  EJSON, fed on stdin), never as command line or code; reading needs
+  `server.view` and deleting a document needs `server.manage`. The browser's
+  behaviour lives in `assets/js/mongobrowser.js` (no inline script, per the
+  panel CSP).
 - **App installer can target the website or one of its subdomains.** The
   install modal now shows an "Install on" selector (whenever the website has
   subdomains) listing the website itself and each of its subdomains; the
