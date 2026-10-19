@@ -61,6 +61,9 @@
                         <li><button class="dropdown-item" type="button" data-mb-export-format="jsonl">One per line (.jsonl)</button></li>
                     </ul>
                 </div>
+                <?php if ($canDelete): ?>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-mb-import disabled><i class="bi bi-upload me-1"></i>Import</button>
+                <?php endif; ?>
             </span>
             <?php if ($canDelete): ?>
             <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newindex disabled><i class="bi bi-plus-lg me-1"></i>New index</button>
@@ -117,6 +120,37 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="submit" class="btn btn-primary" data-mb-index-ok>Create index</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="mb-import" tabindex="-1" aria-labelledby="mb-import-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <form class="modal-content" data-mb-import-form novalidate>
+            <div class="modal-header"><h2 class="modal-title h6" id="mb-import-title">Import documents</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body">
+                <div class="row g-2 align-items-end mb-2">
+                    <div class="col-sm-6">
+                        <label class="form-label small mb-1" for="mb-import-format">Format</label>
+                        <select class="form-select form-select-sm" id="mb-import-format" data-mb-import-format>
+                            <option value="json">JSON array</option>
+                            <option value="jsonl">One document per line (JSONL)</option>
+                        </select>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small mb-1" for="mb-import-file">Choose a file (optional)</label>
+                        <input class="form-control form-control-sm" type="file" id="mb-import-file" accept=".json,.jsonl,.ndjson,application/json,text/plain" data-mb-import-file>
+                    </div>
+                </div>
+                <label class="form-label small" for="mb-import-text">Documents</label>
+                <textarea class="form-control font-monospace" id="mb-import-text" rows="14" spellcheck="false" data-mb-import-text placeholder='[ { "name": "a" }, { "name": "b" } ]'></textarea>
+                <div class="invalid-feedback d-block" data-mb-import-err></div>
+                <div class="form-text">Up to 5000 documents (4&nbsp;MB). Each must be a JSON object; a document whose <code>_id</code> already exists is counted as an error and skipped.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" data-mb-import-ok>Import</button>
             </div>
         </form>
     </div>

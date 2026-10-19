@@ -179,6 +179,18 @@ final class MongoService
         return ['content' => (string) ($o['content'] ?? ''), 'count' => (int) ($o['count'] ?? 0), 'format' => (string) ($o['format'] ?? $format)];
     }
 
+    /**
+     * Import documents from a JSON array or JSONL into a collection (bounded).
+     *
+     * @return array{inserted: int, errors: int, total: int}
+     */
+    public function import(string $db, string $collection, string $format, string $content, ?int $userId): array
+    {
+        $o = (array) $this->agent->call('mongo.import', ['db' => $db, 'collection' => $collection, 'format' => $format, 'content' => $content], 120);
+        $this->audit->record('mongo.import', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'format' => $format], $userId);
+        return ['inserted' => (int) ($o['inserted'] ?? 0), 'errors' => (int) ($o['errors'] ?? 0), 'total' => (int) ($o['total'] ?? 0)];
+    }
+
     // --- Indexes ---
 
     /** @return array{indexes: mixed} */

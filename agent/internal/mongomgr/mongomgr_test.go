@@ -137,6 +137,8 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 		switch {
 		case strings.Contains(script, "getCollectionNames"):
 			return `[{"name":"orders","count":3},{"name":"items","count":10}]`, nil
+		case strings.Contains(script, "inserted:ins,errors:errs"):
+			return `{"inserted":2,"errors":1,"total":3}`, nil
 		case strings.Contains(script, "deleteOne"):
 			return `{"deleted":1}`, nil
 		case strings.Contains(script, "insertOne"):
@@ -194,6 +196,28 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 	}
 	if _, err := call(t, r, "mongo.export", `{"db":"shop","collection":"orders","format":"xml"}`); err == nil {
 		t.Error("an unknown export format must be rejected")
+	}
+
+	// Import: a JSON array and JSONL both parse to documents and insert.
+	imp := mustCall(t, r, "mongo.import", `{"db":"shop","collection":"orders","format":"json","content":"[{\"a\":1},{\"a\":2},{\"a\":3}]"}`)
+	if imp["inserted"].(int) != 2 || imp["errors"].(int) != 1 || imp["total"].(int) != 3 {
+		t.Fatalf("import: %+v", imp)
+	}
+	if _, err := call(t, r, "mongo.import", `{"db":"shop","collection":"orders","format":"jsonl","content":"{\"a\":1}\n{\"a\":2}"}`); err != nil {
+		t.Fatalf("jsonl import: %v", err)
+	}
+	// Malformed uploads and non-object elements are rejected before the agent
+	// touches MongoDB.
+	for _, bad := range []string{
+		`{"db":"shop","collection":"orders","format":"json","content":"not json"}`,
+		`{"db":"shop","collection":"orders","format":"json","content":"[1,2,3]"}`,
+		`{"db":"shop","collection":"orders","format":"json","content":"[]"}`,
+		`{"db":"shop","collection":"orders","format":"jsonl","content":"{\"a\":1}\noops"}`,
+		`{"db":"shop","collection":"orders","format":"csv","content":"a,b"}`,
+	} {
+		if _, err := call(t, r, "mongo.import", bad); err == nil {
+			t.Errorf("a malformed import must be rejected: %s", bad)
+		}
 	}
 
 	// Bad JSON / missing _id are refused before mongosh runs.

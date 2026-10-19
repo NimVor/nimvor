@@ -58,6 +58,45 @@ func validColl(name string) bool {
 	return collRe.MatchString(name) && !strings.HasPrefix(name, "system.")
 }
 
+// parseImport turns an upload (a JSON array, or JSONL with one JSON object per
+// line) into the documents to insert. It returns a friendly message instead of
+// the documents when the input is malformed. Every element must be a JSON
+// object; a top-level scalar or array element is rejected.
+func parseImport(format, content string) ([]json.RawMessage, string) {
+	if format == "json" {
+		var docs []json.RawMessage
+		if err := json.Unmarshal([]byte(strings.TrimSpace(content)), &docs); err != nil {
+			return nil, "content: a JSON array of documents"
+		}
+		for _, d := range docs {
+			if !isJSONObject(d) {
+				return nil, "content: every element must be a JSON object"
+			}
+		}
+		return docs, ""
+	}
+	// JSONL: one JSON object per non-blank line.
+	var docs []json.RawMessage
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		raw := json.RawMessage(line)
+		if !json.Valid([]byte(line)) || !isJSONObject(raw) {
+			return nil, "content: every line must be a JSON object"
+		}
+		docs = append(docs, raw)
+	}
+	return docs, ""
+}
+
+// isJSONObject reports whether raw is a JSON object ('{' … '}').
+func isJSONObject(raw json.RawMessage) bool {
+	t := bytes.TrimSpace(raw)
+	return len(t) > 0 && t[0] == '{'
+}
+
 // Client runs mongosh against the local MongoDB.
 type Client struct {
 	Env *host.Env
@@ -642,6 +681,65 @@ func Register(r *actions.Registry, env *host.Env) {
 			return nil, actions.Failed("The documents could not be exported.", lastLine(out))
 		}
 		return map[string]any{"count": res.Count, "content": res.Content, "format": in.Format}, nil
+	}})
+
+	r.Register(actions.Action{Name: "mongo.import", Mutating: true, Description: "Import documents from a JSON array or JSONL into a collection (bounded).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB      string `json:"db"`
+			Coll    string `json:"collection"`
+			Format  string `json:"format"`
+			Content string `json:"content"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		if in.Format != "json" && in.Format != "jsonl" {
+			return nil, actions.InvalidParams("format: json or jsonl")
+		}
+		if len(in.Content) > 4<<20 {
+			return nil, actions.InvalidParams("content: up to 4 MB")
+		}
+		// Parse the upload into a bounded slice of document objects here, so a
+		// malformed file is rejected with a clear error and the count is capped
+		// before anything is sent to MongoDB.
+		docs, perr := parseImport(in.Format, in.Content)
+		if perr != "" {
+			return nil, actions.InvalidParams(perr)
+		}
+		if len(docs) == 0 {
+			return nil, actions.InvalidParams("content: no documents to import")
+		}
+		if len(docs) > 5000 {
+			return nil, actions.InvalidParams("content: at most 5000 documents per import")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		arr, _ := json.Marshal(docs)            // a single JSON array of the documents
+		payload, _ := json.Marshal(string(arr)) // as a JS string literal for EJSON.parse
+		// insertOne per document so one bad (e.g. duplicate-_id) document is
+		// counted as an error without aborting the rest, deterministically.
+		script := fmt.Sprintf(
+			"var docs=EJSON.parse(%s);var coll=db.getSiblingDB(%s).getCollection(%s);var ins=0,errs=0;"+
+				"for(var i=0;i<docs.length;i++){try{coll.insertOne(docs[i]);ins++}catch(e){errs++}}"+
+				"print(JSON.stringify({inserted:ins,errors:errs,total:docs.length}))",
+			string(payload), jsString(in.DB), jsString(in.Coll))
+		out, err := c.run(ctx, script, true)
+		if err != nil {
+			return nil, actions.Failed("The documents could not be imported.", lastLine(out))
+		}
+		var res struct {
+			Inserted int `json:"inserted"`
+			Errors   int `json:"errors"`
+			Total    int `json:"total"`
+		}
+		if err := json.Unmarshal(trimToJSON(out), &res); err != nil {
+			return nil, actions.Failed("The documents could not be imported.", lastLine(out))
+		}
+		return map[string]any{"inserted": res.Inserted, "errors": res.Errors, "total": res.Total}, nil
 	}})
 
 	// --- Indexes ---

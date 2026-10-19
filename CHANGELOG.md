@@ -193,6 +193,16 @@ All notable changes to WhaCP are documented here. The format follows
   and **restores the previous configuration automatically if it fails to
   start**. The page also shows the tail of MongoDB's log. Editing needs
   `server.manage`.
+- **MongoDB collection import in the browser.** An Import button in the database
+  browser loads documents into the current collection from a pasted JSON array
+  or JSONL (one object per line), or from a chosen `.json` / `.jsonl` file read
+  in the browser. The upload is parsed and bounded by the agent (at most 5000
+  documents, 4 MB; every element must be a JSON object) and inserted one by one
+  so a document whose `_id` already exists is counted and skipped rather than
+  aborting the rest; the result reports how many were inserted and how many were
+  skipped. Importing is a write (`server.manage` on the admin page, the site
+  owner on the customer **Site → MongoDB** page) and the customer page is
+  confined to the account's own databases.
 - **MongoDB collection export in the browser.** An Export menu in the database
   browser downloads the current collection, respecting the active JSON filter,
   as either a JSON array (`.json`) or one document per line (`.jsonl`). The

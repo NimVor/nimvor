@@ -177,6 +177,19 @@ final class SiteMongoService
         return ['content' => (string) ($o['content'] ?? ''), 'count' => (int) ($o['count'] ?? 0), 'format' => (string) ($o['format'] ?? $format)];
     }
 
+    /**
+     * Import documents into a collection of the account's own database.
+     *
+     * @return array{inserted: int, errors: int, total: int}
+     */
+    public function import(array $site, string $db, string $collection, string $format, string $content, ?int $userId): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.import', ['db' => $db, 'collection' => $collection, 'format' => $format, 'content' => $content], 120);
+        $this->audit->record('mongo.import', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'format' => $format], $userId);
+        return ['inserted' => (int) ($o['inserted'] ?? 0), 'errors' => (int) ($o['errors'] ?? 0), 'total' => (int) ($o['total'] ?? 0)];
+    }
+
     /** @return array{indexes: mixed} */
     public function indexes(array $site, string $db, string $collection): array
     {

@@ -108,6 +108,12 @@ final class SiteMongoTest extends HttpTestCase
         $this->agent->succeed('mongo.index_drop', ['dropped' => 'a_1']);
         self::assertSame(200, $this->post($base . '/browse', ['op' => 'index_drop', 'db' => $this->prefix . 'shop', 'collection' => 'orders', 'name' => 'a_1'])->status());
 
+        // Importing into the account's own collection works.
+        $this->agent->succeed('mongo.import', ['inserted' => 2, 'errors' => 0, 'total' => 2]);
+        $res = $this->post($base . '/browse', ['op' => 'import', 'db' => $this->prefix . 'shop', 'collection' => 'orders', 'format' => 'json', 'content' => '[{"a":1},{"a":2}]']);
+        self::assertSame(200, $res->status());
+        self::assertSame(2, ((array) json_decode($res->body(), true))['data']['inserted']);
+
         // Exporting the account's own collection downloads an attachment.
         $this->agent->succeed('mongo.export', ['count' => 1, 'content' => '[{"_id":"a"}]', 'format' => 'json']);
         $res = $this->request('GET', $base . '/export', [], [], '', ['db' => $this->prefix . 'shop', 'collection' => 'orders', 'format' => 'json']);
@@ -130,6 +136,7 @@ final class SiteMongoTest extends HttpTestCase
             ['insert', ['collection' => 'c', 'document' => '{"a":1}']], ['update', ['collection' => 'c', 'id' => '"a1"', 'document' => '{"a":1}']],
             ['indexes', ['collection' => 'c']], ['index_create', ['collection' => 'c', 'keys' => '{"a":1}']], ['index_drop', ['collection' => 'c', 'name' => 'a_1']],
             ['aggregate', ['collection' => 'c', 'pipeline' => '[{"$match":{}}]']],
+            ['import', ['collection' => 'c', 'format' => 'json', 'content' => '[{"a":1}]']],
         ] as [$op, $extra]) {
             $res = $this->post($base . '/browse', ['op' => $op, 'db' => 'otheracct_secret'] + $extra);
             self::assertSame(403, $res->status(), $op . ' on another account must be refused');
@@ -137,6 +144,7 @@ final class SiteMongoTest extends HttpTestCase
         self::assertSame(1, $this->calls('mongo.collections'), 'only the owned-db collections call reached the agent');
         self::assertSame(0, $this->calls('mongo.document_delete'), 'no delete reached the agent for another account');
         self::assertSame(1, $this->calls('mongo.document_insert'), 'only the owned-db insert reached the agent');
+        self::assertSame(1, $this->calls('mongo.import'), 'only the owned-db import reached the agent');
         self::assertSame(1, $this->calls('mongo.index_create'), 'only the owned-db index create reached the agent');
     }
 

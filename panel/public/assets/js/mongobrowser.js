@@ -58,6 +58,7 @@
         filterIn.disabled = true; runBtn.disabled = true;
         if (newBtn) { newBtn.disabled = true; }
         if (exportBtn) { exportBtn.disabled = true; }
+        if (importBtn) { importBtn.disabled = true; }
         if (newIndexBtn) { newIndexBtn.disabled = true; }
         Array.prototype.forEach.call(tabBtns, function (b) { b.disabled = true; });
         setPaging();
@@ -112,6 +113,7 @@
         filterIn.disabled = false; runBtn.disabled = false;
         if (newBtn) { newBtn.disabled = false; }
         if (exportBtn) { exportBtn.disabled = false; }
+        if (importBtn) { importBtn.disabled = false; }
         Array.prototype.forEach.call(tabBtns, function (b) { b.disabled = false; });
         setTab('documents');
     }
@@ -328,6 +330,11 @@
     var indexModal = null;
     if (indexEl && window.bootstrap) { indexModal = new bootstrap.Modal(indexEl); }
 
+    var importBtn = root.querySelector('[data-mb-import]');
+    var importEl = document.getElementById('mb-import');
+    var importModal = null;
+    if (importEl && window.bootstrap) { importModal = new bootstrap.Modal(importEl); }
+
     function loadIndexes() {
         placeholder(pane, 'Loading…');
         call('indexes', { collection: state.collection }).then(function (d) {
@@ -407,6 +414,41 @@
             call('index_create', { collection: state.collection, keys: JSON.stringify(keysObj), options: JSON.stringify(options) }).then(function () {
                 ok.disabled = false; indexModal.hide(); WhaCP.toast('Index created.', 'success'); loadIndexes();
             }).catch(function (ee) { ok.disabled = false; errEl.textContent = (ee.details && ee.details.message) || ee.message || 'Failed.'; });
+        });
+    }
+
+    if (importBtn && importModal) {
+        importBtn.addEventListener('click', function () {
+            importEl.querySelector('[data-mb-import-form]').reset();
+            importEl.querySelector('[data-mb-import-err]').textContent = '';
+            importEl.querySelector('#mb-import-title').textContent = 'Import documents into ' + state.collection;
+            importModal.show();
+        });
+        var fileIn = importEl.querySelector('[data-mb-import-file]');
+        var textIn = importEl.querySelector('[data-mb-import-text]');
+        var fmtIn = importEl.querySelector('[data-mb-import-format]');
+        fileIn.addEventListener('change', function () {
+            var f = fileIn.files && fileIn.files[0];
+            if (!f) { return; }
+            if (/\.(jsonl|ndjson)$/i.test(f.name)) { fmtIn.value = 'jsonl'; }
+            var reader = new FileReader();
+            reader.onload = function () { textIn.value = String(reader.result || ''); };
+            reader.readAsText(f);
+        });
+        importEl.querySelector('[data-mb-import-form]').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var errEl = importEl.querySelector('[data-mb-import-err]');
+            errEl.textContent = '';
+            var content = textIn.value.trim();
+            if (content === '') { errEl.textContent = 'Paste documents or choose a file first.'; return; }
+            var ok = importEl.querySelector('[data-mb-import-ok]');
+            ok.disabled = true;
+            call('import', { collection: state.collection, format: fmtIn.value, content: content }).then(function (d) {
+                ok.disabled = false; importModal.hide();
+                var msg = 'Imported ' + d.inserted + ' of ' + d.total + ' document' + (d.total === 1 ? '' : 's') + '.';
+                WhaCP.toast(msg + (d.errors ? ' ' + d.errors + ' skipped (errors).' : ''), d.errors ? 'warning' : 'success');
+                if (state.tab === 'documents') { state.skip = 0; loadDocuments(); }
+            }).catch(function (ee) { ok.disabled = false; errEl.textContent = (ee.details && ee.details.message) || ee.message || 'The import failed.'; });
         });
     }
 

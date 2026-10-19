@@ -145,6 +145,17 @@ final class MongoTest extends HttpTestCase
         self::assertSame('attachment; filename="shop.orders.jsonl"', $res->header('Content-Disposition'));
         self::assertStringContainsString('application/x-ndjson', (string) $res->header('Content-Type'));
         self::assertSame('jsonl', $this->lastCall('mongo.export')['format']);
+
+        // Import: documents are inserted and the result (inserted / errors) is
+        // returned; the uploaded content and format reach the agent.
+        $this->agent->succeed('mongo.import', ['inserted' => 2, 'errors' => 1, 'total' => 3]);
+        $res = $this->post('/mongo/browse', ['op' => 'import', 'db' => 'shop', 'collection' => 'orders', 'format' => 'json', 'content' => '[{"a":1},{"a":2},{"a":3}]']);
+        $body = (array) json_decode($res->body(), true);
+        self::assertSame(200, $res->status());
+        self::assertSame(2, $body['data']['inserted']);
+        self::assertSame(1, $body['data']['errors']);
+        self::assertSame('[{"a":1},{"a":2},{"a":3}]', $this->lastCall('mongo.import')['content']);
+        self::assertSame('json', $this->lastCall('mongo.import')['format']);
     }
 
     public function testBrowserDeleteNeedsManageAndCustomersCannotReachMongo(): void
@@ -161,6 +172,9 @@ final class MongoTest extends HttpTestCase
         self::assertSame(200, $this->post('/mongo/browse', ['op' => 'indexes', 'db' => 'shop', 'collection' => 'c'])->status());
         self::assertSame(403, $this->post('/mongo/browse', ['op' => 'index_create', 'db' => 'shop', 'collection' => 'c', 'keys' => '{"a":1}'])->status());
         self::assertSame(403, $this->post('/mongo/browse', ['op' => 'index_drop', 'db' => 'shop', 'collection' => 'c', 'name' => 'a_1'])->status());
+        // A viewer may not import (a write); the agent is never reached.
+        self::assertSame(403, $this->post('/mongo/browse', ['op' => 'import', 'db' => 'shop', 'collection' => 'c', 'format' => 'json', 'content' => '[{"a":1}]'])->status());
+        self::assertSame(0, $this->calls('mongo.import'));
         self::assertSame(0, $this->calls('mongo.index_create'));
 
         $this->login('cust');
