@@ -186,10 +186,11 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
-- **MongoDB database browser (Server → MongoDB).** Browse a database's
-  collections (with document counts), read documents with an optional JSON
-  filter and paging, and delete a document by its `_id`. The agent reads
-  through `mongosh` with the filter and `_id` passed as data (parsed with
+- **MongoDB database browser (Server → MongoDB).** A full-page browser (the
+  same tool layout as the SQL web browser) reached from a **Browse** button on
+  each database: a collections sidebar with document counts and a filter, and a
+  documents pane with a JSON filter, paging, and per-document delete. The agent
+  reads through `mongosh` with the filter and `_id` passed as data (parsed with
   EJSON, fed on stdin), never as command line or code; reading needs
   `server.view` and deleting a document needs `server.manage`. The browser's
   behaviour lives in `assets/js/mongobrowser.js` (no inline script, per the

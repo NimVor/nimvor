@@ -125,22 +125,23 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
     <?php else: ?>
         <div class="wcp-dtable table-responsive">
             <table class="table align-middle mb-0">
-                <thead><tr><th>Name</th><th>Size</th><?php if ($canManage): ?><th class="text-end">Action</th><?php endif; ?></tr></thead>
+                <thead><tr><th>Name</th><th>Size</th><th class="text-end">Action</th></tr></thead>
                 <tbody>
-                <?php foreach ($overview['databases'] as $d): ?>
+                <?php foreach ($overview['databases'] as $d): $dn = (string) ($d['name'] ?? ''); ?>
                     <tr>
-                        <td class="font-monospace"><?= e((string) ($d['name'] ?? '')) ?></td>
+                        <td class="font-monospace"><?= e($dn) ?></td>
                         <td class="small text-body-secondary"><?= e(format_bytes((int) ($d['size'] ?? 0))) ?></td>
-                        <?php if ($canManage): ?>
-                        <td class="text-end">
-                            <form method="post" action="<?= e($this->url('mongo.database_drop')) ?>" data-wcp-confirm="Drop the database “<?= e((string) ($d['name'] ?? '')) ?>” and everything in it? This cannot be undone.">
+                        <td class="text-end text-nowrap">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('mongo.browser')) ?>?db=<?= e(rawurlencode($dn)) ?>" title="Browse collections and documents"><i class="bi bi-table me-1"></i>Browse</a>
+                            <?php if ($canManage): ?>
+                            <form class="d-inline" method="post" action="<?= e($this->url('mongo.database_drop')) ?>" data-wcp-confirm="Drop the database “<?= e($dn) ?>” and everything in it? This cannot be undone.">
                                 <?= $this->csrfField() ?>
-                                <input type="hidden" name="name" value="<?= e((string) ($d['name'] ?? '')) ?>">
-                                <input type="hidden" name="confirm" value="<?= e((string) ($d['name'] ?? '')) ?>">
+                                <input type="hidden" name="name" value="<?= e($dn) ?>">
+                                <input type="hidden" name="confirm" value="<?= e($dn) ?>">
                                 <button class="btn btn-sm btn-outline-danger" title="Drop"><i class="bi bi-trash"></i></button>
                             </form>
+                            <?php endif; ?>
                         </td>
-                        <?php endif; ?>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -181,43 +182,6 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
         </div>
     <?php endif; ?>
 </div>
-
-<?php if ($status !== null && !empty($status['running'])): ?>
-<div class="card mt-3" id="mongo-browser"
-     data-browse-url="<?= e($this->url('mongo.browse')) ?>"
-     data-can-delete="<?= $canManage ? '1' : '0' ?>">
-    <div class="card-header"><i class="bi bi-table me-1" aria-hidden="true"></i>Database browser</div>
-    <div class="card-body">
-        <div class="row g-2 align-items-end">
-            <div class="col-sm-4">
-                <label class="form-label small mb-1" for="mb-db">Database</label>
-                <select class="form-select form-select-sm" id="mb-db" data-mb="db">
-                    <option value="">Choose a database…</option>
-                    <?php foreach ($overview['databases'] as $d): ?><option value="<?= e((string) ($d['name'] ?? '')) ?>"><?= e((string) ($d['name'] ?? '')) ?></option><?php endforeach; ?>
-                </select>
-            </div>
-            <div class="col-sm-4">
-                <label class="form-label small mb-1" for="mb-coll">Collection</label>
-                <select class="form-select form-select-sm" id="mb-coll" data-mb="collection" disabled></select>
-            </div>
-            <div class="col-sm-4">
-                <label class="form-label small mb-1" for="mb-filter">Filter (JSON)</label>
-                <input class="form-control form-control-sm font-monospace" id="mb-filter" data-mb="filter" placeholder='{ "field": "value" }' autocomplete="off">
-            </div>
-        </div>
-        <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-            <button class="btn btn-sm btn-primary" type="button" data-mb-run><i class="bi bi-search me-1" aria-hidden="true"></i>Run</button>
-            <div class="btn-group">
-                <button class="btn btn-sm btn-outline-secondary" type="button" data-mb-prev disabled>Prev</button>
-                <button class="btn btn-sm btn-outline-secondary" type="button" data-mb-next disabled>Next</button>
-            </div>
-            <span class="small text-body-secondary" data-mb-status></span>
-        </div>
-        <div class="mt-3" data-mb-results></div>
-    </div>
-</div>
-<script src="<?= e($this->asset('assets/js/mongobrowser.js')) ?>"></script>
-<?php endif; ?>
 
 <?php if ($canManage): ?>
 <?= $this->modalStart('mongo-db', 'Add database') ?>

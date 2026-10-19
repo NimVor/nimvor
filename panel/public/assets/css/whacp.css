@@ -913,3 +913,6 @@ button.wcp-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .wcp-tweak-filtering .tab-content > .tab-pane { display: block; opacity: 1; margin-bottom: 1rem; }
 .wcp-tweak-filtering [data-wcp-tweak-heading] { display: block !important; }
 .wcp-tweak-filtering .tab-content > .tab-pane.wcp-tweak-nomatch { display: none; }
+
+/* MongoDB browser documents: readable, wrapped JSON that never overflows. */
+.wcp-mongo-json { white-space: pre-wrap; word-break: break-word; max-height: 24rem; overflow: auto; background: var(--bs-tertiary-bg); }

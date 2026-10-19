@@ -169,6 +169,34 @@ final class MongoController extends Controller
     }
 
     /**
+     * The full-page database browser (collections sidebar + documents pane).
+     * The JSON endpoint it talks to is browse() below.
+     */
+    public function browser(Request $request): Response
+    {
+        $databases = [];
+        try {
+            $databases = array_values(array_filter(array_map(
+                static fn ($d): string => (string) ($d['name'] ?? ''),
+                $this->mongo->overview()['databases'],
+            ), static fn (string $n): bool => $n !== ''));
+        } catch (AgentException) {
+            // Shown empty; the page still loads and reports the error on use.
+        }
+        $db = trim((string) $request->query('db', ''));
+        if ($db !== '' && !in_array($db, $databases, true)) {
+            $db = '';
+        }
+        return Response::html($this->view->render('server/mongo_browser', [
+            'api' => $this->view->url('mongo.browse'),
+            'back' => $this->view->url('mongo'),
+            'databases' => $databases,
+            'current' => $db,
+            'canDelete' => $this->view->can(P::SERVER_MANAGE),
+        ], 'layouts/tool'));
+    }
+
+    /**
      * Database browser (JSON): list collections, read documents, delete one.
      * Reads need server.view; deleting a document needs server.manage.
      */

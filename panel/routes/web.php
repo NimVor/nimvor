@@ -406,6 +406,7 @@ return static function (Router $r): void {
     $r->post('/mongo/repository', [\WhaCP\Http\Controllers\MongoController::class, 'enableRepository'], ['name' => 'mongo.repository_enable', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mongo/install', [\WhaCP\Http\Controllers\MongoController::class, 'install'], ['name' => 'mongo.install', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mongo/service', [\WhaCP\Http\Controllers\MongoController::class, 'service'], ['name' => 'mongo.service', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/mongo/browser', [\WhaCP\Http\Controllers\MongoController::class, 'browser'], ['name' => 'mongo.browser', 'permission' => P::SERVER_VIEW]);
     $r->post('/mongo/browse', [\WhaCP\Http\Controllers\MongoController::class, 'browse'], ['name' => 'mongo.browse', 'permission' => P::SERVER_VIEW]);
     $r->get('/runtimes', [\WhaCP\Http\Controllers\RuntimeController::class, 'index'], ['name' => 'runtimes', 'permission' => P::SERVER_VIEW]);
     $r->post('/runtimes/install', [\WhaCP\Http\Controllers\RuntimeController::class, 'install'], ['name' => 'runtimes.install', 'permission' => P::SERVER_MANAGE]);

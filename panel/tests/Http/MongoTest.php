@@ -48,10 +48,14 @@ final class MongoTest extends HttpTestCase
     public function testDatabaseBrowser(): void
     {
         $this->login('admin');
-        // The browser card renders and loads its external script.
+        // The databases table links to the full-page browser per database.
         $page = $this->request('GET', '/mongo')->body();
-        self::assertStringContainsString('Database browser', $page);
-        self::assertStringContainsString('assets/js/mongobrowser.js', $page);
+        self::assertStringContainsString('/mongo/browser?db=shop', $page);
+        // The browser is a full-page tool with a collections sidebar.
+        $tool = $this->request('GET', '/mongo/browser')->body();
+        foreach (['MongoDB browser', 'id="wcp-mongo"', 'assets/js/mongobrowser.js', 'Choose a database', 'shop'] as $want) {
+            self::assertStringContainsString($want, $tool, $want);
+        }
 
         $this->agent->succeed('mongo.collections', ['collections' => [['name' => 'orders', 'count' => 3]]]);
         $res = $this->post('/mongo/browse', ['op' => 'collections', 'db' => 'shop']);

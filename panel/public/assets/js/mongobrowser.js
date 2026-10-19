@@ -1,108 +1,193 @@
-/* MongoDB database browser (Server → MongoDB).
+/* MongoDB database browser (Server → MongoDB → Browser).
  *
- * Loaded from 'self' (the panel's CSP forbids inline scripts). It drives the
- * #mongo-browser card: choose a database, list its collections, read documents
- * with an optional EJSON filter and paging, and delete one document. All calls
- * go to the mongo.browse endpoint via WhaCP.fetchJson (which adds the CSRF
- * token on POST). */
+ * Drives the full-page #wcp-mongo tool: a collections sidebar and a documents
+ * pane with a JSON filter and paging. Loaded from 'self' (the panel CSP
+ * forbids inline scripts); all calls go to the mongo.browse endpoint through
+ * WhaCP.fetchJson, which attaches the CSRF token on POST. */
 (function () {
     'use strict';
-    var root = document.getElementById('mongo-browser');
+    var root = document.getElementById('wcp-mongo');
     if (!root || !window.WhaCP) { return; }
 
-    var url = root.getAttribute('data-browse-url');
+    var api = root.getAttribute('data-api');
     var canDelete = root.getAttribute('data-can-delete') === '1';
-    var dbSel = root.querySelector('[data-mb="db"]');
-    var collSel = root.querySelector('[data-mb="collection"]');
-    var filterIn = root.querySelector('[data-mb="filter"]');
-    var results = root.querySelector('[data-mb-results]');
-    var statusEl = root.querySelector('[data-mb-status]');
+    var LIMIT = 25;
+
+    var dbSel = root.querySelector('[data-mb-db]');
+    var collList = root.querySelector('[data-mb-colls]');
+    var collFilter = root.querySelector('[data-mb-coll-filter]');
+    var collCount = root.querySelector('[data-mb-colls-count]');
+    var curLabel = root.querySelector('[data-mb-current]');
+    var filterIn = root.querySelector('[data-mb-filter]');
+    var runBtn = root.querySelector('[data-mb-run]');
     var prevBtn = root.querySelector('[data-mb-prev]');
     var nextBtn = root.querySelector('[data-mb-next]');
-    var skip = 0;
-    var limit = 50;
-    var total = 0;
+    var rangeEl = root.querySelector('[data-mb-range]');
+    var pane = root.querySelector('[data-mb-pane]');
 
-    function post(op, extra) {
-        var body = Object.assign({ op: op, db: dbSel.value }, extra || {});
-        return WhaCP.fetchJson(url, { method: 'POST', body: JSON.stringify(body) }).then(function (r) { return r.data; });
-    }
-
-    function setStatus(text, isError) {
-        statusEl.textContent = text || '';
-        statusEl.classList.toggle('text-danger', !!isError);
-    }
+    var state = { db: '', collection: '', skip: 0, total: 0 };
 
     function el(tag, cls, text) {
-        var x = document.createElement(tag);
-        if (cls) { x.className = cls; }
-        if (text !== undefined) { x.textContent = text; }
-        return x;
+        var e = document.createElement(tag);
+        if (cls) { e.className = cls; }
+        if (text !== undefined && text !== null) { e.textContent = text; }
+        return e;
     }
+    function call(op, params) {
+        return WhaCP.fetchJson(api, { method: 'POST', body: JSON.stringify(Object.assign({ op: op, db: state.db }, params || {})) })
+            .then(function (r) { return r.data; });
+    }
+    function fail(err) {
+        var d = (err && err.details) || {};
+        WhaCP.toast((d.message || (err && err.message) || 'Request failed') + (d.details ? ' — ' + d.details : ''), 'danger');
+    }
+    function placeholder(target, text) { target.replaceChildren(el('div', 'text-body-secondary p-4', text)); }
+
+    // --- Collections sidebar ---
 
     function loadCollections() {
-        collSel.innerHTML = '';
-        results.replaceChildren();
-        setStatus('');
-        skip = 0;
-        if (!dbSel.value) { collSel.disabled = true; return; }
-        collSel.disabled = true;
-        post('collections').then(function (d) {
-            var cols = (d && d.collections) || [];
-            if (!cols.length) {
-                collSel.appendChild(new Option('No collections', ''));
-                setStatus('This database has no collections.');
-                return;
-            }
-            cols.forEach(function (c) {
-                collSel.appendChild(new Option(c.name + ' (' + c.count + ')', c.name));
-            });
-            collSel.disabled = false;
-        }).catch(function (e) { setStatus(e.message || 'Could not list collections.', true); });
+        state.collection = '';
+        state.skip = 0;
+        setActiveCollection(null);
+        curLabel.textContent = 'No collection selected';
+        filterIn.disabled = true; runBtn.disabled = true;
+        setPaging();
+        placeholder(pane, state.db ? 'Choose a collection to browse its documents.' : 'Choose a database, then a collection.');
+        collList.replaceChildren();
+        collCount.textContent = '';
+        if (!state.db) { return; }
+        collList.replaceChildren(el('li', 'list-group-item small text-body-secondary', 'Loading…'));
+        call('collections').then(function (d) {
+            renderCollections((d && d.collections) || []);
+        }).catch(function (e) { collList.replaceChildren(); collCount.textContent = ''; fail(e); });
     }
 
-    function render(docs) {
-        results.replaceChildren();
-        if (!docs.length) { results.appendChild(el('div', 'small text-body-secondary', 'No documents match.')); return; }
-        docs.forEach(function (doc) {
-            var card = el('div', 'border rounded p-2 mb-2 position-relative');
-            var pre = el('pre', 'mb-0 small', JSON.stringify(doc, null, 2));
-            pre.style.whiteSpace = 'pre-wrap';
-            pre.style.wordBreak = 'break-word';
-            card.appendChild(pre);
-            if (canDelete && doc && typeof doc._id !== 'undefined') {
-                var btn = el('button', 'btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-1', 'Delete');
-                btn.type = 'button';
-                btn.addEventListener('click', function () {
-                    if (!window.confirm('Delete this document? This cannot be undone.')) { return; }
-                    btn.disabled = true;
-                    post('delete', { collection: collSel.value, id: JSON.stringify(doc._id) }).then(function () {
-                        run();
-                    }).catch(function (e) { btn.disabled = false; setStatus(e.message || 'Delete failed.', true); });
-                });
-                card.appendChild(btn);
-            }
-            results.appendChild(card);
+    function renderCollections(cols) {
+        collList.replaceChildren();
+        if (!cols.length) {
+            collCount.textContent = 'No collections';
+            return;
+        }
+        cols.forEach(function (c) {
+            var li = el('li', 'list-group-item list-group-item-action d-flex justify-content-between align-items-center');
+            li.setAttribute('role', 'button');
+            li.dataset.name = c.name;
+            li.appendChild(el('span', 'text-truncate font-monospace small', c.name));
+            li.appendChild(el('span', 'badge rounded-pill text-bg-light border ms-2', String(c.count)));
+            li.addEventListener('click', function () { openCollection(c.name); });
+            collList.appendChild(li);
+        });
+        collCount.textContent = cols.length + (cols.length === 1 ? ' collection' : ' collections');
+        applyCollFilter();
+    }
+
+    function applyCollFilter() {
+        var q = collFilter.value.trim().toLowerCase();
+        Array.prototype.forEach.call(collList.children, function (li) {
+            if (!li.dataset.name) { return; }
+            li.classList.toggle('d-none', q !== '' && li.dataset.name.toLowerCase().indexOf(q) === -1);
         });
     }
 
-    function run() {
-        if (!dbSel.value || !collSel.value) { setStatus('Choose a database and collection.'); return; }
-        setStatus('Loading…');
-        post('documents', { collection: collSel.value, filter: filterIn.value.trim(), skip: skip, limit: limit }).then(function (d) {
-            total = d.total || 0;
-            render(Array.isArray(d.documents) ? d.documents : []);
-            var from = total === 0 ? 0 : skip + 1;
-            var to = Math.min(skip + limit, total);
-            setStatus(total === 0 ? 'No documents match.' : ('Showing ' + from + '–' + to + ' of ' + total));
-            prevBtn.disabled = skip <= 0;
-            nextBtn.disabled = skip + limit >= total;
-        }).catch(function (e) { setStatus(e.message || 'Could not read documents.', true); });
+    function setActiveCollection(name) {
+        Array.prototype.forEach.call(collList.children, function (li) {
+            if (li.dataset.name) { li.classList.toggle('active', li.dataset.name === name); }
+        });
     }
 
-    dbSel.addEventListener('change', loadCollections);
-    root.querySelector('[data-mb-run]').addEventListener('click', function () { skip = 0; run(); });
-    prevBtn.addEventListener('click', function () { skip = Math.max(0, skip - limit); run(); });
-    nextBtn.addEventListener('click', function () { skip = skip + limit; run(); });
-    filterIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { skip = 0; run(); } });
+    function openCollection(name) {
+        state.collection = name;
+        state.skip = 0;
+        setActiveCollection(name);
+        curLabel.textContent = name;
+        filterIn.disabled = false; runBtn.disabled = false;
+        loadDocuments();
+    }
+
+    // --- Documents pane ---
+
+    function setPaging() {
+        prevBtn.disabled = state.skip <= 0;
+        nextBtn.disabled = state.skip + LIMIT >= state.total;
+        if (!state.collection) { rangeEl.textContent = ''; return; }
+        if (state.total === 0) { rangeEl.textContent = '0 documents'; return; }
+        rangeEl.textContent = (state.skip + 1) + '–' + Math.min(state.skip + LIMIT, state.total) + ' of ' + state.total;
+    }
+
+    function loadDocuments() {
+        var filter = filterIn.value.trim();
+        filterIn.classList.remove('is-invalid');
+        if (filter !== '') {
+            try { JSON.parse(filter); } catch (e) {
+                filterIn.classList.add('is-invalid');
+                WhaCP.toast('The filter must be a JSON object, e.g. { "name": "value" }.', 'danger');
+                return;
+            }
+        }
+        placeholder(pane, 'Loading…');
+        call('documents', { collection: state.collection, filter: filter, skip: state.skip, limit: LIMIT }).then(function (d) {
+            state.total = d.total || 0;
+            renderDocuments(Array.isArray(d.documents) ? d.documents : []);
+            setPaging();
+        }).catch(function (e) { placeholder(pane, 'The documents could not be read.'); fail(e); });
+    }
+
+    function renderDocuments(docs) {
+        if (!docs.length) {
+            placeholder(pane, state.total === 0 ? 'This collection has no matching documents.' : 'No documents on this page.');
+            return;
+        }
+        var wrap = el('div', 'wcp-mongo-docs p-2');
+        docs.forEach(function (doc, i) {
+            var card = el('article', 'card mb-2');
+            var head = el('div', 'card-header d-flex align-items-center gap-2 py-1 px-2');
+            head.appendChild(el('span', 'badge text-bg-secondary', '#' + (state.skip + i + 1)));
+            var id = (doc && typeof doc._id !== 'undefined') ? idLabel(doc._id) : '(no _id)';
+            head.appendChild(el('code', 'small text-truncate me-auto', '_id: ' + id));
+            if (canDelete && doc && typeof doc._id !== 'undefined') {
+                var del = el('button', 'btn btn-sm btn-outline-danger py-0', 'Delete');
+                del.type = 'button';
+                del.addEventListener('click', function () { deleteDoc(doc._id, del); });
+                head.appendChild(del);
+            }
+            card.appendChild(head);
+            var body = el('pre', 'card-body mb-0 small wcp-mongo-json');
+            body.textContent = JSON.stringify(doc, null, 2);
+            card.appendChild(body);
+            wrap.appendChild(card);
+        });
+        pane.replaceChildren(wrap);
+    }
+
+    function idLabel(id) {
+        if (id && typeof id === 'object') {
+            if (typeof id.$oid === 'string') { return id.$oid; }
+            return JSON.stringify(id);
+        }
+        return String(id);
+    }
+
+    function deleteDoc(id, btn) {
+        if (!window.confirm('Delete this document? This cannot be undone.')) { return; }
+        btn.disabled = true;
+        call('delete', { collection: state.collection, id: JSON.stringify(id) }).then(function () {
+            WhaCP.toast('Document deleted.', 'success');
+            // Stay on a sensible page if the last row of the last page went.
+            if (state.skip > 0 && state.skip + 1 >= state.total) { state.skip = Math.max(0, state.skip - LIMIT); }
+            loadDocuments();
+        }).catch(function (e) { btn.disabled = false; fail(e); });
+    }
+
+    // --- Wiring ---
+
+    dbSel.addEventListener('change', function () { state.db = dbSel.value; loadCollections(); });
+    collFilter.addEventListener('input', applyCollFilter);
+    runBtn.addEventListener('click', function () { state.skip = 0; loadDocuments(); });
+    filterIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { state.skip = 0; loadDocuments(); } });
+    prevBtn.addEventListener('click', function () { state.skip = Math.max(0, state.skip - LIMIT); loadDocuments(); });
+    nextBtn.addEventListener('click', function () { state.skip = state.skip + LIMIT; loadDocuments(); });
+
+    // Open directly on a database when the page was linked with one.
+    state.db = root.getAttribute('data-current') || '';
+    if (state.db) { loadCollections(); }
 })();
