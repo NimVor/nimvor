@@ -447,6 +447,95 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"collections": cols}, nil
 	}})
 
+	r.Register(actions.Action{Name: "mongo.collection_create", Mutating: true, Description: "Create an empty collection.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB   string `json:"db"`
+			Coll string `json:"collection"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		if _, err := c.eval(ctx, fmt.Sprintf("db.getSiblingDB(%s).createCollection(%s)", jsString(in.DB), jsString(in.Coll))); err != nil {
+			return nil, actions.Failed("The collection could not be created.", err.Error())
+		}
+		return map[string]any{"created": in.Coll}, nil
+	}})
+
+	r.Register(actions.Action{Name: "mongo.collection_drop", Mutating: true, Description: "Drop a collection and all its documents.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB   string `json:"db"`
+			Coll string `json:"collection"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		if _, err := c.eval(ctx, fmt.Sprintf("db.getSiblingDB(%s).getCollection(%s).drop()", jsString(in.DB), jsString(in.Coll))); err != nil {
+			return nil, actions.Failed("The collection could not be dropped.", err.Error())
+		}
+		return map[string]any{"dropped": in.Coll}, nil
+	}})
+
+	r.Register(actions.Action{Name: "mongo.collection_empty", Mutating: true, Description: "Remove every document from a collection (keeps the collection and its indexes).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB   string `json:"db"`
+			Coll string `json:"collection"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		out, err := c.run(ctx, fmt.Sprintf("print(JSON.stringify({deleted:db.getSiblingDB(%s).getCollection(%s).deleteMany({}).deletedCount}))", jsString(in.DB), jsString(in.Coll)), false)
+		if err != nil {
+			return nil, actions.Failed("The collection could not be emptied.", lastLine(out))
+		}
+		var res struct {
+			Deleted mongoLong `json:"deleted"`
+		}
+		_ = json.Unmarshal(trimToJSON(out), &res)
+		return map[string]any{"deleted": int64(res.Deleted)}, nil
+	}})
+
+	r.Register(actions.Action{Name: "mongo.collection_rename", Mutating: true, Description: "Rename a collection within the same database.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB   string `json:"db"`
+			Coll string `json:"collection"`
+			Name string `json:"name"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) || !validColl(in.Name) {
+			return nil, actions.InvalidParams("db/collection/name: invalid")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		// renameCollection(target, dropTarget=false): fails if the target
+		// already exists, so a rename never silently overwrites another
+		// collection.
+		if _, err := c.eval(ctx, fmt.Sprintf("db.getSiblingDB(%s).getCollection(%s).renameCollection(%s,false)", jsString(in.DB), jsString(in.Coll), jsString(in.Name))); err != nil {
+			return nil, actions.Failed("The collection could not be renamed.", err.Error())
+		}
+		return map[string]any{"renamed": in.Name}, nil
+	}})
+
 	r.Register(actions.Action{Name: "mongo.documents", Description: "Find documents in a collection (optional EJSON filter, skip, limit).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			DB         string `json:"db"`

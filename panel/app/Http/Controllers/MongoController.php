@@ -351,6 +351,29 @@ final class MongoController extends Controller
             switch ($op) {
                 case 'collections':
                     return Response::json(['success' => true, 'data' => ['collections' => $this->mongo->collections($db)]]);
+                case 'coll_create':
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    $this->mongo->createCollection($db, trim((string) $request->input('collection')), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['created' => trim((string) $request->input('collection'))]]);
+                case 'coll_drop':
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    $this->mongo->dropCollection($db, trim((string) $request->input('collection')), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['dropped' => trim((string) $request->input('collection'))]]);
+                case 'coll_empty':
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    return Response::json(['success' => true, 'data' => ['deleted' => $this->mongo->emptyCollection($db, trim((string) $request->input('collection')), $this->userId($request))]]);
+                case 'coll_rename':
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    $this->mongo->renameCollection($db, trim((string) $request->input('collection')), trim((string) $request->input('name')), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['renamed' => trim((string) $request->input('name'))]]);
                 case 'documents':
                     return Response::json(['success' => true, 'data' => $this->mongo->documents(
                         $db,

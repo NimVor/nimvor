@@ -17,6 +17,7 @@
     var dbSel = root.querySelector('[data-mb-db]');
     var collList = root.querySelector('[data-mb-colls]');
     var collFilter = root.querySelector('[data-mb-coll-filter]');
+    var newCollBtn = root.querySelector('[data-mb-newcoll]');
     var collCount = root.querySelector('[data-mb-colls-count]');
     var curLabel = root.querySelector('[data-mb-current]');
     var filterIn = root.querySelector('[data-mb-filter]');
@@ -65,6 +66,7 @@
         if (importBtn) { importBtn.disabled = true; }
         if (newIndexBtn) { newIndexBtn.disabled = true; }
         Array.prototype.forEach.call(tabBtns, function (b) { b.disabled = true; });
+        if (newCollBtn) { newCollBtn.disabled = !state.db; }
         setPaging();
         placeholder(pane, state.db ? 'Choose a collection to browse its documents.' : 'Choose a database, then a collection.');
         collList.replaceChildren();
@@ -84,15 +86,77 @@
         }
         cols.forEach(function (c) {
             var li = el('li', 'list-group-item list-group-item-action d-flex justify-content-between align-items-center');
-            li.setAttribute('role', 'button');
             li.dataset.name = c.name;
-            li.appendChild(el('span', 'text-truncate font-monospace small', c.name));
-            li.appendChild(el('span', 'badge rounded-pill text-bg-light border ms-2', String(c.count)));
-            li.addEventListener('click', function () { openCollection(c.name); });
+            var nameBtn = el('span', 'text-truncate font-monospace small flex-grow-1');
+            nameBtn.setAttribute('role', 'button');
+            nameBtn.textContent = c.name;
+            nameBtn.addEventListener('click', function () { openCollection(c.name); });
+            li.appendChild(nameBtn);
+            li.appendChild(el('span', 'badge rounded-pill text-bg-light border mx-2', String(c.count)));
+            if (canDelete) {
+                li.appendChild(collectionMenu(c.name));
+            }
             collList.appendChild(li);
         });
         collCount.textContent = cols.length + (cols.length === 1 ? ' collection' : ' collections');
         applyCollFilter();
+    }
+
+    // A per-collection actions menu (empty / rename / drop). Built in JS so it
+    // stays CSP-safe; actions reload the collection list afterwards.
+    function collectionMenu(name) {
+        var wrap = el('div', 'dropdown');
+        var btn = el('button', 'btn btn-sm btn-link text-body-secondary p-0 px-1');
+        btn.type = 'button';
+        btn.setAttribute('data-bs-toggle', 'dropdown');
+        btn.setAttribute('aria-expanded', 'false');
+        btn.setAttribute('aria-label', 'Collection actions');
+        btn.innerHTML = '<i class="bi bi-three-dots-vertical"></i>';
+        var menu = el('ul', 'dropdown-menu dropdown-menu-end');
+        [['Empty', 'empty'], ['Rename…', 'rename'], ['Drop', 'drop']].forEach(function (pair) {
+            var item = el('button', 'dropdown-item small' + (pair[1] === 'drop' ? ' text-danger' : ''), pair[0]);
+            item.type = 'button';
+            item.addEventListener('click', function () { collectionAction(name, pair[1]); });
+            var liItem = el('li');
+            liItem.appendChild(item);
+            menu.appendChild(liItem);
+        });
+        wrap.appendChild(btn);
+        wrap.appendChild(menu);
+        return wrap;
+    }
+
+    function collectionAction(name, op) {
+        if (op === 'drop') {
+            if (!window.confirm('Drop the collection "' + name + '" and all its documents? This cannot be undone.')) { return; }
+            call('coll_drop', { collection: name }).then(function () {
+                WhaCP.toast('Collection dropped.', 'success');
+                if (state.collection === name) { loadCollections(); } else { reloadCollections(); }
+            }).catch(fail);
+        } else if (op === 'empty') {
+            if (!window.confirm('Remove every document from "' + name + '"? The collection and its indexes stay. This cannot be undone.')) { return; }
+            call('coll_empty', { collection: name }).then(function (d) {
+                WhaCP.toast('Removed ' + (d.deleted || 0) + ' document' + ((d.deleted === 1) ? '' : 's') + '.', 'success');
+                reloadCollections();
+                if (state.collection === name && state.tab === 'documents') { state.skip = 0; loadDocuments(); }
+            }).catch(fail);
+        } else if (op === 'rename') {
+            var to = window.prompt('Rename collection "' + name + '" to:', name);
+            if (!to || to.trim() === '' || to === name) { return; }
+            call('coll_rename', { collection: name, name: to.trim() }).then(function () {
+                WhaCP.toast('Collection renamed.', 'success');
+                if (state.collection === name) { loadCollections(); } else { reloadCollections(); }
+            }).catch(fail);
+        }
+    }
+
+    // Reload just the collections list (keeping the open collection, if any).
+    function reloadCollections() {
+        if (!state.db) { return; }
+        call('collections').then(function (d) {
+            renderCollections((d && d.collections) || []);
+            setActiveCollection(state.collection);
+        }).catch(function (e) { fail(e); });
     }
 
     function applyCollFilter() {
@@ -667,6 +731,17 @@
         });
     });
     dbSel.addEventListener('change', function () { state.db = dbSel.value; loadCollections(); });
+    if (newCollBtn) {
+        newCollBtn.addEventListener('click', function () {
+            if (!state.db) { return; }
+            var name = window.prompt('New collection name in ' + state.db + ':', '');
+            if (!name || name.trim() === '') { return; }
+            call('coll_create', { collection: name.trim() }).then(function () {
+                WhaCP.toast('Collection created.', 'success');
+                reloadCollections();
+            }).catch(fail);
+        });
+    }
     collFilter.addEventListener('input', applyCollFilter);
     runBtn.addEventListener('click', function () { state.skip = 0; loadDocuments(); });
     [filterIn, sortIn, projIn].forEach(function (inp) {

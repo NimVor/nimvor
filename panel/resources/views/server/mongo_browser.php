@@ -31,8 +31,11 @@
                 <?php endforeach; ?>
             </select>
         </div>
-        <div class="p-2 border-bottom">
+        <div class="p-2 border-bottom d-flex gap-2">
             <input class="form-control form-control-sm" type="search" placeholder="Filter collections" aria-label="Filter collections" data-mb-coll-filter>
+            <?php if ($canDelete): ?>
+            <button class="btn btn-sm btn-outline-primary text-nowrap" type="button" data-mb-newcoll disabled title="Create a collection"><i class="bi bi-plus-lg"></i></button>
+            <?php endif; ?>
         </div>
         <ul class="list-group list-group-flush" data-mb-colls aria-label="Collections"></ul>
         <div class="small text-body-secondary px-2 py-2" data-mb-colls-count></div>

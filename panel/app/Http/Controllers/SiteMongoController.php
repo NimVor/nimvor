@@ -187,6 +187,17 @@ final class SiteMongoController extends SiteController
             switch ($request->string('op')) {
                 case 'collections':
                     return Response::json(['success' => true, 'data' => ['collections' => $this->mongo->collections($site, $db)]]);
+                case 'coll_create':
+                    $this->mongo->createCollection($site, $db, trim((string) $request->input('collection')), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['created' => trim((string) $request->input('collection'))]]);
+                case 'coll_drop':
+                    $this->mongo->dropCollection($site, $db, trim((string) $request->input('collection')), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['dropped' => trim((string) $request->input('collection'))]]);
+                case 'coll_empty':
+                    return Response::json(['success' => true, 'data' => ['deleted' => $this->mongo->emptyCollection($site, $db, trim((string) $request->input('collection')), $this->userId($request))]]);
+                case 'coll_rename':
+                    $this->mongo->renameCollection($site, $db, trim((string) $request->input('collection')), trim((string) $request->input('name')), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['renamed' => trim((string) $request->input('name'))]]);
                 case 'documents':
                     return Response::json(['success' => true, 'data' => $this->mongo->documents(
                         $site,

@@ -156,6 +156,7 @@ final class SiteMongoTest extends HttpTestCase
             ['aggregate', ['collection' => 'c', 'pipeline' => '[{"$match":{}}]']],
             ['schema', ['collection' => 'c']],
             ['import', ['collection' => 'c', 'format' => 'json', 'content' => '[{"a":1}]']],
+            ['coll_create', ['collection' => 'c']], ['coll_drop', ['collection' => 'c']], ['coll_empty', ['collection' => 'c']],
             ['users', []], ['user_create', ['user' => 'u', 'password' => 'longenough1']],
             ['user_password', ['user' => 'otheracct_u', 'password' => 'longenough1']], ['user_drop', ['user' => 'otheracct_u']],
         ] as [$op, $extra]) {

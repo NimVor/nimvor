@@ -228,6 +228,18 @@ final class MongoTest extends HttpTestCase
         $this->post('/mongo/browse', ['op' => 'index_drop', 'db' => 'shop', 'collection' => 'orders', 'name' => 'email_1']);
         self::assertSame('email_1', $this->lastCall('mongo.index_drop')['name']);
 
+        // Collection management: create, empty, rename, drop.
+        $this->agent->succeed('mongo.collection_create', ['created' => 'carts']);
+        self::assertSame(200, $this->post('/mongo/browse', ['op' => 'coll_create', 'db' => 'shop', 'collection' => 'carts'])->status());
+        self::assertSame('carts', $this->lastCall('mongo.collection_create')['collection']);
+        $this->agent->succeed('mongo.collection_empty', ['deleted' => 7]);
+        self::assertSame(7, ((array) json_decode($this->post('/mongo/browse', ['op' => 'coll_empty', 'db' => 'shop', 'collection' => 'orders'])->body(), true))['data']['deleted']);
+        $this->agent->succeed('mongo.collection_rename', ['renamed' => 'orders_old']);
+        self::assertSame(200, $this->post('/mongo/browse', ['op' => 'coll_rename', 'db' => 'shop', 'collection' => 'orders', 'name' => 'orders_old'])->status());
+        self::assertSame('orders_old', $this->lastCall('mongo.collection_rename')['name']);
+        $this->agent->succeed('mongo.collection_drop', ['dropped' => 'carts']);
+        self::assertSame(200, $this->post('/mongo/browse', ['op' => 'coll_drop', 'db' => 'shop', 'collection' => 'carts'])->status());
+
         // Schema: the sampled count and per-field types come back.
         $this->agent->succeed('mongo.schema', ['sampled' => 3, 'fields' => [
             ['field' => '_id', 'total' => 3, 'types' => [['type' => 'objectId', 'count' => 3]]],
@@ -309,6 +321,11 @@ final class MongoTest extends HttpTestCase
         self::assertSame(403, $this->post('/mongo/browse', ['op' => 'user_password', 'db' => 'shop', 'user' => 'u', 'password' => 'longenough1'])->status());
         self::assertSame(403, $this->post('/mongo/browse', ['op' => 'user_drop', 'db' => 'shop', 'user' => 'u'])->status());
         self::assertSame(0, $this->calls('mongo.user_create'));
+        // A viewer may not create, drop, empty or rename a collection.
+        self::assertSame(403, $this->post('/mongo/browse', ['op' => 'coll_create', 'db' => 'shop', 'collection' => 'c'])->status());
+        self::assertSame(403, $this->post('/mongo/browse', ['op' => 'coll_drop', 'db' => 'shop', 'collection' => 'c'])->status());
+        self::assertSame(403, $this->post('/mongo/browse', ['op' => 'coll_empty', 'db' => 'shop', 'collection' => 'c'])->status());
+        self::assertSame(0, $this->calls('mongo.collection_create'));
         self::assertSame(0, $this->calls('mongo.index_create'));
 
         $this->login('cust');

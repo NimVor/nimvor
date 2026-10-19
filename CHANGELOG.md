@@ -206,6 +206,14 @@ All notable changes to WhaCP are documented here. The format follows
   (e.g. `{ "name": 1 }`). Both are JSON objects parsed with EJSON inside
   `mongosh` as data, validated and bounded; they apply on the admin and the
   customer page alike, confined to the account's own databases on the latter.
+- **MongoDB collection management in the browser.** The browser's collections
+  sidebar now creates a collection (the "+" button), and each collection has an
+  actions menu to empty it (remove all documents, keep indexes), rename it, or
+  drop it — the missing create/drop/empty/rename a professional browser needs.
+  New agent actions `mongo.collection_create` / `_drop` / `_empty` / `_rename`
+  (a rename never overwrites an existing collection; a `system.` name is
+  refused). Writes need `mongo.manage` on the admin page and are confined to the
+  account's own databases on the customer page.
 - **MongoDB raw configuration-file editor (Server → MongoDB).** The
   Configuration card can now edit the whole `mongod.conf` directly (admins with
   `mongo.manage`), not just the structured port/bindIp/authorization fields.

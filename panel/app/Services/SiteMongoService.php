@@ -192,6 +192,35 @@ final class SiteMongoService
         return array_map(static fn ($c): array => ['name' => (string) ($c['name'] ?? ''), 'count' => (int) ($c['count'] ?? 0)], (array) ($o['collections'] ?? []));
     }
 
+    public function createCollection(array $site, string $db, string $collection, ?int $userId): void
+    {
+        $this->assertOwned($site, $db);
+        $this->agent->call('mongo.collection_create', ['db' => $db, 'collection' => $collection]);
+        $this->audit->record('mongo.collection_create', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
+    }
+
+    public function dropCollection(array $site, string $db, string $collection, ?int $userId): void
+    {
+        $this->assertOwned($site, $db);
+        $this->agent->call('mongo.collection_drop', ['db' => $db, 'collection' => $collection]);
+        $this->audit->record('mongo.collection_drop', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
+    }
+
+    public function emptyCollection(array $site, string $db, string $collection, ?int $userId): int
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.collection_empty', ['db' => $db, 'collection' => $collection], 90);
+        $this->audit->record('mongo.collection_empty', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
+        return (int) ($o['deleted'] ?? 0);
+    }
+
+    public function renameCollection(array $site, string $db, string $collection, string $name, ?int $userId): void
+    {
+        $this->assertOwned($site, $db);
+        $this->agent->call('mongo.collection_rename', ['db' => $db, 'collection' => $collection, 'name' => $name]);
+        $this->audit->record('mongo.collection_rename', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'name' => $name], $userId);
+    }
+
     /**
      * Documents in a collection of one of the account's own databases.
      *

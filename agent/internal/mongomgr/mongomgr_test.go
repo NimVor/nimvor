@@ -137,6 +137,10 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 		switch {
 		case strings.Contains(script, "getCollectionNames"):
 			return `[{"name":"orders","count":3},{"name":"items","count":10}]`, nil
+		case strings.Contains(script, "deleteMany({}).deletedCount"):
+			return `{"deleted":5}`, nil
+		case strings.Contains(script, "createCollection"), strings.Contains(script, ".drop()"), strings.Contains(script, "renameCollection"):
+			return "", nil
 		case strings.Contains(script, "inserted:ins,errors:errs"):
 			return `{"inserted":2,"errors":1,"total":3}`, nil
 		case strings.Contains(script, "deleteOne"):
@@ -219,6 +223,18 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 	}
 	if _, err := call(t, r, "mongo.export", `{"db":"shop","collection":"orders","format":"xml"}`); err == nil {
 		t.Error("an unknown export format must be rejected")
+	}
+
+	// Collection management: create, empty, rename, drop.
+	mustCall(t, r, "mongo.collection_create", `{"db":"shop","collection":"carts"}`)
+	emptied := mustCall(t, r, "mongo.collection_empty", `{"db":"shop","collection":"orders"}`)
+	if emptied["deleted"].(int64) != 5 {
+		t.Fatalf("empty: %+v", emptied)
+	}
+	mustCall(t, r, "mongo.collection_rename", `{"db":"shop","collection":"orders","name":"orders_old"}`)
+	mustCall(t, r, "mongo.collection_drop", `{"db":"shop","collection":"carts"}`)
+	if _, err := call(t, r, "mongo.collection_create", `{"db":"shop","collection":"system.evil"}`); err == nil {
+		t.Error("a system collection name must be rejected")
 	}
 
 	// Schema: the sampled count and per-field types come back.
