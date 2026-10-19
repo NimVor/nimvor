@@ -238,6 +238,42 @@ final class MongoService
         $this->audit->record('mongo.index_drop', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'name' => $name], $userId);
     }
 
+    // --- Backup and restore (mongodump / mongorestore) ---
+
+    /** Start a backup of one database. Returns the job id and the archive name. */
+    public function backup(string $db, ?int $userId): array
+    {
+        $o = (array) $this->agent->call('mongo.backup', ['db' => $db]);
+        $this->audit->record('mongo.backup', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db], $userId);
+        return ['job_id' => (string) ($o['job_id'] ?? ''), 'file' => (string) ($o['file'] ?? '')];
+    }
+
+    /** @return list<array{file: string, db: string, size: int, created: string}> */
+    public function backups(string $db = ''): array
+    {
+        $o = (array) $this->agent->call('mongo.backups', $db === '' ? [] : ['db' => $db]);
+        return array_map(static fn ($b): array => [
+            'file' => (string) ($b['file'] ?? ''),
+            'db' => (string) ($b['db'] ?? ''),
+            'size' => (int) ($b['size'] ?? 0),
+            'created' => (string) ($b['created'] ?? ''),
+        ], (array) ($o['backups'] ?? []));
+    }
+
+    /** Start a restore of one database from an archive. Returns the job id. */
+    public function restore(string $file, string $db, bool $drop, ?int $userId): string
+    {
+        $o = (array) $this->agent->call('mongo.restore', ['file' => $file, 'db' => $db, 'drop' => $drop]);
+        $this->audit->record('mongo.restore', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'file' => $file, 'drop' => $drop], $userId);
+        return (string) ($o['job_id'] ?? '');
+    }
+
+    public function deleteBackup(string $file, ?int $userId): void
+    {
+        $this->agent->call('mongo.backup_delete', ['file' => $file]);
+        $this->audit->record('mongo.backup_delete', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['file' => $file], $userId);
+    }
+
     // --- Configuration and log ---
 
     /** @return array{path: string, port: int, bind_ip: string, db_path: string, log_path: string, authorization: bool, raw: string} */

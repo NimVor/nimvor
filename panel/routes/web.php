@@ -410,6 +410,9 @@ return static function (Router $r): void {
     $r->post('/mongo/install', [\WhaCP\Http\Controllers\MongoController::class, 'install'], ['name' => 'mongo.install', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mongo/service', [\WhaCP\Http\Controllers\MongoController::class, 'service'], ['name' => 'mongo.service', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mongo/config', [\WhaCP\Http\Controllers\MongoController::class, 'config'], ['name' => 'mongo.config', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mongo/backup', [\WhaCP\Http\Controllers\MongoController::class, 'backup'], ['name' => 'mongo.backup', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mongo/restore', [\WhaCP\Http\Controllers\MongoController::class, 'restore'], ['name' => 'mongo.restore', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mongo/backups/delete', [\WhaCP\Http\Controllers\MongoController::class, 'deleteBackup'], ['name' => 'mongo.backup_delete', 'permission' => P::SERVER_MANAGE]);
     $r->get('/mongo/browser', [\WhaCP\Http\Controllers\MongoController::class, 'browser'], ['name' => 'mongo.browser', 'permission' => P::SERVER_VIEW]);
     $r->post('/mongo/browse', [\WhaCP\Http\Controllers\MongoController::class, 'browse'], ['name' => 'mongo.browse', 'permission' => P::SERVER_VIEW]);
     $r->get('/mongo/export', [\WhaCP\Http\Controllers\MongoController::class, 'export'], ['name' => 'mongo.export', 'permission' => P::SERVER_VIEW]);

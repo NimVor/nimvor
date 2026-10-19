@@ -193,6 +193,15 @@ All notable changes to WhaCP are documented here. The format follows
   and **restores the previous configuration automatically if it fails to
   start**. The page also shows the tail of MongoDB's log. Editing needs
   `server.manage`.
+- **MongoDB backup and restore (Server → MongoDB).** A Backups card on the
+  admin page backs up a database to a gzip `mongodump` archive kept on the
+  server, lists the archives with their size and date, restores a database from
+  one, and deletes archives — backup and restore run as background jobs and are
+  tracked like the install jobs. Archives live under the agent's backup
+  directory; a strict file-name check means a restore or delete can never reach
+  a path outside it, and a restore is confined to the chosen database
+  (`--nsInclude`). Administrator only (`server.manage`); the agent actions are
+  `mongo.backup`, `mongo.backups`, `mongo.restore` and `mongo.backup_delete`.
 - **MongoDB user management in the browser.** A Users tab in the database
   browser lists the users defined on the selected database with their roles,
   and (for an administrator with `server.manage`, or the site owner) creates a

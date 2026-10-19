@@ -70,6 +70,42 @@ final class MongoTest extends HttpTestCase
         self::assertSame(1, $this->calls('mongo.config_set'));
     }
 
+    public function testBackupRestoreAndDelete(): void
+    {
+        $this->agent->succeed('mongo.backups', ['backups' => [
+            ['file' => '20260901-120000_shop.archive.gz', 'db' => 'shop', 'size' => 2048, 'created' => '2026-09-01T12:00:00Z'],
+        ]]);
+        $this->login('admin');
+
+        // The Backups card lists existing archives and offers a backup form.
+        $page = $this->request('GET', '/mongo')->body();
+        foreach (['Backups', 'Back up a database', '20260901-120000_shop.archive.gz'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+
+        // Starting a backup reaches the agent and tracks the job.
+        $this->agent->succeed('mongo.backup', ['job_id' => 'aaaaaaaaaaaaaaaa', 'file' => '20260901-120500_shop.archive.gz']);
+        $this->post('/mongo/backup', ['db' => 'shop']);
+        self::assertSame('shop', $this->lastCall('mongo.backup')['db']);
+
+        // Restoring passes the file, database and drop flag through.
+        $this->agent->succeed('mongo.restore', ['job_id' => 'bbbbbbbbbbbbbbbb']);
+        $this->post('/mongo/restore', ['file' => '20260901-120000_shop.archive.gz', 'db' => 'shop', 'drop' => '0']);
+        self::assertSame('20260901-120000_shop.archive.gz', $this->lastCall('mongo.restore')['file']);
+        self::assertSame('shop', $this->lastCall('mongo.restore')['db']);
+        self::assertFalse($this->lastCall('mongo.restore')['drop']);
+
+        // Deleting an archive reaches the agent.
+        $this->agent->succeed('mongo.backup_delete', ['deleted' => '20260901-120000_shop.archive.gz']);
+        $this->post('/mongo/backups/delete', ['file' => '20260901-120000_shop.archive.gz']);
+        self::assertSame('20260901-120000_shop.archive.gz', $this->lastCall('mongo.backup_delete')['file']);
+
+        // A customer cannot reach any of the backup endpoints.
+        $this->login('cust');
+        self::assertSame(403, $this->post('/mongo/backup', ['db' => 'shop'])->status());
+        self::assertSame(403, $this->post('/mongo/restore', ['file' => '20260901-120000_shop.archive.gz', 'db' => 'shop'])->status());
+    }
+
     public function testDatabaseBrowser(): void
     {
         $this->login('admin');

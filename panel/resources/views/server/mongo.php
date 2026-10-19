@@ -13,6 +13,7 @@ $status ??= null;
 $overview ??= ['databases' => [], 'users' => [], 'databases_error' => '', 'users_error' => ''];
 $repository ??= null;
 $overviewError ??= null;
+$backups ??= [];
 $canManage = $this->can(P::SERVER_MANAGE);
 $canInstall = $this->can(P::PACKAGES_MANAGE);
 $canServices = $this->can(P::SERVICES_MANAGE);
@@ -182,6 +183,64 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
         </div>
     <?php endif; ?>
 </div>
+
+<?php if ($status && ($status['installed'] ?? false) && ($status['running'] ?? false)): ?>
+<div class="card mt-3">
+    <div class="card-header"><i class="bi bi-archive me-1" aria-hidden="true"></i>Backups</div>
+    <div class="card-body">
+        <p class="small text-body-secondary">Backups are gzip <code>mongodump</code> archives kept on this server. Backing up or restoring a large database runs in the background.</p>
+        <?php if ($canManage && $overview['databases'] !== []): ?>
+        <form method="post" action="<?= e($this->url('mongo.backup')) ?>" class="row g-2 align-items-end mb-3" data-wcp-busy>
+            <?= $this->csrfField() ?>
+            <div class="col-sm-6">
+                <label class="form-label small mb-1" for="mongo-backup-db">Back up a database</label>
+                <select class="form-select form-select-sm" id="mongo-backup-db" name="db" required>
+                    <?php foreach ($overview['databases'] as $d): $dn = (string) ($d['name'] ?? ''); ?>
+                        <option value="<?= e($dn) ?>"><?= e($dn) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-sm-auto"><button class="btn btn-sm btn-primary"><i class="bi bi-download me-1"></i>Back up now</button></div>
+        </form>
+        <?php endif; ?>
+        <?php if ($backups === []): ?>
+            <div class="small text-body-secondary">No backups yet.</div>
+        <?php else: ?>
+            <div class="wcp-dtable table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead><tr><th>Archive</th><th>Database</th><th>Size</th><th>Created (UTC)</th><?php if ($canManage): ?><th class="text-end">Action</th><?php endif; ?></tr></thead>
+                    <tbody>
+                    <?php foreach ($backups as $b): $bf = (string) $b['file']; $bdb = (string) $b['db']; ?>
+                        <tr>
+                            <td class="font-monospace small text-truncate" style="max-width:20rem"><?= e($bf) ?></td>
+                            <td class="small font-monospace"><?= e($bdb) ?></td>
+                            <td class="small text-body-secondary"><?= e(format_bytes((int) $b['size'])) ?></td>
+                            <td class="small text-body-secondary"><?= e(((string) $b['created']) !== '' ? str_replace(['T', 'Z'], [' ', ''], substr((string) $b['created'], 0, 19)) : '—') ?></td>
+                            <?php if ($canManage): ?>
+                            <td class="text-end text-nowrap">
+                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.restore')) ?>" data-wcp-busy data-wcp-confirm="Restore “<?= e($bdb) ?>” from this backup? Documents sharing an _id with the archive are overwritten.">
+                                    <?= $this->csrfField() ?>
+                                    <input type="hidden" name="file" value="<?= e($bf) ?>">
+                                    <input type="hidden" name="db" value="<?= e($bdb) ?>">
+                                    <input type="hidden" name="drop" value="0">
+                                    <button class="btn btn-sm btn-outline-secondary" title="Restore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                                </form>
+                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.backup_delete')) ?>" data-wcp-confirm="Delete this backup archive? This cannot be undone.">
+                                    <?= $this->csrfField() ?>
+                                    <input type="hidden" name="file" value="<?= e($bf) ?>">
+                                    <button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </td>
+                            <?php endif; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php if (($config ?? null) !== null): ?>
 <div class="card mt-3">

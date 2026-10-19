@@ -63,6 +63,10 @@ final class MongoController extends Controller
                     $log = $this->mongo->log();
                 } catch (AgentException) {
                 }
+                try {
+                    $backups = $this->mongo->backups();
+                } catch (AgentException) {
+                }
             }
         } catch (AgentException $e) {
             $error = $e;
@@ -70,7 +74,7 @@ final class MongoController extends Controller
         return $this->render('server/mongo', [
             'tab' => 'mongo', 'status' => $status, 'overview' => $overview, 'repository' => $repository,
             'overviewError' => $overviewError, 'agentError' => $error,
-            'config' => $config ?? null, 'log' => $log ?? null,
+            'config' => $config ?? null, 'log' => $log ?? null, 'backups' => $backups ?? [],
         ]);
     }
 
@@ -89,6 +93,51 @@ final class MongoController extends Controller
             return $this->redirectWithFailure('/mongo', $e);
         }
         return $this->redirectWithSuccess('/mongo', 'MongoDB configuration saved and the service restarted.');
+    }
+
+    public function backup(Request $request): Response
+    {
+        if (!$this->view->can(P::SERVER_MANAGE)) {
+            return $this->redirectWithError('/mongo', 'You may not do this.');
+        }
+        $db = trim((string) $request->input('db'));
+        try {
+            $r = $this->mongo->backup($db, $this->userId($request));
+            $this->jobs->track($r['job_id'], 'Back up MongoDB database ' . $db, 'server', (string) $this->server->id(), $this->userId($request));
+            $this->flashJob($r['job_id']);
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/mongo', $e);
+        }
+        return $this->redirectWithSuccess('/mongo', 'Backing up ' . $db . '…');
+    }
+
+    public function restore(Request $request): Response
+    {
+        if (!$this->view->can(P::SERVER_MANAGE)) {
+            return $this->redirectWithError('/mongo', 'You may not do this.');
+        }
+        $db = trim((string) $request->input('db'));
+        try {
+            $job = $this->mongo->restore((string) $request->input('file'), $db, $request->input('drop') === '1', $this->userId($request));
+            $this->jobs->track($job, 'Restore MongoDB database ' . $db, 'server', (string) $this->server->id(), $this->userId($request));
+            $this->flashJob($job);
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/mongo', $e);
+        }
+        return $this->redirectWithSuccess('/mongo', 'Restoring ' . $db . '…');
+    }
+
+    public function deleteBackup(Request $request): Response
+    {
+        if (!$this->view->can(P::SERVER_MANAGE)) {
+            return $this->redirectWithError('/mongo', 'You may not do this.');
+        }
+        try {
+            $this->mongo->deleteBackup((string) $request->input('file'), $this->userId($request));
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/mongo', $e);
+        }
+        return $this->redirectWithSuccess('/mongo', 'Backup deleted.');
     }
 
     public function enableRepository(Request $request): Response
