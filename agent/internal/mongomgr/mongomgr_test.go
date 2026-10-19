@@ -116,6 +116,72 @@ func TestOverviewParsesMongoshLongSizes(t *testing.T) {
 	}
 }
 
+// The database browser lists collections, reads documents with an EJSON
+// filter, and deletes a document by _id. collections comes over --eval;
+// documents and document_delete are fed on stdin (so the filter never hits
+// the command line).
+func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
+	h, r := setup(t)
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id != "mongosh" {
+			return "", nil
+		}
+		// stdin-fed scripts (documents, delete) are drained by the fake runner
+		// into Stdins before the handler runs; --eval scripts are in args.
+		script := strings.Join(args, " ")
+		if n := len(h.Runner.Stdins); n > 0 {
+			script += " " + h.Runner.Stdins[n-1]
+		}
+		switch {
+		case strings.Contains(script, "getCollectionNames"):
+			return `[{"name":"orders","count":3},{"name":"items","count":10}]`, nil
+		case strings.Contains(script, "deleteOne"):
+			return `{"deleted":1}`, nil
+		case strings.Contains(script, "find(q)"):
+			return `{"documents":[{"_id":"64f0","name":"a"}],"total":1}`, nil
+		}
+		return "", nil
+	}
+
+	cols := mustCall(t, r, "mongo.collections", `{"db":"shop"}`)["collections"].([]Collection)
+	if len(cols) != 2 || cols[0].Name != "orders" || cols[0].Count != 3 {
+		t.Fatalf("collections: %+v", cols)
+	}
+
+	docs := mustCall(t, r, "mongo.documents", `{"db":"shop","collection":"orders","filter":"{\"name\":\"a\"}","limit":50}`)
+	if docs["total"].(int64) != 1 {
+		t.Fatalf("documents total: %+v", docs)
+	}
+	if !strings.Contains(string(docs["documents"].(json.RawMessage)), `"name":"a"`) {
+		t.Fatalf("documents payload: %s", docs["documents"])
+	}
+
+	del := mustCall(t, r, "mongo.document_delete", `{"db":"shop","collection":"orders","id":"\"64f0\""}`)
+	if del["deleted"].(int64) != 1 {
+		t.Fatalf("delete: %+v", del)
+	}
+
+	// A bad filter and a bad collection name are refused before mongosh runs.
+	if _, err := call(t, r, "mongo.documents", `{"db":"shop","collection":"orders","filter":"not json"}`); err == nil {
+		t.Error("a non-JSON filter must be rejected")
+	}
+	if _, err := call(t, r, "mongo.documents", `{"db":"shop","collection":"system.users"}`); err == nil {
+		t.Error("a system collection must be rejected")
+	}
+	if _, err := call(t, r, "mongo.document_delete", `{"db":"shop","collection":"orders","id":"nope"}`); err == nil {
+		t.Error("a non-EJSON _id must be rejected")
+	}
+}
+
+func mustCall(t *testing.T, r *actions.Registry, name, params string) map[string]any {
+	t.Helper()
+	res, err := call(t, r, name, params)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	return res.(map[string]any)
+}
+
 // A failure listing users must not hide the databases: the overview still
 // returns the databases and reports the users error.
 func TestOverviewReturnsDatabasesWhenUsersFail(t *testing.T) {

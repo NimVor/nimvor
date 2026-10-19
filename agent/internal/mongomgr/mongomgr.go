@@ -31,9 +31,16 @@ var Units = []string{"mongod.service", "mongod"}
 var (
 	nameRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_-]{0,62}$`)
 	userRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,62}$`)
+	// A collection name: letters, digits, _ . - (dots allow dotted names).
+	collRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,119}$`)
 	// Roles a database user may be given (scoped to one database).
 	roles = map[string]bool{"read": true, "readWrite": true, "dbAdmin": true, "dbOwner": true}
 )
+
+// validColl reports whether name is a safe, non-system collection name.
+func validColl(name string) bool {
+	return collRe.MatchString(name) && !strings.HasPrefix(name, "system.")
+}
 
 // Client runs mongosh against the local MongoDB.
 type Client struct {
@@ -140,6 +147,12 @@ type User struct {
 	User  string   `json:"user"`
 	DB    string   `json:"db"`
 	Roles []string `json:"roles"`
+}
+
+// Collection is one collection in a database with its document count.
+type Collection struct {
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
 }
 
 // Register adds the MongoDB actions.
@@ -316,6 +329,140 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"dropped": in.User, "db": in.DB}, nil
 	}})
+
+	// --- Database browser (read, plus delete one document) ---
+
+	r.Register(actions.Action{Name: "mongo.collections", Description: "List a database's collections with document counts.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB string `json:"db"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) {
+			return nil, actions.InvalidParams("db: invalid database name")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		cols, err := c.collections(ctx, in.DB)
+		if err != nil {
+			return nil, actions.Failed("The collections could not be listed.", err.Error())
+		}
+		return map[string]any{"collections": cols}, nil
+	}})
+
+	r.Register(actions.Action{Name: "mongo.documents", Description: "Find documents in a collection (optional EJSON filter, skip, limit).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB     string `json:"db"`
+			Coll   string `json:"collection"`
+			Filter string `json:"filter"`
+			Skip   int    `json:"skip"`
+			Limit  int    `json:"limit"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) {
+			return nil, actions.InvalidParams("db: invalid database name")
+		}
+		if !validColl(in.Coll) {
+			return nil, actions.InvalidParams("collection: invalid name")
+		}
+		filter := strings.TrimSpace(in.Filter)
+		if filter == "" {
+			filter = "{}"
+		}
+		if len(filter) > 8192 || !json.Valid([]byte(filter)) {
+			return nil, actions.InvalidParams("filter: enter a valid JSON object, e.g. {\"name\":\"x\"}")
+		}
+		if in.Skip < 0 {
+			in.Skip = 0
+		}
+		if in.Limit <= 0 || in.Limit > 200 {
+			in.Limit = 50
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		// The filter is embedded as a JSON string literal (json.Marshal does
+		// the escaping) and parsed with EJSON inside mongosh, so it is data,
+		// never code; the script is fed on stdin, not the command line.
+		lit, _ := json.Marshal(filter)
+		script := fmt.Sprintf(
+			"var c=db.getSiblingDB(%s).getCollection(%s);var q=EJSON.parse(%s);"+
+				"print(EJSON.stringify({documents:c.find(q).skip(%d).limit(%d).toArray(),total:c.countDocuments(q)},null,0,{relaxed:true}))",
+			jsString(in.DB), jsString(in.Coll), string(lit), in.Skip, in.Limit)
+		out, err := c.run(ctx, script, true)
+		if err != nil {
+			return nil, actions.Failed("The documents could not be read.", err.Error())
+		}
+		var res struct {
+			Documents json.RawMessage `json:"documents"`
+			Total     mongoLong       `json:"total"`
+		}
+		if err := json.Unmarshal(trimToJSON(out), &res); err != nil {
+			return nil, actions.Failed("The documents could not be read.", lastLine(out))
+		}
+		if len(res.Documents) == 0 {
+			res.Documents = json.RawMessage("[]")
+		}
+		return map[string]any{"documents": res.Documents, "total": int64(res.Total), "skip": in.Skip, "limit": in.Limit}, nil
+	}})
+
+	r.Register(actions.Action{Name: "mongo.document_delete", Mutating: true, Description: "Delete one document by its _id (EJSON value).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB   string `json:"db"`
+			Coll string `json:"collection"`
+			ID   string `json:"id"` // EJSON of the _id value
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		id := strings.TrimSpace(in.ID)
+		if id == "" || len(id) > 4096 || !json.Valid([]byte(id)) {
+			return nil, actions.InvalidParams("id: the document _id as EJSON")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		lit, _ := json.Marshal(id)
+		script := fmt.Sprintf(
+			"var r=db.getSiblingDB(%s).getCollection(%s).deleteOne({_id:EJSON.parse(%s)});print(JSON.stringify({deleted:r.deletedCount}))",
+			jsString(in.DB), jsString(in.Coll), string(lit))
+		out, err := c.run(ctx, script, true)
+		if err != nil {
+			return nil, actions.Failed("The document could not be deleted.", err.Error())
+		}
+		var res struct {
+			Deleted int64 `json:"deleted"`
+		}
+		_ = json.Unmarshal(trimToJSON(out), &res)
+		return map[string]any{"deleted": res.Deleted}, nil
+	}})
+}
+
+// collections lists a database's collections with estimated document counts.
+func (c Client) collections(ctx context.Context, dbName string) ([]Collection, error) {
+	script := "var d=db.getSiblingDB(" + jsString(dbName) + ");" +
+		"print(JSON.stringify(d.getCollectionNames().map(function(n){" +
+		"var x;try{x=d.getCollection(n).estimatedDocumentCount()}catch(e){x=d.getCollection(n).countDocuments({})}" +
+		"return {name:n,count:Number(x)}})))"
+	out, err := c.eval(ctx, script)
+	if err != nil {
+		return nil, err
+	}
+	var cols []Collection
+	if err := json.Unmarshal(trimToJSON(out), &cols); err != nil {
+		return nil, fmt.Errorf("unexpected output: %s", lastLine(out))
+	}
+	if cols == nil {
+		cols = []Collection{}
+	}
+	return cols, nil
 }
 
 // databases lists the server's databases (excluding the internal ones).
@@ -382,10 +529,17 @@ func (c Client) users(ctx context.Context) ([]User, error) {
 // stray banner line is ignored.
 func trimToJSON(b []byte) []byte {
 	s := strings.TrimSpace(string(b))
+	// Start at the earliest opening bracket, whether the value is an object or
+	// an array — picking '[' unconditionally would cut into an object whose
+	// first field is an array.
+	best := -1
 	for _, open := range []byte{'[', '{'} {
-		if i := strings.IndexByte(s, open); i >= 0 {
-			return []byte(s[i:])
+		if i := strings.IndexByte(s, open); i >= 0 && (best < 0 || i < best) {
+			best = i
 		}
+	}
+	if best >= 0 {
+		return []byte(s[best:])
 	}
 	return b
 }
