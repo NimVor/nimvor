@@ -70,6 +70,30 @@ final class MongoTest extends HttpTestCase
         self::assertSame(1, $this->calls('mongo.config_set'));
     }
 
+    public function testMongoPermissionsAreIndependentOfServerPermissions(): void
+    {
+        // A role with only the MongoDB permissions — no server.view/manage —
+        // can view and manage MongoDB, proving the new permissions stand alone.
+        $svc = $this->app->container->get(\WhaCP\Services\RoleService::class);
+        $roleId = $svc->create(['name' => 'mongoadmin', 'label' => 'MongoDB admin', 'permissions' => [
+            \WhaCP\Security\Permissions::MONGO_VIEW, \WhaCP\Security\Permissions::MONGO_MANAGE,
+        ]]);
+        $this->app->container->get(Connection::class)->run('UPDATE roles SET scope = ? WHERE id = ?', ['all', $roleId]);
+        $this->seedUser('mdba', 'mongoadmin');
+        $this->login('mdba');
+
+        // View works through mongo.view.
+        self::assertSame(200, $this->request('GET', '/mongo')->status());
+        $this->agent->succeed('mongo.collections', ['collections' => []]);
+        self::assertSame(200, $this->post('/mongo/browse', ['op' => 'collections', 'db' => 'shop'])->status());
+
+        // Management works through mongo.manage.
+        $this->agent->succeed('mongo.database_create', ['name' => 'blog']);
+        $res = $this->post('/mongo/databases', ['name' => 'blog']);
+        self::assertSame(303, $res->status());
+        self::assertSame(1, $this->calls('mongo.database_create'));
+    }
+
     public function testBackupRestoreAndDelete(): void
     {
         $this->agent->succeed('mongo.backups', ['backups' => [

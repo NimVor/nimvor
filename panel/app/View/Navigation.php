@@ -97,7 +97,7 @@ final class Navigation
                 ['Components', 'puzzle', 'components', P::SERVER_VIEW, '/components', 'Web, PHP, email, DNS, FTP, caches, security: what each needs'],
                 ['PHP Manager', 'filetype-php', 'php.manager', P::PACKAGES_MANAGE, '/php/manager', 'Choose the PHP versions and extensions, review, apply'],
                 ['Runtimes', 'hexagon', 'runtimes', P::SERVER_VIEW, '/runtimes', 'Node.js and Python versions for website workers'],
-                ['MongoDB', 'database', 'mongo', P::SERVER_VIEW, '/mongo', 'MongoDB databases and users'],
+                ['MongoDB', 'database', 'mongo', P::MONGO_VIEW, '/mongo', 'MongoDB databases and users'],
                 ['Cloudflare', 'cloud', 'cloudflare', P::SERVER_VIEW, '/cloudflare', 'CDN and DNS through your Cloudflare account'],
                 ['Nginx', 'hdd-network', 'nginx', P::SERVER_VIEW, '/nginx', 'Web server state, config test and tuning'],
                 ['All servers', 'diagram-3', 'servers', P::SERVERS_MANAGE, '/servers', 'Other servers managed from here'],

@@ -206,6 +206,17 @@ All notable changes to WhaCP are documented here. The format follows
   (e.g. `{ "name": 1 }`). Both are JSON objects parsed with EJSON inside
   `mongosh` as data, validated and bounded; they apply on the admin and the
   customer page alike, confined to the account's own databases on the latter.
+- **Dedicated MongoDB permissions.** Admin MongoDB access now has its own
+  permission pair — **View MongoDB** (`mongo.view`) and **Manage MongoDB**
+  (`mongo.manage`) — instead of riding on the broad `server.view` /
+  `server.manage`. A role can now be granted MongoDB data and user management
+  without full server control, or be allowed to view it only, and the Server →
+  MongoDB page, its browser, exports, data/user/config changes and
+  backups/restores are gated accordingly (installing the MongoDB package and
+  controlling the service still need `packages.manage` / `services.manage`).
+  The Administrator role is unchanged (it has everything); Operator gains both
+  MongoDB permissions and Viewer gains view. Customers' per-site MongoDB stays
+  gated by the `mongodb` plan feature and website ownership as before.
 - **MongoDB backup and restore for customers (Site → MongoDB).** The Backups
   card is now on the per-customer page too: a hosting user backs up, restores
   and deletes archives of their own databases, as background jobs shown in the

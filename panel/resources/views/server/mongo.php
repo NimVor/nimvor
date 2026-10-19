@@ -14,7 +14,7 @@ $overview ??= ['databases' => [], 'users' => [], 'databases_error' => '', 'users
 $repository ??= null;
 $overviewError ??= null;
 $backups ??= [];
-$canManage = $this->can(P::SERVER_MANAGE);
+$canManage = $this->can(P::MONGO_MANAGE);
 $canInstall = $this->can(P::PACKAGES_MANAGE);
 $canServices = $this->can(P::SERVICES_MANAGE);
 $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB admin', 'dbOwner' => 'Owner'];

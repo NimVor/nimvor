@@ -80,7 +80,7 @@ final class MongoController extends Controller
 
     public function config(Request $request): Response
     {
-        if (!$this->view->can(P::SERVER_MANAGE)) {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
             return $this->redirectWithError('/mongo', 'You may not do this.');
         }
         $port = (int) $request->input('port', 0);
@@ -97,7 +97,7 @@ final class MongoController extends Controller
 
     public function backup(Request $request): Response
     {
-        if (!$this->view->can(P::SERVER_MANAGE)) {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
             return $this->redirectWithError('/mongo', 'You may not do this.');
         }
         $db = trim((string) $request->input('db'));
@@ -113,7 +113,7 @@ final class MongoController extends Controller
 
     public function restore(Request $request): Response
     {
-        if (!$this->view->can(P::SERVER_MANAGE)) {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
             return $this->redirectWithError('/mongo', 'You may not do this.');
         }
         $db = trim((string) $request->input('db'));
@@ -129,7 +129,7 @@ final class MongoController extends Controller
 
     public function deleteBackup(Request $request): Response
     {
-        if (!$this->view->can(P::SERVER_MANAGE)) {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
             return $this->redirectWithError('/mongo', 'You may not do this.');
         }
         try {
@@ -271,7 +271,7 @@ final class MongoController extends Controller
             'back' => $this->view->url('mongo'),
             'databases' => $databases,
             'current' => $db,
-            'canDelete' => $this->view->can(P::SERVER_MANAGE),
+            'canDelete' => $this->view->can(P::MONGO_MANAGE),
         ], 'layouts/tool'));
     }
 
@@ -316,18 +316,18 @@ final class MongoController extends Controller
                         (string) $request->input('projection', ''),
                     )]);
                 case 'delete':
-                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
                     }
                     $n = $this->mongo->deleteDocument($db, trim((string) $request->input('collection')), (string) $request->input('id'), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['deleted' => $n]]);
                 case 'insert':
-                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
                     }
                     return Response::json(['success' => true, 'data' => $this->mongo->insertDocument($db, trim((string) $request->input('collection')), (string) $request->input('document'), $this->userId($request))]);
                 case 'update':
-                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
                     }
                     return Response::json(['success' => true, 'data' => $this->mongo->updateDocument($db, trim((string) $request->input('collection')), (string) $request->input('id'), (string) $request->input('document'), $this->userId($request))]);
@@ -336,7 +336,7 @@ final class MongoController extends Controller
                 case 'explain':
                     return Response::json(['success' => true, 'data' => $this->mongo->explain($db, trim((string) $request->input('collection')), (string) $request->input('pipeline'))]);
                 case 'import':
-                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
                     }
                     return Response::json(['success' => true, 'data' => $this->mongo->import($db, trim((string) $request->input('collection')), $request->input('format') === 'jsonl' ? 'jsonl' : 'json', (string) $request->input('content'), $this->userId($request))]);
@@ -345,19 +345,19 @@ final class MongoController extends Controller
                 case 'users':
                     return Response::json(['success' => true, 'data' => ['users' => $this->mongo->databaseUsers($db)]]);
                 case 'user_create':
-                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
                     }
                     $this->mongo->createUser(trim((string) $request->input('user')), (string) $request->input('password'), $db, (string) $request->input('role', 'readWrite'), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['user' => trim((string) $request->input('user'))]]);
                 case 'user_password':
-                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
                     }
                     $this->mongo->setPassword(trim((string) $request->input('user')), $db, (string) $request->input('password'), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['user' => trim((string) $request->input('user'))]]);
                 case 'user_drop':
-                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
                     }
                     $this->mongo->dropUser(trim((string) $request->input('user')), $db, $this->userId($request));
@@ -365,12 +365,12 @@ final class MongoController extends Controller
                 case 'indexes':
                     return Response::json(['success' => true, 'data' => $this->mongo->indexes($db, trim((string) $request->input('collection')))]);
                 case 'index_create':
-                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
                     }
                     return Response::json(['success' => true, 'data' => ['name' => $this->mongo->createIndex($db, trim((string) $request->input('collection')), (string) $request->input('keys'), (string) $request->input('options', '{}'), $this->userId($request))]]);
                 case 'index_drop':
-                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
                     }
                     $this->mongo->dropIndex($db, trim((string) $request->input('collection')), (string) $request->input('name'), $this->userId($request));

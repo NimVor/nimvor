@@ -26,6 +26,8 @@ final class Permissions
     public const NOTIFICATIONS_VIEW = 'notifications.view';
     public const PACKAGES_MANAGE = 'packages.manage';
     public const SERVERS_MANAGE = 'servers.manage';
+    public const MONGO_VIEW = 'mongo.view';
+    public const MONGO_MANAGE = 'mongo.manage';
 
     public const WEBSITES_VIEW = 'websites.view';
     public const WEBSITES_MANAGE = 'websites.manage';
@@ -103,6 +105,8 @@ final class Permissions
             self::SYSTEM_USERS_VIEW => ['label' => 'View system accounts', 'group' => 'Server'],
             self::PACKAGES_MANAGE => ['label' => 'Install and update packages and server components', 'group' => 'Server'],
             self::SERVERS_MANAGE => ['label' => 'Add and remove servers', 'group' => 'Server'],
+            self::MONGO_VIEW => ['label' => 'View the MongoDB server, its databases, users and backups, and browse data', 'group' => 'Server'],
+            self::MONGO_MANAGE => ['label' => 'Manage MongoDB: databases, users, data, configuration, and backups/restores', 'group' => 'Server'],
             self::SECURITY_VIEW => ['label' => 'View security status, firewall events and scans', 'group' => 'Security'],
             self::SECURITY_MANAGE => ['label' => 'Change security: firewall, SSH, ModSecurity, brute-force protection, malware scans, policies, the root terminal', 'group' => 'Security'],
 
@@ -159,6 +163,7 @@ final class Permissions
                 'permissions' => array_merge(self::HOSTING_SELF, [
                     self::MONITORING_VIEW, self::SERVER_VIEW, self::SERVICES_VIEW, self::SERVICES_MANAGE, self::SYSTEM_USERS_VIEW,
                     self::PHP_MANAGE, self::REDIS_MANAGE, self::DISCOVERY_RUN, self::SECURITY_VIEW, self::AUDIT_VIEW,
+                    self::MONGO_VIEW, self::MONGO_MANAGE,
                 ]),
             ],
             'viewer' => [
@@ -167,7 +172,7 @@ final class Permissions
                 'scope' => 'all',
                 'permissions' => [
                     self::DASHBOARD_VIEW, self::NOTIFICATIONS_VIEW, self::MONITORING_VIEW, self::SERVER_VIEW, self::SERVICES_VIEW,
-                    self::WEBSITES_VIEW, self::PHP_VIEW, self::DATABASES_VIEW, self::SSL_VIEW, self::CRON_VIEW, self::BACKUPS_VIEW,
+                    self::WEBSITES_VIEW, self::PHP_VIEW, self::DATABASES_VIEW, self::SSL_VIEW, self::CRON_VIEW, self::BACKUPS_VIEW, self::MONGO_VIEW,
                 ],
             ],
             'reseller' => [
