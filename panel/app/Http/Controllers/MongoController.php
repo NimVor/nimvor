@@ -218,11 +218,30 @@ final class MongoController extends Controller
         }
         return Response::html($this->view->render('server/mongo_browser', [
             'api' => $this->view->url('mongo.browse'),
+            'export' => $this->view->url('mongo.export'),
             'back' => $this->view->url('mongo'),
             'databases' => $databases,
             'current' => $db,
             'canDelete' => $this->view->can(P::SERVER_MANAGE),
         ], 'layouts/tool'));
+    }
+
+    /**
+     * Export a collection as a downloadable JSON array or JSONL file. A read
+     * (server.view); the filter and limit come from the query string so the
+     * browser downloads the response directly.
+     */
+    public function export(Request $request): Response
+    {
+        $db = trim((string) $request->query('db', ''));
+        $collection = trim((string) $request->query('collection', ''));
+        $format = $request->query('format', 'json') === 'jsonl' ? 'jsonl' : 'json';
+        try {
+            $out = $this->mongo->export($db, $collection, $format, (string) $request->query('filter', ''), (int) $request->query('limit', 2000), $this->userId($request));
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/mongo/browser?db=' . rawurlencode($db), $e);
+        }
+        return $this->download($db, $collection, $out);
     }
 
     /**

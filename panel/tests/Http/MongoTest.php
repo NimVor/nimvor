@@ -129,6 +129,22 @@ final class MongoTest extends HttpTestCase
 
         // An unknown op is a clean 400, not a 500.
         self::assertSame(400, $this->post('/mongo/browse', ['op' => 'nope', 'db' => 'shop'])->status());
+
+        // Export: the collection is downloaded as an attachment, and the
+        // chosen format decides the extension and content type.
+        $this->agent->succeed('mongo.export', ['count' => 2, 'content' => "[\n  {\"_id\":\"a\"}\n]", 'format' => 'json']);
+        $res = $this->request('GET', '/mongo/export', [], [], '', ['db' => 'shop', 'collection' => 'orders', 'format' => 'json', 'filter' => '{"n":1}']);
+        self::assertSame(200, $res->status());
+        self::assertSame('attachment; filename="shop.orders.json"', $res->header('Content-Disposition'));
+        self::assertStringContainsString('application/json', (string) $res->header('Content-Type'));
+        self::assertStringContainsString('"_id":"a"', $res->body());
+        self::assertSame('{"n":1}', $this->lastCall('mongo.export')['filter']);
+
+        $this->agent->succeed('mongo.export', ['count' => 2, 'content' => "{\"_id\":\"a\"}\n{\"_id\":\"b\"}", 'format' => 'jsonl']);
+        $res = $this->request('GET', '/mongo/export', [], [], '', ['db' => 'shop', 'collection' => 'orders', 'format' => 'jsonl']);
+        self::assertSame('attachment; filename="shop.orders.jsonl"', $res->header('Content-Disposition'));
+        self::assertStringContainsString('application/x-ndjson', (string) $res->header('Content-Type'));
+        self::assertSame('jsonl', $this->lastCall('mongo.export')['format']);
     }
 
     public function testBrowserDeleteNeedsManageAndCustomersCannotReachMongo(): void

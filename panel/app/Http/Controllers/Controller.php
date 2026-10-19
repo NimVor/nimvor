@@ -74,6 +74,26 @@ abstract class Controller
     }
 
     /**
+     * Return a MongoDB export as a downloadable attachment. The filename is
+     * built from the database and collection with any unsafe characters
+     * stripped, so it can never inject into the Content-Disposition header.
+     *
+     * @param array{content: string, count: int, format: string} $out
+     */
+    protected function download(string $db, string $collection, array $out): Response
+    {
+        $ext = $out['format'] === 'jsonl' ? 'jsonl' : 'json';
+        $type = $out['format'] === 'jsonl' ? 'application/x-ndjson' : 'application/json';
+        $base = preg_replace('/[^A-Za-z0-9._-]+/', '_', $db . '.' . $collection) ?? 'export';
+        $name = trim($base, '_.') ?: 'export';
+        return new Response($out['content'], 200, [
+            'Content-Type' => $type . '; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="' . $name . '.' . $ext . '"',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    /**
      * Redirect back to a form with validation errors and the old input
      * (passwords are never flashed back).
      *

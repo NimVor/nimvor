@@ -115,11 +115,34 @@ final class SiteMongoController extends SiteController
         }
         return Response::html($this->view->render('server/mongo_browser', [
             'api' => $this->view->url('sites.mongo.browse', ['id' => (int) $site['id']]),
+            'export' => $this->view->url('sites.mongo.export', ['id' => (int) $site['id']]),
             'back' => $this->view->url('sites.mongo', ['id' => (int) $site['id']]),
             'databases' => $databases,
             'current' => $current,
             'canDelete' => true,
         ], 'layouts/tool'));
+    }
+
+    /**
+     * Export a collection of this website's own database as a downloadable
+     * file. Confined to the account's prefix like every other browser op.
+     */
+    public function export(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->siteNotFound();
+        }
+        $db = trim((string) $request->query('db', ''));
+        $collection = trim((string) $request->query('collection', ''));
+        $format = $request->query('format', 'json') === 'jsonl' ? 'jsonl' : 'json';
+        $back = $this->view->url('sites.mongo.browser', ['id' => (int) $site['id']]) . '?db=' . rawurlencode($db);
+        try {
+            $out = $this->mongo->export($site, $db, $collection, $format, (string) $request->query('filter', ''), (int) $request->query('limit', 2000), $this->userId($request));
+        } catch (\WhaCP\Support\UserFacingException $e) {
+            return $this->redirectWithError($back, $e->getMessage());
+        }
+        return $this->download($db, $collection, $out);
     }
 
     /** Database browser JSON endpoint, confined to this website's databases. */

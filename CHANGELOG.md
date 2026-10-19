@@ -193,6 +193,16 @@ All notable changes to WhaCP are documented here. The format follows
   and **restores the previous configuration automatically if it fails to
   start**. The page also shows the tail of MongoDB's log. Editing needs
   `server.manage`.
+- **MongoDB collection export in the browser.** An Export menu in the database
+  browser downloads the current collection, respecting the active JSON filter,
+  as either a JSON array (`.json`) or one document per line (`.jsonl`). The
+  documents are serialised with EJSON inside `mongosh` so BSON types survive
+  the round trip, and the export is bounded (default 2000, capped at 5000
+  documents) so a large collection cannot exhaust memory. The download is a
+  read (`server.view` / site owner); on the customer **Site → MongoDB** page it
+  is confined to the account's own databases, and a filename built from the
+  database and collection with unsafe characters stripped cannot inject into
+  the response headers.
 - **MongoDB aggregation (query lab) in the browser.** A new Aggregation tab
   runs a pipeline (a JSON array of stages) against the current collection and
   shows the results with the execution time. The pipeline is parsed with EJSON

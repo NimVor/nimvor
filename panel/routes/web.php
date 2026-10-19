@@ -328,6 +328,7 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/mongo/users/drop', [\WhaCP\Http\Controllers\SiteMongoController::class, 'dropUser'], ['name' => 'sites.mongo.user_drop', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/mongo/browser', [\WhaCP\Http\Controllers\SiteMongoController::class, 'browser'], ['name' => 'sites.mongo.browser', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/mongo/browse', [\WhaCP\Http\Controllers\SiteMongoController::class, 'browse'], ['name' => 'sites.mongo.browse', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/mongo/export', [\WhaCP\Http\Controllers\SiteMongoController::class, 'export'], ['name' => 'sites.mongo.export', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/cloudflare', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'index'], ['name' => 'sites.cloudflare', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/cloudflare/connect', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'connect'], ['name' => 'sites.cloudflare.connect', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/cloudflare/disconnect', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'disconnect'], ['name' => 'sites.cloudflare.disconnect', 'permission' => P::WEBSITES_MANAGE]);
@@ -411,6 +412,7 @@ return static function (Router $r): void {
     $r->post('/mongo/config', [\WhaCP\Http\Controllers\MongoController::class, 'config'], ['name' => 'mongo.config', 'permission' => P::SERVER_MANAGE]);
     $r->get('/mongo/browser', [\WhaCP\Http\Controllers\MongoController::class, 'browser'], ['name' => 'mongo.browser', 'permission' => P::SERVER_VIEW]);
     $r->post('/mongo/browse', [\WhaCP\Http\Controllers\MongoController::class, 'browse'], ['name' => 'mongo.browse', 'permission' => P::SERVER_VIEW]);
+    $r->get('/mongo/export', [\WhaCP\Http\Controllers\MongoController::class, 'export'], ['name' => 'mongo.export', 'permission' => P::SERVER_VIEW]);
     $r->get('/runtimes', [\WhaCP\Http\Controllers\RuntimeController::class, 'index'], ['name' => 'runtimes', 'permission' => P::SERVER_VIEW]);
     $r->post('/runtimes/install', [\WhaCP\Http\Controllers\RuntimeController::class, 'install'], ['name' => 'runtimes.install', 'permission' => P::SERVER_MANAGE]);
     $r->post('/runtimes/remove', [\WhaCP\Http\Controllers\RuntimeController::class, 'remove'], ['name' => 'runtimes.remove', 'permission' => P::SERVER_MANAGE]);

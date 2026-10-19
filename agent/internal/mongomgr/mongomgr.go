@@ -589,6 +589,61 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"documents": res.Documents, "ms": res.MS, "limit": in.Limit}, nil
 	}})
 
+	r.Register(actions.Action{Name: "mongo.export", Description: "Export documents as a JSON array or JSONL (bounded).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB     string `json:"db"`
+			Coll   string `json:"collection"`
+			Format string `json:"format"`
+			Filter string `json:"filter"`
+			Limit  int    `json:"limit"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		if in.Format != "json" && in.Format != "jsonl" {
+			return nil, actions.InvalidParams("format: json or jsonl")
+		}
+		filter := strings.TrimSpace(in.Filter)
+		if filter == "" {
+			filter = "{}"
+		}
+		if len(filter) > 8192 || !json.Valid([]byte(filter)) {
+			return nil, actions.InvalidParams("filter: a JSON object")
+		}
+		if in.Limit <= 0 || in.Limit > 5000 {
+			in.Limit = 2000
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		lit, _ := json.Marshal(filter)
+		var build string
+		if in.Format == "jsonl" {
+			build = "docs.map(function(d){return EJSON.stringify(d,null,0,{relaxed:true})}).join('\\n')"
+		} else {
+			build = "EJSON.stringify(docs,null,2,{relaxed:true})"
+		}
+		script := fmt.Sprintf(
+			"var docs=db.getSiblingDB(%s).getCollection(%s).find(EJSON.parse(%s)).limit(%d).toArray();"+
+				"print(JSON.stringify({count:docs.length,content:%s}))",
+			jsString(in.DB), jsString(in.Coll), string(lit), in.Limit, build)
+		out, err := c.run(ctx, script, true)
+		if err != nil {
+			return nil, actions.Failed("The documents could not be exported.", lastLine(out))
+		}
+		var res struct {
+			Count   int    `json:"count"`
+			Content string `json:"content"`
+		}
+		if err := json.Unmarshal(trimToJSON(out), &res); err != nil {
+			return nil, actions.Failed("The documents could not be exported.", lastLine(out))
+		}
+		return map[string]any{"count": res.Count, "content": res.Content, "format": in.Format}, nil
+	}})
+
 	// --- Indexes ---
 
 	r.Register(actions.Action{Name: "mongo.indexes", Description: "List a collection's indexes.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {

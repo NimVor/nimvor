@@ -6,6 +6,7 @@
  *
  * @var \WhaCP\View\View $this
  * @var string $api        the JSON endpoint (mongo.browse)
+ * @var string $export     the download endpoint (mongo.export)
  * @var string $back       the MongoDB page URL
  * @var list<string> $databases
  * @var string $current    the database selected on load ('' for none)
@@ -17,6 +18,7 @@
 
 <div class="wcp-db" id="wcp-mongo"
      data-api="<?= e($api) ?>"
+     data-export="<?= e($export) ?>"
      data-current="<?= e($current) ?>"
      data-can-delete="<?= $canDelete ? '1' : '0' ?>">
     <aside class="wcp-db-side">
@@ -52,6 +54,13 @@
                 <?php if ($canDelete): ?>
                 <button class="btn btn-sm btn-outline-primary" type="button" data-mb-new disabled><i class="bi bi-plus-lg me-1"></i>New document</button>
                 <?php endif; ?>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-mb-export disabled><i class="bi bi-download me-1"></i>Export</button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button class="dropdown-item" type="button" data-mb-export-format="json">JSON array (.json)</button></li>
+                        <li><button class="dropdown-item" type="button" data-mb-export-format="jsonl">One per line (.jsonl)</button></li>
+                    </ul>
+                </div>
             </span>
             <?php if ($canDelete): ?>
             <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newindex disabled><i class="bi bi-plus-lg me-1"></i>New index</button>

@@ -108,6 +108,20 @@ final class SiteMongoTest extends HttpTestCase
         $this->agent->succeed('mongo.index_drop', ['dropped' => 'a_1']);
         self::assertSame(200, $this->post($base . '/browse', ['op' => 'index_drop', 'db' => $this->prefix . 'shop', 'collection' => 'orders', 'name' => 'a_1'])->status());
 
+        // Exporting the account's own collection downloads an attachment.
+        $this->agent->succeed('mongo.export', ['count' => 1, 'content' => '[{"_id":"a"}]', 'format' => 'json']);
+        $res = $this->request('GET', $base . '/export', [], [], '', ['db' => $this->prefix . 'shop', 'collection' => 'orders', 'format' => 'json']);
+        self::assertSame(200, $res->status());
+        self::assertStringContainsString('attachment;', (string) $res->header('Content-Disposition'));
+        self::assertSame($this->prefix . 'shop', $this->lastCall('mongo.export')['db']);
+
+        // Exporting a database outside the account's prefix never reaches the
+        // agent: it is refused (a redirect, not a download).
+        $res = $this->request('GET', $base . '/export', [], [], '', ['db' => 'otheracct_secret', 'collection' => 'c', 'format' => 'json']);
+        self::assertSame(303, $res->status(), 'export of another account must be refused');
+        self::assertNull($res->header('Content-Disposition'));
+        self::assertSame(1, $this->calls('mongo.export'), 'only the owned-db export reached the agent');
+
         // A database outside the account's prefix is refused before the agent,
         // for every operation including the new writes and index management.
         $this->agent->succeed('mongo.document_delete', ['deleted' => 1]);

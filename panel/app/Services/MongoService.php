@@ -166,6 +166,19 @@ final class MongoService
         return ['documents' => $o['documents'] ?? [], 'ms' => (int) ($o['ms'] ?? 0), 'limit' => (int) ($o['limit'] ?? $limit)];
     }
 
+    /**
+     * Export documents of a collection as a JSON array or JSONL (bounded).
+     * The filter is a JSON object (EJSON).
+     *
+     * @return array{content: string, count: int, format: string}
+     */
+    public function export(string $db, string $collection, string $format, string $filter, int $limit, ?int $userId): array
+    {
+        $o = (array) $this->agent->call('mongo.export', ['db' => $db, 'collection' => $collection, 'format' => $format, 'filter' => $filter, 'limit' => $limit], 120);
+        $this->audit->record('mongo.export', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'format' => $format], $userId);
+        return ['content' => (string) ($o['content'] ?? ''), 'count' => (int) ($o['count'] ?? 0), 'format' => (string) ($o['format'] ?? $format)];
+    }
+
     // --- Indexes ---
 
     /** @return array{indexes: mixed} */

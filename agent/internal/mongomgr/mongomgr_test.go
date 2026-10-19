@@ -145,6 +145,8 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 			return `{"matched":1,"modified":1}`, nil
 		case strings.Contains(script, "aggregate(p"):
 			return `{"documents":[{"name":"a","total":3}],"ms":4}`, nil
+		case strings.Contains(script, ".find(EJSON.parse") && strings.Contains(script, "count:docs.length,content"):
+			return `{"count":2,"content":"[{\"_id\":\"a\"},{\"_id\":\"b\"}]"}`, nil
 		case strings.Contains(script, "find(q)"):
 			return `{"documents":[{"_id":"64f0","name":"a"}],"total":1}`, nil
 		}
@@ -184,6 +186,14 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 	}
 	if _, err := call(t, r, "mongo.aggregate", `{"db":"shop","collection":"orders","pipeline":"{}"}`); err == nil {
 		t.Error("a non-array pipeline must be rejected")
+	}
+
+	exp := mustCall(t, r, "mongo.export", `{"db":"shop","collection":"orders","format":"json"}`)
+	if exp["count"].(int) != 2 || !strings.Contains(exp["content"].(string), `"_id":"a"`) {
+		t.Fatalf("export: %+v", exp)
+	}
+	if _, err := call(t, r, "mongo.export", `{"db":"shop","collection":"orders","format":"xml"}`); err == nil {
+		t.Error("an unknown export format must be rejected")
 	}
 
 	// Bad JSON / missing _id are refused before mongosh runs.

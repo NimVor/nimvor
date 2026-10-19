@@ -10,6 +10,7 @@
     if (!root || !window.WhaCP) { return; }
 
     var api = root.getAttribute('data-api');
+    var exportApi = root.getAttribute('data-export');
     var canDelete = root.getAttribute('data-can-delete') === '1';
     var LIMIT = 25;
 
@@ -26,6 +27,7 @@
     var pane = root.querySelector('[data-mb-pane]');
     var tabBtns = root.querySelectorAll('[data-mb-tab]');
     var docTools = root.querySelector('[data-mb-doc-tools]');
+    var exportBtn = root.querySelector('[data-mb-export]');
     var pagerEl = root.querySelector('[data-mb-pager]');
 
     var state = { db: '', collection: '', skip: 0, total: 0, tab: 'documents' };
@@ -55,6 +57,7 @@
         curLabel.textContent = 'No collection selected';
         filterIn.disabled = true; runBtn.disabled = true;
         if (newBtn) { newBtn.disabled = true; }
+        if (exportBtn) { exportBtn.disabled = true; }
         if (newIndexBtn) { newIndexBtn.disabled = true; }
         Array.prototype.forEach.call(tabBtns, function (b) { b.disabled = true; });
         setPaging();
@@ -108,6 +111,7 @@
         curLabel.textContent = name;
         filterIn.disabled = false; runBtn.disabled = false;
         if (newBtn) { newBtn.disabled = false; }
+        if (exportBtn) { exportBtn.disabled = false; }
         Array.prototype.forEach.call(tabBtns, function (b) { b.disabled = false; });
         setTab('documents');
     }
@@ -420,6 +424,18 @@
         });
     }
     if (newBtn) { newBtn.addEventListener('click', function () { openEditor('new', {}); }); }
+    Array.prototype.forEach.call(root.querySelectorAll('[data-mb-export-format]'), function (item) {
+        item.addEventListener('click', function () {
+            if (!state.db || !state.collection) { return; }
+            var q = 'db=' + encodeURIComponent(state.db) +
+                '&collection=' + encodeURIComponent(state.collection) +
+                '&format=' + encodeURIComponent(item.getAttribute('data-mb-export-format')) +
+                '&filter=' + encodeURIComponent(filterIn.value.trim());
+            // A plain navigation; the server replies with Content-Disposition
+            // so the browser downloads the file and stays on this page.
+            window.location.assign(exportApi + '?' + q);
+        });
+    });
     dbSel.addEventListener('change', function () { state.db = dbSel.value; loadCollections(); });
     collFilter.addEventListener('input', applyCollFilter);
     runBtn.addEventListener('click', function () { state.skip = 0; loadDocuments(); });

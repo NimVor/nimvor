@@ -165,6 +165,18 @@ final class SiteMongoService
         return ['documents' => $o['documents'] ?? [], 'ms' => (int) ($o['ms'] ?? 0), 'limit' => (int) ($o['limit'] ?? $limit)];
     }
 
+    /**
+     * Export documents of a collection in the account's own database as a JSON
+     * array or JSONL (bounded). @return array{content: string, count: int, format: string}
+     */
+    public function export(array $site, string $db, string $collection, string $format, string $filter, int $limit, ?int $userId): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.export', ['db' => $db, 'collection' => $collection, 'format' => $format, 'filter' => $filter, 'limit' => $limit], 120);
+        $this->audit->record('mongo.export', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'format' => $format], $userId);
+        return ['content' => (string) ($o['content'] ?? ''), 'count' => (int) ($o['count'] ?? 0), 'format' => (string) ($o['format'] ?? $format)];
+    }
+
     /** @return array{indexes: mixed} */
     public function indexes(array $site, string $db, string $collection): array
     {
