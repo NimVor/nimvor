@@ -157,6 +157,12 @@ final class MongoTest extends HttpTestCase
         self::assertSame(5, $body['data']['ms']);
         self::assertSame('[{"$group":{"_id":"$name","n":{"$sum":1}}}]', $this->lastCall('mongo.aggregate')['pipeline']);
 
+        // Explain returns the query plan without running the pipeline.
+        $this->agent->succeed('mongo.explain', ['explain' => ['queryPlanner' => ['winningPlan' => ['stage' => 'COLLSCAN']]]]);
+        $res = $this->post('/mongo/browse', ['op' => 'explain', 'db' => 'shop', 'collection' => 'orders', 'pipeline' => '[{"$match":{}}]']);
+        self::assertStringContainsString('COLLSCAN', $res->body());
+        self::assertSame('[{"$match":{}}]', $this->lastCall('mongo.explain')['pipeline']);
+
         // Indexes: list, create, drop.
         $this->agent->succeed('mongo.indexes', ['indexes' => [['name' => '_id_', 'key' => ['_id' => 1]], ['name' => 'email_1', 'key' => ['email' => 1], 'unique' => true]]]);
         $res = $this->post('/mongo/browse', ['op' => 'indexes', 'db' => 'shop', 'collection' => 'orders']);

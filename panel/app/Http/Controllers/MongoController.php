@@ -333,6 +333,8 @@ final class MongoController extends Controller
                     return Response::json(['success' => true, 'data' => $this->mongo->updateDocument($db, trim((string) $request->input('collection')), (string) $request->input('id'), (string) $request->input('document'), $this->userId($request))]);
                 case 'aggregate':
                     return Response::json(['success' => true, 'data' => $this->mongo->aggregate($db, trim((string) $request->input('collection')), (string) $request->input('pipeline'), (int) $request->input('limit', 50))]);
+                case 'explain':
+                    return Response::json(['success' => true, 'data' => $this->mongo->explain($db, trim((string) $request->input('collection')), (string) $request->input('pipeline'))]);
                 case 'import':
                     if (!$this->view->can(P::SERVER_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);

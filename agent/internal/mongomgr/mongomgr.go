@@ -687,6 +687,43 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"documents": res.Documents, "ms": res.MS, "limit": in.Limit}, nil
 	}})
 
+	r.Register(actions.Action{Name: "mongo.explain", Description: "Explain an aggregation pipeline (query planner) without running it.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB       string `json:"db"`
+			Coll     string `json:"collection"`
+			Pipeline string `json:"pipeline"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		pipe := strings.TrimSpace(in.Pipeline)
+		if pipe == "" || len(pipe) > 16384 || !json.Valid([]byte(pipe)) || pipe[0] != '[' {
+			return nil, actions.InvalidParams("pipeline: a JSON array of stages, e.g. [ { \"$match\": {} } ]")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		// explain("queryPlanner") describes how the pipeline would run without
+		// executing it. The pipeline is EJSON-parsed inside mongosh as data.
+		lit, _ := json.Marshal(pipe)
+		script := fmt.Sprintf(
+			"var p=EJSON.parse(%s);if(!Array.isArray(p)){throw new Error('pipeline must be an array')}"+
+				"print(EJSON.stringify(db.getSiblingDB(%s).getCollection(%s).explain('queryPlanner').aggregate(p),null,0,{relaxed:true}))",
+			string(lit), jsString(in.DB), jsString(in.Coll))
+		out, err := c.run(ctx, script, true)
+		if err != nil {
+			return nil, actions.Failed("The pipeline could not be explained.", lastLine(out))
+		}
+		explain := trimToJSON(out)
+		if !json.Valid(explain) {
+			return nil, actions.Failed("The pipeline could not be explained.", lastLine(out))
+		}
+		return map[string]any{"explain": json.RawMessage(explain)}, nil
+	}})
+
 	r.Register(actions.Action{Name: "mongo.export", Description: "Export documents as a JSON array or JSONL (bounded).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			DB     string `json:"db"`

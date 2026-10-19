@@ -218,6 +218,14 @@ final class SiteMongoService
         return ['sampled' => (int) ($o['sampled'] ?? 0), 'fields' => $o['fields'] ?? []];
     }
 
+    /** Explain an aggregation pipeline in the account's own database. @return array{explain: mixed} */
+    public function explain(array $site, string $db, string $collection, string $pipeline): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.explain', ['db' => $db, 'collection' => $collection, 'pipeline' => $pipeline], 90);
+        return ['explain' => $o['explain'] ?? new \stdClass()];
+    }
+
     /** @return array{indexes: mixed} */
     public function indexes(array $site, string $db, string $collection): array
     {

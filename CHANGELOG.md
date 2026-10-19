@@ -193,6 +193,13 @@ All notable changes to WhaCP are documented here. The format follows
   and **restores the previous configuration automatically if it fails to
   start**. The page also shows the tail of MongoDB's log. Editing needs
   `server.manage`.
+- **MongoDB aggregation: explain plan.** The Aggregation tab in the database
+  browser gains an Explain button beside Run that shows the query planner's plan
+  for the current pipeline without executing it, so an index miss (a `COLLSCAN`)
+  is visible before running a heavy pipeline. The pipeline is EJSON-parsed
+  inside `mongosh` as data; read-only (`server.view` / site owner), confined to
+  the account's own databases on the customer page. New agent action
+  `mongo.explain`.
 - **MongoDB documents: sort and field projection.** The database browser's
   Documents view gains a Sort box and a Fields box next to the filter, so the
   result can be ordered (e.g. `{ "age": -1 }`) and narrowed to selected fields

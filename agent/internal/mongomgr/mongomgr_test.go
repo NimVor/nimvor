@@ -147,6 +147,8 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 			return `{"matched":1,"modified":1}`, nil
 		case strings.Contains(script, "$objectToArray"):
 			return `[{"count":[{"n":2}],"fields":[{"field":"_id","total":2,"types":[{"type":"objectId","count":2}]},{"field":"age","total":1,"types":[{"type":"int","count":1}]}]}]`, nil
+		case strings.Contains(script, "explain('queryPlanner')"):
+			return `{"queryPlanner":{"winningPlan":{"stage":"COLLSCAN"}},"ok":1}`, nil
 		case strings.Contains(script, "aggregate(p"):
 			return `{"documents":[{"name":"a","total":3}],"ms":4}`, nil
 		case strings.Contains(script, ".find(EJSON.parse") && strings.Contains(script, "count:docs.length,content"):
@@ -201,6 +203,14 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 	}
 	if _, err := call(t, r, "mongo.aggregate", `{"db":"shop","collection":"orders","pipeline":"{}"}`); err == nil {
 		t.Error("a non-array pipeline must be rejected")
+	}
+
+	exp2 := mustCall(t, r, "mongo.explain", `{"db":"shop","collection":"orders","pipeline":"[{\"$match\":{}}]"}`)
+	if !strings.Contains(string(exp2["explain"].(json.RawMessage)), "COLLSCAN") {
+		t.Fatalf("explain: %s", exp2["explain"])
+	}
+	if _, err := call(t, r, "mongo.explain", `{"db":"shop","collection":"orders","pipeline":"notjson"}`); err == nil {
+		t.Error("an invalid explain pipeline must be rejected")
 	}
 
 	exp := mustCall(t, r, "mongo.export", `{"db":"shop","collection":"orders","format":"json"}`)

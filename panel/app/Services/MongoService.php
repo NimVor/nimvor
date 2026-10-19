@@ -238,6 +238,13 @@ final class MongoService
         $this->audit->record('mongo.index_drop', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'name' => $name], $userId);
     }
 
+    /** Explain an aggregation pipeline (query planner), without running it. @return array{explain: mixed} */
+    public function explain(string $db, string $collection, string $pipeline): array
+    {
+        $o = (array) $this->agent->call('mongo.explain', ['db' => $db, 'collection' => $collection, 'pipeline' => $pipeline], 90);
+        return ['explain' => $o['explain'] ?? new \stdClass()];
+    }
+
     // --- Backup and restore (mongodump / mongorestore) ---
 
     /** Start a backup of one database. Returns the job id and the archive name. */

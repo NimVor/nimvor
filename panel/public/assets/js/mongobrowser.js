@@ -194,21 +194,31 @@
         var bar = el('div', 'd-flex align-items-center gap-2 mb-2');
         var run = el('button', 'btn btn-sm btn-primary', 'Run');
         run.type = 'button';
+        var explainBtn = el('button', 'btn btn-sm btn-outline-secondary', 'Explain');
+        explainBtn.type = 'button';
         var status = el('span', 'small text-body-secondary');
         bar.appendChild(run);
+        bar.appendChild(explainBtn);
         bar.appendChild(status);
         wrap.appendChild(bar);
         var results = el('div', '');
         wrap.appendChild(results);
         pane.replaceChildren(wrap);
 
-        run.addEventListener('click', function () {
+        // Validate the pipeline and return it, or null (with a status message).
+        function pipelineText() {
             aggPipeline = ta.value;
             var text = ta.value.trim();
             var parsed;
-            try { parsed = JSON.parse(text); } catch (ex) { status.textContent = 'Invalid JSON: ' + ex.message; status.classList.add('text-danger'); return; }
-            if (!Array.isArray(parsed)) { status.textContent = 'The pipeline must be a JSON array of stages.'; status.classList.add('text-danger'); return; }
+            try { parsed = JSON.parse(text); } catch (ex) { status.textContent = 'Invalid JSON: ' + ex.message; status.classList.add('text-danger'); return null; }
+            if (!Array.isArray(parsed)) { status.textContent = 'The pipeline must be a JSON array of stages.'; status.classList.add('text-danger'); return null; }
             status.classList.remove('text-danger');
+            return text;
+        }
+
+        run.addEventListener('click', function () {
+            var text = pipelineText();
+            if (text === null) { return; }
             status.textContent = 'Running…';
             run.disabled = true;
             call('aggregate', { collection: state.collection, pipeline: text, limit: 50 }).then(function (d) {
@@ -226,6 +236,23 @@
                     results.appendChild(card);
                 });
             }).catch(function (e) { run.disabled = false; status.textContent = ''; fail(e); });
+        });
+
+        explainBtn.addEventListener('click', function () {
+            var text = pipelineText();
+            if (text === null) { return; }
+            status.textContent = 'Explaining…';
+            explainBtn.disabled = true;
+            call('explain', { collection: state.collection, pipeline: text }).then(function (d) {
+                explainBtn.disabled = false;
+                status.textContent = 'Query plan (the pipeline was not run).';
+                var card = el('article', 'card');
+                card.appendChild(el('div', 'card-header py-1 px-2 small', 'explain'));
+                var body = el('pre', 'card-body mb-0 small wcp-mongo-json');
+                body.textContent = JSON.stringify(d.explain, null, 2);
+                card.appendChild(body);
+                results.replaceChildren(card);
+            }).catch(function (e) { explainBtn.disabled = false; status.textContent = ''; fail(e); });
         });
     }
 
