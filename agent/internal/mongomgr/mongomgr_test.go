@@ -145,6 +145,8 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 			return `{"inserted_id":"64f1"}`, nil
 		case strings.Contains(script, "replaceOne"):
 			return `{"matched":1,"modified":1}`, nil
+		case strings.Contains(script, "$objectToArray"):
+			return `[{"count":[{"n":2}],"fields":[{"field":"_id","total":2,"types":[{"type":"objectId","count":2}]},{"field":"age","total":1,"types":[{"type":"int","count":1}]}]}]`, nil
 		case strings.Contains(script, "aggregate(p"):
 			return `{"documents":[{"name":"a","total":3}],"ms":4}`, nil
 		case strings.Contains(script, ".find(EJSON.parse") && strings.Contains(script, "count:docs.length,content"):
@@ -196,6 +198,16 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 	}
 	if _, err := call(t, r, "mongo.export", `{"db":"shop","collection":"orders","format":"xml"}`); err == nil {
 		t.Error("an unknown export format must be rejected")
+	}
+
+	// Schema: the sampled count and per-field types come back.
+	sch := mustCall(t, r, "mongo.schema", `{"db":"shop","collection":"orders","sample":100}`)
+	if sch["sampled"].(int) != 2 {
+		t.Fatalf("schema sampled: %+v", sch)
+	}
+	fields := sch["fields"].([]map[string]any)
+	if len(fields) != 2 || fields[0]["field"].(string) != "_id" {
+		t.Fatalf("schema fields: %+v", fields)
 	}
 
 	// Import: a JSON array and JSONL both parse to documents and insert.

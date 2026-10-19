@@ -43,6 +43,7 @@
             <div class="btn-group btn-group-sm me-2" role="tablist" aria-label="View">
                 <button class="btn btn-outline-secondary active" type="button" data-mb-tab="documents" disabled>Documents</button>
                 <button class="btn btn-outline-secondary" type="button" data-mb-tab="aggregate" disabled>Aggregation</button>
+                <button class="btn btn-outline-secondary" type="button" data-mb-tab="schema" disabled>Schema</button>
                 <button class="btn btn-outline-secondary" type="button" data-mb-tab="indexes" disabled>Indexes</button>
             </div>
             <span data-mb-doc-tools class="d-flex align-items-center gap-2">

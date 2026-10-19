@@ -191,6 +191,17 @@ final class MongoService
         return ['inserted' => (int) ($o['inserted'] ?? 0), 'errors' => (int) ($o['errors'] ?? 0), 'total' => (int) ($o['total'] ?? 0)];
     }
 
+    /**
+     * Analyse a collection's top-level fields over a bounded sample.
+     *
+     * @return array{sampled: int, fields: mixed}
+     */
+    public function schema(string $db, string $collection, int $sample): array
+    {
+        $o = (array) $this->agent->call('mongo.schema', ['db' => $db, 'collection' => $collection, 'sample' => $sample], 90);
+        return ['sampled' => (int) ($o['sampled'] ?? 0), 'fields' => $o['fields'] ?? []];
+    }
+
     // --- Indexes ---
 
     /** @return array{indexes: mixed} */

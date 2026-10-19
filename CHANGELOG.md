@@ -193,6 +193,15 @@ All notable changes to WhaCP are documented here. The format follows
   and **restores the previous configuration automatically if it fails to
   start**. The page also shows the tail of MongoDB's log. Editing needs
   `server.manage`.
+- **MongoDB schema analysis in the browser.** A Schema tab in the database
+  browser samples the current collection (up to 1000 documents) and shows each
+  top-level field with the BSON types it holds and how often it is present, so
+  the shape of a schemaless collection is visible at a glance. The analysis is a
+  single server-side aggregation (`$sample` → `$objectToArray` → `$type`),
+  bounded by a sample cap and `maxTimeMS`; no document data crosses into the
+  pipeline beyond the validated database and collection names. Read-only
+  (`server.view` / site owner), confined to the account's own databases on the
+  customer **Site → MongoDB** page.
 - **MongoDB collection import in the browser.** An Import button in the database
   browser loads documents into the current collection from a pasted JSON array
   or JSONL (one object per line), or from a chosen `.json` / `.jsonl` file read

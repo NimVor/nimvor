@@ -742,6 +742,78 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"inserted": res.Inserted, "errors": res.Errors, "total": res.Total}, nil
 	}})
 
+	r.Register(actions.Action{Name: "mongo.schema", Description: "Analyse a collection's top-level fields over a bounded sample.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB     string `json:"db"`
+			Coll   string `json:"collection"`
+			Sample int    `json:"sample"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		if in.Sample <= 0 || in.Sample > 5000 {
+			in.Sample = 1000
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		// Sample bounded, then split each document into field/value pairs and
+		// group by field name and BSON type ($type). Pure server-side
+		// aggregation: no user data reaches the pipeline beyond the validated
+		// database and collection names.
+		pipeline := fmt.Sprintf("[{$sample:{size:%d}},{$facet:{"+
+			"count:[{$count:'n'}],"+
+			"fields:["+
+			"{$project:{kv:{$objectToArray:'$$ROOT'}}},"+
+			"{$unwind:'$kv'},"+
+			"{$group:{_id:{field:'$kv.k',type:{$type:'$kv.v'}},count:{$sum:1}}},"+
+			"{$group:{_id:'$_id.field',total:{$sum:'$count'},types:{$push:{type:'$_id.type',count:'$count'}}}},"+
+			"{$project:{_id:0,field:'$_id',total:1,types:1}},"+
+			"{$sort:{total:-1,field:1}}"+
+			"]}}]", in.Sample)
+		script := fmt.Sprintf(
+			"var r=db.getSiblingDB(%s).getCollection(%s).aggregate(%s,{maxTimeMS:20000,allowDiskUse:true}).toArray();"+
+				"print(EJSON.stringify(r,null,0,{relaxed:true}))",
+			jsString(in.DB), jsString(in.Coll), pipeline)
+		out, err := c.eval(ctx, script)
+		if err != nil {
+			return nil, actions.Failed("The collection could not be analysed.", lastLine(out))
+		}
+		var facets []struct {
+			Count []struct {
+				N int `json:"n"`
+			} `json:"count"`
+			Fields []struct {
+				Field string `json:"field"`
+				Total int    `json:"total"`
+				Types []struct {
+					Type  string `json:"type"`
+					Count int    `json:"count"`
+				} `json:"types"`
+			} `json:"fields"`
+		}
+		if err := json.Unmarshal(trimToJSON(out), &facets); err != nil {
+			return nil, actions.Failed("The collection could not be analysed.", lastLine(out))
+		}
+		sampled, fields := 0, []map[string]any{}
+		if len(facets) > 0 {
+			if len(facets[0].Count) > 0 {
+				sampled = facets[0].Count[0].N
+			}
+			for _, f := range facets[0].Fields {
+				types := make([]map[string]any, 0, len(f.Types))
+				for _, t := range f.Types {
+					types = append(types, map[string]any{"type": t.Type, "count": t.Count})
+				}
+				fields = append(fields, map[string]any{"field": f.Field, "total": f.Total, "types": types})
+			}
+		}
+		return map[string]any{"sampled": sampled, "fields": fields}, nil
+	}})
+
 	// --- Indexes ---
 
 	r.Register(actions.Action{Name: "mongo.indexes", Description: "List a collection's indexes.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {

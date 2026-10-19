@@ -127,6 +127,17 @@ final class MongoTest extends HttpTestCase
         $this->post('/mongo/browse', ['op' => 'index_drop', 'db' => 'shop', 'collection' => 'orders', 'name' => 'email_1']);
         self::assertSame('email_1', $this->lastCall('mongo.index_drop')['name']);
 
+        // Schema: the sampled count and per-field types come back.
+        $this->agent->succeed('mongo.schema', ['sampled' => 3, 'fields' => [
+            ['field' => '_id', 'total' => 3, 'types' => [['type' => 'objectId', 'count' => 3]]],
+            ['field' => 'price', 'total' => 2, 'types' => [['type' => 'double', 'count' => 2]]],
+        ]]);
+        $res = $this->post('/mongo/browse', ['op' => 'schema', 'db' => 'shop', 'collection' => 'orders', 'sample' => 500]);
+        $body = (array) json_decode($res->body(), true);
+        self::assertSame(3, $body['data']['sampled']);
+        self::assertSame('price', $body['data']['fields'][1]['field']);
+        self::assertSame(500, $this->lastCall('mongo.schema')['sample']);
+
         // An unknown op is a clean 400, not a 500.
         self::assertSame(400, $this->post('/mongo/browse', ['op' => 'nope', 'db' => 'shop'])->status());
 

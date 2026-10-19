@@ -131,7 +131,44 @@
             newIndexBtn.classList.toggle('d-none', !idx);
             newIndexBtn.disabled = !idx || !state.collection;
         }
-        if (docs) { state.skip = 0; loadDocuments(); } else if (idx) { loadIndexes(); } else { renderAggregate(); }
+        if (docs) { state.skip = 0; loadDocuments(); } else if (idx) { loadIndexes(); } else if (tab === 'schema') { loadSchema(); } else { renderAggregate(); }
+    }
+
+    // --- Schema analysis ---
+
+    function loadSchema() {
+        placeholder(pane, 'Analysing a sample of documents…');
+        call('schema', { collection: state.collection, sample: 1000 }).then(function (d) {
+            renderSchema(d && d.sampled, (d && d.fields) || []);
+        }).catch(function (e) { placeholder(pane, 'The collection could not be analysed.'); fail(e); });
+    }
+
+    function renderSchema(sampled, fields) {
+        if (!fields.length) {
+            placeholder(pane, sampled ? 'The sampled documents had no fields.' : 'This collection has no documents to analyse.');
+            return;
+        }
+        var wrap = el('div', 'p-2');
+        wrap.appendChild(el('div', 'small text-body-secondary mb-2', 'Sampled ' + sampled + ' document' + (sampled === 1 ? '' : 's') + '. Presence is how many of them had the field.'));
+        var table = el('table', 'table table-sm align-middle');
+        var thead = el('thead');
+        var hr = el('tr');
+        ['Field', 'Types', 'Presence'].forEach(function (h) { hr.appendChild(el('th', 'small', h)); });
+        thead.appendChild(hr);
+        table.appendChild(thead);
+        var tb = el('tbody');
+        fields.forEach(function (f) {
+            var tr = el('tr');
+            tr.appendChild(el('td', 'font-monospace small', f.field));
+            var types = (f.types || []).map(function (t) { return t.type + ' (' + t.count + ')'; }).join(', ');
+            tr.appendChild(el('td', 'small', types));
+            var pct = sampled ? Math.round((f.total / sampled) * 100) : 0;
+            tr.appendChild(el('td', 'small text-body-secondary', f.total + ' / ' + sampled + ' (' + pct + '%)'));
+            tb.appendChild(tr);
+        });
+        table.appendChild(tb);
+        wrap.appendChild(table);
+        pane.replaceChildren(wrap);
     }
 
     // --- Aggregation (query lab) ---

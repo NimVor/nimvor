@@ -287,6 +287,8 @@ final class MongoController extends Controller
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
                     }
                     return Response::json(['success' => true, 'data' => $this->mongo->import($db, trim((string) $request->input('collection')), $request->input('format') === 'jsonl' ? 'jsonl' : 'json', (string) $request->input('content'), $this->userId($request))]);
+                case 'schema':
+                    return Response::json(['success' => true, 'data' => $this->mongo->schema($db, trim((string) $request->input('collection')), (int) $request->input('sample', 1000))]);
                 case 'indexes':
                     return Response::json(['success' => true, 'data' => $this->mongo->indexes($db, trim((string) $request->input('collection')))]);
                 case 'index_create':

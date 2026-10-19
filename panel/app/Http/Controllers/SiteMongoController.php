@@ -177,6 +177,8 @@ final class SiteMongoController extends SiteController
                     return Response::json(['success' => true, 'data' => $this->mongo->aggregate($site, $db, trim((string) $request->input('collection')), (string) $request->input('pipeline'), (int) $request->input('limit', 50))]);
                 case 'import':
                     return Response::json(['success' => true, 'data' => $this->mongo->import($site, $db, trim((string) $request->input('collection')), $request->input('format') === 'jsonl' ? 'jsonl' : 'json', (string) $request->input('content'), $this->userId($request))]);
+                case 'schema':
+                    return Response::json(['success' => true, 'data' => $this->mongo->schema($site, $db, trim((string) $request->input('collection')), (int) $request->input('sample', 1000))]);
                 case 'indexes':
                     return Response::json(['success' => true, 'data' => $this->mongo->indexes($site, $db, trim((string) $request->input('collection')))]);
                 case 'index_create':

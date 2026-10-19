@@ -190,6 +190,18 @@ final class SiteMongoService
         return ['inserted' => (int) ($o['inserted'] ?? 0), 'errors' => (int) ($o['errors'] ?? 0), 'total' => (int) ($o['total'] ?? 0)];
     }
 
+    /**
+     * Analyse a collection of the account's own database over a bounded sample.
+     *
+     * @return array{sampled: int, fields: mixed}
+     */
+    public function schema(array $site, string $db, string $collection, int $sample): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.schema', ['db' => $db, 'collection' => $collection, 'sample' => $sample], 90);
+        return ['sampled' => (int) ($o['sampled'] ?? 0), 'fields' => $o['fields'] ?? []];
+    }
+
     /** @return array{indexes: mixed} */
     public function indexes(array $site, string $db, string $collection): array
     {
