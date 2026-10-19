@@ -214,6 +214,7 @@ type Collection struct {
 func Register(r *actions.Registry, env *host.Env) {
 	c := Client{Env: env}
 	registerRepo(r, env)
+	registerBackup(r, env, c)
 
 	r.Register(actions.Action{Name: "mongo.status", Description: "MongoDB: installed, running, version.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		st := Status{Installed: installed(env), Auth: env.Root.Exists(AdminURIFile)}
