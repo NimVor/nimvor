@@ -142,14 +142,33 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
     <?php if ($overview['databases'] === []): ?>
         <div class="card-body small text-body-secondary">No databases yet.</div>
     <?php else: ?>
+        <?php
+        // Count backup archives per database so each row can show its status.
+        $backupCounts = [];
+        foreach ($backups as $b) {
+            $backupCounts[(string) $b['db']] = ($backupCounts[(string) $b['db']] ?? 0) + 1;
+        }
+        ?>
         <div class="wcp-dtable table-responsive">
             <table class="table align-middle mb-0">
-                <thead><tr><th>Name</th><th>Size</th><th class="text-end">Action</th></tr></thead>
+                <thead><tr><th>Name</th><th>Size</th><th>Backup</th><th class="text-end">Action</th></tr></thead>
                 <tbody>
-                <?php foreach ($overview['databases'] as $d): $dn = (string) ($d['name'] ?? ''); ?>
+                <?php foreach ($overview['databases'] as $d): $dn = (string) ($d['name'] ?? ''); $bc = $backupCounts[$dn] ?? 0; ?>
                     <tr>
                         <td class="font-monospace"><?= e($dn) ?></td>
                         <td class="small text-body-secondary"><?= e(format_bytes((int) ($d['size'] ?? 0))) ?></td>
+                        <td class="small">
+                            <?php if ($bc > 0): ?>
+                                <span class="text-success-emphasis"><i class="bi bi-check-circle me-1"></i><?= (int) $bc ?> backup<?= $bc === 1 ? '' : 's' ?></span>
+                            <?php elseif ($canManage): ?>
+                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.backup')) ?>" data-wcp-busy data-wcp-confirm="Back up “<?= e($dn) ?>” now?">
+                                    <?= $this->csrfField() ?><input type="hidden" name="db" value="<?= e($dn) ?>">
+                                    <button class="btn btn-sm btn-link p-0 text-decoration-none" title="Back up now"><i class="bi bi-download me-1"></i>Back up</button>
+                                </form>
+                            <?php else: ?>
+                                <span class="text-body-secondary">None</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-end text-nowrap">
                             <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('mongo.browser')) ?>?db=<?= e(rawurlencode($dn)) ?>" title="Browse collections and documents"><i class="bi bi-table me-1"></i>Browse</a>
                             <?php if ($canManage): ?>

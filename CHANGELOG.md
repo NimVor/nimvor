@@ -206,6 +206,11 @@ All notable changes to WhaCP are documented here. The format follows
   (e.g. `{ "name": 1 }`). Both are JSON objects parsed with EJSON inside
   `mongosh` as data, validated and bounded; they apply on the admin and the
   customer page alike, confined to the account's own databases on the latter.
+- **MongoDB databases list shows backup status (Server → MongoDB).** Each
+  database row now has a Backup column: how many archives it has, or a one-click
+  "Back up" when it has none. (MongoDB users are independent of databases and
+  their passwords are not stored by the panel, so there is no per-row stored
+  password to reveal — unlike a MySQL-style model.)
 - **MongoDB admin password and authentication toggle (Server → MongoDB).** Two
   top actions: set the WhaCP MongoDB administrator's password (creates or resets
   the `whacpAdmin` account in the `admin` database and stores only a root-only
