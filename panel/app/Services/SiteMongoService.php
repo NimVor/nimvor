@@ -134,10 +134,10 @@ final class SiteMongoService
      * @param array<string, mixed> $site
      * @return array{documents: mixed, total: int, skip: int, limit: int}
      */
-    public function documents(array $site, string $db, string $collection, string $filter, int $skip, int $limit): array
+    public function documents(array $site, string $db, string $collection, string $filter, int $skip, int $limit, string $sort = '', string $projection = ''): array
     {
         $this->assertOwned($site, $db);
-        $o = (array) $this->agent->call('mongo.documents', ['db' => $db, 'collection' => $collection, 'filter' => $filter, 'skip' => $skip, 'limit' => $limit], 90);
+        $o = (array) $this->agent->call('mongo.documents', ['db' => $db, 'collection' => $collection, 'filter' => $filter, 'sort' => $sort, 'projection' => $projection, 'skip' => $skip, 'limit' => $limit], 90);
         return [
             'documents' => $o['documents'] ?? [],
             'total' => (int) ($o['total'] ?? 0),

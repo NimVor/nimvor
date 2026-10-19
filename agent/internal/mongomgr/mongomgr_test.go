@@ -151,7 +151,7 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 			return `{"documents":[{"name":"a","total":3}],"ms":4}`, nil
 		case strings.Contains(script, ".find(EJSON.parse") && strings.Contains(script, "count:docs.length,content"):
 			return `{"count":2,"content":"[{\"_id\":\"a\"},{\"_id\":\"b\"}]"}`, nil
-		case strings.Contains(script, "find(q)"):
+		case strings.Contains(script, "c.find(q"):
 			return `{"documents":[{"_id":"64f0","name":"a"}],"total":1}`, nil
 		}
 		return "", nil
@@ -168,6 +168,17 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 	}
 	if !strings.Contains(string(docs["documents"].(json.RawMessage)), `"name":"a"`) {
 		t.Fatalf("documents payload: %s", docs["documents"])
+	}
+
+	// A sort and a projection are passed through to the find, as data.
+	mustCall(t, r, "mongo.documents", `{"db":"shop","collection":"orders","sort":"{\"name\":1}","projection":"{\"name\":1}","limit":50}`)
+	last := h.Runner.Stdins[len(h.Runner.Stdins)-1]
+	if !strings.Contains(last, ".sort(EJSON.parse(") || !strings.Contains(last, `{\"name\":1}`) {
+		t.Fatalf("documents sort/projection not in script: %s", last)
+	}
+	// A malformed sort is rejected before mongosh runs.
+	if _, err := call(t, r, "mongo.documents", `{"db":"shop","collection":"orders","sort":"[1,2]"}`); err == nil {
+		t.Error("a non-object sort must be rejected")
 	}
 
 	del := mustCall(t, r, "mongo.document_delete", `{"db":"shop","collection":"orders","id":"\"64f0\""}`)

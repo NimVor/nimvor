@@ -312,6 +312,8 @@ final class MongoController extends Controller
                         (string) $request->input('filter', ''),
                         (int) $request->input('skip', 0),
                         (int) $request->input('limit', 50),
+                        (string) $request->input('sort', ''),
+                        (string) $request->input('projection', ''),
                     )]);
                 case 'delete':
                     if (!$this->view->can(P::SERVER_MANAGE)) {

@@ -20,6 +20,8 @@
     var collCount = root.querySelector('[data-mb-colls-count]');
     var curLabel = root.querySelector('[data-mb-current]');
     var filterIn = root.querySelector('[data-mb-filter]');
+    var sortIn = root.querySelector('[data-mb-sort]');
+    var projIn = root.querySelector('[data-mb-projection]');
     var runBtn = root.querySelector('[data-mb-run]');
     var prevBtn = root.querySelector('[data-mb-prev]');
     var nextBtn = root.querySelector('[data-mb-next]');
@@ -56,6 +58,8 @@
         setActiveCollection(null);
         curLabel.textContent = 'No collection selected';
         filterIn.disabled = true; runBtn.disabled = true;
+        if (sortIn) { sortIn.disabled = true; }
+        if (projIn) { projIn.disabled = true; }
         if (newBtn) { newBtn.disabled = true; }
         if (exportBtn) { exportBtn.disabled = true; }
         if (importBtn) { importBtn.disabled = true; }
@@ -111,6 +115,8 @@
         setActiveCollection(name);
         curLabel.textContent = name;
         filterIn.disabled = false; runBtn.disabled = false;
+        if (sortIn) { sortIn.disabled = false; }
+        if (projIn) { projIn.disabled = false; }
         if (newBtn) { newBtn.disabled = false; }
         if (exportBtn) { exportBtn.disabled = false; }
         if (importBtn) { importBtn.disabled = false; }
@@ -289,18 +295,28 @@
         rangeEl.textContent = (state.skip + 1) + '–' + Math.min(state.skip + LIMIT, state.total) + ' of ' + state.total;
     }
 
-    function loadDocuments() {
-        var filter = filterIn.value.trim();
-        filterIn.classList.remove('is-invalid');
-        if (filter !== '') {
-            try { JSON.parse(filter); } catch (e) {
-                filterIn.classList.add('is-invalid');
-                WhaCP.toast('The filter must be a JSON object, e.g. { "name": "value" }.', 'danger');
-                return;
+    function validObject(input, label) {
+        var v = input.value.trim();
+        input.classList.remove('is-invalid');
+        if (v !== '') {
+            try { JSON.parse(v); } catch (e) {
+                input.classList.add('is-invalid');
+                WhaCP.toast('The ' + label + ' must be a JSON object, e.g. { "name": 1 }.', 'danger');
+                return null;
             }
         }
+        return v;
+    }
+
+    function loadDocuments() {
+        var filter = validObject(filterIn, 'filter');
+        if (filter === null) { return; }
+        var sort = sortIn ? validObject(sortIn, 'sort') : '';
+        if (sort === null) { return; }
+        var proj = projIn ? validObject(projIn, 'fields') : '';
+        if (proj === null) { return; }
         placeholder(pane, 'Loading…');
-        call('documents', { collection: state.collection, filter: filter, skip: state.skip, limit: LIMIT }).then(function (d) {
+        call('documents', { collection: state.collection, filter: filter, sort: sort, projection: proj, skip: state.skip, limit: LIMIT }).then(function (d) {
             state.total = d.total || 0;
             renderDocuments(Array.isArray(d.documents) ? d.documents : []);
             setPaging();
@@ -626,7 +642,9 @@
     dbSel.addEventListener('change', function () { state.db = dbSel.value; loadCollections(); });
     collFilter.addEventListener('input', applyCollFilter);
     runBtn.addEventListener('click', function () { state.skip = 0; loadDocuments(); });
-    filterIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { state.skip = 0; loadDocuments(); } });
+    [filterIn, sortIn, projIn].forEach(function (inp) {
+        if (inp) { inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { state.skip = 0; loadDocuments(); } }); }
+    });
     prevBtn.addEventListener('click', function () { state.skip = Math.max(0, state.skip - LIMIT); loadDocuments(); });
     nextBtn.addEventListener('click', function () { state.skip = state.skip + LIMIT; loadDocuments(); });
 

@@ -448,11 +448,13 @@ func Register(r *actions.Registry, env *host.Env) {
 
 	r.Register(actions.Action{Name: "mongo.documents", Description: "Find documents in a collection (optional EJSON filter, skip, limit).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
-			DB     string `json:"db"`
-			Coll   string `json:"collection"`
-			Filter string `json:"filter"`
-			Skip   int    `json:"skip"`
-			Limit  int    `json:"limit"`
+			DB         string `json:"db"`
+			Coll       string `json:"collection"`
+			Filter     string `json:"filter"`
+			Sort       string `json:"sort"`
+			Projection string `json:"projection"`
+			Skip       int    `json:"skip"`
+			Limit      int    `json:"limit"`
 		}
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
@@ -470,6 +472,17 @@ func Register(r *actions.Registry, env *host.Env) {
 		if len(filter) > 8192 || !json.Valid([]byte(filter)) {
 			return nil, actions.InvalidParams("filter: enter a valid JSON object, e.g. {\"name\":\"x\"}")
 		}
+		sort := strings.TrimSpace(in.Sort)
+		if sort != "" && (len(sort) > 4096 || !json.Valid([]byte(sort)) || sort[0] != '{') {
+			return nil, actions.InvalidParams("sort: a JSON object, e.g. {\"name\":1}")
+		}
+		proj := strings.TrimSpace(in.Projection)
+		if proj == "" {
+			proj = "{}"
+		}
+		if len(proj) > 4096 || !json.Valid([]byte(proj)) || proj[0] != '{' {
+			return nil, actions.InvalidParams("projection: a JSON object, e.g. {\"name\":1}")
+		}
 		if in.Skip < 0 {
 			in.Skip = 0
 		}
@@ -479,14 +492,21 @@ func Register(r *actions.Registry, env *host.Env) {
 		if !installed(env) {
 			return nil, actions.Conflict("MongoDB is not installed.")
 		}
-		// The filter is embedded as a JSON string literal (json.Marshal does
-		// the escaping) and parsed with EJSON inside mongosh, so it is data,
-		// never code; the script is fed on stdin, not the command line.
+		// The filter, sort and projection are embedded as JSON string literals
+		// (json.Marshal does the escaping) and parsed with EJSON inside mongosh,
+		// so they are data, never code; the script is fed on stdin, not the
+		// command line.
 		lit, _ := json.Marshal(filter)
+		projLit, _ := json.Marshal(proj)
+		sortChain := ""
+		if sort != "" {
+			sortLit, _ := json.Marshal(sort)
+			sortChain = ".sort(EJSON.parse(" + string(sortLit) + "))"
+		}
 		script := fmt.Sprintf(
 			"var c=db.getSiblingDB(%s).getCollection(%s);var q=EJSON.parse(%s);"+
-				"print(EJSON.stringify({documents:c.find(q).skip(%d).limit(%d).toArray(),total:c.countDocuments(q)},null,0,{relaxed:true}))",
-			jsString(in.DB), jsString(in.Coll), string(lit), in.Skip, in.Limit)
+				"print(EJSON.stringify({documents:c.find(q,EJSON.parse(%s))%s.skip(%d).limit(%d).toArray(),total:c.countDocuments(q)},null,0,{relaxed:true}))",
+			jsString(in.DB), jsString(in.Coll), string(lit), string(projLit), sortChain, in.Skip, in.Limit)
 		out, err := c.run(ctx, script, true)
 		if err != nil {
 			return nil, actions.Failed("The documents could not be read.", err.Error())

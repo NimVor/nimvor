@@ -165,6 +165,8 @@ final class SiteMongoController extends SiteController
                         (string) $request->input('filter', ''),
                         (int) $request->input('skip', 0),
                         (int) $request->input('limit', 50),
+                        (string) $request->input('sort', ''),
+                        (string) $request->input('projection', ''),
                     )]);
                 case 'delete':
                     $n = $this->mongo->deleteDocument($site, $db, trim((string) $request->input('collection')), (string) $request->input('id'), $this->userId($request));

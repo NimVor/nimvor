@@ -193,6 +193,12 @@ All notable changes to WhaCP are documented here. The format follows
   and **restores the previous configuration automatically if it fails to
   start**. The page also shows the tail of MongoDB's log. Editing needs
   `server.manage`.
+- **MongoDB documents: sort and field projection.** The database browser's
+  Documents view gains a Sort box and a Fields box next to the filter, so the
+  result can be ordered (e.g. `{ "age": -1 }`) and narrowed to selected fields
+  (e.g. `{ "name": 1 }`). Both are JSON objects parsed with EJSON inside
+  `mongosh` as data, validated and bounded; they apply on the admin and the
+  customer page alike, confined to the account's own databases on the latter.
 - **MongoDB backup and restore (Server → MongoDB).** A Backups card on the
   admin page backs up a database to a gzip `mongodump` archive kept on the
   server, lists the archives with their size and date, restores a database from

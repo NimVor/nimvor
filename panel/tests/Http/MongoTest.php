@@ -132,6 +132,11 @@ final class MongoTest extends HttpTestCase
         self::assertSame(1, $body['data']['total']);
         self::assertSame('{"name":"x"}', $this->lastCall('mongo.documents')['filter']);
 
+        // A sort and a projection reach the agent alongside the filter.
+        $this->post('/mongo/browse', ['op' => 'documents', 'db' => 'shop', 'collection' => 'orders', 'sort' => '{"name":-1}', 'projection' => '{"name":1}']);
+        self::assertSame('{"name":-1}', $this->lastCall('mongo.documents')['sort']);
+        self::assertSame('{"name":1}', $this->lastCall('mongo.documents')['projection']);
+
         $this->agent->succeed('mongo.document_delete', ['deleted' => 1]);
         $res = $this->post('/mongo/browse', ['op' => 'delete', 'db' => 'shop', 'collection' => 'orders', 'id' => '"a1"']);
         self::assertSame(1, ((array) json_decode($res->body(), true))['data']['deleted']);

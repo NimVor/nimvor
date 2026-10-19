@@ -53,6 +53,14 @@
                     <input class="form-control font-monospace" type="text" placeholder='Filter, e.g. { "status": "active" }' aria-label="JSON filter" data-mb-filter autocomplete="off" spellcheck="false" disabled>
                     <button class="btn btn-primary" type="button" data-mb-run disabled>Run</button>
                 </div>
+                <div class="input-group input-group-sm" style="max-width:12rem">
+                    <span class="input-group-text" title="Sort">⇅</span>
+                    <input class="form-control font-monospace" type="text" placeholder='Sort, e.g. { "age": -1 }' aria-label="JSON sort" data-mb-sort autocomplete="off" spellcheck="false" disabled>
+                </div>
+                <div class="input-group input-group-sm" style="max-width:12rem">
+                    <span class="input-group-text" title="Fields (projection)"><i class="bi bi-list-columns-reverse"></i></span>
+                    <input class="form-control font-monospace" type="text" placeholder='Fields, e.g. { "name": 1 }' aria-label="JSON projection" data-mb-projection autocomplete="off" spellcheck="false" disabled>
+                </div>
                 <?php if ($canDelete): ?>
                 <button class="btn btn-sm btn-outline-primary" type="button" data-mb-new disabled><i class="bi bi-plus-lg me-1"></i>New document</button>
                 <?php endif; ?>
