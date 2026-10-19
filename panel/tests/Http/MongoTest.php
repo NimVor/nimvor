@@ -109,6 +109,17 @@ final class MongoTest extends HttpTestCase
         $this->post('/mongo/browse', ['op' => 'update', 'db' => 'shop', 'collection' => 'orders', 'id' => '"a1"', 'document' => '{"_id":"a1","name":"y"}']);
         self::assertSame('"a1"', $this->lastCall('mongo.document_update')['id']);
 
+        // Indexes: list, create, drop.
+        $this->agent->succeed('mongo.indexes', ['indexes' => [['name' => '_id_', 'key' => ['_id' => 1]], ['name' => 'email_1', 'key' => ['email' => 1], 'unique' => true]]]);
+        $res = $this->post('/mongo/browse', ['op' => 'indexes', 'db' => 'shop', 'collection' => 'orders']);
+        self::assertStringContainsString('email_1', $res->body());
+        $this->agent->succeed('mongo.index_create', ['name' => 'email_1']);
+        $this->post('/mongo/browse', ['op' => 'index_create', 'db' => 'shop', 'collection' => 'orders', 'keys' => '{"email":1}', 'options' => '{"unique":true}']);
+        self::assertSame('{"email":1}', $this->lastCall('mongo.index_create')['keys']);
+        $this->agent->succeed('mongo.index_drop', ['dropped' => 'email_1']);
+        $this->post('/mongo/browse', ['op' => 'index_drop', 'db' => 'shop', 'collection' => 'orders', 'name' => 'email_1']);
+        self::assertSame('email_1', $this->lastCall('mongo.index_drop')['name']);
+
         // An unknown op is a clean 400, not a 500.
         self::assertSame(400, $this->post('/mongo/browse', ['op' => 'nope', 'db' => 'shop'])->status());
     }
@@ -122,6 +133,12 @@ final class MongoTest extends HttpTestCase
         self::assertSame(200, $this->post('/mongo/browse', ['op' => 'collections', 'db' => 'shop'])->status());
         self::assertSame(403, $this->post('/mongo/browse', ['op' => 'delete', 'db' => 'shop', 'collection' => 'c', 'id' => '"a1"'])->status());
         self::assertSame(0, $this->calls('mongo.document_delete'));
+        // A viewer may list indexes (read) but not create or drop them.
+        $this->agent->succeed('mongo.indexes', ['indexes' => []]);
+        self::assertSame(200, $this->post('/mongo/browse', ['op' => 'indexes', 'db' => 'shop', 'collection' => 'c'])->status());
+        self::assertSame(403, $this->post('/mongo/browse', ['op' => 'index_create', 'db' => 'shop', 'collection' => 'c', 'keys' => '{"a":1}'])->status());
+        self::assertSame(403, $this->post('/mongo/browse', ['op' => 'index_drop', 'db' => 'shop', 'collection' => 'c', 'name' => 'a_1'])->status());
+        self::assertSame(0, $this->calls('mongo.index_create'));
 
         $this->login('cust');
         self::assertSame(403, $this->request('GET', '/mongo')->status());

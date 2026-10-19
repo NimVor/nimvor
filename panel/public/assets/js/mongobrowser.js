@@ -24,8 +24,11 @@
     var nextBtn = root.querySelector('[data-mb-next]');
     var rangeEl = root.querySelector('[data-mb-range]');
     var pane = root.querySelector('[data-mb-pane]');
+    var tabBtns = root.querySelectorAll('[data-mb-tab]');
+    var docTools = root.querySelector('[data-mb-doc-tools]');
+    var pagerEl = root.querySelector('[data-mb-pager]');
 
-    var state = { db: '', collection: '', skip: 0, total: 0 };
+    var state = { db: '', collection: '', skip: 0, total: 0, tab: 'documents' };
 
     function el(tag, cls, text) {
         var e = document.createElement(tag);
@@ -52,6 +55,8 @@
         curLabel.textContent = 'No collection selected';
         filterIn.disabled = true; runBtn.disabled = true;
         if (newBtn) { newBtn.disabled = true; }
+        if (newIndexBtn) { newIndexBtn.disabled = true; }
+        Array.prototype.forEach.call(tabBtns, function (b) { b.disabled = true; });
         setPaging();
         placeholder(pane, state.db ? 'Choose a collection to browse its documents.' : 'Choose a database, then a collection.');
         collList.replaceChildren();
@@ -103,7 +108,24 @@
         curLabel.textContent = name;
         filterIn.disabled = false; runBtn.disabled = false;
         if (newBtn) { newBtn.disabled = false; }
-        loadDocuments();
+        Array.prototype.forEach.call(tabBtns, function (b) { b.disabled = false; });
+        setTab('documents');
+    }
+
+    // --- Documents / Indexes tabs ---
+
+    function setTab(tab) {
+        state.tab = tab;
+        Array.prototype.forEach.call(tabBtns, function (b) { b.classList.toggle('active', b.getAttribute('data-mb-tab') === tab); });
+        var docs = tab === 'documents';
+        if (docTools) { docTools.classList.toggle('d-none', !docs); }
+        if (pagerEl) { pagerEl.classList.toggle('d-none', !docs); }
+        rangeEl.classList.toggle('d-none', !docs);
+        if (newIndexBtn) {
+            newIndexBtn.classList.toggle('d-none', docs);
+            newIndexBtn.disabled = docs || !state.collection;
+        }
+        if (docs) { state.skip = 0; loadDocuments(); } else { loadIndexes(); }
     }
 
     // --- Documents pane ---
@@ -240,15 +262,115 @@
             var done = function () { ok.disabled = false; editor.hide(); loadDocuments(); };
             var failed = function (ee) { ok.disabled = false; fail(ee); };
             if (editorMode === 'edit') {
-                post('update', { collection: state.collection, id: JSON.stringify(editorId), document: text }).then(done).catch(failed);
+                call('update', { collection: state.collection, id: JSON.stringify(editorId), document: text }).then(done).catch(failed);
             } else {
-                post('insert', { collection: state.collection, document: text }).then(done).catch(failed);
+                call('insert', { collection: state.collection, document: text }).then(done).catch(failed);
             }
+        });
+    }
+
+    // --- Indexes ---
+
+    var newIndexBtn = root.querySelector('[data-mb-newindex]');
+    var indexEl = document.getElementById('mb-index');
+    var indexModal = null;
+    if (indexEl && window.bootstrap) { indexModal = new bootstrap.Modal(indexEl); }
+
+    function loadIndexes() {
+        placeholder(pane, 'Loading…');
+        call('indexes', { collection: state.collection }).then(function (d) {
+            renderIndexes(Array.isArray(d.indexes) ? d.indexes : []);
+        }).catch(function (e) { placeholder(pane, 'The indexes could not be read.'); fail(e); });
+    }
+
+    function indexProps(ix) {
+        var p = [];
+        if (ix.unique) { p.push('unique'); }
+        if (ix.sparse) { p.push('sparse'); }
+        if (typeof ix.expireAfterSeconds !== 'undefined') { p.push('TTL ' + ix.expireAfterSeconds + 's'); }
+        var key = ix.key || {};
+        if (Object.keys(key).some(function (k) { return key[k] === 'text'; })) { p.push('text'); }
+        return p.join(', ');
+    }
+
+    function renderIndexes(list) {
+        var wrap = el('div', 'p-2');
+        var table = el('table', 'table table-sm align-middle mb-0');
+        var thead = el('thead');
+        var htr = el('tr');
+        ['Name', 'Keys', 'Properties', ''].forEach(function (h) { htr.appendChild(el('th', h === '' ? 'text-end' : null, h)); });
+        thead.appendChild(htr);
+        table.appendChild(thead);
+        var tb = el('tbody');
+        list.forEach(function (ix) {
+            var tr = el('tr');
+            tr.appendChild(el('td', 'font-monospace small', ix.name));
+            tr.appendChild(el('td', 'font-monospace small', JSON.stringify(ix.key || {})));
+            tr.appendChild(el('td', 'small text-body-secondary', indexProps(ix)));
+            var act = el('td', 'text-end');
+            if (canDelete && ix.name !== '_id_') {
+                var drop = el('button', 'btn btn-sm btn-outline-danger py-0', 'Drop');
+                drop.type = 'button';
+                drop.addEventListener('click', function () { dropIndex(ix.name, drop); });
+                act.appendChild(drop);
+            }
+            tr.appendChild(act);
+            tb.appendChild(tr);
+        });
+        table.appendChild(tb);
+        wrap.appendChild(table);
+        pane.replaceChildren(wrap);
+    }
+
+    function dropIndex(name, btn) {
+        if (!window.confirm('Drop the index "' + name + '"? Queries that relied on it may slow down.')) { return; }
+        btn.disabled = true;
+        call('index_drop', { collection: state.collection, name: name }).then(function () {
+            WhaCP.toast('Index dropped.', 'success');
+            loadIndexes();
+        }).catch(function (e) { btn.disabled = false; fail(e); });
+    }
+
+    if (indexEl) {
+        indexEl.querySelector('[data-mb-index-form]').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var errEl = indexEl.querySelector('[data-mb-index-err]');
+            errEl.textContent = '';
+            var keysText = indexEl.querySelector('[data-mb-index-keys]').value.trim();
+            var keysObj;
+            try { keysObj = JSON.parse(keysText); } catch (ex) { errEl.textContent = 'Keys must be a JSON object: ' + ex.message; return; }
+            if (!keysObj || typeof keysObj !== 'object' || Array.isArray(keysObj) || Object.keys(keysObj).length === 0) {
+                errEl.textContent = 'Keys must be a non-empty JSON object, e.g. { "email": 1 }.';
+                return;
+            }
+            var options = {};
+            if (indexEl.querySelector('[data-mb-index-unique]').checked) { options.unique = true; }
+            if (indexEl.querySelector('[data-mb-index-sparse]').checked) { options.sparse = true; }
+            var ttl = indexEl.querySelector('[data-mb-index-ttl]').value.trim();
+            if (ttl !== '' && /^\d+$/.test(ttl)) { options.expireAfterSeconds = parseInt(ttl, 10); }
+            var nm = indexEl.querySelector('[data-mb-index-name]').value.trim();
+            if (nm !== '') { options.name = nm; }
+            var ok = indexEl.querySelector('[data-mb-index-ok]');
+            ok.disabled = true;
+            call('index_create', { collection: state.collection, keys: JSON.stringify(keysObj), options: JSON.stringify(options) }).then(function () {
+                ok.disabled = false; indexModal.hide(); WhaCP.toast('Index created.', 'success'); loadIndexes();
+            }).catch(function (ee) { ok.disabled = false; errEl.textContent = (ee.details && ee.details.message) || ee.message || 'Failed.'; });
         });
     }
 
     // --- Wiring ---
 
+    Array.prototype.forEach.call(tabBtns, function (b) {
+        b.addEventListener('click', function () { if (!b.disabled) { setTab(b.getAttribute('data-mb-tab')); } });
+    });
+    if (newIndexBtn && indexModal) {
+        newIndexBtn.addEventListener('click', function () {
+            indexEl.querySelector('[data-mb-index-form]').reset();
+            indexEl.querySelector('[data-mb-index-err]').textContent = '';
+            indexEl.querySelector('#mb-index-title').textContent = 'New index on ' + state.collection;
+            indexModal.show();
+        });
+    }
     if (newBtn) { newBtn.addEventListener('click', function () { openEditor('new', {}); }); }
     dbSel.addEventListener('change', function () { state.db = dbSel.value; loadCollections(); });
     collFilter.addEventListener('input', applyCollFilter);

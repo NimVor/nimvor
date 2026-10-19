@@ -157,6 +157,29 @@ final class SiteMongoService
         return ['matched' => (int) ($o['matched'] ?? 0), 'modified' => (int) ($o['modified'] ?? 0)];
     }
 
+    /** @return array{indexes: mixed} */
+    public function indexes(array $site, string $db, string $collection): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.indexes', ['db' => $db, 'collection' => $collection]);
+        return ['indexes' => $o['indexes'] ?? []];
+    }
+
+    public function createIndex(array $site, string $db, string $collection, string $keys, string $options, ?int $userId): string
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.index_create', ['db' => $db, 'collection' => $collection, 'keys' => $keys, 'options' => $options], 300);
+        $this->audit->record('mongo.index_create', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
+        return (string) ($o['name'] ?? '');
+    }
+
+    public function dropIndex(array $site, string $db, string $collection, string $name, ?int $userId): void
+    {
+        $this->assertOwned($site, $db);
+        $this->agent->call('mongo.index_drop', ['db' => $db, 'collection' => $collection, 'name' => $name]);
+        $this->audit->record('mongo.index_drop', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'name' => $name], $userId);
+    }
+
     /**
      * Prepend the account prefix to a customer-supplied name, removing a
      * prefix they may have typed themselves so it is never doubled.

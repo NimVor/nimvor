@@ -96,12 +96,21 @@ final class SiteMongoTest extends HttpTestCase
         $this->agent->succeed('mongo.document_update', ['matched' => 1, 'modified' => 1]);
         self::assertSame(200, $this->post($base . '/browse', ['op' => 'update', 'db' => $this->prefix . 'shop', 'collection' => 'orders', 'id' => '"a1"', 'document' => '{"a":2}'])->status());
 
+        // Indexes on the account's own database work.
+        $this->agent->succeed('mongo.indexes', ['indexes' => [['name' => '_id_', 'key' => ['_id' => 1]]]]);
+        self::assertSame(200, $this->post($base . '/browse', ['op' => 'indexes', 'db' => $this->prefix . 'shop', 'collection' => 'orders'])->status());
+        $this->agent->succeed('mongo.index_create', ['name' => 'a_1']);
+        self::assertSame(200, $this->post($base . '/browse', ['op' => 'index_create', 'db' => $this->prefix . 'shop', 'collection' => 'orders', 'keys' => '{"a":1}'])->status());
+        $this->agent->succeed('mongo.index_drop', ['dropped' => 'a_1']);
+        self::assertSame(200, $this->post($base . '/browse', ['op' => 'index_drop', 'db' => $this->prefix . 'shop', 'collection' => 'orders', 'name' => 'a_1'])->status());
+
         // A database outside the account's prefix is refused before the agent,
-        // for every operation including the new writes.
+        // for every operation including the new writes and index management.
         $this->agent->succeed('mongo.document_delete', ['deleted' => 1]);
         foreach ([
             ['collections', []], ['documents', ['collection' => 'c']], ['delete', ['collection' => 'c', 'id' => '"a1"']],
             ['insert', ['collection' => 'c', 'document' => '{"a":1}']], ['update', ['collection' => 'c', 'id' => '"a1"', 'document' => '{"a":1}']],
+            ['indexes', ['collection' => 'c']], ['index_create', ['collection' => 'c', 'keys' => '{"a":1}']], ['index_drop', ['collection' => 'c', 'name' => 'a_1']],
         ] as [$op, $extra]) {
             $res = $this->post($base . '/browse', ['op' => $op, 'db' => 'otheracct_secret'] + $extra);
             self::assertSame(403, $res->status(), $op . ' on another account must be refused');
@@ -109,6 +118,7 @@ final class SiteMongoTest extends HttpTestCase
         self::assertSame(1, $this->calls('mongo.collections'), 'only the owned-db collections call reached the agent');
         self::assertSame(0, $this->calls('mongo.document_delete'), 'no delete reached the agent for another account');
         self::assertSame(1, $this->calls('mongo.document_insert'), 'only the owned-db insert reached the agent');
+        self::assertSame(1, $this->calls('mongo.index_create'), 'only the owned-db index create reached the agent');
     }
 
     public function testMongoIsGatedByFeature(): void

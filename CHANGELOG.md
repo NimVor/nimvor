@@ -193,6 +193,15 @@ All notable changes to WhaCP are documented here. The format follows
   and **restores the previous configuration automatically if it fails to
   start**. The page also shows the tail of MongoDB's log. Editing needs
   `server.manage`.
+- **MongoDB index management in the browser.** A new Indexes tab in the
+  database browser lists a collection's indexes (keys and unique / sparse /
+  TTL / text properties), creates single-field or compound indexes with those
+  options through a form, and drops an index (the `_id` index is refused). On
+  the admin page creating/dropping needs `server.manage`; on the customer page
+  it is the site owner, confined to the account's own databases. Index
+  definitions are validated and passed to `mongosh` as data (EJSON), no inline
+  script. Also fixes the document editor's save, which called an undefined
+  helper.
 - **MongoDB document editing in the browser.** The database browser can now
   insert a new document, edit a document in place, and duplicate one, with a
   JSON/Extended-JSON editor; values round-trip through EJSON so BSON types

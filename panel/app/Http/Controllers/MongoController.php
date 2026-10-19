@@ -261,6 +261,19 @@ final class MongoController extends Controller
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
                     }
                     return Response::json(['success' => true, 'data' => $this->mongo->updateDocument($db, trim((string) $request->input('collection')), (string) $request->input('id'), (string) $request->input('document'), $this->userId($request))]);
+                case 'indexes':
+                    return Response::json(['success' => true, 'data' => $this->mongo->indexes($db, trim((string) $request->input('collection')))]);
+                case 'index_create':
+                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    return Response::json(['success' => true, 'data' => ['name' => $this->mongo->createIndex($db, trim((string) $request->input('collection')), (string) $request->input('keys'), (string) $request->input('options', '{}'), $this->userId($request))]]);
+                case 'index_drop':
+                    if (!$this->view->can(P::SERVER_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    $this->mongo->dropIndex($db, trim((string) $request->input('collection')), (string) $request->input('name'), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['dropped' => (string) $request->input('name')]]);
                 default:
                     return Response::json(['success' => false, 'error' => ['message' => 'Unknown operation.']], 400);
             }

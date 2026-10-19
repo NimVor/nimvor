@@ -38,15 +38,24 @@
     <section class="wcp-db-main">
         <div class="wcp-db-bar">
             <span class="font-monospace small text-truncate me-2" data-mb-current>No collection selected</span>
-            <div class="input-group input-group-sm wcp-db-filter">
-                <span class="input-group-text"><i class="bi bi-funnel"></i></span>
-                <input class="form-control font-monospace" type="text" placeholder='Filter, e.g. { "status": "active" }' aria-label="JSON filter" data-mb-filter autocomplete="off" spellcheck="false" disabled>
-                <button class="btn btn-primary" type="button" data-mb-run disabled>Run</button>
+            <div class="btn-group btn-group-sm me-2" role="tablist" aria-label="View">
+                <button class="btn btn-outline-secondary active" type="button" data-mb-tab="documents" disabled>Documents</button>
+                <button class="btn btn-outline-secondary" type="button" data-mb-tab="indexes" disabled>Indexes</button>
             </div>
+            <span data-mb-doc-tools class="d-flex align-items-center gap-2">
+                <div class="input-group input-group-sm wcp-db-filter">
+                    <span class="input-group-text"><i class="bi bi-funnel"></i></span>
+                    <input class="form-control font-monospace" type="text" placeholder='Filter, e.g. { "status": "active" }' aria-label="JSON filter" data-mb-filter autocomplete="off" spellcheck="false" disabled>
+                    <button class="btn btn-primary" type="button" data-mb-run disabled>Run</button>
+                </div>
+                <?php if ($canDelete): ?>
+                <button class="btn btn-sm btn-outline-primary" type="button" data-mb-new disabled><i class="bi bi-plus-lg me-1"></i>New document</button>
+                <?php endif; ?>
+            </span>
             <?php if ($canDelete): ?>
-            <button class="btn btn-sm btn-outline-primary ms-2" type="button" data-mb-new disabled><i class="bi bi-plus-lg me-1"></i>New document</button>
+            <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newindex disabled><i class="bi bi-plus-lg me-1"></i>New index</button>
             <?php endif; ?>
-            <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Paging">
+            <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Paging" data-mb-pager>
                 <button class="btn btn-outline-secondary" type="button" data-mb-prev disabled><i class="bi bi-chevron-left"></i></button>
                 <button class="btn btn-outline-secondary" type="button" data-mb-next disabled><i class="bi bi-chevron-right"></i></button>
             </div>
@@ -72,6 +81,32 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="submit" class="btn btn-primary" data-mb-editor-ok>Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="mb-index" tabindex="-1" aria-labelledby="mb-index-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" data-mb-index-form novalidate>
+            <div class="modal-header"><h2 class="modal-title h6" id="mb-index-title">New index</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body">
+                <label class="form-label small" for="mb-index-keys">Keys (JSON)</label>
+                <input class="form-control font-monospace" id="mb-index-keys" data-mb-index-keys placeholder='{ "email": 1 }' autocomplete="off" spellcheck="false">
+                <div class="form-text">1 ascending, -1 descending, or "text". Compound: <code>{ "a": 1, "b": -1 }</code>.</div>
+                <div class="row g-2 mt-1">
+                    <div class="col-6 form-check ms-2"><input class="form-check-input" type="checkbox" id="mb-index-unique" data-mb-index-unique><label class="form-check-label small" for="mb-index-unique">Unique</label></div>
+                    <div class="col-6 form-check"><input class="form-check-input" type="checkbox" id="mb-index-sparse" data-mb-index-sparse><label class="form-check-label small" for="mb-index-sparse">Sparse</label></div>
+                </div>
+                <div class="row g-2 mt-1">
+                    <div class="col-6"><label class="form-label small mb-0" for="mb-index-ttl">TTL (seconds)</label><input class="form-control form-control-sm" type="number" min="0" id="mb-index-ttl" data-mb-index-ttl placeholder="optional"></div>
+                    <div class="col-6"><label class="form-label small mb-0" for="mb-index-name">Name</label><input class="form-control form-control-sm" id="mb-index-name" data-mb-index-name placeholder="optional" autocomplete="off"></div>
+                </div>
+                <div class="invalid-feedback d-block" data-mb-index-err></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" data-mb-index-ok>Create index</button>
             </div>
         </form>
     </div>

@@ -159,6 +159,28 @@ final class MongoService
         return ['matched' => (int) ($o['matched'] ?? 0), 'modified' => (int) ($o['modified'] ?? 0)];
     }
 
+    // --- Indexes ---
+
+    /** @return array{indexes: mixed} */
+    public function indexes(string $db, string $collection): array
+    {
+        $o = (array) $this->agent->call('mongo.indexes', ['db' => $db, 'collection' => $collection]);
+        return ['indexes' => $o['indexes'] ?? []];
+    }
+
+    public function createIndex(string $db, string $collection, string $keys, string $options, ?int $userId): string
+    {
+        $o = (array) $this->agent->call('mongo.index_create', ['db' => $db, 'collection' => $collection, 'keys' => $keys, 'options' => $options], 300);
+        $this->audit->record('mongo.index_create', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'keys' => $keys], $userId);
+        return (string) ($o['name'] ?? '');
+    }
+
+    public function dropIndex(string $db, string $collection, string $name, ?int $userId): void
+    {
+        $this->agent->call('mongo.index_drop', ['db' => $db, 'collection' => $collection, 'name' => $name]);
+        $this->audit->record('mongo.index_drop', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'name' => $name], $userId);
+    }
+
     // --- Configuration and log ---
 
     /** @return array{path: string, port: int, bind_ip: string, db_path: string, log_path: string, authorization: bool, raw: string} */

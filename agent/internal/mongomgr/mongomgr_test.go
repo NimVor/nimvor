@@ -298,6 +298,51 @@ func readHostFile(t *testing.T, h *testhost.Host, path string) string {
 	return string(b)
 }
 
+func TestIndexesListCreateDrop(t *testing.T) {
+	h, r := setup(t)
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id != "mongosh" {
+			return "", nil
+		}
+		script := strings.Join(args, " ")
+		if n := len(h.Runner.Stdins); n > 0 {
+			script += " " + h.Runner.Stdins[n-1]
+		}
+		switch {
+		case strings.Contains(script, "getIndexes"):
+			return `[{"v":2,"key":{"_id":1},"name":"_id_"},{"v":2,"key":{"email":1},"name":"email_1","unique":true}]`, nil
+		case strings.Contains(script, "createIndex"):
+			return `{"name":"email_1"}`, nil
+		case strings.Contains(script, "dropIndex"):
+			return `{"ok":1}`, nil
+		}
+		return "", nil
+	}
+
+	idx := mustCall(t, r, "mongo.indexes", `{"db":"shop","collection":"users"}`)
+	if !strings.Contains(string(idx["indexes"].(json.RawMessage)), `"email_1"`) {
+		t.Fatalf("indexes: %s", idx["indexes"])
+	}
+	cr := mustCall(t, r, "mongo.index_create", `{"db":"shop","collection":"users","keys":"{\"email\":1}","options":"{\"unique\":true}"}`)
+	if cr["name"].(string) != "email_1" {
+		t.Fatalf("create: %+v", cr)
+	}
+	if _, err := call(t, r, "mongo.index_drop", `{"db":"shop","collection":"users","name":"email_1"}`); err != nil {
+		t.Fatalf("drop: %v", err)
+	}
+
+	// The _id index may not be dropped; empty keys and bad names are refused.
+	if _, err := call(t, r, "mongo.index_drop", `{"db":"shop","collection":"users","name":"_id_"}`); err == nil {
+		t.Error("dropping _id_ must be refused")
+	}
+	if _, err := call(t, r, "mongo.index_create", `{"db":"shop","collection":"users","keys":"{}"}`); err == nil {
+		t.Error("empty keys must be refused")
+	}
+	if _, err := call(t, r, "mongo.index_create", `{"db":"shop","collection":"users","keys":"not json"}`); err == nil {
+		t.Error("non-JSON keys must be refused")
+	}
+}
+
 func mustCallAny(t *testing.T, r *actions.Registry, name, params string) any {
 	t.Helper()
 	res, err := call(t, r, name, params)

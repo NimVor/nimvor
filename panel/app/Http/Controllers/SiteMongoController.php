@@ -150,6 +150,13 @@ final class SiteMongoController extends SiteController
                     return Response::json(['success' => true, 'data' => $this->mongo->insertDocument($site, $db, trim((string) $request->input('collection')), (string) $request->input('document'), $this->userId($request))]);
                 case 'update':
                     return Response::json(['success' => true, 'data' => $this->mongo->updateDocument($site, $db, trim((string) $request->input('collection')), (string) $request->input('id'), (string) $request->input('document'), $this->userId($request))]);
+                case 'indexes':
+                    return Response::json(['success' => true, 'data' => $this->mongo->indexes($site, $db, trim((string) $request->input('collection')))]);
+                case 'index_create':
+                    return Response::json(['success' => true, 'data' => ['name' => $this->mongo->createIndex($site, $db, trim((string) $request->input('collection')), (string) $request->input('keys'), (string) $request->input('options', '{}'), $this->userId($request))]]);
+                case 'index_drop':
+                    $this->mongo->dropIndex($site, $db, trim((string) $request->input('collection')), (string) $request->input('name'), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['dropped' => (string) $request->input('name')]]);
                 default:
                     return Response::json(['success' => false, 'error' => ['message' => 'Unknown operation.']], 400);
             }

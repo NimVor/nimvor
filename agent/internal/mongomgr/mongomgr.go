@@ -46,6 +46,9 @@ var (
 	userRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,62}$`)
 	// A collection name: letters, digits, _ . - (dots allow dotted names).
 	collRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,119}$`)
+	// An index name as MongoDB generates or accepts them (e.g. "field_1",
+	// "a_1_b_-1", a custom name); conservative but covers real names.
+	indexNameRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.$-]{0,127}$`)
 	// Roles a database user may be given (scoped to one database).
 	roles = map[string]bool{"read": true, "readWrite": true, "dbAdmin": true, "dbOwner": true}
 )
@@ -536,6 +539,104 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		_ = json.Unmarshal(trimToJSON(out), &res)
 		return map[string]any{"matched": res.Matched, "modified": res.Modified}, nil
+	}})
+
+	// --- Indexes ---
+
+	r.Register(actions.Action{Name: "mongo.indexes", Description: "List a collection's indexes.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB   string `json:"db"`
+			Coll string `json:"collection"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		script := fmt.Sprintf("print(EJSON.stringify(db.getSiblingDB(%s).getCollection(%s).getIndexes(),null,0,{relaxed:true}))", jsString(in.DB), jsString(in.Coll))
+		out, err := c.eval(ctx, script)
+		if err != nil {
+			return nil, actions.Failed("The indexes could not be listed.", lastLine(out))
+		}
+		var raw json.RawMessage = trimToJSON(out)
+		if !json.Valid(raw) {
+			return nil, actions.Failed("The indexes could not be listed.", lastLine(out))
+		}
+		return map[string]any{"indexes": raw}, nil
+	}})
+
+	r.Register(actions.Action{Name: "mongo.index_create", Mutating: true, Description: "Create an index from a keys object and options (EJSON).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB      string `json:"db"`
+			Coll    string `json:"collection"`
+			Keys    string `json:"keys"`
+			Options string `json:"options"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		keys := strings.TrimSpace(in.Keys)
+		if keys == "" || len(keys) > 4096 || !json.Valid([]byte(keys)) || keys[0] != '{' || keys == "{}" {
+			return nil, actions.InvalidParams("keys: a non-empty JSON object, e.g. {\"field\":1}")
+		}
+		opts := strings.TrimSpace(in.Options)
+		if opts == "" {
+			opts = "{}"
+		}
+		if len(opts) > 4096 || !json.Valid([]byte(opts)) || opts[0] != '{' {
+			return nil, actions.InvalidParams("options: a JSON object")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		kLit, _ := json.Marshal(keys)
+		oLit, _ := json.Marshal(opts)
+		script := fmt.Sprintf(
+			"print(JSON.stringify({name:db.getSiblingDB(%s).getCollection(%s).createIndex(EJSON.parse(%s),EJSON.parse(%s))}))",
+			jsString(in.DB), jsString(in.Coll), string(kLit), string(oLit))
+		out, err := c.run(ctx, script, true)
+		if err != nil {
+			return nil, actions.Failed("The index could not be created.", lastLine(out))
+		}
+		var res struct {
+			Name string `json:"name"`
+		}
+		_ = json.Unmarshal(trimToJSON(out), &res)
+		return map[string]any{"name": res.Name}, nil
+	}})
+
+	r.Register(actions.Action{Name: "mongo.index_drop", Mutating: true, Description: "Drop an index by name (the _id index is refused).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB   string `json:"db"`
+			Coll string `json:"collection"`
+			Name string `json:"name"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		if !indexNameRe.MatchString(in.Name) {
+			return nil, actions.InvalidParams("name: invalid index name")
+		}
+		if in.Name == "_id_" {
+			return nil, actions.Conflict("The _id index cannot be dropped.")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		if _, err := c.eval(ctx, fmt.Sprintf("db.getSiblingDB(%s).getCollection(%s).dropIndex(%s)", jsString(in.DB), jsString(in.Coll), jsString(in.Name))); err != nil {
+			return nil, actions.Failed("The index could not be dropped.", err.Error())
+		}
+		return map[string]any{"dropped": in.Name}, nil
 	}})
 
 	// --- Configuration and log ---
