@@ -159,6 +159,13 @@ final class MongoService
         return ['matched' => (int) ($o['matched'] ?? 0), 'modified' => (int) ($o['modified'] ?? 0)];
     }
 
+    /** Run an aggregation pipeline (EJSON array). @return array{documents: mixed, ms: int, limit: int} */
+    public function aggregate(string $db, string $collection, string $pipeline, int $limit): array
+    {
+        $o = (array) $this->agent->call('mongo.aggregate', ['db' => $db, 'collection' => $collection, 'pipeline' => $pipeline, 'limit' => $limit], 90);
+        return ['documents' => $o['documents'] ?? [], 'ms' => (int) ($o['ms'] ?? 0), 'limit' => (int) ($o['limit'] ?? $limit)];
+    }
+
     // --- Indexes ---
 
     /** @return array{indexes: mixed} */

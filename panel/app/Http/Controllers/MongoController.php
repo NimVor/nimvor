@@ -261,6 +261,8 @@ final class MongoController extends Controller
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
                     }
                     return Response::json(['success' => true, 'data' => $this->mongo->updateDocument($db, trim((string) $request->input('collection')), (string) $request->input('id'), (string) $request->input('document'), $this->userId($request))]);
+                case 'aggregate':
+                    return Response::json(['success' => true, 'data' => $this->mongo->aggregate($db, trim((string) $request->input('collection')), (string) $request->input('pipeline'), (int) $request->input('limit', 50))]);
                 case 'indexes':
                     return Response::json(['success' => true, 'data' => $this->mongo->indexes($db, trim((string) $request->input('collection')))]);
                 case 'index_create':

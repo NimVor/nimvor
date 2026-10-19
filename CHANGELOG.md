@@ -193,6 +193,12 @@ All notable changes to WhaCP are documented here. The format follows
   and **restores the previous configuration automatically if it fails to
   start**. The page also shows the tail of MongoDB's log. Editing needs
   `server.manage`.
+- **MongoDB aggregation (query lab) in the browser.** A new Aggregation tab
+  runs a pipeline (a JSON array of stages) against the current collection and
+  shows the results with the execution time. The pipeline is parsed with EJSON
+  inside `mongosh` (data, not code), a trailing `$limit` bounds the output and
+  `maxTimeMS` bounds the run. Read-only (`server.view` / site owner), confined
+  to the account's own databases on the customer page.
 - **MongoDB index management in the browser.** A new Indexes tab in the
   database browser lists a collection's indexes (keys and unique / sparse /
   TTL / text properties), creates single-field or compound indexes with those

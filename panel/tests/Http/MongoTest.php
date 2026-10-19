@@ -109,6 +109,13 @@ final class MongoTest extends HttpTestCase
         $this->post('/mongo/browse', ['op' => 'update', 'db' => 'shop', 'collection' => 'orders', 'id' => '"a1"', 'document' => '{"_id":"a1","name":"y"}']);
         self::assertSame('"a1"', $this->lastCall('mongo.document_update')['id']);
 
+        // Aggregation: a pipeline runs and returns documents + timing.
+        $this->agent->succeed('mongo.aggregate', ['documents' => [['_id' => 'a', 'n' => 3]], 'ms' => 5, 'limit' => 50]);
+        $res = $this->post('/mongo/browse', ['op' => 'aggregate', 'db' => 'shop', 'collection' => 'orders', 'pipeline' => '[{"$group":{"_id":"$name","n":{"$sum":1}}}]']);
+        $body = (array) json_decode($res->body(), true);
+        self::assertSame(5, $body['data']['ms']);
+        self::assertSame('[{"$group":{"_id":"$name","n":{"$sum":1}}}]', $this->lastCall('mongo.aggregate')['pipeline']);
+
         // Indexes: list, create, drop.
         $this->agent->succeed('mongo.indexes', ['indexes' => [['name' => '_id_', 'key' => ['_id' => 1]], ['name' => 'email_1', 'key' => ['email' => 1], 'unique' => true]]]);
         $res = $this->post('/mongo/browse', ['op' => 'indexes', 'db' => 'shop', 'collection' => 'orders']);

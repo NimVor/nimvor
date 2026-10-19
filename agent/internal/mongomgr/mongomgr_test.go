@@ -143,6 +143,8 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 			return `{"inserted_id":"64f1"}`, nil
 		case strings.Contains(script, "replaceOne"):
 			return `{"matched":1,"modified":1}`, nil
+		case strings.Contains(script, "aggregate(p"):
+			return `{"documents":[{"name":"a","total":3}],"ms":4}`, nil
 		case strings.Contains(script, "find(q)"):
 			return `{"documents":[{"_id":"64f0","name":"a"}],"total":1}`, nil
 		}
@@ -174,6 +176,14 @@ func TestBrowserCollectionsDocumentsAndDelete(t *testing.T) {
 	upd := mustCall(t, r, "mongo.document_update", `{"db":"shop","collection":"orders","id":"\"64f0\"","document":"{\"name\":\"b\"}"}`)
 	if upd["matched"].(int64) != 1 || upd["modified"].(int64) != 1 {
 		t.Fatalf("update: %+v", upd)
+	}
+
+	agg := mustCall(t, r, "mongo.aggregate", `{"db":"shop","collection":"orders","pipeline":"[{\"$match\":{\"name\":\"a\"}}]"}`)
+	if !strings.Contains(string(agg["documents"].(json.RawMessage)), `"a"`) {
+		t.Fatalf("aggregate documents: %s", agg["documents"])
+	}
+	if _, err := call(t, r, "mongo.aggregate", `{"db":"shop","collection":"orders","pipeline":"{}"}`); err == nil {
+		t.Error("a non-array pipeline must be rejected")
 	}
 
 	// Bad JSON / missing _id are refused before mongosh runs.

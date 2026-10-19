@@ -117,15 +117,63 @@
     function setTab(tab) {
         state.tab = tab;
         Array.prototype.forEach.call(tabBtns, function (b) { b.classList.toggle('active', b.getAttribute('data-mb-tab') === tab); });
-        var docs = tab === 'documents';
+        var docs = tab === 'documents', idx = tab === 'indexes';
         if (docTools) { docTools.classList.toggle('d-none', !docs); }
         if (pagerEl) { pagerEl.classList.toggle('d-none', !docs); }
         rangeEl.classList.toggle('d-none', !docs);
         if (newIndexBtn) {
-            newIndexBtn.classList.toggle('d-none', docs);
-            newIndexBtn.disabled = docs || !state.collection;
+            newIndexBtn.classList.toggle('d-none', !idx);
+            newIndexBtn.disabled = !idx || !state.collection;
         }
-        if (docs) { state.skip = 0; loadDocuments(); } else { loadIndexes(); }
+        if (docs) { state.skip = 0; loadDocuments(); } else if (idx) { loadIndexes(); } else { renderAggregate(); }
+    }
+
+    // --- Aggregation (query lab) ---
+
+    var aggPipeline = '[\n  { "$match": {} }\n]';
+
+    function renderAggregate() {
+        var wrap = el('div', 'p-2');
+        wrap.appendChild(el('label', 'form-label small', 'Pipeline (JSON array of stages)'));
+        var ta = el('textarea', 'form-control font-monospace mb-2');
+        ta.rows = 8; ta.spellcheck = false; ta.value = aggPipeline;
+        wrap.appendChild(ta);
+        var bar = el('div', 'd-flex align-items-center gap-2 mb-2');
+        var run = el('button', 'btn btn-sm btn-primary', 'Run');
+        run.type = 'button';
+        var status = el('span', 'small text-body-secondary');
+        bar.appendChild(run);
+        bar.appendChild(status);
+        wrap.appendChild(bar);
+        var results = el('div', '');
+        wrap.appendChild(results);
+        pane.replaceChildren(wrap);
+
+        run.addEventListener('click', function () {
+            aggPipeline = ta.value;
+            var text = ta.value.trim();
+            var parsed;
+            try { parsed = JSON.parse(text); } catch (ex) { status.textContent = 'Invalid JSON: ' + ex.message; status.classList.add('text-danger'); return; }
+            if (!Array.isArray(parsed)) { status.textContent = 'The pipeline must be a JSON array of stages.'; status.classList.add('text-danger'); return; }
+            status.classList.remove('text-danger');
+            status.textContent = 'Running…';
+            run.disabled = true;
+            call('aggregate', { collection: state.collection, pipeline: text, limit: 50 }).then(function (d) {
+                run.disabled = false;
+                var docs = Array.isArray(d.documents) ? d.documents : [];
+                status.textContent = docs.length + ' result' + (docs.length === 1 ? '' : 's') + ' · ' + (d.ms || 0) + ' ms (max 50 shown)';
+                results.replaceChildren();
+                if (!docs.length) { results.appendChild(el('div', 'small text-body-secondary', 'No results.')); return; }
+                docs.forEach(function (doc, i) {
+                    var card = el('article', 'card mb-2');
+                    card.appendChild(el('div', 'card-header py-1 px-2 small', '#' + (i + 1)));
+                    var body = el('pre', 'card-body mb-0 small wcp-mongo-json');
+                    body.textContent = JSON.stringify(doc, null, 2);
+                    card.appendChild(body);
+                    results.appendChild(card);
+                });
+            }).catch(function (e) { run.disabled = false; status.textContent = ''; fail(e); });
+        });
     }
 
     // --- Documents pane ---

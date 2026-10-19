@@ -96,6 +96,10 @@ final class SiteMongoTest extends HttpTestCase
         $this->agent->succeed('mongo.document_update', ['matched' => 1, 'modified' => 1]);
         self::assertSame(200, $this->post($base . '/browse', ['op' => 'update', 'db' => $this->prefix . 'shop', 'collection' => 'orders', 'id' => '"a1"', 'document' => '{"a":2}'])->status());
 
+        // Aggregation on the account's own database works.
+        $this->agent->succeed('mongo.aggregate', ['documents' => [], 'ms' => 1, 'limit' => 50]);
+        self::assertSame(200, $this->post($base . '/browse', ['op' => 'aggregate', 'db' => $this->prefix . 'shop', 'collection' => 'orders', 'pipeline' => '[{"$match":{}}]'])->status());
+
         // Indexes on the account's own database work.
         $this->agent->succeed('mongo.indexes', ['indexes' => [['name' => '_id_', 'key' => ['_id' => 1]]]]);
         self::assertSame(200, $this->post($base . '/browse', ['op' => 'indexes', 'db' => $this->prefix . 'shop', 'collection' => 'orders'])->status());
@@ -111,6 +115,7 @@ final class SiteMongoTest extends HttpTestCase
             ['collections', []], ['documents', ['collection' => 'c']], ['delete', ['collection' => 'c', 'id' => '"a1"']],
             ['insert', ['collection' => 'c', 'document' => '{"a":1}']], ['update', ['collection' => 'c', 'id' => '"a1"', 'document' => '{"a":1}']],
             ['indexes', ['collection' => 'c']], ['index_create', ['collection' => 'c', 'keys' => '{"a":1}']], ['index_drop', ['collection' => 'c', 'name' => 'a_1']],
+            ['aggregate', ['collection' => 'c', 'pipeline' => '[{"$match":{}}]']],
         ] as [$op, $extra]) {
             $res = $this->post($base . '/browse', ['op' => $op, 'db' => 'otheracct_secret'] + $extra);
             self::assertSame(403, $res->status(), $op . ' on another account must be refused');

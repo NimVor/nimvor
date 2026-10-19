@@ -157,6 +157,14 @@ final class SiteMongoService
         return ['matched' => (int) ($o['matched'] ?? 0), 'modified' => (int) ($o['modified'] ?? 0)];
     }
 
+    /** Run an aggregation pipeline in the account's own database. @return array{documents: mixed, ms: int, limit: int} */
+    public function aggregate(array $site, string $db, string $collection, string $pipeline, int $limit): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.aggregate', ['db' => $db, 'collection' => $collection, 'pipeline' => $pipeline, 'limit' => $limit], 90);
+        return ['documents' => $o['documents'] ?? [], 'ms' => (int) ($o['ms'] ?? 0), 'limit' => (int) ($o['limit'] ?? $limit)];
+    }
+
     /** @return array{indexes: mixed} */
     public function indexes(array $site, string $db, string $collection): array
     {
