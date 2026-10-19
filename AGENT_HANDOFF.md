@@ -54,22 +54,16 @@ above — the ones the recent commits touched — are green.
 
 ## 4. Known issues / unfinished work (verified)
 
-### 4.1 `agent/internal/egress/egress.go` fails `gofmt` — **will break CI** ⚠️
-- **Committed** (not a local edit) since `7b5af04` with its imports out of
-  order (`sort`/`regexp` swapped).
-- CI (`.github/workflows/ci.yml` lines 42–43) runs `gofmt -l agent` and fails
-  the job if the output is non-empty, and `make lint` does the same. So **the
-  lint gate is currently red** on this branch.
-- Fix is mechanical: `cd agent && gofmt -w internal/egress/egress.go`, then
-  verify `gofmt -l .` is empty and commit. Left unfixed here because this
-  handoff task was scoped to investigation + these two docs, not code changes —
-  **do this first** before further agent work or any PR.
+### 4.1 `agent/internal/egress/egress.go` gofmt — ✅ RESOLVED
+Was committed (since `7b5af04`) with imports out of order (`sort`/`regexp`
+swapped), which failed the CI gofmt gate (`.github/workflows/ci.yml` lines
+42–43) and `make lint`. Fixed in this session with `gofmt -w`; `gofmt -l agent`
+is now empty and the lint gate passes again.
 
-### 4.2 CHANGELOG is behind the last three commits
-`## [Unreleased]` in `CHANGELOG.md` does **not** mention: the addon-domain plan
--limit fix (`e714a2c`), the CSP inline-script fix (`03d5c32`), or the
-app-installer target selector (`2ad3bc3`). CONTRIBUTING requires a changelog
-line per change. Add entries for these three when next editing the changelog.
+### 4.2 CHANGELOG behind the last three commits — ✅ RESOLVED
+`## [Unreleased]` now has entries for the addon-domain plan-limit fix
+(`e714a2c`) and the CSP inline-script fix (`03d5c32`) under **Fixed**, and the
+app-installer target selector (`2ad3bc3`) under **Added**.
 
 ### 4.3 Documented remaining GA gate: cross-OS real-host matrix
 Per `CHANGELOG.md` (GA security program) and `docs/release/1.0.0-ga-readiness.md`,
@@ -81,11 +75,10 @@ the prior task list: "GA P3–P8: matrix, negative tests, scorecard, report".)
 
 ## 5. Suggested next steps (in order)
 
-1. **Fix 4.1** (`gofmt -w` on `egress.go`) so lint/CI is green again.
-2. **Fix 4.2** — add the three missing CHANGELOG entries.
-3. Continue the customer-portal fix/feature loop as the user directs, or drive
+1. ~~Fix 4.1 (gofmt) and 4.2 (CHANGELOG)~~ — done in this session.
+2. Continue the customer-portal fix/feature loop as the user directs, or drive
    the GA real-host matrix (4.3) toward green.
-4. Before any PR: `make lint test smoke` must pass.
+3. Before any PR: `make lint test smoke` must pass.
 
 ## 6. How to confirm this handoff yourself
 

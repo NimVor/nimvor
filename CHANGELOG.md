@@ -43,6 +43,20 @@ All notable changes to WhaCP are documented here. The format follows
     (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9) is the remaining GA gate.
 
 ### Fixed
+- **Addon domains now count against the website plan limit.** The `websites`
+  limit counted and enforced only top-level sites, so addon domains slipped
+  past a plan's website cap (a 5-website plan could hold 4 primary sites plus
+  extra addon domains and still read "4/5"). Addon domains and directly
+  created sites now both count toward the `websites` limit; subdomains keep
+  their own separate limit and do not count. Usage display uses the same
+  count, so an over-limit account is correctly shown and blocked.
+- **App-installer category switching and two other pages no longer break
+  under the Content-Security-Policy.** The panel's CSP is `script-src 'self'`,
+  which blocks inline `<script>`; the Website → Apps category switcher, the
+  Website Settings PHP-profile toggle, and the MongoDB change-password modal
+  fill were inline scripts and so silently stopped working (clicking an app
+  category did nothing). They moved to delegated handlers in `whacp.js`, and a
+  `ViewTest` guard now fails the build on any inline `<script>` in a template.
 - **Webmail's self-signed certificate follows a host-name change.** Webmail
   only generated its self-signed certificate when none existed, so after the
   server was renamed, re-applying webmail on the new name (when it has no
@@ -172,6 +186,13 @@ All notable changes to WhaCP are documented here. The format follows
   before it is used. Editing all rules as text is still possible.
 
 ### Added
+- **App installer can target the website or one of its subdomains.** The
+  install modal now shows an "Install on" selector (whenever the website has
+  subdomains) listing the website itself and each of its subdomains; the
+  application installs into the chosen site's own document root and the page
+  shows that target's progress and "Finish setup" link. Non-PHP targets are
+  shown disabled and rejected server-side; addon domains keep their own Apps
+  page.
 - **Customer portal: plan-controlled features and new per-site pages.** The
   Feature Manager gained flags (grouped in the admin UI) for MongoDB,
   Memcached, Cloudflare, Node.js, Python, the Web firewall, Site security,
