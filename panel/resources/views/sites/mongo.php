@@ -51,13 +51,14 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
         <div class="wcp-dtable table-responsive"><table class="table align-middle mb-0">
             <thead><tr><th>Name</th><th>Size</th><th class="text-end">Action</th></tr></thead>
             <tbody>
-            <?php foreach ($overview['databases'] as $d): ?>
+            <?php foreach ($overview['databases'] as $d): $dn = (string) ($d['name'] ?? ''); ?>
                 <tr>
-                    <td class="font-monospace"><?= e((string) ($d['name'] ?? '')) ?></td>
+                    <td class="font-monospace"><?= e($dn) ?></td>
                     <td class="small text-body-secondary"><?= e(format_bytes((int) ($d['size'] ?? 0))) ?></td>
-                    <td class="text-end">
-                        <form method="post" action="<?= e($this->url('sites.mongo.database_drop', ['id' => $id])) ?>" data-wcp-confirm="Drop the database “<?= e((string) ($d['name'] ?? '')) ?>” and everything in it?">
-                            <?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e((string) ($d['name'] ?? '')) ?>">
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.mongo.browser', ['id' => $id])) ?>?db=<?= e(rawurlencode($dn)) ?>" title="Browse collections and documents"><i class="bi bi-table me-1"></i>Browse</a>
+                        <form class="d-inline" method="post" action="<?= e($this->url('sites.mongo.database_drop', ['id' => $id])) ?>" data-wcp-confirm="Drop the database “<?= e($dn) ?>” and everything in it?">
+                            <?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($dn) ?>">
                             <button class="btn btn-sm btn-outline-danger" title="Drop"><i class="bi bi-trash"></i></button>
                         </form>
                     </td>

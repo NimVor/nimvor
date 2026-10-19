@@ -90,4 +90,69 @@ final class SiteMongoController extends SiteController
             return 'User dropped.';
         });
     }
+
+    /** The full-page browser for this website's own (prefixed) databases. */
+    public function browser(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->siteNotFound();
+        }
+        $databases = [];
+        try {
+            if ($this->mongo->status()['running']) {
+                $databases = array_values(array_filter(array_map(
+                    static fn (array $d): string => (string) ($d['name'] ?? ''),
+                    $this->mongo->overview($site)['databases'],
+                ), static fn (string $n): bool => $n !== ''));
+            }
+        } catch (AgentException) {
+            // The page still loads; the error surfaces when the browser runs.
+        }
+        $current = trim((string) $request->query('db', ''));
+        if ($current !== '' && !in_array($current, $databases, true)) {
+            $current = '';
+        }
+        return Response::html($this->view->render('server/mongo_browser', [
+            'api' => $this->view->url('sites.mongo.browse', ['id' => (int) $site['id']]),
+            'back' => $this->view->url('sites.mongo', ['id' => (int) $site['id']]),
+            'databases' => $databases,
+            'current' => $current,
+            'canDelete' => true,
+        ], 'layouts/tool'));
+    }
+
+    /** Database browser JSON endpoint, confined to this website's databases. */
+    public function browse(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return Response::json(['success' => false, 'error' => ['message' => 'Website not found.']], 404);
+        }
+        $db = trim((string) $request->input('db'));
+        try {
+            switch ($request->string('op')) {
+                case 'collections':
+                    return Response::json(['success' => true, 'data' => ['collections' => $this->mongo->collections($site, $db)]]);
+                case 'documents':
+                    return Response::json(['success' => true, 'data' => $this->mongo->documents(
+                        $site,
+                        $db,
+                        trim((string) $request->input('collection')),
+                        (string) $request->input('filter', ''),
+                        (int) $request->input('skip', 0),
+                        (int) $request->input('limit', 50),
+                    )]);
+                case 'delete':
+                    $n = $this->mongo->deleteDocument($site, $db, trim((string) $request->input('collection')), (string) $request->input('id'), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['deleted' => $n]]);
+                default:
+                    return Response::json(['success' => false, 'error' => ['message' => 'Unknown operation.']], 400);
+            }
+        } catch (\WhaCP\Support\UserFacingException $e) {
+            return Response::json(['success' => false, 'error' => ['message' => $e->getMessage()]], 403);
+        } catch (AgentException $e) {
+            return Response::json(['success' => false, 'error' => $e->toArray()], $e->status() >= 400 && $e->status() < 600 ? $e->status() : 502);
+        }
+    }
 }

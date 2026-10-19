@@ -63,6 +63,43 @@ final class SiteMongoTest extends HttpTestCase
         self::assertSame(1, $this->calls('mongo.database_drop'));
     }
 
+    public function testBrowserIsConfinedToTheAccountsDatabases(): void
+    {
+        $this->agent->succeed('mongo.status', ['installed' => true, 'running' => true, 'version' => '8.0.0']);
+        $this->agent->succeed('mongo.overview', [
+            'databases' => [['name' => $this->prefix . 'shop', 'size' => 100], ['name' => 'otheracct_secret', 'size' => 50]],
+            'users' => [],
+        ]);
+        $this->login('cust');
+        $base = '/sites/' . $this->site . '/mongo';
+
+        // The databases table links to the browser; the browser is the
+        // full-page tool and lists only the account's own database.
+        self::assertStringContainsString('/mongo/browser?db=' . rawurlencode($this->prefix . 'shop'), $this->request('GET', $base)->body());
+        $tool = $this->request('GET', $base . '/browser')->body();
+        self::assertStringContainsString('id="wcp-mongo"', $tool);
+        self::assertStringContainsString($this->prefix . 'shop', $tool);
+        self::assertStringNotContainsString('otheracct_secret', $tool, "another account's database is not offered");
+
+        // Browsing the account's own database works.
+        $this->agent->succeed('mongo.collections', ['collections' => [['name' => 'orders', 'count' => 2]]]);
+        $res = $this->post($base . '/browse', ['op' => 'collections', 'db' => $this->prefix . 'shop']);
+        self::assertSame(200, $res->status());
+        self::assertSame('orders', ((array) json_decode($res->body(), true))['data']['collections'][0]['name']);
+
+        $this->agent->succeed('mongo.documents', ['documents' => [['_id' => 'a1']], 'total' => 1, 'skip' => 0, 'limit' => 50]);
+        self::assertSame(200, $this->post($base . '/browse', ['op' => 'documents', 'db' => $this->prefix . 'shop', 'collection' => 'orders'])->status());
+
+        // A database outside the account's prefix is refused before the agent.
+        $this->agent->succeed('mongo.document_delete', ['deleted' => 1]);
+        foreach ([['collections', []], ['documents', ['collection' => 'c']], ['delete', ['collection' => 'c', 'id' => '"a1"']]] as [$op, $extra]) {
+            $res = $this->post($base . '/browse', ['op' => $op, 'db' => 'otheracct_secret'] + $extra);
+            self::assertSame(403, $res->status(), $op . ' on another account must be refused');
+        }
+        self::assertSame(1, $this->calls('mongo.collections'), 'only the owned-db collections call reached the agent');
+        self::assertSame(0, $this->calls('mongo.document_delete'), 'no delete reached the agent for another account');
+    }
+
     public function testMongoIsGatedByFeature(): void
     {
         $this->db->run("INSERT INTO plans (name, created_at, updated_at) VALUES ('P', 'x', 'x')");

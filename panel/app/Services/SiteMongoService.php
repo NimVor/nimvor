@@ -97,6 +97,48 @@ final class SiteMongoService
         $this->audit->record('mongo.user_drop', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['user' => $user, 'db' => $db], $userId);
     }
 
+    // --- Database browser (confined to the account's own databases) ---
+
+    /**
+     * Collections in one of the account's own databases.
+     *
+     * @param array<string, mixed> $site
+     * @return list<array{name: string, count: int}>
+     */
+    public function collections(array $site, string $db): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.collections', ['db' => $db]);
+        return array_map(static fn ($c): array => ['name' => (string) ($c['name'] ?? ''), 'count' => (int) ($c['count'] ?? 0)], (array) ($o['collections'] ?? []));
+    }
+
+    /**
+     * Documents in a collection of one of the account's own databases.
+     *
+     * @param array<string, mixed> $site
+     * @return array{documents: mixed, total: int, skip: int, limit: int}
+     */
+    public function documents(array $site, string $db, string $collection, string $filter, int $skip, int $limit): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.documents', ['db' => $db, 'collection' => $collection, 'filter' => $filter, 'skip' => $skip, 'limit' => $limit], 90);
+        return [
+            'documents' => $o['documents'] ?? [],
+            'total' => (int) ($o['total'] ?? 0),
+            'skip' => (int) ($o['skip'] ?? $skip),
+            'limit' => (int) ($o['limit'] ?? $limit),
+        ];
+    }
+
+    /** Delete one document by its _id (EJSON), only in the account's own database. */
+    public function deleteDocument(array $site, string $db, string $collection, string $id, ?int $userId): int
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.document_delete', ['db' => $db, 'collection' => $collection, 'id' => $id]);
+        $this->audit->record('mongo.document_delete', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
+        return (int) ($o['deleted'] ?? 0);
+    }
+
     /**
      * Prepend the account prefix to a customer-supplied name, removing a
      * prefix they may have typed themselves so it is never doubled.
