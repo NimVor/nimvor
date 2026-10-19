@@ -86,6 +86,36 @@ func TestOverviewParsesDatabasesAndUsers(t *testing.T) {
 	}
 }
 
+// mongosh renders a BSON Long with JSON.stringify as an object
+// {"low":..,"high":..,"unsigned":..} rather than a plain number, so
+// sizeOnDisk arrives as an object. The listing must still parse (it used to
+// fail with "unexpected output").
+func TestOverviewParsesMongoshLongSizes(t *testing.T) {
+	h, r := setup(t)
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id != "mongosh" {
+			return "", nil
+		}
+		script := args[len(args)-1]
+		switch {
+		case strings.Contains(script, "listDatabases"):
+			return `[{"name":"admin","sizeOnDisk":{"high":0,"low":135168,"unsigned":false},"empty":false},` +
+				`{"name":"shop","sizeOnDisk":{"high":0,"low":8192,"unsigned":false},"empty":false}]`, nil
+		case strings.Contains(script, "usersInfo"):
+			return `[]`, nil
+		}
+		return "", nil
+	}
+	res, err := call(t, r, "mongo.overview", `{}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbs := res.(map[string]any)["databases"].([]Database)
+	if len(dbs) != 1 || dbs[0].Name != "shop" || dbs[0].Size != 8192 {
+		t.Fatalf("mongosh Long sizes not parsed: %+v", dbs)
+	}
+}
+
 // A failure listing users must not hide the databases: the overview still
 // returns the databases and reports the users error.
 func TestOverviewReturnsDatabasesWhenUsersFail(t *testing.T) {

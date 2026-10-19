@@ -9,6 +9,7 @@
 package mongomgr
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -99,6 +100,39 @@ type Database struct {
 	Name  string `json:"name"`
 	Size  int64  `json:"size"` // bytes on disk
 	Empty bool   `json:"empty"`
+}
+
+// mongoLong decodes a BSON 64-bit integer as rendered by JSON.stringify in the
+// shell. The legacy mongo shell prints it as a plain JSON number, while
+// mongosh prints a Long as an object {"low":..,"high":..,"unsigned":..}. We
+// accept either so listing databases does not fail on a mongosh-based server.
+type mongoLong int64
+
+func (m *mongoLong) UnmarshalJSON(b []byte) error {
+	b = bytes.TrimSpace(b)
+	if len(b) == 0 || string(b) == "null" {
+		*m = 0
+		return nil
+	}
+	if b[0] == '{' {
+		var o struct {
+			Low  int64 `json:"low"`
+			High int64 `json:"high"`
+		}
+		if err := json.Unmarshal(b, &o); err != nil {
+			return err
+		}
+		// Reassemble the signed 64-bit value from its 32-bit halves.
+		*m = mongoLong(o.High<<32 | (o.Low & 0xffffffff))
+		return nil
+	}
+	// A plain number (possibly rendered with a fraction or exponent).
+	var n float64
+	if err := json.Unmarshal(b, &n); err != nil {
+		return err
+	}
+	*m = mongoLong(int64(n))
+	return nil
 }
 
 // User is a MongoDB user and the databases/roles it holds.
@@ -291,9 +325,9 @@ func (c Client) databases(ctx context.Context) ([]Database, error) {
 		return nil, err
 	}
 	var raw []struct {
-		Name       string `json:"name"`
-		SizeOnDisk int64  `json:"sizeOnDisk"`
-		Empty      bool   `json:"empty"`
+		Name       string    `json:"name"`
+		SizeOnDisk mongoLong `json:"sizeOnDisk"`
+		Empty      bool      `json:"empty"`
 	}
 	if err := json.Unmarshal(trimToJSON(out), &raw); err != nil {
 		return nil, fmt.Errorf("unexpected output: %s", lastLine(out))
@@ -304,7 +338,7 @@ func (c Client) databases(ctx context.Context) ([]Database, error) {
 		if internal[d.Name] {
 			continue
 		}
-		dbs = append(dbs, Database{Name: d.Name, Size: d.SizeOnDisk, Empty: d.Empty})
+		dbs = append(dbs, Database{Name: d.Name, Size: int64(d.SizeOnDisk), Empty: d.Empty})
 	}
 	return dbs, nil
 }
