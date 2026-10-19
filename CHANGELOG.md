@@ -206,6 +206,13 @@ All notable changes to WhaCP are documented here. The format follows
   (e.g. `{ "name": 1 }`). Both are JSON objects parsed with EJSON inside
   `mongosh` as data, validated and bounded; they apply on the admin and the
   customer page alike, confined to the account's own databases on the latter.
+- **MongoDB raw configuration-file editor (Server → MongoDB).** The
+  Configuration card can now edit the whole `mongod.conf` directly (admins with
+  `mongo.manage`), not just the structured port/bindIp/authorization fields.
+  MongoDB has no offline config check, so WhaCP writes the file, restarts, and
+  restores the previous file automatically if the service will not start —
+  never leaving MongoDB down because of a bad edit. New agent action
+  `mongo.config_write`.
 - **MongoDB databases list shows backup status (Server → MongoDB).** Each
   database row now has a Backup column: how many archives it has, or a one-click
   "Back up" when it has none. (MongoDB users are independent of databases and

@@ -319,8 +319,17 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
         </dl>
         <?php if (trim($config['raw']) !== ''): ?>
         <details class="mt-2">
-            <summary class="small">View configuration file</summary>
+            <summary class="small"><?= $canManage ? 'Edit configuration file' : 'View configuration file' ?></summary>
+            <?php if ($canManage): ?>
+            <form method="post" action="<?= e($this->url('mongo.config_file')) ?>" data-wcp-busy data-wcp-confirm="Save the whole MongoDB configuration file and restart the service? If it fails to start, the previous file is restored automatically.">
+                <?= $this->csrfField() ?>
+                <textarea class="form-control font-monospace small mt-2" name="content" rows="18" spellcheck="false" aria-label="MongoDB configuration file"><?= e($config['raw']) ?></textarea>
+                <div class="form-text">Editing the whole <code><?= e($config['path']) ?></code>. MongoDB has no offline check, so WhaCP restarts to apply it and restores the previous file if it will not start.</div>
+                <button class="btn btn-outline-primary btn-sm mt-2" type="submit"><i class="bi bi-save me-1" aria-hidden="true"></i>Save &amp; restart</button>
+            </form>
+            <?php else: ?>
             <pre class="small border rounded p-2 mt-2 mb-0 wcp-mongo-json"><?= e($config['raw']) ?></pre>
+            <?php endif; ?>
         </details>
         <?php endif; ?>
     </div>

@@ -318,6 +318,13 @@ final class MongoService
         $this->audit->record('mongo.config_set', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['port' => $port, 'bind_ip' => $bindIp, 'authorization' => $authorization], $userId);
     }
 
+    /** Replace the whole mongod.conf and restart (rolls back on failure). */
+    public function writeConfig(string $content, ?int $userId): void
+    {
+        $this->agent->call('mongo.config_write', ['content' => $content], 120);
+        $this->audit->record('mongo.config_write', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, [], $userId);
+    }
+
     /** @return array{path: string, lines: string} */
     public function log(int $lines = 300): array
     {

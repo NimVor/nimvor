@@ -95,6 +95,19 @@ final class MongoController extends Controller
         return $this->redirectWithSuccess('/mongo', 'MongoDB configuration saved and the service restarted.');
     }
 
+    public function configFile(Request $request): Response
+    {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
+            return $this->redirectWithError('/mongo', 'You may not do this.');
+        }
+        try {
+            $this->mongo->writeConfig((string) $request->input('content'), $this->userId($request));
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/mongo', $e);
+        }
+        return $this->redirectWithSuccess('/mongo', 'MongoDB configuration file saved and the service restarted.');
+    }
+
     public function adminPassword(Request $request): Response
     {
         if (!$this->view->can(P::MONGO_MANAGE)) {

@@ -1056,6 +1056,44 @@ func Register(r *actions.Registry, env *host.Env) {
 		return parseConfig(next), nil
 	}})
 
+	r.Register(actions.Action{Name: "mongo.config_write", Mutating: true, Description: "Replace MongoDB's whole configuration file, then restart (rolls back on failure).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Content string `json:"content"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		content := in.Content
+		if strings.TrimSpace(content) == "" || len(content) > 256*1024 {
+			return nil, actions.InvalidParams("content: the configuration file text (up to 256 KB)")
+		}
+		if strings.ContainsRune(content, 0) {
+			return nil, actions.InvalidParams("content: must be text")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		// mongod has no offline config check, so the safety net is: keep the
+		// working file, write the new one, restart, and restore the old one if
+		// the restart fails so MongoDB is never left down by a bad edit.
+		if !strings.HasSuffix(content, "\n") {
+			content += "\n"
+		}
+		old, err := env.Root.ReadFile(ConfigFile)
+		if err != nil {
+			return nil, actions.Conflict("MongoDB's configuration file was not found at " + ConfigFile + ".")
+		}
+		if _, err := env.Writer.WriteFile(ConfigFile, []byte(content), 0o644, agentfs.RootOwner); err != nil {
+			return nil, actions.Failed("The configuration could not be written.", err.Error())
+		}
+		if err := c.restart(ctx); err != nil {
+			_, _ = env.Writer.WriteFile(ConfigFile, old, 0o644, agentfs.RootOwner)
+			_ = c.restart(ctx)
+			return nil, actions.Failed("MongoDB did not restart with the edited configuration; the previous configuration was restored.", err.Error())
+		}
+		return parseConfig(content), nil
+	}})
+
 	r.Register(actions.Action{Name: "mongo.log", Description: "The tail of MongoDB's log.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Lines int `json:"lines"`

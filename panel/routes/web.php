@@ -413,6 +413,7 @@ return static function (Router $r): void {
     $r->post('/mongo/install', [\WhaCP\Http\Controllers\MongoController::class, 'install'], ['name' => 'mongo.install', 'permission' => P::PACKAGES_MANAGE]);
     $r->post('/mongo/service', [\WhaCP\Http\Controllers\MongoController::class, 'service'], ['name' => 'mongo.service', 'permission' => P::SERVICES_MANAGE]);
     $r->post('/mongo/config', [\WhaCP\Http\Controllers\MongoController::class, 'config'], ['name' => 'mongo.config', 'permission' => P::MONGO_MANAGE]);
+    $r->post('/mongo/config-file', [\WhaCP\Http\Controllers\MongoController::class, 'configFile'], ['name' => 'mongo.config_file', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/admin-password', [\WhaCP\Http\Controllers\MongoController::class, 'adminPassword'], ['name' => 'mongo.admin_password', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/auth', [\WhaCP\Http\Controllers\MongoController::class, 'auth'], ['name' => 'mongo.auth', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/backup', [\WhaCP\Http\Controllers\MongoController::class, 'backup'], ['name' => 'mongo.backup', 'permission' => P::MONGO_MANAGE]);

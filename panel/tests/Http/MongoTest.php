@@ -73,6 +73,12 @@ final class MongoTest extends HttpTestCase
         // A bad port never reaches the agent.
         $this->post('/mongo/config', ['port' => '0', 'bind_ip' => '127.0.0.1']);
         self::assertSame(1, $this->calls('mongo.config_set'));
+
+        // The raw config-file editor is shown and its save reaches the agent.
+        self::assertStringContainsString('Edit configuration file', $page);
+        $this->agent->succeed('mongo.config_write', ['path' => '/etc/mongod.conf', 'port' => 28000, 'bind_ip' => '127.0.0.1', 'authorization' => false, 'raw' => '']);
+        $this->post('/mongo/config-file', ['content' => "net:\n  port: 28000\n"]);
+        self::assertSame("net:\n  port: 28000\n", $this->lastCall('mongo.config_write')['content']);
     }
 
     public function testAdminPasswordAndAuthToggle(): void

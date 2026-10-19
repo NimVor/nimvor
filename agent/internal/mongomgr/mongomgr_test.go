@@ -323,6 +323,25 @@ func TestConfigSetRewritesAndRestarts(t *testing.T) {
 	if _, err := call(t, r, "mongo.config_set", `{"port":0,"bind_ip":"127.0.0.1"}`); err == nil {
 		t.Error("a bad port must be rejected")
 	}
+
+	// The raw config-file editor replaces the whole file and restarts.
+	edited := "net:\n  port: 28000\n  bindIp: 127.0.0.1\n"
+	if _, err := call(t, r, "mongo.config_write", `{"content":`+jsonString(edited)+`}`); err != nil {
+		t.Fatalf("config_write: %v", err)
+	}
+	if on := readHostFile(t, h, ConfigFile); !strings.Contains(on, "port: 28000") {
+		t.Fatalf("raw config not written:\n%s", on)
+	}
+	// Empty content is refused.
+	if _, err := call(t, r, "mongo.config_write", `{"content":"  "}`); err == nil {
+		t.Error("empty config content must be rejected")
+	}
+}
+
+// jsonString quotes s as a JSON string literal for embedding in a params blob.
+func jsonString(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 func TestConfigSetRollsBackWhenRestartFails(t *testing.T) {
