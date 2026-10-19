@@ -190,12 +190,18 @@ final class MongoController extends Controller
     public function createDatabase(Request $request): Response
     {
         $name = trim((string) $request->input('name'));
+        $user = trim((string) $request->input('user'));
         try {
             $this->mongo->createDatabase($name, $this->userId($request));
+            // When a user name is given, create it in the new database in the
+            // same step (a common "set up a database for an app" workflow).
+            if ($user !== '') {
+                $this->mongo->createUser($user, (string) $request->input('password'), $name, (string) $request->input('role', 'readWrite'), $this->userId($request));
+            }
         } catch (AgentException $e) {
             return $this->redirectWithFailure('/mongo', $e);
         }
-        return $this->redirectWithSuccess('/mongo', 'Created database ' . $name . '.');
+        return $this->redirectWithSuccess('/mongo', $user !== '' ? 'Created database ' . $name . ' and user ' . $user . '.' : 'Created database ' . $name . '.');
     }
 
     public function dropDatabase(Request $request): Response

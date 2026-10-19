@@ -120,6 +120,22 @@
         if (box) { box.classList.toggle('d-none', sel.value !== 'custom'); }
     });
 
+    // MongoDB "Add database" modal: reveal the optional user fields when the
+    // "Also create a user" switch is on, and require them only then.
+    document.addEventListener('change', function (e) {
+        var toggle = e.target.closest('[data-mongo-dbuser-toggle]');
+        if (!toggle) { return; }
+        var form = toggle.closest('form');
+        var fields = form ? form.querySelector('[data-mongo-dbuser-fields]') : null;
+        if (!fields) { return; }
+        var on = toggle.checked;
+        fields.classList.toggle('d-none', !on);
+        var user = form.querySelector('#mdb-user');
+        var pw = form.querySelector('#mdb-pw');
+        if (user) { user.required = on; }
+        if (pw) { pw.required = on; }
+    });
+
     // MongoDB "Change password" modal: fill the hidden user/db fields from the
     // button that opened it.
     document.addEventListener('show.bs.modal', function (e) {

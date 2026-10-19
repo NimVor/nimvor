@@ -89,10 +89,16 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
     <i class="bi bi-database-check" aria-hidden="true"></i>
     <span class="me-auto">MongoDB <?= e($status['version'] !== '' ? $status['version'] : '(version unknown)') ?> · <?= $status['running'] ? 'running' : 'stopped' ?><?= $status['auth'] ? ' · authentication on' : '' ?></span>
     <?php if ($canServices && $status['running']): ?>
-        <form method="post" action="<?= e($this->url('mongo.service')) ?>" data-wcp-busy data-wcp-confirm="Restart the MongoDB service?">
-            <?= $this->csrfField() ?><input type="hidden" name="op" value="restart">
-            <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Restart</button>
-        </form>
+        <div class="d-flex gap-2">
+            <form method="post" action="<?= e($this->url('mongo.service')) ?>" data-wcp-busy data-wcp-confirm="Restart the MongoDB service?">
+                <?= $this->csrfField() ?><input type="hidden" name="op" value="restart">
+                <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Restart</button>
+            </form>
+            <form method="post" action="<?= e($this->url('mongo.service')) ?>" data-wcp-busy data-wcp-confirm="Stop the MongoDB service? Applications using it will lose their connection.">
+                <?= $this->csrfField() ?><input type="hidden" name="op" value="stop">
+                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-stop-fill me-1" aria-hidden="true"></i>Stop</button>
+            </form>
+        </div>
     <?php endif; ?>
 </div>
 
@@ -315,6 +321,20 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
             <label class="form-label" for="mdb-name">Name</label>
             <input class="form-control" id="mdb-name" name="name" pattern="[A-Za-z0-9_][A-Za-z0-9_-]*" maxlength="63" required placeholder="shop">
             <div class="form-text">Letters, digits, _ and -. The database exists once it has a collection; WhaCP adds an empty one.</div>
+            <hr class="my-3">
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" role="switch" id="mdb-withuser" data-mongo-dbuser-toggle>
+                <label class="form-check-label" for="mdb-withuser">Also create a user for this database</label>
+            </div>
+            <div class="row g-2 d-none" data-mongo-dbuser-fields>
+                <div class="col-6"><label class="form-label" for="mdb-user">User</label><input class="form-control" id="mdb-user" name="user" maxlength="63" autocomplete="off"></div>
+                <div class="col-6">
+                    <label class="form-label" for="mdb-role">Role</label>
+                    <select class="form-select" id="mdb-role" name="role"><?php foreach ($roles as $k => $label): ?><option value="<?= e($k) ?>"<?= $k === 'readWrite' ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select>
+                </div>
+                <div class="col-12"><label class="form-label" for="mdb-pw">Password</label><input class="form-control font-monospace" id="mdb-pw" name="password" type="text" minlength="8" maxlength="256" autocomplete="off"></div>
+                <div class="col-12 form-text">The user is created in the new database with that role.</div>
+            </div>
             <button class="btn btn-primary btn-sm mt-3" type="submit">Create</button>
         </div>
     </form>

@@ -38,11 +38,16 @@ final class MongoTest extends HttpTestCase
         $this->post('/mongo/users', ['user' => 'bloguser', 'password' => 'longenough1', 'db' => 'blog', 'role' => 'read']);
         self::assertSame(['user' => 'bloguser', 'password' => 'longenough1', 'db' => 'blog', 'role' => 'read'], $this->lastCall('mongo.user_create'));
 
+        // One-step create: a database with its user in the same request.
+        $this->post('/mongo/databases', ['name' => 'app', 'user' => 'appuser', 'password' => 'longenough2', 'role' => 'readWrite']);
+        self::assertSame(['name' => 'app'], $this->lastCall('mongo.database_create'));
+        self::assertSame(['user' => 'appuser', 'password' => 'longenough2', 'db' => 'app', 'role' => 'readWrite'], $this->lastCall('mongo.user_create'));
+
         $this->agent->succeed('mongo.database_drop', ['dropped' => 'shop']);
         $this->post('/mongo/databases/drop', ['name' => 'shop', 'confirm' => 'shop']);
         self::assertSame(['name' => 'shop', 'confirm' => 'shop'], $this->lastCall('mongo.database_drop'));
 
-        self::assertSame(3, (int) $this->app->container->get(Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action LIKE 'mongo.%'"));
+        self::assertSame(5, (int) $this->app->container->get(Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action LIKE 'mongo.%'"));
     }
 
     public function testConfigurationAndLog(): void
