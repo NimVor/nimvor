@@ -11,6 +11,7 @@
 $id = (int) $site['id'];
 $status ??= null;
 $overview ??= ['databases' => [], 'users' => []];
+$backups ??= [];
 $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB admin', 'dbOwner' => 'Owner'];
 ?>
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'mongo']) ?>
@@ -94,6 +95,53 @@ $roles = ['readWrite' => 'Read & write', 'read' => 'Read only', 'dbAdmin' => 'DB
             </tbody>
         </table></div>
     <?php endif; ?>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header"><i class="bi bi-archive me-1" aria-hidden="true"></i>Backups</div>
+    <div class="card-body">
+        <p class="small text-body-secondary">Download a copy of a database to this server, then restore it later. Backing up or restoring a large database runs in the background.</p>
+        <?php if ($overview['databases'] !== []): ?>
+        <form method="post" action="<?= e($this->url('sites.mongo.backup', ['id' => $id])) ?>" class="row g-2 align-items-end mb-3" data-wcp-busy>
+            <?= $this->csrfField() ?>
+            <div class="col-sm-6">
+                <label class="form-label small mb-1" for="mongo-backup-db">Back up a database</label>
+                <select class="form-select form-select-sm" id="mongo-backup-db" name="db" required>
+                    <?php foreach ($overview['databases'] as $d): $dn = (string) ($d['name'] ?? ''); ?>
+                        <option value="<?= e($dn) ?>"><?= e($dn) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-sm-auto"><button class="btn btn-sm btn-primary"><i class="bi bi-download me-1"></i>Back up now</button></div>
+        </form>
+        <?php endif; ?>
+        <?php if ($backups === []): ?>
+            <div class="small text-body-secondary">No backups yet.</div>
+        <?php else: ?>
+            <div class="wcp-dtable table-responsive"><table class="table align-middle mb-0">
+                <thead><tr><th>Database</th><th>Size</th><th>Created (UTC)</th><th class="text-end">Action</th></tr></thead>
+                <tbody>
+                <?php foreach ($backups as $b): $bf = (string) $b['file']; $bdb = (string) $b['db']; ?>
+                    <tr>
+                        <td class="small font-monospace"><?= e($bdb) ?></td>
+                        <td class="small text-body-secondary"><?= e(format_bytes((int) $b['size'])) ?></td>
+                        <td class="small text-body-secondary"><?= e(((string) $b['created']) !== '' ? str_replace(['T', 'Z'], [' ', ''], substr((string) $b['created'], 0, 19)) : '—') ?></td>
+                        <td class="text-end text-nowrap">
+                            <form class="d-inline" method="post" action="<?= e($this->url('sites.mongo.restore', ['id' => $id])) ?>" data-wcp-busy data-wcp-confirm="Restore “<?= e($bdb) ?>” from this backup? Documents sharing an _id with the archive are overwritten.">
+                                <?= $this->csrfField() ?><input type="hidden" name="file" value="<?= e($bf) ?>"><input type="hidden" name="drop" value="0">
+                                <button class="btn btn-sm btn-outline-secondary" title="Restore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                            </form>
+                            <form class="d-inline" method="post" action="<?= e($this->url('sites.mongo.backup_delete', ['id' => $id])) ?>" data-wcp-confirm="Delete this backup?">
+                                <?= $this->csrfField() ?><input type="hidden" name="file" value="<?= e($bf) ?>">
+                                <button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table></div>
+        <?php endif; ?>
+    </div>
 </div>
 
 <?= $this->modalStart('mongo-db', 'Add database') ?>

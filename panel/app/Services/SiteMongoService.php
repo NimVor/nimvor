@@ -113,6 +113,70 @@ final class SiteMongoService
         );
     }
 
+    // --- Backup and restore (confined to the account's own databases) ---
+
+    /** Start a backup of one of the account's own databases. Returns the job id and archive name. */
+    public function backup(array $site, string $db, ?int $userId): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.backup', ['db' => $db]);
+        $this->audit->record('mongo.backup', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db], $userId);
+        return ['job_id' => (string) ($o['job_id'] ?? ''), 'file' => (string) ($o['file'] ?? '')];
+    }
+
+    /**
+     * The account's own backup archives (filtered to its prefix).
+     *
+     * @param array<string, mixed> $site
+     * @return list<array{file: string, db: string, size: int, created: string}>
+     */
+    public function backups(array $site): array
+    {
+        $prefix = $this->prefix($site);
+        $o = (array) $this->agent->call('mongo.backups');
+        $all = array_map(static fn ($b): array => [
+            'file' => (string) ($b['file'] ?? ''),
+            'db' => (string) ($b['db'] ?? ''),
+            'size' => (int) ($b['size'] ?? 0),
+            'created' => (string) ($b['created'] ?? ''),
+        ], (array) ($o['backups'] ?? []));
+        return array_values(array_filter($all, static fn (array $b): bool => str_starts_with(strtolower($b['db']), $prefix)));
+    }
+
+    /** Restore one of the account's own databases from one of its archives. Returns the job id. */
+    public function restore(array $site, string $file, bool $drop, ?int $userId): string
+    {
+        $db = $this->backupDb($site, $file);
+        $o = (array) $this->agent->call('mongo.restore', ['file' => $file, 'db' => $db, 'drop' => $drop]);
+        $this->audit->record('mongo.restore', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'file' => $file, 'drop' => $drop], $userId);
+        return (string) ($o['job_id'] ?? '');
+    }
+
+    public function deleteBackup(array $site, string $file, ?int $userId): void
+    {
+        $this->backupDb($site, $file);
+        $this->agent->call('mongo.backup_delete', ['file' => $file]);
+        $this->audit->record('mongo.backup_delete', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['file' => $file], $userId);
+    }
+
+    /**
+     * Validate a backup archive name and return the database it holds, after
+     * checking that database belongs to this account. The name is
+     * "<timestamp>_<db>.archive.gz": the timestamp is a fixed 15 characters, so
+     * the database (which may contain underscores) is everything from the first
+     * underscore to the ".archive.gz" suffix.
+     *
+     * @param array<string, mixed> $site
+     */
+    private function backupDb(array $site, string $file): string
+    {
+        if (preg_match('/^\d{8}-\d{6}_([A-Za-z0-9_][A-Za-z0-9_.-]{0,80})\.archive\.gz$/', $file, $m) !== 1) {
+            throw new UserFacingException('That is not a backup archive.');
+        }
+        $this->assertOwned($site, $m[1]);
+        return $m[1];
+    }
+
     // --- Database browser (confined to the account's own databases) ---
 
     /**

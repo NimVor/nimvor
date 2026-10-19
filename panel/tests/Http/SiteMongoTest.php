@@ -172,6 +172,52 @@ final class SiteMongoTest extends HttpTestCase
         self::assertSame(1, $this->calls('mongo.index_create'), 'only the owned-db index create reached the agent');
     }
 
+    public function testBackupRestoreIsConfinedToTheAccount(): void
+    {
+        $this->agent->succeed('mongo.status', ['installed' => true, 'running' => true, 'version' => '8.0.0']);
+        $this->agent->succeed('mongo.overview', [
+            'databases' => [['name' => $this->prefix . 'shop', 'size' => 100]],
+            'users' => [],
+        ]);
+        // The listing returns one owned and one other account's archive; only
+        // the owned one is shown.
+        $this->agent->succeed('mongo.backups', ['backups' => [
+            ['file' => '20260901-120000_' . $this->prefix . 'shop.archive.gz', 'db' => $this->prefix . 'shop', 'size' => 10, 'created' => '2026-09-01T12:00:00Z'],
+            ['file' => '20260901-130000_otheracct_secret.archive.gz', 'db' => 'otheracct_secret', 'size' => 20, 'created' => '2026-09-01T13:00:00Z'],
+        ]]);
+        $this->login('cust');
+        $base = '/sites/' . $this->site . '/mongo';
+
+        $page = $this->request('GET', $base)->body();
+        self::assertStringContainsString('20260901-120000_' . $this->prefix . 'shop.archive.gz', $page, 'own archive is offered for restore');
+        self::assertStringNotContainsString('otheracct_secret', $page, "another account's archive is hidden");
+
+        // Backing up the account's own database works and is prefixed.
+        $this->agent->succeed('mongo.backup', ['job_id' => 'aaaaaaaaaaaaaaaa', 'file' => 'x']);
+        $this->post($base . '/backup', ['db' => $this->prefix . 'shop']);
+        self::assertSame($this->prefix . 'shop', $this->lastCall('mongo.backup')['db']);
+
+        // Backing up another account's database is refused before the agent.
+        $this->post($base . '/backup', ['db' => 'otheracct_secret']);
+        self::assertSame(1, $this->calls('mongo.backup'), 'no cross-account backup reached the agent');
+        self::assertNotNull($this->flash('error'));
+
+        // Restoring/deleting an archive whose database is not the account's is
+        // refused before the agent (the database is read from the file name).
+        $this->agent->succeed('mongo.restore', ['job_id' => 'bbbbbbbbbbbbbbbb']);
+        $this->agent->succeed('mongo.backup_delete', ['deleted' => 'x']);
+        $this->post($base . '/restore', ['file' => '20260901-130000_otheracct_secret.archive.gz']);
+        $this->post($base . '/backups/delete', ['file' => '20260901-130000_otheracct_secret.archive.gz']);
+        self::assertSame(0, $this->calls('mongo.restore'));
+        self::assertSame(0, $this->calls('mongo.backup_delete'));
+
+        // Restoring the account's own archive works, with the database read
+        // from the file name.
+        $this->post($base . '/restore', ['file' => '20260901-120000_' . $this->prefix . 'shop.archive.gz', 'drop' => '0']);
+        self::assertSame($this->prefix . 'shop', $this->lastCall('mongo.restore')['db']);
+        self::assertSame(1, $this->calls('mongo.restore'));
+    }
+
     public function testMongoIsGatedByFeature(): void
     {
         $this->db->run("INSERT INTO plans (name, created_at, updated_at) VALUES ('P', 'x', 'x')");

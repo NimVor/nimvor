@@ -9,6 +9,7 @@ use WhaCP\Http\Request;
 use WhaCP\Http\Response;
 use WhaCP\Http\Session\SessionInterface;
 use WhaCP\Repositories\WebsiteRepository;
+use WhaCP\Services\JobTracker;
 use WhaCP\Services\ServerContext;
 use WhaCP\Services\SiteMongoService;
 use WhaCP\View\View;
@@ -24,6 +25,7 @@ final class SiteMongoController extends SiteController
         WebsiteRepository $sites,
         ServerContext $server,
         private readonly SiteMongoService $mongo,
+        private readonly JobTracker $jobs,
     ) {
         parent::__construct($view, $session, $sites, $server);
     }
@@ -36,19 +38,47 @@ final class SiteMongoController extends SiteController
         }
         $status = null;
         $overview = ['databases' => [], 'users' => []];
+        $backups = [];
         $error = null;
         try {
             $status = $this->mongo->status();
             if ($status['installed'] && $status['running']) {
                 $overview = $this->mongo->overview($site);
+                $backups = $this->mongo->backups($site);
             }
         } catch (AgentException $e) {
             $error = $e;
         }
         return $this->render('sites/mongo', [
             'site' => $site, 'tab' => 'mongo', 'status' => $status, 'overview' => $overview,
-            'prefix' => $this->mongo->prefix($site), 'agentError' => $error,
+            'backups' => $backups, 'prefix' => $this->mongo->prefix($site), 'agentError' => $error,
         ]);
+    }
+
+    public function backup(Request $request, string $id): Response
+    {
+        return $this->act($request, $id, 'mongo', function (array $site) use ($request): array {
+            $r = $this->mongo->backup($site, $request->string('db'), $this->userId($request));
+            $this->jobs->track($r['job_id'], 'Back up MongoDB database ' . $request->string('db'), 'website', (string) $site['id'], $this->userId($request));
+            return ['Backing up ' . $request->string('db') . '…', $r['job_id']];
+        });
+    }
+
+    public function restore(Request $request, string $id): Response
+    {
+        return $this->act($request, $id, 'mongo', function (array $site) use ($request): array {
+            $job = $this->mongo->restore($site, $request->string('file'), $request->string('drop') === '1', $this->userId($request));
+            $this->jobs->track($job, 'Restore MongoDB backup', 'website', (string) $site['id'], $this->userId($request));
+            return ['Restoring from the backup…', $job];
+        });
+    }
+
+    public function deleteBackup(Request $request, string $id): Response
+    {
+        return $this->act($request, $id, 'mongo', function (array $site) use ($request): string {
+            $this->mongo->deleteBackup($site, $request->string('file'), $this->userId($request));
+            return 'Backup deleted.';
+        });
     }
 
     public function createDatabase(Request $request, string $id): Response

@@ -329,6 +329,9 @@ return static function (Router $r): void {
     $r->get('/sites/{id}/mongo/browser', [\WhaCP\Http\Controllers\SiteMongoController::class, 'browser'], ['name' => 'sites.mongo.browser', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/mongo/browse', [\WhaCP\Http\Controllers\SiteMongoController::class, 'browse'], ['name' => 'sites.mongo.browse', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/mongo/export', [\WhaCP\Http\Controllers\SiteMongoController::class, 'export'], ['name' => 'sites.mongo.export', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/mongo/backup', [\WhaCP\Http\Controllers\SiteMongoController::class, 'backup'], ['name' => 'sites.mongo.backup', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/mongo/restore', [\WhaCP\Http\Controllers\SiteMongoController::class, 'restore'], ['name' => 'sites.mongo.restore', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/mongo/backups/delete', [\WhaCP\Http\Controllers\SiteMongoController::class, 'deleteBackup'], ['name' => 'sites.mongo.backup_delete', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/cloudflare', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'index'], ['name' => 'sites.cloudflare', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/cloudflare/connect', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'connect'], ['name' => 'sites.cloudflare.connect', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/cloudflare/disconnect', [\WhaCP\Http\Controllers\SiteCloudflareController::class, 'disconnect'], ['name' => 'sites.cloudflare.disconnect', 'permission' => P::WEBSITES_MANAGE]);

@@ -206,6 +206,13 @@ All notable changes to WhaCP are documented here. The format follows
   (e.g. `{ "name": 1 }`). Both are JSON objects parsed with EJSON inside
   `mongosh` as data, validated and bounded; they apply on the admin and the
   customer page alike, confined to the account's own databases on the latter.
+- **MongoDB backup and restore for customers (Site → MongoDB).** The Backups
+  card is now on the per-customer page too: a hosting user backs up, restores
+  and deletes archives of their own databases, as background jobs shown in the
+  job log. Every operation is confined to the account's prefix — the archive's
+  database is read from its file name and checked for ownership, so a customer
+  can neither back up, restore nor delete another account's data, and only their
+  own archives are listed.
 - **MongoDB backup and restore (Server → MongoDB).** A Backups card on the
   admin page backs up a database to a gzip `mongodump` archive kept on the
   server, lists the archives with their size and date, restores a database from
