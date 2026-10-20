@@ -1,10 +1,13 @@
 package http
 
 import (
+	"encoding/base64"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
@@ -21,7 +24,23 @@ func testServer(t *testing.T) *Server {
 	if _, err := database.Migrate(db); err != nil {
 		t.Fatal(err)
 	}
-	return New(config.Config{Production: true}, db, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	s, err := New(testConfig(t), db, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+// testConfig writes a real panel key file so session sealing works, and points
+// StaticDir nowhere (the asset route is harmless when the dir is absent).
+func testConfig(t *testing.T) config.Config {
+	t.Helper()
+	kf := filepath.Join(t.TempDir(), "panel.key")
+	var key [32]byte
+	if err := os.WriteFile(kf, []byte(base64.StdEncoding.EncodeToString(key[:])+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return config.Config{Production: true, KeyFile: kf}
 }
 
 func TestHealthEndpoint(t *testing.T) {

@@ -52,9 +52,14 @@ func main() {
 		}
 	}
 
+	panel, err := whttp.New(cfg, db, log)
+	if err != nil {
+		log.Error("build server", "error", err)
+		os.Exit(1)
+	}
 	srv := &http.Server{
 		Addr:              cfg.Listen,
-		Handler:           whttp.New(cfg, db, log).Handler(),
+		Handler:           panel.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       60 * time.Second,
 		WriteTimeout:      120 * time.Second,

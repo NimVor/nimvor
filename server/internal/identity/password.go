@@ -4,6 +4,7 @@
 package identity
 
 import (
+	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
@@ -12,6 +13,56 @@ import (
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// Argon2id parameters matching PHP 8.3's PASSWORD_ARGON2ID defaults
+// (memory_cost=65536 KiB, time_cost=4, threads=1), so a hash produced here is
+// indistinguishable from one produced by the PHP panel and verifies on both
+// sides.
+const (
+	argonMemory  uint32 = 65536
+	argonTime    uint32 = 4
+	argonThreads uint8  = 1
+	argonSaltLen        = 16
+	argonKeyLen  uint32 = 32
+)
+
+// HashPassword produces an argon2id PHC string in PHP's password_hash format.
+// PHP's password_verify accepts it unchanged, so a password changed through
+// the Go panel still works in the PHP panel during the migration.
+func HashPassword(password string) (string, error) {
+	salt := make([]byte, argonSaltLen)
+	if _, err := rand.Read(salt); err != nil {
+		return "", err
+	}
+	key := argon2.IDKey([]byte(password), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
+		argon2.Version, argonMemory, argonTime, argonThreads,
+		base64.RawStdEncoding.EncodeToString(salt),
+		base64.RawStdEncoding.EncodeToString(key)), nil
+}
+
+// NeedsRehash reports whether a stored hash should be upgraded to the current
+// argon2id parameters — true for any bcrypt hash or an argon2 hash whose
+// parameters differ. Mirrors PHP's password_needs_rehash against
+// PASSWORD_ARGON2ID. The caller rehashes only after a successful verify.
+func NeedsRehash(hash string) bool {
+	if !strings.HasPrefix(hash, "$argon2id$") {
+		return true
+	}
+	parts := strings.Split(hash, "$")
+	if len(parts) != 6 {
+		return true
+	}
+	var version int
+	if _, err := fmt.Sscanf(parts[2], "v=%d", &version); err != nil || version != argon2.Version {
+		return true
+	}
+	var m, t, p uint32
+	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &m, &t, &p); err != nil {
+		return true
+	}
+	return m != argonMemory || t != argonTime || uint8(p) != argonThreads
+}
 
 // VerifyPassword reports whether password matches the stored PHP hash. It
 // supports the two formats PHP's password_hash emits in this product:

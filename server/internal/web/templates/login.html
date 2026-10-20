@@ -1,0 +1,23 @@
+{{define "login"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-login">
+<main class="login-wrap">
+  <h1>WhaCP</h1>
+  {{if .Error}}<p class="alert alert-danger" role="alert">{{.Error}}</p>{{end}}
+  <form method="post" action="/login" autocomplete="off">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <label for="username">Username or email</label>
+    <input id="username" name="username" type="text" value="{{.Username}}" required autofocus>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" required>
+    <button type="submit">Sign in</button>
+  </form>
+</main>
+</body>
+</html>{{end}}
