@@ -6,6 +6,19 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **MongoDB was unreachable from the customer panel.** A website's customer
+  dashboard is a fixed tile grid, and it had no MongoDB tile (only MySQL), so
+  a hosting customer had no way in even though the menu, routes and
+  permissions existed. Added a MongoDB tile and quick-search entries, gated
+  exactly like the others (shown only when the customer's plan includes the
+  MongoDB feature and they hold the permission); when the plan excludes it the
+  tile is hidden and the routes return 403, and another customer's database
+  stays 404. Also fixed a latent fatal: the Mongo export helper had been added
+  as `Controller::download()`, clashing with `FilesController::download()` and
+  breaking the File Manager download whenever that controller loaded; the
+  Mongo helper is now `downloadExport()`.
+
 ### Added
 - **Remote MongoDB servers (Remote DB / Get DB from server).** The MongoDB
   manager gained a Remote servers tab to save connections to other MongoDB

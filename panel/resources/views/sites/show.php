@@ -34,6 +34,7 @@ $tiles = array_values(array_filter([
     ['FTP accounts', 'hdd-network', $u('ftp'), null],
     ['Files', 'folder2-open', $u('files'), $disk],
     ['Databases', 'database', $u('databases'), (string) $summary['databases']],
+    ['MongoDB', 'database-fill-gear', $u('mongo'), null],
     ['Domains (DNS)', 'signpost-2', $dnsUrl(''), $dns !== null ? $dns['records'] . ' records' : null],
     ['SSL certificates', 'shield-lock', $u('ssl'), $site['https'] ? 'On' : 'Off'],
     ['Scheduler', 'calendar3', $u('cron'), $summary['cron'] > 0 ? (string) $summary['cron'] : null],
@@ -64,6 +65,8 @@ foreach ($tiles as [$label, $icon, $url]) {
 foreach ([
     ['Create database', $this->can(P::DATABASES_MANAGE) ? $u('databases', '#new-database') : null, 'database', 'mysql mariadb new add'],
     ['Create database user', $this->can(P::DATABASES_MANAGE) ? $u('databases', '#new-db-user') : null, 'database', 'mysql login password remote'],
+    ['MongoDB databases', $u('mongo'), 'database-fill-gear', 'mongo mongodb nosql document collection database'],
+    ['Browse MongoDB collections', $u('mongo', '?section=databases'), 'table', 'mongo mongodb browse collection document'],
     ['Create mailbox / add email', $mail !== null ? $mailUrl('#new-mailbox') : $u('mail'), 'envelope', 'mail address inbox new'],
     ['Add forwarder / alias', $mail !== null ? $mailUrl('#new-alias') : $u('mail'), 'envelope', 'forward redirect mail'],
     ['Install SSL certificate', $this->can(P::SSL_MANAGE) ? $u('ssl', '#issue') : null, 'shield-lock', "https let's encrypt letsencrypt certificate tls"],

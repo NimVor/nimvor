@@ -178,7 +178,7 @@ final class SiteMongoController extends SiteController
         } catch (\WhaCP\Support\UserFacingException $e) {
             return $this->redirectWithError($back, $e->getMessage());
         }
-        return $this->download($db, $collection, $out);
+        return $this->downloadExport($db, $collection, $out);
     }
 
     /** Database browser JSON endpoint, confined to this website's databases. */

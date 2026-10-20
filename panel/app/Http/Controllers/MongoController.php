@@ -483,7 +483,7 @@ final class MongoController extends Controller
         } catch (AgentException $e) {
             return $this->redirectWithFailure('/mongo/browser?db=' . rawurlencode($db), $e);
         }
-        return $this->download($db, $collection, $out);
+        return $this->downloadExport($db, $collection, $out);
     }
 
     /**

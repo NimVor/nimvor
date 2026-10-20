@@ -68,6 +68,33 @@ final class FeatureManagerTest extends HttpTestCase
         self::assertSame($list, (int) $this->db->scalar('SELECT feature_list_id FROM plans WHERE id = ?', [$this->plan]));
     }
 
+    public function testMongoDbReachableFromTheCustomerDashboardAndGatedByThePlan(): void
+    {
+        // A customer whose plan does not restrict MongoDB sees a MongoDB tile
+        // on their website dashboard (like MySQL) and can open the page.
+        $this->login('cust');
+        $dash = $this->request('GET', '/sites/' . $this->site)->body();
+        self::assertStringContainsString('/sites/' . $this->site . '/mongo', $dash, 'MongoDB tile is on the customer dashboard');
+        self::assertStringContainsString('/sites/' . $this->site . '/databases', $dash, 'MySQL stays too');
+        self::assertSame(200, $this->request('GET', '/sites/' . $this->site . '/mongo')->status());
+
+        // Excluding MongoDB from the plan's feature list hides the tile and
+        // blocks the route — MySQL is unaffected.
+        $list = $this->app->container->get(FeatureService::class)->save(null, ['name' => 'NoMongo', 'features' => $this->except(['mongodb'])], 1);
+        $this->db->run('UPDATE plans SET feature_list_id = ? WHERE id = ?', [$list, $this->plan]);
+        $this->switchTo('cust');
+        $dash = $this->request('GET', '/sites/' . $this->site)->body();
+        self::assertStringNotContainsString('/sites/' . $this->site . '/mongo', $dash, 'tile hidden when the plan excludes MongoDB');
+        self::assertStringContainsString('/sites/' . $this->site . '/databases', $dash, 'MySQL still available');
+        self::assertSame(403, $this->request('GET', '/sites/' . $this->site . '/mongo')->status(), 'direct access blocked when excluded');
+        self::assertSame(403, $this->request('GET', '/sites/' . $this->site . '/mongo/browser')->status(), 'the browser is blocked too');
+
+        // Another customer cannot reach this customer's MongoDB page at all.
+        $other = $this->seedUser('other', 'customer');
+        $this->switchTo('other');
+        self::assertSame(404, $this->request('GET', '/sites/' . $this->site . '/mongo')->status(), 'cross-customer access is refused');
+    }
+
     public function testDisabledFeaturesAreRefusedByTheServerNotOnlyHidden(): void
     {
         $list = $this->app->container->get(FeatureService::class)->save(null, ['name' => 'Basic', 'features' => $this->except(['mysql', 'redis', 'stats'])], 1);

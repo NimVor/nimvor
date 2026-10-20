@@ -80,7 +80,7 @@ abstract class Controller
      *
      * @param array{content: string, count: int, format: string} $out
      */
-    protected function download(string $db, string $collection, array $out): Response
+    protected function downloadExport(string $db, string $collection, array $out): Response
     {
         $ext = $out['format'] === 'jsonl' ? 'jsonl' : 'json';
         $type = $out['format'] === 'jsonl' ? 'application/x-ndjson' : 'application/json';
