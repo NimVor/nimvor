@@ -315,9 +315,15 @@ textarea.form-control.wcp-editor { min-height: 65vh; font-size: .82rem; resize: 
 .wcp-db-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .wcp-db-tabs { display: flex; align-items: center; gap: .35rem; padding: .5rem .75rem; border-bottom: 1px solid var(--wcp-card-border); }
 .wcp-db-pane { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
-.wcp-db-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .5rem .75rem; }
-.wcp-db-filter { width: auto; flex: 1 1 26rem; max-width: 40rem; }
+.wcp-db-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .5rem .75rem; border-bottom: 1px solid var(--wcp-card-border); }
+.wcp-db-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; flex: 1 1 24rem; min-width: 0; }
+.wcp-db-tools-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-left: auto; }
+.wcp-db-filter { width: auto; flex: 2 1 16rem; min-width: 11rem; max-width: 34rem; }
 .wcp-db-filter select { max-width: 11rem; }
+.wcp-db-mini { width: auto; flex: 1 1 10rem; min-width: 8rem; max-width: 14rem; }
+.wcp-db-paging { display: flex; align-items: center; gap: .5rem; }
+.wcp-db-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .25rem; text-align: center; color: var(--bs-body-color); padding: 3rem 1rem; min-height: 12rem; }
+.wcp-db-empty .bi { font-size: 2rem; color: var(--bs-secondary-color); margin-bottom: .25rem; }
 .wcp-db-grid-wrap { flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--wcp-card-border); }
 .wcp-db-grid-result { max-height: 60vh; border: 1px solid var(--wcp-card-border); border-radius: .375rem; }
 .wcp-db-grid { font-size: .82rem; }

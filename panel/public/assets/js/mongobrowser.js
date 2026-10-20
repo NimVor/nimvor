@@ -50,6 +50,14 @@
         WhaCP.toast((d.message || (err && err.message) || 'Request failed') + (d.details ? ' — ' + d.details : ''), 'danger');
     }
     function placeholder(target, text) { target.replaceChildren(el('div', 'text-body-secondary p-4', text)); }
+    // A centred empty state with an icon, for the "nothing here yet" panes.
+    function emptyState(target, icon, title, hint) {
+        var box = el('div', 'wcp-db-empty');
+        box.appendChild(el('i', 'bi bi-' + icon));
+        box.appendChild(el('div', 'fw-semibold', title));
+        if (hint) { box.appendChild(el('div', 'small text-body-secondary', hint)); }
+        target.replaceChildren(box);
+    }
 
     // --- Collections sidebar ---
 
@@ -416,7 +424,12 @@
 
     function renderDocuments(docs) {
         if (!docs.length) {
-            placeholder(pane, state.total === 0 ? 'This collection has no matching documents.' : 'No documents on this page.');
+            var filtered = filterIn && filterIn.value.trim() !== '';
+            if (state.total === 0 && !filtered) {
+                emptyState(pane, 'collection', 'This collection is empty', canDelete ? 'Use “New document” above to add the first one.' : null);
+            } else {
+                emptyState(pane, 'funnel', 'No matching documents', 'No document matches the current filter.');
+            }
             return;
         }
         var wrap = el('div', 'wcp-mongo-docs p-2');

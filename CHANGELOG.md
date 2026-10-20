@@ -7,6 +7,13 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **MongoDB browser toolbar no longer clips.** The collection name, the five
+  view tabs, the JSON filter/sort/fields inputs and the action buttons were
+  all crammed onto one non-wrapping row, which squeezed the filter box down
+  to a few characters with the Run button on top of it. The view tabs now sit
+  on their own row, and the query inputs and actions wrap cleanly with the
+  filter given room to grow. Empty collections and empty filter results now
+  show a centred icon state instead of a bare line of text.
 - **Redis and Memcached pages follow the panel UI rules.** Both server pages
   no longer stack every section as a column of cards: they use tabs
   (Overview / Website users / Security / Danger zone for Redis;

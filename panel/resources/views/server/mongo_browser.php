@@ -41,52 +41,58 @@
         <div class="small text-body-secondary px-2 py-2" data-mb-colls-count></div>
     </aside>
     <section class="wcp-db-main">
-        <div class="wcp-db-bar">
-            <span class="font-monospace small text-truncate me-2" data-mb-current>No collection selected</span>
-            <div class="btn-group btn-group-sm me-2" role="tablist" aria-label="View">
+        <div class="wcp-db-tabs">
+            <span class="fw-semibold font-monospace text-truncate me-2" data-mb-current>No collection selected</span>
+            <div class="btn-group btn-group-sm" role="tablist" aria-label="View">
                 <button class="btn btn-outline-secondary active" type="button" data-mb-tab="documents" disabled>Documents</button>
                 <button class="btn btn-outline-secondary" type="button" data-mb-tab="aggregate" disabled>Aggregation</button>
                 <button class="btn btn-outline-secondary" type="button" data-mb-tab="schema" disabled>Schema</button>
                 <button class="btn btn-outline-secondary" type="button" data-mb-tab="indexes" disabled>Indexes</button>
                 <button class="btn btn-outline-secondary" type="button" data-mb-tab="users" disabled>Users</button>
             </div>
-            <span data-mb-doc-tools class="d-flex align-items-center gap-2">
+        </div>
+        <div class="wcp-db-bar">
+            <span data-mb-doc-tools class="wcp-db-tools">
                 <div class="input-group input-group-sm wcp-db-filter">
                     <span class="input-group-text"><i class="bi bi-funnel"></i></span>
                     <input class="form-control font-monospace" type="text" placeholder='Filter, e.g. { "status": "active" }' aria-label="JSON filter" data-mb-filter autocomplete="off" spellcheck="false" disabled>
                     <button class="btn btn-primary" type="button" data-mb-run disabled>Run</button>
                 </div>
-                <div class="input-group input-group-sm" style="max-width:12rem">
+                <div class="input-group input-group-sm wcp-db-mini">
                     <span class="input-group-text" title="Sort">⇅</span>
                     <input class="form-control font-monospace" type="text" placeholder='Sort, e.g. { "age": -1 }' aria-label="JSON sort" data-mb-sort autocomplete="off" spellcheck="false" disabled>
                 </div>
-                <div class="input-group input-group-sm" style="max-width:12rem">
+                <div class="input-group input-group-sm wcp-db-mini">
                     <span class="input-group-text" title="Fields (projection)"><i class="bi bi-list-columns-reverse"></i></span>
                     <input class="form-control font-monospace" type="text" placeholder='Fields, e.g. { "name": 1 }' aria-label="JSON projection" data-mb-projection autocomplete="off" spellcheck="false" disabled>
                 </div>
-                <?php if ($canDelete): ?>
-                <button class="btn btn-sm btn-outline-primary" type="button" data-mb-new disabled><i class="bi bi-plus-lg me-1"></i>New document</button>
-                <?php endif; ?>
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-mb-export disabled><i class="bi bi-download me-1"></i>Export</button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><button class="dropdown-item" type="button" data-mb-export-format="json">JSON array (.json)</button></li>
-                        <li><button class="dropdown-item" type="button" data-mb-export-format="jsonl">One per line (.jsonl)</button></li>
-                    </ul>
-                </div>
-                <?php if ($canDelete): ?>
-                <button class="btn btn-sm btn-outline-secondary" type="button" data-mb-import disabled><i class="bi bi-upload me-1"></i>Import</button>
-                <?php endif; ?>
+                <span class="wcp-db-tools-actions">
+                    <?php if ($canDelete): ?>
+                    <button class="btn btn-sm btn-outline-primary text-nowrap" type="button" data-mb-new disabled><i class="bi bi-plus-lg me-1"></i>New document</button>
+                    <?php endif; ?>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-mb-export disabled><i class="bi bi-download me-1"></i>Export</button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button class="dropdown-item" type="button" data-mb-export-format="json">JSON array (.json)</button></li>
+                            <li><button class="dropdown-item" type="button" data-mb-export-format="jsonl">One per line (.jsonl)</button></li>
+                        </ul>
+                    </div>
+                    <?php if ($canDelete): ?>
+                    <button class="btn btn-sm btn-outline-secondary text-nowrap" type="button" data-mb-import disabled><i class="bi bi-upload me-1"></i>Import</button>
+                    <?php endif; ?>
+                </span>
             </span>
             <?php if ($canDelete): ?>
             <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newindex disabled><i class="bi bi-plus-lg me-1"></i>New index</button>
             <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newuser disabled><i class="bi bi-person-plus me-1"></i>New user</button>
             <?php endif; ?>
-            <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Paging" data-mb-pager>
-                <button class="btn btn-outline-secondary" type="button" data-mb-prev disabled><i class="bi bi-chevron-left"></i></button>
-                <button class="btn btn-outline-secondary" type="button" data-mb-next disabled><i class="bi bi-chevron-right"></i></button>
+            <div class="wcp-db-paging ms-auto">
+                <div class="btn-group btn-group-sm" role="group" aria-label="Paging" data-mb-pager>
+                    <button class="btn btn-outline-secondary" type="button" data-mb-prev disabled><i class="bi bi-chevron-left"></i></button>
+                    <button class="btn btn-outline-secondary" type="button" data-mb-next disabled><i class="bi bi-chevron-right"></i></button>
+                </div>
+                <span class="small text-body-secondary text-nowrap" data-mb-range></span>
             </div>
-            <span class="small text-body-secondary ms-2 text-nowrap" data-mb-range></span>
         </div>
         <div class="wcp-db-pane" data-mb-pane aria-live="polite">
             <div class="text-body-secondary p-4">Choose a database, then a collection to browse its documents.</div>
