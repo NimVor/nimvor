@@ -417,6 +417,7 @@ return static function (Router $r): void {
     $r->post('/mongo/config-file', [\WhaCP\Http\Controllers\MongoController::class, 'configFile'], ['name' => 'mongo.config_file', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/admin-password', [\WhaCP\Http\Controllers\MongoController::class, 'adminPassword'], ['name' => 'mongo.admin_password', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/auth', [\WhaCP\Http\Controllers\MongoController::class, 'auth'], ['name' => 'mongo.auth', 'permission' => P::MONGO_MANAGE]);
+    $r->post('/mongo/note', [\WhaCP\Http\Controllers\MongoController::class, 'note'], ['name' => 'mongo.note', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/backup', [\WhaCP\Http\Controllers\MongoController::class, 'backup'], ['name' => 'mongo.backup', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/restore', [\WhaCP\Http\Controllers\MongoController::class, 'restore'], ['name' => 'mongo.restore', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/backups/delete', [\WhaCP\Http\Controllers\MongoController::class, 'deleteBackup'], ['name' => 'mongo.backup_delete', 'permission' => P::MONGO_MANAGE]);

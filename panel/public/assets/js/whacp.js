@@ -140,13 +140,22 @@
     // button that opened it.
     document.addEventListener('show.bs.modal', function (e) {
         var modal = e.target;
-        if (!modal || modal.id !== 'mongo-pw') { return; }
         var b = e.relatedTarget;
-        if (!b) { return; }
-        var user = modal.querySelector('#mpw-user');
-        var db = modal.querySelector('#mpw-db');
-        if (user) { user.value = b.getAttribute('data-user') || ''; }
-        if (db) { db.value = b.getAttribute('data-db') || ''; }
+        if (!modal || !b) { return; }
+        if (modal.id === 'mongo-pw') {
+            var user = modal.querySelector('#mpw-user');
+            var db = modal.querySelector('#mpw-db');
+            if (user) { user.value = b.getAttribute('data-user') || ''; }
+            if (db) { db.value = b.getAttribute('data-db') || ''; }
+        } else if (modal.id === 'mongo-note') {
+            var ndb = modal.querySelector('#mnote-db');
+            var ntext = modal.querySelector('#mnote-text');
+            var nlabel = modal.querySelector('[data-mongo-note-db]');
+            var name = b.getAttribute('data-db') || '';
+            if (ndb) { ndb.value = name; }
+            if (ntext) { ntext.value = b.getAttribute('data-note') || ''; }
+            if (nlabel) { nlabel.textContent = name; }
+        }
     });
 
     // Loading state on submit for forms marked data-wcp-busy.

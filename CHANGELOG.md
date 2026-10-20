@@ -7,6 +7,14 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **MongoDB Databases grid shows user, position and an editable note.** The
+  server MongoDB manager's Databases table now lists, per database, its first
+  database user, size, backup status (with a one-click back-up when none
+  exists), position (Localhost), and a free-text administrator note, with
+  per-row Browse / change-password / drop actions. The toolbar gained Root
+  password and Security-authentication buttons. Notes are stored panel-side
+  and are admin-only; per WhaCP's secrets policy the panel still never stores
+  or reveals a database user's password — the per-row key resets it instead.
 - **MongoDB browser redesigned as a three-pane explorer.** The full-page
   browser now has a databases/collections sidebar, a centre pane with a
   breadcrumb, collection actions (Insert Document, Import, Export, rename /

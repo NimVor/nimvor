@@ -8,6 +8,7 @@ use WhaCP\Agent\AgentException;
 use WhaCP\Http\Request;
 use WhaCP\Http\Response;
 use WhaCP\Http\Session\SessionInterface;
+use WhaCP\Repositories\SettingRepository;
 use WhaCP\Security\Permissions as P;
 use WhaCP\Services\JobTracker;
 use WhaCP\Services\MongoService;
@@ -26,8 +27,22 @@ final class MongoController extends Controller
         private readonly MongoService $mongo,
         private readonly JobTracker $jobs,
         private readonly ServerContext $server,
+        private readonly SettingRepository $settings,
     ) {
         parent::__construct($view, $session);
+    }
+
+    /** Per-database notes, keyed by database name (persisted panel-side). */
+    private function notes(): array
+    {
+        $out = [];
+        $prefix = 'mongo.note.' . $this->server->id() . '.';
+        foreach ($this->settings->all() as $key => $value) {
+            if (str_starts_with($key, $prefix)) {
+                $out[substr($key, strlen($prefix))] = (string) $value;
+            }
+        }
+        return $out;
     }
 
     public function index(Request $request): Response
@@ -79,6 +94,9 @@ final class MongoController extends Controller
                     } catch (AgentException) {
                     }
                 }
+                if ($section === 'databases') {
+                    $notes = $this->notes();
+                }
             }
         } catch (AgentException $e) {
             $error = $e;
@@ -87,7 +105,23 @@ final class MongoController extends Controller
             'tab' => 'mongo', 'section' => $section, 'status' => $status, 'overview' => $overview, 'repository' => $repository,
             'overviewError' => $overviewError, 'agentError' => $error,
             'config' => $config ?? null, 'log' => $log ?? null, 'backups' => $backups ?? [],
+            'notes' => $notes ?? [],
         ]);
+    }
+
+    /** Save (or clear) a free-text note for one database. */
+    public function note(Request $request): Response
+    {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
+            return $this->redirectWithFailure('/mongo', new \WhaCP\Support\UserFacingException('You may not do this.'));
+        }
+        $name = trim($request->string('name'));
+        if ($name === '') {
+            return Response::redirect('/mongo');
+        }
+        $note = trim($request->string('note'));
+        $this->settings->set('mongo.note.' . $this->server->id() . '.' . $name, mb_substr($note, 0, 500), $this->userId($request));
+        return $this->redirectWithSuccess('/mongo', $note === '' ? 'Note cleared.' : 'Note saved.');
     }
 
     public function bulkDropDatabases(Request $request): Response

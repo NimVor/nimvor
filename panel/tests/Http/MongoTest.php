@@ -65,6 +65,27 @@ final class MongoTest extends HttpTestCase
         self::assertSame(3, $this->calls('mongo.database_drop'));
     }
 
+    public function testDatabaseNoteSavesAndShows(): void
+    {
+        $this->login('admin');
+        // The Databases grid shows the database's user and a Position column.
+        $page = $this->request('GET', '/mongo')->body();
+        self::assertStringContainsString('shopuser', $page, 'the database row shows its user');
+        self::assertStringContainsString('Localhost', $page, 'the Position column');
+
+        $this->post('/mongo/note', ['name' => 'shop', 'note' => 'primary store']);
+        $page = $this->request('GET', '/mongo')->body();
+        self::assertStringContainsString('primary store', $page, 'the saved note shows on the row');
+
+        // Clearing removes it.
+        $this->post('/mongo/note', ['name' => 'shop', 'note' => '']);
+        self::assertStringNotContainsString('primary store', $this->request('GET', '/mongo')->body());
+
+        // A customer may not set notes (the route requires mongo.manage).
+        $this->login('cust');
+        self::assertSame(403, $this->post('/mongo/note', ['name' => 'shop', 'note' => 'x'])->status());
+    }
+
     public function testConfigurationAndLog(): void
     {
         $this->agent->succeed('mongo.config_get', [

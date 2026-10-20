@@ -142,14 +142,26 @@ $base = $this->url('mongo');
     foreach ($backups as $b) {
         $backupCounts[(string) $b['db']] = ($backupCounts[(string) $b['db']] ?? 0) + 1;
     }
+    // The first user defined on each database (a database may have several;
+    // the Users tab manages them all). Used for the per-row user/password.
+    $usersByDb = [];
+    foreach ($overview['users'] as $u) {
+        $udb = (string) ($u['db'] ?? '');
+        if ($udb !== '' && !isset($usersByDb[$udb])) {
+            $usersByDb[$udb] = (string) ($u['user'] ?? '');
+        }
+    }
+    $notes = $notes ?? [];
     ?>
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-        <div class="input-group input-group-sm" style="max-width:22rem">
+        <div class="input-group input-group-sm" style="max-width:20rem">
             <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
             <input class="form-control" type="search" placeholder="Filter databases" aria-label="Filter databases" data-wcp-filter="#mongo-dbs">
         </div>
         <span class="me-auto"></span>
         <?php if ($canManage): ?>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-admin" title="Set the MongoDB administrator password"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Root password</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-config" title="Authentication and connection settings"><i class="bi bi-shield-check me-1" aria-hidden="true"></i>Security auth</button>
             <button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-check-all="#mongo-dbs"><i class="bi bi-check2-square me-1" aria-hidden="true"></i>All</button>
             <button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-check-none="#mongo-dbs">None</button>
             <form id="mongo-dbs-bulk" method="post" action="<?= e($this->url('mongo.database_bulk_drop')) ?>" data-wcp-busy data-wcp-confirm="Drop every selected database and all their data? This cannot be undone.">
@@ -165,28 +177,40 @@ $base = $this->url('mongo');
         <?php else: ?>
             <div class="wcp-dtable table-responsive">
                 <table class="table align-middle mb-0" id="mongo-dbs">
-                    <thead><tr><?php if ($canManage): ?><th style="width:2.5rem"></th><?php endif; ?><th>Name</th><th>Size</th><th>Backup</th><th class="text-end">Action</th></tr></thead>
+                    <thead><tr><?php if ($canManage): ?><th style="width:2.5rem"></th><?php endif; ?><th>Name</th><th>User</th><th>Size</th><th>Backup</th><th>Position</th><th>Note</th><th class="text-end">Action</th></tr></thead>
                     <tbody>
-                    <?php foreach ($overview['databases'] as $d): $dn = (string) ($d['name'] ?? ''); $bc = $backupCounts[$dn] ?? 0; ?>
+                    <?php foreach ($overview['databases'] as $d): $dn = (string) ($d['name'] ?? ''); $bc = $backupCounts[$dn] ?? 0; $du = $usersByDb[$dn] ?? ''; $note = (string) ($notes[$dn] ?? ''); ?>
                         <tr>
                             <?php if ($canManage): ?><td><input class="form-check-input" type="checkbox" name="names[]" value="<?= e($dn) ?>" form="mongo-dbs-bulk" aria-label="Select <?= e($dn) ?>"></td><?php endif; ?>
                             <td class="font-monospace"><?= e($dn) ?></td>
+                            <td class="small font-monospace"><?= $du !== '' ? e($du) : '<span class="text-body-secondary">—</span>' ?></td>
                             <td class="small text-body-secondary"><?= e(format_bytes((int) ($d['size'] ?? 0))) ?></td>
                             <td class="small">
                                 <?php if ($bc > 0): ?>
-                                    <a class="text-success-emphasis text-decoration-none" href="<?= e($base . '?section=backups') ?>"><i class="bi bi-check-circle me-1"></i><?= (int) $bc ?></a>
+                                    <a class="text-success-emphasis text-decoration-none" href="<?= e($base . '?section=backups') ?>" title="<?= (int) $bc ?> backup(s)"><i class="bi bi-check-circle me-1"></i><?= (int) $bc ?></a>
                                 <?php elseif ($canManage): ?>
                                     <form class="d-inline" method="post" action="<?= e($this->url('mongo.backup')) ?>" data-wcp-busy data-wcp-confirm="Back up “<?= e($dn) ?>” now?">
                                         <?= $this->csrfField() ?><input type="hidden" name="db" value="<?= e($dn) ?>">
-                                        <button class="btn btn-sm btn-link p-0 text-decoration-none" title="Back up now"><i class="bi bi-download me-1"></i>Back up</button>
+                                        <button class="btn btn-sm btn-link p-0 text-decoration-none text-warning-emphasis" title="No backup yet — back up now"><i class="bi bi-dash-circle me-1"></i>Back up</button>
                                     </form>
                                 <?php else: ?>
                                     <span class="text-body-secondary">None</span>
                                 <?php endif; ?>
                             </td>
+                            <td class="small"><span class="badge rounded-pill text-bg-light border"><i class="bi bi-hdd me-1" aria-hidden="true"></i>Localhost</span></td>
+                            <td class="small">
+                                <?php if ($canManage): ?>
+                                    <button class="btn btn-sm btn-link p-0 text-decoration-none text-truncate d-inline-block" style="max-width:12rem" type="button" data-bs-toggle="modal" data-bs-target="#mongo-note" data-db="<?= e($dn) ?>" data-note="<?= e($note) ?>" title="Edit note"><?= $note !== '' ? e($note) : '<span class="text-body-secondary"><i class="bi bi-pencil me-1"></i>Add note</span>' ?></button>
+                                <?php else: ?>
+                                    <span class="text-body-secondary"><?= $note !== '' ? e($note) : '—' ?></span>
+                                <?php endif; ?>
+                            </td>
                             <td class="text-end text-nowrap">
                                 <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('mongo.browser')) ?>?db=<?= e(rawurlencode($dn)) ?>" title="Browse collections and documents"><i class="bi bi-table me-1"></i>Browse</a>
                                 <?php if ($canManage): ?>
+                                <?php if ($du !== ''): ?>
+                                <button class="btn btn-sm btn-outline-secondary" type="button" title="Change the user's password" data-bs-toggle="modal" data-bs-target="#mongo-pw" data-user="<?= e($du) ?>" data-db="<?= e($dn) ?>"><i class="bi bi-key"></i></button>
+                                <?php endif; ?>
                                 <form class="d-inline" method="post" action="<?= e($this->url('mongo.database_drop')) ?>" data-wcp-confirm="Drop the database “<?= e($dn) ?>” and everything in it? This cannot be undone.">
                                     <?= $this->csrfField() ?>
                                     <input type="hidden" name="name" value="<?= e($dn) ?>"><input type="hidden" name="confirm" value="<?= e($dn) ?>">
@@ -196,7 +220,7 @@ $base = $this->url('mongo');
                             </td>
                         </tr>
                     <?php endforeach; ?>
-                    <tr data-wcp-filter-empty class="d-none"><td colspan="<?= $canManage ? 5 : 4 ?>" class="small text-body-secondary">No databases match the filter.</td></tr>
+                    <tr data-wcp-filter-empty class="d-none"><td colspan="<?= $canManage ? 8 : 7 ?>" class="small text-body-secondary">No databases match the filter.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -453,6 +477,19 @@ $base = $this->url('mongo');
             </div>
             <div class="form-text mt-1">The user is created in the chosen database with that role on it.</div>
             <button class="btn btn-primary btn-sm mt-3" type="submit">Create user</button>
+        </div>
+    </form>
+<?= $this->modalEnd() ?>
+
+<?= $this->modalStart('mongo-note', 'Database note', false, 'modal') ?>
+    <form method="post" action="<?= e($this->url('mongo.note')) ?>" data-wcp-busy>
+        <div class="p-3">
+            <?= $this->csrfField() ?>
+            <input type="hidden" name="name" id="mnote-db">
+            <label class="form-label" for="mnote-text">Note for <code data-mongo-note-db></code></label>
+            <textarea class="form-control" id="mnote-text" name="note" rows="3" maxlength="500" placeholder="A short reminder about this database (purpose, owner, …)"></textarea>
+            <div class="form-text">Stored in WhaCP, visible to administrators only. Leave empty to clear.</div>
+            <button class="btn btn-primary btn-sm mt-3" type="submit">Save note</button>
         </div>
     </form>
 <?= $this->modalEnd() ?>
