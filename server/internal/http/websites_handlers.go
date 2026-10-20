@@ -287,3 +287,39 @@ func (s *Server) siteWorkers(w http.ResponseWriter, r *http.Request) {
 		"Workers": workers,
 	})
 }
+
+// siteSubdomains lists a website's subdomains/addon domains (its children).
+// Gated by the subdomains plan feature (route name sites.subdomains) AND the
+// websites.manage permission. The parent website is resolved under tenant scope
+// (foreign id → 404). Mirrors SitesController::subdomains.
+func (s *Server) siteSubdomains(w http.ResponseWriter, r *http.Request) {
+	user := userFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		s.notFound(w, r)
+		return
+	}
+	serverID := s.currentServerID(r)
+	site, err := hosting.NewWebsiteRepository(s.db).Find(r.Context(), serverID, id, user)
+	if errors.Is(err, hosting.ErrWebsiteNotFound) {
+		s.notFound(w, r)
+		return
+	}
+	if err != nil {
+		s.log.Error("find website", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	children, err := hosting.NewWebsiteRepository(s.db).Children(r.Context(), serverID, site.ID)
+	if err != nil {
+		s.log.Error("list subdomains", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	s.render(w, "site_subdomains", map[string]any{
+		"User":     user,
+		"CSRF":     session.CSRFToken(sessionFrom(r.Context())),
+		"Site":     site,
+		"Children": children,
+	})
+}

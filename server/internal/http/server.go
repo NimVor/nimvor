@@ -94,6 +94,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /websites/{id}", s.guard("", "websites.view", s.websiteShow))
 	s.mux.HandleFunc("GET /sites/{id}/cron", s.guard("", "cron.view", s.siteCron))
 	s.mux.HandleFunc("GET /sites/{id}/workers", s.guard("", "workers.manage", s.siteWorkers))
+	// Subdomains: gated by the subdomains plan feature (route name) AND the
+	// websites.manage permission.
+	s.mux.HandleFunc("GET /sites/{id}/subdomains", s.guard("sites.subdomains", "websites.manage", s.siteSubdomains))
 
 	// Databases list + create. The mysql feature withholds databases.view when
 	// a plan disables it, so the permission guard enforces the feature too.

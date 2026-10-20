@@ -91,6 +91,27 @@ func (r *WebsiteRepository) Find(ctx context.Context, serverID, id int64, u *ide
 // ErrWebsiteNotFound is returned when no website matches within the user's scope.
 var ErrWebsiteNotFound = errors.New("hosting: website not found")
 
+// Children returns the websites created from a parent website (subdomains and
+// addon domains), ordered by domain. The caller resolves the parent under
+// tenant scope first. Mirrors WebsiteRepository::children.
+func (r *WebsiteRepository) Children(ctx context.Context, serverID, parentID int64) ([]Website, error) {
+	rows, err := r.db.QueryContext(ctx,
+		websiteSelect+" WHERE w.server_id = ? AND w.parent_id = ? ORDER BY w.domain", serverID, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Website
+	for rows.Next() {
+		wsite, err := scanWebsite(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *wsite)
+	}
+	return out, rows.Err()
+}
+
 func scanWebsite(row interface{ Scan(...any) error }) (*Website, error) {
 	var w Website
 	var https, enabled int
