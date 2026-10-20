@@ -406,6 +406,7 @@ return static function (Router $r): void {
     $r->get('/mongo', [\WhaCP\Http\Controllers\MongoController::class, 'index'], ['name' => 'mongo', 'permission' => P::MONGO_VIEW]);
     $r->post('/mongo/databases', [\WhaCP\Http\Controllers\MongoController::class, 'createDatabase'], ['name' => 'mongo.database_create', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/databases/drop', [\WhaCP\Http\Controllers\MongoController::class, 'dropDatabase'], ['name' => 'mongo.database_drop', 'permission' => P::MONGO_MANAGE]);
+    $r->post('/mongo/databases/bulk-drop', [\WhaCP\Http\Controllers\MongoController::class, 'bulkDropDatabases'], ['name' => 'mongo.database_bulk_drop', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/users', [\WhaCP\Http\Controllers\MongoController::class, 'createUser'], ['name' => 'mongo.user_create', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/users/password', [\WhaCP\Http\Controllers\MongoController::class, 'setPassword'], ['name' => 'mongo.user_password', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/users/drop', [\WhaCP\Http\Controllers\MongoController::class, 'dropUser'], ['name' => 'mongo.user_drop', 'permission' => P::MONGO_MANAGE]);

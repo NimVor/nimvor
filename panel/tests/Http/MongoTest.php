@@ -25,9 +25,15 @@ final class MongoTest extends HttpTestCase
     public function testAdminManagesDatabasesAndUsers(): void
     {
         $this->login('admin');
+        // Databases tab (the default) shows the server version and the database.
         $page = $this->request('GET', '/mongo')->body();
-        foreach (['MongoDB', '7.0.14', 'shop', 'shopuser', 'readWrite'] as $want) {
+        foreach (['MongoDB', '7.0.14', 'shop'] as $want) {
             self::assertStringContainsString($want, $page, $want);
+        }
+        // The Users tab lists the users.
+        $users = $this->request('GET', '/mongo', [], [], '', ['section' => 'users'])->body();
+        foreach (['shopuser', 'readWrite'] as $want) {
+            self::assertStringContainsString($want, $users, $want);
         }
 
         $this->agent->succeed('mongo.database_create', ['name' => 'blog']);
@@ -48,6 +54,15 @@ final class MongoTest extends HttpTestCase
         self::assertSame(['name' => 'shop', 'confirm' => 'shop'], $this->lastCall('mongo.database_drop'));
 
         self::assertSame(5, (int) $this->app->container->get(Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action LIKE 'mongo.%'"));
+
+        // Bulk delete drops each selected database (one single drop happened
+        // earlier, so two more here makes three in total).
+        $this->agent->succeed('mongo.database_drop', ['dropped' => 'x']);
+        $this->post('/mongo/databases/bulk-drop', ['names' => ['blog', 'app']]);
+        self::assertSame(3, $this->calls('mongo.database_drop'));
+        // An empty selection is refused before the agent.
+        $this->post('/mongo/databases/bulk-drop', ['names' => []]);
+        self::assertSame(3, $this->calls('mongo.database_drop'));
     }
 
     public function testConfigurationAndLog(): void
@@ -59,10 +74,15 @@ final class MongoTest extends HttpTestCase
         ]);
         $this->agent->succeed('mongo.log', ['path' => '/var/log/mongodb/mongod.log', 'lines' => "started\nlistening on 27017"]);
         $this->login('admin');
-        $page = $this->request('GET', '/mongo')->body();
-        foreach (['Configuration', 'name="port"', 'name="bind_ip"', 'authorization', 'listening on 27017', '/var/log/mongodb/mongod.log'] as $want) {
+        // Configuration tab: summary + the settings/config-file modals.
+        $page = $this->request('GET', '/mongo', [], [], '', ['section' => 'config'])->body();
+        foreach (['Configuration', 'name="port"', 'name="bind_ip"', 'authorization', 'Edit config file'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
+        // Log tab shows the log tail.
+        $logPage = $this->request('GET', '/mongo', [], [], '', ['section' => 'log'])->body();
+        self::assertStringContainsString('listening on 27017', $logPage);
+        self::assertStringContainsString('/var/log/mongodb/mongod.log', $logPage);
 
         // Saving the configuration reaches the agent with validated values.
         $this->agent->succeed('mongo.config_set', ['path' => '/etc/mongod.conf', 'port' => 27018, 'bind_ip' => '0.0.0.0', 'authorization' => true, 'raw' => '']);
@@ -74,8 +94,7 @@ final class MongoTest extends HttpTestCase
         $this->post('/mongo/config', ['port' => '0', 'bind_ip' => '127.0.0.1']);
         self::assertSame(1, $this->calls('mongo.config_set'));
 
-        // The raw config-file editor is shown and its save reaches the agent.
-        self::assertStringContainsString('Edit configuration file', $page);
+        // The raw config-file editor save reaches the agent.
         $this->agent->succeed('mongo.config_write', ['path' => '/etc/mongod.conf', 'port' => 28000, 'bind_ip' => '127.0.0.1', 'authorization' => false, 'raw' => '']);
         $this->post('/mongo/config-file', ['content' => "net:\n  port: 28000\n"]);
         self::assertSame("net:\n  port: 28000\n", $this->lastCall('mongo.config_write')['content']);
@@ -131,9 +150,9 @@ final class MongoTest extends HttpTestCase
         ]]);
         $this->login('admin');
 
-        // The Backups card lists existing archives and offers a backup form.
-        $page = $this->request('GET', '/mongo')->body();
-        foreach (['Backups', 'Back up a database', '20260901-120000_shop.archive.gz'] as $want) {
+        // The Backups tab lists existing archives and offers a backup form.
+        $page = $this->request('GET', '/mongo', [], [], '', ['section' => 'backups'])->body();
+        foreach (['Backups', '20260901-120000_shop.archive.gz'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
 

@@ -206,6 +206,15 @@ All notable changes to WhaCP are documented here. The format follows
   (e.g. `{ "name": 1 }`). Both are JSON objects parsed with EJSON inside
   `mongosh` as data, validated and bounded; they apply on the admin and the
   customer page alike, confined to the account's own databases on the latter.
+- **MongoDB admin page redesigned into tabs (Server → MongoDB).** The stacked
+  cards (Databases, Users, Backups, Configuration, Log) are now tabs, so the
+  page stays clean as the number of databases grows and only the active tab's
+  data is fetched (a large server's config and log are no longer read on every
+  view). Every change is a modal — add database (optionally with its user), add
+  user, change password, admin password, the structured settings and the raw
+  config-file editor all open as dialogs. The Databases, Users and Backups
+  tables gained an instant filter box, and the Databases table has select-all
+  and a **Delete selected** bulk action (new `mongo.database_bulk_drop`).
 - **MongoDB collection management in the browser.** The browser's collections
   sidebar now creates a collection (the "+" button), and each collection has an
   actions menu to empty it (remove all documents, keep indexes), rename it, or

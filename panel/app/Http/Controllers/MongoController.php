@@ -32,6 +32,10 @@ final class MongoController extends Controller
 
     public function index(Request $request): Response
     {
+        $section = (string) $request->query('section', 'databases');
+        if (!in_array($section, ['databases', 'users', 'backups', 'config', 'log'], true)) {
+            $section = 'databases';
+        }
         $status = null;
         $overview = ['databases' => [], 'users' => [], 'databases_error' => '', 'users_error' => ''];
         $repository = null;
@@ -49,33 +53,63 @@ final class MongoController extends Controller
             }
             if ($status['installed'] && $status['running']) {
                 // A failure reading the databases/users must not blank the
-                // whole page with no explanation — show it in place.
+                // whole page with no explanation — show it in place. Only the
+                // active tab's data is fetched, so a large server's config/log
+                // are not read on every page view.
                 try {
                     $overview = $this->mongo->overview();
                 } catch (AgentException $e) {
                     $overviewError = $e;
                 }
-                try {
-                    $config = $this->mongo->config();
-                } catch (AgentException) {
+                if ($section === 'config') {
+                    try {
+                        $config = $this->mongo->config();
+                    } catch (AgentException) {
+                    }
                 }
-                try {
-                    $log = $this->mongo->log();
-                } catch (AgentException) {
+                if ($section === 'log') {
+                    try {
+                        $log = $this->mongo->log();
+                    } catch (AgentException) {
+                    }
                 }
-                try {
-                    $backups = $this->mongo->backups();
-                } catch (AgentException) {
+                if ($section === 'databases' || $section === 'backups') {
+                    try {
+                        $backups = $this->mongo->backups();
+                    } catch (AgentException) {
+                    }
                 }
             }
         } catch (AgentException $e) {
             $error = $e;
         }
         return $this->render('server/mongo', [
-            'tab' => 'mongo', 'status' => $status, 'overview' => $overview, 'repository' => $repository,
+            'tab' => 'mongo', 'section' => $section, 'status' => $status, 'overview' => $overview, 'repository' => $repository,
             'overviewError' => $overviewError, 'agentError' => $error,
             'config' => $config ?? null, 'log' => $log ?? null, 'backups' => $backups ?? [],
         ]);
+    }
+
+    public function bulkDropDatabases(Request $request): Response
+    {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
+            return $this->redirectWithError('/mongo', 'You may not do this.');
+        }
+        /** @var list<string> $names */
+        $names = array_values(array_filter(array_map('strval', (array) $request->input('names', []))));
+        if ($names === []) {
+            return $this->redirectWithError('/mongo', 'Select at least one database.');
+        }
+        $dropped = 0;
+        try {
+            foreach ($names as $name) {
+                $this->mongo->dropDatabase($name, $name, $this->userId($request));
+                $dropped++;
+            }
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/mongo', $e);
+        }
+        return $this->redirectWithSuccess('/mongo', 'Dropped ' . $dropped . ' database' . ($dropped === 1 ? '' : 's') . '.');
     }
 
     public function config(Request $request): Response
