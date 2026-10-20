@@ -247,12 +247,44 @@ paths:
               - modsec.status
               - modsec.trim
               - modsec.update
+              - mongo.admin_password
+              - mongo.aggregate
+              - mongo.auth_set
+              - mongo.backup
+              - mongo.backup_delete
+              - mongo.backups
+              - mongo.collection_create
+              - mongo.collection_drop
+              - mongo.collection_empty
+              - mongo.collection_rename
+              - mongo.collection_stats
+              - mongo.collections
+              - mongo.config_get
+              - mongo.config_set
+              - mongo.config_write
               - mongo.database_create
               - mongo.database_drop
+              - mongo.database_users
+              - mongo.document_delete
+              - mongo.document_insert
+              - mongo.document_update
+              - mongo.documents
+              - mongo.explain
+              - mongo.export
+              - mongo.import
+              - mongo.index_create
+              - mongo.index_drop
+              - mongo.indexes
               - mongo.install
+              - mongo.log
               - mongo.overview
+              - mongo.remote_databases
+              - mongo.remote_ping
+              - mongo.remote_pull
               - mongo.repository
               - mongo.repository.enable
+              - mongo.restore
+              - mongo.schema
               - mongo.status
               - mongo.user_create
               - mongo.user_drop
@@ -695,12 +727,44 @@ x-whacp-actions:
   modsec.status: { mutating: false, description: "ModSecurity: the Nginx connector as a capability (missing, installed but not loaded or usable, functional; from a package or not), the OWASP Core Rule Set found, the server-wide configuration, rule vendors, websites' modes and the audit log size." }
   modsec.trim: { mutating: true, description: "Keep the ModSecurity audit log small: above 50 MiB its last 5 MiB are kept." }
   modsec.update: { mutating: true, description: "Update the rule packages (OWASP CRS and the connector) with the package manager as a background job, then check with nginx -t and reload. If the new rules break the configuration, the Core Rule Set is turned off and the rest restored." }
+  mongo.admin_password: { mutating: true, description: "Create or reset the WhaCP MongoDB admin user and store its connection string." }
+  mongo.aggregate: { mutating: false, description: "Run an aggregation pipeline (EJSON array), bounded and timed." }
+  mongo.auth_set: { mutating: true, description: "Enable or disable MongoDB authentication, then restart (rolls back on failure)." }
+  mongo.backup: { mutating: true, description: "Back up one database to a gzip mongodump archive (async job)." }
+  mongo.backup_delete: { mutating: true, description: "Delete one MongoDB backup archive." }
+  mongo.backups: { mutating: false, description: "List the MongoDB backup archives (optionally for one database)." }
+  mongo.collection_create: { mutating: true, description: "Create an empty collection." }
+  mongo.collection_drop: { mutating: true, description: "Drop a collection and all its documents." }
+  mongo.collection_empty: { mutating: true, description: "Remove every document from a collection (keeps the collection and its indexes)." }
+  mongo.collection_rename: { mutating: true, description: "Rename a collection within the same database." }
+  mongo.collection_stats: { mutating: false, description: "Size, counts and validation rules for one collection." }
+  mongo.collections: { mutating: false, description: "List a database's collections with document counts." }
+  mongo.config_get: { mutating: false, description: "Read MongoDB's configuration (port, bindIp, paths, authorization) and the raw file." }
+  mongo.config_set: { mutating: true, description: "Set MongoDB's port, bindIp and authorization, then restart (rolls back on failure)." }
+  mongo.config_write: { mutating: true, description: "Replace MongoDB's whole configuration file, then restart (rolls back on failure)." }
   mongo.database_create: { mutating: true, description: "Create a MongoDB database (an empty collection makes it exist)." }
   mongo.database_drop: { mutating: true, description: "Drop a MongoDB database (requires confirm = name)." }
+  mongo.database_users: { mutating: false, description: "List the users defined on one database." }
+  mongo.document_delete: { mutating: true, description: "Delete one document by its _id (EJSON value)." }
+  mongo.document_insert: { mutating: true, description: "Insert one document (EJSON) into a collection." }
+  mongo.document_update: { mutating: true, description: "Replace one document (found by _id) with a new document (EJSON)." }
+  mongo.documents: { mutating: false, description: "Find documents in a collection (optional EJSON filter, skip, limit)." }
+  mongo.explain: { mutating: false, description: "Explain an aggregation pipeline (query planner) without running it." }
+  mongo.export: { mutating: false, description: "Export documents as a JSON array or JSONL (bounded)." }
+  mongo.import: { mutating: true, description: "Import documents from a JSON array or JSONL into a collection (bounded)." }
+  mongo.index_create: { mutating: true, description: "Create an index from a keys object and options (EJSON)." }
+  mongo.index_drop: { mutating: true, description: "Drop an index by name (the _id index is refused)." }
+  mongo.indexes: { mutating: false, description: "List a collection's indexes." }
   mongo.install: { mutating: true, description: "Install MongoDB (mongodb-org) from its repository, then enable and start the mongod service." }
+  mongo.log: { mutating: false, description: "The tail of MongoDB's log." }
   mongo.overview: { mutating: false, description: "MongoDB databases (with sizes) and users." }
+  mongo.remote_databases: { mutating: false, description: "List the databases on a remote MongoDB server." }
+  mongo.remote_ping: { mutating: false, description: "Test a connection to a remote MongoDB server." }
+  mongo.remote_pull: { mutating: true, description: "Copy a database from a remote MongoDB server into this one (async job)." }
   mongo.repository: { mutating: false, description: "MongoDB's third-party repository for this system, and whether it is enabled." }
   mongo.repository.enable: { mutating: true, description: "Add MongoDB Inc.'s signed repository (APT: key fetched over TLS, trusted for this repository only; DNF: per-repo gpgkey) and refresh the package index." }
+  mongo.restore: { mutating: true, description: "Restore one database from a gzip mongodump archive (async job)." }
+  mongo.schema: { mutating: false, description: "Analyse a collection's top-level fields over a bounded sample." }
   mongo.status: { mutating: false, description: "MongoDB: installed, running, version." }
   mongo.user_create: { mutating: true, description: "Create a MongoDB user scoped to one database with a role." }
   mongo.user_drop: { mutating: true, description: "Drop a MongoDB user." }
