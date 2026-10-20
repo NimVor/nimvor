@@ -941,7 +941,7 @@ button.wcp-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .wcp-mongo-limit { display: flex; align-items: center; margin-left: auto; }
 .wcp-mongo-limit .form-select { width: auto; }
 .wcp-mongo-tabs { padding: 0 .85rem; margin-top: .5rem; flex-wrap: wrap; row-gap: .25rem; border-bottom: 1px solid var(--wcp-card-border); }
-.wcp-mongo-tabs .nav-link { white-space: nowrap; }
+.wcp-mongo-tabs .nav-link { white-space: nowrap; padding: .4rem .6rem; font-size: .9rem; }
 .wcp-mongo-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .5rem .85rem; border-bottom: 1px solid var(--wcp-card-border); }
 .wcp-mongo-toolbar-end { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-left: auto; }
 .wcp-mongo-docfilters { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }

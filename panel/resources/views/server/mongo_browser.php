@@ -125,11 +125,11 @@
                 <span class="wcp-mongo-docfilters" data-mb-docfilters>
                     <div class="input-group input-group-sm wcp-mongo-mini">
                         <span class="input-group-text" title="Sort">⇅</span>
-                        <input class="form-control font-monospace" type="text" placeholder='Sort { "age": -1 }' aria-label="JSON sort" data-mb-sort autocomplete="off" spellcheck="false" disabled>
+                        <input class="form-control font-monospace" type="text" placeholder='{ "age": -1 }' aria-label="JSON sort" title="Sort" data-mb-sort autocomplete="off" spellcheck="false" disabled>
                     </div>
                     <div class="input-group input-group-sm wcp-mongo-mini">
                         <span class="input-group-text" title="Fields (projection)"><i class="bi bi-list-columns-reverse"></i></span>
-                        <input class="form-control font-monospace" type="text" placeholder='Fields { "name": 1 }' aria-label="JSON projection" data-mb-projection autocomplete="off" spellcheck="false" disabled>
+                        <input class="form-control font-monospace" type="text" placeholder='{ "name": 1 }' aria-label="JSON projection" title="Fields (projection)" data-mb-projection autocomplete="off" spellcheck="false" disabled>
                     </div>
                 </span>
                 <?php if ($canDelete): ?>
