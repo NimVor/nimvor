@@ -36,7 +36,7 @@ Total routes: 551
 | POST | `/apps-manager/category` | AppManagerController::category | apps.manager.category | settings.manage | yes | yes | ☐ |
 | POST | `/apps-manager/installer` | AppManagerController::installer | apps.manager.installer | settings.manage | yes | yes | ☐ |
 | GET | `/apps-manager` | AppManagerController::index | apps.manager | settings.view | yes | yes | ☐ |
-| GET | `/audit` | AuditLogController::index | audit | audit.view | yes | yes | ☐ |
+| GET | `/audit` | AuditLogController::index | audit | audit.view | yes | yes | ☑ |
 | POST | `/backups/accounts/delete` | AccountBackupsController::delete | backups.accounts.delete | backups.manage | yes | yes | ☐ |
 | GET | `/backups/accounts/download` | AccountBackupsController::download | backups.accounts.download | backups.manage | yes | yes | ☐ |
 | GET | `/backups/accounts/restore` | AccountBackupsController::preview | backups.accounts.preview | backups.manage | yes | yes | ☐ |

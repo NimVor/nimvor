@@ -1,0 +1,49 @@
+{{define "audit"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit log · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Audit log</h1>
+  <form method="get" action="/audit" class="filter-form">
+    <input name="action" value="{{.Filters.Action}}" placeholder="action" aria-label="Filter by action">
+    <input name="user" value="{{.Filters.User}}" placeholder="user" aria-label="Filter by user">
+    <input name="q" value="{{.Filters.Q}}" placeholder="search target / ip" aria-label="Search">
+    <button type="submit">Filter</button>
+  </form>
+  <p class="text-muted">{{.Total}} entries</p>
+  {{if .Rows}}
+  <table class="data-table">
+    <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Target</th><th>Result</th><th>IP</th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr class="result-{{.Result}}">
+        <td>{{.CreatedAt}}</td>
+        <td>{{.Username}}</td>
+        <td>{{.Action}}</td>
+        <td>{{.TargetType}}{{if .TargetID}}:{{.TargetID}}{{end}}</td>
+        <td>{{.Result}}</td>
+        <td>{{.IP}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="text-muted">No audit entries match.</p>
+  {{end}}
+</main>
+</body>
+</html>{{end}}

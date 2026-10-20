@@ -104,6 +104,9 @@ func (s *Server) routes() {
 
 	// Email domains list. mail.manage is withheld by the email plan feature.
 	s.mux.HandleFunc("GET /mail", s.guard("", "mail.manage", s.mailIndex))
+
+	// Audit log viewer (staff only; no tenant scope).
+	s.mux.HandleFunc("GET /audit", s.guard("", "audit.view", s.auditIndex))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.
