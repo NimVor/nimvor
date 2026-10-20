@@ -76,6 +76,49 @@ func (r *Repository) Find(ctx context.Context, id int64) (*User, error) {
 	return r.scanUser(r.db.QueryRowContext(ctx, q, id))
 }
 
+// ManagedUser is a user row for the admin list, with the plan name.
+type ManagedUser struct {
+	User
+	PlanName sql.NullString
+}
+
+// ManageableBy returns the users an actor may manage: everyone for server-wide
+// (scope "all") roles, only their own customers (parent_id = actor) for
+// own-scope roles (resellers). Mirrors UserRepository::manageableBy — the
+// actor can never widen this with a request parameter.
+func (r *Repository) ManageableBy(ctx context.Context, actor *User) ([]ManagedUser, error) {
+	q := `SELECT ` + userColumns + `, p.name AS plan_name
+	      FROM users u JOIN roles r ON r.id = u.role_id LEFT JOIN plans p ON p.id = u.plan_id`
+	var args []any
+	if actor == nil || actor.RoleScope != "all" {
+		q += ` WHERE u.parent_id = ?`
+		var id int64
+		if actor != nil {
+			id = actor.ID
+		}
+		args = append(args, id)
+	}
+	q += ` ORDER BY u.username`
+	rows, err := r.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ManagedUser
+	for rows.Next() {
+		var m ManagedUser
+		u := &m.User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.RoleID, &u.IsActive,
+			&u.LastLoginAt, &u.LastLoginIP, &u.PasswordChangedAt,
+			&u.RoleName, &u.RoleLabel, &u.RoleScope, &u.RoleRequires2FA, &u.ParentID, &u.PlanID, &u.Suspended,
+			&m.PlanName); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
 // AuthRow is the minimal row used while verifying a password. It deliberately
 // carries the password hash, which the full User never does. Mirrors
 // UserRepository::findForAuth.

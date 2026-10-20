@@ -107,6 +107,10 @@ func (s *Server) routes() {
 
 	// Audit log viewer (staff only; no tenant scope).
 	s.mux.HandleFunc("GET /audit", s.guard("", "audit.view", s.auditIndex))
+
+	// Panel users list — scoped by manageableBy (staff: all; reseller: own
+	// customers).
+	s.mux.HandleFunc("GET /users", s.guard("", "users.view", s.usersIndex))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.

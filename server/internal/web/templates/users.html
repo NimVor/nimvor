@@ -1,0 +1,41 @@
+{{define "users"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Users · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Users</h1>
+  {{if .Users}}
+  <table class="data-table">
+    <thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Plan</th><th>Status</th></tr></thead>
+    <tbody>
+    {{range .Users}}
+      <tr{{if .Suspended}} class="is-suspended"{{end}}>
+        <td>{{.Username}}</td>
+        <td>{{.Email}}</td>
+        <td>{{.RoleLabel}}</td>
+        <td>{{if .PlanName.Valid}}{{.PlanName.String}}{{else}}—{{end}}</td>
+        <td>{{if not .IsActive}}inactive{{else if .Suspended}}suspended{{else}}active{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="text-muted">No users to manage.</p>
+  {{end}}
+</main>
+</body>
+</html>{{end}}

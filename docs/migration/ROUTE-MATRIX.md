@@ -543,7 +543,7 @@ Total routes: 551
 | POST | `/users/{id}/two-factor/reset` | UsersController::resetTwoFactor | users.2fa.reset | users.manage | yes | yes | ☐ |
 | POST | `/users/{id}/unsuspend` | AccountsController::unsuspend | users.unsuspend | users.manage | yes | yes | ☐ |
 | POST | `/users/{id}` | UsersController::update | users.update | users.manage | yes | yes | ☐ |
-| GET | `/users` | UsersController::index | users | users.view | yes | yes | ☐ |
+| GET | `/users` | UsersController::index | users | users.view | yes | yes | ☑ |
 | POST | `/users` | UsersController::store | users.store | users.manage | yes | yes | ☐ |
 | GET | `/websites/new` | SitesController::create | sites.create | websites.manage | yes | yes | ☐ |
 | POST | `/websites/new` | SitesController::store | sites.store | websites.manage | yes | yes | ☐ |
