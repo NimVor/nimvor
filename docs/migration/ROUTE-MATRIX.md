@@ -99,7 +99,7 @@ Total routes: 551
 | POST | `/databases/{id}/dump` | DatabasesController::dump | databases.dump | databases.manage | yes | yes | ☐ |
 | POST | `/databases/{id}/grant` | DatabasesController::grant | databases.grant | databases.manage | yes | yes | ☐ |
 | POST | `/databases/{id}/import` | DatabasesController::import | databases.import | databases.manage | yes | yes | ☐ |
-| GET | `/databases` | DatabasesController::index | databases | databases.view | yes | yes | ☐ |
+| GET | `/databases` | DatabasesController::index | databases | databases.view | yes | yes | ☑ |
 | POST | `/databases` | DatabasesController::store | databases.store | databases.manage | yes | yes | ☐ |
 | POST | `/discovery/run` | DiscoveryController::run | discovery.run | discovery.run | yes | yes | ☐ |
 | GET | `/discovery` | DiscoveryController::index | discovery | websites.view | yes | yes | ☐ |
@@ -549,7 +549,7 @@ Total routes: 551
 | POST | `/websites/new` | SitesController::store | sites.store | websites.manage | yes | yes | ☐ |
 | GET | `/websites/{id}/import` | ImportController::preview | websites.import | import.run | yes | yes | ☐ |
 | POST | `/websites/{id}/import` | ImportController::run | websites.import.run | import.run | yes | yes | ☐ |
-| GET | `/websites/{id}` | WebsitesController::show | websites.show | websites.view | yes | yes | ☐ |
+| GET | `/websites/{id}` | WebsitesController::show | websites.show | websites.view | yes | yes | ☑ |
 | GET | `/websites` | WebsitesController::index | websites | websites.view | yes | yes | ☑ |
 | POST | `/whacp/update/check` | TopbarController::updateCheck | whacp.update.check | server.manage | yes | yes | ☐ |
 | GET | `/whacp/update` | TopbarController::update | whacp.update | server.manage | yes | yes | ☐ |

@@ -80,9 +80,14 @@ func (s *Server) routes() {
 	// Authenticated shell (dashboard). Feature pages are ported in later phases.
 	s.mux.HandleFunc("GET /{$}", s.sessionCtx(s.requireAuth(s.dashboard)))
 
-	// Websites list — the first ported feature page. Permission-gated
-	// (websites.view) and tenant-scoped; no plan feature gates the list itself.
+	// Websites — list + detail. Permission-gated (websites.view) and
+	// tenant-scoped; no plan feature gates the list itself.
 	s.mux.HandleFunc("GET /websites", s.guard("", "websites.view", s.websitesIndex))
+	s.mux.HandleFunc("GET /websites/{id}", s.guard("", "websites.view", s.websiteShow))
+
+	// Databases list. The mysql feature withholds databases.view when a plan
+	// disables it, so the permission guard enforces the feature too.
+	s.mux.HandleFunc("GET /databases", s.guard("", "databases.view", s.databasesIndex))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.
