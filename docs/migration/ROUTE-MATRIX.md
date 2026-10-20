@@ -550,7 +550,7 @@ Total routes: 551
 | GET | `/websites/{id}/import` | ImportController::preview | websites.import | import.run | yes | yes | ☐ |
 | POST | `/websites/{id}/import` | ImportController::run | websites.import.run | import.run | yes | yes | ☐ |
 | GET | `/websites/{id}` | WebsitesController::show | websites.show | websites.view | yes | yes | ☐ |
-| GET | `/websites` | WebsitesController::index | websites | websites.view | yes | yes | ☐ |
+| GET | `/websites` | WebsitesController::index | websites | websites.view | yes | yes | ☑ |
 | POST | `/whacp/update/check` | TopbarController::updateCheck | whacp.update.check | server.manage | yes | yes | ☐ |
 | GET | `/whacp/update` | TopbarController::update | whacp.update | server.manage | yes | yes | ☐ |
 | POST | `/whacp/update` | TopbarController::updateStart | whacp.update.start | server.manage | yes | yes | ☐ |

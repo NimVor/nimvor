@@ -79,6 +79,10 @@ func (s *Server) routes() {
 
 	// Authenticated shell (dashboard). Feature pages are ported in later phases.
 	s.mux.HandleFunc("GET /{$}", s.sessionCtx(s.requireAuth(s.dashboard)))
+
+	// Websites list — the first ported feature page. Permission-gated
+	// (websites.view) and tenant-scoped; no plan feature gates the list itself.
+	s.mux.HandleFunc("GET /websites", s.guard("", "websites.view", s.websitesIndex))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.
