@@ -1,6 +1,7 @@
 package http
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -66,7 +67,7 @@ func (ra *recordingAgent) called() []string {
 // writeEnv builds a server whose agent points at a recording fake, seeds a
 // customer with databases.manage and a plan allowing `maxDatabases` databases,
 // and logs in as that customer.
-func writeEnv(t *testing.T, maxDatabases int, existing int) (http.Handler, *http.Cookie, *recordingAgent) {
+func writeEnv(t *testing.T, maxDatabases int, existing int) (http.Handler, *http.Cookie, *recordingAgent, *sql.DB) {
 	t.Helper()
 	db, err := database.Open(":memory:")
 	if err != nil {
@@ -113,7 +114,7 @@ func writeEnv(t *testing.T, maxDatabases int, existing int) (http.Handler, *http
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("login = %d", rr.Code)
 	}
-	return h, rr.Result().Cookies()[0], ra
+	return h, rr.Result().Cookies()[0], ra, db
 }
 
 // dbFormToken gets a CSRF token from the databases page (authenticated) and
@@ -151,7 +152,7 @@ func indexOf(s, sub string) int {
 }
 
 func TestCreateDatabaseHappyPath(t *testing.T) {
-	h, cookie, ra := writeEnv(t, 5, 0)
+	h, cookie, ra, db := writeEnv(t, 5, 0)
 	token, cookie := dbFormToken(t, h, cookie)
 	rr := postForm(h, "/databases", url.Values{"_token": {token}, "name": {"shop"}}, cookie)
 	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/databases" {
@@ -173,12 +174,20 @@ func TestCreateDatabaseHappyPath(t *testing.T) {
 	if !countDatabases(t, h, follow, "bob_shop") {
 		t.Fatal("created database not listed")
 	}
+	// A privileged action must be audited to the audit_logs table.
+	var action, target, result string
+	if err := db.QueryRow(`SELECT action, target_id, result FROM audit_logs WHERE action = 'database.create'`).Scan(&action, &target, &result); err != nil {
+		t.Fatalf("no audit row for the create: %v", err)
+	}
+	if target != "bob_shop" || result != "success" {
+		t.Fatalf("audit row = %s/%s, want bob_shop/success", target, result)
+	}
 }
 
 func TestCreateDatabasePlanLimitBlocksBeforeAgent(t *testing.T) {
 	// Plan allows 1; bob already owns 1 -> the create must be refused WITHOUT
 	// touching the agent.
-	h, cookie, ra := writeEnv(t, 1, 1)
+	h, cookie, ra, _ := writeEnv(t, 1, 1)
 	token, cookie := dbFormToken(t, h, cookie)
 	rr := postForm(h, "/databases", url.Values{"_token": {token}, "name": {"extra"}}, cookie)
 	if rr.Code != http.StatusSeeOther {
@@ -190,7 +199,7 @@ func TestCreateDatabasePlanLimitBlocksBeforeAgent(t *testing.T) {
 }
 
 func TestCreateDatabaseInvalidNameNoAgent(t *testing.T) {
-	h, cookie, ra := writeEnv(t, 5, 0)
+	h, cookie, ra, _ := writeEnv(t, 5, 0)
 	token, cookie := dbFormToken(t, h, cookie)
 	rr := postForm(h, "/databases", url.Values{"_token": {token}, "name": {"Bad Name!"}}, cookie)
 	if rr.Code != http.StatusSeeOther {
@@ -202,7 +211,7 @@ func TestCreateDatabaseInvalidNameNoAgent(t *testing.T) {
 }
 
 func TestCreateDatabaseRejectsBadCSRF(t *testing.T) {
-	h, cookie, ra := writeEnv(t, 5, 0)
+	h, cookie, ra, _ := writeEnv(t, 5, 0)
 	rr := postForm(h, "/databases", url.Values{"_token": {"nope"}, "name": {"x"}}, cookie)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("bad CSRF create = %d, want 400", rr.Code)
@@ -213,7 +222,7 @@ func TestCreateDatabaseRejectsBadCSRF(t *testing.T) {
 }
 
 func TestCreateDatabaseRequiresManagePermission(t *testing.T) {
-	h, cookie, ra := writeEnv(t, 5, 0)
+	h, cookie, ra, _ := writeEnv(t, 5, 0)
 	token, cookie := dbFormToken(t, h, cookie)
 	// This server's customer has manage; a separate check: strip it is covered
 	// by the guard test. Here assert the happy path remains guarded by posting

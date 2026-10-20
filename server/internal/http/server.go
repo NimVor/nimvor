@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/agent"
+	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/auth"
 	"github.com/mchkhawarshahzad/whacp/server/internal/authz"
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
@@ -35,6 +36,7 @@ type Server struct {
 	features *authz.FeatureService
 	tpl      *web.Templates
 	agent    hosting.AgentCaller
+	audit    *audit.Logger
 }
 
 // New builds the server and registers the routes implemented so far. It
@@ -57,6 +59,7 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		features: authz.NewFeatureService(db),
 		tpl:      tpl,
 		agent:    agent.New(cfg.AgentSocket, cfg.AgentTokenFile, 30*time.Second),
+		audit:    audit.New(db, log),
 	}
 	s.routes()
 	return s, nil

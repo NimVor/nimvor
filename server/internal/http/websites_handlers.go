@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
@@ -126,7 +127,12 @@ func (s *Server) databasesStore(w http.ResponseWriter, r *http.Request) {
 		hosting.NewPlanLimits(s.db),
 		s.agent,
 		func(action, target string) {
-			s.log.Info("audit", "action", action, "target", target, "actor", user.Username, "actor_id", user.ID)
+			uid := user.ID
+			s.audit.Record(r.Context(), audit.Entry{
+				UserID: &uid, Username: user.Username,
+				Action: action, TargetType: "database", TargetID: target,
+				Result: audit.Success, IP: clientIP(r), UserAgent: r.UserAgent(),
+			})
 		},
 	)
 	_, err := svc.CreateDatabase(r.Context(), s.currentServerID(r), user, r.FormValue("name"), websiteID)
