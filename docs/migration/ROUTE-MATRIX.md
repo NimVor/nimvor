@@ -419,7 +419,7 @@ Total routes: 551
 | GET | `/sites/{id}/cron/{job}/log` | CronController::log | sites.cron.log | cron.view | yes | yes | ☐ |
 | POST | `/sites/{id}/cron/{job}/run` | CronController::run | sites.cron.run | cron.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/cron/{job}/toggle` | CronController::toggle | sites.cron.toggle | cron.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/cron` | CronController::show | sites.cron | cron.view | yes | yes | ☐ |
+| GET | `/sites/{id}/cron` | CronController::show | sites.cron | cron.view | yes | yes | ☑ |
 | POST | `/sites/{id}/cron` | CronController::store | sites.cron.store | cron.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/databases` | DatabasesController::site | sites.databases | databases.view | yes | yes | ☐ |
 | POST | `/sites/{id}/delete` | SitesController::destroy | sites.delete | websites.manage | yes | yes | ☐ |

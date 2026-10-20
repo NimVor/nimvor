@@ -216,3 +216,39 @@ func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 	}
 	renderStatus(w, s, "error", map[string]any{"Title": "Not found", "Message": "That page does not exist."}, http.StatusNotFound)
 }
+
+// siteCron lists a website's cron jobs. The website is resolved under tenant
+// scope first (a foreign id is 404); the jobs hang off it. Gated by cron.view,
+// which the cron plan feature withholds when disabled. Mirrors
+// CronController::show (route "sites.cron").
+func (s *Server) siteCron(w http.ResponseWriter, r *http.Request) {
+	user := userFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		s.notFound(w, r)
+		return
+	}
+	serverID := s.currentServerID(r)
+	site, err := hosting.NewWebsiteRepository(s.db).Find(r.Context(), serverID, id, user)
+	if errors.Is(err, hosting.ErrWebsiteNotFound) {
+		s.notFound(w, r)
+		return
+	}
+	if err != nil {
+		s.log.Error("find website", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	jobs, err := hosting.NewCronRepository(s.db).Jobs(r.Context(), site.ID)
+	if err != nil {
+		s.log.Error("list cron jobs", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	s.render(w, "site_cron", map[string]any{
+		"User": user,
+		"CSRF": session.CSRFToken(sessionFrom(r.Context())),
+		"Site": site,
+		"Jobs": jobs,
+	})
+}

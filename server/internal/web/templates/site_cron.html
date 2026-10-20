@@ -1,0 +1,41 @@
+{{define "site_cron"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cron · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/websites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
+  <h1>Cron jobs</h1>
+  {{if .Jobs}}
+  <table class="data-table">
+    <thead><tr><th>Schedule</th><th>Command</th><th>Description</th><th>Enabled</th></tr></thead>
+    <tbody>
+    {{range .Jobs}}
+      <tr>
+        <td><code>{{.Schedule}}</code></td>
+        <td><code>{{.Command}}</code></td>
+        <td>{{.Description}}</td>
+        <td>{{if .Enabled}}yes{{else}}no{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="text-muted">No cron jobs for this website.</p>
+  {{end}}
+</main>
+</body>
+</html>{{end}}
