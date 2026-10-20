@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mchkhawarshahzad/whacp/server/internal/authz"
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
 	whttp "github.com/mchkhawarshahzad/whacp/server/internal/http"
@@ -50,6 +51,13 @@ func main() {
 		if len(ran) > 0 {
 			log.Info("migrations applied", "count", len(ran), "last", ran[len(ran)-1])
 		}
+	}
+
+	// Mirror the code-defined roles/permissions into the DB on every start
+	// (idempotent), exactly as the PHP panel does at boot.
+	if err := authz.SyncDefaults(context.Background(), db); err != nil {
+		log.Error("sync roles/permissions", "error", err)
+		os.Exit(1)
 	}
 
 	panel, err := whttp.New(cfg, db, log)
