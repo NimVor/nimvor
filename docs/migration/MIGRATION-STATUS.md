@@ -20,7 +20,10 @@ Agent: Go, unchanged, full suite GREEN at baseline.
 - ☑ database: open (same PRAGMAs) + migrator (name-compatible, 57 embedded SQL) — tests: fresh install applies 57, existing PHP DB skipped
 - ☑ identity: argon2id + bcrypt verify — test verifies real PHP password_hash output
 - ☑ agent: unix-socket JSON client — test against a real unix socket (auth, path, body, data, structured error, bad-name reject)
-- ◐ security-headers middleware ☑ (strict CSP parity) · session+CSRF pending
+- ☑ security-headers middleware (strict CSP parity)
+- ☑ internal/crypto: NaCl secretbox, byte-compatible with PHP Security\Crypto `v1:` (verified against a PHP-sealed fixture)
+- ☑ internal/session: sealed-cookie sessions (HttpOnly/Lax/Secure) + flash
+- ☑ CSRF synchronizer token (64-hex, constant-time, `_token`/`X-CSRF-Token`)
 - ◐ static asset serving ☑ (reused assets dir) · html/template layout pending
 - ◐ stdlib mux + request logging ☑ · auth/permission/feature middleware pending
 - ◐ /healthz ☑ (parity: {"status":"ok"}/503) · login/logout/dashboard pending
