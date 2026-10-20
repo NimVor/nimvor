@@ -533,7 +533,7 @@ $base = $this->url('mongo');
     </form>
 <?= $this->modalEnd() ?>
 
-<?= $this->modalStart('mongo-note', 'Database note', false, 'modal') ?>
+<?= $this->modalStart('mongo-note', 'Database note', false, '') ?>
     <form method="post" action="<?= e($this->url('mongo.note')) ?>" data-wcp-busy>
         <div class="p-3">
             <?= $this->csrfField() ?>

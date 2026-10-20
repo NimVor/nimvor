@@ -123,7 +123,7 @@ $misses = (int) ($stats['keyspace_misses'] ?? 0);
 <?= $this->modalEnd() ?>
 
 <?php if ($websites !== []): ?>
-<?= $this->modalStart('redis-user', 'Create / reset website user', false, 'modal') ?>
+<?= $this->modalStart('redis-user', 'Create / reset website user', false, '') ?>
 <form method="post" action="<?= e($this->url('redis.users.store')) ?>">
     <?= $this->csrfField() ?>
     <label class="form-label" for="r-website">Website</label>
