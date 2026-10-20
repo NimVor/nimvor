@@ -100,7 +100,7 @@ Total routes: 551
 | POST | `/databases/{id}/grant` | DatabasesController::grant | databases.grant | databases.manage | yes | yes | ☐ |
 | POST | `/databases/{id}/import` | DatabasesController::import | databases.import | databases.manage | yes | yes | ☐ |
 | GET | `/databases` | DatabasesController::index | databases | databases.view | yes | yes | ☑ |
-| POST | `/databases` | DatabasesController::store | databases.store | databases.manage | yes | yes | ☐ |
+| POST | `/databases` | DatabasesController::store | databases.store | databases.manage | yes | yes | ☑ |
 | POST | `/discovery/run` | DiscoveryController::run | discovery.run | discovery.run | yes | yes | ☐ |
 | GET | `/discovery` | DiscoveryController::index | discovery | websites.view | yes | yes | ☐ |
 | POST | `/dns/install` | DnsController::install | dns.install | packages.manage | yes | yes | ☐ |

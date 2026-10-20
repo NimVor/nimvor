@@ -10,11 +10,14 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
+	"github.com/mchkhawarshahzad/whacp/server/internal/agent"
 	"github.com/mchkhawarshahzad/whacp/server/internal/auth"
 	"github.com/mchkhawarshahzad/whacp/server/internal/authz"
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
 	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
+	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 	"github.com/mchkhawarshahzad/whacp/server/internal/web"
@@ -31,6 +34,7 @@ type Server struct {
 	roles    *authz.RoleRepository
 	features *authz.FeatureService
 	tpl      *web.Templates
+	agent    hosting.AgentCaller
 }
 
 // New builds the server and registers the routes implemented so far. It
@@ -52,6 +56,7 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		roles:    authz.NewRoleRepository(db),
 		features: authz.NewFeatureService(db),
 		tpl:      tpl,
+		agent:    agent.New(cfg.AgentSocket, cfg.AgentTokenFile, 30*time.Second),
 	}
 	s.routes()
 	return s, nil
@@ -85,9 +90,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /websites", s.guard("", "websites.view", s.websitesIndex))
 	s.mux.HandleFunc("GET /websites/{id}", s.guard("", "websites.view", s.websiteShow))
 
-	// Databases list. The mysql feature withholds databases.view when a plan
-	// disables it, so the permission guard enforces the feature too.
+	// Databases list + create. The mysql feature withholds databases.view when
+	// a plan disables it, so the permission guard enforces the feature too.
 	s.mux.HandleFunc("GET /databases", s.guard("", "databases.view", s.databasesIndex))
+	s.mux.HandleFunc("POST /databases", s.guard("", "databases.manage", s.databasesStore))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.

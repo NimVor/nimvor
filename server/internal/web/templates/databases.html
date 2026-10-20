@@ -18,6 +18,16 @@
 </header>
 <main class="container">
   <h1>Databases</h1>
+  {{if .Error}}<p class="alert alert-danger" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .CanManage}}
+  <form method="post" action="/databases" class="create-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <label for="db-name">New database</label>
+    <input id="db-name" name="name" type="text" required placeholder="name">
+    <button type="submit">Create</button>
+  </form>
+  {{end}}
   {{if .Databases}}
   <table class="data-table">
     <thead><tr><th>Name</th><th>Website</th><th>Created</th></tr></thead>

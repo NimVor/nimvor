@@ -79,11 +79,79 @@ func (s *Server) databasesIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	sess := sessionFrom(r.Context())
+	errMsg, _ := sess.PullFlash("error")
+	okMsg, _ := sess.PullFlash("success")
 	s.render(w, "databases", map[string]any{
 		"User":      user,
-		"CSRF":      session.CSRFToken(sessionFrom(r.Context())),
+		"CSRF":      session.CSRFToken(sess),
 		"Databases": dbs,
+		"Error":     errMsg,
+		"Success":   okMsg,
+		"CanManage": s.can(r, "databases.manage"),
 	})
+}
+
+// can reports whether the request's user holds a permission (for conditional
+// UI). Errors fail closed.
+func (s *Server) can(r *http.Request, permission string) bool {
+	ok, err := s.authorizer().Can(r.Context(), userFrom(r.Context()), permission)
+	return err == nil && ok
+}
+
+// databasesStore creates a database via the agent, tenant-scoped and plan-
+// limited. CSRF-protected (state change) and permission-gated (databases.manage).
+// Mirrors DatabasesController::store (database branch).
+func (s *Server) databasesStore(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	user := userFrom(r.Context())
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	if !session.ValidateCSRF(sess, formToken(r)) {
+		http.Error(w, "Page expired", http.StatusBadRequest)
+		return
+	}
+
+	var websiteID *int64
+	if v := r.FormValue("website_id"); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
+			websiteID = &id
+		}
+	}
+	svc := hosting.NewDatabaseService(
+		hosting.NewDatabaseRepository(s.db),
+		hosting.NewWebsiteRepository(s.db),
+		hosting.NewPlanLimits(s.db),
+		s.agent,
+		func(action, target string) {
+			s.log.Info("audit", "action", action, "target", target, "actor", user.Username, "actor_id", user.ID)
+		},
+	)
+	_, err := svc.CreateDatabase(r.Context(), s.currentServerID(r), user, r.FormValue("name"), websiteID)
+	if err != nil {
+		var ve *hosting.ValidationError
+		var ue *hosting.UserError
+		switch {
+		case errors.As(err, &ve):
+			msg := "Please correct the form."
+			for _, m := range ve.Fields {
+				msg = m
+				break
+			}
+			sess.Flash("error", msg)
+		case errors.As(err, &ue):
+			sess.Flash("error", ue.What)
+		default:
+			s.log.Error("create database", "error", err)
+			sess.Flash("error", "The database could not be created.")
+		}
+		http.Redirect(w, r, "/databases", http.StatusSeeOther)
+		return
+	}
+	sess.Flash("success", "Database created.")
+	http.Redirect(w, r, "/databases", http.StatusSeeOther)
 }
 
 // notFound renders a 404 page (JSON or HTML).
