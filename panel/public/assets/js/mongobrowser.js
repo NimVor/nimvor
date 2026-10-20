@@ -33,6 +33,7 @@
     var pageSizeSel = root.querySelector('[data-mb-pagesize]');
     var tabBtns = root.querySelectorAll('[data-mb-tab]');
     var toolbar = root.querySelector('[data-mb-toolbar]');
+    var docFilters = root.querySelector('[data-mb-docfilters]');
     var countEl = root.querySelector('[data-mb-count]');
     var viewToggle = root.querySelector('[data-mb-viewtoggle]');
     var pane = root.querySelector('[data-mb-pane]');
@@ -300,6 +301,7 @@
         var docs = tab === 'documents', idx = tab === 'indexes', usr = tab === 'users';
         toolbar.classList.toggle('d-none', !(docs || idx || usr));
         if (countEl) { countEl.classList.toggle('d-none', !docs); }
+        if (docFilters) { docFilters.classList.toggle('d-none', !docs); }
         if (viewToggle) { viewToggle.classList.toggle('d-none', !docs); }
         pagerEl.hidden = !docs;
         if (newIndexBtn) {

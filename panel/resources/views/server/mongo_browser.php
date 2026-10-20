@@ -94,14 +94,6 @@
                 <input class="form-control font-monospace" type="text" placeholder='Enter query (JSON), e.g. { "status": "active" }' aria-label="JSON filter" data-mb-filter autocomplete="off" spellcheck="false" disabled>
                 <button class="btn btn-primary" type="button" data-mb-run disabled><i class="bi bi-play-fill me-1"></i>Run</button>
             </div>
-            <div class="input-group input-group-sm wcp-mongo-mini">
-                <span class="input-group-text" title="Sort">⇅</span>
-                <input class="form-control font-monospace" type="text" placeholder='Sort { "age": -1 }' aria-label="JSON sort" data-mb-sort autocomplete="off" spellcheck="false" disabled>
-            </div>
-            <div class="input-group input-group-sm wcp-mongo-mini">
-                <span class="input-group-text" title="Fields (projection)"><i class="bi bi-list-columns-reverse"></i></span>
-                <input class="form-control font-monospace" type="text" placeholder='Fields { "name": 1 }' aria-label="JSON projection" data-mb-projection autocomplete="off" spellcheck="false" disabled>
-            </div>
             <div class="wcp-mongo-limit">
                 <label class="form-label small mb-0 me-1" for="mb-limit">Show</label>
                 <select class="form-select form-select-sm" id="mb-limit" data-mb-pagesize aria-label="Documents per page">
@@ -128,8 +120,18 @@
         </ul>
 
         <div class="wcp-mongo-toolbar d-none" data-mb-toolbar>
-            <span class="small text-body-secondary" data-mb-count></span>
-            <div class="ms-auto d-flex align-items-center gap-2">
+            <span class="small text-body-secondary text-nowrap" data-mb-count></span>
+            <div class="wcp-mongo-toolbar-end">
+                <span class="wcp-mongo-docfilters" data-mb-docfilters>
+                    <div class="input-group input-group-sm wcp-mongo-mini">
+                        <span class="input-group-text" title="Sort">⇅</span>
+                        <input class="form-control font-monospace" type="text" placeholder='Sort { "age": -1 }' aria-label="JSON sort" data-mb-sort autocomplete="off" spellcheck="false" disabled>
+                    </div>
+                    <div class="input-group input-group-sm wcp-mongo-mini">
+                        <span class="input-group-text" title="Fields (projection)"><i class="bi bi-list-columns-reverse"></i></span>
+                        <input class="form-control font-monospace" type="text" placeholder='Fields { "name": 1 }' aria-label="JSON projection" data-mb-projection autocomplete="off" spellcheck="false" disabled>
+                    </div>
+                </span>
                 <?php if ($canDelete): ?>
                 <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newindex disabled><i class="bi bi-plus-lg me-1"></i>New index</button>
                 <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newuser disabled><i class="bi bi-person-plus me-1"></i>New user</button>
