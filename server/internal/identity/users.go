@@ -181,6 +181,38 @@ func (r *Repository) RecordLogin(ctx context.Context, id int64, ip string) error
 	return err
 }
 
+// APIToken is a personal API token for display (never the secret itself — only
+// its prefix). Mirrors ApiTokenService::forUser.
+type APIToken struct {
+	ID         int64
+	Name       string
+	Prefix     string
+	Ability    string
+	ExpiresAt  sql.NullString
+	LastUsedAt sql.NullString
+	CreatedAt  string
+}
+
+// APITokens lists a user's own personal API tokens (no secret material).
+func (r *Repository) APITokens(ctx context.Context, userID int64) ([]APIToken, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, name, prefix, ability, expires_at, last_used_at, created_at
+		 FROM api_tokens WHERE user_id = ? ORDER BY id DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []APIToken
+	for rows.Next() {
+		var t APIToken
+		if err := rows.Scan(&t.ID, &t.Name, &t.Prefix, &t.Ability, &t.ExpiresAt, &t.LastUsedAt, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
 // UpdatePassword stores a new hash and stamps password_changed_at.
 func (r *Repository) UpdatePassword(ctx context.Context, id int64, hash string) error {
 	now := time.Now().UTC().Format(time.RFC3339)

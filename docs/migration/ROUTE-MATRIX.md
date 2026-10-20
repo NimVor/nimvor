@@ -284,7 +284,7 @@ Total routes: 551
 | POST | `/profile/two-factor/enable` | ProfileController::twoFactorEnable | profile.2fa.enable |  | yes | yes | ☐ |
 | POST | `/profile/two-factor/recovery` | ProfileController::twoFactorRecovery | profile.2fa.recovery |  | yes | yes | ☐ |
 | POST | `/profile/two-factor/setup` | ProfileController::twoFactorSetup | profile.2fa.setup |  | yes | yes | ☐ |
-| GET | `/profile` | ProfileController::show | profile |  | yes | yes | ☐ |
+| GET | `/profile` | ProfileController::show | profile |  | yes | yes | ◑ |
 | POST | `/redis/browser/api` | RedisBrowserController::api | redis.browser.api | redis.manage | yes | yes | ☐ |
 | GET | `/redis/browser` | RedisBrowserController::browse | redis.browser | redis.manage | yes | yes | ☐ |
 | POST | `/redis/configure` | RedisController::configure | redis.configure | redis.manage | yes | yes | ☐ |

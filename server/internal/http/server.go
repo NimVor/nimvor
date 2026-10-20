@@ -118,6 +118,9 @@ func (s *Server) routes() {
 
 	// Notifications (per-recipient visibility).
 	s.mux.HandleFunc("GET /notifications", s.guard("", "notifications.view", s.notificationsIndex))
+
+	// Own profile (authenticated; no special permission).
+	s.mux.HandleFunc("GET /profile", s.guard("", "", s.profileShow))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.
