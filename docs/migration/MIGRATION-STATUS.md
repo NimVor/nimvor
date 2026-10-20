@@ -16,10 +16,10 @@ Agent: Go, unchanged, full suite GREEN at baseline.
 - ☑ Verified figures: SQLite + 57 migrations + argon2id passwords + unix-socket agent
 
 ## Phase 1 — Go foundation (framework parity)
-- ☐ server/ module, config, logging (slog)
-- ☐ database: open existing sqlite (same PRAGMAs), migrator (name-compatible, embedded SQL)
-- ☐ identity: argon2id + bcrypt verify (PHP cross-compat test)
-- ☐ agent: unix-socket JSON client
+- ◐ server/ module created (config/logging pending)
+- ☑ database: open (same PRAGMAs) + migrator (name-compatible, 57 embedded SQL) — tests: fresh install applies 57, existing PHP DB skipped
+- ☑ identity: argon2id + bcrypt verify — test verifies real PHP password_hash output
+- ☑ agent: unix-socket JSON client — test against a real unix socket (auth, path, body, data, structured error, bad-name reject)
 - ☐ session (secretbox cookie) + CSRF + security headers
 - ☐ html/template engine + base layout + asset embedding
 - ☐ stdlib router covering {param} routes; auth/permission/feature middleware
@@ -37,5 +37,9 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Create `server/go.mod`, verify `modernc.org/sqlite` + `golang.org/x/crypto`
-download, then implement internal/database (open + migrator) with tests.
+Implement internal/config + internal/crypto (nacl secretbox reading /etc/whacp/panel.key),
+then internal/session + CSRF + security-headers middleware, then internal/views
+(html/template + embed of the existing login layout) and the login/logout/dashboard
+handlers with httptest tests (valid/invalid/CSRF/locked).
+
+Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
