@@ -1,0 +1,37 @@
+{{define "roles"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roles · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Roles</h1>
+  <table class="data-table">
+    <thead><tr><th>Role</th><th>Scope</th><th>2FA</th><th>Users</th><th>Type</th></tr></thead>
+    <tbody>
+    {{range .Roles}}
+      <tr>
+        <td>{{.Label}}</td>
+        <td>{{.Scope}}</td>
+        <td>{{if .RequireTwoFactor}}required{{else}}—{{end}}</td>
+        <td>{{.UserCount}}</td>
+        <td>{{if .IsSystem}}built-in{{else}}custom{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+</main>
+</body>
+</html>{{end}}

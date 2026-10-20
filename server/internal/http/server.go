@@ -111,6 +111,10 @@ func (s *Server) routes() {
 	// Panel users list — scoped by manageableBy (staff: all; reseller: own
 	// customers).
 	s.mux.HandleFunc("GET /users", s.guard("", "users.view", s.usersIndex))
+
+	// Roles (staff) and hosting plans (staff / reseller-own).
+	s.mux.HandleFunc("GET /roles", s.guard("", "users.view", s.rolesIndex))
+	s.mux.HandleFunc("GET /plans", s.guard("", "plans.manage", s.plansIndex))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.

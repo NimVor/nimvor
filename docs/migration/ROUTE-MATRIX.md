@@ -271,7 +271,7 @@ Total routes: 551
 | GET | `/php/{version}` | PhpController::show | php.show | php.manage | yes | yes | ☐ |
 | GET | `/php` | DiscoveryController::php | php | php.view | yes | yes | ☐ |
 | POST | `/plans/{id}/delete` | PlansController::destroy | plans.delete | plans.manage | yes | yes | ☐ |
-| GET | `/plans` | PlansController::index | plans | plans.manage | yes | yes | ☐ |
+| GET | `/plans` | PlansController::index | plans | plans.manage | yes | yes | ☑ |
 | POST | `/plans` | PlansController::store | plans.store | plans.manage | yes | yes | ☐ |
 | POST | `/profile/password` | ProfileController::password | profile.password |  | yes | yes | ☐ |
 | POST | `/profile/security-keys/options` | ProfileController::keyOptions | profile.2fa.key.options |  | yes | yes | ☐ |
@@ -299,7 +299,7 @@ Total routes: 551
 | POST | `/roles/{id}/reset` | RolesController::reset | roles.reset | roles.manage | yes | yes | ☐ |
 | POST | `/roles/{id}/two-factor` | RolesController::twoFactorPolicy | roles.2fa | roles.manage | yes | yes | ☐ |
 | POST | `/roles/{id}` | RolesController::update | roles.update | roles.manage | yes | yes | ☐ |
-| GET | `/roles` | RolesController::index | roles | users.view | yes | yes | ☐ |
+| GET | `/roles` | RolesController::index | roles | users.view | yes | yes | ☑ |
 | POST | `/roles` | RolesController::store | roles.store | roles.manage | yes | yes | ☐ |
 | POST | `/runtimes/install` | RuntimeController::install | runtimes.install | server.manage | yes | yes | ☐ |
 | POST | `/runtimes/remove` | RuntimeController::remove | runtimes.remove | server.manage | yes | yes | ☐ |

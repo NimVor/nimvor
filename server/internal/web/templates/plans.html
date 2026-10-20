@@ -1,0 +1,43 @@
+{{define "plans"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plans · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Plans</h1>
+  {{if .Plans}}
+  <table class="data-table">
+    <thead><tr><th>Plan</th><th>Owner</th><th>Accounts</th><th>Websites</th><th>Databases</th><th>Disk (MB)</th><th>Bandwidth (MB)</th></tr></thead>
+    <tbody>
+    {{range .Plans}}
+      <tr>
+        <td>{{.Name}}</td>
+        <td>{{if .OwnerName.Valid}}{{.OwnerName.String}}{{else}}global{{end}}</td>
+        <td>{{.Users}}</td>
+        <td>{{if .MaxWebsites}}{{.MaxWebsites}}{{else}}∞{{end}}</td>
+        <td>{{if .MaxDatabases}}{{.MaxDatabases}}{{else}}∞{{end}}</td>
+        <td>{{if .DiskQuotaMB}}{{.DiskQuotaMB}}{{else}}∞{{end}}</td>
+        <td>{{if .BandwidthMB}}{{.BandwidthMB}}{{else}}∞{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="text-muted">No plans yet.</p>
+  {{end}}
+</main>
+</body>
+</html>{{end}}

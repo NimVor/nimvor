@@ -15,6 +15,41 @@ type RoleRepository struct{ db *sql.DB }
 // NewRoleRepository wraps a database handle.
 func NewRoleRepository(db *sql.DB) *RoleRepository { return &RoleRepository{db: db} }
 
+// RoleRow is a role for the admin list, with how many users hold it.
+type RoleRow struct {
+	ID               int64
+	Name             string
+	Label            string
+	Description      string
+	IsSystem         bool
+	Scope            string
+	RequireTwoFactor bool
+	UserCount        int
+}
+
+// All lists every role with its user count. Mirrors RoleRepository::all.
+// Roles are server-wide objects; viewing them is a staff permission, so there
+// is no tenant scoping.
+func (r *RoleRepository) All(ctx context.Context) ([]RoleRow, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT r.id, r.name, r.label, r.description, r.is_system, r.scope, r.require_two_factor,
+		       (SELECT COUNT(*) FROM users u WHERE u.role_id = r.id) AS user_count
+		FROM roles r ORDER BY r.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []RoleRow
+	for rows.Next() {
+		var rr RoleRow
+		if err := rows.Scan(&rr.ID, &rr.Name, &rr.Label, &rr.Description, &rr.IsSystem, &rr.Scope, &rr.RequireTwoFactor, &rr.UserCount); err != nil {
+			return nil, err
+		}
+		out = append(out, rr)
+	}
+	return out, rows.Err()
+}
+
 // PermissionsFor returns the permission names granted to a role.
 func (r *RoleRepository) PermissionsFor(ctx context.Context, roleID int64) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx,
