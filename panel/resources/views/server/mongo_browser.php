@@ -1,8 +1,13 @@
 <?php
 /**
- * Server → MongoDB → Browser: a full-page database browser. A collections
- * sidebar on the left; the chosen collection's documents, with a JSON filter
- * and paging, on the right. Mirrors the SQL web browser (databases/browser).
+ * Server → MongoDB → Browser: a full-page, three-pane database browser.
+ * Left: the databases selector and a collections list. Centre: a header with
+ * the breadcrumb and collection actions, a query bar, the view tabs and the
+ * documents table (or JSON view) with paging. Right: the selected document,
+ * the collection's indexes, its statistics and quick actions.
+ *
+ * The same view backs the per-website browser (SiteMongoController::browser);
+ * $canDelete is false for a read-only viewer.
  *
  * @var \WhaCP\View\View $this
  * @var string $api        the JSON endpoint (mongo.browse)
@@ -14,17 +19,19 @@
  */
 ?>
 <?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($back) ?>"><i class="bi bi-arrow-left"></i> MongoDB</a><?php $this->end('back'); ?>
-<?php $this->start(); ?><i class="bi bi-table me-1"></i>MongoDB browser<?php $this->end('title'); ?>
+<?php $this->start(); ?><i class="bi bi-hdd-network me-1"></i>MongoDB browser<?php $this->end('title'); ?>
 
-<div class="wcp-db" id="wcp-mongo"
+<div class="wcp-mongo3" id="wcp-mongo"
      data-api="<?= e($api) ?>"
      data-export="<?= e($export) ?>"
      data-current="<?= e($current) ?>"
      data-can-delete="<?= $canDelete ? '1' : '0' ?>">
-    <aside class="wcp-db-side">
+
+    <!-- Left: databases + collections -->
+    <aside class="wcp-mongo-side">
+        <div class="wcp-mongo-side-head"><i class="bi bi-hdd-stack me-1" aria-hidden="true"></i>Databases</div>
         <div class="p-2 border-bottom">
-            <label class="form-label small mb-1" for="mb-db">Database</label>
-            <select class="form-select form-select-sm" id="mb-db" data-mb-db>
+            <select class="form-select form-select-sm" id="mb-db" aria-label="Database" data-mb-db>
                 <option value="">Choose a database…</option>
                 <?php foreach ($databases as $name): ?>
                     <option value="<?= e($name) ?>"<?= $name === $current ? ' selected' : '' ?>><?= e($name) ?></option>
@@ -37,38 +44,27 @@
             <button class="btn btn-sm btn-outline-primary text-nowrap" type="button" data-mb-newcoll disabled title="Create a collection"><i class="bi bi-plus-lg"></i></button>
             <?php endif; ?>
         </div>
-        <ul class="list-group list-group-flush" data-mb-colls aria-label="Collections"></ul>
+        <ul class="list-group list-group-flush wcp-mongo-colls" data-mb-colls aria-label="Collections"></ul>
         <div class="small text-body-secondary px-2 py-2" data-mb-colls-count></div>
     </aside>
-    <section class="wcp-db-main">
-        <div class="wcp-db-tabs">
-            <span class="fw-semibold font-monospace text-truncate me-2" data-mb-current>No collection selected</span>
-            <div class="btn-group btn-group-sm" role="tablist" aria-label="View">
-                <button class="btn btn-outline-secondary active" type="button" data-mb-tab="documents" disabled>Documents</button>
-                <button class="btn btn-outline-secondary" type="button" data-mb-tab="aggregate" disabled>Aggregation</button>
-                <button class="btn btn-outline-secondary" type="button" data-mb-tab="schema" disabled>Schema</button>
-                <button class="btn btn-outline-secondary" type="button" data-mb-tab="indexes" disabled>Indexes</button>
-                <button class="btn btn-outline-secondary" type="button" data-mb-tab="users" disabled>Users</button>
-            </div>
-        </div>
-        <div class="wcp-db-bar">
-            <span data-mb-doc-tools class="wcp-db-tools">
-                <div class="input-group input-group-sm wcp-db-filter">
-                    <span class="input-group-text"><i class="bi bi-funnel"></i></span>
-                    <input class="form-control font-monospace" type="text" placeholder='Filter, e.g. { "status": "active" }' aria-label="JSON filter" data-mb-filter autocomplete="off" spellcheck="false" disabled>
-                    <button class="btn btn-primary" type="button" data-mb-run disabled>Run</button>
-                </div>
-                <div class="input-group input-group-sm wcp-db-mini">
-                    <span class="input-group-text" title="Sort">⇅</span>
-                    <input class="form-control font-monospace" type="text" placeholder='Sort, e.g. { "age": -1 }' aria-label="JSON sort" data-mb-sort autocomplete="off" spellcheck="false" disabled>
-                </div>
-                <div class="input-group input-group-sm wcp-db-mini">
-                    <span class="input-group-text" title="Fields (projection)"><i class="bi bi-list-columns-reverse"></i></span>
-                    <input class="form-control font-monospace" type="text" placeholder='Fields, e.g. { "name": 1 }' aria-label="JSON projection" data-mb-projection autocomplete="off" spellcheck="false" disabled>
-                </div>
-                <span class="wcp-db-tools-actions">
+
+    <!-- Centre: header, query, tabs, documents -->
+    <section class="wcp-mongo-center">
+        <div class="wcp-mongo-head">
+            <nav class="wcp-mongo-bc small text-body-secondary" aria-label="Breadcrumb">
+                <span data-mb-bc-db>—</span>
+                <i class="bi bi-chevron-right mx-1" aria-hidden="true"></i>
+                <span>Collections</span>
+                <i class="bi bi-chevron-right mx-1" aria-hidden="true"></i>
+                <span class="text-body-emphasis" data-mb-bc-coll>—</span>
+            </nav>
+            <div class="wcp-mongo-title">
+                <h1 class="h4 mb-0 font-monospace text-truncate" data-mb-title>No collection selected</h1>
+                <span class="badge rounded-pill text-bg-light border" data-mb-kind hidden>Collection</span>
+                <div class="wcp-mongo-actions ms-auto">
                     <?php if ($canDelete): ?>
-                    <button class="btn btn-sm btn-outline-primary text-nowrap" type="button" data-mb-new disabled><i class="bi bi-plus-lg me-1"></i>New document</button>
+                    <button class="btn btn-sm btn-primary" type="button" data-mb-new disabled><i class="bi bi-plus-lg me-1"></i>Insert Document</button>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-mb-import disabled><i class="bi bi-upload me-1"></i>Import</button>
                     <?php endif; ?>
                     <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-mb-export disabled><i class="bi bi-download me-1"></i>Export</button>
@@ -78,26 +74,112 @@
                         </ul>
                     </div>
                     <?php if ($canDelete): ?>
-                    <button class="btn btn-sm btn-outline-secondary text-nowrap" type="button" data-mb-import disabled><i class="bi bi-upload me-1"></i>Import</button>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-mb-more disabled aria-label="More actions"><i class="bi bi-three-dots"></i></button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button class="dropdown-item" type="button" data-mb-coll-op="rename"><i class="bi bi-pencil me-2"></i>Rename collection…</button></li>
+                            <li><button class="dropdown-item" type="button" data-mb-coll-op="empty"><i class="bi bi-eraser me-2"></i>Empty collection…</button></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><button class="dropdown-item text-danger" type="button" data-mb-coll-op="drop"><i class="bi bi-trash me-2"></i>Drop collection…</button></li>
+                        </ul>
+                    </div>
                     <?php endif; ?>
-                </span>
-            </span>
-            <?php if ($canDelete): ?>
-            <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newindex disabled><i class="bi bi-plus-lg me-1"></i>New index</button>
-            <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newuser disabled><i class="bi bi-person-plus me-1"></i>New user</button>
-            <?php endif; ?>
-            <div class="wcp-db-paging ms-auto">
-                <div class="btn-group btn-group-sm" role="group" aria-label="Paging" data-mb-pager>
-                    <button class="btn btn-outline-secondary" type="button" data-mb-prev disabled><i class="bi bi-chevron-left"></i></button>
-                    <button class="btn btn-outline-secondary" type="button" data-mb-next disabled><i class="bi bi-chevron-right"></i></button>
                 </div>
-                <span class="small text-body-secondary text-nowrap" data-mb-range></span>
             </div>
         </div>
-        <div class="wcp-db-pane" data-mb-pane aria-live="polite">
-            <div class="text-body-secondary p-4">Choose a database, then a collection to browse its documents.</div>
+
+        <div class="wcp-mongo-query">
+            <div class="input-group input-group-sm wcp-mongo-queryin">
+                <span class="input-group-text"><i class="bi bi-funnel"></i></span>
+                <input class="form-control font-monospace" type="text" placeholder='Enter query (JSON), e.g. { "status": "active" }' aria-label="JSON filter" data-mb-filter autocomplete="off" spellcheck="false" disabled>
+                <button class="btn btn-primary" type="button" data-mb-run disabled><i class="bi bi-play-fill me-1"></i>Run</button>
+            </div>
+            <div class="input-group input-group-sm wcp-mongo-mini">
+                <span class="input-group-text" title="Sort">⇅</span>
+                <input class="form-control font-monospace" type="text" placeholder='Sort { "age": -1 }' aria-label="JSON sort" data-mb-sort autocomplete="off" spellcheck="false" disabled>
+            </div>
+            <div class="input-group input-group-sm wcp-mongo-mini">
+                <span class="input-group-text" title="Fields (projection)"><i class="bi bi-list-columns-reverse"></i></span>
+                <input class="form-control font-monospace" type="text" placeholder='Fields { "name": 1 }' aria-label="JSON projection" data-mb-projection autocomplete="off" spellcheck="false" disabled>
+            </div>
+            <div class="wcp-mongo-limit">
+                <label class="form-label small mb-0 me-1" for="mb-limit">Show</label>
+                <select class="form-select form-select-sm" id="mb-limit" data-mb-pagesize aria-label="Documents per page">
+                    <option>10</option>
+                    <option selected>25</option>
+                    <option>50</option>
+                    <option>100</option>
+                </select>
+            </div>
+        </div>
+
+        <ul class="nav nav-tabs wcp-tabs wcp-mongo-tabs" role="tablist">
+            <?php foreach ([
+                'documents' => ['Documents', 'grid-3x3'],
+                'aggregate' => ['Aggregation', 'diagram-3'],
+                'indexes' => ['Indexes', 'key'],
+                'schema' => ['Schema', 'diagram-2'],
+                'validation' => ['Validation', 'shield-check'],
+                'stats' => ['Stats', 'bar-chart'],
+                'users' => ['Users', 'people'],
+            ] as $key => $t): ?>
+                <li class="nav-item" role="presentation"><button class="nav-link<?= $key === 'documents' ? ' active' : '' ?>" type="button" role="tab" data-mb-tab="<?= e($key) ?>" disabled><i class="bi bi-<?= e($t[1]) ?> me-1" aria-hidden="true"></i><?= e($t[0]) ?></button></li>
+            <?php endforeach; ?>
+        </ul>
+
+        <div class="wcp-mongo-toolbar d-none" data-mb-toolbar>
+            <span class="small text-body-secondary" data-mb-count></span>
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <?php if ($canDelete): ?>
+                <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newindex disabled><i class="bi bi-plus-lg me-1"></i>New index</button>
+                <button class="btn btn-sm btn-outline-primary d-none" type="button" data-mb-newuser disabled><i class="bi bi-person-plus me-1"></i>New user</button>
+                <?php endif; ?>
+                <div class="btn-group btn-group-sm" role="group" aria-label="View" data-mb-viewtoggle>
+                    <button class="btn btn-outline-secondary active" type="button" data-mb-view="table" title="Table view"><i class="bi bi-table"></i></button>
+                    <button class="btn btn-outline-secondary" type="button" data-mb-view="json" title="JSON view"><i class="bi bi-braces"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="wcp-mongo-pane" data-mb-pane aria-live="polite">
+            <div class="wcp-db-empty"><i class="bi bi-hdd-stack"></i><div class="fw-semibold">Choose a database, then a collection</div><div class="small text-body-secondary">Pick one on the left to browse its documents.</div></div>
+        </div>
+
+        <div class="wcp-mongo-pager" data-mb-pager hidden>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Pages" data-mb-pages></div>
+            <span class="small text-body-secondary ms-auto text-nowrap" data-mb-range></span>
         </div>
     </section>
+
+    <!-- Right: document preview, indexes, stats, quick actions -->
+    <aside class="wcp-mongo-rail">
+        <div class="wcp-mongo-card">
+            <div class="wcp-mongo-card-head"><i class="bi bi-file-earmark-text me-1"></i>Document
+                <button class="btn btn-sm btn-outline-secondary ms-auto py-0" type="button" data-mb-doc-copy disabled><i class="bi bi-clipboard me-1"></i>Copy</button>
+            </div>
+            <pre class="wcp-mongo-rail-json" data-mb-doc-json><span class="text-body-secondary">Select a document to preview it here.</span></pre>
+        </div>
+        <div class="wcp-mongo-card">
+            <div class="wcp-mongo-card-head"><i class="bi bi-key me-1"></i>Indexes
+                <button class="btn btn-sm btn-link ms-auto p-0 text-decoration-none" type="button" data-mb-rail-indexes-all>View all</button>
+            </div>
+            <div class="wcp-mongo-rail-body" data-mb-rail-indexes><span class="small text-body-secondary">—</span></div>
+        </div>
+        <div class="wcp-mongo-card">
+            <div class="wcp-mongo-card-head"><i class="bi bi-bar-chart me-1"></i>Collection stats</div>
+            <div class="wcp-mongo-rail-body" data-mb-rail-stats><span class="small text-body-secondary">—</span></div>
+        </div>
+        <div class="wcp-mongo-card">
+            <div class="wcp-mongo-card-head"><i class="bi bi-lightning-charge me-1"></i>Quick actions</div>
+            <div class="list-group list-group-flush wcp-mongo-qa">
+                <?php if ($canDelete): ?>
+                <button class="list-group-item list-group-item-action d-flex align-items-center" type="button" data-mb-qa="index" disabled><i class="bi bi-plus-square me-2"></i>Create index<i class="bi bi-chevron-right ms-auto"></i></button>
+                <?php endif; ?>
+                <button class="list-group-item list-group-item-action d-flex align-items-center" type="button" data-mb-qa="validate" disabled><i class="bi bi-shield-check me-2"></i>Validation rules<i class="bi bi-chevron-right ms-auto"></i></button>
+                <button class="list-group-item list-group-item-action d-flex align-items-center" type="button" data-mb-qa="schema" disabled><i class="bi bi-diagram-2 me-2"></i>View schema<i class="bi bi-chevron-right ms-auto"></i></button>
+            </div>
+        </div>
+    </aside>
 </div>
 
 <?php if ($canDelete): ?>

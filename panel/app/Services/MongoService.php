@@ -264,6 +264,12 @@ final class MongoService
         return ['indexes' => $o['indexes'] ?? []];
     }
 
+    /** Size, counts and validation rules for one collection. */
+    public function collectionStats(string $db, string $collection): array
+    {
+        return (array) $this->agent->call('mongo.collection_stats', ['db' => $db, 'collection' => $collection]);
+    }
+
     public function createIndex(string $db, string $collection, string $keys, string $options, ?int $userId): string
     {
         $o = (array) $this->agent->call('mongo.index_create', ['db' => $db, 'collection' => $collection, 'keys' => $keys, 'options' => $options], 300);

@@ -327,6 +327,13 @@ final class SiteMongoService
         return ['indexes' => $o['indexes'] ?? []];
     }
 
+    /** Size, counts and validation rules for one of the account's collections. */
+    public function collectionStats(array $site, string $db, string $collection): array
+    {
+        $this->assertOwned($site, $db);
+        return (array) $this->agent->call('mongo.collection_stats', ['db' => $db, 'collection' => $collection]);
+    }
+
     public function createIndex(array $site, string $db, string $collection, string $keys, string $options, ?int $userId): string
     {
         $this->assertOwned($site, $db);

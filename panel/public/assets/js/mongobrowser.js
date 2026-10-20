@@ -1,9 +1,12 @@
 /* MongoDB database browser (Server → MongoDB → Browser).
  *
- * Drives the full-page #wcp-mongo tool: a collections sidebar and a documents
- * pane with a JSON filter and paging. Loaded from 'self' (the panel CSP
- * forbids inline scripts); all calls go to the mongo.browse endpoint through
- * WhaCP.fetchJson, which attaches the CSRF token on POST. */
+ * Drives the full-page three-pane #wcp-mongo tool: a databases/collections
+ * sidebar, a centre pane with the query bar, view tabs and a documents table
+ * (or JSON view) with paging, and a right rail showing the selected document,
+ * the collection's indexes, its statistics and quick actions. Loaded from
+ * 'self' (the panel CSP forbids inline scripts); all calls go to the
+ * mongo.browse endpoint through WhaCP.fetchJson, which attaches the CSRF token
+ * on POST. */
 (function () {
     'use strict';
     var root = document.getElementById('wcp-mongo');
@@ -12,28 +15,38 @@
     var api = root.getAttribute('data-api');
     var exportApi = root.getAttribute('data-export');
     var canDelete = root.getAttribute('data-can-delete') === '1';
-    var LIMIT = 25;
 
     var dbSel = root.querySelector('[data-mb-db]');
     var collList = root.querySelector('[data-mb-colls]');
     var collFilter = root.querySelector('[data-mb-coll-filter]');
     var newCollBtn = root.querySelector('[data-mb-newcoll]');
     var collCount = root.querySelector('[data-mb-colls-count]');
-    var curLabel = root.querySelector('[data-mb-current]');
+    var bcDb = root.querySelector('[data-mb-bc-db]');
+    var bcColl = root.querySelector('[data-mb-bc-coll]');
+    var titleEl = root.querySelector('[data-mb-title]');
+    var kindBadge = root.querySelector('[data-mb-kind]');
+    var moreBtn = root.querySelector('[data-mb-more]');
     var filterIn = root.querySelector('[data-mb-filter]');
     var sortIn = root.querySelector('[data-mb-sort]');
     var projIn = root.querySelector('[data-mb-projection]');
     var runBtn = root.querySelector('[data-mb-run]');
-    var prevBtn = root.querySelector('[data-mb-prev]');
-    var nextBtn = root.querySelector('[data-mb-next]');
-    var rangeEl = root.querySelector('[data-mb-range]');
-    var pane = root.querySelector('[data-mb-pane]');
+    var pageSizeSel = root.querySelector('[data-mb-pagesize]');
     var tabBtns = root.querySelectorAll('[data-mb-tab]');
-    var docTools = root.querySelector('[data-mb-doc-tools]');
-    var exportBtn = root.querySelector('[data-mb-export]');
+    var toolbar = root.querySelector('[data-mb-toolbar]');
+    var countEl = root.querySelector('[data-mb-count]');
+    var viewToggle = root.querySelector('[data-mb-viewtoggle]');
+    var pane = root.querySelector('[data-mb-pane]');
     var pagerEl = root.querySelector('[data-mb-pager]');
+    var pagesEl = root.querySelector('[data-mb-pages]');
+    var rangeEl = root.querySelector('[data-mb-range]');
+    var docJson = root.querySelector('[data-mb-doc-json]');
+    var docCopy = root.querySelector('[data-mb-doc-copy]');
+    var railIndexes = root.querySelector('[data-mb-rail-indexes]');
+    var railIndexesAll = root.querySelector('[data-mb-rail-indexes-all]');
+    var railStats = root.querySelector('[data-mb-rail-stats]');
+    var qaBtns = root.querySelectorAll('[data-mb-qa]');
 
-    var state = { db: '', collection: '', skip: 0, total: 0, tab: 'documents' };
+    var state = { db: '', collection: '', skip: 0, total: 0, limit: 25, tab: 'documents', view: 'table', docs: [], selected: -1, stats: null };
 
     function el(tag, cls, text) {
         var e = document.createElement(tag);
@@ -49,8 +62,6 @@
         var d = (err && err.details) || {};
         WhaCP.toast((d.message || (err && err.message) || 'Request failed') + (d.details ? ' — ' + d.details : ''), 'danger');
     }
-    function placeholder(target, text) { target.replaceChildren(el('div', 'text-body-secondary p-4', text)); }
-    // A centred empty state with an icon, for the "nothing here yet" panes.
     function emptyState(target, icon, title, hint) {
         var box = el('div', 'wcp-db-empty');
         box.appendChild(el('i', 'bi bi-' + icon));
@@ -58,25 +69,40 @@
         if (hint) { box.appendChild(el('div', 'small text-body-secondary', hint)); }
         target.replaceChildren(box);
     }
+    function placeholder(target, text) { target.replaceChildren(el('div', 'text-body-secondary p-4', text)); }
+
+    function fmtInt(n) { return (Number(n) || 0).toLocaleString(); }
+    function fmtBytes(n) {
+        n = Number(n) || 0;
+        var u = ['B', 'KB', 'MB', 'GB', 'TB'], i = 0;
+        while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+        return (i === 0 ? n : n.toFixed(n < 10 ? 2 : 1)) + ' ' + u[i];
+    }
 
     // --- Collections sidebar ---
+
+    function disableControls() {
+        [filterIn, runBtn, sortIn, projIn, newBtn, importBtn, exportBtn, moreBtn].forEach(function (b) { if (b) { b.disabled = true; } });
+        Array.prototype.forEach.call(tabBtns, function (b) { b.disabled = true; });
+        Array.prototype.forEach.call(qaBtns, function (b) { b.disabled = true; });
+        if (docCopy) { docCopy.disabled = true; }
+    }
 
     function loadCollections() {
         state.collection = '';
         state.skip = 0;
         setActiveCollection(null);
-        curLabel.textContent = 'No collection selected';
-        filterIn.disabled = true; runBtn.disabled = true;
-        if (sortIn) { sortIn.disabled = true; }
-        if (projIn) { projIn.disabled = true; }
-        if (newBtn) { newBtn.disabled = true; }
-        if (exportBtn) { exportBtn.disabled = true; }
-        if (importBtn) { importBtn.disabled = true; }
-        if (newIndexBtn) { newIndexBtn.disabled = true; }
-        Array.prototype.forEach.call(tabBtns, function (b) { b.disabled = true; });
+        titleEl.textContent = 'No collection selected';
+        if (kindBadge) { kindBadge.hidden = true; }
+        bcDb.textContent = state.db || '—';
+        bcColl.textContent = '—';
+        disableControls();
         if (newCollBtn) { newCollBtn.disabled = !state.db; }
+        resetRail();
         setPaging();
-        placeholder(pane, state.db ? 'Choose a collection to browse its documents.' : 'Choose a database, then a collection.');
+        emptyState(pane, state.db ? 'collection' : 'hdd-stack',
+            state.db ? 'Choose a collection' : 'Choose a database, then a collection',
+            state.db ? 'Pick a collection on the left to browse its documents.' : 'Pick one on the left to browse its documents.');
         collList.replaceChildren();
         collCount.textContent = '';
         if (!state.db) { return; }
@@ -88,30 +114,25 @@
 
     function renderCollections(cols) {
         collList.replaceChildren();
-        if (!cols.length) {
-            collCount.textContent = 'No collections';
-            return;
-        }
+        if (!cols.length) { collCount.textContent = 'No collections'; return; }
         cols.forEach(function (c) {
             var li = el('li', 'list-group-item list-group-item-action d-flex justify-content-between align-items-center');
             li.dataset.name = c.name;
             var nameBtn = el('span', 'text-truncate font-monospace small flex-grow-1');
             nameBtn.setAttribute('role', 'button');
-            nameBtn.textContent = c.name;
+            nameBtn.appendChild(el('i', 'bi bi-collection me-2 text-body-secondary'));
+            nameBtn.appendChild(document.createTextNode(c.name));
             nameBtn.addEventListener('click', function () { openCollection(c.name); });
             li.appendChild(nameBtn);
-            li.appendChild(el('span', 'badge rounded-pill text-bg-light border mx-2', String(c.count)));
-            if (canDelete) {
-                li.appendChild(collectionMenu(c.name));
-            }
+            li.appendChild(el('span', 'badge rounded-pill text-bg-light border mx-2', fmtInt(c.count)));
+            if (canDelete) { li.appendChild(collectionMenu(c.name)); }
             collList.appendChild(li);
         });
         collCount.textContent = cols.length + (cols.length === 1 ? ' collection' : ' collections');
         applyCollFilter();
     }
 
-    // A per-collection actions menu (empty / rename / drop). Built in JS so it
-    // stays CSP-safe; actions reload the collection list afterwards.
+    // A per-collection actions menu (empty / rename / drop) in the sidebar.
     function collectionMenu(name) {
         var wrap = el('div', 'dropdown');
         var btn = el('button', 'btn btn-sm btn-link text-body-secondary p-0 px-1');
@@ -146,7 +167,7 @@
             call('coll_empty', { collection: name }).then(function (d) {
                 WhaCP.toast('Removed ' + (d.deleted || 0) + ' document' + ((d.deleted === 1) ? '' : 's') + '.', 'success');
                 reloadCollections();
-                if (state.collection === name && state.tab === 'documents') { state.skip = 0; loadDocuments(); }
+                if (state.collection === name) { state.skip = 0; loadRail(); if (state.tab === 'documents') { loadDocuments(); } }
             }).catch(fail);
         } else if (op === 'rename') {
             var to = window.prompt('Rename collection "' + name + '" to:', name);
@@ -158,7 +179,6 @@
         }
     }
 
-    // Reload just the collections list (keeping the open collection, if any).
     function reloadCollections() {
         if (!state.db) { return; }
         call('collections').then(function (d) {
@@ -185,26 +205,103 @@
         state.collection = name;
         state.skip = 0;
         setActiveCollection(name);
-        curLabel.textContent = name;
-        filterIn.disabled = false; runBtn.disabled = false;
-        if (sortIn) { sortIn.disabled = false; }
-        if (projIn) { projIn.disabled = false; }
-        if (newBtn) { newBtn.disabled = false; }
-        if (exportBtn) { exportBtn.disabled = false; }
-        if (importBtn) { importBtn.disabled = false; }
+        titleEl.textContent = name;
+        bcDb.textContent = state.db;
+        bcColl.textContent = name;
+        if (kindBadge) { kindBadge.hidden = false; }
+        [filterIn, runBtn, sortIn, projIn, newBtn, importBtn, exportBtn, moreBtn].forEach(function (b) { if (b) { b.disabled = false; } });
         Array.prototype.forEach.call(tabBtns, function (b) { b.disabled = false; });
+        Array.prototype.forEach.call(qaBtns, function (b) { b.disabled = false; });
+        loadRail();
         setTab('documents');
     }
 
-    // --- Documents / Indexes tabs ---
+    // --- Right rail (document preview, indexes, stats) ---
+
+    function resetRail() {
+        state.stats = null;
+        if (docJson) { docJson.replaceChildren(el('span', 'text-body-secondary', 'Select a document to preview it here.')); }
+        if (docCopy) { docCopy.disabled = true; }
+        if (railIndexes) { railIndexes.replaceChildren(el('span', 'small text-body-secondary', '—')); }
+        if (railStats) { railStats.replaceChildren(el('span', 'small text-body-secondary', '—')); }
+    }
+
+    function loadRail() {
+        if (railStats) { railStats.replaceChildren(el('span', 'small text-body-secondary', 'Loading…')); }
+        call('collection_stats', { collection: state.collection }).then(function (s) {
+            state.stats = s || {};
+            renderRailStats(state.stats);
+        }).catch(function () { if (railStats) { railStats.replaceChildren(el('span', 'small text-body-secondary', 'Unavailable.')); } });
+        if (railIndexes) { railIndexes.replaceChildren(el('span', 'small text-body-secondary', 'Loading…')); }
+        call('indexes', { collection: state.collection }).then(function (d) {
+            renderRailIndexes(Array.isArray(d.indexes) ? d.indexes : []);
+        }).catch(function () { if (railIndexes) { railIndexes.replaceChildren(el('span', 'small text-body-secondary', 'Unavailable.')); } });
+    }
+
+    function renderRailStats(s) {
+        if (!railStats) { return; }
+        var rows = [
+            ['Documents', fmtInt(s.count)],
+            ['Data size', fmtBytes(s.size)],
+            ['Avg. document', s.avgObjSize ? fmtBytes(s.avgObjSize) : '—'],
+            ['Storage size', fmtBytes(s.storageSize)],
+            ['Indexes', fmtInt(s.nindexes)],
+            ['Index size', fmtBytes(s.totalIndexSize)],
+        ];
+        var dl = el('dl', 'wcp-mongo-stat mb-0');
+        rows.forEach(function (r) {
+            dl.appendChild(el('dt', null, r[0]));
+            dl.appendChild(el('dd', null, r[1]));
+        });
+        railStats.replaceChildren(dl);
+    }
+
+    function indexType(ix) {
+        if (ix.name === '_id_') { return 'Unique'; }
+        var key = ix.key || {};
+        var ks = Object.keys(key);
+        if (ks.some(function (k) { return key[k] === 'text'; })) { return 'Text'; }
+        if (typeof ix.expireAfterSeconds !== 'undefined') { return 'TTL'; }
+        if (ix.unique) { return 'Unique'; }
+        if (ks.length && key[ks[0]] === -1) { return 'Descending'; }
+        return 'Ascending';
+    }
+
+    function renderRailIndexes(list) {
+        if (!railIndexes) { return; }
+        if (!list.length) { railIndexes.replaceChildren(el('span', 'small text-body-secondary', 'No indexes.')); return; }
+        var ul = el('ul', 'list-unstyled mb-0');
+        list.slice(0, 6).forEach(function (ix) {
+            var li = el('li', 'd-flex align-items-center justify-content-between py-1');
+            li.appendChild(el('span', 'font-monospace small text-truncate me-2', ix.name));
+            li.appendChild(el('span', 'badge rounded-pill text-bg-light border', indexType(ix)));
+            ul.appendChild(li);
+        });
+        railIndexes.replaceChildren(ul);
+    }
+
+    function selectDoc(i) {
+        state.selected = i;
+        Array.prototype.forEach.call(pane.querySelectorAll('[data-mb-rowidx]'), function (tr) {
+            tr.classList.toggle('table-active', Number(tr.getAttribute('data-mb-rowidx')) === i);
+        });
+        var doc = state.docs[i];
+        if (docJson) {
+            docJson.textContent = doc ? JSON.stringify(doc, null, 2) : '';
+            if (docCopy) { docCopy.disabled = !doc; }
+        }
+    }
+
+    // --- Tabs ---
 
     function setTab(tab) {
         state.tab = tab;
         Array.prototype.forEach.call(tabBtns, function (b) { b.classList.toggle('active', b.getAttribute('data-mb-tab') === tab); });
         var docs = tab === 'documents', idx = tab === 'indexes', usr = tab === 'users';
-        if (docTools) { docTools.classList.toggle('d-none', !docs); }
-        if (pagerEl) { pagerEl.classList.toggle('d-none', !docs); }
-        rangeEl.classList.toggle('d-none', !docs);
+        toolbar.classList.toggle('d-none', !(docs || idx || usr));
+        if (countEl) { countEl.classList.toggle('d-none', !docs); }
+        if (viewToggle) { viewToggle.classList.toggle('d-none', !docs); }
+        pagerEl.hidden = !docs;
         if (newIndexBtn) {
             newIndexBtn.classList.toggle('d-none', !idx);
             newIndexBtn.disabled = !idx || !state.collection;
@@ -213,7 +310,67 @@
             newUserBtn.classList.toggle('d-none', !usr);
             newUserBtn.disabled = !usr || !state.db;
         }
-        if (docs) { state.skip = 0; loadDocuments(); } else if (idx) { loadIndexes(); } else if (tab === 'schema') { loadSchema(); } else if (usr) { loadUsers(); } else { renderAggregate(); }
+        if (docs) { state.skip = 0; loadDocuments(); }
+        else if (idx) { loadIndexes(); }
+        else if (tab === 'schema') { loadSchema(); }
+        else if (tab === 'validation') { renderValidation(); }
+        else if (tab === 'stats') { renderStats(); }
+        else if (usr) { loadUsers(); }
+        else { renderAggregate(); }
+    }
+
+    // --- Validation & Stats tabs (from collection_stats) ---
+
+    function withStats(cb) {
+        if (state.stats) { cb(state.stats); return; }
+        placeholder(pane, 'Loading…');
+        call('collection_stats', { collection: state.collection }).then(function (s) { state.stats = s || {}; cb(state.stats); })
+            .catch(function (e) { placeholder(pane, 'The collection statistics could not be read.'); fail(e); });
+    }
+
+    function renderValidation() {
+        withStats(function (s) {
+            if (!s.validator || (typeof s.validator === 'object' && Object.keys(s.validator).length === 0)) {
+                emptyState(pane, 'shield-check', 'No validation rules', 'This collection accepts any document shape.');
+                return;
+            }
+            var wrap = el('div', 'p-3');
+            var meta = el('div', 'd-flex gap-2 mb-2');
+            meta.appendChild(el('span', 'badge text-bg-light border', 'Level: ' + (s.validationLevel || 'strict')));
+            meta.appendChild(el('span', 'badge text-bg-light border', 'Action: ' + (s.validationAction || 'error')));
+            wrap.appendChild(meta);
+            var pre = el('pre', 'wcp-mongo-json mb-0 p-3 border rounded');
+            pre.textContent = JSON.stringify(s.validator, null, 2);
+            wrap.appendChild(pre);
+            pane.replaceChildren(wrap);
+        });
+    }
+
+    function renderStats() {
+        withStats(function (s) {
+            var rows = [
+                ['Type', s.type || 'collection'],
+                ['Documents', fmtInt(s.count)],
+                ['Data size', fmtBytes(s.size)],
+                ['Average document size', s.avgObjSize ? fmtBytes(s.avgObjSize) : '—'],
+                ['Storage size', fmtBytes(s.storageSize)],
+                ['Indexes', fmtInt(s.nindexes)],
+                ['Total index size', fmtBytes(s.totalIndexSize)],
+                ['Capped', s.capped ? 'yes' : 'no'],
+            ];
+            var wrap = el('div', 'p-3');
+            var grid = el('div', 'row g-3');
+            rows.forEach(function (r) {
+                var col = el('div', 'col-sm-6 col-xl-4');
+                var card = el('div', 'wcp-panel h-100 mb-0');
+                card.appendChild(el('div', 'small wcp-muted', r[0]));
+                card.appendChild(el('div', 'fs-5 fw-semibold text-break', String(r[1])));
+                col.appendChild(card);
+                grid.appendChild(col);
+            });
+            wrap.appendChild(grid);
+            pane.replaceChildren(wrap);
+        });
     }
 
     // --- Schema analysis ---
@@ -227,10 +384,10 @@
 
     function renderSchema(sampled, fields) {
         if (!fields.length) {
-            placeholder(pane, sampled ? 'The sampled documents had no fields.' : 'This collection has no documents to analyse.');
+            emptyState(pane, 'diagram-2', 'Nothing to analyse', sampled ? 'The sampled documents had no fields.' : 'This collection has no documents.');
             return;
         }
-        var wrap = el('div', 'p-2');
+        var wrap = el('div', 'p-3');
         wrap.appendChild(el('div', 'small text-body-secondary mb-2', 'Sampled ' + sampled + ' document' + (sampled === 1 ? '' : 's') + '. Presence is how many of them had the field.'));
         var table = el('table', 'table table-sm align-middle');
         var thead = el('thead');
@@ -258,7 +415,7 @@
     var aggPipeline = '[\n  { "$match": {} }\n]';
 
     function renderAggregate() {
-        var wrap = el('div', 'p-2');
+        var wrap = el('div', 'p-3');
         wrap.appendChild(el('label', 'form-label small', 'Pipeline (JSON array of stages)'));
         var ta = el('textarea', 'form-control font-monospace mb-2');
         ta.rows = 8; ta.spellcheck = false; ta.value = aggPipeline;
@@ -277,7 +434,6 @@
         wrap.appendChild(results);
         pane.replaceChildren(wrap);
 
-        // Validate the pipeline and return it, or null (with a status message).
         function pipelineText() {
             aggPipeline = ta.value;
             var text = ta.value.trim();
@@ -338,13 +494,12 @@
     }
 
     function renderUsers(users) {
-        var wrap = el('div', 'p-2');
-        wrap.appendChild(el('div', 'small text-body-secondary mb-2', 'Users defined on ' + state.db + '.'));
         if (!users.length) {
-            wrap.appendChild(el('div', 'small text-body-secondary', 'This database has no users yet.'));
-            pane.replaceChildren(wrap);
+            emptyState(pane, 'people', 'No database users', 'This database has no users yet.');
             return;
         }
+        var wrap = el('div', 'p-3');
+        wrap.appendChild(el('div', 'small text-body-secondary mb-2', 'Users defined on ' + state.db + '.'));
         var table = el('table', 'table table-sm align-middle');
         var thead = el('thead');
         var hr = el('tr');
@@ -387,11 +542,44 @@
     // --- Documents pane ---
 
     function setPaging() {
-        prevBtn.disabled = state.skip <= 0;
-        nextBtn.disabled = state.skip + LIMIT >= state.total;
+        if (!pagesEl) { return; }
+        pagesEl.replaceChildren();
         if (!state.collection) { rangeEl.textContent = ''; return; }
-        if (state.total === 0) { rangeEl.textContent = '0 documents'; return; }
-        rangeEl.textContent = (state.skip + 1) + '–' + Math.min(state.skip + LIMIT, state.total) + ' of ' + state.total;
+        var limit = state.limit;
+        var pages = Math.max(1, Math.ceil(state.total / limit));
+        var cur = Math.floor(state.skip / limit) + 1;
+        if (state.total === 0) { rangeEl.textContent = '0 documents'; } else {
+            rangeEl.textContent = (state.skip + 1) + '–' + Math.min(state.skip + limit, state.total) + ' of ' + fmtInt(state.total);
+        }
+        function pbtn(label, page, opts) {
+            opts = opts || {};
+            var b = el('button', 'btn btn-outline-secondary' + (opts.active ? ' active' : ''));
+            b.type = 'button';
+            if (opts.icon) { b.innerHTML = '<i class="bi bi-' + opts.icon + '"></i>'; } else { b.textContent = label; }
+            if (opts.disabled) { b.disabled = true; }
+            else { b.addEventListener('click', function () { state.skip = (page - 1) * limit; loadDocuments(); }); }
+            pagesEl.appendChild(b);
+        }
+        pbtn('', cur - 1, { icon: 'chevron-left', disabled: cur <= 1 });
+        var list = pageList(cur, pages);
+        list.forEach(function (p) {
+            if (p === '…') { var g = el('button', 'btn btn-outline-secondary disabled', '…'); g.type = 'button'; g.disabled = true; pagesEl.appendChild(g); }
+            else { pbtn(String(p), p, { active: p === cur }); }
+        });
+        pbtn('', cur + 1, { icon: 'chevron-right', disabled: cur >= pages });
+    }
+
+    // Page numbers to show: 1 … (cur-1 cur cur+1) … last, de-duplicated.
+    function pageList(cur, last) {
+        var s = {};
+        [1, 2, last - 1, last, cur - 1, cur, cur + 1].forEach(function (p) { if (p >= 1 && p <= last) { s[p] = true; } });
+        var nums = Object.keys(s).map(Number).sort(function (a, b) { return a - b; });
+        var out = [];
+        for (var i = 0; i < nums.length; i++) {
+            if (i > 0 && nums[i] - nums[i - 1] > 1) { out.push('…'); }
+            out.push(nums[i]);
+        }
+        return out;
     }
 
     function validObject(input, label) {
@@ -415,23 +603,116 @@
         var proj = projIn ? validObject(projIn, 'fields') : '';
         if (proj === null) { return; }
         placeholder(pane, 'Loading…');
-        call('documents', { collection: state.collection, filter: filter, sort: sort, projection: proj, skip: state.skip, limit: LIMIT }).then(function (d) {
+        call('documents', { collection: state.collection, filter: filter, sort: sort, projection: proj, skip: state.skip, limit: state.limit }).then(function (d) {
             state.total = d.total || 0;
-            renderDocuments(Array.isArray(d.documents) ? d.documents : []);
+            state.docs = Array.isArray(d.documents) ? d.documents : [];
+            state.selected = -1;
+            if (countEl) { countEl.textContent = fmtInt(state.total) + ' document' + (state.total === 1 ? '' : 's'); }
+            renderDocuments();
             setPaging();
         }).catch(function (e) { placeholder(pane, 'The documents could not be read.'); fail(e); });
     }
 
-    function renderDocuments(docs) {
+    function renderDocuments() {
+        var docs = state.docs;
         if (!docs.length) {
             var filtered = filterIn && filterIn.value.trim() !== '';
             if (state.total === 0 && !filtered) {
-                emptyState(pane, 'collection', 'This collection is empty', canDelete ? 'Use “New document” above to add the first one.' : null);
+                emptyState(pane, 'collection', 'This collection is empty', canDelete ? 'Use “Insert Document” above to add the first one.' : null);
             } else {
-                emptyState(pane, 'funnel', 'No matching documents', 'No document matches the current filter.');
+                emptyState(pane, 'funnel', 'No matching documents', 'No document matches the current query.');
             }
             return;
         }
+        if (state.view === 'json') { renderJsonView(docs); } else { renderTableView(docs); }
+        if (state.selected < 0 && docs.length) { selectDoc(0); }
+    }
+
+    function idLabel(id) {
+        if (id && typeof id === 'object') {
+            if (typeof id.$oid === 'string') { return id.$oid; }
+            return JSON.stringify(id);
+        }
+        return String(id);
+    }
+
+    function cellText(v) {
+        if (v === null) { return { text: 'null', cls: 'wcp-db-null' }; }
+        if (typeof v === 'undefined') { return { text: '', cls: '' }; }
+        if (typeof v === 'object') {
+            if (typeof v.$oid === 'string') { return { text: v.$oid, cls: '' }; }
+            if (typeof v.$date !== 'undefined') { return { text: String(v.$date), cls: '' }; }
+            if (typeof v.$numberLong !== 'undefined') { return { text: String(v.$numberLong), cls: '' }; }
+            if (Array.isArray(v)) { return { text: '[' + v.length + ']', cls: 'text-body-secondary' }; }
+            return { text: '{' + Object.keys(v).length + ' field' + (Object.keys(v).length === 1 ? '' : 's') + '}', cls: 'text-body-secondary' };
+        }
+        if (typeof v === 'boolean') { return { text: v ? 'true' : 'false', cls: '' }; }
+        return { text: String(v), cls: '' };
+    }
+
+    // Columns: _id first, then the top-level keys seen across the page (capped).
+    function columnsFor(docs) {
+        var seen = {}, cols = [];
+        docs.forEach(function (d) {
+            if (!d || typeof d !== 'object') { return; }
+            Object.keys(d).forEach(function (k) {
+                if (k === '_id') { return; }
+                if (!seen[k]) { seen[k] = true; cols.push(k); }
+            });
+        });
+        return ['_id'].concat(cols.slice(0, 7));
+    }
+
+    function renderTableView(docs) {
+        var cols = columnsFor(docs);
+        var wrap = el('div', 'wcp-mongo-tablewrap');
+        var table = el('table', 'table table-hover align-middle mb-0 wcp-mongo-table');
+        var thead = el('thead');
+        var hr = el('tr');
+        cols.forEach(function (c) { hr.appendChild(el('th', c === '_id' ? 'wcp-mongo-idcol' : null, c)); });
+        if (canDelete) { hr.appendChild(el('th', 'text-end', '')); }
+        thead.appendChild(hr);
+        table.appendChild(thead);
+        var tb = el('tbody');
+        docs.forEach(function (doc, i) {
+            var tr = el('tr');
+            tr.setAttribute('data-mb-rowidx', String(i));
+            tr.addEventListener('click', function () { selectDoc(i); });
+            cols.forEach(function (c) {
+                if (c === '_id') {
+                    var td = el('td', 'wcp-mongo-idcol');
+                    var a = el('button', 'btn btn-link p-0 font-monospace small text-truncate', (doc && typeof doc._id !== 'undefined') ? idLabel(doc._id) : '(no _id)');
+                    a.type = 'button';
+                    a.addEventListener('click', function (e) { e.stopPropagation(); selectDoc(i); });
+                    td.appendChild(a);
+                    tr.appendChild(td);
+                } else {
+                    var cv = cellText(doc ? doc[c] : undefined);
+                    tr.appendChild(el('td', 'font-monospace small text-truncate ' + cv.cls, cv.text));
+                }
+            });
+            if (canDelete) {
+                var act = el('td', 'text-end text-nowrap');
+                var edit = el('button', 'btn btn-sm btn-link p-0 me-2', null);
+                edit.type = 'button'; edit.title = 'Edit'; edit.innerHTML = '<i class="bi bi-pencil"></i>';
+                edit.addEventListener('click', function (e) { e.stopPropagation(); openEditor('edit', doc); });
+                act.appendChild(edit);
+                if (doc && typeof doc._id !== 'undefined') {
+                    var del = el('button', 'btn btn-sm btn-link p-0 text-danger', null);
+                    del.type = 'button'; del.title = 'Delete'; del.innerHTML = '<i class="bi bi-trash"></i>';
+                    del.addEventListener('click', function (e) { e.stopPropagation(); deleteDoc(doc._id, del); });
+                    act.appendChild(del);
+                }
+                tr.appendChild(act);
+            }
+            tb.appendChild(tr);
+        });
+        table.appendChild(tb);
+        wrap.appendChild(table);
+        pane.replaceChildren(wrap);
+    }
+
+    function renderJsonView(docs) {
         var wrap = el('div', 'wcp-mongo-docs p-2');
         docs.forEach(function (doc, i) {
             var card = el('article', 'card mb-2');
@@ -464,21 +745,13 @@
         pane.replaceChildren(wrap);
     }
 
-    function idLabel(id) {
-        if (id && typeof id === 'object') {
-            if (typeof id.$oid === 'string') { return id.$oid; }
-            return JSON.stringify(id);
-        }
-        return String(id);
-    }
-
     function deleteDoc(id, btn) {
         if (!window.confirm('Delete this document? This cannot be undone.')) { return; }
         btn.disabled = true;
         call('delete', { collection: state.collection, id: JSON.stringify(id) }).then(function () {
             WhaCP.toast('Document deleted.', 'success');
-            // Stay on a sensible page if the last row of the last page went.
-            if (state.skip > 0 && state.skip + 1 >= state.total) { state.skip = Math.max(0, state.skip - LIMIT); }
+            if (state.skip > 0 && state.skip + 1 >= state.total) { state.skip = Math.max(0, state.skip - state.limit); }
+            loadRail();
             loadDocuments();
         }).catch(function (e) { btn.disabled = false; fail(e); });
     }
@@ -498,7 +771,7 @@
         var help = editorEl.querySelector('[data-mb-editor-help]');
         editorEl.querySelector('[data-mb-editor-json]').classList.remove('is-invalid');
         if (mode === 'new') {
-            editorEl.querySelector('#mb-editor-title').textContent = 'New document in ' + state.collection;
+            editorEl.querySelector('#mb-editor-title').textContent = 'Insert document in ' + state.collection;
             ta.value = '{\n  \n}';
             help.textContent = 'A new _id is generated if you omit it.';
         } else if (mode === 'edit') {
@@ -506,7 +779,7 @@
             editorEl.querySelector('#mb-editor-title').textContent = 'Edit document';
             ta.value = JSON.stringify(doc, null, 2);
             help.textContent = 'The _id cannot be changed; MongoDB rejects a different _id.';
-        } else { // duplicate
+        } else {
             var copy = Object.assign({}, doc);
             delete copy._id;
             editorEl.querySelector('#mb-editor-title').textContent = 'Duplicate document';
@@ -530,7 +803,7 @@
             ta.classList.remove('is-invalid');
             var ok = editorEl.querySelector('[data-mb-editor-ok]');
             ok.disabled = true;
-            var done = function () { ok.disabled = false; editor.hide(); loadDocuments(); };
+            var done = function () { ok.disabled = false; editor.hide(); loadRail(); loadDocuments(); };
             var failed = function (ee) { ok.disabled = false; fail(ee); };
             if (editorMode === 'edit') {
                 call('update', { collection: state.collection, id: JSON.stringify(editorId), document: text }).then(done).catch(failed);
@@ -552,12 +825,13 @@
     var importModal = null;
     if (importEl && window.bootstrap) { importModal = new bootstrap.Modal(importEl); }
 
+    var exportBtn = root.querySelector('[data-mb-export]');
+
     var newUserBtn = root.querySelector('[data-mb-newuser]');
     var userEl = document.getElementById('mb-user');
     var userModal = null, userMode = 'new';
     if (userEl && window.bootstrap) { userModal = new bootstrap.Modal(userEl); }
 
-    // mode 'new' creates a user; mode 'password' changes one user's password.
     function openUser(mode, name) {
         if (!userModal) { return; }
         userMode = mode;
@@ -575,7 +849,9 @@
     function loadIndexes() {
         placeholder(pane, 'Loading…');
         call('indexes', { collection: state.collection }).then(function (d) {
-            renderIndexes(Array.isArray(d.indexes) ? d.indexes : []);
+            var list = Array.isArray(d.indexes) ? d.indexes : [];
+            renderRailIndexes(list);
+            renderIndexes(list);
         }).catch(function (e) { placeholder(pane, 'The indexes could not be read.'); fail(e); });
     }
 
@@ -590,7 +866,7 @@
     }
 
     function renderIndexes(list) {
-        var wrap = el('div', 'p-2');
+        var wrap = el('div', 'p-3');
         var table = el('table', 'table table-sm align-middle mb-0');
         var thead = el('thead');
         var htr = el('tr');
@@ -649,7 +925,9 @@
             var ok = indexEl.querySelector('[data-mb-index-ok]');
             ok.disabled = true;
             call('index_create', { collection: state.collection, keys: JSON.stringify(keysObj), options: JSON.stringify(options) }).then(function () {
-                ok.disabled = false; indexModal.hide(); WhaCP.toast('Index created.', 'success'); loadIndexes();
+                ok.disabled = false; indexModal.hide(); WhaCP.toast('Index created.', 'success');
+                loadRail();
+                if (state.tab === 'indexes') { loadIndexes(); }
             }).catch(function (ee) { ok.disabled = false; errEl.textContent = (ee.details && ee.details.message) || ee.message || 'Failed.'; });
         });
     }
@@ -684,6 +962,7 @@
                 ok.disabled = false; importModal.hide();
                 var msg = 'Imported ' + d.inserted + ' of ' + d.total + ' document' + (d.total === 1 ? '' : 's') + '.';
                 WhaCP.toast(msg + (d.errors ? ' ' + d.errors + ' skipped (errors).' : ''), d.errors ? 'warning' : 'success');
+                loadRail();
                 if (state.tab === 'documents') { state.skip = 0; loadDocuments(); }
             }).catch(function (ee) { ok.disabled = false; errEl.textContent = (ee.details && ee.details.message) || ee.message || 'The import failed.'; });
         });
@@ -719,17 +998,47 @@
     Array.prototype.forEach.call(tabBtns, function (b) {
         b.addEventListener('click', function () { if (!b.disabled) { setTab(b.getAttribute('data-mb-tab')); } });
     });
-    if (newIndexBtn && indexModal) {
-        newIndexBtn.addEventListener('click', function () {
+    Array.prototype.forEach.call(root.querySelectorAll('[data-mb-view]'), function (b) {
+        b.addEventListener('click', function () {
+            state.view = b.getAttribute('data-mb-view');
+            Array.prototype.forEach.call(root.querySelectorAll('[data-mb-view]'), function (x) { x.classList.toggle('active', x === b); });
+            if (state.tab === 'documents') { renderDocuments(); }
+        });
+    });
+    Array.prototype.forEach.call(root.querySelectorAll('[data-mb-coll-op]'), function (b) {
+        b.addEventListener('click', function () { if (state.collection) { collectionAction(state.collection, b.getAttribute('data-mb-coll-op')); } });
+    });
+    Array.prototype.forEach.call(qaBtns, function (b) {
+        b.addEventListener('click', function () {
+            if (b.disabled) { return; }
+            var a = b.getAttribute('data-mb-qa');
+            if (a === 'index') { if (newIndexModalOpen) { newIndexModalOpen(); } }
+            else if (a === 'validate') { setTab('validation'); }
+            else if (a === 'schema') { setTab('schema'); }
+        });
+    });
+    if (docCopy) {
+        docCopy.addEventListener('click', function () {
+            var text = docJson ? docJson.textContent : '';
+            if (!text) { return; }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function () { WhaCP.toast('Document copied.', 'success'); }, function () { WhaCP.toast('Could not copy.', 'danger'); });
+            }
+        });
+    }
+    if (railIndexesAll) { railIndexesAll.addEventListener('click', function () { if (state.collection) { setTab('indexes'); } }); }
+
+    var newIndexModalOpen = null;
+    if (indexModal) {
+        newIndexModalOpen = function () {
             indexEl.querySelector('[data-mb-index-form]').reset();
             indexEl.querySelector('[data-mb-index-err]').textContent = '';
             indexEl.querySelector('#mb-index-title').textContent = 'New index on ' + state.collection;
             indexModal.show();
-        });
+        };
     }
-    if (newUserBtn && userModal) {
-        newUserBtn.addEventListener('click', function () { openUser('new', ''); });
-    }
+    if (newIndexBtn && newIndexModalOpen) { newIndexBtn.addEventListener('click', newIndexModalOpen); }
+    if (newUserBtn && userModal) { newUserBtn.addEventListener('click', function () { openUser('new', ''); }); }
     if (newBtn) { newBtn.addEventListener('click', function () { openEditor('new', {}); }); }
     Array.prototype.forEach.call(root.querySelectorAll('[data-mb-export-format]'), function (item) {
         item.addEventListener('click', function () {
@@ -738,8 +1047,6 @@
                 '&collection=' + encodeURIComponent(state.collection) +
                 '&format=' + encodeURIComponent(item.getAttribute('data-mb-export-format')) +
                 '&filter=' + encodeURIComponent(filterIn.value.trim());
-            // A plain navigation; the server replies with Content-Disposition
-            // so the browser downloads the file and stays on this page.
             window.location.assign(exportApi + '?' + q);
         });
     });
@@ -760,8 +1067,14 @@
     [filterIn, sortIn, projIn].forEach(function (inp) {
         if (inp) { inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { state.skip = 0; loadDocuments(); } }); }
     });
-    prevBtn.addEventListener('click', function () { state.skip = Math.max(0, state.skip - LIMIT); loadDocuments(); });
-    nextBtn.addEventListener('click', function () { state.skip = state.skip + LIMIT; loadDocuments(); });
+    if (pageSizeSel) {
+        pageSizeSel.addEventListener('change', function () {
+            var n = parseInt(pageSizeSel.value, 10);
+            state.limit = (n > 0 && n <= 200) ? n : 25;
+            state.skip = 0;
+            if (state.collection && state.tab === 'documents') { loadDocuments(); }
+        });
+    }
 
     // Open directly on a database when the page was linked with one.
     state.db = root.getAttribute('data-current') || '';

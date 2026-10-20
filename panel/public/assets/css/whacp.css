@@ -922,3 +922,47 @@ button.wcp-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 
 /* MongoDB browser documents: readable, wrapped JSON that never overflows. */
 .wcp-mongo-json { white-space: pre-wrap; word-break: break-word; max-height: 24rem; overflow: auto; background: var(--bs-tertiary-bg); }
+
+/* MongoDB browser: three-pane layout (collections / documents / detail rail). */
+.wcp-mongo3 { flex: 1; min-height: 0; display: flex; gap: .5rem; }
+.wcp-mongo-side { width: 15rem; min-width: 12rem; display: flex; flex-direction: column; background: var(--bs-body-bg); border: 1px solid var(--wcp-card-border); border-radius: .5rem; overflow: hidden; }
+.wcp-mongo-side-head { font-weight: 600; font-size: .85rem; padding: .5rem .75rem; border-bottom: 1px solid var(--wcp-card-border); }
+.wcp-mongo-colls { overflow: auto; flex: 1; min-height: 0; }
+.wcp-mongo-colls .list-group-item { border-left: 0; border-right: 0; padding: .35rem .6rem; }
+.wcp-mongo-center { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--bs-body-bg); border: 1px solid var(--wcp-card-border); border-radius: .5rem; overflow: hidden; }
+.wcp-mongo-head { padding: .6rem .85rem; border-bottom: 1px solid var(--wcp-card-border); }
+.wcp-mongo-bc { display: flex; align-items: center; margin-bottom: .25rem; }
+.wcp-mongo-title { display: flex; align-items: center; gap: .5rem; }
+.wcp-mongo-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.wcp-mongo-query { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .6rem .85rem; border-bottom: 1px solid var(--wcp-card-border); }
+.wcp-mongo-queryin { flex: 2 1 20rem; min-width: 14rem; }
+.wcp-mongo-mini { flex: 1 1 10rem; min-width: 8rem; max-width: 15rem; }
+.wcp-mongo-limit { display: flex; align-items: center; margin-left: auto; }
+.wcp-mongo-limit .form-select { width: auto; }
+.wcp-mongo-tabs { padding: 0 .85rem; margin-top: .5rem; flex-wrap: nowrap; overflow-x: auto; }
+.wcp-mongo-tabs .nav-link { white-space: nowrap; }
+.wcp-mongo-toolbar { display: flex; align-items: center; gap: .5rem; padding: .5rem .85rem; border-bottom: 1px solid var(--wcp-card-border); }
+.wcp-mongo-pane { flex: 1; min-height: 0; overflow: auto; }
+.wcp-mongo-pager { display: flex; align-items: center; gap: .5rem; padding: .5rem .85rem; border-top: 1px solid var(--wcp-card-border); }
+.wcp-mongo-tablewrap { overflow: auto; }
+.wcp-mongo-table { font-size: .82rem; }
+.wcp-mongo-table th { position: sticky; top: 0; background: var(--bs-tertiary-bg); z-index: 1; white-space: nowrap; font-weight: 600; }
+.wcp-mongo-table td { max-width: 18rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wcp-mongo-table tbody tr { cursor: pointer; }
+.wcp-mongo-idcol { color: var(--bs-primary-text-emphasis); max-width: 16rem; }
+.wcp-mongo-rail { width: 20rem; min-width: 16rem; display: flex; flex-direction: column; gap: .5rem; overflow: auto; }
+.wcp-mongo-card { background: var(--bs-body-bg); border: 1px solid var(--wcp-card-border); border-radius: .5rem; overflow: hidden; flex: none; }
+.wcp-mongo-card-head { display: flex; align-items: center; font-weight: 600; font-size: .82rem; padding: .45rem .7rem; border-bottom: 1px solid var(--wcp-card-border); }
+.wcp-mongo-rail-json { margin: 0; padding: .7rem; font-size: .78rem; white-space: pre-wrap; word-break: break-word; max-height: 20rem; overflow: auto; }
+.wcp-mongo-rail-body { padding: .5rem .7rem; }
+.wcp-mongo-qa .list-group-item { font-size: .85rem; padding: .5rem .7rem; }
+.wcp-mongo-stat { display: grid; grid-template-columns: auto 1fr; gap: .15rem .75rem; margin: 0; font-size: .82rem; }
+.wcp-mongo-stat dt { font-weight: 400; color: var(--bs-secondary-color); }
+.wcp-mongo-stat dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 1199.98px) {
+    .wcp-mongo-rail { display: none; }
+}
+@media (max-width: 767.98px) {
+    .wcp-mongo3 { flex-direction: column; }
+    .wcp-mongo-side { width: auto; max-height: 14rem; }
+}

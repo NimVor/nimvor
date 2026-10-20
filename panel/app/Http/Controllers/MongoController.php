@@ -467,6 +467,8 @@ final class MongoController extends Controller
                     return Response::json(['success' => true, 'data' => ['dropped' => trim((string) $request->input('user'))]]);
                 case 'indexes':
                     return Response::json(['success' => true, 'data' => $this->mongo->indexes($db, trim((string) $request->input('collection')))]);
+                case 'collection_stats':
+                    return Response::json(['success' => true, 'data' => $this->mongo->collectionStats($db, trim((string) $request->input('collection')))]);
                 case 'index_create':
                     if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);

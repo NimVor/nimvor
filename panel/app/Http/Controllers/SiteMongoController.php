@@ -243,6 +243,8 @@ final class SiteMongoController extends SiteController
                     return Response::json(['success' => true, 'data' => ['dropped' => trim((string) $request->input('user'))]]);
                 case 'indexes':
                     return Response::json(['success' => true, 'data' => $this->mongo->indexes($site, $db, trim((string) $request->input('collection')))]);
+                case 'collection_stats':
+                    return Response::json(['success' => true, 'data' => $this->mongo->collectionStats($site, $db, trim((string) $request->input('collection')))]);
                 case 'index_create':
                     return Response::json(['success' => true, 'data' => ['name' => $this->mongo->createIndex($site, $db, trim((string) $request->input('collection')), (string) $request->input('keys'), (string) $request->input('options', '{}'), $this->userId($request))]]);
                 case 'index_drop':

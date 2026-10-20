@@ -6,6 +6,19 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **MongoDB browser redesigned as a three-pane explorer.** The full-page
+  browser now has a databases/collections sidebar, a centre pane with a
+  breadcrumb, collection actions (Insert Document, Import, Export, rename /
+  empty / drop), a query bar with a page-size selector, the view tabs
+  (Documents, Aggregation, Indexes, Schema, Validation, Stats, Users) and a
+  documents **table** view (with a JSON view toggle) and numbered paging; and
+  a right rail showing the selected document (with Copy), the collection's
+  indexes, its statistics and quick actions. A new read-only agent action
+  `mongo.collection_stats` (document/data/storage/index sizes, counts and the
+  collection's validation rules) backs the stats rail and the new Validation
+  and Stats tabs, confined per-account on the customer browser.
+
 ### Changed
 - **MongoDB browser toolbar no longer clips.** The collection name, the five
   view tabs, the JSON filter/sort/fields inputs and the action buttons were

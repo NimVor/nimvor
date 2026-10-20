@@ -247,6 +247,13 @@ final class MongoTest extends HttpTestCase
         $this->post('/mongo/browse', ['op' => 'index_drop', 'db' => 'shop', 'collection' => 'orders', 'name' => 'email_1']);
         self::assertSame('email_1', $this->lastCall('mongo.index_drop')['name']);
 
+        // Collection stats feed the right-rail and the Stats/Validation tabs.
+        $this->agent->succeed('mongo.collection_stats', ['count' => 1248, 'size' => 13002342, 'nindexes' => 4, 'validationLevel' => 'strict']);
+        $res = $this->post('/mongo/browse', ['op' => 'collection_stats', 'db' => 'shop', 'collection' => 'orders']);
+        $body = (array) json_decode($res->body(), true);
+        self::assertSame(1248, $body['data']['count']);
+        self::assertSame('orders', $this->lastCall('mongo.collection_stats')['collection']);
+
         // Collection management: create, empty, rename, drop.
         $this->agent->succeed('mongo.collection_create', ['created' => 'carts']);
         self::assertSame(200, $this->post('/mongo/browse', ['op' => 'coll_create', 'db' => 'shop', 'collection' => 'carts'])->status());

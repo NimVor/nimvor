@@ -455,6 +455,39 @@ func TestIndexesListCreateDrop(t *testing.T) {
 	}
 }
 
+func TestCollectionStats(t *testing.T) {
+	h, r := setup(t)
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id != "mongosh" {
+			return "", nil
+		}
+		script := strings.Join(args, " ")
+		if n := len(h.Runner.Stdins); n > 0 {
+			script += " " + h.Runner.Stdins[n-1]
+		}
+		if strings.Contains(script, "collStats") {
+			return `{"count":1248,"size":13002342,"storageSize":5242880,"avgObjSize":10418,` +
+				`"nindexes":4,"totalIndexSize":262144,"capped":false,"type":"collection",` +
+				`"validator":{"$jsonSchema":{"required":["email"]}},"validationLevel":"strict","validationAction":"error"}`, nil
+		}
+		return "", nil
+	}
+	out := mustCallAny(t, r, "mongo.collection_stats", `{"db":"shop","collection":"users"}`)
+	raw, ok := out.(json.RawMessage)
+	if !ok {
+		t.Fatalf("expected json.RawMessage, got %T", out)
+	}
+	for _, want := range []string{`"count":1248`, `"nindexes":4`, `"validationLevel":"strict"`, `"$jsonSchema"`} {
+		if !strings.Contains(string(raw), want) {
+			t.Errorf("stats missing %s: %s", want, raw)
+		}
+	}
+	// Names are validated.
+	if _, err := call(t, r, "mongo.collection_stats", `{"db":"bad space","collection":"users"}`); err == nil {
+		t.Error("invalid db name must be refused")
+	}
+}
+
 func mustCallAny(t *testing.T, r *actions.Registry, name, params string) any {
 	t.Helper()
 	res, err := call(t, r, name, params)

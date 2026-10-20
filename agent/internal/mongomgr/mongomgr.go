@@ -1028,6 +1028,44 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"indexes": raw}, nil
 	}})
 
+	r.Register(actions.Action{Name: "mongo.collection_stats", Description: "Size, counts and validation rules for one collection.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB   string `json:"db"`
+			Coll string `json:"collection"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		// collStats fails on a view, so it is wrapped; the validator and type
+		// come from getCollectionInfos. Numbers are coerced so a mongosh Long
+		// decodes as a plain JSON number.
+		script := fmt.Sprintf("var d=db.getSiblingDB(%s);var n=%s;"+
+			"var s={};try{s=d.runCommand({collStats:n})}catch(e){s={}}"+
+			"var info=(d.getCollectionInfos({name:n})[0])||{};var opt=info.options||{};"+
+			"print(EJSON.stringify({count:Number(s.count||0),size:Number(s.size||0),"+
+			"storageSize:Number(s.storageSize||0),avgObjSize:Number(s.avgObjSize||0),"+
+			"nindexes:Number(s.nindexes||0),totalIndexSize:Number(s.totalIndexSize||0),"+
+			"capped:!!s.capped,type:info.type||'collection',"+
+			"validator:opt.validator||null,validationLevel:opt.validationLevel||null,"+
+			"validationAction:opt.validationAction||null},null,0,{relaxed:true}))",
+			jsString(in.DB), jsString(in.Coll))
+		out, err := c.eval(ctx, script)
+		if err != nil {
+			return nil, actions.Failed("The collection statistics could not be read.", lastLine(out))
+		}
+		var raw json.RawMessage = trimToJSON(out)
+		if !json.Valid(raw) {
+			return nil, actions.Failed("The collection statistics could not be read.", lastLine(out))
+		}
+		return raw, nil
+	}})
+
 	r.Register(actions.Action{Name: "mongo.index_create", Mutating: true, Description: "Create an index from a keys object and options (EJSON).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			DB      string `json:"db"`
