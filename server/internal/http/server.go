@@ -121,6 +121,9 @@ func (s *Server) routes() {
 
 	// Own profile (authenticated; no special permission).
 	s.mux.HandleFunc("GET /profile", s.guard("", "", s.profileShow))
+
+	// Managed servers (staff).
+	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.

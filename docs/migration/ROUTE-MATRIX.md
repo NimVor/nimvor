@@ -378,7 +378,7 @@ Total routes: 551
 | POST | `/servers/switch` | ServersController::switch | servers.switch |  | yes | yes | ☐ |
 | POST | `/servers/{id}/check` | ServersController::check | servers.check | servers.manage | yes | yes | ☐ |
 | POST | `/servers/{id}/delete` | ServersController::destroy | servers.delete | servers.manage | yes | yes | ☐ |
-| GET | `/servers` | ServersController::index | servers | servers.manage | yes | yes | ☐ |
+| GET | `/servers` | ServersController::index | servers | servers.manage | yes | yes | ☑ |
 | POST | `/servers` | ServersController::store | servers.store | servers.manage | yes | yes | ☐ |
 | POST | `/services/control` | ServicesController::control | services.control | services.manage | yes | yes | ☐ |
 | POST | `/services/restart-all` | TopbarController::restartAll | services.restart_all | services.manage | yes | yes | ☐ |

@@ -91,6 +91,7 @@ func (s *Server) navFor(r *http.Request) map[string]bool {
 		"users":         "users.view",
 		"roles":         "users.view",
 		"plans":         "plans.manage",
+		"servers":       "servers.manage",
 		"notifications": "notifications.view",
 		"audit":         "audit.view",
 	}
