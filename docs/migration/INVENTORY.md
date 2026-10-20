@@ -1,0 +1,290 @@
+# WhaCP PHP Panel — Inventory (migration baseline)
+
+Baseline commit: `46313561f179204e8a20a1a8717a9950c108d511`  
+Branch: `claude/sleepy-ptolemy-bdv6ib`  
+Date: 2026-10-20
+
+## Code size (panel/)
+| Area | Files | Lines |
+|---|---|---|
+| app/ (controllers, services, repos, framework) | 230 | 38926 |
+| Controllers (app/Http/Controllers) | 84 | — |
+| Services (app/Services) | 76 | — |
+| Repositories (app/Repositories) | 8 | — |
+| Views (resources/views) | 179 | 16432 |
+| Tests (tests/) | 119 | 15461 |
+| Frontend JS (public/assets/js) | 12 | 5456 |
+| DB migrations | 57 | — |
+| Routes (routes/web.php) | 551 | — |
+
+## Framework layer to re-implement in Go (app/)
+- Agent
+- Core
+- Database
+- Hosting
+- Http
+- Mail
+- Plugins
+- Repositories
+- Security
+- Services
+- Support
+- View
+- helpers.php
+
+## Core HTTP framework (app/Http, app/Core)
+  - Http/Request.php
+  - Http/Response.php
+  - Http/Router.php
+  - Http/Route.php
+  - Core/Application.php
+  - Core/ErrorHandler.php
+  - Core/Config.php
+  - Core/Container.php
+
+## Controllers
+- AccountAdminController.php
+- AccountBackupsController.php
+- AccountsController.php
+- AddonConversionController.php
+- ApiTokensController.php
+- AppManagerController.php
+- AppsController.php
+- AuditLogController.php
+- AuthController.php
+- AvController.php
+- BackupsController.php
+- CloudflareController.php
+- ComponentsController.php
+- Controller.php
+- CronController.php
+- DashboardController.php
+- DatabasesController.php
+- DbBrowserController.php
+- DbServerController.php
+- DeployController.php
+- DiscoveryController.php
+- DiskUsageController.php
+- DnsController.php
+- DomainsController.php
+- FeaturesController.php
+- FfmpegController.php
+- FilesController.php
+- FtpController.php
+- HardeningController.php
+- HealthController.php
+- HulkController.php
+- ImportController.php
+- IpController.php
+- JobsController.php
+- LimitsController.php
+- LogsController.php
+- MailAdminController.php
+- MailController.php
+- MailFiltersController.php
+- MailGreylistController.php
+- MailRateController.php
+- MemcachedController.php
+- ModSecurityController.php
+- MongoController.php
+- MonitoringController.php
+- NginxController.php
+- NotificationsController.php
+- PasswordResetController.php
+- PhpController.php
+- PhpManagerController.php
+- PlansController.php
+- PluginDispatchController.php
+- PluginsController.php
+- ProfileController.php
+- RedisBrowserController.php
+- RedisController.php
+- RolesController.php
+- RuntimeController.php
+- SecurityChecksController.php
+- SecurityController.php
+- SecurityPolicyController.php
+- ServerController.php
+- ServerHealthController.php
+- ServersController.php
+- ServicesController.php
+- SettingsController.php
+- SetupController.php
+- ShellController.php
+- SiteCloudflareController.php
+- SiteController.php
+- SiteMongoController.php
+- SiteRuntimeController.php
+- SitesController.php
+- SslCenterController.php
+- SslController.php
+- StatsController.php
+- SystemController.php
+- TerminalController.php
+- TopbarController.php
+- UsersController.php
+- WebHostSettingsController.php
+- WebsitesController.php
+- WordPressController.php
+- WorkersController.php
+
+## Services
+- AccountAdminService.php
+- AccountBackupService.php
+- AccountOptions.php
+- AccountService.php
+- AddonConversionService.php
+- AgentStatus.php
+- ApiTokenService.php
+- AppCatalogService.php
+- AppInstallerService.php
+- AuditLogger.php
+- AutoSslService.php
+- AvService.php
+- BackupScheduler.php
+- BackupService.php
+- BandwidthLimitService.php
+- CloudflareService.php
+- CloudflareSiteService.php
+- CronService.php
+- DatabaseService.php
+- DeployService.php
+- DiscoveryService.php
+- DiskQuotaService.php
+- DiskUsageService.php
+- DnsService.php
+- Doctor.php
+- FeatureService.php
+- FfmpegService.php
+- FtpUsage.php
+- GeoIpService.php
+- HardeningService.php
+- HealthService.php
+- HulkService.php
+- ImportService.php
+- IpService.php
+- JobTracker.php
+- MailFilterService.php
+- MailRateService.php
+- MailService.php
+- ModSecurityService.php
+- MongoRemoteService.php
+- MongoService.php
+- MonitoringService.php
+- NginxService.php
+- NotificationService.php
+- OAuthClient.php
+- PhpDirectives.php
+- PlanLimits.php
+- PlanService.php
+- RedisService.php
+- ResourceLimitService.php
+- RetentionService.php
+- RoleService.php
+- RuntimeService.php
+- SecurityService.php
+- ServerContext.php
+- ServerService.php
+- ServerSetupService.php
+- SettingsService.php
+- SetupJobStarted.php
+- ShellService.php
+- SiteHealthService.php
+- SiteMongoService.php
+- SiteOverview.php
+- SiteProvisioner.php
+- SslService.php
+- StatsService.php
+- SuspensionService.php
+- TerminalService.php
+- TerminationService.php
+- UpdateCheckService.php
+- UserService.php
+- WebsiteService.php
+- WordPressService.php
+- WordPressToolsService.php
+- WordPressVulnerabilities.php
+- WorkerService.php
+
+## Repositories
+- AuditLogRepository.php
+- DatabaseRepository.php
+- DiscoverySnapshotRepository.php
+- LoginAttemptRepository.php
+- RoleRepository.php
+- SettingRepository.php
+- UserRepository.php
+- WebsiteRepository.php
+
+## Migrations (apply order; names must be preserved in the migrations table)
+- 0001_initial_schema
+- 0002_hosting
+- 0003_databases
+- 0004_site_tools
+- 0005_monitoring
+- 0006_plans
+- 0007_api
+- 0008_apps
+- 0009_imports
+- 0010_two_factor
+- 0011_role_two_factor
+- 0012_password_resets
+- 0013_dns
+- 0014_webauthn
+- 0015_mail
+- 0016_webhook_deliveries
+- 0017_notifications
+- 0018_cron_email
+- 0019_site_parent
+- 0020_link_zones_to_websites
+- 0021_account_options
+- 0022_auto_ssl
+- 0023_plan_resources
+- 0024_av_scans
+- 0025_account_suspension
+- 0026_limit_overrides
+- 0027_feature_lists
+- 0028_mail_routing
+- 0029_disk_usage
+- 0030_directory_listing
+- 0031_plan_ffmpeg
+- 0032_dns_record_disabled
+- 0033_ip_management
+- 0034_plan_resource_limits
+- 0035_wordpress
+- 0036_bandwidth_block
+- 0037_disk_quotas
+- 0038_wordpress_toolkit
+- 0039_security_policies
+- 0040_brute_force_protection
+- 0041_security_headers
+- 0042_session_epoch
+- 0043_autossl_log
+- 0044_role_customized
+- 0045_backup_storage_active
+- 0046_backup_all_sites
+- 0047_setup_wizard
+- 0048_av_scan_paths
+- 0049_agent_job_scan_path
+- 0050_worker_procs
+- 0051_worker_runtime
+- 0052_cloudflare
+- 0053_app_catalog
+- 0054_feature_defaults
+- 0055_cloudflare_sites
+- 0056_site_runtime
+- 0057_mongo_remotes
+
+## Frontend assets kept as-is (no backend dependency)
+- public/assets/js/dashboard.js
+- public/assets/js/dbbrowser.js
+- public/assets/js/fileeditor.js
+- public/assets/js/filemanager.js
+- public/assets/js/logs.js
+- public/assets/js/mongobrowser.js
+- public/assets/js/mongoremotes.js
+- public/assets/js/redisbrowser.js
+- public/assets/js/terminal.js
+- public/assets/js/theme.js
+- public/assets/js/webauthn.js
+- public/assets/js/whacp.js
