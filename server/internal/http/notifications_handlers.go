@@ -24,3 +24,23 @@ func (s *Server) notificationsIndex(w http.ResponseWriter, r *http.Request) {
 		"Notifications": items,
 	})
 }
+
+// notificationsRead marks all the user's visible notifications read (CSRF-
+// protected). Mirrors NotificationsController::read with no ids.
+func (s *Server) notificationsRead(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	if !session.ValidateCSRF(sess, formToken(r)) {
+		http.Error(w, "Page expired", http.StatusBadRequest)
+		return
+	}
+	if _, err := notify.NewRepository(s.db).MarkAllRead(r.Context(), userFrom(r.Context())); err != nil {
+		s.log.Error("mark notifications read", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/notifications", http.StatusSeeOther)
+}

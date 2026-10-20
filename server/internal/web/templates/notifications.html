@@ -19,6 +19,11 @@
 <main class="container">
   <h1>Notifications</h1>
   {{if .Notifications}}
+  <form method="post" action="/notifications/read" class="mark-read-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Mark all read</button>
+  </form>{{end}}
+  {{if .Notifications}}
   <ul class="notification-list">
     {{range .Notifications}}
     <li class="severity-{{.Severity}}{{if not .IsRead}} is-unread{{end}}">

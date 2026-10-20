@@ -5,6 +5,7 @@ package notify
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
@@ -80,4 +81,25 @@ func (r *Repository) List(ctx context.Context, u *identity.User, limit int) ([]N
 		out = append(out, n)
 	}
 	return out, rows.Err()
+}
+
+// MarkAllRead marks every notification the user may see as read for that user.
+// It only touches the user's own notification_reads rows and is scoped by the
+// same visibility rule, so a user can never mark another tenant's items.
+// Returns the number newly marked. Mirrors NotificationService::markRead(nil).
+func (r *Repository) MarkAllRead(ctx context.Context, u *identity.User) (int64, error) {
+	cond, vargs := visibility(u)
+	var uid int64
+	if u != nil {
+		uid = u.ID
+	}
+	// Placeholder order: SELECT's uid and now first, then the visibility args.
+	args := append([]any{uid, time.Now().UTC().Format(time.RFC3339)}, vargs...)
+	res, err := r.db.ExecContext(ctx, `
+		INSERT OR IGNORE INTO notification_reads (notification_id, user_id, read_at)
+		SELECT n.id, ?, ? FROM notifications n WHERE `+cond, args...)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }

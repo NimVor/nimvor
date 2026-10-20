@@ -118,6 +118,7 @@ func (s *Server) routes() {
 
 	// Notifications (per-recipient visibility).
 	s.mux.HandleFunc("GET /notifications", s.guard("", "notifications.view", s.notificationsIndex))
+	s.mux.HandleFunc("POST /notifications/read", s.guard("", "notifications.view", s.notificationsRead))
 
 	// Own profile (authenticated; no special permission).
 	s.mux.HandleFunc("GET /profile", s.guard("", "", s.profileShow))

@@ -76,3 +76,35 @@ func TestNotificationsAdminSeesAll(t *testing.T) {
 		}
 	}
 }
+
+func TestNotificationsMarkAllReadScoped(t *testing.T) {
+	h := notifyEnv(t, "custA")
+	// Grab a CSRF token + refreshed cookie from the page.
+	rr := get(t, h, "/notifications", nil)
+	m := csrfRe.FindStringSubmatch(rr.Body.String())
+	if m == nil {
+		t.Fatalf("no CSRF token on notifications page:\n%s", rr.Body.String())
+	}
+	cookie := h.(*loggedIn).cookie
+	if cs := rr.Result().Cookies(); len(cs) > 0 {
+		cookie = cs[0]
+	}
+	post := postForm(h.(*loggedIn).h, "/notifications/read", url.Values{"_token": {m[1]}}, cookie)
+	if post.Code != http.StatusSeeOther {
+		t.Fatalf("mark read = %d, want 303", post.Code)
+	}
+	// After marking read, the customer's own items render without the unread class.
+	body := get(t, h, "/notifications", nil).Body.String()
+	if strings.Contains(body, "is-unread") {
+		t.Fatalf("notifications still unread after mark-all-read:\n%s", body)
+	}
+}
+
+func TestNotificationsReadRejectsBadCSRF(t *testing.T) {
+	h := notifyEnv(t, "custA")
+	cookie := h.(*loggedIn).cookie
+	post := postForm(h.(*loggedIn).h, "/notifications/read", url.Values{"_token": {"nope"}}, cookie)
+	if post.Code != http.StatusBadRequest {
+		t.Fatalf("bad-CSRF mark read = %d, want 400", post.Code)
+	}
+}
