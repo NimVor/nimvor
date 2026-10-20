@@ -16,15 +16,15 @@ Agent: Go, unchanged, full suite GREEN at baseline.
 - ☑ Verified figures: SQLite + 57 migrations + argon2id passwords + unix-socket agent
 
 ## Phase 1 — Go foundation (framework parity)
-- ◐ server/ module created (config/logging pending)
+- ☑ server/ module, config (env-driven), slog JSON logging
 - ☑ database: open (same PRAGMAs) + migrator (name-compatible, 57 embedded SQL) — tests: fresh install applies 57, existing PHP DB skipped
 - ☑ identity: argon2id + bcrypt verify — test verifies real PHP password_hash output
 - ☑ agent: unix-socket JSON client — test against a real unix socket (auth, path, body, data, structured error, bad-name reject)
-- ☐ session (secretbox cookie) + CSRF + security headers
-- ☐ html/template engine + base layout + asset embedding
-- ☐ stdlib router covering {param} routes; auth/permission/feature middleware
-- ☐ handlers: /healthz, login, logout, dashboard
-- ☐ cmd/whacp, cmd/whacp-migrate
+- ◐ security-headers middleware ☑ (strict CSP parity) · session+CSRF pending
+- ◐ static asset serving ☑ (reused assets dir) · html/template layout pending
+- ◐ stdlib mux + request logging ☑ · auth/permission/feature middleware pending
+- ◐ /healthz ☑ (parity: {"status":"ok"}/503) · login/logout/dashboard pending
+- ☑ cmd/whacp (serves, graceful shutdown, migrate-on-start) + cmd/whacp-migrate (status/up) — binaries build and run; verified /healthz and a 57-migration fresh DB
 
 ## Phase 2+ — Feature areas (one batch each; see ROUTE-MATRIX "Ported" column)
 Order by risk/leverage: identity+RBAC+feature-gating → dashboard → websites →
