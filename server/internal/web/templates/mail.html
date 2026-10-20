@@ -1,0 +1,40 @@
+{{define "mail"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Email domains</h1>
+  {{if .Domains}}
+  <table class="data-table">
+    <thead><tr><th>Domain</th><th>Website</th><th>Mailboxes</th><th>Aliases</th></tr></thead>
+    <tbody>
+    {{range .Domains}}
+      <tr>
+        <td>{{.Domain}}</td>
+        <td>{{if .Website.Valid}}{{.Website.String}}{{else}}—{{end}}</td>
+        <td>{{.Mailboxes}}</td>
+        <td>{{.Aliases}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="text-muted">No email domains yet.</p>
+  {{end}}
+</main>
+</body>
+</html>{{end}}

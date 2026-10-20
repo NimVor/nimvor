@@ -200,7 +200,7 @@ Total routes: 551
 | POST | `/mail/spam` | MailController::spam | mail.spam | server.manage | yes | yes | ☐ |
 | POST | `/mail/webmail/install` | MailController::installWebmail | mail.webmail.install | packages.manage | yes | yes | ☐ |
 | POST | `/mail/webmail` | MailController::webmail | mail.webmail | server.manage | yes | yes | ☐ |
-| GET | `/mail` | MailController::index | mail | mail.manage | yes | yes | ☐ |
+| GET | `/mail` | MailController::index | mail | mail.manage | yes | yes | ☑ |
 | POST | `/memcached/configure` | MemcachedController::configure | memcached.configure | redis.manage | yes | yes | ☐ |
 | POST | `/memcached/flush` | MemcachedController::flush | memcached.flush | redis.manage | yes | yes | ☐ |
 | POST | `/memcached/install` | MemcachedController::install | memcached.install | packages.manage | yes | yes | ☐ |

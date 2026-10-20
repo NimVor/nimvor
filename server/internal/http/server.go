@@ -101,6 +101,9 @@ func (s *Server) routes() {
 
 	// DNS zones list. dns.manage is withheld by the dns plan feature when off.
 	s.mux.HandleFunc("GET /dns", s.guard("", "dns.manage", s.dnsIndex))
+
+	// Email domains list. mail.manage is withheld by the email plan feature.
+	s.mux.HandleFunc("GET /mail", s.guard("", "mail.manage", s.mailIndex))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.
