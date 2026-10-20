@@ -129,6 +129,7 @@ $base = $this->url('mongo');
         'databases' => ['Databases', 'hdd-stack', count($overview['databases'])],
         'users' => ['Users', 'people', count($overview['users'])],
         'backups' => ['Backups', 'archive', null],
+        'remotes' => ['Remote servers', 'hdd-network', null],
         'config' => ['Configuration', 'sliders2', null],
         'log' => ['Log', 'journal-text', null],
     ] as $key => [$label, $icon, $count]): ?>
@@ -160,6 +161,8 @@ $base = $this->url('mongo');
         </div>
         <span class="me-auto"></span>
         <?php if ($canManage): ?>
+            <a class="btn btn-sm btn-outline-secondary" href="<?= e($base . '?section=remotes') ?>" title="Connect to another MongoDB server"><i class="bi bi-hdd-network me-1" aria-hidden="true"></i>Remote DB</a>
+            <a class="btn btn-sm btn-outline-secondary" href="<?= e($base . '?section=remotes') ?>" title="Copy a database from another server"><i class="bi bi-cloud-download me-1" aria-hidden="true"></i>Get DB from server</a>
             <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-admin" title="Set the MongoDB administrator password"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Root password</button>
             <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-config" title="Authentication and connection settings"><i class="bi bi-shield-check me-1" aria-hidden="true"></i>Security auth</button>
             <button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-check-all="#mongo-dbs"><i class="bi bi-check2-square me-1" aria-hidden="true"></i>All</button>
@@ -317,6 +320,55 @@ $base = $this->url('mongo');
                         </tr>
                     <?php endforeach; ?>
                     <tr data-wcp-filter-empty class="d-none"><td colspan="<?= $canManage ? 5 : 4 ?>" class="small text-body-secondary">No backups match the filter.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($section === 'remotes'): $remotes = $remotes ?? []; ?>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <div class="input-group input-group-sm" style="max-width:22rem">
+            <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+            <input class="form-control" type="search" placeholder="Filter servers" aria-label="Filter servers" data-wcp-filter="#mongo-remotes">
+        </div>
+        <span class="me-auto"></span>
+        <?php if ($canManage): ?>
+            <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-remote"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add remote server</button>
+        <?php endif; ?>
+    </div>
+    <p class="small text-body-secondary">Saved connections to other MongoDB servers. Use <strong>Get DB</strong> to copy one of a remote server's databases onto this server. Passwords are stored encrypted and are never shown again.</p>
+    <div class="card">
+        <?php if ($remotes === []): ?>
+            <div class="card-body small text-body-secondary">No remote servers yet. Add one to copy a database from another MongoDB server.</div>
+        <?php else: ?>
+            <div class="wcp-dtable table-responsive">
+                <table class="table align-middle mb-0" id="mongo-remotes">
+                    <thead><tr><th>Name</th><th>Server</th><th>User</th><th>TLS</th><?php if ($canManage): ?><th class="text-end">Action</th><?php endif; ?></tr></thead>
+                    <tbody>
+                    <?php foreach ($remotes as $rm): ?>
+                        <tr>
+                            <td class="fw-medium"><?= e((string) $rm['name']) ?></td>
+                            <td class="small font-monospace"><?= e((string) $rm['host']) ?>:<?= (int) $rm['port'] ?></td>
+                            <td class="small font-monospace"><?= ((string) $rm['username']) !== '' ? e((string) $rm['username']) : '<span class="text-body-secondary">—</span>' ?></td>
+                            <td class="small"><?= $rm['tls'] ? '<span class="badge text-bg-success-subtle text-success-emphasis border border-success-subtle">TLS</span>' : '<span class="text-body-secondary">off</span>' ?></td>
+                            <?php if ($canManage): ?>
+                            <td class="text-end text-nowrap">
+                                <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-getdb" data-id="<?= (int) $rm['id'] ?>" data-name="<?= e((string) $rm['name']) ?>"><i class="bi bi-cloud-download me-1"></i>Get DB</button>
+                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.remote_test')) ?>" data-wcp-busy>
+                                    <?= $this->csrfField() ?><input type="hidden" name="id" value="<?= (int) $rm['id'] ?>">
+                                    <button class="btn btn-sm btn-outline-secondary" title="Test the connection"><i class="bi bi-plug"></i></button>
+                                </form>
+                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.remote_delete')) ?>" data-wcp-confirm="Remove the saved connection “<?= e((string) $rm['name']) ?>”?">
+                                    <?= $this->csrfField() ?><input type="hidden" name="id" value="<?= (int) $rm['id'] ?>">
+                                    <button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </td>
+                            <?php endif; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                    <tr data-wcp-filter-empty class="d-none"><td colspan="<?= $canManage ? 5 : 4 ?>" class="small text-body-secondary">No servers match the filter.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -494,6 +546,54 @@ $base = $this->url('mongo');
     </form>
 <?= $this->modalEnd() ?>
 
+<?= $this->modalStart('mongo-remote', 'Add remote MongoDB server') ?>
+    <form method="post" action="<?= e($this->url('mongo.remote_add')) ?>" data-wcp-busy>
+        <div class="p-3">
+            <?= $this->csrfField() ?>
+            <label class="form-label" for="mrm-name">Name</label>
+            <input class="form-control mb-2" id="mrm-name" name="name" maxlength="64" required placeholder="Old production server">
+            <div class="row g-2">
+                <div class="col-8"><label class="form-label" for="mrm-host">Host</label><input class="form-control font-monospace" id="mrm-host" name="host" required placeholder="db.example.com"></div>
+                <div class="col-4"><label class="form-label" for="mrm-port">Port</label><input class="form-control" id="mrm-port" name="port" type="number" min="1" max="65535" value="27017"></div>
+            </div>
+            <div class="row g-2 mt-1">
+                <div class="col-6"><label class="form-label" for="mrm-user">User</label><input class="form-control font-monospace" id="mrm-user" name="username" autocomplete="off" placeholder="(optional)"></div>
+                <div class="col-6"><label class="form-label" for="mrm-authdb">Auth database</label><input class="form-control font-monospace" id="mrm-authdb" name="auth_db" value="admin"></div>
+            </div>
+            <label class="form-label mt-2" for="mrm-pw">Password</label>
+            <input class="form-control font-monospace" id="mrm-pw" name="password" type="password" autocomplete="off" placeholder="(optional)">
+            <div class="form-check form-switch mt-2">
+                <input class="form-check-input" type="checkbox" role="switch" id="mrm-tls" name="tls" value="1">
+                <label class="form-check-label small" for="mrm-tls">Connect with TLS/SSL</label>
+            </div>
+            <div class="form-text">The connection is tested before it is saved. The password is stored encrypted and never shown again.</div>
+            <button class="btn btn-primary btn-sm mt-3" type="submit">Test &amp; save</button>
+        </div>
+    </form>
+<?= $this->modalEnd() ?>
+
+<?= $this->modalStart('mongo-getdb', 'Get a database from a server') ?>
+    <form method="post" action="<?= e($this->url('mongo.remote_pull')) ?>" data-wcp-busy data-mongo-getdb-form>
+        <div class="p-3">
+            <?= $this->csrfField() ?>
+            <input type="hidden" name="id" data-mongo-getdb-id>
+            <p class="small text-body-secondary mb-2">Copying from <strong data-mongo-getdb-name></strong>. The selected database is dumped from the remote server and restored onto this one.</p>
+            <label class="form-label" for="mgd-remote">Remote database</label>
+            <select class="form-select mb-2" id="mgd-remote" name="remote_db" data-mongo-getdb-select required>
+                <option value="">Loading…</option>
+            </select>
+            <label class="form-label" for="mgd-target">Save on this server as</label>
+            <input class="form-control font-monospace mb-2" id="mgd-target" name="target_db" data-mongo-getdb-target pattern="[A-Za-z0-9_][A-Za-z0-9_-]*" maxlength="63" placeholder="(same name)">
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="mgd-drop" name="drop" value="1">
+                <label class="form-check-label small" for="mgd-drop">Drop the local database first (replace it entirely)</label>
+            </div>
+            <div class="small text-danger d-none" data-mongo-getdb-error></div>
+            <button class="btn btn-primary btn-sm mt-2" type="submit" data-mongo-getdb-ok><i class="bi bi-cloud-download me-1"></i>Copy database</button>
+        </div>
+    </form>
+<?= $this->modalEnd() ?>
+
 <?= $this->modalStart('mongo-pw', 'Change password') ?>
     <form method="post" action="<?= e($this->url('mongo.user_password')) ?>" data-wcp-busy>
         <div class="p-3">
@@ -506,4 +606,8 @@ $base = $this->url('mongo');
         </div>
     </form>
 <?= $this->modalEnd() ?>
+<?php endif; ?>
+
+<?php if ($canManage): ?>
+<?php $this->start(); ?><script src="<?= e($this->asset('assets/js/mongoremotes.js')) ?>" defer data-mongo-remote-databases-url="<?= e($this->url('mongo.remote_databases')) ?>" data-csrf="<?= e($this->csrfToken()) ?>"></script><?php $this->end('scripts'); ?>
 <?php endif; ?>

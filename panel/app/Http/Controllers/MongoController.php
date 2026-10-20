@@ -11,6 +11,7 @@ use WhaCP\Http\Session\SessionInterface;
 use WhaCP\Repositories\SettingRepository;
 use WhaCP\Security\Permissions as P;
 use WhaCP\Services\JobTracker;
+use WhaCP\Services\MongoRemoteService;
 use WhaCP\Services\MongoService;
 use WhaCP\Services\ServerContext;
 use WhaCP\View\View;
@@ -28,6 +29,7 @@ final class MongoController extends Controller
         private readonly JobTracker $jobs,
         private readonly ServerContext $server,
         private readonly SettingRepository $settings,
+        private readonly MongoRemoteService $remotes,
     ) {
         parent::__construct($view, $session);
     }
@@ -48,7 +50,7 @@ final class MongoController extends Controller
     public function index(Request $request): Response
     {
         $section = (string) $request->query('section', 'databases');
-        if (!in_array($section, ['databases', 'users', 'backups', 'config', 'log'], true)) {
+        if (!in_array($section, ['databases', 'users', 'backups', 'remotes', 'config', 'log'], true)) {
             $section = 'databases';
         }
         $status = null;
@@ -97,6 +99,9 @@ final class MongoController extends Controller
                 if ($section === 'databases') {
                     $notes = $this->notes();
                 }
+                if ($section === 'remotes') {
+                    $remotes = $this->remotes->list();
+                }
             }
         } catch (AgentException $e) {
             $error = $e;
@@ -105,8 +110,82 @@ final class MongoController extends Controller
             'tab' => 'mongo', 'section' => $section, 'status' => $status, 'overview' => $overview, 'repository' => $repository,
             'overviewError' => $overviewError, 'agentError' => $error,
             'config' => $config ?? null, 'log' => $log ?? null, 'backups' => $backups ?? [],
-            'notes' => $notes ?? [],
+            'notes' => $notes ?? [], 'remotes' => $remotes ?? [],
         ]);
+    }
+
+    public function remoteAdd(Request $request): Response
+    {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
+            return $this->redirectWithError('/mongo?section=remotes', 'You may not do this.');
+        }
+        try {
+            $name = $this->remotes->add([
+                'name' => $request->string('name'), 'host' => $request->string('host'),
+                'port' => (int) $request->input('port', 27017), 'username' => $request->string('username'),
+                'password' => (string) $request->input('password'), 'auth_db' => $request->string('auth_db'),
+                'tls' => $request->input('tls') === '1',
+            ], $this->userId($request));
+        } catch (\WhaCP\Support\UserFacingException $e) {
+            return $this->redirectWithFailure('/mongo?section=remotes', $e);
+        }
+        return $this->redirectWithSuccess('/mongo?section=remotes', 'Remote server “' . $name . '” added.');
+    }
+
+    public function remoteDelete(Request $request): Response
+    {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
+            return $this->redirectWithError('/mongo?section=remotes', 'You may not do this.');
+        }
+        $this->remotes->delete((int) $request->input('id'), $this->userId($request));
+        return $this->redirectWithSuccess('/mongo?section=remotes', 'Remote server removed.');
+    }
+
+    public function remoteTest(Request $request): Response
+    {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
+            return $this->redirectWithError('/mongo?section=remotes', 'You may not do this.');
+        }
+        try {
+            $r = $this->remotes->ping((int) $request->input('id'));
+        } catch (\WhaCP\Support\UserFacingException $e) {
+            return $this->redirectWithFailure('/mongo?section=remotes', $e);
+        }
+        return $this->redirectWithSuccess('/mongo?section=remotes', 'Connected — MongoDB ' . ($r['version'] !== '' ? $r['version'] : '(unknown)') . ', ' . $r['databases'] . ' database(s).');
+    }
+
+    /** JSON: the databases on a saved remote, for the "Get DB from server" modal. */
+    public function remoteDatabases(Request $request): Response
+    {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
+            return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+        }
+        try {
+            return Response::json(['success' => true, 'data' => ['databases' => $this->remotes->databases((int) $request->input('id'))]]);
+        } catch (\WhaCP\Support\UserFacingException $e) {
+            return Response::json(['success' => false, 'error' => $e->toArray()], $e->status() >= 400 && $e->status() < 600 ? $e->status() : 502);
+        }
+    }
+
+    public function remotePull(Request $request): Response
+    {
+        if (!$this->view->can(P::MONGO_MANAGE)) {
+            return $this->redirectWithError('/mongo?section=remotes', 'You may not do this.');
+        }
+        try {
+            $job = $this->remotes->pull(
+                (int) $request->input('id'),
+                trim((string) $request->input('remote_db')),
+                trim((string) $request->input('target_db')),
+                $request->input('drop') === '1',
+                $this->userId($request),
+            );
+            $this->jobs->track($job, 'Copy a MongoDB database from a remote server', 'server', (string) $this->server->id(), $this->userId($request));
+            $this->flashJob($job);
+        } catch (\WhaCP\Support\UserFacingException $e) {
+            return $this->redirectWithFailure('/mongo?section=remotes', $e);
+        }
+        return $this->redirectWithSuccess('/mongo?section=remotes', 'Copying the database from the remote server…');
     }
 
     /** Save (or clear) a free-text note for one database. */

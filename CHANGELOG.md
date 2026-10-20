@@ -7,6 +7,17 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Remote MongoDB servers (Remote DB / Get DB from server).** The MongoDB
+  manager gained a Remote servers tab to save connections to other MongoDB
+  servers (name, host, port, optional user/password, auth database, TLS). The
+  connection is tested before it is saved and the password is stored encrypted
+  (libsodium) and never shown again. From a saved server, “Get DB” lists its
+  databases and copies a chosen one onto this server (mongodump → mongorestore,
+  as a background job, with an optional drop-first and a rename). New agent
+  actions `mongo.remote_ping`, `mongo.remote_databases` and `mongo.remote_pull`
+  keep credentials off the command line: mongosh receives the connection
+  string on stdin, and mongodump reads the password from a short-lived
+  root-only `--config` file that is removed immediately after use.
 - **MongoDB Databases grid shows user, position and an editable note.** The
   server MongoDB manager's Databases table now lists, per database, its first
   database user, size, backup status (with a one-click back-up when none

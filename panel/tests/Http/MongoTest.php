@@ -86,6 +86,46 @@ final class MongoTest extends HttpTestCase
         self::assertSame(403, $this->post('/mongo/note', ['name' => 'shop', 'note' => 'x'])->status());
     }
 
+    public function testRemoteServersAddListAndPull(): void
+    {
+        $this->login('admin');
+        // Adding tests the connection first, then stores it.
+        $this->agent->succeed('mongo.remote_ping', ['ok' => true, 'version' => '7.0.5', 'databases' => 2]);
+        $this->post('/mongo/remotes', ['name' => 'Old server', 'host' => 'db.example.com', 'port' => '27017', 'username' => '', 'password' => '', 'auth_db' => 'admin']);
+        $ping = $this->lastCall('mongo.remote_ping');
+        self::assertSame('db.example.com', $ping['host']);
+
+        // It shows on the Remote servers tab.
+        $page = $this->request('GET', '/mongo', [], [], '', ['section' => 'remotes'])->body();
+        self::assertStringContainsString('Old server', $page);
+
+        // The Get-DB modal lists the remote's databases over JSON.
+        $this->agent->succeed('mongo.remote_databases', ['databases' => [['name' => 'shop', 'size' => 2048]]]);
+        $res = $this->post('/mongo/remotes/databases', ['id' => '1']);
+        $body = (array) json_decode($res->body(), true);
+        self::assertTrue($body['success']);
+        self::assertSame('shop', $body['data']['databases'][0]['name']);
+
+        // Pulling copies a remote database onto this server (async job).
+        $this->agent->succeed('mongo.remote_pull', ['job_id' => 'job-remote-1']);
+        $this->post('/mongo/remotes/pull', ['id' => '1', 'remote_db' => 'shop', 'target_db' => 'shop_copy', 'drop' => '1']);
+        $pull = $this->lastCall('mongo.remote_pull');
+        self::assertSame('shop', $pull['remote_db']);
+        self::assertSame('shop_copy', $pull['target_db']);
+        self::assertTrue($pull['drop']);
+        self::assertSame('db.example.com', $pull['host']);
+
+        // Remove it (the saved row is gone; the modal placeholder is not a row).
+        $this->post('/mongo/remotes/delete', ['id' => '1']);
+        $after = $this->request('GET', '/mongo', [], [], '', ['section' => 'remotes'])->body();
+        self::assertStringNotContainsString('Old server', $after);
+        self::assertStringContainsString('No remote servers yet', $after);
+
+        // A customer may not manage remotes.
+        $this->login('cust');
+        self::assertSame(403, $this->post('/mongo/remotes', ['name' => 'x', 'host' => 'y'])->status());
+    }
+
     public function testConfigurationAndLog(): void
     {
         $this->agent->succeed('mongo.config_get', [
