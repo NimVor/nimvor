@@ -206,6 +206,10 @@ All notable changes to WhaCP are documented here. The format follows
   (e.g. `{ "name": 1 }`). Both are JSON objects parsed with EJSON inside
   `mongosh` as data, validated and bounded; they apply on the admin and the
   customer page alike, confined to the account's own databases on the latter.
+- **Customer MongoDB page redesigned into tabs (Site → MongoDB).** Like the
+  admin page, the stacked Databases / Users / Backups cards are now tabs with a
+  filter box each, and only the active tab's data is loaded; all create/edit
+  stays in modals.
 - **MongoDB admin page redesigned into tabs (Server → MongoDB).** The stacked
   cards (Databases, Users, Backups, Configuration, Log) are now tabs, so the
   page stays clean as the number of databases grows and only the active tab's

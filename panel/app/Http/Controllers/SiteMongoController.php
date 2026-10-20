@@ -36,6 +36,10 @@ final class SiteMongoController extends SiteController
         if ($site === null) {
             return $this->siteNotFound();
         }
+        $section = (string) $request->query('section', 'databases');
+        if (!in_array($section, ['databases', 'users', 'backups'], true)) {
+            $section = 'databases';
+        }
         $status = null;
         $overview = ['databases' => [], 'users' => []];
         $backups = [];
@@ -44,13 +48,15 @@ final class SiteMongoController extends SiteController
             $status = $this->mongo->status();
             if ($status['installed'] && $status['running']) {
                 $overview = $this->mongo->overview($site);
-                $backups = $this->mongo->backups($site);
+                if ($section === 'backups') {
+                    $backups = $this->mongo->backups($site);
+                }
             }
         } catch (AgentException $e) {
             $error = $e;
         }
         return $this->render('sites/mongo', [
-            'site' => $site, 'tab' => 'mongo', 'status' => $status, 'overview' => $overview,
+            'site' => $site, 'tab' => 'mongo', 'section' => $section, 'status' => $status, 'overview' => $overview,
             'backups' => $backups, 'prefix' => $this->mongo->prefix($site), 'agentError' => $error,
         ]);
     }

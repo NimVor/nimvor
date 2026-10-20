@@ -189,7 +189,7 @@ final class SiteMongoTest extends HttpTestCase
         $this->login('cust');
         $base = '/sites/' . $this->site . '/mongo';
 
-        $page = $this->request('GET', $base)->body();
+        $page = $this->request('GET', $base, [], [], '', ['section' => 'backups'])->body();
         self::assertStringContainsString('20260901-120000_' . $this->prefix . 'shop.archive.gz', $page, 'own archive is offered for restore');
         self::assertStringNotContainsString('otheracct_secret', $page, "another account's archive is hidden");
 
