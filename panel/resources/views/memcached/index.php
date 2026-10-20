@@ -26,11 +26,22 @@ $uptime = (int) ($st['uptime'] ?? 0);
         <?php endif; ?>
     </div></div>
 <?php else: ?>
-<div class="row g-3">
-    <div class="col-lg-6">
-        <div class="card mb-3">
-            <div class="card-header d-flex align-items-center"><i class="bi bi-memory me-1"></i>Status
-                <span class="ms-auto"><?= !empty($status['active']) && empty($status['error']) ? $this->statusBadge('active', 'running') : $this->statusBadge('failed', 'not running') ?></span></div>
+<ul class="nav nav-tabs wcp-tabs mb-3" role="tablist">
+    <li class="nav-item" role="presentation"><button class="nav-link active" id="tab-overview" data-bs-toggle="tab" data-bs-target="#pane-overview" type="button" role="tab" aria-controls="pane-overview" aria-selected="true"><i class="bi bi-memory me-1" aria-hidden="true"></i>Overview</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" id="tab-danger" data-bs-toggle="tab" data-bs-target="#pane-danger" type="button" role="tab" aria-controls="pane-danger" aria-selected="false"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Danger zone</button></li>
+</ul>
+<div class="tab-content">
+    <section class="tab-pane fade show active" id="pane-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
+        <div class="card">
+            <div class="card-header d-flex align-items-center flex-wrap gap-2"><i class="bi bi-memory me-1"></i>Status
+                <span><?= !empty($status['active']) && empty($status['error']) ? $this->statusBadge('active', 'running') : $this->statusBadge('failed', 'not running') ?></span>
+                <span class="ms-auto d-flex gap-2">
+                    <?php if ($this->can(P::SERVICES_MANAGE)): ?>
+                        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#mc-settings"><i class="bi bi-sliders me-1" aria-hidden="true"></i>Settings</button>
+                        <form method="post" action="<?= e($this->url('memcached.restart')) ?>" class="d-inline"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Restart</button></form>
+                    <?php endif; ?>
+                </span>
+            </div>
             <div class="card-body">
                 <?php if (!empty($status['error'])): ?><div class="alert alert-warning small"><?= e($status['error']) ?></div><?php endif; ?>
                 <?php if ($st !== []): ?>
@@ -38,7 +49,7 @@ $uptime = (int) ($st['uptime'] ?? 0);
                     <div class="d-flex small mb-1"><span>Memory</span><span class="ms-auto"><?= e(format_bytes($used)) ?> of <?= e(format_bytes($limit)) ?></span></div>
                     <div class="progress" role="progressbar" aria-label="Memory used" aria-valuenow="<?= (int) $pct ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar<?= $pct > 90 ? ' bg-warning' : '' ?>" data-width="<?= (int) $pct ?>"></div></div>
                 </div>
-                <dl class="wcp-dl">
+                <dl class="wcp-dl mb-0">
                     <dt>Version</dt><dd><?= e($st['version'] ?? '') ?></dd>
                     <dt>Uptime</dt><dd><?= e(intdiv($uptime, 86400) . 'd ' . gmdate('H:i', $uptime % 86400)) ?></dd>
                     <dt>Items</dt><dd><?= e(number_format((int) ($st['curr_items'] ?? 0))) ?></dd>
@@ -48,33 +59,14 @@ $uptime = (int) ($st['uptime'] ?? 0);
                     <dt>Listening on</dt><dd><code><?= e(implode(', ', (array) ($cfg['listen'] ?? []))) ?>:<?= (int) ($cfg['port'] ?? 11211) ?></code></dd>
                 </dl>
                 <?php endif; ?>
-                <?php if ($this->can(P::SERVICES_MANAGE)): ?>
-                    <form method="post" action="<?= e($this->url('memcached.restart')) ?>" class="d-inline"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Restart</button></form>
-                <?php endif; ?>
             </div>
         </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="card mb-3">
-            <div class="card-header"><i class="bi bi-sliders me-1"></i>Settings</div>
+    </section>
+    <section class="tab-pane fade" id="pane-danger" role="tabpanel" aria-labelledby="tab-danger" tabindex="0">
+        <div class="card border-danger-subtle">
+            <div class="card-header text-danger-emphasis"><i class="bi bi-eraser me-1"></i>Flush</div>
             <div class="card-body">
-                <form method="post" action="<?= e($this->url('memcached.configure')) ?>" data-wcp-busy>
-                    <?= $this->csrfField() ?>
-                    <div class="row g-2">
-                        <div class="col-sm-6"><label class="form-label small" for="mc-mem">Memory (MB)</label><input class="form-control" id="mc-mem" type="number" name="memory_mb" min="16" max="262144" value="<?= (int) ($cfg['memory_mb'] ?? 64) ?>"></div>
-                        <div class="col-sm-6"><label class="form-label small" for="mc-conn">Max. connections</label><input class="form-control" id="mc-conn" type="number" name="max_conns" min="16" max="65536" value="<?= (int) ($cfg['max_conns'] ?? 1024) ?>"></div>
-                    </div>
-                    <label class="form-label small mt-2" for="mc-listen">Listen addresses</label>
-                    <input class="form-control font-monospace" id="mc-listen" name="listen" value="<?= e(implode(', ', (array) ($cfg['listen'] ?? ['127.0.0.1']))) ?>">
-                    <div class="form-text">Loopback only (127.0.0.1, ::1): Memcached has no password, so it must never be reachable from the network.</div>
-                    <div class="form-check mt-3"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="mc-confirm" required><label class="form-check-label small" for="mc-confirm">Allow WhaCP to edit <code><?= e($status['config_file'] ?? '') ?></code> (it belongs to the Memcached package; a backup is kept and it is restored if Memcached does not come back)</label></div>
-                    <button class="btn btn-primary mt-3">Save and restart</button>
-                </form>
-            </div>
-        </div>
-        <div class="card">
-            <div class="card-header"><i class="bi bi-eraser me-1"></i>Flush</div>
-            <div class="card-body">
+                <p class="small text-body-secondary">Removes every cached item at once. Applications repopulate the cache on their next miss.</p>
                 <form method="post" action="<?= e($this->url('memcached.flush')) ?>" class="row g-2 align-items-end">
                     <?= $this->csrfField() ?>
                     <div class="col"><label class="form-label small" for="mc-flush">Type <strong>flush</strong> to remove every cached item</label><input class="form-control" id="mc-flush" name="confirm" autocomplete="off"></div>
@@ -82,6 +74,23 @@ $uptime = (int) ($st['uptime'] ?? 0);
                 </form>
             </div>
         </div>
-    </div>
+    </section>
 </div>
+
+<?php if ($this->can(P::SERVICES_MANAGE)): ?>
+<?= $this->modalStart('mc-settings', 'Memcached settings') ?>
+<form method="post" action="<?= e($this->url('memcached.configure')) ?>" data-wcp-busy>
+    <?= $this->csrfField() ?>
+    <div class="row g-2">
+        <div class="col-sm-6"><label class="form-label small" for="mc-mem">Memory (MB)</label><input class="form-control" id="mc-mem" type="number" name="memory_mb" min="16" max="262144" value="<?= (int) ($cfg['memory_mb'] ?? 64) ?>"></div>
+        <div class="col-sm-6"><label class="form-label small" for="mc-conn">Max. connections</label><input class="form-control" id="mc-conn" type="number" name="max_conns" min="16" max="65536" value="<?= (int) ($cfg['max_conns'] ?? 1024) ?>"></div>
+    </div>
+    <label class="form-label small mt-2" for="mc-listen">Listen addresses</label>
+    <input class="form-control font-monospace" id="mc-listen" name="listen" value="<?= e(implode(', ', (array) ($cfg['listen'] ?? ['127.0.0.1']))) ?>">
+    <div class="form-text">Loopback only (127.0.0.1, ::1): Memcached has no password, so it must never be reachable from the network.</div>
+    <div class="form-check mt-3"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="mc-confirm" required><label class="form-check-label small" for="mc-confirm">Allow WhaCP to edit <code><?= e($status['config_file'] ?? '') ?></code> (it belongs to the Memcached package; a backup is kept and it is restored if Memcached does not come back)</label></div>
+    <div class="text-end mt-3"><button class="btn btn-primary">Save and restart</button></div>
+</form>
+<?= $this->modalEnd() ?>
+<?php endif; ?>
 <?php endif; ?>

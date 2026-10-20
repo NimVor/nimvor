@@ -6,6 +6,15 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Redis and Memcached pages follow the panel UI rules.** Both server pages
+  no longer stack every section as a column of cards: they use tabs
+  (Overview / Website users / Security / Danger zone for Redis;
+  Overview / Danger zone for Memcached), move configuration behind modals
+  (Redis memory &amp; eviction, the Redis website-user create/reset form, and
+  Memcached settings), and give the Redis website-user list a filterable
+  table. No behaviour or route changes.
+
 ### Security
 - **GA security program (WhaCP 1.0).** Closed the boundaries that could allow
   cross-customer compromise, privilege escalation, sandbox escape or unsafe
