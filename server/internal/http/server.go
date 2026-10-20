@@ -98,6 +98,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /databases", s.guard("", "databases.view", s.databasesIndex))
 	s.mux.HandleFunc("POST /databases", s.guard("", "databases.manage", s.databasesStore))
 	s.mux.HandleFunc("POST /databases/{id}/drop", s.guard("", "databases.manage", s.databasesDrop))
+
+	// DNS zones list. dns.manage is withheld by the dns plan feature when off.
+	s.mux.HandleFunc("GET /dns", s.guard("", "dns.manage", s.dnsIndex))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.
