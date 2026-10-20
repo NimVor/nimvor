@@ -252,3 +252,38 @@ func (s *Server) siteCron(w http.ResponseWriter, r *http.Request) {
 		"Jobs": jobs,
 	})
 }
+
+// siteWorkers lists a website's background workers (site-section). The website
+// is resolved under tenant scope first. Gated by workers.manage, which the
+// workers plan feature withholds when disabled. Mirrors WorkersController::show.
+func (s *Server) siteWorkers(w http.ResponseWriter, r *http.Request) {
+	user := userFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		s.notFound(w, r)
+		return
+	}
+	serverID := s.currentServerID(r)
+	site, err := hosting.NewWebsiteRepository(s.db).Find(r.Context(), serverID, id, user)
+	if errors.Is(err, hosting.ErrWebsiteNotFound) {
+		s.notFound(w, r)
+		return
+	}
+	if err != nil {
+		s.log.Error("find website", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	workers, err := hosting.NewWorkerRepository(s.db).List(r.Context(), site.ID)
+	if err != nil {
+		s.log.Error("list workers", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	s.render(w, "site_workers", map[string]any{
+		"User":    user,
+		"CSRF":    session.CSRFToken(sessionFrom(r.Context())),
+		"Site":    site,
+		"Workers": workers,
+	})
+}
