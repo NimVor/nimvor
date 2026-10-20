@@ -30,13 +30,22 @@
   {{end}}
   {{if .Databases}}
   <table class="data-table">
-    <thead><tr><th>Name</th><th>Website</th><th>Created</th></tr></thead>
+    <thead><tr><th>Name</th><th>Website</th><th>Created</th>{{if .CanManage}}<th></th>{{end}}</tr></thead>
     <tbody>
     {{range .Databases}}
       <tr>
         <td>{{.Name}}</td>
         <td>{{if .Website.Valid}}{{.Website.String}}{{else}}—{{end}}</td>
         <td>{{.CreatedAt}}</td>
+        {{if $.CanManage}}
+        <td>
+          <form method="post" action="/databases/{{.ID}}/drop" class="drop-form">
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <input type="text" name="confirm" placeholder="type name to confirm" aria-label="Type the database name to confirm">
+            <button type="submit">Delete</button>
+          </form>
+        </td>
+        {{end}}
       </tr>
     {{end}}
     </tbody>

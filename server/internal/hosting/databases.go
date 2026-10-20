@@ -3,9 +3,13 @@ package hosting
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 )
+
+// ErrDatabaseNotFound is returned when no database matches within the user's scope.
+var ErrDatabaseNotFound = errors.New("hosting: database not found")
 
 // Database is a managed database joined to the website it belongs to (if any).
 // Mirrors the display columns of DatabaseRepository::databases.
@@ -16,6 +20,31 @@ type Database struct {
 	WebsiteID sql.NullInt64
 	Website   sql.NullString // the owning website's domain, if attached
 	CreatedAt string
+}
+
+// Find returns one database by id on a server, scoped to the user. A database
+// outside the user's tenant reads as ErrDatabaseNotFound. Mirrors
+// DatabaseRepository::database.
+func (r *DatabaseRepository) Find(ctx context.Context, serverID, id int64, u *identity.User) (*Database, error) {
+	cond, params := Condition(u, "owner_id")
+	args := append([]any{serverID, id}, params...)
+	var d Database
+	err := r.db.QueryRowContext(ctx,
+		"SELECT id, name, owner_id, website_id, created_at FROM databases WHERE server_id = ? AND id = ? AND "+cond, args...).
+		Scan(&d.ID, &d.Name, &d.OwnerID, &d.WebsiteID, &d.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrDatabaseNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
+// DeleteDatabase removes the database record. Mirrors DatabaseRepository::deleteDatabase.
+func (r *DatabaseRepository) DeleteDatabase(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, "DELETE FROM databases WHERE id = ?", id)
+	return err
 }
 
 // DatabaseRepository reads databases with tenant scoping applied.

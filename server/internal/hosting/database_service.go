@@ -146,3 +146,33 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, serverID int64, ac
 	}
 	return id, nil
 }
+
+// DropDatabase deletes a database the actor may see. The typed confirm must
+// equal the database name (guards against accidental drops). It calls the
+// destructive db.drop agent action, removes the record, and audits. Returns
+// the dropped database's name. Mirrors DatabaseService::drop + the controller's
+// scoped lookup. Errors are *UserError (bad confirm / agent failure / not
+// found) or a plain error.
+func (s *DatabaseService) DropDatabase(ctx context.Context, serverID int64, actor *identity.User, id int64, confirm string) (string, error) {
+	db, err := s.db.Find(ctx, serverID, id, actor)
+	if err != nil {
+		return "", err // ErrDatabaseNotFound (out of tenant) or a real error
+	}
+	if confirm != db.Name {
+		return "", &UserError{What: "Type the database name to confirm.", Fix: "Enter the exact database name."}
+	}
+	if _, err := s.agent.Call(ctx, "db.drop", map[string]any{"name": db.Name, "confirm": db.Name}); err != nil {
+		return "", &UserError{
+			What: "The database could not be dropped on the server.",
+			Why:  err.Error(),
+			Fix:  "Check the database service is running and try again.",
+		}
+	}
+	if err := s.db.DeleteDatabase(ctx, db.ID); err != nil {
+		return "", err
+	}
+	if s.auditlog != nil {
+		s.auditlog("database.drop", db.Name)
+	}
+	return db.Name, nil
+}

@@ -221,6 +221,96 @@ func TestCreateDatabaseRejectsBadCSRF(t *testing.T) {
 	}
 }
 
+func TestDropDatabaseHappyPath(t *testing.T) {
+	h, cookie, ra, db := writeEnv(t, 5, 0)
+	// Seed a database owned by bob (user 1) to drop.
+	if _, err := db.Exec(`INSERT INTO databases (id,server_id,owner_id,name,created_at) VALUES (200,1,1,'bob_del','2026-01-01')`); err != nil {
+		t.Fatal(err)
+	}
+	token, cookie := dbFormToken(t, h, cookie)
+	rr := postForm(h, "/databases/200/drop", url.Values{"_token": {token}, "confirm": {"bob_del"}}, cookie)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("drop = %d", rr.Code)
+	}
+	acts := ra.called()
+	if len(acts) != 1 || acts[0] != "db.drop" {
+		t.Fatalf("agent actions = %v, want [db.drop]", acts)
+	}
+	if name, _ := ra.params[0]["name"].(string); name != "bob_del" {
+		t.Fatalf("db.drop name = %q", name)
+	}
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM databases WHERE id = 200`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatal("database row not deleted")
+	}
+	var result string
+	if err := db.QueryRow(`SELECT result FROM audit_logs WHERE action='database.drop'`).Scan(&result); err != nil {
+		t.Fatalf("no audit row for drop: %v", err)
+	}
+}
+
+func TestDropDatabaseWrongConfirmNoAgent(t *testing.T) {
+	h, cookie, ra, db := writeEnv(t, 5, 0)
+	if _, err := db.Exec(`INSERT INTO databases (id,server_id,owner_id,name,created_at) VALUES (201,1,1,'bob_keep','2026-01-01')`); err != nil {
+		t.Fatal(err)
+	}
+	token, cookie := dbFormToken(t, h, cookie)
+	rr := postForm(h, "/databases/201/drop", url.Values{"_token": {token}, "confirm": {"wrong"}}, cookie)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("drop = %d", rr.Code)
+	}
+	if acts := ra.called(); len(acts) != 0 {
+		t.Fatalf("wrong-confirm drop reached the agent: %v", acts)
+	}
+	var n int
+	db.QueryRow(`SELECT COUNT(*) FROM databases WHERE id = 201`).Scan(&n)
+	if n != 1 {
+		t.Fatal("database was deleted despite wrong confirm")
+	}
+}
+
+func TestDropForeignDatabaseNotFoundNoAgent(t *testing.T) {
+	h, cookie, ra, db := writeEnv(t, 5, 0)
+	// A separate tenant (user 2) owns a database — bob (user 1) must not drop it.
+	if _, err := db.Exec(`INSERT INTO users (id,username,email,password_hash,role_id,is_active,password_changed_at,created_at,updated_at)
+		VALUES (2,'other','o@x','h',2,1,'','','')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO databases (id,server_id,owner_id,name,created_at) VALUES (202,1,2,'other_db','2026-01-01')`); err != nil {
+		t.Fatal(err)
+	}
+	token, cookie := dbFormToken(t, h, cookie)
+	rr := postForm(h, "/databases/202/drop", url.Values{"_token": {token}, "confirm": {"other_db"}}, cookie)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("drop = %d", rr.Code)
+	}
+	if acts := ra.called(); len(acts) != 0 {
+		t.Fatalf("dropping another tenant's db reached the agent: %v", acts)
+	}
+	var n int
+	db.QueryRow(`SELECT COUNT(*) FROM databases WHERE id = 202`).Scan(&n)
+	if n != 1 {
+		t.Fatal("another tenant's database was deleted (tenant isolation failure)")
+	}
+}
+
+func TestDropDatabaseRejectsBadCSRF(t *testing.T) {
+	h, cookie, ra, db := writeEnv(t, 5, 0)
+	if _, err := db.Exec(`INSERT INTO databases (id,server_id,owner_id,name,created_at) VALUES (203,1,1,'bob_csrf','2026-01-01')`); err != nil {
+		t.Fatal(err)
+	}
+	rr := postForm(h, "/databases/203/drop", url.Values{"_token": {"nope"}, "confirm": {"bob_csrf"}}, cookie)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("bad-CSRF drop = %d, want 400", rr.Code)
+	}
+	if acts := ra.called(); len(acts) != 0 {
+		t.Fatalf("CSRF-rejected drop reached the agent: %v", acts)
+	}
+}
+
 func TestCreateDatabaseRequiresManagePermission(t *testing.T) {
 	h, cookie, ra, _ := writeEnv(t, 5, 0)
 	token, cookie := dbFormToken(t, h, cookie)

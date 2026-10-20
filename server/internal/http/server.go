@@ -97,6 +97,7 @@ func (s *Server) routes() {
 	// a plan disables it, so the permission guard enforces the feature too.
 	s.mux.HandleFunc("GET /databases", s.guard("", "databases.view", s.databasesIndex))
 	s.mux.HandleFunc("POST /databases", s.guard("", "databases.manage", s.databasesStore))
+	s.mux.HandleFunc("POST /databases/{id}/drop", s.guard("", "databases.manage", s.databasesDrop))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.

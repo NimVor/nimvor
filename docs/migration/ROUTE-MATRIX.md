@@ -95,7 +95,7 @@ Total routes: 551
 | GET | `/databases/server` | DbServerController::index | databases.server | server.view | yes | yes | ☐ |
 | POST | `/databases/{id}/browse/api` | DbBrowserController::api | databases.browser.api | databases.manage | yes | yes | ☐ |
 | GET | `/databases/{id}/browse` | DbBrowserController::browse | databases.browser | databases.manage | yes | yes | ☐ |
-| POST | `/databases/{id}/drop` | DatabasesController::drop | databases.drop | databases.manage | yes | yes | ☐ |
+| POST | `/databases/{id}/drop` | DatabasesController::drop | databases.drop | databases.manage | yes | yes | ☑ |
 | POST | `/databases/{id}/dump` | DatabasesController::dump | databases.dump | databases.manage | yes | yes | ☐ |
 | POST | `/databases/{id}/grant` | DatabasesController::grant | databases.grant | databases.manage | yes | yes | ☐ |
 | POST | `/databases/{id}/import` | DatabasesController::import | databases.import | databases.manage | yes | yes | ☐ |

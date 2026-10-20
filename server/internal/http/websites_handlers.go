@@ -7,6 +7,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
@@ -121,20 +122,7 @@ func (s *Server) databasesStore(w http.ResponseWriter, r *http.Request) {
 			websiteID = &id
 		}
 	}
-	svc := hosting.NewDatabaseService(
-		hosting.NewDatabaseRepository(s.db),
-		hosting.NewWebsiteRepository(s.db),
-		hosting.NewPlanLimits(s.db),
-		s.agent,
-		func(action, target string) {
-			uid := user.ID
-			s.audit.Record(r.Context(), audit.Entry{
-				UserID: &uid, Username: user.Username,
-				Action: action, TargetType: "database", TargetID: target,
-				Result: audit.Success, IP: clientIP(r), UserAgent: r.UserAgent(),
-			})
-		},
-	)
+	svc := s.databaseService(r, user)
 	_, err := svc.CreateDatabase(r.Context(), s.currentServerID(r), user, r.FormValue("name"), websiteID)
 	if err != nil {
 		var ve *hosting.ValidationError
@@ -157,6 +145,63 @@ func (s *Server) databasesStore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess.Flash("success", "Database created.")
+	http.Redirect(w, r, "/databases", http.StatusSeeOther)
+}
+
+// databaseService builds the database service with an audit hook bound to the
+// current actor and request.
+func (s *Server) databaseService(r *http.Request, user *identity.User) *hosting.DatabaseService {
+	return hosting.NewDatabaseService(
+		hosting.NewDatabaseRepository(s.db),
+		hosting.NewWebsiteRepository(s.db),
+		hosting.NewPlanLimits(s.db),
+		s.agent,
+		func(action, target string) {
+			uid := user.ID
+			s.audit.Record(r.Context(), audit.Entry{
+				UserID: &uid, Username: user.Username,
+				Action: action, TargetType: "database", TargetID: target,
+				Result: audit.Success, IP: clientIP(r), UserAgent: r.UserAgent(),
+			})
+		},
+	)
+}
+
+// databasesDrop deletes a database (destructive). CSRF-protected and
+// databases.manage-gated; the typed confirm must match the database name.
+// Mirrors DatabasesController::drop.
+func (s *Server) databasesDrop(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	user := userFrom(r.Context())
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	if !session.ValidateCSRF(sess, formToken(r)) {
+		http.Error(w, "Page expired", http.StatusBadRequest)
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		s.notFound(w, r)
+		return
+	}
+	name, err := s.databaseService(r, user).DropDatabase(r.Context(), s.currentServerID(r), user, id, r.FormValue("confirm"))
+	if err != nil {
+		var ue *hosting.UserError
+		switch {
+		case errors.Is(err, hosting.ErrDatabaseNotFound):
+			sess.Flash("error", "Database not found.")
+		case errors.As(err, &ue):
+			sess.Flash("error", ue.What)
+		default:
+			s.log.Error("drop database", "error", err)
+			sess.Flash("error", "The database could not be deleted.")
+		}
+		http.Redirect(w, r, "/databases", http.StatusSeeOther)
+		return
+	}
+	sess.Flash("success", "Database "+name+" was deleted.")
 	http.Redirect(w, r, "/databases", http.StatusSeeOther)
 }
 
