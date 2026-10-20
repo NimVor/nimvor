@@ -115,6 +115,9 @@ func (s *Server) routes() {
 	// Roles (staff) and hosting plans (staff / reseller-own).
 	s.mux.HandleFunc("GET /roles", s.guard("", "users.view", s.rolesIndex))
 	s.mux.HandleFunc("GET /plans", s.guard("", "plans.manage", s.plansIndex))
+
+	// Notifications (per-recipient visibility).
+	s.mux.HandleFunc("GET /notifications", s.guard("", "notifications.view", s.notificationsIndex))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.

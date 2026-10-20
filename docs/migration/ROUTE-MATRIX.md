@@ -246,7 +246,7 @@ Total routes: 551
 | POST | `/notifications/email` | NotificationsController::email | notifications.email | notifications.view | yes | yes | ☐ |
 | POST | `/notifications/read` | NotificationsController::read | notifications.read | notifications.view | yes | yes | ☐ |
 | GET | `/notifications/summary` | NotificationsController::summary | notifications.summary | notifications.view | yes | yes | ☐ |
-| GET | `/notifications` | NotificationsController::index | notifications | notifications.view | yes | yes | ☐ |
+| GET | `/notifications` | NotificationsController::index | notifications | notifications.view | yes | yes | ☑ |
 | POST | `/packages/install` | SystemController::install | packages.install | packages.manage | yes | yes | ☐ |
 | POST | `/packages/refresh` | SystemController::refresh | packages.refresh | packages.manage | yes | yes | ☐ |
 | POST | `/packages/repair` | SystemController::repair | packages.repair | packages.manage | yes | yes | ☐ |
