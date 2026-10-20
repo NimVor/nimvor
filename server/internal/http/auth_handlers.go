@@ -67,14 +67,39 @@ func (s *Server) doLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
-// dashboard renders the authenticated shell.
+// dashboard renders the authenticated shell with a permission-gated nav.
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	data := map[string]any{
 		"User": userFrom(r.Context()),
 		"CSRF": session.CSRFToken(sess),
+		"Nav":  s.navFor(r),
 	}
 	s.render(w, "dashboard", data)
+}
+
+// navFor computes which nav links the signed-in user may see. Each entry is
+// gated by the same permission as its route, so the menu reflects RBAC + plan
+// features (a withheld permission hides its link) — the hiding is a
+// consequence of the server-side gate, not the gate itself.
+func (s *Server) navFor(r *http.Request) map[string]bool {
+	perms := map[string]string{
+		"websites":      "websites.view",
+		"databases":     "databases.view",
+		"dns":           "dns.manage",
+		"mail":          "mail.manage",
+		"users":         "users.view",
+		"roles":         "users.view",
+		"plans":         "plans.manage",
+		"notifications": "notifications.view",
+		"audit":         "audit.view",
+	}
+	out := make(map[string]bool, len(perms)+1)
+	for key, perm := range perms {
+		out[key] = s.can(r, perm)
+	}
+	out["profile"] = true // always available to an authenticated user
+	return out
 }
 
 // renderLogin renders the login page with a fresh CSRF token.

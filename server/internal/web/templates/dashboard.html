@@ -16,11 +16,25 @@
     <button type="submit">Sign out</button>
   </form>
 </header>
+<nav class="main-nav" aria-label="Sections">
+  <ul>
+    {{if .Nav.websites}}<li><a href="/websites">Websites</a></li>{{end}}
+    {{if .Nav.databases}}<li><a href="/databases">Databases</a></li>{{end}}
+    {{if .Nav.dns}}<li><a href="/dns">DNS</a></li>{{end}}
+    {{if .Nav.mail}}<li><a href="/mail">Email</a></li>{{end}}
+    {{if .Nav.users}}<li><a href="/users">Users</a></li>{{end}}
+    {{if .Nav.roles}}<li><a href="/roles">Roles</a></li>{{end}}
+    {{if .Nav.plans}}<li><a href="/plans">Plans</a></li>{{end}}
+    {{if .Nav.notifications}}<li><a href="/notifications">Notifications</a></li>{{end}}
+    {{if .Nav.audit}}<li><a href="/audit">Audit log</a></li>{{end}}
+    {{if .Nav.profile}}<li><a href="/profile">Profile</a></li>{{end}}
+  </ul>
+</nav>
 <main class="container">
   <h1>Signed in</h1>
   <p>Role: {{.User.RoleLabel}} ({{.User.RoleScope}})</p>
-  <p class="text-muted">This is the Go panel's authenticated shell. Feature
-  pages are being ported from the PHP panel; see the migration status.</p>
+  <p class="text-muted">Choose a section above. The menu shows only what your
+  role and plan allow.</p>
 </main>
 </body>
 </html>{{end}}
