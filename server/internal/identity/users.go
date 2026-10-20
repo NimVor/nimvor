@@ -1,0 +1,148 @@
+package identity
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"time"
+)
+
+// User is a panel account joined to its role. Field set and the derived
+// Suspended flag mirror UserRepository::COLUMNS in the PHP panel.
+type User struct {
+	ID                int64
+	Username          string
+	Email             string
+	DisplayName       string
+	RoleID            int64
+	IsActive          bool
+	RoleName          string
+	RoleLabel         string
+	RoleScope         string // "all" (staff) or "own" (hosting account / reseller)
+	RoleRequires2FA   bool
+	ParentID          sql.NullInt64
+	PlanID            sql.NullInt64
+	Suspended         bool
+	PasswordChangedAt sql.NullString
+	LastLoginAt       sql.NullString
+	LastLoginIP       sql.NullString
+}
+
+// suspended is the correlated sub-query from UserRepository::SUSPENDED: an
+// account is suspended itself or through its (suspended) reseller parent.
+const suspendedExpr = `(u.suspended_at IS NOT NULL OR EXISTS (SELECT 1 FROM users sp WHERE sp.id = u.parent_id AND sp.suspended_at IS NOT NULL))`
+
+// userColumns matches UserRepository::COLUMNS (minus the plan_name join, added
+// only where needed).
+const userColumns = `u.id, u.username, u.email, u.display_name, u.role_id, u.is_active,
+	u.last_login_at, u.last_login_ip, u.password_changed_at,
+	r.name AS role_name, r.label AS role_label, r.scope AS role_scope,
+	r.require_two_factor AS role_requires_2fa, u.parent_id, u.plan_id, ` + suspendedExpr + ` AS suspended`
+
+// CanAct reports whether an account may sign in and act: it exists, is active
+// and is not suspended. Mirrors UserRepository::canAct — the single gate every
+// authentication and authorization path funnels through.
+func CanAct(u *User) bool {
+	return u != nil && u.IsActive && !u.Suspended
+}
+
+// ErrNotFound is returned when a lookup matches no row.
+var ErrNotFound = errors.New("identity: user not found")
+
+// Repository reads and updates accounts. It owns no business logic; callers
+// (AuthService, authorizer) apply policy.
+type Repository struct{ db *sql.DB }
+
+// NewRepository wraps a database handle.
+func NewRepository(db *sql.DB) *Repository { return &Repository{db: db} }
+
+func (r *Repository) scanUser(row interface{ Scan(...any) error }) (*User, error) {
+	var u User
+	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.RoleID, &u.IsActive,
+		&u.LastLoginAt, &u.LastLoginIP, &u.PasswordChangedAt,
+		&u.RoleName, &u.RoleLabel, &u.RoleScope, &u.RoleRequires2FA, &u.ParentID, &u.PlanID, &u.Suspended)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// Find loads a user by id (with role).
+func (r *Repository) Find(ctx context.Context, id int64) (*User, error) {
+	q := `SELECT ` + userColumns + ` FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?`
+	return r.scanUser(r.db.QueryRowContext(ctx, q, id))
+}
+
+// AuthRow is the minimal row used while verifying a password. It deliberately
+// carries the password hash, which the full User never does. Mirrors
+// UserRepository::findForAuth.
+type AuthRow struct {
+	ID           int64
+	Username     string
+	PasswordHash string
+	IsActive     bool
+	RoleID       int64
+	Suspended    bool
+}
+
+// FindForAuth looks up a login by username or email (case-insensitive via the
+// column collation). Returns ErrNotFound when there is no match; callers must
+// still verify against a dummy hash to keep timing uniform.
+func (r *Repository) FindForAuth(ctx context.Context, login string) (*AuthRow, error) {
+	q := `SELECT u.id, u.username, u.password_hash, u.is_active, u.role_id, ` + suspendedExpr + ` AS suspended
+	      FROM users u WHERE u.username = ? OR u.email = ?`
+	var a AuthRow
+	err := r.db.QueryRowContext(ctx, q, login, login).Scan(&a.ID, &a.Username, &a.PasswordHash, &a.IsActive, &a.RoleID, &a.Suspended)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &a, nil
+}
+
+// PasswordHash returns the stored hash for a user, or "" if the user is gone.
+func (r *Repository) PasswordHash(ctx context.Context, id int64) (string, error) {
+	var h string
+	err := r.db.QueryRowContext(ctx, `SELECT password_hash FROM users WHERE id = ?`, id).Scan(&h)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return h, err
+}
+
+// SessionEpoch returns the user's session epoch (raised to revoke sessions).
+func (r *Repository) SessionEpoch(ctx context.Context, id int64) (int64, error) {
+	var e int64
+	err := r.db.QueryRowContext(ctx, `SELECT session_epoch FROM users WHERE id = ?`, id).Scan(&e)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return e, err
+}
+
+// BumpSessionEpoch invalidates the user's other sessions.
+func (r *Repository) BumpSessionEpoch(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?`, id)
+	return err
+}
+
+// RecordLogin stamps the successful sign-in time and address.
+func (r *Repository) RecordLogin(ctx context.Context, id int64, ip string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET last_login_at = ?, last_login_ip = ? WHERE id = ?`,
+		time.Now().UTC().Format(time.RFC3339), ip, id)
+	return err
+}
+
+// UpdatePassword stores a new hash and stamps password_changed_at.
+func (r *Repository) UpdatePassword(ctx context.Context, id int64, hash string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET password_hash = ?, password_changed_at = ?, updated_at = ? WHERE id = ?`,
+		hash, now, now, id)
+	return err
+}

@@ -24,6 +24,9 @@ Agent: Go, unchanged, full suite GREEN at baseline.
 - ☑ internal/crypto: NaCl secretbox, byte-compatible with PHP Security\Crypto `v1:` (verified against a PHP-sealed fixture)
 - ☑ internal/session: sealed-cookie sessions (HttpOnly/Lax/Secure) + flash
 - ☑ CSRF synchronizer token (64-hex, constant-time, `_token`/`X-CSRF-Token`)
+- ☑ internal/identity: user repository (find / findForAuth by username|email / password hash / session epoch bump / record login / update password), `CanAct` and the suspended-via-reseller sub-query, ported verbatim from UserRepository.php
+- ☑ internal/authz: role→permission repository, FeatureService (34-feature registry, DEFAULT_OFF opt-in, reseller two-slot gating, route-by-name gating) and the Authorizer (`Can` fail-closed + feature withholding, `RouteAllowed`) — parity with Authorizer.php + FeatureService.php
+- ☐ NOT YET PORTED (known follow-ups, tracked honestly): role/permission bootstrap seeding (PHP RoleRepository::ensure*; migrations do not seed these — the Go panel will need an equivalent on a fresh DB); AuthService state machine (attempt/user()/timeouts/fingerprint), login throttle, 2FA/WebAuthn/IP-verification/HULK brute force, auth+permission+feature HTTP middleware, login/logout/dashboard handlers + html/template views
 - ◐ static asset serving ☑ (reused assets dir) · html/template layout pending
 - ◐ stdlib mux + request logging ☑ · auth/permission/feature middleware pending
 - ◐ /healthz ☑ (parity: {"status":"ok"}/503) · login/logout/dashboard pending
