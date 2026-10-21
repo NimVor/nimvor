@@ -120,6 +120,12 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /sites/{id}/subdomains", s.guard("sites.subdomains.store", "websites.manage", s.siteSubdomainsStore))
 	s.mux.HandleFunc("GET /sites/{id}/cron", s.guard("", "cron.view", s.siteCron))
 	s.mux.HandleFunc("GET /sites/{id}/workers", s.guard("", "workers.manage", s.siteWorkers))
+	// Worker write path: the plan feature withholds workers.manage when
+	// disabled, so the permission guard enforces the feature too.
+	s.mux.HandleFunc("POST /sites/{id}/workers", s.guard("", "workers.manage", s.workersStore))
+	s.mux.HandleFunc("POST /sites/{id}/workers/{worker}/toggle", s.guard("", "workers.manage", s.workersToggle))
+	s.mux.HandleFunc("POST /sites/{id}/workers/{worker}/restart", s.guard("", "workers.manage", s.workersRestart))
+	s.mux.HandleFunc("POST /sites/{id}/workers/{worker}/delete", s.guard("", "workers.manage", s.workersDelete))
 	// Subdomains: gated by the subdomains plan feature (route name) AND the
 	// websites.manage permission.
 	s.mux.HandleFunc("GET /sites/{id}/subdomains", s.guard("sites.subdomains", "websites.manage", s.siteSubdomains))

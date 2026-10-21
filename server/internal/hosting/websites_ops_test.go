@@ -260,6 +260,42 @@ func (failingCannedAgent) Call(ctx context.Context, action string, params any, t
 	return nil, errors.New("agent down")
 }
 
+func TestWorkerStatus(t *testing.T) {
+	h := newHarness(t, writeDB(t))
+	site := findSite(t, h, 10)
+	ws := newWorkerService(t, h, nil)
+	w := seedWorker(t, h, site, nil)
+
+	h.agent.canned = map[string]json.RawMessage{
+		"workers.status": json.RawMessage(`[{"unit":"whacp-worker-cust-app.service","active_state":"active","sub_state":"running","procs_total":2,"procs_running":1,"memory_bytes":10485760}]`),
+	}
+	st := ws.Status(context.Background(), []WorkerFull{w})
+	if st == nil {
+		t.Fatal("no status rows")
+	}
+	row, ok := st[w.Unit()]
+	if !ok {
+		t.Fatalf("status not keyed by unit: %v", st)
+	}
+	if row.ActiveState != "active" || row.ProcsTotal != 2 || row.ProcsRunning != 1 || row.MemoryBytes == nil || *row.MemoryBytes != 10485760 {
+		t.Fatalf("status = %+v", row)
+	}
+	if p := h.agent.lastParams("workers.status"); p["slugs"] == nil {
+		t.Fatal("slugs not sent")
+	}
+
+	// An unreachable agent yields an empty status (the page says unknown).
+	h.agent.canned = nil
+	h.agent.failActions = map[string]error{"workers.status": errors.New("agent down")}
+	if st := ws.Status(context.Background(), []WorkerFull{w}); st != nil {
+		t.Fatalf("agent-down status = %v (want nil)", st)
+	}
+	// No workers: no agent call at all.
+	if st := ws.Status(context.Background(), nil); st != nil {
+		t.Fatalf("empty status = %v (want nil)", st)
+	}
+}
+
 // --- WorkerService -------------------------------------------------------------
 
 func newWorkerService(t *testing.T, h *harness, log *[]auditRec) *WorkerService {
@@ -275,7 +311,8 @@ func newWorkerService(t *testing.T, h *harness, log *[]auditRec) *WorkerService 
 
 func TestWorkerValidate(t *testing.T) {
 	// Valid input: the PHP defaults (restart always, 1 proc, enabled).
-	w, err := validateWorker(WorkerInput{Name: "app", Command: "node app.js", Restart: "", MemoryMB: 0, Procs: 0, EnvText: "PORT=3000"})
+	// Absent procs (nil) takes the PHP ?? 1 default.
+	w, err := validateWorker(WorkerInput{Name: "app", Command: "node app.js", Restart: "", MemoryMB: 0, EnvText: "PORT=3000"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +334,8 @@ func TestWorkerValidate(t *testing.T) {
 		{Name: "a", Command: "node", Runtime: "ruby:3.2"},
 		{Name: "a", Command: "node", MemoryMB: -1},
 		{Name: "a", Command: "node", MemoryMB: 65537},
-		{Name: "a", Command: "node", Procs: 21},
+		{Name: "a", Command: "node", Procs: ProcsPtr(21)},
+		{Name: "a", Command: "node", Procs: ProcsPtr(0)},
 		{Name: "a", Command: "node", EnvText: "port=1"},
 		{Name: "a", Command: "node", EnvText: "NO_EQUALS"},
 		{Name: "a", Command: "node", EnvText: "9KEY=1"},
@@ -329,7 +367,7 @@ func TestWorkerSaveApplies(t *testing.T) {
 	ws := newWorkerService(t, h, &log)
 
 	if err := ws.Save(context.Background(), site, nil, WorkerInput{
-		Name: "app", Command: "node app.js", Runtime: "node:20.1.0", EnvText: "PORT=3000", Procs: 2,
+		Name: "app", Command: "node app.js", Runtime: "node:20.1.0", EnvText: "PORT=3000", Procs: ProcsPtr(2),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -467,6 +505,189 @@ func TestWorkerChangeRuntime(t *testing.T) {
 	}
 	if a := lastAuditActionIn(t, log, "worker.update"); a.result != "success" {
 		t.Fatalf("audit = %+v", a)
+	}
+}
+
+// --- worker run operations (setEnabled / restart / delete) -------------------
+
+// seedWorker saves one "app" worker and returns it.
+func seedWorker(t *testing.T, h *harness, site *Website, log *[]auditRec) WorkerFull {
+	t.Helper()
+	ws := newWorkerService(t, h, log)
+	if err := ws.Save(context.Background(), site, nil, WorkerInput{Name: "app", Command: "node app.js"}); err != nil {
+		t.Fatal(err)
+	}
+	workers, err := ws.ForSite(context.Background(), site.ID)
+	if err != nil || len(workers) != 1 {
+		t.Fatalf("workers = %v err=%v", workers, err)
+	}
+	return workers[0]
+}
+
+func TestWorkerSetEnabled(t *testing.T) {
+	h := newHarness(t, writeDB(t))
+	site := findSite(t, h, 10)
+	var log []auditRec
+	w := seedWorker(t, h, site, &log)
+
+	if err := newWorkerService(t, h, &log).SetEnabled(context.Background(), site, w, false); err != nil {
+		t.Fatal(err)
+	}
+	// The new state was applied on the server, and the row followed.
+	if p := h.agent.lastParams("workers.apply"); p["enabled"] != false {
+		t.Fatalf("apply enabled = %v (want false)", p["enabled"])
+	}
+	var on int
+	if err := h.db.QueryRow(`SELECT enabled FROM workers WHERE id = ?`, w.ID).Scan(&on); err != nil {
+		t.Fatal(err)
+	}
+	if on != 0 {
+		t.Errorf("row enabled = %d, want 0", on)
+	}
+	if a := lastAuditActionIn(t, log, "worker.stop"); a.result != "success" {
+		t.Fatalf("audit = %+v", a)
+	}
+}
+
+func TestWorkerSetEnabledAgentFailureKeepsRow(t *testing.T) {
+	h := newHarness(t, writeDB(t))
+	site := findSite(t, h, 10)
+	var log []auditRec
+	w := seedWorker(t, h, site, &log)
+	h.agent.failActions = map[string]error{"workers.apply": errors.New("agent down")}
+
+	if err := newWorkerService(t, h, &log).SetEnabled(context.Background(), site, w, false); err == nil {
+		t.Fatal("setEnabled must fail with a failing agent")
+	}
+	var on int
+	if err := h.db.QueryRow(`SELECT enabled FROM workers WHERE id = ?`, w.ID).Scan(&on); err != nil {
+		t.Fatal(err)
+	}
+	if on != 1 {
+		t.Errorf("row enabled = %d (want 1 — unchanged)", on)
+	}
+	for _, a := range log {
+		if a.action == "worker.stop" {
+			t.Fatalf("a failed toggle was audited: %+v", a)
+		}
+	}
+}
+
+func TestWorkerRestart(t *testing.T) {
+	h := newHarness(t, writeDB(t))
+	site := findSite(t, h, 10)
+	var log []auditRec
+	w := seedWorker(t, h, site, &log)
+
+	if err := newWorkerService(t, h, &log).Restart(context.Background(), site, w); err != nil {
+		t.Fatal(err)
+	}
+	if p := h.agent.lastParams("workers.restart"); p["slug"] != "cust-app" {
+		t.Fatalf("restart slug = %v", p["slug"])
+	}
+	if a := lastAuditActionIn(t, log, "worker.restart"); a.result != "success" {
+		t.Fatalf("audit = %+v", a)
+	}
+}
+
+func TestWorkerRestartSuspended(t *testing.T) {
+	h := newHarness(t, writeDB(t))
+	if _, err := h.db.Exec(`UPDATE users SET suspended_at = '2026-01-01' WHERE id = 3`); err != nil {
+		t.Fatal(err)
+	}
+	site := findSite(t, h, 10) // owner 3 is suspended now
+	w := seedWorker(t, h, site, nil)
+
+	var ue *UserError
+	if err := newWorkerService(t, h, nil).Restart(context.Background(), site, w); !errors.As(err, &ue) {
+		t.Fatalf("restart = %v (want UserError)", err)
+	}
+	if ue.What != "The account is suspended; its workers are stopped." {
+		t.Fatalf("message = %q", ue.What)
+	}
+	if h.agent.callCount("workers.restart") != 0 {
+		t.Error("workers.restart must not run for a suspended account")
+	}
+}
+
+func TestWorkerDelete(t *testing.T) {
+	h := newHarness(t, writeDB(t))
+	site := findSite(t, h, 10)
+	var log []auditRec
+	w := seedWorker(t, h, site, &log)
+
+	if err := newWorkerService(t, h, &log).Delete(context.Background(), site, w); err != nil {
+		t.Fatal(err)
+	}
+	if p := h.agent.lastParams("workers.remove"); p["slug"] != "cust-app" {
+		t.Fatalf("remove slug = %v", p["slug"])
+	}
+	var n int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM workers WHERE website_id = 10`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("rows left = %d", n)
+	}
+	if a := lastAuditActionIn(t, log, "worker.delete"); a.result != "success" {
+		t.Fatalf("audit = %+v", a)
+	}
+}
+
+func TestWorkerDeleteAgentFailureKeepsRow(t *testing.T) {
+	h := newHarness(t, writeDB(t))
+	site := findSite(t, h, 10)
+	w := seedWorker(t, h, site, nil)
+	h.agent.failActions = map[string]error{"workers.remove": errors.New("agent down")}
+
+	if err := newWorkerService(t, h, nil).Delete(context.Background(), site, w); err == nil {
+		t.Fatal("delete must fail with a failing agent")
+	}
+	var n int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM workers WHERE website_id = 10`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("rows = %d (want 1 — the unit still exists on the server)", n)
+	}
+}
+
+func TestWebsiteDeleteRemovesWorkers(t *testing.T) {
+	h := newHarness(t, writeDB(t))
+	site := findSite(t, h, 10)
+	ws := newWorkerService(t, h, nil)
+	seedWorker(t, h, site, nil)
+	if err := ws.Save(context.Background(), site, nil, WorkerInput{Name: "queue", Command: "php artisan queue:work"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := h.svc.Delete(context.Background(), site, true, false); err != nil {
+		t.Fatal(err)
+	}
+	removed, teardown := 0, -1
+	for i, c := range h.agent.calls {
+		switch c.action {
+		case "workers.remove":
+			removed++
+			if i > teardown && teardown >= 0 {
+				t.Fatal("a worker was removed after the website teardown")
+			}
+		case "sites.delete":
+			teardown = i
+		}
+	}
+	if removed != 2 {
+		t.Fatalf("workers.remove = %d (want 2)", removed)
+	}
+	if teardown < 0 {
+		t.Fatal("sites.delete not called")
+	}
+	var n int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM websites WHERE id = 10`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Error("website row not deleted")
 	}
 }
 
