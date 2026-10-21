@@ -20,7 +20,10 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
+	"github.com/mchkhawarshahzad/whacp/server/internal/mail"
+	"github.com/mchkhawarshad/whacp/server/internal/security"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
+	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 	"github.com/mchkhawarshahzad/whacp/server/internal/web"
 	"github.com/mchkhawarshad/whacp/server/internal/twofactor"
 )
@@ -38,6 +41,8 @@ type Server struct {
 	tpl       *web.Templates
 	agent     hosting.AgentCaller
 	audit     *audit.Logger
+	settings  *settings.Repository
+	resets    *auth.ResetService
 	twoFactor *twofactor.Service
 }
 
@@ -52,6 +57,9 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 	users := identity.NewRepository(db)
 	tf := twofactor.New(db, c)
 	al := audit.New(db, log)
+	st := settings.NewRepository(db)
+	ml := mail.New(st, c, log)
+	resets := auth.NewResetService(db, users, ml, st, security.NewPolicy(st), al, log)
 	s := &Server{
 		cfg:       cfg,
 		db:        db,
@@ -64,6 +72,8 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		tpl:       tpl,
 		agent:     agent.New(cfg.AgentSocket, cfg.AgentTokenFile, 30*time.Second),
 		audit:     al,
+		settings:  st,
+		resets:    resets,
 		twoFactor: tf,
 	}
 	s.routes()
@@ -142,6 +152,13 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /profile/two-factor/enable", s.guard("", "", s.profileTwoFactorEnable))
 	s.mux.HandleFunc("POST /profile/two-factor/disable", s.guard("", "", s.profileTwoFactorDisable))
 	s.mux.HandleFunc("POST /profile/two-factor/recovery", s.guard("", "", s.profileTwoFactorRecovery))
+
+	// Password reset by email (minimal layout, no signed-in session needed;
+	// the answer is the same whether or not the account exists).
+	s.mux.HandleFunc("GET /password/forgot", s.sessionCtx(s.showForgot))
+	s.mux.HandleFunc("POST /password/forgot", s.sessionCtx(s.doForgot))
+	s.mux.HandleFunc("GET /password/reset/{token}", s.sessionCtx(s.showReset))
+	s.mux.HandleFunc("POST /password/reset/{token}", s.sessionCtx(s.doReset))
 
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))

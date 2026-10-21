@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **25 ☑ done+tested, 3 ◑ partial, 523 ☐** of 551.
+`server/internal/http/server.go`): **29 ☑ done+tested, 3 ◑ partial, 519 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -46,6 +46,10 @@ Route porting count (see ROUTE-MATRIX.md, verified against
 - GET+POST `/login`, POST `/logout` — incl. TOTP second-factor step
   (GET+POST `/login/two-factor`, ◑: WebAuthn security-key step not ported —
   key-only users are refused a password-only sign-in, never bypassed)
+- GET+POST `/password/forgot` + GET+POST `/password/reset/{token}` —
+  password reset by email (internal/mail SMTP + internal/settings + the
+  PasswordReset token state machine; anti-enumeration, 30-min single-use
+  tokens, all-of-a-user's tokens die on one use)
 - GET `/websites`, GET `/websites/{id}` (tenant-scoped; foreign id → 404)
 - GET `/sites/{id}/cron` · GET `/sites/{id}/workers` · GET `/sites/{id}/subdomains` (feature-gated)
 - GET/POST `/databases` + POST `/databases/{id}/drop` (plan-limit enforced before
@@ -60,9 +64,9 @@ Route porting count (see ROUTE-MATRIX.md, verified against
 Order by risk/leverage: identity+RBAC+feature-gating → dashboard → websites →
 databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mail → backups
 → cron/workers → monitoring/security → settings/admin → installers → API.
-- ☑ identity completion (TOTP 2FA) — done this session
-- ◐ password reset by email (forgot/reset flows + SMTP mailer + settings repo) — next batch
-- ☐ WebAuthn security keys (registration + login assertion) — 2FA users with both
+- ☑ identity completion (TOTP 2FA) — done
+- ☑ password reset by email (forgot/reset flows + SMTP mailer + settings repo + password policy) — done
+- ◐ WebAuthn security keys (registration + login assertion) — 2FA users with both
   factors can use TOTP; key-only users are refused (safe) until this lands
 - ☐ websites write path (create/enable/disable/delete, settings, subdomains/addons write, PHP/runtime profiles)
 - ☐ database users, DB browser, mongo, redis/memcached, DNS records, mail accounts/filters, SSL/ACME, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
@@ -81,12 +85,10 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: password reset by email — internal/settings (settings repo over the
-`settings` table), internal/mail (SMTP via net/smtp with STARTTLS, parity with
-app/Mail/Mailer), Security\PasswordReset port (token hashing, 30-min TTL,
-per-user/per-IP limits, same-answer-for-unknown-accounts), routes
-GET+POST /password/forgot, GET+POST /password/reset/{token}, minimal-layout
-views, negative tests (expired/used token, throttling, wrong confirmation).
-Then: websites write path.
+Batch: websites write path — create/enable/disable/delete + settings +
+subdomains/addons write + PHP/runtime profiles, against the hosting agent
+client, with permission/feature/tenant-scope + CSRF negative tests.
+(Identity + password-reset half of Phase 2 is done: TOTP 2FA and password
+reset by email are both ported and tested.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

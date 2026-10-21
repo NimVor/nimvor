@@ -21,6 +21,7 @@ CSRF / invalid session / manipulated id) before its area is marked done.
 | 14 | Signed webhooks (HMAC, csrf=false) | DeployController::webhook | handlers | bad signature → 401 | ☐ |
 | 15 | Path confinement (no traversal) — mostly agent-side | agent filesystem.Root | agent (unchanged) | traversal rejected | ☑ (agent) |
 | 16 | Two-factor sign-in (TOTP + single-use recovery codes) | app/Security/TwoFactor, AuthService | internal/twofactor + internal/auth | key-only user refused (no bypass); bad code; too-many-tries cancel; TTL expiry; password-change invalidates pending sign-in; recovery code used only once; bad CSRF | ☑ |
+| 17 | Password reset by email (anti-enumeration, hashed single-use tokens) | app/Security/PasswordReset, Mail\SmtpMailer | internal/auth (reset) + internal/mail + internal/security | same answer for unknown accounts; 3/hour per user, 10/hour per IP (IP counts unknown accounts too); token TTL expiry; one use kills all of a user's tokens; weak/username/mismatched password rejected; mail failure audited, never surfaced; SMTP credentials refused over an unencrypted non-local connection | ☑ |
 
 Rule carried over verbatim: **never trust a user-supplied tenant id, resource id
 or `X-WhaCP-Server` header**; derive access from the authenticated principal and

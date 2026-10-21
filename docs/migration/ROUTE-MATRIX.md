@@ -252,10 +252,10 @@ Total routes: 551
 | POST | `/packages/repair` | SystemController::repair | packages.repair | packages.manage | yes | yes | ☐ |
 | POST | `/packages/upgrade` | SystemController::upgrade | packages.upgrade | packages.manage | yes | yes | ☐ |
 | GET | `/packages` | SystemController::packages | packages | packages.manage | yes | yes | ☐ |
-| GET | `/password/forgot` | PasswordResetController::forgot | password.forgot |  | no | yes | ☐ |
-| POST | `/password/forgot` | PasswordResetController::send | password.send |  | no | yes | ☐ |
-| GET | `/password/reset/{token}` | PasswordResetController::show | password.reset.form |  | no | yes | ☐ |
-| POST | `/password/reset/{token}` | PasswordResetController::reset | password.reset |  | no | yes | ☐ |
+| GET | `/password/forgot` | PasswordResetController::forgot | password.forgot |  | no | yes | ☑ |
+| POST | `/password/forgot` | PasswordResetController::send | password.send |  | no | yes | ☑ |
+| GET | `/password/reset/{token}` | PasswordResetController::show | password.reset.form |  | no | yes | ☑ |
+| POST | `/password/reset/{token}` | PasswordResetController::reset | password.reset |  | no | yes | ☑ |
 | POST | `/php/install` | PhpController::install | php.install | php.manage | yes | yes | ☐ |
 | POST | `/php/manager/apply` | PhpManagerController::apply | php.manager.apply | packages.manage | yes | yes | ☐ |
 | GET | `/php/manager/export` | PhpManagerController::export | php.manager.export | packages.manage | yes | yes | ☐ |
