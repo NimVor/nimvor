@@ -18,6 +18,9 @@
 </header>
 <main class="container">
   <h1>Websites</h1>
+  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-error">{{.Error}}</p>{{end}}
+  {{if .CanManage}}<p><a class="btn" href="/websites/new">Create website</a></p>{{end}}
   {{if .Sites}}
   <table class="data-table">
     <thead><tr><th>Domain</th><th>Owner</th><th>Type</th><th>HTTPS</th><th>Status</th></tr></thead>

@@ -1,0 +1,27 @@
+{{define "forgot"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reset your password · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-login">
+<main class="login-wrap">
+  <h1>WhaCP</h1>
+  {{if .Error}}<p class="alert alert-danger" role="alert">{{.Error}}</p>{{end}}
+  {{if .Available}}
+  <p class="muted">Enter your username or email. We will send a link to the email address of the account.</p>
+  <form method="post" action="/password/forgot" autocomplete="off">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <label for="identifier">Username or email</label>
+    <input id="identifier" name="identifier" type="text" autocomplete="username" required autofocus maxlength="190">
+    <button type="submit">Send reset link</button>
+  </form>
+  {{else}}
+  <p class="muted">Password reset by email is not set up on this panel. Ask an administrator to reset your password, or run <code>bin/whacp user:password &lt;username&gt;</code> on the server.</p>
+  {{end}}
+  <p><a href="/login">Back to sign in</a></p>
+</main>
+</body>
+</html>{{end}}

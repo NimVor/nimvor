@@ -38,10 +38,15 @@ func (s *Server) doLogin(w http.ResponseWriter, r *http.Request) {
 
 	username := clip(r.FormValue("username"), 190)
 	password := r.FormValue("password")
-	msg, err := s.auth.Attempt(r.Context(), sess, username, password, clientIP(r))
+	msg, pending, err := s.auth.Attempt(r.Context(), sess, username, password, clientIP(r))
 	if err != nil {
 		s.log.Error("login attempt", "error", err)
 		s.renderLogin(w, sess, "Something went wrong. Please try again.", username, http.StatusInternalServerError)
+		return
+	}
+	if pending {
+		// Password accepted, second factor next (AuthController::login).
+		http.Redirect(w, r, "/login/two-factor", http.StatusSeeOther)
 		return
 	}
 	if msg != "" {
@@ -55,6 +60,60 @@ func (s *Server) doLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+// showTwoFactor renders the second-factor step of a sign-in. Mirrors
+// AuthController::twoFactor.
+func (s *Server) showTwoFactor(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	if !s.auth.PendingTwoFactor(sess) {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	totp, key := s.auth.PendingMethods(r.Context(), sess)
+	errMsg, _ := sess.PullFlash("error")
+	s.renderTwoFactor(w, sess, s.auth.PendingUsername(sess), errMsg, totp, key, http.StatusOK)
+}
+
+// doTwoFactor verifies the second factor (or cancels the pending sign-in).
+// Mirrors AuthController::verifyTwoFactor.
+func (s *Server) doTwoFactor(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	if err := r.ParseForm(); err != nil {
+		s.renderTwoFactor(w, sess, "", "Malformed form submission.", true, false, http.StatusBadRequest)
+		return
+	}
+	if !session.ValidateCSRF(sess, formToken(r)) {
+		s.renderTwoFactor(w, sess, "", "Your session has expired. Reload the page and try again.", true, false, http.StatusBadRequest)
+		return
+	}
+	if r.FormValue("cancel") == "1" {
+		s.auth.CancelTwoFactor(sess)
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	code := clip(r.FormValue("code"), 40) // mb_substr($code, 0, 40) in the PHP controller
+	ip := clientIP(r)
+	msg, err := s.auth.CompleteTwoFactor(r.Context(), sess, code, ip)
+	if err != nil {
+		s.log.Error("two-factor verify", "error", err)
+		s.renderTwoFactor(w, sess, "", "Something went wrong. Please try again.", true, false, http.StatusInternalServerError)
+		return
+	}
+	if msg != "" {
+		sess.Flash("error", msg)
+		// Still waiting for the factor -> stay on this step; otherwise the
+		// sign-in expired and the user starts again (AuthController::verifyTwoFactor).
+		if s.auth.PendingTwoFactor(sess) {
+			http.Redirect(w, r, "/login/two-factor", http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	// Signed in: rotate the CSRF token.
+	session.RotateCSRF(sess)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
 // doLogout clears the session. CSRF-protected like any state change.
 func (s *Server) doLogout(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
@@ -63,7 +122,7 @@ func (s *Server) doLogout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	s.auth.Logout(sess)
+	s.auth.Logout(r.Context(), sess, userFrom(r.Context()))
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
@@ -116,6 +175,28 @@ func (s *Server) renderLogin(w http.ResponseWriter, sess *session.Session, errMs
 	var buf bytes.Buffer
 	if err := s.tpl.Render(&buf, "login", data); err != nil {
 		s.log.Error("render login", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(code)
+	_, _ = w.Write(buf.Bytes())
+}
+
+// renderTwoFactor renders the second-factor page. totp/key mirror
+// AuthService::pendingMethods (the key button would be rendered only when a
+// WebAuthn flow exists; the Go panel offers the authenticator code).
+func (s *Server) renderTwoFactor(w http.ResponseWriter, sess *session.Session, username, errMsg string, totp, key bool, code int) {
+	data := map[string]any{
+		"Error":    errMsg,
+		"Username": username,
+		"TOTP":     totp,
+		"Key":      key,
+		"CSRF":     session.CSRFToken(sess),
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	var buf bytes.Buffer
+	if err := s.tpl.Render(&buf, "two_factor", data); err != nil {
+		s.log.Error("render two-factor", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}

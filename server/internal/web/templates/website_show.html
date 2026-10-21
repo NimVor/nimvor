@@ -27,6 +27,36 @@
     {{if .Site.OwnerName.Valid}}<dt>Owner</dt><dd>{{.Site.OwnerName.String}}</dd>{{end}}
   </dl>
 
+  {{if .CanManage}}
+  <p class="site-actions">
+    <a href="/sites/{{.Site.ID}}/settings">Settings</a>
+    <a href="/sites/{{.Site.ID}}/subdomains">Subdomains</a>
+    <a href="/sites/{{.Site.ID}}/addons">Addon domains</a>
+  </p>
+  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-error">{{.Error}}</p>{{end}}
+  <form method="post" action="/sites/{{.Site.ID}}/toggle" class="inline-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    {{if .Site.Enabled}}
+    <button type="submit">Disable website</button>
+    {{else}}
+    <button type="submit">Enable website</button>
+    {{end}}
+  </form>
+  <details class="danger-zone">
+    <summary>Delete this website</summary>
+    <form method="post" action="/sites/{{.Site.ID}}/delete" class="stacked-form">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <label>Type the domain name to confirm: {{.Site.Domain}}
+        <input type="text" name="confirm_domain">
+      </label>
+      <label class="checkbox"><input type="checkbox" name="remove_files" value="1"> Also delete the website's files</label>
+      <label class="checkbox"><input type="checkbox" name="remove_user" value="1"> Also delete the system account (when no other website uses it)</label>
+      <button type="submit" class="danger">Delete website</button>
+    </form>
+  </details>
+  {{end}}
+
   <h2>Databases</h2>
   {{if .Databases}}
   <table class="data-table">

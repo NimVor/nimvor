@@ -198,6 +198,22 @@ func (s *FeatureService) DisabledFor(ctx context.Context, u *identity.User) ([]s
 	return out, nil
 }
 
+// FeatureEnabled reports whether a plan feature is on for the account
+// (FeatureService::enabledFor): not in the account's disabled list. Staff and
+// server-wide roles never have disabled features, so every key is enabled.
+func (s *FeatureService) FeatureEnabled(ctx context.Context, u *identity.User, key string) (bool, error) {
+	disabled, err := s.DisabledFor(ctx, u)
+	if err != nil {
+		return false, err
+	}
+	for _, d := range disabled {
+		if d == key {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // PermissionAllowed reports whether a plan-gated permission is allowed for the
 // account. Mirrors FeatureService::permissionAllowed.
 func (s *FeatureService) PermissionAllowed(ctx context.Context, u *identity.User, permission string) (bool, error) {

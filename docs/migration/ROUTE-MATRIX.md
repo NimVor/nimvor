@@ -6,7 +6,7 @@ Total routes: 551
 
 | Method | Path | Controller::method | Name | Permission | Auth | CSRF | Ported |
 |---|---|---|---|---|---|---|---|
-| GET | `/` | DashboardController::index | dashboard | dashboard.view | yes | yes | ☐ |
+| GET | `/` | DashboardController::index | dashboard | dashboard.view | yes | yes | ☑ |
 | GET | `/accounts/bandwidth` | AccountAdminController::bandwidth | accounts.bandwidth | users.manage | yes | yes | ☐ |
 | GET | `/accounts/new` | AccountsController::create | accounts.create | users.manage | yes | yes | ☐ |
 | POST | `/accounts/terminate/confirm` | AccountAdminController::confirmTerminate | accounts.terminate.confirm | users.manage | yes | yes | ☐ |
@@ -149,13 +149,13 @@ Total routes: 551
 | GET | `/limits` | LimitsController::index | limits | server.view | yes | yes | ☐ |
 | POST | `/login/two-factor/key/options` | AuthController::securityKeyOptions | login.key.options |  | no | yes | ☐ |
 | POST | `/login/two-factor/key` | AuthController::securityKey | login.key |  | no | yes | ☐ |
-| GET | `/login/two-factor` | AuthController::twoFactor | login.two_factor |  | no | yes | ☐ |
-| POST | `/login/two-factor` | AuthController::verifyTwoFactor | login.two_factor.submit |  | no | yes | ☐ |
+| GET | `/login/two-factor` | AuthController::twoFactor | login.two_factor |  | no | yes | ◑ |
+| POST | `/login/two-factor` | AuthController::verifyTwoFactor | login.two_factor.submit |  | no | yes | ◑ |
 | GET | `/login/verify-ip` | AuthController::verifyIpForm | login.verify_ip |  | no | yes | ☐ |
 | POST | `/login/verify-ip` | AuthController::verifyIp | login.verify_ip.submit |  | no | yes | ☐ |
-| GET | `/login` | AuthController::show | login |  | no | yes | ☐ |
-| POST | `/login` | AuthController::login | login.submit |  | no | yes | ☐ |
-| POST | `/logout` | AuthController::logout | logout |  | yes | yes | ☐ |
+| GET | `/login` | AuthController::show | login |  | no | yes | ☑ |
+| POST | `/login` | AuthController::login | login.submit |  | no | yes | ☑ |
+| POST | `/logout` | AuthController::logout | logout |  | yes | yes | ☑ |
 | GET | `/logs/download` | LogsController::download | logs.download | logs.view | yes | yes | ☐ |
 | GET | `/logs/tail` | LogsController::tail | logs.tail | logs.view | yes | yes | ☐ |
 | GET | `/logs` | LogsController::index | logs | logs.view | yes | yes | ☐ |
@@ -252,10 +252,10 @@ Total routes: 551
 | POST | `/packages/repair` | SystemController::repair | packages.repair | packages.manage | yes | yes | ☐ |
 | POST | `/packages/upgrade` | SystemController::upgrade | packages.upgrade | packages.manage | yes | yes | ☐ |
 | GET | `/packages` | SystemController::packages | packages | packages.manage | yes | yes | ☐ |
-| GET | `/password/forgot` | PasswordResetController::forgot | password.forgot |  | no | yes | ☐ |
-| POST | `/password/forgot` | PasswordResetController::send | password.send |  | no | yes | ☐ |
-| GET | `/password/reset/{token}` | PasswordResetController::show | password.reset.form |  | no | yes | ☐ |
-| POST | `/password/reset/{token}` | PasswordResetController::reset | password.reset |  | no | yes | ☐ |
+| GET | `/password/forgot` | PasswordResetController::forgot | password.forgot |  | no | yes | ☑ |
+| POST | `/password/forgot` | PasswordResetController::send | password.send |  | no | yes | ☑ |
+| GET | `/password/reset/{token}` | PasswordResetController::show | password.reset.form |  | no | yes | ☑ |
+| POST | `/password/reset/{token}` | PasswordResetController::reset | password.reset |  | no | yes | ☑ |
 | POST | `/php/install` | PhpController::install | php.install | php.manage | yes | yes | ☐ |
 | POST | `/php/manager/apply` | PhpManagerController::apply | php.manager.apply | packages.manage | yes | yes | ☐ |
 | GET | `/php/manager/export` | PhpManagerController::export | php.manager.export | packages.manage | yes | yes | ☐ |
@@ -280,10 +280,10 @@ Total routes: 551
 | POST | `/profile/sessions/revoke` | ProfileController::revokeSessions | profile.sessions.revoke |  | yes | yes | ☐ |
 | POST | `/profile/tokens/{id}/revoke` | ApiTokensController::revoke | tokens.revoke | api.tokens | yes | yes | ☐ |
 | POST | `/profile/tokens` | ApiTokensController::store | tokens.store | api.tokens | yes | yes | ☐ |
-| POST | `/profile/two-factor/disable` | ProfileController::twoFactorDisable | profile.2fa.disable |  | yes | yes | ☐ |
-| POST | `/profile/two-factor/enable` | ProfileController::twoFactorEnable | profile.2fa.enable |  | yes | yes | ☐ |
-| POST | `/profile/two-factor/recovery` | ProfileController::twoFactorRecovery | profile.2fa.recovery |  | yes | yes | ☐ |
-| POST | `/profile/two-factor/setup` | ProfileController::twoFactorSetup | profile.2fa.setup |  | yes | yes | ☐ |
+| POST | `/profile/two-factor/disable` | ProfileController::twoFactorDisable | profile.2fa.disable |  | yes | yes | ☑ |
+| POST | `/profile/two-factor/enable` | ProfileController::twoFactorEnable | profile.2fa.enable |  | yes | yes | ☑ |
+| POST | `/profile/two-factor/recovery` | ProfileController::twoFactorRecovery | profile.2fa.recovery |  | yes | yes | ☑ |
+| POST | `/profile/two-factor/setup` | ProfileController::twoFactorSetup | profile.2fa.setup |  | yes | yes | ☑ |
 | GET | `/profile` | ProfileController::show | profile |  | yes | yes | ◑ |
 | POST | `/redis/browser/api` | RedisBrowserController::api | redis.browser.api | redis.manage | yes | yes | ☐ |
 | GET | `/redis/browser` | RedisBrowserController::browse | redis.browser | redis.manage | yes | yes | ☐ |
@@ -395,8 +395,8 @@ Total routes: 551
 | POST | `/setup/dismiss` | SetupController::dismiss | setup.dismiss | server.manage | yes | yes | ☐ |
 | POST | `/setup/step` | SetupController::step | setup.step | server.manage | yes | yes | ☐ |
 | GET | `/setup` | SetupController::index | setup | server.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/addons` | SitesController::addons | sites.addons | websites.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/addons` | SitesController::storeAddon | sites.addons.store | websites.manage | yes | yes | ☐ |
+| GET | `/sites/{id}/addons` | SitesController::addons | sites.addons | websites.manage | yes | yes | ☐☑ |
+| POST | `/sites/{id}/addons` | SitesController::storeAddon | sites.addons.store | websites.manage | yes | yes | ☐☑ |
 | GET | `/sites/{id}/advanced` | SitesController::advanced | sites.advanced | websites.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/apps/{app}` | AppsController::install | sites.apps.install | apps.install | yes | yes | ☐ |
 | GET | `/sites/{id}/apps` | AppsController::show | sites.apps | apps.install | yes | yes | ☐ |
@@ -422,7 +422,7 @@ Total routes: 551
 | GET | `/sites/{id}/cron` | CronController::show | sites.cron | cron.view | yes | yes | ☑ |
 | POST | `/sites/{id}/cron` | CronController::store | sites.cron.store | cron.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/databases` | DatabasesController::site | sites.databases | databases.view | yes | yes | ☐ |
-| POST | `/sites/{id}/delete` | SitesController::destroy | sites.delete | websites.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/delete` | SitesController::destroy | sites.delete | websites.manage | yes | yes | ☐☑ |
 | POST | `/sites/{id}/directory-listing` | SitesController::directoryListing | sites.listing | websites.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/disk-usage` | DiskUsageController::show | sites.disk | files.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/disk-usage` | DiskUsageController::scan | sites.disk.scan | files.manage | yes | yes | ☐ |
@@ -475,8 +475,8 @@ Total routes: 551
 | POST | `/sites/{id}/restart-php` | SitesController::restartPhp | sites.restart_php | websites.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/security-headers` | SslController::securityHeaders | sites.security_headers | ssl.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/security` | SitesController::security | sites.security | websites.view | yes | yes | ☐ |
-| GET | `/sites/{id}/settings` | SitesController::edit | sites.edit | websites.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/settings` | SitesController::update | sites.update | websites.manage | yes | yes | ☐ |
+| GET | `/sites/{id}/settings` | SitesController::edit | sites.edit | websites.manage | yes | yes | ☐☑ |
+| POST | `/sites/{id}/settings` | SitesController::update | sites.update | websites.manage | yes | yes | ☐☑ |
 | POST | `/sites/{id}/sftp` | FtpController::sftp | sites.sftp | ftp.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/ssl/custom` | SslController::custom | sites.ssl.custom | ssl.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/ssl/disable` | SslController::disable | sites.ssl.disable | ssl.manage | yes | yes | ☐ |
@@ -488,10 +488,10 @@ Total routes: 551
 | POST | `/sites/{id}/stats/update` | StatsController::update | sites.stats.update | websites.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/stats` | StatsController::show | sites.stats | logs.view | yes | yes | ☐ |
 | GET | `/sites/{id}/subdomains` | SitesController::subdomains | sites.subdomains | websites.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/subdomains` | SitesController::storeSubdomain | sites.subdomains.store | websites.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/subdomains` | SitesController::storeSubdomain | sites.subdomains.store | websites.manage | yes | yes | ☐☑ |
 | POST | `/sites/{id}/terminal/open` | TerminalController::openSite | sites.terminal.open | files.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/terminal` | TerminalController::site | sites.terminal | files.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/toggle` | SitesController::toggle | sites.toggle | websites.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/toggle` | SitesController::toggle | sites.toggle | websites.manage | yes | yes | ☐☑ |
 | POST | `/sites/{id}/wordpress/scan` | WordPressController::scanSite | sites.wordpress.scan | websites.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/wordpress/{wp}/check` | WordPressController::check | sites.wordpress.check | websites.view | yes | yes | ☐ |
 | POST | `/sites/{id}/wordpress/{wp}/login` | WordPressController::login | sites.wordpress.login | websites.manage | yes | yes | ☐ |
@@ -545,8 +545,8 @@ Total routes: 551
 | POST | `/users/{id}` | UsersController::update | users.update | users.manage | yes | yes | ☐ |
 | GET | `/users` | UsersController::index | users | users.view | yes | yes | ☑ |
 | POST | `/users` | UsersController::store | users.store | users.manage | yes | yes | ☐ |
-| GET | `/websites/new` | SitesController::create | sites.create | websites.manage | yes | yes | ☐ |
-| POST | `/websites/new` | SitesController::store | sites.store | websites.manage | yes | yes | ☐ |
+| GET | `/websites/new` | SitesController::create | sites.create | websites.manage | yes | yes | ☐☑ |
+| POST | `/websites/new` | SitesController::store | sites.store | websites.manage | yes | yes | ☐☑ |
 | GET | `/websites/{id}/import` | ImportController::preview | websites.import | import.run | yes | yes | ☐ |
 | POST | `/websites/{id}/import` | ImportController::run | websites.import.run | import.run | yes | yes | ☐ |
 | GET | `/websites/{id}` | WebsitesController::show | websites.show | websites.view | yes | yes | ☑ |

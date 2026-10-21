@@ -9,9 +9,10 @@ import (
 )
 
 // Website is a hosting website row joined to its owner, with the derived
-// account-suspended and bandwidth-blocked flags. The field set covers the
-// websites list and overview; per-section detail (php_settings, redirects,
-// aliases) is hydrated where a section needs it, as in WebsiteRepository.php.
+// account-suspended and bandwidth-blocked flags. The first twelve fields cover
+// the websites list and overview (scanWebsite); the remaining columns are the
+// full row hydrated by FindFull for the write path (WebsiteService), as in
+// WebsiteRepository::hydrate.
 type Website struct {
 	ID               int64
 	ServerID         int64
@@ -25,6 +26,31 @@ type Website struct {
 	OwnerName        sql.NullString
 	AccountSuspended bool
 	BandwidthBlocked bool
+
+	// Full row (FindFull).
+	Aliases          []string
+	Root             string
+	DocumentRoot     string
+	AppRuntime       string
+	PhpVersion       string
+	PhpSettings      PhpSettings
+	ProxyPass        string
+	Redirects        []Redirect
+	ClientMaxBodyMB  int
+	ForceHTTPS       bool
+	HSTS             bool
+	SSLMode          string
+	CertFile         string
+	KeyFile          string
+	SecurityHeaders  bool
+	DirectoryListing bool
+	IPv4             sql.NullString
+	IPv6             sql.NullString
+	ParentID         sql.NullInt64
+	LastError        string
+	BandwidthApplied bool
+	CreatedAt        string
+	UpdatedAt        string
 }
 
 // bandwidthBlocked is UserRepository::BANDWIDTH_BLOCKED — the account (or its
