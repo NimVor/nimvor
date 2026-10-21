@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **38 ☑ done+tested, 3 ◑ partial, 510 ☐** of 551.
+`server/internal/http/server.go`): **47 ☑ done+tested, 3 ◑ partial, 501 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -62,6 +62,18 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   `/sites/{id}/subdomains` (child sites inherit account/owner/PHP; optional A
   record into the parent's hosted zone) — all tenant-scoped, CSRF-protected,
   audit-logged (websites.create/update/enable/disable/delete + dns.record_create)
+- Websites advanced ops (PHP "Advanced" tab) — all websites.manage, CSRF, tenant-scoped,
+  audit-logged: POST `/sites/{id}/restart-php` (per-distro FPM unit from discovery) ·
+  POST `/sites/{id}/reapply` · POST `/sites/{id}/directory-listing` (proxy refused) ·
+  GET `/sites/{id}/permissions` (JSON dry-run; 404/502) + POST `/sites/{id}/permissions`
+  (repair, 30-min agent timeout)
+- Node.js/Python app runner — GET+POST `/sites/{id}/nodejs` + GET+POST
+  `/sites/{id}/python` (shared SiteRuntimeController page, each feature-gated by
+  its runtime; the page adapts to the site's app type) + `WorkerService` write
+  path (validate/save/apply/rollback/slug/changeRuntime/plan-limit, ported from
+  WorkerService.php). New Node.js/Python sites provision their "app" Worker from
+  the submitted start command (best-effort, PHP provisionApp parity) and land on
+  the runtime page.
 - GET `/dns` (zone list, tenant-scoped) · GET `/mail` (domains, tenant-scoped)
 - GET `/audit` (staff) · GET `/users` (reseller-scoped) · GET `/roles` · GET `/plans` (reseller-own) · GET `/servers` (staff)
 - GET+POST /notifications (read-marking scoped) · GET `/profile` (◑: 2FA + API
@@ -77,9 +89,11 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - ◐ WebAuthn security keys (registration + login assertion) — 2FA users with both
   factors can use TOTP; key-only users are refused (safe) until this lands
 - ◑ websites write path — core lifecycle done (create/enable/disable/delete,
-  settings, subdomains/addons write, plan limits, PHP profiles); remainder:
-  advanced ops (restart-php, reapply, directory listing, permission repair,
-  runtime change, convert) + the Node.js/Python app setup (Worker provisioning)
+  settings, subdomains/addons write, plan limits, PHP profiles); advanced ops
+  done (restart-php, reapply, directory listing, permissions check/repair,
+  Node.js/Python runtime page + app-Worker provisioning); remainder:
+  `/sites/{id}/convert` (AddonConversionController) + the workers write path
+  (create/toggle/restart/delete) + the "advanced" view
 - ☐ database users, DB browser, mongo, redis/memcached, DNS records, mail accounts/filters, SSL/ACME, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
 
 ## NOT YET PORTED (known follow-ups, tracked honestly)
@@ -96,12 +110,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: websites advanced ops — POST `/sites/{id}/restart-php`,
-`/sites/{id}/reapply`, `/sites/{id}/directory-listing`, `/sites/{id}/permissions`
-(check/repair, 30-min agent timeout), `/sites/{id}/convert` (USERS_MANAGE) and
-the Node.js/Python app runner (PHP provisionApp: best-effort Worker per app
-site) — against the hosting agent client, with permission/feature/tenant-scope
-+ CSRF negative tests. The core websites write path (create/settings/toggle/
-delete/subdomains/addons) is ported and tested.
+Batch: workers write path — POST `/sites/{id}/workers` (create, plan-limit +
+slug), POST `/sites/{id}/workers/{worker}/toggle` (setEnabled),
+`/sites/{id}/workers/{worker}/restart` and `/sites/{id}/workers/{worker}/delete`
+(+ `removeAll` on website delete) — porting WorkerService::setEnabled/restart/
+delete/removeAll with the workers-page forms, plan-limit/tenant-scope/CSRF
+negative tests, and the per-worker agent failure handling. Then:
+`/sites/{id}/convert` (AddonConversionController, USERS_MANAGE) + the "advanced"
+view.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

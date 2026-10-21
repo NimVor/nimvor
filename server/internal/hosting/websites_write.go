@@ -82,7 +82,7 @@ var (
 
 // Auditor records a website action for the audit log. The HTTP layer binds the
 // actor, IP and user agent, mirroring AuditLogger::record.
-type Auditor func(ctx context.Context, action, target, result string, details map[string]any)
+type Auditor func(ctx context.Context, action, targetType, target, result string, details map[string]any)
 
 // WebsiteService manages the website write path. Mirrors WebsiteService.php.
 type WebsiteService struct {
@@ -103,9 +103,9 @@ func NewWebsiteService(sites *WebsiteRepository, agent AgentCaller, features *au
 }
 
 // recordAudit is the nil-safe audit hook.
-func (s *WebsiteService) recordAudit(ctx context.Context, action, target, result string, details map[string]any) {
+func (s *WebsiteService) recordAudit(ctx context.Context, action, targetType, target, result string, details map[string]any) {
 	if s.audit != nil {
-		s.audit(ctx, action, target, result, details)
+		s.audit(ctx, action, targetType, target, result, details)
 	}
 }
 

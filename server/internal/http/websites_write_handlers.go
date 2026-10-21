@@ -21,8 +21,36 @@ import (
 // the form with the field messages and the submitted values (PHP re-renders
 // the old input too).
 
-// websiteService builds the website write service with an audit hook bound to
-// the current actor and request (mirrors WebsiteService.php wiring).
+// websiteAuditHook builds the audit callback bound to the current actor and
+// request (mirrors the PHP controller wiring: every service records through
+// the same AuditLogger).
+func (s *Server) websiteAuditHook(r *http.Request, user *identity.User) hosting.Auditor {
+	return func(ctx context.Context, action, targetType, target, result string, details map[string]any) {
+		// The services pass the type explicitly; keep the action-prefix
+		// inference as a fallback for any that do not.
+		if targetType == "" {
+			targetType = "website"
+		}
+		if strings.HasPrefix(action, "dns.") {
+			targetType = "dns_zone"
+		}
+		uid := user.ID
+		s.audit.Record(ctx, audit.Entry{
+			UserID:     &uid,
+			Username:   user.Username,
+			Action:     action,
+			TargetType: targetType,
+			TargetID:   target,
+			Result:     result,
+			IP:         clientIP(r),
+			UserAgent:  r.UserAgent(),
+			Details:    details,
+		})
+	}
+}
+
+// websiteService builds the website write service with the audit hook bound
+// to the current actor and request.
 func (s *Server) websiteService(r *http.Request, user *identity.User) *hosting.WebsiteService {
 	return hosting.NewWebsiteService(
 		hosting.NewWebsiteRepository(s.db),
@@ -31,24 +59,7 @@ func (s *Server) websiteService(r *http.Request, user *identity.User) *hosting.W
 		hosting.NewPlanLimits(s.db),
 		hosting.NewDnsRepository(s.db),
 		s.settings,
-		func(ctx context.Context, action, target, result string, details map[string]any) {
-			targetType := "website"
-			if strings.HasPrefix(action, "dns.") {
-				targetType = "dns_zone"
-			}
-			uid := user.ID
-			s.audit.Record(ctx, audit.Entry{
-				UserID:     &uid,
-				Username:   user.Username,
-				Action:     action,
-				TargetType: targetType,
-				TargetID:   target,
-				Result:     result,
-				IP:         clientIP(r),
-				UserAgent:  r.UserAgent(),
-				Details:    details,
-			})
-		},
+		s.websiteAuditHook(r, user),
 		s.currentServerID(r),
 	)
 }
@@ -228,14 +239,16 @@ func (s *Server) websitesStore(w http.ResponseWriter, r *http.Request) {
 		s.handleSiteFormError(w, r, user, nil, in, err, "/websites/new")
 		return
 	}
-	// Node.js/Python sites get a managed app (PHP provisionApp) — the app
-	// setup page lands with the Runtimes batch; the site itself is live now.
-	msg := "Website created. Nginx and PHP-FPM were validated and reloaded."
+	// Node.js/Python sites get their app started as a Worker on the chosen
+	// runtime (SitesController::store → provisionApp, best effort — the
+	// Runtime page is the fix point), and land on that runtime page.
+	back, msg := fmt.Sprintf("/sites/%d", id), "Website created. Nginx and PHP-FPM were validated and reloaded."
 	if in["kind"] == "nodejs" || in["kind"] == "python" {
-		msg = "Website created."
+		s.provisionApp(r, user, id, in)
+		back, msg = fmt.Sprintf("/sites/%d/%s", id, in["kind"]), "Website created. Set up your app below."
 	}
 	sess.Flash("success", msg)
-	http.Redirect(w, r, fmt.Sprintf("/sites/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 // websiteSettings shows the edit form (SitesController::settings, GET).
