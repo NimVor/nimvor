@@ -36,6 +36,7 @@ type Server struct {
 	mux       *http.ServeMux
 	sessions  *session.Manager
 	auth      *auth.Service
+	users     *identity.Repository
 	roles     *authz.RoleRepository
 	features  *authz.FeatureService
 	tpl       *web.Templates
@@ -67,6 +68,7 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		mux:       http.NewServeMux(),
 		sessions:  session.NewManager(c, session.DefaultCookieName, cfg.Production),
 		auth:      auth.NewService(db, users, auth.NewThrottle(db), tf, al),
+		users:     users,
 		roles:     authz.NewRoleRepository(db),
 		features:  authz.NewFeatureService(db),
 		tpl:       tpl,
@@ -106,7 +108,16 @@ func (s *Server) routes() {
 	// Websites — list + detail. Permission-gated (websites.view) and
 	// tenant-scoped; no plan feature gates the list itself.
 	s.mux.HandleFunc("GET /websites", s.guard("", "websites.view", s.websitesIndex))
+	s.mux.HandleFunc("GET /websites/new", s.guard("sites.create", "websites.manage", s.websitesNew))
+	s.mux.HandleFunc("POST /websites/new", s.guard("sites.store", "websites.manage", s.websitesStore))
 	s.mux.HandleFunc("GET /websites/{id}", s.guard("", "websites.view", s.websiteShow))
+	s.mux.HandleFunc("GET /sites/{id}/settings", s.guard("sites.edit", "websites.manage", s.websiteSettings))
+	s.mux.HandleFunc("POST /sites/{id}/settings", s.guard("sites.update", "websites.manage", s.websiteSettingsSave))
+	s.mux.HandleFunc("POST /sites/{id}/toggle", s.guard("sites.toggle", "websites.manage", s.websiteToggle))
+	s.mux.HandleFunc("POST /sites/{id}/delete", s.guard("sites.delete", "websites.manage", s.websiteDelete))
+	s.mux.HandleFunc("GET /sites/{id}/addons", s.guard("sites.addons", "websites.manage", s.siteAddons))
+	s.mux.HandleFunc("POST /sites/{id}/addons", s.guard("sites.addons.store", "websites.manage", s.siteAddonsStore))
+	s.mux.HandleFunc("POST /sites/{id}/subdomains", s.guard("sites.subdomains.store", "websites.manage", s.siteSubdomainsStore))
 	s.mux.HandleFunc("GET /sites/{id}/cron", s.guard("", "cron.view", s.siteCron))
 	s.mux.HandleFunc("GET /sites/{id}/workers", s.guard("", "workers.manage", s.siteWorkers))
 	// Subdomains: gated by the subdomains plan feature (route name) AND the

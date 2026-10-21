@@ -17,11 +17,15 @@ type PlanLimits struct{ db *sql.DB }
 // NewPlanLimits wraps a database handle.
 func NewPlanLimits(db *sql.DB) *PlanLimits { return &PlanLimits{db: db} }
 
-// resourceColumn maps a resource key to its plan column and human label.
-// Extend as write paths for other resources are ported; the counting query in
-// countFor must gain the matching case.
+// resourceColumn maps a resource key to its plan column and human label
+// (PlanLimits::RESOURCES, the subset the ported write paths enforce). The
+// counting query in countFor must gain the matching case.
 var resourceColumn = map[string][2]string{
-	"databases": {"max_databases", "SQL databases"},
+	"websites":       {"max_websites", "Websites"},
+	"subdomains":     {"max_subdomains", "Subdomains"},
+	"parked_domains": {"max_parked_domains", "Parked domains"},
+	"addon_domains":  {"max_addon_domains", "Addon domains"},
+	"databases":      {"max_databases", "SQL databases"},
 }
 
 // AssertCanCreate returns a *UserError if creating `adding` more of `resource`
@@ -62,13 +66,25 @@ func (p *PlanLimits) AssertCanCreate(ctx context.Context, resource string, owner
 				whose = "Your provider's plan"
 			}
 			return &UserError{
-				What: fmt.Sprintf("%s allows at most %d %s.", whose, limit, label),
+				What: fmt.Sprintf("%s allows at most %d %s.", whose, limit, limitLabel(label)),
 				Why:  fmt.Sprintf("The limit of the %q plan has been reached.", planName),
 				Fix:  "Delete an existing one or ask your provider to upgrade the plan.",
 			}
 		}
 	}
 	return nil
+}
+
+// limitLabel renders the resource label the way the message wants it
+// (PlanLimits::assertCanCreate): "SQL databases" keeps its casing (second
+// letter capital), everything else is lowercased ("websites", "parked domains").
+func limitLabel(label string) string {
+	if len(label) >= 2 {
+		if c := label[1]; c >= 'A' && c <= 'Z' {
+			return label
+		}
+	}
+	return strings.ToLower(label[:1]) + label[1:]
 }
 
 // planLimit returns the plan name and the effective limit for a column (plan
@@ -162,9 +178,21 @@ func (p *PlanLimits) countFor(ctx context.Context, resource string, owners []int
 		args[i] = o
 	}
 	var q string
+	join := strings.Join(in, ",")
 	switch resource {
+	// Primary sites and addon domains count toward the website limit (an
+	// addon domain is a separate site); subdomains do not — they have their
+	// own limit.
+	case "websites":
+		q = "SELECT COUNT(*) FROM websites c LEFT JOIN websites p ON p.id = c.parent_id WHERE c.owner_id IN (" + join + ") AND (c.parent_id IS NULL OR c.domain NOT LIKE '%.' || p.domain)"
+	case "subdomains":
+		q = "SELECT COUNT(*) FROM websites c JOIN websites p ON p.id = c.parent_id WHERE c.owner_id IN (" + join + ") AND c.domain LIKE '%.' || p.domain"
+	case "addon_domains":
+		q = "SELECT COUNT(*) FROM websites c JOIN websites p ON p.id = c.parent_id WHERE c.owner_id IN (" + join + ") AND c.domain NOT LIKE '%.' || p.domain"
+	case "parked_domains":
+		q = "SELECT COUNT(*) FROM domains d JOIN websites w ON w.id = d.website_id WHERE d.is_primary = 0 AND w.owner_id IN (" + join + ")"
 	case "databases":
-		q = "SELECT COUNT(*) FROM databases WHERE owner_id IN (" + strings.Join(in, ",") + ")"
+		q = "SELECT COUNT(*) FROM databases WHERE owner_id IN (" + join + ")"
 	default:
 		return 0, fmt.Errorf("planlimits: unsupported resource %q", resource)
 	}

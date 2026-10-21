@@ -27,10 +27,16 @@ func (s *Server) websitesIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	sess := sessionFrom(r.Context())
+	errMsg, _ := sess.PullFlash("error")
+	okMsg, _ := sess.PullFlash("success")
 	s.render(w, "websites", map[string]any{
-		"User":  user,
-		"CSRF":  session.CSRFToken(sessionFrom(r.Context())),
-		"Sites": sites,
+		"User":      user,
+		"CSRF":      session.CSRFToken(sess),
+		"Sites":     sites,
+		"Error":     errMsg,
+		"Success":   okMsg,
+		"CanManage": s.can(r, "websites.manage"),
 	})
 }
 
@@ -61,11 +67,17 @@ func (s *Server) websiteShow(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	sess := sessionFrom(r.Context())
+	errMsg, _ := sess.PullFlash("error")
+	okMsg, _ := sess.PullFlash("success")
 	s.render(w, "website_show", map[string]any{
 		"User":      user,
-		"CSRF":      session.CSRFToken(sessionFrom(r.Context())),
+		"CSRF":      session.CSRFToken(sess),
 		"Site":      site,
 		"Databases": dbs,
+		"Error":     errMsg,
+		"Success":   okMsg,
+		"CanManage": s.can(r, "websites.manage"),
 	})
 }
 

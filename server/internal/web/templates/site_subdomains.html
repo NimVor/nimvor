@@ -17,20 +17,30 @@
   </form>
 </header>
 <main class="container">
-  <p><a href="/websites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
+  <p><a href="/sites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
   <h1>Subdomains</h1>
+  {{with .Error}}<p class="alert alert-error">{{.}}</p>{{end}}
   {{if .Children}}
   <table class="data-table">
     <thead><tr><th>Domain</th><th>Document root</th><th>Status</th></tr></thead>
     <tbody>
     {{range .Children}}
-      <tr><td>{{.Domain}}</td><td><code>{{.SystemUser}}</code></td><td>{{.Status}}</td></tr>
+      <tr><td>{{.Domain}}</td><td><code>{{.DocumentRoot}}</code></td><td>{{.Status}}</td></tr>
     {{end}}
     </tbody>
   </table>
   {{else}}
   <p class="text-muted">No subdomains for this website.</p>
   {{end}}
+  <h2>New subdomain</h2>
+  <form method="post" action="/sites/{{.Site.ID}}/subdomains" class="stacked-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <label>Subdomain of {{.Site.Domain}}
+      <input type="text" name="subdomain" value="{{.OldLabel}}" required>
+    </label>
+    <label class="checkbox"><input type="checkbox" name="dns" value="on" {{if .OldDNS}}checked{{end}}> Add an A record (when the DNS zone of {{.Site.Domain}} is hosted here)</label>
+    <button type="submit">Add subdomain</button>
+  </form>
 </main>
 </body>
 </html>{{end}}

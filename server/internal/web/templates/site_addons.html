@@ -1,0 +1,46 @@
+{{define "site_addons"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Addon domains · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/sites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
+  <h1>Addon domains</h1>
+  {{with .Error}}<p class="alert alert-error">{{.}}</p>{{end}}
+  {{if .Addons}}
+  <table class="data-table">
+    <thead><tr><th>Domain</th><th>Document root</th><th>Status</th></tr></thead>
+    <tbody>
+    {{range .Addons}}
+      <tr><td>{{.Domain}}</td><td><code>{{.DocumentRoot}}</code></td><td>{{.Status}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="text-muted">No addon domains for this website.</p>
+  {{end}}
+  <h2>New addon domain</h2>
+  <form method="post" action="/sites/{{.Site.ID}}/addons" class="stacked-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <label>Domain
+      <input type="text" name="domain" value="{{.OldDomain}}" required>
+    </label>
+    <label class="checkbox"><input type="checkbox" name="www" value="on" {{if .OldWWW}}checked{{end}}> Also serve www.{{.OldDomain}}</label>
+    <button type="submit">Add addon domain</button>
+  </form>
+</main>
+</body>
+</html>{{end}}

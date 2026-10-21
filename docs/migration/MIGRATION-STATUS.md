@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **29 ☑ done+tested, 3 ◑ partial, 519 ☐** of 551.
+`server/internal/http/server.go`): **38 ☑ done+tested, 3 ◑ partial, 510 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -54,6 +54,14 @@ Route porting count (see ROUTE-MATRIX.md, verified against
 - GET `/sites/{id}/cron` · GET `/sites/{id}/workers` · GET `/sites/{id}/subdomains` (feature-gated)
 - GET/POST `/databases` + POST `/databases/{id}/drop` (plan-limit enforced before
   the agent call; confirm-word + CSRF negative tests)
+- GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
+  system-user takeover rules; agent apply with new_user; row rolled back on
+  agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
+  · POST `/sites/{id}/toggle` · POST `/sites/{id}/delete` (typed confirm) ·
+  GET `/sites/{id}/addons` + POST `/sites/{id}/addons` + POST
+  `/sites/{id}/subdomains` (child sites inherit account/owner/PHP; optional A
+  record into the parent's hosted zone) — all tenant-scoped, CSRF-protected,
+  audit-logged (websites.create/update/enable/disable/delete + dns.record_create)
 - GET `/dns` (zone list, tenant-scoped) · GET `/mail` (domains, tenant-scoped)
 - GET `/audit` (staff) · GET `/users` (reseller-scoped) · GET `/roles` · GET `/plans` (reseller-own) · GET `/servers` (staff)
 - GET+POST /notifications (read-marking scoped) · GET `/profile` (◑: 2FA + API
@@ -68,7 +76,10 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - ☑ password reset by email (forgot/reset flows + SMTP mailer + settings repo + password policy) — done
 - ◐ WebAuthn security keys (registration + login assertion) — 2FA users with both
   factors can use TOTP; key-only users are refused (safe) until this lands
-- ☐ websites write path (create/enable/disable/delete, settings, subdomains/addons write, PHP/runtime profiles)
+- ◑ websites write path — core lifecycle done (create/enable/disable/delete,
+  settings, subdomains/addons write, plan limits, PHP profiles); remainder:
+  advanced ops (restart-php, reapply, directory listing, permission repair,
+  runtime change, convert) + the Node.js/Python app setup (Worker provisioning)
 - ☐ database users, DB browser, mongo, redis/memcached, DNS records, mail accounts/filters, SSL/ACME, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
 
 ## NOT YET PORTED (known follow-ups, tracked honestly)
@@ -85,10 +96,12 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: websites write path — create/enable/disable/delete + settings +
-subdomains/addons write + PHP/runtime profiles, against the hosting agent
-client, with permission/feature/tenant-scope + CSRF negative tests.
-(Identity + password-reset half of Phase 2 is done: TOTP 2FA and password
-reset by email are both ported and tested.)
+Batch: websites advanced ops — POST `/sites/{id}/restart-php`,
+`/sites/{id}/reapply`, `/sites/{id}/directory-listing`, `/sites/{id}/permissions`
+(check/repair, 30-min agent timeout), `/sites/{id}/convert` (USERS_MANAGE) and
+the Node.js/Python app runner (PHP provisionApp: best-effort Worker per app
+site) — against the hosting agent client, with permission/feature/tenant-scope
++ CSRF negative tests. The core websites write path (create/settings/toggle/
+delete/subdomains/addons) is ported and tested.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
