@@ -27,6 +27,7 @@ var resourceColumn = map[string][2]string{
 	"addon_domains":  {"max_addon_domains", "Addon domains"},
 	"databases":      {"max_databases", "SQL databases"},
 	"workers":        {"max_workers", "Workers"},
+	"customers":      {"max_customers", "Customers"},
 }
 
 // AssertCanCreate returns a *UserError if creating `adding` more of `resource`
@@ -194,6 +195,8 @@ func (p *PlanLimits) countFor(ctx context.Context, resource string, owners []int
 		q = "SELECT COUNT(*) FROM domains d JOIN websites w ON w.id = d.website_id WHERE d.is_primary = 0 AND w.owner_id IN (" + join + ")"
 	case "databases":
 		q = "SELECT COUNT(*) FROM databases WHERE owner_id IN (" + join + ")"
+	case "customers":
+		q = "SELECT COUNT(*) FROM users WHERE parent_id IN (" + join + ")"
 	case "workers":
 		// A worker belongs to a website; it counts against that website's owner.
 		q = "SELECT COUNT(*) FROM workers w JOIN websites s ON s.id = w.website_id WHERE s.owner_id IN (" + join + ")"

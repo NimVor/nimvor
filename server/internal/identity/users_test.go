@@ -97,3 +97,78 @@ func TestCanActNil(t *testing.T) {
 		t.Fatal("nil user must not CanAct")
 	}
 }
+
+func TestUserRepositoryWrites(t *testing.T) {
+	db, err := database.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := database.Migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO roles (id,name,label,scope,created_at) VALUES (1,'administrator','Admin','all',''),(3,'customer','Customer','own','')`); err != nil {
+		t.Fatal(err)
+	}
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	taken, err := repo.UsernameExists(ctx, "freshname", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if taken {
+		t.Fatal("UsernameExists on an empty table = true")
+	}
+	id, err := repo.Create(ctx, &NewUser{
+		Username: "freshname", Email: "fresh@example.test", DisplayName: "Fresh",
+		PasswordHash: "HASH", RoleID: 3, IsActive: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := repo.Find(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Username != "freshname" || !u.IsActive || u.RoleName != "customer" {
+		t.Fatalf("Find after Create = %+v", u)
+	}
+
+	taken, _ = repo.UsernameExists(ctx, "FRESHNAME", 0) // case-insensitive (collation)
+	if !taken {
+		t.Fatal("UsernameExists after Create = false")
+	}
+	if taken, _ = repo.UsernameExists(ctx, "freshname", id); taken {
+		t.Fatal("UsernameExists with exceptID = true")
+	}
+	if taken, _ = repo.EmailExists(ctx, "fresh@example.test", 0); !taken {
+		t.Fatal("EmailExists after Create = false")
+	}
+	if taken, _ = repo.EmailExists(ctx, "fresh@example.test", id); taken {
+		t.Fatal("EmailExists with exceptID = true")
+	}
+
+	parent, plan := int64(7), int64(11)
+	if err := repo.SetOwnership(ctx, id, &parent, &plan); err != nil {
+		t.Fatal(err)
+	}
+	u, _ = repo.Find(ctx, id)
+	if !u.ParentID.Valid || u.ParentID.Int64 != 7 || !u.PlanID.Valid || u.PlanID.Int64 != 11 {
+		t.Fatalf("SetOwnership not applied: %+v", u)
+	}
+	if err := repo.SetOwnership(ctx, id, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	u, _ = repo.Find(ctx, id)
+	if u.ParentID.Valid || u.PlanID.Valid {
+		t.Fatalf("SetOwnership(nil, nil) not applied: %+v", u)
+	}
+
+	if err := repo.Delete(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Find(ctx, id); err == nil {
+		t.Fatal("Find after Delete = nil error")
+	}
+}

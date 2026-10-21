@@ -62,3 +62,22 @@ func (r *PlanRepository) Visible(ctx context.Context, actor *identity.User) ([]P
 	}
 	return out, rows.Err()
 }
+
+// AssertAssignable checks that the plan is one the actor may assign to a
+// user (PlanService::assertAssignable): a staff member any plan, a reseller
+// only their own. A nil plan id is always fine.
+func (r *PlanRepository) AssertAssignable(ctx context.Context, actor *identity.User, planID *int64) error {
+	if planID == nil {
+		return nil
+	}
+	visible, err := r.Visible(ctx, actor)
+	if err != nil {
+		return err
+	}
+	for _, p := range visible {
+		if p.ID == *planID {
+			return nil
+		}
+	}
+	return &ValidationError{Fields: map[string]string{"plan_id": "Choose one of your plans."}}
+}

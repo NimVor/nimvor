@@ -221,3 +221,79 @@ func (r *Repository) UpdatePassword(ctx context.Context, id int64, hash string) 
 		hash, now, now, id)
 	return err
 }
+
+// NewUser is the data for Repository.Create (UserRepository::create).
+type NewUser struct {
+	Username     string
+	Email        string
+	DisplayName  string
+	PasswordHash string
+	RoleID       int64
+	IsActive     bool
+}
+
+// Create inserts a panel user and returns the new id
+// (UserRepository::create).
+func (r *Repository) Create(ctx context.Context, u *NewUser) (int64, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	active := 0
+	if u.IsActive {
+		active = 1
+	}
+	res, err := r.db.ExecContext(ctx,
+		`INSERT INTO users (username, email, display_name, password_hash, role_id, is_active, password_changed_at, created_at, updated_at)
+		 VALUES (?,?,?,?,?,?,?,?,?)`,
+		u.Username, u.Email, u.DisplayName, u.PasswordHash, u.RoleID, active, now, now, now)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// SetOwnership sets the parent reseller and plan (UserRepository::setOwnership).
+func (r *Repository) SetOwnership(ctx context.Context, id int64, parentID, planID *int64) error {
+	parent := any(nil)
+	if parentID != nil {
+		parent = *parentID
+	}
+	plan := any(nil)
+	if planID != nil {
+		plan = *planID
+	}
+	_, err := r.db.ExecContext(ctx, "UPDATE users SET parent_id = ?, plan_id = ? WHERE id = ?", parent, plan, id)
+	return err
+}
+
+// Delete removes a panel user (UserRepository::delete).
+func (r *Repository) Delete(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, "DELETE FROM users WHERE id = ?", id)
+	return err
+}
+
+// UsernameExists reports whether the login is taken
+// (UserRepository::usernameExists). exceptID skips one row (0 = none).
+func (r *Repository) UsernameExists(ctx context.Context, username string, exceptID int64) (bool, error) {
+	var one int
+	err := r.db.QueryRowContext(ctx, "SELECT 1 FROM users WHERE username = ? AND id != ?", username, exceptID).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// EmailExists reports whether the email is taken (UserRepository::emailExists).
+// exceptID skips one row (0 = none).
+func (r *Repository) EmailExists(ctx context.Context, email string, exceptID int64) (bool, error) {
+	var one int
+	err := r.db.QueryRowContext(ctx, "SELECT 1 FROM users WHERE email = ? AND id != ?", email, exceptID).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
