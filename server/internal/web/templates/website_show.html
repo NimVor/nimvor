@@ -19,6 +19,7 @@
 <main class="container">
   <p><a href="/websites">&larr; Websites</a></p>
   <h1>{{.Site.Domain}}</h1>
+  {{if and (eq .Site.Status "error") .Site.LastError}}<p class="alert alert-error"><strong>The last change failed:</strong> {{.Site.LastError}}</p>{{end}}
   <dl class="site-meta">
     <dt>Type</dt><dd>{{.Site.Kind}}{{if eq .AppType "nodejs"}} (Node.js app){{else if eq .AppType "python"}} (Python app){{end}}</dd>
     <dt>Status</dt><dd>{{.Site.Status}}</dd>

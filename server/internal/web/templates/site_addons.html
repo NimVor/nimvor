@@ -20,12 +20,19 @@
   <p><a href="/sites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
   <h1>Addon domains</h1>
   {{with .Error}}<p class="alert alert-error">{{.}}</p>{{end}}
+  {{with .Success}}<p class="alert alert-success">{{.}}</p>{{end}}
+  <p class="text-muted">An addon domain is a separate website for another domain you own, running under this website's account <code>{{.Site.SystemUser}}</code> (its own folder, PHP, SSL, databases…).</p>
   {{if .Addons}}
   <table class="data-table">
-    <thead><tr><th>Domain</th><th>Document root</th><th>Status</th></tr></thead>
+    <thead><tr><th>Domain</th><th>Document root</th><th>Status</th><th></th></tr></thead>
     <tbody>
     {{range .Addons}}
-      <tr><td>{{.Domain}}</td><td><code>{{.DocumentRoot}}</code></td><td>{{.Status}}</td></tr>
+      <tr>
+        <td><a href="/sites/{{.ID}}">{{.Domain}}</a></td>
+        <td><code>{{.DocumentRoot}}</code></td>
+        <td>{{.Status}}</td>
+        <td>{{if $.CanConvert}}<a href="/sites/{{.ID}}/convert">Convert to account</a>{{end}}</td>
+      </tr>
     {{end}}
     </tbody>
   </table>

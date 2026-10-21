@@ -1,0 +1,63 @@
+{{define "site_convert"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Convert {{.Site.Domain}} to an account · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/sites/{{.ParentID}}/addons">&larr; addon domains</a></p>
+  <h1>Convert {{.Site.Domain}} to an account</h1>
+  {{with .Error}}<p class="alert alert-error">{{.}}</p>{{end}}
+  {{with .Success}}<p class="alert alert-success">{{.}}</p>{{end}}
+  <p class="text-muted">{{.Site.Domain}} becomes a hosting account of its own, with a new login and a new system account. Nothing is copied: its folder is re-owned in place.</p>
+  {{with .Preview}}
+  <ul class="small">
+    <li>Websites: {{$.WebsitesText}}</li>
+    <li>Databases: {{if $.DatabasesText}}{{$.DatabasesText}}{{else}}none{{end}} (database users that only these use move too)</li>
+    <li>DNS zone: {{if .DNS}}moves{{else}}none here{{end}} · email domain with its mailboxes: {{if .Mail}}moves{{else}}none here{{end}}</li>
+    <li>Cron jobs: {{.Cron}} · workers: {{.Workers}} · FTP accounts move with their passwords</li>
+  </ul>
+  {{end}}
+  {{if .Fields}}
+  <p class="alert alert-error">Please correct the following:</p>
+  <ul class="form-errors">
+    {{range $k, $m := .Fields}}<li data-field="{{$k}}">{{$m}}</li>{{end}}
+  </ul>
+  {{end}}
+  <form method="post" action="/sites/{{.Site.ID}}/convert" class="stacked-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <label>Username (login and system account)
+      <input type="text" name="username" value="{{index .Form "username"}}" required maxlength="31" autocomplete="off">
+    </label>
+    <label>Email
+      <input type="email" name="email" value="{{index .Form "email"}}" required>
+    </label>
+    <label>Password
+      <input type="password" name="password" autocomplete="new-password" required>
+    </label>
+    <label>Repeat password
+      <input type="password" name="password_confirmation" autocomplete="new-password" required>
+    </label>
+    <label>Hosting plan
+      <select name="plan_id">
+        <option value="">No plan</option>
+        {{range .Plans}}<option value="{{.ID}}" {{if eq (printf "%d" .ID) (index $.Form "plan_id")}}selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+    </label>
+    <button type="submit">Convert to account</button>
+  </form>
+</main>
+</body>
+</html>{{end}}

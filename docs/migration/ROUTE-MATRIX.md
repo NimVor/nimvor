@@ -414,7 +414,7 @@ Total routes: 551
 | POST | `/sites/{id}/cloudflare/purge` | SiteCloudflareController::purge | sites.cloudflare.purge | websites.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/cloudflare/ssl` | SiteCloudflareController::ssl | sites.cloudflare.ssl | websites.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/cloudflare` | SiteCloudflareController::index | sites.cloudflare | websites.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/convert` | AddonConversionController::convert | sites.convert | users.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/convert` | AddonConversionController::convert | sites.convert | users.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/cron/{job}/delete` | CronController::delete | sites.cron.delete | cron.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/cron/{job}/log` | CronController::log | sites.cron.log | cron.view | yes | yes | ☐ |
 | POST | `/sites/{id}/cron/{job}/run` | CronController::run | sites.cron.run | cron.manage | yes | yes | ☐ |
