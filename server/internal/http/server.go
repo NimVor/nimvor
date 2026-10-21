@@ -117,6 +117,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /sites/{id}/delete", s.guard("sites.delete", "websites.manage", s.websiteDelete))
 	s.mux.HandleFunc("GET /sites/{id}/addons", s.guard("sites.addons", "websites.manage", s.siteAddons))
 	s.mux.HandleFunc("POST /sites/{id}/addons", s.guard("sites.addons.store", "websites.manage", s.siteAddonsStore))
+	// Addon domain → hosting account (AddonConversionController, users.manage).
+	s.mux.HandleFunc("GET /sites/{id}/convert", s.guard("sites.convert", "users.manage", s.siteConvertPage))
+	s.mux.HandleFunc("POST /sites/{id}/convert", s.guard("sites.convert", "users.manage", s.siteConvert))
 	s.mux.HandleFunc("POST /sites/{id}/subdomains", s.guard("sites.subdomains.store", "websites.manage", s.siteSubdomainsStore))
 	s.mux.HandleFunc("GET /sites/{id}/cron", s.guard("", "cron.view", s.siteCron))
 	s.mux.HandleFunc("GET /sites/{id}/workers", s.guard("", "workers.manage", s.siteWorkers))

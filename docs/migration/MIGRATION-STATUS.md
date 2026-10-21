@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **51 ☑ done+tested, 3 ◑ partial, 497 ☐** of 551.
+`server/internal/http/server.go`): **52 ☑ done+tested, 3 ◑ partial, 496 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -106,8 +106,10 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   page); account-creation foundation done (UserService::create,
   AccountService::create + AccountOptions, CronService::apply,
   WebsiteService::moveToAccount, UserRepository writes, the "customers" plan
-  limit); remainder: `/sites/{id}/convert` (AddonConversionController) + the
-  "advanced" view
+  limit); addon→account conversion done (AddonConversionService: isAddon,
+  preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
+  rollback on agent failure); the PHP "Advanced" consolidated view is shown
+  inline on the Go site page instead (its last-error box is now rendered)
 - ☐ database users, DB browser, mongo, redis/memcached, DNS records, mail accounts/filters, SSL/ACME, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
 
 ## NOT YET PORTED (known follow-ups, tracked honestly)
@@ -124,16 +126,11 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the websites remainder — POST `/sites/{id}/convert`
-(AddonConversionController; converts an ADDON domain into a hosting account of
-its own: new panel login, the site family re-owned by the new system account,
-FTP/cron/workers moved, DB/DNS/mail ownership moved, full rollback on failure —
-USERS_MANAGE) + the PHP "Advanced" consolidated view (the Go panel shows the
-ops inline on the site page instead). The conversion foundations already exist
-(UserService, AccountService, AccountOptions, CronService.Apply,
-WebsiteService.MoveToAccount); the batch is AddonConversionService (isAddon,
-preview, convert, undo) + the route + confirm form. The global GET `/workers`
-index (WorkersController::index — all visible workers + status) is the other
-open WorkersController piece; it fits the Runtimes/admin batch.
+Batch: the Runtimes/admin remainder — GET `/workers`
+(WorkersController::index; the global list of every visible worker across the
+tenant with its live status, WORKERS_MANAGE — the last open
+WorkersController route; the status plumbing is already there from the
+workers write path) plus the per-site logs page GET `/sites/{id}/logs`
+(LogsController::site, LOGS_VIEW: access/error log tail over the agent).
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

@@ -427,13 +427,18 @@ func (s *Server) siteAddons(w http.ResponseWriter, r *http.Request) {
 			addons = append(addons, c)
 		}
 	}
+	sess := sessionFrom(r.Context())
+	errMsg, _ := sess.PullFlash("error")
+	okMsg, _ := sess.PullFlash("success")
 	s.render(w, "site_addons", map[string]any{
-		"User":     user,
-		"CSRF":     session.CSRFToken(sessionFrom(r.Context())),
-		"Site":     site,
-		"Addons":   addons,
-		"Error":    "",
-		"OldDomain": "",
+		"User":       user,
+		"CSRF":       session.CSRFToken(sess),
+		"Site":       site,
+		"Addons":     addons,
+		"CanConvert": s.can(r, "users.manage"),
+		"Error":      errMsg,
+		"Success":    okMsg,
+		"OldDomain":  "",
 	})
 }
 
