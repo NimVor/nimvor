@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **47 ☑ done+tested, 3 ◑ partial, 501 ☐** of 551.
+`server/internal/http/server.go`): **51 ☑ done+tested, 3 ◑ partial, 497 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -74,6 +74,16 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   WorkerService.php). New Node.js/Python sites provision their "app" Worker from
   the submitted start command (best-effort, PHP provisionApp parity) and land on
   the runtime page.
+- Workers write path (WorkersController) — GET `/sites/{id}/workers` now shows
+  live state (workers.status: badge, copies up, memory) + the create/edit form
+  (old-input re-render on validation failure); POST `/sites/{id}/workers`
+  (create + edit via worker_id, plan-limit "workers" enforced, explicit-0 procs
+  rejected as in PHP) · POST `.../workers/{worker}/toggle` (setEnabled:
+  apply-then-persist) · `.../restart` (suspended accounts refused) ·
+  `.../delete` (remove-then-delete-row); WorkerService::setEnabled/restart/
+  delete/removeAll ported — `removeAll` runs on the website.deleting event
+  (before sites.delete, failures swallowed); missing site → flash + list,
+  missing worker → flash + page, agent failures flash the agent's message
 - GET `/dns` (zone list, tenant-scoped) · GET `/mail` (domains, tenant-scoped)
 - GET `/audit` (staff) · GET `/users` (reseller-scoped) · GET `/roles` · GET `/plans` (reseller-own) · GET `/servers` (staff)
 - GET+POST /notifications (read-marking scoped) · GET `/profile` (◑: 2FA + API
@@ -91,9 +101,10 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - ◑ websites write path — core lifecycle done (create/enable/disable/delete,
   settings, subdomains/addons write, plan limits, PHP profiles); advanced ops
   done (restart-php, reapply, directory listing, permissions check/repair,
-  Node.js/Python runtime page + app-Worker provisioning); remainder:
-  `/sites/{id}/convert` (AddonConversionController) + the workers write path
-  (create/toggle/restart/delete) + the "advanced" view
+  Node.js/Python runtime page + app-Worker provisioning); workers write path
+  done (create/edit/toggle/restart/delete + removeAll on delete + live status
+  page); remainder: `/sites/{id}/convert` (AddonConversionController) + the
+  "advanced" view
 - ☐ database users, DB browser, mongo, redis/memcached, DNS records, mail accounts/filters, SSL/ACME, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
 
 ## NOT YET PORTED (known follow-ups, tracked honestly)
@@ -110,13 +121,11 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: workers write path — POST `/sites/{id}/workers` (create, plan-limit +
-slug), POST `/sites/{id}/workers/{worker}/toggle` (setEnabled),
-`/sites/{id}/workers/{worker}/restart` and `/sites/{id}/workers/{worker}/delete`
-(+ `removeAll` on website delete) — porting WorkerService::setEnabled/restart/
-delete/removeAll with the workers-page forms, plan-limit/tenant-scope/CSRF
-negative tests, and the per-worker agent failure handling. Then:
-`/sites/{id}/convert` (AddonConversionController, USERS_MANAGE) + the "advanced"
-view.
+Batch: the websites remainder — POST `/sites/{id}/convert`
+(AddonConversionController; converts a plain proxy site into a Node.js/Python
+app, USERS_MANAGE) + the PHP "Advanced" consolidated view (the Go panel shows
+the ops inline on the site page instead). The global GET `/workers` index
+(WorkersController::index — all visible workers + status) is the other open
+WorkersController piece; it fits the Runtimes/admin batch.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

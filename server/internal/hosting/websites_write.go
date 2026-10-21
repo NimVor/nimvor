@@ -94,12 +94,15 @@ type WebsiteService struct {
 	cfg      *settings.Repository
 	audit    Auditor
 	serverID int64
+	workers  *WorkerService
 }
 
 // NewWebsiteService builds the service. serverID is the active server
 // (ServerContext::id() in the PHP panel; single-server in Go).
 func NewWebsiteService(sites *WebsiteRepository, agent AgentCaller, features *authz.FeatureService, limits *PlanLimits, dns *DnsRepository, cfg *settings.Repository, audit Auditor, serverID int64) *WebsiteService {
-	return &WebsiteService{sites: sites, agent: agent, features: features, limits: limits, dns: dns, cfg: cfg, audit: audit, serverID: serverID}
+	s := &WebsiteService{sites: sites, agent: agent, features: features, limits: limits, dns: dns, cfg: cfg, audit: audit, serverID: serverID}
+	s.workers = NewWorkerService(sites.db, agent, limits, audit, serverID)
+	return s
 }
 
 // recordAudit is the nil-safe audit hook.
@@ -1305,6 +1308,11 @@ func (s *WebsiteService) Delete(ctx context.Context, site *Website, removeFiles,
 	}
 	if len(keptFor) > 0 {
 		removeUser = false
+	}
+	// The website.deleting event: stop the site's workers on the server
+	// before the server-side teardown (WorkerService::removeAll).
+	if s.workers != nil {
+		s.workers.RemoveAll(ctx, site)
 	}
 	raw, err := s.agent.Call(ctx, "sites.delete", map[string]any{
 		"domain": site.Domain, "user": site.SystemUser,

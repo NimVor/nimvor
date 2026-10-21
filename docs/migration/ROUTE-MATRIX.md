@@ -500,11 +500,11 @@ Total routes: 551
 | POST | `/sites/{id}/wordpress/{wp}/tools` | WordPressController::tool | sites.wordpress.tool | websites.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/wordpress/{wp}` | WordPressController::show | sites.wordpress.show | websites.view | yes | yes | ☐ |
 | GET | `/sites/{id}/wordpress` | WordPressController::siteList | sites.wordpress | websites.view | yes | yes | ☐ |
-| POST | `/sites/{id}/workers/{worker}/delete` | WorkersController::delete | sites.workers.delete | workers.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/workers/{worker}/restart` | WorkersController::restart | sites.workers.restart | workers.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/workers/{worker}/toggle` | WorkersController::toggle | sites.workers.toggle | workers.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/workers/{worker}/delete` | WorkersController::delete | sites.workers.delete | workers.manage | yes | yes |☑ |
+| POST | `/sites/{id}/workers/{worker}/restart` | WorkersController::restart | sites.workers.restart | workers.manage | yes | yes |☑ |
+| POST | `/sites/{id}/workers/{worker}/toggle` | WorkersController::toggle | sites.workers.toggle | workers.manage | yes | yes |☑ |
 | GET | `/sites/{id}/workers` | WorkersController::show | sites.workers | workers.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/workers` | WorkersController::store | sites.workers.store | workers.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/workers` | WorkersController::store | sites.workers.store | workers.manage | yes | yes |☑ |
 | GET | `/sites/{id}` | SitesController::show | sites.show | websites.view | yes | yes | ☐ |
 | POST | `/ssl/autossl/run` | SslCenterController::autosslRun | ssl.autossl.run | ssl.manage | yes | yes | ☐ |
 | GET | `/ssl/autossl` | SslCenterController::autossl | ssl.autossl | ssl.view | yes | yes | ☐ |

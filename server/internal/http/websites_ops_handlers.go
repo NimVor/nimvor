@@ -54,7 +54,7 @@ func (s *Server) provisionApp(r *http.Request, user *identity.User, siteID int64
 		Runtime:   site.AppRuntime,
 		EnvText:   "PORT=" + port + "\n" + in["app_env"],
 		Restart:   "always",
-		Procs:     1,
+		Procs:     hosting.ProcsPtr(1),
 		MemoryMB:  0,
 		Enabled:   boolPtr(true),
 	})

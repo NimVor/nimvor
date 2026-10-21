@@ -46,11 +46,14 @@ type WorkerInput struct {
 	Directory string
 	Restart   string // "always" | "on-failure" | "no"
 	MemoryMB  int
-	Procs     int
+	Procs     *int // nil = the PHP ?? 1 default; explicit values are range-checked
 	Runtime   string
 	EnvText   string
 	Enabled   *bool
 }
+
+// ProcsPtr wraps a procs value as an explicit (non-default) input.
+func ProcsPtr(n int) *int { return &n }
 
 // restartPolicies is WorkerService::RESTART.
 var restartPolicies = map[string]bool{"always": true, "on-failure": true, "no": true}
@@ -158,9 +161,12 @@ func validateWorker(in WorkerInput) (*WorkerFull, error) {
 	if mem < 0 || mem > 65536 {
 		ve.Add("memory_mb", "Enter 0 (no limit) up to 65536 MB.")
 	}
-	procs := in.Procs
-	if procs == 0 {
-		procs = 1
+	// PHP: (int) ($input['procs'] ?? 1) — an absent field defaults to one
+	// copy; an explicit value (including 0, e.g. a cleared form field) is
+	// range-checked.
+	procs := 1
+	if in.Procs != nil {
+		procs = *in.Procs
 	}
 	if procs < 1 || procs > maxWorkerProcs {
 		ve.Add("procs", "Run 1 to "+strconv.Itoa(maxWorkerProcs)+" copies.")
@@ -306,7 +312,7 @@ func (s *WorkerService) ChangeRuntime(ctx context.Context, site *Website, w Work
 	enabled := w.Enabled
 	return s.Save(ctx, site, &w.ID, WorkerInput{
 		Name: w.Name, Command: w.Command, Directory: w.Directory, Restart: w.Restart,
-		MemoryMB: w.MemoryMB, Procs: w.Procs, Runtime: runtime, EnvText: strings.Join(lines, "\n"),
+		MemoryMB: w.MemoryMB, Procs: ProcsPtr(w.Procs), Runtime: runtime, EnvText: strings.Join(lines, "\n"),
 		Enabled: &enabled,
 	})
 }
@@ -344,4 +350,121 @@ func envJSON(env map[string]string) string {
 		return "{}"
 	}
 	return string(b)
+}
+
+// Unit is the worker's systemd unit name (WorkerService::hydrate).
+func (w WorkerFull) Unit() string { return "whacp-worker-" + w.Slug + ".service" }
+
+// WorkerStatus is one row of the workers.status payload: the aggregated
+// state of one worker's copies.
+type WorkerStatus struct {
+	Unit         string
+	ActiveState  string
+	SubState     string
+	ProcsTotal   int
+	ProcsRunning int
+	MemoryBytes  *int64
+}
+
+// Status reports the systemd state per unit (empty when the agent is
+// unreachable), keyed by unit name (WorkerService::status).
+func (s *WorkerService) Status(ctx context.Context, workers []WorkerFull) map[string]WorkerStatus {
+	if len(workers) == 0 {
+		return nil
+	}
+	slugs := make([]string, len(workers))
+	for i, w := range workers {
+		slugs[i] = w.Slug
+	}
+	raw, err := s.agent.Call(ctx, "workers.status", map[string]any{"slugs": slugs})
+	if err != nil {
+		return nil
+	}
+	var rows []struct {
+		Unit         string `json:"unit"`
+		ActiveState  string `json:"active_state"`
+		SubState     string `json:"sub_state"`
+		ProcsTotal   int    `json:"procs_total"`
+		ProcsRunning int    `json:"procs_running"`
+		MemoryBytes  *int64 `json:"memory_bytes"`
+	}
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		return nil
+	}
+	out := map[string]WorkerStatus{}
+	for _, r := range rows {
+		if r.Unit == "" {
+			continue
+		}
+		out[r.Unit] = WorkerStatus{Unit: r.Unit, ActiveState: r.ActiveState, SubState: r.SubState,
+			ProcsTotal: r.ProcsTotal, ProcsRunning: r.ProcsRunning, MemoryBytes: r.MemoryBytes}
+	}
+	return out
+}
+
+// SetEnabled starts or stops a worker (WorkerService::setEnabled): the new
+// state is applied on the server first, and the row follows only when the
+// agent accepted it.
+func (s *WorkerService) SetEnabled(ctx context.Context, site *Website, w WorkerFull, enabled bool) error {
+	next := w
+	next.Enabled = enabled
+	if err := s.Apply(ctx, site, next); err != nil {
+		return err
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := s.db.ExecContext(ctx, "UPDATE workers SET enabled = ?, updated_at = ? WHERE id = ?",
+		boolInt(enabled), now, w.ID); err != nil {
+		return err
+	}
+	action := "worker.stop"
+	if enabled {
+		action = "worker.start"
+	}
+	s.recordAudit(ctx, action, "website", strconv.FormatInt(site.ID, 10), "success", map[string]any{
+		"domain": site.Domain, "worker": w.Name,
+	})
+	return nil
+}
+
+// Restart asks the agent to restart the worker's units (WorkerService::restart).
+func (s *WorkerService) Restart(ctx context.Context, site *Website, w WorkerFull) error {
+	if site.AccountSuspended {
+		return &UserError{What: "The account is suspended; its workers are stopped."}
+	}
+	if _, err := s.agent.Call(ctx, "workers.restart", map[string]any{"slug": w.Slug}, 120*time.Second); err != nil {
+		return err
+	}
+	s.recordAudit(ctx, "worker.restart", "website", strconv.FormatInt(site.ID, 10), "success", map[string]any{
+		"domain": site.Domain, "worker": w.Name,
+	})
+	return nil
+}
+
+// Delete removes the worker from the server and deletes its row
+// (WorkerService::delete). An agent failure leaves the row in place.
+func (s *WorkerService) Delete(ctx context.Context, site *Website, w WorkerFull) error {
+	if _, err := s.agent.Call(ctx, "workers.remove", map[string]any{"slug": w.Slug}, 120*time.Second); err != nil {
+		return err
+	}
+	if _, err := s.db.ExecContext(ctx, "DELETE FROM workers WHERE id = ?", w.ID); err != nil {
+		return err
+	}
+	s.recordAudit(ctx, "worker.delete", "website", strconv.FormatInt(site.ID, 10), "success", map[string]any{
+		"domain": site.Domain, "worker": w.Name,
+	})
+	return nil
+}
+
+// RemoveAll removes every worker of a website from the server (called before
+// the website is deleted, as the PHP website.deleting event does). Failures
+// are swallowed: the deletion continues and leftover units are reported by
+// discovery.
+func (s *WorkerService) RemoveAll(ctx context.Context, site *Website) {
+	workers, err := s.ForSite(ctx, site.ID)
+	if err != nil {
+		return
+	}
+	for i := range workers {
+		_, _ = s.agent.Call(ctx, "workers.remove", map[string]any{"slug": workers[i].Slug}, 120*time.Second)
+	}
 }
