@@ -1,0 +1,34 @@
+{{define "two_factor"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two-factor sign-in · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-login">
+<main class="login-wrap">
+  <h1>WhaCP</h1>
+  <div class="card wcp-auth-card">
+    <h2>Two-factor sign-in</h2>
+    {{if .Error}}<p class="alert alert-danger" role="alert">{{.Error}}</p>{{end}}
+    {{if .TOTP}}
+    <p class="text-body-secondary">Enter the 6-digit code from your authenticator app, or one of your recovery codes.{{if .Username}} ({{.Username}}){{end}}</p>
+    <form method="post" action="/login/two-factor">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <label for="code">Code</label>
+      <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" required autofocus maxlength="40" spellcheck="false" class="text-center font-monospace">
+      <button type="submit">Verify</button>
+    </form>
+    {{else}}
+    <p class="alert alert-danger" role="alert">Your sign-in expired. Enter your password again.</p>
+    {{end}}
+    <form method="post" action="/login/two-factor" class="text-center">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <input type="hidden" name="cancel" value="1">
+      <button type="submit" class="btn-link">Cancel and sign in again</button>
+    </form>
+  </div>
+</main>
+</body>
+</html>{{end}}

@@ -6,7 +6,7 @@ Total routes: 551
 
 | Method | Path | Controller::method | Name | Permission | Auth | CSRF | Ported |
 |---|---|---|---|---|---|---|---|
-| GET | `/` | DashboardController::index | dashboard | dashboard.view | yes | yes | ☐ |
+| GET | `/` | DashboardController::index | dashboard | dashboard.view | yes | yes | ☑ |
 | GET | `/accounts/bandwidth` | AccountAdminController::bandwidth | accounts.bandwidth | users.manage | yes | yes | ☐ |
 | GET | `/accounts/new` | AccountsController::create | accounts.create | users.manage | yes | yes | ☐ |
 | POST | `/accounts/terminate/confirm` | AccountAdminController::confirmTerminate | accounts.terminate.confirm | users.manage | yes | yes | ☐ |
@@ -149,13 +149,13 @@ Total routes: 551
 | GET | `/limits` | LimitsController::index | limits | server.view | yes | yes | ☐ |
 | POST | `/login/two-factor/key/options` | AuthController::securityKeyOptions | login.key.options |  | no | yes | ☐ |
 | POST | `/login/two-factor/key` | AuthController::securityKey | login.key |  | no | yes | ☐ |
-| GET | `/login/two-factor` | AuthController::twoFactor | login.two_factor |  | no | yes | ☐ |
-| POST | `/login/two-factor` | AuthController::verifyTwoFactor | login.two_factor.submit |  | no | yes | ☐ |
+| GET | `/login/two-factor` | AuthController::twoFactor | login.two_factor |  | no | yes | ◑ |
+| POST | `/login/two-factor` | AuthController::verifyTwoFactor | login.two_factor.submit |  | no | yes | ◑ |
 | GET | `/login/verify-ip` | AuthController::verifyIpForm | login.verify_ip |  | no | yes | ☐ |
 | POST | `/login/verify-ip` | AuthController::verifyIp | login.verify_ip.submit |  | no | yes | ☐ |
-| GET | `/login` | AuthController::show | login |  | no | yes | ☐ |
-| POST | `/login` | AuthController::login | login.submit |  | no | yes | ☐ |
-| POST | `/logout` | AuthController::logout | logout |  | yes | yes | ☐ |
+| GET | `/login` | AuthController::show | login |  | no | yes | ☑ |
+| POST | `/login` | AuthController::login | login.submit |  | no | yes | ☑ |
+| POST | `/logout` | AuthController::logout | logout |  | yes | yes | ☑ |
 | GET | `/logs/download` | LogsController::download | logs.download | logs.view | yes | yes | ☐ |
 | GET | `/logs/tail` | LogsController::tail | logs.tail | logs.view | yes | yes | ☐ |
 | GET | `/logs` | LogsController::index | logs | logs.view | yes | yes | ☐ |
@@ -280,10 +280,10 @@ Total routes: 551
 | POST | `/profile/sessions/revoke` | ProfileController::revokeSessions | profile.sessions.revoke |  | yes | yes | ☐ |
 | POST | `/profile/tokens/{id}/revoke` | ApiTokensController::revoke | tokens.revoke | api.tokens | yes | yes | ☐ |
 | POST | `/profile/tokens` | ApiTokensController::store | tokens.store | api.tokens | yes | yes | ☐ |
-| POST | `/profile/two-factor/disable` | ProfileController::twoFactorDisable | profile.2fa.disable |  | yes | yes | ☐ |
-| POST | `/profile/two-factor/enable` | ProfileController::twoFactorEnable | profile.2fa.enable |  | yes | yes | ☐ |
-| POST | `/profile/two-factor/recovery` | ProfileController::twoFactorRecovery | profile.2fa.recovery |  | yes | yes | ☐ |
-| POST | `/profile/two-factor/setup` | ProfileController::twoFactorSetup | profile.2fa.setup |  | yes | yes | ☐ |
+| POST | `/profile/two-factor/disable` | ProfileController::twoFactorDisable | profile.2fa.disable |  | yes | yes | ☑ |
+| POST | `/profile/two-factor/enable` | ProfileController::twoFactorEnable | profile.2fa.enable |  | yes | yes | ☑ |
+| POST | `/profile/two-factor/recovery` | ProfileController::twoFactorRecovery | profile.2fa.recovery |  | yes | yes | ☑ |
+| POST | `/profile/two-factor/setup` | ProfileController::twoFactorSetup | profile.2fa.setup |  | yes | yes | ☑ |
 | GET | `/profile` | ProfileController::show | profile |  | yes | yes | ◑ |
 | POST | `/redis/browser/api` | RedisBrowserController::api | redis.browser.api | redis.manage | yes | yes | ☐ |
 | GET | `/redis/browser` | RedisBrowserController::browse | redis.browser | redis.manage | yes | yes | ☐ |

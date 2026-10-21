@@ -22,21 +22,23 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 	"github.com/mchkhawarshahzad/whacp/server/internal/web"
+	"github.com/mchkhawarshad/whacp/server/internal/twofactor"
 )
 
 // Server holds the dependencies shared by handlers.
 type Server struct {
-	cfg      config.Config
-	db       *sql.DB
-	log      *slog.Logger
-	mux      *http.ServeMux
-	sessions *session.Manager
-	auth     *auth.Service
-	roles    *authz.RoleRepository
-	features *authz.FeatureService
-	tpl      *web.Templates
-	agent    hosting.AgentCaller
-	audit    *audit.Logger
+	cfg       config.Config
+	db        *sql.DB
+	log       *slog.Logger
+	mux       *http.ServeMux
+	sessions  *session.Manager
+	auth      *auth.Service
+	roles     *authz.RoleRepository
+	features  *authz.FeatureService
+	tpl       *web.Templates
+	agent     hosting.AgentCaller
+	audit     *audit.Logger
+	twoFactor *twofactor.Service
 }
 
 // New builds the server and registers the routes implemented so far. It
@@ -48,18 +50,21 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 	}
 	c := crypto.New(cfg.KeyFile)
 	users := identity.NewRepository(db)
+	tf := twofactor.New(db, c)
+	al := audit.New(db, log)
 	s := &Server{
-		cfg:      cfg,
-		db:       db,
-		log:      log,
-		mux:      http.NewServeMux(),
-		sessions: session.NewManager(c, session.DefaultCookieName, cfg.Production),
-		auth:     auth.NewService(db, users, auth.NewThrottle(db)),
-		roles:    authz.NewRoleRepository(db),
-		features: authz.NewFeatureService(db),
-		tpl:      tpl,
-		agent:    agent.New(cfg.AgentSocket, cfg.AgentTokenFile, 30*time.Second),
-		audit:    audit.New(db, log),
+		cfg:       cfg,
+		db:        db,
+		log:       log,
+		mux:       http.NewServeMux(),
+		sessions:  session.NewManager(c, session.DefaultCookieName, cfg.Production),
+		auth:      auth.NewService(db, users, auth.NewThrottle(db), tf, al),
+		roles:     authz.NewRoleRepository(db),
+		features:  authz.NewFeatureService(db),
+		tpl:       tpl,
+		agent:     agent.New(cfg.AgentSocket, cfg.AgentTokenFile, 30*time.Second),
+		audit:     al,
+		twoFactor: tf,
 	}
 	s.routes()
 	return s, nil
@@ -127,6 +132,16 @@ func (s *Server) routes() {
 
 	// Own profile (authenticated; no special permission).
 	s.mux.HandleFunc("GET /profile", s.guard("", "", s.profileShow))
+
+	// Two-factor sign-in: the second-factor step of a sign-in (the pending
+	// state lives in the sealed cookie; no signed-in session yet) plus the
+	// profile self-service (setup / enable / disable / recovery).
+	s.mux.HandleFunc("GET /login/two-factor", s.sessionCtx(s.showTwoFactor))
+	s.mux.HandleFunc("POST /login/two-factor", s.sessionCtx(s.doTwoFactor))
+	s.mux.HandleFunc("POST /profile/two-factor/setup", s.guard("", "", s.profileTwoFactorSetup))
+	s.mux.HandleFunc("POST /profile/two-factor/enable", s.guard("", "", s.profileTwoFactorEnable))
+	s.mux.HandleFunc("POST /profile/two-factor/disable", s.guard("", "", s.profileTwoFactorDisable))
+	s.mux.HandleFunc("POST /profile/two-factor/recovery", s.guard("", "", s.profileTwoFactorRecovery))
 
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
