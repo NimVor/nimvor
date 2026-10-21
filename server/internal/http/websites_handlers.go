@@ -1,6 +1,7 @@
 package http
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 	"strconv"
@@ -51,8 +52,10 @@ func (s *Server) websiteShow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	serverID := s.currentServerID(r)
-	site, err := hosting.NewWebsiteRepository(s.db).Find(r.Context(), serverID, id, user)
-	if errors.Is(err, hosting.ErrWebsiteNotFound) {
+	// FindFull (not Find): the page shows the app type and the directory
+	// listing state, which Find leaves unset.
+	site, err := hosting.NewWebsiteRepository(s.db).FindFull(r.Context(), serverID, id, user)
+	if errors.Is(err, sql.ErrNoRows) {
 		s.notFound(w, r)
 		return
 	}
@@ -74,6 +77,7 @@ func (s *Server) websiteShow(w http.ResponseWriter, r *http.Request) {
 		"User":      user,
 		"CSRF":      session.CSRFToken(sess),
 		"Site":      site,
+		"AppType":   hosting.AppType(site),
 		"Databases": dbs,
 		"Error":     errMsg,
 		"Success":   okMsg,

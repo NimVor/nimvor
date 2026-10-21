@@ -28,6 +28,9 @@ type sitesAgent struct {
 	actions     []string
 	params      []map[string]any
 	failApply   bool
+	// failActions fails a specific action (agent error paths), e.g.
+	// "sites.permissions" -> "the agent refused".
+	failActions map[string]string
 }
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
@@ -53,6 +56,10 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 		sa.params = append(sa.params, p)
 		sa.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
+		if msg, fail := sa.failActions[action]; fail {
+			_, _ = w.Write([]byte(`{"success":false,"error":{"code":"boom","message":"` + msg + `","request_id":"t"}}`))
+			return
+		}
 		if sa.failApply && (action == "sites.apply" || action == "sites.delete") {
 			_, _ = w.Write([]byte(`{"success":false,"error":{"code":"boom","message":"the agent refused","request_id":"t"}}`))
 			return
@@ -68,6 +75,15 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"serial":7}}`))
 		case "sites.delete":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"warnings":["The access log was kept."]}}`))
+		case "runtime.status":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"arch":"x86_64",
+				"node":[{"kind":"node","version":"20.1.0","bin":"/usr/bin/node","binary":"/usr/bin/node"},
+				       {"kind":"node","version":"22.0.0","bin":"/usr/bin/node","binary":"/usr/bin/node"}],
+				"python":[],
+				"system":[{"kind":"python","version":"3.12","bin":"/usr/bin/python3","binary":"/usr/bin/python3"},
+				       {"kind":"python","version":"3.11","bin":"/usr/bin/python3","binary":"/usr/bin/python3"}]}}`))
+		case "sites.permissions":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"checked":120,"fixed":3,"skipped_count":2,"errors":[]}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}
@@ -147,9 +163,13 @@ func sitesEnv(t *testing.T, isolation, failAgent bool) (http.Handler, *http.Cook
 	h := s.Handler()
 
 	cookie, token := getLogin(t, h)
-	if rr := postForm(h, "/login", url.Values{"_token": {token}, "username": {"bob"}, "password": {loginPassword}}, cookie); rr.Code != http.StatusSeeOther {
+	// The signed-in state (user + rotated CSRF) is sealed into the cookie the
+	// login POST response sets — that one, not the pre-login form cookie.
+	rr := postForm(h, "/login", url.Values{"_token": {token}, "username": {"bob"}, "password": {loginPassword}}, cookie)
+	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("login = %d", rr.Code)
 	}
+	cookie = rr.Result().Cookies()[0]
 	return h, cookie, sa, db
 }
 

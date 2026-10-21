@@ -1,0 +1,60 @@
+{{define "site_runtime"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Site.Domain}} · {{.Label}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/sites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
+  <h1>{{.Label}} runtime</h1>
+
+  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-error">{{.Error}}</p>{{end}}
+  {{range $k, $v := .Errors}}<p class="alert alert-error">{{$v}}</p>{{end}}
+
+  <p class="small text-body-secondary">Your <strong>{{.Label}}</strong> app runs as a background
+  service on a WhaCP-managed runtime, and {{.Site.Domain}} is served in front of it
+  {{if .Port}}(it must listen on port <code>{{.Port}}</code>){{end}}.</p>
+
+  <h2>{{.Label}} version</h2>
+  <form method="post" action="/sites/{{.Site.ID}}/{{.Tab}}" class="stacked-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <label>Runtime
+      <select name="app_runtime">
+        {{range .Options}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>
+        {{end}}</select>
+    </label>
+    <button type="submit">Change</button>
+  </form>
+  <p class="small text-muted">Changing the version restarts your app on it. More versions are
+  installed by your provider under Runtimes.</p>
+
+  <h2>Your app</h2>
+  {{if .App}}
+  <dl class="site-meta">
+    <dt>Command</dt><dd class="font-monospace">{{.App.Command}}</dd>
+    <dt>Runtime</dt><dd>{{if .App.Runtime}}{{.App.Runtime}}{{else}}system{{end}}</dd>
+    <dt>State</dt><dd>{{if .App.Enabled}}enabled{{else}}disabled{{end}}</dd>
+  </dl>
+  <p><a href="/sites/{{.Site.ID}}/workers">Edit command, env &amp; restart</a></p>
+  {{else}}
+  <p class="small text-body-secondary">Your app isn't running yet. Start it as a background
+  process with your start command — <code>PORT</code>{{if .Port}} is <code>{{.Port}}</code>{{end}}
+  and the {{.Label}} runtime are already set.</p>
+  <p><a href="/sites/{{.Site.ID}}/workers">Start your app (Workers)</a></p>
+  {{end}}
+</main>
+</body>
+</html>{{end}}

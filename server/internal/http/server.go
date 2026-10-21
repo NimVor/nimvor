@@ -124,6 +124,21 @@ func (s *Server) routes() {
 	// websites.manage permission.
 	s.mux.HandleFunc("GET /sites/{id}/subdomains", s.guard("sites.subdomains", "websites.manage", s.siteSubdomains))
 
+	// Advanced operations (PHP's "Advanced" tab): all websites.manage. The
+	// URL paths mirror the PHP routes (POST /permissions and POST
+	// /nodejs|/python update in place of the GET).
+	s.mux.HandleFunc("POST /sites/{id}/restart-php", s.guard("sites.restart_php", "websites.manage", s.siteRestartPhp))
+	s.mux.HandleFunc("POST /sites/{id}/reapply", s.guard("sites.reapply", "websites.manage", s.siteReapply))
+	s.mux.HandleFunc("POST /sites/{id}/directory-listing", s.guard("sites.listing", "websites.manage", s.siteDirectoryListing))
+	s.mux.HandleFunc("GET /sites/{id}/permissions", s.guard("sites.permissions", "websites.manage", s.siteCheckPermissions))
+	s.mux.HandleFunc("POST /sites/{id}/permissions", s.guard("sites.permissions.repair", "websites.manage", s.siteRepairPermissions))
+	// Node.js / Python runtime pages: each route is feature-gated by its
+	// runtime (the page itself adapts to the site's app type).
+	s.mux.HandleFunc("GET /sites/{id}/nodejs", s.guard("sites.nodejs", "websites.manage", s.siteRuntime("nodejs")))
+	s.mux.HandleFunc("POST /sites/{id}/nodejs", s.guard("sites.nodejs.update", "websites.manage", s.siteRuntimeUpdate("nodejs")))
+	s.mux.HandleFunc("GET /sites/{id}/python", s.guard("sites.python", "websites.manage", s.siteRuntime("python")))
+	s.mux.HandleFunc("POST /sites/{id}/python", s.guard("sites.python.update", "websites.manage", s.siteRuntimeUpdate("python")))
+
 	// Databases list + create. The mysql feature withholds databases.view when
 	// a plan disables it, so the permission guard enforces the feature too.
 	s.mux.HandleFunc("GET /databases", s.guard("", "databases.view", s.databasesIndex))

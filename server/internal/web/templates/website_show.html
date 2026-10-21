@@ -20,7 +20,7 @@
   <p><a href="/websites">&larr; Websites</a></p>
   <h1>{{.Site.Domain}}</h1>
   <dl class="site-meta">
-    <dt>Type</dt><dd>{{.Site.Kind}}</dd>
+    <dt>Type</dt><dd>{{.Site.Kind}}{{if eq .AppType "nodejs"}} (Node.js app){{else if eq .AppType "python"}} (Python app){{end}}</dd>
     <dt>Status</dt><dd>{{.Site.Status}}</dd>
     <dt>HTTPS</dt><dd>{{if .Site.HTTPS}}Yes{{else}}No{{end}}</dd>
     <dt>System user</dt><dd>{{.Site.SystemUser}}</dd>
@@ -32,6 +32,9 @@
     <a href="/sites/{{.Site.ID}}/settings">Settings</a>
     <a href="/sites/{{.Site.ID}}/subdomains">Subdomains</a>
     <a href="/sites/{{.Site.ID}}/addons">Addon domains</a>
+    <a href="/sites/{{.Site.ID}}/workers">Workers</a>
+    {{if eq .AppType "nodejs"}}<a href="/sites/{{.Site.ID}}/nodejs">Node.js runtime</a>
+    {{else if eq .AppType "python"}}<a href="/sites/{{.Site.ID}}/python">Python runtime</a>{{end}}
   </p>
   {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
   {{if .Error}}<p class="alert alert-error">{{.Error}}</p>{{end}}
@@ -43,6 +46,33 @@
     <button type="submit">Enable website</button>
     {{end}}
   </form>
+
+  <h2>Operations</h2>
+  {{if and (eq .Site.Kind "php") .Site.Enabled}}
+  <form method="post" action="/sites/{{.Site.ID}}/restart-php" class="inline-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Reload PHP {{.Site.PhpVersion}}</button>
+  </form>
+  {{end}}
+  <form method="post" action="/sites/{{.Site.ID}}/reapply" class="inline-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Re-apply configuration</button>
+  </form>
+  {{if ne .Site.Kind "proxy"}}
+  <form method="post" action="/sites/{{.Site.ID}}/directory-listing" class="inline-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <input type="hidden" name="enabled" value="{{if .Site.DirectoryListing}}0{{else}}1{{end}}">
+    <button type="submit">{{if .Site.DirectoryListing}}Turn off{{else}}Turn on{{end}} directory listing</button>
+  </form>
+  {{end}}
+  <p class="inline-form">
+    <a href="/sites/{{.Site.ID}}/permissions">Check file permissions</a>
+    <form method="post" action="/sites/{{.Site.ID}}/permissions" class="inline-form">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <button type="submit">Repair file permissions</button>
+    </form>
+  </p>
+
   <details class="danger-zone">
     <summary>Delete this website</summary>
     <form method="post" action="/sites/{{.Site.ID}}/delete" class="stacked-form">

@@ -36,10 +36,21 @@ type fakeAgent struct {
 	// applyFailEvery: fail the Nth sites.apply call (1-based) with applyErr.
 	applyFailEvery int
 	applyErr       error
+	// canned: exact canned response for an action, checked before the
+	// per-action switch (the runtime status, the permissions walk, …).
+	canned map[string]json.RawMessage
+	// failActions: fail an action with a fixed error (agent failure paths).
+	failActions map[string]error
 }
 
 func (f *fakeAgent) Call(ctx context.Context, action string, params any, timeout ...time.Duration) (json.RawMessage, error) {
 	f.calls = append(f.calls, fakeCall{action, params})
+	if err, ok := f.failActions[action]; ok {
+		return nil, err
+	}
+	if c, ok := f.canned[action]; ok {
+		return c, nil
+	}
 	switch action {
 	case "discovery.php":
 		return json.Marshal(map[string]any{"versions": []map[string]any{
@@ -76,10 +87,23 @@ func (f *fakeAgent) callCount(action string) int {
 	return n
 }
 
+// lastParams returns the most recent parameter map sent to the agent for an
+// action (nil when the action was never called).
+func (f *fakeAgent) lastParams(action string) map[string]any {
+	var out map[string]any
+	for _, c := range f.calls {
+		if c.action == action {
+			out, _ = c.params.(map[string]any)
+		}
+	}
+	return out
+}
+
 type auditRec struct {
-	action string
-	target string
-	result string
+	action  string
+	target  string
+	result  string
+	details map[string]any
 }
 
 func writeDB(t *testing.T) *sql.DB {
@@ -141,7 +165,7 @@ func newHarness(t *testing.T, db *sql.DB) *harness {
 	t.Helper()
 	fa := &fakeAgent{}
 	features := authz.NewFeatureService(db)
-	audit := []auditRec{}
+	h := &harness{db: db, agent: fa, features: features, audit: []auditRec{}}
 	svc := NewWebsiteService(
 		NewWebsiteRepository(db),
 		fa,
@@ -149,12 +173,15 @@ func newHarness(t *testing.T, db *sql.DB) *harness {
 		NewPlanLimits(db),
 		NewDnsRepository(db),
 		settings.NewRepository(db),
-		func(ctx context.Context, action, target, result string, details map[string]any) {
-			audit = append(audit, auditRec{action, target, result})
+		// Append through h.audit (not a captured copy) so the harness sees
+		// every record the service makes.
+		func(ctx context.Context, action, targetType, target, result string, details map[string]any) {
+			h.audit = append(h.audit, auditRec{action: action, target: target, result: result, details: details})
 		},
 		1,
 	)
-	return &harness{db: db, svc: svc, agent: fa, features: features, audit: audit}
+	h.svc = svc
+	return h
 }
 
 // ---------------------------------------------------------------------------

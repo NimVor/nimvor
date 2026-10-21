@@ -139,6 +139,10 @@
       <label>App port
         <input type="number" name="app_port" min="1024" max="65535" value="{{index .Form "app_port"}}">
       </label>
+      <label>Start command <span class="small text-muted">(optional)</span>
+        <input type="text" name="app_command" class="font-monospace" value="{{index .Form "app_command"}}" placeholder="e.g. node server.js or gunicorn app:app --bind 127.0.0.1:$PORT">
+        <span class="small text-muted">Given a start command, your app runs as a background service on the chosen runtime and is served over your domain. <code>PORT</code> is set for you. You can edit it later under Workers.</span>
+      </label>
     </fieldset>
     {{else if and (eq (index .Form "kind") "proxy") (not (index .Form "app_runtime"))}}
     <fieldset>
