@@ -1470,3 +1470,51 @@ func ipIsV4(ip string) bool {
 	p := net.ParseIP(ip)
 	return p != nil && p.To4() != nil
 }
+
+// int64OrNil renders a nullable id for UpdateFields values (nil = NULL).
+func int64OrNil(p *int64) any {
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+// MoveToAccount moves a website to another system account and owner
+// (WebsiteService::moveToAccount): the row is updated, the agent re-applies
+// the site (creating the system account when newUser), and owner/parent are
+// put back on failure. site must be the full row (FindFull). Resource-limit
+// reconciliation follows the website's account in PHP (the website.moved
+// event); that has not been ported yet (see MIGRATION-STATUS.md).
+func (s *WebsiteService) MoveToAccount(ctx context.Context, site *Website, user string, ownerID *int64, newUser, detach bool) error {
+	fields := map[string]any{
+		"system_user": user,
+		"owner_id":    int64OrNil(ownerID),
+	}
+	if detach {
+		fields["parent_id"] = nil
+	}
+	if err := s.sites.UpdateFields(ctx, site.ID, fields); err != nil {
+		return err
+	}
+	moved, err := s.sites.FindFull(ctx, site.ServerID, site.ID, nil)
+	if err != nil {
+		s.revertMove(ctx, site)
+		return err
+	}
+	if err := s.apply(ctx, moved, newUser); err != nil {
+		s.revertMove(ctx, site)
+		return err
+	}
+	return nil
+}
+
+// revertMove puts the owner and parent back after a failed move; the rest of
+// the row (including the system user and the domains) is re-applied by
+// restore.
+func (s *WebsiteService) revertMove(ctx context.Context, site *Website) {
+	_ = s.sites.UpdateFields(ctx, site.ID, map[string]any{
+		"owner_id":  int64OrNil(ownerPtr(site.OwnerID)),
+		"parent_id": int64OrNil(ownerPtr(site.ParentID)),
+	})
+	_ = s.restore(ctx, site)
+}

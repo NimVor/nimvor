@@ -103,7 +103,10 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   done (restart-php, reapply, directory listing, permissions check/repair,
   Node.js/Python runtime page + app-Worker provisioning); workers write path
   done (create/edit/toggle/restart/delete + removeAll on delete + live status
-  page); remainder: `/sites/{id}/convert` (AddonConversionController) + the
+  page); account-creation foundation done (UserService::create,
+  AccountService::create + AccountOptions, CronService::apply,
+  WebsiteService::moveToAccount, UserRepository writes, the "customers" plan
+  limit); remainder: `/sites/{id}/convert` (AddonConversionController) + the
   "advanced" view
 - ☐ database users, DB browser, mongo, redis/memcached, DNS records, mail accounts/filters, SSL/ACME, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
 
@@ -122,10 +125,15 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 
 ## Next exact step
 Batch: the websites remainder — POST `/sites/{id}/convert`
-(AddonConversionController; converts a plain proxy site into a Node.js/Python
-app, USERS_MANAGE) + the PHP "Advanced" consolidated view (the Go panel shows
-the ops inline on the site page instead). The global GET `/workers` index
-(WorkersController::index — all visible workers + status) is the other open
-WorkersController piece; it fits the Runtimes/admin batch.
+(AddonConversionController; converts an ADDON domain into a hosting account of
+its own: new panel login, the site family re-owned by the new system account,
+FTP/cron/workers moved, DB/DNS/mail ownership moved, full rollback on failure —
+USERS_MANAGE) + the PHP "Advanced" consolidated view (the Go panel shows the
+ops inline on the site page instead). The conversion foundations already exist
+(UserService, AccountService, AccountOptions, CronService.Apply,
+WebsiteService.MoveToAccount); the batch is AddonConversionService (isAddon,
+preview, convert, undo) + the route + confirm form. The global GET `/workers`
+index (WorkersController::index — all visible workers + status) is the other
+open WorkersController piece; it fits the Runtimes/admin batch.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

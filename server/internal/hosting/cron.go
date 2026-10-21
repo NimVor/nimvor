@@ -12,6 +12,7 @@ type CronJob struct {
 	Schedule    string
 	Command     string
 	Description string
+	Email       string
 	Enabled     bool
 }
 
@@ -26,7 +27,7 @@ func NewCronRepository(db *sql.DB) *CronRepository { return &CronRepository{db: 
 // Jobs lists the cron jobs for a website. Mirrors CronService::jobs.
 func (r *CronRepository) Jobs(ctx context.Context, websiteID int64) ([]CronJob, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, schedule, command, description, enabled FROM cron_jobs WHERE website_id = ? ORDER BY id`, websiteID)
+		`SELECT id, schedule, command, description, email, enabled FROM cron_jobs WHERE website_id = ? ORDER BY id`, websiteID)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +36,7 @@ func (r *CronRepository) Jobs(ctx context.Context, websiteID int64) ([]CronJob, 
 	for rows.Next() {
 		var c CronJob
 		var enabled int
-		if err := rows.Scan(&c.ID, &c.Schedule, &c.Command, &c.Description, &enabled); err != nil {
+		if err := rows.Scan(&c.ID, &c.Schedule, &c.Command, &c.Description, &c.Email, &enabled); err != nil {
 			return nil, err
 		}
 		c.Enabled = enabled == 1
