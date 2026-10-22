@@ -334,15 +334,15 @@ Total routes: 551
 | POST | `/security/malware/settings` | AvController::saveSettings | security.malware.settings | security.manage | yes | yes | ☑ |
 | POST | `/security/malware/update` | AvController::updateSignatures | security.malware.update | security.manage | yes | yes | ☑ |
 | GET | `/security/malware` | AvController::index | security.malware | security.view | yes | yes | ☑ |
-| POST | `/security/modsec/crs` | ModSecurityController::installCrs | security.modsec.crs | security.manage | yes | yes | ☐☑ |
-| POST | `/security/modsec/custom` | ModSecurityController::saveCustom | security.modsec.custom | security.manage | yes | yes | ☐☑ |
-| POST | `/security/modsec/install` | ModSecurityController::install | security.modsec.install | security.manage | yes | yes | ☐☑ |
-| POST | `/security/modsec/rollback/{id}` | ModSecurityController::rollback | security.modsec.rollback | security.manage | yes | yes | ☐☑ |
-| POST | `/security/modsec/rule` | ModSecurityController::saveRule | security.modsec.rule | security.manage | yes | yes | ☐☑ |
-| POST | `/security/modsec/sites/{id}` | ModSecurityController::saveSite | security.modsec.site | security.manage | yes | yes | ☐☑ |
-| POST | `/security/modsec/update` | ModSecurityController::update | security.modsec.update | security.manage | yes | yes | ☐☑ |
-| GET | `/security/modsec` | ModSecurityController::index | security.modsec | security.view | yes | yes | ☐☑ |
-| POST | `/security/modsec` | ModSecurityController::configure | security.modsec.configure | security.manage | yes | yes | ☐☑ |
+| POST | `/security/modsec/crs` | ModSecurityController::installCrs | security.modsec.crs | security.manage | yes | yes | ☑ |
+| POST | `/security/modsec/custom` | ModSecurityController::saveCustom | security.modsec.custom | security.manage | yes | yes | ☑ |
+| POST | `/security/modsec/install` | ModSecurityController::install | security.modsec.install | security.manage | yes | yes | ☑ |
+| POST | `/security/modsec/rollback/{id}` | ModSecurityController::rollback | security.modsec.rollback | security.manage | yes | yes | ☑ |
+| POST | `/security/modsec/rule` | ModSecurityController::saveRule | security.modsec.rule | security.manage | yes | yes | ☑ |
+| POST | `/security/modsec/sites/{id}` | ModSecurityController::saveSite | security.modsec.site | security.manage | yes | yes | ☑ |
+| POST | `/security/modsec/update` | ModSecurityController::update | security.modsec.update | security.manage | yes | yes | ☑ |
+| GET | `/security/modsec` | ModSecurityController::index | security.modsec | security.view | yes | yes | ☑ |
+| POST | `/security/modsec` | ModSecurityController::configure | security.modsec.configure | security.manage | yes | yes | ☑ |
 | POST | `/security/mysql-anonymous` | SecurityController::dropAnonymousUsers | security.mysql_anonymous | server.manage | yes | yes | ☑ |
 | GET | `/security/password-strength` | SecurityPolicyController::strength | security.password_strength | security.view | yes | yes | ☑ |
 | POST | `/security/password-strength` | SecurityPolicyController::saveStrength | security.password_strength.save | security.manage | yes | yes | ☑ |
@@ -432,8 +432,8 @@ Total routes: 551
 | GET | `/sites/{id}/files/edit` | FilesController::edit | sites.files.edit | files.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/files/upload` | FilesController::upload | sites.files.upload | files.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/files` | FilesController::show | sites.files | files.manage | yes | yes | ☑ |
-| GET | `/sites/{id}/firewall` | ModSecurityController::site | sites.firewall | websites.view | yes | yes | ☐☑ |
-| POST | `/sites/{id}/firewall` | ModSecurityController::saveSiteMode | sites.firewall.update | websites.manage | yes | yes | ☐☑ |
+| GET | `/sites/{id}/firewall` | ModSecurityController::site | sites.firewall | websites.view | yes | yes | ☑ |
+| POST | `/sites/{id}/firewall` | ModSecurityController::saveSiteMode | sites.firewall.update | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/ftp/accounts/delete` | FtpController::deleteAccount | sites.ftp.delete | ftp.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/ftp/accounts` | FtpController::saveAccount | sites.ftp.save | ftp.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/ftp` | FtpController::show | sites.ftp | ftp.manage | yes | yes | ☐ |
@@ -447,9 +447,9 @@ Total routes: 551
 | POST | `/sites/{id}/ip` | IpController::assignSite | sites.ip | server.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/logs` | LogsController::site | sites.logs | logs.view | yes | yes | ☑ |
 | GET | `/sites/{id}/mail` | MailController::site | sites.mail | mail.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/malware/release` | AvController::release | sites.malware.release | security.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/malware/scan` | AvController::scan | sites.malware.scan | websites.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/malware` | AvController::show | sites.malware | websites.view | yes | yes | ☐ |
+| POST | `/sites/{id}/malware/release` | AvController::release | sites.malware.release | security.manage | yes | yes |☑ |
+| POST | `/sites/{id}/malware/scan` | AvController::scan | sites.malware.scan | websites.manage | yes | yes |☑ |
+| GET | `/sites/{id}/malware` | AvController::show | sites.malware | websites.view | yes | yes |☑ |
 | GET | `/sites/{id}/memcached` | SitesController::memcached | sites.memcached | websites.view | yes | yes | ☐ |
 | POST | `/sites/{id}/mongo/backup` | SiteMongoController::backup | sites.mongo.backup | websites.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/mongo/backups/delete` | SiteMongoController::deleteBackup | sites.mongo.backup_delete | websites.manage | yes | yes | ☐ |

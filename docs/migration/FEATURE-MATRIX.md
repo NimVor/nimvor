@@ -28,7 +28,7 @@ _From app/Services/FeatureService::FEATURES._
 | logs | Logs | Monitoring | sites.logs | ☐ |
 | stats | Visitor statistics | Monitoring | sites.stats | ☐ |
 | site_health | Site health | Monitoring | sites.health | ☐ |
-| malware | Malware scan | Security | sites.malware | ☐ |
+| malware | Malware scan | Security | sites.malware | ☑ |
 | firewall | Web firewall (ModSecurity) | Security | sites.firewall | ☑ |
 | site_security | Site security overview | Security | sites.security | ☐ |
 | ssh | SSH shell & web terminal | Files | sites.terminal | ☐ |

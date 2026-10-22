@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **155 ☑ done+tested, 3 ◑ partial, 393 ☐** of 551.
+`server/internal/http/server.go`): **158 ☑ done+tested, 3 ◑ partial, 390 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -439,6 +439,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
+- ☑ security: per-website malware pages (batch 32) — the website's
+  ClamAV page (GET /sites/{id}/malware: the status toolbar, the last scan
+  with its findings, the scan history, the quarantine listing) + the
+  on-demand scan (POST …/malware/scan: the running-scan exclusion, the
+  av_scans row, the job tracking + audit) + the quarantine release
+  (POST …/malware/release: security.manage only; the agent re-scans the
+  file and refuses if it is still infected)
 - ☑ security: ModSecurity (batch 31) — the server-wide WAF page
   (GET/POST /security/modsec: status bar + websites/events/vendors/
   custom-rules/installation tabs; server-wide settings; per-rule and bulk
@@ -468,13 +475,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: continue the **security area** — the per-website malware pages
-(AvController: the website's scan status, the on-demand scan, and the
-quarantine/release area — 3 routes: GET /sites/{id}/malware,
-POST /sites/{id}/malware/scan, POST /sites/{id}/malware/{id}/release).
-The server-wide ModSecurity page is done (11 routes, batch 31) and the
-cPHulk (HulkController) panel page is done (6 routes, batch 30); their
-enforcement/scheduler sides stay with the background-jobs follow-up.
-Check INVENTORY.md + the PHP controllers before starting.
+Batch: the **websites area continues** — the visitor statistics
+(StatsController, 3 routes: GET /sites/{id}/stats, POST
+/sites/{id}/stats/enable, POST /sites/{id}/stats/update — the per-website
+stat page + the enable/disable toggle + the refresh). The whole security
+area is now ported (fail2ban, firewall, hulk, ModSecurity, malware —
+server-wide and per-website); the hulk/modsec/av scheduler sides stay
+with the background-jobs follow-up. Check INVENTORY.md + the PHP
+controllers before starting.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
