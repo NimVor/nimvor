@@ -295,6 +295,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /sites/{id}/backups/{backup}/restore", s.guard("sites.backups.restore", "backups.manage", s.siteBackupsRestore))
 	s.mux.HandleFunc("POST /sites/{id}/backups/{backup}/delete", s.guard("sites.backups.delete", "backups.manage", s.siteBackupsDelete))
 	s.mux.HandleFunc("GET /sites/{id}/backups/{backup}/download", s.guard("sites.backups.download", "backups.manage", s.siteBackupsDownload))
+	s.mux.HandleFunc("POST /sites/{id}/backup-schedules", s.guard("sites.backups.schedule", "backups.manage", s.siteBackupsSchedule))
+	s.mux.HandleFunc("POST /sites/{id}/backup-schedules/{schedule}/delete", s.guard("sites.backups.schedule_delete", "backups.manage", s.siteBackupsScheduleDelete))
 	s.mux.HandleFunc("GET /wordpress", s.guard("wordpress", "websites.view", s.wordpressIndex))
 	s.mux.HandleFunc("POST /wordpress/scan", s.guard("wordpress.scan", "websites.manage", s.wordpressScanAll))
 	s.mux.HandleFunc("GET /sites/{id}/workers", s.guard("", "workers.manage", s.siteWorkers))

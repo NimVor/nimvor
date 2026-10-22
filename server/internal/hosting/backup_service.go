@@ -452,9 +452,10 @@ func (s *BackupService) ActiveStorageConfig(ctx context.Context, id int64) (map[
 
 // Storage is one backup_storages row for the "Copy to" select (admins).
 type Storage struct {
-	ID   int64
-	Name string
-	Kind string
+	ID     int64
+	Name   string
+	Kind   string
+	Active bool
 }
 
 // StorageLabels is the PHP STORAGE_TYPES label map for the select.
@@ -468,17 +469,21 @@ var StorageLabels = map[string]string{
 
 // Storages lists the server's storages ordered by name.
 func (s *BackupService) Storages(ctx context.Context) ([]Storage, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, kind FROM backup_storages ORDER BY name`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, kind, active FROM backup_storages ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var out []Storage
 	for rows.Next() {
-		var st Storage
-		if err := rows.Scan(&st.ID, &st.Name, &st.Kind); err != nil {
+		var (
+			st     Storage
+			active int
+		)
+		if err := rows.Scan(&st.ID, &st.Name, &st.Kind, &active); err != nil {
 			return nil, err
 		}
+		st.Active = active == 1
 		out = append(out, st)
 	}
 	return out, rows.Err()

@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **236 ☑ done+tested, 3 ◑ partial, 312 ☐** of 551.
+`server/internal/http/server.go`): **238 ☑ done+tested, 3 ◑ partial, 310 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -541,8 +541,8 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   back to that moment). The WpBaseURL helper (the installation's
   address from the website's own domain + document root) completes the
   page's toolkit
-- ◑ websites: the per-website backups area (batch 50 — first of two
-  batches) — the website methods of BackupsController + the
+- ☑ websites: the per-website backups area (batches 50–51) — the
+  website methods of BackupsController + the
   sites/backups view as site_backups.go + hosting/backup_service.go +
   hosting/backup_scheduler.go: the tab page (GET /sites/{id}/backups,
   backups.view — the best-effort refresh of running rows from their
@@ -568,10 +568,27 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   missing part or a remote-only backup). The hidesAutoBackups rule
   applies everywhere (a hosting account without the auto_backups
   feature never sees the scheduled copies or the schedules, and
-  restore/delete of one read "Backup not found."); the schedule
-  card lists the website's schedules read-only. Remaining (batch 51):
-  the two schedule routes (store / delete, admin-only) with the
-  schedule form
+  restore/delete of one read "Backup not found."). Batch 51
+  completes the area: the two schedule routes (admin-only — the
+  controller's Scope::isAll gate, so a hosting account with
+  backups.manage still gets "Automatic backups are set up by your
+  administrator."): store (POST /sites/{id}/backup-schedules —
+  hosting/backup_scheduler.go's CreateSite mirrors the panel's
+  validation in its order: frequency daily/weekly, hour 0–23,
+  weekday 0–6, retention 1–365, the storage turned on
+  (COUNT … active = 1), files-or-databases; a failure re-shows
+  the page with the field errors + the old input, PHP's
+  backWithErrors, the INSERT with kind 'site' / all_sites 0 /
+  keep_local forced on without a storage / enabled 1, the
+  backup.schedule_create audit) and delete (POST
+  …/backup-schedules/{schedule}/delete — DeleteSite: the
+  WHERE id AND website_id scoping so another website's schedule
+  reads "Schedule not found.", existing backups kept,
+  backup.schedule_delete); the schedule card grows the admin's
+  add form (frequency / weekday / hour / files / databases /
+  retention / the AES-256 switch / the active storages' "Copy to"
+  + keep-local, the panel's _schedule_form + _options) and the
+  per-row remove form
 - ◑ websites: the WordPress cron takeover (tools) (batch 47)
   — WordPressToolsService::setCronTakeover as
   hosting/wordpress_tools.go (SetCronTakeover): the tool route's

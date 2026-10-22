@@ -105,7 +105,7 @@
         <div class="col-md-6">
           <div class="fw-medium small mb-1">What to back up</div>
           <div class="form-check"><input type="hidden" name="files" value="0"><input class="form-check-input" type="checkbox" id="b-files" name="files" value="1" checked><label class="form-check-label" for="b-files">Website files <span class="small text-body-secondary">(without logs and tmp)</span></label></div>
-          <div class="form-check mb-2"><input type="hidden" name="databases" value="0"><input class="form-check-input" type="checkbox" id="b-dbs" name="databases" value="1"{{if .Databases}} checked{{else}} disabled{{end}}><label class="form-check-label" for="b-dbs">Databases <span class="small text-body-secondary">{{if .Databases}}{{range $i, $d := .Databases}}{{if $i}}, {{end}}{{$d}}{{else}}none linked to this website{{end}}</span></label></div>
+          <div class="form-check mb-2"><input type="hidden" name="databases" value="0"><input class="form-check-input" type="checkbox" id="b-dbs" name="databases" value="1"{{if .Databases}} checked{{else}} disabled{{end}}><label class="form-check-label" for="b-dbs">Databases <span class="small text-body-secondary">{{if .Databases}}{{range $i, $d := .Databases}}{{if $i}}, {{end}}{{$d}}{{end}}{{else}}none linked to this website{{end}}</span></label></div>
           <input class="form-control form-control-sm" name="label" maxlength="100" placeholder="Label (optional)" aria-label="Label">
         </div>
         <div class="col-md-6">
@@ -114,7 +114,7 @@
           <label class="form-label small mt-2" for="b-st">Copy to</label>
           <select class="form-select form-select-sm" id="b-st" name="storage_id">
             <option value="">This server only</option>
-            {{range $s := .Storages}}<option value="{{$s.ID}}">{{$s.Name}} ({{if index $.StorageLabels $s.Kind}}{{index $.StorageLabels $s.Kind}}{{else}}{{$s.Kind}}{{end}})</option>{{end}}
+            {{range $s := .Storages}}{{if $s.Active}}<option value="{{$s.ID}}">{{$s.Name}} ({{if index $.StorageLabels $s.Kind}}{{index $.StorageLabels $s.Kind}}{{else}}{{$s.Kind}}{{end}})</option>{{end}}{{end}}
           </select>
           <div class="form-check small mt-1"><input type="hidden" name="keep_local" value="0"><input class="form-check-input" type="checkbox" id="b-keep" name="keep_local" value="1" checked><label class="form-check-label" for="b-keep">Also keep a copy on this server</label></div>
           {{end}}
@@ -128,6 +128,75 @@
   <div class="card" id="schedule">
     <div class="card-header"><i class="bi bi-calendar-check me-1" aria-hidden="true"></i>Automatic backups</div>
     <div class="card-body">
+      {{if .CanSchedule}}
+      <div class="row g-4">
+        <div class="col-lg-6">
+          {{if not .Schedules}}
+          <p class="text-body-secondary small mb-0">No schedule.</p>
+          {{else}}
+          <ul class="list-group list-group-flush mb-3">
+            {{range $s := .Schedules}}
+            <li class="list-group-item px-0 d-flex align-items-start gap-2">
+              <div class="small">
+                <div class="fw-semibold">{{if eq $s.Frequency "weekly"}}Every {{weekday $s.Weekday}} at {{printf "%02d:00" $s.Hour}}{{else}}Every day at {{printf "%02d:00" $s.Hour}}{{end}}</div>
+                <div class="text-body-secondary">{{if eq $s.Kind "site"}}{{if $s.IncludeFiles}}files{{end}}{{if and $s.IncludeFiles $s.IncludeDatabases}} + {{end}}{{if $s.IncludeDatabases}}databases{{end}} · {{end}}keep {{$s.Retention}} · {{if $s.Encrypt}}encrypted{{else}}not encrypted{{end}}{{if $s.StorageName}} · copy to {{$s.StorageName}}{{end}}</div>
+                <div class="text-body-secondary">Last run: {{if $s.LastRunAt.Valid}}{{stamp $s.LastRunAt.String}} ({{$s.LastStatus}}){{else}}never{{end}}</div>
+              </div>
+              <form class="ms-auto" method="post" action="/sites/{{$.Site.ID}}/backup-schedules/{{$s.ID}}/delete" data-wcp-confirm="Remove this schedule? Existing backups are kept."><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-trash" aria-hidden="true"></i></button></form>
+            </li>
+            {{end}}
+          </ul>
+          {{end}}
+        </div>
+        <div class="col-lg-6">
+          <form method="post" action="/sites/{{.Site.ID}}/backup-schedules" class="small">
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            <div class="row g-2 mb-2">
+              <div class="col-4"><label class="form-label small" for="s-freq">Frequency</label>
+                <select class="form-select form-select-sm{{if index .ScheduleErrors "frequency"}} is-invalid{{end}}" id="s-freq" name="frequency">
+                  <option value="daily"{{if eq .SchedFrequency "daily"}} selected{{end}}>Daily</option>
+                  <option value="weekly"{{if eq .SchedFrequency "weekly"}} selected{{end}}>Weekly</option>
+                </select>
+                {{if index .ScheduleErrors "frequency"}}<div class="text-danger small">{{index .ScheduleErrors "frequency"}}</div>{{end}}
+              </div>
+              <div class="col-4"><label class="form-label small" for="s-day">Day (weekly)</label>
+                <select class="form-select form-select-sm{{if index .ScheduleErrors "weekday"}} is-invalid{{end}}" id="s-day" name="weekday">
+                  {{range $d := .Weekdays}}<option value="{{$d}}"{{if eq (printf "%d" $d) $.SchedWeekday}} selected{{end}}>{{weekday $d}}</option>{{end}}
+                </select>
+                {{if index .ScheduleErrors "weekday"}}<div class="text-danger small">{{index .ScheduleErrors "weekday"}}</div>{{end}}
+              </div>
+              <div class="col-4"><label class="form-label small" for="s-hour">Hour</label>
+                <select class="form-select form-select-sm{{if index .ScheduleErrors "hour"}} is-invalid{{end}}" id="s-hour" name="hour">
+                  {{range $h := .Hours}}<option value="{{$h}}"{{if eq (printf "%d" $h) $.SchedHour}} selected{{end}}>{{printf "%02d:00" $h}}</option>{{end}}
+                </select>
+                {{if index .ScheduleErrors "hour"}}<div class="text-danger small">{{index .ScheduleErrors "hour"}}</div>{{end}}
+              </div>
+            </div>
+            <div class="d-flex gap-3 mb-2">
+              <div class="form-check"><input type="hidden" name="include_files" value="0"><input class="form-check-input{{if index $.ScheduleErrors "include_files"}} is-invalid{{end}}" type="checkbox" id="s-files" name="include_files" value="1"{{if $.SchedFiles}} checked{{end}}><label class="form-check-label" for="s-files">Files</label></div>
+              <div class="form-check"><input type="hidden" name="include_databases" value="0"><input class="form-check-input" type="checkbox" id="s-dbs" name="include_databases" value="1"{{if $.SchedDatabases}} checked{{end}}><label class="form-check-label" for="s-dbs">Databases</label></div>
+            </div>
+            {{if index .ScheduleErrors "include_files"}}<div class="text-danger small mb-2">{{index .ScheduleErrors "include_files"}}</div>{{end}}
+            <div class="mb-2"><label class="form-label small" for="s-ret">Keep the last</label>
+              <div class="input-group input-group-sm"><input class="form-control{{if index .ScheduleErrors "retention"}} is-invalid{{end}}" id="s-ret" type="number" name="retention" min="1" max="365" value="{{.SchedRetention}}"><span class="input-group-text">backups</span></div>
+              {{if index .ScheduleErrors "retention"}}<div class="text-danger small">{{index .ScheduleErrors "retention"}}</div>{{end}}
+            </div>
+            <div class="form-check form-switch"><input type="hidden" name="encrypt" value="0"><input class="form-check-input" type="checkbox" role="switch" id="s-enc" name="encrypt" value="1"{{if .SchedEncrypt}} checked{{end}}><label class="form-check-label" for="s-enc">Encrypt (AES-256)</label></div>
+            {{if .Storages}}
+            <label class="form-label small mt-2" for="s-st">Copy to</label>
+            <select class="form-select form-select-sm{{if index .ScheduleErrors "storage_id"}} is-invalid{{end}}" id="s-st" name="storage_id">
+              <option value="">This server only</option>
+              {{range $st := .Storages}}{{if $st.Active}}<option value="{{$st.ID}}"{{if eq (printf "%d" $st.ID) $.SchedStorageID}} selected{{end}}>{{$st.Name}} ({{if index $.StorageLabels $st.Kind}}{{index $.StorageLabels $st.Kind}}{{else}}{{$st.Kind}}{{end}})</option>{{end}}{{end}}
+            </select>
+            {{if index .ScheduleErrors "storage_id"}}<div class="text-danger small">{{index .ScheduleErrors "storage_id"}}</div>{{end}}
+            <div class="form-check small mt-1"><input type="hidden" name="keep_local" value="0"><input class="form-check-input" type="checkbox" id="s-keep" name="keep_local" value="1"{{if .SchedKeepLocal}} checked{{end}}><label class="form-check-label" for="s-keep">Also keep a copy on this server</label></div>
+            {{end}}
+            <button class="btn btn-sm btn-outline-primary mt-2">Add schedule</button>
+            <div class="form-text">Times use the server's time zone.</div>
+          </form>
+        </div>
+      </div>
+      {{else}}
       {{if not .Schedules}}
       <p class="text-body-secondary small mb-0">No schedule.</p>
       {{else}}
@@ -137,13 +206,12 @@
           <div class="small">
             <div class="fw-semibold">{{if eq $s.Frequency "weekly"}}Every {{weekday $s.Weekday}} at {{printf "%02d:00" $s.Hour}}{{else}}Every day at {{printf "%02d:00" $s.Hour}}{{end}}</div>
             <div class="text-body-secondary">{{if eq $s.Kind "site"}}{{if $s.IncludeFiles}}files{{end}}{{if and $s.IncludeFiles $s.IncludeDatabases}} + {{end}}{{if $s.IncludeDatabases}}databases{{end}} · {{end}}keep {{$s.Retention}} · {{if $s.Encrypt}}encrypted{{else}}not encrypted{{end}}{{if $s.StorageName}} · copy to {{$s.StorageName}}{{end}}</div>
-            <div class="text-body-secondary">Last run: {{if $s.LastRunAt.Valid}}{{stamp $s.LastRunAt.String}} ({{$s.LastStatus)}){{else}}never{{end}}</div>
+            <div class="text-body-secondary">Last run: {{if $s.LastRunAt.Valid}}{{stamp $s.LastRunAt.String}} ({{$s.LastStatus}}){{else}}never{{end}}</div>
           </div>
         </li>
         {{end}}
       </ul>
       {{end}}
-      {{if not .CanSchedule}}
       <p class="small text-body-secondary mt-2 mb-0"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Automatic backups are set up by your administrator. You can back up and restore at any time above.</p>
       {{end}}
     </div>
