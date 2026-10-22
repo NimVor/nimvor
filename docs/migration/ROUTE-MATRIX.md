@@ -400,8 +400,8 @@ Total routes: 551
 | GET | `/sites/{id}/advanced` | SitesController::advanced | sites.advanced | websites.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/apps/{app}` | AppsController::install | sites.apps.install | apps.install | yes | yes | ☐ |
 | GET | `/sites/{id}/apps` | AppsController::show | sites.apps | apps.install | yes | yes | ☐ |
-| POST | `/sites/{id}/backup-schedules/{schedule}/delete` | BackupsController::deleteSchedule | sites.backups.schedule_delete | backups.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/backup-schedules` | BackupsController::storeSchedule | sites.backups.schedule | backups.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/backup-schedules/{schedule}/delete` | BackupsController::deleteSchedule | sites.backups.schedule_delete | backups.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/backup-schedules` | BackupsController::storeSchedule | sites.backups.schedule | backups.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/backups/{backup}/delete` | BackupsController::delete | sites.backups.delete | backups.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/backups/{backup}/download` | BackupsController::download | sites.backups.download | backups.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/backups/{backup}/restore` | BackupsController::restore | sites.backups.restore | backups.manage | yes | yes | ☑ |

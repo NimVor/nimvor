@@ -23,6 +23,7 @@ package http
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -76,8 +77,8 @@ func (s *Server) backupsService(r *http.Request, user *identity.User) *hosting.B
 	return hosting.NewBackupService(s.db, s.agent, s.crypto, s.currentServerID(r), s.backupsAudit(r, user))
 }
 
-func (s *Server) backupsScheduler(r *http.Request) *hosting.BackupScheduler {
-	return hosting.NewBackupScheduler(s.db, s.currentServerID(r))
+func (s *Server) backupsScheduler(r *http.Request, user *identity.User) *hosting.BackupScheduler {
+	return hosting.NewBackupScheduler(s.db, s.currentServerID(r), s.backupsAudit(r, user))
 }
 
 // hidesAutoBackups reports whether the signed-in hosting account must not
@@ -184,7 +185,7 @@ func (s *Server) siteBackupsShow(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	schedules, err := s.backupsScheduler(r).ListSite(ctx, site.ID)
+	schedules, err := s.backupsScheduler(r, user).ListSite(ctx, site.ID)
 	if err != nil {
 		s.log.Error("backup schedules list", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -224,26 +225,79 @@ func (s *Server) siteBackupsShow(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+	s.backupsRender(w, r, user, site, backups, schedules, storages, dbs, lastAgo)
+}
+
+// backupsRender renders the page. When the schedule form was just re-shown
+// after a failed save (PHP's backWithErrors), the field errors and old
+// input were stashed as flashes by siteBackupsSchedule and are pulled here.
+func (s *Server) backupsRender(w http.ResponseWriter, r *http.Request, user *identity.User, site *hosting.Website, backups []hosting.Backup, schedules []hosting.BackupSchedule, storages []hosting.Storage, dbs []string, lastAgo string) {
 	sess := sessionFrom(r.Context())
 	jobMsg, _ := sess.PullFlash("job")
 	okMsg, _ := sess.PullFlash("success")
 	errMsg, _ := sess.PullFlash("error")
+	var schedErrors, oldSchedule map[string]string
+	if raw, ok := sess.PullFlash("sched_errors"); ok {
+		_ = json.Unmarshal([]byte(raw), &schedErrors)
+	}
+	if raw, ok := sess.PullFlash("sched_old"); ok {
+		_ = json.Unmarshal([]byte(raw), &oldSchedule)
+	}
+	hours := make([]int, 24)
+	for i := range hours {
+		hours[i] = i
+	}
+	weekdays := make([]int, 7)
+	for i := range weekdays {
+		weekdays[i] = i
+	}
 	s.render(w, "site_backups", map[string]any{
-		"User":        user,
-		"CSRF":        session.CSRFToken(sess),
-		"Site":          site,
-		"Backups":       backups,
-		"Schedules":     schedules,
-		"Storages":      storages,
-		"StorageLabels": hosting.StorageLabels,
-		"Databases":     dbs,
-		"LastAgo":     lastAgo,
-		"CanManage":   s.can(r, "backups.manage"),
-		"CanSchedule": user != nil && user.RoleScope == "all",
-		"Job":         jobMsg,
-		"Success":     okMsg,
-		"Error":       errMsg,
+		"User":           user,
+		"CSRF":           session.CSRFToken(sess),
+		"Site":           site,
+		"Backups":        backups,
+		"Schedules":      schedules,
+		"Storages":       storages,
+		"StorageLabels":  hosting.StorageLabels,
+		"Databases":      dbs,
+		"LastAgo":        lastAgo,
+		"CanManage":      s.can(r, "backups.manage"),
+		"CanSchedule":    user != nil && user.RoleScope == "all",
+		"Job":            jobMsg,
+		"Success":        okMsg,
+		"Error":          errMsg,
+		"ScheduleErrors": schedErrors,
+		"OldSchedule":    oldSchedule,
+		"Hours":          hours,
+		"Weekdays":       weekdays,
+		"SchedFrequency": backupOldStr(oldSchedule, "frequency", "daily"),
+		"SchedWeekday":   backupOldStr(oldSchedule, "weekday", "0"),
+		"SchedHour":      backupOldStr(oldSchedule, "hour", "3"),
+		"SchedRetention": backupOldStr(oldSchedule, "retention", "7"),
+		"SchedStorageID": backupOldStr(oldSchedule, "storage_id", ""),
+		"SchedFiles":     backupOldFlag(oldSchedule, "include_files"),
+		"SchedDatabases": backupOldFlag(oldSchedule, "include_databases"),
+		"SchedEncrypt":   backupOldFlag(oldSchedule, "encrypt"),
+		"SchedKeepLocal": backupOldFlag(oldSchedule, "keep_local"),
 	})
+}
+
+// backupOldStr returns the re-shown value of a form field (PHP's
+// old(...)) — the submitted value when present, else the default.
+func backupOldStr(old map[string]string, field, def string) string {
+	if v, ok := old[field]; ok {
+		return v
+	}
+	return def
+}
+
+// backupOldFlag reports whether a checkbox was checked (or defaults to
+// checked) on the re-shown schedule form.
+func backupOldFlag(old map[string]string, field string) bool {
+	if v, ok := old[field]; ok {
+		return v == "1"
+	}
+	return true
 }
 
 // ---------------------------------------------------------------------------

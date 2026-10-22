@@ -41,7 +41,7 @@
         <div class="d-flex flex-wrap gap-2 mt-2">
           {{if .Outdated}}<span class="wcp-state is-warn">Update to {{.Latest}}</span>{{else if .Core.Latest}}<span class="wcp-state is-ok">Up to date</span>{{end}}
           {{if .Security}}<a class="wcp-state {{if eq .SecApplied .SecTotal}}is-ok{{else}}is-warn{{end}} text-decoration-none" href="#security">Security {{.SecApplied}}/{{.SecTotal}}</a>{{end}}
-          <a class="wcp-state {{if eq .VulnCount 0}}{{if .VulnCheckedAt}}is-ok{{else}}is-off{{else}}is-error{{end}} text-decoration-none" href="#security">{{if not .VulnCheckedAt}}Vulnerabilities not checked{{else if eq .VulnCount 0}}No known vulnerabilities{{else}}{{.VulnCount}} known vulnerabilit{{if eq .VulnCount 1}}y{{else}}ies{{end}}{{end}}</a>
+          <a class="wcp-state {{if eq .VulnCount 0}}{{if .VulnCheckedAt}}is-ok{{else}}is-off{{end}}{{else}}is-error{{end}} text-decoration-none" href="#security">{{if not .VulnCheckedAt}}Vulnerabilities not checked{{else if eq .VulnCount 0}}No known vulnerabilities{{else}}{{.VulnCount}} known vulnerabilit{{if eq .VulnCount 1}}y{{else}}ies{{end}}{{end}}</a>
           {{if .UpdatesTotal}}<a class="wcp-state is-warn text-decoration-none" href="#plugins">{{.UpdatesTotal}} update(s)</a>{{end}}
           {{if .Issues}}<span class="wcp-state is-warn">{{.Issues}} to review</span>{{end}}
         </div>
