@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **238 ☑ done+tested, 3 ◑ partial, 310 ☐** of 551.
+`server/internal/http/server.go`): **240 ☑ done+tested, 3 ◑ partial, 308 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -589,6 +589,29 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   retention / the AES-256 switch / the active storages' "Copy to"
   + keep-local, the panel's _schedule_form + _options) and the
   per-row remove form
+- ☑ websites: the site security + health overviews (batch 52) —
+  SitesController::security + ::health (both websites.view) as
+  site_health.go + hosting/site_health.go (SiteHealthService): each
+  page is a list of plain check results the view renders with a
+  status (ok/warn/bad), an explanation, the fix and who can do it
+  ("You can fix this" vs "Ask your provider"), plus an infobar
+  counting the items that need attention. Security: HTTPS off /
+  not enforced / enforced, the certificate's days remaining from
+  the agent's ssl.inspect (≤15 days a warning, ≤3 days bad — the
+  lookup fails safe, no reply means no line; an https site with no
+  stored cert file gets no line), the last av_scans row (infected /
+  never scanned / clean) and the PHP 8.1 EOL warning (a numeric
+  version_compare-style compare). Health: enabled / turned off
+  (the one provider-side item) and the last completed backup.
+  A foreign or missing website id 404s with the shared message.
+  This batch also repairs a latent bug the SSL batch shipped
+  (its CI run died on the owner's billing before the tests ran):
+  CertInfo + RenewalStatus had no JSON tags, so the agent's
+  snake_case reply fields (days_remaining, not_after, dns_names,
+  certbot_installed, timer_active, method) never unmarshaled — the
+  SSL page always read a 0-day cert and a dead renewal timer;
+  the tags are now in place and the security check reads real
+  numbers
 - ◑ websites: the WordPress cron takeover (tools) (batch 47)
   — WordPressToolsService::setCronTakeover as
   hosting/wordpress_tools.go (SetCronTakeover): the tool route's
@@ -764,15 +787,21 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 51: finish the **per-website backups area** — the two
-schedule routes (POST /sites/{id}/backup-schedules + …/{schedule}/
-delete, admin-only: BackupScheduler::create validation + delete, the
-_schedule_form + delete buttons in the schedule card). Then the
-websites area continues from the remaining ☐ routes under
-`/sites/{id}/…` (backups schedules 2, mongo 12, wordpress 8, deploy 5,
-ftp 4, sites advanced/health/security, apps 2, mail 1, ip 1, dns 1 —
-check INVENTORY.md + the PHP controllers first and split large ones
-into 2–3 batches). (The hulk/modsec/av scheduler sides stay with the
+Batch 53: the **website hub page** — GET /sites/{id}
+(SitesController::show, websites.view, sites/show.php ~191 lines) and
+GET /sites/{id}/advanced (SitesController::advanced, websites.manage,
+sites/advanced.php ~146 lines). Their dependencies, per the
+investigation: SiteOverview (120 lines / 4 methods: summary — the
+counts the hub renders, serverIp, databaseBytes — both agent-backed
+and fail-safe), ImportService (192 lines / 7 methods — show calls
+refresh + importOf, /import/undo calls undo), JobTracker::recentFor
+(PHP @84, not yet in Go), the IpService pool read (not in Go) and the
+agent's sites.inspect (the agent already has it). Split the hub from
+advanced if needed; the import/undo + /websites/{id}/import preview &
+run routes ride along with ImportService. Then the remaining ☐ under
+`/sites/{id}/…`: ftp 4, apps 2, mail 1, ip 1, dns 1 — check
+INVENTORY.md + the PHP controllers first and split large ones into
+2–3 batches. (The hulk/modsec/av scheduler sides stay with the
 background-jobs follow-up.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

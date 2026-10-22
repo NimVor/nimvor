@@ -442,7 +442,7 @@ Total routes: 551
 | POST | `/sites/{id}/git/rotate` | DeployController::rotate | sites.git.rotate | deploy.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/git` | DeployController::show | sites.git | deploy.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/git` | DeployController::configure | sites.git.configure | deploy.manage | yes | yes | ☑ |
-| GET | `/sites/{id}/health` | SitesController::health | sites.health | websites.view | yes | yes | ☐ |
+| GET | `/sites/{id}/health` | SitesController::health | sites.health | websites.view | yes | yes | ☑ |
 | POST | `/sites/{id}/import/undo` | SitesController::undoImport | sites.import.undo | import.run | yes | yes | ☐ |
 | POST | `/sites/{id}/ip` | IpController::assignSite | sites.ip | server.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/logs` | LogsController::site | sites.logs | logs.view | yes | yes | ☑ |
@@ -474,7 +474,7 @@ Total routes: 551
 | GET | `/sites/{id}/redis` | RedisBrowserController::siteBrowse | sites.redis | websites.manage | yes | yes |☑ |
 | POST | `/sites/{id}/restart-php` | SitesController::restartPhp | sites.restart_php | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/security-headers` | SslController::securityHeaders | sites.security_headers | ssl.manage | yes | yes | ☑ |
-| GET | `/sites/{id}/security` | SitesController::security | sites.security | websites.view | yes | yes | ☐ |
+| GET | `/sites/{id}/security` | SitesController::security | sites.security | websites.view | yes | yes | ☑ |
 | GET | `/sites/{id}/settings` | SitesController::edit | sites.edit | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/settings` | SitesController::update | sites.update | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/sftp` | FtpController::sftp | sites.sftp | ftp.manage | yes | yes | ☐ |
