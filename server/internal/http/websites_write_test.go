@@ -92,6 +92,12 @@ type sitesAgent struct {
 	statsUpdatedAt   string
 	statsDataFound   bool
 	statsDataContent string
+	// mc* configure the memcached.status reply. mcInstalled/mcActive default
+	// to true; mcPort defaults to 11211; mcError "" = no error.
+	mcInstalled bool
+	mcActive    bool
+	mcPort      int
+	mcError     string
 }
 
 // setJob registers the jobs.get reply for a job id.
@@ -334,6 +340,36 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			found, content := sa.statsDataFound, sa.statsDataContent
 			sa.mu.Unlock()
 			_, _ = w.Write([]byte(`{"success":true,"data":{"found":` + boolJSON(found) + `,"content":` + fmt.Sprintf("%q", content) + `}}`))
+		case "memcached.status":
+			sa.mu.Lock()
+			installed, active, port, merr := sa.mcInstalled, sa.mcActive, sa.mcPort, sa.mcError
+			sa.mu.Unlock()
+			if port == 0 {
+				port = 11211
+			}
+			errField := ""
+			if merr != "" {
+				errField = `,"error":` + fmt.Sprintf("%q", merr)
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"installed":` + boolJSON(installed) + `,"config_file":"/etc/memcached.conf","settings":{"memory_mb":64,"max_conns":1024,"port":` + fmt.Sprintf("%d", port) + `,"listen":["127.0.0.1"]},"active":` + boolJSON(active) + errField + `}}`))
+		case "redis.keys":
+			prefix, _ := p["prefix"].(string)
+			keys := `[]`
+			if prefix == "u_bob:" || prefix == "" {
+				keys = `[{"key":{"b64":"` + base64.StdEncoding.EncodeToString([]byte(prefix + "session:1")) + `","text":"` + prefix + `session:1","binary":false},"type":"string","ttl":300},{"key":{"b64":"` + base64.StdEncoding.EncodeToString([]byte(prefix + "cart:1")) + `","text":"` + prefix + `cart:1","binary":false},"type":"hash","ttl":-1}]`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"keys":` + keys + `,"cursor":"0","db_size":2}}`))
+		case "redis.key_get":
+			key, _ := p["key"].(string)
+			_, _ = w.Write([]byte(`{"success":true,"data":{"key":{"b64":"` + key + `","text":"k","binary":false},"type":"string","value":{"b64":"` + key + `","text":"v","binary":false},"ttl":300}}`))
+		case "redis.key_edit":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "redis.key_delete":
+			keys := 1
+			if ks, ok := p["keys"].([]any); ok {
+				keys = len(ks)
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"deleted":` + fmt.Sprintf("%d", keys) + `}}`))
 		case "security.pending":
 			sa.mu.Lock()
 			pending := sa.secPending

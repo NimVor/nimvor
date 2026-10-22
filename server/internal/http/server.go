@@ -280,6 +280,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /sites/{id}/stats", s.guard("sites.stats", "logs.view", s.siteStats))
 	s.mux.HandleFunc("POST /sites/{id}/stats/enable", s.guard("sites.stats.enable", "websites.manage", s.siteStatsEnable))
 	s.mux.HandleFunc("POST /sites/{id}/stats/update", s.guard("sites.stats.update", "websites.manage", s.siteStatsUpdate))
+
+	// The Redis key browser (server-wide, and per-website where the prefix
+	// is the website's system user) + the website's Memcached page.
+	s.mux.HandleFunc("GET /redis/browser", s.guard("redis.browser", "redis.manage", s.redisBrowserServerPage))
+	s.mux.HandleFunc("POST /redis/browser/api", s.guard("redis.browser.api", "redis.manage", s.redisBrowserServerApi))
+	s.mux.HandleFunc("GET /sites/{id}/memcached", s.guard("sites.memcached", "websites.view", s.siteMemcached))
+	s.mux.HandleFunc("GET /sites/{id}/redis", s.guard("sites.redis", "websites.manage", s.redisBrowserSitePage))
+	s.mux.HandleFunc("POST /sites/{id}/redis/api", s.guard("sites.redis.api", "websites.manage", s.redisBrowserSiteApi))
 	// Subdomains: gated by the subdomains plan feature (route name) AND the
 	// websites.manage permission.
 	s.mux.HandleFunc("GET /sites/{id}/subdomains", s.guard("sites.subdomains", "websites.manage", s.siteSubdomains))
