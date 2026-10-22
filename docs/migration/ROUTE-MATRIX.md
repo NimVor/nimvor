@@ -402,11 +402,11 @@ Total routes: 551
 | GET | `/sites/{id}/apps` | AppsController::show | sites.apps | apps.install | yes | yes | ☐ |
 | POST | `/sites/{id}/backup-schedules/{schedule}/delete` | BackupsController::deleteSchedule | sites.backups.schedule_delete | backups.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/backup-schedules` | BackupsController::storeSchedule | sites.backups.schedule | backups.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/backups/{backup}/delete` | BackupsController::delete | sites.backups.delete | backups.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/backups/{backup}/download` | BackupsController::download | sites.backups.download | backups.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/backups/{backup}/restore` | BackupsController::restore | sites.backups.restore | backups.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/backups` | BackupsController::show | sites.backups | backups.view | yes | yes | ☐ |
-| POST | `/sites/{id}/backups` | BackupsController::create | sites.backups.create | backups.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/backups/{backup}/delete` | BackupsController::delete | sites.backups.delete | backups.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/backups/{backup}/download` | BackupsController::download | sites.backups.download | backups.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/backups/{backup}/restore` | BackupsController::restore | sites.backups.restore | backups.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/backups` | BackupsController::show | sites.backups | backups.view | yes | yes | ☑ |
+| POST | `/sites/{id}/backups` | BackupsController::create | sites.backups.create | backups.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/cloudflare/always-https` | SiteCloudflareController::alwaysHttps | sites.cloudflare.always_https | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/cloudflare/connect` | SiteCloudflareController::connect | sites.cloudflare.connect | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/cloudflare/disconnect` | SiteCloudflareController::disconnect | sites.cloudflare.disconnect | websites.manage | yes | yes | ☑ |
