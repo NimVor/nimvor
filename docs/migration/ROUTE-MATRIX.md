@@ -322,12 +322,12 @@ Total routes: 551
 | POST | `/security/fix` | SecurityController::fix | security.fix | server.manage | yes | yes | ☑ |
 | GET | `/security/forkbomb` | HardeningController::forkbomb | security.forkbomb | security.view | yes | yes | ☑ |
 | POST | `/security/forkbomb` | HardeningController::saveForkbomb | security.forkbomb.save | security.manage | yes | yes | ☑ |
-| POST | `/security/hulk/clear` | HulkController::clear | security.hulk.clear | security.manage | yes | yes | ☐ |
-| POST | `/security/hulk/countries` | HulkController::countries | security.hulk.countries | security.manage | yes | yes | ☐ |
-| POST | `/security/hulk/geo` | HulkController::geoUpload | security.hulk.geo | security.manage | yes | yes | ☐ |
-| POST | `/security/hulk/unblock` | HulkController::unblock | security.hulk.unblock | security.manage | yes | yes | ☐ |
-| GET | `/security/hulk` | HulkController::index | security.hulk | security.view | yes | yes | ☐ |
-| POST | `/security/hulk` | HulkController::save | security.hulk.save | security.manage | yes | yes | ☐ |
+| POST | `/security/hulk/clear` | HulkController::clear | security.hulk.clear | security.manage | yes | yes | ☑ |
+| POST | `/security/hulk/countries` | HulkController::countries | security.hulk.countries | security.manage | yes | yes | ☑ |
+| POST | `/security/hulk/geo` | HulkController::geoUpload | security.hulk.geo | security.manage | yes | yes | ☑ |
+| POST | `/security/hulk/unblock` | HulkController::unblock | security.hulk.unblock | security.manage | yes | yes | ☑ |
+| GET | `/security/hulk` | HulkController::index | security.hulk | security.view | yes | yes | ☑ |
+| POST | `/security/hulk` | HulkController::save | security.hulk.save | security.manage | yes | yes | ☑ |
 | POST | `/security/integrity/baseline` | SecurityChecksController::setBaseline | security.integrity.baseline | security.manage | yes | yes | ☑ |
 | POST | `/security/integrity/run` | SecurityChecksController::runIntegrity | security.integrity.run | security.view | yes | yes | ☑ |
 | GET | `/security/integrity` | SecurityChecksController::integrity | security.integrity | security.view | yes | yes | ☑ |
@@ -500,11 +500,11 @@ Total routes: 551
 | POST | `/sites/{id}/wordpress/{wp}/tools` | WordPressController::tool | sites.wordpress.tool | websites.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/wordpress/{wp}` | WordPressController::show | sites.wordpress.show | websites.view | yes | yes | ☐ |
 | GET | `/sites/{id}/wordpress` | WordPressController::siteList | sites.wordpress | websites.view | yes | yes | ☐ |
-| POST | `/sites/{id}/workers/{worker}/delete` | WorkersController::delete | sites.workers.delete | workers.manage | yes | yes |☑ |
-| POST | `/sites/{id}/workers/{worker}/restart` | WorkersController::restart | sites.workers.restart | workers.manage | yes | yes |☑ |
-| POST | `/sites/{id}/workers/{worker}/toggle` | WorkersController::toggle | sites.workers.toggle | workers.manage | yes | yes |☑ |
+| POST | `/sites/{id}/workers/{worker}/delete` | WorkersController::delete | sites.workers.delete | workers.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/workers/{worker}/restart` | WorkersController::restart | sites.workers.restart | workers.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/workers/{worker}/toggle` | WorkersController::toggle | sites.workers.toggle | workers.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/workers` | WorkersController::show | sites.workers | workers.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/workers` | WorkersController::store | sites.workers.store | workers.manage | yes | yes |☑ |
+| POST | `/sites/{id}/workers` | WorkersController::store | sites.workers.store | workers.manage | yes | yes | ☑ |
 | GET | `/sites/{id}` | SitesController::show | sites.show | websites.view | yes | yes | ☐ |
 | POST | `/ssl/autossl/run` | SslCenterController::autosslRun | ssl.autossl.run | ssl.manage | yes | yes | ☐ |
 | GET | `/ssl/autossl` | SslCenterController::autossl | ssl.autossl | ssl.view | yes | yes | ☐ |

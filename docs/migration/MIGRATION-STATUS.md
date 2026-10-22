@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **138 ☑ done+tested, 3 ◑ partial, 410 ☐** of 551.
+`server/internal/http/server.go`): **144 ☑ done+tested, 3 ◑ partial, 404 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -354,6 +354,34 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   notification email + Redactor are follow-ups, as is the per-website
   malware page (scan/release). No scope gate — parity (security.view reads,
   security.manage manages)
+- GET `/security/hulk` + POST `/security/hulk` + POST `/security/hulk/countries`
+  + POST `/security/hulk/geo` + POST `/security/hulk/unblock` + POST
+  `/security/hulk/clear` (HulkController's cPHulk Brute Force Protection —
+  all-scope pages, role-admin saves). `security.Hulk` (the hulk_* tables) +
+  `security.Geo` (geo_ranges) + `security.Countries` (the 249-code catalogue,
+  ported from app/Security/Countries.php): the page (the hulk.status agent box
+  — Disabled / Enabled / the nftables-missing warn state — the three
+  Bootstrap subtabs; the settings form: the 17 keys with their definition
+  defaults, the protection-type radios, the command-variable list, the
+  whitelist textarea, the countries table in catalogue order with the bulk
+  mark + the block-on scope, the report tab with the blocks-in-force table +
+  the failed-logins report with country names / minutes-left); save
+  (SettingsService::update parity — the scope check, the per-entry validEntry
+  check with the 60-char message, the 200-entry cap, the own-address add when
+  turning on with an empty whitelist, the printable-string bounds, changed-only
+  persistence + the settings.update audit with from/to, then the hulk.sync
+  agent push {enabled, blocks[ ip/until/all ], countries[ from/to ], whitelist,
+  countries_all} — the agent error flash-redirect); countries (bulk or
+  per-country marks, the hulk_countries upsert/delete in a transaction,
+  unknown codes skipped, the hulk.countries audit, the sync, "%d countr(y|ies)
+  updated."); geo (the DB-IP "IP to Country Lite" CSV/.csv.gz upload —
+  gzip-checked, malformed lines skipped, the all-or-nothing replace in a
+  transaction, the hulk_geo_updated stamp with a null actor + its
+  settings.update audit, the hulk.geo_import audit); unblock + clear
+  (removeBlock/clear + their audits + the quiet sync — agent errors logged,
+  the success flash stands). The enforcement engine (HulkService::run/
+  evaluate/block + the panel-failure recording) is the scheduler/login-flow
+  side and stays with the background-jobs follow-up
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -414,7 +442,7 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - ☐ DB browser, DB dump/import, DB server area (DbServerController), mongo, redis/memcached, DNS records, mail accounts/filters, SSL/ACME, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
 
 ## NOT YET PORTED (known follow-ups, tracked honestly)
-- WebAuthn sign-in + security-key management; IP-verification sign-in (emailed code); HULK brute-force integration; step-up password confirmation; password-age and role-requires-2FA enforcement; trusted-proxy client IP
+- WebAuthn sign-in + security-key management; IP-verification sign-in (emailed code); the HULK enforcement side (the failed-login recording into the panel's login flow + the HulkService::run scheduler loop that turns events into blocks — the panel page itself is ported); step-up password confirmation; password-age and role-requires-2FA enforcement; trusted-proxy client IP
 - QR image on the 2FA setup page (the otpauth URI + secret are shown for manual entry; a QR encoder or dependency is a small follow-up)
 - notification emails (the warning/error rows are inserted but not emailed; the PHP Redactor for their body is not ported)
 - profile: password change, API-token management, session management, security-key forms
@@ -428,10 +456,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: continue the **security area** — the HulkController cPHulk
-Brute Force Protection integration (6 routes), then the
-ModSecurityController (10 routes), then the per-website malware pages
-(AvController show/scan/release). Check INVENTORY.md + the PHP
-controllers before starting.
+Batch: continue the **security area** — the ModSecurityController
+(11 routes: the 9 /security/modsec.* area (index, configure, rule, custom,
+update, install, crs, rollback, saveSite) + the per-website firewall page
+GET/POST /sites/{id}/firewall). The cPHulk (HulkController) panel page is
+done (6 routes, batch 30); its enforcement/scheduler side stays with the
+background-jobs follow-up. After ModSecurity: the per-website malware pages
+(AvController show/scan/release). Check INVENTORY.md + the PHP controllers
+before starting.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

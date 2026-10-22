@@ -48,6 +48,7 @@ type Server struct {
 	twoFactor *twofactor.Service
 	policy    *security.Policy
 	loginIPs  *security.LoginIpVerifier
+	hulk      *security.Hulk
 }
 
 // New builds the server and registers the routes implemented so far. It
@@ -84,6 +85,7 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		twoFactor: tf,
 		policy:    policy,
 		loginIPs:  security.NewLoginIpVerifier(db),
+		hulk:      security.NewHulk(db, st),
 	}
 	s.routes()
 	return s, nil
@@ -211,6 +213,15 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /security/fail2ban", s.guard("security.fail2ban", "security.view", s.fail2banIndex))
 	s.mux.HandleFunc("POST /security/fail2ban", s.guard("security.fail2ban.configure", "security.manage", s.fail2banConfigure))
 	s.mux.HandleFunc("POST /security/fail2ban/unban", s.guard("security.fail2ban.unban", "security.manage", s.fail2banUnban))
+	// Security → cPHulk brute force protection (HulkController: the settings
+	// form, the countries management, the failed-logins report and the
+	// block/clear actions; all-scope pages, role-admin saves).
+	s.mux.HandleFunc("GET /security/hulk", s.guard("security.hulk", "security.view", s.hulkIndex))
+	s.mux.HandleFunc("POST /security/hulk", s.guard("security.hulk.save", "security.manage", s.hulkSave))
+	s.mux.HandleFunc("POST /security/hulk/countries", s.guard("security.hulk.countries", "security.manage", s.hulkCountries))
+	s.mux.HandleFunc("POST /security/hulk/geo", s.guard("security.hulk.geo", "security.manage", s.hulkGeo))
+	s.mux.HandleFunc("POST /security/hulk/unblock", s.guard("security.hulk.unblock", "security.manage", s.hulkUnblock))
+	s.mux.HandleFunc("POST /security/hulk/clear", s.guard("security.hulk.clear", "security.manage", s.hulkClear))
 	s.mux.HandleFunc("POST /security/fix", s.guard("security.fix", "server.manage", s.securityFix))
 	// Security → SSH (SecurityController's SSH area: the server settings —
 	// the guarded ssh.configure — and the administrator key management,
