@@ -19,7 +19,7 @@ _From app/Services/FeatureService::FEATURES._
 | backups | Backups | Backups | backups.view,backups.manage | ☐ |
 | auto_backups | Show scheduled (automatic) backups to the customer | Backups | (toggle) | ☐ |
 | apps | Application installer | Websites | apps.install | ☐ |
-| git | Git deployment | Automation | deploy.manage | ☐ |
+| git | Git deployment | Automation | deploy.manage | ☑ |
 | workers | Workers (background processes) | Automation | workers.manage | ☐ |
 | redis | Redis | Caching | sites.redis | ☑ |
 | memcached | Memcached | Caching | sites.memcached | ☑ |

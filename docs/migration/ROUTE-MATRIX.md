@@ -130,7 +130,7 @@ Total routes: 551
 | POST | `/ftp/install` | FtpController::install | ftp.install | packages.manage | yes | yes | ☐ |
 | GET | `/ftp` | FtpController::index | ftp | server.manage | yes | yes | ☐ |
 | GET | `/healthz` | HealthController::show | health |  | no | yes | ☐ |
-| POST | `/hooks/deploy/{token}` | DeployController::webhook | hooks.deploy |  | no | no | ☐ |
+| POST | `/hooks/deploy/{token}` | DeployController::webhook | hooks.deploy |  | no | no | ☑ |
 | GET | `/ips/migrate` | IpController::migrate | ips.migrate | server.view | yes | yes | ☐ |
 | POST | `/ips/migrate` | IpController::runMigration | ips.migrate.run | server.manage | yes | yes | ☐ |
 | POST | `/ips/ranges/{id}/allocate` | IpController::allocate | ips.ranges.allocate | server.manage | yes | yes | ☐ |
@@ -437,11 +437,11 @@ Total routes: 551
 | POST | `/sites/{id}/ftp/accounts/delete` | FtpController::deleteAccount | sites.ftp.delete | ftp.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/ftp/accounts` | FtpController::saveAccount | sites.ftp.save | ftp.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/ftp` | FtpController::show | sites.ftp | ftp.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/git/deploy` | DeployController::run | sites.git.deploy | deploy.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/git/remove` | DeployController::remove | sites.git.remove | deploy.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/git/rotate` | DeployController::rotate | sites.git.rotate | deploy.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/git` | DeployController::show | sites.git | deploy.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/git` | DeployController::configure | sites.git.configure | deploy.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/git/deploy` | DeployController::run | sites.git.deploy | deploy.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/git/remove` | DeployController::remove | sites.git.remove | deploy.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/git/rotate` | DeployController::rotate | sites.git.rotate | deploy.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/git` | DeployController::show | sites.git | deploy.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/git` | DeployController::configure | sites.git.configure | deploy.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/health` | SitesController::health | sites.health | websites.view | yes | yes | ☐ |
 | POST | `/sites/{id}/import/undo` | SitesController::undoImport | sites.import.undo | import.run | yes | yes | ☐ |
 | POST | `/sites/{id}/ip` | IpController::assignSite | sites.ip | server.manage | yes | yes | ☐ |
