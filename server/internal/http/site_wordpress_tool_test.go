@@ -13,6 +13,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 )
 
 // wpToolPost fetches the overview for a fresh CSRF token, then POSTs the tool
@@ -400,12 +402,157 @@ func TestWordPressToolCron(t *testing.T) {
 	}
 }
 
+// wpLastModsecSiteMode is the mode of the last modsec.site agent call ("").
+func wpLastModsecSiteMode(sa *sitesAgent) string {
+	for i := len(sa.called()) - 1; i >= 0; i-- {
+		if sa.called()[i] == "modsec.site" {
+			m, _ := sa.param(i, "mode").(string)
+			return m
+		}
+	}
+	return ""
+}
+
+func TestWordPressToolVulnerability(t *testing.T) {
+	h, sa, db := mongoWEnv(t)
+	wpSeedInstall(t, db, 10, "public_html", "6.7.1", "6.8")
+	bob := loginAsUser(t, h, "bob")
+
+	// On: the site is set to blocking mode and the column is linked.
+	res := wpToolPost(t, h, bob, url.Values{"tool": {"vulnerability"}, "enabled": {"1"}})
+	if res.Code != http.StatusSeeOther || res.Header().Get("Location") != "/sites/10/wordpress/1" {
+		t.Fatalf("tool = %d %q", res.Code, res.Header().Get("Location"))
+	}
+	if mode := wpLastModsecSiteMode(sa); mode != "on" {
+		t.Errorf("modsec.site mode = %q", mode)
+	}
+	var on int
+	if err := db.QueryRow(`SELECT vuln_protection FROM wordpress_installs WHERE website_id = 10`).Scan(&on); err != nil {
+		t.Fatal(err)
+	}
+	if on != 1 {
+		t.Errorf("vuln_protection = %d", on)
+	}
+	if n := wpAuditCount(t, db, "wordpress.vulnerability_protection"); n != 1 {
+		t.Errorf("audit rows = %d", n)
+	}
+	rr := get(t, h, "/sites/10/wordpress/1", bob)
+	if !strings.Contains(rr.Body.String(), "Vulnerability protection is on: requests to the website are filtered by ModSecurity with the OWASP Core Rule Set (blocking), and the installation is checked for known vulnerabilities every day.") {
+		t.Errorf("the on flash is missing: %s", rr.Body.String())
+	}
+
+	// Off: no other installation wants it, so the site goes back to
+	// detection only.
+	res = wpToolPost(t, h, bob, url.Values{"tool": {"vulnerability"}})
+	if res.Code != http.StatusSeeOther {
+		t.Fatalf("tool off = %d", res.Code)
+	}
+	if mode := wpLastModsecSiteMode(sa); mode != "detect" {
+		t.Errorf("modsec.site mode = %q, want detect", mode)
+	}
+	if err := db.QueryRow(`SELECT vuln_protection FROM wordpress_installs WHERE website_id = 10`).Scan(&on); err != nil {
+		t.Fatal(err)
+	}
+	if on != 0 {
+		t.Errorf("vuln_protection after off = %d", on)
+	}
+	rr = get(t, h, "/sites/10/wordpress/1", bob)
+	if !strings.Contains(rr.Body.String(), "Vulnerability protection is off (ModSecurity only logs for this website now).") {
+		t.Error("the off flash is missing")
+	}
+
+	// The guard: ModSecurity not turned on (no site call, no column change).
+	sa.modsecActive = false
+	bob = loginAsUser(t, h, "bob")
+	res = wpToolPost(t, h, bob, url.Values{"tool": {"vulnerability"}, "enabled": {"1"}})
+	if res.Code != http.StatusSeeOther {
+		t.Fatalf("tool = %d", res.Code)
+	}
+	if mode := wpLastModsecSiteMode(sa); mode != "detect" {
+		t.Errorf("modsec.site mode = %q, want the earlier detect", mode)
+	}
+	if err := db.QueryRow(`SELECT vuln_protection FROM wordpress_installs WHERE website_id = 10`).Scan(&on); err != nil {
+		t.Fatal(err)
+	}
+	if on != 0 {
+		t.Errorf("vuln_protection after the guard = %d", on)
+	}
+	rr = get(t, h, "/sites/10/wordpress/1", bob)
+	if !strings.Contains(rr.Body.String(), "Vulnerability protection needs ModSecurity, which is not installed or not turned on on this server. Ask your hosting provider to turn on ModSecurity.") {
+		t.Errorf("the guard flash is missing: %s", rr.Body.String())
+	}
+}
+
+func TestWordPressToolVulnCheck(t *testing.T) {
+	h, _, db := mongoWEnv(t)
+	wpSeedInstall(t, db, 10, "public_html", "6.7.1", "6.8")
+	// The database answers: one high in the core (affects 6.7.1), one
+	// medium in Hello Dolly (affects 1.7), nothing in the rest.
+	rest := `{"data":{"vulnerability":[]}}`
+	old := hosting.WpVulnFetch
+	hosting.WpVulnFetch = func(rawurl string) (string, bool) {
+		switch {
+		case strings.HasSuffix(rawurl, "core/6.7.1/"):
+			return `{"data":{"vulnerability":[{"name":"SQL Injection in <b>core</b>","operator":{"min_operator":"ge","min_version":"6.0","max_operator":"lt","max_version":"6.7.2"},"impact":{"cvss":{"severity":"h","score":"8.1"}},"source":[{"id":"CVE-2026-1234","link":"https://www.wpvulnerability.net/vulnerabilities/1234"}]}]}`, true
+		case strings.HasSuffix(rawurl, "plugin/hello/"):
+			return `{"data":{"vulnerability":[{"name":"XSS in Hello","operator":{"max_operator":"lt","max_version":"1.8"},"impact":{"cvss":{"severity":"m","score":"5.4"}},"source":[{"id":"WPVMA-2026-001","link":"https://www.wpvulnerability.net/vulnerabilities/9999"}]}]}`, true
+		case strings.HasSuffix(rawurl, "plugin/jetpack/"), strings.HasSuffix(rawurl, "theme/twentytwentyfive/"):
+			return rest, true
+		default:
+			return "", false
+		}
+	}
+	t.Cleanup(func() { hosting.WpVulnFetch = old })
+
+	bob := loginAsUser(t, h, "bob")
+	res := wpToolPost(t, h, bob, url.Values{"tool": {"vuln_check"}})
+	if res.Code != http.StatusSeeOther || res.Header().Get("Location") != "/sites/10/wordpress/1#security" {
+		t.Fatalf("tool = %d %q", res.Code, res.Header().Get("Location"))
+	}
+	rr := get(t, h, "/sites/10/wordpress/1", bob)
+	if !strings.Contains(rr.Body.String(), "2 known vulnerabilities found.") {
+		t.Errorf("the flash is missing: %s", rr.Body.String())
+	}
+	var vulns, checkedAt string
+	if err := db.QueryRow(`SELECT vulns, vulns_checked_at FROM wordpress_installs WHERE website_id = 10`).Scan(&vulns, &checkedAt); err != nil {
+		t.Fatal(err)
+	}
+	if checkedAt == "" {
+		t.Error("vulns_checked_at is empty")
+	}
+	// The stored list: the high one first (severity order), the tags
+	// stripped, the fixed-in versions kept.
+	for _, want := range []string{
+		`"kind":"core"`, `"severity":"high"`, `"score":"8.1"`, `"name":"SQL Injection in core"`,
+		`"cve":"CVE-2026-1234"`, `"fixed_in":"6.7.2"`, `"title":"Hello Dolly"`, `"fixed_in":"1.8"`,
+	} {
+		if !strings.Contains(vulns, want) {
+			t.Errorf("the stored vulns miss %q: %s", want, vulns)
+		}
+	}
+	if iHigh := strings.Index(vulns, `"severity":"high"`); iHigh < 0 || iHigh > strings.Index(vulns, `"severity":"medium"`) {
+		t.Errorf("the stored vulns are not severity-ordered: %s", vulns)
+	}
+
+	// The unreachable database: the error, nothing stored.
+	hosting.WpVulnFetch = func(string) (string, bool) { return "", false }
+	bob = loginAsUser(t, h, "bob")
+	res = wpToolPost(t, h, bob, url.Values{"tool": {"vuln_check"}})
+	if res.Code != http.StatusSeeOther {
+		t.Fatalf("tool = %d", res.Code)
+	}
+	rr = get(t, h, "/sites/10/wordpress/1", bob)
+	if !strings.Contains(rr.Body.String(), "The vulnerability database (wpvulnerability.net) could not be reached from this server; try again later.") {
+		t.Errorf("the unreachable flash is missing: %s", rr.Body.String())
+	}
+}
+
 func TestWordPressToolUnknownAndSoon(t *testing.T) {
 	h, _, db := mongoWEnv(t)
 	wpSeedInstall(t, db, 10, "public_html", "6.7.1", "6.8")
 	bob := loginAsUser(t, h, "bob")
 
-	for _, tool := range []string{"nope", "vulnerability", "vuln_check", "clone", "sync", "restore"} {
+	for _, tool := range []string{"nope", "clone", "sync", "restore"} {
 		want := "Unknown tool."
 		if tool != "nope" {
 			want = "This tool is coming soon."

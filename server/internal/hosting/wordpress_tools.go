@@ -77,6 +77,8 @@ type WpDebugLog struct {
 
 // WpVulnItem is one found vulnerability (the check's stored items).
 type WpVulnItem struct {
+	Kind     string `json:"kind"`
+	Slug     string `json:"slug"`
 	Severity string `json:"severity"`
 	Score    string `json:"score"`
 	Title    string `json:"title"`
@@ -103,12 +105,13 @@ type WordPressTools struct {
 	sites    *WebsiteRepository
 	crypto   *crypto.Crypto
 	cron     *CronService
+	vulns    *WpVulnerabilities
 	audit    Auditor
 }
 
 // NewWordPressTools builds the service.
-func NewWordPressTools(db *sql.DB, ag AgentCaller, serverID int64, sites *WebsiteRepository, crypto *crypto.Crypto, cron *CronService, audit Auditor) *WordPressTools {
-	return &WordPressTools{db: db, agent: ag, serverID: serverID, sites: sites, crypto: crypto, cron: cron, audit: audit}
+func NewWordPressTools(db *sql.DB, ag AgentCaller, serverID int64, sites *WebsiteRepository, crypto *crypto.Crypto, cron *CronService, vulns *WpVulnerabilities, audit Auditor) *WordPressTools {
+	return &WordPressTools{db: db, agent: ag, serverID: serverID, sites: sites, crypto: crypto, cron: cron, vulns: vulns, audit: audit}
 }
 
 // WpDebugFlags are the debug switches the toolkit can turn on or off
@@ -587,6 +590,47 @@ func (s *WordPressTools) DebugLog(ctx context.Context, site *Website, install *W
 		o.Lines = []string{}
 	}
 	return &WpDebugLog{Path: o.Path, Exists: o.Exists, Lines: o.Lines, Size: o.Size}, nil
+}
+
+// CheckVulnerabilities checks the installation against the vulnerability
+// database and keeps the result (WordPressToolsService::checkVulnerabilities).
+func (s *WordPressTools) CheckVulnerabilities(install *WordPressInstall, info *WordPressInfo) ([]WpVulnItem, bool, string, error) {
+	items, reachable := s.vulns.Check(info)
+	now := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+	if reachable || len(items) != 0 {
+		b, err := json.Marshal(items)
+		if err != nil {
+			return nil, false, "", err
+		}
+		if _, err := s.db.Exec(`UPDATE wordpress_installs SET vulns = ?, vulns_checked_at = ? WHERE id = ?`, string(b), now, install.ID); err != nil {
+			return nil, false, "", err
+		}
+	}
+	return items, reachable, now, nil
+}
+
+// SetVulnerabilityProtection records the installation's vulnerability
+// protection state and builds its message (WordPressToolsService::
+// setVulnerabilityProtection — the ModSecurity part runs in the http layer,
+// where the modsec facilities live). held is the server-wide
+// detection-only flag at the moment of switching on.
+func (s *WordPressTools) SetVulnerabilityProtection(ctx context.Context, site *Website, install *WordPressInstall, on, held bool) (string, error) {
+	if err := wpWritable(site); err != nil {
+		return "", err
+	}
+	if _, err := s.db.Exec(`UPDATE wordpress_installs SET vuln_protection = ? WHERE id = ?`, on, install.ID); err != nil {
+		return "", err
+	}
+	s.auditWordPress(ctx, "wordpress.vulnerability_protection", "website", fmt.Sprintf("%d", site.ID), map[string]any{
+		"domain": site.Domain, "path": install.Path, "on": on,
+	})
+	if on {
+		if held {
+			return "Vulnerability protection is on: requests to the website are filtered by ModSecurity with the OWASP Core Rule Set (only logging until an administrator allows blocking under Security → ModSecurity), and the installation is checked for known vulnerabilities every day.", nil
+		}
+		return "Vulnerability protection is on: requests to the website are filtered by ModSecurity with the OWASP Core Rule Set (blocking), and the installation is checked for known vulnerabilities every day.", nil
+	}
+	return "Vulnerability protection is off (ModSecurity only logs for this website now).", nil
 }
 
 // auditWordPress records a WordPress toolkit action.

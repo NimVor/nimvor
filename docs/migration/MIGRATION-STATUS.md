@@ -506,10 +506,25 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   re-encrypted), and security (the one-click apply / roll back of the
   nine recommended measures, or the chosen ones, the empty-measures
   guard); every tool is audited (wordpress.<tool>) and the suspended
-  account is refused (wpWritable). The remaining tools (vulnerability
-  protection, the vulnerability-database check, clone, sync, restore)
-  answer "This tool is coming soon." until their service dependencies
-  (ModSecurity / wpvulnerability.net / wordpress.copy) are ported
+  account is refused (wpWritable). The remaining tools (clone, sync,
+  restore) answer "This tool is coming soon." until their service
+  dependency (wordpress.copy) is ported
+- ◑ websites: the WordPress vulnerability protection + check (tools)
+  (batch 48) — WordPressToolsService::setVulnerabilityProtection +
+  checkVulnerabilities + WordPressVulnerabilities.php: the tool
+  route's `vulnerability` case (the ModSecurity part in the http layer —
+  the status guard: the connector state functional + the module active,
+  the admin / provider remedy, the site set to blocking or back to
+  detection only when no other installation of the website wants it,
+  the server-wide detection-only flag in the on message — and the
+  vuln_protection column + audit in the service) and the `vuln_check`
+  case (the fresh wordpress.info checked against the free
+  wpvulnerability.net database — the core + the non-must-use plugins +
+  the themes, at most 300 items, the min / max version operators, the
+  severity / score / fixed-in / CVE / link fields, the severity +
+  title order, the 12-hour per-item answer cache next to the panel
+  database, the stored vulns + vulns_checked_at columns, the "N known
+  vulnerabilities found." flash or the unreachable-database error)
 - ◑ websites: the WordPress cron takeover (tools) (batch 47)
   — WordPressToolsService::setCronTakeover as
   hosting/wordpress_tools.go (SetCronTakeover): the tool route's
