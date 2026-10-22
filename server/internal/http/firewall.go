@@ -73,20 +73,7 @@ func (s *Server) guardRecord(r *http.Request, action string, reply json.RawMessa
 	return "Applied. Check that you can still connect, then confirm within 2 minutes — otherwise the change is undone automatically."
 }
 
-// firewallAgentError flashes the agent's message (an agent error on a
-// guarded change flashes the redirect — the Go adaptation of the PHP
-// page's 500, like the shell/confirm/undo routes).
-func (s *Server) firewallAgentError(w http.ResponseWriter, r *http.Request, err error, to string) {
-	sess := sessionFrom(r.Context())
-	var ae *agent.Error
-	msg := "The WhaCP agent could not be reached."
-	if errors.As(err, &ae) && ae.Message != "" {
-		msg = ae.Message
-	}
-	s.log.Error("firewall change", "error", err)
-	sess.Flash("error", msg)
-	http.Redirect(w, r, to, http.StatusSeeOther)
-}
+
 
 // --------------------------------------------------------------------------
 // GET /security/firewall (security.firewall, security.view)
@@ -520,7 +507,7 @@ func (s *Server) firewallToggle(w http.ResponseWriter, r *http.Request) {
 			"enabled": true, "allow_services": allowServices, "allow_from": allowFrom,
 		}, 90*time.Second)
 		if err != nil {
-			s.firewallAgentError(w, r, err, to)
+			agentErrorRedirect(w, r, "firewall toggle", err, to)
 			return
 		}
 		sess.Flash("success", s.guardRecord(r, "firewall.enable", reply, map[string]any{
@@ -533,7 +520,7 @@ func (s *Server) firewallToggle(w http.ResponseWriter, r *http.Request) {
 	}
 	reply, err := s.agent.Call(r.Context(), "firewall.set_enabled", map[string]any{"enabled": false})
 	if err != nil {
-		s.firewallAgentError(w, r, err, to)
+		agentErrorRedirect(w, r, "firewall toggle", err, to)
 		return
 	}
 	sess.Flash("success", s.guardRecord(r, "firewall.disable", reply, nil))
@@ -564,7 +551,7 @@ func (s *Server) firewallAddRule(w http.ResponseWriter, r *http.Request) {
 	}
 	reply, err := s.agent.Call(r.Context(), "firewall.rule_add", rule)
 	if err != nil {
-		s.firewallAgentError(w, r, err, "/security/firewall")
+		agentErrorRedirect(w, r, "firewall rule", err, "/security/firewall")
 		return
 	}
 	sess.Flash("success", s.guardRecord(r, "firewall.rule_add", reply, rule))
@@ -586,7 +573,7 @@ func (s *Server) firewallDeleteRule(w http.ResponseWriter, r *http.Request) {
 	spec := r.FormValue("spec")
 	reply, err := s.agent.Call(r.Context(), "firewall.rule_delete", map[string]any{"spec": spec})
 	if err != nil {
-		s.firewallAgentError(w, r, err, "/security/firewall")
+		agentErrorRedirect(w, r, "firewall rule", err, "/security/firewall")
 		return
 	}
 	sess.Flash("success", s.guardRecord(r, "firewall.rule_delete", reply, map[string]any{"rule": spec}))
@@ -780,7 +767,7 @@ func (s *Server) firewallProtection(w http.ResponseWriter, r *http.Request) {
 	}
 	reply, err := s.agent.Call(r.Context(), "firewall.protection_set", p, 90*time.Second)
 	if err != nil {
-		s.firewallAgentError(w, r, err, to)
+		agentErrorRedirect(w, r, "firewall protection", err, to)
 		return
 	}
 	sess.Flash("success", s.guardRecord(r, "firewall.protection", reply, p))
