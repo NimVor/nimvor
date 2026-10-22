@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **53 ☑ done+tested, 3 ◑ partial, 495 ☐** of 551.
+`server/internal/http/server.go`): **56 ☑ done+tested, 3 ◑ partial, 492 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -127,14 +127,12 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the per-site log viewer — GET `/sites/{id}/logs` (LogsController::site,
-LOGS_VIEW: the site's log sources over the agent's `logs.sources` plus a
-"Worker: …" entry per worker, so the page actually lists what can be tailed)
-plus the JSON tail endpoint GET `/logs/tail` (LogsController::tail: the
-per-source `allowed()` check — `site:<domain>:` must resolve to a website the
-user can see, `journal:whacp-worker-<slug>.service` to a worker whose website
-the user can see, everything else staff-only — then the agent `logs.tail` or,
-for `source=panel`, the local panel-log tail). The global `/logs` index and
-`/logs/download` (streaming) are the follow-ups that finish the logs area.
+Batch: the global log index — GET `/logs` (LogsController::index, LOGS_VIEW;
+server logs are staff-only — a non-staff user gets the 403 page). Lists the
+server-wide sources from the agent's `logs.sources` (no domain) plus the
+"WhaCP panel log" entry, filtered by the `?view=<category>` sub-menu (web /
+php / mail / database / security / ssl / system / services / whacp, per
+LogsController::category) and reusing the same viewer partial + `/logs/tail`
+endpoint (both already ported). This finishes the logs area.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

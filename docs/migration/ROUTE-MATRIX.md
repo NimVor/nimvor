@@ -156,8 +156,8 @@ Total routes: 551
 | GET | `/login` | AuthController::show | login |  | no | yes | ☑ |
 | POST | `/login` | AuthController::login | login.submit |  | no | yes | ☑ |
 | POST | `/logout` | AuthController::logout | logout |  | yes | yes | ☑ |
-| GET | `/logs/download` | LogsController::download | logs.download | logs.view | yes | yes | ☐ |
-| GET | `/logs/tail` | LogsController::tail | logs.tail | logs.view | yes | yes | ☐ |
+| GET | `/logs/download` | LogsController::download | logs.download | logs.view | yes | yes | ☑ |
+| GET | `/logs/tail` | LogsController::tail | logs.tail | logs.view | yes | yes | ☑ |
 | GET | `/logs` | LogsController::index | logs | logs.view | yes | yes | ☐ |
 | POST | `/mail/admin/greylisting/providers/update` | MailGreylistController::updateProviders | mail.greylist.providers.update | server.manage | yes | yes | ☐ |
 | POST | `/mail/admin/greylisting/providers` | MailGreylistController::saveProviders | mail.greylist.providers | server.manage | yes | yes | ☐ |
@@ -445,7 +445,7 @@ Total routes: 551
 | GET | `/sites/{id}/health` | SitesController::health | sites.health | websites.view | yes | yes | ☐ |
 | POST | `/sites/{id}/import/undo` | SitesController::undoImport | sites.import.undo | import.run | yes | yes | ☐ |
 | POST | `/sites/{id}/ip` | IpController::assignSite | sites.ip | server.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/logs` | LogsController::site | sites.logs | logs.view | yes | yes | ☐ |
+| GET | `/sites/{id}/logs` | LogsController::site | sites.logs | logs.view | yes | yes | ☑ |
 | GET | `/sites/{id}/mail` | MailController::site | sites.mail | mail.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/malware/release` | AvController::release | sites.malware.release | security.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/malware/scan` | AvController::scan | sites.malware.scan | websites.manage | yes | yes | ☐ |

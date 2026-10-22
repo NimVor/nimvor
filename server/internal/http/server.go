@@ -120,6 +120,9 @@ func (s *Server) routes() {
 	// Addon domain → hosting account (AddonConversionController, users.manage).
 	s.mux.HandleFunc("GET /sites/{id}/convert", s.guard("sites.convert", "users.manage", s.siteConvertPage))
 	s.mux.HandleFunc("POST /sites/{id}/convert", s.guard("sites.convert", "users.manage", s.siteConvert))
+	// The website's logs (LogsController::site, logs.view; the logs plan
+	// feature gates the route name).
+	s.mux.HandleFunc("GET /sites/{id}/logs", s.guard("sites.logs", "logs.view", s.siteLogs))
 	s.mux.HandleFunc("POST /sites/{id}/subdomains", s.guard("sites.subdomains.store", "websites.manage", s.siteSubdomainsStore))
 	s.mux.HandleFunc("GET /sites/{id}/cron", s.guard("", "cron.view", s.siteCron))
 	s.mux.HandleFunc("GET /sites/{id}/workers", s.guard("", "workers.manage", s.siteWorkers))
@@ -160,6 +163,13 @@ func (s *Server) routes() {
 	// Email domains list. mail.manage is withheld by the email plan feature.
 	s.mux.HandleFunc("GET /mail", s.guard("", "mail.manage", s.mailIndex))
 	s.mux.HandleFunc("GET /workers", s.guard("", "workers.manage", s.workersIndex))
+
+	// Log viewer endpoints (LogsController::tail/download). Source-level
+	// authorization happens inside the handlers (a user may read exactly the
+	// logs of the websites they can see; server logs and the panel log are
+	// staff-only) — the route itself only carries logs.view.
+	s.mux.HandleFunc("GET /logs/tail", s.guard("", "logs.view", s.logsTail))
+	s.mux.HandleFunc("GET /logs/download", s.guard("", "logs.view", s.logsDownload))
 
 	// Audit log viewer (staff only; no tenant scope).
 	s.mux.HandleFunc("GET /audit", s.guard("", "audit.view", s.auditIndex))
