@@ -1,0 +1,63 @@
+{{define "wordpress_site"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WordPress · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/websites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
+  <h1>WordPress</h1>
+  <p class="text-muted">{{.Site.Domain}}</p>
+
+  <div class="wcp-panel" data-wcp-dt>
+    <div class="wcp-actionbar">
+      <div class="fw-semibold">WordPress installations <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Installs}}</span></div>
+      {{if .CanManage}}
+      <div class="wcp-actionbar-end">
+        <form method="post" action="/sites/{{.Site.ID}}/wordpress/scan" data-wcp-busy>
+          <input type="hidden" name="_token" value="{{.CSRF}}">
+          <button class="btn btn-sm btn-outline-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-search me-1" aria-hidden="true"></i>Scan for WordPress</button>
+        </form>
+      </div>
+      {{end}}
+    </div>
+    {{if not .Installs}}
+    <div class="wcp-empty-state">
+      <i class="bi bi-wordpress" aria-hidden="true"></i>
+      <div class="fw-medium">No WordPress found yet</div>
+      <div class="small">Scan the website to find WordPress in its folders{{if eq .Site.Kind "php"}}, or <a href="/sites/{{.Site.ID}}/apps#app-wordpress">install WordPress</a>{{end}}.</div>
+    </div>
+    {{else}}
+    <div class="wcp-dtable table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>Folder</th><th>Version</th><th>Updates</th><th>Checks</th><th></th></tr></thead>
+        <tbody>
+        {{range .Installs}}
+        <tr>
+          <td><code>{{if .Path}}{{.Path}}{{else}}/{{end}}</code>{{if .URL}}<div class="small"><a href="{{.URL}}/" target="_blank" rel="noopener noreferrer">{{.URL}}</a></div>{{end}}</td>
+          <td>{{if .Version}}{{.Version}}{{else}}?{{end}}{{if .Outdated}} <span class="wcp-state is-warn">{{.Latest}} available</span>{{end}}</td>
+          <td class="small">{{.PluginUpdates}} plugin(s), {{.ThemeUpdates}} theme(s){{if not .CheckedAt.Valid}} <span class="text-body-secondary">(not checked yet)</span>{{end}}</td>
+          <td>{{if .Issues}}<span class="wcp-state is-warn">{{.Issues}} to review</span>{{else}}{{if not .CheckedAt.Valid}}<span class="text-body-secondary small">—</span>{{else}}<span class="wcp-state is-ok">OK</span>{{end}}{{end}}</td>
+          <td class="text-end"><a class="btn btn-sm btn-primary" href="/sites/{{.WebsiteID}}/wordpress/{{.ID}}">Manage</a></td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+  </div>
+</main>
+</body>
+</html>{{end}}
