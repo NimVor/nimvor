@@ -1,0 +1,79 @@
+{{define "security_tls"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>TLS audit · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/servers">&larr; Servers</a></p>
+  <h1>TLS audit</h1>
+  <p class="text-muted">Security</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  <div class="wcp-panel mb-3">
+    <div class="wcp-statusbar">
+      <span class="fw-medium">TLS configuration audit</span>
+      <span class="small wcp-muted">{{.Endpoints}} endpoint(s): HTTPS websites and mail</span>
+      <form class="ms-auto" method="post" action="/security/tls/run" data-wcp-busy>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <button class="btn btn-sm btn-primary"{{if eq .Endpoints 0}} disabled{{end}}><i class="bi bi-shield-lock me-1"></i>Run audit</button>
+      </form>
+    </div>
+    <p class="small wcp-muted mb-0 mt-2">Each endpoint on this server is probed for obsolete protocols (TLS 1.0/1.1 accepted), weak cipher suites, and certificate problems (SHA-1, expired, untrusted chain, host-name mismatch). This only reads — it never changes a website's configuration. Apply a fix from SSL/TLS afterwards.</p>
+  </div>
+  {{if eq .Endpoints 0}}
+  <div class="wcp-infobar"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>No HTTPS websites or mail endpoints to audit yet. Enable HTTPS on a website, or set up the mail server, then run the audit.</span></div>
+  {{else if .RunError}}
+  <div class="wcp-infobar is-error"><i class="bi bi-x-circle-fill" aria-hidden="true"></i><span>The TLS audit could not run: {{.RunError}}</span></div>
+  {{else if .Ran}}
+  {{if .Result}}
+  {{ $any := false }}
+  {{range .Result.Results}}{{if .Findings}}{{ $any = true }}{{end}}{{end}}
+  {{if $any}}
+  {{range .Result.Results}}{{if .Findings}}
+  <div class="wcp-panel mb-2">
+    <div class="wcp-statusbar">
+      <span class="fw-medium font-monospace small">{{.Endpoint}}</span>
+      <span class="small wcp-muted ms-2">{{.Kind}}</span>
+      {{if .BestVersion}}<span class="small wcp-muted ms-auto">best: {{.BestVersion}}{{if .MinVersion}}, lowest: {{.MinVersion}}{{end}}</span>{{end}}
+    </div>
+    <div class="table-responsive mt-2">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Detail</th></tr></thead>
+        <tbody>
+        {{range .Findings}}
+        <tr>
+          <td><span class="badge {{if eq .Severity "high"}}text-bg-danger{{else if eq .Severity "medium"}}text-bg-warning{{else}}text-bg-secondary{{end}}">{{.Severity | upper}}</span></td>
+          <td class="small">{{.Issue}}</td>
+          <td class="small wcp-muted text-break">{{.Detail}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {{end}}{{end}}
+  {{else}}
+  <div class="wcp-infobar is-ok"><i class="bi bi-check-circle-fill" aria-hidden="true"></i><span>No TLS problems found on the {{len .Result.Results}} endpoint(s) reached.</span></div>
+  {{end}}
+  {{end}}
+  {{else}}
+  <div class="wcp-infobar"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>Run the audit to probe the server's HTTPS and mail endpoints.</span></div>
+  {{end}}
+</main>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

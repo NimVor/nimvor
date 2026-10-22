@@ -304,8 +304,8 @@ Total routes: 551
 | POST | `/runtimes/install` | RuntimeController::install | runtimes.install | server.manage | yes | yes | ☐ |
 | POST | `/runtimes/remove` | RuntimeController::remove | runtimes.remove | server.manage | yes | yes | ☐ |
 | GET | `/runtimes` | RuntimeController::index | runtimes | server.view | yes | yes | ☐ |
-| POST | `/security/advisories/run` | SecurityChecksController::runAdvisories | security.advisories.run | security.view | yes | yes | ☐ |
-| GET | `/security/advisories` | SecurityChecksController::advisories | security.advisories | security.view | yes | yes | ☐ |
+| POST | `/security/advisories/run` | SecurityChecksController::runAdvisories | security.advisories.run | security.view | yes | yes | ☑ |
+| GET | `/security/advisories` | SecurityChecksController::advisories | security.advisories | security.view | yes | yes | ☑ |
 | GET | `/security/compilers` | HardeningController::compilers | security.compilers | security.view | yes | yes | ☑ |
 | POST | `/security/compilers` | HardeningController::saveCompilers | security.compilers.save | security.manage | yes | yes | ☑ |
 | POST | `/security/confirm` | SecurityController::confirm | security.confirm | security.manage | yes | yes | ☑ |
@@ -328,9 +328,9 @@ Total routes: 551
 | POST | `/security/hulk/unblock` | HulkController::unblock | security.hulk.unblock | security.manage | yes | yes | ☐ |
 | GET | `/security/hulk` | HulkController::index | security.hulk | security.view | yes | yes | ☐ |
 | POST | `/security/hulk` | HulkController::save | security.hulk.save | security.manage | yes | yes | ☐ |
-| POST | `/security/integrity/baseline` | SecurityChecksController::setBaseline | security.integrity.baseline | security.manage | yes | yes | ☐ |
-| POST | `/security/integrity/run` | SecurityChecksController::runIntegrity | security.integrity.run | security.view | yes | yes | ☐ |
-| GET | `/security/integrity` | SecurityChecksController::integrity | security.integrity | security.view | yes | yes | ☐ |
+| POST | `/security/integrity/baseline` | SecurityChecksController::setBaseline | security.integrity.baseline | security.manage | yes | yes | ☑ |
+| POST | `/security/integrity/run` | SecurityChecksController::runIntegrity | security.integrity.run | security.view | yes | yes | ☑ |
+| GET | `/security/integrity` | SecurityChecksController::integrity | security.integrity | security.view | yes | yes | ☑ |
 | POST | `/security/malware/settings` | AvController::saveSettings | security.malware.settings | security.manage | yes | yes | ☐ |
 | POST | `/security/malware/update` | AvController::updateSignatures | security.malware.update | security.manage | yes | yes | ☐ |
 | GET | `/security/malware` | AvController::index | security.malware | security.view | yes | yes | ☐ |
@@ -358,8 +358,8 @@ Total routes: 551
 | POST | `/security/ssh/keys` | SecurityController::addSshKey | security.ssh.key_add | security.manage | yes | yes | ☑ |
 | GET | `/security/ssh` | SecurityController::ssh | security.ssh | security.view | yes | yes | ☑ |
 | POST | `/security/ssh` | SecurityController::configureSsh | security.ssh.configure | security.manage | yes | yes | ☑ |
-| POST | `/security/tls/run` | SecurityChecksController::runTls | security.tls.run | security.view | yes | yes | ☐ |
-| GET | `/security/tls` | SecurityChecksController::tls | security.tls | security.view | yes | yes | ☐ |
+| POST | `/security/tls/run` | SecurityChecksController::runTls | security.tls.run | security.view | yes | yes | ☑ |
+| GET | `/security/tls` | SecurityChecksController::tls | security.tls | security.view | yes | yes | ☑ |
 | GET | `/security/traceroute` | HardeningController::traceroute | security.traceroute | security.view | yes | yes | ☑ |
 | POST | `/security/traceroute` | HardeningController::saveTraceroute | security.traceroute.save | security.manage | yes | yes | ☑ |
 | POST | `/security/undo` | SecurityController::undo | security.undo | security.manage | yes | yes | ☑ |

@@ -60,6 +60,9 @@ type sitesAgent struct {
 	// anonRemoved is the db.drop_anonymous_users reply's removed list
 	// ("" = the default two, "none" = none).
 	anonRemoved string
+	// mailData overrides the mail.status reply's data ("" = configured
+	// with the test hostname).
+	mailData string
 }
 
 // setJob registers the jobs.get reply for a job id.
@@ -388,6 +391,22 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				`"traceroute":{"enabled":true,"programs":[{"path":"/usr/bin/traceroute","mode":"0755"}]}}}`))
 		case "hardening.compilers", "hardening.smtp", "hardening.egress", "hardening.forkbomb", "hardening.traceroute":
 			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
+		case "security.integrity":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"checked_at":"2026-10-22T00:00:00Z","package_tool":"dpkg","has_baseline":true,"findings":[{"path":"/usr/bin/passwd","class":"package","issue":"modified","severity":"medium","detail":"checksum changed"}]}}`))
+		case "security.integrity_baseline":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"baselined":7}}`))
+		case "tls.audit":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"results":[{"endpoint":"a.example.com:443","kind":"website","reachable":true,"best_version":"TLS 1.3","min_version":"TLS 1.0","findings":[{"issue":"TLS 1.0 accepted","severity":"high","detail":"an obsolete protocol is still accepted"}]},{"endpoint":"b.example.com:443","kind":"website","reachable":true,"best_version":"TLS 1.3"}]},"high":1,"medium":0}`))
+		case "packages.advisories":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"advisories":[{"package":"openssl","installed":"3.0.2","fixed":"3.0.13","advisory":"USN-1234-1","severity":"important","cves":["CVE-2026-0001"],"kind":"security"},{"package":"vim","installed":"9.0","fixed":"9.1","kind":"normal"}],"count":2,"security":1,"normal":1,"unknown":0}}`))
+		case "mail.status":
+			sa.mu.Lock()
+			data := sa.mailData
+			sa.mu.Unlock()
+			if data == "" {
+				data = `{"installed":true,"configured":true,"hostname":"mail.example.com"}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + data + `}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

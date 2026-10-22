@@ -10,6 +10,7 @@ import (
 	"embed"
 	"html/template"
 	"io"
+	"strings"
 )
 
 //go:embed templates/*.html
@@ -20,7 +21,11 @@ type Templates struct{ t *template.Template }
 
 // New parses the embedded templates.
 func New() (*Templates, error) {
-	t, err := template.ParseFS(files, "templates/*.html")
+	t, err := template.New("whacp").Funcs(template.FuncMap{
+		// PHP's strtoupper / strtolower in the badge labels.
+		"upper": strings.ToUpper,
+		"lower": strings.ToLower,
+	}).ParseFS(files, "templates/*.html")
 	if err != nil {
 		return nil, err
 	}
