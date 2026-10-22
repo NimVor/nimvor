@@ -110,7 +110,22 @@ type sitesAgent struct {
 	installJobID string
 	// redisInfoJSON overrides the redis.info reply's data ("" = the fixture).
 	redisInfoJSON string
+	// cronLogContent overrides the cron.log reply's content ("" = the
+	// fixture: loose output + three framed runs, the last still running).
+	cronLogContent string
 }
+
+// defaultCronLogContent is the fake's cron.log fixture: one loose line
+// before the framing, a successful run, a failing run with no output and a
+// manual run that has not finished (no end marker).
+const defaultCronLogContent = "early loose output line\n" +
+	"### whacp-run start 2026-10-21T03:00:00Z\n" +
+	"first run line\n" +
+	"### whacp-run end 2026-10-21T03:00:02Z exit=0\n" +
+	"### whacp-run start 2026-10-22T03:00:00Z\n" +
+	"### whacp-run end 2026-10-22T03:00:01Z exit=1\n" +
+	"### whacp-run start 2026-10-22T08:15:30Z manual\n" +
+	"manual output"
 
 // setJob registers the jobs.get reply for a job id.
 func (sa *sitesAgent) setJob(id, reply string) {
@@ -649,6 +664,17 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"cert_file":"/etc/letsencrypt/live/bob.example/fullchain.pem","key_file":"/etc/letsencrypt/live/bob.example/privkey.pem","certificate":{"common_name":"bob.example"}}}`))
 		case "ssl.delete":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"deleted":"bob.example"}}`))
+		case "cron.apply":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"file":"/etc/cron.d/whacp-site-bob.example","changed":true}}`))
+		case "cron.run":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789c0a001"}}`))
+		case "cron.log":
+			content := sa.cronLogContent
+			if content == "" {
+				content = defaultCronLogContent
+			}
+			b, _ := json.Marshal(map[string]any{"content": content, "size": len(content), "truncated": len(content) > 512<<10})
+			_, _ = w.Write([]byte(`{"success":true,"data":` + string(b) + `}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

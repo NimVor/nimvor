@@ -61,7 +61,7 @@ func newAccountHarness(t *testing.T) *accountHarness {
 		NewDnsRepository(db), settings.NewRepository(db), audit, 1,
 	)
 	h.accounts = NewAccountService(h.users, usersRepo, h.sites, NewAccountOptionStore(db), db, audit)
-	h.cron = NewCronService(db, fa)
+	h.cron = NewCronService(db, fa, limits, audit)
 	return h
 }
 

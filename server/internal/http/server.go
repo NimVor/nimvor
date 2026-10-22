@@ -256,7 +256,12 @@ func (s *Server) routes() {
 	// the mysql feature withholds it when the plan disables mysql).
 	s.mux.HandleFunc("GET /sites/{id}/databases", s.guard("", "databases.view", s.siteDatabases))
 	s.mux.HandleFunc("POST /sites/{id}/subdomains", s.guard("sites.subdomains.store", "websites.manage", s.siteSubdomainsStore))
-	s.mux.HandleFunc("GET /sites/{id}/cron", s.guard("", "cron.view", s.siteCron))
+	s.mux.HandleFunc("GET /sites/{id}/cron", s.guard("sites.cron", "cron.view", s.siteCron))
+	s.mux.HandleFunc("POST /sites/{id}/cron", s.guard("sites.cron.store", "cron.manage", s.siteCronStore))
+	s.mux.HandleFunc("GET /sites/{id}/cron/{job}/log", s.guard("sites.cron.log", "cron.view", s.siteCronLog))
+	s.mux.HandleFunc("POST /sites/{id}/cron/{job}/run", s.guard("sites.cron.run", "cron.manage", s.siteCronRun))
+	s.mux.HandleFunc("POST /sites/{id}/cron/{job}/toggle", s.guard("sites.cron.toggle", "cron.manage", s.siteCronToggle))
+	s.mux.HandleFunc("POST /sites/{id}/cron/{job}/delete", s.guard("sites.cron.delete", "cron.manage", s.siteCronDelete))
 	s.mux.HandleFunc("GET /sites/{id}/workers", s.guard("", "workers.manage", s.siteWorkers))
 	// Worker write path: the plan feature withholds workers.manage when
 	// disabled, so the permission guard enforces the feature too.
