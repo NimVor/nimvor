@@ -90,6 +90,8 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"deadbeefcafe0001","file":"/backups/databases/a_main-20260101T000000Z.sql.gz"}}`))
 		case "db.import_site":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"deadbeefcafe0002"}}`))
+		case "jobs.log":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job":{"id":"deadbeefcafe0003","kind":"Dump a_main","target":"100","status":"succeeded","created_at":"2026-01-01T00:00:00Z"},"log":"Dump finished.\n","offset":42,"done":true}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

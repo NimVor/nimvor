@@ -143,7 +143,7 @@ Total routes: 551
 | POST | `/ips/{id}` | IpController::update | ips.update | server.manage | yes | yes | ☐ |
 | GET | `/ips` | IpController::index | ips | server.view | yes | yes | ☐ |
 | POST | `/ips` | IpController::store | ips.store | server.manage | yes | yes | ☐ |
-| GET | `/jobs/{id}` | JobsController::show | jobs.show |  | yes | yes | ☐ |
+| GET | `/jobs/{id}` | JobsController::show | jobs.show |  | yes | yes | ☑ |
 | POST | `/limits/apply` | LimitsController::apply | limits.apply | server.manage | yes | yes | ☐ |
 | POST | `/limits/quota/enable` | LimitsController::enableQuota | limits.quota.enable | server.manage | yes | yes | ☐ |
 | GET | `/limits` | LimitsController::index | limits | server.view | yes | yes | ☐ |
