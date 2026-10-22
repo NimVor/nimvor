@@ -21,6 +21,7 @@
 
   {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
   {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
   {{if .Suspended}}<div class="alert alert-warning small">The hosting account is suspended: WordPress can be viewed but not changed.</div>{{end}}
 
   <div class="wcp-panel wcp-wp-hero mb-3">

@@ -57,6 +57,11 @@ type sitesAgent struct {
 	// wpDebugLog shapes the wordpress.manage debug_log reply: "" = a log with
 	// lines, "empty" = an empty log, "missing" = no file.
 	wpDebugLog string
+	// wpManageJobID overrides the update ops' job id ("" = the default).
+	wpManageJobID string
+	// wpVerifyReply shapes the verify_core reply: "" = two differing files,
+	// "ok" = every file matches.
+	wpVerifyReply string
 	// shellSetEffective overrides the shell.set reply's effective mode
 	// ("" = the requested mode, i.e. it takes effect immediately).
 	shellSetEffective string
@@ -836,7 +841,8 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			}
 			_, _ = w.Write([]byte(`{"success":true,"data":{"file":"` + file + `"}}`))
 		case "wordpress.manage":
-			if strOf(p["op"]) == "debug_log" {
+			switch strOf(p["op"]) {
+			case "debug_log":
 				res := sa.wpDebugLog
 				switch res {
 				case "missing":
@@ -846,9 +852,21 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				default:
 					_, _ = w.Write([]byte(`{"success":true,"data":{"path":"/home/whacp/bob.example/public_html/wp-content/debug.log","exists":true,"lines":["[2026-10-20 09:00:00] PHP Notice:  Undefined index foo","[2026-10-20 09:05:00] PHP Warning:  Something"],"size":2048}}`))
 				}
-				break
+			case "verify_core":
+				if sa.wpVerifyReply == "ok" {
+					_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true,"files":[]}}`))
+				} else {
+					_, _ = w.Write([]byte(`{"success":true,"data":{"ok":false,"files":["wp-includes/theme-compat/class-wp-theme-compat.php","wp-content/uploads/evil.php"]}}`))
+				}
+			case "core_update", "plugin_update", "theme_update":
+				id := sa.wpManageJobID
+				if id == "" {
+					id = "0123456789ab0001"
+				}
+				_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"` + id + `"}}`))
+			default:
+				_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
 			}
-			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
 		case "wordpress.scan":
 			res := sa.wpScanReply
 			if res == "" {

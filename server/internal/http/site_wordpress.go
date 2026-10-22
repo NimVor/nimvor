@@ -352,6 +352,7 @@ func (s *Server) wpShow(w http.ResponseWriter, r *http.Request) {
 		}
 		successMsg, _ := sess.PullFlash("success")
 		errorMsg, _ := sess.PullFlash("error")
+		jobMsg, _ := sess.PullFlash("job")
 		siteInstalls, _ := s.wordpressService(r, user).Installs(ctx, user, &site.ID, "")
 		s.render(w, "wordpress_show_error", map[string]any{
 			"User":       user,
@@ -368,6 +369,7 @@ func (s *Server) wpShow(w http.ResponseWriter, r *http.Request) {
 			"Suspended":  site.AccountSuspended,
 			"Success":    successMsg,
 			"Error":      errorMsg,
+			"Job":        jobMsg,
 		})
 		return
 	}
@@ -580,9 +582,11 @@ func (s *Server) wpShow(w http.ResponseWriter, r *http.Request) {
 	cronOn := install.CronJobID.Valid || consts.DisableCron
 	successMsg, _ := sess.PullFlash("success")
 	errorMsg, _ := sess.PullFlash("error")
+	jobMsg, _ := sess.PullFlash("job")
 	s.render(w, "wordpress_show", map[string]any{
 		"Success":           successMsg,
 		"Error":             errorMsg,
+		"Job":               jobMsg,
 		"Title":             title,
 		"Version":           version,
 		"SiteURL":           siteURLDisplay(info),
@@ -680,6 +684,53 @@ func wpAutoNowConst(c hosting.WpConstants) string {
 		return "off"
 	}
 	return "minor"
+}
+
+// wpManage runs one operation on the installation (WordPressController::
+// manage): the updates start as tracked jobs, the verify flashes its file
+// list for the overview.
+func (s *Server) wpManage(w http.ResponseWriter, r *http.Request) {
+	if !s.wpFormToken(w, r) {
+		return
+	}
+	site, install, ok := s.wpInstallOf(w, r)
+	if !ok {
+		return
+	}
+	to := fmt.Sprintf("/sites/%d/wordpress/%d", site.ID, install.ID)
+	user := userFrom(r.Context())
+	if err := r.ParseForm(); err != nil {
+		s.wpFlashRedirect(w, r, "error", "The form could not be read.", to)
+		return
+	}
+	items := r.PostForm["items[]"]
+	if items == nil {
+		if v := r.PostFormValue("items"); v != "" {
+			items = []string{v}
+		}
+	}
+	res, err := s.wordpressService(r, user).Manage(r.Context(), site, install, r.PostFormValue("op"), items, r.PostFormValue("value"))
+	if err != nil {
+		var ue *hosting.UserError
+		if errors.As(err, &ue) {
+			s.wpFlashRedirect(w, r, "error", ue.What, to)
+			return
+		}
+		s.log.Error("wordpress manage", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	sess := sessionFrom(r.Context())
+	if res.Job != "" {
+		if err := hosting.NewJobTracker(s.db).Track(r.Context(), s.currentServerID(r), res.Job, res.JobKind, "website", fmt.Sprintf("%d", site.ID), &user.ID); err != nil {
+			s.log.Error("track wordpress job", "job", res.Job, "error", err)
+		}
+		sess.Flash("job", res.Job)
+	}
+	if res.Files != nil {
+		sess.Flash("wp_verify", strings.Join(res.Files, "\n"))
+	}
+	s.wpFlashRedirect(w, r, "success", res.Message, to)
 }
 
 // wpCheck forces a fresh check of updates and opens the overview

@@ -774,6 +774,119 @@ func WordPressChecks(info *WordPressInfo, site *Website) []WordPressCheck {
 	return c
 }
 
+// WordPressManageResult is the manage reply
+// (WordPressService::manage): the user-facing message, the started job
+// (updates run in the background) or the verify_core outcome.
+type WordPressManageResult struct {
+	Message  string
+	Job      string // "" when the operation finished itself
+	JobKind  string // the job's tracked label (for the tracker)
+	Files    []string // verify_core: the differing files (nil otherwise)
+	VerifyOK bool     // verify_core: every core file matches
+}
+
+// wpOps are the panel's operations (WordPressService::OPS, labels only —
+// the agent decides what runs and where).
+var wpOps = map[string]string{
+	"core_update":         "Update WordPress",
+	"plugin_update":       "Update plugins",
+	"theme_update":        "Update themes",
+	"plugin_activate":     "Activate plugin",
+	"plugin_deactivate":   "Deactivate plugin",
+	"plugin_auto_on":      "Turn automatic updates on",
+	"plugin_auto_off":     "Turn automatic updates off",
+	"theme_activate":      "Activate theme",
+	"theme_auto_on":       "Turn automatic updates on",
+	"theme_auto_off":      "Turn automatic updates off",
+	"maintenance_on":      "Turn maintenance mode on",
+	"maintenance_off":     "Turn maintenance mode off",
+	"disable_file_edit":   "Turn off the file editor",
+	"debug_off":           "Turn debugging off",
+	"protect_config":      "Protect wp-config.php",
+	"core_auto_update":    "Automatic WordPress updates",
+	"verify_core":         "Verify core files",
+	"search_engines_on":   "Let search engines index the site",
+	"search_engines_off":  "Ask search engines not to index the site",
+}
+
+var wpItemRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`)
+
+// Manage runs one operation on the installation (WordPressService::manage):
+// the updates run as agent jobs, the verify lists the differing core
+// files, the rest finish on the spot.
+func (s *WordPressService) Manage(ctx context.Context, site *Website, install *WordPressInstall, op string, items []string, value string) (*WordPressManageResult, error) {
+	label, ok := wpOps[op]
+	if !ok {
+		return nil, &UserError{What: "Unknown operation."}
+	}
+	if site.AccountSuspended {
+		return nil, &UserError{What: "The hosting account is suspended; WordPress cannot be changed."}
+	}
+	clean := []string{}
+	seen := map[string]bool{}
+	for _, it := range items {
+		if it == "" || seen[it] || !wpItemRe.MatchString(it) {
+			continue
+		}
+		seen[it] = true
+		clean = append(clean, it)
+	}
+	params := WpTarget(site, install)
+	params["op"] = op
+	params["items"] = clean
+	if op == "core_auto_update" {
+		if value != "minor" && value != "major" && value != "off" {
+			return nil, &UserError{What: "Choose minor, all or no automatic updates."}
+		}
+		params["value"] = value
+	}
+	timeout := 150 * time.Second
+	if op == "verify_core" {
+		timeout = 330 * time.Second
+	}
+	res, err := s.agent.Call(ctx, "wordpress.manage", params, timeout)
+	if err != nil {
+		return nil, err
+	}
+	s.auditWordPress(ctx, "wordpress."+op, "website", fmt.Sprintf("%d", site.ID), map[string]any{
+		"domain": site.Domain, "path": install.Path, "items": clean, "value": value,
+	})
+	where := site.Domain
+	if install.Path != "" {
+		where += " (" + install.Path + ")"
+	}
+	out := &WordPressManageResult{}
+	var o struct {
+		JobID string   `json:"job_id"`
+		OK    bool     `json:"ok"`
+		Files []string `json:"files"`
+	}
+	if err := json.Unmarshal(res, &o); err != nil {
+		return nil, err
+	}
+	if o.JobID != "" {
+		out.Job = o.JobID
+		out.JobKind = label + ": " + where
+		out.Message = label + " for " + where + " started; you will be notified when it finishes."
+		return out, nil
+	}
+	if op == "verify_core" {
+		if o.Files == nil {
+			o.Files = []string{}
+		}
+		out.VerifyOK = o.OK
+		if o.OK {
+			out.Message = "All WordPress core files match the official release."
+		} else {
+			out.Message = strconv.Itoa(len(o.Files)) + " core file(s) differ from the official release."
+		}
+		out.Files = o.Files
+		return out, nil
+	}
+	out.Message = label + ": done for " + where + "."
+	return out, nil
+}
+
 var wpLoginFileRe = regexp.MustCompile(`^whacp-login-[a-f0-9]{32}\.php$`)
 
 // LoginURL is a one-time sign-in address for an administrator of the
