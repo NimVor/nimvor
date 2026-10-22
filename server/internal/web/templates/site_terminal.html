@@ -1,0 +1,88 @@
+{{define "site_terminal"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Terminal · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+<link rel="stylesheet" href="/assets/vendor/xterm/xterm.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a class="btn btn-sm btn-outline-secondary" href="/sites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
+  <h1>Terminal</h1>
+  {{if .AgentError}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <i class="bi bi-plug fs-5"></i>
+      <div><div class="fw-semibold">{{.AgentError}}</div></div>
+    </div>
+  </div>
+  {{else if not .Enabled}}
+  <div class="card"><div class="wcp-empty-state">
+    <i class="bi bi-terminal" aria-hidden="true"></i>
+    <div class="fw-medium">The web terminal is not enabled on this server</div>
+    <div class="small">It needs the panel served over HTTPS by Nginx (<code>install.sh --public-https</code>), which turns it on.{{if .CanServerManage}} Until then, use SSH with the account's key or password (FTP / SFTP page).{{end}}</div>
+  </div></div>
+  {{else if and (ne .Mode "jailed") (ne .Mode "normal")}}
+  <div class="card"><div class="wcp-empty-state">
+    <i class="bi bi-terminal-x" aria-hidden="true"></i>
+    <div class="fw-medium">Shell access is off for this website</div>
+    {{if and .CanSecurityManage .HasShellRoute}}
+    <div class="small mb-3">Give the account <code>{{.Site.SystemUser}}</code> a jailed or normal shell under Security &rarr; Shell access, and turn on its SSH/SFTP login (FTP / SFTP page).</div>
+    <a class="btn btn-primary" href="/security/shell">Open Shell access</a>
+    {{else}}
+    <div class="small">Please ask your hosting provider to enable shell access for this website.</div>
+    {{end}}
+  </div></div>
+  {{else}}
+  <div class="wcp-infobar">
+    <i class="bi bi-info-circle" aria-hidden="true"></i>
+    <span>A shell as <code>{{.Site.SystemUser}}</code>{{if eq .Mode "jailed"}}, in a sandbox that shows only this account's website folder{{else}} on the server{{end}}. Sign in with the account's Linux password (the same as for SSH and SFTP). The session closes after {{.Idle}} minutes without input, when you sign out of the panel and when the account's password or shell access changes; it is logged.</span>
+  </div>
+  <!-- The console: the reused /assets/js/terminal.js drives xterm.js over
+       the agent's WebSocket (/terminal/ws, proxied by Nginx). The account's
+       Linux password goes to the agent inside the WebSocket only — the
+       input has no name, so it is never submitted to the panel. -->
+  <div class="card wcp-term" id="wcp-term" data-open-url="{{.OpenURL}}" data-style-nonce="{{.Nonce}}" data-unlocked="{{if .Unlocked}}1{{else}}0{{end}}" data-auth="linux">
+    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+      <i class="bi bi-terminal" aria-hidden="true"></i>
+      <span class="wcp-state is-off" id="wcp-term-state" role="status">Not connected</span>
+      <span class="ms-auto d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-primary" id="wcp-term-connect" hidden><i class="bi bi-plug me-1"></i>Connect</button>
+        <button type="button" class="btn btn-sm btn-outline-danger" id="wcp-term-close" hidden><i class="bi bi-x-circle me-1"></i>Close session</button>
+      </span>
+    </div>
+    <form class="card-body border-bottom" id="wcp-term-login" method="post" autocomplete="on" hidden>
+      <p class="mb-2"><i class="bi bi-person-lock me-1" aria-hidden="true"></i>Sign in as the Linux account <code>{{.Account}}</code> with its password (the same as for SSH and SFTP).</p>
+      <input type="text" autocomplete="username" value="{{.Account}}" hidden readonly aria-hidden="true">
+      <div class="row g-2 align-items-end">
+        <div class="col-sm-5">
+          <label class="form-label small" for="wcp-term-lpw">Password for {{.Account}}</label>
+          <input class="form-control" type="password" id="wcp-term-lpw" required autocomplete="current-password" maxlength="512">
+        </div>
+        <div class="col-sm-auto"><button class="btn btn-primary" type="submit">Sign in</button></div>
+      </div>
+      <div class="text-danger small mt-2" data-term-error hidden></div>
+      <div class="form-text">No password yet, or forgotten? Set it on the website's FTP / SFTP page (SSH password login).</div>
+    </form>
+    <div class="wcp-term-screen" id="wcp-term-screen"></div>
+  </div>
+  {{end}}
+</main>
+<script src="/assets/js/whacp.js"></script>
+<script src="/assets/vendor/xterm/xterm.js" defer></script>
+<script src="/assets/vendor/xterm/addon-fit.js" defer></script>
+<script src="/assets/js/terminal.js" defer></script>
+</body>
+</html>{{end}}

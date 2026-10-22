@@ -1,0 +1,127 @@
+{{define "terminal_index"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Web terminal · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+<link rel="stylesheet" href="/assets/vendor/xterm/xterm.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/servers">&larr; Servers</a></p>
+  <h1>Web terminal</h1>
+  <p class="text-muted">Shells in the browser: open sessions and the root shell</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .AgentError}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <i class="bi bi-plug fs-5"></i>
+      <div><div class="fw-semibold">{{.AgentError}}</div></div>
+    </div>
+  </div>
+  {{else}}
+  {{if not .Status.Enabled}}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
+    The web terminal is off on this server. It needs the panel served over HTTPS by Nginx and write mode: run <code>sudo ./installer/install.sh --reinstall --public-https</code>, which sets <code>terminal_listen</code> in <code>/etc/whacp/agent.json</code> and proxies <code>/terminal/ws</code> to it.
+  </div>
+  {{end}}
+  <div class="wcp-infobar">
+    <i class="bi bi-info-circle" aria-hidden="true"></i>
+    <span>Website owners open a terminal from their website's <strong>Terminal</strong> page when the account has shell access (Security &rarr; Shell access) and the plan includes SSH. Each session runs as the account, in its shell mode and resource limits; at most {{.Status.MaxPerAcct}} per account and {{.Status.MaxSessions}} in all. Starts and ends are logged, keystrokes are not (they include passwords typed at prompts).</span>
+  </div>
+  <div class="wcp-panel mb-3" data-wcp-dt>
+    <div class="wcp-actionbar"><div class="fw-semibold">Open sessions <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Sessions}}</span></div></div>
+    {{if not .Sessions}}
+    <div class="wcp-empty-state"><i class="bi bi-terminal" aria-hidden="true"></i><div>No terminal is open.</div></div>
+    {{else}}
+    <div class="wcp-dtable table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>Account</th><th>Shell</th><th>Opened by</th><th>From</th><th>Started</th><th>Last input</th><th class="text-end">Traffic</th><th></th></tr></thead>
+        <tbody>
+        {{range .Sessions}}
+        <tr data-wcp-row>
+          <td><code>{{.User}}</code></td>
+          <td>{{.Mode}}</td>
+          <td>{{.Label}}</td>
+          <td>{{.ClientIP}}</td>
+          <td>{{.Started}}</td>
+          <td>{{.LastInput}}</td>
+          <td class="text-end small">{{.In}} in &middot; {{.Out}} out</td>
+          <td class="text-end">
+            <form class="d-inline" method="post" action="/terminal/sessions/{{.ID}}/close" data-wcp-confirm="Close the terminal of {{.User}} opened by {{.Label}}? Programs running in it are stopped.">
+              <input type="hidden" name="_token" value="{{$.CSRF}}">
+              <button class="btn btn-sm btn-outline-danger">Close</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+  </div>
+  <h2 class="h6 mt-4">Root shell</h2>
+  {{if not .Status.Enabled}}
+  {{else if not .Status.RootAllowed}}
+  <div class="card"><div class="card-body small">
+    <p class="mb-2"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Root shells are <strong>off</strong>. A root shell in the browser means anyone who takes over an administrator's panel sign-in controls the whole server, so only the server's root user can allow it: set <code>"terminal_root": true</code> in <code>/etc/whacp/agent.json</code> and run <code>systemctl restart whacp-agent</code>.</p>
+    <p class="mb-0 text-body-secondary">Without it, use SSH as root, or open a website account's terminal from its website page.</p>
+  </div></div>
+  {{else if not .IsAdmin}}
+  <div class="card"><div class="card-body small">Only administrators open a root shell.</div></div>
+  {{else}}
+  <div class="alert alert-danger small"><i class="bi bi-exclamation-octagon me-1" aria-hidden="true"></i>This is a root shell on the server, without the sandbox website accounts get. Everything is possible here, including breaking the server.</div>
+  <!-- The console: the reused /assets/js/terminal.js drives xterm.js over
+       the agent's WebSocket (/terminal/ws, proxied by Nginx). A root shell
+       has no account password, so the panel password (and code) is
+       confirmed here first. -->
+  <div class="card wcp-term" id="wcp-term" data-open-url="{{.OpenURL}}" data-style-nonce="{{.Nonce}}" data-unlocked="{{if .Unlocked}}1{{else}}0{{end}}" data-auth="panel">
+    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+      <i class="bi bi-terminal" aria-hidden="true"></i>
+      <span class="wcp-state is-off" id="wcp-term-state" role="status">Not connected</span>
+      <span class="ms-auto d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-primary" id="wcp-term-connect" hidden><i class="bi bi-plug me-1"></i>Connect</button>
+        <button type="button" class="btn btn-sm btn-outline-danger" id="wcp-term-close" hidden><i class="bi bi-x-circle me-1"></i>Close session</button>
+      </span>
+    </div>
+    <form class="card-body border-bottom" id="wcp-term-unlock" action="/terminal/unlock" autocomplete="off" hidden>
+      <p class="mb-2"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Confirm it is you to open a terminal. The confirmation lasts 15 minutes.</p>
+      <div class="row g-2 align-items-end">
+        <div class="col-sm-5">
+          <label class="form-label small" for="wcp-term-pw">Your panel password</label>
+          <input class="form-control" type="password" id="wcp-term-pw" name="password" required autocomplete="current-password">
+        </div>
+        {{if .NeedsCode}}
+        <div class="col-sm-3">
+          <label class="form-label small" for="wcp-term-code">Authenticator code</label>
+          <input class="form-control" type="text" id="wcp-term-code" name="code" inputmode="numeric" required autocomplete="one-time-code">
+        </div>
+        {{end}}
+        <div class="col-sm-auto"><button class="btn btn-primary" type="submit">Confirm and connect</button></div>
+      </div>
+      <div class="text-danger small mt-2" data-term-error hidden></div>
+    </form>
+    <div class="wcp-term-screen" id="wcp-term-screen"></div>
+  </div>
+  {{end}}
+  {{end}}
+</main>
+<script src="/assets/js/whacp.js"></script>
+<script src="/assets/vendor/xterm/xterm.js" defer></script>
+<script src="/assets/vendor/xterm/addon-fit.js" defer></script>
+<script src="/assets/js/terminal.js" defer></script>
+</body>
+</html>{{end}}

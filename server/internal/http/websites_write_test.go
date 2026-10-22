@@ -37,6 +37,8 @@ type sitesAgent struct {
 	// jobs answers jobs.get by job id (the stored reply is the full
 	// envelope); an unknown id gets the agent's not_found error.
 	jobs map[string]string
+	// termKillClosed is the terminal.kill reply's closed count.
+	termKillClosed int
 }
 
 // setJob registers the jobs.get reply for a job id.
@@ -48,7 +50,7 @@ func (sa *sitesAgent) setJob(id, reply string) {
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
 	t.Helper()
-	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}}
+	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1}
 	dir := t.TempDir()
 	socket := filepath.Join(dir, "agent.sock")
 	tokenFile := filepath.Join(dir, "token")
@@ -173,6 +175,29 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				return
 			}
 			_, _ = w.Write([]byte(reply))
+		case "terminal.status":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"enabled":true,"root_allowed":true,"simulation":false,` +
+				`"sessions":[{"id":"abcdef0123456789","user":"u_bob","mode":"jailed","label":"bob (#2)","client_ip":"127.0.0.1",` +
+				`"started":"2026-01-01T10:00:00Z","last_input":"2026-01-01T10:05:00Z","bytes_in":1024,"bytes_out":2048,"idle_minutes":15,"max_minutes":480}],` +
+				`"max_sessions":20,"max_per_account":3}}`))
+		case "shell.status":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"accounts":[` +
+				`{"user":"u_bob","folder":"bob.example","mode":"jailed","effective":"jailed","ssh_login":true,"keys":1,"password_login":true,"login_shell":"/bin/bash"},` +
+				`{"user":"u_alice","folder":"alice.example","mode":"disabled","effective":"disabled","ssh_login":true,"keys":0,"password_login":true,"login_shell":"/bin/bash"}],` +
+				`"jail_problem":"","userns_restricted":false}}`))
+		case "terminal.open":
+			mode, user, pw := "jailed", "u_bob", "true"
+			if p["root"] == true {
+				mode, user, pw = "root", "root", "false"
+			} else if u, _ := p["user"].(string); u != "" {
+				user = u
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ticket":"feedfacefeedfacefeedfacefeedface","expires_in":60,"session_id":"abcdef0123456789","mode":"` + mode + `","user":"` + user + `","password_required":` + pw + `}}`))
+		case "terminal.kill":
+			sa.mu.Lock()
+			closed := sa.termKillClosed
+			sa.mu.Unlock()
+			_, _ = w.Write([]byte(`{"success":true,"data":{"closed":` + strconv.Itoa(closed) + `}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

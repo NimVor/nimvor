@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **87 ☑ done+tested, 3 ◑ partial, 461 ☐** of 551.
+`server/internal/http/server.go`): **93 ☑ done+tested, 3 ◑ partial, 455 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -142,7 +142,27 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   viewer's modal UI rides with the Go shell work — and the scan start
   redirects back with the job + reload flashes; a bad ?path= is ignored, an
   already-running folder and the agent's errors flash the redirect; no audit
-  — parity, the PHP controller records none)
+  — parity, the PHP controller records none) ·
+  GET `/sites/{id}/terminal` + POST `/sites/{id}/terminal/open` +
+  POST `/terminal/unlock` + GET `/terminal` + POST `/terminal/root/open`
+  + POST `/terminal/sessions/{id}/close` (TerminalController — the web
+  terminal: the agent runs the shells and serves the WebSocket at
+  /terminal/ws (Nginx proxies it, so the browser talks to the agent
+  directly and keystrokes never pass through the panel); the panel hands
+  the browser a single-use ticket bound to its address
+  (terminal.open, with the account's effective shell mode, the 32-hex
+  sign-in owner, the idle/max minutes settings and a sanitized
+  label), a website account then signs in with its own Linux password
+  over the WebSocket only, and a root shell (administrators, when the
+  agent allows root shells) needs the panel password — and authenticator
+  code — confirmed again (terminal.unlock, 5 wrong attempts lock the
+  endpoint for 15 minutes, 15-minute unlock window, audit on both
+  outcomes); the site page shows the account's effective shell mode
+  (shell.status) with the jailed/normal/disabled states and the
+  per-response CSP nonce for xterm.js's style elements, the admin index
+  lists the open sessions (close by 16-hex id, audited) and the root
+  shell console, and signing out ends the sign-in's terminals
+  (terminal.kill by owner, best effort))
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -216,13 +236,15 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the **terminal area** (TerminalController: GET `/sites/{id}/terminal`
-+ POST `/sites/{id}/terminal/open` for site terminals (files.manage), the
-server-wide GET `/terminal` + POST `/terminal/root/open` + POST
-`/terminal/sessions/{id}/close` (security.manage), plus POST
-`/terminal/unlock`). The terminal routes need the web terminal transport —
-check the PHP TerminalController + the agent's terminal actions for the
-contract (it likely needs a WebSocket/PTY bridge in the Go server). Check
-INVENTORY.md for the controller before starting.
+Batch: the **security area**, starting with **shell access**
+(ShellController: GET `/security/shell` (security.view) + POST
+`/security/shell` (security.manage)) — the website accounts'
+disabled/jailed/normal shell modes (agent shell.status/shell.set,
+the jailed-shell capability check, SSH/SFTP login toggle, audited),
+which the web terminal page links to ("Open Shell access"). Then
+continue down the security suite (SecurityController: firewall,
+fail2ban, confirm, fix; HardeningController; SecurityChecksController)
+in small batches. Check INVENTORY.md + the PHP controllers before
+starting.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

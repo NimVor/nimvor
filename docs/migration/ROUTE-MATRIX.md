@@ -489,8 +489,8 @@ Total routes: 551
 | GET | `/sites/{id}/stats` | StatsController::show | sites.stats | logs.view | yes | yes | ☐ |
 | GET | `/sites/{id}/subdomains` | SitesController::subdomains | sites.subdomains | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/subdomains` | SitesController::storeSubdomain | sites.subdomains.store | websites.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/terminal/open` | TerminalController::openSite | sites.terminal.open | files.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/terminal` | TerminalController::site | sites.terminal | files.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/terminal/open` | TerminalController::openSite | sites.terminal.open | files.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/terminal` | TerminalController::site | sites.terminal | files.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/toggle` | SitesController::toggle | sites.toggle | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/wordpress/scan` | WordPressController::scanSite | sites.wordpress.scan | websites.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/wordpress/{wp}/check` | WordPressController::check | sites.wordpress.check | websites.view | yes | yes | ☐ |
@@ -526,10 +526,10 @@ Total routes: 551
 | POST | `/ssl/tls` | SslCenterController::saveTls | ssl.tls.save | server.manage | yes | yes | ☐ |
 | GET | `/ssl` | DiscoveryController::ssl | ssl | ssl.view | yes | yes | ☐ |
 | GET | `/system-users` | ServerController::systemUsers | system_users | system_users.view | yes | yes | ☐ |
-| POST | `/terminal/root/open` | TerminalController::openRoot | terminal.root | security.manage | yes | yes | ☐ |
-| POST | `/terminal/sessions/{id}/close` | TerminalController::close | terminal.close | security.manage | yes | yes | ☐ |
-| POST | `/terminal/unlock` | TerminalController::unlock | sites.terminal.unlock | files.manage | yes | yes | ☐ |
-| GET | `/terminal` | TerminalController::index | terminal | security.manage | yes | yes | ☐ |
+| POST | `/terminal/root/open` | TerminalController::openRoot | terminal.root | security.manage | yes | yes | ☑ |
+| POST | `/terminal/sessions/{id}/close` | TerminalController::close | terminal.close | security.manage | yes | yes | ☑ |
+| POST | `/terminal/unlock` | TerminalController::unlock | sites.terminal.unlock | files.manage | yes | yes | ☑ |
+| GET | `/terminal` | TerminalController::index | terminal | security.manage | yes | yes | ☑ |
 | GET | `/topbar/status` | TopbarController::status | topbar.status | monitoring.view | yes | yes | ☐ |
 | GET | `/users/new` | UsersController::create | users.create | users.manage | yes | yes | ☐ |
 | POST | `/users/{id}/bandwidth/reset` | AccountAdminController::resetBandwidth | users.bandwidth.reset | users.manage | yes | yes | ☐ |
