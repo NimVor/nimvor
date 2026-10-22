@@ -4,10 +4,10 @@ package hosting
 // (WordPressToolsService.php): the read side used by the overview page
 // (protection, the security measures' status, restore points, the clone /
 // sync targets, the debug log) and the changing tools behind the tools
-// route (debug, password + hotlink protection, the administrator and
-// database passwords, the security apply / roll back). The cron takeover,
-// the vulnerability protection, the vulnerability-database check and the
-// copy tools (clone, sync, restore) follow with their service dependencies.
+// route (debug, cron takeover, password + hotlink protection, the
+// vulnerability protection, the administrator and database passwords, the
+// vulnerability-database check, the security apply / roll back, and the
+// copy tools — clone, sync, restore).
 //
 // Who may use it is decided by the http layer (the website must be visible
 // to the user, websites.manage for changes). Copies are only made between
@@ -16,8 +16,10 @@ package hosting
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -106,12 +108,13 @@ type WordPressTools struct {
 	crypto   *crypto.Crypto
 	cron     *CronService
 	vulns    *WpVulnerabilities
+	dbs      *DatabaseService
 	audit    Auditor
 }
 
 // NewWordPressTools builds the service.
-func NewWordPressTools(db *sql.DB, ag AgentCaller, serverID int64, sites *WebsiteRepository, crypto *crypto.Crypto, cron *CronService, vulns *WpVulnerabilities, audit Auditor) *WordPressTools {
-	return &WordPressTools{db: db, agent: ag, serverID: serverID, sites: sites, crypto: crypto, cron: cron, vulns: vulns, audit: audit}
+func NewWordPressTools(db *sql.DB, ag AgentCaller, serverID int64, sites *WebsiteRepository, crypto *crypto.Crypto, cron *CronService, vulns *WpVulnerabilities, dbs *DatabaseService, audit Auditor) *WordPressTools {
+	return &WordPressTools{db: db, agent: ag, serverID: serverID, sites: sites, crypto: crypto, cron: cron, vulns: vulns, dbs: dbs, audit: audit}
 }
 
 // WpDebugFlags are the debug switches the toolkit can turn on or off
@@ -631,6 +634,307 @@ func (s *WordPressTools) SetVulnerabilityProtection(ctx context.Context, site *W
 		return "Vulnerability protection is on: requests to the website are filtered by ModSecurity with the OWASP Core Rule Set (blocking), and the installation is checked for known vulnerabilities every day.", nil
 	}
 	return "Vulnerability protection is off (ModSecurity only logs for this website now).", nil
+}
+
+var (
+	wpClonePathRe    = regexp.MustCompile(`^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$`)
+	wpRestorePointRe = regexp.MustCompile(`^\d{8}T\d{6}Z$`)
+)
+
+// ownedDatabase is the installation's database when it is one of the
+// owner's databases in the panel ('' when not)
+// (WordPressToolsService::ownedDatabase).
+func (s *WordPressTools) ownedDatabase(name string, ownerID *int64) (string, error) {
+	var owner sql.NullInt64
+	err := s.db.QueryRow(`SELECT owner_id FROM databases WHERE server_id = ? AND name = ?`, s.serverID, name).Scan(&owner)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	want := sql.NullInt64{}
+	if ownerID != nil {
+		want = sql.NullInt64{Int64: *ownerID, Valid: true}
+	}
+	if owner.Int64 != want.Int64 || owner.Valid != want.Valid {
+		return "", nil
+	}
+	return name, nil
+}
+
+// trackJob records a started copy job (WordPressToolsService's $jobs->track).
+func (s *WordPressTools) trackJob(ctx context.Context, job, kind, targetID string, actor *identity.User) error {
+	var uid *int64
+	if actor != nil {
+		id := actor.ID
+		uid = &id
+	}
+	return NewJobTracker(s.db).Track(ctx, s.serverID, job, kind, "website", targetID, uid)
+}
+
+// wpCopy runs the agent's wordpress.copy (the clone / sync / restore job)
+// and returns the job id.
+func (s *WordPressTools) wpCopy(ctx context.Context, params map[string]any) (string, error) {
+	res, err := s.agent.Call(ctx, "wordpress.copy", params, 120*time.Second)
+	if err != nil {
+		return "", err
+	}
+	var o struct {
+		JobID string `json:"job_id"`
+	}
+	_ = json.Unmarshal(res, &o)
+	return o.JobID, nil
+}
+
+// CloneTo clones an installation to another website (or folder) of the same
+// owner, with a new database; returns the job id
+// (WordPressToolsService::cloneTo).
+func (s *WordPressTools) CloneTo(ctx context.Context, site *Website, install *WordPressInstall, input map[string]string, actor *identity.User) (string, error) {
+	if err := wpWritable(site); err != nil {
+		return "", err
+	}
+	targetID, _ := strconv.ParseInt(input["target_site"], 10, 64)
+	target, err := s.sites.FindFull(ctx, s.serverID, targetID, actor)
+	if err != nil {
+		if err == ErrWebsiteNotFound {
+			return "", &ValidationError{Fields: map[string]string{"target_site": "Choose one of the owner's PHP websites."}}
+		}
+		return "", err
+	}
+	if target.Kind != "php" || target.PhpVersion == "" ||
+		!site.OwnerID.Valid || !target.OwnerID.Valid || site.OwnerID.Int64 != target.OwnerID.Int64 {
+		return "", &ValidationError{Fields: map[string]string{"target_site": "Choose one of the owner's PHP websites."}}
+	}
+	if err := wpWritable(target); err != nil {
+		return "", err
+	}
+	docRel := strings.Trim(strings.TrimPrefix(target.DocumentRoot, target.Root), "/")
+	sub := strings.Trim(input["target_path"], "/")
+	if sub != "" && !wpClonePathRe.MatchString(sub) {
+		return "", &ValidationError{Fields: map[string]string{"target_path": "Use a folder name of letters, digits, dots, dashes and underscores."}}
+	}
+	path := strings.Trim(docRel + (func() string {
+		if sub != "" {
+			return "/" + sub
+		}
+		return ""
+	})(), "/")
+	var ownerID *int64
+	if site.OwnerID.Valid {
+		o := site.OwnerID.Int64
+		ownerID = &o
+	}
+	if name, err := s.ownedDatabase(install.DBName, ownerID); err != nil {
+		return "", err
+	} else if name == "" {
+		return "", &UserError{
+			What: "The installation's database " + install.DBName + " is not one of the owner's databases in the panel, so it cannot be copied.",
+			Fix:  "Scan the website again, or assign the database to the owner under Databases.",
+		}
+	}
+	name := "wp" + randomHex4()
+	created, err := s.dbs.CreateDatabase(ctx, s.serverID, actor, name, &target.ID)
+	if err != nil {
+		return "", err
+	}
+	user, password, err := s.dbs.CreateDBUser(ctx, s.serverID, actor, name, "localhost", false)
+	if err != nil {
+		return "", err
+	}
+	var dbUserID int64
+	if err := s.db.QueryRow(`SELECT id FROM database_users WHERE server_id = ? AND username = ? AND host = 'localhost'`, s.serverID, user).Scan(&dbUserID); err != nil {
+		return "", err
+	}
+	all := "all"
+	if _, _, err := s.dbs.GrantDBAccess(ctx, s.serverID, actor, created, dbUserID, &all); err != nil {
+		return "", err
+	}
+	var dbName string
+	if err := s.db.QueryRow(`SELECT name FROM databases WHERE id = ?`, created).Scan(&dbName); err != nil {
+		return "", err
+	}
+	urlStr := strings.TrimRight(WpBaseURL(target, &WordPressInstall{Path: path}), "/")
+	params := map[string]any{
+		"source":    WpTarget(site, install),
+		"target":    WpTarget(target, &WordPressInstall{Path: path}),
+		"mode":      "clone",
+		"source_db": install.DBName,
+		"db":        map[string]any{"name": dbName, "user": user, "password": password, "host": "localhost"},
+		"url":       urlStr,
+		"staging":   input["staging"] == "1",
+		"overwrite": input["overwrite"] == "1",
+	}
+	job, err := s.wpCopy(ctx, params)
+	if err != nil {
+		// The copy failed: the fresh database is dropped again (best effort).
+		_, _ = s.dbs.DropDatabase(ctx, s.serverID, actor, created, dbName)
+		return "", err
+	}
+	if _, err := s.db.Exec(
+		`INSERT INTO wordpress_installs (server_id, website_id, path, version, db_name, latest, scanned_at, cloned_from)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT (website_id, path) DO UPDATE SET db_name = excluded.db_name, cloned_from = excluded.cloned_from`,
+		s.serverID, target.ID, path, install.Version, dbName, install.Latest, time.Now().UTC().Format("2006-01-02T15:04:05Z"), install.ID); err != nil {
+		return "", err
+	}
+	if err := s.trackJob(ctx, job, "Clone WordPress: "+site.Domain+" → "+urlStr, fmt.Sprintf("%d", target.ID), actor); err != nil {
+		return "", err
+	}
+	s.auditWordPress(ctx, "wordpress.clone", "website", fmt.Sprintf("%d", site.ID), map[string]any{
+		"domain": site.Domain, "path": install.Path, "target": target.Domain, "target_path": path, "database": dbName,
+	})
+	return job, nil
+}
+
+// Sync copies files and/or the database from one installation to another of
+// the same owner (the target's wp-config.php is kept); returns the job id
+// (WordPressToolsService::sync).
+func (s *WordPressTools) Sync(ctx context.Context, site *Website, install *WordPressInstall, input map[string]string, actor *identity.User) (string, error) {
+	if err := wpWritable(site); err != nil {
+		return "", err
+	}
+	targetID, _ := strconv.ParseInt(input["target"], 10, 64)
+	var dest WordPressInstall
+	err := s.db.QueryRow(`SELECT id, website_id, path, db_name FROM wordpress_installs WHERE id = ? AND server_id = ?`, targetID, s.serverID).
+		Scan(&dest.ID, &dest.WebsiteID, &dest.Path, &dest.DBName)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return "", err
+		}
+		targetID = 0
+	}
+	var target *Website
+	if targetID != 0 {
+		target, err = s.sites.FindFull(ctx, s.serverID, dest.WebsiteID, actor)
+		if err != nil {
+			if err == ErrWebsiteNotFound {
+				target = nil
+			} else {
+				return "", err
+			}
+		}
+	}
+	if target == nil || dest.ID == install.ID ||
+		!site.OwnerID.Valid || !target.OwnerID.Valid || site.OwnerID.Int64 != target.OwnerID.Int64 {
+		return "", &ValidationError{Fields: map[string]string{"target": "Choose another WordPress installation of the same owner."}}
+	}
+	if err := wpWritable(target); err != nil {
+		return "", err
+	}
+	files := input["files"] == "1"
+	database := input["database"] == "1"
+	if !files && !database {
+		return "", &ValidationError{Fields: map[string]string{"files": "Choose files, the database or both."}}
+	}
+	var ownerID *int64
+	if site.OwnerID.Valid {
+		o := site.OwnerID.Int64
+		ownerID = &o
+	}
+	var targetOwnerID *int64
+	if target.OwnerID.Valid {
+		o := target.OwnerID.Int64
+		targetOwnerID = &o
+	}
+	if database {
+		if name, err := s.ownedDatabase(install.DBName, ownerID); err != nil {
+			return "", err
+		} else if name == "" {
+			return "", &UserError{
+				What: "The database " + install.DBName + " is not one of the owner's databases in the panel, so it cannot be synced.",
+				Fix:  "Scan both websites again, or assign the database to the owner under Databases.",
+			}
+		}
+		if name, err := s.ownedDatabase(dest.DBName, targetOwnerID); err != nil {
+			return "", err
+		} else if name == "" {
+			return "", &UserError{
+				What: "The database " + dest.DBName + " is not one of the owner's databases in the panel, so it cannot be synced.",
+				Fix:  "Scan both websites again, or assign the database to the owner under Databases.",
+			}
+		}
+	}
+	urlStr := strings.TrimRight(WpBaseURL(target, &dest), "/")
+	if urlStr == "" {
+		return "", &UserError{What: "The target installation is not inside its website's document root."}
+	}
+	job, err := s.wpCopy(ctx, map[string]any{
+		"source":    WpTarget(site, install),
+		"target":    WpTarget(target, &dest),
+		"mode":      "sync",
+		"files":     files,
+		"database":  database,
+		"source_db": install.DBName,
+		"target_db": dest.DBName,
+		"url":       urlStr,
+	})
+	if err != nil {
+		return "", err
+	}
+	what := "database"
+	if files {
+		if database {
+			what = "files and database"
+		} else {
+			what = "files"
+		}
+	}
+	if err := s.trackJob(ctx, job, "Sync WordPress "+what+": "+site.Domain+" → "+urlStr, fmt.Sprintf("%d", target.ID), actor); err != nil {
+		return "", err
+	}
+	s.auditWordPress(ctx, "wordpress.sync", "website", fmt.Sprintf("%d", site.ID), map[string]any{
+		"domain": site.Domain, "path": install.Path, "target": target.Domain, "target_path": dest.Path, "files": files, "database": database,
+	})
+	return job, nil
+}
+
+// Restore puts a restore point back (files and the database return to that
+// moment; files added since are kept); returns the job id
+// (WordPressToolsService::restore).
+func (s *WordPressTools) Restore(ctx context.Context, site *Website, install *WordPressInstall, point string, actor *identity.User) (string, error) {
+	if err := wpWritable(site); err != nil {
+		return "", err
+	}
+	if !wpRestorePointRe.MatchString(point) {
+		return "", &ValidationError{Fields: map[string]string{"restore_point": "Choose a restore point."}}
+	}
+	var ownerID *int64
+	if site.OwnerID.Valid {
+		o := site.OwnerID.Int64
+		ownerID = &o
+	}
+	if name, err := s.ownedDatabase(install.DBName, ownerID); err != nil {
+		return "", err
+	} else if name == "" {
+		return "", &UserError{What: "The installation's database is not one of the owner's databases in the panel."}
+	}
+	job, err := s.wpCopy(ctx, map[string]any{
+		"source":        WpTarget(site, install),
+		"target":        WpTarget(site, install),
+		"mode":          "restore",
+		"restore_point": point,
+		"target_db":     install.DBName,
+	})
+	if err != nil {
+		return "", err
+	}
+	if err := s.trackJob(ctx, job, "Restore WordPress: "+site.Domain+" ("+point+")", fmt.Sprintf("%d", site.ID), actor); err != nil {
+		return "", err
+	}
+	s.auditWordPress(ctx, "wordpress.restore", "website", fmt.Sprintf("%d", site.ID), map[string]any{
+		"domain": site.Domain, "path": install.Path, "restore_point": point,
+	})
+	return job, nil
+}
+
+// randomHex4 is six lowercase hex characters (the fresh clone database name).
+func randomHex4() string {
+	b := make([]byte, 3)
+	if _, err := rand.Read(b); err != nil {
+		return hex.EncodeToString([]byte{byte(time.Now().UnixNano()), byte(time.Now().UnixNano() >> 8), byte(time.Now().UnixNano() >> 16)})
+	}
+	return hex.EncodeToString(b)
 }
 
 // auditWordPress records a WordPress toolkit action.

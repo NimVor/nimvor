@@ -8,6 +8,7 @@ package http
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -547,24 +548,227 @@ func TestWordPressToolVulnCheck(t *testing.T) {
 	}
 }
 
-func TestWordPressToolUnknownAndSoon(t *testing.T) {
+// wpSeedDatabases gives the seeded installation its database (one of the
+// owner's, in the panel's records — what the copy tools require).
+func wpSeedDatabases(t *testing.T, db *sql.DB) {
+	t.Helper()
+	if _, err := db.Exec(`UPDATE wordpress_installs SET db_name = 'u_bob_wp' WHERE website_id = 10`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO databases (server_id, website_id, owner_id, name, created_at)
+		VALUES (1, 10, 2, 'u_bob_wp', '')`); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// wpLastCopyCall is the last index of the wordpress.copy agent call (-1).
+func wpLastCopyCall(sa *sitesAgent) int {
+	for i := len(sa.called()) - 1; i >= 0; i-- {
+		if sa.called()[i] == "wordpress.copy" {
+			return i
+		}
+	}
+	return -1
+}
+
+func TestWordPressToolClone(t *testing.T) {
+	h, sa, db := mongoWEnv(t)
+	wpSeedInstall(t, db, 10, "public_html", "6.7.1", "6.8")
+	wpSeedDatabases(t, db)
+	bob := loginAsUser(t, h, "bob")
+
+	// To a folder of the same website.
+	res := wpToolPost(t, h, bob, url.Values{
+		"tool": {"clone"}, "target_site": {"10"}, "target_path": {"staging"}, "staging": {"1"},
+	})
+	if res.Code != http.StatusSeeOther || res.Header().Get("Location") != "/sites/10/wordpress/1#staging" {
+		t.Fatalf("tool = %d %q", res.Code, res.Header().Get("Location"))
+	}
+	var kind, targetID string
+	if err := db.QueryRow(`SELECT kind, target_id FROM agent_jobs WHERE job_id = '0123456789c0a001'`).Scan(&kind, &targetID); err != nil {
+		t.Fatalf("the job is not tracked: %v", err)
+	}
+	if kind != "Clone WordPress: bob.example → http://bob.example/staging" || targetID != "10" {
+		t.Errorf("job tracked as %q / %q", kind, targetID)
+	}
+	// The copy is recorded with its own fresh database (the owner's prefix).
+	var newDB string
+	var clonedFrom int64
+	if err := db.QueryRow(`SELECT db_name, cloned_from FROM wordpress_installs WHERE website_id = 10 AND path = 'public_html/staging'`).Scan(&newDB, &clonedFrom); err != nil {
+		t.Fatalf("the copy is not recorded: %v", err)
+	}
+	if !strings.HasPrefix(newDB, "bob_wp") || len(newDB) != len("bob_wp")+6 {
+		t.Errorf("the clone database = %q", newDB)
+	}
+	if clonedFrom == 0 {
+		t.Error("cloned_from is empty")
+	}
+	var users int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM database_users WHERE username = ? AND host = 'localhost'`, newDB).Scan(&users); err != nil {
+		t.Fatal(err)
+	}
+	if users != 1 {
+		t.Errorf("the clone database user rows = %d", users)
+	}
+	if n := wpAuditCount(t, db, "wordpress.clone"); n != 1 {
+		t.Errorf("audit rows = %d", n)
+	}
+	last := wpLastCopyCall(sa)
+	if last < 0 {
+		t.Fatal("the agent never got wordpress.copy")
+	}
+	if mode, _ := sa.param(last, "mode").(string); mode != "clone" {
+		t.Errorf("agent got mode %q", mode)
+	}
+	if dbp, _ := sa.param(last, "db").(map[string]any); dbp == nil || dbp["name"] != newDB || dbp["host"] != "localhost" {
+		t.Errorf("agent got db %v", dbp)
+	}
+	if staging, _ := sa.param(last, "staging").(bool); !staging {
+		t.Error("the agent got staging=false")
+	}
+	rr := get(t, h, "/sites/10/wordpress/1", bob)
+	page := rr.Body.String()
+	if !strings.Contains(page, "Cloning started; the copy appears in the WordPress list when it is done.") {
+		t.Errorf("the flash is missing: %s", page)
+	}
+	if !strings.Contains(page, "Job <code>0123456789c0a001</code> started in the background.") {
+		t.Error("the job notice is missing")
+	}
+}
+
+func TestWordPressToolSync(t *testing.T) {
+	h, sa, db := mongoWEnv(t)
+	wpSeedInstall(t, db, 10, "public_html", "6.7.1", "6.8")
+	wpSeedDatabases(t, db)
+	// The staging copy: another installation of the same owner.
+	if _, err := db.Exec(`INSERT INTO wordpress_installs
+		(server_id, website_id, path, version, latest, plugin_updates, theme_updates, issues, scanned_at, db_name, cloned_from)
+		VALUES (1, 10, 'public_html/staging', '6.7.1', '6.8', 0, 0, 0, '2026-10-20T09:30:00Z', 'u_bob_wp2', 1)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO databases (server_id, website_id, owner_id, name, created_at)
+		VALUES (1, 10, 2, 'u_bob_wp2', '')`); err != nil {
+		t.Fatal(err)
+	}
+	var destID int64
+	if err := db.QueryRow(`SELECT id FROM wordpress_installs WHERE path = 'public_html/staging'`).Scan(&destID); err != nil {
+		t.Fatal(err)
+	}
+	bob := loginAsUser(t, h, "bob")
+
+	// Neither files nor the database: the guard.
+	res := wpToolPost(t, h, bob, url.Values{"tool": {"sync"}, "target": {fmt.Sprintf("%d", destID)}})
+	if res.Code != http.StatusSeeOther {
+		t.Fatalf("tool = %d", res.Code)
+	}
+	if wpLastCopyCall(sa) != -1 {
+		t.Error("the guard still reached the agent")
+	}
+	rr := get(t, h, "/sites/10/wordpress/1", bob)
+	if !strings.Contains(rr.Body.String(), "Choose files, the database or both.") {
+		t.Error("the guard flash is missing")
+	}
+
+	// The files and the database (both owners' databases in the panel): the
+	// job with its kind and the agent's parameters.
+	res = wpToolPost(t, h, bob, url.Values{"tool": {"sync"}, "target": {fmt.Sprintf("%d", destID)}, "files": {"1"}, "database": {"1"}})
+	if res.Code != http.StatusSeeOther || res.Header().Get("Location") != "/sites/10/wordpress/1#staging" {
+		t.Fatalf("tool = %d %q", res.Code, res.Header().Get("Location"))
+	}
+	var kind string
+	if err := db.QueryRow(`SELECT kind FROM agent_jobs WHERE job_id = '0123456789c0a001'`).Scan(&kind); err != nil {
+		t.Fatalf("the job is not tracked: %v", err)
+	}
+	if kind != "Sync WordPress files and database: bob.example → http://bob.example/staging" {
+		t.Errorf("job kind = %q", kind)
+	}
+	last := wpLastCopyCall(sa)
+	if last < 0 {
+		t.Fatal("the agent never got wordpress.copy")
+	}
+	if mode, _ := sa.param(last, "mode").(string); mode != "sync" {
+		t.Errorf("agent got mode %q", mode)
+	}
+	if files, _ := sa.param(last, "files").(bool); !files {
+		t.Error("the agent got files=false")
+	}
+	if database, _ := sa.param(last, "database").(bool); !database {
+		t.Error("the agent got database=false")
+	}
+	if targetDB, _ := sa.param(last, "target_db").(string); targetDB != "u_bob_wp2" {
+		t.Errorf("the agent got target_db %q", targetDB)
+	}
+	if n := wpAuditCount(t, db, "wordpress.sync"); n != 1 {
+		t.Errorf("audit rows = %d", n)
+	}
+	rr = get(t, h, "/sites/10/wordpress/1", bob)
+	if !strings.Contains(rr.Body.String(), "Sync started. A restore point of the target is saved first.") {
+		t.Error("the flash is missing")
+	}
+}
+
+func TestWordPressToolRestore(t *testing.T) {
+	h, sa, db := mongoWEnv(t)
+	wpSeedInstall(t, db, 10, "public_html", "6.7.1", "6.8")
+	wpSeedDatabases(t, db)
+	bob := loginAsUser(t, h, "bob")
+
+	// A bad point: the guard.
+	res := wpToolPost(t, h, bob, url.Values{"tool": {"restore"}, "restore_point": {"nope"}})
+	if res.Code != http.StatusSeeOther {
+		t.Fatalf("tool = %d", res.Code)
+	}
+	if wpLastCopyCall(sa) != -1 {
+		t.Error("the guard still reached the agent")
+	}
+	rr := get(t, h, "/sites/10/wordpress/1", bob)
+	if !strings.Contains(rr.Body.String(), "Choose a restore point.") {
+		t.Error("the guard flash is missing")
+	}
+
+	// The point: the job with its kind.
+	res = wpToolPost(t, h, bob, url.Values{"tool": {"restore"}, "restore_point": {"20261020T090000Z"}})
+	if res.Code != http.StatusSeeOther || res.Header().Get("Location") != "/sites/10/wordpress/1#staging" {
+		t.Fatalf("tool = %d %q", res.Code, res.Header().Get("Location"))
+	}
+	var kind, targetID string
+	if err := db.QueryRow(`SELECT kind, target_id FROM agent_jobs WHERE job_id = '0123456789c0a001'`).Scan(&kind, &targetID); err != nil {
+		t.Fatalf("the job is not tracked: %v", err)
+	}
+	if kind != "Restore WordPress: bob.example (20261020T090000Z)" || targetID != "10" {
+		t.Errorf("job tracked as %q / %q", kind, targetID)
+	}
+	last := wpLastCopyCall(sa)
+	if last < 0 {
+		t.Fatal("the agent never got wordpress.copy")
+	}
+	if mode, _ := sa.param(last, "mode").(string); mode != "restore" {
+		t.Errorf("agent got mode %q", mode)
+	}
+	if point, _ := sa.param(last, "restore_point").(string); point != "20261020T090000Z" {
+		t.Errorf("agent got restore_point %q", point)
+	}
+	if n := wpAuditCount(t, db, "wordpress.restore"); n != 1 {
+		t.Errorf("audit rows = %d", n)
+	}
+	rr = get(t, h, "/sites/10/wordpress/1", bob)
+	if !strings.Contains(rr.Body.String(), "Restoring started.") {
+		t.Error("the flash is missing")
+	}
+}
+
+func TestWordPressToolUnknown(t *testing.T) {
 	h, _, db := mongoWEnv(t)
 	wpSeedInstall(t, db, 10, "public_html", "6.7.1", "6.8")
 	bob := loginAsUser(t, h, "bob")
 
-	for _, tool := range []string{"nope", "clone", "sync", "restore"} {
-		want := "Unknown tool."
-		if tool != "nope" {
-			want = "This tool is coming soon."
-		}
-		res := wpToolPost(t, h, bob, url.Values{"tool": {tool}})
-		if res.Code != http.StatusSeeOther {
-			t.Fatalf("tool %s = %d", tool, res.Code)
-		}
-		rr := get(t, h, "/sites/10/wordpress/1", bob)
-		if !strings.Contains(rr.Body.String(), want) {
-			t.Errorf("tool %s: the flash %q is missing", tool, want)
-		}
+	res := wpToolPost(t, h, bob, url.Values{"tool": {"nope"}})
+	if res.Code != http.StatusSeeOther {
+		t.Fatalf("tool = %d", res.Code)
+	}
+	rr := get(t, h, "/sites/10/wordpress/1", bob)
+	if !strings.Contains(rr.Body.String(), "Unknown tool.") {
+		t.Error("the unknown-tool flash is missing")
 	}
 }
 
