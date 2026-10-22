@@ -308,7 +308,7 @@ Total routes: 551
 | GET | `/security/advisories` | SecurityChecksController::advisories | security.advisories | security.view | yes | yes | ☐ |
 | GET | `/security/compilers` | HardeningController::compilers | security.compilers | security.view | yes | yes | ☐ |
 | POST | `/security/compilers` | HardeningController::saveCompilers | security.compilers.save | security.manage | yes | yes | ☐ |
-| POST | `/security/confirm` | SecurityController::confirm | security.confirm | security.manage | yes | yes | ☐ |
+| POST | `/security/confirm` | SecurityController::confirm | security.confirm | security.manage | yes | yes | ☑ |
 | GET | `/security/egress` | HardeningController::egress | security.egress | security.view | yes | yes | ☐ |
 | POST | `/security/egress` | HardeningController::saveEgress | security.egress.save | security.manage | yes | yes | ☐ |
 | POST | `/security/fail2ban/unban` | SecurityController::unban | security.fail2ban.unban | security.manage | yes | yes | ☐ |
@@ -349,8 +349,8 @@ Total routes: 551
 | POST | `/security/policies/ips/forget` | SecurityPolicyController::forgetIp | security.policies.forget_ip | security.view | yes | yes | ☐ |
 | GET | `/security/policies` | SecurityPolicyController::policies | security.policies | security.view | yes | yes | ☐ |
 | POST | `/security/policies` | SecurityPolicyController::savePolicies | security.policies.save | security.manage | yes | yes | ☐ |
-| GET | `/security/shell` | ShellController::index | security.shell | security.view | yes | yes | ☐ |
-| POST | `/security/shell` | ShellController::update | security.shell.update | security.manage | yes | yes | ☐ |
+| GET | `/security/shell` | ShellController::index | security.shell | security.view | yes | yes | ☑ |
+| POST | `/security/shell` | ShellController::update | security.shell.update | security.manage | yes | yes | ☑ |
 | GET | `/security/smtp` | HardeningController::smtp | security.smtp | security.view | yes | yes | ☐ |
 | POST | `/security/smtp` | HardeningController::saveSmtp | security.smtp.save | security.manage | yes | yes | ☐ |
 | POST | `/security/ssh/keys/generate` | SecurityController::generateSshKey | security.ssh.key_generate | security.manage | yes | yes | ☐ |
@@ -362,7 +362,7 @@ Total routes: 551
 | GET | `/security/tls` | SecurityChecksController::tls | security.tls | security.view | yes | yes | ☐ |
 | GET | `/security/traceroute` | HardeningController::traceroute | security.traceroute | security.view | yes | yes | ☐ |
 | POST | `/security/traceroute` | HardeningController::saveTraceroute | security.traceroute.save | security.manage | yes | yes | ☐ |
-| POST | `/security/undo` | SecurityController::undo | security.undo | security.manage | yes | yes | ☐ |
+| POST | `/security/undo` | SecurityController::undo | security.undo | security.manage | yes | yes | ☑ |
 | GET | `/security` | SecurityController::index | security | security.view | yes | yes | ☐ |
 | POST | `/server/graphical` | SystemController::graphical | server.graphical | server.manage | yes | yes | ☐ |
 | GET | `/server/health` | ServerHealthController::index | server.health | server.view | yes | yes | ☐ |

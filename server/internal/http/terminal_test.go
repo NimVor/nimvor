@@ -51,8 +51,10 @@ func terminalEnv(t *testing.T) (http.Handler, *sitesAgent, *sql.DB, *Server) {
 			t.Fatalf("seed %q: %v", q, err)
 		}
 	}
+	// Role 1's name is "admin" (authz.SyncDefaults), the name terminal.go's
+	// root-shell gate compares against.
 	exec(`INSERT INTO roles (id,name,label,scope,created_at) VALUES
-		(1,'administrator','Admin','all',''),(2,'customer','Customer','own',''),(3,'viewer','Viewer','own','')`)
+		(1,'admin','Administrator','all',''),(2,'customer','Customer','own',''),(3,'viewer','Viewer','own','')`)
 	exec(`INSERT INTO permissions (id,name,label,grp) VALUES
 		(1,'websites.view','v','web'),(2,'websites.manage','m','web'),(3,'files.manage','fm','files'),
 		(4,'server.manage','sm','server'),(5,'security.manage','sec','security')`)

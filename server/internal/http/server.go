@@ -148,6 +148,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /terminal", s.guard("terminal", "security.manage", s.terminalIndex))
 	s.mux.HandleFunc("POST /terminal/root/open", s.guard("terminal.root", "security.manage", s.terminalOpenRoot))
 	s.mux.HandleFunc("POST /terminal/sessions/{id}/close", s.guard("terminal.close", "security.manage", s.terminalClose))
+	// Security → Shell access (ShellController: the website accounts'
+	// disabled/jailed/normal shell modes; the agent applies them while the
+	// account's SSH/SFTP login is on). The confirm/undo routes keep or roll
+	// back the unconfirmed security change shown on the page.
+	s.mux.HandleFunc("GET /security/shell", s.guard("security.shell", "security.view", s.shellAccessIndex))
+	s.mux.HandleFunc("POST /security/shell", s.guard("security.shell.update", "security.manage", s.shellAccessUpdate))
+	s.mux.HandleFunc("POST /security/confirm", s.guard("security.confirm", "security.manage", s.securityConfirm))
+	s.mux.HandleFunc("POST /security/undo", s.guard("security.undo", "security.manage", s.securityUndo))
 	// The website's databases (DatabasesController::site; databases.view —
 	// the mysql feature withholds it when the plan disables mysql).
 	s.mux.HandleFunc("GET /sites/{id}/databases", s.guard("", "databases.view", s.siteDatabases))
