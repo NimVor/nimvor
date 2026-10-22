@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **230 ☑ done+tested, 3 ◑ partial, 318 ☐** of 551.
+`server/internal/http/server.go`): **230 ☑ done+tested, 4 ◑ partial, 317 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -488,6 +488,29 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   names, the suspended account is refused, the unknown operation and
   the invalid automatic-updates value are user-facing errors, and
   every run is audited (wordpress.<op>)
+- ◑ websites: the WordPress toolkit's tools (tools) (batch 46)
+  — WordPressController::tool + the WordPressToolsService's tools as
+  site_wordpress.go (wpTool) + the hosting/wordpress_tools.go write
+  methods (SetDebug / SetPasswordProtection / SetHotlink /
+  AdminPassword / DBPassword, on top of the read-side Security):
+  POST /sites/{id}/wordpress/{wp}/tools (websites.manage) now covers
+  six of the twelve tools — debug (the switches → manage op debug, the
+  filtered flags, the debug column, the saved / off message),
+  password_protection (protect.password with the url path, the user
+  name + 8-to-128-character password validated before the agent),
+  hotlink (protect.hotlink, the allowed hosts lowercased + host-validated),
+  admin_password (manage op admin_password, the password + the
+  constant-time confirm match, the "other sessions signed out" message),
+  db_password (manage op db_password, the new 24-character password
+  shown once on the overview and the panel's stored database_users copy
+  re-encrypted), and security (the one-click apply / roll back of the
+  nine recommended measures, or the chosen ones, the empty-measures
+  guard); every tool is audited (wordpress.<tool>) and the suspended
+  account is refused (wpWritable). The other six tools (cron takeover,
+  vulnerability protection, the vulnerability-database check, clone,
+  sync, restore) answer "This tool is coming soon." until their
+  service dependencies (cron / ModSecurity / wpvulnerability.net /
+  wordpress.copy) are ported
 - ☑ websites: the site MongoDB database browser (batch 42) —
   SiteMongoController's browser / browse / export as
   site_mongo_browser.go + the browser half of hosting/site_mongo_service.go:

@@ -286,6 +286,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /sites/{id}/wordpress/scan", s.guard("sites.wordpress.scan", "websites.manage", s.wordpressScanSite))
 	s.mux.HandleFunc("GET /sites/{id}/wordpress/{wp}", s.guard("sites.wordpress.show", "websites.view", s.wpShow))
 	s.mux.HandleFunc("POST /sites/{id}/wordpress/{wp}/manage", s.guard("sites.wordpress.manage", "websites.manage", s.wpManage))
+	s.mux.HandleFunc("POST /sites/{id}/wordpress/{wp}/tools", s.guard("sites.wordpress.tool", "websites.manage", s.wpTool))
 	s.mux.HandleFunc("POST /sites/{id}/wordpress/{wp}/check", s.guard("sites.wordpress.check", "websites.view", s.wpCheck))
 	s.mux.HandleFunc("POST /sites/{id}/wordpress/{wp}/login", s.guard("sites.wordpress.login", "websites.manage", s.wpLogin))
 	s.mux.HandleFunc("GET /sites/{id}/wordpress/{wp}/logs", s.guard("sites.wordpress.logs", "websites.view", s.wpLogs))

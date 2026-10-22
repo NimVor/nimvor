@@ -864,6 +864,10 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 					id = "0123456789ab0001"
 				}
 				_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"` + id + `"}}`))
+			case "admin_password":
+				_, _ = w.Write([]byte(`{"success":true,"data":{"login":"bob"}}`))
+			case "db_password":
+				_, _ = w.Write([]byte(`{"success":true,"data":{"user":"u_bob_wp"}}`))
 			default:
 				_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
 			}

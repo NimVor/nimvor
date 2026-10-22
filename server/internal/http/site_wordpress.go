@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -281,7 +282,7 @@ type wpVulnRow struct {
 }
 
 func (s *Server) wpTools(r *http.Request, user *identity.User) *hosting.WordPressTools {
-	return hosting.NewWordPressTools(s.db, s.agent, s.currentServerID(r), hosting.NewWebsiteRepository(s.db), s.wordpressAudit(r, user))
+	return hosting.NewWordPressTools(s.db, s.agent, s.currentServerID(r), hosting.NewWebsiteRepository(s.db), s.crypto, s.wordpressAudit(r, user))
 }
 
 // wpInstallOf resolves the installation of a /sites/{id}/wordpress/{wp}
@@ -731,6 +732,138 @@ func (s *Server) wpManage(w http.ResponseWriter, r *http.Request) {
 		sess.Flash("wp_verify", strings.Join(res.Files, "\n"))
 	}
 	s.wpFlashRedirect(w, r, "success", res.Message, to)
+}
+
+// wpTool runs one of the WordPress toolkit's tools (WordPressController::tool):
+// the debug switches, the password and hotlink protection, the administrator
+// and database passwords, the security measures. The cron takeover, the
+// vulnerability protection and the copy tools (clone / sync / restore) follow
+// with their service dependencies.
+func (s *Server) wpTool(w http.ResponseWriter, r *http.Request) {
+	if !s.wpFormToken(w, r) {
+		return
+	}
+	site, install, ok := s.wpInstallOf(w, r)
+	if !ok {
+		return
+	}
+	to := fmt.Sprintf("/sites/%d/wordpress/%d", site.ID, install.ID)
+	if err := r.ParseForm(); err != nil {
+		s.wpFlashRedirect(w, r, "error", "The form could not be read.", to)
+		return
+	}
+	tools := s.wpTools(r, userFrom(r.Context()))
+	tool := r.PostFormValue("tool")
+	on := r.PostFormValue("enabled") == "1"
+	switch tool {
+	case "debug":
+		items := r.PostForm["debug[]"]
+		if items == nil {
+			if v := r.PostFormValue("debug"); v != "" {
+				items = []string{v}
+			}
+		}
+		msg, err := tools.SetDebug(r.Context(), site, install, items)
+		s.wpToolFinish(w, r, msg, err, to)
+	case "cron", "vulnerability", "vuln_check", "clone", "sync", "restore":
+		s.wpFlashRedirect(w, r, "error", "This tool is coming soon.", to)
+	case "password_protection":
+		msg, err := tools.SetPasswordProtection(r.Context(), site, install, on, r.PostFormValue("protect_user"), r.PostFormValue("protect_password"))
+		s.wpToolFinish(w, r, msg, err, to)
+	case "hotlink":
+		allowed := []string{}
+		for _, part := range strings.FieldsFunc(r.PostFormValue("hotlink_allowed"), func(r rune) bool {
+			return r == ',' || r == ' ' || r == '\t' || r == '\n' || r == '\r'
+		}) {
+			allowed = append(allowed, part)
+		}
+		msg, err := tools.SetHotlink(r.Context(), site, on, allowed)
+		s.wpToolFinish(w, r, msg, err, to)
+	case "admin_password":
+		id, _ := strconv.Atoi(r.PostFormValue("admin_id"))
+		msg, err := tools.AdminPassword(r.Context(), site, install, id, r.PostFormValue("admin_password"), r.PostFormValue("admin_password_confirm"))
+		s.wpToolFinish(w, r, msg, err, to)
+	case "db_password":
+		password, err := tools.DBPassword(r.Context(), site, install)
+		if err != nil {
+			s.wpToolError(w, r, err, to)
+			return
+		}
+		sess := sessionFrom(r.Context())
+		sess.Flash("wp_db_password", password)
+		s.wpFlashRedirect(w, r, "success", "The database password was changed in the database and in wp-config.php.", to+"#database")
+		return
+	case "security":
+		op := "apply"
+		if r.PostFormValue("op") == "rollback" {
+			op = "rollback"
+		}
+		var measures []string
+		if r.PostFormValue("recommended") == "1" {
+			measures = hosting.WpRecommendedMeasures
+		} else {
+			measures = r.PostForm["measures[]"]
+			if m := r.PostFormValue("measures"); m != "" {
+				measures = append(measures, m)
+			}
+		}
+		if len(measures) == 0 {
+			s.wpFlashRedirect(w, r, "error", "Choose at least one measure.", to+"#security")
+			return
+		}
+		if _, err := tools.Security(r.Context(), site, install, op, measures); err != nil {
+			s.wpToolError(w, r, err, to)
+			return
+		}
+		msg := "Security measures applied: " + strconv.Itoa(len(measures)) + " measure(s)."
+		if op == "rollback" {
+			msg = "Rolled back: " + strconv.Itoa(len(measures)) + " measure(s)."
+		}
+		s.wpFlashRedirect(w, r, "success", msg, to+"#security")
+		return
+	default:
+		s.wpFlashRedirect(w, r, "error", "Unknown tool.", to)
+		return
+	}
+}
+
+// wpToolFinish flashes a tool's result (wpToolError on failure, the success
+// message on success).
+func (s *Server) wpToolFinish(w http.ResponseWriter, r *http.Request, msg string, err error, to string) {
+	if err != nil {
+		s.wpToolError(w, r, err, to)
+		return
+	}
+	s.wpFlashRedirect(w, r, "success", msg, to)
+}
+
+// wpToolError maps a tool error onto PHP's redirects: the form and the
+// user-facing errors as failures, the agent and the unknown errors as 500s.
+func (s *Server) wpToolError(w http.ResponseWriter, r *http.Request, err error, to string) {
+	var ve *hosting.ValidationError
+	var ue *hosting.UserError
+	switch {
+	case errors.As(err, &ve):
+		msg := "Please correct the form."
+		if len(ve.Fields) != 0 {
+			keys := make([]string, 0, len(ve.Fields))
+			for k := range ve.Fields {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			out := make([]string, 0, len(keys))
+			for _, k := range keys {
+				out = append(out, ve.Fields[k])
+			}
+			msg = strings.Join(out, " ")
+		}
+		s.wpFlashRedirect(w, r, "error", msg, to)
+	case errors.As(err, &ue):
+		s.wpFlashRedirect(w, r, "error", ue.What, to)
+	default:
+		s.log.Error("wordpress tool", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	}
 }
 
 // wpCheck forces a fresh check of updates and opens the overview
