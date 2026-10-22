@@ -421,7 +421,7 @@ Total routes: 551
 | POST | `/sites/{id}/cron/{job}/toggle` | CronController::toggle | sites.cron.toggle | cron.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/cron` | CronController::show | sites.cron | cron.view | yes | yes | ☑ |
 | POST | `/sites/{id}/cron` | CronController::store | sites.cron.store | cron.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/databases` | DatabasesController::site | sites.databases | databases.view | yes | yes | ☐ |
+| GET | `/sites/{id}/databases` | DatabasesController::site | sites.databases | databases.view | yes | yes | ☑ |
 | POST | `/sites/{id}/delete` | SitesController::destroy | sites.delete | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/directory-listing` | SitesController::directoryListing | sites.listing | websites.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/disk-usage` | DiskUsageController::show | sites.disk | files.manage | yes | yes | ☐ |

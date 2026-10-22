@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **64 ☑ done+tested, 3 ◑ partial, 484 ☐** of 551.
+`server/internal/http/server.go`): **65 ☑ done+tested, 3 ◑ partial, 483 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -68,7 +68,11 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   assign/remote/password/delete ops) and each database's granted users +
   permission form, plus the shown-once secret flash (PHP _manage view minus
   the live db.overview sizes/status and unmanaged-discovery sections — those
-  ride with the db.overview batch)
+  ride with the db.overview batch) · GET `/sites/{id}/databases` (DatabasesController::site — the
+  same page scoped to one website: website resolved under tenant scope first
+  (foreign id → 404), databases listed for the site only, the create form pins
+  website_id, and every operation's return_to points back to the site page;
+  the databases store/drop redirects honor the return_to whitelist too)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -142,15 +146,17 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: per-site database page (DatabasesController::site) —
-GET `/sites/{id}/databases` (route name `sites.databases`, permission
-DATABASES_VIEW): resolve the website under tenant scope first (a foreign id
-renders the 404 "Website not found / This website does not exist or you do
-not have access to it."), then the databases view scoped to the site:
-`DatabaseRepository::databases(server, user, site_id)` (existing Go
-`All(ctx, serverID, user, &siteID)`) + the same users/grants/secret/remote
-data the global page passes (DatabasesController::common). No new
-agent/service calls — the live `db.overview` sizes/status column and the
-unmanaged-discovery section stay deferred with the db.overview batch.
+Batch: database dump + import (DatabasesController::dump / ::import,
+DATABASES_MANAGE) — both job-based via JobTracker (the Go port still lacks
+job tracking: a jobs table/service + the "job started" flash + the jobs
+listing to display them). Service: DatabaseService::dump (`db.dump`,
+audits database.dump with the file) and importFromSite (path validation
+`.sql`/`.sql.gz`, no `..`, ≤255; the `tmp/whacp-import-<16hex>.sql(.gz)`
+upload is removed after; `db.import_site` with remove_after; audits
+database.import). Routes: POST `/databases/{id}/dump` (databases.dump),
+POST `/databases/{id}/import` (databases.import — only a database of one of
+the actor's websites; the upload variant needs the files.upload route, so
+the folder-path form lands first and the upload branch is deferred with
+the files area).
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

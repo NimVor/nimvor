@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -86,25 +87,26 @@ func (s *Server) websiteShow(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// databasesIndex lists the databases and database users the user may see,
-// tenant-scoped, with the one-shot secret flash. The mysql feature withholds
-// databases.view when a plan disables it, so the permission guard already
-// enforces the feature. Mirrors DatabasesController::index (route
-// "databases", databases.view) and the _manage view's data.
-func (s *Server) databasesIndex(w http.ResponseWriter, r *http.Request) {
-	user := userFrom(r.Context())
+// databasesPageData builds the databases-page data shared by GET /databases
+// and GET /sites/{id}/databases (DatabasesController::common + the _manage
+// view's $userDbs): the tenant-scoped database list (optionally scoped to
+// one website), the scoped database-user list with per-user grants and the
+// still-free databases, the remote-hosts flag, the shown-once secret flash,
+// and the name prefix. On a lookup failure it logs, writes a 500 and
+// reports ok=false.
+func (s *Server) databasesPageData(r *http.Request, w http.ResponseWriter, user *identity.User, websiteID *int64) (map[string]any, bool) {
 	repo := hosting.NewDatabaseRepository(s.db)
-	dbs, err := repo.All(r.Context(), s.currentServerID(r), user, nil)
+	dbs, err := repo.All(r.Context(), s.currentServerID(r), user, websiteID)
 	if err != nil {
 		s.log.Error("list databases", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		return nil, false
 	}
 	users, err := repo.DBUsers(r.Context(), s.currentServerID(r), user)
 	if err != nil {
 		s.log.Error("list database users", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+		return nil, false
 	}
 	// Per-user database access (the Users tab "Databases" column and the
 	// assign form's options), from the grants listed with the databases —
@@ -146,7 +148,16 @@ func (s *Server) databasesIndex(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("settings lookup failed", "error", err)
 		remote = true // the definition's default
 	}
-	s.render(w, "databases", map[string]any{
+	returnTo := "/databases"
+	var site *hosting.Website
+	if websiteID != nil {
+		siteID := *websiteID
+		if found, err := hosting.NewWebsiteRepository(s.db).Find(r.Context(), s.currentServerID(r), siteID, user); err == nil {
+			site = found
+			returnTo = fmt.Sprintf("/sites/%d/databases", siteID)
+		}
+	}
+	return map[string]any{
 		"User":             user,
 		"CSRF":             session.CSRFToken(sess),
 		"Databases":        dbs,
@@ -156,10 +167,52 @@ func (s *Server) databasesIndex(w http.ResponseWriter, r *http.Request) {
 		"Secret":           secret,
 		"PrivilegeLabels":  hosting.DBPrivilegeLabels,
 		"PrivilegeOptions": hosting.DBPrivilegeOptions,
+		"Site":             site,
+		"ReturnTo":         returnTo,
 		"Error":            errMsg,
 		"Success":          okMsg,
 		"CanManage":        s.can(r, "databases.manage"),
-	})
+	}, true
+}
+
+// databasesIndex lists the databases and database users the user may see,
+// tenant-scoped, with the one-shot secret flash. The mysql feature withholds
+// databases.view when a plan disables it, so the permission guard already
+// enforces the feature. Mirrors DatabasesController::index (route
+// "databases", databases.view).
+func (s *Server) databasesIndex(w http.ResponseWriter, r *http.Request) {
+	data, ok := s.databasesPageData(r, w, userFrom(r.Context()), nil)
+	if !ok {
+		return
+	}
+	s.render(w, "databases", data)
+}
+
+// siteDatabases renders one website's databases page: the same data as the
+// global page, with the databases scoped to the site and the operations'
+// return_to pointing back to it. The website is resolved under tenant scope
+// first (a foreign id is a 404). Mirrors DatabasesController::site (route
+// "sites.databases", databases.view).
+func (s *Server) siteDatabases(w http.ResponseWriter, r *http.Request) {
+	user := userFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		s.notFound(w, r)
+		return
+	}
+	if _, err := hosting.NewWebsiteRepository(s.db).Find(r.Context(), s.currentServerID(r), id, user); errors.Is(err, hosting.ErrWebsiteNotFound) {
+		s.notFound(w, r)
+		return
+	} else if err != nil {
+		s.log.Error("find website", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	data, ok := s.databasesPageData(r, w, user, &id)
+	if !ok {
+		return
+	}
+	s.render(w, "site_databases", data)
 }
 
 // can reports whether the request's user holds a permission (for conditional
@@ -183,7 +236,7 @@ func (s *Server) databasesStore(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-
+	back := s.databasesBack(r)
 	var websiteID *int64
 	if v := r.FormValue("website_id"); v != "" {
 		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
@@ -209,11 +262,11 @@ func (s *Server) databasesStore(w http.ResponseWriter, r *http.Request) {
 			s.log.Error("create database", "error", err)
 			sess.Flash("error", "The database could not be created.")
 		}
-		http.Redirect(w, r, "/databases", http.StatusSeeOther)
+		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	sess.Flash("success", "Database created.")
-	http.Redirect(w, r, "/databases", http.StatusSeeOther)
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 // databaseService builds the database service with an audit hook bound to the
@@ -252,6 +305,7 @@ func (s *Server) databasesDrop(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
+	back := s.databasesBack(r)
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		s.notFound(w, r)
@@ -269,11 +323,11 @@ func (s *Server) databasesDrop(w http.ResponseWriter, r *http.Request) {
 			s.log.Error("drop database", "error", err)
 			sess.Flash("error", "The database could not be deleted.")
 		}
-		http.Redirect(w, r, "/databases", http.StatusSeeOther)
+		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	sess.Flash("success", "Database "+name+" was deleted.")
-	http.Redirect(w, r, "/databases", http.StatusSeeOther)
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 // notFound renders a 404 page (JSON or HTML).
