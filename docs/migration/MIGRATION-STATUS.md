@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **85 ☑ done+tested, 3 ◑ partial, 463 ☐** of 551.
+`server/internal/http/server.go`): **87 ☑ done+tested, 3 ◑ partial, 461 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -127,7 +127,22 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   (final chunk audited with the size) and download streams the agent's
   base64 chunks; all confinement is enforced by the agent's os.Root; the
   AV scan of finished uploads/extracts and the bootstrap modal UI ride
-  with the Go shell work)
+  with the Go shell work) ·
+  GET `/sites/{id}/disk-usage` + POST `/sites/{id}/disk-usage` (DiskUsageController
+  — website disk usage: the agent measures a folder in a background job
+  (`sites.disk_usage`, confined to the website folder) and the latest result
+  per folder is kept in disk_usage_scans (five kept per folder, pruned on
+  refresh); the page settles the running scans from the job's status on load
+  (`jobs.get`: a lost job fails as "interrupted (the agent restarted)", a
+  failed job fails with its error, a finished one stores the cleaned entries
+  — first 300, names ≤255, kind dir/files/mail, sizes/counts ≥0 — and shows
+  the folder table with the share bars + total, the sortable
+  folder/size/files headers, the breadcrumb trail and the "Measured
+  <timeago>" note; a running scan shows the "Measuring…" job link — the /jobs
+  viewer's modal UI rides with the Go shell work — and the scan start
+  redirects back with the job + reload flashes; a bad ?path= is ignored, an
+  already-running folder and the agent's errors flash the redirect; no audit
+  — parity, the PHP controller records none)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -201,16 +216,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the remaining files-area pages — **disk usage** (DiskUsageController:
-GET `/sites/{id}/disk-usage` + POST `/sites/{id}/disk-usage` scan,
-files.manage: the per-site disk usage with a rescan) and the **terminal
-area** (TerminalController: GET `/sites/{id}/terminal` + POST
-`/sites/{id}/terminal/open` + POST `/terminal/unlock` for site terminals
-(files.manage), plus the server-wide GET `/terminal` + POST
-`/terminal/root/open` + POST `/terminal/sessions/{id}/close`,
-security.manage). The terminal routes need the web terminal transport —
+Batch: the **terminal area** (TerminalController: GET `/sites/{id}/terminal`
++ POST `/sites/{id}/terminal/open` for site terminals (files.manage), the
+server-wide GET `/terminal` + POST `/terminal/root/open` + POST
+`/terminal/sessions/{id}/close` (security.manage), plus POST
+`/terminal/unlock`). The terminal routes need the web terminal transport —
 check the PHP TerminalController + the agent's terminal actions for the
-contract (it may need a WebSocket/PTY bridge in the Go server). Check
-INVENTORY.md for both controllers before starting.
+contract (it likely needs a WebSocket/PTY bridge in the Go server). Check
+INVENTORY.md for the controller before starting.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

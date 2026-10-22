@@ -133,6 +133,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /sites/{id}/files/api", s.guard("sites.files.api", "files.manage", s.filesApi))
 	s.mux.HandleFunc("POST /sites/{id}/files/upload", s.guard("sites.files.upload", "files.manage", s.filesUpload))
 	s.mux.HandleFunc("GET /sites/{id}/files/download", s.guard("sites.files.download", "files.manage", s.filesDownload))
+	// The website's disk usage (DiskUsageController, files.manage; the
+	// agent measures a folder in a background job, confined to the
+	// website root, and the latest result is kept in disk_usage_scans).
+	s.mux.HandleFunc("GET /sites/{id}/disk-usage", s.guard("sites.disk", "files.manage", s.diskUsageShow))
+	s.mux.HandleFunc("POST /sites/{id}/disk-usage/scan", s.guard("sites.disk.scan", "files.manage", s.diskUsageScan))
 	// The website's databases (DatabasesController::site; databases.view —
 	// the mysql feature withholds it when the plan disables mysql).
 	s.mux.HandleFunc("GET /sites/{id}/databases", s.guard("", "databases.view", s.siteDatabases))
