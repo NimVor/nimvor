@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **135 ☑ done+tested, 3 ◑ partial, 413 ☐** of 551.
+`server/internal/http/server.go`): **138 ☑ done+tested, 3 ◑ partial, 410 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -334,6 +334,26 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   (security.Strength), save validates all seven (every error at once) and
   flashes "Password strength requirements saved. They apply to passwords set
   from now on.")
+- GET `/security/malware` + POST `/security/malware/settings` + POST
+  `/security/malware/update` (AvController's /security/malware area — the
+  ClamAV status (av.status: the engine / signatures / their date, the
+  freshclam state, the updater log when no signatures yet), the not-installed
+  infobar, the scan settings (the 0/1/7/14/30-day select + the quarantine
+  switch, SettingsService bounds 0–30, changed-only persistence + the
+  settings.update audit), the signature update (av.update, the av.update
+  audit server / the id, "Downloading the latest virus signatures…" flash,
+  the agent error flash-redirect) and the Recent scans table (the 50 latest
+  with website + owner, the Scanning/Clean/Infected/Failed states, the
+  infected count, the truncated error, number_format, time_ago,
+  Schedule/Manual). On every page load the running scans are recorded
+  (AvService::refresh: jobs.get per scan, a vanished job = interrupted,
+  the findings capped + truncated, the row's status flip, and the
+  notification row with its dedupe key — the PHP notify() call: infected →
+  warning "Malware found on …", failed non-manual → error, manual →
+  "… is clean" (the PHP quirk for failed manual scans, kept); the
+  notification email + Redactor are follow-ups, as is the per-website
+  malware page (scan/release). No scope gate — parity (security.view reads,
+  security.manage manages)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -396,6 +416,7 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 ## NOT YET PORTED (known follow-ups, tracked honestly)
 - WebAuthn sign-in + security-key management; IP-verification sign-in (emailed code); HULK brute-force integration; step-up password confirmation; password-age and role-requires-2FA enforcement; trusted-proxy client IP
 - QR image on the 2FA setup page (the otpauth URI + secret are shown for manual entry; a QR encoder or dependency is a small follow-up)
+- notification emails (the warning/error rows are inserted but not emailed; the PHP Redactor for their body is not ported)
 - profile: password change, API-token management, session management, security-key forms
 - the full per-feature view/handler port (websites, databases, mongo, …) — see list above
 - background jobs / scheduler binary (backup schedules, AutoSSL, webhook deliveries, cron-email, discovery, monitoring sweeps)
@@ -407,10 +428,10 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: continue the **security area** — the remaining
-**SecurityController** pages: the AvController malware scan (3 routes),
-the HulkController cPHulk integration (6 routes), then the
-ModSecurityController (10 routes). Check INVENTORY.md + the PHP
+Batch: continue the **security area** — the HulkController cPHulk
+Brute Force Protection integration (6 routes), then the
+ModSecurityController (10 routes), then the per-website malware pages
+(AvController show/scan/release). Check INVENTORY.md + the PHP
 controllers before starting.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

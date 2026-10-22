@@ -63,6 +63,15 @@ type sitesAgent struct {
 	// mailData overrides the mail.status reply's data ("" = configured
 	// with the test hostname).
 	mailData string
+	// avInstalled is the av.status reply's installed flag (default true).
+	avInstalled bool
+	// avVersion is the av.status reply's version string ("" = the full
+	// "ClamAV 1.4.3/27781/2026-09-27").
+	avVersion string
+	// avFreshclam is the av.status reply's freshclam flag (default true).
+	avFreshclam bool
+	// avUpdaterLog is the av.status reply's updater_log ("" = none).
+	avUpdaterLog string
 }
 
 // setJob registers the jobs.get reply for a job id.
@@ -96,7 +105,7 @@ func guardedReply(changed bool, id, kind, summary string) []byte {
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
 	t.Helper()
-	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1, f2bRunning: true}
+	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true}
 	dir := t.TempDir()
 	socket := filepath.Join(dir, "agent.sock")
 	tokenFile := filepath.Join(dir, "token")
@@ -245,6 +254,20 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			closed := sa.termKillClosed
 			sa.mu.Unlock()
 			_, _ = w.Write([]byte(`{"success":true,"data":{"closed":` + strconv.Itoa(closed) + `}}`))
+		case "av.status":
+			sa.mu.Lock()
+			installed, version, freshclam, updaterLog := sa.avInstalled, sa.avVersion, sa.avFreshclam, sa.avUpdaterLog
+			sa.mu.Unlock()
+			if version == "" {
+				version = "ClamAV 1.4.3/27781/2026-09-27"
+			}
+			logJSON := ""
+			if updaterLog != "" {
+				logJSON = `"updater_log":` + fmt.Sprintf("%q", updaterLog) + `,`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"installed":` + boolJSON(installed) + `,"version":` + fmt.Sprintf("%q", version) + `,"freshclam":` + boolJSON(freshclam) + `,` + logJSON + `}}`))
+		case "av.update":
+			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
 		case "security.pending":
 			sa.mu.Lock()
 			pending := sa.secPending
