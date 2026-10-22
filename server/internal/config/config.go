@@ -13,6 +13,7 @@ type Config struct {
 	AgentSocket    string // the agent's Unix socket
 	AgentTokenFile string // file holding the agent bearer token
 	KeyFile        string // libsodium/nacl secret key (session + secrets)
+	LogFile        string // the panel's log file (the "panel" log source)
 	Production     bool   // true behind TLS: adds HSTS, Secure cookies
 }
 
@@ -25,6 +26,7 @@ func Load() Config {
 		AgentSocket:    env("WHACP_AGENT_SOCKET", "/run/whacp/agent.sock"),
 		AgentTokenFile: env("WHACP_AGENT_TOKEN", "/etc/whacp/agent.token"),
 		KeyFile:        env("WHACP_KEY_FILE", "/etc/whacp/panel.key"),
+		LogFile:        env("WHACP_LOG_FILE", "/var/lib/whacp/logs/panel.log"),
 		Production:     os.Getenv("WHACP_PRODUCTION") == "1",
 	}
 }
