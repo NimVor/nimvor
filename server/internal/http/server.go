@@ -199,6 +199,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /roles", s.guard("", "users.view", s.rolesIndex))
 	s.mux.HandleFunc("GET /plans", s.guard("", "plans.manage", s.plansIndex))
 
+	// Background job log (the job viewer polls it). Authenticated only —
+	// visibility is per job (JobTracker.VisibleTo), so no permission, as in
+	// PHP (route jobs.show).
+	s.mux.HandleFunc("GET /jobs/{id}", s.guard("", "", s.jobsShow))
+
 	// Notifications (per-recipient visibility).
 	s.mux.HandleFunc("GET /notifications", s.guard("", "notifications.view", s.notificationsIndex))
 	s.mux.HandleFunc("POST /notifications/read", s.guard("", "notifications.view", s.notificationsRead))

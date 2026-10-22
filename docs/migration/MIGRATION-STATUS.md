@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **67 ☑ done+tested, 3 ◑ partial, 481 ☐** of 551.
+`server/internal/http/server.go`): **68 ☑ done+tested, 3 ◑ partial, 480 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -77,8 +77,17 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   agent job id is tracked in agent_jobs — kind "Dump <name>" / "Import into
   <name>", target database, starter user — and flashed once; import takes a
   .sql/.sql.gz path inside the website folder, refuses "..", ≤255 chars, and
-  removes only panel-named tmp/whacp-import-<16hex> uploads. JobTracker's
-  poll/settle/notify + the jobs log page (GET /jobs/{id}) are the follow-up)
+  removes only panel-named tmp/whacp-import-<16hex> uploads) ·
+  GET /jobs/{id} (JobsController::show — the JSON endpoint the job viewer
+  polls: the 16-hex id is looked up in agent_jobs and visibleTo checks own /
+  reseller-customer / website-scoped / all-scope visibility (foreign → 404
+  "Job not found.", no agent call), then `jobs.log` with the viewer's offset;
+  the reply passes through (job/log/offset/done) plus success + the tracked
+  kind; the polled status is stored and a finished job is settled once — the
+  settle's notification + scan-on-extract halves defer with the
+  notifications/AV batches, the discovery invalidation with discovery; the
+  job viewer's bootstrap modal rides with the Go shell work, the databases
+  pages carry the "Job <id> started" flash alert meanwhile)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -152,12 +161,11 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: jobs log page (JobsController::show) — GET `/jobs/{id}`: the page a
-started job points at. JobTracker read/poll path (find, visibleTo — own +
-reseller-customer + website-scoped visibility; poll via `jobs.log` with
-offset, status update, settle-once + notification on finish — the
-notification part defers with the notifications batch), plus the log
-rendering (the PHP job_modal partial's server side). The agent's `jobs.log`
-/ `jobs.get` actions are already implemented.
+Batch: live db.overview columns — the databases table's per-database size +
+tables/status columns (the PHP _manage view's live section,
+DatabaseService::live → `db.overview`), plus the unmanaged-discovery
+infobar (databases on the server the account does not manage) that the
+display note above defers. Agent action `db.overview` — check the agent
+first, it may already be implemented.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
