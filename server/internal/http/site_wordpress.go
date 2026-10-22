@@ -282,7 +282,8 @@ type wpVulnRow struct {
 }
 
 func (s *Server) wpTools(r *http.Request, user *identity.User) *hosting.WordPressTools {
-	return hosting.NewWordPressTools(s.db, s.agent, s.currentServerID(r), hosting.NewWebsiteRepository(s.db), s.crypto, s.wordpressAudit(r, user))
+	cron := hosting.NewCronService(s.db, s.agent, hosting.NewPlanLimits(s.db), s.wordpressAudit(r, user))
+	return hosting.NewWordPressTools(s.db, s.agent, s.currentServerID(r), hosting.NewWebsiteRepository(s.db), s.crypto, cron, s.wordpressAudit(r, user))
 }
 
 // wpInstallOf resolves the installation of a /sites/{id}/wordpress/{wp}
@@ -765,7 +766,10 @@ func (s *Server) wpTool(w http.ResponseWriter, r *http.Request) {
 		}
 		msg, err := tools.SetDebug(r.Context(), site, install, items)
 		s.wpToolFinish(w, r, msg, err, to)
-	case "cron", "vulnerability", "vuln_check", "clone", "sync", "restore":
+	case "cron":
+		msg, err := tools.SetCronTakeover(r.Context(), site, install, on)
+		s.wpToolFinish(w, r, msg, err, to)
+	case "vulnerability", "vuln_check", "clone", "sync", "restore":
 		s.wpFlashRedirect(w, r, "error", "This tool is coming soon.", to)
 	case "password_protection":
 		msg, err := tools.SetPasswordProtection(r.Context(), site, install, on, r.PostFormValue("protect_user"), r.PostFormValue("protect_password"))

@@ -7,6 +7,7 @@ package http
 // is the recording fake (the wordpress.manage, protect.* fixtures).
 
 import (
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -324,12 +325,87 @@ func TestWordPressToolSecurity(t *testing.T) {
 	}
 }
 
+func TestWordPressToolCron(t *testing.T) {
+	h, _, db := mongoWEnv(t)
+	wpSeedInstall(t, db, 10, "public_html", "6.7.1", "6.8")
+	bob := loginAsUser(t, h, "bob")
+
+	// On: the cron job is saved with the agent's command and linked.
+	res := wpToolPost(t, h, bob, url.Values{"tool": {"cron"}, "enabled": {"1"}})
+	if res.Code != http.StatusSeeOther || res.Header().Get("Location") != "/sites/10/wordpress/1" {
+		t.Fatalf("tool = %d %q", res.Code, res.Header().Get("Location"))
+	}
+	var jobID int64
+	var schedule, command, description string
+	if err := db.QueryRow(`SELECT id, schedule, command, description FROM cron_jobs WHERE website_id = 10 ORDER BY id DESC LIMIT 1`).Scan(&jobID, &schedule, &command, &description); err != nil {
+		t.Fatalf("no cron job: %v", err)
+	}
+	if schedule != "*/5 * * * *" {
+		t.Errorf("schedule = %q", schedule)
+	}
+	if command != "/usr/bin/php8.3.1 /usr/local/lib/whacp/wp-cli.phar --path=/home/whacp/bob.example/public_html cron event run --due-now --quiet" {
+		t.Errorf("command = %q", command)
+	}
+	if description != "WordPress scheduled tasks (public_html) — taken over from wp-cron.php" {
+		t.Errorf("description = %q", description)
+	}
+	var linked sql.NullInt64
+	if err := db.QueryRow(`SELECT cron_job_id FROM wordpress_installs WHERE website_id = 10`).Scan(&linked); err != nil {
+		t.Fatal(err)
+	}
+	if !linked.Valid || linked.Int64 != jobID {
+		t.Errorf("cron_job_id = %v, want %d", linked, jobID)
+	}
+	if n := wpAuditCount(t, db, "wordpress.cron_takeover"); n != 1 {
+		t.Errorf("audit rows = %d", n)
+	}
+	rr := get(t, h, "/sites/10/wordpress/1", bob)
+	if !strings.Contains(rr.Body.String(), "wp-cron.php is taken over: WordPress's scheduled tasks now run every 5 minutes from a cron job (listed under Cron jobs).") {
+		t.Errorf("the flash is missing: %s", rr.Body.String())
+	}
+
+	// On again: no duplicate job.
+	res = wpToolPost(t, h, bob, url.Values{"tool": {"cron"}, "enabled": {"1"}})
+	if res.Code != http.StatusSeeOther {
+		t.Fatalf("tool = %d", res.Code)
+	}
+	var jobs int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM cron_jobs WHERE website_id = 10`).Scan(&jobs); err != nil {
+		t.Fatal(err)
+	}
+	if jobs != 1 {
+		t.Errorf("cron jobs = %d", jobs)
+	}
+
+	// Off: the job is deleted and the link cleared.
+	res = wpToolPost(t, h, bob, url.Values{"tool": {"cron"}})
+	if res.Code != http.StatusSeeOther {
+		t.Fatalf("tool off = %d", res.Code)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM cron_jobs WHERE website_id = 10`).Scan(&jobs); err != nil {
+		t.Fatal(err)
+	}
+	if jobs != 0 {
+		t.Errorf("cron jobs after off = %d", jobs)
+	}
+	if err := db.QueryRow(`SELECT cron_job_id FROM wordpress_installs WHERE website_id = 10`).Scan(&linked); err != nil {
+		t.Fatal(err)
+	}
+	if linked.Valid {
+		t.Errorf("cron_job_id = %d after off", linked.Int64)
+	}
+	rr = get(t, h, "/sites/10/wordpress/1", bob)
+	if !strings.Contains(rr.Body.String(), "WordPress runs its scheduled tasks on visits again (wp-cron.php).") {
+		t.Error("the off flash is missing")
+	}
+}
+
 func TestWordPressToolUnknownAndSoon(t *testing.T) {
 	h, _, db := mongoWEnv(t)
 	wpSeedInstall(t, db, 10, "public_html", "6.7.1", "6.8")
 	bob := loginAsUser(t, h, "bob")
 
-	for _, tool := range []string{"nope", "cron", "vulnerability", "vuln_check", "clone", "sync", "restore"} {
+	for _, tool := range []string{"nope", "vulnerability", "vuln_check", "clone", "sync", "restore"} {
 		want := "Unknown tool."
 		if tool != "nope" {
 			want = "This tool is coming soon."

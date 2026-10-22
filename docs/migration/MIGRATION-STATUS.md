@@ -506,11 +506,22 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   re-encrypted), and security (the one-click apply / roll back of the
   nine recommended measures, or the chosen ones, the empty-measures
   guard); every tool is audited (wordpress.<tool>) and the suspended
-  account is refused (wpWritable). The other six tools (cron takeover,
-  vulnerability protection, the vulnerability-database check, clone,
-  sync, restore) answer "This tool is coming soon." until their
-  service dependencies (cron / ModSecurity / wpvulnerability.net /
-  wordpress.copy) are ported
+  account is refused (wpWritable). The remaining tools (vulnerability
+  protection, the vulnerability-database check, clone, sync, restore)
+  answer "This tool is coming soon." until their service dependencies
+  (ModSecurity / wpvulnerability.net / wordpress.copy) are ported
+- ◑ websites: the WordPress cron takeover (tools) (batch 47)
+  — WordPressToolsService::setCronTakeover as
+  hosting/wordpress_tools.go (SetCronTakeover): the tool route's
+  `cron` case — taking wp-cron.php over runs the agent's
+  cron_takeover_on (the returned command must match the strict
+  wp-cli `cron event run --due-now --quiet` shape, else a
+  user-facing error), saves it as a system cron job every 5 minutes
+  via the cron service (the "taken over from wp-cron.php" description,
+  undoing the takeover when the save fails), links it on the
+  installation's cron_job_id column (no duplicate job on a second
+  run), and audits wordpress.cron_takeover; turning it off runs
+  cron_takeover_off, deletes the job and clears the link
 - ☑ websites: the site MongoDB database browser (batch 42) —
   SiteMongoController's browser / browse / export as
   site_mongo_browser.go + the browser half of hosting/site_mongo_service.go:
