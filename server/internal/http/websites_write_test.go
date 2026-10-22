@@ -31,6 +31,8 @@ type sitesAgent struct {
 	// failActions fails a specific action (agent error paths), e.g.
 	// "sites.permissions" -> "the agent refused".
 	failActions map[string]string
+	// dbDown makes db.server_status report a stopped server.
+	dbDown bool
 }
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
@@ -108,6 +110,24 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"deleted":1}}`))
 		case "db.browse_alter":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sql":"ALTER TABLE posts ADD COLUMN note varchar(255);"}}`))
+		case "db.server_status":
+			if sa.dbDown {
+				_, _ = w.Write([]byte(`{"success":true,"data":{"running":false,"unit":"mariadb.service","drop_in":"/etc/mysql/mariadb.conf.d/zz-whacp.cnf","managed":{},"error":"Connection refused (111)"},"settings":[{"key":"max_connections","label":"Maximum connections","help":"Connections the server accepts at once.","kind":"int","dynamic":true,"group":"Connections"}]}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"running":true,"unit":"mariadb.service","drop_in":"/etc/mysql/mariadb.conf.d/zz-whacp.cnf","managed":{"max_connections":"200"},"config_error":"","variables":{"version":"10.11.6-MariaDB","version_comment":"mariadb.org binary distribution","socket":"/run/mysqld/mysqld.sock","port":"3306","bind_address":"127.0.0.1","datadir":"/var/lib/mysql","log_error":"/var/log/mysql/error.log","have_ssl":"YES","max_connections":"151","innodb_buffer_pool_size":"134217728","table_open_cache":"4000","character_set_server":"utf8mb4"},"status":{"Uptime":"86400","Threads_connected":"12","Max_used_connections":"40","Threads_running":"2","Questions":"1000000","Slow_queries":"3","Aborted_connects":"1","Bytes_received":"1048576","Bytes_sent":"5242880","Open_tables":"100","Com_select":"900000","Com_insert":"90000","Com_update":"9000","Com_delete":"1000","Table_locks_waited":"5","Innodb_buffer_pool_pages_total":"8192","Innodb_buffer_pool_pages_free":"4096","Innodb_buffer_pool_read_requests":"10000","Innodb_buffer_pool_reads":"10","Created_tmp_tables":"50","Created_tmp_disk_tables":"2"},"databases":7,"users":11,"bytes":1073741824,"collations":{"utf8mb4":["utf8mb4_general_ci","utf8mb4_unicode_ci"],"utf8mb3":["utf8mb3_general_ci"]},"settings":[{"key":"max_connections","label":"Maximum connections","help":"Connections the server accepts at once (one more is kept for administrators).","kind":"int","dynamic":true,"group":"Connections"},{"key":"innodb_buffer_pool_size","label":"InnoDB buffer pool","help":"Memory for cached InnoDB data and indexes, e.g. 1G.","kind":"size","dynamic":true,"group":"Memory and storage"},{"key":"skip_name_resolve","label":"Skip host name lookups","help":"Match remote users by IP address only (faster, no DNS).","kind":"bool","dynamic":false,"group":"Connections"},{"key":"character_set_server","label":"Default character set","help":"For new databases created without one.","kind":"choice","choices":["utf8mb4","utf8mb3","latin1"],"dynamic":true,"group":"Character set"},{"key":"collation_server","label":"Default collation","help":"Must belong to the character set.","kind":"choice","dynamic":true,"group":"Character set"}]}}`))
+		case "db.processlist":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"connections":[{"id":7,"user":"u_bob","host":"localhost","db":"a_main","command":"Query","time":3,"state":"Sending data","info":"SELECT * FROM posts","system":false},{"id":3,"user":"event_scheduler","host":"localhost","db":"","command":"Daemon","time":86400,"state":"","info":"","system":true}]}}`))
+		case "db.server_settings":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"changed":["max_connections"],"applied":["max_connections"],"restart_needed":[],"restarted":false}}`))
+		case "db.server_restart":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"restarted":true,"seconds":2}}`))
+		case "db.server_flush":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"flushed":"privileges"}}`))
+		case "db.kill":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"killed":7,"query_only":false}}`))
+		case "logs.sources":
+			_, _ = w.Write([]byte(`{"success":true,"data":[{"id":"nginx:access","label":"nginx access","group":"Web server","kind":"file","size":1024,"exists":true},{"id":"system:mysql","label":"MySQL error log","group":"Database server","kind":"file","size":4096,"exists":true},{"id":"journal:mariadb.service","label":"mariadb.service journal","group":"Database server","kind":"journal","size":0,"exists":true},{"id":"system:auth","label":"Authentication log","group":"Security","kind":"file","size":512,"exists":true}]}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

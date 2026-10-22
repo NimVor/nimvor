@@ -23,10 +23,10 @@
   {{if .Unmanaged}}
   <h2>Other databases on this server <span class="text-muted">(not managed by WhaCP)</span></h2>
   <table class="data-table">
-    <thead><tr><th>Database name</th><th class="num">Tables</th><th class="num">Size</th></tr></thead>
+    <thead><tr><th>Database name</th><th class="num">Tables</th><th class="num">Size</th>{{if .CanManage}}<th class="num">Operate</th>{{end}}</tr></thead>
     <tbody>
     {{range .Unmanaged}}
-      <tr><td>{{.Name}}</td><td class="num">{{.Tables}}</td><td class="num">{{.SizeText}}</td></tr>
+      <tr><td>{{.Name}}</td><td class="num">{{.Tables}}</td><td class="num">{{.SizeText}}</td>{{if $.CanManage}}<td class="num"><a href="/databases/browse?name={{.Name}}">Browse</a></td>{{end}}</tr>
     {{end}}
     </tbody>
   </table>
