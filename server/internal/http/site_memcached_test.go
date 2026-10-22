@@ -23,7 +23,7 @@ import (
 // cacheEnv seeds an administrator (everything), a customer (bob,
 // websites.view + logs.view) who owns website 10 (bob.example), a viewer
 // (carol, logs.view only) and an ops user (redis.manage only).
-func cacheEnv(t *testing.T) (http.Handler, *sitesAgent, *sql.DB) {
+func cacheEnv(t *testing.T) (http.Handler, *Server, *sitesAgent, *sql.DB) {
 	t.Helper()
 	db, err := database.Open(":memory:")
 	if err != nil {
@@ -64,11 +64,11 @@ func cacheEnv(t *testing.T) (http.Handler, *sitesAgent, *sql.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return s.Handler(), sa, db
+	return s.Handler(), s, sa, db
 }
 
 func TestSiteMemcachedPage(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	bob := loginAsUser(t, h, "bob")
 	rr := get(t, h, "/sites/10/memcached", bob)
 	if rr.Code != http.StatusOK {
@@ -104,7 +104,7 @@ func TestSiteMemcachedPage(t *testing.T) {
 }
 
 func TestSiteMemcachedCustomPort(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	sa.mu.Lock()
 	sa.mcPort = 11212
 	sa.mu.Unlock()
@@ -119,7 +119,7 @@ func TestSiteMemcachedCustomPort(t *testing.T) {
 }
 
 func TestSiteMemcachedNotInstalled(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	sa.mu.Lock()
 	sa.mcInstalled = false
 	sa.mu.Unlock()
@@ -143,7 +143,7 @@ func TestSiteMemcachedNotInstalled(t *testing.T) {
 }
 
 func TestSiteMemcachedStopped(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	sa.mu.Lock()
 	sa.mcActive = false
 	sa.mu.Unlock()
@@ -159,7 +159,7 @@ func TestSiteMemcachedStopped(t *testing.T) {
 }
 
 func TestSiteMemcachedAgentDown(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	sa.mu.Lock()
 	sa.failActions = map[string]string{"memcached.status": "the agent refused"}
 	sa.mu.Unlock()
@@ -183,7 +183,7 @@ func TestSiteMemcachedAgentDown(t *testing.T) {
 }
 
 func TestSiteMemcachedForbidden(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	carol := loginAsUser(t, h, "carol")
 	rr := get(t, h, "/sites/10/memcached", carol)
 	if rr.Code != http.StatusForbidden {
@@ -192,7 +192,7 @@ func TestSiteMemcachedForbidden(t *testing.T) {
 }
 
 func TestSiteMemcachedNotFound(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	rr := get(t, h, "/sites/99/memcached", admin)
 	if rr.Code != http.StatusNotFound {
