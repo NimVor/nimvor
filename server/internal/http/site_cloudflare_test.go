@@ -39,10 +39,12 @@ type cfFake struct {
 	purgeCalls int
 	failStatus int
 	failMsg    string
+	zoneName   string // GET /zones/{id} (server-side area); default "bob.example"
+	zoneStatus string // default "active"
 }
 
 func newCFFake() *cfFake {
-	return &cfFake{zones: []string{"example", "bob.example"}, ssl: "flexible", always: "off", proxied: map[string]bool{cfRecA: false, cfRecWWW: true}}
+	return &cfFake{zones: []string{"example", "bob.example"}, ssl: "flexible", always: "off", proxied: map[string]bool{cfRecA: false, cfRecWWW: true}, zoneName: "bob.example", zoneStatus: "active"}
 }
 
 func (f *cfFake) captured(call string) bool {
@@ -86,6 +88,8 @@ func (f *cfFake) do(ctx context.Context, method, u string, body any, token strin
 		return ok(fmt.Sprintf(`{"id":"ssl","value":%q}`, f.ssl))
 	case zoneBase + "/settings/always_use_https":
 		return ok(fmt.Sprintf(`{"id":"always_use_https","value":%q}`, f.always))
+	case zoneBase:
+		return ok(fmt.Sprintf(`{"id":"%s","name":%q,"status":%q,"name_servers":["ns-one.example-dns.com","ns-two.example-dns.com"]}`, cfZoneID, f.zoneName, f.zoneStatus))
 	case zoneBase + "/purge_cache":
 		f.purgeCalls++
 		return ok(`{}`)

@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **184 ☑ done+tested, 3 ◑ partial, 364 ☐** of 551.
+`server/internal/http/server.go`): **191 ☑ done+tested, 3 ◑ partial, 357 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -439,6 +439,18 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
+- ☑ server: the server-side Cloudflare area (batch 37) —
+  CloudflareController + CloudflareService as cloudflare.go: the
+  administrators connect one Cloudflare API token per server
+  (POST /cloudflare/connect: shape check, token verification, stored
+  encrypted in cloudflare_accounts + audit), the zone list
+  (GET /cloudflare: active+pending zones with the Manage links), the
+  selected zone (?zone=) — SSL mode, Always Use HTTPS, every DNS
+  record with the proxy toggle, the pending-zone nameservers, the
+  cache purge — and disconnect. The read-only split is honored
+  (server.view sees the page; only server.manage gets the forms);
+  every action is audited against the server. Same direct-API pattern
+  as the per-website area (injectable transport; ids regex-guarded)
 - ☑ websites: the per-website Cloudflare area (batch 36) —
   SiteCloudflareController + CloudflareSiteService as
   site_cloudflare.go: the customer connects their own Cloudflare API token
@@ -513,14 +525,11 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the **server-side Cloudflare area** (CloudflareController, 7
-routes: GET /cloudflare + POST /cloudflare/connect|disconnect|ssl|
-always-https|proxy|purge — the server-wide account/zone management,
-cloudflare_accounts + the server.manage split) is the natural follow-up
-now that the per-website area exists (it reuses the same direct-API
-pattern; the PHP CloudflareService + CloudflareSiteService share most of
-the transport code). After that the websites area continues with the
-larger sub-areas (php/mysql settings, files, mail, DNS, …). (The
+Batch: the **websites area continues** — both Cloudflare areas are done,
+so pick the next website sub-area from the remaining ☐ routes under
+`/sites/{id}/…` (PHP/runtime settings, database connections, mail
+accounts, DNS, FTP, cron, backups — check INVENTORY.md + the PHP
+controllers first and split large ones into 2–3 batches). (The
 hulk/modsec/av scheduler sides stay with the background-jobs follow-up.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

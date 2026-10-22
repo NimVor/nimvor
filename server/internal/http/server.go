@@ -314,6 +314,17 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /sites/{id}/cloudflare/always-https", s.guard("sites.cloudflare.always_https", "websites.manage", s.siteCloudflareAlwaysHttps))
 	s.mux.HandleFunc("POST /sites/{id}/cloudflare/proxy", s.guard("sites.cloudflare.proxy", "websites.manage", s.siteCloudflareProxy))
 	s.mux.HandleFunc("POST /sites/{id}/cloudflare/purge", s.guard("sites.cloudflare.purge", "websites.manage", s.siteCloudflarePurge))
+
+	// Batch 37 — server-side Cloudflare area (one token per server, managed
+	// by administrators; the account's zones).
+	s.mux.HandleFunc("GET /cloudflare", s.guard("cloudflare", "server.view", s.cloudflareIndex))
+	s.mux.HandleFunc("POST /cloudflare/connect", s.guard("cloudflare.connect", "server.manage", s.cloudflareConnect))
+	s.mux.HandleFunc("POST /cloudflare/disconnect", s.guard("cloudflare.disconnect", "server.manage", s.cloudflareDisconnect))
+	s.mux.HandleFunc("POST /cloudflare/ssl", s.guard("cloudflare.ssl", "server.manage", s.cloudflareSsl))
+	s.mux.HandleFunc("POST /cloudflare/always-https", s.guard("cloudflare.always_https", "server.manage", s.cloudflareAlwaysHttps))
+	s.mux.HandleFunc("POST /cloudflare/proxy", s.guard("cloudflare.proxy", "server.manage", s.cloudflareProxy))
+	s.mux.HandleFunc("POST /cloudflare/purge", s.guard("cloudflare.purge", "server.manage", s.cloudflarePurge))
+
 	// Subdomains: gated by the subdomains plan feature (route name) AND the
 	// websites.manage permission.
 	s.mux.HandleFunc("GET /sites/{id}/subdomains", s.guard("sites.subdomains", "websites.manage", s.siteSubdomains))
