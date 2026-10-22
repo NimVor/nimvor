@@ -151,6 +151,57 @@ func (p *Policy) Check(ctx context.Context, password, username string) (string, 
 	return "", nil
 }
 
+// Describe is PasswordPolicy::describe: one line describing the rules, for
+// password forms.
+func (p *Policy) Describe(ctx context.Context) (string, error) {
+	enabled, err := p.settings.Bool(ctx, "policy_password_strength", true)
+	if err != nil {
+		return "", err
+	}
+	if !enabled {
+		return fmt.Sprintf("At least %d characters.", MinPasswordLength), nil
+	}
+	minStrength, err := p.settings.Int(ctx, "password_min_strength", 65)
+	if err != nil {
+		return "", err
+	}
+	minLen, err := p.settings.Int(ctx, "password_min_length", MinPasswordLength)
+	if err != nil {
+		return "", err
+	}
+	if minLen < MinPasswordLength {
+		minLen = MinPasswordLength
+	}
+	parts := []string{fmt.Sprintf("at least %d characters", minLen)}
+	type countRule struct {
+		key   string
+		label string
+	}
+	for _, rule := range []countRule{
+		{"password_min_special", "special"},
+		{"password_min_numeric", "numeric"},
+		{"password_min_alpha", "alphabet"},
+		{"password_min_upper", "uppercase"},
+		{"password_min_lower", "lowercase"},
+	} {
+		min, err := p.settings.Int(ctx, rule.key, 0)
+		if err != nil {
+			return "", err
+		}
+		if min > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", min, rule.label))
+		}
+	}
+	s := strings.Join(parts, ", ")
+	line := strings.ToUpper(s[:1]) + s[1:] // ucfirst
+	if minStrength > 0 {
+		line += fmt.Sprintf("; strength %d or more.", minStrength)
+	} else {
+		line += "."
+	}
+	return line, nil
+}
+
 func plural(n int) string {
 	if n == 1 {
 		return ""

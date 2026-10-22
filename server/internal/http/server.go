@@ -46,6 +46,8 @@ type Server struct {
 	settings  *settings.Repository
 	resets    *auth.ResetService
 	twoFactor *twofactor.Service
+	policy    *security.Policy
+	loginIPs  *security.LoginIpVerifier
 }
 
 // New builds the server and registers the routes implemented so far. It
@@ -60,8 +62,9 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 	tf := twofactor.New(db, c)
 	al := audit.New(db, log)
 	st := settings.NewRepository(db)
+	policy := security.NewPolicy(st)
 	ml := mail.New(st, c, log)
-	resets := auth.NewResetService(db, users, ml, st, security.NewPolicy(st), al, log)
+	resets := auth.NewResetService(db, users, ml, st, policy, al, log)
 	s := &Server{
 		cfg:       cfg,
 		db:        db,
@@ -79,6 +82,8 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		settings:  st,
 		resets:    resets,
 		twoFactor: tf,
+		policy:    policy,
+		loginIPs:  security.NewLoginIpVerifier(db),
 	}
 	s.routes()
 	return s, nil
@@ -182,6 +187,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /security/tls/run", s.guard("security.tls.run", "security.view", s.runTls))
 	s.mux.HandleFunc("GET /security/advisories", s.guard("security.advisories", "security.view", s.advisoriesPage))
 	s.mux.HandleFunc("POST /security/advisories/run", s.guard("security.advisories.run", "security.view", s.runAdvisories))
+	// Security → policies (SecurityPolicyController: the security policy
+	// items + the password strength minimums; all-scope pages, role-admin
+	// saves, forget for one's own verified IPs).
+	s.mux.HandleFunc("GET /security/policies", s.guard("security.policies", "security.view", s.policiesPage))
+	s.mux.HandleFunc("POST /security/policies", s.guard("security.policies.save", "security.manage", s.savePolicies))
+	s.mux.HandleFunc("POST /security/policies/ips/forget", s.guard("security.policies.forget_ip", "security.view", s.forgetPolicyIP))
+	s.mux.HandleFunc("GET /security/password-strength", s.guard("security.password_strength", "security.view", s.strengthPage))
+	s.mux.HandleFunc("POST /security/password-strength", s.guard("security.password_strength.save", "security.manage", s.saveStrength))
 	s.mux.HandleFunc("GET /security/firewall", s.guard("security.firewall", "security.view", s.firewallIndex))
 	s.mux.HandleFunc("POST /security/firewall/toggle", s.guard("security.firewall.toggle", "security.manage", s.firewallToggle))
 	s.mux.HandleFunc("POST /security/firewall/rules", s.guard("security.firewall.add", "security.manage", s.firewallAddRule))

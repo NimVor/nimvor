@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **106 ☑ done+tested, 3 ◑ partial, 442 ☐** of 551.
+`server/internal/http/server.go`): **135 ☑ done+tested, 3 ◑ partial, 413 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -310,6 +310,30 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   advisories: packages.advisories 120 s (the kind/severity badges, the
   em-dash empty cells, not audited — parity); the runs audit
   security.integrity (server / integrity) and tls.audit (server / tls))
+- GET `/security/policies` + POST `/security/policies` + POST
+  `/security/policies/ips/forget` · GET `/security/password-strength` +
+  POST `/security/password-strength` (SecurityPolicyController — the policy
+  items: the verified-IP switch (limit logins to verified addresses, the
+  LoginIpVerifier login_ips table), the per-role 2FA requirement
+  (two_factor_roles[] → roles.require_two_factor), the password strength
+  switch (the rules line via Policy::describe) and the password age (0–3650
+  days); the pages are all-scope (403 "Only administrators manage security
+  policies."), the saves are all-scope + role admin (the same 403 page, not
+  a flash); save: SettingsService::update validation (the bool keys, the
+  "Enter a whole number between 0 and 3650." for age), only the changed
+  values persisted (settings.Set, JSON-encoded like the PHP repo), audited
+  settings.update (settings / panel, {changed:{key:{from,to}}}); the per-role
+  sync audits role.two_factor_policy (role / the id) per changed role;
+  turning the verified-IP policy on remembers the actor's address and seeds
+  every user's last sign-in address (the "…(N) counts as verified." note in
+  the flash); forget: any signed-in user's own list (no scope/role gate),
+  303 to /security/policies#verified-ips, "The address is no longer
+  verified."; the strength page: the seven minimums (0–100 strength, 12–128
+  length, 0–32 per character class — the SettingsService bounds/help),
+  enforcement On/Off badge + the rules line, the four strength examples
+  (security.Strength), save validates all seven (every error at once) and
+  flashes "Password strength requirements saved. They apply to passwords set
+  from now on.")
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -384,9 +408,9 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 
 ## Next exact step
 Batch: continue the **security area** — the remaining
-**SecurityController** pages (malware scan, integrity-adjacent items,
-policies, password strength, the cPHulk whitelist of the firewall
-allow-me), in small batches. Check INVENTORY.md + the PHP
+**SecurityController** pages: the AvController malware scan (3 routes),
+the HulkController cPHulk integration (6 routes), then the
+ModSecurityController (10 routes). Check INVENTORY.md + the PHP
 controllers before starting.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

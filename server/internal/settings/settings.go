@@ -13,6 +13,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Repository wraps a database handle for reading settings.
@@ -90,4 +91,19 @@ func (r *Repository) Bool(ctx context.Context, key string, def bool) (bool, erro
 	default:
 		return def, nil
 	}
+}
+
+// Set persists a setting JSON-encoded (PHP SettingRepository::set), for a
+// value matching one of the accessors above (bool, int, string).
+func (r *Repository) Set(ctx context.Context, key string, v any, actor int64) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	by := sql.NullInt64{Int64: actor, Valid: actor > 0}
+	_, err = r.db.ExecContext(ctx,
+		`INSERT INTO settings (key, value, updated_at, updated_by) VALUES (?, ?, ?, ?)
+		 ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
+		key, string(b), time.Now().UTC().Format(time.RFC3339), by)
+	return err
 }
