@@ -274,6 +274,12 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /sites/{id}/malware", s.guard("sites.malware", "websites.view", s.siteMalware))
 	s.mux.HandleFunc("POST /sites/{id}/malware/scan", s.guard("sites.malware.scan", "websites.manage", s.siteMalwareScan))
 	s.mux.HandleFunc("POST /sites/{id}/malware/release", s.guard("sites.malware.release", "security.manage", s.siteMalwareRelease))
+
+	// The website's visitor statistics (StatsController: the AWStats
+	// report drawn from the data file, the on/off switch, the update).
+	s.mux.HandleFunc("GET /sites/{id}/stats", s.guard("sites.stats", "logs.view", s.siteStats))
+	s.mux.HandleFunc("POST /sites/{id}/stats/enable", s.guard("sites.stats.enable", "websites.manage", s.siteStatsEnable))
+	s.mux.HandleFunc("POST /sites/{id}/stats/update", s.guard("sites.stats.update", "websites.manage", s.siteStatsUpdate))
 	// Subdomains: gated by the subdomains plan feature (route name) AND the
 	// websites.manage permission.
 	s.mux.HandleFunc("GET /sites/{id}/subdomains", s.guard("sites.subdomains", "websites.manage", s.siteSubdomains))

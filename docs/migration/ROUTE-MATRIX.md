@@ -484,9 +484,9 @@ Total routes: 551
 | POST | `/sites/{id}/ssl/options` | SslController::options | sites.ssl.options | ssl.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/ssl/renew` | SslController::renew | sites.ssl.renew | ssl.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/ssl` | SslController::show | sites.ssl | ssl.view | yes | yes | ☐ |
-| POST | `/sites/{id}/stats/enable` | StatsController::enable | sites.stats.enable | websites.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/stats/update` | StatsController::update | sites.stats.update | websites.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/stats` | StatsController::show | sites.stats | logs.view | yes | yes | ☐ |
+| POST | `/sites/{id}/stats/enable` | StatsController::enable | sites.stats.enable | websites.manage | yes | yes |☑ |
+| POST | `/sites/{id}/stats/update` | StatsController::update | sites.stats.update | websites.manage | yes | yes |☑ |
+| GET | `/sites/{id}/stats` | StatsController::show | sites.stats | logs.view | yes | yes |☑ |
 | GET | `/sites/{id}/subdomains` | SitesController::subdomains | sites.subdomains | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/subdomains` | SitesController::storeSubdomain | sites.subdomains.store | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/terminal/open` | TerminalController::openSite | sites.terminal.open | files.manage | yes | yes | ☑ |
