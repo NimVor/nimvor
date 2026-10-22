@@ -187,6 +187,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /security/tls/run", s.guard("security.tls.run", "security.view", s.runTls))
 	s.mux.HandleFunc("GET /security/advisories", s.guard("security.advisories", "security.view", s.advisoriesPage))
 	s.mux.HandleFunc("POST /security/advisories/run", s.guard("security.advisories.run", "security.view", s.runAdvisories))
+	// Security → malware (AvController: the ClamAV status + scan settings,
+	// the signature update, the server's recent scans).
+	s.mux.HandleFunc("GET /security/malware", s.guard("security.malware", "security.view", s.malwareIndex))
+	s.mux.HandleFunc("POST /security/malware/settings", s.guard("security.malware.settings", "security.manage", s.malwareSaveSettings))
+	s.mux.HandleFunc("POST /security/malware/update", s.guard("security.malware.update", "security.manage", s.malwareUpdate))
 	// Security → policies (SecurityPolicyController: the security policy
 	// items + the password strength minimums; all-scope pages, role-admin
 	// saves, forget for one's own verified IPs).

@@ -331,9 +331,9 @@ Total routes: 551
 | POST | `/security/integrity/baseline` | SecurityChecksController::setBaseline | security.integrity.baseline | security.manage | yes | yes | ☑ |
 | POST | `/security/integrity/run` | SecurityChecksController::runIntegrity | security.integrity.run | security.view | yes | yes | ☑ |
 | GET | `/security/integrity` | SecurityChecksController::integrity | security.integrity | security.view | yes | yes | ☑ |
-| POST | `/security/malware/settings` | AvController::saveSettings | security.malware.settings | security.manage | yes | yes | ☐ |
-| POST | `/security/malware/update` | AvController::updateSignatures | security.malware.update | security.manage | yes | yes | ☐ |
-| GET | `/security/malware` | AvController::index | security.malware | security.view | yes | yes | ☐ |
+| POST | `/security/malware/settings` | AvController::saveSettings | security.malware.settings | security.manage | yes | yes | ☑ |
+| POST | `/security/malware/update` | AvController::updateSignatures | security.malware.update | security.manage | yes | yes | ☑ |
+| GET | `/security/malware` | AvController::index | security.malware | security.view | yes | yes | ☑ |
 | POST | `/security/modsec/crs` | ModSecurityController::installCrs | security.modsec.crs | security.manage | yes | yes | ☐ |
 | POST | `/security/modsec/custom` | ModSecurityController::saveCustom | security.modsec.custom | security.manage | yes | yes | ☐ |
 | POST | `/security/modsec/install` | ModSecurityController::install | security.modsec.install | security.manage | yes | yes | ☐ |

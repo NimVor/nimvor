@@ -103,3 +103,23 @@ func (r *Repository) MarkAllRead(ctx context.Context, u *identity.User) (int64, 
 	}
 	return res.RowsAffected()
 }
+
+// Store inserts a notification with its dedupe key (the write half of
+// NotificationService::notify — the panel-side insert; the email for
+// warning/error rows is a follow-up, as is the PHP Redactor). owner_id stays
+// null exactly like the panel's av/hardening calls (the owner is resolved by
+// the website on read). Returns the new row id, or 0 when the dedupe key
+// already exists.
+func (r *Repository) Store(ctx context.Context, websiteID sql.NullInt64, kind, severity, title, body, link, dedupeKey string) (int64, error) {
+	res, err := r.db.ExecContext(ctx,
+		`INSERT OR IGNORE INTO notifications (server_id, website_id, kind, severity, title, body, link, dedupe_key, created_at)
+		 VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		websiteID, kind, severity, title, body, link, dedupeKey, time.Now().UTC().Format(time.RFC3339))
+	if err != nil {
+		return 0, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return 0, nil
+	}
+	return res.LastInsertId()
+}
