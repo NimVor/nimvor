@@ -135,6 +135,7 @@ func (s *Server) databasesPageData(r *http.Request, w http.ResponseWriter, user 
 	sess := sessionFrom(r.Context())
 	errMsg, _ := sess.PullFlash("error")
 	okMsg, _ := sess.PullFlash("success")
+	jobMsg, _ := sess.PullFlash("job")
 	var secret *secretFlash
 	if raw, _ := sess.PullFlash("secret"); raw != "" {
 		var sf secretFlash
@@ -169,6 +170,7 @@ func (s *Server) databasesPageData(r *http.Request, w http.ResponseWriter, user 
 		"PrivilegeOptions": hosting.DBPrivilegeOptions,
 		"Site":             site,
 		"ReturnTo":         returnTo,
+		"Job":              jobMsg,
 		"Error":            errMsg,
 		"Success":          okMsg,
 		"CanManage":        s.can(r, "databases.manage"),
@@ -327,6 +329,100 @@ func (s *Server) databasesDrop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess.Flash("success", "Database "+name+" was deleted.")
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// databasesDump starts a dump job for a database (the file is written to the
+// server backup directory). CSRF + databases.manage. Mirrors
+// DatabasesController::dump (route databases.dump).
+func (s *Server) databasesDump(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	user := userFrom(r.Context())
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	if !session.ValidateCSRF(sess, formToken(r)) {
+		http.Error(w, "Page expired", http.StatusBadRequest)
+		return
+	}
+	back := s.databasesBack(r)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		s.notFound(w, r)
+		return
+	}
+	jobID, name, err := s.databaseService(r, user).DumpDatabase(r.Context(), s.currentServerID(r), user, id)
+	if err != nil {
+		if msg, ok := dbUserErrorFor(err, "Database not found."); ok {
+			sess.Flash("error", msg)
+		} else {
+			s.log.Error("dump database", "error", err)
+			sess.Flash("error", "The dump could not be started.")
+		}
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	uid := user.ID
+	if err := hosting.NewJobTracker(s.db).Track(r.Context(), s.currentServerID(r), jobID, "Dump "+name, "database", strconv.FormatInt(id, 10), &uid); err != nil {
+		s.log.Error("track job", "error", err)
+	}
+	sess.Flash("job", jobID)
+	sess.Flash("success", "Dump started. The file is written to the server backup directory.")
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// databasesImport imports a .sql or .sql.gz file from the database's website
+// folder as a job. Only a database of one of the actor's websites can be
+// imported into. CSRF + databases.manage. Mirrors DatabasesController::import
+// (route databases.import).
+func (s *Server) databasesImport(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	user := userFrom(r.Context())
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	if !session.ValidateCSRF(sess, formToken(r)) {
+		http.Error(w, "Page expired", http.StatusBadRequest)
+		return
+	}
+	back := s.databasesBack(r)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		s.notFound(w, r)
+		return
+	}
+	serverID := s.currentServerID(r)
+	db, err := hosting.NewDatabaseRepository(s.db).Find(r.Context(), serverID, id, user)
+	var site *hosting.Website
+	if err == nil && db.WebsiteID.Valid {
+		if found, ferr := hosting.NewWebsiteRepository(s.db).Find(r.Context(), serverID, db.WebsiteID.Int64, user); ferr == nil {
+			site = found
+		}
+	}
+	if err != nil || site == nil {
+		sess.Flash("error", "Only a database of one of your websites can be imported into.")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	jobID, err := s.databaseService(r, user).ImportFromSite(r.Context(), db, site, r.FormValue("path"), r.FormValue("uploaded") == "1")
+	if err != nil {
+		if msg, ok := dbUserErrorFor(err, "Only a database of one of your websites can be imported into."); ok {
+			sess.Flash("error", msg)
+		} else {
+			s.log.Error("import database", "error", err)
+			sess.Flash("error", "The import could not be started.")
+		}
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	uid := user.ID
+	if err := hosting.NewJobTracker(s.db).Track(r.Context(), serverID, jobID, "Import into "+db.Name, "database", strconv.FormatInt(id, 10), &uid); err != nil {
+		s.log.Error("track job", "error", err)
+	}
+	sess.Flash("job", jobID)
+	sess.Flash("success", "Import into "+db.Name+" started.")
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 

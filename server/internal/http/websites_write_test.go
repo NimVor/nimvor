@@ -86,6 +86,10 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"checked":120,"fixed":3,"skipped_count":2,"errors":[]}}`))
 		case "workers.status":
 			_, _ = w.Write([]byte(`{"success":true,"data":[{"unit":"whacp-worker-bob-app.service","active_state":"active","sub_state":"running","procs_total":2,"procs_running":2,"memory_bytes":12582912}]}`))
+		case "db.dump":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"deadbeefcafe0001","file":"/backups/databases/a_main-20260101T000000Z.sql.gz"}}`))
+		case "db.import_site":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"deadbeefcafe0002"}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

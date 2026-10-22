@@ -1,6 +1,7 @@
 {{define "databases_manage"}}
   {{if .Error}}<p class="alert alert-danger" role="alert">{{.Error}}</p>{{end}}
   {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
   {{if .Secret}}
   <div class="alert alert-warning" role="alert">
     <div class="fw-semibold">{{.Secret.Title}} — copy the password now</div>
@@ -52,6 +53,20 @@
               <option value="none">No access</option>
             </select>
             <button type="submit">Set</button>
+          </form>
+          {{end}}
+          <form method="post" action="/databases/{{.ID}}/dump" class="inline-form">
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <input type="hidden" name="return_to" value="{{$.ReturnTo}}">
+            <button type="submit">Dump</button>
+          </form>
+          {{if .WebsiteID.Valid}}
+          <form method="post" action="/databases/{{.ID}}/import" class="grant-form">
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <input type="hidden" name="return_to" value="{{$.ReturnTo}}">
+            <input name="path" type="text" placeholder="backups/dump.sql" aria-label="File in the website folder to import into {{.Name}}">
+            <input type="hidden" name="uploaded" value="0">
+            <button type="submit">Import</button>
           </form>
           {{end}}
           <form method="post" action="/databases/{{.ID}}/drop" class="drop-form">
