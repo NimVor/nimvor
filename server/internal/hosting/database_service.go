@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
+	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 )
 
 func errorsIsNoRows(err error) bool { return errors.Is(err, sql.ErrNoRows) }
@@ -52,23 +54,27 @@ func (r *DatabaseRepository) InsertDatabase(ctx context.Context, serverID int64,
 	return res.LastInsertId()
 }
 
-// DatabaseService creates databases via the agent, enforcing validation, name
-// prefixing per tenant, and plan limits. Ported from the core of
-// DatabaseService::create (the optional db-user/grant sub-flow is a later
-// batch; see MIGRATION-STATUS.md).
+// DatabaseService creates databases and database users via the agent,
+// enforcing validation, name prefixing per tenant, plan limits and the
+// remote-hosts setting. Ported from Services\DatabaseService (create, drop,
+// createUser, addHost, resetPassword, revealPassword, grant, dropUser,
+// hostFrom, remoteHostsAllowed).
 type DatabaseService struct {
 	db       *DatabaseRepository
 	sites    *WebsiteRepository
 	limits   *PlanLimits
 	agent    AgentCaller
-	auditlog func(action, target string)
+	crypto   *crypto.Crypto
+	settings *settings.Repository
+	auditlog func(action, targetType, target string, details map[string]any)
 }
 
-// NewDatabaseService builds the service. auditlog records a privileged action
-// (the DB audit_logs row is ported in the audit batch; this is the interim
-// structured-log hook).
-func NewDatabaseService(db *DatabaseRepository, sites *WebsiteRepository, limits *PlanLimits, agent AgentCaller, auditlog func(action, target string)) *DatabaseService {
-	return &DatabaseService{db: db, sites: sites, limits: limits, agent: agent, auditlog: auditlog}
+// NewDatabaseService builds the service. crypto seals stored passwords
+// (nil: storing is refused); settings supplies db_customer_remote_hosts
+// (nil: remote hosts allowed, the PHP default); auditlog records a
+// privileged action (the interim structured hook for the audit_logs row).
+func NewDatabaseService(db *DatabaseRepository, sites *WebsiteRepository, limits *PlanLimits, agent AgentCaller, crypto *crypto.Crypto, settings *settings.Repository, auditlog func(action, targetType, target string, details map[string]any)) *DatabaseService {
+	return &DatabaseService{db: db, sites: sites, limits: limits, agent: agent, crypto: crypto, settings: settings, auditlog: auditlog}
 }
 
 // prefix returns the per-tenant name prefix: staff get none; an own-scope
@@ -142,7 +148,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, serverID int64, ac
 		return 0, err
 	}
 	if s.auditlog != nil {
-		s.auditlog("database.create", name)
+		s.auditlog("database.create", "database", name, nil)
 	}
 	return id, nil
 }
@@ -172,7 +178,7 @@ func (s *DatabaseService) DropDatabase(ctx context.Context, serverID int64, acto
 		return "", err
 	}
 	if s.auditlog != nil {
-		s.auditlog("database.drop", db.Name)
+		s.auditlog("database.drop", "database", db.Name, nil)
 	}
 	return db.Name, nil
 }

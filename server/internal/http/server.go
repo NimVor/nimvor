@@ -42,6 +42,7 @@ type Server struct {
 	tpl       *web.Templates
 	agent     hosting.AgentCaller
 	audit     *audit.Logger
+	crypto    *crypto.Crypto
 	settings  *settings.Repository
 	resets    *auth.ResetService
 	twoFactor *twofactor.Service
@@ -74,6 +75,7 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		tpl:       tpl,
 		agent:     agent.New(cfg.AgentSocket, cfg.AgentTokenFile, 30*time.Second),
 		audit:     al,
+		crypto:    c,
 		settings:  st,
 		resets:    resets,
 		twoFactor: tf,
@@ -156,6 +158,15 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /databases", s.guard("", "databases.view", s.databasesIndex))
 	s.mux.HandleFunc("POST /databases", s.guard("", "databases.manage", s.databasesStore))
 	s.mux.HandleFunc("POST /databases/{id}/drop", s.guard("", "databases.manage", s.databasesDrop))
+	s.mux.HandleFunc("POST /databases/{id}/grant", s.guard("", "databases.manage", s.databasesGrant))
+	// Database users (all databases.manage; the mysql feature withholds the
+	// permission when the plan disables mysql, same as the /databases routes).
+	s.mux.HandleFunc("POST /database-users", s.guard("", "databases.manage", s.dbUsersCreate))
+	s.mux.HandleFunc("POST /database-users/{id}/password", s.guard("", "databases.manage", s.dbUserPassword))
+	s.mux.HandleFunc("POST /database-users/{id}/reveal", s.guard("", "databases.manage", s.dbUserReveal))
+	s.mux.HandleFunc("POST /database-users/{id}/delete", s.guard("", "databases.manage", s.dbUserDelete))
+	s.mux.HandleFunc("POST /database-users/{id}/assign", s.guard("", "databases.manage", s.dbUserAssign))
+	s.mux.HandleFunc("POST /database-users/{id}/hosts", s.guard("", "databases.manage", s.dbUserAddHost))
 
 	// DNS zones list. dns.manage is withheld by the dns plan feature when off.
 	s.mux.HandleFunc("GET /dns", s.guard("", "dns.manage", s.dnsIndex))
