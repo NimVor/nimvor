@@ -451,18 +451,18 @@ Total routes: 551
 | POST | `/sites/{id}/malware/scan` | AvController::scan | sites.malware.scan | websites.manage | yes | yes |☑ |
 | GET | `/sites/{id}/malware` | AvController::show | sites.malware | websites.view | yes | yes |☑ |
 | GET | `/sites/{id}/memcached` | SitesController::memcached | sites.memcached | websites.view | yes | yes |☑ |
-| POST | `/sites/{id}/mongo/backup` | SiteMongoController::backup | sites.mongo.backup | websites.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/mongo/backups/delete` | SiteMongoController::deleteBackup | sites.mongo.backup_delete | websites.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/mongo/backup` | SiteMongoController::backup | sites.mongo.backup | websites.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/mongo/backups/delete` | SiteMongoController::deleteBackup | sites.mongo.backup_delete | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/mongo/browse` | SiteMongoController::browse | sites.mongo.browse | websites.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/mongo/browser` | SiteMongoController::browser | sites.mongo.browser | websites.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/mongo/databases/drop` | SiteMongoController::dropDatabase | sites.mongo.database_drop | websites.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/mongo/databases` | SiteMongoController::createDatabase | sites.mongo.database_create | websites.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/mongo/databases/drop` | SiteMongoController::dropDatabase | sites.mongo.database_drop | websites.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/mongo/databases` | SiteMongoController::createDatabase | sites.mongo.database_create | websites.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/mongo/export` | SiteMongoController::export | sites.mongo.export | websites.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/mongo/restore` | SiteMongoController::restore | sites.mongo.restore | websites.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/mongo/users/drop` | SiteMongoController::dropUser | sites.mongo.user_drop | websites.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/mongo/users/password` | SiteMongoController::setPassword | sites.mongo.user_password | websites.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/mongo/users` | SiteMongoController::createUser | sites.mongo.user_create | websites.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/mongo` | SiteMongoController::index | sites.mongo | websites.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/mongo/restore` | SiteMongoController::restore | sites.mongo.restore | websites.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/mongo/users/drop` | SiteMongoController::dropUser | sites.mongo.user_drop | websites.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/mongo/users/password` | SiteMongoController::setPassword | sites.mongo.user_password | websites.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/mongo/users` | SiteMongoController::createUser | sites.mongo.user_create | websites.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/mongo` | SiteMongoController::index | sites.mongo | websites.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/nodejs` | SiteRuntimeController::index | sites.nodejs | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/nodejs` | SiteRuntimeController::update | sites.nodejs.update | websites.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/permissions` | SitesController::checkPermissions | sites.permissions | websites.manage | yes | yes | ☑ |
