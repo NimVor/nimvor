@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **52 ☑ done+tested, 3 ◑ partial, 496 ☐** of 551.
+`server/internal/http/server.go`): **53 ☑ done+tested, 3 ◑ partial, 495 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -101,9 +101,10 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - ◑ websites write path — core lifecycle done (create/enable/disable/delete,
   settings, subdomains/addons write, plan limits, PHP profiles); advanced ops
   done (restart-php, reapply, directory listing, permissions check/repair,
-  Node.js/Python runtime page + app-Worker provisioning); workers write path
-  done (create/edit/toggle/restart/delete + removeAll on delete + live status
-  page); account-creation foundation done (UserService::create,
+  Node.js/Python runtime page + app-Worker provisioning); workers area done
+  (create/edit/toggle/restart/delete + removeAll on delete + live status page
+  + the global GET /workers list — the whole WorkersController is ported);
+  account-creation foundation done (UserService::create,
   AccountService::create + AccountOptions, CronService::apply,
   WebsiteService::moveToAccount, UserRepository writes, the "customers" plan
   limit); addon→account conversion done (AddonConversionService: isAddon,
@@ -126,11 +127,14 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the Runtimes/admin remainder — GET `/workers`
-(WorkersController::index; the global list of every visible worker across the
-tenant with its live status, WORKERS_MANAGE — the last open
-WorkersController route; the status plumbing is already there from the
-workers write path) plus the per-site logs page GET `/sites/{id}/logs`
-(LogsController::site, LOGS_VIEW: access/error log tail over the agent).
+Batch: the per-site log viewer — GET `/sites/{id}/logs` (LogsController::site,
+LOGS_VIEW: the site's log sources over the agent's `logs.sources` plus a
+"Worker: …" entry per worker, so the page actually lists what can be tailed)
+plus the JSON tail endpoint GET `/logs/tail` (LogsController::tail: the
+per-source `allowed()` check — `site:<domain>:` must resolve to a website the
+user can see, `journal:whacp-worker-<slug>.service` to a worker whose website
+the user can see, everything else staff-only — then the agent `logs.tail` or,
+for `source=panel`, the local panel-log tail). The global `/logs` index and
+`/logs/download` (streaming) are the follow-ups that finish the logs area.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

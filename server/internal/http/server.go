@@ -159,6 +159,7 @@ func (s *Server) routes() {
 
 	// Email domains list. mail.manage is withheld by the email plan feature.
 	s.mux.HandleFunc("GET /mail", s.guard("", "mail.manage", s.mailIndex))
+	s.mux.HandleFunc("GET /workers", s.guard("", "workers.manage", s.workersIndex))
 
 	// Audit log viewer (staff only; no tenant scope).
 	s.mux.HandleFunc("GET /audit", s.guard("", "audit.view", s.auditIndex))
