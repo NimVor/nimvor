@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **72 ☑ done+tested, 3 ◑ partial, 476 ☐** of 551.
+`server/internal/http/server.go`): **80 ☑ done+tested, 3 ◑ partial, 468 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -100,7 +100,19 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   `database.browser_<op>` against the owning website or the server — never
   the row values; the server variants take any database by bare name,
   all-scope only; the page shell renders the reused dbbrowser.js, whose
-  bootstrap modal UI rides with the Go shell work)
+  bootstrap modal UI rides with the Go shell work) ·
+  GET `/databases/server` + GET/POST `/databases/server/settings` +
+  GET `/databases/server/connections` + POST `/databases/server/kill` +
+  POST `/databases/server/flush` + POST `/databases/server/restart` +
+  GET `/databases/server/logs` (DbServerController — the server-manager
+  pages with the live db.server_status data: overview stat cards +
+  resources + connection info, the managed-settings form (only the
+  changed fields are sent; emptied fields are removed), the processlist
+  with kill, flush, a checked restart, and the database-server log viewer
+  (the MySQL/MariaDB log sources, the reused logs.js UI); everything is
+  all-scope (a 403 page otherwise) and the changes are audited as
+  `database.server_settings` / `database.server_restart` /
+  `database.server_flush` / `database.kill` against the database server)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -174,14 +186,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: database server management (DbServerController) — GET
-`/databases/server` (databases.server, server.view: the server page with
-the live `db.server` data) plus POST `/databases/server/settings`
-(server.manage), `/databases/server/flush`, `/databases/server/kill`,
-`/databases/server/restart` (services.manage) and GET
-`/databases/server/connections`, `/databases/server/logs` (logs.view),
-`/databases/server/settings` (settings page, server.view). Check the
-PHP DbServerController + the agent's `db.server*` actions (they exist in
-agent/internal/dbmgr) for the request contract before porting.
+The `/databases` area is down to two API routes (GET/POST
+`/api/v1/databases`, api.databases / api.databases.create) — finish it
+with the API batch when the rest of the `/api/v1` area is ported, or
+move on to the next area per the plan. Per the matrix the next
+substantial area is the **files area** (`FilesController`: the site file
+manager — list/download/rename/delete + the upload and import-upload
+variants), or the **security area** (60 routes). Check INVENTORY.md for
+the FilesController route set before starting.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

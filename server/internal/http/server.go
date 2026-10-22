@@ -171,6 +171,18 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /databases/browse/api", s.guard("databases.browser.server_api", "databases.manage", s.dbBrowserApiServer))
 	s.mux.HandleFunc("GET /databases/{id}/browse", s.guard("databases.browser", "databases.manage", s.dbBrowser))
 	s.mux.HandleFunc("POST /databases/{id}/browse/api", s.guard("databases.browser.api", "databases.manage", s.dbBrowserApi))
+	// Database server manager (DbServerController) — server administrators
+	// (all-scope; the controller denies everyone else with a 403 page):
+	// status/overview, managed settings, the processlist with kill, flush,
+	// a checked restart, and the database-server log viewer.
+	s.mux.HandleFunc("GET /databases/server", s.guard("", "server.view", s.dbServerIndex))
+	s.mux.HandleFunc("GET /databases/server/settings", s.guard("", "server.view", s.dbServerSettingsPage))
+	s.mux.HandleFunc("POST /databases/server/settings", s.guard("", "server.manage", s.dbServerSaveSettings))
+	s.mux.HandleFunc("GET /databases/server/connections", s.guard("", "server.view", s.dbServerConnections))
+	s.mux.HandleFunc("POST /databases/server/kill", s.guard("", "server.manage", s.dbServerKill))
+	s.mux.HandleFunc("POST /databases/server/flush", s.guard("", "server.manage", s.dbServerFlush))
+	s.mux.HandleFunc("POST /databases/server/restart", s.guard("", "services.manage", s.dbServerRestart))
+	s.mux.HandleFunc("GET /databases/server/logs", s.guard("", "logs.view", s.dbServerLogs))
 	// Database users (all databases.manage; the mysql feature withholds the
 	// permission when the plan disables mysql, same as the /databases routes).
 	s.mux.HandleFunc("POST /database-users", s.guard("", "databases.manage", s.dbUsersCreate))

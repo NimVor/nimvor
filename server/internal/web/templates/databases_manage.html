@@ -49,6 +49,7 @@
         <td>{{.CreatedAt}}</td>
         {{if $.CanManage}}
         <td>
+          <a href="/databases/{{.ID}}/browse" title="Browse tables and run SQL">Browse</a>
           {{if $.Users}}
           <form method="post" action="/databases/{{.ID}}/grant" class="grant-form">
             <input type="hidden" name="_token" value="{{$.CSRF}}">
