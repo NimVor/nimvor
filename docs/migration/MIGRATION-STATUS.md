@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **218 ☑ done+tested, 3 ◑ partial, 330 ☐** of 551.
+`server/internal/http/server.go`): **221 ☑ done+tested, 3 ◑ partial, 327 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -439,6 +439,20 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
+- ☑ websites: the site MongoDB database browser (batch 42) —
+  SiteMongoController's browser / browse / export as
+  site_mongo_browser.go + the browser half of hosting/site_mongo_service.go:
+  the three-pane tool page (GET /sites/{id}/mongo/browser — the account's
+  prefixed databases, the ?db= preselect, the not-running / agent-down
+  states; the reused /assets/js/mongobrowser.js), the JSON operation
+  endpoint (POST /sites/{id}/mongo/browse — all 21 operations: collections
+  + create/drop/empty/rename, documents + delete/insert/update, aggregate,
+  explain, import, schema, users + user create/password/drop, indexes,
+  collection stats, index create/drop — the ownership guard keeps a
+  crafted db outside the prefix away from the agent, the PHP JSON error
+  shape), and the collection export download (GET /sites/{id}/mongo/export —
+  .json/.jsonl, the safe file name, no-store). The changing operations
+  keep their audit records
 - ☑ websites: the site MongoDB management area (batch 41) —
   SiteMongoController + the write side of SiteMongoService as
   site_mongo.go + hosting/site_mongo_service.go: the page
@@ -453,7 +467,7 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   that is not under the prefix (a crafted name can never reach the agent);
   backup archives are validated against the "<stamp>_<db>.archive.gz"
   shape before the restore/delete. The full database browser
-  (mongo.browse / browser / export) is the next batch
+  (mongo.browse / browser / export) followed in batch 42
 - ☑ websites: the Git deployment area (batch 40) — DeployController +
   DeployService as site_git.go + hosting/deploy_service.go: the
   repository page (GET /sites/{id}/git, deploy.manage — the connected

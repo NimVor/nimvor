@@ -279,6 +279,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /sites/{id}/mongo/backup", s.guard("sites.mongo.backup", "websites.manage", s.siteMongoBackup))
 	s.mux.HandleFunc("POST /sites/{id}/mongo/restore", s.guard("sites.mongo.restore", "websites.manage", s.siteMongoRestore))
 	s.mux.HandleFunc("POST /sites/{id}/mongo/backups/delete", s.guard("sites.mongo.backup_delete", "websites.manage", s.siteMongoDeleteBackup))
+	s.mux.HandleFunc("GET /sites/{id}/mongo/browser", s.guard("sites.mongo.browser", "websites.manage", s.mongoBrowserPage))
+	s.mux.HandleFunc("POST /sites/{id}/mongo/browse", s.guard("sites.mongo.browse", "websites.manage", s.mongoBrowseAPI))
+	s.mux.HandleFunc("GET /sites/{id}/mongo/export", s.guard("sites.mongo.export", "websites.manage", s.mongoExport))
 	s.mux.HandleFunc("GET /sites/{id}/workers", s.guard("", "workers.manage", s.siteWorkers))
 	// Worker write path: the plan feature withholds workers.manage when
 	// disabled, so the permission guard enforces the feature too.
