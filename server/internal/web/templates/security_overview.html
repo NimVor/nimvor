@@ -1,0 +1,162 @@
+{{define "security_overview"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Security · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/servers">&larr; Servers</a></p>
+  <h1>Security</h1>
+  <p class="text-muted">Security overview of the server</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .AgentError}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <i class="bi bi-plug fs-5"></i>
+      <div><div class="fw-semibold">{{.AgentError}}</div></div>
+    </div>
+  </div>
+  {{else if .Pending}}
+  <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert">
+    <i class="bi bi-hourglass-split"></i>
+    <div class="me-auto"><strong>Unconfirmed change:</strong> {{index .Pending "summary"}}. It is undone automatically in <strong data-wcp-countdown="{{index .Pending "deadline"}}">2:00</strong> unless you confirm that you can still connect (open a new SSH session to test).</div>
+    {{if .CanManage}}
+    <form method="post" action="/security/confirm">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <input type="hidden" name="id" value="{{index .Pending "id"}}">
+      <input type="hidden" name="return_to" value="/security">
+      <button class="btn btn-sm btn-success">Keep change</button>
+    </form>
+    <form method="post" action="/security/undo">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <input type="hidden" name="id" value="{{index .Pending "id"}}">
+      <input type="hidden" name="return_to" value="/security">
+      <button class="btn btn-sm btn-outline-secondary">Undo now</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+  {{if not .AgentError}}
+  <div class="row g-3 mb-3">
+    <div class="col-xl-6">
+      <div class="wcp-panel h-100">
+        {{if .Logins}}
+        {{if .Logins.Available}}
+        <div class="row g-3 align-items-center">
+          <div class="col-6 col-md-3"><div class="wcp-stat is-good"><div class="wcp-stat-num">{{index .Logins.Today 0}}</div><div class="wcp-stat-label">SSH logins today</div></div></div>
+          <div class="col-6 col-md-3"><div class="wcp-stat is-bad"><div class="wcp-stat-num">{{index .Logins.Today 1}}</div><div class="wcp-stat-label">Failed today</div></div></div>
+          <div class="col-md-6">
+            <div class="wcp-daycounts" role="table" aria-label="SSH logins: successful and failed">
+              {{range .LoginBars}}
+              <div class="fw-semibold" role="rowheader">{{.Label}}</div>
+              <div class="wcp-bar" aria-hidden="true"><span class="wcp-bar-ok wcp-w-{{.OkW}}"></span><span class="wcp-bar-bad wcp-w-{{.BadW}}"></span></div>
+              <div class="wcp-good" role="cell" title="Successful">{{.Ok}}</div>
+              <div class="wcp-bad" role="cell" title="Failed">{{.Bad}}</div>
+              {{end}}
+            </div>
+          </div>
+        </div>
+        {{else}}
+        <div class="fw-semibold mb-2">SSH logins</div>
+        <p class="small wcp-muted mb-0">SSH login history is not available (it is read from the systemd journal of the SSH server).</p>
+        {{end}}
+        {{else}}
+        <div class="fw-semibold mb-2">SSH logins</div>
+        <p class="small wcp-muted mb-0">SSH login history is not available (it is read from the systemd journal of the SSH server).</p>
+        {{end}}
+        {{if eq .SshProtected "off"}}
+        <div class="d-flex gap-3 align-items-start mt-3 pt-3 border-top">
+          <i class="bi bi-info-circle-fill fs-3 wcp-warn" aria-hidden="true"></i>
+          <div>
+            <div class="fw-semibold">SSH brute-force protection is off</div>
+            <div class="small wcp-muted mb-2">Fail2ban bans addresses that keep failing to log in.</div>
+            <a class="btn btn-sm btn-primary" href="/security/fail2ban">Set up protection</a>
+          </div>
+        </div>
+        {{else if eq .SshProtected "on"}}
+        <div class="small mt-3 pt-3 border-top"><i class="bi bi-shield-check wcp-good me-1"></i>SSH brute-force protection (fail2ban) is on. <a href="/security/fail2ban">Banned addresses</a></div>
+        {{end}}
+      </div>
+    </div>
+    <div class="col-xl-6">
+      <div class="wcp-panel h-100">
+        <div class="fw-semibold mb-2">Last login information</div>
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <div class="wcp-login-card">
+              <div class="d-flex"><span class="fw-semibold">SSH login</span><span class="ms-auto {{if .SshLastOK}}wcp-good{{else}}wcp-muted{{end}}">{{if .SshLastOK}}Success{{else}}None in 7 days{{end}}</span></div>
+              <dl>
+                <dt>User</dt><dd>{{if .SshLastOK}}{{.SshLastOK.User}}{{else}}—{{end}}{{if .SshLastOK}}{{if .SshLastOK.Method}} <span class="wcp-muted">({{.SshLastOK.Method}})</span>{{end}}{{end}}</dd>
+                <dt>IP</dt><dd>{{if .SshLastOK}}{{.SshLastOK.IP}}{{else}}—{{end}}</dd>
+                <dt>Time</dt><dd>{{if .SshLastOK}}{{.SshLastOK.When}}{{else}}—{{end}}</dd>
+              </dl>
+              {{if .SshLastBad}}<div class="small mt-2 wcp-bad">Last failure: {{.SshLastBad.User}} from {{.SshLastBad.IP}}, {{.SshLastBad.When}}</div>{{end}}
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="wcp-login-card">
+              <div class="d-flex"><span class="fw-semibold">Panel login</span><span class="ms-auto {{if .PanelOK}}wcp-good{{else}}wcp-muted{{end}}">{{if .PanelOK}}Success{{else}}None yet{{end}}</span></div>
+              <dl>
+                <dt>User</dt><dd>{{if .PanelOK}}{{.PanelOK.User}}{{else}}—{{end}}</dd>
+                <dt>IP</dt><dd>{{if .PanelOK}}{{.PanelOK.IP}}{{else}}—{{end}}</dd>
+                <dt>Time</dt><dd>{{if .PanelOK}}{{.PanelOK.When}}{{else}}—{{end}}</dd>
+              </dl>
+              {{if .PanelBad}}<div class="small mt-2 wcp-bad">Last failure: {{.PanelBad.User}} from {{.PanelBad.IP}}, {{.PanelBad.When}}</div>{{end}}
+              {{if .CanAudit}}<div class="small mt-2"><a href="/audit">Audit log</a></div>{{end}}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{if .Checks}}
+  <div class="wcp-panel">
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+      <div class="wcp-rating">Safety rating: <span class="{{.ScoreClass}}">{{if .ScoreSet}}{{.Score}} / 100{{else}}—{{end}}</span> <span class="small fw-normal {{.ScoreClass}}">{{.ScoreLabel}}</span></div>
+      <div class="small wcp-muted d-flex flex-wrap gap-3">
+        <span><i class="bi bi-x-circle-fill wcp-bad"></i> {{.FailCount}} to fix</span>
+        <span><i class="bi bi-exclamation-triangle-fill wcp-warn"></i> {{.WarnCount}} to review</span>
+        <span><i class="bi bi-check-circle-fill wcp-good"></i> {{.PassCount}} passed</span>
+      </div>
+    </div>
+    <div class="wcp-checks">
+      {{range .Checks}}
+      <div class="wcp-check is-{{.St}}">
+        <div class="wcp-check-title">{{.Title}} <span class="visually-hidden">{{.Status}}</span></div>
+        <div class="wcp-check-text"><i class="bi bi-{{.Icon}}" aria-hidden="true"></i><span>{{if and (ne .Status "pass") .Remedy}}{{.Remedy}}{{else}}{{.Detail}}{{end}}</span></div>
+        {{if and (ne .Status "pass") .Remedy}}<div class="wcp-check-more">{{.Detail}}</div>{{end}}
+        <div class="wcp-check-more">Severity: {{.Severity}}</div>
+        {{if and .Action $.CanServerManage}}
+        <form class="mt-2 d-flex flex-wrap align-items-center gap-2" method="post" action="{{.Action.Route}}" data-wcp-busy data-wcp-confirm="{{.Action.Confirm}}">
+          <input type="hidden" name="_token" value="{{$.CSRF}}">
+          {{range $k, $v := .Action.Params}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}
+          <button class="btn btn-sm {{if .Action.Undo}}btn-outline-secondary{{else}}btn-primary{{end}}">{{.Action.Label}}</button>
+          {{if .Link}}<a class="small" href="{{.Link}}">Open <i class="bi bi-arrow-right" aria-hidden="true"></i></a>{{end}}
+        </form>
+        {{else if and .Link (ne .Status "pass")}}
+        <a class="small d-inline-block mt-2" href="{{.Link}}">Open <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+  {{end}}
+</main>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

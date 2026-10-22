@@ -343,7 +343,7 @@ Total routes: 551
 | POST | `/security/modsec/update` | ModSecurityController::update | security.modsec.update | security.manage | yes | yes | ☐ |
 | GET | `/security/modsec` | ModSecurityController::index | security.modsec | security.view | yes | yes | ☐ |
 | POST | `/security/modsec` | ModSecurityController::configure | security.modsec.configure | security.manage | yes | yes | ☐ |
-| POST | `/security/mysql-anonymous` | SecurityController::dropAnonymousUsers | security.mysql_anonymous | server.manage | yes | yes | ☐ |
+| POST | `/security/mysql-anonymous` | SecurityController::dropAnonymousUsers | security.mysql_anonymous | server.manage | yes | yes | ☑ |
 | GET | `/security/password-strength` | SecurityPolicyController::strength | security.password_strength | security.view | yes | yes | ☐ |
 | POST | `/security/password-strength` | SecurityPolicyController::saveStrength | security.password_strength.save | security.manage | yes | yes | ☐ |
 | POST | `/security/policies/ips/forget` | SecurityPolicyController::forgetIp | security.policies.forget_ip | security.view | yes | yes | ☐ |
@@ -363,7 +363,7 @@ Total routes: 551
 | GET | `/security/traceroute` | HardeningController::traceroute | security.traceroute | security.view | yes | yes | ☐ |
 | POST | `/security/traceroute` | HardeningController::saveTraceroute | security.traceroute.save | security.manage | yes | yes | ☐ |
 | POST | `/security/undo` | SecurityController::undo | security.undo | security.manage | yes | yes | ☑ |
-| GET | `/security` | SecurityController::index | security | security.view | yes | yes | ☐ |
+| GET | `/security` | SecurityController::index | security | security.view | yes | yes | ☑ |
 | POST | `/server/graphical` | SystemController::graphical | server.graphical | server.manage | yes | yes | ☐ |
 | GET | `/server/health` | ServerHealthController::index | server.health | server.view | yes | yes | ☐ |
 | POST | `/server/hostname-references/mail` | SystemController::hostnameRemail | server.hostname_references.mail | server.manage | yes | yes | ☐ |
