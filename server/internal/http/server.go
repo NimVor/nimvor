@@ -160,6 +160,13 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /security/firewall/rules", s.guard("security.firewall.add", "security.manage", s.firewallAddRule))
 	s.mux.HandleFunc("POST /security/firewall/rules/delete", s.guard("security.firewall.delete", "security.manage", s.firewallDeleteRule))
 	s.mux.HandleFunc("POST /security/firewall/protection", s.guard("security.firewall.protection", "security.manage", s.firewallProtection))
+	// Security → Brute-force protection (SecurityController's fail2ban area:
+	// the jails, the banned addresses with unban, the settings form) and
+	// the overview's fix action (POST /security/fix — server.manage, admin).
+	s.mux.HandleFunc("GET /security/fail2ban", s.guard("security.fail2ban", "security.view", s.fail2banIndex))
+	s.mux.HandleFunc("POST /security/fail2ban", s.guard("security.fail2ban.configure", "security.manage", s.fail2banConfigure))
+	s.mux.HandleFunc("POST /security/fail2ban/unban", s.guard("security.fail2ban.unban", "security.manage", s.fail2banUnban))
+	s.mux.HandleFunc("POST /security/fix", s.guard("security.fix", "server.manage", s.securityFix))
 	s.mux.HandleFunc("GET /security/shell", s.guard("security.shell", "security.view", s.shellAccessIndex))
 	s.mux.HandleFunc("POST /security/shell", s.guard("security.shell.update", "security.manage", s.shellAccessUpdate))
 	s.mux.HandleFunc("POST /security/confirm", s.guard("security.confirm", "security.manage", s.securityConfirm))

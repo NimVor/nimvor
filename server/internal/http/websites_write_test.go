@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -49,6 +50,11 @@ type sitesAgent struct {
 	// guardChanged is the guarded (firewall.*/protection) replies' changed
 	// flag; false → {changed:false} ("Nothing to change.").
 	guardChanged bool
+	// f2bManaged is the fail2ban.status reply's managed_config ("" = the
+	// panel's fresh-install defaults).
+	f2bManaged string
+	// f2bInstalled is the fail2ban.status reply's installed flag.
+	f2bInstalled bool
 }
 
 // setJob registers the jobs.get reply for a job id.
@@ -300,6 +306,31 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			changed := sa.guardChanged
 			sa.mu.Unlock()
 			_, _ = w.Write(guardedReply(changed, "fwpend-prot", "firewall", "Firewall protections applied"))
+		case "fail2ban.status":
+			sa.mu.Lock()
+			managed, installed := sa.f2bManaged, sa.f2bInstalled
+			sa.mu.Unlock()
+			managedJSON := ""
+			if managed != "" {
+				managedJSON = `"managed_config":` + fmt.Sprintf("%q", managed) + `,`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"installed":` + boolJSON(installed) + `,"running":true,` + managedJSON +
+				`"jails":[{"name":"sshd","currently_banned":2,"total_banned":15,"currently_failed":3,"banned_ips":["203.0.113.66","198.51.100.9"]},` +
+				`{"name":"recidive","currently_banned":0,"total_banned":4,"currently_failed":1,"banned_ips":[]}]}}`))
+		case "fail2ban.configure":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "fail2ban.unban":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"unbanned":"` + strOf(p["ip"]) + `"}}`))
+		case "security.fix_kernel":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"changed":["net.ipv4.conf.all.rp_filter"]}}`))
+		case "security.hide_processes":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"enabled":true}}`))
+		case "security.auto_updates":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"ab12cd34ef56ab78"}}`))
+		case "security.host_known":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"marked":["cron/daily-backup","systemd/whacp-agent.service"]}}`))
+		case "db.server_settings":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

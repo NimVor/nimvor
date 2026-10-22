@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **102 ☑ done+tested, 3 ◑ partial, 446 ☐** of 551.
+`server/internal/http/server.go`): **106 ☑ done+tested, 3 ◑ partial, 442 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -198,7 +198,29 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   adding the client address); agent errors flash the redirect — the Go
   adaptation of the PHP page's 500; the cPHulk whitelist of allow-me is
   skipped until the brute-force protection service is ported; return_to
-  now accepts /security/firewall too)
+  now accepts /security/firewall too) ·
+  GET `/security/fail2ban` + POST `/security/fail2ban` + POST
+  `/security/fail2ban/unban` + POST `/security/fix` (SecurityController's
+  fail2ban area + the overview's fix action — the brute-force protection
+  page: the status bar (running, active jails, banned now), the jails
+  table (banned/total/failing, the jail labels) and the banned-addresses
+  table with the per-row Unban (fail2ban.unban, IP validated, audited);
+  the protection-settings modal (the five WhaCP jails, ban/window/retries,
+  the never-ban list — fail2ban.configure 60 s with the agent's range
+  check, fail2ban.configure audit, the "tested and applied" flash); the
+  form values prefill from the agent's managed jail file (the view's
+  regexes, the fresh-install defaults when none); POST /security/fix
+  (security.fix, server.manage, role admin): the five fixes —
+  kernel_settings (security.fix_kernel 60 s, the changed settings in the
+  flash), proc_hidepid (security.hide_processes 60 s), auto_updates
+  (security.auto_updates → the agent job tracked for /jobs + the job
+  flash), host_persistence (security.host_known, the marked files in the
+  flash) and database_network (the remote database_users refusal, then
+  db.server_settings 200 s, bind-address 127.0.0.1 + restart) — the
+  security.fix audit (server / the check, the details), the admin +
+  FIXES-catalog gates (database_network has no undo), the redirect to the
+  not-yet-ported /security overview; return_to now accepts
+  /security/fail2ban too)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -273,14 +295,16 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 
 ## Next exact step
 Batch: continue the **security area** — SecurityController's
-**fail2ban** (GET `/security/fail2ban` (security.fail2ban,
-security.view) + POST `/security/fail2ban` (security.fail2ban.configure)
-+ POST `/security/fail2ban/unban` (security.fail2ban.unban), agent
-fail2ban.* actions) and POST `/security/fix` (security.fix,
-server.manage — the remediation runner). Then the SecurityController
-SSH area (GET `/security/ssh` + configure + the key management
-endpoints, SecurityService's admin-only key guard), the overview
-GET `/security`, then HardeningController (compilers/egress/
+**SSH area** (GET `/security/ssh` (security.ssh, security.view) +
+POST `/security/ssh` (security.ssh.configure) + the key endpoints
+POST `/security/ssh/keys` (add, admin-only guard) + POST
+`/security/ssh/keys/generate` (the once-shown private key page,
+no-store headers) + POST `/security/ssh/keys/delete`, agent
+ssh.status/ssh.configure/ssh.keys/ssh.key_add/ssh.key_remove —
+the cPHulk whitelist of the firewall allow-me can land here or in
+the Hardening batch), then the overview GET `/security`
+(SecurityController::index — the checks with the fix/undo actions
+and the tab layout), then HardeningController (compilers/egress/
 forkbomb/…) and SecurityChecksController (advisories).
 in small batches. Check INVENTORY.md + the PHP controllers before
 starting.
