@@ -25,11 +25,11 @@ type dbUserRow struct {
 	Free      []hosting.Database
 }
 
-// dbUsersBack ports DatabasesController::back: the return_to target must be a
-// databases page, else the fallback is /databases.
+// databasesBack ports DatabasesController::back: the return_to target must be
+// a databases page, else the fallback is /databases.
 var dbReturnToRe = regexp.MustCompile(`^/(databases|sites/[0-9]+/databases)$`)
 
-func (s *Server) dbUsersBack(r *http.Request) string {
+func (s *Server) databasesBack(r *http.Request) string {
 	if to := r.FormValue("return_to"); dbReturnToRe.MatchString(to) {
 		return to
 	}
@@ -99,7 +99,7 @@ func (s *Server) dbUsersCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	back := s.dbUsersBack(r)
+	back := s.databasesBack(r)
 	svc := s.databaseService(r, user)
 	host, err := svc.DBUserHostFrom(r.FormValue("host_choice"), r.FormValue("host_ip"), r.FormValue("host"), user)
 	if err != nil { // a validation error (hostChoice/hostIP are never looked up)
@@ -135,7 +135,7 @@ func (s *Server) dbUserPassword(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	back := s.dbUsersBack(r)
+	back := s.databasesBack(r)
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		s.notFound(w, r)
@@ -170,7 +170,7 @@ func (s *Server) dbUserReveal(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	back := s.dbUsersBack(r)
+	back := s.databasesBack(r)
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		s.notFound(w, r)
@@ -205,7 +205,7 @@ func (s *Server) dbUserDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	back := s.dbUsersBack(r)
+	back := s.databasesBack(r)
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		s.notFound(w, r)
@@ -239,7 +239,7 @@ func (s *Server) dbUserAssign(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	back := s.dbUsersBack(r)
+	back := s.databasesBack(r)
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		s.notFound(w, r)
@@ -284,7 +284,7 @@ func (s *Server) databasesGrant(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	back := s.dbUsersBack(r)
+	back := s.databasesBack(r)
 	dbID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		s.notFound(w, r)
@@ -330,7 +330,7 @@ func (s *Server) dbUserAddHost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	back := s.dbUsersBack(r)
+	back := s.databasesBack(r)
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		s.notFound(w, r)

@@ -125,6 +125,9 @@ func (s *Server) routes() {
 	// The website's logs (LogsController::site, logs.view; the logs plan
 	// feature gates the route name).
 	s.mux.HandleFunc("GET /sites/{id}/logs", s.guard("sites.logs", "logs.view", s.siteLogs))
+	// The website's databases (DatabasesController::site; databases.view —
+	// the mysql feature withholds it when the plan disables mysql).
+	s.mux.HandleFunc("GET /sites/{id}/databases", s.guard("", "databases.view", s.siteDatabases))
 	s.mux.HandleFunc("POST /sites/{id}/subdomains", s.guard("sites.subdomains.store", "websites.manage", s.siteSubdomainsStore))
 	s.mux.HandleFunc("GET /sites/{id}/cron", s.guard("", "cron.view", s.siteCron))
 	s.mux.HandleFunc("GET /sites/{id}/workers", s.guard("", "workers.manage", s.siteWorkers))

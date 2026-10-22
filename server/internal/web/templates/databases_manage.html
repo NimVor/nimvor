@@ -1,0 +1,171 @@
+{{define "databases_manage"}}
+  {{if .Error}}<p class="alert alert-danger" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Secret}}
+  <div class="alert alert-warning" role="alert">
+    <div class="fw-semibold">{{.Secret.Title}} — copy the password now</div>
+    <div>User: <code>{{.Secret.User}}</code></div>
+    <div>Password: <code class="user-select-all">{{.Secret.Password}}</code></div>
+    <div class="small">This password is shown only once and is not stored unless you chose to keep it encrypted.</div>
+  </div>
+  {{end}}
+  {{if .CanManage}}
+  <form method="post" action="/databases" class="create-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <input type="hidden" name="return_to" value="{{.ReturnTo}}">
+    {{if .Site}}<input type="hidden" name="website_id" value="{{.Site.ID}}">{{end}}
+    <label for="db-name">New database</label>
+    <input id="db-name" name="name" type="text" required placeholder="{{if .Prefix}}{{.Prefix}}{{end}}name">
+    <button type="submit">Create</button>
+  </form>
+  {{end}}
+
+  <h2>Databases</h2>
+  {{if .Databases}}
+  <table class="data-table">
+    <thead><tr><th>Name</th><th>Usernames</th>{{if not .Site}}<th>Website</th>{{end}}<th>Created</th>{{if .CanManage}}<th></th>{{end}}</tr></thead>
+    <tbody>
+    {{range .Databases}}
+      <tr>
+        <td>{{.Name}}</td>
+        <td>
+          {{if .Grants}}
+          {{range .Grants}}<div>{{.Username}} <span class="text-muted">{{if $l := index $.PrivilegeLabels .Privileges}}{{$l}}{{else}}{{.Privileges}}{{end}}</span></div>
+          {{end}}
+          {{else}}<span class="text-muted">No user</span>{{end}}
+        </td>
+        {{if not $.Site}}<td>{{if .Website.Valid}}{{.Website.String}}{{else}}—{{end}}</td>{{end}}
+        <td>{{.CreatedAt}}</td>
+        {{if $.CanManage}}
+        <td>
+          {{if $.Users}}
+          <form method="post" action="/databases/{{.ID}}/grant" class="grant-form">
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <input type="hidden" name="return_to" value="{{$.ReturnTo}}">
+            <select name="user_id" aria-label="User for {{.Name}}">
+              {{range $.Users}}<option value="{{.User.ID}}">{{.User.Username}}@{{.User.Host}}</option>
+              {{end}}
+            </select>
+            <select name="privileges" aria-label="Privileges for {{.Name}}">
+              {{range $.PrivilegeOptions}}<option value="{{.Value}}">{{.Label}}</option>
+              {{end}}
+              <option value="none">No access</option>
+            </select>
+            <button type="submit">Set</button>
+          </form>
+          {{end}}
+          <form method="post" action="/databases/{{.ID}}/drop" class="drop-form">
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <input type="hidden" name="return_to" value="{{$.ReturnTo}}">
+            <input type="text" name="confirm" placeholder="type name to confirm" aria-label="Type the database name to confirm">
+            <button type="submit">Delete</button>
+          </form>
+        </td>
+        {{end}}
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="text-muted">No databases yet.</p>
+  {{end}}
+
+  <h2>Users</h2>
+  {{if .CanManage}}
+  <form method="post" action="/database-users" class="create-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <input type="hidden" name="return_to" value="{{.ReturnTo}}">
+    <label for="dbu-name">New database user</label>
+    <input id="dbu-name" name="username" type="text" required placeholder="{{if .Prefix}}{{.Prefix}}{{end}}username">
+    {{if .RemoteHosts}}
+    <label for="dbu-hc">Connect from</label>
+    <select id="dbu-hc" name="host_choice">
+      <option value="localhost">This server only</option>
+      <option value="ip">A specific IP address or network</option>
+      <option value="any">Any host (%)</option>
+    </select>
+    <label for="dbu-ip">IP address or network</label>
+    <input id="dbu-ip" name="host_ip" type="text" placeholder="203.0.113.5 or 203.0.113.%">
+    {{else}}
+    <input type="hidden" name="host_choice" value="localhost">
+    {{end}}
+    <label><input type="checkbox" name="store_password" value="1"> Keep the password (encrypted)</label>
+    <button type="submit">Create user</button>
+  </form>
+  {{end}}
+  {{if .Users}}
+  <table class="data-table">
+    <thead><tr><th>Username</th><th>Connects from</th><th>Password</th><th>Databases</th>{{if .CanManage}}<th></th>{{end}}</tr></thead>
+    <tbody>
+    {{range .Users}}
+      <tr>
+        <td>{{.User.Username}}</td>
+        <td>{{if eq .User.Host "localhost"}}This server{{else if eq .User.Host "%"}}<span class="text-muted">Any host</span>{{else}}<code>{{.User.Host}}</code>{{end}}</td>
+        <td>
+          {{if and .User.Stored $.CanManage}}
+          **********
+          <form method="post" action="/database-users/{{.User.ID}}/reveal" class="inline-form">
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <input type="hidden" name="return_to" value="{{$.ReturnTo}}">
+            <button type="submit">Show</button>
+          </form>
+          {{else if .User.Stored}}**********
+          {{else}}<span class="text-muted" title="WhaCP did not keep this password. Set a new one to see it.">Not stored</span>{{end}}
+        </td>
+        <td>
+          {{if .Databases}}
+          {{range .Databases}}<div>{{.Name}} <span class="text-muted">{{if $l := index $.PrivilegeLabels .Privileges}}{{$l}}{{else}}{{.Privileges}}{{end}}</span></div>
+          {{end}}
+          {{else}}<span class="text-muted">None</span>{{end}}
+        </td>
+        {{if $.CanManage}}
+        <td>
+          {{if .Free}}
+          <form method="post" action="/database-users/{{.User.ID}}/assign" class="grant-form">
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <input type="hidden" name="return_to" value="{{$.ReturnTo}}">
+            <select name="database_id" aria-label="Database to assign {{.User.Username}} to">
+              {{range .Free}}<option value="{{.ID}}">{{.Name}}</option>
+              {{end}}
+            </select>
+            <select name="privileges" aria-label="Privileges for {{.User.Username}}">
+              {{range $.PrivilegeOptions}}<option value="{{.Value}}">{{.Label}}</option>
+              {{end}}
+            </select>
+            <button type="submit">Assign</button>
+          </form>
+          {{end}}
+          {{if $.RemoteHosts}}
+          <form method="post" action="/database-users/{{.User.ID}}/hosts" class="grant-form">
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <input type="hidden" name="return_to" value="{{$.ReturnTo}}">
+            <select name="host_choice" aria-label="Remote host for {{.User.Username}}">
+              <option value="ip">A specific IP address or network</option>
+              <option value="any">Any host (%)</option>
+            </select>
+            <input name="host_ip" type="text" placeholder="203.0.113.5" aria-label="Remote IP address or network for {{.User.Username}}">
+            <input type="hidden" name="store_password" value="{{if .User.Stored}}1{{else}}0{{end}}">
+            <button type="submit">Remote</button>
+          </form>
+          {{end}}
+          <form method="post" action="/database-users/{{.User.ID}}/password" class="inline-form">
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <input type="hidden" name="return_to" value="{{$.ReturnTo}}">
+            <input type="hidden" name="store_password" value="{{if .User.Stored}}1{{else}}0{{end}}">
+            <button type="submit">Password</button>
+          </form>
+          <form method="post" action="/database-users/{{.User.ID}}/delete" class="drop-form">
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <input type="hidden" name="return_to" value="{{$.ReturnTo}}">
+            <button type="submit">Delete</button>
+          </form>
+        </td>
+        {{end}}
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="text-muted">No database users yet.</p>
+  {{end}}
+{{end}}
