@@ -723,6 +723,42 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789m0a002"}}`))
 		case "mongo.backup_delete":
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
+		case "mongo.collections":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"collections":[{"name":"coll_a","count":2},{"name":"coll_b","count":0}]}}`))
+		case "mongo.collection_create", "mongo.collection_drop", "mongo.collection_rename", "mongo.index_drop":
+			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
+		case "mongo.collection_empty":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"deleted":12}}`))
+		case "mongo.documents":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"documents":[{"_id":"1","name":"a"},{"_id":"2","name":"b"}],"total":2,"skip":0,"limit":25}}`))
+		case "mongo.document_delete":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"deleted":1}}`))
+		case "mongo.document_insert":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"inserted_id":"1"}}`))
+		case "mongo.document_update":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"matched":1,"modified":1}}`))
+		case "mongo.aggregate":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"documents":[{"_id":"1","n":2}],"ms":1}}`))
+		case "mongo.explain":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"explain":{"stages":[]}}}`))
+		case "mongo.export":
+			format := "json"
+			if f, ok := p["format"].(string); ok && f != "" {
+				format = f
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"content":"[{}]","count":1,"format":"` + format + `"}}`))
+		case "mongo.import":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"inserted":2,"errors":0,"total":2}}`))
+		case "mongo.schema":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"sampled":2,"fields":[{"name":"_id","type":"objectId"}]}}`))
+		case "mongo.database_users":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"users":[{"user":"u_bob_admin","roles":["dbOwner"]}]}}`))
+		case "mongo.indexes":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"indexes":[{"name":"_id_"}]}}`))
+		case "mongo.collection_stats":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"count":2,"size":1234}}`))
+		case "mongo.index_create":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"name":"idx_1"}}`))
 		case "cron.log":
 			content := sa.cronLogContent
 			if content == "" {
