@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **144 ☑ done+tested, 3 ◑ partial, 404 ☐** of 551.
+`server/internal/http/server.go`): **155 ☑ done+tested, 3 ◑ partial, 393 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -439,6 +439,18 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
+- ☑ security: ModSecurity (batch 31) — the server-wide WAF page
+  (GET/POST /security/modsec: status bar + websites/events/vendors/
+  custom-rules/installation tabs; server-wide settings; per-rule and bulk
+  custom rule editing with the sha optimistic lock; the per-website mode/
+  vendors/rules; the blocked/detected events; the background
+  install/update/rollback jobs with JobTracker + audit) + the website's
+  Web firewall page (GET/POST /sites/{id}/firewall: the mode switch for
+  owners, the rules for the site, turning a rule off from an event for
+  administrators). Agent-driven (modsec.status/configure/custom_
+  get|custom_set/site/events/installs/update/install/crs_install/rollback;
+  every change nginx -t checked and rolled back on the agent); the
+  modsec.trim scheduler side stays with the background-jobs follow-up
 - ☐ DB browser, DB dump/import, DB server area (DbServerController), mongo, redis/memcached, DNS records, mail accounts/filters, SSL/ACME, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
 
 ## NOT YET PORTED (known follow-ups, tracked honestly)
@@ -456,13 +468,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: continue the **security area** — the ModSecurityController
-(11 routes: the 9 /security/modsec.* area (index, configure, rule, custom,
-update, install, crs, rollback, saveSite) + the per-website firewall page
-GET/POST /sites/{id}/firewall). The cPHulk (HulkController) panel page is
-done (6 routes, batch 30); its enforcement/scheduler side stays with the
-background-jobs follow-up. After ModSecurity: the per-website malware pages
-(AvController show/scan/release). Check INVENTORY.md + the PHP controllers
-before starting.
+Batch: continue the **security area** — the per-website malware pages
+(AvController: the website's scan status, the on-demand scan, and the
+quarantine/release area — 3 routes: GET /sites/{id}/malware,
+POST /sites/{id}/malware/scan, POST /sites/{id}/malware/{id}/release).
+The server-wide ModSecurity page is done (11 routes, batch 31) and the
+cPHulk (HulkController) panel page is done (6 routes, batch 30); their
+enforcement/scheduler sides stay with the background-jobs follow-up.
+Check INVENTORY.md + the PHP controllers before starting.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

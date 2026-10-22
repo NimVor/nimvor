@@ -106,6 +106,36 @@ func (r *WebsiteRepository) aliasesOf(ctx context.Context, websiteID int64) ([]s
 	return out, rows.Err()
 }
 
+// AliasesFor returns the alias names (non-primary domains) of the given
+// websites in one query — the ModSecurity page's host → website map (PHP's
+// hydrate() asks per website; the result is the same).
+func (r *WebsiteRepository) AliasesFor(ctx context.Context, ids []int64) (map[int64][]string, error) {
+	out := map[int64][]string{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	ph := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT website_id, name FROM domains WHERE website_id IN ("+ph+") AND is_primary = 0 ORDER BY id", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var websiteID int64
+		var name string
+		if err := rows.Scan(&websiteID, &name); err != nil {
+			return nil, err
+		}
+		out[websiteID] = append(out[websiteID], name)
+	}
+	return out, rows.Err()
+}
+
 func scanFull(row interface{ Scan(...any) error }) (*Website, error) {
 	var w Website
 	var https, forceHTTPS, hsts, enabled, dirListing, secHeaders, bwApplied, suspended, bwBlocked int

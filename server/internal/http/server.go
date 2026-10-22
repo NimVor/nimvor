@@ -222,6 +222,22 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /security/hulk/geo", s.guard("security.hulk.geo", "security.manage", s.hulkGeo))
 	s.mux.HandleFunc("POST /security/hulk/unblock", s.guard("security.hulk.unblock", "security.manage", s.hulkUnblock))
 	s.mux.HandleFunc("POST /security/hulk/clear", s.guard("security.hulk.clear", "security.manage", s.hulkClear))
+	// Security → ModSecurity (ModSecurityController: the web application
+	// firewall — server-wide on/off, the OWASP CRS settings and custom
+	// rules, each website's mode/vendors/rules, the blocked/detected
+	// events, and the background install/update/rollback of the connector
+	// and the rule set; all-scope pages, role-admin saves). The website's
+	// Web firewall page (the mode switch, owners too) lives with the
+	// /sites routes below.
+	s.mux.HandleFunc("GET /security/modsec", s.guard("security.modsec", "security.view", s.modsecIndex))
+	s.mux.HandleFunc("POST /security/modsec", s.guard("security.modsec.configure", "security.manage", s.modsecConfigure))
+	s.mux.HandleFunc("POST /security/modsec/rule", s.guard("security.modsec.rule", "security.manage", s.modsecSaveRule))
+	s.mux.HandleFunc("POST /security/modsec/custom", s.guard("security.modsec.custom", "security.manage", s.modsecSaveCustom))
+	s.mux.HandleFunc("POST /security/modsec/update", s.guard("security.modsec.update", "security.manage", s.modsecUpdate))
+	s.mux.HandleFunc("POST /security/modsec/install", s.guard("security.modsec.install", "security.manage", s.modsecInstall))
+	s.mux.HandleFunc("POST /security/modsec/crs", s.guard("security.modsec.crs", "security.manage", s.modsecInstallCrs))
+	s.mux.HandleFunc("POST /security/modsec/rollback/{id}", s.guard("security.modsec.rollback", "security.manage", s.modsecRollback))
+	s.mux.HandleFunc("POST /security/modsec/sites/{id}", s.guard("security.modsec.site", "security.manage", s.modsecSaveSite))
 	s.mux.HandleFunc("POST /security/fix", s.guard("security.fix", "server.manage", s.securityFix))
 	// Security → SSH (SecurityController's SSH area: the server settings —
 	// the guarded ssh.configure — and the administrator key management,
@@ -247,6 +263,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /sites/{id}/workers/{worker}/toggle", s.guard("", "workers.manage", s.workersToggle))
 	s.mux.HandleFunc("POST /sites/{id}/workers/{worker}/restart", s.guard("", "workers.manage", s.workersRestart))
 	s.mux.HandleFunc("POST /sites/{id}/workers/{worker}/delete", s.guard("", "workers.manage", s.workersDelete))
+	// The website's Web firewall (ModSecurityController::site/saveSiteMode:
+	// the page is websites.view; owners switch the mode, administrators
+	// also turn single rules off from an event).
+	s.mux.HandleFunc("GET /sites/{id}/firewall", s.guard("sites.firewall", "websites.view", s.siteFirewall))
+	s.mux.HandleFunc("POST /sites/{id}/firewall", s.guard("sites.firewall.update", "websites.manage", s.siteFirewallMode))
 	// Subdomains: gated by the subdomains plan feature (route name) AND the
 	// websites.manage permission.
 	s.mux.HandleFunc("GET /sites/{id}/subdomains", s.guard("sites.subdomains", "websites.manage", s.siteSubdomains))

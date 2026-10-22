@@ -77,6 +77,8 @@ type sitesAgent struct {
 	hulkAvailable bool
 	// hulkActive is the hulk.status reply's active flag (default true).
 	hulkActive bool
+	// modsecActive is the modsec.status reply's active flag (default true).
+	modsecActive bool
 }
 
 // setJob registers the jobs.get reply for a job id.
@@ -110,7 +112,7 @@ func guardedReply(changed bool, id, kind, summary string) []byte {
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
 	t.Helper()
-	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true, hulkAvailable: true, hulkActive: true}
+	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true, hulkAvailable: true, hulkActive: true, modsecActive: true}
 	dir := t.TempDir()
 	socket := filepath.Join(dir, "agent.sock")
 	tokenFile := filepath.Join(dir, "token")
@@ -442,6 +444,46 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"available":` + boolJSON(available) + `,"active":` + boolJSON(active) + `}}`))
 		case "hulk.sync":
 			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
+		case "modsec.status":
+			sa.mu.Lock()
+			active := sa.modsecActive
+			sa.mu.Unlock()
+			_, _ = w.Write([]byte(`{"success":true,"data":{
+				"module_loaded":true,
+				"connector":{"state":"functional","reason":"","package":"libnginx-mod-http-modsecurity","nginx_version":"1.24.0","modules":[{"name":"ngx_http_modsecurity_module","path":"/usr/lib/nginx/modules/ngx_http_modsecurity_module.so"}]},
+				"crs":{"available":true,"version":"1.1"},
+				"config":{"enabled":true,"crs":{"enabled":true,"paranoia":1,"inbound_threshold":5,"outbound_threshold":4},"custom":{"enabled":false},"detection_only":false},
+				"sites":{"bob.example":{"mode":"on","exclude":["custom"],"disabled_rules":[942100]}},
+				"active":`+boolJSON(active)+`,
+				"vendors":[{"id":"crs","name":"OWASP Core Rule Set","description":"Generic protection against SQL injection, XSS, file inclusion, remote code execution and protocol abuse.","first_id":900000,"last_id":999999},{"id":"custom","name":"Custom rules","description":"Rules the server administrators write here (IDs 10000–99999).","first_id":10000,"last_id":99999}],
+				"custom_rules":2,
+				"audit_log_bytes":123456,
+				"packages":["libnginx-mod-http-modsecurity","modsecurity-crs"],
+				"packages_available":true
+			}}`))
+		case "modsec.custom_get":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"rules":"# block xmlrpc\nSecRule REQUEST_URI \"@beginsWith /xmlrpc.php\" \"id:10001,phase:1,deny,status:403,log,msg:'xmlrpc blocked'\"\n\nSecAction \"id:10002,phase:1,nolog,pass,secmark='EXECCMD'\""}}`))
+		case "modsec.custom_set":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"rules":2}}`))
+		case "modsec.site":
+			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
+		case "modsec.events":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"events":[
+				{"time":"2026-10-22T10:00:00Z","host":"bob.example","client_ip":"203.0.113.9","method":"GET","uri":"/index.php?id=1%27%20UNION%20SELECT%201,2,3--","status":403,"engine":"ModSecurity: v0.102 (linux)","rules":[{"id":"942100","message":"SQL Injection Attack","severity":"CRITICAL","data":""},{"id":"949110","message":"Anomaly Inbound Score Threshold Exceeded","severity":"NOTICE","data":""}]},
+				{"time":"2026-10-22T09:30:00Z","host":"unknown.example","client_ip":"198.51.100.7","method":"GET","uri":"/?q=%3Cscript%3Ealert(1)%3C/script%3E","status":200,"engine":"DetectionOnly","rules":[{"id":"941100","message":"XSS Attack","severity":"CRITICAL","data":""}]}
+			]}}`))
+		case "modsec.installs":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"installs":[
+				{"id":"2026-10-01T08:00:00Z-a1b2c3d4","started_at":"2026-10-01T08:00:00Z","status":"committed","method":"package","nginx_version":"1.24.0","os":"Debian 12","module":"/usr/lib/nginx/modules/ngx_http_modsecurity_module.so","folder":"/var/lib/whacp/modsec-backups/2026-10-01T08:00:00Z","sources":[{"name":"libnginx-mod-http-modsecurity","version":"3.0.10-1","origin":"distribution"}],"can_roll_back":true,"error":""}
+			]}}`))
+		case "modsec.update":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"1111111111111111"}}`))
+		case "modsec.install":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"2222222222222222"}}`))
+		case "modsec.crs_install":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"3333333333333333"}}`))
+		case "modsec.rollback":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"4444444444444444"}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

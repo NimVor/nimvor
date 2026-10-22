@@ -1,0 +1,349 @@
+{{define "security_modsec"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>ModSecurity · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/servers">&larr; Servers</a></p>
+  <h1>ModSecurity</h1>
+  <p class="text-muted">Security</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .AgentError}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <i class="bi bi-plug fs-5"></i>
+      <div><div class="fw-semibold">{{.AgentError}}</div></div>
+    </div>
+  </div>
+  {{else if .Pending}}
+  <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert">
+    <i class="bi bi-hourglass-split"></i>
+    <div class="me-auto"><strong>Unconfirmed change:</strong> {{index .Pending "summary"}}. It is undone automatically in <strong data-wcp-countdown="{{index .Pending "deadline"}}">2:00</strong> unless you confirm that you can still connect (open a new SSH session to test).</div>
+    {{if .CanManage}}
+    <form method="post" action="/security/confirm">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <input type="hidden" name="id" value="{{index .Pending "id"}}">
+      <input type="hidden" name="return_to" value="/security/modsec">
+      <button class="btn btn-sm btn-success">Keep change</button>
+    </form>
+    <form method="post" action="/security/undo">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <input type="hidden" name="id" value="{{index .Pending "id"}}">
+      <input type="hidden" name="return_to" value="/security/modsec">
+      <button class="btn btn-sm btn-outline-secondary">Undo now</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+
+  {{if .Status}}
+  <div class="wcp-panel mb-3">
+    <div class="wcp-statusbar">
+      <span class="fw-medium">Web application firewall (ModSecurity)</span>
+      <span>{{if eq .Status.ConnState "functional"}}<span class="wcp-state is-ok" title="{{.Status.ConnModule}}">Nginx connector working</span>{{else if eq .Status.ConnState "installed"}}<span class="wcp-state is-warn" title="{{.Status.ConnReason}}">Connector installed, not usable</span>{{else}}<span class="wcp-state is-off">Nginx connector not installed</span>{{end}}
+        {{if eq .Status.ConnState "functional"}}<span class="small wcp-muted">{{if .Status.ConnPackage}}package {{.Status.ConnPackage}}{{else}}built or installed without a package{{end}}</span>{{end}}</span>
+      <span class="small"><span class="wcp-muted">OWASP CRS</span> {{if .Status.CRSAvailable}}{{.Status.CRSVersion}}{{else}}not installed{{end}}</span>
+      <span>{{if .Status.Active}}<span class="wcp-state is-ok">Active</span>{{else}}<span class="wcp-state is-off">Off</span>{{end}}</span>
+      <span class="small"><span class="wcp-muted">Audit log</span> {{.Status.AuditBytes}}</span>
+      <span class="ms-auto d-flex gap-2">
+      <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#ms-settings"><i class="bi bi-sliders me-1"></i>Server-wide settings</button>
+      {{if and .CanManage .Status.ModuleLoaded}}
+      <form method="post" action="/security/modsec/update" data-wcp-busy data-wcp-confirm="Update the rule packages now? Nginx is checked and reloaded afterwards; if the new rules do not load, the Core Rule Set is turned off and the websites keep working."><input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Update rules</button></form>
+      {{end}}
+      </span>
+    </div>
+  </div>
+
+  {{if or (ne .Status.ConnState "functional") (not .Status.CRSAvailable)}}
+  <div class="wcp-infobar" id="install"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>
+    {{if eq .Status.ConnState "installed"}}<strong>The connector is present but not usable:</strong> {{.Status.ConnReason}}<br>{{end}}
+    {{if ne .Status.ConnState "functional"}}
+    <strong>Install ModSecurity</strong> uses the distribution's package when installing it would not touch Nginx itself, and otherwise builds the official connector for the exact Nginx installed here. Everything is backed up first; if any step fails (build, libraries, loading, <code>nginx -t</code>, reload) it is all rolled back and Nginx keeps working as before. The Nginx program itself is never changed.
+    {{else}}
+    The OWASP Core Rule Set is not installed. It is installed from the distribution's package, or from the official release, and starts in <strong>detection only</strong>.
+    {{end}}
+  </span></div>
+  {{end}}
+
+  {{if .CanManage}}
+  <div class="wcp-subtabs" role="tablist">
+    <button class="active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#sites" aria-controls="sites" aria-selected="true">Websites <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Sites}}</span></button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#events" aria-controls="events" aria-selected="false">Recent events <span class="badge rounded-pill text-bg-light border fw-normal">{{len .EventCtx.Events}}</span></button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#vendors" aria-controls="vendors" aria-selected="false">Vendors</button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#custom" aria-controls="custom" aria-selected="false">Custom rules <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Rules}}</span></button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#installs" aria-controls="installs" aria-selected="false">Installation</button>
+  </div>
+  <div class="tab-content">
+  <div class="tab-pane fade show active" id="sites" role="tabpanel">
+  <div class="wcp-panel" data-wcp-dt>
+    <div class="wcp-actionbar"><div class="fw-semibold">Websites</div>
+      <div class="wcp-actionbar-end"><div class="wcp-search"><input class="form-control form-control-sm" type="search" placeholder="Search" aria-label="Search websites" data-wcp-dt-search><i class="bi bi-search" aria-hidden="true"></i></div></div></div>
+    <div class="wcp-dtable table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>Website</th><th>Mode</th><th>Rule vendors</th><th>Rules turned off</th><th></th></tr></thead>
+        <tbody>
+        {{range .Sites}}
+          <tr data-wcp-row>
+            <td><a class="fw-semibold" href="/sites/{{.ID}}/firewall">{{.Domain}}</a>{{if .OwnerName}}<div class="small wcp-muted">{{.OwnerName}}</div>{{end}}</td>
+            <td><span class="wcp-state {{.ModeClass}}">{{.ModeLabel}}</span></td>
+            <td class="small">{{.VendorsText}}</td>
+            <td class="small font-monospace">{{.DisabledText}}</td>
+            <td class="text-end"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#ms-edit-{{.ID}}">Edit</button></td>
+          </tr>
+        {{end}}
+        {{if not .Sites}}<tr><td colspan="5" class="text-center py-4 wcp-muted">No websites yet.</td></tr>{{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {{range .Sites}}
+  <div class="modal fade" id="ms-edit-{{.ID}}" tabindex="-1" aria-labelledby="ms-edit-{{.ID}}-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable"><div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title fs-5" id="ms-edit-{{.ID}}-title">ModSecurity for {{.Domain}}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body">
+        <form class="row g-2 align-items-end" method="post" action="/security/modsec/sites/{{.ID}}" data-wcp-busy>
+          <input type="hidden" name="_token" value="{{$.CSRF}}">
+          <div class="col-md-3"><label class="form-label small" for="ms-edit-{{.ID}}-m">Mode</label>
+            <select class="form-select form-select-sm" id="ms-edit-{{.ID}}-m" name="mode">
+              <option value="off"{{if index .ModeChecked "off"}} selected{{end}}>Off</option>
+              <option value="detect"{{if index .ModeChecked "detect"}} selected{{end}}>Detection only (log, do not block)</option>
+              <option value="on"{{if index .ModeChecked "on"}} selected{{end}}>On (block attacks)</option>
+            </select></div>
+          <div class="col-md-3"><div class="form-label small mb-1">Rule vendors</div>
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="vendors[]" value="crs" id="ms-edit-{{.ID}}-crs"{{if index .VendorChecked "crs"}} checked{{end}}><label class="form-check-label small" for="ms-edit-{{.ID}}-crs">OWASP Core Rule Set</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="vendors[]" value="custom" id="ms-edit-{{.ID}}-custom"{{if index .VendorChecked "custom"}} checked{{end}}><label class="form-check-label small" for="ms-edit-{{.ID}}-custom">Custom rules</label></div></div>
+          <div class="col-md-4"><label class="form-label small" for="ms-edit-{{.ID}}-d">Rules turned off (IDs)</label>
+            <input class="form-control form-control-sm font-monospace" id="ms-edit-{{.ID}}-d" name="disabled_rules" value="{{.DisabledValue}}" placeholder="e.g. 942100 920350"></div>
+          <div class="col-md-2"><button class="btn btn-sm btn-primary w-100">Save and check</button></div>
+        </form>
+      </div>
+    </div></div>
+  </div>
+  {{end}}
+  </div>
+  <div class="tab-pane fade" id="events" role="tabpanel">
+  <div class="wcp-panel" data-wcp-dt>
+    <div class="wcp-actionbar"><div class="fw-semibold">Recent events <span class="badge rounded-pill text-bg-light border fw-normal">{{len .EventCtx.Events}}</span></div>
+      <div class="wcp-actionbar-end"><div class="wcp-search"><input class="form-control form-control-sm" type="search" placeholder="Search" aria-label="Search events" data-wcp-dt-search><i class="bi bi-search" aria-hidden="true"></i></div></div></div>
+    {{template "modsec_events" .EventCtx}}
+  </div>
+  </div>
+  <div class="tab-pane fade" id="vendors" role="tabpanel">
+  <div class="wcp-panel">
+    <div class="fw-semibold mb-2">Rule vendors</div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-2">
+        <thead><tr><th>Vendor</th><th>Rule IDs</th><th>State</th></tr></thead>
+        <tbody>
+        {{range .Vendors}}
+          <tr>
+            <td><div class="fw-semibold">{{.Name}}{{if and (eq .ID "crs") .Version}} <span class="small wcp-muted">{{.Version}}</span>{{end}}</div><div class="small wcp-muted">{{.Description}}</div></td>
+            <td class="text-nowrap small font-monospace">{{.FirstID}}–{{.LastID}}</td>
+            <td><span class="wcp-state {{.StateClass}}">{{.State}}</span></td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    <div class="small wcp-muted">Each website can leave out a vendor or single rules (below). Commercial rule sets need their vendor's licence and are not bundled. The Core Rule Set is updated with its package (<em>Update rules</em>, or the server's package updates).</div>
+  </div>
+  </div>
+  <div class="tab-pane fade" id="custom" role="tabpanel">
+  <div class="wcp-panel" data-wcp-dt>
+    <div class="wcp-actionbar">
+      <div class="fw-semibold">Custom rules <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Rules}}</span>
+        <span class="wcp-state ms-1 {{if .Status.Config.CustomEnabled}}is-ok{{else}}is-off{{end}}">{{if .Status.Config.CustomEnabled}}in use{{else}}not in use (Server-wide settings){{end}}</span></div>
+      <div class="wcp-actionbar-end">
+        <div class="wcp-search"><input class="form-control form-control-sm" type="search" placeholder="Search rules" aria-label="Search rules" data-wcp-dt-search><i class="bi bi-search" aria-hidden="true"></i></div>
+        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#ms-rule-new"><i class="bi bi-plus-lg me-1"></i>New rule</button>
+      </div>
+    </div>
+    <div class="wcp-dtable table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>ID</th><th>Description</th><th>Phase</th><th>Action</th><th>Rule</th><th></th></tr></thead>
+        <tbody>
+        {{range $i, $r := .Rules}}
+          <tr data-wcp-row>
+            <td class="font-monospace">{{if $r.ID}}{{$r.ID}}{{else}}—{{end}}</td>
+            <td class="small">{{if $r.Comment}}{{$r.Comment}}{{else if $r.Msg}}{{$r.Msg}}{{else}}—{{end}}</td>
+            <td class="small">{{if $r.Phase}}{{$r.Phase}}{{else}}—{{end}}</td>
+            <td>{{if $r.Action}}<span class="wcp-state {{if $r.IsBlock}}is-error{{else}}is-off{{end}}">{{$r.Action}}</span>{{else}}—{{end}}</td>
+            <td class="small font-monospace text-break wcp-rule-text">{{$r.TextShort}}</td>
+            <td class="text-end text-nowrap">
+              <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#ms-rule-{{$i}}">Edit</button>
+              <form class="d-inline" method="post" action="/security/modsec/rule" data-wcp-busy data-wcp-confirm="Delete this rule? The remaining rules are checked by Nginx again.">
+                <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="op" value="delete"><input type="hidden" name="index" value="{{$i}}"><input type="hidden" name="sha" value="{{$r.SHA}}">
+                <button class="btn btn-sm btn-outline-danger">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {{end}}
+        <tr class="{{if not .Rules}}{{else}}d-none{{end}}" data-wcp-dt-empty><td colspan="6" class="text-center py-4 wcp-muted">No custom rules yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="wcp-pager" data-wcp-dt-pager></div>
+    <p class="small wcp-muted mt-2 mb-0">ModSecurity rule directives only (<code>SecRule</code>, <code>SecAction</code>, <code>SecMarker</code>, <code>SecRuleRemove…</code>, <code>SecRuleUpdate…</code>), each <code>SecRule</code>/<code>SecAction</code> with an <code>id</code> from 10000 to 99999. Programs (<code>exec</code>), file operators and includes are refused. Nginx checks the rules before they are used; a rule it rejects is not saved.</p>
+    <details class="mt-2"><summary class="small">Edit all rules as text</summary>
+      <form class="mt-2" method="post" action="/security/modsec/custom" data-wcp-busy>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <textarea class="form-control font-monospace small mb-2" name="rules" rows="10" spellcheck="false" aria-label="Custom rules">{{.Custom}}</textarea>
+        <button class="btn btn-sm btn-outline-primary">Save and check</button>
+      </form>
+    </details>
+  </div>
+  {{range .RuleModals}}
+  <div class="modal fade" id="{{.MID}}" tabindex="-1" aria-labelledby="{{.MID}}-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title fs-5" id="{{.MID}}-title">{{.Title}}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body">
+        <form method="post" action="/security/modsec/rule" data-wcp-busy>
+          <input type="hidden" name="_token" value="{{.CSRF}}">
+          {{if ge .Index 0}}<input type="hidden" name="index" value="{{.Index}}"><input type="hidden" name="sha" value="{{.SHA}}">{{end}}
+          <label class="form-label small" for="{{.MID}}-c">Description <span class="wcp-muted">(optional, kept as a comment)</span></label>
+          <input class="form-control form-control-sm mb-2" id="{{.MID}}-c" name="comment" maxlength="500" value="{{.Comment}}">
+          <label class="form-label small" for="{{.MID}}-r">Rule</label>
+          <textarea class="form-control font-monospace small" id="{{.MID}}-r" name="rule" rows="5" spellcheck="false" required>{{.Rule}}</textarea>
+          <div class="form-text">One directive; long rules may continue on the next line after a backslash. Example: <code>SecRule REQUEST_URI "@beginsWith /xmlrpc.php" "id:{{.NextID}},phase:1,deny,status:403,log,msg:'xmlrpc blocked'"</code></div>
+          <div class="modal-footer px-0 pb-0"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary">Save and check</button></div>
+        </form>
+      </div>
+    </div></div>
+  </div>
+  {{end}}
+  </div>
+  <div class="tab-pane fade" id="installs" role="tabpanel">
+  <div class="wcp-panel">
+    <div class="wcp-actionbar">
+      <div class="fw-semibold">Installation</div>
+      <div class="wcp-actionbar-end d-flex flex-wrap gap-2">
+        {{if or (ne .Status.ConnState "functional") (not .Status.ConnPackage)}}
+        <button type="button" class="btn btn-sm {{if eq .Status.ConnState "functional"}}btn-outline-secondary{{else}}btn-primary{{end}}" data-bs-toggle="modal" data-bs-target="#ms-install"><i class="bi bi-box-arrow-in-down me-1"></i>{{if eq .Status.ConnState "functional"}}Upgrade connector{{else}}Install ModSecurity{{end}}</button>
+        {{end}}
+        {{if not .Status.CRSAvailable}}
+        <form method="post" action="/security/modsec/crs" data-wcp-busy data-wcp-confirm="Install the OWASP Core Rule Set? It comes from the distribution's package, or from the official release (checksum-verified). It is turned on in detection only: websites set to block only log until you allow blocking."><input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-shield-plus me-1"></i>Install Core Rule Set</button></form>
+        {{end}}
+      </div>
+    </div>
+    {{if .Installs}}
+    <div class="wcp-dtable table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>Started</th><th>What</th><th class="wcp-col-result">Result</th><th>Sources</th><th></th></tr></thead>
+        <tbody>
+        {{range .Installs}}
+          <tr>
+            <td class="small text-nowrap">{{.Started}} UTC<div class="wcp-muted font-monospace small">{{.ID}}</div></td>
+            <td class="small">{{.Method}}{{if .NginxVer}}<div class="wcp-muted">Nginx {{.NginxVer}}{{if .OS}} · {{.OS}}{{end}}</div>{{end}}</td>
+            <td class="small">
+              <span class="wcp-state {{.StatusCls}}">{{.StatusText}}</span>{{if .InEffect}} <span class="wcp-muted">in effect</span>{{end}}
+              {{if .ErrShort}}
+              <div class="text-break mt-1">{{.ErrShort}}</div>
+              {{if .ErrLong}}<details class="mt-1"><summary class="small">Show the full output</summary><pre class="wcp-db-create small mb-0 mt-1 wcp-update-log">{{.ErrFull}}</pre></details>{{end}}
+              {{end}}
+              {{if eq .Status "rollback_failed"}}<div>Backup for manual recovery: <code>{{.Folder}}/snapshot</code></div>{{end}}
+            </td>
+            <td class="small">{{range .Sources}}<div>{{.Name}} {{.Version}} <span class="wcp-muted">— {{.Origin}}</span></div>{{end}}{{if .Module}}<div class="font-monospace wcp-muted text-break">{{.Module}}</div>{{end}}</td>
+            <td class="text-end">{{if .InEffect}}
+              <form method="post" action="/security/modsec/rollback/{{.ID}}" data-wcp-busy data-wcp-confirm="Roll back this installation? Its files are put back as they were before it, packages it added are removed, then Nginx is checked and reloaded. If Nginx would not accept the result (for example while ModSecurity is on and the connector would go), nothing changes."><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-outline-danger">Roll back</button></form>
+            {{end}}</td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+    <p class="small wcp-muted mb-0 mt-2">Every installation first saves a copy of the Nginx configuration, the ModSecurity and rule configuration and the linker configuration; records are kept {{.Retention}} days (Settings), the one in effect always.</p>
+  </div>
+  </div>
+
+  <div class="modal fade" id="ms-install" tabindex="-1" aria-labelledby="ms-install-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title fs-5" id="ms-install-title">{{if eq .Status.ConnState "functional"}}Upgrade the ModSecurity connector{{else}}Install ModSecurity{{end}}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body">
+        <form method="post" action="/security/modsec/install" data-wcp-busy>
+          <input type="hidden" name="_token" value="{{.CSRF}}">
+          {{if eq .Status.ConnState "functional"}}<input type="hidden" name="upgrade" value="1"><p class="small">The connector in use stays in place until the new one works; if anything fails it stays in effect.</p>{{end}}
+          <label class="form-label small" for="ms-method">How</label>
+          <select class="form-select form-select-sm mb-2" id="ms-method" name="method">
+            <option value="auto">Package when it is compatible, otherwise build from source (recommended)</option>
+            <option value="source">Always build from source</option>
+          </select>
+          <label class="form-label small" for="ms-sha">SHA-256 of Nginx's source <span class="wcp-muted">(only when Nginx was not installed from a package)</span></label>
+          <input class="form-control form-control-sm font-monospace mb-2" id="ms-sha" name="nginx_source_sha256" pattern="[0-9a-fA-F]{64}" placeholder="from nginx.org, for nginx-{{if .Status.NginxVersion}}{{.Status.NginxVersion}}{{else}}x.y.z{{end}}.tar.gz" autocomplete="off" spellcheck="false">
+          <p class="small wcp-muted">A build installs compilers and development packages (removed again if the installation fails), downloads the pinned ModSecurity releases (checksum-verified) and Nginx's own source, and builds as a temporary unprivileged account. It takes a few minutes; you can close this page.</p>
+          <div class="modal-footer px-0 pb-0"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary">{{if eq .Status.ConnState "functional"}}Upgrade{{else}}Install{{end}}</button></div>
+        </form>
+      </div>
+    </div></div>
+  </div>
+  {{end}}
+
+  <div class="modal fade" id="ms-settings" tabindex="-1" aria-labelledby="ms-settings-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title fs-5" id="ms-settings-title">ModSecurity: server-wide settings</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body">
+        <form method="post" action="/security/modsec" data-wcp-busy>
+          <input type="hidden" name="_token" value="{{.CSRF}}">
+          <fieldset{{if not .CanManage}} disabled{{end}}>
+          <div class="form-check form-switch mb-1">
+            <input type="hidden" name="enabled" value="0">
+            <input class="form-check-input" type="checkbox" role="switch" id="ms-on" name="enabled" value="1"{{if .Status.Config.Enabled}} checked{{end}}{{if not .Status.ModuleLoaded}} disabled{{end}}>
+            <label class="form-check-label" for="ms-on">ModSecurity on</label>
+          </div>
+          <div class="form-text mt-0 mb-3">Loads the rules once for all websites. Each website is then off, detection only or on (Websites tab); off here filters no website.</div>
+          <div class="form-check form-switch mb-2">
+            <input type="hidden" name="crs_enabled" value="0">
+            <input class="form-check-input" type="checkbox" role="switch" id="ms-crs" name="crs_enabled" value="1"{{if .Status.Config.CRSEnabled}} checked{{end}}>
+            <label class="form-check-label" for="ms-crs">OWASP Core Rule Set</label>
+          </div>
+          <label class="form-label small" for="ms-pl">Paranoia level</label>
+          <select class="form-select form-select-sm mb-2" id="ms-pl" name="paranoia">
+            <option value="1"{{if eq .Status.Config.Paranoia 1}} selected{{end}}>1 — few false positives (recommended)</option>
+            <option value="2"{{if eq .Status.Config.Paranoia 2}} selected{{end}}>2 — more rules, some false positives</option>
+            <option value="3"{{if eq .Status.Config.Paranoia 3}} selected{{end}}>3 — strict, needs tuning</option>
+            <option value="4"{{if eq .Status.Config.Paranoia 4}} selected{{end}}>4 — paranoid, many false positives</option>
+          </select>
+          <div class="row g-2 mb-1">
+            <div class="col-6"><label class="form-label small" for="ms-in">Inbound anomaly threshold</label><input class="form-control form-control-sm" type="number" min="2" max="1000" id="ms-in" name="inbound_threshold" value="{{.Status.Config.Inbound}}"></div>
+            <div class="col-6"><label class="form-label small" for="ms-out">Outbound anomaly threshold</label><input class="form-control form-control-sm" type="number" min="2" max="1000" id="ms-out" name="outbound_threshold" value="{{.Status.Config.Outbound}}"></div>
+          </div>
+          <div class="form-text mt-0 mb-3">A request is blocked when the rules it matches add up to the threshold (a critical match counts 5). Higher: fewer false positives, less protection.</div>
+          <div class="form-check form-switch mb-1">
+            <input type="hidden" name="detection_only" value="0">
+            <input class="form-check-input" type="checkbox" role="switch" id="ms-detect" name="detection_only" value="1"{{if .Status.Config.DetectionOnly}} checked{{end}}>
+            <label class="form-check-label" for="ms-detect">Detection only (do not block yet)</label>
+          </div>
+          <div class="form-text mt-0 mb-3">Websites set to “On” only log what they would block. Check the Recent events tab for false positives, then turn this off to start blocking.</div>
+          <div class="form-check form-switch mb-3">
+            <input type="hidden" name="custom_enabled" value="0">
+            <input class="form-check-input" type="checkbox" role="switch" id="ms-custom" name="custom_enabled" value="1"{{if .Status.Config.CustomEnabled}} checked{{end}}>
+            <label class="form-check-label" for="ms-custom">Custom rules ({{.Status.CustomCount}})</label>
+          </div>
+          {{if .CanManage}}<div class="modal-footer px-0 pb-0"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary">Save and check</button></div>{{end}}
+          </fieldset>
+        </form>
+      </div>
+    </div></div>
+  </div>
+  {{else}}
+  {{end}}
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

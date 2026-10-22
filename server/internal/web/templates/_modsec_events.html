@@ -1,0 +1,35 @@
+{{define "modsec_events"}}
+<!-- The ModSecurity events table (the PHP partials/modsec_events). The data
+     is a modsecEventsCtx: .Events (the rows), .ShowHost (the index page
+     shows the website column), .TurnOffID/.TurnOffDomain (the website's
+     page: an administrator may turn a rule off here). -->
+<div class="wcp-dtable table-responsive">
+    <table class="table align-middle">
+        <thead><tr><th>Time</th>{{if .ShowHost}}<th>Website</th>{{end}}<th>Request</th><th>Result</th><th>Rules</th></tr></thead>
+        <tbody>
+        {{range .Events}}
+            <tr>
+                <td class="text-nowrap small" title="{{.TimeFull}}">{{.Time}}</td>
+                {{if $.ShowHost}}<td class="small">{{if .Link}}<a href="{{.Link}}">{{.Host}}</a>{{else}}{{.Host}}{{end}}</td>{{end}}
+                <td class="small"><span class="font-monospace">{{.Method}} {{.URI}}</span><div class="wcp-muted">{{.ClientIP}}</div></td>
+                <td><span class="wcp-state {{if .Blocked}}is-error{{else}}is-warn{{end}}">{{if .Blocked}}Blocked ({{.Status}}){{else}}Detected{{end}}</span></td>
+                <td class="small">
+                    {{range .Rules}}
+                    <div class="d-flex align-items-start gap-2 mb-1">
+                        <span class="font-monospace text-nowrap">{{.ID}}</span>
+                        <span class="flex-grow-1">{{.Message}}</span>
+                        {{if and $.TurnOffID .TurnOff}}
+                        <form method="post" action="/sites/{{$.TurnOffID}}/firewall" data-wcp-busy data-wcp-confirm="Turn rule {{.ID}} off for {{$.TurnOffDomain}}? Requests that only match it are no longer blocked on this website.">
+                            <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="disable_rule" value="{{.ID}}"><button class="btn btn-sm btn-link p-0 text-nowrap">Turn off here</button>
+                        </form>
+                        {{end}}
+                    </div>
+                    {{end}}
+                </td>
+            </tr>
+        {{end}}
+        {{if not .Events}}<tr><td colspan="{{if .ShowHost}}5{{else}}4{{end}}" class="text-center py-4 wcp-muted">No blocked or detected requests.</td></tr>{{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
