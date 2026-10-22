@@ -79,6 +79,11 @@ type sitesAgent struct {
 	hulkActive bool
 	// modsecActive is the modsec.status reply's active flag (default true).
 	modsecActive bool
+	// avScanJobID is the av.scan reply's job id (default "0123456789abcdef").
+	avScanJobID string
+	// avQuarantineItemsJSON is the av.quarantine_list reply's items array
+	// (default: empty).
+	avQuarantineItemsJSON string
 }
 
 // setJob registers the jobs.get reply for a job id.
@@ -112,7 +117,7 @@ func guardedReply(changed bool, id, kind, summary string) []byte {
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
 	t.Helper()
-	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true, hulkAvailable: true, hulkActive: true, modsecActive: true}
+	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true, hulkAvailable: true, hulkActive: true, modsecActive: true, avScanJobID: "0123456789abcdef"}
 	dir := t.TempDir()
 	socket := filepath.Join(dir, "agent.sock")
 	tokenFile := filepath.Join(dir, "token")
@@ -275,6 +280,27 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"installed":` + boolJSON(installed) + `,"version":` + fmt.Sprintf("%q", version) + `,"freshclam":` + boolJSON(freshclam) + tail + `}}`))
 		case "av.update":
 			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
+		case "av.scan":
+			sa.mu.Lock()
+			jobID := sa.avScanJobID
+			sa.mu.Unlock()
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"` + jobID + `"}}`))
+		case "av.quarantine_list":
+			sa.mu.Lock()
+			items := sa.avQuarantineItemsJSON
+			sa.mu.Unlock()
+			if items == "" {
+				items = "[]"
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"items":` + items + `}}`))
+		case "av.release":
+			// The agent restores the file where it came from (the batch
+			// stamp is the first path segment).
+			restored := strOf(p["path"])
+			if i := strings.Index(restored, "/"); i >= 0 && i < len(restored)-1 {
+				restored = restored[i+1:]
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"released":true,"path":` + fmt.Sprintf("%q", restored) + `}}`))
 		case "security.pending":
 			sa.mu.Lock()
 			pending := sa.secPending

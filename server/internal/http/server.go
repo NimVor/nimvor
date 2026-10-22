@@ -268,6 +268,12 @@ func (s *Server) routes() {
 	// also turn single rules off from an event).
 	s.mux.HandleFunc("GET /sites/{id}/firewall", s.guard("sites.firewall", "websites.view", s.siteFirewall))
 	s.mux.HandleFunc("POST /sites/{id}/firewall", s.guard("sites.firewall.update", "websites.manage", s.siteFirewallMode))
+
+	// The website's malware page (AvController::show/scan/release: the
+	// website's ClamAV scans, the quarantine + release, the on-demand scan).
+	s.mux.HandleFunc("GET /sites/{id}/malware", s.guard("sites.malware", "websites.view", s.siteMalware))
+	s.mux.HandleFunc("POST /sites/{id}/malware/scan", s.guard("sites.malware.scan", "websites.manage", s.siteMalwareScan))
+	s.mux.HandleFunc("POST /sites/{id}/malware/release", s.guard("sites.malware.release", "security.manage", s.siteMalwareRelease))
 	// Subdomains: gated by the subdomains plan feature (route name) AND the
 	// websites.manage permission.
 	s.mux.HandleFunc("GET /sites/{id}/subdomains", s.guard("sites.subdomains", "websites.manage", s.siteSubdomains))
