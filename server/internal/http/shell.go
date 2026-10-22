@@ -414,6 +414,8 @@ func (s *Server) accountSSHDisabled(ctx context.Context, serverID int64, systemU
 // change (SecurityController::confirm/undo, security.manage). The return_to
 // whitelist holds the ported security pages (PHP's list points at the not
 // yet ported /security overview and friends).
+var securityReturnTo = map[string]bool{"/security/shell": true, "/security/firewall": true}
+
 func (s *Server) securityConfirm(w http.ResponseWriter, r *http.Request) { s.securityGuardAction(w, r, "confirm") }
 func (s *Server) securityUndo(w http.ResponseWriter, r *http.Request)   { s.securityGuardAction(w, r, "undo") }
 
@@ -430,7 +432,7 @@ func (s *Server) securityGuardAction(w http.ResponseWriter, r *http.Request, whi
 	}
 	id := r.FormValue("id")
 	to := r.FormValue("return_to")
-	if to != "/security/shell" {
+	if !securityReturnTo[to] {
 		to = "/security/shell"
 	}
 	action := "security." + which

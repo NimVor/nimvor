@@ -44,6 +44,11 @@ type sitesAgent struct {
 	// shellSetEffective overrides the shell.set reply's effective mode
 	// ("" = the requested mode, i.e. it takes effect immediately).
 	shellSetEffective string
+	// fwActive is the firewall.status reply's active flag.
+	fwActive bool
+	// guardChanged is the guarded (firewall.*/protection) replies' changed
+	// flag; false → {changed:false} ("Nothing to change.").
+	guardChanged bool
 }
 
 // setJob registers the jobs.get reply for a job id.
@@ -57,6 +62,22 @@ func (sa *sitesAgent) setJob(id, reply string) {
 func strOf(v any) string {
 	s, _ := v.(string)
 	return s
+}
+
+func boolJSON(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+// guardedReply is the agent's guarded() reply: a change pending its
+// confirmation (or changed:false when nothing moved).
+func guardedReply(changed bool, id, kind, summary string) []byte {
+	if !changed {
+		return []byte(`{"success":true,"data":{"changed":false}}`)
+	}
+	return []byte(`{"success":true,"data":{"changed":true,"pending":{"id":"` + id + `","kind":"` + kind + `","summary":"` + summary + `","deadline":"2026-01-01T12:03:00Z"}}}`)
 }
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
@@ -240,6 +261,45 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				}
 			}
 			_, _ = w.Write([]byte(`{"success":true,"data":{"accounts":[` + out + `]}}`))
+		case "firewall.status":
+			sa.mu.Lock()
+			active := sa.fwActive
+			sa.mu.Unlock()
+			_, _ = w.Write([]byte(`{"success":true,"data":{"backend":"ufw","installed":true,"active":` + boolJSON(active) +
+				`,"default_incoming":"deny","default_outgoing":"allow","ssh_port":22,"ssh_allowed":true,` +
+				`"rules":[{"spec":"allow 22/tcp","action":"allow","ssh":true,"port":"22","proto":"tcp","from":"","direction":"in","comment":"SSH"},` +
+				`{"spec":"deny from 203.0.113.99","action":"deny","ssh":false,"port":"","proto":"","from":"203.0.113.99","direction":"in","comment":"Bad guy"}],` +
+				`"required":[{"port":"22","proto":"tcp","from":"","service":"SSH","critical":true,"open":true},` +
+				`{"port":"8443","proto":"tcp","from":"","service":"Panel (HTTPS)","critical":true,"open":false}],` +
+				`"listening":[{"proto":"tcp","port":22,"local":false},{"proto":"tcp","port":80,"local":false},{"proto":"tcp","port":3306,"local":true}]}}`))
+		case "firewall.protection":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"available":true,"active":false,` +
+				`"config":{"enabled":false,"invalid":false,"syn_rate":0,"icmp_rate":0,"conn_limits":[],"port_flood":[],"exempt":[]},"dropped":{}}}`))
+		case "firewall.set_enabled":
+			sa.mu.Lock()
+			changed := sa.guardChanged
+			sa.mu.Unlock()
+			enabled := p["enabled"] == true
+			summary := "Firewall disabled"
+			if enabled {
+				summary = "Firewall enabled"
+			}
+			_, _ = w.Write(guardedReply(changed, "fwpend-fw", "firewall", summary))
+		case "firewall.rule_add":
+			sa.mu.Lock()
+			changed := sa.guardChanged
+			sa.mu.Unlock()
+			_, _ = w.Write(guardedReply(changed, "fwpend-rule", "firewall", "Firewall rule added"))
+		case "firewall.rule_delete":
+			sa.mu.Lock()
+			changed := sa.guardChanged
+			sa.mu.Unlock()
+			_, _ = w.Write(guardedReply(changed, "fwpend-del", "firewall", "Firewall rule removed"))
+		case "firewall.protection_set":
+			sa.mu.Lock()
+			changed := sa.guardChanged
+			sa.mu.Unlock()
+			_, _ = w.Write(guardedReply(changed, "fwpend-prot", "firewall", "Firewall protections applied"))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}
