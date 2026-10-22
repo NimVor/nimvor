@@ -72,6 +72,11 @@ type sitesAgent struct {
 	avFreshclam bool
 	// avUpdaterLog is the av.status reply's updater_log ("" = none).
 	avUpdaterLog string
+	// hulkAvailable is the hulk.status reply's available flag (default true);
+	// false = nftables is not installed.
+	hulkAvailable bool
+	// hulkActive is the hulk.status reply's active flag (default true).
+	hulkActive bool
 }
 
 // setJob registers the jobs.get reply for a job id.
@@ -105,7 +110,7 @@ func guardedReply(changed bool, id, kind, summary string) []byte {
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
 	t.Helper()
-	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true}
+	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true, hulkAvailable: true, hulkActive: true}
 	dir := t.TempDir()
 	socket := filepath.Join(dir, "agent.sock")
 	tokenFile := filepath.Join(dir, "token")
@@ -261,11 +266,11 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			if version == "" {
 				version = "ClamAV 1.4.3/27781/2026-09-27"
 			}
-			logJSON := ""
+			tail := ""
 			if updaterLog != "" {
-				logJSON = `"updater_log":` + fmt.Sprintf("%q", updaterLog) + `,`
+				tail = `,"updater_log":` + fmt.Sprintf("%q", updaterLog)
 			}
-			_, _ = w.Write([]byte(`{"success":true,"data":{"installed":` + boolJSON(installed) + `,"version":` + fmt.Sprintf("%q", version) + `,"freshclam":` + boolJSON(freshclam) + `,` + logJSON + `}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"installed":` + boolJSON(installed) + `,"version":` + fmt.Sprintf("%q", version) + `,"freshclam":` + boolJSON(freshclam) + tail + `}}`))
 		case "av.update":
 			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
 		case "security.pending":
@@ -430,6 +435,13 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				data = `{"installed":true,"configured":true,"hostname":"mail.example.com"}`
 			}
 			_, _ = w.Write([]byte(`{"success":true,"data":` + data + `}`))
+		case "hulk.status":
+			sa.mu.Lock()
+			available, active := sa.hulkAvailable, sa.hulkActive
+			sa.mu.Unlock()
+			_, _ = w.Write([]byte(`{"success":true,"data":{"available":` + boolJSON(available) + `,"active":` + boolJSON(active) + `}}`))
+		case "hulk.sync":
+			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

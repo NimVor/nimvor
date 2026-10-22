@@ -1,0 +1,303 @@
+{{define "security_hulk"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>cPHulk Brute Force Protection · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/servers">&larr; Servers</a></p>
+  <h1>cPHulk Brute Force Protection</h1>
+  <p class="text-muted">Security</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .AgentError}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <i class="bi bi-plug fs-5"></i>
+      <div><div class="fw-semibold">{{.AgentError}}</div></div>
+    </div>
+  </div>
+  {{else if .Pending}}
+  <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert">
+    <i class="bi bi-hourglass-split"></i>
+    <div class="me-auto"><strong>Unconfirmed change:</strong> {{index .Pending "summary"}}. It is undone automatically in <strong data-wcp-countdown="{{index .Pending "deadline"}}">2:00</strong> unless you confirm that you can still connect (open a new SSH session to test).</div>
+    {{if .CanManage}}
+    <form method="post" action="/security/confirm">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <input type="hidden" name="id" value="{{index .Pending "id"}}">
+      <input type="hidden" name="return_to" value="/security/hulk">
+      <button class="btn btn-sm btn-success">Keep change</button>
+    </form>
+    <form method="post" action="/security/undo">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <input type="hidden" name="id" value="{{index .Pending "id"}}">
+      <input type="hidden" name="return_to" value="/security/hulk">
+      <button class="btn btn-sm btn-outline-secondary">Undo now</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+
+  <div class="wcp-panel mb-3">
+    <p class="mb-2">cPHulk provides protection from brute force attacks against your web services.</p>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <span class="fw-medium">Status:</span>
+      {{if not .V.Enabled}}<span class="wcp-state is-off">Disabled</span>
+      {{else if and .Status (not (index .Status "Available"))}}<span class="wcp-state is-warn">Enabled (WhaCP sign-ins only: nftables is not installed)</span>
+      {{else}}<span class="wcp-state is-ok">Enabled</span>{{end}}
+      <span class="small text-body-secondary">Watches WhaCP, webmail, SSH, IMAP/POP3, SMTP AUTH and FTP logins. {{len .Blocks}} block{{if ne (len .Blocks) 1}}s{{end}} in force.</span>
+    </div>
+  </div>
+
+  <div class="wcp-subtabs" role="tablist">
+    <button class="active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#settings" aria-controls="settings" aria-selected="true">cPHulk Settings</button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#countries" aria-controls="countries" aria-selected="false">Countries Management</button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#report" aria-controls="report" aria-selected="false">Failed Logins Report <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Report}}</span></button>
+  </div>
+
+  <div class="tab-content">
+  <div class="tab-pane fade show active" id="settings" role="tabpanel">
+  <form method="post" action="/security/hulk" data-wcp-busy>
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <div class="wcp-panel mb-3">
+      <div class="form-check form-switch mb-1">
+        <input type="hidden" name="hulk_enabled" value="0">
+        <input class="form-check-input" type="checkbox" role="switch" id="h-hulk_enabled" name="hulk_enabled" value="1"{{if .V.Enabled}} checked{{end}}{{if not .CanManage}} disabled{{end}}>
+        <label class="form-check-label fw-medium" for="h-hulk_enabled">Enable cPHulk Brute Force Protection</label>
+      </div>
+      <div class="mb-3"></div>
+    </div>
+
+    <div class="wcp-panel mb-3">
+      <div class="fw-semibold mb-2">Username-based Protection</div>
+      <div class="form-check form-switch mb-1">
+        <input type="hidden" name="hulk_user_enabled" value="0">
+        <input class="form-check-input" type="checkbox" role="switch" id="h-hulk_user_enabled" name="hulk_user_enabled" value="1"{{if .V.UserEnabled}} checked{{end}}{{if not .CanManage}} disabled{{end}}>
+        <label class="form-check-label fw-medium" for="h-hulk_user_enabled">Username-based Protection</label>
+      </div>
+      <div class="small text-body-secondary mb-3">Username-based protection tracks login attempts for user accounts. When disabled, cPHulk will not lock user accounts, but existing account locks will remain. Locked accounts cannot sign in to WhaCP until the lock ends.</div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-6 col-xl-4"><label class="form-label small fw-medium" for="h-hulk_user_period">Brute Force Protection Period (in minutes)</label><input class="form-control form-control-sm" type="number" id="h-hulk_user_period" name="hulk_user_period" min="1" max="1440" value="{{.V.UserPeriod}}" required{{if not .CanManage}} disabled{{end}}></div>
+        <div class="col-md-6 col-xl-4"><label class="form-label small fw-medium" for="h-hulk_user_max">Maximum Failures by Account</label><input class="form-control form-control-sm" type="number" id="h-hulk_user_max" name="hulk_user_max" min="1" max="1000" value="{{.V.UserMax}}" required{{if not .CanManage}} disabled{{end}}></div>
+      </div>
+      <div class="mb-3">
+        <div class="small fw-medium mb-1">Protection type</div>
+        <div class="form-check"><input class="form-check-input" type="radio" name="hulk_user_scope" id="h-scope-local" value="local"{{if eq .V.UserScope "local"}} checked{{end}}{{if not .CanManage}} disabled{{end}}><label class="form-check-label" for="h-scope-local">Apply protection to local addresses only</label></div>
+        <div class="form-check"><input class="form-check-input" type="radio" name="hulk_user_scope" id="h-scope-all" value="all"{{if ne .V.UserScope "local"}} checked{{end}}{{if not .CanManage}} disabled{{end}}><label class="form-check-label" for="h-scope-all">Apply protection to local and remote addresses</label></div>
+      </div>
+      <div class="form-check form-switch mb-1">
+        <input type="hidden" name="hulk_user_lock_root" value="0">
+        <input class="form-check-input" type="checkbox" role="switch" id="h-hulk_user_lock_root" name="hulk_user_lock_root" value="1"{{if .V.UserLockRoot}} checked{{end}}{{if not .CanManage}} disabled{{end}}>
+        <label class="form-check-label fw-medium" for="h-hulk_user_lock_root">Allow username protection to lock the “root” user</label>
+      </div>
+      <div class="small text-body-secondary mb-3">Also applies to WhaCP administrator accounts. When off, failures for them count toward IP address blocks only.</div>
+    </div>
+
+    <div class="wcp-panel mb-3">
+      <div class="fw-semibold mb-2">IP Address-based Protection</div>
+      <div class="form-check form-switch mb-1">
+        <input type="hidden" name="hulk_ip_enabled" value="0">
+        <input class="form-check-input" type="checkbox" role="switch" id="h-hulk_ip_enabled" name="hulk_ip_enabled" value="1"{{if .V.IPEnabled}} checked{{end}}{{if not .CanManage}} disabled{{end}}>
+        <label class="form-check-label fw-medium" for="h-hulk_ip_enabled">IP Address-based Protection</label>
+      </div>
+      <div class="small text-body-secondary mb-3">IP Address-based protection tracks login attempts from specific IP addresses. When disabled, cPHulk will not block IP addresses, but existing blocks will remain.</div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-6 col-xl-4"><label class="form-label small fw-medium" for="h-hulk_ip_period">IP Address-based Brute Force Protection Period (in minutes)</label><input class="form-control form-control-sm" type="number" id="h-hulk_ip_period" name="hulk_ip_period" min="1" max="1440" value="{{.V.IPPeriod}}" required{{if not .CanManage}} disabled{{end}}></div>
+        <div class="col-md-6 col-xl-4"><label class="form-label small fw-medium" for="h-hulk_ip_max">Maximum Failures per IP Address</label><input class="form-control form-control-sm" type="number" id="h-hulk_ip_max" name="hulk_ip_max" min="1" max="1000" value="{{.V.IPMax}}" required{{if not .CanManage}} disabled{{end}}></div>
+      </div>
+      <label class="form-label small fw-medium" for="h-hulk_ip_command">Command to Run When an IP Address Triggers Brute Force Protection</label>
+      <input class="form-control form-control-sm font-monospace mb-1" id="h-hulk_ip_command" name="hulk_ip_command" maxlength="500" value="{{.V.IPCommand}}"{{if not .CanManage}} disabled{{end}}>
+      <div class="wcp-infobar my-2"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i><span>Warning: The command must complete within 15 seconds to avoid a timeout. It runs as the panel's own account (not root); values are passed shell-quoted.</span></div>
+      <div class="small mb-1">The following variables may be used in commands:</div>
+      <ul class="small mb-0 wcp-hulk-vars">
+        {{range .Variables}}<li><code>%{{.Name}}</code> - {{.Desc}}</li>
+        {{end}}
+      </ul>
+      <div class="mt-3">
+        <div class="form-check form-switch mb-1">
+          <input type="hidden" name="hulk_ip_firewall" value="0">
+          <input class="form-check-input" type="checkbox" role="switch" id="h-hulk_ip_firewall" name="hulk_ip_firewall" value="1"{{if .V.IPFirewall}} checked{{end}}{{if not .CanManage}} disabled{{end}}>
+          <label class="form-check-label fw-medium" for="h-hulk_ip_firewall">Block IP addresses at the firewall level if they trigger brute force protection</label>
+        </div>
+        <div class="small text-body-secondary mb-3">At the firewall level the address cannot reach any service of the server (websites included). Otherwise it is blocked from WhaCP and the login services (SSH, FTP, IMAP/POP3, SMTP submission).</div>
+      </div>
+    </div>
+
+    <div class="wcp-panel mb-3">
+      <div class="fw-semibold mb-2">One-day Blocks</div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-6 col-xl-4"><label class="form-label small fw-medium" for="h-hulk_oneday_max">Maximum Failures per IP Address before the IP Address is Blocked for One Day</label><input class="form-control form-control-sm" type="number" id="h-hulk_oneday_max" name="hulk_oneday_max" min="1" max="10000" value="{{.V.OnedayMax}}" required{{if not .CanManage}} disabled{{end}}></div>
+      </div>
+      <label class="form-label small fw-medium" for="h-hulk_oneday_command">Command to Run When an IP Address Triggers a One-Day Block</label>
+      <input class="form-control form-control-sm font-monospace mb-2" id="h-hulk_oneday_command" name="hulk_oneday_command" maxlength="500" value="{{.V.OnedayCommand}}"{{if not .CanManage}} disabled{{end}}>
+      <div class="small mb-1">The following variables may be used in commands:</div>
+      <ul class="small mb-0 wcp-hulk-vars">
+        {{range .Variables}}<li><code>%{{.Name}}</code> - {{.Desc}}</li>
+        {{end}}
+      </ul>
+      <div class="mt-3">
+        <div class="form-check form-switch mb-1">
+          <input type="hidden" name="hulk_oneday_firewall" value="0">
+          <input class="form-check-input" type="checkbox" role="switch" id="h-hulk_oneday_firewall" name="hulk_oneday_firewall" value="1"{{if .V.OnedayFirewall}} checked{{end}}{{if not .CanManage}} disabled{{end}}>
+          <label class="form-check-label fw-medium" for="h-hulk_oneday_firewall">Block IP addresses at the firewall level if they trigger a one-day block</label>
+        </div>
+        <div class="mb-3"></div>
+      </div>
+    </div>
+
+    <div class="wcp-panel mb-3">
+      <div class="fw-semibold mb-2">Login History</div>
+      <div class="row g-3">
+        <div class="col-md-6 col-xl-4"><label class="form-label small fw-medium" for="h-hulk_retention">Duration for Retaining Failed Logins (in minutes)</label><input class="form-control form-control-sm" type="number" id="h-hulk_retention" name="hulk_retention" min="5" max="10080" value="{{.V.Retention}}" required{{if not .CanManage}} disabled{{end}}></div>
+      </div>
+    </div>
+
+    <div class="wcp-panel mb-3">
+      <div class="fw-semibold mb-2">Notifications</div>
+      <div class="form-check mb-1"><input type="hidden" name="hulk_notify_root" value="0"><input class="form-check-input" type="checkbox" id="h-hulk_notify_root" name="hulk_notify_root" value="1"{{if .V.NotifyRoot}} checked{{end}}{{if not .CanManage}} disabled{{end}}><label class="form-check-label" for="h-hulk_notify_root">Send a notification upon successful root login when the IP address is not on the whitelist</label></div>
+      <div class="form-check mb-1"><input type="hidden" name="hulk_notify_root_netblock" value="0"><input class="form-check-input" type="checkbox" id="h-hulk_notify_root_netblock" name="hulk_notify_root_netblock" value="1"{{if .V.NotifyRootNB}} checked{{end}}{{if not .CanManage}} disabled{{end}}><label class="form-check-label" for="h-hulk_notify_root_netblock">Send a notification upon successful root login when the IP address is not on the whitelist, but from a known netblock</label></div>
+      <div class="form-check mb-1"><input type="hidden" name="hulk_notify_brute" value="0"><input class="form-check-input" type="checkbox" id="h-hulk_notify_brute" name="hulk_notify_brute" value="1"{{if .V.NotifyBrute}} checked{{end}}{{if not .CanManage}} disabled{{end}}><label class="form-check-label" for="h-hulk_notify_brute">Send a notification when the system detects a brute force user</label></div>
+    </div>
+
+    <div class="wcp-panel mb-3">
+      <label class="form-label fw-semibold" for="h-whitelist">Whitelisted IP addresses</label>
+      <textarea class="form-control form-control-sm font-monospace" id="h-whitelist" name="hulk_whitelist" rows="4" placeholder="203.0.113.10&#10;198.51.100.0/24"{{if not .CanManage}} disabled{{end}}>{{.Whitelist}}</textarea>
+      <div class="small text-body-secondary mt-1">One address or network per line. These are never blocked or locked, and root logins from them are not reported. Add your own address.</div>
+    </div>
+    {{if .CanManage}}<button class="btn btn-primary">Save</button>{{end}}
+  </form>
+  </div>
+
+  <div class="tab-pane fade" id="countries" role="tabpanel">
+    <div class="wcp-panel mb-3">
+      <p class="small mb-2">Whitelisted countries are never blocked. Blacklisted countries cannot sign in to WhaCP or reach the login services (SSH, FTP, IMAP/POP3, SMTP submission), or, if you choose so below, any service of the server.</p>
+      {{if not .GeoLoaded}}
+      <div class="wcp-infobar mb-2"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>The country database is not loaded yet. It is downloaded automatically each month from DB-IP (IP to Country Lite, CC BY 4.0) while brute force protection is on. If the server cannot reach download.db-ip.com, download the CSV there and upload it here, or run <code>sudo -u whacp -E php /opt/whacp/panel/bin/whacp hulk:geo-import FILE</code>.</span></div>
+      {{else}}
+      <div class="small text-body-secondary mb-2">Country data: <a href="https://db-ip.com" rel="noopener" target="_blank">IP Geolocation by DB-IP</a> ({{.V.GeoUpdated}}).</div>
+      {{end}}
+      {{if .CanManage}}
+      <form class="d-flex flex-wrap gap-2 align-items-center" method="post" enctype="multipart/form-data" action="/security/hulk/geo" data-wcp-busy>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <input class="form-control form-control-sm wcp-w-30" type="file" name="database" accept=".csv,.gz" aria-label="Country database file">
+        <button class="btn btn-sm btn-outline-secondary">Upload country database</button>
+      </form>
+      {{end}}
+    </div>
+    <form method="post" action="/security/hulk/countries" data-wcp-busy>
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <div class="wcp-panel" data-wcp-dt>
+        <div class="wcp-actionbar">
+          {{if .CanManage}}
+          <label class="small" for="h-bulk">Mark selected as</label>
+          <select class="form-select form-select-sm w-auto" id="h-bulk" name="bulk">
+            <option value="">—</option>
+            <option value="whitelist">Whitelisted</option>
+            <option value="none">Not Specified</option>
+            <option value="blacklist">Blacklisted</option>
+          </select>
+          <button class="btn btn-sm btn-primary">Save</button>
+          {{end}}
+          <input class="form-control form-control-sm ms-auto wcp-w-30" type="search" placeholder="Search countries" aria-label="Search countries" data-wcp-dt-search>
+        </div>
+        <div class="px-3 py-2 border-bottom small">
+          <span class="fw-medium me-2">Block blacklisted countries on</span>
+          <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="scope" id="h-cc-login" value="login"{{if not .V.CountriesAll}} checked{{end}}{{if not .CanManage}} disabled{{end}}><label class="form-check-label" for="h-cc-login">WhaCP and the login services</label></div>
+          <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="scope" id="h-cc-all" value="all"{{if .V.CountriesAll}} checked{{end}}{{if not .CanManage}} disabled{{end}}><label class="form-check-label" for="h-cc-all">every port, websites included (like CSF's CC_DENY)</label></div>
+        </div>
+        <div class="wcp-dtable table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th class="wcp-col-check"><span class="visually-hidden">Select</span></th><th>Country</th><th>Code</th><th class="text-center">Whitelisted</th><th class="text-center">Not Specified</th><th class="text-center">Blacklisted</th></tr></thead>
+            <tbody>
+            {{range .Countries}}
+            <tr>
+              <td><input class="form-check-input" type="checkbox" name="selected[]" value="{{.Code}}" aria-label="Select {{.Name}}"{{if not $.CanManage}} disabled{{end}}></td>
+              <td>{{.Name}}</td>
+              <td class="font-monospace small">{{.Code}}</td>
+              <td class="text-center"><input class="form-check-input" type="radio" name="country[{{.Code}}]" value="whitelist" aria-label="Whitelisted: {{.Name}}"{{if eq .Mark "whitelist"}} checked{{end}}{{if not $.CanManage}} disabled{{end}}></td>
+              <td class="text-center"><input class="form-check-input" type="radio" name="country[{{.Code}}]" value="none" aria-label="Not Specified: {{.Name}}"{{if eq .Mark ""}} checked{{end}}{{if not $.CanManage}} disabled{{end}}></td>
+              <td class="text-center"><input class="form-check-input" type="radio" name="country[{{.Code}}]" value="blacklist" aria-label="Blacklisted: {{.Name}}"{{if eq .Mark "blacklist"}} checked{{end}}{{if not $.CanManage}} disabled{{end}}></td>
+            </tr>
+            {{end}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="tab-pane fade" id="report" role="tabpanel">
+    {{if .Blocks}}
+    <div class="wcp-panel mb-3">
+      <div class="fw-semibold mb-2">Blocks in force</div>
+      <div class="wcp-dtable table-responsive">
+        <table class="table align-middle">
+          <thead><tr><th>Blocked</th><th>Type</th><th>Reason</th><th>Failures</th><th>Until</th><th></th></tr></thead>
+          <tbody>
+          {{range .Blocks}}
+          <tr>
+            <td class="font-monospace">{{.Display}}</td>
+            <td class="small">{{.Kind}}{{if .Firewall}} · firewall level{{end}}</td>
+            <td class="small">{{.Reason}} ({{.AuthService}})</td>
+            <td>{{.Failures}}</td>
+            <td class="small">{{.Expires}} UTC</td>
+            <td class="text-end">{{if $.CanManage}}<form method="post" action="/security/hulk/unblock"><input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button class="btn btn-sm btn-outline-secondary">Unblock</button></form>{{end}}</td>
+          </tr>
+          {{end}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {{end}}
+    <div class="wcp-panel" data-wcp-dt>
+      <div class="wcp-actionbar">
+        <div>
+          <div class="fw-semibold">Failed Logins Report</div>
+          <div class="small text-body-secondary">The system counts Failed Logins for the duration of the specified period, which is currently set to {{.V.Retention}} minutes.</div>
+        </div>
+        <input class="form-control form-control-sm ms-auto wcp-w-30" type="search" placeholder="Search" aria-label="Search failed logins" data-wcp-dt-search>
+        {{if .CanManage}}
+        <form method="post" action="/security/hulk/clear" data-wcp-confirm="Remove every block and clear the report?"><input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-sm btn-outline-danger">Remove Blocks and clear report</button></form>
+        {{end}}
+      </div>
+      <div class="wcp-dtable table-responsive">
+        <table class="table align-middle">
+          <thead><tr><th>User</th><th>IP Address</th><th>Country</th><th>Service</th><th>Authentication Service</th><th>Login Time</th><th>Expiration Time</th><th>Minutes Remaining</th></tr></thead>
+          <tbody>
+          {{range .Report}}
+          <tr>
+            <td class="font-monospace small">{{.User}}</td>
+            <td class="font-monospace small">{{.IP}}</td>
+            <td class="small">{{if .CountryName}}{{.CountryName}}{{else}}—{{end}}</td>
+            <td class="small">{{.Service}}</td>
+            <td class="small">{{.AuthService}}</td>
+            <td class="small">{{.Time}}</td>
+            <td class="small">{{.Expires}}</td>
+            <td>{{.MinutesLeft}}</td>
+          </tr>
+          {{end}}
+          {{if not .Report}}<tr><td colspan="8" class="text-center py-4 wcp-muted">No failed logins in this period.</td></tr>{{end}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  </div>
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}
