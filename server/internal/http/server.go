@@ -164,10 +164,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /mail", s.guard("", "mail.manage", s.mailIndex))
 	s.mux.HandleFunc("GET /workers", s.guard("", "workers.manage", s.workersIndex))
 
-	// Log viewer endpoints (LogsController::tail/download). Source-level
-	// authorization happens inside the handlers (a user may read exactly the
-	// logs of the websites they can see; server logs and the panel log are
-	// staff-only) — the route itself only carries logs.view.
+	// Log viewer endpoints (LogsController). Source-level authorization
+	// happens inside the handlers (a user may read exactly the logs of the
+	// websites they can see; server logs and the panel log are staff-only) —
+	// the routes themselves only carry logs.view.
+	s.mux.HandleFunc("GET /logs", s.guard("", "logs.view", s.logsIndex))
 	s.mux.HandleFunc("GET /logs/tail", s.guard("", "logs.view", s.logsTail))
 	s.mux.HandleFunc("GET /logs/download", s.guard("", "logs.view", s.logsDownload))
 

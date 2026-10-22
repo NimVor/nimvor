@@ -81,9 +81,26 @@ func startLogsAgent(t *testing.T) (*logsAgent, string, string) {
 		}
 		switch action {
 		case "logs.sources":
+			// A domain in the params means the per-site list; otherwise the
+			// server-wide list (one source per category, like the agent's).
+			if _, hasDomain := p["domain"]; hasDomain {
+				_, _ = w.Write([]byte(`{"success":true,"data":[
+					{"id":"site:bob.example:access.log","label":"access.log","group":"bob.example","kind":"file","size":2048,"exists":true},
+					{"id":"site:bob.example:error.log","label":"error.log","group":"bob.example","kind":"file","size":0,"exists":true}],
+				"request_id":"t"}`))
+				return
+			}
 			_, _ = w.Write([]byte(`{"success":true,"data":[
-				{"id":"site:bob.example:access.log","label":"access.log","group":"bob.example","kind":"file","size":2048,"exists":true},
-				{"id":"site:bob.example:error.log","label":"error.log","group":"bob.example","kind":"file","size":0,"exists":true}],
+				{"id":"nginx:access","label":"Nginx access log","group":"Web server","kind":"file","size":4096,"exists":true},
+				{"id":"nginx:error","label":"Nginx error log","group":"Web server","kind":"file","size":0,"exists":true},
+				{"id":"php:8.3.1","label":"PHP 8.3.1 FPM","group":"PHP","kind":"file","size":2048,"exists":true},
+				{"id":"system:mail","label":"mail","group":"System","kind":"file","size":512,"exists":true},
+				{"id":"system:mysql","label":"mysql","group":"System","kind":"file","size":1024,"exists":true},
+				{"id":"system:auth","label":"auth","group":"System","kind":"file","size":0,"exists":true},
+				{"id":"system:syslog","label":"syslog","group":"System","kind":"file","size":256,"exists":true},
+				{"id":"system:letsencrypt","label":"letsencrypt","group":"System","kind":"file","size":0,"exists":true},
+				{"id":"journal:whacp-agent.service","label":"whacp-agent.service","group":"Services","kind":"journal","size":0,"exists":true},
+				{"id":"journal:redis.service","label":"redis.service","group":"Services","kind":"journal","size":0,"exists":true}],
 			"request_id":"t"}`))
 		case "logs.tail":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"lines":["l1","l2"],"offset":42,"size":100},"request_id":"t"}`))
@@ -377,5 +394,119 @@ func TestLogsDownload(t *testing.T) {
 	la.failActions = map[string]string{"logs.download": "the log file is not readable"}
 	if rr := get(t, h, "/logs/download?source=site:bob.example:access.log", admin); rr.Code != http.StatusNotFound {
 		t.Fatalf("agent-failure download = %d, want 404", rr.Code)
+	}
+}
+
+// TestLogsIndexRequiresStaff: server logs are for roles with server-wide
+// scope — a customer with logs.view gets the 403 page.
+func TestLogsIndexRequiresStaff(t *testing.T) {
+	h, _, _, _ := logsEnv(t, "")
+	bob := loginAs(t, h, "bob")
+	rr := get(t, h, "/logs", bob)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("GET /logs (customer) = %d, want 403", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "Server logs are only available to administrators.") {
+		t.Fatalf("403 page = %s", rr.Body.String())
+	}
+}
+
+// TestLogsIndexRequiresPermission: a role without logs.view is refused.
+func TestLogsIndexRequiresPermission(t *testing.T) {
+	h, _, _, _ := logsEnv(t, "")
+	eve := loginAs(t, h, "eve")
+	if rr := get(t, h, "/logs", eve); rr.Code != http.StatusForbidden {
+		t.Fatalf("GET /logs (viewer) = %d, want 403", rr.Code)
+	}
+}
+
+// TestLogsIndexPage: the server-wide sources from the agent plus the panel
+// log, grouped, with the category links.
+func TestLogsIndexPage(t *testing.T) {
+	h, admin, _, _ := logsEnv(t, "")
+	rr := get(t, h, "/logs", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /logs = %d: %s", rr.Code, rr.Body.String())
+	}
+	body := rr.Body.String()
+	for _, want := range []string{
+		`value="nginx:access"`,
+		`value="php:8.3.1"`,
+		`value="system:mail"`,
+		`value="journal:redis.service"`,
+		`value="panel"`,
+		"WhaCP panel log",
+		`label="Web server"`,
+		`label="Services"`,
+		`label="WhaCP"`,
+		`data-tail="/logs/tail"`,
+		`data-download="/logs/download"`,
+		`/logs?view=web`,
+		`/logs?view=whacp`,
+		"Web server, PHP, database, system and WhaCP logs",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("page missing %q", want)
+		}
+	}
+	// The per-site sources are not on the global list.
+	if strings.Contains(body, "bob.example") {
+		t.Fatal("the global list leaked per-site sources")
+	}
+}
+
+// TestLogsIndexCategoryFilter: ?view=<kind> narrows to that category (and
+// renames the page); an unknown view leaves the list untouched.
+func TestLogsIndexCategoryFilter(t *testing.T) {
+	h, admin, _, _ := logsEnv(t, "")
+	rr := get(t, h, "/logs?view=web", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /logs?view=web = %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, `<h1>Web server logs</h1>`) {
+		t.Fatalf("category title missing: %s", body)
+	}
+	for _, want := range []string{`value="nginx:access"`, `value="nginx:error"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("web view missing %q", want)
+		}
+	}
+	for _, not := range []string{`value="php:8.3.1"`, `value="panel"`, `value="journal:redis.service"`} {
+		if strings.Contains(body, not) {
+			t.Fatalf("web view leaked %q", not)
+		}
+	}
+	// The whacp category holds the agent journal and the panel log.
+	rr = get(t, h, "/logs?view=whacp", admin)
+	body = rr.Body.String()
+	if !strings.Contains(body, `value="journal:whacp-agent.service"`) || !strings.Contains(body, `value="panel"`) {
+		t.Fatalf("whacp view incomplete: %s", body)
+	}
+	if !strings.Contains(body, `<h1>WhaCP logs</h1>`) {
+		t.Fatal("whacp title missing")
+	}
+	// An unknown view does not filter (PHP: isset check).
+	rr = get(t, h, "/logs?view=bogus", admin)
+	if !strings.Contains(rr.Body.String(), `value="nginx:access"`) || !strings.Contains(rr.Body.String(), `value="panel"`) {
+		t.Fatal("bogus view filtered the list")
+	}
+}
+
+// TestLogsIndexAgentError: an agent outage is an alert; the panel log is
+// still listed (it does not need the agent).
+func TestLogsIndexAgentError(t *testing.T) {
+	h, admin, la, _ := logsEnv(t, "")
+	la.failActions = map[string]string{"logs.sources": "the agent is down"}
+	rr := get(t, h, "/logs", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /logs (agent down) = %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "The server could not list the logs:") || !strings.Contains(body, "the agent is down") {
+		t.Fatalf("agent error alert missing: %s", body)
+	}
+	if !strings.Contains(body, `value="panel"`) {
+		t.Fatal("the panel log is missing despite the agent failure")
 	}
 }

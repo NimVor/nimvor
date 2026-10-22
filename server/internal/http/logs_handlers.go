@@ -126,6 +126,20 @@ func (s *Server) siteLogs(w http.ResponseWriter, r *http.Request) {
 			Group: "Workers", Kind: "journal", Exists: true,
 		})
 	}
+	groups := groupLogSources(sources)
+	s.render(w, "site_logs", map[string]any{
+		"User":          user,
+		"CSRF":          session.CSRFToken(sessionFrom(r.Context())),
+		"Site":          site,
+		"Groups":        groups,
+		"AgentError":    agentErr,
+		"InitialSource": r.URL.Query().Get("source"),
+	})
+}
+
+// groupLogSources sizes existing files and folds the list into <optgroup>s
+// (PHP renders a new optgroup whenever the group changes).
+func groupLogSources(sources []logSource) []logGroup {
 	groups := []logGroup{}
 	for _, src := range sources {
 		if src.Kind == "file" && src.Exists {
@@ -137,11 +151,112 @@ func (s *Server) siteLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		groups = append(groups, logGroup{Name: src.Group, Items: []logSource{src}})
 	}
-	s.render(w, "site_logs", map[string]any{
+	return groups
+}
+
+// logCategories is the "Logs → <kind>" sub-menu (LogsController::CATEGORIES),
+// in menu order.
+var logCategories = [][2]string{
+	{"web", "Web server logs"}, {"php", "PHP-FPM logs"}, {"mail", "Mail server logs"},
+	{"database", "Database server logs"}, {"security", "Security logs"},
+	{"ssl", "SSL and Let's Encrypt logs"}, {"system", "System logs"},
+	{"services", "Service logs"}, {"whacp", "WhaCP logs"},
+}
+
+func logCategoryTitle(key string) (string, bool) {
+	for _, c := range logCategories {
+		if c[0] == key {
+			return c[1], true
+		}
+	}
+	return "", false
+}
+
+var (
+	logPHPUnitRe   = regexp.MustCompile(`^php.*fpm`)
+	logMailUnitRe  = regexp.MustCompile(`^(postfix|dovecot|rspamd|whacp-opendkim|whacp-greylist|whacp-mailrate)`)
+	logDBUnitRe    = regexp.MustCompile(`^(mariadb|mysql)`)
+	logSecUnitRe   = regexp.MustCompile(`^(fail2ban|sshd?|ssh)\.`)
+)
+
+// logCategory is the kind a log source belongs to (LogsController::category).
+func logCategory(id string) string {
+	unit := ""
+	if strings.HasPrefix(id, "journal:") {
+		unit = id[len("journal:"):]
+	}
+	switch {
+	case strings.HasPrefix(id, "nginx:") || unit == "nginx.service":
+		return "web"
+	case strings.HasPrefix(id, "php:") || logPHPUnitRe.MatchString(unit):
+		return "php"
+	case id == "system:mail" || logMailUnitRe.MatchString(unit):
+		return "mail"
+	case id == "system:mysql" || logDBUnitRe.MatchString(unit):
+		return "database"
+	case id == "system:auth" || id == "system:fail2ban" || id == "system:ufw" || logSecUnitRe.MatchString(unit):
+		return "security"
+	case id == "system:letsencrypt" || unit == "certbot.service":
+		return "ssl"
+	case id == "system:syslog":
+		return "system"
+	case id == "panel" || unit == "whacp-agent.service" || strings.HasPrefix(unit, "whacp-panel"):
+		return "whacp"
+	default:
+		return "services"
+	}
+}
+
+// logsIndex renders the global log list (LogsController::index). Server logs
+// are staff-only — a non-staff user gets the 403 page, not an empty list.
+// The sources are the agent's server-wide list plus the panel log, filtered
+// by ?view=<kind>.
+func (s *Server) logsIndex(w http.ResponseWriter, r *http.Request) {
+	user := userFrom(r.Context())
+	if user.RoleScope != "all" {
+		renderStatus(w, s, "error", map[string]any{
+			"Title":   "Access denied",
+			"Message": "Server logs are only available to administrators. Open a website to see its logs.",
+		}, http.StatusForbidden)
+		return
+	}
+	ctx := r.Context()
+	var sources []logSource
+	var agentErr *agent.Error
+	raw, err := s.agent.Call(ctx, "logs.sources", nil)
+	if err != nil {
+		if ae := &agent.Error{}; errors.As(err, &ae) {
+			agentErr = ae
+		} else {
+			s.log.Error("logs.sources", "error", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+	} else if err := json.Unmarshal(raw, &sources); err != nil {
+		s.log.Error("logs.sources", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	sources = append(sources, logSource{ID: "panel", Label: "WhaCP panel log", Group: "WhaCP", Kind: "file"})
+	view := r.URL.Query().Get("view")
+	title := "Logs"
+	if _, ok := logCategoryTitle(view); ok {
+		out := []logSource{}
+		for _, src := range sources {
+			if logCategory(src.ID) == view {
+				out = append(out, src)
+			}
+		}
+		sources = out
+		title, _ = logCategoryTitle(view)
+	}
+	s.render(w, "logs_index", map[string]any{
 		"User":          user,
 		"CSRF":          session.CSRFToken(sessionFrom(r.Context())),
-		"Site":          site,
-		"Groups":        groups,
+		"Title":         title,
+		"View":          view,
+		"Categories":    logCategories,
+		"Groups":        groupLogSources(sources),
 		"AgentError":    agentErr,
 		"InitialSource": r.URL.Query().Get("source"),
 	})

@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **56 ☑ done+tested, 3 ◑ partial, 492 ☐** of 551.
+`server/internal/http/server.go`): **57 ☑ done+tested, 3 ◑ partial, 491 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -127,12 +127,18 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the global log index — GET `/logs` (LogsController::index, LOGS_VIEW;
-server logs are staff-only — a non-staff user gets the 403 page). Lists the
-server-wide sources from the agent's `logs.sources` (no domain) plus the
-"WhaCP panel log" entry, filtered by the `?view=<category>` sub-menu (web /
-php / mail / database / security / ssl / system / services / whacp, per
-LogsController::category) and reusing the same viewer partial + `/logs/tail`
-endpoint (both already ported). This finishes the logs area.
+Batch: database users (DatabasesController's user methods, DATABASES_MANAGE;
+tenant-scoped — a user acts on the DB users of the databases they own):
+POST `/database-users` (create: username/host validation, generated or
+explicit encrypted password, `dbusers.store`),
+POST `/database-users/{id}/password` (reset), `/reveal` (decrypt + show
+once), `/hosts` (add host — `db.user_create` with the new host,
+`dbusers.host`), `/assign` (grant/revoke on one of the actor's databases —
+`db.grant` with the revoke flag, audits `database.grant`/`database.revoke`)
+and `/delete` (drop the user — `db.user_drop`, `dbusers.delete`). Service
+layer: DatabaseService::createUser/addHost/resetPassword/revealPassword/
+grant/dropUser (remote hosts only when the plan allows, per
+`remoteHostsAllowed`). Display point: the DB users list on the databases
+area (a page to add, mirroring PHP's databases view).
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
