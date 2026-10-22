@@ -173,6 +173,15 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /security/forkbomb", s.guard("security.forkbomb.save", "security.manage", s.hardeningSaveForkbomb))
 	s.mux.HandleFunc("GET /security/traceroute", s.guard("security.traceroute", "security.view", s.hardeningTraceroute))
 	s.mux.HandleFunc("POST /security/traceroute", s.guard("security.traceroute.save", "security.manage", s.hardeningSaveTraceroute))
+	// Security → on-demand checks (SecurityChecksController: file integrity,
+	// the TLS audit, the OS advisories — read-only, run on demand).
+	s.mux.HandleFunc("GET /security/integrity", s.guard("security.integrity", "security.view", s.integrityPage))
+	s.mux.HandleFunc("POST /security/integrity/run", s.guard("security.integrity.run", "security.view", s.runIntegrity))
+	s.mux.HandleFunc("POST /security/integrity/baseline", s.guard("security.integrity.baseline", "security.manage", s.setIntegrityBaseline))
+	s.mux.HandleFunc("GET /security/tls", s.guard("security.tls", "security.view", s.tlsPage))
+	s.mux.HandleFunc("POST /security/tls/run", s.guard("security.tls.run", "security.view", s.runTls))
+	s.mux.HandleFunc("GET /security/advisories", s.guard("security.advisories", "security.view", s.advisoriesPage))
+	s.mux.HandleFunc("POST /security/advisories/run", s.guard("security.advisories.run", "security.view", s.runAdvisories))
 	s.mux.HandleFunc("GET /security/firewall", s.guard("security.firewall", "security.view", s.firewallIndex))
 	s.mux.HandleFunc("POST /security/firewall/toggle", s.guard("security.firewall.toggle", "security.manage", s.firewallToggle))
 	s.mux.HandleFunc("POST /security/firewall/rules", s.guard("security.firewall.add", "security.manage", s.firewallAddRule))

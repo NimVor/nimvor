@@ -290,7 +290,26 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   toggles (the soft/hard limits line, the programs table, the
   not-installed state), hardening.forkbomb / hardening.traceroute 60 s;
   every save audits hardening.* (server / the server id) like
-  HardeningService::record)
+  HardeningService::record) ·
+  GET `/security/integrity` + POST `/security/integrity/run` + POST
+  `/security/integrity/baseline` · GET `/security/tls` + POST
+  `/security/tls/run` · GET `/security/advisories` + POST
+  `/security/advisories/run` (SecurityChecksController — the on-demand
+  checks: each page opens instantly with a Run button, the run calls the
+  agent synchronously and RE-RENDERS the page with the findings (an agent
+  error re-renders the "could not run" bar; only the baseline redirect-flashes);
+  integrity: security.integrity 180 s (the findings table with the severity
+  badges, the no-findings bar with the no-baseline note), the baseline is
+  the one state-changing check (security.manage, security.integrity_baseline
+  60 s, the "Integrity baseline recorded for N WhaCP-owned file(s)…" /
+  "The baseline could not be recorded: …" flashes); tls: the endpoint list
+  (every enabled HTTPS website on loopback with SNI + the mail server's
+  465/587/993 when configured, via mail.status), the zero-endpoints
+  short-circuit (no agent call), tls.audit 180 s (the per-endpoint panels
+  with best/lowest versions, only endpoints with findings render);
+  advisories: packages.advisories 120 s (the kind/severity badges, the
+  em-dash empty cells, not audited — parity); the runs audit
+  security.integrity (server / integrity) and tls.audit (server / tls))
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -364,12 +383,10 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: continue the **security area** —
-**SecurityChecksController** (vulnerability advisories), then the
-remaining SecurityController pages (integrity, malware, policies,
-password strength, SMTP — the cPHulk whitelist of the firewall
-allow-me can land there).
-in small batches. Check INVENTORY.md + the PHP controllers before
-starting.
+Batch: continue the **security area** — the remaining
+**SecurityController** pages (malware scan, integrity-adjacent items,
+policies, password strength, the cPHulk whitelist of the firewall
+allow-me), in small batches. Check INVENTORY.md + the PHP
+controllers before starting.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
