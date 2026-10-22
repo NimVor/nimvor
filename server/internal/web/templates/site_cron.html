@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
 <title>Cron · {{.Site.Domain}} · WhaCP</title>
 <link rel="stylesheet" href="/assets/css/app.css">
 </head>
@@ -17,25 +18,94 @@
   </form>
 </header>
 <main class="container">
-  <p><a href="/websites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
+  <p><a href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a></p>
   <h1>Cron jobs</h1>
-  {{if .Jobs}}
-  <table class="data-table">
-    <thead><tr><th>Schedule</th><th>Command</th><th>Description</th><th>Enabled</th></tr></thead>
-    <tbody>
-    {{range .Jobs}}
-      <tr>
-        <td><code>{{.Schedule}}</code></td>
-        <td><code>{{.Command}}</code></td>
-        <td>{{.Description}}</td>
-        <td>{{if .Enabled}}yes{{else}}no{{end}}</td>
-      </tr>
-    {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <p class="text-muted">No cron jobs for this website.</p>
+  <p class="text-muted">{{.Site.Domain}}</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
+
+  {{if .CanManage}}
+  <div class="card mb-3" id="cron-form">
+    <div class="card-header"><h2 class="h6 mb-0">{{if .Edit}}Edit cron job{{else}}Add cron job{{end}}</h2></div>
+    <div class="card-body">
+      <form method="post" action="/sites/{{.Site.ID}}/cron" data-wcp-busy>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        {{if .Edit}}<input type="hidden" name="job_id" value="{{.Edit.ID}}">{{end}}
+        <label class="form-label" for="c-sched">Schedule</label>
+        <select class="form-select mb-2{{if index .Errors "schedule"}} is-invalid{{end}}" id="c-sched" name="schedule">
+          {{range .Presets}}
+          <option value="{{index . 0}}"{{if eq (index . 0) $.Sched}} selected{{end}}>{{index . 1}} ({{index . 0}})</option>
+          {{end}}
+          <option value="custom"{{if not $.IsPreset}} selected{{end}}>Custom…</option>
+        </select>
+        <input class="form-control mb-1 font-monospace{{if index .Errors "schedule"}} is-invalid{{end}}" type="text" name="schedule_custom" placeholder="minute hour day month weekday" value="{{.SchedCustom}}" aria-label="Custom schedule">
+        {{if index .Errors "schedule"}}<div class="text-danger small">{{index .Errors "schedule"}}</div>{{end}}
+        <p class="form-text mb-3">For a custom schedule choose “Custom…” and enter five fields, e.g. <code>30 2 * * 1</code> (Mondays 02:30).</p>
+        <label class="form-label" for="c-cmd">Command</label>
+        <input class="form-control font-monospace{{if index .Errors "command"}} is-invalid{{end}}" id="c-cmd" type="text" name="command" value="{{index .Form "command"}}" placeholder="php app/artisan schedule:run" required>
+        {{if index .Errors "command"}}<div class="text-danger small">{{index .Errors "command"}}</div>{{end}}
+        <p class="form-text mb-3">Runs in <code>{{.Site.Root}}</code>.</p>
+        <label class="form-label" for="c-desc">Description (optional)</label>
+        <input class="form-control mb-3{{if index .Errors "description"}} is-invalid{{end}}" id="c-desc" type="text" name="description" value="{{index .Form "description"}}" maxlength="200">
+        {{if index .Errors "description"}}<div class="text-danger small">{{index .Errors "description"}}</div>{{end}}
+        <div class="form-check form-switch mb-2">
+          <input type="hidden" name="enabled" value="0">
+          <input class="form-check-input" type="checkbox" role="switch" id="c-en" name="enabled" value="1"{{if eq (index .Form "enabled") "1"}} checked{{end}}>
+          <label class="form-check-label" for="c-en">Enabled</label>
+        </div>
+        <div class="form-check form-switch mb-1">
+          <input type="hidden" name="email_output" value="0">
+          <input class="form-check-input{{if index .Errors "email_output"}} is-invalid{{end}}" type="checkbox" role="switch" id="c-mail" name="email_output" value="1"{{if eq (index .Form "email_output") "1"}} checked{{end}}>
+          <label class="form-check-label" for="c-mail">Email the output to {{if .MailTo}}<strong>{{.MailTo}}</strong>{{else}}your account’s address{{end}}</label>
+        </div>
+        {{if index .Errors "email_output"}}<div class="text-danger small">{{index .Errors "email_output"}}</div>{{end}}
+        <p class="form-text mb-3">Sent after each run that prints something, if this server can send mail. The output is always kept in the job’s log.</p>
+        <button class="btn btn-primary btn-sm" type="submit">{{if .Edit}}Save{{else}}Add job{{end}}</button>
+        {{if .Edit}}<a class="btn btn-link btn-sm" href="/sites/{{.Site.ID}}/cron">Cancel</a>{{end}}
+      </form>
+    </div>
+  </div>
   {{end}}
+
+  <div class="card" id="cron-jobs">
+    <div class="card-header wcp-toolbar">
+      <h2 class="wcp-toolbar-title"><i class="bi bi-clock-history me-1"></i>Cron jobs <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Jobs}}</span></h2>
+    </div>
+    {{if .Jobs}}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Schedule</th><th>Command</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+        <tbody>
+        {{range .Jobs}}
+          <tr>
+            <td class="text-nowrap"><code>{{.Schedule}}</code>{{if .Preset}}<div class="small text-body-secondary">{{.Preset}}</div>{{end}}</td>
+            <td><code class="small text-break">{{.Command}}</code>{{if .Description}}<div class="small text-body-secondary">{{.Description}}</div>{{end}}</td>
+            <td>
+              {{if .Enabled}}<span class="wcp-state is-ok">Enabled</span>{{else}}<span class="wcp-state is-error">Paused</span>{{end}}
+              {{if .Email}}<div class="small text-body-secondary mt-1" title="Output mailed to {{.Email}}"><i class="bi bi-envelope me-1" aria-hidden="true"></i>emailed</div>{{end}}
+            </td>
+            {{if $.CanManage}}
+            <td class="text-end text-nowrap">
+              <a class="btn btn-sm btn-outline-secondary" href="/sites/{{$.Site.ID}}/cron/{{.ID}}/log" title="Logs" aria-label="Logs of job {{.ID}}"><i class="bi bi-journal-text"></i> Logs</a>
+              <form class="d-inline" method="post" action="/sites/{{$.Site.ID}}/cron/{{.ID}}/run" data-wcp-busy><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-outline-secondary" title="Run now" aria-label="Run now"><i class="bi bi-play"></i></button></form>
+              <a class="btn btn-sm btn-outline-secondary" href="/sites/{{$.Site.ID}}/cron?edit={{.ID}}" title="Edit" aria-label="Edit"><i class="bi bi-pencil"></i></a>
+              <form class="d-inline" method="post" action="/sites/{{$.Site.ID}}/cron/{{.ID}}/toggle" data-wcp-busy><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-outline-secondary" title="{{if .Enabled}}Pause{{else}}Enable{{end}}" aria-label="{{if .Enabled}}Pause{{else}}Enable{{end}}"><i class="bi bi-{{if .Enabled}}pause{{else}}check-lg{{end}}"></i></button></form>
+              <form class="d-inline" method="post" action="/sites/{{$.Site.ID}}/cron/{{.ID}}/delete" data-wcp-busy data-wcp-confirm="Delete this cron job?"><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-outline-danger" title="Delete" aria-label="Delete"><i class="bi bi-trash"></i></button></form>
+            </td>
+            {{else}}
+            <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/sites/{{$.Site.ID}}/cron/{{.ID}}/log"><i class="bi bi-journal-text"></i> Logs</a></td>
+            {{end}}
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="wcp-empty-state"><i class="bi bi-clock-history" aria-hidden="true"></i><div class="fw-medium">No cron jobs yet</div><div class="small">Run a command on a schedule, e.g. WordPress or Laravel tasks every few minutes.</div></div>
+    {{end}}
+    <div class="card-footer small text-body-secondary">Jobs run as <code>{{.Site.SystemUser}}</code> from <code>{{.Site.Root}}</code>. Times use the server’s time zone.</div>
+  </div>
 </main>
 </body>
 </html>{{end}}

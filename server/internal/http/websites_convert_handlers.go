@@ -51,7 +51,7 @@ func (s *Server) conversionService(r *http.Request, user *identity.User) *hostin
 		identity.NewRepository(s.db),
 		hosting.NewWebsiteRepository(s.db),
 		s.websiteService(r, user),
-		hosting.NewCronService(s.db, s.agent),
+		hosting.NewCronService(s.db, s.agent, hosting.NewPlanLimits(s.db), audit),
 		s.workerService(r, user),
 		hosting.NewPlanLimits(s.db),
 		audit,

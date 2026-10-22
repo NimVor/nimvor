@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **198 ☑ done+tested, 3 ◑ partial, 350 ☐** of 551.
+`server/internal/http/server.go`): **203 ☑ done+tested, 3 ◑ partial, 345 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -439,6 +439,19 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
+- ☑ websites: the cron area (batch 39) — CronController + the write
+  side of CronService as site_cron.go + hosting/cron_service.go: the
+  job list page (schedule presets + custom, the command, the
+  description, enabled + email-output switches, the job's runs log
+  with per-run start/duration/result/trigger/output), add/edit
+  (schedule validation — macros + five fields with ranges, the
+  2000-char single-line command, the 200-char description, the
+  200-job cap, the plan's max_cron_jobs limit), pause/enable,
+  delete, and "run now" (an agent job, tracked + flashed, the
+  output kept in the job's log). Every change pushes the website's
+  complete schedule to the agent (cron.apply) and restores the
+  stored jobs when the apply fails; a suspended account's jobs do
+  not run. The cron.view / cron.manage split is honored in the view
 - ☑ websites: the SSL/HTTPS area (batch 38) — SslController +
   SslService as site_ssl.go + hosting/ssl_service.go: the certificate
   page (GET /sites/{id}/ssl, ssl.view — the state inspected from the
@@ -523,7 +536,7 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   get|custom_set/site/events/installs/update/install/crs_install/rollback;
   every change nginx -t checked and rolled back on the agent); the
   modsec.trim scheduler side stays with the background-jobs follow-up
-- ☐ DB browser, DB dump/import, DB server area (DbServerController), mongo, redis/memcached, DNS records, mail accounts/filters, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
+- ☐ DB browser, DB dump/import, DB server area (DbServerController), mongo, redis/memcached, DNS records, mail accounts/filters, backups, files/FTP/terminal, automation (deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
 
 ## NOT YET PORTED (known follow-ups, tracked honestly)
 - WebAuthn sign-in + security-key management; IP-verification sign-in (emailed code); the HULK enforcement side (the failed-login recording into the panel's login flow + the HulkService::run scheduler loop that turns events into blocks — the panel page itself is ported); step-up password confirmation; password-age and role-requires-2FA enforcement; trusted-proxy client IP
@@ -540,11 +553,12 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the **websites area continues** — SSL/HTTPS is done, so the
-next website sub-area comes from the remaining ☐ routes under
-`/sites/{id}/…` (database connections, mail accounts, DNS, FTP, cron,
-backups, PHP/runtime settings — check INVENTORY.md + the PHP
-controllers first and split large ones into 2–3 batches). (The
-hulk/modsec/av scheduler sides stay with the background-jobs follow-up.)
+Batch: the **websites area continues** — cron is done, so the next
+website sub-area comes from the remaining ☐ routes under
+`/sites/{id}/…` (mongo 12, wordpress 8, backups 7, deploy 5, ftp 4,
+sites advanced/health/security, apps 2, mail 1, ip 1, dns 1 — check
+INVENTORY.md + the PHP controllers first and split large ones into
+2–3 batches). (The hulk/modsec/av scheduler sides stay with the
+background-jobs follow-up.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

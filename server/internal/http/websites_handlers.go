@@ -493,35 +493,18 @@ func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 // which the cron plan feature withholds when disabled. Mirrors
 // CronController::show (route "sites.cron").
 func (s *Server) siteCron(w http.ResponseWriter, r *http.Request) {
-	user := userFrom(r.Context())
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
+	site := s.cronSiteOf(r, r.PathValue("id"))
+	if site == nil {
 		s.notFound(w, r)
 		return
 	}
-	serverID := s.currentServerID(r)
-	site, err := hosting.NewWebsiteRepository(s.db).Find(r.Context(), serverID, id, user)
-	if errors.Is(err, hosting.ErrWebsiteNotFound) {
-		s.notFound(w, r)
-		return
+	// ?edit=<job> opens the form pre-filled for that job (the PHP's
+	// CronController::show).
+	var editID int64
+	if v, err := strconv.ParseInt(r.URL.Query().Get("edit"), 10, 64); err == nil && v > 0 {
+		editID = v
 	}
-	if err != nil {
-		s.log.Error("find website", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	jobs, err := hosting.NewCronRepository(s.db).Jobs(r.Context(), site.ID)
-	if err != nil {
-		s.log.Error("list cron jobs", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	s.render(w, "site_cron", map[string]any{
-		"User": user,
-		"CSRF": session.CSRFToken(sessionFrom(r.Context())),
-		"Site": site,
-		"Jobs": jobs,
-	})
+	s.cronPageData(w, r, userFrom(r.Context()), site, editID, nil, nil)
 }
 
 // The workers page and its write routes live in websites_workers_handlers.go

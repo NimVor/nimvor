@@ -26,6 +26,7 @@ var resourceColumn = map[string][2]string{
 	"parked_domains": {"max_parked_domains", "Parked domains"},
 	"addon_domains":  {"max_addon_domains", "Addon domains"},
 	"databases":      {"max_databases", "SQL databases"},
+	"cron_jobs":      {"max_cron_jobs", "Cron jobs"},
 	"workers":        {"max_workers", "Workers"},
 	"customers":      {"max_customers", "Customers"},
 }
@@ -197,6 +198,8 @@ func (p *PlanLimits) countFor(ctx context.Context, resource string, owners []int
 		q = "SELECT COUNT(*) FROM databases WHERE owner_id IN (" + join + ")"
 	case "customers":
 		q = "SELECT COUNT(*) FROM users WHERE parent_id IN (" + join + ")"
+	case "cron_jobs":
+		q = "SELECT COUNT(*) FROM cron_jobs c JOIN websites w ON w.id = c.website_id WHERE w.owner_id IN (" + join + ")"
 	case "workers":
 		// A worker belongs to a website; it counts against that website's owner.
 		q = "SELECT COUNT(*) FROM workers w JOIN websites s ON s.id = w.website_id WHERE s.owner_id IN (" + join + ")"
