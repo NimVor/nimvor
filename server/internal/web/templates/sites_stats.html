@@ -1,0 +1,152 @@
+{{define "sites_stats"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Statistics · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a></p>
+  <h1>Statistics</h1>
+  <p class="text-muted">{{.Site.Domain}}</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
+
+  {{if .AgentError}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <i class="bi bi-plug fs-5"></i>
+      <div><div class="fw-semibold">{{.AgentError}}</div></div>
+    </div>
+  </div>
+  {{else if not .Status.Installed}}
+  <div class="card"><div class="wcp-empty-state">
+    <i class="bi bi-bar-chart-line" aria-hidden="true"></i>
+    <div class="fw-medium">Statistics are not available on this server yet</div>
+    {{if .CanManage}}
+    <div class="small mb-3">Install AWStats under <a href="/packages">Packages</a>, then turn statistics on here.</div>
+    <a class="btn btn-primary" href="/packages">Open Packages</a>
+    {{else}}
+    <div class="small">Please ask your hosting provider to install AWStats.</div>
+    {{end}}
+  </div></div>
+  {{else if and (not .Status.Enabled) (not .Months)}}
+  <div class="card"><div class="wcp-empty-state">
+    <i class="bi bi-bar-chart-line" aria-hidden="true"></i>
+    <div class="fw-medium">Visitor statistics are off</div>
+    <div class="small mb-3">AWStats reads this website's access log every 6 hours: visitors, pages, bandwidth, browsers, countries and more. The data stays in the website's folder.</div>
+    {{if .CanManage}}
+    <form method="post" action="/sites/{{.Site.ID}}/stats/enable" data-wcp-busy><input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="enabled" value="1"><button class="btn btn-primary"><i class="bi bi-toggle-on me-1"></i>Turn on statistics</button></form>
+    {{end}}
+  </div></div>
+  {{else}}
+  <div class="wcp-toolbar mb-3">
+    {{if .Months}}
+    <form method="get" class="d-flex gap-2 align-items-center">
+      <label class="small text-body-secondary" for="st-month">Month</label>
+      <select class="form-select form-select-sm w-auto" id="st-month" name="month" data-wcp-autosubmit>
+      {{range .Months}}
+        <option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>
+      {{end}}
+      </select>
+    </form>
+    {{end}}
+    <span class="small text-body-secondary me-auto">{{if .Status.Enabled}}Updated every 6 hours{{else}}Statistics are off; showing the data collected before{{end}}{{if .Status.UpdatedAt}} · last update {{.Status.UpdatedAt}}{{end}}</span>
+    {{if and .CanManage .Status.Enabled}}
+    <form method="post" action="/sites/{{.Site.ID}}/stats/update" data-wcp-busy><input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-clockwise me-1"></i>Update now</button></form>
+    <form method="post" action="/sites/{{.Site.ID}}/stats/enable" data-wcp-confirm="Turn statistics off? The data collected so far is kept."><input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="enabled" value="0"><button class="btn btn-sm btn-outline-secondary">Turn off</button></form>
+    {{else if .CanManage}}
+    <form method="post" action="/sites/{{.Site.ID}}/stats/enable" data-wcp-busy><input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="enabled" value="1"><button class="btn btn-sm btn-primary">Turn on again</button></form>
+    {{end}}
+  </div>
+
+  {{if not .Report}}
+  <div class="card"><div class="wcp-empty-state"><i class="bi bi-hourglass-split" aria-hidden="true"></i><div class="fw-medium">No data yet</div><div class="small">The first report appears after the next update, once the website has had visitors.</div></div></div>
+  {{else}}
+  <section class="wcp-site-summary mb-3" aria-label="totals" data-wcp-stats-summary>
+    <div class="wcp-sum"><div class="wcp-sum-label">Unique visitors</div><div class="wcp-sum-value">{{.Report.Unique}}</div></div>
+    <div class="wcp-sum"><div class="wcp-sum-label">Visits</div><div class="wcp-sum-value">{{.Report.Visits}}</div></div>
+    <div class="wcp-sum"><div class="wcp-sum-label">Pages</div><div class="wcp-sum-value">{{.Report.Pages}}</div></div>
+    <div class="wcp-sum"><div class="wcp-sum-label">Hits</div><div class="wcp-sum-value">{{.Report.Hits}}</div></div>
+    <div class="wcp-sum"><div class="wcp-sum-label">Bandwidth</div><div class="wcp-sum-value">{{.Report.Bytes}}</div></div>
+  </section>
+
+  <div class="row g-3 mb-3 align-items-start">
+    <div class="col-xl-7">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-calendar3 me-1"></i>Days</div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0 wcp-table" id="stats-days">
+            <thead><tr><th>Day</th><th class="text-end">Visits</th><th class="d-none d-sm-table-cell"></th><th class="text-end">Pages</th><th class="text-end">Hits</th><th class="text-end">Bandwidth</th></tr></thead>
+            <tbody>
+            {{range .Report.Days}}
+            <tr>
+              <td class="text-nowrap">{{.Label}}</td>
+              <td class="text-end">{{.Visits}}</td>
+              <td class="d-none d-sm-table-cell wcp-stat-bar"><div class="progress wcp-progress-thin" role="presentation"><div class="progress-bar wcp-w-{{.Bar}}"></div></div></td>
+              <td class="text-end">{{.Pages}}</td>
+              <td class="text-end">{{.Hits}}</td>
+              <td class="text-end text-nowrap">{{.Bytes}}</td>
+            </tr>
+            {{end}}
+            {{if .Report.DaysEmpty}}<tr><td colspan="6" class="text-body-secondary small">No days recorded.</td></tr>{{end}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-5">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-clock me-1"></i>Hours (server time)</div>
+        <div class="card-body small">
+          {{range .Report.Hours}}
+          <div class="d-flex align-items-center gap-2 mb-1"><span class="font-monospace text-body-secondary wcp-hour">{{.Label}}</span>
+            <div class="progress flex-grow-1 wcp-progress-thin" role="presentation"><div class="progress-bar wcp-w-{{.Bar}}"></div></div>
+            <span class="text-end wcp-hour-count">{{.Count}}</span></div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    {{range $list := .Report.Lists}}
+    <div class="{{.Cols}}">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-{{.Icon}} me-1"></i>{{.Title}}</div>
+        {{if .Rows}}
+        <ul class="list-group list-group-flush small">
+          {{range .Rows}}
+          <li class="list-group-item">
+            <div class="d-flex justify-content-between gap-2"><span class="text-truncate{{if $list.Mono}} font-monospace{{end}}" title="{{.Label}}">{{.Label}}</span><span class="text-nowrap fw-medium">{{.Value}} <span class="text-body-secondary fw-normal">{{$list.Unit}}</span></span></div>
+            <div class="progress mt-1 wcp-progress-thin" role="presentation"><div class="progress-bar wcp-w-{{.Bar}}"></div></div>
+          </li>
+          {{end}}
+        </ul>
+        {{else}}
+        <div class="card-body small text-body-secondary">No data.</div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+  {{end}}
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

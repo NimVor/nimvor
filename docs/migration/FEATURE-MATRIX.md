@@ -26,7 +26,7 @@ _From app/Services/FeatureService::FEATURES._
 | nodejs | Node.js runtime & settings | Runtimes | sites.nodejs | ☐ |
 | python | Python runtime & settings | Runtimes | sites.python | ☐ |
 | logs | Logs | Monitoring | sites.logs | ☐ |
-| stats | Visitor statistics | Monitoring | sites.stats | ☐ |
+| stats | Visitor statistics | Monitoring | sites.stats | ☑ |
 | site_health | Site health | Monitoring | sites.health | ☐ |
 | malware | Malware scan | Security | sites.malware | ☑ |
 | firewall | Web firewall (ModSecurity) | Security | sites.firewall | ☑ |

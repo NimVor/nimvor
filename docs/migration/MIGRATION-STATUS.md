@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **158 ☑ done+tested, 3 ◑ partial, 390 ☐** of 551.
+`server/internal/http/server.go`): **161 ☑ done+tested, 3 ◑ partial, 387 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -439,6 +439,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
+- ☑ websites: visitor statistics (batch 33) — the website's AWStats
+  report (GET /sites/{id}/stats: the month select, the summary, the
+  days/hours tables, the top lists drawn from the agent's plain-text
+  data file — parsed in internal/stats, a pure port of StatsService
+  with unit tests), the on/off switch (POST …/stats/enable: the first
+  update when turned on, the stats.enable/disable audits) and the
+  on-demand update (POST …/stats/update: a job)
 - ☑ security: per-website malware pages (batch 32) — the website's
   ClamAV page (GET /sites/{id}/malware: the status toolbar, the last scan
   with its findings, the scan history, the quarantine listing) + the
@@ -475,13 +482,12 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the **websites area continues** — the visitor statistics
-(StatsController, 3 routes: GET /sites/{id}/stats, POST
-/sites/{id}/stats/enable, POST /sites/{id}/stats/update — the per-website
-stat page + the enable/disable toggle + the refresh). The whole security
-area is now ported (fail2ban, firewall, hulk, ModSecurity, malware —
-server-wide and per-website); the hulk/modsec/av scheduler sides stay
-with the background-jobs follow-up. Check INVENTORY.md + the PHP
-controllers before starting.
+Batch: the **websites area continues** — the per-website memcached page
+(SitesController::memcached, GET /sites/{id}/memcached, websites.view:
+the per-website Memcached caches + the server's memcached status) and,
+with it, the RedisController's per-website pages if they are one
+cohesive area. Check INVENTORY.md + the PHP controllers before
+starting. (The whole security area is ported; the hulk/modsec/av
+scheduler sides stay with the background-jobs follow-up.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

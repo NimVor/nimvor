@@ -84,6 +84,14 @@ type sitesAgent struct {
 	// avQuarantineItemsJSON is the av.quarantine_list reply's items array
 	// (default: empty).
 	avQuarantineItemsJSON string
+	// stats* configure the stats.status/stats.data replies. statsInstalled
+	// defaults to true; statsEnabled defaults to false.
+	statsInstalled   bool
+	statsEnabled     bool
+	statsMonthsJSON  string
+	statsUpdatedAt   string
+	statsDataFound   bool
+	statsDataContent string
 }
 
 // setJob registers the jobs.get reply for a job id.
@@ -117,7 +125,7 @@ func guardedReply(changed bool, id, kind, summary string) []byte {
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
 	t.Helper()
-	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true, hulkAvailable: true, hulkActive: true, modsecActive: true, avScanJobID: "0123456789abcdef"}
+	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true, hulkAvailable: true, hulkActive: true, modsecActive: true, avScanJobID: "0123456789abcdef", statsInstalled: true}
 	dir := t.TempDir()
 	socket := filepath.Join(dir, "agent.sock")
 	tokenFile := filepath.Join(dir, "token")
@@ -301,6 +309,31 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				restored = restored[i+1:]
 			}
 			_, _ = w.Write([]byte(`{"success":true,"data":{"released":true,"path":` + fmt.Sprintf("%q", restored) + `}}`))
+		case "stats.status":
+			sa.mu.Lock()
+			installed, enabled, months, updatedAt := sa.statsInstalled, sa.statsEnabled, sa.statsMonthsJSON, sa.statsUpdatedAt
+			sa.mu.Unlock()
+			if months == "" {
+				months = "[]"
+			}
+			updated := "null"
+			if updatedAt != "" {
+				updated = fmt.Sprintf("%q", updatedAt)
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"installed":` + boolJSON(installed) + `,"enabled":` + boolJSON(enabled) + `,"months":` + months + `,"updated_at":` + updated + `}}`))
+		case "stats.enable":
+			on := false
+			if b, ok := p["enabled"].(bool); ok {
+				on = b
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"enabled":` + boolJSON(on) + `}}`))
+		case "stats.update":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"fedcba9876543210"}}`))
+		case "stats.data":
+			sa.mu.Lock()
+			found, content := sa.statsDataFound, sa.statsDataContent
+			sa.mu.Unlock()
+			_, _ = w.Write([]byte(`{"success":true,"data":{"found":` + boolJSON(found) + `,"content":` + fmt.Sprintf("%q", content) + `}}`))
 		case "security.pending":
 			sa.mu.Lock()
 			pending := sa.secPending
