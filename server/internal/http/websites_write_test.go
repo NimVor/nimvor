@@ -126,6 +126,9 @@ type sitesAgent struct {
 	// sslRenewalJSON overrides the ssl.renewal_status reply ("" = certbot
 	// installed + the renewal timer active).
 	sslRenewalJSON string
+	// sitesInspectJSON overrides the sites.inspect reply ("" = the default:
+	// a healthy site with a 123 MiB root and a stored config).
+	sitesInspectJSON string
 	// stats* configure the stats.status/stats.data replies. statsInstalled
 	// defaults to true; statsEnabled defaults to false.
 	statsInstalled   bool
@@ -265,6 +268,14 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				       {"kind":"python","version":"3.11","bin":"/usr/bin/python3","binary":"/usr/bin/python3"}]}}`))
 		case "sites.permissions":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"checked":120,"fixed":3,"skipped_count":2,"errors":[]}}`))
+		case "system.info":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"agent_version":"1.0.0","os":{"name":"Ubuntu"},"system":{"hostname":"srv","kernel":"6.8.0","architecture":"x86_64","cpu":{"model":"","cores":4},"uptime_seconds":100000,"boot_time":"2026-01-01T00:00:00Z","timezone":"UTC","interfaces":[{"name":"lo","mac":"","up":true,"addresses":["127.0.0.1/8","::1/128"]},{"name":"eth0","mac":"aa:bb:cc:dd:ee:ff","up":true,"addresses":["10.10.0.15/24","fe80::1/64"]}]}}`))
+		case "sites.inspect":
+			if sa.sitesInspectJSON != "" {
+				_, _ = w.Write([]byte(`{"success":true,"data":` + sa.sitesInspectJSON + `}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"domain":"bob.example","config_exists":true,"enabled":true,"pool_versions":["8.0.30"],"root_exists":true,"disk_bytes":129184560,"disk_complete":true,"config_preview":"server { listen 80; server_name bob.example; }"}}`))
 		case "workers.status":
 			_, _ = w.Write([]byte(`{"success":true,"data":[{"unit":"whacp-worker-bob-app.service","active_state":"active","sub_state":"running","procs_total":2,"procs_running":2,"memory_bytes":12582912}]}`))
 		case "db.dump":

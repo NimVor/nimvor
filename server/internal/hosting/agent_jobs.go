@@ -75,6 +75,37 @@ func (t *JobTracker) Find(ctx context.Context, serverID int64, jobID string) (*A
 	return &j, nil
 }
 
+// RecentFor lists a target's newest tracked jobs, newest first, as the
+// website advanced page's "Recent tasks" card shows them
+// (JobTracker::recentFor).
+func (t *JobTracker) RecentFor(ctx context.Context, serverID int64, targetType, targetID string, limit int) ([]AgentJob, error) {
+	rows, err := t.db.QueryContext(ctx,
+		`SELECT j.id, j.server_id, j.job_id, j.kind, j.target_type, j.target_id, j.user_id,
+		        j.status, j.settled_at, j.created_at, u.username
+		 FROM agent_jobs j LEFT JOIN users u ON u.id = j.user_id
+		 WHERE j.server_id = ? AND j.target_type = ? AND j.target_id = ?
+		 ORDER BY j.id DESC LIMIT ?`, serverID, targetType, targetID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []AgentJob{}
+	for rows.Next() {
+		var j AgentJob
+		var settled sql.NullString
+		var username sql.NullString
+		if rows.Scan(&j.ID, &j.ServerID, &j.JobID, &j.Kind, &j.TargetType, &j.TargetID,
+			&j.UserID, &j.Status, &settled, &j.CreatedAt, &username) != nil {
+			continue
+		}
+		if settled.Valid {
+			j.SettledAt = &settled.String
+		}
+		out = append(out, j)
+	}
+	return out, rows.Err()
+}
+
 // VisibleTo reports whether the user may follow the job: "all"-scope roles
 // see every job, others their own and (resellers) their customers' jobs, and
 // a job on a website the user may see (e.g. a restore an administrator ran on

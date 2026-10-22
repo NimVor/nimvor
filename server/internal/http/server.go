@@ -124,6 +124,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /websites/new", s.guard("sites.create", "websites.manage", s.websitesNew))
 	s.mux.HandleFunc("POST /websites/new", s.guard("sites.store", "websites.manage", s.websitesStore))
 	s.mux.HandleFunc("GET /websites/{id}", s.guard("", "websites.view", s.websiteShow))
+	s.mux.HandleFunc("GET /sites/{id}", s.guard("sites.show", "websites.view", s.siteShow))
+	s.mux.HandleFunc("GET /sites/{id}/advanced", s.guard("sites.advanced", "websites.manage", s.siteAdvanced))
 	s.mux.HandleFunc("GET /sites/{id}/settings", s.guard("sites.edit", "websites.manage", s.websiteSettings))
 	s.mux.HandleFunc("POST /sites/{id}/settings", s.guard("sites.update", "websites.manage", s.websiteSettingsSave))
 	s.mux.HandleFunc("POST /sites/{id}/toggle", s.guard("sites.toggle", "websites.manage", s.websiteToggle))

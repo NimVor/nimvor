@@ -25,7 +25,7 @@ type SiteOwner struct {
 const fullSelect = `SELECT w.id, w.server_id, w.owner_id, w.domain, w.system_user, w.root, w.document_root,
 	w.kind, w.app_runtime, w.php_version, w.php_settings, w.proxy_pass,
 	w.https, w.force_https, w.hsts, w.ssl_mode, w.cert_file, w.key_file,
-	w.redirects, w.client_max_body_mb, w.enabled, w.status, w.last_error,
+	w.redirects, w.client_max_body_mb, w.enabled, w.status, w.last_error, w.applied_at,
 	w.directory_listing, w.ipv4, w.ipv6, w.security_headers, w.parent_id, w.bandwidth_applied,
 	w.auto_ssl, w.auto_ssl_note,
 	w.created_at, w.updated_at,
@@ -144,7 +144,7 @@ func scanFull(row interface{ Scan(...any) error }) (*Website, error) {
 	if err := row.Scan(&w.ID, &w.ServerID, &w.OwnerID, &w.Domain, &w.SystemUser, &w.Root, &w.DocumentRoot,
 		&w.Kind, &w.AppRuntime, &w.PhpVersion, &phpSettings, &w.ProxyPass,
 		&https, &forceHTTPS, &hsts, &w.SSLMode, &w.CertFile, &w.KeyFile,
-		&redirects, &w.ClientMaxBodyMB, &enabled, &w.Status, &w.LastError,
+		&redirects, &w.ClientMaxBodyMB, &enabled, &w.Status, &w.LastError, &w.AppliedAt,
 		&dirListing, &w.IPv4, &w.IPv6, &secHeaders, &w.ParentID, &bwApplied,
 		&w.AutoSSL, &w.AutoSSLNote,
 		&w.CreatedAt, &w.UpdatedAt, &w.OwnerName, &suspended, &bwBlocked); err != nil {
