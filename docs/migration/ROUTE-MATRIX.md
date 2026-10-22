@@ -453,11 +453,11 @@ Total routes: 551
 | GET | `/sites/{id}/memcached` | SitesController::memcached | sites.memcached | websites.view | yes | yes |☑ |
 | POST | `/sites/{id}/mongo/backup` | SiteMongoController::backup | sites.mongo.backup | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/mongo/backups/delete` | SiteMongoController::deleteBackup | sites.mongo.backup_delete | websites.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/mongo/browse` | SiteMongoController::browse | sites.mongo.browse | websites.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/mongo/browser` | SiteMongoController::browser | sites.mongo.browser | websites.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/mongo/browse` | SiteMongoController::browse | sites.mongo.browse | websites.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/mongo/browser` | SiteMongoController::browser | sites.mongo.browser | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/mongo/databases/drop` | SiteMongoController::dropDatabase | sites.mongo.database_drop | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/mongo/databases` | SiteMongoController::createDatabase | sites.mongo.database_create | websites.manage | yes | yes | ☑ |
-| GET | `/sites/{id}/mongo/export` | SiteMongoController::export | sites.mongo.export | websites.manage | yes | yes | ☐ |
+| GET | `/sites/{id}/mongo/export` | SiteMongoController::export | sites.mongo.export | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/mongo/restore` | SiteMongoController::restore | sites.mongo.restore | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/mongo/users/drop` | SiteMongoController::dropUser | sites.mongo.user_drop | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/mongo/users/password` | SiteMongoController::setPassword | sites.mongo.user_password | websites.manage | yes | yes | ☑ |
