@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -128,6 +129,29 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"killed":7,"query_only":false}}`))
 		case "logs.sources":
 			_, _ = w.Write([]byte(`{"success":true,"data":[{"id":"nginx:access","label":"nginx access","group":"Web server","kind":"file","size":1024,"exists":true},{"id":"system:mysql","label":"MySQL error log","group":"Database server","kind":"file","size":4096,"exists":true},{"id":"journal:mariadb.service","label":"mariadb.service journal","group":"Database server","kind":"journal","size":0,"exists":true},{"id":"system:auth","label":"Authentication log","group":"Security","kind":"file","size":512,"exists":true}]}`))
+		case "files.list":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"path":"","entries":[{"name":"hello.txt","type":"file","size":11,"mtime":1700000000,"mode":"0644"},{"name":"app","type":"dir","size":0,"mtime":1700000000,"mode":"0755"}]}}`))
+		case "files.read":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"path":"hello.txt","content":"hello world","mtime":1700000000}}`))
+		case "files.write":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"path":"hello.txt","mtime":1700000100}}`))
+		case "files.rename":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"from":"a.txt","to":"b.txt"}}`))
+		case "files.extract":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789abcdef","path":"archive.zip"}}`))
+		case "files.upload":
+			data, _ := p["data"].(string)
+			size := 0
+			if b, err := base64.StdEncoding.DecodeString(data); err == nil {
+				size = len(b)
+			}
+			finalStr := "false"
+			if p["final"] == true {
+				finalStr = "true"
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"path":"up/file.txt","offset":0,"final":` + finalStr + `,"size":` + strconv.Itoa(size) + `}}`))
+		case "files.download":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"data":"aGVsbG8gd29ybGQ=","size":11,"eof":true}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

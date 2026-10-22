@@ -125,6 +125,14 @@ func (s *Server) routes() {
 	// The website's logs (LogsController::site, logs.view; the logs plan
 	// feature gates the route name).
 	s.mux.HandleFunc("GET /sites/{id}/logs", s.guard("sites.logs", "logs.view", s.siteLogs))
+	// The website file manager (FilesController, files.manage; the
+	// file_manager feature withholds the permission when the plan
+	// disables it). All confinement is enforced by the agent.
+	s.mux.HandleFunc("GET /sites/{id}/files", s.guard("sites.files", "files.manage", s.filesShow))
+	s.mux.HandleFunc("GET /sites/{id}/files/edit", s.guard("sites.files.edit", "files.manage", s.filesEdit))
+	s.mux.HandleFunc("POST /sites/{id}/files/api", s.guard("sites.files.api", "files.manage", s.filesApi))
+	s.mux.HandleFunc("POST /sites/{id}/files/upload", s.guard("sites.files.upload", "files.manage", s.filesUpload))
+	s.mux.HandleFunc("GET /sites/{id}/files/download", s.guard("sites.files.download", "files.manage", s.filesDownload))
 	// The website's databases (DatabasesController::site; databases.view —
 	// the mysql feature withholds it when the plan disables mysql).
 	s.mux.HandleFunc("GET /sites/{id}/databases", s.guard("", "databases.view", s.siteDatabases))
