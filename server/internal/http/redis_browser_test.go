@@ -16,7 +16,7 @@ import (
 func b64(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }
 
 func TestRedisServerPage(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	rr := get(t, h, "/redis/browser", admin)
 	if rr.Code != http.StatusOK {
@@ -44,7 +44,7 @@ func TestRedisServerPage(t *testing.T) {
 }
 
 func TestRedisSitePage(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	rr := get(t, h, "/sites/10/redis", admin)
 	if rr.Code != http.StatusOK {
@@ -69,7 +69,7 @@ func TestRedisSitePage(t *testing.T) {
 }
 
 func TestRedisPageForbidden(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	bob := loginAsUser(t, h, "bob")
 	if rr := get(t, h, "/sites/10/redis", bob); rr.Code != http.StatusForbidden {
 		t.Errorf("/sites/10/redis (bob) = %d: %s", rr.Code, rr.Body.String())
@@ -80,7 +80,7 @@ func TestRedisPageForbidden(t *testing.T) {
 }
 
 func TestRedisPageNotFound(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	if rr := get(t, h, "/sites/99/redis", admin); rr.Code != http.StatusNotFound {
 		t.Errorf("/sites/99/redis = %d: %s", rr.Code, rr.Body.String())
@@ -91,7 +91,7 @@ func TestRedisPageNotFound(t *testing.T) {
 }
 
 func TestRedisSiteApiKeys(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/sites/10/redis")
 
@@ -133,7 +133,7 @@ func TestRedisSiteApiKeys(t *testing.T) {
 }
 
 func TestRedisSiteApiEditAudited(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/sites/10/redis")
 
@@ -171,7 +171,7 @@ func TestRedisSiteApiEditAudited(t *testing.T) {
 }
 
 func TestRedisSiteApiDeleteAudited(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/sites/10/redis")
 
@@ -207,7 +207,7 @@ func TestRedisSiteApiDeleteAudited(t *testing.T) {
 }
 
 func TestRedisServerApiAuditTarget(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/redis/browser")
 
@@ -232,7 +232,7 @@ func TestRedisServerApiAuditTarget(t *testing.T) {
 }
 
 func TestRedisApiUnknownOp(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/sites/10/redis")
 
@@ -246,7 +246,7 @@ func TestRedisApiUnknownOp(t *testing.T) {
 }
 
 func TestRedisApiBadCSRF(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 
 	rr := postRedis(t, h, "/sites/10/redis/api", map[string]any{"action": "keys"}, admin, "")
@@ -259,7 +259,7 @@ func TestRedisApiBadCSRF(t *testing.T) {
 }
 
 func TestRedisSiteApiNotFound(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/sites/10/redis")
 
@@ -270,7 +270,7 @@ func TestRedisSiteApiNotFound(t *testing.T) {
 }
 
 func TestRedisApiAgentDown(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	sa.mu.Lock()
 	sa.failActions = map[string]string{"redis.keys": "Redis is not running on this server."}
 	sa.mu.Unlock()
@@ -287,7 +287,7 @@ func TestRedisApiAgentDown(t *testing.T) {
 }
 
 func TestRedisServerApiLongPrefixIgnored(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/redis/browser")
 

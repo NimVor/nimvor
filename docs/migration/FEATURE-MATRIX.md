@@ -13,7 +13,7 @@ _From app/Services/FeatureService::FEATURES._
 | ssl | SSL / HTTPS | Websites | ssl.view,ssl.manage | ☐ |
 | subdomains | Subdomains | Domains | sites.subdomains | ☐ |
 | addon_domains | Addon domains | Domains | sites.addons | ☐ |
-| cloudflare | Cloudflare | Websites | sites.cloudflare | ☐ |
+| cloudflare | Cloudflare | Websites | sites.cloudflare | ☑ |
 | ftp | FTP / SFTP accounts | Files | ftp.manage | ☐ |
 | cron | Cron jobs | Automation | cron.view,cron.manage | ☐ |
 | backups | Backups | Backups | backups.view,backups.manage | ☐ |

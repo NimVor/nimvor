@@ -14,7 +14,7 @@ import (
 )
 
 func TestMemcachedIndex(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	rr := get(t, h, "/memcached", admin)
 	if rr.Code != http.StatusOK {
@@ -48,7 +48,7 @@ func TestMemcachedIndex(t *testing.T) {
 }
 
 func TestMemcachedIndexNotInstalled(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	sa.mu.Lock()
 	sa.mcInstalled = false
 	sa.mu.Unlock()
@@ -70,7 +70,7 @@ func TestMemcachedIndexNotInstalled(t *testing.T) {
 }
 
 func TestMemcachedIndexNoInstallPermission(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	ops := loginAsUser(t, h, "ops")
 	rr := get(t, h, "/memcached", ops)
 	if rr.Code != http.StatusOK {
@@ -85,7 +85,7 @@ func TestMemcachedIndexNoInstallPermission(t *testing.T) {
 }
 
 func TestMemcachedIndexAgentDown(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	sa.mu.Lock()
 	sa.failActions = map[string]string{"memcached.status": "the agent refused"}
 	sa.mu.Unlock()
@@ -100,7 +100,7 @@ func TestMemcachedIndexAgentDown(t *testing.T) {
 }
 
 func TestMemcachedConfigure(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/memcached")
 
@@ -145,7 +145,7 @@ func TestMemcachedConfigure(t *testing.T) {
 }
 
 func TestMemcachedConfigureAgentRefused(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	sa.mu.Lock()
 	sa.failActions = map[string]string{"memcached.configure": "Memcached did not answer after the restart."}
 	sa.mu.Unlock()
@@ -163,7 +163,7 @@ func TestMemcachedConfigureAgentRefused(t *testing.T) {
 }
 
 func TestMemcachedFlush(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/memcached")
 
@@ -193,7 +193,7 @@ func TestMemcachedFlush(t *testing.T) {
 }
 
 func TestMemcachedInstall(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/memcached")
 
@@ -220,7 +220,7 @@ func TestMemcachedInstall(t *testing.T) {
 }
 
 func TestMemcachedRestart(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/memcached")
 
@@ -243,7 +243,7 @@ func TestMemcachedRestart(t *testing.T) {
 }
 
 func TestMemcachedForbidden(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	bob := loginAsUser(t, h, "bob")
 	if rr := get(t, h, "/memcached", bob); rr.Code != http.StatusForbidden {
 		t.Errorf("/memcached (bob) = %d", rr.Code)
@@ -255,7 +255,7 @@ func TestMemcachedForbidden(t *testing.T) {
 }
 
 func TestRedisIndex(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	rr := get(t, h, "/redis", admin)
 	if rr.Code != http.StatusOK {
@@ -287,7 +287,7 @@ func TestRedisIndex(t *testing.T) {
 }
 
 func TestRedisIndexAgentDown(t *testing.T) {
-	h, sa, _ := cacheEnv(t)
+	h, _, sa, _ := cacheEnv(t)
 	sa.mu.Lock()
 	sa.failActions = map[string]string{"redis.info": "Redis is not reachable."}
 	sa.mu.Unlock()
@@ -311,7 +311,7 @@ func TestRedisIndexAgentDown(t *testing.T) {
 }
 
 func TestRedisConfigure(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/redis")
 
@@ -339,7 +339,7 @@ func TestRedisConfigure(t *testing.T) {
 }
 
 func TestRedisConfigureInvalid(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/redis")
 
@@ -368,7 +368,7 @@ func TestRedisConfigureInvalid(t *testing.T) {
 }
 
 func TestRedisPassword(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/redis")
 
@@ -400,7 +400,7 @@ func TestRedisPassword(t *testing.T) {
 }
 
 func TestRedisPasswordClear(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/redis")
 
@@ -419,7 +419,7 @@ func TestRedisPasswordClear(t *testing.T) {
 }
 
 func TestRedisFlush(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/redis")
 
@@ -447,7 +447,7 @@ func TestRedisFlush(t *testing.T) {
 }
 
 func TestRedisCreateUser(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/redis")
 
@@ -487,7 +487,7 @@ func TestRedisCreateUser(t *testing.T) {
 }
 
 func TestRedisCreateUserNotFound(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/redis")
 
@@ -499,7 +499,7 @@ func TestRedisCreateUserNotFound(t *testing.T) {
 }
 
 func TestRedisDeleteUser(t *testing.T) {
-	h, sa, db := cacheEnv(t)
+	h, _, sa, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/redis")
 
@@ -532,7 +532,7 @@ func TestRedisDeleteUser(t *testing.T) {
 }
 
 func TestRedisForbidden(t *testing.T) {
-	h, _, _ := cacheEnv(t)
+	h, _, _, _ := cacheEnv(t)
 	bob := loginAsUser(t, h, "bob")
 	if rr := get(t, h, "/redis", bob); rr.Code != http.StatusForbidden {
 		t.Errorf("/redis (bob) = %d", rr.Code)

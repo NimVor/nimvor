@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **177 ☑ done+tested, 3 ◑ partial, 371 ☐** of 551.
+`server/internal/http/server.go`): **184 ☑ done+tested, 3 ◑ partial, 364 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -439,6 +439,20 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
+- ☑ websites: the per-website Cloudflare area (batch 36) —
+  SiteCloudflareController + CloudflareSiteService as
+  site_cloudflare.go: the customer connects their own Cloudflare API token
+  (POST /sites/{id}/cloudflare/connect: shape check, token verification,
+  the zone matching the website's domain — longest match wins — stored
+  encrypted per website in cloudflare_sites + audit), the zone page
+  (GET /sites/{id}/cloudflare: SSL/TLS mode select, the Always Use HTTPS
+  switch, the proxiable DNS records of the domain with per-record proxy
+  switches, the API-error banner), and the actions POST …/ssl (validated
+  mode), …/always-https, …/proxy (record id whitelisted to 32-hex),
+  …/purge (purge_everything), …/disconnect — every change audited against
+  the website. The panel talks to api.cloudflare.com directly (an
+  injectable transport for tests; no agent), the token is only ever a
+  Bearer header, ids are regex-guarded before path interpolation
 - ☑ caching: the server-side Redis + Memcached management (batch 35) —
   the Memcached page (GET /memcached: memory progress, the stats, the
   settings modal, the confirmed flush, the install job, the restart —
@@ -499,11 +513,14 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the **websites area continues** — the per-website Cloudflare
-proxy (SiteCloudflareController, 7 routes: the toggle, the zone
-settings, the DNS records + cache purge) is the largest single website
-sub-area left; check INVENTORY.md + the PHP controllers first and split
-it into 2–3 batches if needed. (The hulk/modsec/av scheduler sides stay
-with the background-jobs follow-up.)
+Batch: the **server-side Cloudflare area** (CloudflareController, 7
+routes: GET /cloudflare + POST /cloudflare/connect|disconnect|ssl|
+always-https|proxy|purge — the server-wide account/zone management,
+cloudflare_accounts + the server.manage split) is the natural follow-up
+now that the per-website area exists (it reuses the same direct-API
+pattern; the PHP CloudflareService + CloudflareSiteService share most of
+the transport code). After that the websites area continues with the
+larger sub-areas (php/mysql settings, files, mail, DNS, …). (The
+hulk/modsec/av scheduler sides stay with the background-jobs follow-up.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

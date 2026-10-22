@@ -49,6 +49,7 @@ type Server struct {
 	policy    *security.Policy
 	loginIPs  *security.LoginIpVerifier
 	hulk      *security.Hulk
+	cfDo      cfTransport // per-website Cloudflare transport (nil = real)
 }
 
 // New builds the server and registers the routes implemented so far. It
@@ -303,6 +304,16 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /redis/flush", s.guard("redis.flush", "redis.manage", s.redisFlush))
 	s.mux.HandleFunc("POST /redis/users", s.guard("redis.users.store", "redis.manage", s.redisCreateUser))
 	s.mux.HandleFunc("POST /redis/users/delete", s.guard("redis.users.delete", "redis.manage", s.redisDeleteUser))
+
+	// Batch 36 — per-website Cloudflare area (direct Cloudflare API; the
+	// customer's own per-website token is stored encrypted).
+	s.mux.HandleFunc("GET /sites/{id}/cloudflare", s.guard("sites.cloudflare", "websites.manage", s.siteCloudflare))
+	s.mux.HandleFunc("POST /sites/{id}/cloudflare/connect", s.guard("sites.cloudflare.connect", "websites.manage", s.siteCloudflareConnect))
+	s.mux.HandleFunc("POST /sites/{id}/cloudflare/disconnect", s.guard("sites.cloudflare.disconnect", "websites.manage", s.siteCloudflareDisconnect))
+	s.mux.HandleFunc("POST /sites/{id}/cloudflare/ssl", s.guard("sites.cloudflare.ssl", "websites.manage", s.siteCloudflareSsl))
+	s.mux.HandleFunc("POST /sites/{id}/cloudflare/always-https", s.guard("sites.cloudflare.always_https", "websites.manage", s.siteCloudflareAlwaysHttps))
+	s.mux.HandleFunc("POST /sites/{id}/cloudflare/proxy", s.guard("sites.cloudflare.proxy", "websites.manage", s.siteCloudflareProxy))
+	s.mux.HandleFunc("POST /sites/{id}/cloudflare/purge", s.guard("sites.cloudflare.purge", "websites.manage", s.siteCloudflarePurge))
 	// Subdomains: gated by the subdomains plan feature (route name) AND the
 	// websites.manage permission.
 	s.mux.HandleFunc("GET /sites/{id}/subdomains", s.guard("sites.subdomains", "websites.manage", s.siteSubdomains))
