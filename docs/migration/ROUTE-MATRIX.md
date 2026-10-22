@@ -158,7 +158,7 @@ Total routes: 551
 | POST | `/logout` | AuthController::logout | logout |  | yes | yes | ☑ |
 | GET | `/logs/download` | LogsController::download | logs.download | logs.view | yes | yes | ☑ |
 | GET | `/logs/tail` | LogsController::tail | logs.tail | logs.view | yes | yes | ☑ |
-| GET | `/logs` | LogsController::index | logs | logs.view | yes | yes | ☐ |
+| GET | `/logs` | LogsController::index | logs | logs.view | yes | yes | ☑ |
 | POST | `/mail/admin/greylisting/providers/update` | MailGreylistController::updateProviders | mail.greylist.providers.update | server.manage | yes | yes | ☐ |
 | POST | `/mail/admin/greylisting/providers` | MailGreylistController::saveProviders | mail.greylist.providers | server.manage | yes | yes | ☐ |
 | GET | `/mail/admin/greylisting/report` | MailGreylistController::report | mail.greylist.report | server.view | yes | yes | ☐ |
