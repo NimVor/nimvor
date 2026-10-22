@@ -493,12 +493,12 @@ Total routes: 551
 | GET | `/sites/{id}/terminal` | TerminalController::site | sites.terminal | files.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/toggle` | SitesController::toggle | sites.toggle | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/wordpress/scan` | WordPressController::scanSite | sites.wordpress.scan | websites.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/wordpress/{wp}/check` | WordPressController::check | sites.wordpress.check | websites.view | yes | yes | ☐ |
-| POST | `/sites/{id}/wordpress/{wp}/login` | WordPressController::login | sites.wordpress.login | websites.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/wordpress/{wp}/logs` | WordPressController::logs | sites.wordpress.logs | websites.view | yes | yes | ☐ |
+| POST | `/sites/{id}/wordpress/{wp}/check` | WordPressController::check | sites.wordpress.check | websites.view | yes | yes | ☑ |
+| POST | `/sites/{id}/wordpress/{wp}/login` | WordPressController::login | sites.wordpress.login | websites.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/wordpress/{wp}/logs` | WordPressController::logs | sites.wordpress.logs | websites.view | yes | yes | ☑ |
 | POST | `/sites/{id}/wordpress/{wp}/manage` | WordPressController::manage | sites.wordpress.manage | websites.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/wordpress/{wp}/tools` | WordPressController::tool | sites.wordpress.tool | websites.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/wordpress/{wp}` | WordPressController::show | sites.wordpress.show | websites.view | yes | yes | ☐ |
+| GET | `/sites/{id}/wordpress/{wp}` | WordPressController::show | sites.wordpress.show | websites.view | yes | yes | ☑ |
 | GET | `/sites/{id}/wordpress` | WordPressController::siteList | sites.wordpress | websites.view | yes | yes | ☑ |
 | POST | `/sites/{id}/workers/{worker}/delete` | WorkersController::delete | sites.workers.delete | workers.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/workers/{worker}/restart` | WorkersController::restart | sites.workers.restart | workers.manage | yes | yes | ☑ |

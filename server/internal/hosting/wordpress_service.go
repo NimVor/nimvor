@@ -44,6 +44,13 @@ type WordPressInstall struct {
 	ScannedAt        string
 	CheckedAt        sql.NullString
 
+	// The toolkit switches and state (0038).
+	VulnProtection bool
+	Vulns          string
+	VulnsCheckedAt sql.NullString
+	ClonedFrom     sql.NullInt64
+	CronJobID      sql.NullInt64
+
 	// The hosting website (the join).
 	Domain       string
 	HTTPS        bool
@@ -200,6 +207,7 @@ func (i *WordPressInstall) BaseURL() *string {
 const wordpressInstallSQL = `SELECT i.id, i.website_id, i.path, i.version, i.db_name, i.db_host, i.table_prefix,
        i.debug, i.file_edit_disabled, i.config_mode, i.maintenance, i.siteurl, i.latest,
        i.plugin_updates, i.theme_updates, i.issues, i.scanned_at, i.checked_at,
+       i.vuln_protection, i.vulns, i.vulns_checked_at, i.cloned_from, i.cron_job_id,
        w.domain, w.https, w.php_version, w.system_user, w.root, w.document_root, u.username
 FROM wordpress_installs i JOIN websites w ON w.id = i.website_id LEFT JOIN users u ON u.id = w.owner_id`
 
@@ -212,6 +220,7 @@ func (i *WordPressInstall) scan(row scanner) error {
 	return row.Scan(&i.ID, &i.WebsiteID, &i.Path, &i.Version, &i.DBName, &i.DBHost, &i.TablePrefix,
 		&i.Debug, &i.FileEditDisabled, &i.ConfigMode, &i.Maintenance, &i.SiteURL, &i.Latest,
 		&i.PluginUpdates, &i.ThemeUpdates, &i.Issues, &i.ScannedAt, &i.CheckedAt,
+		&i.VulnProtection, &i.Vulns, &i.VulnsCheckedAt, &i.ClonedFrom, &i.CronJobID,
 		&i.Domain, &i.HTTPS, &i.PHPVersion, &i.SystemUser, &i.Root, &i.DocumentRoot, &i.OwnerName)
 }
 
@@ -281,8 +290,9 @@ func (s *WordPressService) Install(ctx context.Context, site *Website, id int64)
 		Scan(&i.ID, &i.WebsiteID, &i.Path, &i.Version, &i.DBName, &i.DBHost, &i.TablePrefix,
 			&i.Debug, &i.FileEditDisabled, &i.ConfigMode, &i.Maintenance, &i.SiteURL, &i.Latest,
 			&i.PluginUpdates, &i.ThemeUpdates, &i.Issues, &i.ScannedAt, &i.CheckedAt,
+			&i.VulnProtection, &i.Vulns, &i.VulnsCheckedAt, &i.ClonedFrom, &i.CronJobID,
 			&i.Domain, &i.HTTPS, &i.PHPVersion, &i.SystemUser, &i.Root, &i.DocumentRoot, &i.OwnerName)
-	if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 		return nil, &UserError{What: "That WordPress installation was not found; scan the website again."}
 	}
 	if err != nil {
@@ -460,4 +470,361 @@ func (s *WordPressService) auditWordPress(ctx context.Context, action, targetTyp
 	if s.audit != nil {
 		s.audit(ctx, action, targetType, target, "success", details)
 	}
+}
+
+// WordPressCheck is one security and health check.
+type WordPressCheck struct {
+	Level  string `json:"level"`
+	Title  string `json:"title"`
+	Detail string `json:"detail"`
+	Fix    string `json:"fix"` // '' when there is no one-click fix
+}
+
+// WpAdmin is one administrator of the installation.
+type WpAdmin struct {
+	ID    int64  `json:"id"`
+	Login string `json:"login"`
+}
+
+// WpPlugin is one installed plugin (wordpress.info).
+type WpPlugin struct {
+	Name       string `json:"name"`
+	Title      string `json:"title"`
+	Version    string `json:"version"`
+	Update     string `json:"update"` // '' when current
+	Active     bool   `json:"active"`
+	AutoUpdate bool   `json:"auto_update"`
+	MustUse    bool   `json:"must_use"`
+}
+
+// WpTheme is one installed theme (wordpress.info).
+type WpTheme struct {
+	Name       string `json:"name"`
+	Title      string `json:"title"`
+	Version    string `json:"version"`
+	Update     string `json:"update"`
+	Active     bool   `json:"active"`
+	Parent     bool   `json:"parent"`
+	AutoUpdate bool   `json:"auto_update"`
+}
+
+// WpCoreInfo is the update state of the WordPress core.
+type WpCoreInfo struct {
+	Latest    string `json:"latest"` // '' when WordPress.org was not reached
+	PhpNeeded string `json:"php_needed"`
+	CheckedAt int64  `json:"checked_at"`
+}
+
+// WpDbInfo is the installation's database (wordpress.info).
+type WpDbInfo struct {
+	Name   string `json:"name"`
+	Host   string `json:"host"`
+	Prefix string `json:"prefix"`
+	Tables int    `json:"tables"`
+	Bytes  int64  `json:"bytes"`
+}
+
+// WpConstants are the WordPress constants the overview reads.
+type WpConstants struct {
+	Debug            bool
+	DebugDisplay     bool
+	FileEditDisabled bool
+	FileModsDisabled bool
+	AutoCore         string // undefined '' or the PHP literal "'minor'", "true", "false"
+	AutoDisabled     bool
+	DisableCron      bool
+}
+
+// WordPressInfo is the installation's overview (wordpress.info) and the
+// checks computed from it (WordPressService::info).
+type WordPressInfo struct {
+	Title              string `json:"title"`
+	Version            string `json:"version"`
+	SiteURL            string `json:"siteurl"`
+	Core               WpCoreInfo
+	Constants          WpConstants
+	Plugins            []WpPlugin
+	Themes             []WpTheme
+	Admins             []WpAdmin
+	Maintenance        bool `json:"maintenance"`
+	Multisite          bool `json:"multisite"`
+	SearchEngines      bool `json:"search_engines"`
+	AdminLoginExists   bool `json:"admin_login_exists"`
+	DB                 WpDbInfo
+	MySQL              string `json:"mysql"`
+	ConfigMode         string `json:"config_mode"`
+	Checks             []WordPressCheck
+}
+
+// Info is the installation's overview (as the website account) with the
+// security checks; the stored summary is refreshed
+// (WordPressService::info).
+func (s *WordPressService) Info(ctx context.Context, site *Website, install *WordPressInstall, force bool) (*WordPressInfo, error) {
+	timeout := 120 * time.Second
+	if force {
+		timeout = 180 * time.Second
+	}
+	res, err := s.agent.Call(ctx, "wordpress.info", map[string]any{
+		"domain": site.Domain, "user": site.SystemUser, "root": site.Root,
+		"php_version": site.PhpVersion, "path": install.Path, "force": force,
+	}, timeout)
+	if err != nil {
+		return nil, err
+	}
+	var raw struct {
+		Title         string         `json:"title"`
+		Version       string         `json:"version"`
+		SiteURL       string         `json:"siteurl"`
+		Core          WpCoreInfo     `json:"core"`
+		Constants     map[string]any `json:"constants"`
+		Plugins       []WpPlugin     `json:"plugins"`
+		Themes        []WpTheme      `json:"themes"`
+		Admins        []WpAdmin      `json:"admins"`
+		Maintenance   bool           `json:"maintenance"`
+		Multisite     bool           `json:"multisite"`
+		SearchEngines bool           `json:"search_engines"`
+		AdminExists   bool           `json:"admin_login_exists"`
+		DB            WpDbInfo       `json:"db"`
+		MySQL         string         `json:"mysql"`
+		ConfigMode    string         `json:"config_mode"`
+	}
+	if err := json.Unmarshal(res, &raw); err != nil {
+		return nil, err
+	}
+	consts := WpConstants{}
+	for k, v := range raw.Constants {
+		switch k {
+		case "WP_DEBUG":
+			consts.Debug = wpAsBool(v)
+		case "WP_DEBUG_DISPLAY":
+			consts.DebugDisplay = wpAsBool(v)
+		case "DISALLOW_FILE_EDIT":
+			consts.FileEditDisabled = wpAsBool(v)
+		case "DISALLOW_FILE_MODS":
+			consts.FileModsDisabled = wpAsBool(v)
+		case "WP_AUTO_UPDATE_CORE":
+			switch t := v.(type) {
+			case string:
+				consts.AutoCore = t
+			case bool:
+				if t {
+					consts.AutoCore = "true"
+				} else {
+					consts.AutoCore = "false"
+				}
+			}
+		case "AUTOMATIC_UPDATER_DISABLED":
+			consts.AutoDisabled = wpAsBool(v)
+		case "DISABLE_WP_CRON":
+			consts.DisableCron = wpAsBool(v)
+		}
+	}
+	if raw.Plugins == nil {
+		raw.Plugins = []WpPlugin{}
+	}
+	if raw.Themes == nil {
+		raw.Themes = []WpTheme{}
+	}
+	if raw.Admins == nil {
+		raw.Admins = []WpAdmin{}
+	}
+	info := &WordPressInfo{
+		Title: raw.Title, Version: raw.Version, SiteURL: raw.SiteURL, Core: raw.Core,
+		Constants: consts, Plugins: raw.Plugins, Themes: raw.Themes, Admins: raw.Admins,
+		Maintenance: raw.Maintenance, Multisite: raw.Multisite, SearchEngines: raw.SearchEngines,
+		AdminLoginExists: raw.AdminExists, DB: raw.DB, MySQL: raw.MySQL, ConfigMode: raw.ConfigMode,
+	}
+	info.Checks = WordPressChecks(info, site)
+	pluginUpdates, themeUpdates, issues := 0, 0, 0
+	for _, p := range info.Plugins {
+		if p.Update != "" {
+			pluginUpdates++
+		}
+	}
+	for _, t := range info.Themes {
+		if t.Update != "" {
+			themeUpdates++
+		}
+	}
+	for _, c := range info.Checks {
+		if c.Level != "info" {
+			issues++
+		}
+	}
+	_, err = s.db.ExecContext(ctx,
+		`UPDATE wordpress_installs SET version = ?, siteurl = ?,
+		 latest = CASE WHEN ? <> '' THEN ? ELSE latest END,
+		 plugin_updates = ?, theme_updates = ?, issues = ?, maintenance = ?,
+		 debug = ?, file_edit_disabled = ?, config_mode = ?, checked_at = ? WHERE id = ?`,
+		info.Version, info.SiteURL, info.Core.Latest, info.Core.Latest,
+		pluginUpdates, themeUpdates, issues, boolInt(info.Maintenance),
+		boolInt(info.Constants.Debug), boolInt(info.Constants.FileEditDisabled),
+		info.ConfigMode, time.Now().UTC().Format("2006-01-02T15:04:05Z"), install.ID)
+	if err != nil {
+		return nil, err
+	}
+	return info, nil
+}
+
+// wpAsBool is PHP's !empty() for the constants the agent reports as JSON
+// booleans (or strings).
+func wpAsBool(v any) bool {
+	switch t := v.(type) {
+	case bool:
+		return t
+	case string:
+		return t == "1" || t == "true"
+	case float64:
+		return t != 0
+	}
+	return false
+}
+
+// WordPressChecks are the security and health checks: [level
+// (danger|warning|info), title, detail, fix op or ''] (WordPressService::checks).
+func WordPressChecks(info *WordPressInfo, site *Website) []WordPressCheck {
+	c := []WordPressCheck{}
+	add := func(level, title, detail, fix string) {
+		c = append(c, WordPressCheck{Level: level, Title: title, Detail: detail, Fix: fix})
+	}
+	if info.Core.Latest != "" && wpVersionCompare(info.Version, info.Core.Latest) < 0 {
+		add("danger", "WordPress "+info.Core.Latest+" is available",
+			"This site runs "+info.Version+". Updates close security holes; back the website up first.", "core_update")
+	}
+	needed := info.Core.PhpNeeded
+	if needed != "" && wpVersionCompare(site.PhpVersion, needed) < 0 {
+		add("danger", "The newest WordPress needs PHP "+needed,
+			"The website uses PHP "+site.PhpVersion+"; choose a newer PHP version under PHP & settings.")
+	} else if wpVersionCompare(site.PhpVersion, "8.1") < 0 {
+		add("warning", "PHP "+site.PhpVersion+" no longer gets security fixes",
+			"Choose PHP 8.1 or newer under PHP & settings (check that the plugins support it).")
+	}
+	pTitles := []string{}
+	for _, p := range info.Plugins {
+		if p.Update != "" {
+			pTitles = append(pTitles, p.Title)
+		}
+	}
+	if pTitles != nil {
+		add("warning", fmt.Sprintf("%d plugin update(s) available", len(pTitles)), strings.Join(pTitles, ", "), "plugin_update")
+	}
+	tTitles := []string{}
+	for _, t := range info.Themes {
+		if t.Update != "" {
+			tTitles = append(tTitles, t.Title)
+		}
+	}
+	if tTitles != nil {
+		add("warning", fmt.Sprintf("%d theme update(s) available", len(tTitles)), strings.Join(tTitles, ", "), "theme_update")
+	}
+	if info.Constants.Debug {
+		add("warning", "Debugging is on",
+			"WP_DEBUG can show errors, paths and queries to visitors.", "debug_off")
+	}
+	if !info.Constants.FileEditDisabled && !info.Constants.FileModsDisabled {
+		add("warning", "The theme and plugin file editor is on",
+			"Anyone who gets into an administrator account can change PHP code from the dashboard.", "disable_file_edit")
+	}
+	if mode := info.ConfigMode; mode != "" {
+		if n, err := strconv.ParseInt(mode, 8, 64); err == nil && n&0o027 != 0 {
+			add("warning", "wp-config.php is readable by others ("+mode+")",
+				"It holds the database password; only the website account needs to read it.", "protect_config")
+		}
+	}
+	if info.AdminLoginExists {
+		add("warning", "A user is called \"admin\"",
+			"It is the first name attackers try. Create another administrator in WordPress and delete this one.")
+	}
+	if site.HTTPS && strings.HasPrefix(info.SiteURL, "http://") {
+		add("warning", "WordPress uses http:// although the website has HTTPS",
+			"Change the WordPress and site address to https:// under Settings → General in WordPress.")
+	} else if !site.HTTPS {
+		add("warning", "The website has no HTTPS",
+			"Sign-ins and cookies travel unencrypted. Issue a certificate under SSL / HTTPS.")
+	}
+	auto := info.Constants.AutoCore
+	if info.Constants.AutoDisabled || auto == "false" {
+		add("warning", "Automatic WordPress updates are off",
+			"Security releases are not installed by themselves.")
+	}
+	inactive := 0
+	for _, p := range info.Plugins {
+		if !p.Active {
+			inactive++
+		}
+	}
+	if inactive > 0 {
+		add("info", fmt.Sprintf("%d inactive plugin(s)", inactive),
+			"Plugins that are not used are still reachable on the web; delete them in WordPress if you do not need them.")
+	}
+	if info.Maintenance {
+		add("info", "Maintenance mode is on",
+			"Visitors see \"Briefly unavailable for scheduled maintenance\".", "maintenance_off")
+	}
+	if !info.SearchEngines {
+		add("info", "Search engines are asked not to index this site",
+			"Settings → Reading → Search engine visibility.", "search_engines_on")
+	}
+	if info.Core.Latest == "" {
+		// WordPress records the time of a check before asking, so only a
+		// missing answer tells that WordPress.org was not reached.
+		add("warning", "Updates could not be checked",
+			"WordPress.org could not be reached from this server, so available updates are not known. Use \"Check for updates\" to try again.")
+	}
+	return c
+}
+
+var wpLoginFileRe = regexp.MustCompile(`^whacp-login-[a-f0-9]{32}\.php$`)
+
+// LoginURL is a one-time sign-in address for an administrator of the
+// installation (WordPressService::loginUrl).
+func (s *WordPressService) LoginURL(ctx context.Context, site *Website, install *WordPressInstall, adminID int64) (string, error) {
+	if site.AccountSuspended {
+		return "", &UserError{What: "The hosting account is suspended."}
+	}
+	base := install.BaseURL()
+	if base == nil {
+		return "", &UserError{What: "This installation is not inside the website's document root, so it cannot be opened from here."}
+	}
+	res, err := s.agent.Call(ctx, "wordpress.login", map[string]any{
+		"domain": site.Domain, "user": site.SystemUser, "root": site.Root,
+		"php_version": site.PhpVersion, "path": install.Path, "admin_id": adminID,
+	}, 90*time.Second)
+	if err != nil {
+		return "", err
+	}
+	var o struct {
+		File string `json:"file"`
+	}
+	if err := json.Unmarshal(res, &o); err != nil {
+		return "", err
+	}
+	if !wpLoginFileRe.MatchString(o.File) {
+		return "", &UserError{What: "The sign-in link could not be created."}
+	}
+	s.auditWordPress(ctx, "wordpress.login", "website", fmt.Sprintf("%d", site.ID), map[string]any{
+		"domain": site.Domain, "path": install.Path, "admin_id": adminID,
+	})
+	return strings.TrimRight(*base, "/") + "/" + o.File, nil
+}
+
+// DatabaseID is the panel's ID of a database the user may open in the
+// browser, by name within the user's visibility (WordPressService::databaseId).
+func (s *WordPressService) DatabaseID(ctx context.Context, u *identity.User, name string) (int64, bool) {
+	cond := "1 = 1"
+	args := []any{s.serverID, name}
+	if !IsAll(u) {
+		cond = "owner_id = ?"
+		args = append(args, u.ID)
+	}
+	var id int64
+	err := s.db.QueryRowContext(ctx,
+		"SELECT id FROM databases WHERE server_id = ? AND name = ? AND "+cond, args...).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false
+	}
+	if err != nil {
+		return 0, false
+	}
+	return id, true
 }

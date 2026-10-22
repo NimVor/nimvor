@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **225 ☑ done+tested, 3 ◑ partial, 323 ☐** of 551.
+`server/internal/http/server.go`): **229 ☑ done+tested, 3 ◑ partial, 319 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -452,6 +452,29 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   PHP's scan/installs/install/base-url semantics + a version_compare
   stand-in; the overview, management, one-click sign-in and the toolkit
   tools follow in the next batches
+- ☑ websites: the WordPress overview (show / check / login / logs)
+  (batch 44) — WordPressController's show / check / login / logs as
+  site_wordpress.go (the wpShow / wpCheck / wpLogin / wpLogs handlers):
+  the installation's overview page (GET /sites/{id}/wordpress/{wp}) — the
+  agent's info (wordpress.info, the stored summary refreshed) with the
+  security + health checks computed from it, the toolkit's extras
+  (protect.status — password / hotlink protection, wordpress.security —
+  the measures' state, wordpress.restore_points — this installation's
+  restore points, the owner's copy + sync targets), the stored
+  vulnerabilities (the vulns / vulns_checked_at columns), the panel's
+  database ID (the browser link), the toolbar (file manager, database,
+  logs, clone / sync / security, restore points), the six subtabs
+  (dashboard — the seven switches + overview + updates + health checks,
+  plugins, themes, security — hardening measures + vulnerabilities,
+  database, staging — restore points), the modals (debugging, password
+  protection, hotlink, admin password, clone, sync — posting to the
+  manage / tools routes), and the agent-error state (a separate small
+  page); the forced re-check (POST …/check — the wp_force flash); the
+  one-time sign-in (POST …/login, websites.manage — the HTTPS guard, the
+  agent's self-deleting login file, audited); and the debug log view
+  (GET …/logs — wordpress.manage op debug_log, newest first). The
+  toolkit's write side (manage + tools, batch 45) completes the page's
+  forms
 - ☑ websites: the site MongoDB database browser (batch 42) —
   SiteMongoController's browser / browse / export as
   site_mongo_browser.go + the browser half of hosting/site_mongo_service.go:
