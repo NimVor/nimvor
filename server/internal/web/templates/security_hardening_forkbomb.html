@@ -1,0 +1,73 @@
+{{define "security_hardening_forkbomb"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Shell Fork Bomb Protection · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/servers">&larr; Servers</a></p>
+  <h1>Shell Fork Bomb Protection</h1>
+  <p class="text-muted">Security</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .AgentError}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <i class="bi bi-plug fs-5"></i>
+      <div><div class="fw-semibold">{{.AgentError}}</div></div>
+    </div>
+  </div>
+  {{else if .Pending}}
+  <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert">
+    <i class="bi bi-hourglass-split"></i>
+    <div class="me-auto"><strong>Unconfirmed change:</strong> {{index .Pending "summary"}}. It is undone automatically in <strong data-wcp-countdown="{{index .Pending "deadline"}}">2:00</strong> unless you confirm that you can still connect (open a new SSH session to test).</div>
+    {{if .CanManage}}
+    <form method="post" action="/security/confirm">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <input type="hidden" name="id" value="{{index .Pending "id"}}">
+      <input type="hidden" name="return_to" value="{{.ReturnTo}}">
+      <button class="btn btn-sm btn-success">Keep change</button>
+    </form>
+    <form method="post" action="/security/undo">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <input type="hidden" name="id" value="{{index .Pending "id"}}">
+      <input type="hidden" name="return_to" value="{{.ReturnTo}}">
+      <button class="btn btn-sm btn-outline-secondary">Undo now</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+  {{if .Status}}
+  <div class="wcp-panel mb-3">
+    <p class="mb-2">Fork Bomb Protection denies users who have terminal access (SSH/Telnet) the ability to use all of the resources on the server. To prevent server crashes, do not allow unlimited resource allocation.</p>
+    <p class="mb-2">We recommend that you enable this protection for servers that provide terminal access.</p>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <span class="fw-medium">Status:</span>
+      {{if .Status.Forkbomb.Enabled}}<span class="wcp-state is-ok">Enabled</span>{{else}}<span class="wcp-state is-off">Disabled</span>{{end}}
+    </div>
+    <div class="small text-body-secondary">Accounts (UID 1000 and up) are limited to {{.Status.Forkbomb.Soft}} processes (hard limit {{.Status.Forkbomb.Hard}}) in their login sessions. Root and system services are not limited. It applies to new logins.</div>
+  </div>
+  {{if .CanManage}}
+  <form class="wcp-panel" method="post" action="/security/forkbomb" data-wcp-busy>
+    <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="enabled" value="{{if .Status.Forkbomb.Enabled}}0{{else}}1{{end}}">
+    <button class="btn btn-sm {{if .Status.Forkbomb.Enabled}}btn-outline-danger{{else}}btn-primary{{end}}">{{if .Status.Forkbomb.Enabled}}Disable Protection{{else}}Enable Protection{{end}}</button>
+  </form>
+  {{end}}
+  {{end}}
+</main>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

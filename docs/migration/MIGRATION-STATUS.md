@@ -268,7 +268,29 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   content; POST /security/mysql-anonymous (db.drop_anonymous_users 60 s, the
   db.drop_anonymous_users audit — server / mysql, the "Removed the anonymous
   MySQL users (…)." / "There were no anonymous users." flashes); the pending
-  banner's return_to now includes /security)
+  banner's return_to now includes /security) ·
+  GET+POST `/security/compilers` · GET+POST `/security/smtp` · GET+POST
+  `/security/egress` · GET+POST `/security/forkbomb` · GET+POST
+  `/security/traceroute` (HardeningController — all-scope pages, 403
+  "Only administrators manage server hardening." for non-all scopes; every
+  save is role-admin ("Only administrators change server hardening.") +
+  CSRF; hardening.status renders each page, agent-down hides the content;
+  compilers: the restricted switch + the allowed-account checkboxes
+  (HardeningService::accounts — the server's website accounts, unknown
+  users refused "Not a website account on this server: ….", form order
+  deduplicated, sent only while restricted), hardening.compilers 120 s,
+  the flash triad (root-only / "Allowed: …" / every account again), the
+  programs table; smtp: the toggle (enabled + active states, the allowed
+  ports/accounts line, the nftables-not-available info bar + disabled
+  button), hardening.smtp 120 s; egress: the metadata + private-network
+  checkboxes + the TCP/UDP port lists (HardeningService::ports — comma/space
+  split, 1..65535, deduplicated, sorted, at most 64, the ""x" is not a
+  port number (1–65535)." / "at most 64." flashes), hardening.egress 120 s,
+  the fieldset disabled for non-managers; forkbomb + traceroute: the
+  toggles (the soft/hard limits line, the programs table, the
+  not-installed state), hardening.forkbomb / hardening.traceroute 60 s;
+  every save audits hardening.* (server / the server id) like
+  HardeningService::record)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -343,12 +365,10 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 
 ## Next exact step
 Batch: continue the **security area** —
-**HardeningController** (compilers/egress/forkbomb/traceroute/
-SMTP — the agent's hardening.status + the per-area actions; the
-cPHulk whitelist of the firewall allow-me can land here), then
-SecurityChecksController (advisories) and the remaining
-SecurityController pages (integrity, malware, policies, password
-strength, SMTP).
+**SecurityChecksController** (vulnerability advisories), then the
+remaining SecurityController pages (integrity, malware, policies,
+password strength, SMTP — the cPHulk whitelist of the firewall
+allow-me can land there).
 in small batches. Check INVENTORY.md + the PHP controllers before
 starting.
 
