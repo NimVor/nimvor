@@ -34,11 +34,21 @@ type sitesAgent struct {
 	failActions map[string]string
 	// dbDown makes db.server_status report a stopped server.
 	dbDown bool
+	// jobs answers jobs.get by job id (the stored reply is the full
+	// envelope); an unknown id gets the agent's not_found error.
+	jobs map[string]string
+}
+
+// setJob registers the jobs.get reply for a job id.
+func (sa *sitesAgent) setJob(id, reply string) {
+	sa.mu.Lock()
+	sa.jobs[id] = reply
+	sa.mu.Unlock()
 }
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
 	t.Helper()
-	sa := &sitesAgent{failApply: failApply}
+	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}}
 	dir := t.TempDir()
 	socket := filepath.Join(dir, "agent.sock")
 	tokenFile := filepath.Join(dir, "token")
@@ -152,6 +162,17 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"path":"up/file.txt","offset":0,"final":` + finalStr + `,"size":` + strconv.Itoa(size) + `}}`))
 		case "files.download":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"data":"aGVsbG8gd29ybGQ=","size":11,"eof":true}}`))
+		case "sites.disk_usage":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"feedfacefeedface"}}`))
+		case "jobs.get":
+			sa.mu.Lock()
+			reply, ok := sa.jobs[p["id"].(string)]
+			sa.mu.Unlock()
+			if !ok {
+				_, _ = w.Write([]byte(`{"success":false,"error":{"code":"not_found","message":"Unknown job.","request_id":"t"}}`))
+				return
+			}
+			_, _ = w.Write([]byte(reply))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

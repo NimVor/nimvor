@@ -424,8 +424,8 @@ Total routes: 551
 | GET | `/sites/{id}/databases` | DatabasesController::site | sites.databases | databases.view | yes | yes | ☑ |
 | POST | `/sites/{id}/delete` | SitesController::destroy | sites.delete | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/directory-listing` | SitesController::directoryListing | sites.listing | websites.manage | yes | yes | ☑ |
-| GET | `/sites/{id}/disk-usage` | DiskUsageController::show | sites.disk | files.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/disk-usage` | DiskUsageController::scan | sites.disk.scan | files.manage | yes | yes | ☐ |
+| GET | `/sites/{id}/disk-usage` | DiskUsageController::show | sites.disk | files.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/disk-usage` | DiskUsageController::scan | sites.disk.scan | files.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/dns` | DnsController::site | sites.dns | dns.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/files/api` | FilesController::api | sites.files.api | files.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/files/download` | FilesController::download | sites.files.download | files.manage | yes | yes | ☑ |
