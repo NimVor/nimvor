@@ -285,7 +285,7 @@ type wpVulnRow struct {
 
 func (s *Server) wpTools(r *http.Request, user *identity.User) *hosting.WordPressTools {
 	cron := hosting.NewCronService(s.db, s.agent, hosting.NewPlanLimits(s.db), s.wordpressAudit(r, user))
-	return hosting.NewWordPressTools(s.db, s.agent, s.currentServerID(r), hosting.NewWebsiteRepository(s.db), s.crypto, cron, hosting.NewWpVulnerabilities(wpVulnsCacheDir(s.cfg.DBPath)), s.wordpressAudit(r, user))
+	return hosting.NewWordPressTools(s.db, s.agent, s.currentServerID(r), hosting.NewWebsiteRepository(s.db), s.crypto, cron, hosting.NewWpVulnerabilities(wpVulnsCacheDir(s.cfg.DBPath)), s.databaseService(r, user), s.wordpressAudit(r, user))
 }
 
 // wpInstallOf resolves the installation of a /sites/{id}/wordpress/{wp}
@@ -738,10 +738,10 @@ func (s *Server) wpManage(w http.ResponseWriter, r *http.Request) {
 }
 
 // wpTool runs one of the WordPress toolkit's tools (WordPressController::tool):
-// the debug switches, the password and hotlink protection, the administrator
-// and database passwords, the security measures. The cron takeover, the
-// vulnerability protection and the copy tools (clone / sync / restore) follow
-// with their service dependencies.
+// the debug switches, the cron takeover, the password and hotlink protection,
+// the vulnerability protection, the vulnerability-database check, the
+// administrator and database passwords, the security measures, and the copy
+// tools (clone / sync / restore).
 func (s *Server) wpTool(w http.ResponseWriter, r *http.Request) {
 	if !s.wpFormToken(w, r) {
 		return
@@ -799,7 +799,43 @@ func (s *Server) wpTool(w http.ResponseWriter, r *http.Request) {
 		s.wpFlashRedirect(w, r, "success", msg+" found.", to+"#security")
 		return
 	case "clone", "sync", "restore":
-		s.wpFlashRedirect(w, r, "error", "This tool is coming soon.", to)
+		sess := sessionFrom(r.Context())
+		user := userFrom(r.Context())
+		var (
+			job string
+			err error
+		)
+		switch tool {
+		case "clone":
+			job, err = tools.CloneTo(r.Context(), site, install, map[string]string{
+				"target_site": r.PostFormValue("target_site"),
+				"target_path": r.PostFormValue("target_path"),
+				"staging":     r.PostFormValue("staging"),
+				"overwrite":   r.PostFormValue("overwrite"),
+			}, user)
+		case "sync":
+			job, err = tools.Sync(r.Context(), site, install, map[string]string{
+				"target":   r.PostFormValue("target"),
+				"files":    r.PostFormValue("files"),
+				"database": r.PostFormValue("database"),
+			}, user)
+		default:
+			job, err = tools.Restore(r.Context(), site, install, r.PostFormValue("restore_point"), user)
+		}
+		if err != nil {
+			s.wpToolError(w, r, err, to)
+			return
+		}
+		sess.Flash("job", job)
+		msg := "Cloning started; the copy appears in the WordPress list when it is done."
+		switch tool {
+		case "sync":
+			msg = "Sync started. A restore point of the target is saved first."
+		case "restore":
+			msg = "Restoring started."
+		}
+		s.wpFlashRedirect(w, r, "success", msg, to+"#staging")
+		return
 	case "password_protection":
 		msg, err := tools.SetPasswordProtection(r.Context(), site, install, on, r.PostFormValue("protect_user"), r.PostFormValue("protect_password"))
 		s.wpToolFinish(w, r, msg, err, to)

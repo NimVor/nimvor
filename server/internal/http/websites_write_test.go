@@ -62,6 +62,8 @@ type sitesAgent struct {
 	// wpVerifyReply shapes the verify_core reply: "" = two differing files,
 	// "ok" = every file matches.
 	wpVerifyReply string
+	// wpCopyJobID is the wordpress.copy reply's job id ("" = the default).
+	wpCopyJobID string
 	// shellSetEffective overrides the shell.set reply's effective mode
 	// ("" = the requested mode, i.e. it takes effect immediately).
 	shellSetEffective string
@@ -840,6 +842,14 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				file = "whacp-login-a1b2c3d4e5f60718293a4b5c6d7e8f90.php"
 			}
 			_, _ = w.Write([]byte(`{"success":true,"data":{"file":"` + file + `"}}`))
+		case "wordpress.copy":
+			sa.mu.Lock()
+			copyJob := sa.wpCopyJobID
+			sa.mu.Unlock()
+			if copyJob == "" {
+				copyJob = "0123456789c0a001"
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"` + copyJob + `"}}`))
 		case "wordpress.manage":
 			switch strOf(p["op"]) {
 			case "debug_log":

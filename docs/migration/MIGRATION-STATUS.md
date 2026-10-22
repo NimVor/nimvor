@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **230 ☑ done+tested, 4 ◑ partial, 317 ☐** of 551.
+`server/internal/http/server.go`): **231 ☑ done+tested, 3 ◑ partial, 317 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -507,8 +507,7 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   nine recommended measures, or the chosen ones, the empty-measures
   guard); every tool is audited (wordpress.<tool>) and the suspended
   account is refused (wpWritable). The remaining tools (clone, sync,
-  restore) answer "This tool is coming soon." until their service
-  dependency (wordpress.copy) is ported
+  restore) follow with the wordpress.copy jobs
 - ◑ websites: the WordPress vulnerability protection + check (tools)
   (batch 48) — WordPressToolsService::setVulnerabilityProtection +
   checkVulnerabilities + WordPressVulnerabilities.php: the tool
@@ -525,6 +524,23 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   title order, the 12-hour per-item answer cache next to the panel
   database, the stored vulns + vulns_checked_at columns, the "N known
   vulnerabilities found." flash or the unreachable-database error)
+- ☑ websites: the WordPress copy tools (clone / sync / restore)
+  (batch 49 — the toolkit's last tools) — WordPressToolsService::
+  cloneTo / sync / restore: the tool route's last three cases, all
+  wordpress.copy agent jobs (tracked like the manage updates, the job
+  flash + the "started" messages to the staging subtab) — clone (the
+  owner's PHP website + the optional subfolder of its document root,
+  the source database must be one of the owner's in the panel, a fresh
+  prefixed database + user with full access for the copy — dropped
+  again when the copy fails —, the new installation row with
+  cloned_from, the changed address everywhere, the staging flag),
+  sync (another installation of the same owner, files and/or the
+  database, both databases checked against the panel's records, the
+  target's wp-config.php + address kept), and restore (the restore
+  point's strict shape, the database check, files and the database
+  back to that moment). The WpBaseURL helper (the installation's
+  address from the website's own domain + document root) completes the
+  page's toolkit
 - ◑ websites: the WordPress cron takeover (tools) (batch 47)
   — WordPressToolsService::setCronTakeover as
   hosting/wordpress_tools.go (SetCronTakeover): the tool route's

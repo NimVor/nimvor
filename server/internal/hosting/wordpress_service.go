@@ -173,6 +173,30 @@ func wpVersionRank(s string) int {
 	}
 }
 
+// WpBaseURL is the installation's address, from the website's own domain
+// and document root (never from what WordPress says about itself); '' when
+// the installation is outside the document root (WordPressService::baseUrl).
+func WpBaseURL(site *Website, install *WordPressInstall) string {
+	dir := strings.TrimRight(site.Root, "/")
+	if install.Path != "" {
+		dir += "/" + install.Path
+	}
+	doc := strings.TrimRight(site.DocumentRoot, "/")
+	if dir != doc && !strings.HasPrefix(dir, doc+"/") {
+		return ""
+	}
+	rest := dir[len(doc):]
+	parts := strings.Split(rest, "/")
+	for i, p := range parts {
+		parts[i] = url.PathEscape(p)
+	}
+	scheme := "http"
+	if site.HTTPS {
+		scheme = "https"
+	}
+	return scheme + "://" + site.Domain + strings.Join(parts, "/")
+}
+
 // WordPressOutdated reports whether a newer WordPress is known for the
 // installation (WordPressService::outdated).
 func WordPressOutdated(version, latest string) bool {
