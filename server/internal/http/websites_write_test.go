@@ -44,6 +44,19 @@ type sitesAgent struct {
 	secPending string
 	// wpScanReply overrides the wordpress.scan reply ("" = the default).
 	wpScanReply string
+	// wpInfoReply overrides the wordpress.info reply ("" = the default).
+	wpInfoReply string
+	// wpProtectionReply overrides the protect.status reply ("" = the default).
+	wpProtectionReply string
+	// wpSecurityReply overrides the wordpress.security reply ("" = the default).
+	wpSecurityReply string
+	// wpRestoreReply overrides the wordpress.restore_points reply ("" = the default).
+	wpRestoreReply string
+	// wpLoginFile overrides the wordpress.login file ("" = the default).
+	wpLoginFile string
+	// wpDebugLog shapes the wordpress.manage debug_log reply: "" = a log with
+	// lines, "empty" = an empty log, "missing" = no file.
+	wpDebugLog string
 	// shellSetEffective overrides the shell.set reply's effective mode
 	// ("" = the requested mode, i.e. it takes effect immediately).
 	shellSetEffective string
@@ -169,6 +182,28 @@ func guardedReply(changed bool, id, kind, summary string) []byte {
 	}
 	return []byte(`{"success":true,"data":{"changed":true,"pending":{"id":"` + id + `","kind":"` + kind + `","summary":"` + summary + `","deadline":"2026-01-01T12:03:00Z"}}}`)
 }
+
+// defaultWpInfoReply is the wordpress.info fixture: an outdated site with
+// one plugin update, debugging on, the file editor on, no HTTPS.
+const defaultWpInfoReply = `{
+  "version":"6.7.1","php":"8.3.1","mysql":"10.11.6-MariaDB","multisite":false,
+  "siteurl":"http://bob.example/","home":"http://bob.example/","title":"Bob's Blog",
+  "search_engines":true,
+  "core":{"latest":"6.8","php_needed":"7.2.24","checked_at":1761000000},
+  "plugins":[
+    {"name":"hello","title":"Hello Dolly","version":"1.7","active":true,"update":"1.8","auto_update":false},
+    {"name":"jetpack","title":"Jetpack","version":"13.1","active":true,"update":"","auto_update":true}
+  ],
+  "themes":[
+    {"name":"twentytwentyfive","title":"Twenty Twenty-Five","version":"1.0","active":true,"update":""}
+  ],
+  "admins":[{"id":1,"login":"bob"}],
+  "admin_login_exists":false,
+  "constants":{"WP_DEBUG":true,"WP_DEBUG_DISPLAY":false,"DISALLOW_FILE_EDIT":false,"DISALLOW_FILE_MODS":false,"WP_AUTO_UPDATE_CORE":"'minor'","AUTOMATIC_UPDATER_DISABLED":false,"DISABLE_WP_CRON":false},
+  "maintenance":false,
+  "db":{"name":"u_bob_wp","host":"localhost","prefix":"wp_","tables":42,"bytes":5242880},
+  "config_mode":"0644"
+}`
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
 	t.Helper()
@@ -761,6 +796,59 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"count":2,"size":1234}}`))
 		case "mongo.index_create":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"name":"idx_1"}}`))
+		case "wordpress.info":
+			res := sa.wpInfoReply
+			if res == "" {
+				res = defaultWpInfoReply
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + res + `}`))
+		case "protect.status":
+			res := sa.wpProtectionReply
+			if res == "" {
+				res = `{"password":[{"path":"/","user":"u_bob"}],"hotlink":{"allowed":["partner.com"]},"wordpress":{}}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + res + `}`))
+		case "wordpress.security":
+			res := sa.wpSecurityReply
+			if res == "" {
+				res = `{"measures":[{"id":"block_sensitive_files","title":"Block direct access to sensitive files","kind":"web","help":"wp-config.php and such stay hidden.","applied":false,"can_rollback":false},
+				 {"id":"block_author_scans","title":"Block author scans","kind":"web","help":"?author= no longer reveals user names.","applied":false,"can_rollback":true},
+				 {"id":"no_php_in_uploads","title":"No PHP in the uploads folder","kind":"web","help":"PHP files in uploads stop executing.","applied":true,"can_rollback":true},
+				 {"id":"no_php_in_includes","title":"No PHP in the includes folder","kind":"web","help":"PHP files in includes stop executing.","applied":false,"can_rollback":false},
+				 {"id":"block_bad_bots","title":"Block bad bots","kind":"web","help":"Known attack user agents are refused.","applied":false,"can_rollback":true},
+				 {"id":"disable_file_edit","title":"Disable the file editor","kind":"wordpress","help":"WP-CLI sets DISALLOW_FILE_EDIT.","applied":false,"can_rollback":true},
+				 {"id":"disable_pingbacks","title":"Disable pingbacks","kind":"wordpress","help":"Pingbacks are turned off in the settings.","applied":false,"can_rollback":true},
+				 {"id":"disable_script_concat","title":"Disable script concatenation","kind":"wordpress","help":"CONCATENATE_SCRIPTS is off.","applied":false,"can_rollback":true},
+				 {"id":"config_permissions","title":"Tighten wp-config.php permissions","kind":"wordpress","help":"Only the website account can read the file.","applied":false,"can_rollback":true}],
+				 "problems":[]}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + res + `}`))
+		case "wordpress.restore_points":
+			res := sa.wpRestoreReply
+			if res == "" {
+				res = `{"restore_points":[{"id":"20260101T010100Z","path":"public_html","reason":"Before the sync","database":true},{"id":"20260102T020200Z","path":"other","reason":"Before the clone","database":false}]}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + res + `}`))
+		case "wordpress.login":
+			file := sa.wpLoginFile
+			if file == "" {
+				file = "whacp-login-a1b2c3d4e5f60718293a4b5c6d7e8f90.php"
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"file":"` + file + `"}}`))
+		case "wordpress.manage":
+			if strOf(p["op"]) == "debug_log" {
+				res := sa.wpDebugLog
+				switch res {
+				case "missing":
+					_, _ = w.Write([]byte(`{"success":true,"data":{"path":"/home/whacp/bob.example/public_html/wp-content/debug.log","exists":false,"lines":[],"size":0}}`))
+				case "empty":
+					_, _ = w.Write([]byte(`{"success":true,"data":{"path":"/home/whacp/bob.example/public_html/wp-content/debug.log","exists":true,"lines":[],"size":0}}`))
+				default:
+					_, _ = w.Write([]byte(`{"success":true,"data":{"path":"/home/whacp/bob.example/public_html/wp-content/debug.log","exists":true,"lines":["[2026-10-20 09:00:00] PHP Notice:  Undefined index foo","[2026-10-20 09:05:00] PHP Warning:  Something"],"size":2048}}`))
+				}
+				break
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
 		case "wordpress.scan":
 			res := sa.wpScanReply
 			if res == "" {

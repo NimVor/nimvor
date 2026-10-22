@@ -1,0 +1,612 @@
+{{define "wordpress_show"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WordPress · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/websites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a> · <a href="{{.ListURL}}">WordPress</a></p>
+
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Suspended}}<div class="alert alert-warning small">The hosting account is suspended: WordPress can be viewed but not changed.</div>{{end}}
+
+  <div class="wcp-panel wcp-wp-hero mb-3">
+    <div class="d-flex flex-wrap align-items-center gap-3">
+      <div class="wcp-wp-logo" aria-hidden="true"><i class="bi bi-wordpress"></i></div>
+      <div class="me-auto min-w-0">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <h2 class="h5 mb-0 text-truncate">{{.Title}}</h2>
+          <span class="badge rounded-pill text-bg-light border fw-normal">WordPress {{.Version}}</span>
+          {{if .Install.ClonedFrom.Valid}}<span class="badge rounded-pill text-bg-info fw-normal">Staging copy</span>{{end}}
+        </div>
+        <div class="small text-body-secondary mt-1">
+          <code>{{.Where}}</code>
+          {{if .Install.URL}} · <a href="{{.Install.URL}}/" target="_blank" rel="noopener noreferrer">{{.Install.URL}} <i class="bi bi-box-arrow-up-right small" aria-hidden="true"></i></a>{{end}}
+        </div>
+        {{if .Info}}
+        <div class="d-flex flex-wrap gap-2 mt-2">
+          {{if .Outdated}}<span class="wcp-state is-warn">Update to {{.Latest}}</span>{{else if .Core.Latest}}<span class="wcp-state is-ok">Up to date</span>{{end}}
+          {{if .Security}}<a class="wcp-state {{if eq .SecApplied .SecTotal}}is-ok{{else}}is-warn{{end}} text-decoration-none" href="#security">Security {{.SecApplied}}/{{.SecTotal}}</a>{{end}}
+          <a class="wcp-state {{if eq .VulnCount 0}}{{if .VulnCheckedAt}}is-ok{{else}}is-off{{else}}is-error{{end}} text-decoration-none" href="#security">{{if not .VulnCheckedAt}}Vulnerabilities not checked{{else if eq .VulnCount 0}}No known vulnerabilities{{else}}{{.VulnCount}} known vulnerabilit{{if eq .VulnCount 1}}y{{else}}ies{{end}}{{end}}</a>
+          {{if .UpdatesTotal}}<a class="wcp-state is-warn text-decoration-none" href="#plugins">{{.UpdatesTotal}} update(s)</a>{{end}}
+          {{if .Issues}}<span class="wcp-state is-warn">{{.Issues}} to review</span>{{end}}
+        </div>
+        {{end}}
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        {{if .Others}}<a class="btn btn-sm btn-outline-secondary" href="{{.ListURL}}"><i class="bi bi-list-ul me-1" aria-hidden="true"></i>All installations</a>{{end}}
+        <form method="post" action="{{.CheckURL}}" data-wcp-busy><input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-sm btn-outline-secondary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Check for updates</button></form>
+        {{if and .Can .Info}}{{if .Admins}}
+        <form class="d-flex gap-1" method="post" action="{{.LoginURL}}" target="_blank">
+          <input type="hidden" name="_token" value="{{.CSRF}}">
+          {{if gt (len .Admins) 1}}
+          <select class="form-select form-select-sm" name="admin_id" aria-label="Administrator">
+            {{range .Admins}}<option value="{{.ID}}">{{.Login}}</option>{{end}}
+          </select>
+          {{else}}<input type="hidden" name="admin_id" value="{{(index .Admins 0).ID}}">{{end}}
+          <button class="btn btn-sm btn-primary text-nowrap" title="Opens WordPress signed in, with a one-time link that works for a minute"><i class="bi bi-box-arrow-in-right me-1" aria-hidden="true"></i>Log in to WordPress</button>
+        </form>
+        {{end}}{{end}}
+      </div>
+    </div>
+    {{if .Info}}
+    <div class="wcp-wp-tools mt-3" role="toolbar" aria-label="Tools">
+      <a class="wcp-wp-tool" href="/sites/{{.Site.ID}}/files?path={{.FMStart}}" target="_blank" rel="noopener"><i class="bi bi-folder2-open" aria-hidden="true"></i><span>File Manager</span></a>
+      {{if .DbID}}<a class="wcp-wp-tool" href="/databases/{{.DbID}}/browse" target="_blank" rel="noopener"><i class="bi bi-table" aria-hidden="true"></i><span>Database</span></a>{{else}}<a class="wcp-wp-tool" href="#database"><i class="bi bi-database" aria-hidden="true"></i><span>Database</span></a>{{end}}
+      <a class="wcp-wp-tool" href="{{.LogsURL}}"><i class="bi bi-journal-text" aria-hidden="true"></i><span>Logs</span></a>
+      {{if .Can}}
+      <a class="wcp-wp-tool" href="#wp-clone"><i class="bi bi-copy" aria-hidden="true"></i><span>Clone</span></a>
+      <a class="wcp-wp-tool" href="#wp-sync"><i class="bi bi-arrow-left-right" aria-hidden="true"></i><span>Sync</span></a>
+      <a class="wcp-wp-tool" href="#security"><i class="bi bi-shield-lock" aria-hidden="true"></i><span>Security</span></a>
+      {{end}}
+      <a class="wcp-wp-tool" href="#staging"><i class="bi bi-clock-history" aria-hidden="true"></i><span>Restore points</span></a>
+    </div>
+    {{end}}
+  </div>
+
+  {{if .HasVerify}}
+  <div class="wcp-panel mb-3">
+    <div class="fw-semibold mb-1">Core file verification</div>
+    {{if .Verify}}
+    <div class="small mb-1">These files differ from the official WordPress {{.Version}} release or should not be there. If you did not change them, the site may be compromised: reinstall WordPress core (Update WordPress) and scan for malware.</div>
+    <ul class="small font-monospace mb-0">{{range .Verify}}<li>{{.}}</li>{{end}}</ul>
+    {{else}}
+    <div class="small text-success"><i class="bi bi-check-circle me-1" aria-hidden="true"></i>Every WordPress core file matches the official release.</div>
+    {{end}}
+  </div>
+  {{end}}
+
+  <div class="wcp-subtabs" role="tablist">
+    <button class="active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#dashboard" aria-controls="dashboard" aria-selected="true">Dashboard</button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#plugins" aria-controls="plugins" aria-selected="false">Plugins <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Plugins}}</span></button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#themes" aria-controls="themes" aria-selected="false">Themes <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Themes}}</span></button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#security" aria-controls="security" aria-selected="false">Security</button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#database" aria-controls="database" aria-selected="false">Database</button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#staging" aria-controls="staging" aria-selected="false">Staging &amp; restore</button>
+  </div>
+
+  <div class="tab-content">
+  <div class="tab-pane fade show active" id="dashboard" role="tabpanel">
+  <div class="row g-3 mb-3">
+    <div class="col-lg-6">
+      <div class="wcp-panel h-100">
+        <div class="fw-semibold mb-2">Tools</div>
+        <ul class="list-unstyled mb-0 wcp-wp-toggles">
+          <li>
+            <div><div class="fw-medium">Search engine indexing</div><div class="small text-body-secondary">Let search engines list this site.</div></div>
+            <form method="post" action="{{.Manage}}" data-wcp-busy{{if .SearchEnginesOn}} data-wcp-confirm="Ask search engines not to index this site?"{{end}}>
+              <input type="hidden" name="_token" value="{{.CSRF}}">
+              <input type="hidden" name="op" value="{{if .SearchEnginesOn}}search_engines_off{{else}}search_engines_on{{end}}">
+              <div class="form-check form-switch m-0"><input class="form-check-input wcp-wp-switch" type="checkbox" role="switch" id="wp-sw-indexing" name="enabled" value="1" aria-label="indexing"{{if .SearchEnginesOn}} checked{{end}} {{if .Can}}data-wcp-autosubmit{{else}}disabled{{end}}></div>
+            </form>
+          </li>
+          <li>
+            <div><div class="fw-medium">Debugging</div><div class="small text-body-secondary">{{if .DebugOn}}On{{else}}Off{{end}}{{if .Can}} · <a href="#wp-debug">Settings</a>{{end}}</div></div>
+            <form method="post" action="{{.ToolURL}}" data-wcp-busy>
+              <input type="hidden" name="_token" value="{{.CSRF}}">
+              <input type="hidden" name="tool" value="debug">
+              {{if not .DebugOn}}<input type="hidden" name="debug[]" value="WP_DEBUG">{{end}}
+              <div class="form-check form-switch m-0"><input class="form-check-input wcp-wp-switch" type="checkbox" role="switch" id="wp-sw-debugging" name="enabled" value="1" aria-label="debugging"{{if .DebugOn}} checked{{end}} {{if .Can}}data-wcp-autosubmit{{else}}disabled{{end}}></div>
+            </form>
+          </li>
+          <li>
+            <div><div class="fw-medium">Maintenance mode</div><div class="small text-body-secondary">Visitors see "Briefly unavailable for scheduled maintenance".</div></div>
+            <form method="post" action="{{.Manage}}" data-wcp-busy{{if not .MaintenanceOn}} data-wcp-confirm="Put the site into maintenance mode?"{{end}}>
+              <input type="hidden" name="_token" value="{{.CSRF}}">
+              <input type="hidden" name="op" value="{{if .MaintenanceOn}}maintenance_off{{else}}maintenance_on{{end}}">
+              <div class="form-check form-switch m-0"><input class="form-check-input wcp-wp-switch" type="checkbox" role="switch" id="wp-sw-maintenance" name="enabled" value="1" aria-label="maintenance"{{if .MaintenanceOn}} checked{{end}} {{if .Can}}data-wcp-autosubmit{{else}}disabled{{end}}></div>
+            </form>
+          </li>
+          <li>
+            <div><div class="fw-medium">Password protection</div><div class="small text-body-secondary">{{if .Protected}}Visitors sign in as <code>{{.Protected.User}}</code>{{else}}Visitors must sign in before they see the site.{{end}}{{if and .Can .HasURLPath}} · <a href="#wp-protect">{{if .Protected}}Change{{else}}Set up{{end}}</a>{{end}}</div></div>
+            {{if .Protected}}
+            <form method="post" action="{{.ToolURL}}" data-wcp-busy data-wcp-confirm="Turn password protection off? Everyone can see the site again.">
+              <input type="hidden" name="_token" value="{{.CSRF}}">
+              <input type="hidden" name="tool" value="password_protection">
+              <div class="form-check form-switch m-0"><input class="form-check-input wcp-wp-switch" type="checkbox" role="switch" id="wp-sw-password" name="enabled" value="1" aria-label="password" checked {{if .Can}}data-wcp-autosubmit{{else}}disabled{{end}}></div>
+            </form>
+            {{else}}
+            <a class="form-check form-switch m-0 text-decoration-none{{if and .Can .HasURLPath}}{{else}} pe-none opacity-50{{end}}" href="#wp-protect" aria-label="Turn password protection on"><input class="form-check-input pe-none" type="checkbox" role="switch" tabindex="-1" aria-hidden="true"></a>
+            {{end}}
+          </li>
+          <li>
+            <div><div class="fw-medium">Take over wp-cron.php</div><div class="small text-body-secondary">Scheduled tasks run every 5 minutes from a cron job instead of on visits.</div></div>
+            <form method="post" action="{{.ToolURL}}" data-wcp-busy>
+              <input type="hidden" name="_token" value="{{.CSRF}}">
+              <input type="hidden" name="tool" value="cron">
+              <div class="form-check form-switch m-0"><input class="form-check-input wcp-wp-switch" type="checkbox" role="switch" id="wp-sw-wpcron" name="enabled" value="1" aria-label="wpcron"{{if .CronOn}} checked{{end}} {{if .Can}}data-wcp-autosubmit{{else}}disabled{{end}}></div>
+            </form>
+          </li>
+          <li>
+            <div><div class="fw-medium">Hotlink protection</div><div class="small text-body-secondary">Other sites cannot embed this website's images and media{{if .HotlinkAllowedStr}} (allowed: {{.HotlinkAllowedStr}}){{end}}.{{if .Can}} · <a href="#wp-hotlink">Settings</a>{{end}}</div></div>
+            <form method="post" action="{{.ToolURL}}" data-wcp-busy>
+              <input type="hidden" name="_token" value="{{.CSRF}}">
+              <input type="hidden" name="tool" value="hotlink">
+              <div class="form-check form-switch m-0"><input class="form-check-input wcp-wp-switch" type="checkbox" role="switch" id="wp-sw-hotlink" name="enabled" value="1" aria-label="hotlink"{{if .HotlinkOn}} checked{{end}} {{if .Can}}data-wcp-autosubmit{{else}}disabled{{end}}></div>
+            </form>
+          </li>
+          <li>
+            <div><div class="fw-medium">Vulnerability protection</div><div class="small text-body-secondary">ModSecurity with the OWASP Core Rule Set filters attacks; known vulnerabilities are checked daily.</div></div>
+            <form method="post" action="{{.ToolURL}}" data-wcp-busy>
+              <input type="hidden" name="_token" value="{{.CSRF}}">
+              <input type="hidden" name="tool" value="vulnerability">
+              <div class="form-check form-switch m-0"><input class="form-check-input wcp-wp-switch" type="checkbox" role="switch" id="wp-sw-vulnerability" name="enabled" value="1" aria-label="vulnerability"{{if .Install.VulnProtection}} checked{{end}} {{if .Can}}data-wcp-autosubmit{{else}}disabled{{end}}></div>
+            </form>
+          </li>
+        </ul>
+        {{if and .Can .Admins}}<div class="mt-3"><a class="btn btn-sm btn-outline-secondary" href="#wp-admin-pass"><i class="bi bi-key me-1" aria-hidden="true"></i>Change administrator password</a></div>{{end}}
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="wcp-panel mb-3 small">
+        <div class="fw-semibold mb-2">Overview</div>
+        <dl class="row mb-0">
+          <dt class="col-5 fw-normal wcp-muted">WordPress</dt>
+          <dd class="col-7">{{.Version}}
+            {{if .Outdated}}<span class="wcp-state is-warn">{{.Latest}} available</span>{{else if .Core.Latest}}<span class="wcp-state is-ok">Up to date</span>{{end}}</dd>
+          <dt class="col-5 fw-normal wcp-muted">PHP</dt>
+          <dd class="col-7">{{.Site.PhpVersion}}{{if .Core.PhpNeeded}} <span class="text-body-secondary">(latest WordPress needs {{.Core.PhpNeeded}}+)</span>{{end}}</dd>
+          <dt class="col-5 fw-normal wcp-muted">Address</dt>
+          <dd class="col-7 text-break">{{.SiteURL}}{{if not .Site.HTTPS}} <span class="wcp-state is-warn">no HTTPS</span>{{end}}</dd>
+          <dt class="col-5 fw-normal wcp-muted">Administrators</dt>
+          <dd class="col-7">{{if .AdminLogins}}{{.AdminLogins}}{{else}}—{{end}}</dd>
+          {{if .Multisite}}<dt class="col-5 fw-normal wcp-muted">Network</dt><dd class="col-7">Multisite</dd>{{end}}
+          <dt class="col-5 fw-normal wcp-muted">Updates checked</dt>
+          <dd class="col-7">{{if .Core.Latest}}{{.CheckedAtUTC}} UTC{{else}}<span class="wcp-state is-warn">WordPress.org not reachable</span>{{end}}</dd>
+        </dl>
+      </div>
+      {{if .Can}}
+      <div class="wcp-panel small">
+        <div class="fw-semibold mb-2">Updates</div>
+        <form class="d-flex flex-wrap gap-2 align-items-end mb-2" method="post" action="{{.Manage}}" data-wcp-busy>
+          <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="op" value="core_auto_update">
+          <div class="flex-grow-1"><label class="form-label small mb-1" for="wp-auto">Automatic WordPress updates</label>
+            <select class="form-select form-select-sm" id="wp-auto" name="value">
+              <option value="minor"{{if eq .AutoNow "minor"}} selected{{end}}>Security and maintenance releases (recommended)</option>
+              <option value="major"{{if eq .AutoNow "major"}} selected{{end}}>All releases, including new major versions</option>
+              <option value="off"{{if eq .AutoNow "off"}} selected{{end}}>Off</option>
+            </select></div>
+          <button class="btn btn-sm btn-outline-primary">Save</button>
+        </form>
+        <div class="d-flex flex-wrap gap-2">
+          <form class="d-inline" method="post" action="{{.Manage}}" data-wcp-busy data-wcp-confirm="Update WordPress core now? Back the website up first.">
+            <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="op" value="core_update">
+            <button class="btn btn-sm {{if .Outdated}}btn-primary{{else}}btn-outline-secondary{{end}}"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>{{if .Outdated}}Update WordPress to {{.Latest}}{{else}}Reinstall WordPress core{{end}}</button>
+          </form>
+          <form class="d-inline" method="post" action="{{.Manage}}" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="op" value="verify_core">
+            <button class="btn btn-sm btn-outline-secondary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Verify core files</button>
+          </form>
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+  <div class="wcp-panel mb-3">
+    <div class="fw-semibold mb-2">Health checks <span class="badge rounded-pill {{if .Issues}}text-bg-warning{{else}}text-bg-success{{end}} fw-normal">{{if .Issues}}{{.Issues}} to review{{else}}OK{{end}}</span></div>
+    {{if not .Info}}<div class="small text-body-secondary">The checks appear when the website can be read.</div>{{end}}
+    {{if .Info}}{{if not .Info.Checks}}<div class="small text-success"><i class="bi bi-check-circle me-1" aria-hidden="true"></i>Nothing to review.</div>{{end}}
+    <ul class="list-unstyled mb-0 small">
+      {{range .Info.Checks}}
+      <li class="d-flex gap-2 py-1 border-bottom">
+        <i class="bi {{if eq .Level "danger"}}bi-x-octagon-fill text-danger{{else if eq .Level "warning"}}bi-exclamation-triangle-fill text-warning{{else}}bi-info-circle text-primary{{end}} mt-1" aria-hidden="true"></i>
+        <div class="me-auto"><div class="fw-medium">{{.Title}}</div><div class="text-body-secondary">{{.Detail}}</div></div>
+        {{if .Fix}}
+        <div class="text-nowrap">
+          <form class="d-inline" method="post" action="{{$.Manage}}" data-wcp-busy{{if eq .Fix "core_update"}} data-wcp-confirm="Update WordPress core now? Back the website up first."{{end}}>
+            <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="op" value="{{.Fix}}">
+            <button class="btn btn-sm btn-outline-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>{{if eq .Fix "core_update"}}Update{{else}}Fix{{end}}</button>
+          </form>
+        </div>
+        {{end}}
+      </li>
+      {{end}}
+    </ul>
+    {{end}}
+  </div>
+  </div>
+
+  <div class="tab-pane fade" id="plugins" role="tabpanel">
+  <div class="wcp-panel mb-3" data-wcp-dt>
+    <div class="wcp-actionbar">
+      <div class="fw-semibold">Plugins <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Plugins}}</span></div>
+      <div class="wcp-actionbar-end">
+        <div class="wcp-search"><input class="form-control form-control-sm" type="search" placeholder="Search" aria-label="Search plugins" data-wcp-dt-search><i class="bi bi-search" aria-hidden="true"></i></div>
+        {{if .PUpd}}
+        <form class="d-inline" method="post" action="{{.Manage}}" data-wcp-busy data-wcp-confirm="Update {{.PUpd}} plugin(s) now?">
+          <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="op" value="plugin_update">
+          <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Update all ({{.PUpd}})</button>
+        </form>
+        {{end}}
+      </div>
+    </div>
+    {{if not .Plugins}}
+    <div class="wcp-empty-state"><i class="bi bi-plug" aria-hidden="true"></i><div>No plugins installed.</div></div>
+    {{else}}
+    <div class="wcp-dtable table-responsive"><table class="table align-middle">
+      <thead><tr><th>Plugin</th><th>Version</th><th>Status</th><th>Automatic updates</th><th></th></tr></thead>
+      <tbody>
+      {{range .Plugins}}
+      <tr>
+        <td><div class="fw-medium">{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</div><div class="small text-body-secondary font-monospace">{{.Name}}{{if .MustUse}} · must-use{{end}}</div></td>
+        <td class="small">{{.Version}}{{if .Update}}<div><span class="wcp-state is-warn">{{.Update}} available</span></div>{{end}}</td>
+        <td>{{if .Active}}<span class="wcp-state is-ok">Active</span>{{else}}<span class="wcp-state is-off">Inactive</span>{{end}}</td>
+        <td class="small">{{if not .MustUse}}{{if .AutoUpdate}}On
+          <form class="d-inline" method="post" action="{{$.Manage}}" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="op" value="plugin_auto_off"><input type="hidden" name="items[]" value="{{.Name}}">
+            <button class="btn btn-sm btn-link p-0">Turn off</button>
+          </form>
+        {{else}}Off
+          <form class="d-inline" method="post" action="{{$.Manage}}" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="op" value="plugin_auto_on"><input type="hidden" name="items[]" value="{{.Name}}">
+            <button class="btn btn-sm btn-link p-0">Turn on</button>
+          </form>
+        {{end}}{{end}}</td>
+        <td class="text-end text-nowrap">
+          {{if not .MustUse}}
+            {{if .Update}}
+            <form class="d-inline" method="post" action="{{$.Manage}}" data-wcp-busy>
+              <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="op" value="plugin_update"><input type="hidden" name="items[]" value="{{.Name}}">
+              <button class="btn btn-sm btn-outline-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Update</button>
+            </form>
+            {{end}}
+            {{if .Active}}
+            <form class="d-inline" method="post" action="{{$.Manage}}" data-wcp-busy data-wcp-confirm="Deactivate {{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}? The site stops using it at once.">
+              <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="op" value="plugin_deactivate"><input type="hidden" name="items[]" value="{{.Name}}">
+              <button class="btn btn-sm btn-outline-secondary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Deactivate</button>
+            </form>
+            {{else}}
+            <form class="d-inline" method="post" action="{{$.Manage}}" data-wcp-busy>
+              <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="op" value="plugin_activate"><input type="hidden" name="items[]" value="{{.Name}}">
+              <button class="btn btn-sm btn-outline-success"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Activate</button>
+            </form>
+            {{end}}
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table></div>
+    {{end}}
+  </div>
+  </div>
+
+  <div class="tab-pane fade" id="themes" role="tabpanel">
+  <div class="wcp-panel mb-3" data-wcp-dt>
+    <div class="wcp-actionbar">
+      <div class="fw-semibold">Themes <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Themes}}</span></div>
+      <div class="wcp-actionbar-end">{{if .TUpd}}
+        <form class="d-inline" method="post" action="{{.Manage}}" data-wcp-busy data-wcp-confirm="Update {{.TUpd}} theme(s) now?">
+          <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="op" value="theme_update">
+          <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Update all ({{.TUpd}})</button>
+        </form>
+      {{end}}</div>
+    </div>
+    <div class="wcp-dtable table-responsive"><table class="table align-middle">
+      <thead><tr><th>Theme</th><th>Version</th><th>Status</th><th>Automatic updates</th><th></th></tr></thead>
+      <tbody>
+      {{range .Themes}}
+      <tr>
+        <td><div class="fw-medium">{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</div><div class="small text-body-secondary font-monospace">{{.Name}}</div></td>
+        <td class="small">{{.Version}}{{if .Update}}<div><span class="wcp-state is-warn">{{.Update}} available</span></div>{{end}}</td>
+        <td>{{if .Active}}<span class="wcp-state is-ok">Active</span>{{else if .Parent}}<span class="wcp-state">Parent of the active theme</span>{{else}}<span class="wcp-state is-off">Inactive</span>{{end}}</td>
+        <td class="small">{{if .AutoUpdate}}On
+          <form class="d-inline" method="post" action="{{$.Manage}}" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="op" value="theme_auto_off"><input type="hidden" name="items[]" value="{{.Name}}">
+            <button class="btn btn-sm btn-link p-0">Turn off</button>
+          </form>
+        {{else}}Off
+          <form class="d-inline" method="post" action="{{$.Manage}}" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="op" value="theme_auto_on"><input type="hidden" name="items[]" value="{{.Name}}">
+            <button class="btn btn-sm btn-link p-0">Turn on</button>
+          </form>
+        {{end}}</td>
+        <td class="text-end text-nowrap">
+          {{if .Update}}
+          <form class="d-inline" method="post" action="{{$.Manage}}" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="op" value="theme_update"><input type="hidden" name="items[]" value="{{.Name}}">
+            <button class="btn btn-sm btn-outline-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Update</button>
+          </form>
+          {{end}}
+          {{if not .Active}}
+          <form class="d-inline" method="post" action="{{$.Manage}}" data-wcp-busy data-wcp-confirm="Switch the site to {{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}? Visitors see the new theme at once.">
+            <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="op" value="theme_activate"><input type="hidden" name="items[]" value="{{.Name}}">
+            <button class="btn btn-sm btn-outline-success"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Activate</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table></div>
+  </div>
+  </div>
+
+  <div class="tab-pane fade" id="security" role="tabpanel">
+  <div class="row g-3 mb-3">
+    <div class="col-xl-7">
+      <div class="wcp-panel h-100">
+        <div class="wcp-actionbar">
+          <div class="fw-semibold">Security hardening <span class="badge rounded-pill {{if and .Security (eq .SecApplied .SecTotal)}}text-bg-success{{else}}text-bg-warning{{end}} fw-normal">{{.SecApplied}} of {{.SecTotal}} applied</span></div>
+          {{if and .Can .Security}}
+          <div class="wcp-actionbar-end">
+            <form method="post" action="{{.ToolURL}}" data-wcp-busy data-wcp-confirm="Apply the recommended security measures? Each one can be rolled back here.">
+              <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="tool" value="security"><input type="hidden" name="op" value="apply"><input type="hidden" name="recommended" value="1">
+              <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-shield-check me-1" aria-hidden="true"></i>Secure (recommended)</button>
+            </form>
+          </div>
+          {{end}}
+        </div>
+        {{if not .Security}}
+          <div class="small text-body-secondary">The security status could not be read{{if not .HasURLPath}} (the installation is outside the document root){{end}}.</div>
+        {{else}}
+        <form method="post" action="{{.ToolURL}}" data-wcp-busy id="wp-sec-form">
+          <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="tool" value="security">
+          <ul class="list-unstyled mb-2 small">
+            {{range .Security.Measures}}
+            <li class="d-flex gap-2 py-2 border-bottom align-items-start">
+              <input class="form-check-input mt-1" type="checkbox" name="measures[]" value="{{.ID}}" id="m-{{.ID}}"{{if not $.Can}} disabled{{end}}>
+              <label class="me-auto" for="m-{{.ID}}"><span class="fw-medium">{{.Title}}</span> <span class="badge text-bg-light border fw-normal">{{if eq .Kind "web"}}Web server{{else}}WordPress{{end}}</span><div class="text-body-secondary">{{.Help}}</div></label>
+              <span class="text-nowrap">{{if .Applied}}<span class="wcp-state is-ok">Applied</span>{{else}}<span class="wcp-state is-off">Not applied</span>{{end}}{{if .CanRollback}}<div class="text-body-secondary text-end">can roll back</div>{{end}}</span>
+            </li>
+            {{end}}
+          </ul>
+          {{range .Security.Problems}}<div class="small text-danger">{{.}}</div>{{end}}
+          {{if .Can}}
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-sm btn-outline-primary" name="op" value="apply"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Apply selected</button>
+            <button class="btn btn-sm btn-outline-secondary" name="op" value="rollback" data-wcp-confirm-submit="Roll back the selected measures? Their earlier state is put back."><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Roll back selected</button>
+          </div>
+          {{end}}
+        </form>
+        {{end}}
+      </div>
+    </div>
+    <div class="col-xl-5">
+      <div class="wcp-panel h-100">
+        <div class="wcp-actionbar">
+          <div class="fw-semibold">Vulnerabilities</div>
+          {{if .Can}}
+          <div class="wcp-actionbar-end">
+            <form method="post" action="{{.ToolURL}}" data-wcp-busy><input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="tool" value="vuln_check"><button class="btn btn-sm btn-outline-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-bug me-1" aria-hidden="true"></i>Check now</button></form>
+          </div>
+          {{end}}
+        </div>
+        <div class="d-flex align-items-center justify-content-between border rounded p-2 mb-2 small">
+          <div><div class="fw-medium">Vulnerability protection</div><div class="text-body-secondary">ModSecurity (OWASP CRS) + daily checks.</div></div>
+          <form method="post" action="{{.ToolURL}}" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            <input type="hidden" name="tool" value="vulnerability">
+            <div class="form-check form-switch m-0"><input class="form-check-input wcp-wp-switch" type="checkbox" role="switch" id="wp-sw-vulnerability-2" name="enabled" value="1" aria-label="vulnerability"{{if .Install.VulnProtection}} checked{{end}} {{if .Can}}data-wcp-autosubmit{{else}}disabled{{end}}></div>
+          </form>
+        </div>
+        {{if not .VulnCheckedAt}}
+          <div class="small text-body-secondary">Not checked yet. The check compares WordPress, the plugins and the themes with the public WPVulnerability database.</div>
+        {{else if eq .VulnCount 0}}
+          <div class="small text-success"><i class="bi bi-check-circle me-1" aria-hidden="true"></i>No known vulnerabilities (checked {{.VulnCheckedAt}} UTC).</div>
+        {{else}}
+          <ul class="list-unstyled small mb-0">
+            {{range .VulnRows}}
+            <li class="py-1 border-bottom">
+              <span class="badge {{.SevClass}}">{{.SevLabel}}{{if .Score}} {{.Score}}{{end}}</span>
+              <span class="fw-medium">{{.Title}} {{.Version}}</span>
+              <div class="text-body-secondary">{{.Name}}{{if .Cve}} · {{.Cve}}{{end}}</div>
+              <div>{{if .FixedIn}}Fixed in {{.FixedIn}}: update it.{{else if .Unfixed}}<span class="text-danger">No fix yet: consider deactivating it.</span>{{end}}{{if .Link}} <a href="{{.Link}}" target="_blank" rel="noopener noreferrer">Details</a>{{end}}</div>
+            </li>
+            {{end}}
+          </ul>
+        {{end}}
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <div class="tab-pane fade" id="database" role="tabpanel">
+  <div class="wcp-panel mb-3 small">
+    <div class="fw-semibold mb-2">Database</div>
+    {{if .NewDbPassword}}
+    <div class="alert alert-success">New database password (shown once; wp-config.php already uses it): <code class="user-select-all">{{.NewDbPassword}}</code></div>
+    {{end}}
+    <dl class="row mb-3">
+      <dt class="col-sm-3 fw-normal wcp-muted">Name</dt><dd class="col-sm-9"><code>{{.DbName}}</code></dd>
+      <dt class="col-sm-3 fw-normal wcp-muted">Host</dt><dd class="col-sm-9">{{.DB.Host}}</dd>
+      <dt class="col-sm-3 fw-normal wcp-muted">Table prefix</dt><dd class="col-sm-9"><code>{{.DB.Prefix}}</code></dd>
+      <dt class="col-sm-3 fw-normal wcp-muted">Size</dt><dd class="col-sm-9">{{.DbTables}} tables · {{.DbBytes}} · {{.MySQL}}</dd>
+    </dl>
+    <div class="d-flex flex-wrap gap-2">
+      {{if .DbID}}<a class="btn btn-sm btn-primary" href="/databases/{{.DbID}}/browse" target="_blank" rel="noopener"><i class="bi bi-table me-1" aria-hidden="true"></i>Open in database browser</a>
+      {{else}}<span class="text-body-secondary">This database is not one of your databases in the panel, so the browser cannot open it.</span>{{end}}
+      {{if .Can}}
+      <form method="post" action="{{.ToolURL}}" data-wcp-busy data-wcp-confirm="Change the database password? A new random password is set in the database and in wp-config.php at once.">
+        <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="tool" value="db_password">
+        <button class="btn btn-sm btn-outline-secondary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-key me-1" aria-hidden="true"></i>Change database password</button>
+      </form>
+      {{end}}
+    </div>
+  </div>
+  </div>
+
+  <div class="tab-pane fade" id="staging" role="tabpanel">
+  <div class="row g-3 mb-3">
+    <div class="col-lg-6">
+      <div class="wcp-panel h-100 small">
+        <div class="fw-semibold mb-1">Staging and cloning</div>
+        <p class="text-body-secondary">Clone this site to another of your websites (for example a staging subdomain) with its own database, try changes there, then sync them back. Before anything is replaced, a restore point of the target is saved.</p>
+        {{if .Can}}
+        <a class="btn btn-sm btn-primary" href="#wp-clone"><i class="bi bi-copy me-1" aria-hidden="true"></i>Clone</a>
+        <a class="btn btn-sm btn-outline-primary{{if not .SyncTargets}} disabled{{end}}" href="#wp-sync"><i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>Sync to another installation</a>
+        {{if not .SyncTargets}}<div class="text-body-secondary mt-2">There is no other installation of the same owner to sync with yet: clone first.</div>{{end}}
+        {{end}}
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="wcp-panel h-100 small">
+        <div class="fw-semibold mb-2">Restore points</div>
+        {{if not .RestorePoints}}
+        <div class="text-body-secondary">None yet. A restore point is saved automatically before a sync or clone replaces this installation.</div>
+        {{else}}
+        <ul class="list-unstyled mb-0">
+          {{range .RestorePoints}}
+          <li class="d-flex align-items-center gap-2 py-1 border-bottom">
+            <div class="me-auto"><div class="fw-medium">{{.When}}</div><div class="text-body-secondary">{{.Reason}}{{if .Database}} · files and database{{else}} · files{{end}}</div></div>
+            {{if $.Can}}
+            <form method="post" action="{{$.ToolURL}}" data-wcp-busy data-wcp-confirm="Put this restore point back? Files and the database return to that moment (files added since are kept).">
+              <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="tool" value="restore"><input type="hidden" name="restore_point" value="{{.ID}}">
+              <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Restore</button>
+            </form>
+            {{end}}
+          </li>
+          {{end}}
+        </ul>
+        {{end}}
+      </div>
+    </div>
+  </div>
+  </div>
+  </div>
+
+  {{if .Can}}
+  <div class="modal fade" id="wp-debug" tabindex="-1" aria-labelledby="wp-debug-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+      <form class="modal-content" method="post" action="{{.ToolURL}}" data-wcp-busy>
+        <div class="modal-header"><h2 class="modal-title h6" id="wp-debug-title">Debugging</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body">
+          <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="tool" value="debug">
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="debug[]" value="WP_DEBUG" id="dbg-WP_DEBUG"{{if .Constants.Debug}} checked{{end}}><label class="form-check-label" for="dbg-WP_DEBUG">Debugging (WP_DEBUG)</label></div>
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="debug[]" value="WP_DEBUG_LOG" id="dbg-WP_DEBUG_LOG"><label class="form-check-label" for="dbg-WP_DEBUG_LOG">Write errors to wp-content/debug.log (WP_DEBUG_LOG)</label></div>
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="debug[]" value="WP_DEBUG_DISPLAY" id="dbg-WP_DEBUG_DISPLAY"{{if .Constants.DebugDisplay}} checked{{end}}><label class="form-check-label" for="dbg-WP_DEBUG_DISPLAY">Show errors on pages (WP_DEBUG_DISPLAY)</label></div>
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="debug[]" value="SCRIPT_DEBUG" id="dbg-SCRIPT_DEBUG"><label class="form-check-label" for="dbg-SCRIPT_DEBUG">Unminified core scripts and styles (SCRIPT_DEBUG)</label></div>
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="debug[]" value="SAVEQUERIES" id="dbg-SAVEQUERIES"><label class="form-check-label" for="dbg-SAVEQUERIES">Record database queries (SAVEQUERIES)</label></div>
+          <div class="form-text mb-3">Errors shown on pages reveal paths and code to visitors: use it briefly, and prefer the log. The debug log is under Logs.</div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save</button></div>
+      </form>
+    </div>
+  </div>
+
+  {{if .HasURLPath}}
+  <div class="modal fade" id="wp-protect" tabindex="-1" aria-labelledby="wp-protect-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+      <form class="modal-content" method="post" action="{{.ToolURL}}" data-wcp-busy autocomplete="off">
+        <div class="modal-header"><h2 class="modal-title h6" id="wp-protect-title">Password protection</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body">
+          <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="tool" value="password_protection"><input type="hidden" name="enabled" value="1">
+          <p class="small text-body-secondary">Visitors to <code>{{.Site.Domain}}{{.URLPathTrimmed}}/</code> must sign in with this user name and password before they see anything (certificate renewal keeps working).</p>
+          <div class="mb-3"><label class="form-label" for="pp-user">User name</label><input class="form-control" id="pp-user" name="protect_user" required maxlength="64" pattern="[A-Za-z0-9._-]+" value="{{if .Protected}}{{.Protected.User}}{{end}}"></div>
+          <div class="mb-3"><label class="form-label" for="pp-pass">Password</label><input class="form-control" id="pp-pass" name="protect_password" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>{{if .Protected}}Save{{else}}Turn on{{end}}</button></div>
+      </form>
+    </div>
+  </div>
+  {{end}}
+
+  <div class="modal fade" id="wp-hotlink" tabindex="-1" aria-labelledby="wp-hotlink-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+      <form class="modal-content" method="post" action="{{.ToolURL}}" data-wcp-busy>
+        <div class="modal-header"><h2 class="modal-title h6" id="wp-hotlink-title">Hotlink protection</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body">
+          <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="tool" value="hotlink"><input type="hidden" name="enabled" value="1">
+          <p class="small text-body-secondary">Images, video, audio and PDF files of {{.Site.Domain}} are only served to its own pages, direct visits and the sites below.</p>
+          <div class="mb-3"><label class="form-label" for="hl-allowed">Also allowed (optional)</label><input class="form-control" id="hl-allowed" name="hotlink_allowed" placeholder="partner.com, *.cdn.example.com" value="{{.HotlinkAllowedStr}}"></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>{{if .HotlinkOn}}Save{{else}}Turn on{{end}}</button></div>
+      </form>
+    </div>
+  </div>
+
+  {{if .Admins}}
+  <div class="modal fade" id="wp-admin-pass" tabindex="-1" aria-labelledby="wp-admin-pass-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+      <form class="modal-content" method="post" action="{{.ToolURL}}" data-wcp-busy autocomplete="off">
+        <div class="modal-header"><h2 class="modal-title h6" id="wp-admin-pass-title">Change administrator password</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body">
+          <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="tool" value="admin_password">
+          <div class="mb-3"><label class="form-label" for="ap-admin">Administrator</label>
+            <select class="form-select" id="ap-admin" name="admin_id">{{range .Admins}}<option value="{{.ID}}">{{.Login}}</option>{{end}}</select></div>
+          <div class="mb-3"><label class="form-label" for="ap-pass">New password</label><input class="form-control" id="ap-pass" name="admin_password" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></div>
+          <div class="mb-3"><label class="form-label" for="ap-pass2">Repeat the password</label><input class="form-control" id="ap-pass2" name="admin_password_confirm" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></div>
+          <div class="form-text mb-3">The administrator's other sessions are signed out.</div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Change password</button></div>
+      </form>
+    </div>
+  </div>
+  {{end}}
+
+  <div class="modal fade" id="wp-clone" tabindex="-1" aria-labelledby="wp-clone-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+      <form class="modal-content" method="post" action="{{.ToolURL}}" data-wcp-busy>
+        <div class="modal-header"><h2 class="modal-title h6" id="wp-clone-title">Clone WordPress</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body">
+          <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="tool" value="clone">
+          <p class="small text-body-secondary">Files and the database are copied; the copy gets its own new database and its address is changed everywhere.</p>
+          <div class="mb-3"><label class="form-label" for="cl-site">Copy to website</label>
+            <select class="form-select" id="cl-site" name="target_site" required>
+              {{range .CopyTargets}}<option value="{{.ID}}">{{.Domain}}</option>{{end}}
+            </select>
+            <div class="form-text">For a staging copy, create a subdomain such as staging.{{.Site.Domain}} first (Domains).</div></div>
+          <div class="mb-3"><label class="form-label" for="cl-path">Folder in its document root (optional)</label><input class="form-control" id="cl-path" name="target_path" placeholder="e.g. staging — empty for the document root" pattern="[A-Za-z0-9._\-/]*"></div>
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="staging" value="1" id="cl-staging" checked><label class="form-check-label" for="cl-staging">Hide the copy from search engines (staging)</label></div>
+          <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="overwrite" value="1" id="cl-over"><label class="form-check-label" for="cl-over">Replace WordPress already there (a restore point is saved first)</label></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Clone</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal fade" id="wp-sync" tabindex="-1" aria-labelledby="wp-sync-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+      <form class="modal-content" method="post" action="{{.ToolURL}}" data-wcp-busy data-wcp-confirm="Copy from this installation over the chosen one? A restore point of the target is saved first.">
+        <div class="modal-header"><h2 class="modal-title h6" id="wp-sync-title">Sync to another installation</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body">
+          <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="tool" value="sync">
+          <p class="small text-body-secondary">Copies from <strong>{{.Site.Domain}}{{if .Install.Path}}/{{.Install.Path}}{{end}}</strong> to the installation below. Its wp-config.php and address are kept. To publish a staging site, open the staging copy and sync it to the live one.</p>
+          <div class="mb-3"><label class="form-label" for="sy-target">Target</label>
+            <select class="form-select" id="sy-target" name="target" required>
+              {{range .SyncTargets}}<option value="{{.ID}}">{{.Domain}}{{if .Path}} ({{.Path}}){{end}}</option>{{end}}
+            </select></div>
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="files" value="1" id="sy-files" checked><label class="form-check-label" for="sy-files">Files (new and changed files; nothing is deleted)</label></div>
+          <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="database" value="1" id="sy-db" checked><label class="form-check-label" for="sy-db">Database (replaces the target's tables)</label></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Sync</button></div>
+      </form>
+    </div>
+  </div>
+  {{end}}
+</main>
+</body>
+</html>{{end}}

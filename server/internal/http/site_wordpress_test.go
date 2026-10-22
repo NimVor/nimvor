@@ -104,10 +104,10 @@ func TestWordPressSiteList(t *testing.T) {
 	if !strings.Contains(rr.Body.String(), "/sites/10/wordpress/1\">Manage") {
 		t.Error("list missing the install row")
 	}
-	// The viewer gets a 403.
+	// The viewer cannot see bob's website: flashed, redirected to the list.
 	rr = get(t, h, "/sites/10/wordpress", loginAsUser(t, h, "carol"))
-	if rr.Code != http.StatusForbidden {
-		t.Errorf("carol's site list = %d, want 403", rr.Code)
+	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/websites" {
+		t.Errorf("carol's site list = %d %q, want 303 /websites", rr.Code, rr.Header().Get("Location"))
 	}
 }
 
