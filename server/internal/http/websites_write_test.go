@@ -64,6 +64,8 @@ type sitesAgent struct {
 	wpVerifyReply string
 	// wpCopyJobID is the wordpress.copy reply's job id ("" = the default).
 	wpCopyJobID string
+	// backupJobID is the backup.create reply's job id ("" = the default).
+	backupJobID string
 	// shellSetEffective overrides the shell.set reply's effective mode
 	// ("" = the requested mode, i.e. it takes effect immediately).
 	shellSetEffective string
@@ -896,6 +898,27 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			}
 			b, _ := json.Marshal(map[string]any{"content": content, "size": len(content), "truncated": len(content) > 512<<10})
 			_, _ = w.Write([]byte(`{"success":true,"data":` + string(b) + `}`))
+		case "backup.create":
+			jobID := sa.backupJobID
+			if jobID == "" {
+				jobID = "0123456789ba0001"
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"` + jobID + `"}}`))
+		case "backup.restore":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789ba0002"}}`))
+		case "backup.delete":
+			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
+		case "backup.download":
+			// Two chunks ("hello" then "world") so the streaming loop runs.
+			offset := int64(0)
+			if o, ok := p["offset"].(float64); ok {
+				offset = int64(o)
+			}
+			if offset == 0 {
+				_, _ = w.Write([]byte(`{"success":true,"data":{"data":"aGVsbG8=","size":11,"eof":false}}`))
+			} else {
+				_, _ = w.Write([]byte(`{"success":true,"data":{"data":"d29ybGQ=","size":11,"eof":true}}`))
+			}
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

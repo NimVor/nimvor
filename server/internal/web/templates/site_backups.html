@@ -1,0 +1,155 @@
+{{define "site_backups"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Backups · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a></p>
+  <h1>Backups</h1>
+  <p class="text-muted">{{.Site.Domain}}</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
+
+  <div class="d-flex flex-wrap align-items-center gap-3 mb-3 small">
+    {{if .LastAgo}}<span class="wcp-state is-ok">Last backup {{.LastAgo}}</span>{{else}}<span class="wcp-state is-warn">No backup yet</span>{{end}}
+    <span class="text-body-secondary">{{if .Schedules}}{{len .Schedules}} schedule{{if ne (len .Schedules) 1}}s{{end}}{{else}}No automatic backups scheduled{{end}}</span>
+  </div>
+
+  <div class="card mb-3" id="backup-list">
+    <div class="card-header d-flex flex-wrap align-items-center gap-2">
+      <span class="fw-semibold"><i class="bi bi-archive me-1" aria-hidden="true"></i>Backups <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Backups}}</span></span>
+    </div>
+    {{if not .Backups}}
+    <div class="wcp-empty-state">
+      <i class="bi bi-archive" aria-hidden="true"></i>
+      <div class="fw-medium">No backups yet</div>
+      <div class="small">A backup keeps a copy of your files and databases you can restore at any time.</div>
+    </div>
+    {{else}}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Created</th><th>Contents</th><th>Size</th><th>Stored</th><th>Status</th>{{if .CanManage}}<th class="text-end">Actions</th>{{end}}</tr></thead>
+        <tbody>
+        {{range $b := .Backups}}
+        {{$hasFiles := false}}
+        {{range $p := $b.Parts}}{{if eq $p.Kind "files"}}{{$hasFiles = true}}{{end}}{{end}}
+        <tr>
+          <td class="small text-nowrap">{{stamp $b.CreatedAt}}{{if $b.Label}}<div class="text-body-secondary">{{$b.Label}}</div>{{end}}</td>
+          <td class="small">
+            {{range $p := $b.Parts}}
+            <div>
+              {{if and $.CanManage $b.Local}}<a href="/sites/{{$.Site.ID}}/backups/{{$b.ID}}/download?file={{$p.Name | urlquery}}" title="Download">{{end}}
+              <i class="bi bi-{{if eq $p.Kind "database"}}database{{else if eq $p.Kind "config"}}gear{{else}}folder{{end}} me-1" aria-hidden="true"></i>
+              {{if eq $p.Kind "database"}}{{$p.Database}}{{else if eq $p.Kind "config"}}configuration{{else}}files{{end}}
+              {{if and $.CanManage $b.Local}}</a>{{end}}
+            </div>
+            {{end}}
+            {{if $b.Error}}<div class="text-danger">{{$b.Error}}</div>{{end}}
+          </td>
+          <td class="small text-nowrap">{{if eq $b.Status "completed"}}{{bytes $b.Size}}{{else}}&nbsp;{{end}}</td>
+          <td class="small">{{if $b.Local}}server{{end}}{{if and $b.Local $b.StorageID.Valid}} + {{end}}{{if $b.StorageID.Valid}}{{if $b.StorageName}}{{$b.StorageName}}{{else}}remote{{end}}{{end}}{{if $b.Encrypted}} <i class="bi bi-lock" title="Encrypted" aria-hidden="true"></i>{{end}}</td>
+          <td>
+            {{if eq $b.Status "running"}}<span class="wcp-state is-warn">Running</span>{{if $b.JobID}} <button type="button" class="btn btn-sm btn-link p-0" data-wcp-job-open="{{$b.JobID}}">log</button>{{end}}
+            {{else if eq $b.Status "completed"}}<span class="wcp-state is-ok">Completed</span>
+            {{else}}<span class="wcp-state is-error">Failed</span>{{end}}
+          </td>
+          {{if $.CanManage}}
+          <td class="text-end">
+            {{if eq $b.Status "completed"}}
+            <details class="d-inline-block text-start wcp-restore">
+              <summary class="btn btn-sm btn-outline-secondary">Restore</summary>
+              <form class="card card-body mt-1 small" method="post" action="/sites/{{$.Site.ID}}/backups/{{$b.ID}}/restore" data-wcp-busy>
+                <input type="hidden" name="_token" value="{{$.CSRF}}">
+                {{if $hasFiles}}<div class="form-check"><input class="form-check-input" type="checkbox" name="restore_files" value="1" id="rf-{{$b.ID}}" checked><label class="form-check-label" for="rf-{{$b.ID}}">Website files (overwrites changed files)</label></div>{{end}}
+                {{range $p := $b.Parts}}{{if eq $p.Kind "database"}}<div class="form-check"><input class="form-check-input" type="checkbox" name="restore_databases[]" value="{{$p.Database}}" id="rd-{{$b.ID}}-{{$p.Database}}"><label class="form-check-label" for="rd-{{$b.ID}}-{{$p.Database}}">Database {{$p.Database}} (replaces its tables)</label></div>{{end}}{{end}}
+                <label class="form-label mt-2" for="rc-{{$b.ID}}">Type <strong>{{$b.Domain}}</strong> to confirm</label>
+                <input class="form-control form-control-sm mb-2" id="rc-{{$b.ID}}" name="confirm_domain" autocomplete="off" required>
+                <button class="btn btn-sm btn-warning" type="submit">Restore now</button>
+              </form>
+            </details>
+            {{end}}
+            {{if ne $b.Status "running"}}
+            <form class="d-inline" method="post" action="/sites/{{$.Site.ID}}/backups/{{$b.ID}}/delete" data-wcp-confirm="Delete this backup{{if $b.StorageID.Valid}} here and in remote storage{{end}}?"><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash" aria-hidden="true"></i></button></form>
+            {{end}}
+          </td>
+          {{end}}
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+  </div>
+
+  {{if .CanManage}}
+  <details class="card mb-3" id="backup-now">
+    <summary class="card-header"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Back up now</summary>
+    <div class="card-body">
+      <form class="row g-3" method="post" action="/sites/{{.Site.ID}}/backups" data-wcp-busy>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <div class="col-md-6">
+          <div class="fw-medium small mb-1">What to back up</div>
+          <div class="form-check"><input type="hidden" name="files" value="0"><input class="form-check-input" type="checkbox" id="b-files" name="files" value="1" checked><label class="form-check-label" for="b-files">Website files <span class="small text-body-secondary">(without logs and tmp)</span></label></div>
+          <div class="form-check mb-2"><input type="hidden" name="databases" value="0"><input class="form-check-input" type="checkbox" id="b-dbs" name="databases" value="1"{{if .Databases}} checked{{else}} disabled{{end}}><label class="form-check-label" for="b-dbs">Databases <span class="small text-body-secondary">{{if .Databases}}{{range $i, $d := .Databases}}{{if $i}}, {{end}}{{$d}}{{else}}none linked to this website{{end}}</span></label></div>
+          <input class="form-control form-control-sm" name="label" maxlength="100" placeholder="Label (optional)" aria-label="Label">
+        </div>
+        <div class="col-md-6">
+          <div class="form-check form-switch"><input type="hidden" name="encrypt" value="0"><input class="form-check-input" type="checkbox" role="switch" id="b-enc" name="encrypt" value="1" checked><label class="form-check-label" for="b-enc">Encrypt (AES-256)</label></div>
+          {{if .Storages}}
+          <label class="form-label small mt-2" for="b-st">Copy to</label>
+          <select class="form-select form-select-sm" id="b-st" name="storage_id">
+            <option value="">This server only</option>
+            {{range $s := .Storages}}<option value="{{$s.ID}}">{{$s.Name}} ({{if index $.StorageLabels $s.Kind}}{{index $.StorageLabels $s.Kind}}{{else}}{{$s.Kind}}{{end}})</option>{{end}}
+          </select>
+          <div class="form-check small mt-1"><input type="hidden" name="keep_local" value="0"><input class="form-check-input" type="checkbox" id="b-keep" name="keep_local" value="1" checked><label class="form-check-label" for="b-keep">Also keep a copy on this server</label></div>
+          {{end}}
+        </div>
+        <div class="col-12"><button class="btn btn-sm btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Start backup</button></div>
+      </form>
+    </div>
+  </details>
+  {{end}}
+
+  <div class="card" id="schedule">
+    <div class="card-header"><i class="bi bi-calendar-check me-1" aria-hidden="true"></i>Automatic backups</div>
+    <div class="card-body">
+      {{if not .Schedules}}
+      <p class="text-body-secondary small mb-0">No schedule.</p>
+      {{else}}
+      <ul class="list-group list-group-flush mb-3">
+        {{range $s := .Schedules}}
+        <li class="list-group-item px-0 d-flex align-items-start gap-2">
+          <div class="small">
+            <div class="fw-semibold">{{if eq $s.Frequency "weekly"}}Every {{weekday $s.Weekday}} at {{printf "%02d:00" $s.Hour}}{{else}}Every day at {{printf "%02d:00" $s.Hour}}{{end}}</div>
+            <div class="text-body-secondary">{{if eq $s.Kind "site"}}{{if $s.IncludeFiles}}files{{end}}{{if and $s.IncludeFiles $s.IncludeDatabases}} + {{end}}{{if $s.IncludeDatabases}}databases{{end}} · {{end}}keep {{$s.Retention}} · {{if $s.Encrypt}}encrypted{{else}}not encrypted{{end}}{{if $s.StorageName}} · copy to {{$s.StorageName}}{{end}}</div>
+            <div class="text-body-secondary">Last run: {{if $s.LastRunAt.Valid}}{{stamp $s.LastRunAt.String}} ({{$s.LastStatus)}){{else}}never{{end}}</div>
+          </div>
+        </li>
+        {{end}}
+      </ul>
+      {{end}}
+      {{if not .CanSchedule}}
+      <p class="small text-body-secondary mt-2 mb-0"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Automatic backups are set up by your administrator. You can back up and restore at any time above.</p>
+      {{end}}
+    </div>
+  </div>
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **231 ☑ done+tested, 3 ◑ partial, 317 ☐** of 551.
+`server/internal/http/server.go`): **236 ☑ done+tested, 3 ◑ partial, 312 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -541,6 +541,37 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   back to that moment). The WpBaseURL helper (the installation's
   address from the website's own domain + document root) completes the
   page's toolkit
+- ◑ websites: the per-website backups area (batch 50 — first of two
+  batches) — the website methods of BackupsController + the
+  sites/backups view as site_backups.go + hosting/backup_service.go +
+  hosting/backup_scheduler.go: the tab page (GET /sites/{id}/backups,
+  backups.view — the best-effort refresh of running rows from their
+  agent jobs (jobs.get: succeeded stores the agent's manifest +
+  size/encrypted/local, failed + a lost job (agent restarted) store
+  their error), the list newest-first with the parts from the stored
+  manifest, the "Last backup …" line, the schedule count, the linked
+  databases, and the admin-only storages + storage select), back up
+  now (POST, backups.manage — the files / databases / label /
+  encrypt / storage options exactly as the panel's: a customer can
+  never pick a storage, "Nothing to back up." when neither files nor
+  a linked database, the backup.create agent job + the running row +
+  the tracked "Backup <domain>" job), restore (POST
+  …/backups/{backup}/restore — completed site backups only, the
+  confirm-domain gate, each requested database checked against the
+  backup's parts, the backup.restore job with the safety backup flag
+  + the remote copy's storage config, tracked "Restore <domain>"),
+  delete (POST …/delete — the running guard, the agent's copy first
+  (remote too when the storage still exists; not_found tolerated),
+  then the row), and the part download (GET …/download?file= —
+  octet-stream with the sanitized name + no-store, the chunked
+  backup.download stream the PHP stream() loop uses, plain 404 for a
+  missing part or a remote-only backup). The hidesAutoBackups rule
+  applies everywhere (a hosting account without the auto_backups
+  feature never sees the scheduled copies or the schedules, and
+  restore/delete of one read "Backup not found."); the schedule
+  card lists the website's schedules read-only. Remaining (batch 51):
+  the two schedule routes (store / delete, admin-only) with the
+  schedule form
 - ◑ websites: the WordPress cron takeover (tools) (batch 47)
   — WordPressToolsService::setCronTakeover as
   hosting/wordpress_tools.go (SetCronTakeover): the tool route's
@@ -716,12 +747,15 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the **websites area continues** — cron is done, so the next
-website sub-area comes from the remaining ☐ routes under
-`/sites/{id}/…` (mongo 12, wordpress 8, backups 7, deploy 5, ftp 4,
-sites advanced/health/security, apps 2, mail 1, ip 1, dns 1 — check
-INVENTORY.md + the PHP controllers first and split large ones into
-2–3 batches). (The hulk/modsec/av scheduler sides stay with the
+Batch 51: finish the **per-website backups area** — the two
+schedule routes (POST /sites/{id}/backup-schedules + …/{schedule}/
+delete, admin-only: BackupScheduler::create validation + delete, the
+_schedule_form + delete buttons in the schedule card). Then the
+websites area continues from the remaining ☐ routes under
+`/sites/{id}/…` (backups schedules 2, mongo 12, wordpress 8, deploy 5,
+ftp 4, sites advanced/health/security, apps 2, mail 1, ip 1, dns 1 —
+check INVENTORY.md + the PHP controllers first and split large ones
+into 2–3 batches). (The hulk/modsec/av scheduler sides stay with the
 background-jobs follow-up.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
