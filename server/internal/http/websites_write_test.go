@@ -379,6 +379,15 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				removed = `[]`
 			}
 			_, _ = w.Write([]byte(`{"success":true,"data":{"removed":` + removed + `}}`))
+		case "hardening.status":
+			_, _ = w.Write([]byte(`{"success":true,"data":{` +
+				`"compilers":{"restricted":true,"programs":[{"path":"/usr/bin/gcc","owner":"root","mode":"0750"},{"path":"/usr/bin/cc","owner":"root","mode":"0750"}],"group":"whacp-compiler","members":["u1-site"]},` +
+				`"smtp":{"enabled":true,"active":true,"available":true,"allowed":["root","postfix","mailman","whacp"],"ports":[25,465,587]},` +
+				`"egress":{"available":true,"active":true,"metadata_blocked":true,"block_private":false,"tcp_ports":[53,80,443],"udp_ports":[53],"accounts":3,"metadata":["169.254.169.254","fd00:ec2::254"]},` +
+				`"forkbomb":{"enabled":false,"file":"/etc/security/limits.d/70-whacp.conf","soft":200,"hard":300},` +
+				`"traceroute":{"enabled":true,"programs":[{"path":"/usr/bin/traceroute","mode":"0755"}]}}}`))
+		case "hardening.compilers", "hardening.smtp", "hardening.egress", "hardening.forkbomb", "hardening.traceroute":
+			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

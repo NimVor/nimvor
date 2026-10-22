@@ -160,6 +160,19 @@ func (s *Server) routes() {
 	// the anonymous MySQL users removal (security.mysql_anonymous).
 	s.mux.HandleFunc("GET /security", s.guard("security", "security.view", s.securityIndex))
 	s.mux.HandleFunc("POST /security/mysql-anonymous", s.guard("security.mysql_anonymous", "server.manage", s.dropAnonymousUsers))
+	// Security → hardening (HardeningController: compiler access, SMTP
+	// restrictions, outgoing connections, fork bomb protection, traceroute —
+	// all-scope pages, role-admin changes).
+	s.mux.HandleFunc("GET /security/compilers", s.guard("security.compilers", "security.view", s.hardeningCompilers))
+	s.mux.HandleFunc("POST /security/compilers", s.guard("security.compilers.save", "security.manage", s.hardeningSaveCompilers))
+	s.mux.HandleFunc("GET /security/smtp", s.guard("security.smtp", "security.view", s.hardeningSmtp))
+	s.mux.HandleFunc("POST /security/smtp", s.guard("security.smtp.save", "security.manage", s.hardeningSaveSmtp))
+	s.mux.HandleFunc("GET /security/egress", s.guard("security.egress", "security.view", s.hardeningEgress))
+	s.mux.HandleFunc("POST /security/egress", s.guard("security.egress.save", "security.manage", s.hardeningSaveEgress))
+	s.mux.HandleFunc("GET /security/forkbomb", s.guard("security.forkbomb", "security.view", s.hardeningForkbomb))
+	s.mux.HandleFunc("POST /security/forkbomb", s.guard("security.forkbomb.save", "security.manage", s.hardeningSaveForkbomb))
+	s.mux.HandleFunc("GET /security/traceroute", s.guard("security.traceroute", "security.view", s.hardeningTraceroute))
+	s.mux.HandleFunc("POST /security/traceroute", s.guard("security.traceroute.save", "security.manage", s.hardeningSaveTraceroute))
 	s.mux.HandleFunc("GET /security/firewall", s.guard("security.firewall", "security.view", s.firewallIndex))
 	s.mux.HandleFunc("POST /security/firewall/toggle", s.guard("security.firewall.toggle", "security.manage", s.firewallToggle))
 	s.mux.HandleFunc("POST /security/firewall/rules", s.guard("security.firewall.add", "security.manage", s.firewallAddRule))

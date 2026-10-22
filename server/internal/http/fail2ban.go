@@ -324,7 +324,7 @@ func (s *Server) securityFix(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	to := "/security" // the overview's port is a later batch
+	to := "/security" // the Security overview
 	fail := func(msg string) {
 		sess.Flash("error", msg)
 		http.Redirect(w, r, to, http.StatusSeeOther)
