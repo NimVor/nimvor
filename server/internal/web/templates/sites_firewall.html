@@ -1,0 +1,97 @@
+{{define "sites_firewall"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Web firewall · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/sites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
+  <h1>Web firewall</h1>
+  <p class="text-muted">{{.Site.Domain}}</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+
+  {{if .AgentError}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <i class="bi bi-plug fs-5"></i>
+      <div><div class="fw-semibold">{{.AgentError}}</div></div>
+    </div>
+  </div>
+  {{else if not .IsActive}}
+  <div class="card"><div class="wcp-empty-state">
+    <i class="bi bi-shield-slash" aria-hidden="true"></i>
+    <div class="fw-medium">The web application firewall is not active on this server</div>
+    {{if .CanManage}}
+    <div class="small mb-3">Set up ModSecurity under Security &rarr; ModSecurity; each website can then use it.</div>
+    <a class="btn btn-primary" href="/security/modsec">Open ModSecurity</a>
+    {{else}}
+    <div class="small">Please ask your hosting provider to enable it.</div>
+    {{end}}
+  </div></div>
+  {{else}}
+  <div class="row g-3 mb-3">
+    <div class="col-lg-6">
+      <div class="wcp-panel h-100">
+        <div class="fw-semibold mb-2">Web firewall (ModSecurity)</div>
+        <form method="post" action="/sites/{{.Site.ID}}/firewall" data-wcp-busy>
+          <input type="hidden" name="_token" value="{{.CSRF}}">
+          <fieldset{{if not .CanChange}} disabled{{end}}>
+          <div class="form-check mb-1">
+            <input class="form-check-input" type="radio" name="mode" id="fw-off" value="off"{{if index .ModeChecked "off"}} checked{{end}}>
+            <label class="form-check-label" for="fw-off">Off</label>
+            <div class="form-text mt-0">Requests are not inspected.</div>
+          </div>
+          <div class="form-check mb-1">
+            <input class="form-check-input" type="radio" name="mode" id="fw-detect" value="detect"{{if index .ModeChecked "detect"}} checked{{end}}>
+            <label class="form-check-label" for="fw-detect">Detection only (log, do not block)</label>
+            <div class="form-text mt-0">Nothing is refused; matches are only listed below. Use it to check a website before turning blocking on.</div>
+          </div>
+          <div class="form-check mb-1">
+            <input class="form-check-input" type="radio" name="mode" id="fw-on" value="on"{{if index .ModeChecked "on"}} checked{{end}}>
+            <label class="form-check-label" for="fw-on">On (block attacks)</label>
+            <div class="form-text mt-0">Requests that look like attacks (SQL injection, cross-site scripting, file inclusion, remote code execution) are refused with 403.</div>
+          </div>
+          {{if .CanChange}}<button class="btn btn-sm btn-primary mt-2">Save</button>{{end}}
+          </fieldset>
+        </form>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="wcp-panel h-100 small">
+        <div class="fw-semibold mb-2">Rules for this website</div>
+        <p class="mb-1"><span class="wcp-muted">Rule vendors:</span> {{.VendorsText}}</p>
+        <p class="mb-2"><span class="wcp-muted">Rules turned off:</span> <span class="font-monospace">{{.DisabledText}}</span></p>
+        {{if .CanManage}}
+        <p class="mb-0">Change them under <a href="/security/modsec#sites">Security &rarr; ModSecurity</a>, or turn a rule off from an event below.</p>
+        {{else}}
+        <p class="mb-0 wcp-muted">If a legitimate request is blocked, ask your hosting provider to turn the rule shown below off for this website.</p>
+        {{end}}
+      </div>
+    </div>
+  </div>
+
+  <div class="wcp-panel" data-wcp-dt>
+    <div class="wcp-actionbar"><div class="fw-semibold">Recent events <span class="badge rounded-pill text-bg-light border fw-normal">{{len .EventCtx.Events}}</span></div>
+      <div class="wcp-actionbar-end"><div class="wcp-search"><input class="form-control form-control-sm" type="search" placeholder="Search" aria-label="Search events" data-wcp-dt-search><i class="bi bi-search" aria-hidden="true"></i></div></div></div>
+    {{template "modsec_events" .EventCtx}}
+  </div>
+  {{end}}
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}
