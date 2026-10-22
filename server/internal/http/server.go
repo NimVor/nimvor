@@ -138,6 +138,16 @@ func (s *Server) routes() {
 	// website root, and the latest result is kept in disk_usage_scans).
 	s.mux.HandleFunc("GET /sites/{id}/disk-usage", s.guard("sites.disk", "files.manage", s.diskUsageShow))
 	s.mux.HandleFunc("POST /sites/{id}/disk-usage/scan", s.guard("sites.disk.scan", "files.manage", s.diskUsageScan))
+	// The web terminal (TerminalController): the browser talks to the
+	// agent's WebSocket directly (Nginx proxies /terminal/ws) — the panel
+	// only hands out tickets and re-confirms the panel password for root
+	// shells. Signing out ends the sign-in's terminals (doLogout).
+	s.mux.HandleFunc("GET /sites/{id}/terminal", s.guard("sites.terminal", "files.manage", s.terminalSite))
+	s.mux.HandleFunc("POST /sites/{id}/terminal/open", s.guard("sites.terminal.open", "files.manage", s.terminalOpenSite))
+	s.mux.HandleFunc("POST /terminal/unlock", s.guard("sites.terminal.unlock", "files.manage", s.terminalUnlock))
+	s.mux.HandleFunc("GET /terminal", s.guard("terminal", "security.manage", s.terminalIndex))
+	s.mux.HandleFunc("POST /terminal/root/open", s.guard("terminal.root", "security.manage", s.terminalOpenRoot))
+	s.mux.HandleFunc("POST /terminal/sessions/{id}/close", s.guard("terminal.close", "security.manage", s.terminalClose))
 	// The website's databases (DatabasesController::site; databases.view —
 	// the mysql feature withholds it when the plan disables mysql).
 	s.mux.HandleFunc("GET /sites/{id}/databases", s.guard("", "databases.view", s.siteDatabases))

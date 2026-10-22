@@ -122,6 +122,8 @@ func (s *Server) doLogout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
+	// The web terminals of this sign-in end with it (best effort).
+	s.terminalCloseOwn(r.Context(), sess)
 	s.auth.Logout(r.Context(), sess, userFrom(r.Context()))
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
