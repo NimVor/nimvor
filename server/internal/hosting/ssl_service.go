@@ -23,19 +23,19 @@ const sslACMETimeout = 320 * time.Second
 
 // CertInfo is the agent's ssl.inspect reply (the leaf certificate).
 type CertInfo struct {
-	DNSNames      []string
-	Issuer        string
-	NotAfter      time.Time
-	DaysRemaining int
-	Expired       bool
-	Error         string
+	DNSNames      []string  `json:"dns_names"`
+	Issuer        string    `json:"issuer"`
+	NotAfter      time.Time `json:"not_after"`
+	DaysRemaining int       `json:"days_remaining"`
+	Expired       bool      `json:"expired"`
+	Error         string    `json:"error"`
 }
 
 // RenewalStatus is the agent's ssl.renewal_status reply.
 type RenewalStatus struct {
-	CertbotInstalled bool
-	TimerActive      bool
-	Method           string
+	CertbotInstalled bool   `json:"certbot_installed"`
+	TimerActive      bool   `json:"timer_active"`
+	Method           string `json:"method"`
 }
 
 // sslFilePair is the {cert_file, key_file} pair the ssl.issue/ssl.custom

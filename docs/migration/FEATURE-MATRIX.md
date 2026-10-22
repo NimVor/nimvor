@@ -27,10 +27,10 @@ _From app/Services/FeatureService::FEATURES._
 | python | Python runtime & settings | Runtimes | sites.python | ☐ |
 | logs | Logs | Monitoring | sites.logs | ☐ |
 | stats | Visitor statistics | Monitoring | sites.stats | ☑ |
-| site_health | Site health | Monitoring | sites.health | ☐ |
+| site_health | Site health | Monitoring | sites.health | ☑ |
 | malware | Malware scan | Security | sites.malware | ☑ |
 | firewall | Web firewall (ModSecurity) | Security | sites.firewall | ☑ |
-| site_security | Site security overview | Security | sites.security | ☐ |
+| site_security | Site security overview | Security | sites.security | ☑ |
 | ssh | SSH shell & web terminal | Files | sites.terminal | ☐ |
 | wordpress | WordPress Toolkit | Websites | sites.wordpress,wordpress | ☐ |
 | type_php | Create PHP sites | Site types | (toggle) | ☐ |
