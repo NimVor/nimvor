@@ -149,6 +149,51 @@ func (s *Server) databasesPageData(r *http.Request, w http.ResponseWriter, user 
 		s.log.Error("settings lookup failed", "error", err)
 		remote = true // the definition's default
 	}
+	// Live server state (per-database sizes + table counts from db.overview),
+	// or nil when the database server could not be queried — the page then
+	// shows a warning and falls back to the WhaCP records. Mirrors
+	// DatabasesController::common.
+	live, err := svc.Live(r.Context())
+	if err != nil {
+		s.log.Error("database overview", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return nil, false
+	}
+	sizes := map[string]*dbOverviewRow{}
+	if live != nil {
+		for i := range live.Databases {
+			d := &live.Databases[i]
+			sizes[d.Name] = &dbOverviewRow{Name: d.Name, Tables: d.Tables, SizeText: formatBytes(d.Bytes)}
+		}
+	}
+	// Databases present on the server but not under WhaCP management — the
+	// "other databases" section, all-scope only, and only on the global page.
+	var unmanaged []dbOverviewRow
+	if websiteID == nil && hosting.IsAll(user) && live != nil {
+		names, err := repo.AllNames(r.Context(), s.currentServerID(r))
+		if err != nil {
+			s.log.Error("list all databases", "error", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return nil, false
+		}
+		managed := make(map[string]bool, len(names))
+		for _, n := range names {
+			managed[n] = true
+		}
+		for i := range live.Databases {
+			if !managed[live.Databases[i].Name] {
+				unmanaged = append(unmanaged, dbOverviewRow{
+					Name:     live.Databases[i].Name,
+					Tables:   live.Databases[i].Tables,
+					SizeText: formatBytes(live.Databases[i].Bytes),
+				})
+			}
+		}
+	}
+	serverLabel := "Database server unavailable"
+	if live != nil {
+		serverLabel = dbServerLabel(live.Version)
+	}
 	returnTo := "/databases"
 	var site *hosting.Website
 	if websiteID != nil {
@@ -174,6 +219,11 @@ func (s *Server) databasesPageData(r *http.Request, w http.ResponseWriter, user 
 		"Error":            errMsg,
 		"Success":          okMsg,
 		"CanManage":        s.can(r, "databases.manage"),
+		// Live server state (nil/empty → the warning + "unknown" fallbacks).
+		"Live":             live != nil,
+		"ServerLabel":      serverLabel,
+		"Sizes":            sizes,
+		"Unmanaged":        unmanaged,
 	}, true
 }
 

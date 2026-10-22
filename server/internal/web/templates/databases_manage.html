@@ -10,6 +10,7 @@
     <div class="small">This password is shown only once and is not stored unless you chose to keep it encrypted.</div>
   </div>
   {{end}}
+  {{if not .Live}}<p class="alert alert-warning" role="alert">The database server could not be queried (is MariaDB/MySQL running and reachable as root over its socket?). Showing WhaCP records only.</p>{{end}}
   {{if .CanManage}}
   <form method="post" action="/databases" class="create-form">
     <input type="hidden" name="_token" value="{{.CSRF}}">
@@ -21,10 +22,10 @@
   </form>
   {{end}}
 
-  <h2>Databases</h2>
+  <h2>Databases <span class="text-muted">{{.ServerLabel}}</span></h2>
   {{if .Databases}}
   <table class="data-table">
-    <thead><tr><th>Name</th><th>Usernames</th>{{if not .Site}}<th>Website</th>{{end}}<th>Created</th>{{if .CanManage}}<th></th>{{end}}</tr></thead>
+    <thead><tr><th>Name</th><th>Usernames</th><th class="num">Size</th>{{if not .Site}}<th>Website</th>{{end}}<th>Status</th><th>Created</th>{{if .CanManage}}<th></th>{{end}}</tr></thead>
     <tbody>
     {{range .Databases}}
       <tr>
@@ -35,7 +36,16 @@
           {{end}}
           {{else}}<span class="text-muted">No user</span>{{end}}
         </td>
+        <td class="num">
+          {{with index $.Sizes .Name}}{{.SizeText}}<div class="small text-muted">{{.Tables}} tables</div>{{else}}<span class="text-muted">—</span>{{end}}
+        </td>
         {{if not $.Site}}<td>{{if .Website.Valid}}{{.Website.String}}{{else}}—{{end}}</td>{{end}}
+        <td>
+          {{if not $.Live}}<span class="text-muted">unknown</span>
+          {{else if index $.Sizes .Name}}<span class="state-ok">OK</span>
+          {{else}}<span class="state-error" title="WhaCP has a record of this database, but the database server does not list it.">Missing</span>
+          {{end}}
+        </td>
         <td>{{.CreatedAt}}</td>
         {{if $.CanManage}}
         <td>

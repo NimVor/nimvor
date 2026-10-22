@@ -66,9 +66,12 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   not-found) + CSRF + audit (database_user target rows). Display: the databases
   page now lists the users tab (host, stored-password state, per-user grants,
   assign/remote/password/delete ops) and each database's granted users +
-  permission form, plus the shown-once secret flash (PHP _manage view minus
-  the live db.overview sizes/status and unmanaged-discovery sections — those
-  ride with the db.overview batch) · GET `/sites/{id}/databases` (DatabasesController::site — the
+  permission form, plus the shown-once secret flash. Display is the full PHP
+  _manage view: the live db.overview section (per-database Size + Status
+  columns, the "MariaDB 10.11.6" server label, the "could not be queried"
+  fallback when the agent is unreachable, and the all-scope-only
+  "other databases (not managed by WhaCP)" section) rides on the same page ·
+  GET `/sites/{id}/databases` (DatabasesController::site — the
   same page scoped to one website: website resolved under tenant scope first
   (foreign id → 404), databases listed for the site only, the create form pins
   website_id, and every operation's return_to points back to the site page;
@@ -161,11 +164,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: live db.overview columns — the databases table's per-database size +
-tables/status columns (the PHP _manage view's live section,
-DatabaseService::live → `db.overview`), plus the unmanaged-discovery
-infobar (databases on the server the account does not manage) that the
-display note above defers. Agent action `db.overview` — check the agent
-first, it may already be implemented.
+Batch: database browser (DbBrowserController) — GET `/databases/{id}/browse`
++ POST `/databases/{id}/browse/api` (databases.browser, databases.manage):
+the table list / column browse / run-SQL page per database, plus the server
+browser variant GET `/databases/browser` (databases.browser.server,
+staff) that the unmanaged section's Browse links point at. The agent's
+`db.browse*` actions are already implemented (agent/internal/dbmgr); check
+the exact action names + the PHP DbBrowserController for the request
+contract before porting.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
