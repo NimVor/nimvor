@@ -182,3 +182,32 @@ func (s *DatabaseService) DropDatabase(ctx context.Context, serverID int64, acto
 	}
 	return db.Name, nil
 }
+
+// DBSize is one schema's live size (an agent db.overview row).
+type DBSize struct {
+	Name   string `json:"name"`
+	Bytes  int64  `json:"size_bytes"`
+	Tables int    `json:"tables"`
+}
+
+// DBOverview is the live server state (the agent's db.overview reply).
+type DBOverview struct {
+	Version   string   `json:"version"`
+	Databases []DBSize `json:"databases"`
+}
+
+// Live returns the live server state (per-database sizes and table counts).
+// When the database server cannot be queried (the agent call fails) it
+// returns (nil, nil) — the view then shows a warning and falls back to the
+// WhaCP records. Mirrors DatabaseService::live.
+func (s *DatabaseService) Live(ctx context.Context) (*DBOverview, error) {
+	res, err := s.agent.Call(ctx, "db.overview", nil)
+	if err != nil {
+		return nil, nil
+	}
+	var out DBOverview
+	if err := json.Unmarshal(res, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}

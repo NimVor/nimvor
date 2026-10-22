@@ -101,3 +101,27 @@ func (r *DatabaseRepository) All(ctx context.Context, serverID int64, u *identit
 	}
 	return out, nil
 }
+
+// AllNames lists every database name on a server (all scope, no tenant
+// filter). The page uses it to flag databases present on the server but not
+// under WhaCP management, which is only shown to an all-scope viewer.
+func (r *DatabaseRepository) AllNames(ctx context.Context, serverID int64) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT name FROM databases WHERE server_id = ? ORDER BY name", serverID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

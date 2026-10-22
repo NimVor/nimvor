@@ -92,6 +92,8 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"deadbeefcafe0002"}}`))
 		case "jobs.log":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job":{"id":"deadbeefcafe0003","kind":"Dump a_main","target":"100","status":"succeeded","created_at":"2026-01-01T00:00:00Z"},"log":"Dump finished.\n","offset":42,"done":true}}`))
+		case "db.overview":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"version":"10.11.6-MariaDB-0ubuntu0.22.04.1","databases":[{"name":"a_main","size_bytes":10485760,"tables":12},{"name":"b_main","size_bytes":524288,"tables":3},{"name":"legacy_shop","size_bytes":2097152,"tables":5}]}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}
