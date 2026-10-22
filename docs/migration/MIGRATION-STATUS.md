@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **68 ☑ done+tested, 3 ◑ partial, 480 ☐** of 551.
+`server/internal/http/server.go`): **72 ☑ done+tested, 3 ◑ partial, 476 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -90,7 +90,17 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   settle's notification + scan-on-extract halves defer with the
   notifications/AV batches, the discovery invalidation with discovery; the
   job viewer's bootstrap modal rides with the Go shell work, the databases
-  pages carry the "Job <id> started" flash alert meanwhile)
+  pages carry the "Job <id> started" flash alert meanwhile) ·
+  GET `/databases/{id}/browse` + POST `/databases/{id}/browse/api` +
+  GET `/databases/browse` + POST `/databases/browse/api` (DbBrowserController
+  — the per-database browser page + the operation endpoint the reused
+  /assets/js/dbbrowser.js polls: the request `op` dispatches to the ten
+  `db.browse*`/`db.query` agent actions with a strict field whitelist + type
+  coercion, 90 s agent timeout, changing ops audited as
+  `database.browser_<op>` against the owning website or the server — never
+  the row values; the server variants take any database by bare name,
+  all-scope only; the page shell renders the reused dbbrowser.js, whose
+  bootstrap modal UI rides with the Go shell work)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -164,13 +174,14 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: database browser (DbBrowserController) — GET `/databases/{id}/browse`
-+ POST `/databases/{id}/browse/api` (databases.browser, databases.manage):
-the table list / column browse / run-SQL page per database, plus the server
-browser variant GET `/databases/browser` (databases.browser.server,
-staff) that the unmanaged section's Browse links point at. The agent's
-`db.browse*` actions are already implemented (agent/internal/dbmgr); check
-the exact action names + the PHP DbBrowserController for the request
-contract before porting.
+Batch: database server management (DbServerController) — GET
+`/databases/server` (databases.server, server.view: the server page with
+the live `db.server` data) plus POST `/databases/server/settings`
+(server.manage), `/databases/server/flush`, `/databases/server/kill`,
+`/databases/server/restart` (services.manage) and GET
+`/databases/server/connections`, `/databases/server/logs` (logs.view),
+`/databases/server/settings` (settings page, server.view). Check the
+PHP DbServerController + the agent's `db.server*` actions (they exist in
+agent/internal/dbmgr) for the request contract before porting.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
