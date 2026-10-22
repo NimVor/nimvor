@@ -55,6 +55,11 @@ type sitesAgent struct {
 	f2bManaged string
 	// f2bInstalled is the fail2ban.status reply's installed flag.
 	f2bInstalled bool
+	// f2bRunning is the fail2ban.status reply's running flag (default true).
+	f2bRunning bool
+	// anonRemoved is the db.drop_anonymous_users reply's removed list
+	// ("" = the default two, "none" = none).
+	anonRemoved string
 }
 
 // setJob registers the jobs.get reply for a job id.
@@ -88,7 +93,7 @@ func guardedReply(changed bool, id, kind, summary string) []byte {
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
 	t.Helper()
-	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1}
+	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1, f2bRunning: true}
 	dir := t.TempDir()
 	socket := filepath.Join(dir, "agent.sock")
 	tokenFile := filepath.Join(dir, "token")
@@ -308,13 +313,13 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write(guardedReply(changed, "fwpend-prot", "firewall", "Firewall protections applied"))
 		case "fail2ban.status":
 			sa.mu.Lock()
-			managed, installed := sa.f2bManaged, sa.f2bInstalled
+			managed, installed, running := sa.f2bManaged, sa.f2bInstalled, sa.f2bRunning
 			sa.mu.Unlock()
 			managedJSON := ""
 			if managed != "" {
 				managedJSON = `"managed_config":` + fmt.Sprintf("%q", managed) + `,`
 			}
-			_, _ = w.Write([]byte(`{"success":true,"data":{"installed":` + boolJSON(installed) + `,"running":true,` + managedJSON +
+			_, _ = w.Write([]byte(`{"success":true,"data":{"installed":` + boolJSON(installed) + `,"running":` + boolJSON(running) + `,` + managedJSON +
 				`"jails":[{"name":"sshd","currently_banned":2,"total_banned":15,"currently_failed":3,"banned_ips":["203.0.113.66","198.51.100.9"]},` +
 				`{"name":"recidive","currently_banned":0,"total_banned":4,"currently_failed":1,"banned_ips":[]}]}}`))
 		case "fail2ban.configure":
@@ -347,6 +352,33 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"user":"` + strOf(p["user"]) + `","key":{"type":"ssh-ed25519","comment":"you@laptop","fingerprint":"SHA256:AddedKeyFingerprint00000000000000000000000"}}}`))
 		case "ssh.key_remove":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"removed":"` + strOf(p["fingerprint"]) + `"}}`))
+		case "security.audit":
+			_, _ = w.Write([]byte(`{"success":true,"data":[` +
+				`{"id":"firewall","title":"Firewall","status":"pass","severity":"high","detail":"UFW is active with 3 rules (default incoming: deny)."},` +
+				`{"id":"ssh_root","title":"SSH root login","status":"fail","severity":"high","detail":"root can log in with a password.","remedy":"Set root login to keys only or no under Security → SSH."},` +
+				`{"id":"ssh_password","title":"SSH password logins","status":"warn","severity":"medium","detail":"Password logins are allowed, which invites brute-force attacks.","remedy":"Add an SSH key for an administrator, test it, then turn off password logins."},` +
+				`{"id":"fail2ban","title":"Brute-force protection","status":"warn","severity":"medium","detail":"fail2ban is installed but not running.","remedy":"Start fail2ban under Services."},` +
+				`{"id":"auto_updates","title":"Automatic security updates","status":"warn","severity":"medium","detail":"Security updates are not installed automatically.","remedy":"Turn on automatic security updates (unattended-upgrades installs security updates daily).","fix":"apply"},` +
+				`{"id":"host_persistence","title":"Host persistence","status":"pass","severity":"medium","detail":"All scheduled tasks and services are known.","fix":"undo"},` +
+				`{"id":"kernel_settings","title":"Recommended kernel settings","status":"warn","severity":"medium","detail":"Some kernel security settings are not recommended.","remedy":"Apply the recommended kernel security settings.","fix":"apply"},` +
+				`{"id":"mysql_anonymous","title":"MySQL anonymous users","status":"fail","severity":"low","detail":"The database server has anonymous accounts.","remedy":"Remove the anonymous MySQL users."},` +
+				`{"id":"updates","title":"Security updates","status":"fail","severity":"high","detail":"2 security update(s) are waiting.","remedy":"Install updates under Server → Packages."},` +
+				`{"id":"ssh","title":"SSH server","status":"info","severity":"low","detail":"The SSH configuration could not be read."}]}}`))
+		case "ssh.logins":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"available":true,"today":[2,17],"yesterday":[1,40],"week":[9,300],` +
+				`"last_success":{"time":"2026-10-22T08:12:00Z","user":"admin","ip":"203.0.113.50","port":22,"method":"publickey"},` +
+				`"last_failure":{"time":"2026-10-22T09:01:00Z","user":"root","ip":"198.51.100.77"}}}`))
+		case "hardening.status":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"forkbomb":{"enabled":false},"traceroute":{"enabled":true,"programs":["traceroute","traceroute6"]}}}`))
+		case "db.drop_anonymous_users":
+			sa.mu.Lock()
+			none := sa.anonRemoved == "none"
+			sa.mu.Unlock()
+			removed := `["@localhost","@"]`
+			if none {
+				removed = `[]`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"removed":` + removed + `}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

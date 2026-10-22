@@ -248,7 +248,27 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   agent errors flash the redirect; return_to now accepts /security/ssh too) —
   also repaired 47 import paths in 18 files that used the module path
   `mchkhawarshad/` instead of `mchkhawarshahzad/` (go.mod's path) — with CI
-  down, the Go module had never compiled since go.mod landed
+  down, the Go module had never compiled since go.mod landed) ·
+  GET `/security` (SecurityController::index, security.view) + POST
+  `/security/mysql-anonymous` (security.mysql_anonymous, server.manage) —
+  the Security overview: the agent's checks (security.audit 120 s, the view's
+  link() — the FIXES-catalog actions posting to the ported POST
+  /security/fix with the check/op params + their confirmations, the
+  mysql_anonymous removal, the open-page links restricted to the ported
+  pages) merged with the panel's own checks (the password policy against the
+  STRONG threshold, the cPHulk switch, the hardening.status forkbomb /
+  traceroute switches), sorted (status, then title) with the safety rating
+  (the severity weights, a warning counts half, info does not count; ≥80
+  Secure / ≥60 Fair / Insecure) and the fail/warn/pass counts; the SSH
+  logins panel (ssh.logins 60 s — today/yesterday/7-days bars with the
+  view's widths, the last success/failure cards, the "not available" note
+  when the journal read fails, the fail2ban-on/off note from
+  fail2ban.status) and the panel login card (the latest auth.login audit
+  rows, the audit-log link for audit.view); an agent error hides the whole
+  content; POST /security/mysql-anonymous (db.drop_anonymous_users 60 s, the
+  db.drop_anonymous_users audit — server / mysql, the "Removed the anonymous
+  MySQL users (…)." / "There were no anonymous users." flashes); the pending
+  banner's return_to now includes /security)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -322,13 +342,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: continue the **security area** — the SecurityController
-**overview** GET `/security` (SecurityController::index — the
-checks with the fix/undo actions landing on the ported
-POST /security/fix, and the tab layout; the cPHulk whitelist of
-the firewall allow-me can land here or in the Hardening batch),
-then HardeningController (compilers/egress/forkbomb/…) and
-SecurityChecksController (advisories).
+Batch: continue the **security area** —
+**HardeningController** (compilers/egress/forkbomb/traceroute/
+SMTP — the agent's hardening.status + the per-area actions; the
+cPHulk whitelist of the firewall allow-me can land here), then
+SecurityChecksController (advisories) and the remaining
+SecurityController pages (integrity, malware, policies, password
+strength, SMTP).
 in small batches. Check INVENTORY.md + the PHP controllers before
 starting.
 

@@ -155,6 +155,11 @@ func (s *Server) routes() {
 	// Security → Firewall (SecurityController::firewall et al.: the UFW
 	// state, the guarded on/off + rule changes and the CSF-style
 	// flood/connection-limit protections; confirm/undo via the banner).
+	// Security → overview (SecurityController::index: the checks with the
+	// fix/undo actions, the SSH/panel login cards, the safety rating) and
+	// the anonymous MySQL users removal (security.mysql_anonymous).
+	s.mux.HandleFunc("GET /security", s.guard("security", "security.view", s.securityIndex))
+	s.mux.HandleFunc("POST /security/mysql-anonymous", s.guard("security.mysql_anonymous", "server.manage", s.dropAnonymousUsers))
 	s.mux.HandleFunc("GET /security/firewall", s.guard("security.firewall", "security.view", s.firewallIndex))
 	s.mux.HandleFunc("POST /security/firewall/toggle", s.guard("security.firewall.toggle", "security.manage", s.firewallToggle))
 	s.mux.HandleFunc("POST /security/firewall/rules", s.guard("security.firewall.add", "security.manage", s.firewallAddRule))
