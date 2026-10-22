@@ -11,8 +11,9 @@ import (
 // ErrDatabaseNotFound is returned when no database matches within the user's scope.
 var ErrDatabaseNotFound = errors.New("hosting: database not found")
 
-// Database is a managed database joined to the website it belongs to (if any).
-// Mirrors the display columns of DatabaseRepository::databases.
+// Database is a managed database joined to the website it belongs to (if any)
+// and the logins granted on it. Mirrors the display columns of
+// DatabaseRepository::databases (incl. the per-database grants join).
 type Database struct {
 	ID        int64
 	Name      string
@@ -20,6 +21,7 @@ type Database struct {
 	WebsiteID sql.NullInt64
 	Website   sql.NullString // the owning website's domain, if attached
 	CreatedAt string
+	Grants    []DBUserGrant
 }
 
 // Find returns one database by id on a server, scoped to the user. A database
@@ -79,5 +81,23 @@ func (r *DatabaseRepository) All(ctx context.Context, serverID int64, u *identit
 		}
 		out = append(out, d)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// The grants join (DatabaseRepository::databases lists each database's
+	// users); one query for the whole page.
+	if len(out) > 0 {
+		ids := make([]int64, len(out))
+		for i := range out {
+			ids[i] = out[i].ID
+		}
+		grants, err := r.DBGrantsFor(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		for i := range out {
+			out[i].Grants = grants[out[i].ID]
+		}
+	}
+	return out, nil
 }

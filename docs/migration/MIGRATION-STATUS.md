@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **57 ☑ done+tested, 3 ◑ partial, 491 ☐** of 551.
+`server/internal/http/server.go`): **64 ☑ done+tested, 3 ◑ partial, 484 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -54,6 +54,21 @@ Route porting count (see ROUTE-MATRIX.md, verified against
 - GET `/sites/{id}/cron` · GET `/sites/{id}/workers` · GET `/sites/{id}/subdomains` (feature-gated)
 - GET/POST `/databases` + POST `/databases/{id}/drop` (plan-limit enforced before
   the agent call; confirm-word + CSRF negative tests)
+- Database users — POST `/database-users` (create; username prefix for tenants,
+  host validation, `db_customer_remote_hosts` setting, generated 24-char
+  password flashed once, optional encrypted storage), POST
+  `/database-users/{id}/password` (reset), `/reveal` (decrypt stored; audited),
+  `/delete` (`db.user_drop`), `/assign` (grant a login to one of the actor's
+  databases) + POST `/databases/{id}/grant` (set/revoke — `db.grant` with the
+  revoke flag, audits database.grant/database.revoke) + POST
+  `/database-users/{id}/hosts` (add host: separate login, same access copied,
+  new password). All databases.manage + tenant-scoped (foreign ids read as
+  not-found) + CSRF + audit (database_user target rows). Display: the databases
+  page now lists the users tab (host, stored-password state, per-user grants,
+  assign/remote/password/delete ops) and each database's granted users +
+  permission form, plus the shown-once secret flash (PHP _manage view minus
+  the live db.overview sizes/status and unmanaged-discovery sections — those
+  ride with the db.overview batch)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -111,7 +126,7 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
-- ☐ database users, DB browser, mongo, redis/memcached, DNS records, mail accounts/filters, SSL/ACME, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
+- ☐ DB browser, DB dump/import, DB server area (DbServerController), mongo, redis/memcached, DNS records, mail accounts/filters, SSL/ACME, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
 
 ## NOT YET PORTED (known follow-ups, tracked honestly)
 - WebAuthn sign-in + security-key management; IP-verification sign-in (emailed code); HULK brute-force integration; step-up password confirmation; password-age and role-requires-2FA enforcement; trusted-proxy client IP
@@ -127,18 +142,15 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: database users (DatabasesController's user methods, DATABASES_MANAGE;
-tenant-scoped — a user acts on the DB users of the databases they own):
-POST `/database-users` (create: username/host validation, generated or
-explicit encrypted password, `dbusers.store`),
-POST `/database-users/{id}/password` (reset), `/reveal` (decrypt + show
-once), `/hosts` (add host — `db.user_create` with the new host,
-`dbusers.host`), `/assign` (grant/revoke on one of the actor's databases —
-`db.grant` with the revoke flag, audits `database.grant`/`database.revoke`)
-and `/delete` (drop the user — `db.user_drop`, `dbusers.delete`). Service
-layer: DatabaseService::createUser/addHost/resetPassword/revealPassword/
-grant/dropUser (remote hosts only when the plan allows, per
-`remoteHostsAllowed`). Display point: the DB users list on the databases
-area (a page to add, mirroring PHP's databases view).
+Batch: per-site database page (DatabasesController::site) —
+GET `/sites/{id}/databases` (route name `sites.databases`, permission
+DATABASES_VIEW): resolve the website under tenant scope first (a foreign id
+renders the 404 "Website not found / This website does not exist or you do
+not have access to it."), then the databases view scoped to the site:
+`DatabaseRepository::databases(server, user, site_id)` (existing Go
+`All(ctx, serverID, user, &siteID)`) + the same users/grants/secret/remote
+data the global page passes (DatabasesController::common). No new
+agent/service calls — the live `db.overview` sizes/status column and the
+unmanaged-discovery section stay deferred with the db.overview batch.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

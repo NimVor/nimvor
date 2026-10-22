@@ -2,6 +2,7 @@ package http
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -85,28 +86,79 @@ func (s *Server) websiteShow(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// databasesIndex lists the databases the user may see, tenant-scoped. The
-// mysql feature withholds databases.view when a plan disables it, so the
-// permission guard already enforces the feature. Mirrors
-// DatabasesController::index (route "databases", databases.view).
+// databasesIndex lists the databases and database users the user may see,
+// tenant-scoped, with the one-shot secret flash. The mysql feature withholds
+// databases.view when a plan disables it, so the permission guard already
+// enforces the feature. Mirrors DatabasesController::index (route
+// "databases", databases.view) and the _manage view's data.
 func (s *Server) databasesIndex(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
-	dbs, err := hosting.NewDatabaseRepository(s.db).All(r.Context(), s.currentServerID(r), user, nil)
+	repo := hosting.NewDatabaseRepository(s.db)
+	dbs, err := repo.All(r.Context(), s.currentServerID(r), user, nil)
 	if err != nil {
 		s.log.Error("list databases", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	users, err := repo.DBUsers(r.Context(), s.currentServerID(r), user)
+	if err != nil {
+		s.log.Error("list database users", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	// Per-user database access (the Users tab "Databases" column and the
+	// assign form's options), from the grants listed with the databases —
+	// the PHP _manage view's $userDbs.
+	userDbs := map[int64][]hosting.Grant{}
+	for _, d := range dbs {
+		for _, g := range d.Grants {
+			userDbs[g.UserID] = append(userDbs[g.UserID], hosting.Grant{DatabaseID: d.ID, Name: d.Name, Privileges: g.Privileges})
+		}
+	}
+	userRows := make([]dbUserRow, 0, len(users))
+	for _, u := range users {
+		row := dbUserRow{User: u}
+		row.Databases = userDbs[u.ID]
+		granted := map[int64]bool{}
+		for _, g := range row.Databases {
+			granted[g.DatabaseID] = true
+		}
+		for _, d := range dbs {
+			if !granted[d.ID] {
+				row.Free = append(row.Free, d)
+			}
+		}
+		userRows = append(userRows, row)
+	}
 	sess := sessionFrom(r.Context())
 	errMsg, _ := sess.PullFlash("error")
 	okMsg, _ := sess.PullFlash("success")
+	var secret *secretFlash
+	if raw, _ := sess.PullFlash("secret"); raw != "" {
+		var sf secretFlash
+		if err := json.Unmarshal([]byte(raw), &sf); err == nil {
+			secret = &sf
+		}
+	}
+	svc := s.databaseService(r, user)
+	remote, err := svc.RemoteHostsAllowed(r.Context(), user)
+	if err != nil {
+		s.log.Error("settings lookup failed", "error", err)
+		remote = true // the definition's default
+	}
 	s.render(w, "databases", map[string]any{
-		"User":      user,
-		"CSRF":      session.CSRFToken(sess),
-		"Databases": dbs,
-		"Error":     errMsg,
-		"Success":   okMsg,
-		"CanManage": s.can(r, "databases.manage"),
+		"User":             user,
+		"CSRF":             session.CSRFToken(sess),
+		"Databases":        dbs,
+		"Users":            userRows,
+		"RemoteHosts":      remote,
+		"Prefix":           hosting.Prefix(user),
+		"Secret":           secret,
+		"PrivilegeLabels":  hosting.DBPrivilegeLabels,
+		"PrivilegeOptions": hosting.DBPrivilegeOptions,
+		"Error":            errMsg,
+		"Success":          okMsg,
+		"CanManage":        s.can(r, "databases.manage"),
 	})
 }
 
@@ -172,12 +224,15 @@ func (s *Server) databaseService(r *http.Request, user *identity.User) *hosting.
 		hosting.NewWebsiteRepository(s.db),
 		hosting.NewPlanLimits(s.db),
 		s.agent,
-		func(action, target string) {
+		s.crypto,
+		s.settings,
+		func(action, targetType, target string, details map[string]any) {
 			uid := user.ID
 			s.audit.Record(r.Context(), audit.Entry{
 				UserID: &uid, Username: user.Username,
-				Action: action, TargetType: "database", TargetID: target,
+				Action: action, TargetType: targetType, TargetID: target,
 				Result: audit.Success, IP: clientIP(r), UserAgent: r.UserAgent(),
+				Details: details,
 			})
 		},
 	)

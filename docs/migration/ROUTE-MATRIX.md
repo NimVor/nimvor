@@ -77,12 +77,12 @@ Total routes: 551
 | POST | `/confirm-password` | AuthController::confirm | auth.confirm.submit |  | yes | yes | ☐ |
 | GET | `/cron` | DiscoveryController::cron | cron | cron.view | yes | yes | ☐ |
 | GET | `/dashboard/live` | DashboardController::live | dashboard.live | dashboard.view | yes | yes | ☐ |
-| POST | `/database-users/{id}/assign` | DatabasesController::assign | dbusers.assign | databases.manage | yes | yes | ☐ |
-| POST | `/database-users/{id}/delete` | DatabasesController::deleteUser | dbusers.delete | databases.manage | yes | yes | ☐ |
-| POST | `/database-users/{id}/hosts` | DatabasesController::addHost | dbusers.host | databases.manage | yes | yes | ☐ |
-| POST | `/database-users/{id}/password` | DatabasesController::password | dbusers.password | databases.manage | yes | yes | ☐ |
-| POST | `/database-users/{id}/reveal` | DatabasesController::reveal | dbusers.reveal | databases.manage | yes | yes | ☐ |
-| POST | `/database-users` | DatabasesController::createUser | dbusers.store | databases.manage | yes | yes | ☐ |
+| POST | `/database-users/{id}/assign` | DatabasesController::assign | dbusers.assign | databases.manage | yes | yes | ☑ |
+| POST | `/database-users/{id}/delete` | DatabasesController::deleteUser | dbusers.delete | databases.manage | yes | yes | ☑ |
+| POST | `/database-users/{id}/hosts` | DatabasesController::addHost | dbusers.host | databases.manage | yes | yes | ☑ |
+| POST | `/database-users/{id}/password` | DatabasesController::password | dbusers.password | databases.manage | yes | yes | ☑ |
+| POST | `/database-users/{id}/reveal` | DatabasesController::reveal | dbusers.reveal | databases.manage | yes | yes | ☑ |
+| POST | `/database-users` | DatabasesController::createUser | dbusers.store | databases.manage | yes | yes | ☑ |
 | POST | `/databases/browse/api` | DbBrowserController::serverApi | databases.browser.server_api | databases.manage | yes | yes | ☐ |
 | GET | `/databases/browse` | DbBrowserController::serverBrowse | databases.browser.server | databases.manage | yes | yes | ☐ |
 | GET | `/databases/server/connections` | DbServerController::connections | databases.server.connections | server.view | yes | yes | ☐ |
@@ -97,7 +97,7 @@ Total routes: 551
 | GET | `/databases/{id}/browse` | DbBrowserController::browse | databases.browser | databases.manage | yes | yes | ☐ |
 | POST | `/databases/{id}/drop` | DatabasesController::drop | databases.drop | databases.manage | yes | yes | ☑ |
 | POST | `/databases/{id}/dump` | DatabasesController::dump | databases.dump | databases.manage | yes | yes | ☐ |
-| POST | `/databases/{id}/grant` | DatabasesController::grant | databases.grant | databases.manage | yes | yes | ☐ |
+| POST | `/databases/{id}/grant` | DatabasesController::grant | databases.grant | databases.manage | yes | yes | ☑ |
 | POST | `/databases/{id}/import` | DatabasesController::import | databases.import | databases.manage | yes | yes | ☐ |
 | GET | `/databases` | DatabasesController::index | databases | databases.view | yes | yes | ☑ |
 | POST | `/databases` | DatabasesController::store | databases.store | databases.manage | yes | yes | ☑ |
@@ -395,8 +395,8 @@ Total routes: 551
 | POST | `/setup/dismiss` | SetupController::dismiss | setup.dismiss | server.manage | yes | yes | ☐ |
 | POST | `/setup/step` | SetupController::step | setup.step | server.manage | yes | yes | ☐ |
 | GET | `/setup` | SetupController::index | setup | server.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/addons` | SitesController::addons | sites.addons | websites.manage | yes | yes | ☐☑ |
-| POST | `/sites/{id}/addons` | SitesController::storeAddon | sites.addons.store | websites.manage | yes | yes | ☐☑ |
+| GET | `/sites/{id}/addons` | SitesController::addons | sites.addons | websites.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/addons` | SitesController::storeAddon | sites.addons.store | websites.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/advanced` | SitesController::advanced | sites.advanced | websites.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/apps/{app}` | AppsController::install | sites.apps.install | apps.install | yes | yes | ☐ |
 | GET | `/sites/{id}/apps` | AppsController::show | sites.apps | apps.install | yes | yes | ☐ |
@@ -422,7 +422,7 @@ Total routes: 551
 | GET | `/sites/{id}/cron` | CronController::show | sites.cron | cron.view | yes | yes | ☑ |
 | POST | `/sites/{id}/cron` | CronController::store | sites.cron.store | cron.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/databases` | DatabasesController::site | sites.databases | databases.view | yes | yes | ☐ |
-| POST | `/sites/{id}/delete` | SitesController::destroy | sites.delete | websites.manage | yes | yes | ☐☑ |
+| POST | `/sites/{id}/delete` | SitesController::destroy | sites.delete | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/directory-listing` | SitesController::directoryListing | sites.listing | websites.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/disk-usage` | DiskUsageController::show | sites.disk | files.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/disk-usage` | DiskUsageController::scan | sites.disk.scan | files.manage | yes | yes | ☐ |
@@ -475,8 +475,8 @@ Total routes: 551
 | POST | `/sites/{id}/restart-php` | SitesController::restartPhp | sites.restart_php | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/security-headers` | SslController::securityHeaders | sites.security_headers | ssl.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/security` | SitesController::security | sites.security | websites.view | yes | yes | ☐ |
-| GET | `/sites/{id}/settings` | SitesController::edit | sites.edit | websites.manage | yes | yes | ☐☑ |
-| POST | `/sites/{id}/settings` | SitesController::update | sites.update | websites.manage | yes | yes | ☐☑ |
+| GET | `/sites/{id}/settings` | SitesController::edit | sites.edit | websites.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/settings` | SitesController::update | sites.update | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/sftp` | FtpController::sftp | sites.sftp | ftp.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/ssl/custom` | SslController::custom | sites.ssl.custom | ssl.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/ssl/disable` | SslController::disable | sites.ssl.disable | ssl.manage | yes | yes | ☐ |
@@ -488,10 +488,10 @@ Total routes: 551
 | POST | `/sites/{id}/stats/update` | StatsController::update | sites.stats.update | websites.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/stats` | StatsController::show | sites.stats | logs.view | yes | yes | ☐ |
 | GET | `/sites/{id}/subdomains` | SitesController::subdomains | sites.subdomains | websites.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/subdomains` | SitesController::storeSubdomain | sites.subdomains.store | websites.manage | yes | yes | ☐☑ |
+| POST | `/sites/{id}/subdomains` | SitesController::storeSubdomain | sites.subdomains.store | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/terminal/open` | TerminalController::openSite | sites.terminal.open | files.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/terminal` | TerminalController::site | sites.terminal | files.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/toggle` | SitesController::toggle | sites.toggle | websites.manage | yes | yes | ☐☑ |
+| POST | `/sites/{id}/toggle` | SitesController::toggle | sites.toggle | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/wordpress/scan` | WordPressController::scanSite | sites.wordpress.scan | websites.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/wordpress/{wp}/check` | WordPressController::check | sites.wordpress.check | websites.view | yes | yes | ☐ |
 | POST | `/sites/{id}/wordpress/{wp}/login` | WordPressController::login | sites.wordpress.login | websites.manage | yes | yes | ☐ |
@@ -545,8 +545,8 @@ Total routes: 551
 | POST | `/users/{id}` | UsersController::update | users.update | users.manage | yes | yes | ☐ |
 | GET | `/users` | UsersController::index | users | users.view | yes | yes | ☑ |
 | POST | `/users` | UsersController::store | users.store | users.manage | yes | yes | ☐ |
-| GET | `/websites/new` | SitesController::create | sites.create | websites.manage | yes | yes | ☐☑ |
-| POST | `/websites/new` | SitesController::store | sites.store | websites.manage | yes | yes | ☐☑ |
+| GET | `/websites/new` | SitesController::create | sites.create | websites.manage | yes | yes | ☑ |
+| POST | `/websites/new` | SitesController::store | sites.store | websites.manage | yes | yes | ☑ |
 | GET | `/websites/{id}/import` | ImportController::preview | websites.import | import.run | yes | yes | ☐ |
 | POST | `/websites/{id}/import` | ImportController::run | websites.import.run | import.run | yes | yes | ☐ |
 | GET | `/websites/{id}` | WebsitesController::show | websites.show | websites.view | yes | yes | ☑ |
