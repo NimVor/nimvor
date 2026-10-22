@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **97 ☑ done+tested, 3 ◑ partial, 451 ☐** of 551.
+`server/internal/http/server.go`): **102 ☑ done+tested, 3 ◑ partial, 446 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -178,7 +178,27 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   banner with the countdown + Keep/Undo (security.confirm/undo, {id},
   return_to whitelisted to the ported /security/shell — PHP's list points at
   the not-yet-ported /security pages; an agent error flashes the message),
-  audits security.confirm/undo)
+  audits security.confirm/undo) ·
+  GET `/security/firewall` + POST `/security/firewall/toggle` +
+  POST `/security/firewall/rules` + POST `/security/firewall/rules/delete`
+  + POST `/security/firewall/protection` (SecurityController's firewall area
+  — the UFW state page: the status bar (on/off toggle switch, backend,
+  defaults, the SSH-port check), the ports WhaCP keeps open (each with an
+  Allow button while the firewall is on) and the rules table (listening /
+  local-only / idle state from the listening ports, strategy labels, the
+  add-rule modal, the delete-by-spec buttons); all changes go through the
+  agent's guarded flow (firewall.set_enabled 90 s with allow_services +
+  allow_from, firewall.rule_add, firewall.rule_delete,
+  firewall.protection_set 90 s) — the "Applied… confirm within 2 minutes" /
+  "Nothing to change." flashes, the firewall.enable/disable / rule_add /
+  rule_delete / protection audits (server / security, the pending change's
+  id) and the banner's Keep/Undo; the CSF-style protections form with its
+  validation (SYN flood 0..100000, ping 0..10000, the connection-limit and
+  port-flood limit lists ≤50, the IP/CIDR exempt entries, exempt-me
+  adding the client address); agent errors flash the redirect — the Go
+  adaptation of the PHP page's 500; the cPHulk whitelist of allow-me is
+  skipped until the brute-force protection service is ported; return_to
+  now accepts /security/firewall too)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -253,15 +273,15 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 
 ## Next exact step
 Batch: continue the **security area** — SecurityController's
-**firewall** (GET `/security/firewall` (security.firewall,
-security.view) + POST toggle / add-rule / delete-rule / protection,
-agent firewall.* actions, the unconfirmed-change flow via
-security.confirm/undo already ported), then fail2ban
-(GET/POST `/security/fail2ban` + unban) and POST `/security/fix`
-(server.manage). After SecurityController: HardeningController
-(compilers/egress/forkbomb/…), SecurityChecksController
-(advisories), the SecurityController overview GET `/security`
-(◑ its confirm/undo actions are already ported via the shell page).
+**fail2ban** (GET `/security/fail2ban` (security.fail2ban,
+security.view) + POST `/security/fail2ban` (security.fail2ban.configure)
++ POST `/security/fail2ban/unban` (security.fail2ban.unban), agent
+fail2ban.* actions) and POST `/security/fix` (security.fix,
+server.manage — the remediation runner). Then the SecurityController
+SSH area (GET `/security/ssh` + configure + the key management
+endpoints, SecurityService's admin-only key guard), the overview
+GET `/security`, then HardeningController (compilers/egress/
+forkbomb/…) and SecurityChecksController (advisories).
 in small batches. Check INVENTORY.md + the PHP controllers before
 starting.
 

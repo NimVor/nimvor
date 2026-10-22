@@ -152,6 +152,14 @@ func (s *Server) routes() {
 	// disabled/jailed/normal shell modes; the agent applies them while the
 	// account's SSH/SFTP login is on). The confirm/undo routes keep or roll
 	// back the unconfirmed security change shown on the page.
+	// Security → Firewall (SecurityController::firewall et al.: the UFW
+	// state, the guarded on/off + rule changes and the CSF-style
+	// flood/connection-limit protections; confirm/undo via the banner).
+	s.mux.HandleFunc("GET /security/firewall", s.guard("security.firewall", "security.view", s.firewallIndex))
+	s.mux.HandleFunc("POST /security/firewall/toggle", s.guard("security.firewall.toggle", "security.manage", s.firewallToggle))
+	s.mux.HandleFunc("POST /security/firewall/rules", s.guard("security.firewall.add", "security.manage", s.firewallAddRule))
+	s.mux.HandleFunc("POST /security/firewall/rules/delete", s.guard("security.firewall.delete", "security.manage", s.firewallDeleteRule))
+	s.mux.HandleFunc("POST /security/firewall/protection", s.guard("security.firewall.protection", "security.manage", s.firewallProtection))
 	s.mux.HandleFunc("GET /security/shell", s.guard("security.shell", "security.view", s.shellAccessIndex))
 	s.mux.HandleFunc("POST /security/shell", s.guard("security.shell.update", "security.manage", s.shellAccessUpdate))
 	s.mux.HandleFunc("POST /security/confirm", s.guard("security.confirm", "security.manage", s.securityConfirm))
