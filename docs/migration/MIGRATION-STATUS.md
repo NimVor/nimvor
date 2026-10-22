@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **93 ☑ done+tested, 3 ◑ partial, 455 ☐** of 551.
+`server/internal/http/server.go`): **97 ☑ done+tested, 3 ◑ partial, 451 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -162,7 +162,23 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   per-response CSP nonce for xterm.js's style elements, the admin index
   lists the open sessions (close by 16-hex id, audited) and the root
   shell console, and signing out ends the sign-in's terminals
-  (terminal.kill by owner, best effort))
+  (terminal.kill by owner, best effort)) ·
+  GET `/security/shell` + POST `/security/shell` + POST `/security/confirm`
+  + POST `/security/undo` (ShellController + SecurityController::confirm/undo —
+  the website accounts' shell access: the agent's shell.status (mode,
+  effective, SSH/SFTP login, keys, jail problem) joined with each account's
+  websites/owner, disabled/jailed/normal with the mode descriptions and the
+  "applies while SSH/SFTP login is on" note when mode ≠ effective; the change
+  forms (one account or every account with the "all" confirm word) are
+  administrators-only (role_name admin, the plan-SSH skip via the site
+  owner's feature list — an all-skip refuses, the agent's shell.set 120 s
+  gets the kept accounts, audit shell.set) with the success flash counting
+  the changed, the waiting-for-login (effective ≠ mode, not disabled) and the
+  skipped; the unconfirmed security change (security.pending) renders the
+  banner with the countdown + Keep/Undo (security.confirm/undo, {id},
+  return_to whitelisted to the ported /security/shell — PHP's list points at
+  the not-yet-ported /security pages; an agent error flashes the message),
+  audits security.confirm/undo)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -236,14 +252,16 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the **security area**, starting with **shell access**
-(ShellController: GET `/security/shell` (security.view) + POST
-`/security/shell` (security.manage)) — the website accounts'
-disabled/jailed/normal shell modes (agent shell.status/shell.set,
-the jailed-shell capability check, SSH/SFTP login toggle, audited),
-which the web terminal page links to ("Open Shell access"). Then
-continue down the security suite (SecurityController: firewall,
-fail2ban, confirm, fix; HardeningController; SecurityChecksController)
+Batch: continue the **security area** — SecurityController's
+**firewall** (GET `/security/firewall` (security.firewall,
+security.view) + POST toggle / add-rule / delete-rule / protection,
+agent firewall.* actions, the unconfirmed-change flow via
+security.confirm/undo already ported), then fail2ban
+(GET/POST `/security/fail2ban` + unban) and POST `/security/fix`
+(server.manage). After SecurityController: HardeningController
+(compilers/egress/forkbomb/…), SecurityChecksController
+(advisories), the SecurityController overview GET `/security`
+(◑ its confirm/undo actions are already ported via the shell page).
 in small batches. Check INVENTORY.md + the PHP controllers before
 starting.
 
