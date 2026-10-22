@@ -76,6 +76,14 @@ type sitesAgent struct {
 	deployKey string
 	// deployRunJob is the deploy.run reply's job id ("" = 0123456789d0a001).
 	deployRunJob string
+	// mongoStatus is the mongo.status reply: "" = installed+running,
+	// "down" = installed but not running, "missing" = not installed.
+	mongoStatus string
+	// mongoOverview overrides the mongo.overview reply ("" = the default
+	// prefixed + foreign databases/users).
+	mongoOverview string
+	// mongoBackups overrides the mongo.backups reply ("" = the default).
+	mongoBackups string
 	// hulkAvailable is the hulk.status reply's available flag (default true);
 	// false = nftables is not installed.
 	hulkAvailable bool
@@ -685,6 +693,36 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				jobID = "0123456789d0a001"
 			}
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"` + jobID + `"}}`))
+		case "mongo.status":
+			switch sa.mongoStatus {
+			case "down":
+				_, _ = w.Write([]byte(`{"success":true,"data":{"installed":true,"running":false,"version":"","auth":false}}`))
+			case "missing":
+				_, _ = w.Write([]byte(`{"success":true,"data":{"installed":false,"running":false,"version":"","auth":false}}`))
+			default:
+				_, _ = w.Write([]byte(`{"success":true,"data":{"installed":true,"running":true,"version":"7.0.14","auth":false}}`))
+			}
+		case "mongo.overview":
+			ov := sa.mongoOverview
+			if ov == "" {
+				ov = `{"databases":[{"name":"u_bob_shop","size":123456,"empty":false},{"name":"u_bob_logs","size":0,"empty":true},{"name":"other_app","size":999,"empty":false}],"users":[{"user":"u_bob_admin","db":"u_bob_shop","roles":["dbOwner"]},{"user":"u_bob_ro","db":"u_bob_shop","roles":["read"]},{"user":"other_user","db":"other_app","roles":["readWrite"]}]}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + ov + `}`))
+		case "mongo.database_create", "mongo.database_drop", "mongo.user_create", "mongo.user_password", "mongo.user_drop":
+			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
+		case "mongo.backup":
+			db, _ := p["db"].(string)
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789m0a001","file":"20261023-100000_` + db + `.archive.gz"}}`))
+		case "mongo.backups":
+			bs := sa.mongoBackups
+			if bs == "" {
+				bs = `{"backups":[{"file":"20261020-093000_u_bob_shop.archive.gz","db":"u_bob_shop","size":1048576,"created":"2026-10-20T09:30:00Z"},{"file":"20261019-120000_other_app.archive.gz","db":"other_app","size":555,"created":"2026-10-19T12:00:00Z"}]}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + bs + `}`))
+		case "mongo.restore":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789m0a002"}}`))
+		case "mongo.backup_delete":
+			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		case "cron.log":
 			content := sa.cronLogContent
 			if content == "" {

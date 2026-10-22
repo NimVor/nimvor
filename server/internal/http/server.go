@@ -270,6 +270,15 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /sites/{id}/git/deploy", s.guard("sites.git.deploy", "deploy.manage", s.siteGitDeploy))
 	s.mux.HandleFunc("POST /sites/{id}/git/rotate", s.guard("sites.git.rotate", "deploy.manage", s.siteGitRotate))
 	s.mux.HandleFunc("POST /sites/{id}/git/remove", s.guard("sites.git.remove", "deploy.manage", s.siteGitRemove))
+	s.mux.HandleFunc("GET /sites/{id}/mongo", s.guard("sites.mongo", "websites.manage", s.siteMongo))
+	s.mux.HandleFunc("POST /sites/{id}/mongo/databases", s.guard("sites.mongo.database_create", "websites.manage", s.siteMongoCreateDatabase))
+	s.mux.HandleFunc("POST /sites/{id}/mongo/databases/drop", s.guard("sites.mongo.database_drop", "websites.manage", s.siteMongoDropDatabase))
+	s.mux.HandleFunc("POST /sites/{id}/mongo/users", s.guard("sites.mongo.user_create", "websites.manage", s.siteMongoCreateUser))
+	s.mux.HandleFunc("POST /sites/{id}/mongo/users/password", s.guard("sites.mongo.user_password", "websites.manage", s.siteMongoSetPassword))
+	s.mux.HandleFunc("POST /sites/{id}/mongo/users/drop", s.guard("sites.mongo.user_drop", "websites.manage", s.siteMongoDropUser))
+	s.mux.HandleFunc("POST /sites/{id}/mongo/backup", s.guard("sites.mongo.backup", "websites.manage", s.siteMongoBackup))
+	s.mux.HandleFunc("POST /sites/{id}/mongo/restore", s.guard("sites.mongo.restore", "websites.manage", s.siteMongoRestore))
+	s.mux.HandleFunc("POST /sites/{id}/mongo/backups/delete", s.guard("sites.mongo.backup_delete", "websites.manage", s.siteMongoDeleteBackup))
 	s.mux.HandleFunc("GET /sites/{id}/workers", s.guard("", "workers.manage", s.siteWorkers))
 	// Worker write path: the plan feature withholds workers.manage when
 	// disabled, so the permission guard enforces the feature too.
