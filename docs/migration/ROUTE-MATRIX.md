@@ -344,11 +344,11 @@ Total routes: 551
 | GET | `/security/modsec` | ModSecurityController::index | security.modsec | security.view | yes | yes | ☐ |
 | POST | `/security/modsec` | ModSecurityController::configure | security.modsec.configure | security.manage | yes | yes | ☐ |
 | POST | `/security/mysql-anonymous` | SecurityController::dropAnonymousUsers | security.mysql_anonymous | server.manage | yes | yes | ☑ |
-| GET | `/security/password-strength` | SecurityPolicyController::strength | security.password_strength | security.view | yes | yes | ☐ |
-| POST | `/security/password-strength` | SecurityPolicyController::saveStrength | security.password_strength.save | security.manage | yes | yes | ☐ |
-| POST | `/security/policies/ips/forget` | SecurityPolicyController::forgetIp | security.policies.forget_ip | security.view | yes | yes | ☐ |
-| GET | `/security/policies` | SecurityPolicyController::policies | security.policies | security.view | yes | yes | ☐ |
-| POST | `/security/policies` | SecurityPolicyController::savePolicies | security.policies.save | security.manage | yes | yes | ☐ |
+| GET | `/security/password-strength` | SecurityPolicyController::strength | security.password_strength | security.view | yes | yes | ☑ |
+| POST | `/security/password-strength` | SecurityPolicyController::saveStrength | security.password_strength.save | security.manage | yes | yes | ☑ |
+| POST | `/security/policies/ips/forget` | SecurityPolicyController::forgetIp | security.policies.forget_ip | security.view | yes | yes | ☑ |
+| GET | `/security/policies` | SecurityPolicyController::policies | security.policies | security.view | yes | yes | ☑ |
+| POST | `/security/policies` | SecurityPolicyController::savePolicies | security.policies.save | security.manage | yes | yes | ☑ |
 | GET | `/security/shell` | ShellController::index | security.shell | security.view | yes | yes | ☑ |
 | POST | `/security/shell` | ShellController::update | security.shell.update | security.manage | yes | yes | ☑ |
 | GET | `/security/smtp` | HardeningController::smtp | security.smtp | security.view | yes | yes | ☑ |

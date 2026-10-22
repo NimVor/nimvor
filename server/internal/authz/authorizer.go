@@ -50,6 +50,12 @@ func (r *RoleRepository) All(ctx context.Context) ([]RoleRow, error) {
 	return out, rows.Err()
 }
 
+// SetRequireTwoFactor is RoleRepository::setRequireTwoFactor.
+func (r *RoleRepository) SetRequireTwoFactor(ctx context.Context, id int64, required bool) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE roles SET require_two_factor = ? WHERE id = ?`, required, id)
+	return err
+}
+
 // PermissionsFor returns the permission names granted to a role.
 func (r *RoleRepository) PermissionsFor(ctx context.Context, roleID int64) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx,
