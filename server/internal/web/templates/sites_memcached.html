@@ -1,0 +1,80 @@
+{{define "sites_memcached"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Memcached · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a></p>
+  <h1>Memcached</h1>
+  <p class="text-muted">{{.Site.Domain}}</p>
+
+  {{if .AgentError}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <strong>Memcached state unknown.</strong>
+      <span>{{.AgentError}}</span>
+    </div>
+  </div>
+  {{else}}
+  <p class="small text-body-secondary">Memcached is a fast in-memory cache your application can use (for sessions, query caches and the like). It runs locally on this server and is shared by the sites hosted here.</p>
+
+  {{if not .Installed}}
+  <div class="card">
+    <div class="wcp-empty-state">
+      <div class="fw-medium">Memcached is not available on this server</div>
+      <div class="small">Ask your administrator to enable Memcached if your application needs it.</div>
+    </div>
+  </div>
+  {{else}}
+  <div class="wcp-infobar mb-3">
+    <span class="me-auto">Memcached is <strong>{{if .Running}}running{{else}}not running{{end}}</strong>.</span>
+    {{if .Running}}
+    <span class="badge text-bg-success">running</span>
+    {{else}}
+    <span class="badge text-bg-danger">stopped</span>
+    {{end}}
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">Connect your application</div>
+    <div class="card-body">
+      <dl class="row mb-0 small">
+        <dt class="col-sm-3">Host</dt><dd class="col-sm-9"><code>127.0.0.1</code></dd>
+        <dt class="col-sm-3">Port</dt><dd class="col-sm-9"><code>{{.Port}}</code></dd>
+        <dt class="col-sm-3">Authentication</dt><dd class="col-sm-9">None (local connections only)</dd>
+      </dl>
+      <hr>
+      <p class="small text-body-secondary mb-2">PHP needs the <code>memcached</code> extension (enable it under PHP → Extensions). A quick test:</p>
+      <pre class="small bg-body-tertiary border rounded p-2 mb-0"><code>$m = new Memcached();
+$m->addServer('127.0.0.1', {{.Port}});
+$m->set('hello', 'world', 60);
+echo $m->get('hello');</code></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body small text-body-secondary">
+      Memcached has no per-site separation and no password: pick your own key prefix (for example your domain) so your keys don't clash with another site's. The cache is cleared whenever the service restarts.
+    </div>
+  </div>
+  {{end}}
+  {{end}}
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

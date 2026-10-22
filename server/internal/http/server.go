@@ -280,6 +280,29 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /sites/{id}/stats", s.guard("sites.stats", "logs.view", s.siteStats))
 	s.mux.HandleFunc("POST /sites/{id}/stats/enable", s.guard("sites.stats.enable", "websites.manage", s.siteStatsEnable))
 	s.mux.HandleFunc("POST /sites/{id}/stats/update", s.guard("sites.stats.update", "websites.manage", s.siteStatsUpdate))
+
+	// The Redis key browser (server-wide, and per-website where the prefix
+	// is the website's system user) + the website's Memcached page.
+	s.mux.HandleFunc("GET /redis/browser", s.guard("redis.browser", "redis.manage", s.redisBrowserServerPage))
+	s.mux.HandleFunc("POST /redis/browser/api", s.guard("redis.browser.api", "redis.manage", s.redisBrowserServerApi))
+	s.mux.HandleFunc("GET /sites/{id}/memcached", s.guard("sites.memcached", "websites.view", s.siteMemcached))
+	s.mux.HandleFunc("GET /sites/{id}/redis", s.guard("sites.redis", "websites.manage", s.redisBrowserSitePage))
+	s.mux.HandleFunc("POST /sites/{id}/redis/api", s.guard("sites.redis.api", "websites.manage", s.redisBrowserSiteApi))
+
+	// The server-side cache management: the Memcached page + its actions
+	// (MemcachedController) and the Redis page + its actions
+	// (RedisController/RedisService).
+	s.mux.HandleFunc("GET /memcached", s.guard("memcached", "redis.manage", s.memcachedIndex))
+	s.mux.HandleFunc("POST /memcached/configure", s.guard("memcached.configure", "redis.manage", s.memcachedConfigure))
+	s.mux.HandleFunc("POST /memcached/flush", s.guard("memcached.flush", "redis.manage", s.memcachedFlush))
+	s.mux.HandleFunc("POST /memcached/install", s.guard("memcached.install", "packages.manage", s.memcachedInstall))
+	s.mux.HandleFunc("POST /memcached/restart", s.guard("memcached.restart", "services.manage", s.memcachedRestart))
+	s.mux.HandleFunc("GET /redis", s.guard("redis", "redis.manage", s.redisIndex))
+	s.mux.HandleFunc("POST /redis/configure", s.guard("redis.configure", "redis.manage", s.redisConfigure))
+	s.mux.HandleFunc("POST /redis/password", s.guard("redis.password", "redis.manage", s.redisPassword))
+	s.mux.HandleFunc("POST /redis/flush", s.guard("redis.flush", "redis.manage", s.redisFlush))
+	s.mux.HandleFunc("POST /redis/users", s.guard("redis.users.store", "redis.manage", s.redisCreateUser))
+	s.mux.HandleFunc("POST /redis/users/delete", s.guard("redis.users.delete", "redis.manage", s.redisDeleteUser))
 	// Subdomains: gated by the subdomains plan feature (route name) AND the
 	// websites.manage permission.
 	s.mux.HandleFunc("GET /sites/{id}/subdomains", s.guard("sites.subdomains", "websites.manage", s.siteSubdomains))

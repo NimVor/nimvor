@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **161 ☑ done+tested, 3 ◑ partial, 387 ☐** of 551.
+`server/internal/http/server.go`): **177 ☑ done+tested, 3 ◑ partial, 371 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -439,6 +439,23 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
+- ☑ caching: the server-side Redis + Memcached management (batch 35) —
+  the Memcached page (GET /memcached: memory progress, the stats, the
+  settings modal, the confirmed flush, the install job, the restart —
+  redis.manage/packages.manage/services.manage) and the Redis page
+  (GET /redis: the overview, the per-website ACL users create/reset +
+  remove with the one-shot password flash, the default-user password
+  generate/remove, the memory + eviction settings with re-render on
+  validation errors, the confirmed database flush — redis.manage)
+- ☑ websites: the Redis key browser + the website's Memcached page
+  (batch 34) — the server-wide browser (GET /redis/browser, redis.manage)
+  and the per-website browser (GET /sites/{id}/redis, websites.manage —
+  the prefix locked to the website's system user), both driven by the
+  reused /assets/js/redisbrowser.js whose operation endpoint
+  (POST …/redis[/browser]/api) whitelists the fields, forces the prefix
+  and audits the changing ops (redis.key_*); plus the informational
+  Memcached page (GET /sites/{id}/memcached: connection details, the
+  running/stopped state)
 - ☑ websites: visitor statistics (batch 33) — the website's AWStats
   report (GET /sites/{id}/stats: the month select, the summary, the
   days/hours tables, the top lists drawn from the agent's plain-text
@@ -482,12 +499,11 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the **websites area continues** — the per-website memcached page
-(SitesController::memcached, GET /sites/{id}/memcached, websites.view:
-the per-website Memcached caches + the server's memcached status) and,
-with it, the RedisController's per-website pages if they are one
-cohesive area. Check INVENTORY.md + the PHP controllers before
-starting. (The whole security area is ported; the hulk/modsec/av
-scheduler sides stay with the background-jobs follow-up.)
+Batch: the **websites area continues** — the per-website Cloudflare
+proxy (SiteCloudflareController, 7 routes: the toggle, the zone
+settings, the DNS records + cache purge) is the largest single website
+sub-area left; check INVENTORY.md + the PHP controllers first and split
+it into 2–3 batches if needed. (The hulk/modsec/av scheduler sides stay
+with the background-jobs follow-up.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

@@ -21,8 +21,8 @@ _From app/Services/FeatureService::FEATURES._
 | apps | Application installer | Websites | apps.install | ☐ |
 | git | Git deployment | Automation | deploy.manage | ☐ |
 | workers | Workers (background processes) | Automation | workers.manage | ☐ |
-| redis | Redis | Caching | sites.redis | ☐ |
-| memcached | Memcached | Caching | sites.memcached | ☐ |
+| redis | Redis | Caching | sites.redis | ☑ |
+| memcached | Memcached | Caching | sites.memcached | ☑ |
 | nodejs | Node.js runtime & settings | Runtimes | sites.nodejs | ☐ |
 | python | Python runtime & settings | Runtimes | sites.python | ☐ |
 | logs | Logs | Monitoring | sites.logs | ☐ |

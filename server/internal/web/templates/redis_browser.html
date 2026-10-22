@@ -1,0 +1,66 @@
+{{define "redis_browser"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>{{.Heading}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="{{.Back}}">← {{.BackLabel}}</a></p>
+  <h1>{{.Heading}}</h1>
+  <!-- The DOM and data attributes drive the reused /assets/js/redisbrowser.js;
+       on a website the prefix is fixed (its system user), server-wide it is
+       free. -->
+  <div class="wcp-rb" id="wcp-rb" data-api="{{.API}}" data-prefix="{{.Prefix}}" data-fixed="{{.Fixed}}">
+    <div class="wcp-rb-bar">
+      <label class="small text-body-secondary" for="rb-db">Database</label>
+      <select class="form-select form-select-sm w-auto" id="rb-db" data-rb-db>
+        {{range $i := .DBs}}<option value="{{$i}}">{{$i}}</option>
+        {{end}}</select>
+      <form class="input-group input-group-sm wcp-rb-search" data-rb-search>
+        {{if .Prefix}}<span class="input-group-text font-monospace" title="Keys are limited to this prefix">{{.Prefix}}</span>{{end}}
+        {{if eq .Fixed "0"}}<input class="form-control font-monospace wcp-rb-prefix" data-rb-prefix placeholder="prefix (optional)" aria-label="Key prefix" spellcheck="false">{{end}}
+        <input class="form-control font-monospace" data-rb-pattern value="*" aria-label="Key pattern (* and ? are wildcards)" spellcheck="false">
+        <button class="btn btn-outline-secondary" type="submit">Scan</button>
+      </form>
+      <button type="button" class="btn btn-sm btn-primary ms-auto" data-rb-cmd="newkey">New key</button>
+    </div>
+    <div class="wcp-rb-body">
+      <aside class="wcp-rb-keys">
+        <ul class="list-group list-group-flush" data-rb-keys role="listbox" aria-label="Keys"></ul>
+        <div class="p-2 d-grid"><button type="button" class="btn btn-sm btn-outline-secondary d-none" data-rb-cmd="more">Load more</button></div>
+        <div class="wcp-rb-count small text-body-secondary px-2 pb-2" data-rb-count></div>
+      </aside>
+      <section class="wcp-rb-detail" data-rb-detail aria-live="polite">
+        <div class="text-body-secondary p-4">Select a key to see its value.</div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal fade" id="rb-dialog" tabindex="-1" aria-labelledby="rb-dialog-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <form class="modal-content" data-rb-dialog-form novalidate>
+        <div class="modal-header"><h2 class="modal-title h6" id="rb-dialog-title"></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body" data-rb-dialog-body></div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" data-rb-dialog-ok>OK</button></div>
+      </form>
+    </div>
+  </div>
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+<script src="/assets/js/redisbrowser.js"></script>
+</body>
+</html>{{end}}

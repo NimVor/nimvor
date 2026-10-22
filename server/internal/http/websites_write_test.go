@@ -92,6 +92,18 @@ type sitesAgent struct {
 	statsUpdatedAt   string
 	statsDataFound   bool
 	statsDataContent string
+	// mc* configure the memcached.status reply. mcInstalled/mcActive default
+	// to true; mcPort defaults to 11211; mcError "" = no error.
+	mcInstalled bool
+	mcActive    bool
+	mcPort      int
+	mcError     string
+	// mcStats "" = no stats section (memcached answering, but no stats).
+	mcStats string
+	// installJobID is the packages.install reply's job id.
+	installJobID string
+	// redisInfoJSON overrides the redis.info reply's data ("" = the fixture).
+	redisInfoJSON string
 }
 
 // setJob registers the jobs.get reply for a job id.
@@ -334,6 +346,78 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			found, content := sa.statsDataFound, sa.statsDataContent
 			sa.mu.Unlock()
 			_, _ = w.Write([]byte(`{"success":true,"data":{"found":` + boolJSON(found) + `,"content":` + fmt.Sprintf("%q", content) + `}}`))
+		case "memcached.status":
+			sa.mu.Lock()
+			installed, active, port, merr, mstats := sa.mcInstalled, sa.mcActive, sa.mcPort, sa.mcError, sa.mcStats
+			sa.mu.Unlock()
+			if port == 0 {
+				port = 11211
+			}
+			errField := ""
+			if merr != "" {
+				errField = `,"error":` + fmt.Sprintf("%q", merr)
+			}
+			statsField := ""
+			if installed && active && merr == "" {
+				if mstats != "" {
+					statsField = `,"stats":` + mstats
+				} else {
+					statsField = `,"stats":{"version":"1.6.31","uptime":"86900","curr_items":"1200","evictions":"3","get_hits":"9000","get_misses":"500","limit_maxbytes":"67108864","bytes":"33554432","curr_connections":"4"},"runtime":{"maxconns":"1024"}`
+				}
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"installed":` + boolJSON(installed) + `,"config_file":"/etc/memcached.conf","settings":{"memory_mb":64,"max_conns":1024,"port":` + fmt.Sprintf("%d", port) + `,"listen":["127.0.0.1"]},"active":` + boolJSON(active) + errField + statsField + `}}`))
+		case "memcached.configure":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "memcached.flush":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "services.control":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "packages.install":
+			sa.mu.Lock()
+			jobID := sa.installJobID
+			sa.mu.Unlock()
+			if jobID == "" {
+				jobID = "abcdef0123456789"
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"` + jobID + `"}}`))
+		case "redis.info":
+			sa.mu.Lock()
+			infoJSON := sa.redisInfoJSON
+			sa.mu.Unlock()
+			if infoJSON == "" {
+				infoJSON = `{"info":{"server":{"redis_version":"7.2.4","uptime_in_seconds":"90000"},"memory":{"used_memory_human":"5.20M"},"clients":{"connected_clients":"4"},"keyspace":{"0":"42 keys","1":"7 keys"},"stats":{"keyspace_hits":"1000","keyspace_misses":"50"}},"maxmemory":"1073741824","maxmemory_policy":"allkeys-lru","acl_users":["default","u_bob","u_carol"]}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + infoJSON + `}`))
+		case "redis.configure":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "redis.password":
+			pw, _ := p["password"].(string)
+			_, _ = w.Write([]byte(`{"success":true,"data":{"password_set":` + boolJSON(pw != "") + `}}`))
+		case "redis.flush":
+			db, _ := p["db"].(float64)
+			_, _ = w.Write([]byte(`{"success":true,"data":{"flushed":` + fmt.Sprintf("%d", int(db)) + `}}`))
+		case "redis.acl_set":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "redis.acl_del":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "redis.keys":
+			prefix, _ := p["prefix"].(string)
+			keys := `[]`
+			if prefix == "u_bob:" || prefix == "" {
+				keys = `[{"key":{"b64":"` + base64.StdEncoding.EncodeToString([]byte(prefix + "session:1")) + `","text":"` + prefix + `session:1","binary":false},"type":"string","ttl":300},{"key":{"b64":"` + base64.StdEncoding.EncodeToString([]byte(prefix + "cart:1")) + `","text":"` + prefix + `cart:1","binary":false},"type":"hash","ttl":-1}]`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"keys":` + keys + `,"cursor":"0","db_size":2}}`))
+		case "redis.key_get":
+			key, _ := p["key"].(string)
+			_, _ = w.Write([]byte(`{"success":true,"data":{"key":{"b64":"` + key + `","text":"k","binary":false},"type":"string","value":{"b64":"` + key + `","text":"v","binary":false},"ttl":300}}`))
+		case "redis.key_edit":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "redis.key_delete":
+			keys := 1
+			if ks, ok := p["keys"].([]any); ok {
+				keys = len(ks)
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"deleted":` + fmt.Sprintf("%d", keys) + `}}`))
 		case "security.pending":
 			sa.mu.Lock()
 			pending := sa.secPending
