@@ -102,12 +102,13 @@ type WordPressTools struct {
 	serverID int64
 	sites    *WebsiteRepository
 	crypto   *crypto.Crypto
+	cron     *CronService
 	audit    Auditor
 }
 
 // NewWordPressTools builds the service.
-func NewWordPressTools(db *sql.DB, ag AgentCaller, serverID int64, sites *WebsiteRepository, crypto *crypto.Crypto, audit Auditor) *WordPressTools {
-	return &WordPressTools{db: db, agent: ag, serverID: serverID, sites: sites, crypto: crypto, audit: audit}
+func NewWordPressTools(db *sql.DB, ag AgentCaller, serverID int64, sites *WebsiteRepository, crypto *crypto.Crypto, cron *CronService, audit Auditor) *WordPressTools {
+	return &WordPressTools{db: db, agent: ag, serverID: serverID, sites: sites, crypto: crypto, cron: cron, audit: audit}
 }
 
 // WpDebugFlags are the debug switches the toolkit can turn on or off
@@ -284,6 +285,92 @@ func (s *WordPressTools) AdminPassword(ctx context.Context, site *Website, insta
 		"domain": site.Domain, "path": install.Path, "admin_id": adminID,
 	})
 	return "The password of the WordPress administrator " + who + " was changed and their other sessions were signed out.", nil
+}
+
+// wpCronCmdRe is the cron command the agent may return for the takeover
+// (WordPressToolsService::setCronTakeover's guard).
+var wpCronCmdRe = regexp.MustCompile(`^/[A-Za-z0-9/._-]+ /usr/local/lib/whacp/wp-cli\.phar --path=/[A-Za-z0-9/._~-]+ cron event run --due-now --quiet$`)
+
+// SetCronTakeover takes wp-cron.php over with a system cron job (every five
+// minutes), or gives WordPress its scheduled tasks on visits back
+// (WordPressToolsService::setCronTakeover).
+func (s *WordPressTools) SetCronTakeover(ctx context.Context, site *Website, install *WordPressInstall, on bool) (string, error) {
+	if err := wpWritable(site); err != nil {
+		return "", err
+	}
+	jobID := install.CronJobID
+	if on {
+		res, err := s.wpManage(ctx, site, install, "cron_takeover_on", nil, 150*time.Second)
+		if err != nil {
+			return "", err
+		}
+		var o struct {
+			Command string `json:"command"`
+		}
+		_ = json.Unmarshal(res, &o)
+		if !wpCronCmdRe.MatchString(o.Command) {
+			return "", &UserError{What: "The agent returned an unexpected cron command."}
+		}
+		exists := false
+		if jobID.Valid {
+			j, err := s.cron.Find(ctx, site, jobID.Int64)
+			if err != nil {
+				return "", err
+			}
+			exists = j != nil
+		}
+		if !exists {
+			folder := "/"
+			if install.Path != "" {
+				folder = install.Path
+			}
+			err := s.cron.Save(ctx, site, 0, map[string]string{
+				"schedule":    "*/5 * * * *",
+				"command":     o.Command,
+				"description": "WordPress scheduled tasks (" + folder + ") — taken over from wp-cron.php",
+				"enabled":     "1",
+			}, "")
+			if err != nil {
+				// The takeover itself is undone again.
+				_, _ = s.wpManage(ctx, site, install, "cron_takeover_off", nil, 150*time.Second)
+				return "", err
+			}
+			var newID int64
+			_ = s.db.QueryRow(`SELECT id FROM cron_jobs WHERE website_id = ? AND command = ? ORDER BY id DESC LIMIT 1`, site.ID, o.Command).Scan(&newID)
+			if newID > 0 {
+				if _, err := s.db.Exec(`UPDATE wordpress_installs SET cron_job_id = ? WHERE id = ?`, newID, install.ID); err != nil {
+					return "", err
+				}
+			} else if _, err := s.db.Exec(`UPDATE wordpress_installs SET cron_job_id = NULL WHERE id = ?`, install.ID); err != nil {
+				return "", err
+			}
+		}
+		s.auditWordPress(ctx, "wordpress.cron_takeover", "website", fmt.Sprintf("%d", site.ID), map[string]any{
+			"domain": site.Domain, "path": install.Path, "on": true,
+		})
+		return "wp-cron.php is taken over: WordPress's scheduled tasks now run every 5 minutes from a cron job (listed under Cron jobs).", nil
+	}
+	if _, err := s.wpManage(ctx, site, install, "cron_takeover_off", nil, 150*time.Second); err != nil {
+		return "", err
+	}
+	if jobID.Valid {
+		j, err := s.cron.Find(ctx, site, jobID.Int64)
+		if err != nil {
+			return "", err
+		}
+		if j != nil {
+			if err := s.cron.Delete(ctx, site, jobID.Int64); err != nil {
+				return "", err
+			}
+		}
+	}
+	if _, err := s.db.Exec(`UPDATE wordpress_installs SET cron_job_id = NULL WHERE id = ?`, install.ID); err != nil {
+		return "", err
+	}
+	s.auditWordPress(ctx, "wordpress.cron_takeover", "website", fmt.Sprintf("%d", site.ID), map[string]any{
+		"domain": site.Domain, "path": install.Path, "on": false,
+	})
+	return "WordPress runs its scheduled tasks on visits again (wp-cron.php).", nil
 }
 
 // DBPassword changes the installation's database password (and in its

@@ -868,6 +868,8 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				_, _ = w.Write([]byte(`{"success":true,"data":{"login":"bob"}}`))
 			case "db_password":
 				_, _ = w.Write([]byte(`{"success":true,"data":{"user":"u_bob_wp"}}`))
+			case "cron_takeover_on":
+				_, _ = w.Write([]byte(`{"success":true,"data":{"command":"/usr/bin/php8.3.1 /usr/local/lib/whacp/wp-cli.phar --path=/home/whacp/bob.example/public_html cron event run --due-now --quiet"}}`))
 			default:
 				_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
 			}
