@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **203 ☑ done+tested, 3 ◑ partial, 345 ☐** of 551.
+`server/internal/http/server.go`): **209 ☑ done+tested, 3 ◑ partial, 339 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -439,6 +439,26 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
+- ☑ websites: the Git deployment area (batch 40) — DeployController +
+  DeployService as site_git.go + hosting/deploy_service.go: the
+  repository page (GET /sites/{id}/git, deploy.manage — the connected
+  summary (repo/branch/folder/on-push, the document-root hint), the
+  deployment history (commit/branch/trigger/status, the log link), the
+  connect/settings form (repo URL https/ssh, branch, folder inside the
+  website — logs/tmp/backups/.ssh refused, the post-deploy commands,
+  the auto-deploy switch), the deploy key card (created on demand,
+  60 s agent call) and the webhook card (payload URL + secret,
+  regenerate)), deploy now (deploy.run agent job, tracked + flashed),
+  rotate (new token + secret, the replay table cleared) and disconnect
+  (the deployed files stay). The public signed push webhook
+  (POST /hooks/deploy/{token}, no session/CSRF): 40-hex token, then
+  GitHub/Gitea HMAC-SHA256 or the GitLab secret token — refused
+  deliveries are audited + notified (1/hour); ping → pong; a push to
+  another ref or auto-deploy off → 202 ignored; the same delivery
+  body is refused once it started a deployment (webhook_deliveries);
+  a user-facing start failure rolls the delivery back (502) so the
+  host may retry; a successful push deploys as "webhook", tracked
+  like a panel deployment
 - ☑ websites: the cron area (batch 39) — CronController + the write
   side of CronService as site_cron.go + hosting/cron_service.go: the
   job list page (schedule presets + custom, the command, the

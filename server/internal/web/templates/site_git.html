@@ -1,0 +1,160 @@
+{{define "site_git"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Git · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a></p>
+  <h1>Git deployment</h1>
+  <p class="text-muted">{{.Site.Domain}}</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
+
+  {{if .Cfg}}
+  <div class="card mb-3" id="deploy-summary">
+    <div class="card-header wcp-toolbar">
+      <h2 class="wcp-toolbar-title"><i class="bi bi-git me-1"></i>Deployment</h2>
+      <form method="post" action="/sites/{{.Site.ID}}/git/deploy" data-wcp-busy>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <button class="btn btn-sm btn-primary" type="submit"><i class="bi bi-rocket-takeoff me-1"></i>Deploy now</button>
+      </form>
+    </div>
+    <div class="card-body">
+      <dl class="wcp-dl mb-0">
+        <dt>Repository</dt><dd><code class="text-break">{{.Cfg.Repo}}</code></dd>
+        <dt>Branch</dt><dd><code>{{.Cfg.Branch}}</code></dd>
+        <dt>Deployed to</dt><dd><code>{{.Site.Root}}/{{.Cfg.Path}}</code></dd>
+        <dt>On push</dt><dd>{{if .Cfg.AutoDeploy}}<span class="wcp-state is-ok">deploys automatically</span>{{else}}<span class="text-body-secondary">manual only</span>{{end}}</dd>
+      </dl>
+      {{if .DocumentRootServesDeploy}}
+      <div class="alert alert-info small mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>The website is served from <code>{{.Site.DocumentRoot}}</code>. To serve the deployed code, set the document root to e.g. <code>{{.Cfg.Path}}/public</code> in <a href="/sites/{{.Site.ID}}/edit">Settings</a>.</div>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="card mb-3" id="deploy-history">
+    <div class="card-header"><h2 class="h6 mb-0"><i class="bi bi-clock-history me-1"></i>History</h2></div>
+    {{if .History}}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>When</th><th>Commit</th><th>By</th><th>Status</th><th class="text-end"></th></tr></thead>
+        <tbody>
+        {{range .History}}
+          <tr>
+            <td class="text-nowrap small">{{.When}}</td>
+            <td class="small">{{if .CommitHash}}<code>{{.Hash10}}</code> {{.Message}}{{else if .Error}}<span class="text-body-secondary">{{.Error}}</span>{{else}}<span class="text-body-secondary">—</span>{{end}}</td>
+            <td class="small">{{if eq .Trigger "webhook"}}webhook{{else}}{{.Username}}{{end}}</td>
+            <td>
+              {{if eq .Status "succeeded"}}<span class="wcp-state is-ok">{{.Status}}</span>
+              {{else if eq .Status "running"}}<span class="wcp-state is-warn">{{.Status}}</span>
+              {{else if eq .Status "failed"}}<span class="wcp-state is-error">{{.Status}}</span>
+              {{else}}<span class="text-body-secondary">{{.Status}}</span>{{end}}
+            </td>
+            <td class="text-end">{{if .JobID}}<button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-job-open="{{.JobID}}" title="Log" aria-label="Log of job {{.JobID}}"><i class="bi bi-terminal"></i></button>{{end}}</td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="card-body text-body-secondary">No deployments yet.</div>
+    {{end}}
+  </div>
+  {{end}}
+
+  <div class="card" id="git-form">
+    <div class="card-header"><h2 class="h6 mb-0"><i class="bi bi-sliders me-1"></i>{{if .Cfg}}Repository settings{{else}}Connect a repository{{end}}</h2></div>
+    <div class="card-body">
+      <form method="post" action="/sites/{{.Site.ID}}/git" data-wcp-busy>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <label class="form-label" for="g-repo">Repository URL</label>
+        <input class="form-control mb-1{{if index .Errors "repo"}} is-invalid{{end}}" id="g-repo" name="repo" value="{{index .Form "repo"}}" placeholder="git@github.com:owner/repo.git" required>
+        {{if index .Errors "repo"}}<div class="text-danger small">{{index .Errors "repo"}}</div>{{end}}
+        <p class="form-text mb-3">https:// for public repositories, or an SSH address (git@github.com:owner/repo.git) with the deploy key below.</p>
+        <div class="row g-2 mb-3">
+          <div class="col-sm-6">
+            <label class="form-label" for="g-branch">Branch</label>
+            <input class="form-control{{if index .Errors "branch"}} is-invalid{{end}}" id="g-branch" name="branch" value="{{index .Form "branch"}}" required>
+            {{if index .Errors "branch"}}<div class="text-danger small">{{index .Errors "branch"}}</div>{{end}}
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label" for="g-path">Folder in the website</label>
+            <input class="form-control{{if index .Errors "path"}} is-invalid{{end}}" id="g-path" name="path" value="{{index .Form "path"}}" required>
+            {{if index .Errors "path"}}<div class="text-danger small">{{index .Errors "path"}}</div>{{end}}
+            <p class="form-text">Cloned here; must be empty on first deploy.</p>
+          </div>
+        </div>
+        <label class="form-label" for="g-hooks">Commands after each deployment (optional)</label>
+        <textarea class="form-control font-monospace mb-1{{if index .Errors "hooks"}} is-invalid{{end}}" id="g-hooks" name="hooks" rows="4" placeholder="composer install --no-dev --optimize-autoloader&#10;php artisan migrate --force">{{index .Form "hooks"}}</textarea>
+        {{if index .Errors "hooks"}}<div class="text-danger small">{{index .Errors "hooks"}}</div>{{end}}
+        <p class="form-text mb-3">One command per line, run in order as <code>{{.Site.SystemUser}}</code> inside the deployed folder. The deployment stops at the first failing command.</p>
+        <div class="form-check form-switch mb-3">
+          <input type="hidden" name="auto_deploy" value="0">
+          <input class="form-check-input" type="checkbox" role="switch" id="g-auto" name="auto_deploy" value="1"{{if eq (index .Form "auto_deploy") "1"}} checked{{end}}>
+          <label class="form-check-label" for="g-auto">Deploy automatically when the webhook receives a push to this branch</label>
+        </div>
+        <button class="btn btn-sm btn-primary" type="submit">Save</button>
+      </form>
+    </div>
+    {{if .Cfg}}
+    <div class="card-footer">
+      <form method="post" action="/sites/{{.Site.ID}}/git/remove" data-wcp-confirm="Disconnect the repository? Deployed files stay in place.">
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <button class="btn btn-sm btn-outline-danger" type="submit">Disconnect repository</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+
+  {{if .Cfg}}
+  <div class="row g-3 mt-3">
+    <div class="col-md-6">
+      <div class="card" id="deploy-key">
+        <div class="card-header"><h2 class="h6 mb-0"><i class="bi bi-key me-1"></i>Deploy key</h2></div>
+        <div class="card-body">
+          {{if .KeyError}}
+          <p class="text-warning small mb-0">The deploy key could not be created: {{.KeyError}}</p>
+          {{else}}
+          <p class="small">Add this public key as a read-only <strong>deploy key</strong> in your repository settings (GitHub: Settings → Deploy keys; GitLab: Settings → Repository → Deploy keys).</p>
+          <textarea class="form-control form-control-sm font-monospace mb-2" rows="3" readonly data-wcp-deploy-key>{{.Cfg.PublicKey}}</textarea>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-copy="[data-wcp-deploy-key]"><i class="bi bi-clipboard"></i> Copy</button>
+          {{end}}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card" id="deploy-webhook">
+        <div class="card-header"><h2 class="h6 mb-0"><i class="bi bi-broadcast me-1"></i>Webhook</h2></div>
+        <div class="card-body small">
+          <p>Add a <em>push</em> webhook with content type <code>application/json</code>:</p>
+          <label class="form-label" for="g-hook-url">Payload URL</label>
+          <div class="input-group input-group-sm mb-2"><input class="form-control font-monospace" id="g-hook-url" value="{{.WebhookURL}}" readonly data-wcp-hook-url><button type="button" class="btn btn-outline-secondary" data-wcp-copy="[data-wcp-hook-url]" aria-label="Copy webhook URL"><i class="bi bi-clipboard"></i></button></div>
+          <label class="form-label" for="g-hook-secret">Secret (GitHub/Gitea) or secret token (GitLab)</label>
+          <div class="input-group input-group-sm mb-3"><input class="form-control font-monospace" id="g-hook-secret" value="{{.WebhookSecret}}" readonly data-wcp-hook-secret><button type="button" class="btn btn-outline-secondary" data-wcp-copy="[data-wcp-hook-secret]" aria-label="Copy webhook secret"><i class="bi bi-clipboard"></i></button></div>
+          <form method="post" action="/sites/{{.Site.ID}}/git/rotate" data-wcp-confirm="Generate a new webhook URL and secret? The current webhook stops working.">
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            <button class="btn btn-sm btn-outline-secondary" type="submit">Regenerate</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{end}}
+</main>
+</body>
+</html>{{end}}

@@ -100,6 +100,9 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) routes() {
 	// Unauthenticated liveness probe — parity with the PHP /healthz.
 	s.mux.HandleFunc("GET /healthz", s.health)
+	// The public, signed Git push webhook (no session, no CSRF — the
+	// signature and the replay table are the gates).
+	s.mux.HandleFunc("POST /hooks/deploy/{token}", s.deployWebhook)
 
 	// Reused frontend assets (Bootstrap, the 12 JS files, CSS) served as-is.
 	if s.cfg.StaticDir != "" {
@@ -262,6 +265,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /sites/{id}/cron/{job}/run", s.guard("sites.cron.run", "cron.manage", s.siteCronRun))
 	s.mux.HandleFunc("POST /sites/{id}/cron/{job}/toggle", s.guard("sites.cron.toggle", "cron.manage", s.siteCronToggle))
 	s.mux.HandleFunc("POST /sites/{id}/cron/{job}/delete", s.guard("sites.cron.delete", "cron.manage", s.siteCronDelete))
+	s.mux.HandleFunc("GET /sites/{id}/git", s.guard("sites.git", "deploy.manage", s.siteGit))
+	s.mux.HandleFunc("POST /sites/{id}/git", s.guard("sites.git.configure", "deploy.manage", s.siteGitConfigure))
+	s.mux.HandleFunc("POST /sites/{id}/git/deploy", s.guard("sites.git.deploy", "deploy.manage", s.siteGitDeploy))
+	s.mux.HandleFunc("POST /sites/{id}/git/rotate", s.guard("sites.git.rotate", "deploy.manage", s.siteGitRotate))
+	s.mux.HandleFunc("POST /sites/{id}/git/remove", s.guard("sites.git.remove", "deploy.manage", s.siteGitRemove))
 	s.mux.HandleFunc("GET /sites/{id}/workers", s.guard("", "workers.manage", s.siteWorkers))
 	// Worker write path: the plan feature withholds workers.manage when
 	// disabled, so the permission guard enforces the feature too.

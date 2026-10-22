@@ -72,6 +72,10 @@ type sitesAgent struct {
 	avFreshclam bool
 	// avUpdaterLog is the av.status reply's updater_log ("" = none).
 	avUpdaterLog string
+	// deployKey is the deploy.key reply's public key ("" = a fixed test key).
+	deployKey string
+	// deployRunJob is the deploy.run reply's job id ("" = 0123456789d0a001).
+	deployRunJob string
 	// hulkAvailable is the hulk.status reply's available flag (default true);
 	// false = nftables is not installed.
 	hulkAvailable bool
@@ -668,6 +672,19 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"file":"/etc/cron.d/whacp-site-bob.example","changed":true}}`))
 		case "cron.run":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789c0a001"}}`))
+		case "deploy.key":
+			key := sa.deployKey
+			if key == "" {
+				key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDeployKeyForTests whacp-test"
+			}
+			b, _ := json.Marshal(map[string]any{"public_key": key})
+			_, _ = w.Write([]byte(`{"success":true,"data":` + string(b) + `}`))
+		case "deploy.run":
+			jobID := sa.deployRunJob
+			if jobID == "" {
+				jobID = "0123456789d0a001"
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"` + jobID + `"}}`))
 		case "cron.log":
 			content := sa.cronLogContent
 			if content == "" {
