@@ -1,12 +1,13 @@
 package hosting
 
 // The WordPress toolkit's switches and tools for one installation
-// (WordPressToolsService.php) — the read side used by the overview page
+// (WordPressToolsService.php): the read side used by the overview page
 // (protection, the security measures' status, restore points, the clone /
-// sync targets, the debug log). The changing tools (debug, cron takeover,
-// password + hotlink protection, vulnerability protection, passwords,
-// security apply / roll back, clone, sync, restore) follow with their
-// routes.
+// sync targets, the debug log) and the changing tools behind the tools
+// route (debug, password + hotlink protection, the administrator and
+// database passwords, the security apply / roll back). The cron takeover,
+// the vulnerability protection, the vulnerability-database check and the
+// copy tools (clone, sync, restore) follow with their service dependencies.
 //
 // Who may use it is decided by the http layer (the website must be visible
 // to the user, websites.manage for changes). Copies are only made between
@@ -15,13 +16,16 @@ package hosting
 
 import (
 	"context"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 )
 
@@ -97,12 +101,228 @@ type WordPressTools struct {
 	agent    AgentCaller
 	serverID int64
 	sites    *WebsiteRepository
+	crypto   *crypto.Crypto
 	audit    Auditor
 }
 
 // NewWordPressTools builds the service.
-func NewWordPressTools(db *sql.DB, ag AgentCaller, serverID int64, sites *WebsiteRepository, audit Auditor) *WordPressTools {
-	return &WordPressTools{db: db, agent: ag, serverID: serverID, sites: sites, audit: audit}
+func NewWordPressTools(db *sql.DB, ag AgentCaller, serverID int64, sites *WebsiteRepository, crypto *crypto.Crypto, audit Auditor) *WordPressTools {
+	return &WordPressTools{db: db, agent: ag, serverID: serverID, sites: sites, crypto: crypto, audit: audit}
+}
+
+// WpDebugFlags are the debug switches the toolkit can turn on or off
+// (WordPressToolsService::DEBUG, in the order the service applies them).
+var WpDebugFlags = []string{"WP_DEBUG", "WP_DEBUG_LOG", "WP_DEBUG_DISPLAY", "SCRIPT_DEBUG", "SAVEQUERIES"}
+
+// WpRecommendedMeasures are the measures the one-click "Secure
+// (recommended)" applies (WordPressToolsService::RECOMMENDED).
+var WpRecommendedMeasures = []string{"block_sensitive_files", "block_author_scans", "no_php_in_uploads", "no_php_in_includes", "block_bad_bots", "disable_file_edit", "disable_pingbacks", "disable_script_concat", "config_permissions"}
+
+// wpManage runs one WordPress operation on the agent
+// (WordPressToolsService::manage).
+func (s *WordPressTools) wpManage(ctx context.Context, site *Website, install *WordPressInstall, op string, extra map[string]any, timeout time.Duration) (json.RawMessage, error) {
+	target := WpTarget(site, install)
+	target["op"] = op
+	for k, v := range extra {
+		target[k] = v
+	}
+	return s.agent.Call(ctx, "wordpress.manage", target, timeout)
+}
+
+// SetDebug saves the debugging switches (WordPressToolsService::setDebug).
+func (s *WordPressTools) SetDebug(ctx context.Context, site *Website, install *WordPressInstall, items []string) (string, error) {
+	if err := wpWritable(site); err != nil {
+		return "", err
+	}
+	on := []string{}
+	seen := map[string]bool{}
+	for _, flag := range WpDebugFlags {
+		for _, in := range items {
+			if in == flag && !seen[flag] {
+				seen[flag] = true
+				on = append(on, flag)
+			}
+		}
+	}
+	if _, err := s.wpManage(ctx, site, install, "debug", map[string]any{"items": on}, 150*time.Second); err != nil {
+		return "", err
+	}
+	debug := 0
+	if seen["WP_DEBUG"] {
+		debug = 1
+	}
+	if _, err := s.db.Exec(`UPDATE wordpress_installs SET debug = ? WHERE id = ?`, debug, install.ID); err != nil {
+		return "", err
+	}
+	s.auditWordPress(ctx, "wordpress.debug", "website", fmt.Sprintf("%d", site.ID), map[string]any{"domain": site.Domain, "path": install.Path, "enabled": on})
+	if len(on) == 0 {
+		return "Debugging is off.", nil
+	}
+	return "Debugging settings saved: " + strings.Join(on, ", ") + ".", nil
+}
+
+var wpProtectUserRe = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
+var wpSecretRe = regexp.MustCompile(`[\x00\r\n]`)
+
+// wpSecretOK is the 8-to-128-character password check (no NUL, CR or LF).
+func wpSecretOK(secret string) bool {
+	return len(secret) >= 8 && len(secret) <= 128 && !wpSecretRe.MatchString(secret)
+}
+
+// SetPasswordProtection turns the installation's password protection on or
+// off (WordPressToolsService::setPasswordProtection).
+func (s *WordPressTools) SetPasswordProtection(ctx context.Context, site *Website, install *WordPressInstall, on bool, user, password string) (string, error) {
+	if err := wpWritable(site); err != nil {
+		return "", err
+	}
+	path, err := WpURLPath(site, install)
+	if err != nil {
+		return "", err
+	}
+	if on {
+		ve := &ValidationError{}
+		if !wpProtectUserRe.MatchString(user) {
+			ve.Add("protect_user", "Use up to 64 letters, digits, dots, dashes or underscores.")
+		}
+		if !wpSecretOK(password) {
+			ve.Add("protect_password", "Use 8 to 128 characters.")
+		}
+		if ve.Any() {
+			return "", ve
+		}
+	}
+	if _, err := s.agent.Call(ctx, "protect.password", map[string]any{
+		"domain": site.Domain, "path": path, "enabled": on, "user": user, "password": password, "realm": "Restricted area",
+	}, 120*time.Second); err != nil {
+		return "", err
+	}
+	who := ""
+	if on {
+		who = user
+	}
+	s.auditWordPress(ctx, "wordpress.password_protection", "website", fmt.Sprintf("%d", site.ID), map[string]any{
+		"domain": site.Domain, "path": install.Path, "on": on, "user": who, "url_path": path,
+	})
+	if on {
+		return "Password protection is on: visitors to " + site.Domain + strings.TrimRight(path, "/") + "/ must sign in as " + user + ".", nil
+	}
+	return "Password protection is off.", nil
+}
+
+var wpHostRe = regexp.MustCompile(`^(\*\.)?([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
+
+// SetHotlink turns the website's hotlink protection on or off
+// (WordPressToolsService::setHotlink).
+func (s *WordPressTools) SetHotlink(ctx context.Context, site *Website, on bool, allowed []string) (string, error) {
+	if err := wpWritable(site); err != nil {
+		return "", err
+	}
+	clean := []string{}
+	for _, a := range allowed {
+		a = strings.ToLower(strings.TrimSpace(a))
+		if a == "" {
+			continue
+		}
+		if !wpHostRe.MatchString(a) {
+			return "", &ValidationError{Fields: map[string]string{
+				"hotlink_allowed": fmt.Sprintf("%q is not a host name (a leading *. is allowed).", a),
+			}}
+		}
+		clean = append(clean, a)
+	}
+	if _, err := s.agent.Call(ctx, "protect.hotlink", map[string]any{
+		"domain": site.Domain, "enabled": on, "allowed": clean,
+	}, 120*time.Second); err != nil {
+		return "", err
+	}
+	s.auditWordPress(ctx, "wordpress.hotlink", "website", fmt.Sprintf("%d", site.ID), map[string]any{
+		"domain": site.Domain, "on": on, "allowed": clean,
+	})
+	if on {
+		if len(clean) != 0 {
+			return "Hotlink protection is on: images and media are only served to pages of this website and " + strings.Join(clean, ", ") + ".", nil
+		}
+		return "Hotlink protection is on: images and media are only served to pages of this website.", nil
+	}
+	return "Hotlink protection is off.", nil
+}
+
+// AdminPassword changes a WordPress administrator's password (and signs the
+// administrator out everywhere else) (WordPressToolsService::adminPassword).
+func (s *WordPressTools) AdminPassword(ctx context.Context, site *Website, install *WordPressInstall, adminID int, password, confirm string) (string, error) {
+	if err := wpWritable(site); err != nil {
+		return "", err
+	}
+	ve := &ValidationError{}
+	if !wpSecretOK(password) {
+		ve.Add("admin_password", "Use 8 to 128 characters.")
+	}
+	if subtle.ConstantTimeCompare([]byte(password), []byte(confirm)) != 1 {
+		ve.Add("admin_password_confirm", "The passwords do not match.")
+	}
+	if adminID < 1 {
+		ve.Add("admin_id", "Choose an administrator.")
+	}
+	if ve.Any() {
+		return "", ve
+	}
+	res, err := s.wpManage(ctx, site, install, "admin_password", map[string]any{
+		"items": []string{strconv.Itoa(adminID)}, "password": password,
+	}, 150*time.Second)
+	if err != nil {
+		return "", err
+	}
+	var o struct {
+		Login string `json:"login"`
+	}
+	_ = json.Unmarshal(res, &o)
+	who := fmt.Sprintf("#%d", adminID)
+	if o.Login != "" {
+		who = o.Login
+	}
+	s.auditWordPress(ctx, "wordpress.admin_password", "website", fmt.Sprintf("%d", site.ID), map[string]any{
+		"domain": site.Domain, "path": install.Path, "admin_id": adminID,
+	})
+	return "The password of the WordPress administrator " + who + " was changed and their other sessions were signed out.", nil
+}
+
+// DBPassword changes the installation's database password (and in its
+// wp-config.php) and returns the new password to show once
+// (WordPressToolsService::dbPassword).
+func (s *WordPressTools) DBPassword(ctx context.Context, site *Website, install *WordPressInstall) (string, error) {
+	if err := wpWritable(site); err != nil {
+		return "", err
+	}
+	password, err := dbPassword()
+	if err != nil {
+		return "", err
+	}
+	res, err := s.wpManage(ctx, site, install, "db_password", map[string]any{"password": password}, 150*time.Second)
+	if err != nil {
+		return "", err
+	}
+	var o struct {
+		User string `json:"user"`
+	}
+	_ = json.Unmarshal(res, &o)
+	if o.User != "" {
+		// The panel's stored copy (when the owner chose to keep one).
+		var id int64
+		var enc string
+		if err := s.db.QueryRow(`SELECT id, password_enc FROM database_users WHERE server_id = ? AND username = ? AND host = 'localhost'`, s.serverID, o.User).Scan(&id, &enc); err == nil && enc != "" {
+			newEnc, err := s.crypto.Encrypt([]byte(password))
+			if err != nil {
+				return "", err
+			}
+			if _, err := s.db.Exec(`UPDATE database_users SET password_enc = ? WHERE id = ?`, newEnc, id); err != nil {
+				return "", err
+			}
+		}
+	}
+	s.auditWordPress(ctx, "wordpress.db_password", "website", fmt.Sprintf("%d", site.ID), map[string]any{
+		"domain": site.Domain, "path": install.Path, "db_user": o.User,
+	})
+	return password, nil
 }
 
 // WpTarget is the agent's target for one installation.
