@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshad/whacp/server/internal/audit"
-	"github.com/mchkhawarshad/whacp/server/internal/identity"
-	"github.com/mchkhawarshad/whacp/server/internal/security"
-	"github.com/mchkhawarshad/whacp/server/internal/settings"
+	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
+	"github.com/mchkhawarshahzad/whacp/server/internal/security"
+	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 )
 
 // Reset-link limits (PasswordReset constants).

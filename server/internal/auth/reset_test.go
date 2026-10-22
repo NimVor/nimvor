@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshad/whacp/server/internal/audit"
-	"github.com/mchkhawarshad/whacp/server/internal/database"
-	"github.com/mchkhawarshad/whacp/server/internal/identity"
-	"github.com/mchkhawarshad/whacp/server/internal/security"
-	"github.com/mchkhawarshad/whacp/server/internal/settings"
+	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
+	"github.com/mchkhawarshahzad/whacp/server/internal/database"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
+	"github.com/mchkhawarshahzad/whacp/server/internal/security"
+	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 )
 
 // fakeMail records what ResetService asked it to send.

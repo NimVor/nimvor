@@ -331,6 +331,22 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"marked":["cron/daily-backup","systemd/whacp-agent.service"]}}`))
 		case "db.server_settings":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "ssh.status":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"effective":{"port":"22","permitrootlogin":"prohibit-password","passwordauthentication":"no","pubkeyauthentication":"yes","maxauthtries":"4","x11forwarding":"no","kbdinteractiveauthentication":"no"},` +
+				`"root_has_keys":true,"admins_with_keys":["root"],"managed_file":"/etc/ssh/sshd_config.d/50-whacp.conf","managed_config":"Port 22"}}`))
+		case "ssh.keys":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"admins":[` +
+				`{"user":"root","home":"/root","keys":[{"type":"ssh-ed25519","comment":"root@whacp","fingerprint":"SHA256:RootKeyFingerprint000000000000000000000"}]},` +
+				`{"user":"wheel-admin","home":"/home/wheel-admin","keys":[],"other_lines":2}]}}`))
+		case "ssh.configure":
+			sa.mu.Lock()
+			changed := sa.guardChanged
+			sa.mu.Unlock()
+			_, _ = w.Write(guardedReply(changed, "sshpend1", "ssh", "SSH settings changed"))
+		case "ssh.key_add":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"user":"` + strOf(p["user"]) + `","key":{"type":"ssh-ed25519","comment":"you@laptop","fingerprint":"SHA256:AddedKeyFingerprint00000000000000000000000"}}}`))
+		case "ssh.key_remove":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"removed":"` + strOf(p["fingerprint"]) + `"}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

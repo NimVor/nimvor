@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshad/whacp/server/internal/crypto"
-	"github.com/mchkhawarshad/whacp/server/internal/database"
-	"github.com/mchkhawarshad/whacp/server/internal/settings"
+	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
+	"github.com/mchkhawarshahzad/whacp/server/internal/database"
+	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 )
 
 // transcript is what the fake server saw.

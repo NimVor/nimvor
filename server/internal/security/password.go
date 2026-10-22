@@ -12,7 +12,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/mchkhawarshad/whacp/server/internal/settings"
+	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 )
 
 // Base length bounds (PasswordHasher::MIN_LENGTH / MAX_LENGTH).

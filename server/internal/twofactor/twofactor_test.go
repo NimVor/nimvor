@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshad/whacp/server/internal/crypto"
-	"github.com/mchkhawarshad/whacp/server/internal/database"
+	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
+	"github.com/mchkhawarshahzad/whacp/server/internal/database"
 )
 
 // RFC 6238 appendix B, SHA-1 column. The test secret is the ASCII

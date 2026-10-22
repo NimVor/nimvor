@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/mchkhawarshad/whacp/server/internal/database"
+	"github.com/mchkhawarshahzad/whacp/server/internal/database"
 )
 
 func newTestRepo(t *testing.T) (*Repository, *sql.DB) {

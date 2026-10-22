@@ -415,7 +415,8 @@ func (s *Server) accountSSHDisabled(ctx context.Context, serverID int64, systemU
 // whitelist holds the ported security pages (PHP's list points at the not
 // yet ported /security overview and friends).
 var securityReturnTo = map[string]bool{
-	"/security/shell": true, "/security/firewall": true, "/security/fail2ban": true,
+	"/security/shell": true, "/security/firewall": true,
+	"/security/fail2ban": true, "/security/ssh": true,
 }
 
 func (s *Server) securityConfirm(w http.ResponseWriter, r *http.Request) { s.securityGuardAction(w, r, "confirm") }

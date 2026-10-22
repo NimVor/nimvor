@@ -5,7 +5,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
-	"github.com/mchkhawarshad/whacp/server/internal/twofactor"
+	"github.com/mchkhawarshahzad/whacp/server/internal/twofactor"
 )
 
 // usersIndex lists the panel users the actor may manage: all users for staff,

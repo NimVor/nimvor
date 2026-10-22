@@ -353,11 +353,11 @@ Total routes: 551
 | POST | `/security/shell` | ShellController::update | security.shell.update | security.manage | yes | yes | ☑ |
 | GET | `/security/smtp` | HardeningController::smtp | security.smtp | security.view | yes | yes | ☐ |
 | POST | `/security/smtp` | HardeningController::saveSmtp | security.smtp.save | security.manage | yes | yes | ☐ |
-| POST | `/security/ssh/keys/generate` | SecurityController::generateSshKey | security.ssh.key_generate | security.manage | yes | yes | ☐ |
-| POST | `/security/ssh/keys/remove` | SecurityController::removeSshKey | security.ssh.key_remove | security.manage | yes | yes | ☐ |
-| POST | `/security/ssh/keys` | SecurityController::addSshKey | security.ssh.key_add | security.manage | yes | yes | ☐ |
-| GET | `/security/ssh` | SecurityController::ssh | security.ssh | security.view | yes | yes | ☐ |
-| POST | `/security/ssh` | SecurityController::configureSsh | security.ssh.configure | security.manage | yes | yes | ☐ |
+| POST | `/security/ssh/keys/generate` | SecurityController::generateSshKey | security.ssh.key_generate | security.manage | yes | yes | ☑ |
+| POST | `/security/ssh/keys/remove` | SecurityController::removeSshKey | security.ssh.key_remove | security.manage | yes | yes | ☑ |
+| POST | `/security/ssh/keys` | SecurityController::addSshKey | security.ssh.key_add | security.manage | yes | yes | ☑ |
+| GET | `/security/ssh` | SecurityController::ssh | security.ssh | security.view | yes | yes | ☑ |
+| POST | `/security/ssh` | SecurityController::configureSsh | security.ssh.configure | security.manage | yes | yes | ☑ |
 | POST | `/security/tls/run` | SecurityChecksController::runTls | security.tls.run | security.view | yes | yes | ☐ |
 | GET | `/security/tls` | SecurityChecksController::tls | security.tls | security.view | yes | yes | ☐ |
 | GET | `/security/traceroute` | HardeningController::traceroute | security.traceroute | security.view | yes | yes | ☐ |

@@ -21,11 +21,11 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"github.com/mchkhawarshahzad/whacp/server/internal/mail"
-	"github.com/mchkhawarshad/whacp/server/internal/security"
+	"github.com/mchkhawarshahzad/whacp/server/internal/security"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 	"github.com/mchkhawarshahzad/whacp/server/internal/web"
-	"github.com/mchkhawarshad/whacp/server/internal/twofactor"
+	"github.com/mchkhawarshahzad/whacp/server/internal/twofactor"
 )
 
 // Server holds the dependencies shared by handlers.
@@ -167,6 +167,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /security/fail2ban", s.guard("security.fail2ban.configure", "security.manage", s.fail2banConfigure))
 	s.mux.HandleFunc("POST /security/fail2ban/unban", s.guard("security.fail2ban.unban", "security.manage", s.fail2banUnban))
 	s.mux.HandleFunc("POST /security/fix", s.guard("security.fix", "server.manage", s.securityFix))
+	// Security → SSH (SecurityController's SSH area: the server settings —
+	// the guarded ssh.configure — and the administrator key management,
+	// administrators only; the generated private key is shown once).
+	s.mux.HandleFunc("GET /security/ssh", s.guard("security.ssh", "security.view", s.sshIndex))
+	s.mux.HandleFunc("POST /security/ssh", s.guard("security.ssh.configure", "security.manage", s.sshConfigure))
+	s.mux.HandleFunc("POST /security/ssh/keys", s.guard("security.ssh.key_add", "security.manage", s.sshAddKey))
+	s.mux.HandleFunc("POST /security/ssh/keys/generate", s.guard("security.ssh.key_generate", "security.manage", s.sshGenerateKey))
+	s.mux.HandleFunc("POST /security/ssh/keys/remove", s.guard("security.ssh.key_remove", "security.manage", s.sshRemoveKey))
 	s.mux.HandleFunc("GET /security/shell", s.guard("security.shell", "security.view", s.shellAccessIndex))
 	s.mux.HandleFunc("POST /security/shell", s.guard("security.shell.update", "security.manage", s.shellAccessUpdate))
 	s.mux.HandleFunc("POST /security/confirm", s.guard("security.confirm", "security.manage", s.securityConfirm))
