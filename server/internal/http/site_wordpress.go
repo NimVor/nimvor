@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -24,6 +25,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
+	"github.com/mchkhawarshahzad/whacp/server/internal/security"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
@@ -283,7 +285,7 @@ type wpVulnRow struct {
 
 func (s *Server) wpTools(r *http.Request, user *identity.User) *hosting.WordPressTools {
 	cron := hosting.NewCronService(s.db, s.agent, hosting.NewPlanLimits(s.db), s.wordpressAudit(r, user))
-	return hosting.NewWordPressTools(s.db, s.agent, s.currentServerID(r), hosting.NewWebsiteRepository(s.db), s.crypto, cron, s.wordpressAudit(r, user))
+	return hosting.NewWordPressTools(s.db, s.agent, s.currentServerID(r), hosting.NewWebsiteRepository(s.db), s.crypto, cron, hosting.NewWpVulnerabilities(wpVulnsCacheDir(s.cfg.DBPath)), s.wordpressAudit(r, user))
 }
 
 // wpInstallOf resolves the installation of a /sites/{id}/wordpress/{wp}
@@ -769,7 +771,34 @@ func (s *Server) wpTool(w http.ResponseWriter, r *http.Request) {
 	case "cron":
 		msg, err := tools.SetCronTakeover(r.Context(), site, install, on)
 		s.wpToolFinish(w, r, msg, err, to)
-	case "vulnerability", "vuln_check", "clone", "sync", "restore":
+	case "vulnerability":
+		msg, err := s.wpVulnerabilityTool(r, userFrom(r.Context()), site, install, on)
+		s.wpToolFinish(w, r, msg, err, to)
+	case "vuln_check":
+		svc := s.wordpressService(r, userFrom(r.Context()))
+		info, err := svc.Info(r.Context(), site, install, false)
+		if err != nil {
+			s.wpToolError(w, r, err, to)
+			return
+		}
+		items, reachable, _, err := tools.CheckVulnerabilities(install, info)
+		if err != nil {
+			s.wpToolError(w, r, err, to)
+			return
+		}
+		if !reachable && len(items) == 0 {
+			s.wpFlashRedirect(w, r, "error", "The vulnerability database (wpvulnerability.net) could not be reached from this server; try again later.", to+"#security")
+			return
+		}
+		msg := strconv.Itoa(len(items)) + " known vulnerabilit"
+		if len(items) == 1 {
+			msg += "y"
+		} else {
+			msg += "ies"
+		}
+		s.wpFlashRedirect(w, r, "success", msg+" found.", to+"#security")
+		return
+	case "clone", "sync", "restore":
 		s.wpFlashRedirect(w, r, "error", "This tool is coming soon.", to)
 	case "password_protection":
 		msg, err := tools.SetPasswordProtection(r.Context(), site, install, on, r.PostFormValue("protect_user"), r.PostFormValue("protect_password"))
@@ -846,6 +875,7 @@ func (s *Server) wpToolFinish(w http.ResponseWriter, r *http.Request, msg string
 func (s *Server) wpToolError(w http.ResponseWriter, r *http.Request, err error, to string) {
 	var ve *hosting.ValidationError
 	var ue *hosting.UserError
+	var me *security.ModsecError
 	switch {
 	case errors.As(err, &ve):
 		msg := "Please correct the form."
@@ -863,11 +893,93 @@ func (s *Server) wpToolError(w http.ResponseWriter, r *http.Request, err error, 
 		}
 		s.wpFlashRedirect(w, r, "error", msg, to)
 	case errors.As(err, &ue):
-		s.wpFlashRedirect(w, r, "error", ue.What, to)
+		msg := ""
+		for _, p := range []string{ue.What, ue.Why, ue.Fix} {
+			if p != "" {
+				if msg != "" {
+					msg += " "
+				}
+				msg += p
+			}
+		}
+		s.wpFlashRedirect(w, r, "error", msg, to)
+	case errors.As(err, &me):
+		s.wpFlashRedirect(w, r, "error", me.Message, to)
 	default:
 		s.log.Error("wordpress tool", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	}
+}
+
+// wpVulnsCacheDir is the per-item vulnerability answer cache (next to the
+// panel database; none for the in-memory test database).
+func wpVulnsCacheDir(dbPath string) string {
+	if dbPath == ":memory:" {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(dbPath), "wpvulns")
+}
+
+// wpModsecConnState is the modsec status' connector state (the module's
+// state when the connector reports none).
+func wpModsecConnState(status map[string]any) string {
+	if conn, ok := status["connector"].(map[string]any); ok {
+		if st, ok := conn["state"].(string); ok && st != "" {
+			return st
+		}
+	}
+	if loaded, _ := status["module_loaded"].(bool); loaded {
+		return "functional"
+	}
+	return "missing"
+}
+
+// wpVulnerabilityTool runs the ModSecurity part of the vulnerability
+// protection (WordPressToolsService::setVulnerabilityProtection: the status
+// guard and the site mode) and records the state through the service.
+func (s *Server) wpVulnerabilityTool(r *http.Request, user *identity.User, site *hosting.Website, install *hosting.WordPressInstall, on bool) (string, error) {
+	if site.AccountSuspended {
+		return "", &hosting.UserError{What: "The hosting account is suspended; WordPress cannot be changed."}
+	}
+	ctx := r.Context()
+	var held bool
+	if on {
+		st, ae := s.modsecStatus(ctx)
+		if ae != nil {
+			return "", ae
+		}
+		active, _ := st["active"].(bool)
+		if wpModsecConnState(st) != "functional" || !active {
+			remedy := "Ask your hosting provider to turn on ModSecurity."
+			if hosting.IsAll(user) {
+				remedy = "Install and turn it on under Security → ModSecurity (with the OWASP Core Rule Set), then turn this on again."
+			}
+			return "", &hosting.UserError{
+				What: "Vulnerability protection needs ModSecurity, which is not installed or not turned on on this server.",
+				Fix:  remedy,
+			}
+		}
+		if err := s.modsecSetSite(ctx, r, site, "on", nil, nil, false, user); err != nil {
+			return "", err
+		}
+		if st, ae := s.modsecStatus(ctx); ae == nil {
+			if cfg, ok := st["config"].(map[string]any); ok {
+				held, _ = cfg["detection_only"].(bool)
+			}
+		}
+	} else {
+		// Other installations of the website may still want it.
+		var others int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM wordpress_installs WHERE website_id = ? AND id <> ? AND vuln_protection = 1`, site.ID, install.ID).Scan(&others); err != nil {
+			return "", err
+		}
+		if others == 0 {
+			if err := s.modsecSetSite(ctx, r, site, "detect", nil, nil, false, user); err != nil {
+				return "", err
+			}
+		}
+	}
+	return s.wpTools(r, user).SetVulnerabilityProtection(ctx, site, install, on, held)
 }
 
 // wpCheck forces a fresh check of updates and opens the overview
