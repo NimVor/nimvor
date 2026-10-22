@@ -164,6 +164,13 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /databases/{id}/dump", s.guard("", "databases.manage", s.databasesDump))
 	s.mux.HandleFunc("POST /databases/{id}/import", s.guard("", "databases.manage", s.databasesImport))
 	s.mux.HandleFunc("POST /databases/{id}/grant", s.guard("", "databases.manage", s.databasesGrant))
+	// Database browser (DbBrowserController) — the per-database page and the
+	// operation endpoint the reused dbbrowser.js polls, plus the server-wide
+	// variants (any database by name, all-scope only). All databases.manage.
+	s.mux.HandleFunc("GET /databases/browse", s.guard("databases.browser.server", "databases.manage", s.dbBrowserServer))
+	s.mux.HandleFunc("POST /databases/browse/api", s.guard("databases.browser.server_api", "databases.manage", s.dbBrowserApiServer))
+	s.mux.HandleFunc("GET /databases/{id}/browse", s.guard("databases.browser", "databases.manage", s.dbBrowser))
+	s.mux.HandleFunc("POST /databases/{id}/browse/api", s.guard("databases.browser.api", "databases.manage", s.dbBrowserApi))
 	// Database users (all databases.manage; the mysql feature withholds the
 	// permission when the plan disables mysql, same as the /databases routes).
 	s.mux.HandleFunc("POST /database-users", s.guard("", "databases.manage", s.dbUsersCreate))

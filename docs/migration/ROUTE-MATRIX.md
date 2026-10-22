@@ -83,8 +83,8 @@ Total routes: 551
 | POST | `/database-users/{id}/password` | DatabasesController::password | dbusers.password | databases.manage | yes | yes | ☑ |
 | POST | `/database-users/{id}/reveal` | DatabasesController::reveal | dbusers.reveal | databases.manage | yes | yes | ☑ |
 | POST | `/database-users` | DatabasesController::createUser | dbusers.store | databases.manage | yes | yes | ☑ |
-| POST | `/databases/browse/api` | DbBrowserController::serverApi | databases.browser.server_api | databases.manage | yes | yes | ☐ |
-| GET | `/databases/browse` | DbBrowserController::serverBrowse | databases.browser.server | databases.manage | yes | yes | ☐ |
+| POST | `/databases/browse/api` | DbBrowserController::serverApi | databases.browser.server_api | databases.manage | yes | yes | ☑ |
+| GET | `/databases/browse` | DbBrowserController::serverBrowse | databases.browser.server | databases.manage | yes | yes | ☑ |
 | GET | `/databases/server/connections` | DbServerController::connections | databases.server.connections | server.view | yes | yes | ☐ |
 | POST | `/databases/server/flush` | DbServerController::flush | databases.server.flush | server.manage | yes | yes | ☐ |
 | POST | `/databases/server/kill` | DbServerController::kill | databases.server.kill | server.manage | yes | yes | ☐ |
@@ -93,8 +93,8 @@ Total routes: 551
 | GET | `/databases/server/settings` | DbServerController::settingsPage | databases.server.settings_page | server.view | yes | yes | ☐ |
 | POST | `/databases/server/settings` | DbServerController::saveSettings | databases.server.settings | server.manage | yes | yes | ☐ |
 | GET | `/databases/server` | DbServerController::index | databases.server | server.view | yes | yes | ☐ |
-| POST | `/databases/{id}/browse/api` | DbBrowserController::api | databases.browser.api | databases.manage | yes | yes | ☐ |
-| GET | `/databases/{id}/browse` | DbBrowserController::browse | databases.browser | databases.manage | yes | yes | ☐ |
+| POST | `/databases/{id}/browse/api` | DbBrowserController::api | databases.browser.api | databases.manage | yes | yes | ☑ |
+| GET | `/databases/{id}/browse` | DbBrowserController::browse | databases.browser | databases.manage | yes | yes | ☑ |
 | POST | `/databases/{id}/drop` | DatabasesController::drop | databases.drop | databases.manage | yes | yes | ☑ |
 | POST | `/databases/{id}/dump` | DatabasesController::dump | databases.dump | databases.manage | yes | yes | ☑ |
 | POST | `/databases/{id}/grant` | DatabasesController::grant | databases.grant | databases.manage | yes | yes | ☑ |

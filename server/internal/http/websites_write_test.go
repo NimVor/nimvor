@@ -94,6 +94,20 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job":{"id":"deadbeefcafe0003","kind":"Dump a_main","target":"100","status":"succeeded","created_at":"2026-01-01T00:00:00Z"},"log":"Dump finished.\n","offset":42,"done":true}}`))
 		case "db.overview":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"version":"10.11.6-MariaDB-0ubuntu0.22.04.1","databases":[{"name":"a_main","size_bytes":10485760,"tables":12},{"name":"b_main","size_bytes":524288,"tables":3},{"name":"legacy_shop","size_bytes":2097152,"tables":5}]}}`))
+		case "db.browse_tables":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"database":"a_main","tables":[{"name":"posts","view":false,"engine":"InnoDB","rows":120,"bytes":1048576,"collation":"utf8mb4_unicode_ci","comment":""}],"server":"10.11.6-MariaDB","charset":"utf8mb4","collation":"utf8mb4_unicode_ci"}}`))
+		case "db.browse_structure":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"table":"posts","columns":[{"name":"id","type":"int(11)"}],"indexes":[],"foreign_keys":[],"key":"id","create":"CREATE TABLE posts (id int)"}}`))
+		case "db.browse_rows":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"table":"posts","rows":[{"key":"1","values":{"id":"1","title":"First"}}],"count":120}}`))
+		case "db.query":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"results":[],"rows":0,"ms":2}}`))
+		case "db.browse_save":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"saved":1}}`))
+		case "db.browse_delete":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"deleted":1}}`))
+		case "db.browse_alter":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"sql":"ALTER TABLE posts ADD COLUMN note varchar(255);"}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}
