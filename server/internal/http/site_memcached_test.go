@@ -21,8 +21,8 @@ import (
 )
 
 // cacheEnv seeds an administrator (everything), a customer (bob,
-// websites.view + logs.view) who owns website 10 (bob.example) and a
-// viewer (carol, logs.view only).
+// websites.view + logs.view) who owns website 10 (bob.example), a viewer
+// (carol, logs.view only) and an ops user (redis.manage only).
 func cacheEnv(t *testing.T) (http.Handler, *sitesAgent, *sql.DB) {
 	t.Helper()
 	db, err := database.Open(":memory:")
@@ -40,15 +40,16 @@ func cacheEnv(t *testing.T) (http.Handler, *sitesAgent, *sql.DB) {
 		}
 	}
 	exec(`INSERT INTO roles (id,name,label,scope,created_at) VALUES
-		(1,'admin','Administrator','all',''),(2,'customer','Customer','own',''),(3,'viewer','Viewer','own','')`)
+		(1,'admin','Administrator','all',''),(2,'customer','Customer','own',''),(3,'viewer','Viewer','own',''),(4,'ops','Ops','own','')`)
 	exec(`INSERT INTO permissions (id,name,label,grp) VALUES
-		(1,'websites.view','v','web'),(2,'websites.manage','m','web'),(3,'logs.view','lv','logs'),(4,'redis.manage','rm','web')`)
-	exec(`INSERT INTO role_permissions (role_id,permission_id) VALUES (1,1),(1,2),(1,3),(1,4),(2,1),(2,3),(3,3)`)
+		(1,'websites.view','v','web'),(2,'websites.manage','m','web'),(3,'logs.view','lv','logs'),(4,'redis.manage','rm','web'),(5,'packages.manage','pm','web'),(6,'services.manage','sm','web')`)
+	exec(`INSERT INTO role_permissions (role_id,permission_id) VALUES (1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(2,1),(2,3),(3,3),(4,4)`)
 	exec(`INSERT INTO users (id,username,email,display_name,password_hash,role_id,is_active,password_changed_at,created_at,updated_at) VALUES
 		(1,'admin','a@x','Admin',?,1,1,'2026-01-01T00:00:00Z','',''),
 		(2,'bob','b@x','Bob',?,2,1,'2026-01-01T00:00:00Z','',''),
-		(3,'carol','c@x','Carol',?,3,1,'2026-01-01T00:00:00Z','','')`,
-		loginHash, loginHash, loginHash)
+		(3,'carol','c@x','Carol',?,3,1,'2026-01-01T00:00:00Z','',''),
+		(4,'ops','o@x','Ops',?,4,1,'2026-01-01T00:00:00Z','','')`,
+		loginHash, loginHash, loginHash, loginHash)
 	exec(`INSERT INTO websites (id,server_id,owner_id,domain,system_user,root,document_root,kind,php_version,status,created_at,updated_at)
 		VALUES (10,1,2,'bob.example','u_bob','/home/whacp/bob.example','/home/whacp/bob.example/public_html','php','8.3.1','active','','')`)
 

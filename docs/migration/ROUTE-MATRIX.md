@@ -201,11 +201,11 @@ Total routes: 551
 | POST | `/mail/webmail/install` | MailController::installWebmail | mail.webmail.install | packages.manage | yes | yes | ☐ |
 | POST | `/mail/webmail` | MailController::webmail | mail.webmail | server.manage | yes | yes | ☐ |
 | GET | `/mail` | MailController::index | mail | mail.manage | yes | yes | ☑ |
-| POST | `/memcached/configure` | MemcachedController::configure | memcached.configure | redis.manage | yes | yes | ☐ |
-| POST | `/memcached/flush` | MemcachedController::flush | memcached.flush | redis.manage | yes | yes | ☐ |
-| POST | `/memcached/install` | MemcachedController::install | memcached.install | packages.manage | yes | yes | ☐ |
-| POST | `/memcached/restart` | MemcachedController::restart | memcached.restart | services.manage | yes | yes | ☐ |
-| GET | `/memcached` | MemcachedController::index | memcached | redis.manage | yes | yes | ☐ |
+| POST | `/memcached/configure` | MemcachedController::configure | memcached.configure | redis.manage | yes | yes |☑ |
+| POST | `/memcached/flush` | MemcachedController::flush | memcached.flush | redis.manage | yes | yes |☑ |
+| POST | `/memcached/install` | MemcachedController::install | memcached.install | packages.manage | yes | yes |☑ |
+| POST | `/memcached/restart` | MemcachedController::restart | memcached.restart | services.manage | yes | yes |☑ |
+| GET | `/memcached` | MemcachedController::index | memcached | redis.manage | yes | yes |☑ |
 | POST | `/mongo/admin-password` | MongoController::adminPassword | mongo.admin_password | mongo.manage | yes | yes | ☐ |
 | POST | `/mongo/auth` | MongoController::auth | mongo.auth | mongo.manage | yes | yes | ☐ |
 | POST | `/mongo/backup` | MongoController::backup | mongo.backup | mongo.manage | yes | yes | ☐ |
@@ -287,12 +287,12 @@ Total routes: 551
 | GET | `/profile` | ProfileController::show | profile |  | yes | yes | ◑ |
 | POST | `/redis/browser/api` | RedisBrowserController::api | redis.browser.api | redis.manage | yes | yes |☑ |
 | GET | `/redis/browser` | RedisBrowserController::browse | redis.browser | redis.manage | yes | yes |☑ |
-| POST | `/redis/configure` | RedisController::configure | redis.configure | redis.manage | yes | yes | ☐ |
-| POST | `/redis/flush` | RedisController::flush | redis.flush | redis.manage | yes | yes | ☐ |
-| POST | `/redis/password` | RedisController::password | redis.password | redis.manage | yes | yes | ☐ |
-| POST | `/redis/users/delete` | RedisController::deleteUser | redis.users.delete | redis.manage | yes | yes | ☐ |
-| POST | `/redis/users` | RedisController::createUser | redis.users.store | redis.manage | yes | yes | ☐ |
-| GET | `/redis` | RedisController::index | redis | redis.manage | yes | yes | ☐ |
+| POST | `/redis/configure` | RedisController::configure | redis.configure | redis.manage | yes | yes |☑ |
+| POST | `/redis/flush` | RedisController::flush | redis.flush | redis.manage | yes | yes |☑ |
+| POST | `/redis/password` | RedisController::password | redis.password | redis.manage | yes | yes |☑ |
+| POST | `/redis/users/delete` | RedisController::deleteUser | redis.users.delete | redis.manage | yes | yes |☑ |
+| POST | `/redis/users` | RedisController::createUser | redis.users.store | redis.manage | yes | yes |☑ |
+| GET | `/redis` | RedisController::index | redis | redis.manage | yes | yes |☑ |
 | GET | `/roles/new` | RolesController::create | roles.create | roles.manage | yes | yes | ☐ |
 | POST | `/roles/{id}/delete` | RolesController::destroy | roles.delete | roles.manage | yes | yes | ☐ |
 | GET | `/roles/{id}/edit` | RolesController::edit | roles.edit | users.view | yes | yes | ☐ |

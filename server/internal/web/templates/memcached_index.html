@@ -1,0 +1,132 @@
+{{define "memcached_index"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Memcached · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/servers">← Servers</a></p>
+  <h1>Memcached</h1>
+  <p class="text-muted">Distributed memory object cache</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
+  {{if .AgentError}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <i class="bi bi-plug fs-5"></i>
+      <div><div class="fw-semibold">{{.AgentError}}</div></div>
+    </div>
+  </div>
+  {{else}}
+  {{if not .V.Installed}}
+  <div class="card">
+    <div class="card-body">
+      <p>Memcached is not installed on this server.</p>
+      {{if .CanInstall}}
+      <form method="post" action="/memcached/install">
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <button class="btn btn-primary">Install Memcached</button>
+      </form>
+      <p class="small text-body-secondary mt-2 mb-0">The distribution package listens on 127.0.0.1 only. PHP websites also need the <code>memcached</code> PHP extension (PHP → extensions).</p>
+      {{end}}
+    </div>
+  </div>
+  {{else}}
+  <div class="wcp-subtabs" role="tablist">
+    <button class="active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#mc-overview" aria-controls="mc-overview" aria-selected="true">Overview</button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#mc-danger" aria-controls="mc-danger" aria-selected="false">Danger zone</button>
+  </div>
+  <div class="tab-content">
+  <div class="tab-pane fade show active" id="mc-overview" role="tabpanel">
+    <div class="card">
+      <div class="card-header d-flex align-items-center flex-wrap gap-2">Status
+        {{if .V.Running}}<span class="badge text-bg-success">running</span>{{else}}<span class="badge text-bg-danger">not running</span>{{end}}
+        <span class="ms-auto d-flex gap-2">
+          {{if .CanManage}}
+          <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#mc-settings">Settings</button>
+          <form method="post" action="/memcached/restart" class="d-inline">
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            <button class="btn btn-sm btn-outline-secondary">Restart</button>
+          </form>
+          {{end}}
+        </span>
+      </div>
+      <div class="card-body">
+        {{if .V.Error}}<div class="alert alert-warning small">{{.V.Error}}</div>{{end}}
+        {{if .V.HasStats}}
+        <div class="mb-3">
+          <div class="d-flex small mb-1"><span>Memory</span><span class="ms-auto">{{.V.UsedHuman}} of {{.V.LimitHuman}}</span></div>
+          <div class="progress" role="progressbar" aria-label="Memory used" aria-valuenow="{{.V.Pct}}" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar{{if .V.PctHigh}} bg-warning{{end}}" style="width: {{.V.Pct}}%"></div>
+          </div>
+        </div>
+        <dl class="wcp-dl mb-0">
+          <dt>Version</dt><dd>{{.V.Version}}</dd>
+          <dt>Uptime</dt><dd>{{.V.Uptime}}</dd>
+          <dt>Items</dt><dd>{{.V.Items}}</dd>
+          <dt>Hit ratio</dt><dd>{{if .V.HitRatio}}{{.V.HitRatio}} <span class="small text-body-secondary">({{.V.Hits}} hits, {{.V.Misses}} misses)</span>{{else}}—{{end}}</dd>
+          <dt>Evictions</dt><dd>{{.V.Evictions}}</dd>
+          <dt>Connections</dt><dd>{{.V.CurConns}} of {{.V.MaxConnsNow}}</dd>
+          <dt>Listening on</dt><dd><code>{{.V.Listen}}:{{.V.Port}}</code></dd>
+        </dl>
+        {{end}}
+      </div>
+    </div>
+  </div>
+  <div class="tab-pane fade" id="mc-danger" role="tabpanel">
+    <div class="card border-danger-subtle">
+      <div class="card-header text-danger-emphasis">Flush</div>
+      <div class="card-body">
+        <p class="small text-body-secondary">Removes every cached item at once. Applications repopulate the cache on their next miss.</p>
+        <form method="post" action="/memcached/flush" class="row g-2 align-items-end">
+          <input type="hidden" name="_token" value="{{.CSRF}}">
+          <div class="col"><label class="form-label small" for="mc-flush">Type <strong>flush</strong> to remove every cached item</label><input class="form-control" id="mc-flush" name="confirm" autocomplete="off"></div>
+          <div class="col-auto"><button class="btn btn-outline-danger">Flush all</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  {{if .CanManage}}
+  <div class="modal fade" id="mc-settings" tabindex="-1" aria-labelledby="mc-settings-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" method="post" action="/memcached/configure" data-wcp-busy>
+        <div class="modal-header"><h2 class="modal-title h6" id="mc-settings-title">Memcached settings</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body">
+          <input type="hidden" name="_token" value="{{.CSRF}}">
+          <div class="row g-2">
+            <div class="col-sm-6"><label class="form-label small" for="mc-mem">Memory (MB)</label><input class="form-control" id="mc-mem" type="number" name="memory_mb" min="16" max="262144" value="{{.V.MemoryMB}}"></div>
+            <div class="col-sm-6"><label class="form-label small" for="mc-conn">Max. connections</label><input class="form-control" id="mc-conn" type="number" name="max_conns" min="16" max="65536" value="{{.V.MaxConns}}"></div>
+          </div>
+          <label class="form-label small mt-2" for="mc-listen">Listen addresses</label>
+          <input class="form-control font-monospace" id="mc-listen" name="listen" value="{{.V.Listen}}">
+          <div class="form-text">Loopback only (127.0.0.1, ::1): Memcached has no password, so it must never be reachable from the network.</div>
+          <div class="form-check mt-3"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="mc-confirm" required><label class="form-check-label small" for="mc-confirm">Allow WhaCP to edit <code>{{.V.ConfigFile}}</code> (it belongs to the Memcached package; a backup is kept and it is restored if Memcached does not come back)</label></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save and restart</button></div>
+      </form>
+    </div>
+  </div>
+  {{end}}
+  {{end}}
+  {{end}}
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

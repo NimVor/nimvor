@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **166 ☑ done+tested, 3 ◑ partial, 382 ☐** of 551.
+`server/internal/http/server.go`): **177 ☑ done+tested, 3 ◑ partial, 371 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -439,6 +439,14 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
+- ☑ caching: the server-side Redis + Memcached management (batch 35) —
+  the Memcached page (GET /memcached: memory progress, the stats, the
+  settings modal, the confirmed flush, the install job, the restart —
+  redis.manage/packages.manage/services.manage) and the Redis page
+  (GET /redis: the overview, the per-website ACL users create/reset +
+  remove with the one-shot password flash, the default-user password
+  generate/remove, the memory + eviction settings with re-render on
+  validation errors, the confirmed database flush — redis.manage)
 - ☑ websites: the Redis key browser + the website's Memcached page
   (batch 34) — the server-wide browser (GET /redis/browser, redis.manage)
   and the per-website browser (GET /sites/{id}/redis, websites.manage —
@@ -491,13 +499,11 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the **caching area finishes with its server-side pages** —
-MemcachedController (GET /memcached, POST /memcached/configure, flush,
-install, restart — redis.manage/packages.manage/services.manage) and
-RedisController (GET /redis, POST /redis/configure, password, flush,
-users, users/delete — redis.manage), the two server-wide management
-pages behind the browser ported in batch 34. Check INVENTORY.md + the
-PHP controllers before starting. (The hulk/modsec/av scheduler sides
-stay with the background-jobs follow-up.)
+Batch: the **websites area continues** — the per-website Cloudflare
+proxy (SiteCloudflareController, 7 routes: the toggle, the zone
+settings, the DNS records + cache purge) is the largest single website
+sub-area left; check INVENTORY.md + the PHP controllers first and split
+it into 2–3 batches if needed. (The hulk/modsec/av scheduler sides stay
+with the background-jobs follow-up.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
