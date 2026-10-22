@@ -50,6 +50,7 @@ type Website struct {
 	IPv6             sql.NullString
 	ParentID         sql.NullInt64
 	LastError        string
+	AppliedAt        sql.NullString
 	BandwidthApplied bool
 	CreatedAt        string
 	UpdatedAt        string

@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **240 ☑ done+tested, 3 ◑ partial, 308 ☐** of 551.
+`server/internal/http/server.go`): **242 ☑ done+tested, 3 ◑ partial, 306 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -417,6 +417,26 @@ Route porting count (see ROUTE-MATRIX.md, verified against
 - GET+POST /notifications (read-marking scoped) · GET `/profile` (◑: 2FA + API
   tokens done; password change, token management, sessions, security-key
   management forms are a later batch)
+- Website hub page — GET `/sites/{id}` (sites.show, websites.view: the hero
+  card with live facts — server IP (SiteOverview::serverIp — the configured
+  default IPv4, else the agent's first global address), handler, site size
+  (agent sites.inspect, fail-safe), database size (live db.overview, scoped),
+  SSL label, last backup — + the "Site managing" tile grid with the feature
+  search, each tile/search entry permission-gated like SiteMenu) · GET
+  `/sites/{id}/advanced` (sites.advanced, websites.manage: the runtime card
+  (PHP-FPM process pool from php_settings, defaults like the PHP view),
+  generated Nginx config preview, recent tasks (JobTracker::recentFor),
+  files card (directory-listing toggle + permission check/repair), danger
+  zone (toggle / reload PHP / re-apply) and the delete card). Both pages'
+  failure alerts (last-error, bandwidth-blocked, agent-down, missing
+  on-disk config) and the scoped 404. SiteOverview (summary/serverIp/
+  databaseBytes) + JobTracker.RecentFor ported; every action the pages link
+  to is an already-ported route. Deliberately deferred (with their areas):
+  the hub's import banner (import batch) and the advanced IP card (IP
+  batch). Also fixed: 78 ported templates linked the non-existent
+  /assets/css/app.css — they now link /assets/css/whacp.css, the
+  stylesheet the Go server actually serves (the PHP panel's own views
+  use it too).
 
 ## Phase 2+ — Feature areas (one batch each; see ROUTE-MATRIX "Ported" column)
 Order by risk/leverage: identity+RBAC+feature-gating → dashboard → websites →
@@ -787,21 +807,27 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 53: the **website hub page** — GET /sites/{id}
+Batch 53 (this batch): the **website hub page** — GET /sites/{id}
 (SitesController::show, websites.view, sites/show.php ~191 lines) and
 GET /sites/{id}/advanced (SitesController::advanced, websites.manage,
-sites/advanced.php ~146 lines). Their dependencies, per the
-investigation: SiteOverview (120 lines / 4 methods: summary — the
-counts the hub renders, serverIp, databaseBytes — both agent-backed
-and fail-safe), ImportService (192 lines / 7 methods — show calls
-refresh + importOf, /import/undo calls undo), JobTracker::recentFor
-(PHP @84, not yet in Go), the IpService pool read (not in Go) and the
-agent's sites.inspect (the agent already has it). Split the hub from
-advanced if needed; the import/undo + /websites/{id}/import preview &
-run routes ride along with ImportService. Then the remaining ☐ under
-`/sites/{id}/…`: ftp 4, apps 2, mail 1, ip 1, dns 1 — check
-INVENTORY.md + the PHP controllers first and split large ones into
-2–3 batches. (The hulk/modsec/av scheduler sides stay with the
-background-jobs follow-up.)
+sites/advanced.php ~146 lines), with SiteOverview (summary / serverIp /
+databaseBytes) and JobTracker::recentFor. Two deliberate deferrals,
+each riding along with its area: the hub's **import banner** (the
+ImportService refresh + /import/undo + /websites/{id}/import preview &
+run routes) and the advanced **IP card** (the IpService pool read +
+POST /sites/{id}/ip).
+
+Batch 54: the **website import** — the ImportService port (192 lines /
+7 methods), the hub's import banner, GET /websites/{id}/import (preview)
++ POST /websites/{id}/import (run) + POST /sites/{id}/import/undo,
+mirroring ImportController + ImportService. Check the PHP
+import-related views and the agent's import actions first.
+
+Batch 55: the **website IP pool** — the advanced page's IP card
+(IpService pool read, admin-only feature) + POST /sites/{id}/ip
+(assign). Then the remaining ☐ under `/sites/{id}/…`: ftp 4, apps 2,
+mail 1, dns 1 — check INVENTORY.md + the PHP controllers first and
+split large ones into 2–3 batches. (The hulk/modsec/av scheduler sides
+stay with the background-jobs follow-up.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

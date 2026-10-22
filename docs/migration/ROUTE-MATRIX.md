@@ -397,7 +397,7 @@ Total routes: 551
 | GET | `/setup` | SetupController::index | setup | server.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/addons` | SitesController::addons | sites.addons | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/addons` | SitesController::storeAddon | sites.addons.store | websites.manage | yes | yes | ☑ |
-| GET | `/sites/{id}/advanced` | SitesController::advanced | sites.advanced | websites.manage | yes | yes | ☐ |
+| GET | `/sites/{id}/advanced` | SitesController::advanced | sites.advanced | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/apps/{app}` | AppsController::install | sites.apps.install | apps.install | yes | yes | ☐ |
 | GET | `/sites/{id}/apps` | AppsController::show | sites.apps | apps.install | yes | yes | ☐ |
 | POST | `/sites/{id}/backup-schedules/{schedule}/delete` | BackupsController::deleteSchedule | sites.backups.schedule_delete | backups.manage | yes | yes | ☑ |
@@ -505,7 +505,7 @@ Total routes: 551
 | POST | `/sites/{id}/workers/{worker}/toggle` | WorkersController::toggle | sites.workers.toggle | workers.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/workers` | WorkersController::show | sites.workers | workers.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/workers` | WorkersController::store | sites.workers.store | workers.manage | yes | yes | ☑ |
-| GET | `/sites/{id}` | SitesController::show | sites.show | websites.view | yes | yes | ☐ |
+| GET | `/sites/{id}` | SitesController::show | sites.show | websites.view | yes | yes | ☑ |
 | POST | `/ssl/autossl/run` | SslCenterController::autosslRun | ssl.autossl.run | ssl.manage | yes | yes | ☐ |
 | GET | `/ssl/autossl` | SslCenterController::autossl | ssl.autossl | ssl.view | yes | yes | ☐ |
 | POST | `/ssl/certificates/delete` | SslCenterController::deleteCertificate | ssl.certificates.delete | ssl.manage | yes | yes | ☐ |

@@ -1,0 +1,114 @@
+{{define "site_show"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>{{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/websites">← Websites</a></p>
+  <h1>{{.Site.Domain}}</h1>
+  <p class="text-muted">Overview</p>
+
+  {{if and (eq .Site.Status "error") .Site.LastError}}
+  <div class="alert alert-danger small"><strong>The last change failed:</strong> {{.Site.LastError}}{{if .CanManage}} · <a href="/sites/{{.Site.ID}}/advanced#danger-zone">Re-apply configuration</a>{{end}}</div>
+  {{end}}
+  {{if .Site.BandwidthBlocked}}
+  <div class="alert alert-danger small" id="bandwidth-blocked"><i class="bi bi-speedometer me-1"></i><strong>Monthly bandwidth used up.</strong> This website answers “509 Bandwidth limit exceeded” until the month ends or the hosting plan allows more.</div>
+  {{end}}
+  {{if .InspectError}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <i class="bi bi-plug fs-5" aria-hidden="true"></i>
+      <div class="fw-semibold">{{.InspectError}}</div>
+    </div>
+  </div>
+  {{else if .ConfigMissing}}
+  <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>This website's configuration is missing on the server.{{if .CanManage}} <a href="/sites/{{.Site.ID}}/advanced#danger-zone">Re-apply the configuration</a> to recreate it.{{end}}</div>
+  {{end}}
+
+  <section class="card wcp-site-hero mb-4" aria-label="Website details" data-wcp-site-summary>
+    <div class="card-body">
+      <div class="row g-4 align-items-center">
+        <div class="col-md-5 col-lg-4 d-none d-md-block">
+          <a class="wcp-site-thumb wcp-site-thumb-lg wcp-tint-{{.Tint}}{{if not .Site.Enabled}} is-off{{end}}" href="{{if .Site.HTTPS}}https{{else}}http{{end}}://{{.Site.Domain}}/" target="_blank" rel="noopener noreferrer" aria-label="Visit {{.Site.Domain}}">
+            <span class="wcp-site-initial" aria-hidden="true">{{.Initial}}</span>
+            <span class="wcp-site-badges">
+              <span class="wcp-site-badge {{if .Site.HTTPS}}is-ok{{else}}is-muted{{end}}"><i class="bi bi-{{if .Site.HTTPS}}lock-fill{{else}}unlock{{end}}" aria-hidden="true"></i> {{if .Site.HTTPS}}HTTPS{{else}}HTTP{{end}}</span>
+            </span>
+            {{if not .Site.Enabled}}<span class="wcp-site-ribbon">Disabled</span>{{end}}
+            <span class="wcp-site-visit"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>{{.Site.Domain}}</span>
+          </a>
+        </div>
+        <div class="col-md-7 col-lg-8">
+          <dl class="wcp-site-facts mb-0">
+            <div><dt><i class="bi bi-person" aria-hidden="true"></i>Site user</dt><dd><code>{{.Site.SystemUser}}</code></dd></div>
+            <div><dt><i class="bi bi-folder2" aria-hidden="true"></i>Root directory</dt><dd class="text-break"><code>{{.Site.DocumentRoot}}</code></dd></div>
+            <div><dt><i class="bi bi-geo-alt" aria-hidden="true"></i>IPv4</dt><dd>{{if .ServerIP}}{{.ServerIP}}{{else}}<span class="text-body-secondary">—</span>{{end}}</dd></div>
+            <div><dt><i class="bi bi-code-slash" aria-hidden="true"></i>Handler</dt><dd>{{.Handler}}{{if eq .Site.Kind "php"}} · PHP {{.Site.PhpVersion}}{{end}}</dd></div>
+            <div><dt><i class="bi bi-hdd" aria-hidden="true"></i>Site size</dt><dd>{{if .Disk}}{{.Disk}}{{else}}<span class="text-body-secondary">—</span>{{end}}</dd></div>
+            <div><dt><i class="bi bi-database" aria-hidden="true"></i>Database size</dt><dd>{{if .DBBytesText}}{{.DBBytesText}}{{else}}<span class="text-body-secondary">—</span>{{end}} <span class="small text-body-secondary fw-normal">({{.Summary.Databases}} database{{if ne .Summary.Databases 1}}s{{end}})</span></dd></div>
+            <div><dt><i class="bi bi-shield-lock" aria-hidden="true"></i>SSL</dt><dd>{{.SSLLabel}}</dd></div>
+            <div><dt><i class="bi bi-archive" aria-hidden="true"></i>Last backup</dt><dd>{{if .LastBackupAgo}}{{.LastBackupAgo}}{{else}}<span class="text-body-secondary">None yet</span>{{end}}</dd></div>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="manage-title">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <h2 class="h5 mb-0 me-auto" id="manage-title">Site managing</h2>
+      {{if .CanManage}}
+      <a class="btn btn-sm btn-outline-danger" href="/sites/{{.Site.ID}}/advanced#delete-website"><i class="bi bi-trash me-1" aria-hidden="true"></i>Delete the website</a>
+      <form method="post" action="/sites/{{.Site.ID}}/toggle" data-wcp-busy{{if .Site.Enabled}} data-wcp-confirm="Disable {{.Site.Domain}}? Visitors will no longer reach it. Files, databases and settings are kept."{{end}}>
+        <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="return_to" value="overview">
+        <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-power me-1" aria-hidden="true"></i>{{if .Site.Enabled}}Disable the website{{else}}Enable the website{{end}}</button>
+      </form>
+      {{end}}
+    </div>
+
+    <div class="wcp-feature-search mb-3" data-wcp-feature-search>
+      <label class="visually-hidden" for="wcp-fs">Search features</label>
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+        <input class="form-control" id="wcp-fs" type="search" placeholder="Search… e.g. create database, add email, DNS records" autocomplete="off"
+               role="combobox" aria-expanded="false" aria-controls="wcp-fs-results" aria-autocomplete="list" data-wcp-feature-input>
+      </div>
+      <div class="list-group wcp-feature-results d-none" id="wcp-fs-results" role="listbox" data-wcp-feature-results>
+        {{range $i, $e := .Search}}
+        <a class="list-group-item list-group-item-action d-none" id="wcp-fs-{{$i}}" role="option" href="{{$e.URL}}" data-wcp-feature="{{$e.Feature}}" data-wcp-feature-label="{{$e.LabelKey}}">
+          <i class="bi bi-{{$e.Icon}} me-2 text-body-secondary" aria-hidden="true"></i><span class="fw-medium">{{$e.Label}}</span>
+        </a>
+        {{end}}
+        <div class="list-group-item small text-body-secondary d-none" data-wcp-feature-none>Nothing found. Try “database”, “email” or “backup”.</div>
+      </div>
+    </div>
+
+    <div class="wcp-tiles" data-wcp-tiles>
+      {{range .Tiles}}
+      <a class="wcp-tile" href="{{.URL}}" data-wcp-tile="{{.Key}}">
+        <span class="wcp-tile-icon" aria-hidden="true"><i class="bi bi-{{.Icon}}"></i></span>
+        <span class="wcp-tile-label">{{.Label}}</span>
+        {{if .Note}}<span class="wcp-tile-note">{{.Note}}</span>{{end}}
+      </a>
+      {{end}}
+    </div>
+  </section>
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}
