@@ -84,6 +84,12 @@ type sitesAgent struct {
 	// avQuarantineItemsJSON is the av.quarantine_list reply's items array
 	// (default: empty).
 	avQuarantineItemsJSON string
+	// sslInspectJSON overrides the ssl.inspect reply (" " = the default
+	// valid 129-day Let's Encrypt certificate).
+	sslInspectJSON string
+	// sslRenewalJSON overrides the ssl.renewal_status reply ("" = certbot
+	// installed + the renewal timer active).
+	sslRenewalJSON string
 	// stats* configure the stats.status/stats.data replies. statsInstalled
 	// defaults to true; statsEnabled defaults to false.
 	statsInstalled   bool
@@ -627,6 +633,22 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"3333333333333333"}}`))
 		case "modsec.rollback":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"4444444444444444"}}`))
+		case "ssl.inspect":
+			if sa.sslInspectJSON != "" {
+				_, _ = w.Write([]byte(`{"success":true,"data":` + sa.sslInspectJSON + `}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"file":"/etc/letsencrypt/live/bob.example/fullchain.pem","key_exists":true,"subject":"CN=bob.example","common_name":"bob.example","dns_names":["bob.example","www.bob.example"],"issuer":"R3, Let's Encrypt","not_before":"2026-07-01T00:00:00Z","not_after":"2026-12-30T00:00:00Z","days_remaining":129,"expired":false,"self_signed":false,"lets_encrypt":true,"fingerprint_sha256":"ab:cd:ef","chain_length":2}}`))
+		case "ssl.renewal_status":
+			if sa.sslRenewalJSON != "" {
+				_, _ = w.Write([]byte(`{"success":true,"data":` + sa.sslRenewalJSON + `}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"certbot_installed":true,"timer_active":true,"method":"certbot.timer","deploy_hook":true,"can_enable":true}}`))
+		case "ssl.issue", "ssl.custom", "ssl.renew":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"cert_file":"/etc/letsencrypt/live/bob.example/fullchain.pem","key_file":"/etc/letsencrypt/live/bob.example/privkey.pem","certificate":{"common_name":"bob.example"}}}`))
+		case "ssl.delete":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"deleted":"bob.example"}}`))
 		default:
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		}

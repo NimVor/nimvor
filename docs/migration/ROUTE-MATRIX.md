@@ -473,17 +473,17 @@ Total routes: 551
 | POST | `/sites/{id}/redis/api` | RedisBrowserController::siteApi | sites.redis.api | websites.manage | yes | yes |☑ |
 | GET | `/sites/{id}/redis` | RedisBrowserController::siteBrowse | sites.redis | websites.manage | yes | yes |☑ |
 | POST | `/sites/{id}/restart-php` | SitesController::restartPhp | sites.restart_php | websites.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/security-headers` | SslController::securityHeaders | sites.security_headers | ssl.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/security-headers` | SslController::securityHeaders | sites.security_headers | ssl.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/security` | SitesController::security | sites.security | websites.view | yes | yes | ☐ |
 | GET | `/sites/{id}/settings` | SitesController::edit | sites.edit | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/settings` | SitesController::update | sites.update | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/sftp` | FtpController::sftp | sites.sftp | ftp.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/ssl/custom` | SslController::custom | sites.ssl.custom | ssl.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/ssl/disable` | SslController::disable | sites.ssl.disable | ssl.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/ssl/issue` | SslController::issue | sites.ssl.issue | ssl.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/ssl/options` | SslController::options | sites.ssl.options | ssl.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/ssl/renew` | SslController::renew | sites.ssl.renew | ssl.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/ssl` | SslController::show | sites.ssl | ssl.view | yes | yes | ☐ |
+| POST | `/sites/{id}/ssl/custom` | SslController::custom | sites.ssl.custom | ssl.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/ssl/disable` | SslController::disable | sites.ssl.disable | ssl.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/ssl/issue` | SslController::issue | sites.ssl.issue | ssl.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/ssl/options` | SslController::options | sites.ssl.options | ssl.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/ssl/renew` | SslController::renew | sites.ssl.renew | ssl.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/ssl` | SslController::show | sites.ssl | ssl.view | yes | yes | ☑ |
 | POST | `/sites/{id}/stats/enable` | StatsController::enable | sites.stats.enable | websites.manage | yes | yes |☑ |
 | POST | `/sites/{id}/stats/update` | StatsController::update | sites.stats.update | websites.manage | yes | yes |☑ |
 | GET | `/sites/{id}/stats` | StatsController::show | sites.stats | logs.view | yes | yes |☑ |

@@ -1,0 +1,161 @@
+{{define "sites_ssl"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>SSL / HTTPS · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a></p>
+  <h1>SSL / HTTPS</h1>
+  <p class="text-muted">{{.Site.Domain}}</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+
+  {{if .CertbotMissing}}
+  <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i>certbot is not installed on this server. Install the <code>certbot</code> package to use Let's Encrypt.</div>
+  {{end}}
+
+  {{if and (not .Site.HTTPS) (or (eq .Site.AutoSSL "pending") (eq .Site.AutoSSL "gave_up") (eq .Site.AutoSSL "failed"))}}
+  <div class="alert {{if eq .Site.AutoSSL "pending"}}alert-info{{else}}alert-warning{{end}} d-flex gap-2 small" role="status">
+    <i class="bi bi-{{if eq .Site.AutoSSL "pending"}}hourglass-split{{else}}exclamation-triangle{{end}}" aria-hidden="true"></i>
+    <div><strong>Automatic SSL{{if eq .Site.AutoSSL "pending"}}{{else}} stopped{{end}}:</strong> {{.Site.AutoSSLNote}}
+      {{if eq .Site.AutoSSL "pending"}} The certificate is issued automatically once the domain's name servers are this panel's or its address is this server's.{{end}}</div>
+  </div>
+  {{else if and (eq .Site.AutoSSL "done") .Site.HTTPS}}
+  <div class="small text-body-secondary mb-2"><i class="bi bi-magic me-1"></i>{{.Site.AutoSSLNote}}</div>
+  {{end}}
+
+  <div class="card mb-3" id="certificate">
+    <div class="card-body">
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <span class="wcp-feature-icon" aria-hidden="true"><i class="bi bi-{{if .Site.HTTPS}}shield-lock{{else}}shield-exclamation{{end}}"></i></span>
+        <div class="flex-grow-1 wcp-minw-0">
+          {{if not .Site.HTTPS}}
+          <div class="fw-semibold">HTTPS is not enabled</div>
+          <div class="small text-body-secondary">Visitors connect without encryption and browsers mark the site “Not secure”.</div>
+          {{else if not .Cert}}
+          <div class="fw-semibold">HTTPS is enabled, but the certificate could not be read</div>
+          <div class="small text-body-secondary">Issue or upload a certificate again below.</div>
+          {{else}}
+          <div class="fw-semibold">
+            {{if eq .Cert.State "valid"}}<span class="wcp-state is-ok">Secure</span>{{else if eq .Cert.State "expiring"}}<span class="wcp-state is-warn">Expires soon</span>{{else}}<span class="wcp-state is-error">{{if eq .Cert.State "expired"}}Expired{{else}}Certificate problem{{end}}</span>{{end}}
+            <span class="fw-normal text-body-secondary small ms-2">{{if eq .Site.SSLMode "letsencrypt"}}Let's Encrypt{{else}}Uploaded certificate{{end}} · expires {{.Cert.Expires}} ({{.Cert.Days}} days)</span>
+          </div>
+          <div class="small text-body-secondary">Covers {{.Cert.Covers}}</div>
+          {{end}}
+        </div>
+        {{if and .CanManage (not .Site.HTTPS)}}
+        <a class="btn btn-primary" href="#issue"><i class="bi bi-magic me-1"></i>Install free certificate</a>
+        {{else if and .CanManage (eq .Site.SSLMode "letsencrypt") .Site.HTTPS}}
+        <form method="post" action="/sites/{{.Site.ID}}/ssl/renew" data-wcp-busy>
+          <input type="hidden" name="_token" value="{{.CSRF}}">
+          <button class="btn btn-sm btn-outline-secondary"><span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span> Renew now</button>
+        </form>
+        {{end}}
+      </div>
+      {{if and .Site.HTTPS .Cert}}
+      <dl class="wcp-dl small mt-3 mb-0">
+        <dt>Issuer</dt><dd>{{.Cert.Issuer}}</dd>
+        <dt>Auto-renewal</dt>
+        <dd>
+          {{if eq .Site.SSLMode "letsencrypt"}}
+          {{if .Cert.AutoOK}}<span class="wcp-state is-ok">{{.Cert.AutoRenewal}}</span>{{else}}<span class="wcp-state is-warn">{{.Cert.AutoRenewal}}</span>{{end}}
+          {{else}}<span class="text-body-secondary">manual (uploaded certificate)</span>{{end}}
+        </dd>
+      </dl>
+      {{end}}
+    </div>
+  </div>
+
+  {{if .CanManage}}
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card mb-3" id="issue">
+        <div class="card-header"><i class="bi bi-magic me-1"></i>{{if .Site.HTTPS}}Re-issue with{{else}}Free certificate from{{end}} Let's Encrypt</div>
+        <div class="card-body">
+          <form method="post" action="/sites/{{.Site.ID}}/ssl/issue" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            <p class="small mb-2"><i class="bi bi-envelope me-1 text-body-secondary" aria-hidden="true"></i>Expiry notices from Let's Encrypt go to {{if .DefaultEmail}}<strong>{{.DefaultEmail}}</strong>{{else}}nobody (your account has no email address){{end}}, the email address of your account.</p>
+            {{if .Site.Aliases}}
+            <div class="form-check small"><input type="hidden" name="include_aliases" value="0"><input class="form-check-input" type="checkbox" name="include_aliases" value="1" id="le-al" checked><label class="form-check-label" for="le-al">Include aliases ({{range $i, $a := .Site.Aliases}}{{if $i}}, {{end}}{{$a}}{{end}})</label></div>
+            {{end}}
+            <div class="form-check small mb-3"><input class="form-check-input" type="checkbox" name="staging" value="1" id="le-st"><label class="form-check-label" for="le-st">Use the staging environment (test, untrusted certificate)</label></div>
+            <button class="btn btn-sm btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Issue certificate</button>
+          </form>
+        </div>
+      </div>
+      {{if .Site.HTTPS}}
+      <div class="card mb-3" id="https-options">
+        <div class="card-header"><i class="bi bi-sliders me-1"></i>HTTPS options</div>
+        <div class="card-body">
+          <form method="post" action="/sites/{{.Site.ID}}/ssl/options" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            <div class="form-check form-switch"><input type="hidden" name="force_https" value="0"><input class="form-check-input" type="checkbox" role="switch" name="force_https" value="1" id="o-force"{{if .Site.ForceHTTPS}} checked{{end}}><label class="form-check-label" for="o-force">Redirect HTTP to HTTPS</label></div>
+            <div class="form-check form-switch mb-3"><input type="hidden" name="hsts" value="0"><input class="form-check-input" type="checkbox" role="switch" name="hsts" value="1" id="o-hsts"{{if .Site.HSTS}} checked{{end}}><label class="form-check-label" for="o-hsts">HSTS (browsers refuse plain HTTP for one year)</label></div>
+            <button class="btn btn-sm btn-primary" type="submit">Save</button>
+          </form>
+        </div>
+      </div>
+      {{end}}
+      <div class="card mb-3" id="security-headers">
+        <div class="card-header"><i class="bi bi-shield-check me-1"></i>Security headers</div>
+        <div class="card-body">
+          <form method="post" action="/sites/{{.Site.ID}}/security-headers" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            <div class="form-check form-switch mb-2"><input type="hidden" name="security_headers" value="0"><input class="form-check-input" type="checkbox" role="switch" name="security_headers" value="1" id="o-headers"{{if .Site.SecurityHeaders}} checked{{end}}><label class="form-check-label" for="o-headers">Send recommended security headers</label></div>
+            <div class="small text-body-secondary mb-3"><code>Referrer-Policy: strict-origin-when-cross-origin</code>, <code>X-Frame-Options: SAMEORIGIN</code> (the site cannot be framed by others), <code>Permissions-Policy</code> denying camera, microphone, location, payment and USB, and over HTTPS <code>upgrade-insecure-requests</code>. <code>X-Content-Type-Options: nosniff</code> is always sent. No script policy is set, since that breaks many applications.</div>
+            <button class="btn btn-sm btn-primary" type="submit">Save</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <details class="card mb-3" id="upload-certificate">
+        <summary class="card-header"><i class="bi bi-upload me-1"></i>Upload your own certificate</summary>
+        <div class="card-body">
+          <form method="post" action="/sites/{{.Site.ID}}/ssl/custom" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            <label class="form-label small" for="c-cert">Certificate (PEM)</label>
+            <textarea class="form-control form-control-sm font-monospace mb-2" id="c-cert" name="certificate" rows="3" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+            <label class="form-label small" for="c-key">Private key (PEM)</label>
+            <textarea class="form-control form-control-sm font-monospace mb-2" id="c-key" name="private_key" rows="3" placeholder="-----BEGIN PRIVATE KEY-----" autocomplete="off"></textarea>
+            <label class="form-label small" for="c-chain">Intermediate chain (optional)</label>
+            <textarea class="form-control form-control-sm font-monospace mb-3" id="c-chain" name="chain" rows="2"></textarea>
+            <button class="btn btn-sm btn-outline-primary" type="submit">Validate and install</button>
+          </form>
+        </div>
+      </details>
+      {{if .Site.HTTPS}}
+      <div class="card wcp-danger-card">
+        <div class="card-header"><i class="bi bi-exclamation-octagon me-1"></i>Danger zone</div>
+        <div class="card-body">
+          <p class="small text-body-secondary">Turn HTTPS off. Visitors using https:// get errors until it is on again.</p>
+          <form method="post" action="/sites/{{.Site.ID}}/ssl/disable" data-wcp-confirm="Disable HTTPS for {{.Site.Domain}}? Visitors using https:// will get errors.">
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            {{if eq .Site.SSLMode "letsencrypt"}}<input type="hidden" name="delete_certificate" value="1">{{end}}
+            <button class="btn btn-sm btn-outline-danger">Disable HTTPS</button>
+          </form>
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

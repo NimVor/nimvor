@@ -27,6 +27,7 @@ const fullSelect = `SELECT w.id, w.server_id, w.owner_id, w.domain, w.system_use
 	w.https, w.force_https, w.hsts, w.ssl_mode, w.cert_file, w.key_file,
 	w.redirects, w.client_max_body_mb, w.enabled, w.status, w.last_error,
 	w.directory_listing, w.ipv4, w.ipv6, w.security_headers, w.parent_id, w.bandwidth_applied,
+	w.auto_ssl, w.auto_ssl_note,
 	w.created_at, w.updated_at,
 	u.username AS owner_name, ` + suspendedUserExpr + ` AS account_suspended, ` + bandwidthBlockedExpr + ` AS bandwidth_blocked
 	FROM websites w LEFT JOIN users u ON u.id = w.owner_id`
@@ -145,6 +146,7 @@ func scanFull(row interface{ Scan(...any) error }) (*Website, error) {
 		&https, &forceHTTPS, &hsts, &w.SSLMode, &w.CertFile, &w.KeyFile,
 		&redirects, &w.ClientMaxBodyMB, &enabled, &w.Status, &w.LastError,
 		&dirListing, &w.IPv4, &w.IPv6, &secHeaders, &w.ParentID, &bwApplied,
+		&w.AutoSSL, &w.AutoSSLNote,
 		&w.CreatedAt, &w.UpdatedAt, &w.OwnerName, &suspended, &bwBlocked); err != nil {
 		return nil, err
 	}

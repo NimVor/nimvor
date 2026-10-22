@@ -10,7 +10,7 @@ _From app/Services/FeatureService::FEATURES._
 | email | Email | Email | mail.manage | ☐ |
 | dns | DNS zone editor | Domains | dns.manage | ☐ |
 | file_manager | File manager | Files | files.manage | ☐ |
-| ssl | SSL / HTTPS | Websites | ssl.view,ssl.manage | ☐ |
+| ssl | SSL / HTTPS | Websites | ssl.view,ssl.manage | ☑ |
 | subdomains | Subdomains | Domains | sites.subdomains | ☐ |
 | addon_domains | Addon domains | Domains | sites.addons | ☐ |
 | cloudflare | Cloudflare | Websites | sites.cloudflare | ☑ |
