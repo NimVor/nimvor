@@ -43,6 +43,8 @@ type Website struct {
 	CertFile         string
 	KeyFile          string
 	SecurityHeaders  bool
+	AutoSSL          string // '' | pending | done | failed | gave_up (AutoSslService)
+	AutoSSLNote      string
 	DirectoryListing bool
 	IPv4             sql.NullString
 	IPv6             sql.NullString

@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **191 ☑ done+tested, 3 ◑ partial, 357 ☐** of 551.
+`server/internal/http/server.go`): **198 ☑ done+tested, 3 ◑ partial, 350 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -439,6 +439,21 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
+- ☑ websites: the SSL/HTTPS area (batch 38) — SslController +
+  SslService as site_ssl.go + hosting/ssl_service.go: the certificate
+  page (GET /sites/{id}/ssl, ssl.view — the state inspected from the
+  agent: valid / expiring (the ssl_warning_days threshold) / expired /
+  problem, the issuer, the covered names, the auto-renewal state, the
+  certbot-missing warning, the AutoSSL notices), the actions
+  (ssl.manage): issue a Let's Encrypt certificate (email from the
+  account, aliases, staging; 320 s agent call), upload a custom
+  certificate, renew (Let's Encrypt only), disable HTTPS (optionally
+  deleting the certificate), the HTTPS options (redirect / HSTS,
+  HSTS forced off without the redirect) and the security headers.
+  Every change goes through WebsiteService.patch (Nginx regenerated,
+  reload gated by nginx -t, previous state restored on failure) and is
+  audited; the read-only split (ssl.view vs ssl.manage) is honored in
+  the view
 - ☑ server: the server-side Cloudflare area (batch 37) —
   CloudflareController + CloudflareService as cloudflare.go: the
   administrators connect one Cloudflare API token per server
@@ -508,7 +523,7 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   get|custom_set/site/events/installs/update/install/crs_install/rollback;
   every change nginx -t checked and rolled back on the agent); the
   modsec.trim scheduler side stays with the background-jobs follow-up
-- ☐ DB browser, DB dump/import, DB server area (DbServerController), mongo, redis/memcached, DNS records, mail accounts/filters, SSL/ACME, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
+- ☐ DB browser, DB dump/import, DB server area (DbServerController), mongo, redis/memcached, DNS records, mail accounts/filters, backups, files/FTP/terminal, automation (cron/deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
 
 ## NOT YET PORTED (known follow-ups, tracked honestly)
 - WebAuthn sign-in + security-key management; IP-verification sign-in (emailed code); the HULK enforcement side (the failed-login recording into the panel's login flow + the HulkService::run scheduler loop that turns events into blocks — the panel page itself is ported); step-up password confirmation; password-age and role-requires-2FA enforcement; trusted-proxy client IP
@@ -525,10 +540,10 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: the **websites area continues** — both Cloudflare areas are done,
-so pick the next website sub-area from the remaining ☐ routes under
-`/sites/{id}/…` (PHP/runtime settings, database connections, mail
-accounts, DNS, FTP, cron, backups — check INVENTORY.md + the PHP
+Batch: the **websites area continues** — SSL/HTTPS is done, so the
+next website sub-area comes from the remaining ☐ routes under
+`/sites/{id}/…` (database connections, mail accounts, DNS, FTP, cron,
+backups, PHP/runtime settings — check INVENTORY.md + the PHP
 controllers first and split large ones into 2–3 batches). (The
 hulk/modsec/av scheduler sides stay with the background-jobs follow-up.)
 

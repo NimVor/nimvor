@@ -282,6 +282,17 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /sites/{id}/stats/enable", s.guard("sites.stats.enable", "websites.manage", s.siteStatsEnable))
 	s.mux.HandleFunc("POST /sites/{id}/stats/update", s.guard("sites.stats.update", "websites.manage", s.siteStatsUpdate))
 
+	// The website's SSL/HTTPS area (SslController: the certificate state,
+	// Let's Encrypt issue/renew, custom uploads, HTTPS options, security
+	// headers).
+	s.mux.HandleFunc("GET /sites/{id}/ssl", s.guard("sites.ssl", "ssl.view", s.siteSsl))
+	s.mux.HandleFunc("POST /sites/{id}/ssl/issue", s.guard("sites.ssl.issue", "ssl.manage", s.siteSslIssue))
+	s.mux.HandleFunc("POST /sites/{id}/ssl/custom", s.guard("sites.ssl.custom", "ssl.manage", s.siteSslCustom))
+	s.mux.HandleFunc("POST /sites/{id}/ssl/renew", s.guard("sites.ssl.renew", "ssl.manage", s.siteSslRenew))
+	s.mux.HandleFunc("POST /sites/{id}/ssl/disable", s.guard("sites.ssl.disable", "ssl.manage", s.siteSslDisable))
+	s.mux.HandleFunc("POST /sites/{id}/ssl/options", s.guard("sites.ssl.options", "ssl.manage", s.siteSslOptions))
+	s.mux.HandleFunc("POST /sites/{id}/security-headers", s.guard("sites.security_headers", "ssl.manage", s.siteSslSecurityHeaders))
+
 	// The Redis key browser (server-wide, and per-website where the prefix
 	// is the website's system user) + the website's Memcached page.
 	s.mux.HandleFunc("GET /redis/browser", s.guard("redis.browser", "redis.manage", s.redisBrowserServerPage))
