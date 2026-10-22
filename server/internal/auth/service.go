@@ -9,10 +9,10 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/mchkhawarshad/whacp/server/internal/audit"
-	"github.com/mchkhawarshad/whacp/server/internal/identity"
-	"github.com/mchkhawarshad/whacp/server/internal/session"
-	"github.com/mchkhawarshad/whacp/server/internal/twofactor"
+	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
+	"github.com/mchkhawarshahzad/whacp/server/internal/session"
+	"github.com/mchkhawarshahzad/whacp/server/internal/twofactor"
 )
 
 // Session keys. These live only in the Go panel's sealed cookie (not shared

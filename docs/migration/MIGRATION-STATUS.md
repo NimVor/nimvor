@@ -220,7 +220,35 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   security.fix audit (server / the check, the details), the admin +
   FIXES-catalog gates (database_network has no undo), the redirect to the
   not-yet-ported /security overview; return_to now accepts
-  /security/fail2ban too)
+  /security/fail2ban too) ·
+  GET `/security/ssh` + POST `/security/ssh` + POST
+  `/security/ssh/keys` + POST `/security/ssh/keys/generate` + POST
+  `/security/ssh/keys/remove` (SecurityController's SSH area — the SSH
+  server settings page: the status bar (port, the root-login label with the
+  without-password→prohibit-password mapping, passwords on/off, the keys
+  installed — "none" warns before turning passwords off), the settings form
+  (port, the root-login select, the password-logins and X11 switches, max
+  attempts clamped 1..10, the effective values prefilled; ssh.configure 90 s
+  guarded — the same "Applied… confirm within 2 minutes" / "Nothing to
+  change." flashes, the ssh.configure audit, the pending banner's Keep/Undo)
+  and the administrator SSH keys table (ssh.keys — the key rows (type/bits/
+  comment/fingerprint, the restricted-options badge), the "other lines kept"
+  note, the per-row Remove); the key endpoints are security.manage + the
+  role-name admin gate ("Only administrators manage the server's SSH keys."
+  for the others): add an existing public key (ssh.key_add 60 s, the trimmed
+  key, the fingerprint flash, the ssh.key_add audit), remove by fingerprint
+  (ssh.key_remove 60 s, the ssh.key_remove audit), generate (the RSA 4096
+  key pair made in the panel — the passphrase rules (match, 8..1024), the
+  sanitized comment (default user@whacp), the public key in the ssh-rsa wire
+  format allowed via ssh.key_add, the ssh.key_generate audit with the
+  passphrase flag; the private key is shown one time on the rendered (not
+  redirected) page — download link + PEM textarea + PuTTY help + the
+  connection command with the effective port, Cache-Control no-store +
+  Pragma no-cache, the file name from the sanitized account + server name);
+  agent errors flash the redirect; return_to now accepts /security/ssh too) —
+  also repaired 47 import paths in 18 files that used the module path
+  `mchkhawarshad/` instead of `mchkhawarshahzad/` (go.mod's path) — with CI
+  down, the Go module had never compiled since go.mod landed
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -294,18 +322,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: continue the **security area** — SecurityController's
-**SSH area** (GET `/security/ssh` (security.ssh, security.view) +
-POST `/security/ssh` (security.ssh.configure) + the key endpoints
-POST `/security/ssh/keys` (add, admin-only guard) + POST
-`/security/ssh/keys/generate` (the once-shown private key page,
-no-store headers) + POST `/security/ssh/keys/delete`, agent
-ssh.status/ssh.configure/ssh.keys/ssh.key_add/ssh.key_remove —
-the cPHulk whitelist of the firewall allow-me can land here or in
-the Hardening batch), then the overview GET `/security`
-(SecurityController::index — the checks with the fix/undo actions
-and the tab layout), then HardeningController (compilers/egress/
-forkbomb/…) and SecurityChecksController (advisories).
+Batch: continue the **security area** — the SecurityController
+**overview** GET `/security` (SecurityController::index — the
+checks with the fix/undo actions landing on the ported
+POST /security/fix, and the tab layout; the cPHulk whitelist of
+the firewall allow-me can land here or in the Hardening batch),
+then HardeningController (compilers/egress/forkbomb/…) and
+SecurityChecksController (advisories).
 in small batches. Check INVENTORY.md + the PHP controllers before
 starting.
 

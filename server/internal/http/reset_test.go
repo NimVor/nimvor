@@ -11,11 +11,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshad/whacp/server/internal/auth"
-	"github.com/mchkhawarshad/whacp/server/internal/database"
-	"github.com/mchkhawarshad/whacp/server/internal/identity"
-	"github.com/mchkhawarshad/whacp/server/internal/security"
-	"github.com/mchkhawarshad/whacp/server/internal/settings"
+	"github.com/mchkhawarshahzad/whacp/server/internal/auth"
+	"github.com/mchkhawarshahzad/whacp/server/internal/database"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
+	"github.com/mchkhawarshahzad/whacp/server/internal/security"
+	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 )
 
 // resetMail records what the reset service asked it to send.

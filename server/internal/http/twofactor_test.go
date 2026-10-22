@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshad/whacp/server/internal/crypto"
-	"github.com/mchkhawarshad/whacp/server/internal/twofactor"
+	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
+	"github.com/mchkhawarshahzad/whacp/server/internal/twofactor"
 )
 
 // freshCode computes a valid TOTP for [secret] on the current time step.

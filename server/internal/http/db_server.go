@@ -25,7 +25,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
-	"github.com/mchkhawarshad/whacp/server/internal/session"
+	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
 const dbServerPage = "/databases/server"

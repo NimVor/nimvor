@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshad/whacp/server/internal/crypto"
+	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
 )
 
 // Period is the TOTP time step in seconds (RFC 6238 default).

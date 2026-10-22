@@ -6,12 +6,12 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/mchkhawarshad/whacp/server/internal/audit"
-	"github.com/mchkhawarshad/whacp/server/internal/crypto"
-	"github.com/mchkhawarshad/whacp/server/internal/database"
-	"github.com/mchkhawarshad/whacp/server/internal/identity"
-	"github.com/mchkhawarshad/whacp/server/internal/session"
-	"github.com/mchkhawarshad/whacp/server/internal/twofactor"
+	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
+	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
+	"github.com/mchkhawarshahzad/whacp/server/internal/database"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
+	"github.com/mchkhawarshahzad/whacp/server/internal/session"
+	"github.com/mchkhawarshahzad/whacp/server/internal/twofactor"
 )
 
 // A known PHP-generated argon2id hash of "correct horse battery staple".

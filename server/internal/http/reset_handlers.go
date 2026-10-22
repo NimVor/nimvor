@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mchkhawarshad/whacp/server/internal/session"
+	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
 // resetTokenPattern mirrors PasswordReset's token shape (the controller uses

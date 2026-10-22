@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/mchkhawarshad/whacp/server/internal/database"
-	"github.com/mchkhawarshad/whacp/server/internal/settings"
+	"github.com/mchkhawarshahzad/whacp/server/internal/database"
+	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 )
 
 // Strength vectors computed from PasswordPolicy::strength:

@@ -25,8 +25,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshad/whacp/server/internal/crypto"
-	"github.com/mchkhawarshad/whacp/server/internal/settings"
+	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
+	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 )
 
 const (
