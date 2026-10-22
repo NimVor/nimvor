@@ -427,11 +427,11 @@ Total routes: 551
 | GET | `/sites/{id}/disk-usage` | DiskUsageController::show | sites.disk | files.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/disk-usage` | DiskUsageController::scan | sites.disk.scan | files.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/dns` | DnsController::site | sites.dns | dns.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/files/api` | FilesController::api | sites.files.api | files.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/files/download` | FilesController::download | sites.files.download | files.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/files/edit` | FilesController::edit | sites.files.edit | files.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/files/upload` | FilesController::upload | sites.files.upload | files.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/files` | FilesController::show | sites.files | files.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/files/api` | FilesController::api | sites.files.api | files.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/files/download` | FilesController::download | sites.files.download | files.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/files/edit` | FilesController::edit | sites.files.edit | files.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/files/upload` | FilesController::upload | sites.files.upload | files.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/files` | FilesController::show | sites.files | files.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/firewall` | ModSecurityController::site | sites.firewall | websites.view | yes | yes | ☐ |
 | POST | `/sites/{id}/firewall` | ModSecurityController::saveSiteMode | sites.firewall.update | websites.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/ftp/accounts/delete` | FtpController::deleteAccount | sites.ftp.delete | ftp.manage | yes | yes | ☐ |

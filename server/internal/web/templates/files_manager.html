@@ -1,0 +1,151 @@
+{{define "files_manager"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>File manager · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a class="btn btn-sm btn-outline-secondary" href="/sites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
+  <h1>File manager</h1>
+  <p class="actions">
+    <label class="form-check form-switch mb-0 small">
+      <input class="form-check-input" type="checkbox" id="fm-hidden" data-fm-hidden>
+      <span class="form-check-label" for="fm-hidden">Show hidden files</span>
+    </label>
+  </p>
+  <!-- The DOM and data attributes drive the reused /assets/js/filemanager.js;
+       every operation runs in the agent, confined to the website root. -->
+  <div class="wcp-fm" id="wcp-fm"
+       data-api="/sites/{{.Site.ID}}/files/api"
+       data-upload="/sites/{{.Site.ID}}/files/upload"
+       data-download="/sites/{{.Site.ID}}/files/download"
+       data-edit="/sites/{{.Site.ID}}/files/edit"
+       data-start="{{.Start}}" data-site="{{.Site.Domain}}">
+
+    <div class="wcp-fm-toolbar" role="toolbar" aria-label="File actions">
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="newfile"><span>File</span></button>
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="newfolder"><span>Folder</span></button>
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="copy" data-fm-needs="1+"><span>Copy</span></button>
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="move" data-fm-needs="1+"><span>Move</span></button>
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="upload"><span>Upload</span></button>
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="download" data-fm-needs="file"><span>Download</span></button>
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="delete" data-fm-needs="1+"><span>Delete</span></button>
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="rename" data-fm-needs="1"><span>Rename</span></button>
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="edit" data-fm-needs="file"><span>Edit</span></button>
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="perms" data-fm-needs="1+"><span>Permissions</span></button>
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="extract" data-fm-needs="archive"><span>Extract</span></button>
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="compress" data-fm-needs="1+"><span>Compress</span></button>
+      <button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="trash"><span>Trash</span></button>
+      <div class="wcp-fm-search ms-auto">
+        <form class="input-group input-group-sm" data-fm-search-form role="search">
+          <input class="form-control" type="search" placeholder="Search names…" data-fm-search aria-label="Search file names">
+          <button class="btn btn-outline-secondary" type="submit" aria-label="Search">Search</button>
+        </form>
+      </div>
+      <input type="file" multiple hidden data-fm-upload-input>
+    </div>
+
+    <div class="wcp-fm-body">
+      <aside class="wcp-fm-tree" aria-label="Folders">
+        <div class="wcp-fm-tree-head">
+          <button type="button" class="btn btn-sm btn-link p-0" data-fm-cmd="home">{{.Site.Domain}}</button>
+          <button type="button" class="btn btn-sm btn-link p-0 ms-auto" data-fm-cmd="collapse" title="Collapse all" aria-label="Collapse all">Collapse all</button>
+        </div>
+        <ul class="wcp-fm-tree-list" role="tree" data-fm-tree></ul>
+      </aside>
+
+      <section class="wcp-fm-pane" aria-label="Folder contents">
+        <div class="wcp-fm-nav">
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-secondary" data-fm-cmd="back" title="Back" aria-label="Back">Back</button>
+            <button type="button" class="btn btn-outline-secondary" data-fm-cmd="forward" title="Forward" aria-label="Forward">Forward</button>
+            <button type="button" class="btn btn-outline-secondary" data-fm-cmd="up" title="Up one level" aria-label="Up one level">Up</button>
+            <button type="button" class="btn btn-outline-secondary" data-fm-cmd="reload" title="Reload" aria-label="Reload">Reload</button>
+          </div>
+          <form class="input-group input-group-sm flex-grow-1" data-fm-path-form>
+            <span class="input-group-text font-monospace">/</span>
+            <input class="form-control font-monospace" data-fm-path aria-label="Current folder" spellcheck="false">
+            <button class="btn btn-outline-secondary" type="submit">Go</button>
+          </form>
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-secondary" data-fm-cmd="selectall">Select all</button>
+            <button type="button" class="btn btn-outline-secondary" data-fm-cmd="selectnone">Unselect</button>
+          </div>
+        </div>
+        <div class="wcp-fm-banner d-none" data-fm-banner></div>
+        <div class="wcp-fm-list" data-fm-drop tabindex="0">
+          <table class="table table-sm table-hover align-middle mb-0 wcp-fm-table">
+            <thead>
+            <tr>
+              <th class="wcp-fm-check"><input class="form-check-input" type="checkbox" data-fm-all aria-label="Select all"></th>
+              <th data-fm-sort="name" class="w-50">Name</th>
+              <th data-fm-sort="size" class="text-end">Size</th>
+              <th data-fm-sort="mtime" class="wcp-fm-optional">Last modified</th>
+              <th data-fm-sort="type" class="wcp-fm-optional">Type</th>
+              <th data-fm-sort="mode" class="wcp-fm-optional">Permissions</th>
+            </tr>
+            </thead>
+            <tbody data-fm-rows><tr><td colspan="6" class="text-body-secondary p-3">Loading…</td></tr></tbody>
+          </table>
+          <div class="wcp-fm-dropzone" aria-hidden="true"><div>Drop files or folders to upload here</div></div>
+        </div>
+        <div class="wcp-fm-uploads d-none" data-fm-uploads>
+          <div class="d-flex align-items-center mb-1"><strong class="small me-auto">Uploads</strong><button type="button" class="btn btn-sm btn-link p-0" data-fm-cmd="clearuploads">Clear finished</button></div>
+          <ul class="list-unstyled mb-0 small" data-fm-upload-list></ul>
+        </div>
+        <footer class="wcp-fm-status small" data-fm-status aria-live="polite"></footer>
+      </section>
+    </div>
+    <ul class="dropdown-menu wcp-fm-menu" data-fm-menu role="menu"></ul>
+  </div>
+
+  <!-- The JS dialogs (filemanager.js fills them in; the bootstrap modal UI
+       rides with the Go shell work, the flow itself is plain HTML). -->
+  <div class="modal fade" id="fm-dialog" tabindex="-1" aria-labelledby="fm-dialog-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" data-fm-dialog-form novalidate>
+        <div class="modal-header"><h2 class="modal-title h6" id="fm-dialog-title"></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body" data-fm-dialog-body></div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" data-fm-dialog-ok>OK</button></div>
+      </form>
+    </div>
+  </div>
+  <div class="modal fade" id="fm-trash" tabindex="-1" aria-labelledby="fm-trash-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header"><h2 class="modal-title h6" id="fm-trash-title">Trash</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body p-0">
+          <p class="small text-body-secondary px-3 pt-3 mb-2">Deleted files and folders stay here until you delete them permanently or empty the trash{{if gt .Retention 0}}; after {{.Retention}} days they are deleted automatically{{end}}. They still count towards the disk space.</p>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead><tr><th class="wcp-fm-check"><input class="form-check-input" type="checkbox" data-fm-trash-all aria-label="Select all"></th><th>Name</th><th>Was in</th><th class="text-end">Size</th><th>Deleted</th></tr></thead>
+              <tbody data-fm-trash-rows></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-outline-danger me-auto" data-fm-trash-empty>Empty trash</button>
+          <button type="button" class="btn btn-sm btn-outline-danger" data-fm-trash-delete disabled>Delete permanently</button>
+          <button type="button" class="btn btn-sm btn-primary" data-fm-trash-restore disabled>Restore</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/assets/js/whacp.js"></script>
+  <script src="/assets/js/filemanager.js" defer></script>
+</main>
+</body>
+</html>{{end}}

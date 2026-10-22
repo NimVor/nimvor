@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **80 ☑ done+tested, 3 ◑ partial, 468 ☐** of 551.
+`server/internal/http/server.go`): **85 ☑ done+tested, 3 ◑ partial, 463 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -112,7 +112,22 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   (the MySQL/MariaDB log sources, the reused logs.js UI); everything is
   all-scope (a 403 page otherwise) and the changes are audited as
   `database.server_settings` / `database.server_restart` /
-  `database.server_flush` / `database.kill` against the database server)
+  `database.server_flush` / `database.kill` against the database server) ·
+  GET `/sites/{id}/files` + GET `/sites/{id}/files/edit` + POST
+  `/sites/{id}/files/api` + POST `/sites/{id}/files/upload` + GET
+  `/sites/{id}/files/download` (FilesController — the website file
+  manager: the page shell renders the reused filemanager.js /
+  fileeditor.js (tree, toolbar, list, search, the JS dialogs); the
+  operation endpoint dispatches the 15 `files.*` ops (list/read/search/
+  write/mkdir/rename/copy/delete/chmod/compress/extract + the trash) to
+  the agent with a strict field whitelist, tracks the compress/extract
+  agent jobs for the /jobs viewer, and audits the changing ops as
+  `files.<op>` against the website (path / from → to → dest, paths and
+  ids cut to 20, permanent for deletes); upload is chunked multipart
+  (final chunk audited with the size) and download streams the agent's
+  base64 chunks; all confinement is enforced by the agent's os.Root; the
+  AV scan of finished uploads/extracts and the bootstrap modal UI ride
+  with the Go shell work)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -186,13 +201,16 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-The `/databases` area is down to two API routes (GET/POST
-`/api/v1/databases`, api.databases / api.databases.create) — finish it
-with the API batch when the rest of the `/api/v1` area is ported, or
-move on to the next area per the plan. Per the matrix the next
-substantial area is the **files area** (`FilesController`: the site file
-manager — list/download/rename/delete + the upload and import-upload
-variants), or the **security area** (60 routes). Check INVENTORY.md for
-the FilesController route set before starting.
+Batch: the remaining files-area pages — **disk usage** (DiskUsageController:
+GET `/sites/{id}/disk-usage` + POST `/sites/{id}/disk-usage` scan,
+files.manage: the per-site disk usage with a rescan) and the **terminal
+area** (TerminalController: GET `/sites/{id}/terminal` + POST
+`/sites/{id}/terminal/open` + POST `/terminal/unlock` for site terminals
+(files.manage), plus the server-wide GET `/terminal` + POST
+`/terminal/root/open` + POST `/terminal/sessions/{id}/close`,
+security.manage). The terminal routes need the web terminal transport —
+check the PHP TerminalController + the agent's terminal actions for the
+contract (it may need a WebSocket/PTY bridge in the Go server). Check
+INVENTORY.md for both controllers before starting.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
