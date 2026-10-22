@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **221 ☑ done+tested, 3 ◑ partial, 327 ☐** of 551.
+`server/internal/http/server.go`): **225 ☑ done+tested, 3 ◑ partial, 323 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -439,6 +439,19 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   preview, convert, undo + POST `/sites/{id}/convert`, users.manage, full
   rollback on agent failure); the PHP "Advanced" consolidated view is shown
   inline on the Go site page instead (its last-error box is now rendered)
+- ☑ websites: the WordPress toolkit, list + scan (batch 43) —
+  WordPressController's index / scanAll / siteList / scanSite as
+  site_wordpress.go + the core of hosting/wordpress_service.go: the
+  all-installations list (GET /wordpress — the outdated / issues filters,
+  the per-user visibility split), the per-website list
+  (GET /sites/{id}/wordpress — a single installation is opened directly),
+  and the two scans (the agent's reply stored per website — the
+  installation recorded under the website whose document root holds it,
+  the stale rows of the scanned websites replaced, a failed scan keeps
+  its rows and reports the not-scanned websites). The service keeps the
+  PHP's scan/installs/install/base-url semantics + a version_compare
+  stand-in; the overview, management, one-click sign-in and the toolkit
+  tools follow in the next batches
 - ☑ websites: the site MongoDB database browser (batch 42) —
   SiteMongoController's browser / browse / export as
   site_mongo_browser.go + the browser half of hosting/site_mongo_service.go:

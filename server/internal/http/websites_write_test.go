@@ -42,6 +42,8 @@ type sitesAgent struct {
 	termKillClosed int
 	// secPending is the security.pending reply's pending object ("" = none).
 	secPending string
+	// wpScanReply overrides the wordpress.scan reply ("" = the default).
+	wpScanReply string
 	// shellSetEffective overrides the shell.set reply's effective mode
 	// ("" = the requested mode, i.e. it takes effect immediately).
 	shellSetEffective string
@@ -759,6 +761,12 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"count":2,"size":1234}}`))
 		case "mongo.index_create":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"name":"idx_1"}}`))
+		case "wordpress.scan":
+			res := sa.wpScanReply
+			if res == "" {
+				res = `{"installs":[{"domain":"bob.example","path":"","version":"6.7.1","db_name":"u_bob_wp","db_host":"localhost","table_prefix":"wp_","debug":true,"file_edit_disabled":false,"config_mode":"0644","maintenance":false}],"errors":[],"latest":"6.8"}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + res + `}`))
 		case "cron.log":
 			content := sa.cronLogContent
 			if content == "" {
