@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **65 ☑ done+tested, 3 ◑ partial, 483 ☐** of 551.
+`server/internal/http/server.go`): **67 ☑ done+tested, 3 ◑ partial, 481 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -72,7 +72,13 @@ Route porting count (see ROUTE-MATRIX.md, verified against
   same page scoped to one website: website resolved under tenant scope first
   (foreign id → 404), databases listed for the site only, the create form pins
   website_id, and every operation's return_to points back to the site page;
-  the databases store/drop redirects honor the return_to whitelist too)
+  the databases store/drop redirects honor the return_to whitelist too) ·
+  POST /databases/{id}/dump + POST /databases/{id}/import (job-based: the
+  agent job id is tracked in agent_jobs — kind "Dump <name>" / "Import into
+  <name>", target database, starter user — and flashed once; import takes a
+  .sql/.sql.gz path inside the website folder, refuses "..", ≤255 chars, and
+  removes only panel-named tmp/whacp-import-<16hex> uploads. JobTracker's
+  poll/settle/notify + the jobs log page (GET /jobs/{id}) are the follow-up)
 - GET+POST `/websites/new` (create; plan-limit + feature-gate + under-others +
   system-user takeover rules; agent apply with new_user; row rolled back on
   agent failure) · GET+POST `/sites/{id}/settings` (update, restore-on-failure)
@@ -146,17 +152,12 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch: database dump + import (DatabasesController::dump / ::import,
-DATABASES_MANAGE) — both job-based via JobTracker (the Go port still lacks
-job tracking: a jobs table/service + the "job started" flash + the jobs
-listing to display them). Service: DatabaseService::dump (`db.dump`,
-audits database.dump with the file) and importFromSite (path validation
-`.sql`/`.sql.gz`, no `..`, ≤255; the `tmp/whacp-import-<16hex>.sql(.gz)`
-upload is removed after; `db.import_site` with remove_after; audits
-database.import). Routes: POST `/databases/{id}/dump` (databases.dump),
-POST `/databases/{id}/import` (databases.import — only a database of one of
-the actor's websites; the upload variant needs the files.upload route, so
-the folder-path form lands first and the upload branch is deferred with
-the files area).
+Batch: jobs log page (JobsController::show) — GET `/jobs/{id}`: the page a
+started job points at. JobTracker read/poll path (find, visibleTo — own +
+reseller-customer + website-scoped visibility; poll via `jobs.log` with
+offset, status update, settle-once + notification on finish — the
+notification part defers with the notifications batch), plus the log
+rendering (the PHP job_modal partial's server side). The agent's `jobs.log`
+/ `jobs.get` actions are already implemented.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

@@ -161,6 +161,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /databases", s.guard("", "databases.view", s.databasesIndex))
 	s.mux.HandleFunc("POST /databases", s.guard("", "databases.manage", s.databasesStore))
 	s.mux.HandleFunc("POST /databases/{id}/drop", s.guard("", "databases.manage", s.databasesDrop))
+	s.mux.HandleFunc("POST /databases/{id}/dump", s.guard("", "databases.manage", s.databasesDump))
+	s.mux.HandleFunc("POST /databases/{id}/import", s.guard("", "databases.manage", s.databasesImport))
 	s.mux.HandleFunc("POST /databases/{id}/grant", s.guard("", "databases.manage", s.databasesGrant))
 	// Database users (all databases.manage; the mysql feature withholds the
 	// permission when the plan disables mysql, same as the /databases routes).
