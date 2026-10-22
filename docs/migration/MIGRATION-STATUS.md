@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **229 ☑ done+tested, 3 ◑ partial, 319 ☐** of 551.
+`server/internal/http/server.go`): **230 ☑ done+tested, 3 ◑ partial, 318 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -475,6 +475,19 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   (GET …/logs — wordpress.manage op debug_log, newest first). The
   toolkit's write side (manage + tools, batch 45) completes the page's
   forms
+- ☑ websites: the WordPress management operations (manage) (batch 45)
+  — WordPressController::manage + WordPressService::manage as
+  site_wordpress.go (wpManage) + hosting/wordpress_service.go (Manage):
+  POST /sites/{id}/wordpress/{wp}/manage (websites.manage) runs the
+  19 operations (the OPS table's labels) — the three updates start as
+  tracked agent jobs (JobTracker + the job flash + the "started in the
+  background" notice on the overview), verify_core flashes its
+  differing-file list for the overview's verification panel (an empty
+  list is the all-matches state), and the rest finish on the spot with
+  their "done for" message; the items are filtered to the valid, unique
+  names, the suspended account is refused, the unknown operation and
+  the invalid automatic-updates value are user-facing errors, and
+  every run is audited (wordpress.<op>)
 - ☑ websites: the site MongoDB database browser (batch 42) —
   SiteMongoController's browser / browse / export as
   site_mongo_browser.go + the browser half of hosting/site_mongo_service.go:
