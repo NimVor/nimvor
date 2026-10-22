@@ -133,8 +133,8 @@ func sitesEnv(t *testing.T, isolation, failAgent bool) (http.Handler, *http.Cook
 	exec(`INSERT INTO roles (id,name,label,scope,created_at) VALUES
 		(2,'customer','Customer','own',''),(5,'viewer','Viewer','own','')`)
 	exec(`INSERT INTO permissions (id,name,label,grp) VALUES
-		(1,'websites.view','v','web'),(2,'websites.manage','m','web'),(3,'databases.view','dv','db')`)
-	exec(`INSERT INTO role_permissions (role_id,permission_id) VALUES (2,1),(2,2),(2,3),(5,1)`)
+		(1,'websites.view','v','web'),(2,'websites.manage','m','web'),(3,'databases.view','dv','db'),(4,'workers.manage','wm','auto')`)
+	exec(`INSERT INTO role_permissions (role_id,permission_id) VALUES (2,1),(2,2),(2,3),(2,4),(5,1)`)
 	exec(`INSERT INTO plans (id,name,max_websites,max_subdomains,max_addon_domains,max_parked_domains,created_at,updated_at)
 		VALUES (1,'Basic',5,3,5,10,'','')`)
 	exec(`INSERT INTO users (id,username,email,display_name,password_hash,role_id,is_active,password_changed_at,created_at,updated_at,plan_id)

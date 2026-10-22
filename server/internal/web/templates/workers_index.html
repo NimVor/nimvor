@@ -1,0 +1,45 @@
+{{define "workers_index"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workers · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Workers</h1>
+  <p class="text-muted">Long-running processes of all websites.</p>
+  {{if .Workers}}
+  <table class="data-table">
+    <thead><tr><th>Worker</th><th>Website</th><th>Command</th><th>State</th></tr></thead>
+    <tbody>
+    {{range .Workers}}
+      <tr>
+        <td>{{.Name}}<div class="small text-muted"><code>{{.Unit}}</code></div></td>
+        <td><a href="/sites/{{.WebsiteID}}/workers">{{.Domain}}</a></td>
+        <td><code class="font-monospace">{{.Command}}</code></td>
+        <td>
+          {{if .StateText}}<span class="{{.StateClass}}">{{.StateText}}</span>
+          {{else}}<span class="small text-muted">unknown</span>{{end}}
+          {{if .StateDetail}}<div class="small text-muted">{{.StateDetail}}</div>{{end}}
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="text-muted">No workers yet. Open a website and use its <strong>Workers</strong> tab to add one.</p>
+  {{end}}
+</main>
+</body>
+</html>{{end}}

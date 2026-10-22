@@ -556,4 +556,4 @@ Total routes: 551
 | POST | `/whacp/update` | TopbarController::updateStart | whacp.update.start | server.manage | yes | yes | ☐ |
 | POST | `/wordpress/scan` | WordPressController::scanAll | wordpress.scan | websites.manage | yes | yes | ☐ |
 | GET | `/wordpress` | WordPressController::index | wordpress | websites.view | yes | yes | ☐ |
-| GET | `/workers` | WorkersController::index | workers | workers.manage | yes | yes | ☐ |
+| GET | `/workers` | WorkersController::index | workers | workers.manage | yes | yes | ☑ |
