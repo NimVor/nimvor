@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **242 ☑ done+tested, 3 ◑ partial, 306 ☐** of 551.
+`server/internal/http/server.go`): **245 ☑ done+tested, 3 ◑ partial, 303 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -609,7 +609,41 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   retention / the AES-256 switch / the active storages' "Copy to"
   + keep-local, the panel's _schedule_form + _options) and the
   per-row remove form
-- ☑ websites: the site security + health overviews (batch 52) —
+- ☑ websites: the website import (batch 54) — the last deferral of the
+  website area: importing a discovered (non-WhaCP) website into WhaCP
+  management. hosting/discovery_service.go ports DiscoveryService +
+  DiscoverySnapshotRepository (the read-only server inventory: the agent's
+  discovery.inventory, the snapshot store with the newest-20 retention,
+  the cache TTL + invalidation setting, the for-page parsers for the
+  websites / cron jobs / one website by id). hosting/import_service.go
+  ports ImportService (7 methods): plan (the kind + PHP version from the
+  discovery record, the website service's validate with the server-wide
+  PHP profile, the Let's Encrypt certificate adopted as-is), the agent's
+  adopt.preview (120 s) / adopt.run / adopt.undo, the website_imports
+  record, and refresh (the running import's job polled on the hub:
+  succeeded -> activate + track the found database + invalidate discovery,
+  failed -> delete the new website from panel and server + truncate the
+  error to 500 chars). http/import.go ports ImportController (preview +
+  run: the plan re-renders with the field errors and old input on a
+  rejected form, a blocked preview or agent failure flashes and redirects
+  back, the confirm gate, the owner select for administrators, the job
+  tracking + "Import started" flash to the hub) and
+  SitesController::undoImport. The hub (batch 53's deferral) now runs the
+  refresh on every load: the "Importing from …" / "Imported from …" banner
+  with the Undo import action (data-wcp-confirm, the copy is deleted), the
+  failed import redirects away with the flash, and the success/job flashes
+  render. GET /websites/{id} becomes the discovered website's detail page
+  (WebsitesController::show, websites.view — the PHP route's true port;
+  the old managed stopgap is gone, its test rewritten: a numeric id is a
+  404 without leaking, a discovery id resolves for any viewer) and the
+  websites index gains the "Other websites on this server (read-only)"
+  section (the discovered sites minus the WhaCP-managed ones, the
+  per-site Details + Import links, the catch-all count, the warnings —
+  absent when the agent cannot be asked). Three routes: GET/POST
+  /websites/{id}/import + POST /sites/{id}/import/undo (import.run — the
+  customer scope lacks it, 403). The discovery pages (GET /discovery,
+  POST /discovery/run) stay ☐ with their page batch
+- - ☑ websites: the site security + health overviews (batch 52) —
   SitesController::security + ::health (both websites.view) as
   site_health.go + hosting/site_health.go (SiteHealthService): each
   page is a list of plain check results the view renders with a
@@ -807,21 +841,14 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 53 (this batch): the **website hub page** — GET /sites/{id}
-(SitesController::show, websites.view, sites/show.php ~191 lines) and
-GET /sites/{id}/advanced (SitesController::advanced, websites.manage,
-sites/advanced.php ~146 lines), with SiteOverview (summary / serverIp /
-databaseBytes) and JobTracker::recentFor. Two deliberate deferrals,
-each riding along with its area: the hub's **import banner** (the
-ImportService refresh + /import/undo + /websites/{id}/import preview &
-run routes) and the advanced **IP card** (the IpService pool read +
-POST /sites/{id}/ip).
-
-Batch 54: the **website import** — the ImportService port (192 lines /
-7 methods), the hub's import banner, GET /websites/{id}/import (preview)
-+ POST /websites/{id}/import (run) + POST /sites/{id}/import/undo,
-mirroring ImportController + ImportService. Check the PHP
-import-related views and the agent's import actions first.
+Batch 54 (this batch): the **website import** —
+hosting/discovery_service.go (DiscoveryService + the snapshot
+repository), hosting/import_service.go (ImportService, 7 methods),
+http/import.go (ImportController preview/run + SitesController::undoImport
++ WebsitesController::show + the index's other-websites section), the
+hub's import banner + refresh (batch 53's deferral), and GET /websites/{id}
+becoming the discovered website's detail page. Three routes done:
+GET/POST /websites/{id}/import + POST /sites/{id}/import/undo (import.run).
 
 Batch 55: the **website IP pool** — the advanced page's IP card
 (IpService pool read, admin-only feature) + POST /sites/{id}/ip

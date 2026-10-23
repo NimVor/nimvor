@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
 <title>{{.Site.Domain}} · WhaCP</title>
 <link rel="stylesheet" href="/assets/css/whacp.css">
 </head>
@@ -17,88 +18,131 @@
   </form>
 </header>
 <main class="container">
-  <p><a href="/websites">&larr; Websites</a></p>
+  <p><a href="/websites">← Websites</a></p>
   <h1>{{.Site.Domain}}</h1>
-  {{if and (eq .Site.Status "error") .Site.LastError}}<p class="alert alert-error"><strong>The last change failed:</strong> {{.Site.LastError}}</p>{{end}}
-  <dl class="site-meta">
-    <dt>Type</dt><dd>{{.Site.Kind}}{{if eq .AppType "nodejs"}} (Node.js app){{else if eq .AppType "python"}} (Python app){{end}}</dd>
-    <dt>Status</dt><dd>{{.Site.Status}}</dd>
-    <dt>HTTPS</dt><dd>{{if .Site.HTTPS}}Yes{{else}}No{{end}}</dd>
-    <dt>System user</dt><dd>{{.Site.SystemUser}}</dd>
-    {{if .Site.OwnerName.Valid}}<dt>Owner</dt><dd>{{.Site.OwnerName.String}}</dd>{{end}}
-  </dl>
+  <p class="text-muted">Discovered website · {{if .Site.Enabled}}enabled{{else}}not enabled{{end}} in Nginx</p>
 
-  {{if .CanManage}}
-  <p class="site-actions">
-    <a href="/sites/{{.Site.ID}}/settings">Settings</a>
-    <a href="/sites/{{.Site.ID}}/subdomains">Subdomains</a>
-    <a href="/sites/{{.Site.ID}}/addons">Addon domains</a>
-    <a href="/sites/{{.Site.ID}}/workers">Workers</a>
-    {{if eq .AppType "nodejs"}}<a href="/sites/{{.Site.ID}}/nodejs">Node.js runtime</a>
-    {{else if eq .AppType "python"}}<a href="/sites/{{.Site.ID}}/python">Python runtime</a>{{end}}
-  </p>
-  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
-  {{if .Error}}<p class="alert alert-error">{{.Error}}</p>{{end}}
-  <form method="post" action="/sites/{{.Site.ID}}/toggle" class="inline-form">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    {{if .Site.Enabled}}
-    <button type="submit">Disable website</button>
-    {{else}}
-    <button type="submit">Enable website</button>
-    {{end}}
-  </form>
+  <div class="mb-3 d-flex flex-wrap gap-2">
+    {{if .Site.Enabled}}<a class="btn btn-sm btn-outline-primary" href="{{if .Site.HTTPS}}https{{else}}http{{end}}://{{.Site.Domain}}" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i> Open</a>{{end}}
+    {{if and .CanImport (not .Site.ManagedBy)}}<a class="btn btn-sm btn-primary" href="/websites/{{.Site.ID}}/import"><i class="bi bi-box-arrow-in-down"></i> Import into WhaCP</a>{{end}}
+  </div>
 
-  <h2>Operations</h2>
-  {{if and (eq .Site.Kind "php") .Site.Enabled}}
-  <form method="post" action="/sites/{{.Site.ID}}/restart-php" class="inline-form">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <button type="submit">Reload PHP {{.Site.PhpVersion}}</button>
-  </form>
-  {{end}}
-  <form method="post" action="/sites/{{.Site.ID}}/reapply" class="inline-form">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <button type="submit">Re-apply configuration</button>
-  </form>
-  {{if ne .Site.Kind "proxy"}}
-  <form method="post" action="/sites/{{.Site.ID}}/directory-listing" class="inline-form">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <input type="hidden" name="enabled" value="{{if .Site.DirectoryListing}}0{{else}}1{{end}}">
-    <button type="submit">{{if .Site.DirectoryListing}}Turn off{{else}}Turn on{{end}} directory listing</button>
-  </form>
-  {{end}}
-  <p class="inline-form">
-    <a href="/sites/{{.Site.ID}}/permissions">Check file permissions</a>
-    <form method="post" action="/sites/{{.Site.ID}}/permissions" class="inline-form">
-      <input type="hidden" name="_token" value="{{.CSRF}}">
-      <button type="submit">Repair file permissions</button>
-    </form>
-  </p>
+  <div class="wcp-discovery-bar mb-3">
+    <span><i class="bi bi-binoculars me-1"></i>Discovered {{.DiscoveredAgo}}
+      {{if .DiscoveredAt}}<span class="text-body-secondary">({{.DiscoveredAt}} UTC)</span>{{end}}
+      · read-only snapshot, nothing on the server was changed.</span>
+  </div>
 
-  <details class="danger-zone">
-    <summary>Delete this website</summary>
-    <form method="post" action="/sites/{{.Site.ID}}/delete" class="stacked-form">
-      <input type="hidden" name="_token" value="{{.CSRF}}">
-      <label>Type the domain name to confirm: {{.Site.Domain}}
-        <input type="text" name="confirm_domain">
-      </label>
-      <label class="checkbox"><input type="checkbox" name="remove_files" value="1"> Also delete the website's files</label>
-      <label class="checkbox"><input type="checkbox" name="remove_user" value="1"> Also delete the system account (when no other website uses it)</label>
-      <button type="submit" class="danger">Delete website</button>
-    </form>
-  </details>
-  {{end}}
+  <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>
+    This website was found by read-only discovery. WhaCP has not taken over its management; its configuration is shown exactly as found.
+  </div>
 
-  <h2>Databases</h2>
-  {{if .Databases}}
-  <table class="data-table">
-    <thead><tr><th>Name</th><th>Created</th></tr></thead>
-    <tbody>
-    {{range .Databases}}<tr><td>{{.Name}}</td><td>{{.CreatedAt}}</td></tr>{{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <p class="text-muted">No databases attached to this website.</p>
-  {{end}}
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-globe2 me-1"></i>General</div>
+        <div class="card-body">
+          <dl class="wcp-dl">
+            <dt>Domain</dt><dd>{{.Site.Domain}}</dd>
+            <dt>Aliases</dt><dd>{{if .Site.Aliases}}{{range $i, $a := .Site.Aliases}}{{if $i}}, {{end}}{{$a}}{{end}}{{else}}<span class="text-body-secondary">none</span>{{end}}</dd>
+            <dt>Status</dt><dd>{{if .Site.Enabled}}<span class="badge text-bg-success">enabled</span>{{else}}<span class="badge text-bg-secondary">disabled</span>{{end}}</dd>
+            <dt>Type</dt><dd>{{.Site.Kind}}</dd>
+            <dt>Document root</dt><dd>
+              {{if .Site.DocumentRoot}}<code>{{.Site.DocumentRoot}}</code>{{if not .Site.DocumentRootExists}} <span class="badge text-bg-warning">missing</span>{{end}}{{else}}<span class="text-body-secondary">—</span>{{end}}
+            </dd>
+            {{if .Site.ProxyPass}}<dt>Proxies to</dt><dd><code>{{.Site.ProxyPass}}</code></dd>{{end}}
+            {{if .Site.Listen}}<dt>Listen</dt><dd>{{range $i, $l := .Site.Listen}}{{if $i}} · {{end}}{{$l}}{{end}}</dd>{{end}}
+            {{if .Site.ManagedBy}}<dt>Managed by</dt><dd>{{.Site.ManagedBy}} <span class="small text-body-secondary">(detected)</span></dd>{{end}}
+          </dl>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-filetype-php me-1"></i>PHP</div>
+        <div class="card-body">
+          {{if not .Site.PHP}}
+          <p class="text-body-secondary mb-0">This website does not pass requests to PHP-FPM.</p>
+          {{else}}
+          <dl class="wcp-dl">
+            <dt>Version</dt><dd>{{if .Site.PHP.Version}}{{.Site.PHP.Version}}{{else}}unknown{{end}}</dd>
+            <dt>FPM pool</dt><dd>{{if .Site.PHP.Pool}}{{.Site.PHP.Pool}}{{else}}—{{end}}</dd>
+            <dt>Pool user</dt><dd>{{if .Site.PHP.User}}{{.Site.PHP.User}}{{else}}—{{end}}</dd>
+            <dt>FastCGI</dt><dd><code>{{.Site.PHP.Listen}}</code></dd>
+          </dl>
+          {{if not .Site.PHP.Resolved}}<div class="small text-warning-emphasis"><i class="bi bi-question-circle me-1"></i>No PHP-FPM pool listens on this address; the version was inferred from the socket name.</div>{{end}}
+          {{end}}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><i class="bi bi-shield-lock me-1"></i>SSL / HTTPS</div>
+        <div class="card-body">
+          {{if not .Site.SSL}}
+          <p class="mb-0 text-body-secondary">{{if .Site.HTTPS}}HTTPS is configured, but no certificate file was referenced.{{else}}No HTTPS server block was found.{{end}}</p>
+          {{else}}
+          <dl class="wcp-dl">
+            <dt>Status</dt><dd>
+              {{if eq .SSLBadge "valid"}}<span class="badge text-bg-success">valid</span>
+              {{else if eq .SSLBadge "expiring"}}<span class="badge text-bg-warning">expiring</span>
+              {{else if eq .SSLBadge "expired"}}<span class="badge text-bg-danger">expired</span>
+              {{else if eq .SSLBadge "error"}}<span class="badge text-bg-danger">error</span>
+              {{else}}<span class="badge text-bg-secondary">{{.SSLBadge}}</span>{{end}}
+            </dd>
+            {{if not .Site.SSL.Error}}
+            <dt>Expires</dt><dd>{{.ExpiresDate}} ({{.Site.SSL.DaysRemaining}} days)</dd>
+            <dt>Issuer</dt><dd class="small">{{.Site.SSL.Issuer}}</dd>
+            <dt>Covers domain</dt><dd>{{if .Site.SSL.CoversDomain}}<span class="badge text-bg-success">yes</span>{{else}}<span class="badge text-bg-danger">no</span>{{end}}</dd>
+            <dt>Let's Encrypt</dt><dd>{{if .Site.SSL.LetsEncrypt}}yes{{else}}no{{end}}</dd>
+            {{else}}
+            <dt>Problem</dt><dd>{{.Site.SSL.Error}}</dd>
+            {{end}}
+            <dt>Certificate</dt><dd><code class="small">{{.Site.SSL.CertFile}}</code></dd>
+            <dt>HTTP → HTTPS</dt><dd>{{if .Site.HTTPSRedirect}}<span class="badge text-bg-success">yes</span>{{else}}<span class="badge text-bg-secondary">no</span>{{end}}</dd>
+          </dl>
+          {{end}}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-file-earmark-code me-1"></i>Nginx configuration files</div>
+        <ul class="list-group list-group-flush small">
+          {{range .Site.ConfigFiles}}<li class="list-group-item"><code>{{.}}</code></li>{{end}}
+        </ul>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-journal-text me-1"></i>Logs</div>
+        <ul class="list-group list-group-flush small">
+          {{if and (not .Site.AccessLogs) (not .Site.ErrorLogs)}}
+          <li class="list-group-item text-body-secondary">Uses the server-wide Nginx logs.</li>
+          {{end}}
+          {{range .Site.AccessLogs}}<li class="list-group-item"><span class="badge text-bg-light border me-1">access</span><code>{{.}}</code></li>{{end}}
+          {{range .Site.ErrorLogs}}<li class="list-group-item"><span class="badge text-bg-light border me-1">error</span><code>{{.}}</code></li>{{end}}
+        </ul>
+      </div>
+    </div>
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-clock-history me-1"></i>Related cron jobs</div>
+        {{if not .Cron}}
+        <div class="card-body text-body-secondary small">No cron jobs reference this website's directory or domain.</div>
+        {{else}}
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>Schedule</th><th>User</th><th>Command</th></tr></thead>
+            <tbody>
+            {{range .Cron}}<tr><td><code>{{.Schedule}}</code></td><td>{{.User}}</td><td><code class="small">{{.Command}}</code></td></tr>{{end}}
+            </tbody>
+          </table>
+        </div>
+        {{end}}
+      </div>
+    </div>
+  </div>
 </main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
 </body>
 </html>{{end}}

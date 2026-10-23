@@ -63,20 +63,43 @@ func dbEnv(t *testing.T, loginAs string) (http.Handler, *http.Cookie, *sql.DB) {
 }
 
 func TestWebsiteShowScopedAndForeignIs404(t *testing.T) {
-	h, cookie, _ := dbEnv(t, "custB")
-	// Own site (11) is viewable and shows its database.
-	own := get(t, h, "/websites/11", cookie)
+	h, cookie, db := dbEnv(t, "custB")
+	// The hub (/sites/{id}) stays tenant-scoped: own site (11) is viewable
+	// and shows its database.
+	own := get(t, h, "/sites/11", cookie)
 	if own.Code != http.StatusOK || !strings.Contains(own.Body.String(), "b.example") || !strings.Contains(own.Body.String(), "b_main") {
 		t.Fatalf("custB own site = %d, body missing expected content:\n%s", own.Code, own.Body.String())
 	}
 	// Another tenant's site id must be 404 (not a leak, not a 403 oracle diff —
 	// PHP returns not-found for out-of-scope ids).
-	foreign := get(t, h, "/websites/10", cookie)
+	foreign := get(t, h, "/sites/10", cookie)
 	if foreign.Code != http.StatusNotFound {
 		t.Fatalf("custB viewing custA's site = %d, want 404", foreign.Code)
 	}
 	if strings.Contains(foreign.Body.String(), "a.example") || strings.Contains(foreign.Body.String(), "a_main") {
-		t.Fatalf("TENANT LEAK on website show:\n%s", foreign.Body.String())
+		t.Fatalf("TENANT LEAK on the website hub:\n%s", foreign.Body.String())
+	}
+
+	// /websites/{id} shows a discovered website (discovery id). A managed
+	// website's numeric id is not a discovery id: 404, and the page never
+	// reveals tenant data.
+	seedDiscoverySnapshot(t, db, `{
+	  "websites":{"websites":[{"id":"abc123","domain":"old.test","aliases":[],"kind":"php","enabled":true,
+	    "document_root":"/var/www/old","document_root_exists":true,"config_files":["/etc/nginx/sites-available/old"]}],
+	    "total":1,"catch_all_vhosts":0,"warnings":[]},
+	  "cron":{"jobs":[]}
+	}`)
+	rr := get(t, h, "/websites/10", cookie)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("numeric id on the discovery page = %d, want 404", rr.Code)
+	}
+	if strings.Contains(rr.Body.String(), "a.example") || strings.Contains(rr.Body.String(), "a_main") {
+		t.Fatalf("TENANT LEAK on the discovery detail page:\n%s", rr.Body.String())
+	}
+	// The discovered website resolves for any viewer (websites.view, as in PHP).
+	rr = get(t, h, "/websites/abc123", cookie)
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "old.test") {
+		t.Fatalf("discovered website detail = %d", rr.Code)
 	}
 }
 

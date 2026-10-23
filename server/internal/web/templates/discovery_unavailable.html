@@ -1,0 +1,38 @@
+{{define "discovery_unavailable"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="{{.Back}}">← {{.BackLabel}}</a></p>
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <i class="bi bi-plug fs-5" aria-hidden="true"></i>
+      <div class="fw-semibold">{{.Error}}</div>
+    </div>
+  </div>
+  <div class="card wcp-empty">
+    <div class="card-body text-center py-5">
+      <i class="bi bi-plug display-6 text-body-secondary"></i>
+      <p class="mt-3 mb-0 text-body-secondary">This page needs the WhaCP agent. It will show data as soon as the agent is reachable.</p>
+    </div>
+  </div>
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

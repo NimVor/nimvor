@@ -1,7 +1,6 @@
 package http
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,74 +17,6 @@ import (
 // switching (session _server_id) is a later concern; for now the local server
 // (id 1) is used, matching ServerContext's default.
 func (s *Server) currentServerID(r *http.Request) int64 { return 1 }
-
-// websitesIndex lists the websites the signed-in user may see on the active
-// server, tenant-scoped. Mirrors WebsitesController::index (route "websites",
-// permission websites.view).
-func (s *Server) websitesIndex(w http.ResponseWriter, r *http.Request) {
-	user := userFrom(r.Context())
-	sites, err := hosting.NewWebsiteRepository(s.db).All(r.Context(), s.currentServerID(r), user)
-	if err != nil {
-		s.log.Error("list websites", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	sess := sessionFrom(r.Context())
-	errMsg, _ := sess.PullFlash("error")
-	okMsg, _ := sess.PullFlash("success")
-	s.render(w, "websites", map[string]any{
-		"User":      user,
-		"CSRF":      session.CSRFToken(sess),
-		"Sites":     sites,
-		"Error":     errMsg,
-		"Success":   okMsg,
-		"CanManage": s.can(r, "websites.manage"),
-	})
-}
-
-// websiteShow renders one website (scoped to the user) with its databases.
-// A website outside the user's tenant is a 404 — the id never grants access.
-// Mirrors WebsitesController::show (route "websites.show", websites.view).
-func (s *Server) websiteShow(w http.ResponseWriter, r *http.Request) {
-	user := userFrom(r.Context())
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		s.notFound(w, r)
-		return
-	}
-	serverID := s.currentServerID(r)
-	// FindFull (not Find): the page shows the app type and the directory
-	// listing state, which Find leaves unset.
-	site, err := hosting.NewWebsiteRepository(s.db).FindFull(r.Context(), serverID, id, user)
-	if errors.Is(err, sql.ErrNoRows) {
-		s.notFound(w, r)
-		return
-	}
-	if err != nil {
-		s.log.Error("find website", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	dbs, err := hosting.NewDatabaseRepository(s.db).All(r.Context(), serverID, user, &id)
-	if err != nil {
-		s.log.Error("website databases", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	sess := sessionFrom(r.Context())
-	errMsg, _ := sess.PullFlash("error")
-	okMsg, _ := sess.PullFlash("success")
-	s.render(w, "website_show", map[string]any{
-		"User":      user,
-		"CSRF":      session.CSRFToken(sess),
-		"Site":      site,
-		"AppType":   hosting.AppType(site),
-		"Databases": dbs,
-		"Error":     errMsg,
-		"Success":   okMsg,
-		"CanManage": s.can(r, "websites.manage"),
-	})
-}
 
 // databasesPageData builds the databases-page data shared by GET /databases
 // and GET /sites/{id}/databases (DatabasesController::common + the _manage

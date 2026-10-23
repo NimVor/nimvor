@@ -152,7 +152,62 @@ type sitesAgent struct {
 	// cronLogContent overrides the cron.log reply's content ("" = the
 	// fixture: loose output + three framed runs, the last still running).
 	cronLogContent string
+	// discoveryInventory overrides the discovery.inventory reply ("" = the
+	// default inventory: one discovered site + one WhaCP-managed site).
+	discoveryInventory string
+	// adoptPreviewJSON overrides the adopt.preview reply ("" = the default
+	// clean preview with one unlink step and a kept database).
+	adoptPreviewJSON string
+	// adoptRunJobID is the adopt.run reply's job id ("" = 0123456789e0a001).
+	adoptRunJobID string
+	// dbOverviewJSON overrides the db.overview reply ("" = the default
+	// a_main/b_main/legacy_shop fixture).
+	dbOverviewJSON string
 }
+
+// defaultDiscoveryInventory is the fake's discovery.inventory fixture: one
+// discovered website (old.test, PHP, Let's Encrypt certificate) that is NOT
+// managed by WhaCP and one website whose configuration lives in the WhaCP
+// location (managed.test), plus one cron job referencing the discovered
+// website's directory.
+const defaultDiscoveryInventory = `{
+  "websites": {
+    "websites": [
+      {
+        "id":"abc123","domain":"old.test","aliases":["www.old.test"],"kind":"php","enabled":true,
+        "https":true,"https_redirect":true,"document_root":"/var/www/old","document_root_exists":true,
+        "listen":["80","443 ssl"],
+        "config_files":["/etc/nginx/sites-available/old"],
+        "access_logs":["/var/log/nginx/old.access.log"],"error_logs":["/var/log/nginx/old.error.log"],
+        "php":{"version":"8.1","pool":"old","user":"old","listen":"127.0.0.1:9000","resolved":true},
+        "ssl":{"status":"valid","error":"","not_after":"2026-04-01T00:00:00Z","days_remaining":160,
+               "issuer":"Let's Encrypt","cert_file":"/etc/letsencrypt/live/old.test/fullchain.pem",
+               "key_file":"/etc/letsencrypt/live/old.test/privkey.pem","lets_encrypt":true,"covers_domain":true}
+      },
+      {
+        "id":"whacp123","domain":"managed.test","aliases":[],"kind":"static","enabled":true,
+        "document_root":"/home/whacp/managed.test/public_html","document_root_exists":true,
+        "config_files":["/home/whacp/nginx/managed.test.conf"]
+      }
+    ],
+    "total":2,"catch_all_vhosts":1,"warnings":[]
+  },
+  "cron": {"jobs":[
+    {"schedule":"0 3 * * *","user":"old","command":"php /var/www/old/cron/daily.php"}
+  ]}
+}`
+
+// defaultAdoptPreview is the fake's adopt.preview fixture: a clean preview
+// with one unlink step (the enabled symlink) and a found database.
+const defaultAdoptPreview = `{
+  "domain":"old.test","source":"/var/www/old","target":"/home/whacp/old.test/public_html","user":"u_old",
+  "files":12,"bytes":4096,"skipped_links":[],
+  "database":"oldddb","database_source":"wp-config.php",
+  "new_config":"server { # whacp }","old_config":"server { root /var/www/old; }",
+  "blockers":[],"warnings":[],
+  "steps":[{"file":"/etc/nginx/sites-available/old","action":"unlink",
+            "path":"/etc/nginx/sites-enabled/old","names":["old.test"]}]
+}`
 
 // defaultCronLogContent is the fake's cron.log fixture: one loose line
 // before the framing, a successful run, a failing run with no output and a
@@ -259,6 +314,32 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"serial":7}}`))
 		case "sites.delete":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"warnings":["The access log was kept."]}}`))
+		case "discovery.inventory":
+			sa.mu.Lock()
+			data := sa.discoveryInventory
+			sa.mu.Unlock()
+			if data == "" {
+				data = defaultDiscoveryInventory
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + data + `}`))
+		case "adopt.preview":
+			sa.mu.Lock()
+			data := sa.adoptPreviewJSON
+			sa.mu.Unlock()
+			if data == "" {
+				data = defaultAdoptPreview
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + data + `}`))
+		case "adopt.run":
+			sa.mu.Lock()
+			jobID := sa.adoptRunJobID
+			sa.mu.Unlock()
+			if jobID == "" {
+				jobID = "0123456789e0a001"
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"` + jobID + `"}}`))
+		case "adopt.undo":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
 		case "runtime.status":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"arch":"x86_64",
 				"node":[{"kind":"node","version":"20.1.0","bin":"/usr/bin/node","binary":"/usr/bin/node"},
@@ -285,7 +366,13 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 		case "jobs.log":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job":{"id":"deadbeefcafe0003","kind":"Dump a_main","target":"100","status":"succeeded","created_at":"2026-01-01T00:00:00Z"},"log":"Dump finished.\n","offset":42,"done":true}}`))
 		case "db.overview":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"version":"10.11.6-MariaDB-0ubuntu0.22.04.1","databases":[{"name":"a_main","size_bytes":10485760,"tables":12},{"name":"b_main","size_bytes":524288,"tables":3},{"name":"legacy_shop","size_bytes":2097152,"tables":5}]}}`))
+			sa.mu.Lock()
+			overview := sa.dbOverviewJSON
+			sa.mu.Unlock()
+			if overview == "" {
+				overview = `{"version":"10.11.6-MariaDB-0ubuntu0.22.04.1","databases":[{"name":"a_main","size_bytes":10485760,"tables":12},{"name":"b_main","size_bytes":524288,"tables":3},{"name":"legacy_shop","size_bytes":2097152,"tables":5}]}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + overview + `}`))
 		case "db.browse_tables":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"database":"a_main","tables":[{"name":"posts","view":false,"engine":"InnoDB","rows":120,"bytes":1048576,"collation":"utf8mb4_unicode_ci","comment":""}],"server":"10.11.6-MariaDB","charset":"utf8mb4","collation":"utf8mb4_unicode_ci"}}`))
 		case "db.browse_structure":
