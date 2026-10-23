@@ -84,9 +84,9 @@ func (r *Repository) Bool(ctx context.Context, key string, def bool) (bool, erro
 		return def, nil
 	}
 	switch strings.TrimSpace(raw) {
-	case "true":
+	case "true", "1":
 		return true, nil
-	case "false":
+	case "false", "0":
 		return false, nil
 	default:
 		return def, nil

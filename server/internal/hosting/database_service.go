@@ -2,9 +2,11 @@ package hosting
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"regexp"
 	"strings"
 	"time"
@@ -151,6 +153,123 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, serverID int64, ac
 		s.auditlog("database.create", "database", name, nil)
 	}
 	return id, nil
+}
+
+// CreateWithUser is CreateDatabase plus its dedicated user — the
+// app-installer's DatabaseService::create with create_user + store_password:
+// the database, a localhost user granted all on it (the password sealed and
+// stored), both audited. Returns the database id, the (prefixed) name, the
+// username and the plaintext password (stored sealed, shown once).
+func (s *DatabaseService) CreateWithUser(ctx context.Context, serverID int64, actor *identity.User, name, username string, websiteID *int64) (dbID int64, dbName, user, password string, err error) {
+	pfx := prefix(actor)
+	rawName := strings.ToLower(strings.TrimSpace(name))
+	name = pfx + rawName
+	rawUser := strings.ToLower(strings.TrimSpace(username))
+	if rawUser == "" {
+		rawUser = rawName[:min(16, len(rawName))]
+	}
+	username = pfx + rawUser
+	ve := &ValidationError{}
+	if !dbNameRe.MatchString(name) || reservedDBNames[name] {
+		ve.Add("name", "Use up to 64 lowercase letters, digits or underscores.")
+	} else if taken, e := s.db.NameTaken(ctx, serverID, name); e != nil {
+		return 0, "", "", "", e
+	} else if taken {
+		ve.Add("name", "A database with this name already exists.")
+	}
+	if !dbUsernameRe.MatchString(username) {
+		ve.Add("username", "Use up to 32 lowercase letters, digits or underscores (not already used).")
+	} else if taken, e := s.db.DBUserTaken(ctx, serverID, username, "localhost"); e != nil {
+		return 0, "", "", "", e
+	} else if taken {
+		ve.Add("username", "Use up to 32 lowercase letters, digits or underscores (not already used).")
+	}
+	if websiteID != nil {
+		if _, e := s.sites.Find(ctx, serverID, *websiteID, actor); e != nil {
+			ve.Add("website_id", "Choose one of your websites.")
+		}
+	}
+	if ve.Any() {
+		return 0, "", "", "", ve
+	}
+
+	var ownerID *int64
+	if IsAll(actor) {
+		if websiteID != nil {
+			if site, e := s.sites.Find(ctx, serverID, *websiteID, nil); e == nil && site.OwnerID.Valid {
+				o := site.OwnerID.Int64
+				ownerID = &o
+			}
+		}
+	} else {
+		o := actor.ID
+		ownerID = &o
+	}
+	if err := s.limits.AssertCanCreate(ctx, "databases", ownerID, 1); err != nil {
+		return 0, "", "", "", err
+	}
+
+	if _, err := s.agent.Call(ctx, "db.create", map[string]any{"name": name}); err != nil {
+		return 0, "", "", "", &UserError{
+			What: "The database could not be created on the server.",
+			Why:  err.Error(),
+			Fix:  "Check the database service is running and try again.",
+		}
+	}
+	id, err := s.db.InsertDatabase(ctx, serverID, name, websiteID, ownerID)
+	if err != nil {
+		return 0, "", "", "", err
+	}
+	if s.auditlog != nil {
+		s.auditlog("database.create", "database", name, nil)
+	}
+	password, err = cryptoPassword(24)
+	if err != nil {
+		return 0, "", "", "", err
+	}
+	if _, err := s.agent.Call(ctx, "db.user_create", map[string]any{"user": username, "host": "localhost", "password": password}); err != nil {
+		return 0, "", "", "", &UserError{
+			What: "The database was created, but its user could not be: " + err.Error(),
+			Fix:  "Create the user from the Users tab.",
+		}
+	}
+	if _, err := s.agent.Call(ctx, "db.grant", map[string]any{"user": username, "host": "localhost", "database": name, "privileges": "all"}); err != nil {
+		return 0, "", "", "", &UserError{
+			What: "The database was created, but its user could not be: " + err.Error(),
+			Fix:  "Create the user from the Users tab.",
+		}
+	}
+	enc, err := s.crypto.Encrypt([]byte(password))
+	if err != nil {
+		return 0, "", "", "", err
+	}
+	uid, err := s.db.InsertDBUser(ctx, serverID, username, "localhost", ownerID, enc)
+	if err != nil {
+		return 0, "", "", "", err
+	}
+	all := "all"
+	if err := s.db.SetDBGrant(ctx, id, uid, &all); err != nil {
+		return 0, "", "", "", err
+	}
+	if s.auditlog != nil {
+		s.auditlog("database.user_create", "database_user", username, map[string]any{"database": name, "stored": true})
+	}
+	return id, name, username, password, nil
+}
+
+// cryptoPassword is the PHP's Crypto::password: n characters from the
+// unambiguous alphabet.
+func cryptoPassword(n int) (string, error) {
+	const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_.!@#%+="
+	buf := make([]byte, n)
+	for i := range buf {
+		j, err := rand.Int(rand.Reader, big.NewInt(int64(len(alphabet))))
+		if err != nil {
+			return "", err
+		}
+		buf[i] = alphabet[j.Int64()]
+	}
+	return string(buf), nil
 }
 
 // DropDatabase deletes a database the actor may see. The typed confirm must

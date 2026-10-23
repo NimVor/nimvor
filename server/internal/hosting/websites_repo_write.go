@@ -53,6 +53,26 @@ func (r *WebsiteRepository) FindFull(ctx context.Context, serverID, id int64, u 
 	return w, nil
 }
 
+// ChildrenFull returns a website's sub-websites as full rows (the slim
+// Children select lacks php_version/root/document_root, which the
+// applications page needs to offer them as install targets).
+func (r *WebsiteRepository) ChildrenFull(ctx context.Context, serverID, parentID int64) ([]Website, error) {
+	rows, err := r.db.QueryContext(ctx, fullSelect+` WHERE w.server_id = ? AND w.parent_id = ? ORDER BY w.domain`, serverID, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Website
+	for rows.Next() {
+		w, err := scanFull(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *w)
+	}
+	return out, rows.Err()
+}
+
 // unmarshalPhpSettings decodes websites.php_settings. Keys the blob lacks are
 // filled with the form defaults, mirroring PHP's
 // $existing['php_settings'][$k] ?? $def: a legacy/empty blob ('{}') behaves

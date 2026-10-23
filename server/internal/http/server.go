@@ -169,6 +169,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /sites/{id}/ftp/accounts", s.guard("sites.ftp.save", "ftp.manage", s.siteFtpSave))
 	s.mux.HandleFunc("POST /sites/{id}/ftp/accounts/delete", s.guard("sites.ftp.delete", "ftp.manage", s.siteFtpDelete))
 	s.mux.HandleFunc("POST /sites/{id}/sftp", s.guard("sites.sftp", "ftp.manage", s.siteSftp))
+	// Batch 57 — the one-click application installer (AppsController,
+	// apps.install): the Softaculous-style catalog page + the install
+	// (onto the website or one of its subdomains).
+	s.mux.HandleFunc("GET /sites/{id}/apps", s.guard("sites.apps", "apps.install", s.siteApps))
+	s.mux.HandleFunc("POST /sites/{id}/apps/{app}", s.guard("sites.apps.install", "apps.install", s.siteAppInstall))
 	s.mux.HandleFunc("POST /terminal/unlock", s.guard("sites.terminal.unlock", "files.manage", s.terminalUnlock))
 	s.mux.HandleFunc("GET /terminal", s.guard("terminal", "security.manage", s.terminalIndex))
 	s.mux.HandleFunc("POST /terminal/root/open", s.guard("terminal.root", "security.manage", s.terminalOpenRoot))

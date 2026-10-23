@@ -398,8 +398,8 @@ Total routes: 551
 | GET | `/sites/{id}/addons` | SitesController::addons | sites.addons | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/addons` | SitesController::storeAddon | sites.addons.store | websites.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/advanced` | SitesController::advanced | sites.advanced | websites.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/apps/{app}` | AppsController::install | sites.apps.install | apps.install | yes | yes | ☐ |
-| GET | `/sites/{id}/apps` | AppsController::show | sites.apps | apps.install | yes | yes | ☐ |
+| POST | `/sites/{id}/apps/{app}` | AppsController::install | sites.apps.install | apps.install | yes | yes | ☑ |
+| GET | `/sites/{id}/apps` | AppsController::show | sites.apps | apps.install | yes | yes | ☑ |
 | POST | `/sites/{id}/backup-schedules/{schedule}/delete` | BackupsController::deleteSchedule | sites.backups.schedule_delete | backups.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/backup-schedules` | BackupsController::storeSchedule | sites.backups.schedule | backups.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/backups/{backup}/delete` | BackupsController::delete | sites.backups.delete | backups.manage | yes | yes | ☑ |
