@@ -520,6 +520,21 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /mail/admin/tools", s.guard("mail.admin.tools", "server.view", s.mailAdminTools))
 	s.mux.HandleFunc("POST /mail/admin/tools/repair", s.guard("mail.admin.repair", "server.manage", s.mailAdminRepair))
 	s.mux.HandleFunc("GET /mail/admin/reports", s.guard("mail.admin.reports", "server.view", s.mailAdminReports))
+	// Mail administration continued (MailGreylistController): the
+	// settings + trusted hosts + trusted mail providers, and the triplet
+	// report with the cleanup actions.
+	s.mux.HandleFunc("GET /mail/admin/greylisting", s.guard("mail.greylist", "server.view", s.mailGreylistIndex))
+	s.mux.HandleFunc("POST /mail/admin/greylisting", s.guard("mail.greylist.save", "server.manage", s.mailGreylistSave))
+	s.mux.HandleFunc("POST /mail/admin/greylisting/trusted", s.guard("mail.greylist.trusted", "server.manage", s.mailGreylistSaveTrusted))
+	s.mux.HandleFunc("POST /mail/admin/greylisting/trusted/{n}/delete", s.guard("mail.greylist.trusted.delete", "server.manage", s.mailGreylistDeleteTrusted))
+	s.mux.HandleFunc("POST /mail/admin/greylisting/providers", s.guard("mail.greylist.providers", "server.manage", s.mailGreylistSaveProviders))
+	s.mux.HandleFunc("POST /mail/admin/greylisting/providers/update", s.guard("mail.greylist.providers.update", "server.manage", s.mailGreylistUpdateProviders))
+	s.mux.HandleFunc("GET /mail/admin/greylisting/report", s.guard("mail.greylist.report", "server.view", s.mailGreylistReport))
+	s.mux.HandleFunc("POST /mail/admin/greylisting/report", s.guard("mail.greylist.cleanup", "server.manage", s.mailGreylistCleanup))
+	// Outgoing mail limits (MailRateController).
+	s.mux.HandleFunc("GET /mail/admin/sending-limits", s.guard("mail.limits", "server.view", s.mailRateIndex))
+	s.mux.HandleFunc("POST /mail/admin/sending-limits", s.guard("mail.limits.save", "server.manage", s.mailRateSave))
+	s.mux.HandleFunc("POST /mail/admin/sending-limits/reset", s.guard("mail.limits.reset", "server.manage", s.mailRateReset))
 	s.mux.HandleFunc("GET /workers", s.guard("", "workers.manage", s.workersIndex))
 
 	// Log viewer endpoints (LogsController). Source-level authorization

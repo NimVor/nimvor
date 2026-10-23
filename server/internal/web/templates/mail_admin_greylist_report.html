@@ -1,0 +1,120 @@
+{{define "mail_admin_greylist_report"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Greylisting report · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/mail">← Email</a></p>
+  <h1>Greylisting report</h1>
+  <p class="text-muted">Email administration · sender triplets and their state</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .AgentErr}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2"><i class="bi bi-plug fs-5"></i><div class="fw-semibold">{{.AgentErr}}</div></div>
+  </div>
+  {{end}}
+  {{template "mail_admin_nav" .}}
+  {{if .Report}}
+  {{if not .Report.Running}}
+  <div class="alert alert-info" role="alert">The greylisting service is not running, so there are no records to show. Turn greylisting on under <a href="/mail/admin/greylisting">Greylisting</a>.</div>
+  {{end}}
+  <div class="card mb-3">
+    <div class="card-body d-flex flex-wrap align-items-center gap-3 small">
+      <span class="fw-semibold">{{.CountsTotal}} record(s)</span>
+      {{range .Counts}}<span><span class="text-body-secondary">{{.Label}}</span> {{.N}}</span>{{end}}
+      {{if and .CanManage .Report.Running}}
+      <form class="ms-auto d-flex" method="post" action="/mail/admin/greylisting/report">
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <input type="hidden" name="op" value="purge">
+        <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-trash3 me-1"></i>Remove expired</button>
+      </form>
+      <form class="d-flex" method="post" action="/mail/admin/greylisting/report" data-wcp-confirm="Remove all greylisting records? Every sender is greylisted again on its next message.">
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <input type="hidden" name="op" value="delete_all">
+        <button class="btn btn-sm btn-outline-danger">Remove all</button>
+      </form>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="card">
+    <form id="gl-sel" method="post" action="/mail/admin/greylisting/report">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <input type="hidden" name="op" value="delete">
+    </form>
+    <div class="card-body border-bottom d-flex flex-wrap gap-2 align-items-center">
+      {{if .CanManage}}<button class="btn btn-sm btn-outline-danger" form="gl-sel" data-wcp-confirm-submit="Remove the selected records? Those senders are greylisted again on their next message.">Remove selected</button>{{end}}
+      <form class="ms-auto d-flex flex-wrap gap-2 align-items-center" method="get" action="/mail/admin/greylisting/report">
+        <input type="hidden" name="sort" value="{{.Q.sort}}">
+        <input type="hidden" name="dir" value="{{.Q.dir}}">
+        <select class="form-select form-select-sm w-auto" name="status" aria-label="Status">
+          <option value="">All records</option>
+          {{range .Statuses}}<option value="{{.Key}}"{{if eq .Key $.Q.status}} selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+        <select class="form-select form-select-sm w-auto" name="per" aria-label="Rows per page">
+          {{range .Percents}}<option value="{{.}}"{{if eq (printf "%v" .) (printf "%v" $.Q.per)}} selected{{end}}>{{.}} per page</option>{{end}}
+        </select>
+        <input class="form-control form-control-sm" style="max-width: 220px;" type="search" name="search" value="{{.Q.search}}" placeholder="IP address or email address" aria-label="Search records">
+        <button class="btn btn-sm btn-outline-secondary">Show</button>
+      </form>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle small mb-0">
+        <thead><tr>
+          {{if .CanManage}}<th><span class="visually-hidden">Select</span></th>{{end}}
+          {{range .Cols}}<th{{if .Active}} aria-sort="{{if eq $.Q.dir "asc"}}ascending{{else}}descending{{end}}"{{end}}><a class="link-body-emphasis text-decoration-none text-nowrap" href="{{.URL}}">{{.Label}}{{if .Active}} <i class="bi {{if eq $.Q.dir "asc"}}bi-caret-up-fill{{else}}bi-caret-down-fill{{end}}" aria-hidden="true"></i>{{end}}</a></th>{{end}}
+          <th>Status</th>
+        </tr></thead>
+        <tbody>
+        {{range .Rows}}
+        <tr>
+          {{if $.CanManage}}<td><input class="form-check-input" type="checkbox" form="gl-sel" name="sel[]" value="{{.Sel}}" aria-label="Select {{.IP}} {{.From}} {{.To}}"></td>{{end}}
+          <td class="font-monospace">{{.IP}}</td>
+          <td class="text-break">{{.From}}</td>
+          <td class="text-break">{{.To}}</td>
+          <td class="text-end">{{.Deferred}}</td>
+          <td class="text-end">{{.Accepted}}</td>
+          <td class="text-nowrap">{{.Created}}</td>
+          <td class="text-nowrap">{{.BlockExpire}}</td>
+          <td class="text-nowrap">{{.MustRetry}}</td>
+          <td class="text-nowrap">{{.RecordExpire}}</td>
+          <td class="text-nowrap"><span class="wcp-state {{.StatusClass}}">{{.StatusLabel}}</span></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="{{if $.CanManage}}11{{else}}10{{end}}" class="text-center text-body-secondary py-4">No records{{if or .Q.search .Q.status}} match{{else}} yet{{end}}.</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{if gt .Total 0}}
+    <div class="card-footer d-flex flex-wrap align-items-center gap-2 small">
+      <a class="btn btn-sm btn-outline-secondary{{if le .Q.page 1}} disabled{{end}}" href="{{.PrevURL}}" aria-label="Previous page"{{if le .Q.page 1}} aria-disabled="true" tabindex="-1"{{end}}>‹</a>
+      <span>Page {{.PageShow}} of {{.Pages}}</span>
+      <a class="btn btn-sm btn-outline-secondary{{if ge .Q.page .Pages}} disabled{{end}}" href="{{.NextURL}}" aria-label="Next page"{{if ge .Q.page .Pages}} aria-disabled="true" tabindex="-1"{{end}}>›</a>
+      <span class="text-body-secondary">{{.Total}} record(s)</span>
+    </div>
+    {{end}}
+    <p class="small text-body-secondary mt-2 mb-0 px-3 pb-3">Deferring: retries are refused until the block expire time. Retry accepted: the next attempt before the must-retry time is accepted. Passed: mail is accepted until the record expire time, which each message renews. Expired records are removed automatically every hour.</p>
+  </div>
+  {{end}}
+</main>
+{{template "wcp_confirm_modal"}}
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

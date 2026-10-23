@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **292 ☑ done+tested, 4 ◑ partial, 255 ☐** of 551.
+`server/internal/http/server.go`): **303 ☑ done+tested, 4 ◑ partial, 244 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -625,6 +625,36 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   routes + 4 pages (+ the nav partial and the reused confirm modal),
   10 tests (the fixture gains server.view for the admin + viewer
   roles, so the all-scope gate is tested too)
+- ☑ Mail administration: greylisting + sending limits (batch 63) —
+  MailGreylistController (8 routes) and MailRateController (3 routes),
+  both for server administrators (the all-scope gate on top of
+  server.view/server.manage). The agent keeps the greylisting
+  configuration and every change sends the whole of it: the settings
+  (on/off, deferral 1–1440, resend 1–10080, record expiration
+  60–525600 minutes, SPF bypass, auto-trust of new providers), the
+  trusted hosts (add/edit modals — an IP address or CIDR range of up
+  to 50 chars + a 200-char comment; delete with the confirm modal),
+  the common mail providers (trust / auto-update checkboxes, the
+  "N · updated …" SPF range summary with the last error, and the
+  "Update ranges now" button that refreshes from the SPF records) and
+  the triplet report (search ≤200, status filter, the nine sortable
+  columns with the page-resetting toggle links, pages of 25/50/100/
+  250, the per-status counts, and the cleanup: remove expired, remove
+  selected — the selected triplet JSON — or remove all with the
+  confirm). The outgoing mail limits: on/off + recipients per website
+  account and hour (0–1000000, 0 = no limit still counted) + per
+  account own limits, this hour's use per account (the "Limit
+  reached" badge), letting a blocked account (or all) send again, and
+  the recent limit events newest-first. Turning the limits on for the
+  first time re-applies every PHP website so its PHP uses WhaCP's
+  counting sendmail — when a website cannot be re-applied the limits
+  stay off and the failed sites are named (the PHP MailRateService
+  behavior). hosting/mail_greylist.go + mail_greylist_service.go +
+  mail_rate.go + mail_rate_service.go carry the agent reply shapes,
+  the params/validation helpers (GreylistParams, GreylistAgo,
+  GreylistValidateRange, RateValidate, RateMax) and the
+  get→transform→set change helper with the failure/success audit;
+  11 routes + 3 pages (+ the two nav tabs), 9 tests
 - ☑ Mail: the per-mailbox filters + autoresponder (batch 61) — the
   mailbox's filter list (the agent keeps them, rendered to Sieve):
   create/edit (4 condition rows × part/match/value, 3 action rows,
@@ -975,11 +1005,9 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 63: the rest of the mail admin area — greylisting (settings,
-trusted hosts, trusted mail providers, the triplet report + cleanup:
-8 routes) and the outgoing mail limits (sending-limits: 3 routes) —
-then the /ips pool pages (deferred from batch 59) and the admin
-AppManager's 4 routes. The hulk/modsec/av scheduler sides stay with
-the background-jobs follow-up.
+Batch 64: the /ips pool pages (deferred from batch 59 — the /ips
+routes in web.php 206–217) and the admin AppManager's 4 routes. The
+hulk/modsec/av scheduler sides stay with the background-jobs
+follow-up.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
