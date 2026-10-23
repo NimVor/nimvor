@@ -1,0 +1,122 @@
+{{define "mail_admin_server"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Mail server · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/mail">← Email</a></p>
+  <h1>Mail server</h1>
+  <p class="text-muted">Email administration · Postfix, Dovecot and the mail services</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .AgentErr}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2"><i class="bi bi-plug fs-5"></i><div class="fw-semibold">{{.AgentErr}}</div></div>
+  </div>
+  {{end}}
+  {{template "mail_admin_nav" .}}
+  {{if .Status}}
+  {{if not .Configured}}
+  <div class="alert alert-info" role="alert"><i class="bi bi-info-circle-fill me-1"></i>Email is not set up on this server yet, so these settings cannot be changed. Set it up on the <a href="/mail">Email</a> page (<strong>Set up and start</strong>): WhaCP then writes the Postfix and Dovecot configuration, creates the DKIM service and starts the mail services at boot.</div>
+  {{end}}
+  <div class="card mb-3">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Service</th><th>Version</th><th>State</th><th>Configuration</th></tr></thead>
+        <tbody>
+        {{range .Services}}
+          <tr>
+            <td class="fw-semibold">{{.Name}}<div class="small text-body-secondary font-monospace">{{.Unit}}</div></td>
+            <td class="small">{{if .Version}}{{.Version}}{{else}}—{{end}}</td>
+            <td class="small">{{if not .Installed}}<span class="wcp-state">Not installed</span> <span class="text-body-secondary">{{.StateNote}}</span>{{else if .Active}}<span class="wcp-state is-ok">Running</span> <span class="text-body-secondary">{{.StateNote}}</span>{{else}}<span class="wcp-state is-error">Stopped</span> <span class="text-body-secondary">{{.StateNote}}</span>{{end}}</td>
+            <td class="small">{{if eq .Check "ok"}}<span class="wcp-state is-ok">Valid</span>{{else if .Check}}<span class="wcp-state is-error">Problem</span><div class="text-body-secondary text-break">{{.Check}}</div>{{else}}<span class="text-body-secondary">—</span>{{end}}</td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <form method="post" action="/mail/admin/server">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <div class="row g-3 mb-3">
+      {{range $svc := (slice "postfix" "dovecot")}}
+      <div class="col-xl-6">
+        <div class="card h-100">
+          <div class="card-header">{{if eq $svc "postfix"}}Postfix (sending and receiving){{else}}Dovecot (mailboxes and logins){{end}}</div>
+          <div class="card-body">
+            {{if eq $svc "postfix"}}{{range $row := .Postfix}}
+            <div class="row g-2 align-items-center mb-2">
+              <label class="col-sm-7 col-form-label col-form-label-sm" for="ms-postfix-{{$row.Key}}">{{$row.Label}} <span class="text-body-secondary font-monospace small">{{$row.Key}}</span></label>
+              <div class="col-sm-5">
+                <input type="hidden" name="current[{{$row.Key}}]" value="{{$row.Value}}">
+                {{if $row.Choices}}
+                <select class="form-select form-select-sm" id="ms-postfix-{{$row.Key}}" name="postfix[{{$row.Key}}]"{{if not $.CanManage}} disabled{{end}}>
+                  {{range $row.Choices}}<option value="{{.}}"{{if eq . $row.Value}} selected{{end}}>{{if .}}{{.}}{{else}}default{{end}}</option>
+                  {{end}}
+                </select>
+                {{else}}
+                <input class="form-control form-control-sm" id="ms-postfix-{{$row.Key}}" name="postfix[{{$row.Key}}]" value="{{$row.Value}}"{{if not $.CanManage}} disabled{{end}}>
+                {{end}}
+              </div>
+            </div>
+            {{end}}{{else}}
+            {{range $row := .Dovecot}}
+            <div class="row g-2 align-items-center mb-2">
+              <label class="col-sm-7 col-form-label col-form-label-sm" for="ms-dovecot-{{$row.Key}}">{{$row.Label}} <span class="text-body-secondary font-monospace small">{{$row.Key}}</span></label>
+              <div class="col-sm-5">
+                {{if $row.Choices}}
+                <select class="form-select form-select-sm" id="ms-dovecot-{{$row.Key}}" name="dovecot[{{$row.Key}}]"{{if not $.CanManage}} disabled{{end}}>
+                  {{range $row.Choices}}<option value="{{.}}"{{if eq . $row.Value}} selected{{end}}>{{if .}}{{.}}{{else}}default{{end}}</option>
+                  {{end}}
+                </select>
+                {{else}}
+                <input class="form-control form-control-sm" id="ms-dovecot-{{$row.Key}}" name="dovecot[{{$row.Key}}]" value="{{$row.Value}}" placeholder="default"{{if not $.CanManage}} disabled{{end}}>
+                {{end}}
+              </div>
+            </div>
+            {{end}}
+            {{end}}
+            <div class="form-text">{{if eq $svc "postfix"}}Smart host: all outgoing mail is sent through that server (leave empty to deliver directly).{{else}}Empty uses Dovecot's default.{{end}}</div>
+          </div>
+        </div>
+      </div>
+      {{end}}
+    </div>
+    {{if .CanManage}}<button class="btn btn-primary mb-3"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Check and apply</button> <span class="small text-body-secondary">Postfix and Dovecot check the settings first; if either refuses them or does not reload, the previous settings come back.</span>{{end}}
+  </form>
+
+  <div class="card">
+    <div class="card-header"><i class="bi bi-journal-text me-1"></i>Latest mail log{{if .Log}}{{if .Log.Source}} <span class="small text-body-secondary fw-normal">({{.Log.Source}})</span>{{end}}{{end}}</div>
+    {{if .Log}}
+      {{if .Log.Lines}}
+      <pre class="p-3 small mb-0" style="max-height: 400px; overflow: auto;">{{range .Log.Lines}}{{.Time}} {{.Ident}}: {{.Message}}
+{{end}}</pre>
+      {{else}}
+      <div class="card-body small text-body-secondary">No mail log lines.</div>
+      {{end}}
+    {{else}}
+    <div class="card-body small text-body-secondary">No mail log available.</div>
+    {{end}}
+  </div>
+  {{end}}
+{{template "wcp_confirm_modal"}}
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

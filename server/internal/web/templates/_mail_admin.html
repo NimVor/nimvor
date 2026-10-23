@@ -1,0 +1,8 @@
+{{define "mail_admin_nav"}}
+<div class="d-flex flex-wrap gap-2 mb-3" role="navigation" aria-label="Mail administration">
+  <a class="btn btn-sm {{if eq .Nav "server"}}btn-primary{{else}}btn-outline-secondary{{end}}" href="/mail/admin/server">Mail server</a>
+  <a class="btn btn-sm {{if eq .Nav "queue"}}btn-primary{{else}}btn-outline-secondary{{end}}" href="/mail/admin/queue">Mail queue</a>
+  <a class="btn btn-sm {{if eq .Nav "reports"}}btn-primary{{else}}btn-outline-secondary{{end}}" href="/mail/admin/reports">Delivery reports</a>
+  <a class="btn btn-sm {{if eq .Nav "tools"}}btn-primary{{else}}btn-outline-secondary{{end}}" href="/mail/admin/tools">Mail tools</a>
+</div>
+{{end}}

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -91,6 +92,9 @@ type sitesAgent struct {
 	// mail.filters_get data); "" = one enabled filter, mail.filters_save
 	// updates it.
 	mailFilters string
+	// mailQueue overrides the mail.queue reply's data (""); mail.queue_action
+	// and the rest of the mail.admin.* replies have fixed test shapes.
+	mailQueue string
 	// dnsData overrides the dns.status reply's data ("" = installed,
 	// configured, running, serving bob.example at serial 7).
 	dnsData string
@@ -291,7 +295,7 @@ const defaultWpInfoReply = `{
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
 	t.Helper()
-	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true, hulkAvailable: true, hulkActive: true, modsecActive: true, avScanJobID: "0123456789abcdef", statsInstalled: true}
+	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, failActions: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true, hulkAvailable: true, hulkActive: true, modsecActive: true, avScanJobID: "0123456789abcdef", statsInstalled: true}
 	dir := t.TempDir()
 	socket := filepath.Join(dir, "agent.sock")
 	tokenFile := filepath.Join(dir, "token")
@@ -860,6 +864,36 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			sa.mailFilters = `{"filters":` + string(filters) + `,"responder":` + string(responder) + `}`
 			sa.mu.Unlock()
 			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "mail.queue":
+			sa.mu.Lock()
+			data := sa.mailQueue
+			sa.mu.Unlock()
+			if data == "" {
+				now := strconv.FormatInt(time.Now().Unix(), 10)
+				data = `{"messages":[{"queue":"deferred","id":"A1B2C3D4E5F607","arrival":` + now + `,"size":20480,"sender":"bounce+job@example.com","recipients":["a@bob.example","b@bob.example"],"reason":"Connection timed out"},{"queue":"hold","id":"F0E1D2C3B4A506","arrival":` + now + `,"size":1024,"sender":"","recipients":["info@bob.example"]}],"total":2,"counts":{"deferred":1,"hold":1}}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + data + `}`))
+		case "mail.queue_message":
+			id, _ := p["id"].(string)
+			if !queueIDRe.MatchString(id) {
+				_, _ = w.Write([]byte(`{"success":false,"error":{"code":"invalid_params","message":"id is not a queue ID","request_id":"t"}}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"id":` + fmt.Sprintf("%q", id) + `,"headers":{"from":"<bounce+job@example.com>","to":"a@bob.example","subject":"Job failed","date":"Thu, 23 Oct 2026 10:00:00 +0000","message-id":"<job-1@example.com>"}}`))
+		case "mail.queue_action":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"action":"done","count":1}}`))
+		case "mail.report":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"source":"journal","report":{"totals":{"received":12,"sent":9,"delivered":5,"deferred":2,"bounced":1,"rejected":0,"auth_ok":3,"auth_failed":1},"series":[{"start":"2026-10-22T12:00:00Z","received":4,"sent":3,"bounced":1,"rejected":0},{"start":"2026-10-22T13:00:00Z","received":8,"sent":6,"bounced":0,"rejected":0}],"deliveries":[{"time":"2026-10-22T13:05:00Z","id":"A1B2C3D4E5F607","from":"job@example.com","to":"a@bob.example","relay":"mail.example.com[10.0.0.2]:25","status":"sent","dsn":"2.0.0","delay":"0.4","reason":"sent (OK)"},{"time":"2026-10-22T13:06:00Z","id":"F0E1D2C3B4A506","from":"","to":"x@bob.example","relay":"delayed","status":"deferred","dsn":"4.4.1","delay":"3600.1","reason":"Connection timed out"}],"relayers":[{"kind":"local","name":"www-data","messages":7},{"kind":"sasl","name":"info@bob.example","messages":2}],"senders":[{"kind":"","name":"bob.example","messages":9}],"truncated":false}}}`))
+		case "mail.server_status":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"services":[{"unit":"postfix.service","name":"Postfix","active":true,"enabled":true,"version":"Postfix 3.8.0","installed":true},{"unit":"dovecot.service","name":"Dovecot","active":true,"enabled":true,"version":"2.4.1","installed":true},{"unit":"whacp-opendkim.service","name":"OpenDKIM","active":true,"enabled":true,"version":"","installed":true},{"unit":"rspamd.service","name":"Rspamd","active":false,"enabled":false,"version":"","installed":false}],"checks":{"postfix":"","dovecot":""},"values":{"postfix":{"message_size_limit":"10485760","smtpd_recipient_limit":"200","maximal_queue_lifetime":"5d","bounce_queue_lifetime":"5d","smtpd_client_connection_rate_limit":"0","smtpd_client_message_rate_limit":"0","smtpd_helo_required":"yes","disable_vrfy_command":"yes","smtp_tls_security_level":"may","inet_protocols":"all","relayhost":"","authorized_submit_users":"!nobody, static:anyone"},"dovecot":{"mail_max_userip_connections":"10","auth_failure_delay":"5s","ssl_min_protocol":"TLSv1.2","login_greeting":""}},"labels":{"postfix":{"message_size_limit":"Largest message (MB)","smtpd_recipient_limit":"Recipients per message","maximal_queue_lifetime":"Keep retrying undelivered mail (days)","bounce_queue_lifetime":"Keep retrying bounces (days)","smtpd_client_connection_rate_limit":"Connections per client per minute (0 = no limit)","smtpd_client_message_rate_limit":"Messages per client per minute (0 = no limit)","smtpd_helo_required":"Require HELO","disable_vrfy_command":"Disable VRFY","smtp_tls_security_level":"TLS for outgoing mail","inet_protocols":"IP versions","relayhost":"Send outgoing mail through (smart host)","authorized_submit_users":"Local accounts that may send mail with sendmail"},"dovecot":{"mail_max_userip_connections":"IMAP connections per user and address","auth_failure_delay":"Delay after a failed login (seconds)","ssl_min_protocol":"Oldest TLS version","login_greeting":"Login greeting"}},"configured":true}}`))
+		case "mail.log_tail":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"lines":[{"time":"2026-10-23T10:00:01Z","ident":"postfix/smtpd","message":"connect from mail.example.com[10.0.0.2]"},{"time":"2026-10-23T10:00:02Z","ident":"dovecot/auth","message":"Login: user=<info@bob.example>"}],"source":"journal"}}`))
+		case "mail.settings_set":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "mail.trace":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"address":"info@bob.example","steps":[{"depth":0,"address":"info@bob.example","result":"mailbox","detail":"A mailbox on this server."}]}}`))
+		case "mail.repair_permissions":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"dirs":4,"files":9,"fixed":2,"skipped":["Maildir/info/cur"]}}`))
 		case "hulk.status":
 			sa.mu.Lock()
 			available, active := sa.hulkAvailable, sa.hulkActive
