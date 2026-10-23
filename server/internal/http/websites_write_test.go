@@ -87,6 +87,10 @@ type sitesAgent struct {
 	// mailData overrides the mail.status reply's data ("" = configured
 	// with the test hostname).
 	mailData string
+	// mailFilters is the mailbox's stored filters + autoresponder (the
+	// mail.filters_get data); "" = one enabled filter, mail.filters_save
+	// updates it.
+	mailFilters string
 	// dnsData overrides the dns.status reply's data ("" = installed,
 	// configured, running, serving bob.example at serial 7).
 	dnsData string
@@ -841,6 +845,21 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
 		case "mail.auth_check":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"checks":[{"id":"mx","label":"MX","status":"pass","found":"10 mail.example.com.","detail":"Mail goes to this server."},{"id":"spf","label":"SPF","status":"pass","found":"v=spf1 a mx ~all","detail":"This server may send for the domain."}],"simulated":false}}`))
+		case "mail.filters_get":
+			sa.mu.Lock()
+			data := sa.mailFilters
+			sa.mu.Unlock()
+			if data == "" {
+				data = `{"filters":[{"name":"To spam","enabled":true,"any":false,"rules":[{"part":"subject","match":"contains","value":"invoice"}],"actions":[{"type":"fileinto","value":"spam"}]}],"responder":{"enabled":false,"subject":"","body":"","days":1}}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + data + `}`))
+		case "mail.filters_save":
+			sa.mu.Lock()
+			filters, _ := json.Marshal(p["filters"])
+			responder, _ := json.Marshal(p["responder"])
+			sa.mailFilters = `{"filters":` + string(filters) + `,"responder":` + string(responder) + `}`
+			sa.mu.Unlock()
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
 		case "hulk.status":
 			sa.mu.Lock()
 			available, active := sa.hulkAvailable, sa.hulkActive
