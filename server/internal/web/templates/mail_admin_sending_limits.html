@@ -1,0 +1,120 @@
+{{define "mail_admin_sending_limits"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Mail sending limits · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/mail">← Email</a></p>
+  <h1>Mail sending limits</h1>
+  <p class="text-muted">Email administration · recipients per website account and hour</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .AgentErr}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2"><i class="bi bi-plug fs-5"></i><div class="fw-semibold">{{.AgentErr}}</div></div>
+  </div>
+  {{end}}
+  {{template "mail_admin_nav" .}}
+  {{if .State}}
+  {{if not .State.Configured}}
+  <div class="alert alert-info" role="alert">Set up email first (Email → Set up email); the limits apply at this server's mail server.</div>
+  {{end}}
+  <div class="card mb-3">
+    <div class="card-body d-flex flex-wrap align-items-center gap-3 small">
+      <span><span class="text-body-secondary">Sending limits</span> {{if .State.Config.Enabled}}<span class="wcp-state is-ok">On</span>{{else}}<span class="wcp-state is-off">Off</span>{{end}}</span>
+      <span><span class="text-body-secondary">Limit service</span> {{if .State.Service.Active}}<span class="wcp-state is-ok">Running</span>{{else}}<span class="wcp-state is-off">Stopped</span>{{end}}</span>
+      <span><span class="text-body-secondary">Postfix check</span> {{if .State.Service.Postfix}}<span class="wcp-state is-ok">Active</span>{{else}}<span class="wcp-state is-off">Not active</span>{{end}}</span>
+      {{if and .State.Config.Enabled (or (not .State.Service.Active) (not .State.Service.Postfix))}}
+      <span class="text-warning-emphasis"><i class="bi bi-exclamation-triangle me-1"></i>On but not in effect: save the settings again to restart it.</span>
+      {{end}}
+    </div>
+  </div>
+
+  <form method="post" action="/mail/admin/sending-limits">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <div class="row g-3">
+      <div class="col-xl-5">
+        <div class="card h-100">
+          <div class="card-header"><i class="bi bi-speedometer2 me-1"></i>Settings</div>
+          <div class="card-body">
+            <div class="form-check form-switch mb-3">
+              <input type="hidden" name="enabled" value="0">
+              <input class="form-check-input" type="checkbox" role="switch" id="ml-on" name="enabled" value="1"{{if .State.Config.Enabled}} checked{{end}}{{if not .CanManage}} disabled{{end}}><label class="form-check-label fw-medium" for="ml-on">Limit the mail websites send</label>
+            </div>
+            <label class="form-label small" for="ml-per">Recipients per website account and hour</label>
+            <input class="form-control form-control-sm mb-1" style="max-width:12rem" type="number" min="0" max="{{.Max}}" id="ml-per" name="per_hour" value="{{.State.Config.PerHour}}" required{{if not .CanManage}} disabled{{end}}>
+            <div class="form-text mb-3">0: no limit (the use is still counted). Each recipient counts; past the limit, the account's mail is refused temporarily until the next hour, and administrators and the website's owner are notified.</div>
+            <div class="small text-body-secondary mb-3">Covers mail a website sends with PHP's <code>mail()</code>, from cron jobs and deploy hooks, or over SMTP to this server without signing in. While the limits are on, website accounts cannot use Postfix's own <code>sendmail</code> directly (they use WhaCP's, which counts). Mailboxes sending with a password are not limited here.</div>
+            {{if .CanManage}}<button class="btn btn-primary btn-sm"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save settings</button>{{end}}
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-7">
+        <div class="card h-100">
+          <div class="card-header d-flex flex-wrap align-items-center gap-2">
+            <h2 class="h6 mb-0"><i class="bi bi-people me-1"></i>Website accounts <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Accounts}}</span></h2>
+            {{if and .CanManage .State.Config.Enabled}}<button class="btn btn-sm btn-outline-secondary ms-auto" type="submit" form="ml-reset-all"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset all this hour</button>{{end}}
+          </div>
+          {{if not .Accounts}}
+          <div class="card-body text-body-secondary small">No website accounts on this server.</div>
+          {{else}}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead><tr><th scope="col">Account</th><th scope="col">This hour</th><th scope="col">Own limit</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+              <tbody>
+              {{range .Accounts}}
+              <tr>
+                <td class="font-monospace">{{.Name}}</td>
+                <td>{{.Sent}}{{if .Blocked}} <span class="badge text-bg-danger">Limit reached</span>{{end}}</td>
+                <td><input class="form-control form-control-sm" style="max-width:9rem" type="number" min="0" max="{{$.Max}}" name="accounts[{{.Name}}]" value="{{.Limit}}" placeholder="default" aria-label="Own limit for {{.Name}}"{{if not $.CanManage}} disabled{{end}}></td>
+                <td class="text-end">{{if and $.CanManage .Blocked}}<button class="btn btn-sm btn-outline-secondary" type="submit" form="ml-reset" name="account" value="{{.Name}}">Let send again</button>{{end}}</td>
+              </tr>
+              {{end}}
+              </tbody>
+            </table>
+          </div>
+          <div class="card-footer small text-body-secondary">Empty: the default limit. 0: no limit for that account.</div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+  </form>
+  <form id="ml-reset" method="post" action="/mail/admin/sending-limits/reset"><input type="hidden" name="_token" value="{{.CSRF}}"></form>
+  <form id="ml-reset-all" method="post" action="/mail/admin/sending-limits/reset"><input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="account" value=""></form>
+
+  {{if .Events}}
+  <div class="card mt-3">
+    <div class="card-header"><i class="bi bi-exclamation-octagon me-1"></i>Limits reached</div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead><tr><th scope="col">When</th><th scope="col">Account</th><th scope="col">Limit</th></tr></thead>
+        <tbody>
+        {{range .Events}}
+        <tr><td>{{.When}}</td><td class="font-monospace">{{.Account}}</td><td>{{.Limit}}</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {{end}}
+  {{end}}
+</main>
+{{template "wcp_confirm_modal"}}
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

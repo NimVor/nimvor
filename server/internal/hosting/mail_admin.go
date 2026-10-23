@@ -130,3 +130,16 @@ func RepairDone(res *RepairResult) string {
 	}
 	return msg
 }
+
+// MailShorten is the PHP mb_strimwidth(s, 0, n, "…") for message cells
+// (truncates whole runes and appends an ellipsis when cut).
+func MailShorten(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	if n <= 1 {
+		return "…"
+	}
+	return string(r[:n-1]) + "…"
+}

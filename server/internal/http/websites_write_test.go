@@ -95,6 +95,12 @@ type sitesAgent struct {
 	// mailQueue overrides the mail.queue reply's data (""); mail.queue_action
 	// and the rest of the mail.admin.* replies have fixed test shapes.
 	mailQueue string
+	// greylistParams records the last mail.greylist_set parameters, and
+	// greylistReport overrides the mail.greylist_report data (""); mail.rate_get
+	// uses rateData ("") or its default shape.
+	greylistParams string
+	greylistReport string
+	rateData       string
 	// dnsData overrides the dns.status reply's data ("" = installed,
 	// configured, running, serving bob.example at serial 7).
 	dnsData string
@@ -894,6 +900,108 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"address":"info@bob.example","steps":[{"depth":0,"address":"info@bob.example","result":"mailbox","detail":"A mailbox on this server."}]}}`))
 		case "mail.repair_permissions":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"dirs":4,"files":9,"fixed":2,"skipped":["Maildir/info/cur"]}}`))
+		case "mail.greylist_get":
+			sa.mu.Lock()
+			overrides := sa.greylistParams
+			sa.mu.Unlock()
+			state := `{
+			 "config": {
+			   "enabled": true, "deferral": 5, "resend": 240, "expire": 4320,
+			   "spf_bypass": true, "auto_trust_new": false,
+			   "trusted": [
+			     {"range": "192.0.2.10", "comment": "office mail server"},
+			     {"range": "198.51.100.0/24", "comment": ""}
+			   ],
+			   "providers": {
+			     "google": {"trust": true, "auto_update": true, "ranges": ["209.85.220.0/20"], "updated": 1761225600},
+			     "microsoft": {"trust": false, "auto_update": true, "error": "timeout"}
+			   }
+			 },
+			 "providers": [
+			   {"id": "google", "name": "Google (Gmail, Workspace)", "spf": ["_spf.google.com"]},
+			   {"id": "microsoft", "name": "Microsoft (Outlook.com, Microsoft 365)", "spf": ["spf.protection.outlook.com"]},
+			   {"id": "yahoo", "name": "Yahoo and AOL", "spf": ["_spf.mail.yahoo.com"]}
+			 ],
+			 "service": {"active": true, "socket": true, "postfix": true},
+			 "configured": true
+			}`
+			if overrides != "" {
+				var params map[string]any
+				if json.Unmarshal([]byte(overrides), &params) == nil {
+					var st map[string]any
+					if json.Unmarshal([]byte(state), &st) == nil {
+						cfg, _ := st["config"].(map[string]any)
+						for _, k := range []string{"enabled", "deferral", "resend", "expire", "spf_bypass", "auto_trust_new", "trusted"} {
+							if v, ok := params[k]; ok {
+								cfg[k] = v
+							}
+						}
+						oldProv, _ := cfg["providers"].(map[string]any)
+						newProv, _ := params["providers"].(map[string]any)
+						merged := map[string]any{}
+						for id, v := range oldProv {
+							pv, _ := v.(map[string]any)
+							if np, ok := newProv[id]; ok {
+								npp, _ := np.(map[string]any)
+								if t, ok := npp["trust"]; ok {
+									pv["trust"] = t
+								}
+								if a, ok := npp["auto_update"]; ok {
+									pv["auto_update"] = a
+								}
+							}
+							merged[id] = pv
+						}
+						cfg["providers"] = merged
+						if b, err := json.Marshal(st); err == nil {
+							state = string(b)
+						}
+					}
+				}
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + state + `}`))
+		case "mail.greylist_set":
+			b, _ := json.Marshal(p)
+			sa.mu.Lock()
+			sa.greylistParams = string(b)
+			sa.mu.Unlock()
+			_, _ = w.Write([]byte(`{"success":true,"data":{"message":"saved"}}`))
+		case "mail.greylist_update_providers":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"message":"updated"}}`))
+		case "mail.greylist_report":
+			sa.mu.Lock()
+			report := sa.greylistReport
+			sa.mu.Unlock()
+			if report == "" {
+				report = `{"running": true, "rows": [
+				  {"ip":"203.0.113.5","from":"spam@example.com","to":"info@bob.example","deferred":2,"accepted":0,"created":1761222000,"block_expire":1761222300,"must_retry":1761224400,"record_expire":0,"status":"deferring"},
+				  {"ip":"198.51.100.9","from":"boss@example.com","to":"info@bob.example","deferred":1,"accepted":1,"created":1761221000,"block_expire":1761221100,"must_retry":1761223200,"record_expire":1761264200,"status":"passed"}
+				], "total": 2, "counts": {"deferring":1,"waiting":0,"passed":1,"expired":0}}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + report + `}`))
+		case "mail.greylist_cleanup":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"removed":1}}`))
+		case "mail.rate_get":
+			sa.mu.Lock()
+			state := sa.rateData
+			sa.mu.Unlock()
+			if state == "" {
+				state = `{"config": {"enabled": true, "per_hour": 1000, "accounts": {"u12": 500}},
+				 "accounts": ["u12", "u10"],
+				 "service": {"active": true, "postfix": true},
+				 "usage": {"hour": 1761220800, "accounts": [
+				   {"uid": 100, "name": "u12", "sent": 60, "limit": 500, "blocked": false},
+				   {"uid": 90, "name": "u10", "sent": 1000, "limit": 1000, "blocked": true}
+				 ], "events": [
+				   {"uid": 90, "name": "u10", "time": 1761223000, "limit": 1000}
+				 ]},
+				 "configured": true}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + state + `}`))
+		case "mail.rate_set":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"message":"saved"}}`))
+		case "mail.rate_reset":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"message":"ok"}}`))
 		case "hulk.status":
 			sa.mu.Lock()
 			available, active := sa.hulkAvailable, sa.hulkActive
