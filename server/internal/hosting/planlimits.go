@@ -26,6 +26,7 @@ var resourceColumn = map[string][2]string{
 	"parked_domains": {"max_parked_domains", "Parked domains"},
 	"addon_domains":  {"max_addon_domains", "Addon domains"},
 	"databases":      {"max_databases", "SQL databases"},
+	"ftp_accounts":   {"max_ftp_accounts", "FTP accounts"},
 	"cron_jobs":      {"max_cron_jobs", "Cron jobs"},
 	"workers":        {"max_workers", "Workers"},
 	"customers":      {"max_customers", "Customers"},
@@ -36,6 +37,19 @@ var resourceColumn = map[string][2]string{
 // ownerId (staff-owned, unassigned) or unknown resource is unlimited. Mirrors
 // PlanLimits::assertCanCreate.
 func (p *PlanLimits) AssertCanCreate(ctx context.Context, resource string, ownerID *int64, adding int) error {
+	return p.assertCanCreate(ctx, resource, ownerID, adding, nil)
+}
+
+// AssertCanCreateExternal is AssertCanCreate for resources kept outside the
+// panel's records (on the server): the counter counts them for the given
+// owners (PlanLimits::assertCanCreate's external branch — ftp_accounts).
+func (p *PlanLimits) AssertCanCreateExternal(ctx context.Context, resource string, ownerID *int64, adding int,
+	counter func(owners []int64) (int, error)) error {
+	return p.assertCanCreate(ctx, resource, ownerID, adding, counter)
+}
+
+func (p *PlanLimits) assertCanCreate(ctx context.Context, resource string, ownerID *int64, adding int,
+	counter func(owners []int64) (int, error)) error {
 	col, ok := resourceColumn[resource]
 	if !ok || ownerID == nil {
 		return nil
@@ -59,7 +73,15 @@ func (p *PlanLimits) AssertCanCreate(ctx context.Context, resource string, owner
 		if !ok || limit <= 0 {
 			continue
 		}
-		used, err := p.countFor(ctx, resource, owners)
+		var (
+			used int
+			err  error
+		)
+		if counter != nil {
+			used, err = counter(owners)
+		} else {
+			used, err = p.countFor(ctx, resource, owners)
+		}
 		if err != nil {
 			return err
 		}

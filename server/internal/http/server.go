@@ -162,6 +162,13 @@ func (s *Server) routes() {
 	// shells. Signing out ends the sign-in's terminals (doLogout).
 	s.mux.HandleFunc("GET /sites/{id}/terminal", s.guard("sites.terminal", "files.manage", s.terminalSite))
 	s.mux.HandleFunc("POST /sites/{id}/terminal/open", s.guard("sites.terminal.open", "files.manage", s.terminalOpenSite))
+	// Batch 56 — the website's FTP / SFTP tab (FtpController, ftp.manage):
+	// the virtual accounts (the agent keeps them) + the website's own
+	// SFTP access.
+	s.mux.HandleFunc("GET /sites/{id}/ftp", s.guard("sites.ftp", "ftp.manage", s.siteFtp))
+	s.mux.HandleFunc("POST /sites/{id}/ftp/accounts", s.guard("sites.ftp.save", "ftp.manage", s.siteFtpSave))
+	s.mux.HandleFunc("POST /sites/{id}/ftp/accounts/delete", s.guard("sites.ftp.delete", "ftp.manage", s.siteFtpDelete))
+	s.mux.HandleFunc("POST /sites/{id}/sftp", s.guard("sites.sftp", "ftp.manage", s.siteSftp))
 	s.mux.HandleFunc("POST /terminal/unlock", s.guard("sites.terminal.unlock", "files.manage", s.terminalUnlock))
 	s.mux.HandleFunc("GET /terminal", s.guard("terminal", "security.manage", s.terminalIndex))
 	s.mux.HandleFunc("POST /terminal/root/open", s.guard("terminal.root", "security.manage", s.terminalOpenRoot))
@@ -366,6 +373,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /redis/flush", s.guard("redis.flush", "redis.manage", s.redisFlush))
 	s.mux.HandleFunc("POST /redis/users", s.guard("redis.users.store", "redis.manage", s.redisCreateUser))
 	s.mux.HandleFunc("POST /redis/users/delete", s.guard("redis.users.delete", "redis.manage", s.redisDeleteUser))
+
+	// Batch 56 — the server's FTP server (FtpController, server.manage /
+	// packages.manage): pure-ftpd's install (job) + configure + disable;
+	// the per-website accounts live on /sites/{id}/ftp.
+	s.mux.HandleFunc("GET /ftp", s.guard("ftp", "server.manage", s.ftpIndex))
+	s.mux.HandleFunc("POST /ftp/install", s.guard("ftp.install", "packages.manage", s.ftpInstall))
+	s.mux.HandleFunc("POST /ftp/configure", s.guard("ftp.configure", "server.manage", s.ftpConfigure))
+	s.mux.HandleFunc("POST /ftp/disable", s.guard("ftp.disable", "server.manage", s.ftpDisable))
 
 	// Batch 36 — per-website Cloudflare area (direct Cloudflare API; the
 	// customer's own per-website token is stored encrypted).

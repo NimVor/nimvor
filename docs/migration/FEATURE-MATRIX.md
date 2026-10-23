@@ -14,7 +14,7 @@ _From app/Services/FeatureService::FEATURES._
 | subdomains | Subdomains | Domains | sites.subdomains | ☐ |
 | addon_domains | Addon domains | Domains | sites.addons | ☐ |
 | cloudflare | Cloudflare | Websites | sites.cloudflare | ☑ |
-| ftp | FTP / SFTP accounts | Files | ftp.manage | ☐ |
+| ftp | FTP / SFTP accounts | Files | ftp.manage | ☑ |
 | cron | Cron jobs | Automation | cron.view,cron.manage | ☑ |
 | backups | Backups | Backups | backups.view,backups.manage | ☑ |
 | auto_backups | Show scheduled (automatic) backups to the customer | Backups | (toggle) | ☑ |

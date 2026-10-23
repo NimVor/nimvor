@@ -125,10 +125,10 @@ Total routes: 551
 | POST | `/ffmpeg/install` | FfmpegController::install | ffmpeg.install | packages.manage | yes | yes | ☐ |
 | POST | `/ffmpeg/uninstall` | FfmpegController::uninstall | ffmpeg.uninstall | packages.manage | yes | yes | ☐ |
 | GET | `/ffmpeg` | FfmpegController::index | ffmpeg | server.view | yes | yes | ☐ |
-| POST | `/ftp/configure` | FtpController::configure | ftp.configure | server.manage | yes | yes | ☐ |
-| POST | `/ftp/disable` | FtpController::disable | ftp.disable | server.manage | yes | yes | ☐ |
-| POST | `/ftp/install` | FtpController::install | ftp.install | packages.manage | yes | yes | ☐ |
-| GET | `/ftp` | FtpController::index | ftp | server.manage | yes | yes | ☐ |
+| POST | `/ftp/configure` | FtpController::configure | ftp.configure | server.manage | yes | yes | ☐☑ |
+| POST | `/ftp/disable` | FtpController::disable | ftp.disable | server.manage | yes | yes | ☐☑ |
+| POST | `/ftp/install` | FtpController::install | ftp.install | packages.manage | yes | yes | ☐☑ |
+| GET | `/ftp` | FtpController::index | ftp | server.manage | yes | yes | ☐☑ |
 | GET | `/healthz` | HealthController::show | health |  | no | yes | ☐ |
 | POST | `/hooks/deploy/{token}` | DeployController::webhook | hooks.deploy |  | no | no | ☑ |
 | GET | `/ips/migrate` | IpController::migrate | ips.migrate | server.view | yes | yes | ☐ |
@@ -434,9 +434,9 @@ Total routes: 551
 | GET | `/sites/{id}/files` | FilesController::show | sites.files | files.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/firewall` | ModSecurityController::site | sites.firewall | websites.view | yes | yes | ☑ |
 | POST | `/sites/{id}/firewall` | ModSecurityController::saveSiteMode | sites.firewall.update | websites.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/ftp/accounts/delete` | FtpController::deleteAccount | sites.ftp.delete | ftp.manage | yes | yes | ☐ |
-| POST | `/sites/{id}/ftp/accounts` | FtpController::saveAccount | sites.ftp.save | ftp.manage | yes | yes | ☐ |
-| GET | `/sites/{id}/ftp` | FtpController::show | sites.ftp | ftp.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/ftp/accounts/delete` | FtpController::deleteAccount | sites.ftp.delete | ftp.manage | yes | yes | ☐☑ |
+| POST | `/sites/{id}/ftp/accounts` | FtpController::saveAccount | sites.ftp.save | ftp.manage | yes | yes | ☐☑ |
+| GET | `/sites/{id}/ftp` | FtpController::show | sites.ftp | ftp.manage | yes | yes | ☐☑ |
 | POST | `/sites/{id}/git/deploy` | DeployController::run | sites.git.deploy | deploy.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/git/remove` | DeployController::remove | sites.git.remove | deploy.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/git/rotate` | DeployController::rotate | sites.git.rotate | deploy.manage | yes | yes | ☑ |
@@ -477,7 +477,7 @@ Total routes: 551
 | GET | `/sites/{id}/security` | SitesController::security | sites.security | websites.view | yes | yes | ☑ |
 | GET | `/sites/{id}/settings` | SitesController::edit | sites.edit | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/settings` | SitesController::update | sites.update | websites.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/sftp` | FtpController::sftp | sites.sftp | ftp.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/sftp` | FtpController::sftp | sites.sftp | ftp.manage | yes | yes | ☐☑ |
 | POST | `/sites/{id}/ssl/custom` | SslController::custom | sites.ssl.custom | ssl.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/ssl/disable` | SslController::disable | sites.ssl.disable | ssl.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/ssl/issue` | SslController::issue | sites.ssl.issue | ssl.manage | yes | yes | ☑ |
