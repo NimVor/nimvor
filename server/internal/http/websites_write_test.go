@@ -87,6 +87,10 @@ type sitesAgent struct {
 	// mailData overrides the mail.status reply's data ("" = configured
 	// with the test hostname).
 	mailData string
+	// ftpStatus shapes the ftp.status reply: "" = installed + configured +
+	// active (one account for u_bob, SFTP on with one key), "missing" =
+	// not installed, "stopped" = configured but not active.
+	ftpStatus string
 	// avInstalled is the av.status reply's installed flag (default true).
 	avInstalled bool
 	// avVersion is the av.status reply's version string ("" = the full
@@ -557,6 +561,28 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				jobID = "abcdef0123456789"
 			}
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"` + jobID + `"}}`))
+		case "ftp.status":
+			sa.mu.Lock()
+			mode := sa.ftpStatus
+			sa.mu.Unlock()
+			switch mode {
+			case "missing":
+				_, _ = w.Write([]byte(`{"success":true,"data":{"installed":false,"configured":false,"active":false,"sftp_root":"/home/whacp","settings":{},"certificate":null,"other_ftp_servers":[],"accounts":[],"sftp":[]}}`))
+			case "stopped":
+				_, _ = w.Write([]byte(`{"success":true,"data":{"installed":true,"configured":true,"active":false,"sftp_root":"/home/whacp","settings":{"passive_min":40110,"passive_max":40210,"passive_ip":"","max_clients":50,"max_per_ip":8,"tls":"required"},"certificate":{"subject":"CN=whacp-ftp","not_after":"2027-10-23T00:00:00Z","sha256":"aabbccddeeff"},"other_ftp_servers":[],"accounts":[{"name":"designer@bob.example","user":"u_bob","dir":"/home/whacp/bob.example/public_html","quota_mb":100}],"sftp":[]}}`))
+			default:
+				_, _ = w.Write([]byte(`{"success":true,"data":{"installed":true,"configured":true,"active":true,"sftp_root":"/home/whacp","settings":{"passive_min":40110,"passive_max":40210,"passive_ip":"","max_clients":50,"max_per_ip":8,"tls":"required"},"certificate":{"subject":"CN=whacp-ftp","not_after":"2027-10-23T00:00:00Z","sha256":"aabbccddeeff"},"other_ftp_servers":[],"accounts":[{"name":"designer@bob.example","user":"u_bob","dir":"/home/whacp/bob.example/public_html","quota_mb":100}],"sftp":[{"user":"u_bob","shell":"disabled","password_login":false,"keys":[{"key":"ssh-ed25519 AAAACTEST bob@laptop","fingerprint":"SHA256:ftptest"}]}]}}`))
+			}
+		case "ftp.configure":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"notes":[],"stopped":[]}}`))
+		case "ftp.disable":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "ftp.account_save":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "ftp.account_delete":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "sftp.configure":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
 		case "redis.info":
 			sa.mu.Lock()
 			infoJSON := sa.redisInfoJSON

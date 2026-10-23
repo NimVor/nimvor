@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **246 ☑ done+tested, 3 ◑ partial, 302 ☐** of 551.
+`server/internal/http/server.go`): **254 ☑ done+tested, 3 ◑ partial, 294 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -861,16 +861,24 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 55 (this batch): the **website IP assignment** —
-hosting/ip_service.go (pool + assign), hosting/dns_service.go
-(zoneForName + replaceAddress + the push), http/ip_handlers.go
-(assignSite + the advanced page's pool data), the advanced page's IP
-card + its success/error flashes, and POST /sites/{id}/ip (server.manage).
+Batch 56 (this batch): the **whole FTP area** — the server's
+pure-ftpd page GET /ftp + POST /ftp/install (packages.install job,
+tracked "Install pure-ftpd") + /ftp/configure + /ftp/disable
+(server.manage / packages.manage), and the website tab
+GET /sites/{id}/ftp + POST /sites/{id}/ftp/accounts (create/update,
+the one-time generated password via the session "secret" flash, the
+25-account cap + the ftp_accounts plan limit through the new
+external-counter AssertCanCreateExternal — the count comes from the
+agent's ftp.status, as FtpUsage::count) + /ftp/accounts/delete +
+POST /sites/{id}/sftp (ftp.manage). hosting/ftp_service.go
+(FtpStatus/AccountSave/AccountDelete/Configure/Disable/SftpConfigure/
+UsageCount), http/ftp_handlers.go, templates ftp_index + ftp_site,
+planlimits.go ftp_accounts column + AssertCanCreateExternal, 12 tests.
 
-Batch 56: the remaining ☐ under `/sites/{id}/…` — ftp 4, apps 2, mail 1,
-dns 1 — check INVENTORY.md + the PHP controllers first and split the
-large ones into 2–3 batches. (The hulk/modsec/av scheduler sides stay
-with the background-jobs follow-up; the /ips pool pages ride with the
-DNS batch.)
+Batch 57: the remaining ☐ under `/sites/{id}/…` — apps 2
+(GET /sites/{id}/apps, POST /sites/{id}/apps/{app}), then mail 1
+(GET /sites/{id}/mail) + dns 1 (GET /sites/{id}/dns) as batch 58.
+(The hulk/modsec/av scheduler sides stay with the background-jobs
+follow-up; the /ips pool pages ride with the DNS batch.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
