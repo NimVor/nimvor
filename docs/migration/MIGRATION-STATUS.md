@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **254 ☑ done+tested, 3 ◑ partial, 294 ☐** of 551.
+`server/internal/http/server.go`): **256 ☑ done+tested, 3 ◑ partial, 292 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -861,24 +861,30 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 56 (this batch): the **whole FTP area** — the server's
-pure-ftpd page GET /ftp + POST /ftp/install (packages.install job,
-tracked "Install pure-ftpd") + /ftp/configure + /ftp/disable
-(server.manage / packages.manage), and the website tab
-GET /sites/{id}/ftp + POST /sites/{id}/ftp/accounts (create/update,
-the one-time generated password via the session "secret" flash, the
-25-account cap + the ftp_accounts plan limit through the new
-external-counter AssertCanCreateExternal — the count comes from the
-agent's ftp.status, as FtpUsage::count) + /ftp/accounts/delete +
-POST /sites/{id}/sftp (ftp.manage). hosting/ftp_service.go
-(FtpStatus/AccountSave/AccountDelete/Configure/Disable/SftpConfigure/
-UsageCount), http/ftp_handlers.go, templates ftp_index + ftp_site,
-planlimits.go ftp_accounts column + AssertCanCreateExternal, 12 tests.
+Batch 57 (this batch): the **one-click application installer**
+(AppsController, apps.install) — GET /sites/{id}/apps (the
+Softaculous-style catalog: categories from app_categories/app_catalog
+with the customer-visible enabled apps, the per-category panels, the
+install modals — WordPress fields, Laravel folder + migrations, staged
+apps with the "new database" / finish-setup notes, the install-target
+select over the website + its subdomains (non-PHP targets disabled),
+the installations history table with status badges / error / job-log
+button / WordPress "Log in" / "Finish setup" links, the once-only
+credentials secret flash, the installer-off + non-PHP empty states) +
+POST /sites/{id}/apps/{app} (validation, the database+user with the
+10-try name loop through the new DatabaseService.CreateWithUser —
+the 24-char crypto password sealed for later lookup — the
+apps.install agent job, the job tracked "Install <Title>", the
+database rolled back on agent failure, the install row + the app
+audit). hosting/apps_service.go (AppCatalogService + AppInstaller),
+hosting/database_service.go CreateWithUser + cryptoPassword,
+http/apps_handler(s).go + apps_handlers.go, template apps_site,
+WebsitesRepository.ChildrenFull, settings.Bool accepts "1"/"0"
+(PHP's filter_var parity for the PHP-written toggle), 9 tests.
 
-Batch 57: the remaining ☐ under `/sites/{id}/…` — apps 2
-(GET /sites/{id}/apps, POST /sites/{id}/apps/{app}), then mail 1
-(GET /sites/{id}/mail) + dns 1 (GET /sites/{id}/dns) as batch 58.
-(The hulk/modsec/av scheduler sides stay with the background-jobs
-follow-up; the /ips pool pages ride with the DNS batch.)
+Batch 58: mail 1 (GET /sites/{id}/mail) + dns 1
+(GET /sites/{id}/dns). (The hulk/modsec/av scheduler sides stay with
+the background-jobs follow-up; the /ips pool pages ride with the DNS
+batch; the admin AppManager 4 routes later.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
