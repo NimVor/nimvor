@@ -827,6 +827,20 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"dkim_selector":"whacp202601","dkim_txt":"v=DKIM1; k=rsa; p=MEow"}}`))
 		case "mail.spam_configure":
 			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
+		case "mail.mailbox_save":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"address":"info@bob.example","created":true,"quota_mb":1024}}`))
+		case "mail.mailbox_delete":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "mail.alias_save":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "mail.alias_delete":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "mail.routing_set":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "mail.domain_remove":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
+		case "mail.auth_check":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"checks":[{"id":"mx","label":"MX","status":"pass","found":"10 mail.example.com.","detail":"Mail goes to this server."},{"id":"spf","label":"SPF","status":"pass","found":"v=spf1 a mx ~all","detail":"This server may send for the domain."}],"simulated":false}}`))
 		case "hulk.status":
 			sa.mu.Lock()
 			available, active := sa.hulkAvailable, sa.hulkActive

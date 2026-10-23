@@ -16,22 +16,30 @@ import (
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
+	"github.com/mchkhawarshahzad/whacp/server/internal/security"
 )
 
-// MailService hosts e-mail domains and reads the mail server's state.
+// MailService hosts e-mail domains, manages their mailboxes, forwarders and
+// routing, and reads the mail server's state.
 type MailService struct {
 	db       *sql.DB
 	repo     *MailRepository
 	agent    AgentCaller
 	sites    *WebsiteRepository
 	options  *AccountOptionStore
+	limits   *PlanLimits
+	policy   *security.Policy
+	dns      *DnsService
+	dnsRepo  *DnsRepository
 	auditlog Auditor
 }
 
 // NewMailService builds the service.
 func NewMailService(db *sql.DB, repo *MailRepository, agent AgentCaller, sites *WebsiteRepository,
-	options *AccountOptionStore, auditlog Auditor) *MailService {
-	return &MailService{db: db, repo: repo, agent: agent, sites: sites, options: options, auditlog: auditlog}
+	options *AccountOptionStore, limits *PlanLimits, policy *security.Policy,
+	dns *DnsService, dnsRepo *DnsRepository, auditlog Auditor) *MailService {
+	return &MailService{db: db, repo: repo, agent: agent, sites: sites, options: options,
+		limits: limits, policy: policy, dns: dns, dnsRepo: dnsRepo, auditlog: auditlog}
 }
 
 // MailStatus is the agent's mail.status data.
