@@ -443,7 +443,7 @@ Total routes: 551
 | GET | `/sites/{id}/git` | DeployController::show | sites.git | deploy.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/git` | DeployController::configure | sites.git.configure | deploy.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/health` | SitesController::health | sites.health | websites.view | yes | yes | ☑ |
-| POST | `/sites/{id}/import/undo` | SitesController::undoImport | sites.import.undo | import.run | yes | yes | ☐ |
+| POST | `/sites/{id}/import/undo` | SitesController::undoImport | sites.import.undo | import.run | yes | yes | ☑ |
 | POST | `/sites/{id}/ip` | IpController::assignSite | sites.ip | server.manage | yes | yes | ☐ |
 | GET | `/sites/{id}/logs` | LogsController::site | sites.logs | logs.view | yes | yes | ☑ |
 | GET | `/sites/{id}/mail` | MailController::site | sites.mail | mail.manage | yes | yes | ☐ |
@@ -547,8 +547,8 @@ Total routes: 551
 | POST | `/users` | UsersController::store | users.store | users.manage | yes | yes | ☐ |
 | GET | `/websites/new` | SitesController::create | sites.create | websites.manage | yes | yes | ☑ |
 | POST | `/websites/new` | SitesController::store | sites.store | websites.manage | yes | yes | ☑ |
-| GET | `/websites/{id}/import` | ImportController::preview | websites.import | import.run | yes | yes | ☐ |
-| POST | `/websites/{id}/import` | ImportController::run | websites.import.run | import.run | yes | yes | ☐ |
+| GET | `/websites/{id}/import` | ImportController::preview | websites.import | import.run | yes | yes | ☑ |
+| POST | `/websites/{id}/import` | ImportController::run | websites.import.run | import.run | yes | yes | ☑ |
 | GET | `/websites/{id}` | WebsitesController::show | websites.show | websites.view | yes | yes | ☑ |
 | GET | `/websites` | WebsitesController::index | websites | websites.view | yes | yes | ☑ |
 | POST | `/whacp/update/check` | TopbarController::updateCheck | whacp.update.check | server.manage | yes | yes | ☐ |

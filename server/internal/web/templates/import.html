@@ -1,0 +1,99 @@
+{{define "import"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Import {{.Found.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/websites/{{.Found.ID}}">← {{.Found.Domain}}</a></p>
+  <h1>Import {{.Found.Domain}}</h1>
+  <p class="text-muted">Move this website under WhaCP management</p>
+
+  {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
+
+  <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>
+    WhaCP does not edit configuration it did not create. The import <strong>copies</strong> the website into a new WhaCP website, then switches Nginx over in one validated step. The old configuration file and the old files are kept; the import can be undone from the website's overview.
+  </div>
+  {{if .AgentErr}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2">
+      <i class="bi bi-plug fs-5" aria-hidden="true"></i>
+      <div class="fw-semibold">{{.AgentErr}}</div>
+    </div>
+  </div>
+  {{end}}
+  {{if .Errors}}
+  <div class="alert alert-danger">
+    {{range $k, $m := .Errors}}<div>{{$m}}</div>{{end}}
+  </div>
+  {{end}}
+
+  {{if .Preview}}
+  <div class="row g-3">
+    <div class="col-xl-6">
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-list-check me-1"></i>Plan</div>
+        <ol class="list-group list-group-flush list-group-numbered small">
+          <li class="list-group-item">Create account <code>{{.SystemUser}}</code> and website folder <code>{{if .Plan}}{{.Plan.Row.Root}}{{end}}</code> ({{.KindLabel}}{{if .PHPVersion}}, PHP {{.PHPVersion}}{{end}}).</li>
+          <li class="list-group-item">Copy {{.Preview.Files}} files ({{bytes .Preview.Bytes}}) from <code>{{.Preview.Source}}</code> to <code>{{.Preview.Target}}</code>.
+            {{if .Preview.SkippedLinks}}<div class="text-warning">Links pointing outside the website are not copied: {{range $i, $l := .Preview.SkippedLinks}}{{if $i}}, {{end}}{{$l}}{{end}}</div>{{end}}</li>
+          {{range .Preview.Steps}}
+          <li class="list-group-item">
+            {{if eq .Action "unlink"}}Disable the old configuration by removing the link <code>{{.Path}}</code> (the file <code>{{.File}}</code> is kept).
+            {{else if eq .Action "move"}}Disable <code>{{.File}}</code> by moving it to <code>{{.Stored}}</code>.
+            {{else}}Ignore <code>{{.File}}</code> (already disabled).{{end}}</li>
+          {{end}}
+          <li class="list-group-item">Enable the WhaCP configuration below, test it with <code>nginx -t</code> and reload. If anything fails, the old configuration is put back.</li>
+          {{if .Preview.Database}}<li class="list-group-item">Keep using the database <code>{{.Preview.Database}}</code> (found in <code>{{.Preview.DatabaseSource}}</code>); it is not changed and will be listed under Databases.</li>{{end}}
+        </ol>
+      </div>
+      {{range .Preview.Warnings}}<div class="alert alert-warning small">{{.}}</div>{{end}}
+      {{if .Preview.Blockers}}
+      <div class="alert alert-danger"><div class="fw-semibold mb-1">The import cannot run yet:</div><ul class="mb-0 small">{{range .Preview.Blockers}}<li>{{.}}</li>{{end}}</ul></div>
+      {{end}}
+      <div class="card">
+        <div class="card-header"><i class="bi bi-sliders me-1"></i>Options</div>
+        <div class="card-body">
+          <form method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-sm-6"><label class="form-label small" for="i-user">Account name</label><input class="form-control form-control-sm" id="i-user" name="system_user" value="{{.SystemUser}}"></div>
+            <div class="col-sm-4"><label class="form-label small" for="i-php">PHP version</label><input class="form-control form-control-sm" id="i-php" name="php_version" value="{{.PHPVersion}}"></div>
+            <div class="col-sm-2"><button class="btn btn-sm btn-outline-secondary w-100">Update plan</button></div>
+          </form>
+          <form method="post" action="/websites/{{.Found.ID}}/import" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            <input type="hidden" name="system_user" value="{{.SystemUser}}">
+            <input type="hidden" name="php_version" value="{{.PHPVersion}}">
+            {{if .Owners}}
+            <label class="form-label small" for="i-owner">Owner</label>
+            <select class="form-select form-select-sm mb-2" id="i-owner" name="owner_id"><option value="">No owner (administrators)</option>{{range .Owners}}<option value="{{.ID}}">{{.Username}}</option>{{end}}</select>
+            {{end}}
+            <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="i-confirm" required{{if not .Preview.Blockers}}>{{else}} disabled>{{end}}<label class="form-check-label" for="i-confirm">I reviewed the plan and the new configuration.</label></div>
+            <button class="btn btn-primary"{{if not .Preview.Blockers}}{{else}} disabled{{end}}><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Import website</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-6">
+      <div class="card mb-3"><div class="card-header">New configuration (generated by WhaCP)</div><pre class="wcp-pre mb-0 small wcp-scroll-400">{{.Preview.NewConfig}}</pre></div>
+      <div class="card"><div class="card-header">Current configuration (kept, disabled)</div><pre class="wcp-pre mb-0 small wcp-scroll-400">{{.Preview.OldConfig}}</pre></div>
+    </div>
+  </div>
+  {{end}}
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

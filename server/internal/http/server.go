@@ -124,6 +124,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /websites/new", s.guard("sites.create", "websites.manage", s.websitesNew))
 	s.mux.HandleFunc("POST /websites/new", s.guard("sites.store", "websites.manage", s.websitesStore))
 	s.mux.HandleFunc("GET /websites/{id}", s.guard("", "websites.view", s.websiteShow))
+	// Importing a discovered website (import.run).
+	s.mux.HandleFunc("GET /websites/{id}/import", s.guard("websites.import", "import.run", s.importPreview))
+	s.mux.HandleFunc("POST /websites/{id}/import", s.guard("websites.import.run", "import.run", s.importRun))
+	s.mux.HandleFunc("POST /sites/{id}/import/undo", s.guard("sites.import.undo", "import.run", s.importUndo))
 	s.mux.HandleFunc("GET /sites/{id}", s.guard("sites.show", "websites.view", s.siteShow))
 	s.mux.HandleFunc("GET /sites/{id}/advanced", s.guard("sites.advanced", "websites.manage", s.siteAdvanced))
 	s.mux.HandleFunc("GET /sites/{id}/settings", s.guard("sites.edit", "websites.manage", s.websiteSettings))

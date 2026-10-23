@@ -28,6 +28,9 @@
   {{if .Site.BandwidthBlocked}}
   <div class="alert alert-danger small" id="bandwidth-blocked"><i class="bi bi-speedometer me-1"></i><strong>Monthly bandwidth used up.</strong> This website answers “509 Bandwidth limit exceeded” until the month ends or the hosting plan allows more.</div>
   {{end}}
+  {{if .Success}}<div class="alert alert-success" role="status">{{.Success}}</div>{{end}}
+  {{if .Error}}<div class="alert alert-danger" role="alert">{{.Error}}</div>{{end}}
+  {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
   {{if .InspectError}}
   <div class="alert alert-warning" role="alert">
     <div class="d-flex gap-2">
@@ -37,6 +40,21 @@
   </div>
   {{else if .ConfigMissing}}
   <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>This website's configuration is missing on the server.{{if .CanManage}} <a href="/sites/{{.Site.ID}}/advanced#danger-zone">Re-apply the configuration</a> to recreate it.{{end}}</div>
+  {{end}}
+
+  {{if .Import}}
+  {{if eq .Import.Status "running"}}
+  <div class="alert alert-info small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Importing from <code>{{.Import.Source}}</code>. The old website keeps serving visitors until the switch. Reload this page to see the result.</div>
+  {{else if eq .Import.Status "succeeded"}}
+  <div class="alert alert-secondary small d-flex flex-wrap align-items-center gap-2">
+    <span class="me-auto"><i class="bi bi-box-arrow-in-down me-1"></i>Imported from <code>{{.Import.Source}}</code> on {{.ImportDate}}. The original files and configuration are kept.</span>
+    {{if .CanImport}}
+    <form method="post" action="/sites/{{.Site.ID}}/import/undo" data-wcp-confirm="Undo the import? The original configuration will serve {{.Site.Domain}} again, and the WhaCP copy (files in {{.Site.Root}}, its account and settings) will be deleted. Changes made since the import are lost.">
+      <input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-sm btn-outline-danger">Undo import</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
   {{end}}
 
   <section class="card wcp-site-hero mb-4" aria-label="Website details" data-wcp-site-summary>

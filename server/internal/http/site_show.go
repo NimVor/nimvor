@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/agent"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
@@ -85,6 +86,29 @@ func (s *Server) siteShow(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	user := userFrom(ctx)
+	// A running import may have finished (or failed) in the meantime: finish
+	// it, like SitesController::show does before rendering.
+	impSvc := s.importService(r, user)
+	if stillThere, err := impSvc.Refresh(ctx, site); err != nil {
+		s.log.Error("import refresh", "id", site.ID, "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	} else if !stillThere {
+		sess := sessionFrom(r.Context())
+		sess.Flash("error", "The import of "+site.Domain+" failed; the old website is unchanged. See the job log for details.")
+		http.Redirect(w, r, "/websites", http.StatusSeeOther)
+		return
+	}
+	// The refresh may have activated the website: re-read the row.
+	if fresh, err := hosting.NewWebsiteRepository(s.db).FindFull(ctx, s.currentServerID(r), site.ID, user); err == nil {
+		site = fresh
+	}
+	importRec, err := impSvc.ImportOf(ctx, site.ID)
+	if err != nil {
+		s.log.Error("import record", "id", site.ID, "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
 	ov := s.siteOverview(r, user)
 	summary, err := ov.Summary(ctx, s.currentServerID(r), site, user)
 	if err != nil {
@@ -109,9 +133,20 @@ func (s *Server) siteShow(w http.ResponseWriter, r *http.Request) {
 	if dbBytes != nil {
 		dbBytesText = bytesText(*dbBytes)
 	}
+	importDate := ""
+	if importRec != nil && importRec.CreatedAt != "" {
+		importDate = importRec.CreatedAt
+		if t, err := time.Parse(time.RFC3339, importRec.CreatedAt); err == nil {
+			importDate = t.UTC().Format("2006-01-02")
+		}
+	}
+	sess := sessionFrom(r.Context())
+	okMsg, _ := sess.PullFlash("success")
+	errMsg, _ := sess.PullFlash("error")
+	jobMsg, _ := sess.PullFlash("job")
 	data := map[string]any{
 		"User":           user,
-		"CSRF":           session.CSRFToken(sessionFrom(r.Context())),
+		"CSRF":           session.CSRFToken(sess),
 		"Site":           site,
 		"Summary":        summary,
 		"ServerIP":       serverIP,
@@ -127,6 +162,12 @@ func (s *Server) siteShow(w http.ResponseWriter, r *http.Request) {
 		"Tint":           showTint(site.Domain),
 		"BandwidthReset": user.RoleScope == "all",
 		"CanManage":      s.can(r, "websites.manage"),
+		"CanImport":      s.can(r, "import.run"),
+		"Import":         importRec,
+		"ImportDate":     importDate,
+		"Success":        okMsg,
+		"Error":          errMsg,
+		"Job":            jobMsg,
 		"Tiles":          tiles,
 		"Search":         s.showSearch(r, site, tiles),
 	}
