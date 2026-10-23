@@ -490,6 +490,17 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /sites/{id}/mail", s.guard("sites.mail", "mail.manage", s.siteMail))
 	s.mux.HandleFunc("POST /mail/domains", s.guard("mail.store", "mail.manage", s.mailDomainStore))
 	s.mux.HandleFunc("GET /mail/domains/{id}", s.guard("mail.domain", "mail.manage", s.mailDomainShow))
+	// Mail domain page: the mailbox + forwarder CRUD, routing, the DNS
+	// publish + public-DNS check and stopping hosting.
+	s.mux.HandleFunc("POST /mail/domains/{id}/mailboxes", s.guard("mail.mailboxes.store", "mail.manage", s.mailMailboxSave))
+	s.mux.HandleFunc("POST /mail/domains/{id}/mailboxes/{mailbox}", s.guard("mail.mailboxes.update", "mail.manage", s.mailMailboxSave))
+	s.mux.HandleFunc("POST /mail/domains/{id}/mailboxes/{mailbox}/delete", s.guard("mail.mailboxes.delete", "mail.manage", s.mailMailboxDelete))
+	s.mux.HandleFunc("POST /mail/domains/{id}/aliases", s.guard("mail.aliases.store", "mail.manage", s.mailAliasSave))
+	s.mux.HandleFunc("POST /mail/domains/{id}/aliases/{alias}/delete", s.guard("mail.aliases.delete", "mail.manage", s.mailAliasDelete))
+	s.mux.HandleFunc("POST /mail/domains/{id}/routing", s.guard("mail.routing", "mail.manage", s.mailRouting))
+	s.mux.HandleFunc("POST /mail/domains/{id}/dns", s.guard("mail.dns", "mail.manage", s.mailPublishDns))
+	s.mux.HandleFunc("GET /mail/domains/{id}/dns-check", s.guard("mail.dns.check", "mail.manage", s.mailDnsCheck))
+	s.mux.HandleFunc("POST /mail/domains/{id}/delete", s.guard("mail.delete", "mail.manage", s.mailDomainDelete))
 	s.mux.HandleFunc("GET /workers", s.guard("", "workers.manage", s.workersIndex))
 
 	// Log viewer endpoints (LogsController). Source-level authorization

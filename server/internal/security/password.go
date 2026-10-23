@@ -7,8 +7,11 @@ package security
 
 import (
 	"context"
+	"crypto/rand"
+	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"strings"
 	"unicode/utf8"
 
@@ -200,6 +203,113 @@ func (p *Policy) Describe(ctx context.Context) (string, error) {
 		line += "."
 	}
 	return line, nil
+}
+
+// Generate is PasswordPolicy::generate: a random password that passes Check —
+// at least two of each character class (more when the policy demands it),
+// filled out from all classes, shuffled and re-rolled until acceptable.
+// exclude removes characters (a mailbox password may not contain ':').
+func (p *Policy) Generate(ctx context.Context, length int, exclude string) (string, error) {
+	sets := []string{
+		"abcdefghijkmnopqrstuvwxyz",
+		"ABCDEFGHJKLMNPQRSTUVWXYZ",
+		"23456789",
+		"!#%+-.=?@^_~",
+	}
+	for i, s := range sets {
+		sets[i] = strings.ReplaceAll(s, exclude, "")
+	}
+	counts := map[string]int{}
+	sum := 0
+	for _, key := range []string{"password_min_special", "password_min_numeric", "password_min_alpha", "password_min_upper", "password_min_lower"} {
+		n, err := p.settings.Int(ctx, key, 0)
+		if err != nil {
+			return "", err
+		}
+		counts[key] = n
+		sum += n
+	}
+	minLen, err := p.settings.Int(ctx, "password_min_length", MinPasswordLength)
+	if err != nil {
+		return "", err
+	}
+	if minLen < MinPasswordLength {
+		minLen = MinPasswordLength
+	}
+	if sum+4 > length {
+		length = sum + 4
+	}
+	if minLen > length {
+		length = minLen
+	}
+	need := 2
+	if counts["password_min_special"] > need {
+		need = counts["password_min_special"]
+	}
+	if counts["password_min_numeric"] > need {
+		need = counts["password_min_numeric"]
+	}
+	if counts["password_min_upper"] > need {
+		need = counts["password_min_upper"]
+	}
+	if counts["password_min_lower"] > need {
+		need = counts["password_min_lower"]
+	}
+	for try := 0; try < 100; try++ {
+		c := make([]rune, 0, length)
+		for _, set := range sets {
+			for i := 0; i < need && i < len(set); i++ {
+				r, err := randomRune(set)
+				if err != nil {
+					return "", err
+				}
+				c = append(c, r)
+			}
+		}
+		all := sets[0] + sets[1] + sets[2] + sets[3]
+		for len(c) < length {
+			r, err := randomRune(all)
+			if err != nil {
+				return "", err
+			}
+			c = append(c, r)
+		}
+		for i := len(c) - 1; i > 0; i-- {
+			j, err := randomInt(i + 1)
+			if err != nil {
+				return "", err
+			}
+			c[i], c[j] = c[j], c[i]
+		}
+		password := string(c)
+		if weak, err := p.Check(ctx, password, ""); err != nil {
+			return "", err
+		} else if weak == "" {
+			return password, nil
+		}
+	}
+	return "", errors.New("could not generate a password that meets the policy")
+}
+
+// randomRune picks a random character of s.
+func randomRune(s string) (rune, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(len(s))))
+	if err != nil {
+		return 0, err
+	}
+	return rune(s[int(n.Int64())]), nil
+}
+
+// randomInt returns a uniform random integer in [0, n).
+func randomInt(n int) (int, error) {
+	if n <= 1 {
+		return 0, nil
+	}
+	x, err := rand.Int(rand.Reader, big.NewInt(int64(n)))
+	if err != nil {
+		return 0, err
+	}
+	return int(x.Int64()), nil
 }
 
 func plural(n int) string {

@@ -22,6 +22,21 @@
   <h1>Email domain <span class="font-monospace">{{.Domain.Domain}}</span></h1>
   {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
   {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Secret.Password}}
+  <div class="alert alert-warning" role="alert">
+    <div class="fw-semibold mb-2"><i class="bi bi-key me-1"></i>{{.Secret.Title}} — copy the password now</div>
+    <div class="row g-2 align-items-center small">
+      <div class="col-sm-3 text-body-secondary">User</div>
+      <div class="col-sm-9"><code>{{.Secret.User}}</code></div>
+      <div class="col-sm-3 text-body-secondary">Password</div>
+      <div class="col-sm-9 d-flex gap-2 align-items-center">
+        <code class="user-select-all" data-wcp-secret>{{.Secret.Password}}</code>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-copy="[data-wcp-secret]"><i class="bi bi-clipboard"></i> Copy</button>
+      </div>
+    </div>
+    <div class="small mt-2">This password is shown only once.</div>
+  </div>
+  {{end}}
 
   <div class="d-flex flex-wrap align-items-center gap-3 mb-3 small">
     <span class="text-body-secondary">Email for <code>{{.Domain.Domain}}</code></span>
@@ -32,27 +47,98 @@
 
   <div class="card mb-3" id="mailboxes">
     <div class="card-header">
-      <h2 class="h6 mb-0"><i class="bi bi-inbox me-1"></i>Mailboxes <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Mailboxes}}</span></h2>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <h2 class="h6 mb-0"><i class="bi bi-inbox me-1"></i>Mailboxes <span class="badge rounded-pill text-bg-light border fw-normal">{{.MailboxCount}}</span></h2>
+        {{if gt .MailboxCount 5}}<input class="form-control form-control-sm" type="search" placeholder="Filter mailboxes" aria-label="Filter mailboxes" data-wcp-filter="#mailbox-table" style="max-width:16rem">{{end}}
+        <button class="btn btn-sm btn-primary ms-auto" type="button" data-bs-toggle="modal" data-bs-target="#new-mailbox"><i class="bi bi-plus-lg me-1"></i>Create mailbox</button>
+      </div>
+    </div>
+    <div class="modal fade" id="new-mailbox" tabindex="-1" aria-labelledby="new-mailbox-title" aria-hidden="true"{{if .MailboxOpen}} data-wcp-modal-open{{end}}>
+      <div class="modal-dialog">
+        <form class="modal-content" method="post" action="/mail/domains/{{.Domain.ID}}/mailboxes" data-wcp-busy>
+          <input type="hidden" name="_token" value="{{.CSRF}}">
+          <div class="modal-header"><h2 class="modal-title fs-5" id="new-mailbox-title">Create mailbox</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+          <div class="modal-body">
+            <div class="row g-2">
+              <div class="col-md-5">
+                <label class="form-label small mb-1" for="mb-local">Address</label>
+                <div class="input-group input-group-sm">
+                  <input class="form-control{{if index .Errors "local"}} is-invalid{{end}}" id="mb-local" name="local" value="{{index .Old "local"}}" placeholder="info" required autocomplete="off">
+                  <span class="input-group-text">@{{.Domain.Domain}}</span>
+                </div>
+                {{if index .Errors "local"}}<div class="invalid-feedback d-block">{{index .Errors "local"}}</div>{{end}}
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small mb-1" for="mb-pw">Password</label>
+                <input class="form-control form-control-sm{{if index .Errors "password"}} is-invalid{{end}}" id="mb-pw" type="password" name="password" minlength="10" autocomplete="new-password">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-1" for="mb-quota">Quota (MB)</label>
+                <input class="form-control form-control-sm{{if index .Errors "quota_mb"}} is-invalid{{end}}" id="mb-quota" type="number" min="0" name="quota_mb" value="{{if index .Old "quota_mb"}}{{index .Old "quota_mb"}}{{else}}1024{{end}}">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small d-none d-md-block">&nbsp;</label>
+                <button class="btn btn-sm btn-primary w-100" type="submit">Create</button>
+              </div>
+              <div class="col-12">
+                <div class="form-check small">
+                  <input class="form-check-input" type="checkbox" name="generate" value="1" id="mb-gen">
+                  <label class="form-check-label" for="mb-gen">Generate a strong password (shown once)</label>
+                </div>
+                {{if index .Errors "password"}}<div class="text-danger small">{{index .Errors "password"}}</div>{{end}}
+                {{if index .Errors "quota_mb"}}<div class="text-danger small">{{index .Errors "quota_mb"}}</div>{{end}}
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Create mailbox</button></div>
+        </form>
+      </div>
     </div>
     {{if not .Mailboxes}}
     <div class="card-body wcp-empty-state text-center">
       <i class="bi bi-inbox fs-1" aria-hidden="true"></i>
       <div class="fw-medium">No mailboxes yet</div>
-      <div class="small">Mailboxes are managed from the server's email area.</div>
+      <div class="small">Create an address like info@{{.Domain.Domain}} with its own inbox.</div>
     </div>
     {{else}}
     <div class="table-responsive">
-      <table class="table mb-0 align-middle">
-        <thead><tr><th>Address</th><th>Usage</th><th class="text-end">Quota</th><th>Status</th></tr></thead>
+      <table class="table mb-0 align-middle" id="mailbox-table">
+        <thead><tr><th>Address</th><th>Usage</th><th class="text-end">Quota</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
         <tbody>
         {{range .Mailboxes}}
+        {{if eq $.Edit .ID}}
+        <tr><td colspan="5">
+          <form method="post" action="/mail/domains/{{$.Domain.ID}}/mailboxes/{{.ID}}" class="row g-2 align-items-end" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <div class="col-md-4"><span class="form-label small d-block">Address</span><div class="form-control-plaintext font-monospace small">{{.Address}}</div></div>
+            <div class="col-md-3"><label class="form-label small" for="mb-q-{{.ID}}">Quota (MB, 0 = none)</label><input class="form-control form-control-sm" id="mb-q-{{.ID}}" type="number" min="0" name="quota_mb" value="{{.QuotaMB}}"></div>
+            <div class="col-md-3"><label class="form-label small" for="mb-p-{{.ID}}">New password</label><input class="form-control form-control-sm" id="mb-p-{{.ID}}" type="password" name="password" minlength="10" autocomplete="new-password"></div>
+            <div class="col-md-2"><button class="btn btn-sm btn-primary w-100">Save</button></div>
+            <div class="col-12 d-flex gap-3">
+              <div class="form-check small"><input class="form-check-input" type="checkbox" name="generate" value="1" id="mb-g-{{.ID}}"><label class="form-check-label" for="mb-g-{{.ID}}">Generate a new password (shown once)</label></div>
+              <a class="small" href="/mail/domains/{{$.Domain.ID}}">Cancel</a>
+            </div>
+          </form>
+        </td></tr>
+        {{else}}
         <tr>
           <td class="font-monospace">{{.Address}}</td>
           <td class="small">{{.Used}}{{if ge .Pct 0}}<div class="progress mt-1" role="progressbar" aria-label="Mailbox usage" aria-valuenow="{{.Pct}}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar{{if ge .Pct 90}} bg-danger{{end}}" style="width: {{.Pct}}%"></div></div>{{end}}</td>
           <td class="text-end small">{{if .QuotaUnlimit}}Unlimited{{else}}{{.Quota}}{{end}}</td>
           <td class="small">{{if eq .Status "Full"}}<span class="wcp-state is-error">Full</span>{{else if eq .Status "Almost full"}}<span class="wcp-state is-warn">Almost full</span>{{else}}<span class="wcp-state is-ok">Active</span>{{end}}</td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-secondary" href="/mail/domains/{{$.Domain.ID}}/mailboxes/{{.ID}}/filters" title="Filters and autoresponder" aria-label="Filters and autoresponder of {{.Address}}"><i class="bi bi-funnel"></i></a>
+            <a class="btn btn-sm btn-outline-secondary" href="/mail/domains/{{$.Domain.ID}}?edit={{.ID}}" title="Change quota or password" aria-label="Change {{.Address}}"><i class="bi bi-pencil"></i></a>
+            <form class="d-inline" method="post" action="/mail/domains/{{$.Domain.ID}}/mailboxes/{{.ID}}/delete" data-wcp-confirm="Delete the mailbox {{.Address}}? Its mail is moved to the server's trash folder." data-wcp-confirm-word="{{.Address}}">
+              <input type="hidden" name="_token" value="{{$.CSRF}}">
+              <input type="hidden" name="confirm" value="{{.Address}}">
+              <button class="btn btn-sm btn-outline-danger" title="Delete" aria-label="Delete {{.Address}}"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
         </tr>
         {{end}}
+        {{end}}
+        <tr data-wcp-filter-empty class="d-none"><td colspan="5" class="text-body-secondary small">No mailbox matches the filter.</td></tr>
         </tbody>
       </table>
     </div>
@@ -61,16 +147,53 @@
 
   <div class="card mb-3" id="routing">
     <div class="card-body d-flex flex-wrap align-items-center gap-3">
-      <div>
+      <div class="me-auto">
         <div class="fw-semibold"><i class="bi bi-diagram-2 me-1"></i>Mail routing</div>
-        <div class="small text-body-secondary">{{if eq .Domain.Routing "local"}}This server receives the domain's mail into its mailboxes.{{else if eq .Domain.Routing "backup"}}This server only queues the domain's mail for its primary mail server (a lower-priority MX).{{else}}Another server receives the domain's mail; mail from this server to the domain goes there.{{end}}</div>
+        <div class="small text-body-secondary">{{.RoutingHelp}}</div>
       </div>
+      <form class="d-flex gap-2" method="post" action="/mail/domains/{{.Domain.ID}}/routing" data-wcp-busy data-wcp-confirm="Change the mail routing of {{.Domain.Domain}}? With backup or remote routing, mail for the domain is no longer delivered to the mailboxes here.">
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <select class="form-select form-select-sm" name="routing" aria-label="Mail routing">
+          {{if eq .Domain.Routing "local"}}<option value="local" selected>Local mail exchanger</option><option value="backup">Backup mail exchanger</option><option value="remote">Remote mail exchanger</option>
+          {{else if eq .Domain.Routing "backup"}}<option value="local">Local mail exchanger</option><option value="backup" selected>Backup mail exchanger</option><option value="remote">Remote mail exchanger</option>
+          {{else}}<option value="local">Local mail exchanger</option><option value="backup">Backup mail exchanger</option><option value="remote" selected>Remote mail exchanger</option>
+          {{end}}
+        </select>
+        <button class="btn btn-sm btn-outline-primary">Change</button>
+      </form>
     </div>
   </div>
 
   <div class="card mb-3" id="aliases">
-    <div class="card-header">
+    <div class="card-header d-flex align-items-center gap-2">
       <h2 class="h6 mb-0"><i class="bi bi-signpost-split me-1"></i>Aliases and forwarders <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Aliases}}</span></h2>
+      <button class="btn btn-sm btn-outline-primary ms-auto" type="button" data-bs-toggle="modal" data-bs-target="#new-alias"><i class="bi bi-plus-lg me-1"></i>Add forwarder</button>
+    </div>
+    <div class="modal fade" id="new-alias" tabindex="-1" aria-labelledby="new-alias-title" aria-hidden="true"{{if .AliasOpen}} data-wcp-modal-open{{end}}>
+      <div class="modal-dialog">
+        <form class="modal-content" method="post" action="/mail/domains/{{.Domain.ID}}/aliases" data-wcp-busy>
+          <input type="hidden" name="_token" value="{{.CSRF}}">
+          <div class="modal-header"><h2 class="modal-title fs-5" id="new-alias-title">Add forwarder</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+          <div class="modal-body">
+            <div class="row g-2">
+              <div class="col-md-5">
+                <label class="form-label small mb-1" for="al-local">Address (* = all other addresses)</label>
+                <div class="input-group input-group-sm">
+                  <input class="form-control{{if index .Errors "alias_local"}} is-invalid{{end}}" id="al-local" name="alias_local" value="{{index .Old "alias_local"}}" placeholder="sales" required>
+                  <span class="input-group-text">@{{.Domain.Domain}}</span>
+                </div>
+                {{if index .Errors "alias_local"}}<div class="invalid-feedback d-block">{{index .Errors "alias_local"}}</div>{{end}}
+              </div>
+              <div class="col-md-7">
+                <label class="form-label small mb-1" for="al-dest">Deliver to (addresses, comma separated)</label>
+                <input class="form-control form-control-sm{{if index .Errors "destinations"}} is-invalid{{end}}" id="al-dest" name="destinations" required placeholder="info@{{.Domain.Domain}}, me@example.com">
+                {{if index .Errors "destinations"}}<div class="invalid-feedback d-block">{{index .Errors "destinations"}}</div>{{end}}
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save</button></div>
+        </form>
+      </div>
     </div>
     {{if not .Aliases}}
     <div class="card-body wcp-empty-state text-center">
@@ -81,12 +204,13 @@
     {{else}}
     <div class="table-responsive">
       <table class="table mb-0 align-middle">
-        <thead><tr><th>Address</th><th>Delivers to</th></tr></thead>
+        <thead><tr><th>Address</th><th>Delivers to</th><th class="text-end">Actions</th></tr></thead>
         <tbody>
         {{range .Aliases}}
         <tr>
           <td class="font-monospace">{{if .Local}}{{.Local}}@{{$.Domain.Domain}}{{else}}<span class="badge text-bg-light border">catch-all</span> *@{{$.Domain.Domain}}{{end}}</td>
           <td class="small font-monospace text-break">{{.Destinations}}</td>
+          <td class="text-end"><form method="post" action="/mail/domains/{{$.Domain.ID}}/aliases/{{.ID}}/delete" data-wcp-confirm="Delete this forwarder?"><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-outline-danger" title="Delete" aria-label="Delete forwarder"><i class="bi bi-trash"></i></button></form></td>
         </tr>
         {{end}}
         </tbody>
@@ -98,8 +222,18 @@
   <div class="row g-3">
     <div class="col-xl-7">
       <div class="card mb-3" id="mail-dns">
-        <div class="card-header"><h2 class="h6 mb-0"><i class="bi bi-patch-check me-1"></i>Email authentication (DNS)</h2></div>
+        <div class="card-header d-flex flex-wrap align-items-center gap-2">
+          <h2 class="h6 mb-0"><i class="bi bi-patch-check me-1"></i>Email authentication (DNS)</h2>
+          <div class="d-flex gap-1 ms-auto">
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-dns-check="/mail/domains/{{.Domain.ID}}/dns-check" title="Look up the published records and test them against this server"><i class="bi bi-clipboard2-check me-1"></i>Check DNS</button>
+            <form method="post" action="/mail/domains/{{.Domain.ID}}/dns" data-wcp-busy>
+              <input type="hidden" name="_token" value="{{.CSRF}}">
+              <button class="btn btn-sm btn-outline-primary" title="Add the missing records to this domain's zone on this panel">Add to DNS zone</button>
+            </form>
+          </div>
+        </div>
         <div class="card-body small">
+          <div class="mb-3" data-wcp-dns-results aria-live="polite" hidden></div>
           <p class="text-body-secondary">Publish these records where the domain's DNS is hosted, so mail reaches this server and other providers trust it (MX, SPF, DKIM, DMARC).</p>
           {{range .Records}}
           <div class="border rounded p-2 mb-2">
@@ -126,6 +260,19 @@
           </dl>
         </div>
       </div>
+      {{if .Admin}}
+      <div class="card wcp-danger-card">
+        <div class="card-header"><h2 class="h6 mb-0"><i class="bi bi-exclamation-octagon me-1"></i>Danger zone</h2></div>
+        <div class="card-body small">
+          <p class="text-body-secondary">Stop hosting email for {{.Domain.Domain}}. Delete the mailboxes and forwarders first.</p>
+          <form method="post" action="/mail/domains/{{.Domain.ID}}/delete" data-wcp-confirm="Stop hosting email for {{.Domain.Domain}}?" data-wcp-confirm-word="{{.Domain.Domain}}">
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            <input type="hidden" name="confirm" value="{{.Domain.Domain}}">
+            <button class="btn btn-sm btn-outline-danger"{{if or .Mailboxes .Aliases}} disabled{{end}}>Stop hosting email</button>
+          </form>
+        </div>
+      </div>
+      {{end}}
     </div>
   </div>
 </main>

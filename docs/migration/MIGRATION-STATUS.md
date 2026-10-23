@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **270 ☑ done+tested, 4 ◑ partial, 277 ☐** of 551.
+`server/internal/http/server.go`): **279 ☑ done+tested, 4 ◑ partial, 268 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -609,6 +609,30 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   retention / the AES-256 switch / the active storages' "Copy to"
   + keep-local, the panel's _schedule_form + _options) and the
   per-row remove form
+- ☑ Mail: the domain page's write side (batch 60) — the mailbox
+  create/change/delete (the per-plan quota cap — "unlimited" becomes the
+  cap, the generated strong password shown once, the password policy on
+  typed-in passwords, the 1000-mailbox domain cap, the address
+  uniqueness against mailboxes and forwarders, the delete confirm-by-
+  address), the forwarder create/delete (catch-all, 1–50 destinations,
+  a mailbox address may not be a forwarder), the mail routing (local /
+  backup / remote), adding the MX/SPF/DKIM/DMARC records to the domain's
+  zone on this panel (a different SPF or DMARC is kept; idempotent), the
+  public-DNS checker (the agent's mail.auth_check, JSON for the page's
+  button) and stopping hosting a domain (mailboxes and forwarders must
+  be gone first; a domain the agent does not serve is removed anyway) +
+  the page's write UI (the create-mailbox + add-forwarder modals with
+  the refused-save re-render and re-opened modal, the inline quota/
+  password edit row, the per-row delete with the confirm word, the
+  routing form, the Check DNS + Add to DNS zone buttons, the danger
+  zone for administrators). hosting/mail_service.go grows SaveMailbox /
+  DeleteMailbox / SaveAlias / DeleteAlias / SetRouting / PublishDNS /
+  RemoveDomain / DnsCheck (the DnsService record save reuses the zone
+  editor's transaction + push); the security.Policy gains Generate (the
+  PHP password generator: two of each character class at least, then
+  random, shuffled, re-rolled until it passes the policy); PlanLimits
+  gains the email_accounts count and the numeric plan value (the
+  max_email_quota_mb cap). 9 routes, 14 tests
 - ☑ DNS: the zone editor's write side (batch 59) — the zone
   page's records CRUD (POST /dns/zones/{id}/records +
   /records/{record} + /records/{record}/delete — the per-type field
@@ -921,13 +945,15 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 60: keep going over the remaining ☐ (277 of 551). The
-mail-area routes are the natural next step (deferred from batch 58:
-the mailbox/alias CRUD, the per-mailbox filters, the routing form,
-dns-check, publishDns, the domain delete), then the /ips pool pages
-(the DNS batch's deferral) and the rest of the server area
-(discovery/inventory statuses, the installers). The admin
-AppManager's 4 routes are still open. The hulk/modsec/av scheduler
-sides stay with the background-jobs follow-up.
+Batch 61: keep going over the remaining ☐ (268 of 551). The mail area
+continues: the per-mailbox filters + autoresponder page (deferred from
+batch 60: the mail.filters / filters.save / filters.toggle /
+filters.delete / responder routes + the agent's mail.filters_get /
+mail.filters_save), then the mail admin area (queue, server settings,
+tools, greylisting, rate limits) and the /ips pool pages (deferred
+from batch 59). The rest of the server area (discovery/inventory
+statuses, installers) and the admin AppManager's 4 routes are still
+open. The hulk/modsec/av scheduler sides stay with the
+background-jobs follow-up.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

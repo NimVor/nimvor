@@ -30,6 +30,7 @@ var resourceColumn = map[string][2]string{
 	"cron_jobs":      {"max_cron_jobs", "Cron jobs"},
 	"workers":        {"max_workers", "Workers"},
 	"customers":      {"max_customers", "Customers"},
+	"email_accounts": {"max_email_accounts", "Email accounts"},
 }
 
 // AssertCanCreate returns a *UserError if creating `adding` more of `resource`
@@ -110,6 +111,35 @@ func limitLabel(label string) string {
 		}
 	}
 	return strings.ToLower(label[:1]) + label[1:]
+}
+
+// Value returns the plan's value for a numeric plan column (PlanLimits::
+// value), with the account's limit_overrides applied; 0 when the owner has no
+// plan (0 = unlimited). The column must be a real plans column.
+func (p *PlanLimits) Value(ctx context.Context, ownerID *int64, column string) (int, error) {
+	if ownerID == nil {
+		return 0, nil
+	}
+	if !strings.HasPrefix(column, "max_") {
+		return 0, fmt.Errorf("planlimits: unknown plan column %q", column)
+	}
+	var name string
+	var planVal int
+	var overrides sql.NullString
+	q := "SELECT p.name, p." + column + ", u.limit_overrides FROM plans p JOIN users u ON u.plan_id = p.id WHERE u.id = ?"
+	err := p.db.QueryRowContext(ctx, q, *ownerID).Scan(&name, &planVal, &overrides)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	if overrides.Valid {
+		if v, has := decodeOverride(overrides.String, column); has {
+			planVal = v
+		}
+	}
+	return planVal, nil
 }
 
 // planLimit returns the plan name and the effective limit for a column (plan
@@ -218,6 +248,9 @@ func (p *PlanLimits) countFor(ctx context.Context, resource string, owners []int
 		q = "SELECT COUNT(*) FROM domains d JOIN websites w ON w.id = d.website_id WHERE d.is_primary = 0 AND w.owner_id IN (" + join + ")"
 	case "databases":
 		q = "SELECT COUNT(*) FROM databases WHERE owner_id IN (" + join + ")"
+	case "email_accounts":
+		// A mailbox counts against the owner of the mail domain it lives on.
+		q = "SELECT COUNT(*) FROM mail_mailboxes m JOIN mail_domains d ON d.id = m.domain_id WHERE d.owner_id IN (" + join + ")"
 	case "customers":
 		q = "SELECT COUNT(*) FROM users WHERE parent_id IN (" + join + ")"
 	case "cron_jobs":

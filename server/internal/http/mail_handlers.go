@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
@@ -35,6 +36,8 @@ func (s *Server) mailIndex(w http.ResponseWriter, r *http.Request) {
 func (s *Server) siteMailService(r *http.Request, user *identity.User) *hosting.MailService {
 	return hosting.NewMailService(s.db, hosting.NewMailRepository(s.db), s.agent,
 		hosting.NewWebsiteRepository(s.db), hosting.NewAccountOptionStore(s.db),
+		hosting.NewPlanLimits(s.db), s.policy,
+		s.siteDnsService(r, user), hosting.NewDnsRepository(s.db),
 		s.websiteAuditHook(r, user))
 }
 
@@ -123,11 +126,9 @@ func (s *Server) mailDomainStore(w http.ResponseWriter, r *http.Request) {
 }
 
 // mailDomainShow renders one mail domain (MailController::show, route
-// mail.domain, mail.manage) — read-only for now: the mailbox/alias write
-// routes ride with the mail batch.
+// mail.domain, mail.manage).
 func (s *Server) mailDomainShow(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
-	sess := sessionFrom(r.Context())
 	repo := hosting.NewMailRepository(s.db)
 	domain, err := repo.Domain(r.Context(), s.currentServerID(r), pathID(r), user)
 	if err != nil {
@@ -139,79 +140,9 @@ func (s *Server) mailDomainShow(w http.ResponseWriter, r *http.Request) {
 		s.showNotFound(w)
 		return
 	}
-	svc := s.siteMailService(r, user)
-	status, err := svc.Status(r.Context())
-	if err != nil {
-		status = nil
+	edit := int64(0)
+	if v := r.URL.Query().Get("edit"); v != "" {
+		edit, _ = strconv.ParseInt(v, 10, 64)
 	}
-	host := ""
-	var sizes map[string]int64
-	var webmailURL string
-	if status != nil {
-		host = status.Hostname
-		sizes = map[string]int64{}
-		for _, m := range status.Mailboxes {
-			sizes[m.Address] = m.Bytes
-		}
-		if status.Webmail.Enabled && status.Webmail.Hostname != "" {
-			webmailURL = "https://" + status.Webmail.Hostname + "/"
-		}
-	}
-	mailboxes, err := repo.MailboxList(r.Context(), domain.ID)
-	if err != nil {
-		s.log.Error("list mailboxes", "domain", domain.ID, "error", err)
-	}
-	aliases, err := repo.AliasList(r.Context(), domain.ID)
-	if err != nil {
-		s.log.Error("list aliases", "domain", domain.ID, "error", err)
-	}
-	records := svc.DNSRecords(domain, host)
-	var site *hosting.Website
-	if domain.WebsiteID.Valid {
-		site, _ = hosting.NewWebsiteRepository(s.db).FindFull(r.Context(), s.currentServerID(r), domain.WebsiteID.Int64, user)
-	}
-	type mailboxRowT struct {
-		Address      string
-		Used         string
-		Quota        string
-		QuotaUnlimit bool
-		Pct          int // -1 when the quota is 0
-		Status       string
-	}
-	rows := make([]mailboxRowT, 0, len(mailboxes))
-	for _, m := range mailboxes {
-		addr := m.Local + "@" + domain.Domain
-		used := sizes[addr]
-		quota := int64(m.QuotaMB) * 1048576
-		pct := -1
-		st := "Active"
-		if m.QuotaMB > 0 {
-			pct = int(used * 100 / quota)
-			if pct > 100 {
-				pct = 100
-			}
-			if pct >= 100 {
-				st = "Full"
-			} else if pct >= 90 {
-				st = "Almost full"
-			}
-		}
-		rows = append(rows, mailboxRowT{
-			Address: addr, Used: formatBytes(used), Quota: formatBytes(quota),
-			QuotaUnlimit: m.QuotaMB == 0, Pct: pct, Status: st,
-		})
-	}
-	s.render(w, "mail_domain", map[string]any{
-		"User":       user,
-		"CSRF":       session.CSRFToken(sess),
-		"Domain":     domain,
-		"Mailboxes":  rows,
-		"Aliases":    aliases,
-		"Records":    records,
-		"Host":       host,
-		"WebmailURL": webmailURL,
-		"Site":       site,
-		"Success":    pullFlashKey(sess, "success"),
-		"Error":      pullFlashKey(sess, "error"),
-	})
+	s.renderMailDomain(w, r, user, domain, mailDomainEdit{Edit: edit})
 }

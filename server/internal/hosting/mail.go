@@ -151,6 +151,67 @@ func (r *MailRepository) MailboxList(ctx context.Context, domainID int64) ([]Mai
 	return out, rows.Err()
 }
 
+// MaxMailboxes is the maximum number of mailboxes one domain may hold
+// (MailService::MAX_MAILBOXES).
+const MaxMailboxes = 1000
+
+// Mailbox returns one mailbox row of the domain, or nil (MailService::
+// saveMailbox / deleteMailbox's row lookup).
+func (r *MailRepository) Mailbox(ctx context.Context, domainID, id int64) (*Mailbox, error) {
+	var m Mailbox
+	err := r.db.QueryRowContext(ctx, `SELECT id, local, quota_mb FROM mail_mailboxes WHERE id = ? AND domain_id = ?`, id, domainID).
+		Scan(&m.ID, &m.Local, &m.QuotaMB)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
+// MailboxCount counts a domain's mailboxes (the per-domain cap).
+func (r *MailRepository) MailboxCount(ctx context.Context, domainID int64) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM mail_mailboxes WHERE domain_id = ?`, domainID).Scan(&n)
+	return n, err
+}
+
+// LocalTaken reports whether a mailbox or an alias of the domain already
+// uses the local part (MailService::saveMailbox's duplicate check).
+func (r *MailRepository) LocalTaken(ctx context.Context, domainID int64, local string) (bool, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT (SELECT COUNT(*) FROM mail_mailboxes WHERE domain_id = ? AND local = ?)
+		  + (SELECT COUNT(*) FROM mail_aliases WHERE domain_id = ? AND local = ?)`,
+		domainID, local, domainID, local).Scan(&n)
+	return n > 0, err
+}
+
+// InsertMailbox stores a new mailbox row.
+func (r *MailRepository) InsertMailbox(ctx context.Context, domainID int64, local string, quotaMB int) (int64, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	res, err := r.db.ExecContext(ctx,
+		`INSERT INTO mail_mailboxes (domain_id, local, quota_mb, created_at) VALUES (?, ?, ?, ?)`,
+		domainID, local, quotaMB, now)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// UpdateMailboxQuota changes an existing mailbox's quota.
+func (r *MailRepository) UpdateMailboxQuota(ctx context.Context, id int64, quotaMB int) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE mail_mailboxes SET quota_mb = ? WHERE id = ?`, quotaMB, id)
+	return err
+}
+
+// DeleteMailboxRow removes a mailbox row.
+func (r *MailRepository) DeleteMailboxRow(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM mail_mailboxes WHERE id = ?`, id)
+	return err
+}
+
 // Alias is one mail_aliases row.
 type Alias struct {
 	ID           int64
@@ -174,4 +235,59 @@ func (r *MailRepository) AliasList(ctx context.Context, domainID int64) ([]Alias
 		out = append(out, a)
 	}
 	return out, rows.Err()
+}
+
+// Alias returns one alias row of the domain, or nil (MailService::deleteAlias).
+func (r *MailRepository) Alias(ctx context.Context, domainID, id int64) (*Alias, error) {
+	var a Alias
+	err := r.db.QueryRowContext(ctx, `SELECT id, local, destinations FROM mail_aliases WHERE id = ? AND domain_id = ?`, id, domainID).
+		Scan(&a.ID, &a.Local, &a.Destinations)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &a, nil
+}
+
+// UpsertAlias creates or re-points a forwarder (MailService::saveAlias's
+// ON CONFLICT upsert). local "" is the domain's catch-all.
+func (r *MailRepository) UpsertAlias(ctx context.Context, domainID int64, local, destinations string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO mail_aliases (domain_id, local, destinations, created_at) VALUES (?, ?, ?, ?)
+		 ON CONFLICT (domain_id, local) DO UPDATE SET destinations = excluded.destinations`,
+		domainID, local, destinations, now)
+	return err
+}
+
+// DeleteAliasRow removes an alias row.
+func (r *MailRepository) DeleteAliasRow(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM mail_aliases WHERE id = ?`, id)
+	return err
+}
+
+// UpdateDomainRouting stores the domain's mail routing.
+func (r *MailRepository) UpdateDomainRouting(ctx context.Context, id int64, routing string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE mail_domains SET routing = ? WHERE id = ?`, routing, id)
+	return err
+}
+
+// DeleteDomainRow removes a mail domain row (its mailboxes and aliases must
+// already be gone).
+func (r *MailRepository) DeleteDomainRow(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM mail_domains WHERE id = ?`, id)
+	return err
+}
+
+// MailboxOrAliasCount reports whether the domain still has mailboxes or
+// aliases (MailService::removeDomain's precondition).
+func (r *MailRepository) MailboxOrAliasCount(ctx context.Context, domainID int64) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT (SELECT COUNT(*) FROM mail_mailboxes WHERE domain_id = ?)
+		  + (SELECT COUNT(*) FROM mail_aliases WHERE domain_id = ?)`,
+		domainID, domainID).Scan(&n)
+	return n, err
 }
