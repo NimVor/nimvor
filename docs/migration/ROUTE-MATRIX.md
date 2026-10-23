@@ -184,11 +184,11 @@ Total routes: 551
 | GET | `/mail/domains/{id}/dns-check` | MailController::dnsCheck | mail.dns.check | mail.manage | yes | yes | ☑ |
 | POST | `/mail/domains/{id}/dns` | MailController::publishDns | mail.dns | mail.manage | yes | yes | ☑ |
 | POST | `/mail/domains/{id}/mailboxes/{mailbox}/delete` | MailController::deleteMailbox | mail.mailboxes.delete | mail.manage | yes | yes | ☑ |
-| POST | `/mail/domains/{id}/mailboxes/{mailbox}/filters/{n}/delete` | MailFiltersController::delete | mail.filters.delete | mail.manage | yes | yes | ☐ |
-| POST | `/mail/domains/{id}/mailboxes/{mailbox}/filters/{n}/toggle` | MailFiltersController::toggle | mail.filters.toggle | mail.manage | yes | yes | ☐ |
-| GET | `/mail/domains/{id}/mailboxes/{mailbox}/filters` | MailFiltersController::show | mail.filters | mail.manage | yes | yes | ☐ |
-| POST | `/mail/domains/{id}/mailboxes/{mailbox}/filters` | MailFiltersController::save | mail.filters.save | mail.manage | yes | yes | ☐ |
-| POST | `/mail/domains/{id}/mailboxes/{mailbox}/responder` | MailFiltersController::responder | mail.responder | mail.manage | yes | yes | ☐ |
+| POST | `/mail/domains/{id}/mailboxes/{mailbox}/filters/{n}/delete` | MailFiltersController::delete | mail.filters.delete | mail.manage | yes | yes | ☑ |
+| POST | `/mail/domains/{id}/mailboxes/{mailbox}/filters/{n}/toggle` | MailFiltersController::toggle | mail.filters.toggle | mail.manage | yes | yes | ☑ |
+| GET | `/mail/domains/{id}/mailboxes/{mailbox}/filters` | MailFiltersController::show | mail.filters | mail.manage | yes | yes | ☑ |
+| POST | `/mail/domains/{id}/mailboxes/{mailbox}/filters` | MailFiltersController::save | mail.filters.save | mail.manage | yes | yes | ☑ |
+| POST | `/mail/domains/{id}/mailboxes/{mailbox}/responder` | MailFiltersController::responder | mail.responder | mail.manage | yes | yes | ☑ |
 | POST | `/mail/domains/{id}/mailboxes/{mailbox}` | MailController::updateMailbox | mail.mailboxes.update | mail.manage | yes | yes | ☑ |
 | POST | `/mail/domains/{id}/mailboxes` | MailController::saveMailbox | mail.mailboxes.store | mail.manage | yes | yes | ☑ |
 | POST | `/mail/domains/{id}/routing` | MailFiltersController::routing | mail.routing | mail.manage | yes | yes | ☑ |

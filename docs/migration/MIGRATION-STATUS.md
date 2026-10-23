@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **279 ☑ done+tested, 4 ◑ partial, 268 ☐** of 551.
+`server/internal/http/server.go`): **284 ☑ done+tested, 4 ◑ partial, 263 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -609,6 +609,20 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   retention / the AES-256 switch / the active storages' "Copy to"
   + keep-local, the panel's _schedule_form + _options) and the
   per-row remove form
+- ☑ Mail: the per-mailbox filters + autoresponder (batch 61) — the
+  mailbox's filter list (the agent keeps them, rendered to Sieve):
+  create/edit (4 condition rows × part/match/value, 3 action rows,
+  all/any matching, empty rows ignored, at least one condition + one
+  action required), enable/disable, delete, and the autoresponder
+  (subject, message, once per sender every N days, optional
+  start/end — mailing lists and automatic messages are never answered).
+  A refused form redirects back with the messages (PHP's change()), a
+  mailbox the agent does not know gets the agent-error notice.
+  hosting/mail_filters.go ports MailFilterService (parts/matches/
+  actions labels, the form parsers, the agent round-trip + audit),
+  5 routes + the filters page (the list table, the new/edit modals
+  with the padded rows, the autoresponder card), 8 tests (the fake
+  agent stores the filters so a save is visible on the next read)
 - ☑ Mail: the domain page's write side (batch 60) — the mailbox
   create/change/delete (the per-plan quota cap — "unlimited" becomes the
   cap, the generated strong password shown once, the password policy on
@@ -945,15 +959,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 61: keep going over the remaining ☐ (268 of 551). The mail area
-continues: the per-mailbox filters + autoresponder page (deferred from
-batch 60: the mail.filters / filters.save / filters.toggle /
-filters.delete / responder routes + the agent's mail.filters_get /
-mail.filters_save), then the mail admin area (queue, server settings,
-tools, greylisting, rate limits) and the /ips pool pages (deferred
-from batch 59). The rest of the server area (discovery/inventory
-statuses, installers) and the admin AppManager's 4 routes are still
-open. The hulk/modsec/av scheduler sides stay with the
-background-jobs follow-up.
+Batch 62: keep going over the remaining ☐ (263 of 551). The mail area
+wraps up with its admin side (the queue + message viewer, the mail
+server settings, the repair tools, greylisting, sending-rate limits —
+the /mail/admin/* routes, server.view/server.manage), then the /ips
+pool pages (deferred from batch 59) and the rest of the server area
+(discovery/inventory statuses, installers). The admin AppManager's 4
+routes are still open. The hulk/modsec/av scheduler sides stay with
+the background-jobs follow-up.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
