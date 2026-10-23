@@ -464,9 +464,21 @@ func (s *Server) routes() {
 
 	// DNS zones list. dns.manage is withheld by the dns plan feature when off.
 	s.mux.HandleFunc("GET /dns", s.guard("", "dns.manage", s.dnsIndex))
+	// DNS: the website's DNS set-up page (DnsController::site), zone creation
+	// (DnsController::store) and the zone's records page (DnsController::show
+	// — read-only until the record routes land).
+	s.mux.HandleFunc("GET /sites/{id}/dns", s.guard("sites.dns", "dns.manage", s.siteDns))
+	s.mux.HandleFunc("POST /dns/zones", s.guard("dns.store", "dns.manage", s.dnsZoneStore))
+	s.mux.HandleFunc("GET /dns/zones/{id}", s.guard("dns.zone", "dns.manage", s.dnsZoneShow))
 
 	// Email domains list. mail.manage is withheld by the email plan feature.
 	s.mux.HandleFunc("GET /mail", s.guard("", "mail.manage", s.mailIndex))
+	// Mail: the website's email set-up page (MailController::site), hosting a
+	// domain (MailController::store) and the domain page (MailController::show
+	// — read-only until the mailbox routes land).
+	s.mux.HandleFunc("GET /sites/{id}/mail", s.guard("sites.mail", "mail.manage", s.siteMail))
+	s.mux.HandleFunc("POST /mail/domains", s.guard("mail.store", "mail.manage", s.mailDomainStore))
+	s.mux.HandleFunc("GET /mail/domains/{id}", s.guard("mail.domain", "mail.manage", s.mailDomainShow))
 	s.mux.HandleFunc("GET /workers", s.guard("", "workers.manage", s.workersIndex))
 
 	// Log viewer endpoints (LogsController). Source-level authorization

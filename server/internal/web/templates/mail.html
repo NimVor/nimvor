@@ -18,6 +18,8 @@
 </header>
 <main class="container">
   <h1>Email domains</h1>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
   {{if .Domains}}
   <table class="data-table">
     <thead><tr><th>Domain</th><th>Website</th><th>Mailboxes</th><th>Aliases</th></tr></thead>

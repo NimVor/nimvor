@@ -1,0 +1,73 @@
+{{define "dns_zone"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>DNS zone {{.Zone.Name}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  {{if .Site}}<p><a href="/sites/{{.Site.ID}}/dns">← DNS · {{.Site.Domain}}</a></p>{{else}}<p><a href="/dns">← DNS zones</a></p>{{end}}
+  <h1>DNS zone <span class="font-monospace">{{.Zone.Name}}</span></h1>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-3 small">
+    <span class="text-body-secondary">Zone <code>{{.Zone.Name}}</code></span>
+    {{if eq .ServedState "none"}}<span class="wcp-state is-error">Not served by this server</span>
+    {{else if eq .ServedState "pending"}}<span class="wcp-state is-warn">Update pending (serving serial {{.ServedSerial}})</span>
+    {{else}}<span class="wcp-state is-ok">Live</span>{{end}}
+    <span class="text-body-secondary">· serial {{.Zone.Serial}}</span>
+  </div>
+
+  {{if .Warnings}}
+  <div class="alert alert-warning small" role="status">
+    <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i>Check these</div>
+    <ul class="mb-0 ps-3">{{range .Warnings}}<li>{{.}}</li>{{end}}</ul>
+  </div>
+  {{end}}
+
+  <div class="card mb-3" id="records">
+    <div class="card-header">
+      <h2 class="h6 mb-0"><i class="bi bi-list-ul me-1"></i>DNS records <span class="badge rounded-pill text-bg-light border fw-normal">{{len .Records}}</span></h2>
+    </div>
+    {{if not .Records}}
+    <div class="card-body wcp-empty-state text-center">
+      <i class="bi bi-signpost fs-1" aria-hidden="true"></i>
+      <div class="fw-medium">No records yet</div>
+      <div class="small">Records are managed from the server's DNS area.</div>
+    </div>
+    {{else}}
+    <div class="table-responsive">
+      <table class="table mb-0 align-middle">
+        <thead><tr><th>Type</th><th>Name</th><th>Value</th><th class="text-end">TTL</th></tr></thead>
+        <tbody>
+        {{range .Records}}
+        <tr{{if .Disabled}} class="text-body-secondary"{{end}}>
+          <td><span class="badge text-bg-light border">{{.Type}}</span>{{if .Disabled}} <span class="badge text-bg-light border fw-normal">off</span>{{end}}</td>
+          <td class="font-monospace text-break">{{.Name}}</td>
+          <td class="font-monospace small text-break">{{if or (eq .Type "MX") (eq .Type "CAA")}}{{.Priority}} {{end}}{{if eq .Type "SRV"}}{{.Priority}} {{.Weight}} {{.Port}} {{end}}{{.Value}}</td>
+          <td class="text-end small">{{if .TTL}}{{.TTL}}{{else}}<span class="text-body-secondary" title="Zone default">{{$.Zone.TTL}}</span>{{end}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+  </div>
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

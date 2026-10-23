@@ -18,6 +18,8 @@
 </header>
 <main class="container">
   <h1>DNS zones</h1>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
   {{if .Zones}}
   <table class="data-table">
     <thead><tr><th>Zone</th><th>Website</th><th>Records</th></tr></thead>
