@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **245 ☑ done+tested, 3 ◑ partial, 303 ☐** of 551.
+`server/internal/http/server.go`): **246 ☑ done+tested, 3 ◑ partial, 302 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -609,7 +609,27 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   retention / the AES-256 switch / the active storages' "Copy to"
   + keep-local, the panel's _schedule_form + _options) and the
   per-row remove form
-- ☑ websites: the website import (batch 54) — the last deferral of the
+- ☑ websites: the website IP assignment (batch 55) — the
+  advanced page's IP card (SitesController::advanced's ipPool + the card
+  in sites/advanced.php) and POST /sites/{id}/ip
+  (IpController::assignSite, server.manage — customers 403).
+  hosting/ip_service.go ports the IpService parts this page uses: the
+  address pool (shared/dedicated/reserved, with each address's websites),
+  the card's pool filter (nothing reserved, a dedicated address only when
+  no other website has it, administrators only) and assign() — the
+  addresses must be pooled (right family, not reserved, a dedicated
+  address not bound to another website), the website patch
+  (agent re-apply + the website.ip audit with the diff) and, asked for,
+  the A/AAAA records in the website's DNS zone following (the default-IPv4
+  fallback for the old A value, the website's own names in a shared zone,
+  and the website moved back to its previous address when the DNS update
+  fails — the website.ip_rollback audit). hosting/dns_service.go ports
+  the DnsService helpers that need (zoneForName, replaceAddress with the
+  names restriction + the zone push to the agent); the /ips pool pages,
+  the IPv6 ranges, the migration wizard and the rebuild stay with the
+  DNS/IP batch. The advanced page also renders its success/error flashes
+  (PHP's global flash, missing since batch 53)
+- - ☑ websites: the website import (batch 54) — the last deferral of the
   website area: importing a discovered (non-WhaCP) website into WhaCP
   management. hosting/discovery_service.go ports DiscoveryService +
   DiscoverySnapshotRepository (the read-only server inventory: the agent's
@@ -841,20 +861,16 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 54 (this batch): the **website import** —
-hosting/discovery_service.go (DiscoveryService + the snapshot
-repository), hosting/import_service.go (ImportService, 7 methods),
-http/import.go (ImportController preview/run + SitesController::undoImport
-+ WebsitesController::show + the index's other-websites section), the
-hub's import banner + refresh (batch 53's deferral), and GET /websites/{id}
-becoming the discovered website's detail page. Three routes done:
-GET/POST /websites/{id}/import + POST /sites/{id}/import/undo (import.run).
+Batch 55 (this batch): the **website IP assignment** —
+hosting/ip_service.go (pool + assign), hosting/dns_service.go
+(zoneForName + replaceAddress + the push), http/ip_handlers.go
+(assignSite + the advanced page's pool data), the advanced page's IP
+card + its success/error flashes, and POST /sites/{id}/ip (server.manage).
 
-Batch 55: the **website IP pool** — the advanced page's IP card
-(IpService pool read, admin-only feature) + POST /sites/{id}/ip
-(assign). Then the remaining ☐ under `/sites/{id}/…`: ftp 4, apps 2,
-mail 1, dns 1 — check INVENTORY.md + the PHP controllers first and
-split large ones into 2–3 batches. (The hulk/modsec/av scheduler sides
-stay with the background-jobs follow-up.)
+Batch 56: the remaining ☐ under `/sites/{id}/…` — ftp 4, apps 2, mail 1,
+dns 1 — check INVENTORY.md + the PHP controllers first and split the
+large ones into 2–3 batches. (The hulk/modsec/av scheduler sides stay
+with the background-jobs follow-up; the /ips pool pages ride with the
+DNS batch.)
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

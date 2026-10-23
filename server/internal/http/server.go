@@ -132,6 +132,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /sites/{id}/advanced", s.guard("sites.advanced", "websites.manage", s.siteAdvanced))
 	s.mux.HandleFunc("GET /sites/{id}/settings", s.guard("sites.edit", "websites.manage", s.websiteSettings))
 	s.mux.HandleFunc("POST /sites/{id}/settings", s.guard("sites.update", "websites.manage", s.websiteSettingsSave))
+	s.mux.HandleFunc("POST /sites/{id}/ip", s.guard("sites.ip", "server.manage", s.ipAssign))
 	s.mux.HandleFunc("POST /sites/{id}/toggle", s.guard("sites.toggle", "websites.manage", s.websiteToggle))
 	s.mux.HandleFunc("POST /sites/{id}/delete", s.guard("sites.delete", "websites.manage", s.websiteDelete))
 	s.mux.HandleFunc("GET /sites/{id}/addons", s.guard("sites.addons", "websites.manage", s.siteAddons))

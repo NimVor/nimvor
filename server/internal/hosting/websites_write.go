@@ -1253,6 +1253,7 @@ func (s *WebsiteService) patch(ctx context.Context, site *Website, fields map[st
 	return nil
 }
 
+// patchDiff is the audit change map for a patch (WebsiteService::diff).
 func patchDiff(before *Website, fields map[string]any) map[string]any {
 	out := map[string]any{}
 	if v, ok := fields["enabled"]; ok {
@@ -1265,6 +1266,23 @@ func patchDiff(before *Website, fields map[string]any) map[string]any {
 		b, _ := v.(bool)
 		if b != before.DirectoryListing {
 			out["directory_listing"] = map[string]any{"from": before.DirectoryListing, "to": b}
+		}
+	}
+	for k, field := range map[string]sql.NullString{"ipv4": before.IPv4, "ipv6": before.IPv6} {
+		v, ok := fields[k]
+		if !ok {
+			continue
+		}
+		to := ""
+		if v != nil {
+			to, _ = v.(string)
+		}
+		if field.String != to {
+			from := any(nil)
+			if field.Valid {
+				from = field.String
+			}
+			out[k] = map[string]any{"from": from, "to": to}
 		}
 	}
 	return out
