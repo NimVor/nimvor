@@ -444,7 +444,7 @@ Total routes: 551
 | POST | `/sites/{id}/git` | DeployController::configure | sites.git.configure | deploy.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/health` | SitesController::health | sites.health | websites.view | yes | yes | ☑ |
 | POST | `/sites/{id}/import/undo` | SitesController::undoImport | sites.import.undo | import.run | yes | yes | ☑ |
-| POST | `/sites/{id}/ip` | IpController::assignSite | sites.ip | server.manage | yes | yes | ☐ |
+| POST | `/sites/{id}/ip` | IpController::assignSite | sites.ip | server.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/logs` | LogsController::site | sites.logs | logs.view | yes | yes | ☑ |
 | GET | `/sites/{id}/mail` | MailController::site | sites.mail | mail.manage | yes | yes | ☐ |
 | POST | `/sites/{id}/malware/release` | AvController::release | sites.malware.release | security.manage | yes | yes |☑ |

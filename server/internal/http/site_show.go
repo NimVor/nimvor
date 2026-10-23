@@ -182,6 +182,7 @@ func (s *Server) siteAdvanced(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+	user := userFrom(ctx)
 	jobs, err := hosting.NewJobTracker(s.db).RecentFor(ctx, s.currentServerID(r), "website", strconv.FormatInt(site.ID, 10), 10)
 	if err != nil {
 		s.log.Error("recent jobs", "error", err)
@@ -199,9 +200,12 @@ func (s *Server) siteAdvanced(w http.ResponseWriter, r *http.Request) {
 	for _, j := range jobs {
 		jobRows = append(jobRows, jobRow{JobID: j.JobID, Kind: j.Kind, Status: j.Status, Ago: timeAgo(j.CreatedAt)})
 	}
+	sess := sessionFrom(r.Context())
+	okMsg, _ := sess.PullFlash("success")
+	errMsg, _ := sess.PullFlash("error")
 	data := map[string]any{
-		"User":           userFrom(ctx),
-		"CSRF":           session.CSRFToken(sessionFrom(r.Context())),
+		"User":           user,
+		"CSRF":           session.CSRFToken(sess),
 		"Site":           site,
 		"Inspect":        inspect,
 		"InspectError":   inspectError,
@@ -211,6 +215,9 @@ func (s *Server) siteAdvanced(w http.ResponseWriter, r *http.Request) {
 		"LastAppliedAgo": timeAgo(site.AppliedAt.String()),
 		"Jobs":           jobRows,
 		"OwnerName":      site.OwnerName.String,
+		"IPPool":         s.advancedIPPool(r, user, site),
+		"Success":        okMsg,
+		"Error":          errMsg,
 	}
 	s.render(w, "site_advanced", data)
 }
