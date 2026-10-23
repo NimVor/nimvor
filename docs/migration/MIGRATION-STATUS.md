@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **256 ☑ done+tested, 3 ◑ partial, 292 ☐** of 551.
+`server/internal/http/server.go`): **260 ☑ done+tested, 5 ◑ partial, 286 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -609,6 +609,36 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   retention / the AES-256 switch / the active storages' "Copy to"
   + keep-local, the panel's _schedule_form + _options) and the
   per-row remove form
+- ☑ DNS + mail: the website's DNS and email pages (batch 58) —
+  GET /sites/{id}/dns + GET /sites/{id}/mail (DnsController::site /
+  MailController::site — the zone's/domain's page when the user may see
+  it, the "managed by another account" notice, else the set-up card over
+  the agent's dns.status / mail.status with the nameserver list and the
+  staff/customer not-ready text), POST /dns/zones + POST /mail/domains
+  (DnsController::store / MailController::store — the website's domain
+  zone with the template records (NS per nameserver, A + CNAME www from
+  dns_default_ipv4, SPF, CAA) / the DKIM-keyed mail domain + the account's
+  spam options re-applied, return_to back to the set-up page, the
+  taken-name / other-account / website-domain checks in the PHP's order),
+  GET /dns/zones/{id} + GET /mail/domains/{id} (DnsController::show /
+  MailController::show, ◑ read-only — the zone's records with the
+  live/pending/not-served state from dns.status + the Warnings checks
+  (<2 NS, dangling targets, private A, short TTL, SPF rules) / the
+  mailboxes with usage bars + quotas, the aliases, the routing state,
+  the DNS records to publish (MX/SPF/DKIM/DMARC) and the mail-client
+  card; the record/mailbox/alias CRUD, zone settings, sync/import/export,
+  the routing form and the filters ride with the DNS/mail-area batches).
+  hosting/dns.go (DnsZoneFull + Records + ZoneForWebsite + ZoneNameTaken /
+  ZoneOwnerByName / InsertZone), hosting/dns_service.go (Create +
+  Warnings + Status/ServedSerial + Nameservers), hosting/mail.go
+  (MailDomainFull/Mailbox/Alias + the reads), hosting/mail_service.go
+  (Status/AddDomain/DNSRecords/SyncSpam), http/dns_handlers.go +
+  http/mail_handlers.go (siteDns/siteMail/dnsZoneStore/dnsZoneShow/
+  siteMailService/mailDomainStore/mailDomainShow + pathID), 6 routes, 12
+  tests (the create validation order per the PHP: the DNS name check
+  fires before the customer's website check, the mail customer check
+  before the name; the fake agent's dns.status / mail.domain_add /
+  mail.spam_configure fixtures)
 - ☑ websites: the website IP assignment (batch 55) — the
   advanced page's IP card (SitesController::advanced's ipPool + the card
   in sites/advanced.php) and POST /sites/{id}/ip
@@ -861,30 +891,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 57 (this batch): the **one-click application installer**
-(AppsController, apps.install) — GET /sites/{id}/apps (the
-Softaculous-style catalog: categories from app_categories/app_catalog
-with the customer-visible enabled apps, the per-category panels, the
-install modals — WordPress fields, Laravel folder + migrations, staged
-apps with the "new database" / finish-setup notes, the install-target
-select over the website + its subdomains (non-PHP targets disabled),
-the installations history table with status badges / error / job-log
-button / WordPress "Log in" / "Finish setup" links, the once-only
-credentials secret flash, the installer-off + non-PHP empty states) +
-POST /sites/{id}/apps/{app} (validation, the database+user with the
-10-try name loop through the new DatabaseService.CreateWithUser —
-the 24-char crypto password sealed for later lookup — the
-apps.install agent job, the job tracked "Install <Title>", the
-database rolled back on agent failure, the install row + the app
-audit). hosting/apps_service.go (AppCatalogService + AppInstaller),
-hosting/database_service.go CreateWithUser + cryptoPassword,
-http/apps_handler(s).go + apps_handlers.go, template apps_site,
-WebsitesRepository.ChildrenFull, settings.Bool accepts "1"/"0"
-(PHP's filter_var parity for the PHP-written toggle), 9 tests.
-
-Batch 58: mail 1 (GET /sites/{id}/mail) + dns 1
-(GET /sites/{id}/dns). (The hulk/modsec/av scheduler sides stay with
-the background-jobs follow-up; the /ips pool pages ride with the DNS
-batch; the admin AppManager 4 routes later.)
+Batch 59: keep going over the remaining ☐ (286 of 551). The
+discovery/inventory pages (the server's PHP, packages, firewall
+statuses already landed; the rest of the server area) and the admin
+AppManager's 4 routes are still open, as are the DNS-area routes
+(deferred from batch 58: the zone's record CRUD, settings, sync,
+import/export) and the mail-area routes (the mailbox/alias CRUD,
+filters, routing form, publishDns). The hulk/modsec/av scheduler
+sides stay with the background-jobs follow-up.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

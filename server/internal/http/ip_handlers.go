@@ -18,7 +18,8 @@ import (
 // ipService builds the IP service with the audit hook bound to the actor.
 func (s *Server) ipService(r *http.Request, user *identity.User) *hosting.IpService {
 	return hosting.NewIpService(s.db, s.websiteService(r, user), hosting.NewWebsiteRepository(s.db),
-		hosting.NewDnsService(s.db, hosting.NewDnsRepository(s.db), s.agent), s.settings,
+		hosting.NewDnsService(s.db, hosting.NewDnsRepository(s.db), s.agent, s.settings,
+			hosting.NewWebsiteRepository(s.db), s.websiteAuditHook(r, user)), s.settings,
 		s.websiteAuditHook(r, user), s.currentServerID(r))
 }
 

@@ -53,16 +53,79 @@ func (r *DnsRepository) Zones(ctx context.Context, serverID int64, u *identity.U
 	return out, rows.Err()
 }
 
+// DnsRecord is one dns_records row (DnsService::records).
+type DnsRecord struct {
+	ID       int64
+	Name     string
+	Type     string
+	TTL      int
+	Value    string
+	Priority int
+	Weight   int
+	Port     int
+	Disabled bool
+}
+
+// Records lists a zone's records in the canonical display order
+// (DnsService::records).
+func (r *DnsRepository) Records(ctx context.Context, zoneID int64) ([]DnsRecord, error) {
+	rows, err := r.db.QueryContext(ctx, `\
+		SELECT id, name, type, ttl, value, priority, weight, port, disabled
+		FROM dns_records WHERE zone_id = ?
+		ORDER BY CASE name WHEN '@' THEN 0 ELSE 1 END, name,
+			CASE type WHEN 'NS' THEN 0 WHEN 'A' THEN 1 WHEN 'AAAA' THEN 2 WHEN 'CNAME' THEN 3 WHEN 'MX' THEN 4 ELSE 5 END, id`, zoneID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DnsRecord
+	for rows.Next() {
+		var rec DnsRecord
+		var disabled int
+		if err := rows.Scan(&rec.ID, &rec.Name, &rec.Type, &rec.TTL, &rec.Value, &rec.Priority, &rec.Weight, &rec.Port, &disabled); err != nil {
+			return nil, err
+		}
+		rec.Disabled = disabled == 1
+		out = append(out, rec)
+	}
+	return out, rows.Err()
+}
+
+// Zone returns one zone scoped to the user (DnsService::zone).
+func (r *DnsRepository) Zone(ctx context.Context, serverID, id int64, u *identity.User) (*DnsZoneFull, error) {
+	cond, params := WithWebsite(u, "z.owner_id", "z.website_id")
+	args := append([]any{id, serverID}, params...)
+	var z DnsZoneFull
+	err := r.db.QueryRowContext(ctx,
+		`SELECT z.id, z.name, z.website_id, z.owner_id, z.ttl, z.primary_ns, z.hostmaster, z.secondaries, z.serial, z.applied_at, w.domain
+		 FROM dns_zones z LEFT JOIN websites w ON w.id = z.website_id
+		 WHERE z.id = ? AND z.server_id = ? AND `+cond, args...).
+		Scan(&z.ID, &z.Name, &z.WebsiteID, &z.OwnerID, &z.TTL, &z.PrimaryNS, &z.Hostmaster, &z.Secondaries, &z.Serial, &z.AppliedAt, &z.Website)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &z, nil
+}
+
 // ---- writing (WebsiteService::addSubdomainRecord) -------------------------
 
-// DnsZoneFull is the part of a DNS zone row the writer needs.
+// DnsZoneFull is a DNS zone row (the writer needs the push fields; the
+// zone pages need the serial, the attached website and the scope columns).
 type DnsZoneFull struct {
 	ID          int64
 	Name        string
+	WebsiteID   sql.NullInt64
+	OwnerID     sql.NullInt64
 	TTL         int
 	PrimaryNS   string
 	Hostmaster  string
 	Secondaries string
+	Serial      int
+	AppliedAt   sql.NullString
+	Website     sql.NullString
 }
 
 // ZoneForWebsite returns the hosted zone attached to a website, or nil
@@ -70,8 +133,8 @@ type DnsZoneFull struct {
 func (r *DnsRepository) ZoneForWebsite(ctx context.Context, websiteID int64) (*DnsZoneFull, error) {
 	var z DnsZoneFull
 	err := r.db.QueryRowContext(ctx,
-		"SELECT id, name, ttl, primary_ns, hostmaster, secondaries FROM dns_zones WHERE website_id = ?",
-		websiteID).Scan(&z.ID, &z.Name, &z.TTL, &z.PrimaryNS, &z.Hostmaster, &z.Secondaries)
+		"SELECT id, name, website_id, owner_id, ttl, primary_ns, hostmaster, secondaries, serial FROM dns_zones WHERE website_id = ?",
+		websiteID).Scan(&z.ID, &z.Name, &z.WebsiteID, &z.OwnerID, &z.TTL, &z.PrimaryNS, &z.Hostmaster, &z.Secondaries, &z.Serial)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -168,6 +231,44 @@ func (r *DnsRepository) UpdateSerial(ctx context.Context, zoneID int64, serial i
 		"UPDATE dns_zones SET serial = ?, applied_at = ?, updated_at = ? WHERE id = ?",
 		serial, now, now, zoneID)
 	return err
+}
+
+// ZoneNameTaken reports whether a zone with this name exists on the server.
+func (r *DnsRepository) ZoneNameTaken(ctx context.Context, serverID int64, name string) (bool, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM dns_zones WHERE server_id = ? AND name = ?`, serverID, name).Scan(&n)
+	return n > 0, err
+}
+
+// ZoneOwnerByName is a zone's owner id by name (nil when absent), for the
+// "name belongs to a domain of another account" check (DnsService::create).
+func (r *DnsRepository) ZoneOwnerByName(ctx context.Context, serverID int64, name string) (*int64, error) {
+	var owner sql.NullInt64
+	err := r.db.QueryRowContext(ctx, `SELECT owner_id FROM dns_zones WHERE server_id = ? AND name = ?`, serverID, name).Scan(&owner)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !owner.Valid {
+		return nil, nil
+	}
+	id := owner.Int64
+	return &id, nil
+}
+
+// InsertZone stores a new zone (DnsService::create, first write).
+func (r *DnsRepository) InsertZone(ctx context.Context, serverID int64, name string, websiteID, ownerID *int64, primaryNS, hostmaster string) (int64, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	res, err := r.db.ExecContext(ctx,
+		`INSERT INTO dns_zones (server_id, name, website_id, owner_id, primary_ns, hostmaster, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		serverID, name, websiteID, ownerID, primaryNS, hostmaster, now, now)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
 }
 
 func splitCSV(s string) []string {

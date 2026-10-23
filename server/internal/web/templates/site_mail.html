@@ -1,0 +1,52 @@
+{{define "site_mail"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Email · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a></p>
+  <h1>Email</h1>
+  <p class="text-muted">{{.Site.Domain}}</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+
+  <div class="card" id="mail-setup">
+    <div class="card-body wcp-empty-state text-center">
+      <i class="bi bi-envelope fs-1" aria-hidden="true"></i>
+      <div class="fw-medium fs-5 mb-1">Email is not set up for {{.Site.Domain}}</div>
+      {{if .Ready}}
+      <p class="small mb-3">Host email for this domain to create mailboxes like info@{{.Site.Domain}} and forwarders.</p>
+      <form method="post" action="/mail/domains" data-wcp-busy>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <input type="hidden" name="website_id" value="{{.Site.ID}}">
+        <input type="hidden" name="return_to" value="/sites/{{.Site.ID}}/mail">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-envelope-plus me-1"></i>Set up email</button>
+      </form>
+      <p class="small mt-3 mb-0">A DKIM signing key is created; the next page lists the DNS records to publish.</p>
+      {{else if .Staff}}
+      <p class="small mb-3">The mail server is not {{if .Installed}}running or set up{{else}}installed{{end}} on this server yet.</p>
+      <a class="btn btn-primary" href="/mail">Set up the mail server</a>
+      {{else}}
+      <p class="small mb-0">Email hosting is not available on this server yet. Please ask your hosting provider or administrator.</p>
+      {{end}}
+    </div>
+  </div>
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

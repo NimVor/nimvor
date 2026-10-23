@@ -1,0 +1,53 @@
+{{define "site_dns"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>DNS · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a></p>
+  <h1>DNS</h1>
+  <p class="text-muted">{{.Site.Domain}}</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+
+  <div class="card" id="dns-setup">
+    <div class="card-body wcp-empty-state text-center">
+      <i class="bi bi-signpost fs-1" aria-hidden="true"></i>
+      <div class="fw-medium fs-5 mb-1">DNS for {{.Site.Domain}} is not hosted here</div>
+      {{if and .Ready .Nameservers}}
+      <p class="small mb-3">Host the domain's DNS on this server to manage its records here.</p>
+      <form method="post" action="/dns/zones" class="d-inline-block text-start" data-wcp-busy>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <input type="hidden" name="website_id" value="{{.Site.ID}}">
+        <input type="hidden" name="return_to" value="/sites/{{.Site.ID}}/dns">
+        <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="template" value="1" id="dns-tpl" checked><label class="form-check-label small" for="dns-tpl">Add the usual records (@ and www to this server, SPF, CAA for Let's Encrypt)</label></div>
+        <div class="text-center"><button class="btn btn-primary" type="submit"><i class="bi bi-plus-lg me-1"></i>Create DNS zone</button></div>
+      </form>
+      <p class="small mt-3 mb-0">Afterwards, set these name servers for the domain at its registrar: {{range $i, $ns := .Nameservers}}{{if $i}}, {{end}}<code>{{$ns}}</code>{{end}}.</p>
+      {{else if .Staff}}
+      <p class="small mb-3">The DNS server is not {{if .Installed}}running or set up{{else}}installed{{end}} on this server yet.</p>
+      <a class="btn btn-primary" href="/dns">Set up the DNS server</a>
+      {{else}}
+      <p class="small mb-0">DNS hosting is not available on this server. You can keep managing the domain's records where it is registered: point an A record for <code>{{.Site.Domain}}</code> to this server's IP address.</p>
+      {{end}}
+    </div>
+  </div>
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

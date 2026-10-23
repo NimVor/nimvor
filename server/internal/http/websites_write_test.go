@@ -87,6 +87,9 @@ type sitesAgent struct {
 	// mailData overrides the mail.status reply's data ("" = configured
 	// with the test hostname).
 	mailData string
+	// dnsData overrides the dns.status reply's data ("" = installed,
+	// configured, running, serving example.com at serial 7).
+	dnsData string
 	// ftpStatus shapes the ftp.status reply: "" = installed + configured +
 	// active (one account for u_bob, SFTP on with one key), "missing" =
 	// not installed, "stopped" = configured but not active.
@@ -314,6 +317,14 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				{"version":"8.3.1","fpm_binary":"/usr/sbin/php-fpm8.3"}]}}`))
 		case "agent.status":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sites_root":"/home/whacp"}}`))
+		case "dns.status":
+			sa.mu.Lock()
+			data := sa.dnsData
+			sa.mu.Unlock()
+			if data == "" {
+				data = `{"installed":true,"configured":true,"running":true,"config_file":"/etc/ndn/zones.json","zones":[{"zone":"bob.example","serial":7}]}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + data + `}`))
 		case "dns.zone_apply":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"serial":7}}`))
 		case "sites.delete":
@@ -791,6 +802,10 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				data = `{"installed":true,"configured":true,"hostname":"mail.example.com"}`
 			}
 			_, _ = w.Write([]byte(`{"success":true,"data":` + data + `}`))
+		case "mail.domain_add":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"dkim_selector":"whacp202601","dkim_txt":"v=DKIM1; k=rsa; p=MEow"}}`))
+		case "mail.spam_configure":
+			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
 		case "hulk.status":
 			sa.mu.Lock()
 			available, active := sa.hulkAvailable, sa.hulkActive
