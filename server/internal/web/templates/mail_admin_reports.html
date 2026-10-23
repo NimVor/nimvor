@@ -1,0 +1,144 @@
+{{define "mail_admin_reports"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Delivery reports · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/mail">← Email</a></p>
+  <h1>{{if eq .Tab "stats"}}Statistics{{else}}Delivery reports{{end}}</h1>
+  <p class="text-muted">Email administration · from the mail logs</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .AgentErr}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2"><i class="bi bi-plug fs-5"></i><div class="fw-semibold">{{.AgentErr}}</div></div>
+  </div>
+  {{end}}
+  {{template "mail_admin_nav" .}}
+  {{if .Report}}
+  <form class="d-flex flex-wrap gap-2 align-items-center mb-3" method="get" action="/mail/admin/reports">
+    {{if eq .Tab "stats"}}<input type="hidden" name="view" value="stats">{{end}}
+    <select class="form-select form-select-sm w-auto" name="range" aria-label="Time range" data-wcp-autosubmit>
+      <option value="1h"{{if eq .Range "1h"}} selected{{end}}>Last hour</option>
+      <option value="24h"{{if eq .Range "24h"}} selected{{end}}>Last 24 hours</option>
+      <option value="7d"{{if eq .Range "7d"}} selected{{end}}>Last 7 days</option>
+      <option value="30d"{{if eq .Range "30d"}} selected{{end}}>Last 30 days</option>
+    </select>
+    {{if eq .Tab "reports"}}
+    <input class="form-control form-control-sm" style="max-width: 260px;" type="search" name="address" value="{{.Address}}" placeholder="Sender or recipient contains…" aria-label="Address">
+    <select class="form-select form-select-sm w-auto" name="status" aria-label="Status">
+      <option value="">Any status</option>
+      <option value="sent"{{if eq .Status "sent"}} selected{{end}}>Sent</option>
+      <option value="delivered"{{if eq .Status "delivered"}} selected{{end}}>Delivered here</option>
+      <option value="deferred"{{if eq .Status "deferred"}} selected{{end}}>Deferred</option>
+      <option value="bounced"{{if eq .Status "bounced"}} selected{{end}}>Bounced</option>
+      <option value="rejected"{{if eq .Status "rejected"}} selected{{end}}>Rejected</option>
+    </select>
+    <button class="btn btn-sm btn-outline-secondary">Filter</button>
+    {{end}}
+    <span class="small text-body-secondary ms-auto">{{if .Source}}From {{.Source}}{{else}}No mail log found (journal, /var/log/mail.log or maillog).{{end}}</span>
+  </form>
+
+  {{if eq .Tab "stats"}}
+  <section class="row g-2 mb-3" aria-label="Totals">
+    {{range $k := (slice "received" "sent" "delivered" "deferred" "bounced" "rejected" "auth_ok" "auth_failed")}}
+    <div class="col-6 col-xl">
+      <div class="card">
+        <div class="card-body py-2">
+          <div class="small text-body-secondary">{{if eq $k "received"}}Received{{else if eq $k "sent"}}Sent out{{else if eq $k "delivered"}}Delivered here{{else if eq $k "deferred"}}Deferred{{else if eq $k "bounced"}}Bounced{{else if eq $k "rejected"}}Rejected{{else if eq $k "auth_ok"}}Logins{{else}}Failed logins{{end}}</div>
+          <div class="fw-semibold fs-5{{if or (eq $k "bounced") (eq $k "rejected") (eq $k "auth_failed")}}{{if gt (index $.Report.Totals $k) 0}} text-danger{{end}}{{end}}">{{index $.Report.Totals $k}}</div>
+        </div>
+      </div>
+    </div>
+    {{end}}
+  </section>
+  <div class="row g-3">
+    <div class="col-xl-6">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-bar-chart me-1"></i>Over time</div>
+        {{if .Series}}
+        <ul class="list-group list-group-flush small">
+          {{range .Series}}
+          <li class="list-group-item">
+            <div class="d-flex"><span>{{.Start}}</span><span class="ms-auto">{{.In}} in · {{.Out}} out{{if gt .Failed 0}} · <span class="text-danger">{{.Failed}} failed</span>{{end}}</span></div>
+            <div class="progress mt-1" role="presentation" style="height: 6px;"><div class="progress-bar" style="width: {{.Pct}}%;"></div></div>
+          </li>
+          {{end}}
+        </ul>
+        {{else}}
+        <div class="card-body small text-body-secondary">No mail in this period.</div>
+        {{end}}
+      </div>
+    </div>
+    <div class="col-xl-6">
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-people me-1"></i>Relayers — who sent mail</div>
+        {{if .Relayers}}
+        <ul class="list-group list-group-flush small">
+          {{range .Relayers}}
+          <li class="list-group-item d-flex gap-2"><span class="badge text-bg-light border fw-normal">{{.KindLabel}}</span><span class="text-break">{{.Name}}</span><span class="ms-auto fw-medium">{{.Messages}}</span></li>
+          {{end}}
+        </ul>
+        {{else}}
+        <div class="card-body small text-body-secondary">Nobody sent mail in this period.</div>
+        {{end}}
+        <div class="card-footer small text-body-secondary">A "server account" is mail sent by a program on the server (e.g. a website's PHP) — the usual source of spam from a hacked site.</div>
+      </div>
+      <div class="card">
+        <div class="card-header"><i class="bi bi-send me-1"></i>Sent summary by sender domain</div>
+        {{if .Senders}}
+        <ul class="list-group list-group-flush small">
+          {{range .Senders}}
+          <li class="list-group-item d-flex"><span>{{.Name}}</span><span class="ms-auto fw-medium">{{.Messages}}</span></li>
+          {{end}}
+        </ul>
+        {{else}}
+        <div class="card-body small text-body-secondary">No mail was sent out.</div>
+        {{end}}
+      </div>
+    </div>
+  </div>
+  {{else}}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Time (UTC)</th><th>From</th><th>To</th><th>Status</th><th>Details</th></tr></thead>
+        <tbody>
+        {{range .Deliveries}}
+          <tr>
+            <td class="small text-nowrap">{{.Time}}</td>
+            <td class="small text-break">{{if .From}}{{.From}}{{else}}—{{end}}</td>
+            <td class="small text-break">{{.To}}</td>
+            <td class="small"><span class="wcp-state {{.StatusClass}}">{{.StatusLabel}}</span><div class="text-body-secondary">{{.DSN}}</div></td>
+            <td class="small"><div class="text-break">{{.Reason}}</div><div class="text-body-secondary text-break">{{.Relay}}{{if .Delay}} · {{.Delay}} s{{end}}{{if .ID}} · {{.ID}}{{end}}</div></td>
+          </tr>
+        {{else}}
+          <tr><td colspan="5" class="text-center py-4 text-body-secondary">No deliveries match.</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{if .Report.Truncated}}<div class="small text-body-secondary p-2">Showing the newest 500; narrow the filter to see others.</div>{{end}}
+  </div>
+  {{end}}
+  {{end}}
+{{template "wcp_confirm_modal"}}
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

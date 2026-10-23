@@ -1,0 +1,92 @@
+{{define "mail_admin_tools"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Mail tools · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/mail">← Email</a></p>
+  <h1>Mail tools</h1>
+  <p class="text-muted">Email administration · troubleshooter and repairs</p>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .AgentErr}}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex gap-2"><i class="bi bi-plug fs-5"></i><div class="fw-semibold">{{.AgentErr}}</div></div>
+  </div>
+  {{end}}
+  {{template "mail_admin_nav" .}}
+  <div class="row g-3">
+    <div class="col-xl-7">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-signpost-split me-1"></i>Mail troubleshooter</div>
+        <div class="card-body">
+          <form class="d-flex gap-2 mb-3" method="get" action="/mail/admin/tools">
+            <label class="visually-hidden" for="trace-address">Email address</label>
+            <input class="form-control" id="trace-address" type="email" name="address" value="{{.Address}}" placeholder="someone@example.com" required maxlength="254">
+            <button class="btn btn-primary text-nowrap">Trace</button>
+          </form>
+          <p class="small text-body-secondary">Shows where mail sent to an address ends up on this server: its mailbox, forwarders, catch-all, the domain's routing, or the server it is sent on to.</p>
+          {{if .Trace}}
+          <ol class="list-unstyled mb-0">
+            {{range .Trace.Steps}}
+            <li class="d-flex gap-2 mb-2">
+              <i class="bi {{if eq .Result "mailbox"}}bi-inbox text-success{{else if eq .Result "forward"}}bi-arrow-return-right{{else if eq .Result "catchall"}}bi-asterisk{{else if eq .Result "remote"}}bi-box-arrow-up-right{{else if eq .Result "backup"}}bi-hdd-stack{{else if eq .Result "external"}}bi-globe2{{else if eq .Result "rejected"}}bi-x-octagon text-danger{{else if eq .Result "loop"}}bi-arrow-repeat text-warning{{else}}bi-dot{{end}} mt-1" aria-hidden="true"></i>
+              <div><div class="font-monospace small fw-semibold">{{.Address}}</div><div class="small">{{.Detail}}</div></div>
+            </li>
+            {{end}}
+          </ol>
+          {{end}}
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-5">
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-wrench-adjustable me-1"></i>Repair mailbox permissions</div>
+        <div class="card-body">
+          <p class="small text-body-secondary">Gives mailbox folders back to the mail user (vmail) and removes access for other users, e.g. after files were copied in by hand. Links and special files are skipped, never followed.</p>
+          {{if .CanManage}}
+          <form class="d-flex gap-2" method="post" action="/mail/admin/tools/repair" data-wcp-confirm="Repair the ownership and permissions of the selected mailboxes?">
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            <label class="visually-hidden" for="repair-domain">Domain</label>
+            <select class="form-select form-select-sm" id="repair-domain" name="domain">
+              <option value="">All domains</option>
+              {{range .Domains}}<option value="{{.}}">{{.}}</option>
+              {{end}}
+            </select>
+            <button class="btn btn-sm btn-outline-primary text-nowrap"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Repair</button>
+          </form>
+          {{end}}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><i class="bi bi-info-circle me-1"></i>Other tools</div>
+        <div class="card-body small">
+          <ul class="mb-0 ps-3">
+            <li>Spam filter (Rspamd) state and restart: <a href="/mail/admin/server">Mail server</a>; its settings: <a href="/mail">Email</a> → spam filter.</li>
+            <li>Mailbox format: WhaCP stores every mailbox as Maildir, so there is nothing to convert.</li>
+            <li>DNS of a domain (MX, SPF, DKIM, DMARC, reverse DNS): the domain's page under Email → Check DNS.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+{{template "wcp_confirm_modal"}}
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

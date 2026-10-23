@@ -507,6 +507,19 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /mail/domains/{id}/mailboxes/{mailbox}/filters/{n}/toggle", s.guard("mail.filters.toggle", "mail.manage", s.mailFilterToggle))
 	s.mux.HandleFunc("POST /mail/domains/{id}/mailboxes/{mailbox}/filters/{n}/delete", s.guard("mail.filters.delete", "mail.manage", s.mailFilterDelete))
 	s.mux.HandleFunc("POST /mail/domains/{id}/mailboxes/{mailbox}/responder", s.guard("mail.responder", "mail.manage", s.mailResponder))
+	// Mail administration (MailAdminController): the queue (list, headers,
+	// actions), the delivery reports + statistics, the mail server status +
+	// settings and the tools (trace, permission repair). Server
+	// administrators only — the handlers gate on the all scope in addition
+	// to these permissions.
+	s.mux.HandleFunc("GET /mail/admin/queue", s.guard("mail.admin.queue", "server.view", s.mailAdminQueue))
+	s.mux.HandleFunc("GET /mail/admin/queue/{id}", s.guard("mail.admin.message", "server.view", s.mailAdminMessage))
+	s.mux.HandleFunc("POST /mail/admin/queue", s.guard("mail.admin.queue.action", "server.manage", s.mailAdminQueueAction))
+	s.mux.HandleFunc("GET /mail/admin/server", s.guard("mail.admin.server", "server.view", s.mailAdminServer))
+	s.mux.HandleFunc("POST /mail/admin/server", s.guard("mail.admin.settings", "server.manage", s.mailAdminSaveSettings))
+	s.mux.HandleFunc("GET /mail/admin/tools", s.guard("mail.admin.tools", "server.view", s.mailAdminTools))
+	s.mux.HandleFunc("POST /mail/admin/tools/repair", s.guard("mail.admin.repair", "server.manage", s.mailAdminRepair))
+	s.mux.HandleFunc("GET /mail/admin/reports", s.guard("mail.admin.reports", "server.view", s.mailAdminReports))
 	s.mux.HandleFunc("GET /workers", s.guard("", "workers.manage", s.workersIndex))
 
 	// Log viewer endpoints (LogsController). Source-level authorization

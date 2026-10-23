@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **284 ☑ done+tested, 4 ◑ partial, 263 ☐** of 551.
+`server/internal/http/server.go`): **292 ☑ done+tested, 4 ◑ partial, 255 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -609,6 +609,22 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   retention / the AES-256 switch / the active storages' "Copy to"
   + keep-local, the panel's _schedule_form + _options) and the
   per-row remove form
+- ☑ Mail administration (batch 62) — the MailAdminController's 8 routes
+  for server administrators (the all-scope gate on top of the
+  server.view/server.manage permissions): the Postfix queue (list with
+  search + per-queue counts, one message's headers in a modal via the
+  JSON endpoint, deliver now / hold / release / delete on the selected
+  messages, retry every deferred one), the delivery reports and
+  statistics from the mail logs (time range, address + status filters,
+  totals, over time, who sent mail, sender domains), the mail server
+  page (Postfix/Dovecot/OpenDKIM/Rspamd states + config checks, the
+  managed settings with only the changed Postfix fields sent, the
+  latest log lines) and the tools (the address trace through
+  mailboxes/forwarders/catch-all/routing, the mailbox permission
+  repair). hosting/mail_admin.go carries the agent reply shapes, 8
+  routes + 4 pages (+ the nav partial and the reused confirm modal),
+  10 tests (the fixture gains server.view for the admin + viewer
+  roles, so the all-scope gate is tested too)
 - ☑ Mail: the per-mailbox filters + autoresponder (batch 61) — the
   mailbox's filter list (the agent keeps them, rendered to Sieve):
   create/edit (4 condition rows × part/match/value, 3 action rows,
@@ -959,13 +975,11 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 62: keep going over the remaining ☐ (263 of 551). The mail area
-wraps up with its admin side (the queue + message viewer, the mail
-server settings, the repair tools, greylisting, sending-rate limits —
-the /mail/admin/* routes, server.view/server.manage), then the /ips
-pool pages (deferred from batch 59) and the rest of the server area
-(discovery/inventory statuses, installers). The admin AppManager's 4
-routes are still open. The hulk/modsec/av scheduler sides stay with
+Batch 63: the rest of the mail admin area — greylisting (settings,
+trusted hosts, trusted mail providers, the triplet report + cleanup:
+8 routes) and the outgoing mail limits (sending-limits: 3 routes) —
+then the /ips pool pages (deferred from batch 59) and the admin
+AppManager's 4 routes. The hulk/modsec/av scheduler sides stay with
 the background-jobs follow-up.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

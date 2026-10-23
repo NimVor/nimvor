@@ -44,8 +44,8 @@ func dnsMailEnv(t *testing.T, loginAs string) (http.Handler, *http.Cookie, *site
 	exec(`INSERT INTO roles (id,name,label,scope,created_at) VALUES
 		(1,'administrator','Admin','all',''),(2,'customer','Customer','own',''),(3,'viewer','Viewer','own','')`)
 	exec(`INSERT INTO permissions (id,name,label,grp) VALUES
-		(1,'dns.manage','DNS','Hosting'),(2,'mail.manage','Email','Hosting'),(3,'server.manage','Server','Admin')`)
-	exec(`INSERT INTO role_permissions (role_id,permission_id) VALUES (1,1),(1,2),(1,3),(2,1),(2,2)`)
+		(1,'dns.manage','DNS','Hosting'),(2,'mail.manage','Email','Hosting'),(3,'server.manage','Server','Admin'),(4,'server.view','Server','Admin')`)
+	exec(`INSERT INTO role_permissions (role_id,permission_id) VALUES (1,1),(1,2),(1,3),(1,4),(2,1),(2,2),(3,4)`)
 	exec(`INSERT INTO users (id,username,email,display_name,password_hash,role_id,is_active,password_changed_at,created_at,updated_at) VALUES
 		(1,'admin','a@x','Admin',?,1,1,'2026-01-01T00:00:00Z','',''),
 		(2,'bob','b@x','Bob',?,2,1,'2026-01-01T00:00:00Z','',''),
