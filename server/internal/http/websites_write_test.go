@@ -88,8 +88,14 @@ type sitesAgent struct {
 	// with the test hostname).
 	mailData string
 	// dnsData overrides the dns.status reply's data ("" = installed,
-	// configured, running, serving example.com at serial 7).
+	// configured, running, serving bob.example at serial 7).
 	dnsData string
+	// zoneParse overrides the dns.zone_parse reply's data ("" = one new A
+	// record, the zone's own NS and one skipped line).
+	zoneParse string
+	// failStatus is the HTTP status a failed action's reply is written with
+	// (e.g. "dns.zone_delete" -> 404).
+	failStatus map[string]int
 	// ftpStatus shapes the ftp.status reply: "" = installed + configured +
 	// active (one account for u_bob, SFTP on with one key), "missing" =
 	// not installed, "stopped" = configured but not active.
@@ -303,6 +309,9 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 		sa.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		if msg, fail := sa.failActions[action]; fail {
+			if st := sa.failStatus[action]; st > 0 {
+				w.WriteHeader(st)
+			}
 			_, _ = w.Write([]byte(`{"success":false,"error":{"code":"boom","message":"` + msg + `","request_id":"t"}}`))
 			return
 		}
@@ -327,6 +336,18 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":` + data + `}`))
 		case "dns.zone_apply":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"serial":7}}`))
+		case "dns.zone_parse":
+			sa.mu.Lock()
+			data := sa.zoneParse
+			sa.mu.Unlock()
+			if data == "" {
+				data = `{"records":[{"name":"ftp","type":"A","ttl":3600,"value":"198.51.100.7"},{"name":"@","type":"NS","ttl":0,"value":"ns1.example.com."}],"skipped":[{"line":3,"text":"HINFO bob.example","reason":"unsupported record type"}]}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + data + `}`))
+		case "dns.zone_render":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"text":"$ORIGIN bob.example\n@\t3600\tSOA\tns1.example.com. hostmaster@bob.example. 7 3600 900 604800 86400\n"}}`))
+		case "dns.zone_delete":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
 		case "sites.delete":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"warnings":["The access log was kept."]}}`))
 		case "discovery.inventory":

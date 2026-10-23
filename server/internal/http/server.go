@@ -470,6 +470,17 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /sites/{id}/dns", s.guard("sites.dns", "dns.manage", s.siteDns))
 	s.mux.HandleFunc("POST /dns/zones", s.guard("dns.store", "dns.manage", s.dnsZoneStore))
 	s.mux.HandleFunc("GET /dns/zones/{id}", s.guard("dns.zone", "dns.manage", s.dnsZoneShow))
+	// The zone editor's write routes (record CRUD, bulk, settings, sync,
+	// import/export, delete) — the zone batch.
+	s.mux.HandleFunc("POST /dns/zones/{id}/records", s.guard("dns.records.store", "dns.manage", s.dnsRecordAdd))
+	s.mux.HandleFunc("POST /dns/zones/{id}/records/{record}", s.guard("dns.records.update", "dns.manage", s.dnsRecordUpdate))
+	s.mux.HandleFunc("POST /dns/zones/{id}/records/{record}/delete", s.guard("dns.records.delete", "dns.manage", s.dnsRecordDelete))
+	s.mux.HandleFunc("POST /dns/zones/{id}/bulk", s.guard("dns.bulk", "dns.manage", s.dnsBulk))
+	s.mux.HandleFunc("POST /dns/zones/{id}/settings", s.guard("dns.settings", "dns.manage", s.dnsSettings))
+	s.mux.HandleFunc("POST /dns/zones/{id}/sync", s.guard("dns.sync", "dns.manage", s.dnsSync))
+	s.mux.HandleFunc("GET /dns/zones/{id}/export", s.guard("dns.export", "dns.manage", s.dnsExport))
+	s.mux.HandleFunc("POST /dns/zones/{id}/import", s.guard("dns.import", "dns.manage", s.dnsImport))
+	s.mux.HandleFunc("POST /dns/zones/{id}/delete", s.guard("dns.delete", "dns.manage", s.dnsZoneDelete))
 
 	// Email domains list. mail.manage is withheld by the email plan feature.
 	s.mux.HandleFunc("GET /mail", s.guard("", "mail.manage", s.mailIndex))
