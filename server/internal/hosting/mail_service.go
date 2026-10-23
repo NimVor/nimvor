@@ -25,12 +25,12 @@ type MailService struct {
 	agent    AgentCaller
 	sites    *WebsiteRepository
 	options  *AccountOptionStore
-	auditlog func(action, targetType, target string, details map[string]any)
+	auditlog Auditor
 }
 
 // NewMailService builds the service.
 func NewMailService(db *sql.DB, repo *MailRepository, agent AgentCaller, sites *WebsiteRepository,
-	options *AccountOptionStore, auditlog func(action, targetType, target string, details map[string]any)) *MailService {
+	options *AccountOptionStore, auditlog Auditor) *MailService {
 	return &MailService{db: db, repo: repo, agent: agent, sites: sites, options: options, auditlog: auditlog}
 }
 
@@ -152,7 +152,7 @@ func (s *MailService) AddDomain(ctx context.Context, serverID int64, input map[s
 		s.SyncSpam(ctx, serverID)
 	}
 	if s.auditlog != nil {
-		s.auditlog("mail.domain_add", "mail_domain", fmt.Sprint(id), map[string]any{"domain": domain})
+		s.auditlog(ctx, "mail.domain_add", "mail_domain", fmt.Sprint(id), "success", map[string]any{"domain": domain})
 	}
 	return id, nil
 }

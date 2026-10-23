@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **260 ☑ done+tested, 5 ◑ partial, 286 ☐** of 551.
+`server/internal/http/server.go`): **270 ☑ done+tested, 4 ◑ partial, 277 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -609,6 +609,36 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   retention / the AES-256 switch / the active storages' "Copy to"
   + keep-local, the panel's _schedule_form + _options) and the
   per-row remove form
+- ☑ DNS: the zone editor's write side (batch 59) — the zone
+  page's records CRUD (POST /dns/zones/{id}/records +
+  /records/{record} + /records/{record}/delete — the per-type field
+  validation (IPv4/IPv6, host names, MX priority, TXT, CAA tag/value/
+  flags, SRV name + fields, TTL 60–604800) with the CNAME-uniqueness and
+  duplicate-record conflicts, the 2000-record cap, everything in one
+  transaction that pushes the zone and rolls back if the agent refuses),
+  the bulk enable/disable/delete (one reload), the zone settings (TTL +
+  secondary servers), the sync (load again), the zone-file import (the
+  agent's zone_parse; duplicates and the zone's own NS at @ kept,
+  conflicts listed, the skipped lines flashed to the page) and the
+  BIND-format export (the agent's zone_render), the zone delete (the
+  agent told first, a zone it does not serve — 404 — deleted anyway,
+  confirm-by-name) + the zone page's write UI (the record modal with the
+  type-switched fields + the common-record presets, the import modal,
+  the bulk bar + per-row toggle/delete, the sortable columns, the
+  settings + danger-zone cards for administrators, the refused-save
+  re-render with the field messages + the re-opened modal as PHP's
+  backWithErrors). hosting/dns_service.go grows CleanRecord/Conflicts/
+  SaveRecord/Settings/Sync/Bulk/Import/Export/Delete + pushTx (the push
+  inside the open transaction, payload read from the tx so the single
+  pooled connection is never needed twice); the DnsService/MailService
+  audit hooks move to the shared hosting.Auditor (the 6-arg ctx +
+  result form the other services use — the batch 58 constructors
+  passed the 6-arg hook to a 4-arg parameter, a compile break this
+  batch fixes). http/dns_zone_write_handlers.go (showZoneOf /
+  recordIDOf / flashZoneError / zoneRecords + sort / the nine
+  handlers), 9 routes, 12 tests (the fake agent's dns.zone_parse /
+  dns.zone_render / dns.zone_delete + a per-action failure status for
+  the 404 path)
 - ☑ DNS + mail: the website's DNS and email pages (batch 58) —
   GET /sites/{id}/dns + GET /sites/{id}/mail (DnsController::site /
   MailController::site — the zone's/domain's page when the user may see
@@ -891,13 +921,13 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 59: keep going over the remaining ☐ (286 of 551). The
-discovery/inventory pages (the server's PHP, packages, firewall
-statuses already landed; the rest of the server area) and the admin
-AppManager's 4 routes are still open, as are the DNS-area routes
-(deferred from batch 58: the zone's record CRUD, settings, sync,
-import/export) and the mail-area routes (the mailbox/alias CRUD,
-filters, routing form, publishDns). The hulk/modsec/av scheduler
+Batch 60: keep going over the remaining ☐ (277 of 551). The
+mail-area routes are the natural next step (deferred from batch 58:
+the mailbox/alias CRUD, the per-mailbox filters, the routing form,
+dns-check, publishDns, the domain delete), then the /ips pool pages
+(the DNS batch's deferral) and the rest of the server area
+(discovery/inventory statuses, the installers). The admin
+AppManager's 4 routes are still open. The hulk/modsec/av scheduler
 sides stay with the background-jobs follow-up.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

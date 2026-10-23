@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -135,13 +136,10 @@ var siteDNSTargetRe = regexp.MustCompile(`^/sites/\d+/dns$`)
 var siteMailTargetRe = regexp.MustCompile(`^/sites/\d+/mail$`)
 
 // dnsZoneShow renders one zone's records (DnsController::show, route
-// dns.zone, dns.manage) — read-only for now: the record edit/delete,
-// import/export, settings and sync routes ride with the DNS batch.
+// dns.zone, dns.manage).
 func (s *Server) dnsZoneShow(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
-	sess := sessionFrom(r.Context())
-	repo := hosting.NewDnsRepository(s.db)
-	zone, err := repo.Zone(r.Context(), s.currentServerID(r), pathID(r), user)
+	zone, err := hosting.NewDnsRepository(s.db).Zone(r.Context(), s.currentServerID(r), pathID(r), user)
 	if err != nil {
 		s.log.Error("show dns zone", "error", err)
 		s.showNotFound(w)
@@ -151,36 +149,13 @@ func (s *Server) dnsZoneShow(w http.ResponseWriter, r *http.Request) {
 		s.showNotFound(w)
 		return
 	}
-	servedState, servedSerial := "none", 0
-	if st, err := s.siteDnsService(r, user).Status(r.Context()); err == nil && st != nil {
-		if se := st.ServedSerial(zone.Name); se != nil {
-			servedState, servedSerial = "pending", *se
-			if *se == zone.Serial {
-				servedState = "live"
-			}
-		}
+	sort := r.URL.Query().Get("sort")
+	sess := sessionFrom(r.Context())
+	var skipped []hosting.ImportSkipped
+	if v, ok := sess.PullFlash("dns_import"); ok {
+		_ = json.Unmarshal([]byte(v), &skipped)
 	}
-	records, err := repo.Records(r.Context(), zone.ID)
-	if err != nil {
-		s.log.Error("list dns records", "zone", zone.ID, "error", err)
-	}
-	warnings := hosting.Warnings(zone.Name, records)
-	var site *hosting.Website
-	if zone.WebsiteID.Valid {
-		site, _ = hosting.NewWebsiteRepository(s.db).FindFull(r.Context(), s.currentServerID(r), zone.WebsiteID.Int64, user)
-	}
-	s.render(w, "dns_zone", map[string]any{
-		"User":         user,
-		"CSRF":         session.CSRFToken(sess),
-		"Zone":         zone,
-		"Records":      records,
-		"ServedState":  servedState,
-		"ServedSerial": servedSerial,
-		"Warnings":     warnings,
-		"Site":         site,
-		"Success":      pullFlashKey(sess, "success"),
-		"Error":        pullFlashKey(sess, "error"),
-	})
+	s.renderZone(w, r, zone, s.zoneRecords(r.Context(), zone.ID, sort), nil, nil, skipped, sort)
 }
 
 // pathID parses the {id} path value (0 when malformed; the scoped lookup
