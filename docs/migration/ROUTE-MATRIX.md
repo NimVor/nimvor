@@ -247,11 +247,11 @@ Total routes: 551
 | POST | `/notifications/read` | NotificationsController::read | notifications.read | notifications.view | yes | yes | ☑ |
 | GET | `/notifications/summary` | NotificationsController::summary | notifications.summary | notifications.view | yes | yes | ☐ |
 | GET | `/notifications` | NotificationsController::index | notifications | notifications.view | yes | yes | ☑ |
-| POST | `/packages/install` | SystemController::install | packages.install | packages.manage | yes | yes | ☐ |
-| POST | `/packages/refresh` | SystemController::refresh | packages.refresh | packages.manage | yes | yes | ☐ |
-| POST | `/packages/repair` | SystemController::repair | packages.repair | packages.manage | yes | yes | ☐ |
-| POST | `/packages/upgrade` | SystemController::upgrade | packages.upgrade | packages.manage | yes | yes | ☐ |
-| GET | `/packages` | SystemController::packages | packages | packages.manage | yes | yes | ☐ |
+| POST | `/packages/install` | SystemController::install | packages.install | packages.manage | yes | yes | ☑ |
+| POST | `/packages/refresh` | SystemController::refresh | packages.refresh | packages.manage | yes | yes | ☑ |
+| POST | `/packages/repair` | SystemController::repair | packages.repair | packages.manage | yes | yes | ☑ |
+| POST | `/packages/upgrade` | SystemController::upgrade | packages.upgrade | packages.manage | yes | yes | ☑ |
+| GET | `/packages` | SystemController::packages | packages | packages.manage | yes | yes | ☑ |
 | GET | `/password/forgot` | PasswordResetController::forgot | password.forgot |  | no | yes | ☑ |
 | POST | `/password/forgot` | PasswordResetController::send | password.send |  | no | yes | ☑ |
 | GET | `/password/reset/{token}` | PasswordResetController::show | password.reset.form |  | no | yes | ☑ |
@@ -364,16 +364,16 @@ Total routes: 551
 | POST | `/security/traceroute` | HardeningController::saveTraceroute | security.traceroute.save | security.manage | yes | yes | ☑ |
 | POST | `/security/undo` | SecurityController::undo | security.undo | security.manage | yes | yes | ☑ |
 | GET | `/security` | SecurityController::index | security | security.view | yes | yes | ☑ |
-| POST | `/server/graphical` | SystemController::graphical | server.graphical | server.manage | yes | yes | ☐ |
+| POST | `/server/graphical` | SystemController::graphical | server.graphical | server.manage | yes | yes | ☑ |
 | GET | `/server/health` | ServerHealthController::index | server.health | server.view | yes | yes | ☐ |
-| POST | `/server/hostname-references/mail` | SystemController::hostnameRemail | server.hostname_references.mail | server.manage | yes | yes | ☐ |
-| POST | `/server/hostname-references/webmail` | SystemController::hostnameWebmail | server.hostname_references.webmail | server.manage | yes | yes | ☐ |
-| GET | `/server/hostname-references` | SystemController::hostnameReferences | server.hostname_references | server.manage | yes | yes | ☐ |
-| POST | `/server/hostname` | SystemController::hostname | server.hostname | server.manage | yes | yes | ☐ |
-| POST | `/server/reboot/cancel` | SystemController::cancelReboot | server.reboot_cancel | server.manage | yes | yes | ☐ |
-| POST | `/server/reboot` | SystemController::reboot | server.reboot | server.manage | yes | yes | ☐ |
-| POST | `/server/root-password` | SystemController::rootPassword | server.root_password | server.manage | yes | yes | ☐ |
-| POST | `/server/timezone` | SystemController::timezone | server.timezone | server.manage | yes | yes | ☐ |
+| POST | `/server/hostname-references/mail` | SystemController::hostnameRemail | server.hostname_references.mail | server.manage | yes | yes | ☑ |
+| POST | `/server/hostname-references/webmail` | SystemController::hostnameWebmail | server.hostname_references.webmail | server.manage | yes | yes | ☑ |
+| GET | `/server/hostname-references` | SystemController::hostnameReferences | server.hostname_references | server.manage | yes | yes | ☑ |
+| POST | `/server/hostname` | SystemController::hostname | server.hostname | server.manage | yes | yes | ☑ |
+| POST | `/server/reboot/cancel` | SystemController::cancelReboot | server.reboot_cancel | server.manage | yes | yes | ☑ |
+| POST | `/server/reboot` | SystemController::reboot | server.reboot | server.manage | yes | yes | ☑ |
+| POST | `/server/root-password` | SystemController::rootPassword | server.root_password | server.manage | yes | yes | ☑ |
+| POST | `/server/timezone` | SystemController::timezone | server.timezone | server.manage | yes | yes | ☑ |
 | GET | `/server` | ServerController::index | server | server.view | yes | yes | ☐ |
 | POST | `/servers/switch` | ServersController::switch | servers.switch |  | yes | yes | ☐ |
 | POST | `/servers/{id}/check` | ServersController::check | servers.check | servers.manage | yes | yes | ☐ |

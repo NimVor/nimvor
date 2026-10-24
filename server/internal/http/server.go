@@ -410,6 +410,22 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /ftp/configure", s.guard("ftp.configure", "server.manage", s.ftpConfigure))
 	s.mux.HandleFunc("POST /ftp/disable", s.guard("ftp.disable", "server.manage", s.ftpDisable))
 
+	// Batch 69 — SystemController (packages + server settings, 14 routes).
+	s.mux.HandleFunc("GET /packages", s.guard("packages", "packages.manage", s.systemPackages))
+	s.mux.HandleFunc("POST /packages/install", s.guard("packages.install", "packages.manage", s.systemInstall))
+	s.mux.HandleFunc("POST /packages/refresh", s.guard("packages.refresh", "packages.manage", s.systemRefresh))
+	s.mux.HandleFunc("POST /packages/upgrade", s.guard("packages.upgrade", "packages.manage", s.systemUpgrade))
+	s.mux.HandleFunc("POST /packages/repair", s.guard("packages.repair", "packages.manage", s.systemRepair))
+	s.mux.HandleFunc("POST /server/hostname", s.guard("server.hostname", "server.manage", s.systemHostname))
+	s.mux.HandleFunc("GET /server/hostname-references", s.guard("server.hostname_references", "server.manage", s.systemHostnameReferences))
+	s.mux.HandleFunc("POST /server/hostname-references/webmail", s.guard("server.hostname_references.webmail", "server.manage", s.systemHostnameWebmail))
+	s.mux.HandleFunc("POST /server/hostname-references/mail", s.guard("server.hostname_references.mail", "server.manage", s.systemHostnameRemail))
+	s.mux.HandleFunc("POST /server/root-password", s.guard("server.root_password", "server.manage", s.systemRootPassword))
+	s.mux.HandleFunc("POST /server/timezone", s.guard("server.timezone", "server.manage", s.systemTimezone))
+	s.mux.HandleFunc("POST /server/graphical", s.guard("server.graphical", "server.manage", s.systemGraphical))
+	s.mux.HandleFunc("POST /server/reboot", s.guard("server.reboot", "server.manage", s.systemReboot))
+	s.mux.HandleFunc("POST /server/reboot/cancel", s.guard("server.reboot_cancel", "server.manage", s.systemCancelReboot))
+
 	// Batch 36 — per-website Cloudflare area (direct Cloudflare API; the
 	// customer's own per-website token is stored encrypted).
 	s.mux.HandleFunc("GET /sites/{id}/cloudflare", s.guard("sites.cloudflare", "websites.manage", s.siteCloudflare))
