@@ -1,0 +1,10 @@
+{{define "mongo_tabs"}}
+<nav class="wcp-pagetabs" aria-label="MongoDB">
+  <a class="{{if eq .Section "databases"}}active{{end}}" href="/mongo"{{if eq .Section "databases"}} aria-current="page"{{end}}>Databases</a>
+  <a class="{{if eq .Section "users"}}active{{end}}" href="/mongo?section=users"{{if eq .Section "users"}} aria-current="page"{{end}}>Users</a>
+  <a class="{{if eq .Section "backups"}}active{{end}}" href="/mongo?section=backups"{{if eq .Section "backups"}} aria-current="page"{{end}}>Backups</a>
+  <a class="{{if eq .Section "remotes"}}active{{end}}" href="/mongo?section=remotes"{{if eq .Section "remotes"}} aria-current="page"{{end}}>Remote servers</a>
+  <a class="{{if eq .Section "config"}}active{{end}}" href="/mongo?section=config"{{if eq .Section "config"}} aria-current="page"{{end}}>Configuration</a>
+  <a class="{{if eq .Section "log"}}active{{end}}" href="/mongo?section=log"{{if eq .Section "log"}} aria-current="page"{{end}}>Log</a>
+</nav>
+{{end}}

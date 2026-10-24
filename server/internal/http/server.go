@@ -453,6 +453,40 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /databases/server/flush", s.guard("", "server.manage", s.dbServerFlush))
 	s.mux.HandleFunc("POST /databases/server/restart", s.guard("", "services.manage", s.dbServerRestart))
 	s.mux.HandleFunc("GET /databases/server/logs", s.guard("", "logs.view", s.dbServerLogs))
+
+	// MongoDB (MongoController) — the server's own MongoDB: the page with its
+	// six sections, the management actions, the wildcard browser and the
+	// saved remote servers. Reading is mongo.view; every change mongo.manage
+	// (with packages.manage for the repository/install jobs and
+	// services.manage for the service controls), exactly as the PHP routes
+	// declare. The browser's mutating operations re-check mongo.manage
+	// inside the read-permitted endpoint.
+	s.mux.HandleFunc("GET /mongo", s.guard("", "mongo.view", s.mongoIndex))
+	s.mux.HandleFunc("POST /mongo/databases", s.guard("", "mongo.manage", s.mongoCreateDatabase))
+	s.mux.HandleFunc("POST /mongo/databases/drop", s.guard("", "mongo.manage", s.mongoDropDatabase))
+	s.mux.HandleFunc("POST /mongo/databases/bulk-drop", s.guard("", "mongo.manage", s.mongoBulkDropDatabases))
+	s.mux.HandleFunc("POST /mongo/users", s.guard("", "mongo.manage", s.mongoCreateUser))
+	s.mux.HandleFunc("POST /mongo/users/password", s.guard("", "mongo.manage", s.mongoSetPassword))
+	s.mux.HandleFunc("POST /mongo/users/drop", s.guard("", "mongo.manage", s.mongoDropUser))
+	s.mux.HandleFunc("POST /mongo/config", s.guard("", "mongo.manage", s.mongoConfig))
+	s.mux.HandleFunc("POST /mongo/config-file", s.guard("", "mongo.manage", s.mongoConfigFile))
+	s.mux.HandleFunc("POST /mongo/admin-password", s.guard("", "mongo.manage", s.mongoAdminPassword))
+	s.mux.HandleFunc("POST /mongo/auth", s.guard("", "mongo.manage", s.mongoAuth))
+	s.mux.HandleFunc("POST /mongo/note", s.guard("", "mongo.manage", s.mongoNote))
+	s.mux.HandleFunc("POST /mongo/backup", s.guard("", "mongo.manage", s.mongoBackup))
+	s.mux.HandleFunc("POST /mongo/restore", s.guard("", "mongo.manage", s.mongoRestore))
+	s.mux.HandleFunc("POST /mongo/backups/delete", s.guard("", "mongo.manage", s.mongoDeleteBackup))
+	s.mux.HandleFunc("POST /mongo/repository", s.guard("", "packages.manage", s.mongoEnableRepository))
+	s.mux.HandleFunc("POST /mongo/install", s.guard("", "packages.manage", s.mongoInstall))
+	s.mux.HandleFunc("POST /mongo/service", s.guard("", "services.manage", s.mongoServiceControl))
+	s.mux.HandleFunc("POST /mongo/remotes", s.guard("", "mongo.manage", s.mongoRemoteAdd))
+	s.mux.HandleFunc("POST /mongo/remotes/delete", s.guard("", "mongo.manage", s.mongoRemoteDelete))
+	s.mux.HandleFunc("POST /mongo/remotes/test", s.guard("", "mongo.manage", s.mongoRemoteTest))
+	s.mux.HandleFunc("POST /mongo/remotes/databases", s.guard("", "mongo.manage", s.mongoRemoteDatabases))
+	s.mux.HandleFunc("POST /mongo/remotes/pull", s.guard("", "mongo.manage", s.mongoRemotePull))
+	s.mux.HandleFunc("GET /mongo/browser", s.guard("", "mongo.view", s.mongoAdminBrowserPage))
+	s.mux.HandleFunc("POST /mongo/browse", s.guard("", "mongo.view", s.mongoAdminBrowse))
+	s.mux.HandleFunc("GET /mongo/export", s.guard("", "mongo.view", s.mongoAdminExport))
 	// Database users (all databases.manage; the mysql feature withholds the
 	// permission when the plan disables mysql, same as the /databases routes).
 	s.mux.HandleFunc("POST /database-users", s.guard("", "databases.manage", s.dbUsersCreate))

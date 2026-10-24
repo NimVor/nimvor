@@ -721,6 +721,35 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   64) called it but it was never registered, which made ParseFS fail and
   would have stopped the whole server from starting. 5 routes + 4 pages
   (+ the shared discovery bar partial), 10 tests
+- ☑ MongoDB: the server-level area (batch 66) — all 26 MongoController routes.
+  hosting/mongo_server_service.go is an unscoped port of MongoService (the
+  per-website SiteMongoService is prefix-scoped and could not be reused):
+  status, the repository + install jobs, the service controls
+  (services.control on mongod.service), the overview, database/user CRUD, the
+  admin password, the authentication switch, the per-database user list, the
+  backups (start/list/restore/delete), the managed configuration and the raw
+  file (checked + rolled back by the agent), and the log tail. Every mutation
+  is audited against the server; reads are not. hosting/mongo_browse_service.go
+  adds the 21 browser operations to the same service, and
+  hosting/mongo_remote_service.go ports MongoRemoteService: the saved
+  connections in mongo_remotes with the PHP's validation (name ≤ 64, the host
+  / user / auth-db patterns, port 1–65535, admin by default), a ping before
+  storing, and the password sealed with internal/crypto — it never reaches the
+  browser or the audit log. http/mongo_admin_handlers.go carries the page and
+  the 20 form actions: the six sections (databases, users, backups, remotes,
+  config, log — an unknown one falls back to databases) of which only the
+  active tab's data is read, the not-installed / stopped states with the
+  repository + install + start cards, an agent failure rendered in place
+  instead of a blank page, the create-database-with-user shortcut (default
+  role readWrite), the bulk drop, the 500-character notes kept as settings
+  keys (mongo.note.<serverId>.<name>, read through the new
+  settings.Repository.Prefix), the install/repository/service job tracking,
+  and the remotes (add/delete/test/the databases JSON for the copy modal/pull
+  as a tracked job). http/mongo_browser_handlers.go serves the wildcard
+  browser through the very same template and JS as the per-website one, with
+  mongo.view on the route and mongo.manage re-checked per mutating operation
+  (403 in JSON), plus the collection export download. 26 routes + 2 pages
+  (+ the section-tabs partial + the settings Prefix helper), 25 tests
 - ☑ Mail: the per-mailbox filters + autoresponder (batch 61) — the
   mailbox's filter list (the agent keeps them, rendered to Sieve):
   create/edit (4 condition rows × part/match/value, 3 action rows,
@@ -1054,7 +1083,7 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   get|custom_set/site/events/installs/update/install/crs_install/rollback;
   every change nginx -t checked and rolled back on the agent); the
   modsec.trim scheduler side stays with the background-jobs follow-up
-- ☐ DB browser, DB dump/import, DB server area (DbServerController), mongo, redis/memcached, DNS records, mail accounts/filters, backups, files/FTP/terminal, automation (deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
+- ☐ DB browser, DB dump/import, DB server area (DbServerController), redis/memcached, DNS records, mail accounts/filters, backups, files/FTP/terminal, automation (deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
 
 ## NOT YET PORTED (known follow-ups, tracked honestly)
 - WebAuthn sign-in + security-key management; IP-verification sign-in (emailed code); the HULK enforcement side (the failed-login recording into the panel's login flow + the HulkService::run scheduler loop that turns events into blocks — the panel page itself is ported); step-up password confirmation; password-age and role-requires-2FA enforcement; trusted-proxy client IP
@@ -1071,9 +1100,10 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 66: the remaining server-administration controllers, biggest first —
-MongoController (26 routes), SslCenterController (18), BackupsController
-(18), ApiController (18) and SystemController (14). The background-jobs
-follow-up (hulk/modsec/av schedulers) still comes after them.
+Batch 67: the remaining server-administration controllers, biggest first —
+SslCenterController (18 routes), BackupsController (18), ApiController (18)
+and SystemController (14), then PhpController (8), AccountBackups (8) and
+Roles (7). The background-jobs follow-up (hulk/modsec/av schedulers) still
+comes after them.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

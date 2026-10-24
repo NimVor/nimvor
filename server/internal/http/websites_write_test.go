@@ -1177,6 +1177,24 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"count":2,"size":1234}}`))
 		case "mongo.index_create":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"name":"idx_1"}}`))
+		case "mongo.repository":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"kind":"apt","name":"mongodb-org","url":"https://repo.mongodb.org/apt/ubuntu","version":"7.0","supported":true,"enabled":false,"note":""}}`))
+		case "mongo.repository.enable":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789m0a003"}}`))
+		case "mongo.install":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789m0a004"}}`))
+		case "mongo.admin_password", "mongo.auth_set", "mongo.config_set", "mongo.config_write":
+			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
+		case "mongo.config_get":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"path":"/etc/mongod.conf","port":27017,"bind_ip":"127.0.0.1","db_path":"/var/lib/mongodb","log_path":"/var/log/mongodb/mongod.log","authorization":false,"raw":"# mongod.conf\nnet:\n  port: 27017\n"}}`))
+		case "mongo.log":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"path":"/var/log/mongodb/mongod.log","lines":"2026-10-24T10:00:00 waiting for connections"}}`))
+		case "mongo.remote_ping":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"version":"7.0.14","databases":3}}`))
+		case "mongo.remote_databases":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"databases":[{"name":"shop","size":123456},{"name":"ledger","size":42}]}}`))
+		case "mongo.remote_pull":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789m0a005"}}`))
 		case "wordpress.info":
 			res := sa.wpInfoReply
 			if res == "" {
