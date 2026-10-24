@@ -40,12 +40,12 @@ var (
 
 // fail2banJailRow is one jail of the Jails table.
 type fail2banJailRow struct {
-	Name    string
-	Label   string
-	Banned  int
+	Name      string
+	Label     string
+	Banned    int
 	HasBanned bool
-	Total   int
-	Failed  int
+	Total     int
+	Failed    int
 }
 
 // fail2banBannedRow is one row of the banned-addresses table.

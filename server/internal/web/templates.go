@@ -8,6 +8,7 @@ package web
 
 import (
 	"embed"
+	"fmt"
 	"html/template"
 	"io"
 	"strconv"
@@ -43,6 +44,16 @@ func stamp(iso string) string {
 	return iso
 }
 
+// dict builds a map from key/value pairs for passing several values to a
+// subtemplate ({{template "x" (dict "a" 1 "b" 2)}}).
+func dict(kv ...any) map[string]any {
+	m := make(map[string]any, len(kv)/2)
+	for i := 0; i+1 < len(kv); i += 2 {
+		m[fmt.Sprint(kv[i])] = kv[i+1]
+	}
+	return m
+}
+
 // bytes renders a size like the PHP format_bytes (one decimal, 1024-based).
 func bytes(v int64) string {
 	units := []string{"B", "KB", "MB", "GB", "TB", "PB"}
@@ -67,6 +78,7 @@ func New() (*Templates, error) {
 		"weekday": weekday,
 		"bytes":   bytes,
 		"stamp":   stamp,
+		"dict":    dict,
 	}).ParseFS(files, "templates/*.html")
 	if err != nil {
 		return nil, err

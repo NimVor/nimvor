@@ -1,0 +1,75 @@
+{{define "ips_migrate"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>IP addresses · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>IP addresses</h1>
+  <p class="text-muted">The addresses websites listen on</p>
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{template "ips_tabs" .}}
+
+  {{if .Results}}
+  <div class="card mb-3"><div class="card-header">Results</div><ul class="list-group list-group-flush small">
+    {{range .Results}}
+    <li class="list-group-item d-flex gap-2"><span class="wcp-state {{if .OK}}is-ok{{else}}is-error{{end}}">{{if .OK}}Done{{else}}Failed{{end}}</span><span class="fw-semibold">{{.Item}}</span><span class="wcp-muted">{{.Message}}</span></li>
+    {{end}}
+  </ul></div>
+  {{end}}
+
+  <form class="card mb-3" method="get" action="/ips/migrate">
+    <div class="card-header"><span class="badge text-bg-light border me-1">1</span>Choose the addresses</div>
+    <div class="card-body row g-2 align-items-end">
+      <div class="col-md-4"><label class="form-label small" for="mg-s">Move from</label><select class="form-select form-select-sm{{if index .Errors "source"}} is-invalid{{end}}" id="mg-s" name="source"><option value="">Choose…</option>{{range .Pool}}<option value="{{.Address}}"{{if eq .Address $.Query.Source}} selected{{end}}>{{.Address}} ({{len .Sites}} websites{{if .Reserved}}, reserved{{end}})</option>{{end}}</select>{{if index .Errors "source"}}<div class="invalid-feedback">{{index .Errors "source"}}</div>{{end}}</div>
+      <div class="col-md-4"><label class="form-label small" for="mg-d">Move to</label><select class="form-select form-select-sm{{if index .Errors "dest"}} is-invalid{{end}}" id="mg-d" name="dest"><option value="">Choose…</option>{{range .Pool}}<option value="{{.Address}}"{{if eq .Address $.Query.Dest}} selected{{end}}>{{.Address}} ({{len .Sites}} websites{{if .Reserved}}, reserved{{end}})</option>{{end}}</select>{{if index .Errors "dest"}}<div class="invalid-feedback">{{index .Errors "dest"}}</div>{{end}}</div>
+      <div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" name="all_zones" value="1" id="mg-z"{{if .Query.AllZones}} checked{{end}}><label class="form-check-label small" for="mg-z">Also every DNS record that points to it (all zones, and the default IPv4 for new zones)</label></div></div>
+      <div class="col-12"><button class="btn btn-sm btn-outline-primary">Show the changes</button></div>
+    </div>
+  </form>
+
+  {{if .Plan}}
+  <div class="card">
+    <div class="card-header"><span class="badge text-bg-light border me-1">2</span>Changes: <span class="font-monospace">{{.Plan.Source}}</span> → <span class="font-monospace">{{.Plan.Dest}}</span></div>
+    <div class="card-body small">
+      <p class="fw-semibold mb-1">Websites ({{len .Plan.Sites}})</p>
+      {{if not .Plan.Sites}}
+      <p class="wcp-muted">No website is bound to {{.Plan.Source}}.</p>
+      {{else}}
+      <ul>{{range .Plan.Sites}}<li>{{.Domain}}{{if .Owner}} <span class="wcp-muted">({{.Owner}})</span>{{end}} — Nginx listens on the new address; its own {{if eq $.Plan.Family 4}}A{{else}}AAAA{{end}} records follow</li>{{end}}</ul>
+      {{end}}
+      {{if .Plan.AllZones}}
+      <p class="fw-semibold mb-1">DNS zones ({{len .Plan.Zones}})</p>
+      {{if not .Plan.Zones}}<p class="wcp-muted">No record points to it.</p>{{else}}<ul>{{range .Plan.Zones}}<li>{{.Name}}: {{.Records}} record(s)</li>{{end}}</ul>{{end}}
+      {{if .Plan.DefaultV4}}<p>The default IPv4 for new zones changes to {{.Plan.Dest}}.</p>{{end}}
+      {{end}}
+      <p class="wcp-muted mb-0">Each website is moved on its own: its configuration is checked with <code>nginx -t</code> before the reload, and if its DNS update fails it goes back to the old address. Results are listed per website.</p>
+    </div>
+    {{if .CanManage}}
+    <form class="card-footer d-flex flex-wrap align-items-center gap-3" method="post" action="/ips/migrate" data-wcp-busy>
+      <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="source" value="{{.Plan.Source}}"><input type="hidden" name="dest" value="{{.Plan.Dest}}">{{if .Plan.AllZones}}<input type="hidden" name="all_zones" value="1">{{end}}
+      <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="mg-c" required><label class="form-check-label small" for="mg-c"><span class="badge text-bg-light border me-1">3</span>I checked the changes above</label></div>
+      <button class="btn btn-primary btn-sm ms-auto"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Migrate</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

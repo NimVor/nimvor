@@ -30,17 +30,17 @@ type fakeCall struct {
 }
 
 type fakeAgent struct {
-	calls     []fakeCall
-	failApply error
-	applySeq  int
+	calls          []fakeCall
+	failApply      error
+	applySeq       int
 	// applyFailEvery: fail the Nth sites.apply call (1-based) with applyErr.
 	applyFailEvery int
 	applyErr       error
 	// canned: exact canned response for an action, checked before the
 	// per-action switch (the runtime status, the permissions walk, …).
-	canned map[string]json.RawMessage
+	canned         map[string]json.RawMessage
 	// failActions: fail an action with a fixed error (agent failure paths).
-	failActions map[string]error
+	failActions    map[string]error
 }
 
 func (f *fakeAgent) Call(ctx context.Context, action string, params any, timeout ...time.Duration) (json.RawMessage, error) {
@@ -154,11 +154,11 @@ func loadUser(t *testing.T, db *sql.DB, id int64) *identity.User {
 }
 
 type harness struct {
-	db      *sql.DB
-	svc     *WebsiteService
-	agent   *fakeAgent
+	db       *sql.DB
+	svc      *WebsiteService
+	agent    *fakeAgent
 	features *authz.FeatureService
-	audit   []auditRec
+	audit    []auditRec
 }
 
 func newHarness(t *testing.T, db *sql.DB) *harness {

@@ -24,10 +24,10 @@ import (
 
 // statsStatus is the agent's stats.status reply (the service's status()).
 type statsStatus struct {
-	Installed  bool
-	Enabled    bool
-	Months     []string // YYYYMM, newest first, the 6-digit ones only
-	UpdatedAt  string   // "" when the agent gave none
+	Installed bool
+	Enabled   bool
+	Months    []string // YYYYMM, newest first, the 6-digit ones only
+	UpdatedAt string   // "" when the agent gave none
 }
 
 // statsMonthOption is one option of the month select.
@@ -38,12 +38,12 @@ type statsMonthOption struct {
 }
 
 type statsDayRowView struct {
-	Label   string
-	Visits  string
-	Bar     int
-	Pages   string
-	Hits    string
-	Bytes   string
+	Label  string
+	Visits string
+	Bar    int
+	Pages  string
+	Hits   string
+	Bytes  string
 }
 
 type statsHourRowView struct {

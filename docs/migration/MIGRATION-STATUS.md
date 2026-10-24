@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **303 ☑ done+tested, 4 ◑ partial, 244 ☐** of 551.
+`server/internal/http/server.go`): **319 ☑ done+tested, 4 ◑ partial, 228 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -655,6 +655,45 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   GreylistValidateRange, RateValidate, RateMax) and the
   get→transform→set change helper with the failure/success audit;
   11 routes + 3 pages (+ the two nav tabs), 9 tests
+- ☑ IP addresses for server administrators (batch 64) — the /ips area
+  (web.php 206–217, deferred from batch 59) and the admin
+  Application Manager's 4 routes, both server administrators only
+  (Scope::isAll on top of the route permissions). The pool page: the
+  agent's usable global addresses (link-local excluded), the pool with
+  family/state filters + search, each row's websites (with the owner),
+  the on-server status (unknown when the agent is down), the reserved
+  reason, the edit modal (shared/dedicated + reserved + reason),
+  remove (unused only), the rebuild (re-applies the ranges, adds the
+  server's addresses + the websites' missing ones, keeps the rows the
+  server no longer has and lists them), and the not-in-pool card with
+  add-to-pool (203.0.113.x-style addresses) + the gateways. The IPv6
+  ranges page: the routed ranges (the agent adds the local route,
+  whacp-ipv6-ranges.service keeps it at boot), the cards with the
+  allocations (free / the bound domains), allocate (the next free from
+  the range's ::10 up or a given address, optionally straight to a
+  website with the AAAA record following), save note, remove (free
+  only, its route removed). The migration wizard: choose from/to
+  (unreserved-or-in-use pool) + the all-zones checkbox, the plan
+  (the websites with their owners, the zones' records, the default
+  IPv4 for new zones) with the per-field validation, the confirm
+  checkbox, and the per-step results (each website moves on its own,
+  nginx -t before the reload, the DNS failure rolls that website
+  back). hosting/ip_pool_service.go carries the pool/ranges/allocate/
+  migrate/rebuild (server-address snapshot 30 s, range push 60 s,
+  the ::10-up scan of 100000), hosting/dns_zone_address.go the zones
+  using an address, http/ip_admin_handlers.go the 12 handlers. The
+  Application Manager: the global installer switch (the setting,
+  customers see nothing when off), the category cards (enabled badge +
+  switch), the per-app enabled / visible-to-customers switches (a
+  disabled app's visibility switch is disabled; administrators can
+  install an invisible app), every change audited server-scoped; the
+  switches auto-submit via data-wcp-autosubmit (the CSP-safe form of
+  the PHP inline onchange). Along the way: the catalog selects
+  referenced an id column app_categories/app_catalog do not have
+  (fixed), and the gofmt struct alignment of 11 pre-existing files
+  was restored (the CI gofmt gate). 16 routes + 4 pages (+ the tabs
+  partial + the apps_toggle partial + the dict template function),
+  12 tests
 - ☑ Mail: the per-mailbox filters + autoresponder (batch 61) — the
   mailbox's filter list (the agent keeps them, rendered to Sieve):
   create/edit (4 condition rows × part/match/value, 3 action rows,
@@ -1005,9 +1044,9 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 64: the /ips pool pages (deferred from batch 59 — the /ips
-routes in web.php 206–217) and the admin AppManager's 4 routes. The
-hulk/modsec/av scheduler sides stay with the background-jobs
-follow-up.
+Batch 65: the discovery/inventory pages (DiscoveryController —
+/discovery, /discovery/inventory, adopt preview/run/undo and the
+discovery-unavailable fallback), the last server-view pages before
+the background-jobs follow-up (hulk/modsec/av schedulers).
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

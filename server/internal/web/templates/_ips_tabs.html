@@ -1,0 +1,12 @@
+{{define "ips_tabs"}}
+<nav class="wcp-pagetabs" aria-label="IP addresses">
+  <a class="{{if eq .Tab "addresses"}}active{{end}}" href="/ips"{{if eq .Tab "addresses"}} aria-current="page"{{end}}>Addresses and usage</a>
+  <a class="{{if eq .Tab "ranges"}}active{{end}}" href="/ips/ranges"{{if eq .Tab "ranges"}} aria-current="page"{{end}}>IPv6 ranges</a>
+  <a class="{{if eq .Tab "migrate"}}active{{end}}" href="/ips/migrate"{{if eq .Tab "migrate"}} aria-current="page"{{end}}>Migration wizard</a>
+</nav>
+{{if .AgentErr}}
+<div class="alert alert-warning" role="alert">
+  <div class="d-flex gap-2"><i class="bi bi-plug fs-5"></i><div class="fw-semibold">{{.AgentErr}}</div></div>
+</div>
+{{end}}
+{{end}}

@@ -86,7 +86,7 @@ type wpVulnEntry struct {
 			Score    string `json:"score"`
 		} `json:"cvss"`
 	} `json:"impact"`
-	Source []wpVulnSource `json:"source"`
+	Source   []wpVulnSource `json:"source"`
 }
 
 type wpVulnTarget struct{ kind, slug, version, title string }

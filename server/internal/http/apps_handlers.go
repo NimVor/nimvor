@@ -40,10 +40,10 @@ func (s *Server) appInstaller(r *http.Request, user *identity.User) *hosting.App
 
 // appTarget is one install target (the website + its subdomains).
 type appTarget struct {
-	ID     int64
-	Domain string
+	ID      int64
+	Domain  string
 	Docroot string
-	IsPHP  bool
+	IsPHP   bool
 }
 
 // appTargets is where an application may be installed from this page:

@@ -52,9 +52,9 @@ var apps = map[string]AppMeta{
 
 // AppCatalogService ---------------------------------------------------------
 
-// AppCategory is one app_categories row with its applications.
+// AppCategory is one app_categories row with its applications (the table
+// is keyed by slug — there is no id column).
 type AppCategory struct {
-	ID      int64
 	Slug    string
 	Name    string
 	Icon    string
@@ -63,9 +63,8 @@ type AppCategory struct {
 	Apps    []AppEntry
 }
 
-// AppEntry is one app_catalog row.
+// AppEntry is one app_catalog row (keyed by slug too).
 type AppEntry struct {
-	ID              int64
 	Slug            string
 	CategorySlug    string
 	Name            string
@@ -102,9 +101,9 @@ func (s *AppCatalogService) InstallerEnabled(ctx context.Context) bool {
 func (s *AppCatalogService) Find(ctx context.Context, slug string) (*AppEntry, error) {
 	var a AppEntry
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, slug, category_slug, name, icon, description, needs_db, enabled, customer_visible, sort
+		`SELECT slug, category_slug, name, icon, description, needs_db, enabled, customer_visible, sort
 		 FROM app_catalog WHERE slug = ?`, slug).
-		Scan(&a.ID, &a.Slug, &a.CategorySlug, &a.Name, &a.Icon, &a.Description, &a.NeedsDB, &a.Enabled, &a.CustomerVisible, &a.Sort)
+		Scan(&a.Slug, &a.CategorySlug, &a.Name, &a.Icon, &a.Description, &a.NeedsDB, &a.Enabled, &a.CustomerVisible, &a.Sort)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -151,7 +150,7 @@ func (s *AppCatalogService) InstallableBy(ctx context.Context, slug string, u *i
 }
 
 func (s *AppCatalogService) grouped(ctx context.Context, appWhere string, onlyEnabledCategories bool) ([]AppCategory, error) {
-	q := `SELECT id, slug, name, icon, sort, enabled FROM app_categories`
+	q := `SELECT slug, name, icon, sort, enabled FROM app_categories`
 	if onlyEnabledCategories {
 		q += ` WHERE enabled = 1`
 	}
@@ -164,7 +163,7 @@ func (s *AppCatalogService) grouped(ctx context.Context, appWhere string, onlyEn
 	var cats []AppCategory
 	for rows.Next() {
 		var c AppCategory
-		if err := rows.Scan(&c.ID, &c.Slug, &c.Name, &c.Icon, &c.Sort, &c.Enabled); err != nil {
+		if err := rows.Scan(&c.Slug, &c.Name, &c.Icon, &c.Sort, &c.Enabled); err != nil {
 			return nil, err
 		}
 		cats = append(cats, c)
@@ -174,7 +173,7 @@ func (s *AppCatalogService) grouped(ctx context.Context, appWhere string, onlyEn
 	}
 	out := make([]AppCategory, 0, len(cats))
 	for _, c := range cats {
-		aq := `SELECT a.id, a.slug, a.category_slug, a.name, a.icon, a.description, a.needs_db, a.enabled, a.customer_visible, a.sort
+		aq := `SELECT a.slug, a.category_slug, a.name, a.icon, a.description, a.needs_db, a.enabled, a.customer_visible, a.sort
 			FROM app_catalog a WHERE a.category_slug = ?`
 		if appWhere != "" {
 			aq += ` AND ` + appWhere
@@ -186,7 +185,7 @@ func (s *AppCatalogService) grouped(ctx context.Context, appWhere string, onlyEn
 		}
 		for arows.Next() {
 			var a AppEntry
-			if err := arows.Scan(&a.ID, &a.Slug, &a.CategorySlug, &a.Name, &a.Icon, &a.Description, &a.NeedsDB, &a.Enabled, &a.CustomerVisible, &a.Sort); err != nil {
+			if err := arows.Scan(&a.Slug, &a.CategorySlug, &a.Name, &a.Icon, &a.Description, &a.NeedsDB, &a.Enabled, &a.CustomerVisible, &a.Sort); err != nil {
 				arows.Close()
 				return nil, err
 			}
@@ -203,6 +202,42 @@ func (s *AppCatalogService) grouped(ctx context.Context, appWhere string, onlyEn
 		out = append(out, c)
 	}
 	return out, nil
+}
+
+// ForAdmin is every category with every application, for the Application
+// Manager (AppCatalogService::forAdmin).
+func (s *AppCatalogService) ForAdmin(ctx context.Context) ([]AppCategory, error) {
+	return s.grouped(ctx, "", false)
+}
+
+// SetInstallerEnabled flips the global installer switch
+// (AppCatalogService::setInstallerEnabled).
+func (s *AppCatalogService) SetInstallerEnabled(ctx context.Context, on bool, actor int64) error {
+	return s.settings.Set(ctx, "apps_installer_enabled", on, actor)
+}
+
+// SetCategoryEnabled flips one category's flag (AppCatalogService::setCategoryEnabled).
+func (s *AppCatalogService) SetCategoryEnabled(ctx context.Context, slug string, on bool) error {
+	b := 0
+	if on {
+		b = 1
+	}
+	_, err := s.db.ExecContext(ctx, `UPDATE app_categories SET enabled = ? WHERE slug = ?`, b, slug)
+	return err
+}
+
+// SetAppFlag flips one application's enabled or customer_visible flag
+// (AppCatalogService::setAppFlag; a wrong field is a no-op).
+func (s *AppCatalogService) SetAppFlag(ctx context.Context, slug, field string, on bool) error {
+	if field != "enabled" && field != "customer_visible" {
+		return nil
+	}
+	b := 0
+	if on {
+		b = 1
+	}
+	_, err := s.db.ExecContext(ctx, `UPDATE app_catalog SET `+field+` = ? WHERE slug = ?`, b, slug)
+	return err
 }
 
 // AppInstallerService -------------------------------------------------------

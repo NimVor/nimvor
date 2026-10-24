@@ -1,0 +1,88 @@
+{{define "ips_ranges"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>IP addresses · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>IP addresses</h1>
+  <p class="text-muted">The addresses websites listen on</p>
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{template "ips_tabs" .}}
+  {{if .CanManage}}
+  <p class="text-end"><button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#range-add"><i class="bi bi-plus-lg me-1"></i>Add an IPv6 range</button></p>
+  {{end}}
+
+  <div class="wcp-infobar">
+    <i class="bi bi-diagram-2" aria-hidden="true"></i>
+    <span>A range your provider <em>routes</em> to this server (not the on-link prefix of its interface) becomes usable by websites: WhaCP adds a local route for it on the loopback interface and keeps it at boot (<code>whacp-ipv6-ranges.service</code>). Ranges that overlap an interface's prefix or contain the gateway are refused.</span>
+  </div>
+
+  <div class="row g-3">
+  {{range .Ranges}}
+    <div class="col-xl-6">
+      <div class="card h-100">
+        <div class="card-header d-flex align-items-center gap-2"><span class="fw-semibold font-monospace">{{.Prefix}}</span><span class="small wcp-muted ms-auto">{{.Allocated}} allocated · {{.Used}} in use</span></div>
+        <div class="card-body small">
+          {{if not .HasMine}}
+          <p class="wcp-muted">No addresses allocated yet.</p>
+          {{else}}
+          <ul class="list-unstyled mb-2">{{range .Mine}}<li><span class="font-monospace">{{.Address}}</span> <span class="wcp-muted">— {{if .Free}}free{{else}}{{.Domains}}{{end}}</span></li>{{end}}</ul>
+          {{end}}
+          {{if $.CanManage}}
+          <form class="row g-2 align-items-end mb-2" method="post" action="/ips/ranges/{{.ID}}/allocate" data-wcp-busy>
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <div class="col-sm-5"><label class="form-label small" for="al-a-{{.ID}}">Address (empty: next free)</label><input class="form-control form-control-sm font-monospace" id="al-a-{{.ID}}" name="address"></div>
+            <div class="col-sm-4"><label class="form-label small" for="al-s-{{.ID}}">Assign to website</label><select class="form-select form-select-sm" id="al-s-{{.ID}}" name="website_id"><option value="0">— later —</option>{{range $.Websites}}<option value="{{.ID}}">{{.Domain}}</option>{{end}}</select></div>
+            <div class="col-sm-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="dns" value="1" id="al-d-{{.ID}}" checked><label class="form-check-label small" for="al-d-{{.ID}}">Add AAAA</label></div></div>
+            <div class="col-12"><button class="btn btn-sm btn-outline-primary">Allocate</button></div>
+          </form>
+          <form class="d-flex gap-2 mb-2" method="post" action="/ips/ranges/{{.ID}}"><input type="hidden" name="_token" value="{{$.CSRF}}"><input class="form-control form-control-sm" name="note" value="{{.Note}}" placeholder="Note" aria-label="Note" maxlength="300"><button class="btn btn-sm btn-outline-secondary">Save note</button></form>
+          <form method="post" action="/ips/ranges/{{.ID}}/delete" data-wcp-confirm="Remove the range {{.Prefix}} and its free allocations? Its route is removed."><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-outline-danger"{{if not .CanRemove}} disabled title="Addresses of this range are in use"{{end}}>Remove range</button></form>
+          {{else if .Note}}<p class="mb-0">{{.Note}}</p>{{end}}
+        </div>
+      </div>
+    </div>
+  {{end}}
+  {{if not .Ranges}}
+    <div class="col-12"><div class="wcp-panel p-4 text-center wcp-muted">No IPv6 range yet.{{if .CanManage}} Use "Add an IPv6 range" at the top right.{{end}}</div></div>
+  {{end}}
+  </div>
+
+  {{if .CanManage}}
+  <div class="modal fade" id="range-add" tabindex="-1" aria-labelledby="range-add-title" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h2 class="modal-title h5" id="range-add-title">Add an IPv6 range</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <form class="modal-body" method="post" action="/ips/ranges" data-wcp-busy>
+          <input type="hidden" name="_token" value="{{.CSRF}}">
+          <label class="form-label small" for="rg-p">Range</label>
+          <input class="form-control form-control-sm font-monospace" id="rg-p" name="prefix" placeholder="2001:db8:100::/64" required>
+          <label class="form-label small mt-2" for="rg-n">Note</label><input class="form-control form-control-sm" id="rg-n" name="note" maxlength="300">
+          <div class="form-text">A range your provider routes to this server. WhaCP adds a local route for it and keeps it at boot.</div>
+          <div class="d-flex justify-content-end gap-2 mt-3"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Add range</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {{end}}
+</main>
+{{template "wcp_confirm_modal"}}
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

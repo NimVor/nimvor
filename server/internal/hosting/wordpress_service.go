@@ -562,22 +562,22 @@ type WpConstants struct {
 // WordPressInfo is the installation's overview (wordpress.info) and the
 // checks computed from it (WordPressService::info).
 type WordPressInfo struct {
-	Title              string `json:"title"`
-	Version            string `json:"version"`
-	SiteURL            string `json:"siteurl"`
-	Core               WpCoreInfo
-	Constants          WpConstants
-	Plugins            []WpPlugin
-	Themes             []WpTheme
-	Admins             []WpAdmin
-	Maintenance        bool `json:"maintenance"`
-	Multisite          bool `json:"multisite"`
-	SearchEngines      bool `json:"search_engines"`
-	AdminLoginExists   bool `json:"admin_login_exists"`
-	DB                 WpDbInfo
-	MySQL              string `json:"mysql"`
-	ConfigMode         string `json:"config_mode"`
-	Checks             []WordPressCheck
+	Title            string `json:"title"`
+	Version          string `json:"version"`
+	SiteURL          string `json:"siteurl"`
+	Core             WpCoreInfo
+	Constants        WpConstants
+	Plugins          []WpPlugin
+	Themes           []WpTheme
+	Admins           []WpAdmin
+	Maintenance      bool `json:"maintenance"`
+	Multisite        bool `json:"multisite"`
+	SearchEngines    bool `json:"search_engines"`
+	AdminLoginExists bool `json:"admin_login_exists"`
+	DB               WpDbInfo
+	MySQL            string `json:"mysql"`
+	ConfigMode       string `json:"config_mode"`
+	Checks           []WordPressCheck
 }
 
 // Info is the installation's overview (as the website account) with the
