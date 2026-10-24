@@ -69,6 +69,27 @@ func bytes(v int64) string {
 	return strconv.FormatFloat(f, 'f', 1, 64) + " " + units[i]
 }
 
+// hours returns [from, from+1, ..., to-1] for schedule select loops.
+func hours(from, to int) []int {
+	out := make([]int, 0, to-from)
+	for i := from; i < to; i++ {
+		out = append(out, i)
+	}
+	return out
+}
+
+// mapItem is a key/value pair for iterating maps in templates via a slice.
+type mapItem struct{ K, V string }
+
+// mapItems converts a map[string]string into a stable (unsorted) slice of pairs.
+func mapItems(m map[string]string) []mapItem {
+	out := make([]mapItem, 0, len(m))
+	for k, v := range m {
+		out = append(out, mapItem{k, v})
+	}
+	return out
+}
+
 // New parses the embedded templates.
 func New() (*Templates, error) {
 	t, err := template.New("whacp").Funcs(template.FuncMap{
@@ -79,6 +100,8 @@ func New() (*Templates, error) {
 		"bytes":   bytes,
 		"stamp":   stamp,
 		"dict":    dict,
+		"hours":   hours,
+		"mapItems": mapItems,
 		// strings.Join, used by the IP pages for their comma-separated lists.
 		"join": strings.Join,
 	}).ParseFS(files, "templates/*.html")

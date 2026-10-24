@@ -37,6 +37,9 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("agent %s: %s", e.Code, e.Message)
 }
 
+// DetailsString returns the details string (for callers that want a plain string).
+func (e *Error) DetailsString() string { return e.Details }
+
 // Client calls named actions on the agent over its Unix socket.
 type Client struct {
 	socketPath string

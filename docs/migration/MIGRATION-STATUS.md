@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **324 ☑ done+tested, 4 ◑ partial, 223 ☐** of 551.
+`server/internal/http/server.go`): **342 ☑ done+tested, 4 ◑ partial, 205 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -1085,6 +1085,56 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   modsec.trim scheduler side stays with the background-jobs follow-up
 - ☐ DB browser, DB dump/import, DB server area (DbServerController), redis/memcached, DNS records, mail accounts/filters, backups, files/FTP/terminal, automation (deploy/workers write), security suite, monitoring, settings/admin, installers, API v1
 
+## Batch 68 — Backups server-admin slice (18 routes) ☑
+- ☑ `GET /backups` — server backups page (website backups tab for the signed-in
+  user, plus admin tabs for server configuration, remote storage, account
+  files, and the encryption key). Tabs render from `BackupService.ListServer`
+  / `ListAllSite` / `ListForUserSQL` and the `BackupScheduler` server schedule
+  list; remote storages via `StoragesDetailed`, the key card via
+  `backup.key_info`, account files via `backup.account_list` (best effort).
+  Customer visibility follows `hidesAutoBackups` (same rule as the per-site
+  tab); non-admins see only their own website backups.
+- ☑ Server configuration backups (5 routes): `POST /backups/server` starts
+  `backup.server` (always encrypted; may copy to a turned-on remote storage),
+  tracked as a job (`"Server configuration backup"`);
+  `POST /backups/server/{backup}/delete` / `GET /backups/server/{backup}/download`
+  reuse `BackupService.Delete` / `Download` (Delete already handled the
+  `kind=server` branch of the agent call); `POST /backups/server/{backup}/restore`
+  restores the selected components over `backup.server_restore` with the
+  `extract_only` review path and the `restore` typed confirmation.
+  Components: nginx, php, mysql, redis, letsencrypt, fail2ban, cron
+  (PHP SERVER_COMPONENTS).
+- ☑ Remote storage administration (10 routes): `POST /backups/storages`
+  validates S3/SFTP/FTPS/Google Drive/local forms (endpoint/bucket/region,
+  host/port/user/pass/key/tls, client_id/secret, path), tests the connection,
+  seals a pending storage (30-min TTL, encrypted with the panel key) and
+  either presents the host-key/TLS-pin confirmation page (GET/POST
+  `/backups/storages/confirm`) or redirects Google OAuth consent (state
+  nonce in session, callback `GET /backups/storages/google/callback`
+  exchanges for a refresh_token, tests and inserts the storage).
+  `POST /backups/storages/{storage}` edits a storage (re-tests, pins the
+  original host key); `POST .../{storage}/test|active|delete|scan` retest,
+  toggle active, delete, or remote-import (`backup.remote_import`) back into
+  `backups`. Storage configs are stored encrypted with the panel key and
+  opened on demand, matching PHP's seal/unseal (1800s TTL).
+- ☑ Encryption key (2 routes): `POST /backups/key/download` re-authenticates
+  with the panel password (audit denied on mismatch) and streams
+  `backup.key_export` over an encrypted passphrase; `POST /backups/key/import`
+  accepts the JSON key file (4 KiB limit) and calls `backup.key_import`,
+  reporting the "already present" case.
+- ☑ Server schedules (2 routes): `POST /backups/schedules` adds either a
+  server-configuration schedule (`kind=server`) or an all-sites schedule
+  (`all_sites=1`, files/databases/encrypt/keep-local, frequency/hour/
+  weekday/retention validated the same as the per-site form, only to active
+  storages); `POST /backups/schedules/{schedule}/delete` removes it.
+  `BackupScheduler.ListServer` returns both kinds for the server page.
+- Files: `hosting/backup_admin.go` (966 LOC), `hosting/account_backup.go`,
+  `hosting/backup_scheduler.go` (rewritten with a shared scan, +AllSites
+  +LastRunAtStr, 278 LOC), `http/backups_handlers.go` (1080 LOC, 18 handlers),
+  `web/templates/backups_index.html`, `web/templates/backups_confirm_storage.html`,
+  `web/templates.go` (+hours/mapItems template funcs), `server.go` (+18 routes,
+  agent.DetailsString helper). Docs bumped to **342 ☑ / 4 ◑ / 205 ☐**.
+
 ## NOT YET PORTED (known follow-ups, tracked honestly)
 - WebAuthn sign-in + security-key management; IP-verification sign-in (emailed code); the HULK enforcement side (the failed-login recording into the panel's login flow + the HulkService::run scheduler loop that turns events into blocks — the panel page itself is ported); step-up password confirmation; password-age and role-requires-2FA enforcement; trusted-proxy client IP
 - QR image on the 2FA setup page (the otpauth URI + secret are shown for manual entry; a QR encoder or dependency is a small follow-up)
@@ -1100,10 +1150,15 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 67: the remaining server-administration controllers, biggest first —
-SslCenterController (18 routes), BackupsController (18), ApiController (18)
-and SystemController (14), then PhpController (8), AccountBackups (8) and
-Roles (7). The background-jobs follow-up (hulk/modsec/av schedulers) still
-comes after them.
+Batch 69: the remaining server-administration controllers in the planned
+sequence — ApiController (18) and SystemController (14), then PhpController
+(8), AccountBackupsController (8 account routes — create/delete/download/
+preview/restore/upload/restores*) and Roles (7). SslCenterController (18
+routes) is in the already-drafted PR #66 `arena/b6bfc5f7-whacp`; it is not
+re-duplicated on this branch. After those controller slices, the
+background-jobs follow-up (backup/AutoSSL/hulk/modsec/av schedulers, webhook
+deliveries, discovery and monitoring sweeps).
 
-Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).
+Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24). CI
+(`gofmt` / `go vet` / `go test -race` / `make build`) is the verification gate
+for this sandbox — no local Go toolchain is available.

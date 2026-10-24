@@ -628,6 +628,28 @@ func (s *Server) routes() {
 	// PHP (route jobs.show).
 	s.mux.HandleFunc("GET /jobs/{id}", s.guard("", "", s.jobsShow))
 
+	// Backups — server-wide page + remote storage + encryption key + server
+	// configuration backups (BackupsController). The per-website backups tab
+	// lives on /sites/{id}/backups.
+	s.mux.HandleFunc("GET /backups", s.guard("backups", "backups.view", s.backupsIndex))
+	s.mux.HandleFunc("POST /backups/server", s.guard("backups.server", "backups.manage", s.backupsCreateServer))
+	s.mux.HandleFunc("POST /backups/server/{backup}/delete", s.guard("backups.server.delete", "backups.manage", s.backupsDeleteServer))
+	s.mux.HandleFunc("GET /backups/server/{backup}/download", s.guard("backups.server.download", "backups.manage", s.backupsDownloadServer))
+	s.mux.HandleFunc("POST /backups/server/{backup}/restore", s.guard("backups.server.restore", "server.manage", s.backupsRestoreServer))
+	s.mux.HandleFunc("POST /backups/storages", s.guard("backups.storages.store", "backups.manage", s.backupsStoreStorage))
+	s.mux.HandleFunc("GET /backups/storages/confirm", s.guard("backups.storages.confirm", "backups.manage", s.backupsConfirmStorage))
+	s.mux.HandleFunc("POST /backups/storages/confirm", s.guard("backups.storages.trust", "backups.manage", s.backupsTrustStorage))
+	s.mux.HandleFunc("GET /backups/storages/google/callback", s.guard("backups.storages.google", "backups.manage", s.backupsGoogleCallback))
+	s.mux.HandleFunc("POST /backups/storages/{storage}/active", s.guard("backups.storages.active", "backups.manage", s.backupsActivateStorage))
+	s.mux.HandleFunc("POST /backups/storages/{storage}/delete", s.guard("backups.storages.delete", "backups.manage", s.backupsDeleteStorage))
+	s.mux.HandleFunc("POST /backups/storages/{storage}/scan", s.guard("backups.storages.scan", "backups.manage", s.backupsScanStorage))
+	s.mux.HandleFunc("POST /backups/storages/{storage}/test", s.guard("backups.storages.test", "backups.manage", s.backupsTestStorage))
+	s.mux.HandleFunc("POST /backups/storages/{storage}", s.guard("backups.storages.update", "backups.manage", s.backupsUpdateStorage))
+	s.mux.HandleFunc("POST /backups/key/download", s.guard("backups.key.download", "backups.manage", s.backupsDownloadKey))
+	s.mux.HandleFunc("POST /backups/key/import", s.guard("backups.key.import", "backups.manage", s.backupsImportKey))
+	s.mux.HandleFunc("POST /backups/schedules", s.guard("backups.schedules.store", "backups.manage", s.backupsStoreServerSchedule))
+	s.mux.HandleFunc("POST /backups/schedules/{schedule}/delete", s.guard("backups.schedules.delete", "backups.manage", s.backupsDeleteServerSchedule))
+
 	// Notifications (per-recipient visibility).
 	s.mux.HandleFunc("GET /notifications", s.guard("", "notifications.view", s.notificationsIndex))
 	s.mux.HandleFunc("POST /notifications/read", s.guard("", "notifications.view", s.notificationsRead))

@@ -1,0 +1,43 @@
+{{define "backups_confirm_storage"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Confirm storage · Backups · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <p><a href="/backups#storages">← Back to remote storage</a></p>
+  <h1>Confirm server key</h1>
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  <p class="small">The server at <strong>{{.Where}}</strong> is presenting a host key for the first time. Check the fingerprint against what your storage provider shows; if it matches, add the storage and WhaCP will pin this key for future connections.</p>
+  <div class="card mb-3">
+    <div class="card-body small">
+      {{if .Trust.fingerprint}}<div class="mb-2"><strong>SSH fingerprint</strong><pre class="bg-body-tertiary p-2 small mb-0">{{.Trust.fingerprint}}</pre></div>{{end}}
+      {{if .Trust.host_key}}<div class="mb-2"><strong>Host key</strong><pre class="bg-body-tertiary p-2 small mb-0">{{.Trust.host_key}}</pre></div>{{end}}
+      {{if .Trust.tls_subject}}<div class="mb-2"><strong>TLS certificate subject</strong><pre class="bg-body-tertiary p-2 small mb-0">{{.Trust.tls_subject}}</pre></div>{{end}}
+      {{if .Trust.tls_pin}}<div><strong>TLS certificate pin</strong><pre class="bg-body-tertiary p-2 small mb-0">{{.Trust.tls_pin}}</pre></div>{{end}}
+    </div>
+  </div>
+  <form method="post" action="/backups/storages/confirm">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button class="btn btn-primary" type="submit" name="confirm" value="1">Yes, add "{{.Name}}"</button>
+    <button class="btn btn-outline-secondary" type="submit" name="cancel" value="1">Cancel</button>
+  </form>
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}
