@@ -1,0 +1,16 @@
+{{define "ssl_center_tabs"}}
+{{$section := .Section}}
+<nav class="wcp-pagetabs" aria-label="SSL/TLS">
+{{range .Tabs}}{{$key := index . 0}}  <a class="{{if eq $key $section}}active{{end}}" href="{{index . 2}}"{{if eq $key $section}} aria-current="page"{{end}}>{{index . 1}}</a>
+{{end}}</nav>
+<p class="small text-body-secondary mt-2">Hosts, certificates, keys and TLS settings of this server</p>
+{{end}}
+
+{{define "ssl_cert_badge"}}
+{{$c := .c}}{{$warn := .warn}}
+{{if $c.Error}}<span class="wcp-state is-error">Unreadable</span> <span class="small text-body-secondary">{{$c.Error}}</span>
+{{else if $c.Expired}}<span class="wcp-state is-error">Expired</span> <span class="small text-body-secondary">{{if $c.SelfSigned}}self-signed{{else}}{{$c.IssuerName}}{{end}} · until {{$c.NotAfter.Format "2006-01-02"}}</span>
+{{else if le $c.DaysRemaining $warn}}<span class="wcp-state is-warn">{{$c.DaysRemaining}} days left</span> <span class="small text-body-secondary">{{if $c.SelfSigned}}self-signed{{else}}{{$c.IssuerName}}{{end}} · until {{$c.NotAfter.Format "2006-01-02"}}</span>
+{{else}}<span class="wcp-state is-ok">{{$c.DaysRemaining}} days left</span> <span class="small text-body-secondary">{{if $c.SelfSigned}}self-signed{{else}}{{$c.IssuerName}}{{end}} · until {{$c.NotAfter.Format "2006-01-02"}}</span>
+{{end}}
+{{end}}

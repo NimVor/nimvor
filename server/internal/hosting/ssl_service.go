@@ -142,6 +142,41 @@ func (s *SslService) InstallCustom(ctx context.Context, site *Website, cert, key
 	}, "ssl.custom")
 }
 
+// InstallFromKey installs a certificate issued for a key made on this server
+// (SslService::installFromKey). The private key never leaves the server: the
+// agent picks it up by id. A self-signed certificate made with the key can be
+// used without pasting anything.
+func (s *SslService) InstallFromKey(ctx context.Context, site *Website, keyID, cert, chain string, selfSigned bool) error {
+	if !selfSigned && strings.TrimSpace(cert) == "" {
+		return &UserError{What: "Paste the certificate the certificate authority issued for this key."}
+	}
+	if selfSigned {
+		cert, chain = "", ""
+	}
+	res, err := s.agent.Call(ctx, "ssl.custom", map[string]any{
+		"name": site.Domain, "key_id": keyID, "certificate": cert, "chain": chain,
+		"use_self_signed": selfSigned, "domain": site.Domain,
+	})
+	if err != nil {
+		s.recordAudit(ctx, "ssl.install_key", "failure", site.ID,
+			map[string]any{"domain": site.Domain, "key_id": keyID, "error": agentMessage(err)})
+		return err
+	}
+	files, err := sslFiles(res)
+	if err != nil {
+		return err
+	}
+	if err := s.wsvc.patch(ctx, site, map[string]any{
+		"https": true, "ssl_mode": "custom",
+		"cert_file": files.CertFile, "key_file": files.KeyFile,
+	}, "ssl.custom"); err != nil {
+		return err
+	}
+	s.recordAudit(ctx, "ssl.install_key", "success", site.ID,
+		map[string]any{"domain": site.Domain, "key_id": keyID, "self_signed": selfSigned})
+	return nil
+}
+
 // Renew forces a Let's Encrypt renewal (SslService::renew).
 func (s *SslService) Renew(ctx context.Context, site *Website) error {
 	if site.SSLMode != "letsencrypt" {

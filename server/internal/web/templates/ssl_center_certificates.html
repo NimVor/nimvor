@@ -1,0 +1,81 @@
+{{define "ssl_center_certificates"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Certificates · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Certificates</h1>
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .AgentError}}<p class="alert alert-warning" role="alert">{{.AgentError}}</p>{{end}}
+
+  {{template "ssl_center_tabs" .}}
+
+  <div class="wcp-panel">
+    <div class="wcp-actionbar">
+      <div class="fw-semibold">{{len .Certificates}} certificates <span class="small text-body-secondary fw-normal">· private keys are never shown</span></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle wcp-table">
+        <thead><tr><th>Certificate</th><th>Names</th><th>State</th><th>Used by</th><th class="text-end">Operate</th></tr></thead>
+        <tbody>
+        {{range .Certificates}}
+          <tr data-dt-source="{{.Source}}">
+            <td>
+              <div class="fw-semibold font-monospace text-break">{{.Name}}</div>
+              <div class="small text-body-secondary">
+                {{if eq .Source "letsencrypt"}}Let's Encrypt{{else if eq .Source "whacp"}}Installed in WhaCP{{else}}Elsewhere (read only){{end}}
+                {{if .Certificate.ChainLength}} · chain of {{.Certificate.ChainLength}}{{end}}
+                {{if .Certificate.KeyWorldReadable}} · <span class="text-danger">key readable by everyone</span>{{end}}
+              </div>
+            </td>
+            <td class="small font-monospace text-break">{{if .Certificate.DNSNames}}{{join .Certificate.DNSNames ", "}}{{else}}{{.Certificate.CommonName}}{{end}}</td>
+            <td>
+              {{template "ssl_cert_badge" (dict "c" .Certificate "warn" $.WarnDays)}}
+              <details class="small mt-1"><summary class="text-body-secondary">Details</summary>
+                <div class="font-monospace text-break">
+                  Subject: {{.Certificate.Subject}}<br>
+                  Issuer: {{.Certificate.Issuer}}<br>
+                  Valid: {{.Certificate.NotBefore.Format "2006-01-02"}} – {{.Certificate.NotAfter.Format "2006-01-02"}}<br>
+                  SHA-256: {{.Certificate.FingerprintSHA256}}<br>
+                  File: {{.Certificate.File}}
+                </div>
+              </details>
+            </td>
+            <td class="small font-monospace text-break">{{if .UsedBy}}{{join .UsedBy ", "}}{{else}}<span class="text-body-secondary">unused</span>{{end}}</td>
+            <td class="text-end text-nowrap">
+              {{if and $.CanManage .Deletable}}
+              <form method="post" action="/ssl/certificates/delete" class="d-inline"
+                    data-wcp-confirm="Delete the certificate {{.Name}} and its private key? Nothing uses it.">
+                <input type="hidden" name="_token" value="{{$.CSRF}}">
+                <input type="hidden" name="source" value="{{.Source}}">
+                <input type="hidden" name="name" value="{{.Name}}">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+              </form>
+              {{else if ne .Source "other"}}<span class="small text-body-secondary">in use</span>{{end}}
+            </td>
+          </tr>
+        {{end}}
+        {{if not .Certificates}}<tr><td colspan="5" class="text-center py-4 text-body-secondary">No certificates on this server yet.</td></tr>{{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

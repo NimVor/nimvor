@@ -50,6 +50,9 @@ type Server struct {
 	loginIPs  *security.LoginIpVerifier
 	hulk      *security.Hulk
 	cfDo      cfTransport // per-website Cloudflare transport (nil = real)
+	// sslLookup resolves names for AutoSSL; nil means the system resolver
+	// (tests supply their own so they never touch the network).
+	sslLookup hosting.DnsLookup
 }
 
 // New builds the server and registers the routes implemented so far. It
@@ -594,6 +597,34 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /discovery/run", s.guard("discovery.run", "discovery.run", s.discoveryRun))
 	s.mux.HandleFunc("GET /php", s.guard("php", "php.view", s.discoveryPHP))
 	s.mux.HandleFunc("GET /ssl", s.guard("ssl", "ssl.view", s.discoverySSL))
+
+	// SSL/TLS for server administrators (SslCenterController): the hosts
+	// Nginx serves, AutoSSL, the certificate store, the keys and CSRs made on
+	// this server, the panel's and mail server's certificates and the
+	// server-wide TLS configuration. Opening any of them needs an all-scope
+	// account (the handlers refuse the rest, as the PHP does); ssl.view
+	// reads, ssl.manage changes, server.manage for the service certificates
+	// and the TLS profile.
+	s.mux.HandleFunc("GET /ssl/hosts", s.guard("", "ssl.view", s.sslCenterHosts))
+	s.mux.HandleFunc("GET /ssl/autossl", s.guard("", "ssl.view", s.sslCenterAutossl))
+	s.mux.HandleFunc("POST /ssl/autossl/run", s.guard("", "ssl.manage", s.sslAutosslRun))
+	s.mux.HandleFunc("POST /ssl/renewal", s.guard("", "ssl.manage", s.sslRenewalEnable))
+	s.mux.HandleFunc("GET /ssl/certificates", s.guard("", "ssl.view", s.sslCenterCertificates))
+	s.mux.HandleFunc("POST /ssl/certificates/delete", s.guard("", "ssl.manage", s.sslCertificateDelete))
+	s.mux.HandleFunc("GET /ssl/keys", s.guard("", "ssl.view", s.sslCenterKeys))
+	s.mux.HandleFunc("GET /ssl/keys/csr", s.guard("", "ssl.view", s.sslCSRDownload))
+	// Go's mux cannot take both "POST /ssl/keys" and the GET above on the
+	// same path unless the method differs, which it does: POST creates.
+	s.mux.HandleFunc("POST /ssl/keys", s.guard("", "ssl.manage", s.sslKeyCreate))
+	s.mux.HandleFunc("POST /ssl/keys/install", s.guard("", "ssl.manage", s.sslKeyInstall))
+	s.mux.HandleFunc("POST /ssl/keys/delete", s.guard("", "ssl.manage", s.sslKeyDelete))
+	s.mux.HandleFunc("GET /ssl/services", s.guard("", "ssl.view", s.sslCenterServices))
+	s.mux.HandleFunc("POST /ssl/services/cert", s.guard("", "server.manage", s.sslServiceCert))
+	s.mux.HandleFunc("POST /ssl/services/mail-tls", s.guard("", "server.manage", s.sslMailTLS))
+	s.mux.HandleFunc("POST /ssl/services/hostname", s.guard("", "server.manage", s.sslHostnameIssue))
+	s.mux.HandleFunc("POST /ssl/services/account", s.guard("", "server.manage", s.sslAccountRegister))
+	s.mux.HandleFunc("GET /ssl/tls", s.guard("", "ssl.view", s.sslCenterTLS))
+	s.mux.HandleFunc("POST /ssl/tls", s.guard("", "server.manage", s.sslTLSSave))
 	s.mux.HandleFunc("GET /cron", s.guard("cron", "cron.view", s.discoveryCron))
 
 	// Application Manager (AppManagerController).

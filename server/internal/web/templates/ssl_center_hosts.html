@@ -1,0 +1,77 @@
+{{define "ssl_center_hosts"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>SSL/TLS · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>SSL/TLS</h1>
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
+  {{if .AgentError}}<p class="alert alert-warning" role="alert">{{.AgentError}}</p>{{end}}
+
+  {{template "ssl_center_tabs" .}}
+
+  <div class="wcp-infobar">
+    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+    <span>AutoSSL for new websites is <strong>{{if .AutoSsl}}on{{else}}off{{end}}</strong>.
+      Renewal of Let's Encrypt certificates:
+      {{if not .Renewal}}unknown
+      {{else if .Renewal.TimerActive}}<span class="wcp-state is-ok">active</span> <span class="small text-body-secondary">({{.Renewal.Method}})</span>
+      {{else if not .Renewal.CertbotInstalled}}<span class="wcp-state is-warn">certbot is not installed</span>
+      {{else}}<span class="wcp-state is-error">not scheduled</span>{{end}}</span>
+    {{if and .Renewal (not .Renewal.TimerActive) .Renewal.CertbotInstalled .CanManage}}
+    <form method="post" action="/ssl/renewal" class="d-inline ms-auto">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <button class="btn btn-sm btn-primary" type="submit">Turn on renewal</button>
+    </form>
+    {{end}}
+  </div>
+
+  <div class="wcp-panel">
+    <div class="wcp-actionbar">
+      <div class="fw-semibold">{{len .Rows}} host names ·
+        <span class="wcp-state is-ok">{{index .Counts "ok"}} secure</span>
+        <span class="wcp-state is-warn">{{index .Counts "warn"}} need attention</span>
+        <span class="wcp-state">{{index .Counts "none"}} without HTTPS</span>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle wcp-table">
+        <thead><tr><th>Host name</th><th>HTTPS</th><th>Certificate</th><th>Served by</th><th class="text-end">Operate</th></tr></thead>
+        <tbody>
+        {{range .Rows}}
+          <tr data-dt-state="{{.State}}">
+            <td class="fw-semibold font-monospace text-break">{{.Name}}{{if not .Enabled}} <span class="badge text-bg-light border fw-normal">disabled</span>{{end}}</td>
+            <td class="small">{{if not .HTTPS}}<span class="text-body-secondary">No</span>{{else}}Yes{{if .RedirectsToHTTPS}} <span class="text-body-secondary">· HTTP redirects</span>{{end}}{{end}}</td>
+            <td>{{$row := .}}{{with .Certificate}}{{template "ssl_cert_badge" (dict "c" . "warn" $.WarnDays)}}{{if not $row.Covered}}<div class="small text-danger">Does not cover this name (browsers warn)</div>{{end}}{{else}}<span class="text-body-secondary small">—</span>{{end}}</td>
+            <td class="small font-monospace text-break">{{.File}}</td>
+            <td class="text-end text-nowrap">
+              {{if .SiteID}}<a class="btn btn-sm btn-outline-secondary" href="/sites/{{.SiteID}}/ssl">{{if .HTTPS}}Manage{{else}}Enable HTTPS{{end}}</a>
+              {{else}}<span class="small text-body-secondary">{{if .WhaCP}}WhaCP service{{else}}not managed{{end}}</span>{{end}}
+            </td>
+          </tr>
+        {{end}}
+        {{if not .Rows}}<tr><td colspan="5" class="text-center py-4 text-body-secondary">No host names found in Nginx.</td></tr>{{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

@@ -159,6 +159,11 @@ type sitesAgent struct {
 	// sslRenewalJSON overrides the ssl.renewal_status reply ("" = certbot
 	// installed + the renewal timer active).
 	sslRenewalJSON string
+	// sslKeyJSON overrides the ssl.key reply ("" = one ECDSA key with a CSR).
+	sslKeyJSON string
+	// sslAccountJSON overrides the ssl.account reply ("" = Let's Encrypt,
+	// registered).
+	sslAccountJSON string
 	// sitesInspectJSON overrides the sites.inspect reply ("" = the default:
 	// a healthy site with a 123 MiB root and a stored config).
 	sitesInspectJSON string
@@ -1092,8 +1097,53 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"certbot_installed":true,"timer_active":true,"method":"certbot.timer","deploy_hook":true,"can_enable":true}}`))
 		case "ssl.issue", "ssl.custom", "ssl.renew":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"cert_file":"/etc/letsencrypt/live/bob.example/fullchain.pem","key_file":"/etc/letsencrypt/live/bob.example/privkey.pem","certificate":{"common_name":"bob.example"}}}`))
-		case "ssl.delete":
+		case "ssl.delete", "ssl.custom_delete":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"deleted":"bob.example"}}`))
+		case "ssl.store":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"hosts":[
+				{"name":"bob.example","file":"/etc/nginx/sites-available/bob.example.conf","enabled":true,"https":true,"redirects_to_https":true,"whacp":false,"covered":true,"certificate":{"file":"/etc/letsencrypt/live/bob.example/fullchain.pem","key_exists":true,"subject":"CN=bob.example","common_name":"bob.example","dns_names":["bob.example","www.bob.example"],"issuer":"O=Let's Encrypt,CN=R3","not_before":"2026-08-01T00:00:00Z","not_after":"2026-11-05T00:00:00Z","days_remaining":10,"expired":false,"self_signed":false,"lets_encrypt":true,"fingerprint_sha256":"AA:BB","chain_length":2}},
+				{"name":"old.example","file":"/etc/nginx/sites-available/old.conf","enabled":true,"https":false,"redirects_to_https":false,"whacp":false,"covered":false},
+				{"name":"self.example","file":"/etc/nginx/sites-available/self.conf","enabled":true,"https":true,"redirects_to_https":false,"whacp":false,"covered":true,"certificate":{"file":"/etc/ssl/self.pem","key_exists":true,"subject":"CN=self.example","common_name":"self.example","issuer":"CN=self.example","not_before":"2026-10-01T00:00:00Z","not_after":"2027-10-01T00:00:00Z","days_remaining":340,"expired":false,"self_signed":true,"fingerprint_sha256":"CC:DD","chain_length":1}}
+			],"certificates":[
+				{"source":"letsencrypt","name":"bob.example","certificate":{"file":"/etc/letsencrypt/live/bob.example/fullchain.pem","subject":"CN=bob.example","common_name":"bob.example","dns_names":["bob.example"],"issuer":"O=Let's Encrypt,CN=R3","not_after":"2026-11-05T00:00:00Z","days_remaining":10,"chain_length":2},"used_by":["bob.example.conf"],"deletable":false},
+				{"source":"whacp","name":"unused.example","certificate":{"file":"/var/lib/whacp/certs/unused.example/fullchain.pem","subject":"CN=unused.example","common_name":"unused.example","dns_names":["unused.example"],"issuer":"O=Let's Encrypt,CN=R3","not_after":"2026-12-05T00:00:00Z","days_remaining":40},"used_by":[],"deletable":true},
+				{"source":"other","name":"other.example","certificate":{"file":"/etc/ssl/other.pem","error":"permission denied"},"used_by":[],"deletable":false}
+			]}}`))
+		case "ssl.renewal_log":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"lines":["2026-10-24 03:00:00 renewing bob.example","2026-10-24 03:00:02 not yet due for old.example"]}}`))
+		case "ssl.renewal_enable":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"enabled":true}}`))
+		case "ssl.keys":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"keys":[{"id":"bob.example-20261024000000","names":["bob.example"],"subject":"CN=bob.example","key_type":"ecdsa256","created":"2026-10-24T00:00:00Z","public_key_sha256":"11:22","has_csr":true,"self_signed":false}],"key_types":["rsa2048","rsa3072","rsa4096","ecdsa256","ecdsa384"]}}`))
+		case "ssl.key":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"id":"bob.example-20261024000000","names":["bob.example"],"subject":"CN=bob.example","key_type":"ecdsa256","created":"2026-10-24T00:00:00Z","public_key_sha256":"11:22","has_csr":true,"self_signed":false,"csr":"-----BEGIN CERTIFICATE REQUEST-----\nMIIB\n-----END CERTIFICATE REQUEST-----"}}`))
+		case "ssl.csr_create":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"id":"shop.example-20261024010101"}}`))
+		case "ssl.key_delete":
+			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
+		case "ssl.services":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"hostname":"srv1.whacp.test","mail_tls":{"protocols":"tls12","ciphers":"default"},
+				"panel":{"certificate":{"file":"/etc/ssl/whacp-panel.pem","subject":"CN=srv1.whacp.test","common_name":"srv1.whacp.test","dns_names":["srv1.whacp.test"],"issuer":"O=Let's Encrypt,CN=R3","not_after":"2026-11-20T00:00:00Z","days_remaining":27},"follows_tls_profile":true},
+				"mail":{"certificate":{"file":"/etc/ssl/mail.pem","subject":"CN=mail.whacp.test","common_name":"mail.whacp.test","dns_names":["mail.whacp.test"],"issuer":"O=Let's Encrypt,CN=R3","not_after":"2026-11-20T00:00:00Z","days_remaining":27}},
+				"lets_encrypt":[{"name":"bob.example","names":["bob.example","www.bob.example"],"days_remaining":10},{"name":"srv1.whacp.test","names":["srv1.whacp.test"],"days_remaining":27}],"certbot_installed":true}}`))
+		case "ssl.account":
+			accountJSON := `{"providers":[{"id":"letsencrypt","label":"Let's Encrypt","requires_eab":false,"terms_url":"https://letsencrypt.org/repository/"},{"id":"zerossl","label":"ZeroSSL","requires_eab":true,"terms_url":"https://zerossl.com/terms/"}],"provider":"letsencrypt","label":"Let's Encrypt","certbot_installed":true,"registered":true,"email":"admin@whacp.test","account_uri":"https://acme-v02.api.letsencrypt.org/acme/acct/1","requires_eab":false,"terms_url":"https://letsencrypt.org/repository/"}`
+			if sa.sslAccountJSON != "" {
+				accountJSON = sa.sslAccountJSON
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + accountJSON + `}`))
+		case "ssl.account_register":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"registered":true}}`))
+		case "ssl.service_cert":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"changed":true}}`))
+		case "ssl.mail_tls":
+			_, _ = w.Write([]byte(`{"success":true,"data":{}}`))
+		case "ssl.hostname_issue":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789a0b001"}}`))
+		case "ssl.tls_get":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"profile":{"protocols":"tls12","ciphers":"default","session_tickets":false},"snippet":"ssl_protocols TLSv1.2 TLSv1.3;","path":"/etc/nginx/snippets/whacp-tls.conf","vhosts":3,"legacy_vhosts":1}}`))
+		case "ssl.tls_set":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"migrated_vhosts":1}}`))
 		case "cron.apply":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"file":"/etc/cron.d/whacp-site-bob.example","changed":true}}`))
 		case "cron.run":

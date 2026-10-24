@@ -1,0 +1,216 @@
+{{define "ssl_center_services"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Services SSL · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Services SSL</h1>
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
+  {{if .AgentError}}<p class="alert alert-warning" role="alert">{{.AgentError}}</p>{{end}}
+
+  {{template "ssl_center_tabs" .}}
+
+  {{with .Services}}
+  <div class="wcp-infobar">
+    <i class="bi bi-hdd-network" aria-hidden="true"></i>
+    <span>Host name <strong class="font-monospace">{{if .Hostname}}{{.Hostname}}{{else}}unknown{{end}}</strong>:
+      {{if $.HostHasCert}}<span class="wcp-state is-ok">Let's Encrypt certificate present</span>
+      {{else}}<span class="wcp-state is-warn">no Let's Encrypt certificate</span>{{end}}</span>
+    {{if and $.CanManage (not $.HostHasCert) .Hostname}}
+    <form class="ms-auto" method="post" action="/ssl/services/hostname"
+          data-wcp-confirm="Ask Let's Encrypt for a certificate for {{.Hostname}}? The name must point to this server and port 80 must be reachable.">
+      <input type="hidden" name="_token" value="{{$.CSRF}}">
+      <button class="btn btn-sm btn-primary" type="submit"{{if not $.Services.CertbotInstalled}} disabled title="Install certbot on the Packages page first"{{end}}>Get a certificate for the host name</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+
+  {{with .Account}}
+  <div class="card mb-3" id="lets-encrypt-account">
+    <div class="card-header d-flex align-items-center flex-wrap gap-2">
+      <i class="bi bi-person-badge me-1"></i>Certificate authority
+      <span class="ms-auto d-flex gap-2 align-items-center">
+        {{if .Registered}}<span class="wcp-state is-ok">registered</span>{{else}}<span class="wcp-state is-warn">not registered</span>{{end}}
+        {{if eq .Provider $.ActiveProvider}}<span class="badge rounded-pill text-bg-primary">active</span>{{end}}
+      </span>
+    </div>
+    <div class="card-body small">
+      {{if and $.CanManage (gt (len .Providers) 1)}}
+      <form method="get" action="/ssl/services" class="d-flex flex-wrap align-items-end gap-2 mb-3">
+        <div>
+          <label class="form-label" for="le-provider">Provider</label>
+          <select class="form-select form-select-sm" id="le-provider" name="provider">
+            {{range .Providers}}<option value="{{.ID}}"{{if eq .ID $.Account.Provider}} selected{{end}}>{{.Label}}{{if eq .ID $.ActiveProvider}} (active){{end}}</option>{{end}}
+          </select>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" type="submit">Show</button>
+      </form>
+      {{end}}
+      {{if not .Registered}}
+      <div class="alert alert-warning d-flex gap-2 mb-3" role="status">
+        <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+        <div>The system has no saved {{.Label}} account. Register one below before issuing certificates. Use a real email address — a reserved/example domain is refused, which otherwise makes every certificate fail.{{if .RequiresEAB}} {{.Label}} also needs External Account Binding credentials from your {{.Label}} account.{{end}}</div>
+      </div>
+      {{else}}
+      <dl class="wcp-dl mb-3">
+        <dt>Contact email</dt><dd>{{if .Email}}{{.Email}}{{else}}<span class="text-body-secondary">none — expiry notices cannot be sent</span>{{end}}</dd>
+        {{if .AccountURI}}<dt>Account</dt><dd class="font-monospace text-truncate">{{.AccountURI}}</dd>{{end}}
+      </dl>
+      {{end}}
+      {{if $.CanManage}}
+      <form method="post" action="/ssl/services/account">
+        <input type="hidden" name="_token" value="{{$.CSRF}}">
+        <input type="hidden" name="provider" value="{{.Provider}}">
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-6">
+            <label class="form-label" for="le-acct-email">{{if .Registered}}Contact email{{else}}Account email{{end}}</label>
+            <input class="form-control form-control-sm" id="le-acct-email" type="email" name="email" maxlength="254" required
+                   value="{{if .Email}}{{.Email}}{{else}}{{$.DefaultEmail}}{{end}}" placeholder="you@your-real-domain.com">
+          </div>
+          <div class="col-sm-6">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="1" name="agree_tos" id="le-acct-tos" required>
+              <label class="form-check-label" for="le-acct-tos">I agree to the <a href="{{.TermsURL}}" target="_blank" rel="noopener">{{.Label}} Terms of Service</a></label>
+            </div>
+            {{if eq .Provider "letsencrypt"}}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="1" name="staging" id="le-acct-staging">
+              <label class="form-check-label" for="le-acct-staging">Staging (test) environment</label>
+            </div>
+            {{end}}
+          </div>
+        </div>
+        {{if .RequiresEAB}}
+        <div class="row g-2 mt-1">
+          <div class="col-sm-6">
+            <label class="form-label" for="le-eab-kid">EAB key ID</label>
+            <input class="form-control form-control-sm font-monospace" id="le-eab-kid" name="eab_kid" autocomplete="off" placeholder="from your {{.Label}} account"{{if not .Registered}} required{{end}}>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label" for="le-eab-hmac">EAB HMAC key</label>
+            <input class="form-control form-control-sm font-monospace" id="le-eab-hmac" name="eab_hmac_key" type="password" autocomplete="off" placeholder="kept only to register, never stored"{{if not .Registered}} required{{end}}>
+          </div>
+        </div>
+        <div class="form-text mb-1">Get these from {{.Label}} → Developer → EAB credentials. They are used once to register and are not stored.</div>
+        {{end}}
+        <button class="btn btn-sm btn-primary mt-3" type="submit"{{if not $.Services.CertbotInstalled}} disabled title="Install certbot on the Packages page first"{{end}}>{{if .Registered}}Update registration{{else}}Register account{{end}}{{if and .Registered (ne .Provider $.ActiveProvider)}} and use this provider{{end}}</button>
+        {{if .Registered}}<span class="text-body-secondary ms-2">Registering makes this the active certificate authority for new and automatic certificates.</span>{{end}}
+      </form>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+
+  <div class="row g-3">
+    <div class="col-xl-6">
+      {{template "ssl_service_card" (dict "key" "panel" "title" "WhaCP panel (web services)" "icon" "window" "svc" .Services.Panel "missing" "The panel is not served over HTTPS by Nginx on this server (it was installed without --public-https; reach it through an SSH tunnel)." "note" "The panel's HTTPS uses the server-wide TLS configuration (protocols and ciphers on the TLS configuration tab) once a certificate is chosen here." "ctx" .)}}
+    </div>
+    <div class="col-xl-6">
+      {{template "ssl_service_card" (dict "key" "mail" "title" "Mail server (SMTP, submission, IMAP)" "icon" "envelope" "svc" .Services.Mail "missing" "Email is not set up on this server yet (Email → Mail server)." "note" "Postfix and Dovecot use the same certificate. Mail programs check that it covers the server name they connect to (usually the mail host name)." "ctx" .)}}
+    </div>
+    {{with .Services.MailTLS}}
+    <div class="col-xl-6">
+      <form class="card h-100" method="post" action="/ssl/services/mail-tls"
+            data-wcp-confirm="Apply this TLS configuration to Postfix and Dovecot? Both are checked and reloaded; if a check fails nothing changes.">
+        <input type="hidden" name="_token" value="{{$.CSRF}}">
+        <div class="card-header"><i class="bi bi-shield-lock me-1"></i>Mail server TLS (protocols and ciphers)</div>
+        <div class="card-body">
+          <fieldset class="mb-3">
+            <legend class="form-label small fw-semibold">Protocol versions (IMAP and submission)</legend>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="protocols" value="tls12" id="mt-p-tls12"{{if ne .Protocols "tls13"}} checked{{end}}{{if not $.CanManage}} disabled{{end}}>
+              <label class="form-check-label" for="mt-p-tls12">TLS 1.2 and 1.3<div class="form-text mt-0">Works with every mail program still in use.</div></label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="protocols" value="tls13" id="mt-p-tls13"{{if eq .Protocols "tls13"}} checked{{end}}{{if not $.CanManage}} disabled{{end}}>
+              <label class="form-check-label" for="mt-p-tls13">TLS 1.3 only<div class="form-text mt-0">Strongest; older mail programs and phones can no longer sign in.</div></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend class="form-label small fw-semibold">Ciphers</legend>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="ciphers" value="default" id="mt-c-default"{{if ne .Ciphers "intermediate"}} checked{{end}}{{if not $.CanManage}} disabled{{end}}>
+              <label class="form-check-label" for="mt-c-default">Programs' defaults<div class="form-text mt-0">Postfix's and Dovecot's own lists.</div></label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="ciphers" value="intermediate" id="mt-c-intermediate"{{if eq .Ciphers "intermediate"}} checked{{end}}{{if not $.CanManage}} disabled{{end}}>
+              <label class="form-check-label" for="mt-c-intermediate">Modern ciphers only (Mozilla "intermediate")<div class="form-text mt-0">Forward secrecy and authenticated encryption only; recommended.</div></label>
+            </div>
+          </fieldset>
+          <p class="small text-body-secondary mt-3 mb-0">Port 25 (mail from other servers) keeps accepting what the sending server offers: refusing it would make it deliver without encryption.</p>
+        </div>
+        {{if $.CanManage}}<div class="card-footer text-end"><button class="btn btn-primary btn-sm" type="submit">Apply</button></div>{{end}}
+      </form>
+    </div>
+    {{end}}
+    <div class="col-xl-6">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-signpost-split me-1"></i>Where each SSL setting is</div>
+        <div class="card-body small">
+          <table class="table table-sm align-top mb-0">
+            <tbody>
+              <tr><th class="fw-semibold" scope="row">Websites' SSL ciphers</th><td>TLS configuration tab (Nginx serves every website and webmail; there is no Apache).</td></tr>
+              <tr><th class="fw-semibold" scope="row">Web services (panel) SSL</th><td>The panel card on this page; its ciphers follow the TLS configuration tab.</td></tr>
+              <tr><th class="fw-semibold" scope="row">Mail server SSL and ciphers</th><td>The mail cards on this page.</td></tr>
+              <tr><th class="fw-semibold" scope="row">Host name SSL</th><td>The host name bar above; renewed automatically like every Let's Encrypt certificate.</td></tr>
+              <tr><th class="fw-semibold" scope="row">Web Disk SSL</th><td>WhaCP has no Web Disk (WebDAV) service; files are reached over SFTP, FTPS and the File Manager.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}
+
+{{define "ssl_service_card"}}
+{{$ctx := .ctx}}{{$svc := .svc}}
+<div class="card h-100">
+  <div class="card-header"><i class="bi bi-{{.icon}} me-1"></i>{{.title}}</div>
+  <div class="card-body small">
+    {{if not $svc}}
+    <p class="text-body-secondary mb-0">{{.missing}}</p>
+    {{else}}
+    {{template "ssl_cert_badge" (dict "c" $svc.Certificate "warn" 14)}}
+    <div class="font-monospace text-body-secondary text-break mt-1">{{$svc.Certificate.File}}</div>
+    {{if $ctx.CanManage}}
+    <form class="d-flex gap-2 mt-3" method="post" action="/ssl/services/cert">
+      <input type="hidden" name="_token" value="{{$ctx.CSRF}}">
+      <input type="hidden" name="service" value="{{.key}}">
+      <select class="form-select form-select-sm" name="cert_name" aria-label="Certificate for {{.title}}" required>
+        {{if not $ctx.Services.LetsEncrypt}}<option value="">No Let's Encrypt certificate yet</option>{{end}}
+        {{range $ctx.Services.LetsEncrypt}}<option value="{{.Name}}"{{if .CoversHostname}} selected{{end}}>{{.Name}} ({{join .Names ", "}}; {{.DaysRemaining}} days)</option>{{end}}
+      </select>
+      <button class="btn btn-sm btn-outline-primary text-nowrap" type="submit"{{if not $ctx.Services.LetsEncrypt}} disabled{{end}}>Use</button>
+    </form>
+    <form class="mt-2" method="post" action="/ssl/services/cert" data-wcp-confirm="Go back to the certificate this service used before?">
+      <input type="hidden" name="_token" value="{{$ctx.CSRF}}">
+      <input type="hidden" name="service" value="{{.key}}">
+      <input type="hidden" name="cert_name" value="">
+      <button class="btn btn-sm btn-link p-0" type="submit">Use the previous certificate again</button>
+    </form>
+    {{end}}
+    {{end}}
+    <p class="text-body-secondary mt-3 mb-0">{{.note}}</p>
+  </div>
+</div>
+{{end}}

@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **324 ☑ done+tested, 4 ◑ partial, 223 ☐** of 551.
+`server/internal/http/server.go`): **368 ☑ done+tested, 4 ◑ partial, 179 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -750,6 +750,40 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   mongo.view on the route and mongo.manage re-checked per mutating operation
   (403 in JSON), plus the collection export download. 26 routes + 2 pages
   (+ the section-tabs partial + the settings Prefix helper), 25 tests
+- ☑ SSL/TLS for server administrators (batch 67) — all 18 SslCenterController
+  routes. hosting/ssl_center_service.go wraps the agent's ssl.* actions the
+  page needs (store, renewal status/enable/log, keys, one key, csr_create,
+  key_delete, delete/custom_delete, services, account, account_register,
+  service_cert, mail_tls, hostname_issue, tls_get/tls_set) with the PHP's
+  timeouts (60 s reads, 120 s for the certbot writes) and audits every
+  mutation against the server — never the EAB HMAC key. hosting/autossl.go
+  ports AutoSslService: the queue (websites without HTTPS on demand, plus
+  certificates that are unreadable, expired, not covering the name,
+  self-signed or inside the 7-day replacement window), the 30-minute
+  doubling backoff capped at six hours and six tries, the three-day wait for
+  a new domain, the DNS check (the name points here, or every NS is one of
+  ours, through an injectable DnsLookup), the done/failed/gave_up
+  bookkeeping on the websites row, the 2000-line autossl_log and the
+  six-hourly replacement sweep driven by the scheduler. SslService gains
+  InstallFromKey: ssl.custom with the stored key id (or its self-signed
+  certificate), the reply patched onto the website as https+ssl_mode=custom,
+  audited as ssl.install_key. http/ssl_center_handlers.go carries the six
+  tabs: the hosts table (state from the certificate — secure / needs
+  attention / no HTTPS — the counts, and a link to the owning website's SSL
+  page), AutoSSL (scheduler's next run, the queue, the log, certbot's renewal
+  log, run-now = queue + the first three at once), the certificate store
+  (source, names, details, who uses it, delete only when unused),
+  keys and CSRs (create with the PHP's name splitting and 1..825-day clamp,
+  copy/download of the CSR as application/pkcs10, install on a website,
+  delete), the ACME account (provider preview through ?provider=, register /
+  update with the Terms of Service checkbox, ZeroSSL's EAB fields, the
+  provider stored in acme_provider), the panel + mail service certificates
+  (choose a Let's Encrypt certificate, or revert), the host name certificate
+  (a tracked job) and the server-wide TLS profile (protocols, ciphers,
+  session tickets, the snippet and how many vhosts were migrated). Every
+  page is refused to a scoped account (the PHP's denied()) on top of the
+  route permissions. 18 routes + 7 templates (shared tabs/certificate
+  partials), 22 tests
 - ☑ Mail: the per-mailbox filters + autoresponder (batch 61) — the
   mailbox's filter list (the agent keeps them, rendered to Sieve):
   create/edit (4 condition rows × part/match/value, 3 action rows,
@@ -1100,10 +1134,9 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 67: the remaining server-administration controllers, biggest first —
-SslCenterController (18 routes), BackupsController (18), ApiController (18)
-and SystemController (14), then PhpController (8), AccountBackups (8) and
-Roles (7). The background-jobs follow-up (hulk/modsec/av schedulers) still
-comes after them.
+Batch 68: the remaining server-administration controllers, biggest first —
+BackupsController (18 routes), ApiController (18) and SystemController (14),
+then PhpController (8), AccountBackups (8) and Roles (7). The background-jobs
+follow-up (hulk/modsec/av schedulers) still comes after them.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

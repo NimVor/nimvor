@@ -1,0 +1,87 @@
+{{define "ssl_center_tls"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>TLS configuration · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>TLS configuration</h1>
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .AgentError}}<p class="alert alert-warning" role="alert">{{.AgentError}}</p>{{end}}
+
+  {{template "ssl_center_tabs" .}}
+
+  {{with .TLS}}
+  <div class="row g-3">
+    <div class="col-xl-6">
+      <form class="card h-100" method="post" action="/ssl/tls"
+            data-wcp-confirm="Apply this TLS configuration to every WhaCP website and webmail? Nginx is checked and reloaded; if the check fails nothing changes.">
+        <input type="hidden" name="_token" value="{{$.CSRF}}">
+        <div class="card-header"><i class="bi bi-shield-lock me-1"></i>TLS configuration of WhaCP websites</div>
+        <div class="card-body">
+          <fieldset class="mb-3">
+            <legend class="form-label small fw-semibold">Protocol versions</legend>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="protocols" value="tls12" id="tls-p-tls12"{{if ne .Profile.Protocols "tls13"}} checked{{end}}{{if not $.CanManage}} disabled{{end}}>
+              <label class="form-check-label" for="tls-p-tls12">TLS 1.2 and 1.3<div class="form-text mt-0">Works with every browser and client still in use.</div></label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="protocols" value="tls13" id="tls-p-tls13"{{if eq .Profile.Protocols "tls13"}} checked{{end}}{{if not $.CanManage}} disabled{{end}}>
+              <label class="form-check-label" for="tls-p-tls13">TLS 1.3 only<div class="form-text mt-0">Strongest; older clients (e.g. some old Android versions, older mail and monitoring tools) can no longer connect.</div></label>
+            </div>
+          </fieldset>
+          <fieldset class="mb-3">
+            <legend class="form-label small fw-semibold">TLS 1.2 ciphers</legend>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="ciphers" value="default" id="tls-c-default"{{if ne .Profile.Ciphers "intermediate"}} checked{{end}}{{if not $.CanManage}} disabled{{end}}>
+              <label class="form-check-label" for="tls-c-default">Nginx default<div class="form-text mt-0">Nginx's built-in list.</div></label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="ciphers" value="intermediate" id="tls-c-intermediate"{{if eq .Profile.Ciphers "intermediate"}} checked{{end}}{{if not $.CanManage}} disabled{{end}}>
+              <label class="form-check-label" for="tls-c-intermediate">Modern ciphers only (Mozilla "intermediate")<div class="form-text mt-0">Forward secrecy and authenticated encryption only; recommended.</div></label>
+            </div>
+          </fieldset>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="session_tickets" value="1" id="tls-t"{{if .Profile.SessionTickets}} checked{{end}}{{if not $.CanManage}} disabled{{end}}>
+            <label class="form-check-label" for="tls-t">Session tickets<div class="form-text mt-0">Faster reconnects; off keeps forward secrecy for resumed sessions (recommended off).</div></label>
+          </div>
+        </div>
+        {{if $.CanManage}}<div class="card-footer text-end"><button class="btn btn-primary btn-sm" type="submit">Apply</button></div>{{end}}
+      </form>
+    </div>
+    <div class="col-xl-6">
+      <div class="card h-100">
+        <div class="card-header d-flex align-items-center gap-2">
+          <span>Current snippet</span>
+          <span class="small text-body-secondary font-monospace ms-auto text-break">{{.Path}}</span>
+        </div>
+        <div class="card-body">
+          <pre class="small mb-2">{{.Snippet}}</pre>
+          <p class="small text-body-secondary mb-1">Included by every WhaCP website and webmail ({{.Vhosts}} Nginx files). Certificates and HSTS stay per website (each website's SSL page).</p>
+          {{if gt .LegacyVhosts 0}}<p class="small mb-1"><span class="wcp-state is-warn">{{.LegacyVhosts}} file(s)</span> still carry their own TLS lines from an earlier version; applying moves them to this snippet.</p>{{end}}
+          <p class="small text-body-secondary mb-0">OCSP stapling is not offered: Let's Encrypt no longer runs OCSP. The panel's own HTTPS (set up by the installer) is not changed here.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{else}}
+  <div class="card"><div class="card-body text-body-secondary small">The TLS configuration could not be read.</div></div>
+  {{end}}
+</main>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}
