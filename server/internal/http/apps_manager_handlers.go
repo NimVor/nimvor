@@ -8,14 +8,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
-
-// appCatalog builds the admin catalog service.
-func (s *Server) appCatalog() *hosting.AppCatalogService {
-	return hosting.NewAppCatalogService(s.db, s.settings)
-}
 
 // appManagerAudit records a manager change (the PHP AuditLogger,
 // server-scoped).
