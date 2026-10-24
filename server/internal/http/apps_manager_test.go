@@ -12,8 +12,8 @@ import (
 	"testing"
 )
 
-// appsEnv is importEnv plus the settings permissions for the manager routes.
-func appsEnv(t *testing.T, loginAs string) (http.Handler, *http.Cookie, *sql.DB) {
+// appsManagerEnv is importEnv plus the settings permissions for the manager routes.
+func appsManagerEnv(t *testing.T, loginAs string) (http.Handler, *http.Cookie, *sql.DB) {
 	t.Helper()
 	h, cookie, _, db := importEnv(t, loginAs)
 	if _, err := db.Exec(`INSERT INTO permissions (id,name,label,grp) VALUES
@@ -40,7 +40,7 @@ func appsPost(t *testing.T, h http.Handler, cookie *http.Cookie, path string, va
 }
 
 func TestAppsManagerPage(t *testing.T) {
-	h, cookie, _ := appsEnv(t, "admin")
+	h, cookie, _ := appsManagerEnv(t, "admin")
 	body := ipFlash(t, h, cookie, "/apps-manager")
 	for _, want := range []string{
 		"Application Manager",
@@ -54,14 +54,14 @@ func TestAppsManagerPage(t *testing.T) {
 	}
 
 	// The customer has no settings.view.
-	h2, c2, _ := appsEnv(t, "bob")
+	h2, c2, _ := appsManagerEnv(t, "bob")
 	if rr := get(t, h2, "/apps-manager", c2); rr.Code != http.StatusForbidden {
 		t.Errorf("customer page = %d, want 403", rr.Code)
 	}
 }
 
 func TestAppsManagerInstaller(t *testing.T) {
-	h, cookie, db := appsEnv(t, "admin")
+	h, cookie, db := appsManagerEnv(t, "admin")
 
 	body, cookie := appsPost(t, h, cookie, "/apps-manager/installer", url.Values{"on": {"0"}})
 	if !strings.Contains(body, "Application installer disabled.") {
@@ -84,7 +84,7 @@ func TestAppsManagerInstaller(t *testing.T) {
 }
 
 func TestAppsManagerCategory(t *testing.T) {
-	h, cookie, db := appsEnv(t, "admin")
+	h, cookie, db := appsManagerEnv(t, "admin")
 
 	body, cookie := appsPost(t, h, cookie, "/apps-manager/category", url.Values{"slug": {"forums"}, "on": {"0"}})
 	if !strings.Contains(body, "Category disabled.") {
@@ -112,7 +112,7 @@ func TestAppsManagerCategory(t *testing.T) {
 }
 
 func TestAppsManagerApp(t *testing.T) {
-	h, cookie, db := appsEnv(t, "admin")
+	h, cookie, db := appsManagerEnv(t, "admin")
 
 	body, cookie := appsPost(t, h, cookie, "/apps-manager/app",
 		url.Values{"slug": {"wordpress"}, "field": {"customer_visible"}, "on": {"0"}})
@@ -144,7 +144,7 @@ func TestAppsManagerApp(t *testing.T) {
 }
 
 func TestAppsManagerForbiddenForCustomer(t *testing.T) {
-	h, cookie, _ := appsEnv(t, "bob")
+	h, cookie, _ := appsManagerEnv(t, "bob")
 	rr := postForm(h, "/apps-manager/installer", url.Values{"on": {"1"}}, cookie)
 	if rr.Code != http.StatusForbidden {
 		t.Errorf("customer installer = %d, want 403", rr.Code)
