@@ -256,8 +256,8 @@ func TestSiteBackupsRestore(t *testing.T) {
 
 	// Wrong confirmation text.
 	rr := backupPost(t, h, bob, restore, url.Values{
-		"restore_files":   {"1"},
-		"confirm_domain":  {"wrong.example"},
+		"restore_files":  {"1"},
+		"confirm_domain": {"wrong.example"},
 	})
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("POST restore = %d", rr.Code)
@@ -270,9 +270,9 @@ func TestSiteBackupsRestore(t *testing.T) {
 
 	// A database the backup does not contain.
 	rr = backupPost(t, h, bob, restore, url.Values{
-		"restore_files":    {"0"},
+		"restore_files":     {"0"},
 		"restore_databases": {"nope"},
-		"confirm_domain":   {"bob.example"},
+		"confirm_domain":    {"bob.example"},
 	})
 	rr = get(t, h, "/sites/10/backups", bob)
 	bob = refreshCookie(bob, rr)

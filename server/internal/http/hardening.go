@@ -250,7 +250,9 @@ func hPorts(list, what string) ([]int, error) {
 	seen := map[int]bool{}
 	out := []int{}
 	for _, p := range strings.FieldsFunc(strings.TrimSpace(list),
-		func(r rune) bool { return r == ' ' || r == '\t' || r == '\n' || r == '\v' || r == '\f' || r == '\r' || r == ',' }) {
+		func(r rune) bool {
+			return r == ' ' || r == '\t' || r == '\n' || r == '\v' || r == '\f' || r == '\r' || r == ','
+		}) {
 		if len(p) > 5 || !isDigits(p) {
 			return nil, fmt.Errorf("%s ports: %q is not a port number (1–65535).", what, p)
 		}

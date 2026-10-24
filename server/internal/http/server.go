@@ -24,8 +24,8 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/security"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
-	"github.com/mchkhawarshahzad/whacp/server/internal/web"
 	"github.com/mchkhawarshahzad/whacp/server/internal/twofactor"
+	"github.com/mchkhawarshahzad/whacp/server/internal/web"
 )
 
 // Server holds the dependencies shared by handlers.
@@ -551,6 +551,16 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /ips/migrate", s.guard("ips.migrate.run", "server.manage", s.ipRunMigration))
 	s.mux.HandleFunc("POST /ips/{id}", s.guard("ips.update", "server.manage", s.ipUpdate))
 	s.mux.HandleFunc("POST /ips/{id}/delete", s.guard("ips.delete", "server.manage", s.ipDelete))
+
+	// Discovery (DiscoveryController): the read-only inventory pages. Every
+	// page is tenant-scoped in the handler (DiscoveryService::forScope); only
+	// the re-scan needs discovery.run, and it still changes nothing on the
+	// server.
+	s.mux.HandleFunc("GET /discovery", s.guard("discovery", "websites.view", s.discoveryIndex))
+	s.mux.HandleFunc("POST /discovery/run", s.guard("discovery.run", "discovery.run", s.discoveryRun))
+	s.mux.HandleFunc("GET /php", s.guard("php", "php.view", s.discoveryPHP))
+	s.mux.HandleFunc("GET /ssl", s.guard("ssl", "ssl.view", s.discoverySSL))
+	s.mux.HandleFunc("GET /cron", s.guard("cron", "cron.view", s.discoveryCron))
 
 	// Application Manager (AppManagerController).
 	s.mux.HandleFunc("GET /apps-manager", s.guard("apps.manager", "settings.view", s.appsManagerIndex))

@@ -330,7 +330,7 @@ func TestSiteStatsEnableAgentRefused(t *testing.T) {
 }
 
 func TestSiteStatsUpdate(t *testing.T) {
-	h, sa, db := statsEnvWithData(t)
+	h, _, db := statsEnvWithData(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/sites/10/stats")
 	rr := postForm(h, "/sites/10/stats/update", url.Values{"_token": {token}}, admin)

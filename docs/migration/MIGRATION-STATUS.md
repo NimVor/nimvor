@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **319 ☑ done+tested, 4 ◑ partial, 228 ☐** of 551.
+`server/internal/http/server.go`): **324 ☑ done+tested, 4 ◑ partial, 223 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -694,6 +694,33 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
   was restored (the CI gofmt gate). 16 routes + 4 pages (+ the tabs
   partial + the apps_toggle partial + the dict template function),
   12 tests
+- ☑ Discovery: the read-only inventory pages (batch 65) — DiscoveryController's
+  5 routes (`GET /discovery`, `POST /discovery/run`, `GET /php`, `GET /ssl`,
+  `GET /cron`) as hosting/discovery_pages.go + http/discovery_handlers.go.
+  The overview: the count cards (websites, PHP versions, pools, databases,
+  certificates, cron jobs, services and the non-system accounts) each linked
+  only when the actor holds that permission, the merged section warnings, the
+  unsupported-OS note, and the snapshot history with the acting user's name
+  and the checksum's first twelve characters. PHP: the version cards (CLI/FPM
+  binaries, pool count, per-version website count, the CLI-default badge) and
+  the FPM pool table; the PHP Manager link is shown for php.manage, and the
+  install/stop/repository write actions stay with the PhpController batch, so
+  the page is a read-only report (documented remainder). Certificates: the
+  per-website table (status, expiry, issuer, whether it covers the domain,
+  the file) and the certbot lineages with the private-key presence and
+  permissions; administrators are redirected to the dedicated /ssl/hosts
+  section, exactly as PHP does. Cron: schedule/user/command/source:line from
+  the agent, with the redaction note. The re-scan is CSRF-checked,
+  discovery.run-gated, honours only the PHP's return_to allowlist
+  (`^/[a-z0-9/_-]*$`) and states that nothing on the server was changed.
+  Every page is tenant-scoped through a port of DiscoveryService::forScope
+  (owned websites, the certificates naming one of their domains, the pools
+  those use, and empty cron/database/user lists), and every page falls back
+  to the discovery-unavailable view when the agent cannot be reached.
+  Along the way: the template FuncMap gained `join` — ips_index.html (batch
+  64) called it but it was never registered, which made ParseFS fail and
+  would have stopped the whole server from starting. 5 routes + 4 pages
+  (+ the shared discovery bar partial), 10 tests
 - ☑ Mail: the per-mailbox filters + autoresponder (batch 61) — the
   mailbox's filter list (the agent keeps them, rendered to Sieve):
   create/edit (4 condition rows × part/match/value, 3 action rows,
@@ -1044,9 +1071,9 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Batch 65: the discovery/inventory pages (DiscoveryController —
-/discovery, /discovery/inventory, adopt preview/run/undo and the
-discovery-unavailable fallback), the last server-view pages before
-the background-jobs follow-up (hulk/modsec/av schedulers).
+Batch 66: the remaining server-administration controllers, biggest first —
+MongoController (26 routes), SslCenterController (18), BackupsController
+(18), ApiController (18) and SystemController (14). The background-jobs
+follow-up (hulk/modsec/av schedulers) still comes after them.
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24).

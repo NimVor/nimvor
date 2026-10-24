@@ -334,7 +334,7 @@ func mongoBrowseError(w http.ResponseWriter, code int, message string) {
 	})
 }
 
-// mongoBrowseStr is a string body field ('' when absent).
+// mongoBrowseStr is a string body field (” when absent).
 func mongoBrowseStr(body map[string]any, key string) string {
 	s, _ := body[key].(string)
 	return s

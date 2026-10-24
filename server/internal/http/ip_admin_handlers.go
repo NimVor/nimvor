@@ -230,18 +230,18 @@ func (s *Server) ipIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.render(w, "ips_index", map[string]any{
-		"User":        user,
-		"CSRF":        session.CSRFToken(sess),
-		"Tab":         "addresses",
-		"Pool":        rows,
-		"Unpooled":    unpooled,
-		"Server":      server,
-		"Gateways":    gateways,
-		"AgentErr":    agentErr,
-		"Rebuild":     rebuild,
-		"CanManage":   s.can(r, "server.manage"),
-		"Success":     pullFlashKey(sess, "success"),
-		"Error":       pullFlashKey(sess, "error"),
+		"User":      user,
+		"CSRF":      session.CSRFToken(sess),
+		"Tab":       "addresses",
+		"Pool":      rows,
+		"Unpooled":  unpooled,
+		"Server":    server,
+		"Gateways":  gateways,
+		"AgentErr":  agentErr,
+		"Rebuild":   rebuild,
+		"CanManage": s.can(r, "server.manage"),
+		"Success":   pullFlashKey(sess, "success"),
+		"Error":     pullFlashKey(sess, "error"),
 	})
 }
 

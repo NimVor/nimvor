@@ -12,7 +12,6 @@ import (
 	"time"
 )
 
-
 // MaxFtpAccounts is the safety limit of virtual accounts per website
 // (FtpController::MAX_ACCOUNTS).
 const MaxFtpAccounts = 25
@@ -188,4 +187,3 @@ func (s *FtpService) UsageCount(ctx context.Context, owners []int64) (int, error
 	}
 	return n, nil
 }
-

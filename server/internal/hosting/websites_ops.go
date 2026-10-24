@@ -98,7 +98,7 @@ func (s *WebsiteService) SetRuntime(ctx context.Context, site *Website, runtime 
 	if typ == "" {
 		return &UserError{What: "This is not a Node.js or Python website."}
 	}
-	if !regexp.MustCompile(`^`+appRuntimePrefix[typ]+`:[0-9][0-9A-Za-z.]{0,31}$`).MatchString(runtime) {
+	if !regexp.MustCompile(`^` + appRuntimePrefix[typ] + `:[0-9][0-9A-Za-z.]{0,31}$`).MatchString(runtime) {
 		return &ValidationError{Fields: map[string]string{"app_runtime": "Choose a " + appKinds[typ] + " version."}}
 	}
 	if err := s.sites.UpdateFields(ctx, site.ID, map[string]any{"app_runtime": runtime}); err != nil {

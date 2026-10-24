@@ -151,10 +151,10 @@ func (s *Server) databasesPageData(r *http.Request, w http.ResponseWriter, user 
 		"Success":          okMsg,
 		"CanManage":        s.can(r, "databases.manage"),
 		// Live server state (nil/empty → the warning + "unknown" fallbacks).
-		"Live":             live != nil,
-		"ServerLabel":      serverLabel,
-		"Sizes":            sizes,
-		"Unmanaged":        unmanaged,
+		"Live":        live != nil,
+		"ServerLabel": serverLabel,
+		"Sizes":       sizes,
+		"Unmanaged":   unmanaged,
 	}, true
 }
 

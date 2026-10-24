@@ -14,7 +14,7 @@ import (
 )
 
 func TestSiteDatabasesScoped(t *testing.T) {
-	h, _, db := dbUsersEnv(t, "")
+	h, _, _ := dbUsersEnv(t, "")
 	bob := loginAsUser(t, h, "bob")
 	body := get(t, h, "/sites/10/databases", bob).Body.String()
 	// Own site's database and user, the site create form (website_id pinned,

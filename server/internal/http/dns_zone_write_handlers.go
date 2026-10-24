@@ -189,29 +189,29 @@ func (s *Server) zoneShowData(r *http.Request, zone *hosting.DnsZoneFull, record
 		confirmValue = in["confirm"]
 	}
 	return map[string]any{
-		"User":         u,
-		"CSRF":         session.CSRFToken(sess),
-		"Zone":         zone,
-		"Records":      records,
-		"EditJSON":     editJSON,
-		"Types":        hosting.DnsRecordTypes,
-		"SrvProtocols": []string{"tcp", "udp", "tls"},
-		"ServedState":  servedState,
-		"ServedSerial": servedSerial,
-		"Warnings":     warnings,
-		"Site":         site,
-		"Admin":        hosting.IsAll(u),
-		"Errors":       errs,
-		"Form":         form,
-		"Reopen":       reopen,
-		"TTLValue":     ttlValue,
-		"Secondaries":  secondariesValue,
-		"Confirm":      confirmValue,
-		"Zonefile":     formZonefile(in),
+		"User":          u,
+		"CSRF":          session.CSRFToken(sess),
+		"Zone":          zone,
+		"Records":       records,
+		"EditJSON":      editJSON,
+		"Types":         hosting.DnsRecordTypes,
+		"SrvProtocols":  []string{"tcp", "udp", "tls"},
+		"ServedState":   servedState,
+		"ServedSerial":  servedSerial,
+		"Warnings":      warnings,
+		"Site":          site,
+		"Admin":         hosting.IsAll(u),
+		"Errors":        errs,
+		"Form":          form,
+		"Reopen":        reopen,
+		"TTLValue":      ttlValue,
+		"Secondaries":   secondariesValue,
+		"Confirm":       confirmValue,
+		"Zonefile":      formZonefile(in),
 		"ImportSkipped": importSkipped,
-		"Sort":         sort,
-		"Success":      pullFlashKey(sess, "success"),
-		"Error":        pullFlashKey(sess, "error"),
+		"Sort":          sort,
+		"Success":       pullFlashKey(sess, "success"),
+		"Error":         pullFlashKey(sess, "error"),
 	}
 }
 
@@ -487,7 +487,7 @@ func (s *Server) dnsImport(w http.ResponseWriter, r *http.Request) {
 	if !s.checkZoneCSRF(w, r) {
 		return
 	}
-	if err := r.ParseMultipartForm(1<<20); err != nil && err != http.ErrNotMultipart {
+	if err := r.ParseMultipartForm(1 << 20); err != nil && err != http.ErrNotMultipart {
 		// A plain form (the paste box) has no multipart parts.
 		_ = r.ParseForm()
 	}

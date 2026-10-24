@@ -211,7 +211,7 @@ func TestDbServerSaveSettingsNoOp(t *testing.T) {
 	token, admin := siteFormToken(t, h, admin, "/databases/server/settings")
 
 	rr := postForm(h, "/databases/server/settings", url.Values{
-		"_token": {token},
+		"_token":                    {token},
 		"settings[max_connections]": {"200"}, "managed[max_connections]": {"200"},
 	}, admin)
 	if rr.Code != http.StatusSeeOther {
@@ -231,10 +231,10 @@ func TestDbServerSaveSettingsChanged(t *testing.T) {
 	token, admin := siteFormToken(t, h, admin, "/databases/server/settings")
 
 	rr := postForm(h, "/databases/server/settings", url.Values{
-		"_token": {token},
-		"settings[max_connections]":          {"300"}, "managed[max_connections]": {"200"},
-		"settings[innodb_buffer_pool_size]":  {"1G"},  "managed[innodb_buffer_pool_size]": {""},
-		"settings[character_set_server]":     {"utf8mb4"}, "managed[character_set_server]": {"utf8mb4"},
+		"_token":                    {token},
+		"settings[max_connections]": {"300"}, "managed[max_connections]": {"200"},
+		"settings[innodb_buffer_pool_size]": {"1G"}, "managed[innodb_buffer_pool_size]": {""},
+		"settings[character_set_server]": {"utf8mb4"}, "managed[character_set_server]": {"utf8mb4"},
 	}, admin)
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("save = %d, want 303", rr.Code)
@@ -269,7 +269,7 @@ func TestDbServerSaveSettingsFailure(t *testing.T) {
 	sa.failActions = map[string]string{"db.server_settings": "the server refused innodb_buffer_pool_size"}
 
 	rr := postForm(h, "/databases/server/settings", url.Values{
-		"_token": {token},
+		"_token":                            {token},
 		"settings[innodb_buffer_pool_size]": {"16T"}, "managed[innodb_buffer_pool_size]": {""},
 	}, admin)
 	if rr.Code != http.StatusSeeOther {

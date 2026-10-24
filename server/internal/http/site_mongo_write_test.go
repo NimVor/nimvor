@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	mongoTestBackupJob    = "0123456789m0a001"
-	mongoTestRestoreJob   = "0123456789m0a002"
-	mongoTestShopBackup   = "20261020-093000_u_bob_shop.archive.gz"
+	mongoTestBackupJob     = "0123456789m0a001"
+	mongoTestRestoreJob    = "0123456789m0a002"
+	mongoTestShopBackup    = "20261020-093000_u_bob_shop.archive.gz"
 	mongoTestForeignBackup = "20261019-120000_other_app.archive.gz"
 )
 
@@ -395,7 +395,7 @@ func TestSiteMongoDropUser(t *testing.T) {
 }
 
 func TestSiteMongoBackup(t *testing.T) {
-	h, sa, db := mongoWEnv(t)
+	h, _, db := mongoWEnv(t)
 	bob := loginAsUser(t, h, "bob")
 	rr := mongoPost(t, h, bob, "/sites/10/mongo/backup", url.Values{"db": {"u_bob_shop"}})
 	if rr.Code != http.StatusSeeOther {

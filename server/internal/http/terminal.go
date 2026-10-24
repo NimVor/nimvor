@@ -344,11 +344,11 @@ func (s *Server) terminalOpen(w http.ResponseWriter, r *http.Request, user *iden
 		return
 	}
 	var out struct {
-		Ticket       string `json:"ticket"`
-		SessionID    string `json:"session_id"`
-		Mode         string `json:"mode"`
-		User         string `json:"user"`
-		PwRequired   bool   `json:"password_required"`
+		Ticket     string `json:"ticket"`
+		SessionID  string `json:"session_id"`
+		Mode       string `json:"mode"`
+		User       string `json:"user"`
+		PwRequired bool   `json:"password_required"`
 	}
 	if err := json.Unmarshal(res, &out); err != nil {
 		terminalJSONError(w, &terminalError{Status: 502, Message: "The WhaCP agent returned an unexpected response."})

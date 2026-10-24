@@ -301,7 +301,7 @@ func TestSiteSslCustom(t *testing.T) {
 }
 
 func TestSiteSslCustomEmpty(t *testing.T) {
-	h, sa, db := sslEnv(t)
+	h, sa, _ := sslEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	rr := sslPost(t, h, "/sites/10/ssl/custom", admin, url.Values{"certificate": {""}, "private_key": {""}})
 	if rr.Code != http.StatusSeeOther {

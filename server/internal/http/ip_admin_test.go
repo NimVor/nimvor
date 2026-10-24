@@ -28,11 +28,11 @@ func TestIpPagesAdminOnly(t *testing.T) {
 	for _, want := range []string{
 		"IP addresses", "Addresses and usage",
 		"10.10.0.99", "10.10.0.15", "192.168.1.20", "172.16.0.9", // the pool
-		"203.0.113.20", "2001:db8:100::5",                          // unpooled
-		"203.0.113.1",                                               // the gateway
-		"Staging",                                                   // the reserved reason
-		"Not on the server",                                         // pooled but not on the interfaces
-		"bob.example", "alice.example",                              // the bound sites
+		"203.0.113.20", "2001:db8:100::5", // unpooled
+		"203.0.113.1",                  // the gateway
+		"Staging",                      // the reserved reason
+		"Not on the server",            // pooled but not on the interfaces
+		"bob.example", "alice.example", // the bound sites
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("pool page missing %q", want)

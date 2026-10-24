@@ -63,14 +63,14 @@ type Backup struct {
 
 // CreateSiteOptions is what the "Back up now" form submits.
 type CreateSiteOptions struct {
-	Files      bool
-	Databases  bool
-	Encrypt    bool
+	Files     bool
+	Databases bool
+	Encrypt   bool
 	// StorageID picks a remote storage for an extra copy; administrators
 	// only (remote storage is a server-wide setting).
-	StorageID  sql.NullInt64
-	KeepLocal  bool
-	Label      string
+	StorageID sql.NullInt64
+	KeepLocal bool
+	Label     string
 	// ScheduleID is set when the scheduler (not a person) starts the run.
 	ScheduleID sql.NullInt64
 }

@@ -169,19 +169,19 @@ func (s *Server) renderImportPage(w http.ResponseWriter, r *http.Request, user *
 		phpVersion = f.Plan.Row.PhpVersion
 	}
 	data := map[string]any{
-		"User":         user,
-		"CSRF":         session.CSRFToken(sessionFrom(r.Context())),
-		"Found":        f.Found,
-		"Plan":         f.Plan,
-		"Preview":      f.Preview,
-		"Errors":       f.Errors,
-		"AgentErr":     f.AgentErr,
-		"Input":        f.Input,
-		"Owners":       f.Owners,
-		"Job":          jobFlash,
-		"KindLabel":    kindLabel,
-		"SystemUser":   systemUser,
-		"PHPVersion":   phpVersion,
+		"User":       user,
+		"CSRF":       session.CSRFToken(sessionFrom(r.Context())),
+		"Found":      f.Found,
+		"Plan":       f.Plan,
+		"Preview":    f.Preview,
+		"Errors":     f.Errors,
+		"AgentErr":   f.AgentErr,
+		"Input":      f.Input,
+		"Owners":     f.Owners,
+		"Job":        jobFlash,
+		"KindLabel":  kindLabel,
+		"SystemUser": systemUser,
+		"PHPVersion": phpVersion,
 	}
 	s.render(w, "import", data)
 }
@@ -466,19 +466,19 @@ func (s *Server) websitesIndex(w http.ResponseWriter, r *http.Request) {
 	errMsg, _ := sess.PullFlash("error")
 	okMsg, _ := sess.PullFlash("success")
 	s.render(w, "websites", map[string]any{
-		"User":           user,
-		"CSRF":           session.CSRFToken(sess),
-		"Sites":          sites,
-		"Error":          errMsg,
-		"Success":        okMsg,
-		"CanManage":      s.can(r, "websites.manage"),
-		"Discovered":     discovered,
-		"DiscoveredAt":   discoveredAt,
-		"DiscoveredAgo":  timeAgo(discoveredAt),
-		"Total":          len(discovered),
-		"CatchAll":       catchAll,
-		"Warnings":       warnings,
-		"CanImport":      s.can(r, "import.run"),
+		"User":          user,
+		"CSRF":          session.CSRFToken(sess),
+		"Sites":         sites,
+		"Error":         errMsg,
+		"Success":       okMsg,
+		"CanManage":     s.can(r, "websites.manage"),
+		"Discovered":    discovered,
+		"DiscoveredAt":  discoveredAt,
+		"DiscoveredAgo": timeAgo(discoveredAt),
+		"Total":         len(discovered),
+		"CatchAll":      catchAll,
+		"Warnings":      warnings,
+		"CanImport":     s.can(r, "import.run"),
 	})
 }
 

@@ -29,9 +29,9 @@ func TestSiteMongoScoped(t *testing.T) {
 	s := &SiteMongoService{}
 	site := mongoTestSite()
 	cases := map[string]string{
-		"shop":      "u_bob_shop",
-		" Shop ":    "u_bob_shop", // trimmed + lower-cased
-		"u_bob_x":   "u_bob_x",   // a typed prefix is not doubled
+		"shop":       "u_bob_shop",
+		" Shop ":     "u_bob_shop", // trimmed + lower-cased
+		"u_bob_x":    "u_bob_x",    // a typed prefix is not doubled
 		"U_BOB_SHOP": "u_bob_shop",
 	}
 	for in, want := range cases {
@@ -70,7 +70,7 @@ func TestSiteMongoBackupDb(t *testing.T) {
 	s := &SiteMongoService{}
 	site := mongoTestSite()
 	cases := map[string]string{
-		"20261020-093000_u_bob_shop.archive.gz": "u_bob_shop",
+		"20261020-093000_u_bob_shop.archive.gz":      "u_bob_shop",
 		"20261020-093000_u_bob_shop_data.archive.gz": "u_bob_shop_data", // underscores in the db
 	}
 	for file, want := range cases {
@@ -86,9 +86,9 @@ func TestSiteMongoBackupDb(t *testing.T) {
 	for _, file := range []string{
 		"",
 		"garbage.gz",
-		"20261020-093000_.archive.gz",                       // empty db
+		"20261020-093000_.archive.gz", // empty db
 		"20261020-093000_" + strings.Repeat("x", 90) + ".archive.gz", // db too long
-		"20261020-093000_other_app.archive.gz",              // not this account's db
+		"20261020-093000_other_app.archive.gz",                       // not this account's db
 	} {
 		if _, err := s.backupDb(site, file); err == nil {
 			t.Errorf("backupDb(%q) = ok, want refused", file)

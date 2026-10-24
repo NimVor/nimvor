@@ -25,21 +25,21 @@ import (
 // PhpSettings is one website's PHP-FPM pool settings, stored as JSON in
 // websites.php_settings. Keys and defaults mirror WebsiteService::validate.
 type PhpSettings struct {
-	MemoryLimitMB         int    `json:"memory_limit_mb"`
-	UploadMaxMB           int    `json:"upload_max_mb"`
-	MaxExecutionSeconds   int    `json:"max_execution_seconds"`
-	MaxChildren           int    `json:"max_children"`
-	StartServers          int    `json:"start_servers"`
-	MinSpareServers       int    `json:"min_spare_servers"`
-	MaxSpareServers       int    `json:"max_spare_servers"`
-	IdleTimeoutSeconds    int    `json:"idle_timeout_seconds"`
-	MaxRequests           int    `json:"max_requests"`
-	RequestTimeoutSeconds int    `json:"request_timeout_seconds"`
-	SlowlogSeconds        int    `json:"slowlog_seconds"`
-	Harden                bool   `json:"harden"`
-	Profile               string `json:"profile"`
-	DisableFunctions      string `json:"disable_functions"`
-	PM                    string `json:"pm"`
+	MemoryLimitMB         int               `json:"memory_limit_mb"`
+	UploadMaxMB           int               `json:"upload_max_mb"`
+	MaxExecutionSeconds   int               `json:"max_execution_seconds"`
+	MaxChildren           int               `json:"max_children"`
+	StartServers          int               `json:"start_servers"`
+	MinSpareServers       int               `json:"min_spare_servers"`
+	MaxSpareServers       int               `json:"max_spare_servers"`
+	IdleTimeoutSeconds    int               `json:"idle_timeout_seconds"`
+	MaxRequests           int               `json:"max_requests"`
+	RequestTimeoutSeconds int               `json:"request_timeout_seconds"`
+	SlowlogSeconds        int               `json:"slowlog_seconds"`
+	Harden                bool              `json:"harden"`
+	Profile               string            `json:"profile"`
+	DisableFunctions      string            `json:"disable_functions"`
+	PM                    string            `json:"pm"`
 	INI                   map[string]string `json:"ini,omitempty"`
 }
 
@@ -63,14 +63,11 @@ var (
 // the stored values for these keys.
 var serverPHPSettings = []string{"max_children", "harden", "pm", "start_servers", "min_spare_servers", "max_spare_servers", "idle_timeout_seconds", "max_requests", "request_timeout_seconds", "slowlog_seconds"}
 
-// reservedSystemUsers can never be a website account.
-var reservedSystemUsers = map[string]bool{"root": true, "www-data": true, "nobody": true, "mysql": true, "whacp": true, "admin": true}
-
 var (
-	hostLabelRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
-	userRe      = regexp.MustCompile(`^[a-z][a-z0-9_-]{1,30}$`)
-	subdomainRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$`)
-	proxyPassRe = regexp.MustCompile(`^http://(127\.0\.0\.1|\[::1\]|localhost):[0-9]{2,5}(/[A-Za-z0-9._~/-]*)?$`)
+	hostLabelRe    = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
+	userRe         = regexp.MustCompile(`^[a-z][a-z0-9_-]{1,30}$`)
+	subdomainRe    = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$`)
+	proxyPassRe    = regexp.MustCompile(`^http://(127\.0\.0\.1|\[::1\]|localhost):[0-9]{2,5}(/[A-Za-z0-9._~/-]*)?$`)
 	redirectFromRe = regexp.MustCompile(`^/[A-Za-z0-9._~/-]{0,200}$`)
 	redirectToRe   = regexp.MustCompile(`^(https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?)?(/[A-Za-z0-9._~/%?=&+-]{0,300})?$`)
 	docrootSubRe   = regexp.MustCompile(`^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$`)
@@ -368,17 +365,17 @@ type validatedSite struct {
 type intBound struct{ lo, hi, def int }
 
 var phpIntBounds = map[string]intBound{
-	"memory_limit_mb":       {32, 8192, 256},
-	"upload_max_mb":         {1, 4096, 64},
-	"max_execution_seconds": {5, 3600, 60},
-	"max_children":          {1, 200, 5},
-	"start_servers":         {0, 200, 0},
-	"min_spare_servers":     {0, 200, 0},
-	"max_spare_servers":     {0, 200, 0},
-	"idle_timeout_seconds":  {1, 3600, 10},
-	"max_requests":          {1, 100000, 500},
+	"memory_limit_mb":         {32, 8192, 256},
+	"upload_max_mb":           {1, 4096, 64},
+	"max_execution_seconds":   {5, 3600, 60},
+	"max_children":            {1, 200, 5},
+	"start_servers":           {0, 200, 0},
+	"min_spare_servers":       {0, 200, 0},
+	"max_spare_servers":       {0, 200, 0},
+	"idle_timeout_seconds":    {1, 3600, 10},
+	"max_requests":            {1, 100000, 500},
 	"request_timeout_seconds": {0, 86400, 0},
-	"slowlog_seconds":       {1, 3600, 10},
+	"slowlog_seconds":         {1, 3600, 10},
 }
 
 // Validate checks form input against the server and returns the row to
@@ -472,7 +469,7 @@ func (s *WebsiteService) Validate(ctx context.Context, in map[string]string, exi
 		if v, ok := in["app_runtime"]; ok {
 			appRuntime = strings.TrimSpace(v)
 		}
-		if !regexp.MustCompile(`^`+prefix+`:[0-9][0-9A-Za-z.]{0,31}$`).MatchString(appRuntime) {
+		if !regexp.MustCompile(`^` + prefix + `:[0-9][0-9A-Za-z.]{0,31}$`).MatchString(appRuntime) {
 			addErr("app_runtime", "Choose a "+appKinds[kind]+" version (install one under Runtimes).")
 		}
 		var port int
@@ -929,24 +926,24 @@ func Spec(w *Website, createUser bool) map[string]any {
 		redirects = []Redirect{}
 	}
 	spec := map[string]any{
-		"domain":           w.Domain,
-		"aliases":          aliases,
-		"user":             w.SystemUser,
-		"create_user":      createUser,
-		"root":             w.Root,
-		"document_root":    w.DocumentRoot,
-		"kind":             w.Kind,
-		"php_version":      phpVersionFor(w),
-		"php":              php,
-		"proxy_pass":       proxyPassFor(w),
-		"https":            w.HTTPS,
-		"force_https":      w.ForceHTTPS,
-		"hsts":             w.HSTS,
-		"security_headers": w.SecurityHeaders,
-		"cert_file":        w.CertFile,
-		"key_file":         w.KeyFile,
-		"enabled":          w.Enabled,
-		"redirects":        redirects,
+		"domain":             w.Domain,
+		"aliases":            aliases,
+		"user":               w.SystemUser,
+		"create_user":        createUser,
+		"root":               w.Root,
+		"document_root":      w.DocumentRoot,
+		"kind":               w.Kind,
+		"php_version":        phpVersionFor(w),
+		"php":                php,
+		"proxy_pass":         proxyPassFor(w),
+		"https":              w.HTTPS,
+		"force_https":        w.ForceHTTPS,
+		"hsts":               w.HSTS,
+		"security_headers":   w.SecurityHeaders,
+		"cert_file":          w.CertFile,
+		"key_file":           w.KeyFile,
+		"enabled":            w.Enabled,
+		"redirects":          redirects,
 		"client_max_body_mb": w.ClientMaxBodyMB,
 	}
 	if w.DirectoryListing && w.Kind != "proxy" {
@@ -1193,18 +1190,18 @@ func (s *WebsiteService) Update(ctx context.Context, site *Website, in map[strin
 // validatedFields are the columns validate() produces (the update set).
 func validatedFields(row Website) map[string]any {
 	return map[string]any{
-		"domain":              row.Domain,
-		"system_user":         row.SystemUser,
-		"root":                row.Root,
-		"document_root":       row.DocumentRoot,
-		"kind":                row.Kind,
-		"app_runtime":         row.AppRuntime,
-		"php_version":         row.PhpVersion,
-		"php_settings":        row.PhpSettings,
-		"proxy_pass":          row.ProxyPass,
-		"redirects":           row.Redirects,
-		"client_max_body_mb":  row.ClientMaxBodyMB,
-		"enabled":             row.Enabled,
+		"domain":             row.Domain,
+		"system_user":        row.SystemUser,
+		"root":               row.Root,
+		"document_root":      row.DocumentRoot,
+		"kind":               row.Kind,
+		"app_runtime":        row.AppRuntime,
+		"php_version":        row.PhpVersion,
+		"php_settings":       row.PhpSettings,
+		"proxy_pass":         row.ProxyPass,
+		"redirects":          row.Redirects,
+		"client_max_body_mb": row.ClientMaxBodyMB,
+		"enabled":            row.Enabled,
 	}
 }
 

@@ -45,8 +45,8 @@ type diskUsageView struct {
 	Path      string
 	Sort      string
 	Crumbs    []diskUsageCrumb
-	Measured  string      // time_ago of the scan ("" when none)
-	Running   string      // the running scan's job id ("" when none)
+	Measured  string // time_ago of the scan ("" when none)
+	Running   string // the running scan's job id ("" when none)
 	HasScan   bool
 	Status    string // done or failed
 	Error     string

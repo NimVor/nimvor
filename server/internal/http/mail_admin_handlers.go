@@ -167,7 +167,7 @@ func (s *Server) mailAdminMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	if raw, err := s.agent.Call(r.Context(), "mail.queue_message", map[string]any{"id": id}); err != nil {
 		msg := "The message could not be read."
-		if ae := &agent.Error{}; errors.As(err, &ae) && ae.Message != "" {
+		if ae := (&agent.Error{}); errors.As(err, &ae) && ae.Message != "" {
 			msg = ae.Message
 		}
 		s.log.Error("mail queue message", "id", id, "error", err)
@@ -393,8 +393,8 @@ func (s *Server) mailAdminReports(w http.ResponseWriter, r *http.Request) {
 		Source string              `json:"source"`
 	}{}
 	if raw, err := s.agent.Call(r.Context(), "mail.report", map[string]any{
-		"since": now.Add(-time.Duration(seconds) * time.Second).UTC().Format(time.RFC3339),
-		"until": now.UTC().Format(time.RFC3339),
+		"since":   now.Add(-time.Duration(seconds) * time.Second).UTC().Format(time.RFC3339),
+		"until":   now.UTC().Format(time.RFC3339),
 		"address": address, "status": status, "limit": 500,
 	}, 120*time.Second); err != nil {
 		agentErr = s.mailAgentErr("mail.report", err)
@@ -592,19 +592,19 @@ func (s *Server) mailAdminServer(w http.ResponseWriter, r *http.Request) {
 	}
 	canManage := s.can(r, "server.manage") && configured
 	s.render(w, "mail_admin_server", map[string]any{
-		"User":      user,
-		"CSRF":      session.CSRFToken(sess),
-		"Nav":       "server",
-		"Status":    status,
-		"Services":  mailServiceRows(status),
-		"Log":       log,
+		"User":       user,
+		"CSRF":       session.CSRFToken(sess),
+		"Nav":        "server",
+		"Status":     status,
+		"Services":   mailServiceRows(status),
+		"Log":        log,
 		"Configured": configured,
-		"Postfix":   mailSettingRows("postfix", status),
-		"Dovecot":   mailSettingRows("dovecot", status),
-		"CanManage": canManage,
-		"AgentErr":  agentErr,
-		"Success":   pullFlashKey(sess, "success"),
-		"Error":     pullFlashKey(sess, "error"),
+		"Postfix":    mailSettingRows("postfix", status),
+		"Dovecot":    mailSettingRows("dovecot", status),
+		"CanManage":  canManage,
+		"AgentErr":   agentErr,
+		"Success":    pullFlashKey(sess, "success"),
+		"Error":      pullFlashKey(sess, "error"),
 	})
 }
 

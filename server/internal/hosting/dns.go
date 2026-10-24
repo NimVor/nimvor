@@ -217,7 +217,7 @@ func (r *DnsRepository) ZonePayload(ctx context.Context, zoneID int64) (map[stri
 	}
 	return map[string]any{
 		"zone": z.Name, "ttl": z.TTL,
-		"soa": map[string]any{"primary_ns": z.PrimaryNS + ".", "hostmaster": z.Hostmaster},
+		"soa":         map[string]any{"primary_ns": z.PrimaryNS + ".", "hostmaster": z.Hostmaster},
 		"records":     records,
 		"secondaries": secondaries,
 	}, nil

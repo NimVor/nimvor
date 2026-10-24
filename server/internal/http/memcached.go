@@ -157,15 +157,15 @@ func (s *Server) memcachedIndex(w http.ResponseWriter, r *http.Request) {
 	okServices, _ := s.authorizer().Can(ctx, user, "services.manage")
 	okPackages, _ := s.authorizer().Can(ctx, user, "packages.manage")
 	data := map[string]any{
-		"User":         user,
-		"CSRF":         session.CSRFToken(sess),
-		"AgentError":   "",
-		"V":            (*memcachedView)(nil),
-		"CanManage":    okServices,
-		"CanInstall":   okPackages,
-		"Success":      "",
-		"Error":        "",
-		"Job":          "",
+		"User":       user,
+		"CSRF":       session.CSRFToken(sess),
+		"AgentError": "",
+		"V":          (*memcachedView)(nil),
+		"CanManage":  okServices,
+		"CanInstall": okPackages,
+		"Success":    "",
+		"Error":      "",
+		"Job":        "",
 	}
 	if ae != nil {
 		data["AgentError"] = ae.Message
@@ -207,9 +207,9 @@ func (s *Server) memcachedConfigure(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	params := map[string]any{
-		"memory_mb":                  intOf(r.FormValue("memory_mb")),
-		"max_conns":                  intOf(r.FormValue("max_conns")),
-		"listen":                     listen,
+		"memory_mb":                   intOf(r.FormValue("memory_mb")),
+		"max_conns":                   intOf(r.FormValue("max_conns")),
+		"listen":                      listen,
 		"confirm_edit_package_config": r.FormValue("confirm") == "1",
 	}
 	if params["memory_mb"] == 0 {

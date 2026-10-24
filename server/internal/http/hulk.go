@@ -21,8 +21,8 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/security"
-	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
+	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 )
 
 // hulkDenied is the controller's deny(): the all-scope gate for the page,
@@ -529,7 +529,7 @@ func (s *Server) hulkCountries(w http.ResponseWriter, r *http.Request) {
 			if len(values) == 0 || !strings.HasPrefix(key, "country[") || !strings.HasSuffix(key, "]") {
 				continue
 			}
-			marks[key[len("country[") : len(key)-1]] = values[0]
+			marks[key[len("country["):len(key)-1]] = values[0]
 		}
 	}
 	scope := r.FormValue("scope")

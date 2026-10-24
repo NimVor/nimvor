@@ -343,17 +343,17 @@ func (s *Server) renderRuntime(w http.ResponseWriter, r *http.Request, user *ide
 	errMsg, _ := sess.PullFlash("error")
 	okMsg, _ := sess.PullFlash("success")
 	s.render(w, "site_runtime", map[string]any{
-		"User":     user,
-		"CSRF":     session.CSRFToken(sess),
-		"Site":     site,
-		"Tab":      pageTab,
-		"AppType":  typ,
-		"Label":    label,
-		"Options":  options,
-		"App":      app,
-		"Errors":   fields,
-		"Port":     portInProxy(site.ProxyPass),
-		"Error":    errMsg,
-		"Success":  okMsg,
+		"User":    user,
+		"CSRF":    session.CSRFToken(sess),
+		"Site":    site,
+		"Tab":     pageTab,
+		"AppType": typ,
+		"Label":   label,
+		"Options": options,
+		"App":     app,
+		"Errors":  fields,
+		"Port":    portInProxy(site.ProxyPass),
+		"Error":   errMsg,
+		"Success": okMsg,
 	})
 }

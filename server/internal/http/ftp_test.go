@@ -45,8 +45,8 @@ func TestFtpIndexServer(t *testing.T) {
 		"designer@bob.example", "bob.example", "public_html", "100.0 MB", // the joined website row
 		"40110–40210", "TLS required (FTPS)",
 		"CN=whacp-ftp", "aabb:ccdd:eeff", // the certificate line
-		"/sites/10/ftp#new-ftp",          // the Add FTP menu
-		"Save and restart", // configured → the modal offers a restart
+		"/sites/10/ftp#new-ftp", // the Add FTP menu
+		"Save and restart",      // configured → the modal offers a restart
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("server page missing %q", want)
@@ -301,7 +301,7 @@ func TestSiteFtpSaveCreate(t *testing.T) {
 func TestSiteFtpSaveValidation(t *testing.T) {
 	h, cookie, sa, _ := ftpEnv(t, "bob")
 	post := func(values url.Values, c *http.Cookie) *http.Cookie {
-		token, c := pageToken(t, h, c, "/sites/10/ftp")
+		_, c := pageToken(t, h, c, "/sites/10/ftp")
 		rr := postForm(h, "/sites/10/ftp/accounts", values, c)
 		if rr.Code != http.StatusSeeOther {
 			t.Fatalf("save = %d", rr.Code)
@@ -433,7 +433,7 @@ func TestSiteSftp(t *testing.T) {
 	token, cookie := pageToken(t, h, cookie, "/sites/10/ftp")
 	rr := postForm(h, "/sites/10/sftp", url.Values{
 		"_token": {token}, "enabled": {"1"},
-		"keys": {"ssh-ed25519 AAAA bob@laptop\n# a comment\n\n"},
+		"keys":           {"ssh-ed25519 AAAA bob@laptop\n# a comment\n\n"},
 		"password_login": {"1"},
 	}, cookie)
 	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/sites/10/ftp" {

@@ -229,4 +229,3 @@ func TestDbBrowserApiServerVariant(t *testing.T) {
 		t.Errorf("server query audit = %q %q %v", targetType, targetID, err)
 	}
 }
-

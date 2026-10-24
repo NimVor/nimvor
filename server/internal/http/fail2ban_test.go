@@ -175,8 +175,8 @@ func TestFail2banConfigure(t *testing.T) {
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/security/fail2ban")
 	rr := postForm(h, "/security/fail2ban", url.Values{
-		"_token": {token},
-		"jails[]": {"sshd", "nginx-botsearch"},
+		"_token":      {token},
+		"jails[]":     {"sshd", "nginx-botsearch"},
 		"ban_minutes": {"30"}, "find_minutes": {"5"}, "max_retry": {"3"},
 		"ignore": {"10.0.0.0/8  203.0.113.4"},
 	}, admin)

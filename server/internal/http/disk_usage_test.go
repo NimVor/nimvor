@@ -36,7 +36,10 @@ func seedScan(t *testing.T, db *sql.DB, website int64, path, jobID, status, resu
 }
 
 func TestDiskUsageCleanPath(t *testing.T) {
-	cases := []struct{ in, want string; err string }{
+	cases := []struct {
+		in, want string
+		err      string
+	}{
 		{"", "", ""},
 		{"  /app/  ", "app", ""},
 		{`app\sub`, "app/sub", ""},
@@ -163,7 +166,7 @@ func TestDiskUsageShowFinishedScan(t *testing.T) {
 		}
 	}
 	// The default sort is by size (descending): public_html before app.
-	if i, j := strings.Index(body, "path=public_html"); i < 0 || i > strings.Index(body, "path=app\"") {
+	if i, j := strings.Index(body, "path=public_html"), strings.Index(body, "path=app\""); i < 0 || i > j {
 		t.Errorf("default sort is not by size")
 	}
 	// ?sort=name sorts by folder name (ascending).
@@ -171,7 +174,7 @@ func TestDiskUsageShowFinishedScan(t *testing.T) {
 		t.Fatalf("GET ?sort=name = %d", rr2.Code)
 	}
 	b2 := rr2.Body.String()
-	if i, j := strings.Index(b2, "path=app\""); i < 0 || i > strings.Index(b2, "path=public_html") {
+	if i, j := strings.Index(b2, "path=app\""), strings.Index(b2, "path=public_html"); i < 0 || i > j {
 		t.Errorf("name sort is not ascending")
 	}
 	// ?sort=files sorts by file count (descending): public_html (42) first.
@@ -208,7 +211,7 @@ func TestDiskUsageRefreshSettlesSucceeded(t *testing.T) {
 }
 
 func TestDiskUsageRefreshSettlesNotFound(t *testing.T) {
-	h, sa, db := filesEnv(t)
+	h, _, db := filesEnv(t)
 	seedScan(t, db, 10, "", "gone", "running", `{}`, "")
 	bob := loginAsUser(t, h, "bob")
 	rr := get(t, h, "/sites/10/disk-usage", bob)

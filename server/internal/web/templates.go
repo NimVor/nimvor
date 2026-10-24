@@ -79,6 +79,8 @@ func New() (*Templates, error) {
 		"bytes":   bytes,
 		"stamp":   stamp,
 		"dict":    dict,
+		// strings.Join, used by the IP pages for their comma-separated lists.
+		"join": strings.Join,
 	}).ParseFS(files, "templates/*.html")
 	if err != nil {
 		return nil, err

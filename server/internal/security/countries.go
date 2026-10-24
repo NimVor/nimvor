@@ -1,5 +1,4 @@
 // Package security — ISO 3166-1 country list.
-//
 package security
 
 // Countries is the code => name catalogue (from

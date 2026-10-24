@@ -413,9 +413,9 @@ func (s *Server) siteFtp(w http.ResponseWriter, r *http.Request) {
 				folder = "" // the dir is outside the computed root
 			}
 			accounts = append(accounts, ftpSiteAccount{
-				Name:   a.Name,
-				Folder: folder,
-				Quota:  ftpQuota(a.QuotaMB),
+				Name:    a.Name,
+				Folder:  folder,
+				Quota:   ftpQuota(a.QuotaMB),
 				QuotaMB: a.QuotaMB,
 			})
 		}
@@ -702,4 +702,3 @@ func ftpGeneratedPassword() string {
 	s = strings.NewReplacer("+", "A", "/", "a").Replace(s)
 	return strings.TrimRight(s, "=")
 }
-

@@ -34,28 +34,28 @@ func TestWordPressShow(t *testing.T) {
 	}
 	page := rr.Body.String()
 	for _, want := range []string{
-		"Bob's Blog",                       // the overview's title
-		"WordPress 6.7.1",                  // the hero's version
-		"Update to 6.8",                    // outdated
-		"Security 1/9",                     // one of the nine measures applied
-		"Vulnerabilities not checked",      // never checked
-		"1 update(s)",                      // the plugin's update
-		"6 to review",                      // the non-info checks
-		"Hello Dolly", "1.8 available",     // the plugin's table
-		"Twenty Twenty-Five",               // the theme
-		"WordPress 6.8 is available",       // the danger check
-		"Debugging is on",                  // WP_DEBUG
+		"Bob's Blog",                   // the overview's title
+		"WordPress 6.7.1",              // the hero's version
+		"Update to 6.8",                // outdated
+		"Security 1/9",                 // one of the nine measures applied
+		"Vulnerabilities not checked",  // never checked
+		"1 update(s)",                  // the plugin's update
+		"6 to review",                  // the non-info checks
+		"Hello Dolly", "1.8 available", // the plugin's table
+		"Twenty Twenty-Five",         // the theme
+		"WordPress 6.8 is available", // the danger check
+		"Debugging is on",            // WP_DEBUG
 		"The theme and plugin file editor is on",
 		"The website has no HTTPS",
 		"8.3.1 (latest WordPress needs 7.2.24+)",
-		"2025-10-20 22:40 UTC",             // the core's checked time
+		"2025-10-20 22:40 UTC", // the core's checked time
 		"u_bob_wp", "42 tables · 5.0 MB · 10.11.6-MariaDB",
-		"/databases/",                      // the browser link (the database is seeded)
+		"/databases/",                            // the browser link (the database is seeded)
 		"Visitors sign in as <code>u_bob</code>", // the protection match
-		"(allowed: partner.com)",           // the hotlink's allowed list
-		"2026-01-01 01:01 UTC",             // the restore point (formatted)
+		"(allowed: partner.com)",                 // the hotlink's allowed list
+		"2026-01-01 01:01 UTC",                   // the restore point (formatted)
 		"Before the sync · files and database",
-		"Log in to WordPress",              // the manage's sign-in
+		"Log in to WordPress", // the manage's sign-in
 	} {
 		if !strings.Contains(page, want) {
 			t.Errorf("show page missing %q", want)

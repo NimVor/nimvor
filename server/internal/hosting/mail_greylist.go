@@ -56,10 +56,10 @@ type GreylistServiceState struct {
 // GreylistState is the data of mail.greylist_get (and of
 // mail.greylist_set / mail.greylist_update_providers).
 type GreylistState struct {
-	Config     *GreylistConfig        `json:"config"`
-	Providers  []GreylistProvider     `json:"providers"`
-	Service    GreylistServiceState   `json:"service"`
-	Configured bool                   `json:"configured"`
+	Config     *GreylistConfig      `json:"config"`
+	Providers  []GreylistProvider   `json:"providers"`
+	Service    GreylistServiceState `json:"service"`
+	Configured bool                 `json:"configured"`
 }
 
 // GreylistTriplet is one greylisting record.

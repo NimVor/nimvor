@@ -30,17 +30,17 @@ type fakeCall struct {
 }
 
 type fakeAgent struct {
-	calls          []fakeCall
-	failApply      error
-	applySeq       int
+	calls     []fakeCall
+	failApply error
+	applySeq  int
 	// applyFailEvery: fail the Nth sites.apply call (1-based) with applyErr.
 	applyFailEvery int
 	applyErr       error
 	// canned: exact canned response for an action, checked before the
 	// per-action switch (the runtime status, the permissions walk, …).
-	canned         map[string]json.RawMessage
+	canned map[string]json.RawMessage
 	// failActions: fail an action with a fixed error (agent failure paths).
-	failActions    map[string]error
+	failActions map[string]error
 }
 
 func (f *fakeAgent) Call(ctx context.Context, action string, params any, timeout ...time.Duration) (json.RawMessage, error) {
@@ -248,7 +248,7 @@ func TestSpec(t *testing.T) {
 		Root: "/home/whacp/example.com", DocumentRoot: "/home/whacp/example.com/public_html",
 		Kind: "php", PhpVersion: "8.3.1",
 		PhpSettings: PhpSettings{MemoryLimitMB: 512, UploadMaxMB: 32, MaxExecutionSeconds: 30, MaxChildren: 3, Harden: true, Profile: "recommended", PM: "ondemand", IdleTimeoutSeconds: 10, MaxRequests: 500, SlowlogSeconds: 10},
-		HTTPS: true, Enabled: true, Redirects: []Redirect{{"/old", "https://example.com/new", 301}},
+		HTTPS:       true, Enabled: true, Redirects: []Redirect{{"/old", "https://example.com/new", 301}},
 		ClientMaxBodyMB: 128,
 	}
 	spec := Spec(w, true)
@@ -313,17 +313,17 @@ func TestSpec(t *testing.T) {
 
 func validCreateInput() map[string]string {
 	return map[string]string{
-		"domain": "new.example.com",
-		"kind":   "php",
-		"php_version": "8.3.1",
-		"system_user": "u_new",
+		"domain":          "new.example.com",
+		"kind":            "php",
+		"php_version":     "8.3.1",
+		"system_user":     "u_new",
 		"new_system_user": "1",
-		"harden": "on",
-		"php_profile": "recommended",
+		"harden":          "on",
+		"php_profile":     "recommended",
 		"memory_limit_mb": "256", "upload_max_mb": "64", "max_execution_seconds": "60",
 		"max_children": "5", "start_servers": "0", "min_spare_servers": "0", "max_spare_servers": "0",
 		"idle_timeout_seconds": "10", "max_requests": "500", "request_timeout_seconds": "0", "slowlog_seconds": "10",
-		"pm": "ondemand",
+		"pm":                 "ondemand",
 		"client_max_body_mb": "64",
 	}
 }
@@ -487,9 +487,9 @@ func TestValidateCreate(t *testing.T) {
 		t.Fatal(err)
 	}
 	edit := map[string]string{
-		"domain": "cust.example",
-		"harden": "on", // must be ignored for a customer
-		"pm":     "static",
+		"domain":          "cust.example",
+		"harden":          "on", // must be ignored for a customer
+		"pm":              "static",
 		"memory_limit_mb": "512",
 	}
 	v4, err := h.svc.Validate(ctx, edit, row, false)
@@ -1022,8 +1022,8 @@ func TestUpdateSettings(t *testing.T) {
 	site, _ := h.svc.sites.FindFull(ctx, 1, 10, cust)
 
 	in := map[string]string{
-		"domain": "cust.example", // ignored on edit
-		"aliases": "extra.example",
+		"domain":          "cust.example", // ignored on edit
+		"aliases":         "extra.example",
 		"memory_limit_mb": "512",
 	}
 	if err := h.svc.Update(ctx, site, in, cust); err != nil {
@@ -1108,4 +1108,3 @@ func TestInsertAdoptsDNSZone(t *testing.T) {
 		t.Errorf("unassigned site must not claim the zone's owner: %v", zoneOwner)
 	}
 }
-

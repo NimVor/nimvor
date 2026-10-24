@@ -31,7 +31,7 @@ type secCheck struct {
 	Severity string `json:"severity"` // low, medium, high
 	Detail   string `json:"detail"`
 	Remedy   string `json:"remedy"`
-	Fix      string `json:"fix"`      // "apply" or "undo" when the panel can fix it
+	Fix      string `json:"fix"` // "apply" or "undo" when the panel can fix it
 
 	St     string     // the display status (unknown statuses show as info)
 	Icon   string     // the bootstrap-icon name for St
@@ -118,10 +118,10 @@ func secWhen(t string) string {
 
 // secLogins mirrors the agent's ssh.logins reply.
 type secLogins struct {
-	Available bool   `json:"available"`
-	Today     [2]int `json:"today"`
-	Yesterday [2]int `json:"yesterday"`
-	Week      [2]int `json:"week"`
+	Available   bool   `json:"available"`
+	Today       [2]int `json:"today"`
+	Yesterday   [2]int `json:"yesterday"`
+	Week        [2]int `json:"week"`
 	LastSuccess *struct {
 		Time   string `json:"time"`
 		User   string `json:"user"`

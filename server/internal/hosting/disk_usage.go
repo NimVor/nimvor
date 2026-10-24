@@ -152,7 +152,10 @@ func (s *DiskUsageService) Refresh(ctx context.Context, serverID, websiteID int6
 	if err != nil {
 		return err
 	}
-	type pending struct{ id int64; jobID string }
+	type pending struct {
+		id    int64
+		jobID string
+	}
 	var todo []pending
 	for rows.Next() {
 		var p pending

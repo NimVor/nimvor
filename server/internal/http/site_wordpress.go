@@ -1090,14 +1090,14 @@ func (s *Server) wpLogs(w http.ResponseWriter, r *http.Request) {
 		"CSRF":    session.CSRFToken(sess),
 		"Success": successMsg,
 		"Error":   errorMsg,
-		"Site":       site,
-		"Install":    install,
-		"Log":        log,
-		"LogSize":    formatBytes(log.Size),
-		"Where":      installPathOrSlash(install.Path),
-		"ShowURL":    fmt.Sprintf("/sites/%d/wordpress/%d", site.ID, install.ID),
-		"SelfURL":    fmt.Sprintf("/sites/%d/wordpress/%d/logs", site.ID, install.ID),
-		"LogsURL":    fmt.Sprintf("/sites/%d/logs", site.ID),
+		"Site":    site,
+		"Install": install,
+		"Log":     log,
+		"LogSize": formatBytes(log.Size),
+		"Where":   installPathOrSlash(install.Path),
+		"ShowURL": fmt.Sprintf("/sites/%d/wordpress/%d", site.ID, install.ID),
+		"SelfURL": fmt.Sprintf("/sites/%d/wordpress/%d/logs", site.ID, install.ID),
+		"LogsURL": fmt.Sprintf("/sites/%d/logs", site.ID),
 	})
 }
 

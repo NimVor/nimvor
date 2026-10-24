@@ -73,8 +73,6 @@ func (s *Server) guardRecord(r *http.Request, action string, reply json.RawMessa
 	return "Applied. Check that you can still connect, then confirm within 2 minutes — otherwise the change is undone automatically."
 }
 
-
-
 // --------------------------------------------------------------------------
 // GET /security/firewall (security.firewall, security.view)
 // --------------------------------------------------------------------------
@@ -193,14 +191,14 @@ func (s *Server) firewallIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]any{
-		"User":   user,
-		"CSRF":   session.CSRFToken(sess),
-		"MyIP":   myIP,
-		"Fw":     nil,
-		"Rules":  nil,
-		"Required": nil,
+		"User":       user,
+		"CSRF":       session.CSRFToken(sess),
+		"MyIP":       myIP,
+		"Fw":         nil,
+		"Rules":      nil,
+		"Required":   nil,
 		"Protection": nil,
-		"Dropped":  nil,
+		"Dropped":    nil,
 		"PortRules":  0,
 		"IPRules":    0,
 		"AgentError": agentMsg,

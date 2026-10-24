@@ -174,7 +174,7 @@ func (g *Geo) Import(ctx context.Context, raw []byte) (int, error) {
 	return len(rows), nil
 }
 
-// readGeoLine is str_getcsv($line, ',', '"', '') — a two- or three-column CSV
+// readGeoLine is str_getcsv($line, ',', '"', ”) — a two- or three-column CSV
 // row with double quotes and no escape character.
 func readGeoLine(line string) ([]string, error) {
 	c := csv.NewReader(strings.NewReader(line))

@@ -56,9 +56,9 @@ func checksEnv(t *testing.T, httpsSite bool) (http.Handler, *sitesAgent, *sql.DB
 	if httpsSite {
 		https = 1
 	}
-	exec("INSERT INTO websites (id,server_id,domain,system_user,root,document_root,kind,enabled,https,created_at) VALUES "+
-		"(1,1,'a.example.com','ua','/home/ua','/home/ua/public_html','php',1,"+strconv.Itoa(https)+",''),"+
-		"(2,1,'b.example.com','ub','/home/ub','/home/ub/public_html','php',1,0,''),"+
+	exec("INSERT INTO websites (id,server_id,domain,system_user,root,document_root,kind,enabled,https,created_at) VALUES " +
+		"(1,1,'a.example.com','ua','/home/ua','/home/ua/public_html','php',1," + strconv.Itoa(https) + ",'')," +
+		"(2,1,'b.example.com','ub','/home/ub','/home/ub/public_html','php',1,0,'')," +
 		"(3,1,'c.example.com','uc','/home/uc','/home/uc/public_html','php',0,1,'')")
 
 	kf := filepath.Join(t.TempDir(), "panel.key")

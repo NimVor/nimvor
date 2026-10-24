@@ -33,7 +33,9 @@ type DiscoverySnapshot struct {
 type DiscoverySnapshotRepository struct{ db *sql.DB }
 
 // NewDiscoverySnapshotRepository wraps a database handle.
-func NewDiscoverySnapshotRepository(db *sql.DB) *DiscoverySnapshotRepository { return &DiscoverySnapshotRepository{db: db} }
+func NewDiscoverySnapshotRepository(db *sql.DB) *DiscoverySnapshotRepository {
+	return &DiscoverySnapshotRepository{db: db}
+}
 
 // Latest returns the newest snapshot for the server (nil when there is
 // none), mirroring DiscoverySnapshotRepository::latest.
@@ -108,21 +110,21 @@ type DiscoveredSSL struct {
 // DiscoveredSite is one website of the inventory (a server block in the
 // Nginx configuration), as the import and discovery pages read it.
 type DiscoveredSite struct {
-	ID                 string        `json:"id"`
-	Domain             string        `json:"domain"`
-	Aliases            []string      `json:"aliases"`
-	Kind               string        `json:"kind"`
-	Enabled            bool          `json:"enabled"`
-	HTTPS              bool          `json:"https"`
-	HTTPSRedirect      bool          `json:"https_redirect"`
-	DocumentRoot       string        `json:"document_root"`
-	DocumentRootExists bool          `json:"document_root_exists"`
-	ProxyPass          string        `json:"proxy_pass"`
-	ManagedBy          string        `json:"managed_by"`
-	Listen             []string      `json:"listen"`
-	ConfigFiles        []string      `json:"config_files"`
-	AccessLogs         []string      `json:"access_logs"`
-	ErrorLogs          []string      `json:"error_logs"`
+	ID                 string         `json:"id"`
+	Domain             string         `json:"domain"`
+	Aliases            []string       `json:"aliases"`
+	Kind               string         `json:"kind"`
+	Enabled            bool           `json:"enabled"`
+	HTTPS              bool           `json:"https"`
+	HTTPSRedirect      bool           `json:"https_redirect"`
+	DocumentRoot       string         `json:"document_root"`
+	DocumentRootExists bool           `json:"document_root_exists"`
+	ProxyPass          string         `json:"proxy_pass"`
+	ManagedBy          string         `json:"managed_by"`
+	Listen             []string       `json:"listen"`
+	ConfigFiles        []string       `json:"config_files"`
+	AccessLogs         []string       `json:"access_logs"`
+	ErrorLogs          []string       `json:"error_logs"`
 	PHP                *DiscoveredPHP `json:"php"`
 	SSL                *DiscoveredSSL `json:"ssl"`
 }
