@@ -535,6 +535,29 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /mail/admin/sending-limits", s.guard("mail.limits", "server.view", s.mailRateIndex))
 	s.mux.HandleFunc("POST /mail/admin/sending-limits", s.guard("mail.limits.save", "server.manage", s.mailRateSave))
 	s.mux.HandleFunc("POST /mail/admin/sending-limits/reset", s.guard("mail.limits.reset", "server.manage", s.mailRateReset))
+
+	// IP addresses (IpController) — the pool, the routed IPv6 ranges and
+	// the migration wizard; server administrators only (checked in the
+	// handlers, the PHP Scope::isAll denial).
+	s.mux.HandleFunc("GET /ips", s.guard("ips", "server.view", s.ipIndex))
+	s.mux.HandleFunc("POST /ips", s.guard("ips.store", "server.manage", s.ipStore))
+	s.mux.HandleFunc("POST /ips/rebuild", s.guard("ips.rebuild", "server.manage", s.ipRebuild))
+	s.mux.HandleFunc("GET /ips/ranges", s.guard("ips.ranges", "server.view", s.ipRanges))
+	s.mux.HandleFunc("POST /ips/ranges", s.guard("ips.ranges.store", "server.manage", s.ipStoreRange))
+	s.mux.HandleFunc("POST /ips/ranges/{id}", s.guard("ips.ranges.update", "server.manage", s.ipUpdateRange))
+	s.mux.HandleFunc("POST /ips/ranges/{id}/delete", s.guard("ips.ranges.delete", "server.manage", s.ipDeleteRange))
+	s.mux.HandleFunc("POST /ips/ranges/{id}/allocate", s.guard("ips.ranges.allocate", "server.manage", s.ipAllocate))
+	s.mux.HandleFunc("GET /ips/migrate", s.guard("ips.migrate", "server.view", s.ipMigratePage))
+	s.mux.HandleFunc("POST /ips/migrate", s.guard("ips.migrate.run", "server.manage", s.ipRunMigration))
+	s.mux.HandleFunc("POST /ips/{id}", s.guard("ips.update", "server.manage", s.ipUpdate))
+	s.mux.HandleFunc("POST /ips/{id}/delete", s.guard("ips.delete", "server.manage", s.ipDelete))
+
+	// Application Manager (AppManagerController).
+	s.mux.HandleFunc("GET /apps-manager", s.guard("apps.manager", "settings.view", s.appsManagerIndex))
+	s.mux.HandleFunc("POST /apps-manager/installer", s.guard("apps.manager.installer", "settings.manage", s.appsManagerInstaller))
+	s.mux.HandleFunc("POST /apps-manager/category", s.guard("apps.manager.category", "settings.manage", s.appsManagerCategory))
+	s.mux.HandleFunc("POST /apps-manager/app", s.guard("apps.manager.app", "settings.manage", s.appsManagerApp))
+
 	s.mux.HandleFunc("GET /workers", s.guard("", "workers.manage", s.workersIndex))
 
 	// Log viewer endpoints (LogsController). Source-level authorization

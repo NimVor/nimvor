@@ -41,9 +41,9 @@ var sshRootLabels = map[string]string{
 
 // sshKeyAccount is one administrator row of the key table.
 type sshKeyAccount struct {
-	User        string
-	Keys        []sshKeyRow
-	OtherLines  int
+	User       string
+	Keys       []sshKeyRow
+	OtherLines int
 }
 
 // sshKeyRow is one public key of an administrator.
@@ -170,10 +170,10 @@ func (s *Server) sshIndex(w http.ResponseWriter, r *http.Request) {
 
 // sshPageStatus is the page's status bar / form values.
 type sshPageStatus struct {
-	Port    string
+	Port     string
 	FormPort string
-	Root    string
-	Managed string
+	Root     string
+	Managed  string
 }
 
 // sshAdminGate is SecurityService::administrator (the key endpoints).

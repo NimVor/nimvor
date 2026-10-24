@@ -32,10 +32,10 @@ Total routes: 551
 | GET | `/api/v1/websites/{id}` | ApiController::showWebsite | api.websites.show | websites.view | yes | yes | ☐ |
 | GET | `/api/v1/websites` | ApiController::listWebsites | api.websites | websites.view | yes | yes | ☐ |
 | POST | `/api/v1/websites` | ApiController::createWebsite | api.websites.create | websites.manage | yes | yes | ☐ |
-| POST | `/apps-manager/app` | AppManagerController::app | apps.manager.app | settings.manage | yes | yes | ☐ |
-| POST | `/apps-manager/category` | AppManagerController::category | apps.manager.category | settings.manage | yes | yes | ☐ |
-| POST | `/apps-manager/installer` | AppManagerController::installer | apps.manager.installer | settings.manage | yes | yes | ☐ |
-| GET | `/apps-manager` | AppManagerController::index | apps.manager | settings.view | yes | yes | ☐ |
+| POST | `/apps-manager/app` | AppManagerController::app | apps.manager.app | settings.manage | yes | yes | ☑ |
+| POST | `/apps-manager/category` | AppManagerController::category | apps.manager.category | settings.manage | yes | yes | ☑ |
+| POST | `/apps-manager/installer` | AppManagerController::installer | apps.manager.installer | settings.manage | yes | yes | ☑ |
+| GET | `/apps-manager` | AppManagerController::index | apps.manager | settings.view | yes | yes | ☑ |
 | GET | `/audit` | AuditLogController::index | audit | audit.view | yes | yes | ☑ |
 | POST | `/backups/accounts/delete` | AccountBackupsController::delete | backups.accounts.delete | backups.manage | yes | yes | ☐ |
 | GET | `/backups/accounts/download` | AccountBackupsController::download | backups.accounts.download | backups.manage | yes | yes | ☐ |
@@ -131,18 +131,18 @@ Total routes: 551
 | GET | `/ftp` | FtpController::index | ftp | server.manage | yes | yes | ☑ |
 | GET | `/healthz` | HealthController::show | health |  | no | yes | ☐ |
 | POST | `/hooks/deploy/{token}` | DeployController::webhook | hooks.deploy |  | no | no | ☑ |
-| GET | `/ips/migrate` | IpController::migrate | ips.migrate | server.view | yes | yes | ☐ |
-| POST | `/ips/migrate` | IpController::runMigration | ips.migrate.run | server.manage | yes | yes | ☐ |
-| POST | `/ips/ranges/{id}/allocate` | IpController::allocate | ips.ranges.allocate | server.manage | yes | yes | ☐ |
-| POST | `/ips/ranges/{id}/delete` | IpController::deleteRange | ips.ranges.delete | server.manage | yes | yes | ☐ |
-| POST | `/ips/ranges/{id}` | IpController::updateRange | ips.ranges.update | server.manage | yes | yes | ☐ |
-| GET | `/ips/ranges` | IpController::ranges | ips.ranges | server.view | yes | yes | ☐ |
-| POST | `/ips/ranges` | IpController::storeRange | ips.ranges.store | server.manage | yes | yes | ☐ |
-| POST | `/ips/rebuild` | IpController::rebuild | ips.rebuild | server.manage | yes | yes | ☐ |
-| POST | `/ips/{id}/delete` | IpController::delete | ips.delete | server.manage | yes | yes | ☐ |
-| POST | `/ips/{id}` | IpController::update | ips.update | server.manage | yes | yes | ☐ |
-| GET | `/ips` | IpController::index | ips | server.view | yes | yes | ☐ |
-| POST | `/ips` | IpController::store | ips.store | server.manage | yes | yes | ☐ |
+| GET | `/ips/migrate` | IpController::migrate | ips.migrate | server.view | yes | yes | ☑ |
+| POST | `/ips/migrate` | IpController::runMigration | ips.migrate.run | server.manage | yes | yes | ☑ |
+| POST | `/ips/ranges/{id}/allocate` | IpController::allocate | ips.ranges.allocate | server.manage | yes | yes | ☑ |
+| POST | `/ips/ranges/{id}/delete` | IpController::deleteRange | ips.ranges.delete | server.manage | yes | yes | ☑ |
+| POST | `/ips/ranges/{id}` | IpController::updateRange | ips.ranges.update | server.manage | yes | yes | ☑ |
+| GET | `/ips/ranges` | IpController::ranges | ips.ranges | server.view | yes | yes | ☑ |
+| POST | `/ips/ranges` | IpController::storeRange | ips.ranges.store | server.manage | yes | yes | ☑ |
+| POST | `/ips/rebuild` | IpController::rebuild | ips.rebuild | server.manage | yes | yes | ☑ |
+| POST | `/ips/{id}/delete` | IpController::delete | ips.delete | server.manage | yes | yes | ☑ |
+| POST | `/ips/{id}` | IpController::update | ips.update | server.manage | yes | yes | ☑ |
+| GET | `/ips` | IpController::index | ips | server.view | yes | yes | ☑ |
+| POST | `/ips` | IpController::store | ips.store | server.manage | yes | yes | ☑ |
 | GET | `/jobs/{id}` | JobsController::show | jobs.show |  | yes | yes | ☑ |
 | POST | `/limits/apply` | LimitsController::apply | limits.apply | server.manage | yes | yes | ☐ |
 | POST | `/limits/quota/enable` | LimitsController::enableQuota | limits.quota.enable | server.manage | yes | yes | ☐ |

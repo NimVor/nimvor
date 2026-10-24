@@ -27,169 +27,175 @@ import (
 // calls, and the audit trail. The agent is a recording fake on a Unix socket.
 
 type sitesAgent struct {
-	mu          sync.Mutex
-	actions     []string
-	params      []map[string]any
-	failApply   bool
+	mu                    sync.Mutex
+	actions               []string
+	params                []map[string]any
+	failApply             bool
 	// failActions fails a specific action (agent error paths), e.g.
 	// "sites.permissions" -> "the agent refused".
-	failActions map[string]string
+	failActions           map[string]string
 	// dbDown makes db.server_status report a stopped server.
-	dbDown bool
+	dbDown                bool
 	// jobs answers jobs.get by job id (the stored reply is the full
 	// envelope); an unknown id gets the agent's not_found error.
-	jobs map[string]string
+	jobs                  map[string]string
 	// termKillClosed is the terminal.kill reply's closed count.
-	termKillClosed int
+	termKillClosed        int
 	// secPending is the security.pending reply's pending object ("" = none).
-	secPending string
+	secPending            string
 	// wpScanReply overrides the wordpress.scan reply ("" = the default).
-	wpScanReply string
+	wpScanReply           string
 	// wpInfoReply overrides the wordpress.info reply ("" = the default).
-	wpInfoReply string
+	wpInfoReply           string
 	// wpProtectionReply overrides the protect.status reply ("" = the default).
-	wpProtectionReply string
+	wpProtectionReply     string
 	// wpSecurityReply overrides the wordpress.security reply ("" = the default).
-	wpSecurityReply string
+	wpSecurityReply       string
 	// wpRestoreReply overrides the wordpress.restore_points reply ("" = the default).
-	wpRestoreReply string
+	wpRestoreReply        string
 	// wpLoginFile overrides the wordpress.login file ("" = the default).
-	wpLoginFile string
+	wpLoginFile           string
 	// wpDebugLog shapes the wordpress.manage debug_log reply: "" = a log with
 	// lines, "empty" = an empty log, "missing" = no file.
-	wpDebugLog string
+	wpDebugLog            string
 	// wpManageJobID overrides the update ops' job id ("" = the default).
-	wpManageJobID string
+	wpManageJobID         string
 	// wpVerifyReply shapes the verify_core reply: "" = two differing files,
 	// "ok" = every file matches.
-	wpVerifyReply string
+	wpVerifyReply         string
 	// wpCopyJobID is the wordpress.copy reply's job id ("" = the default).
-	wpCopyJobID string
+	wpCopyJobID           string
 	// backupJobID is the backup.create reply's job id ("" = the default).
-	backupJobID string
+	backupJobID           string
 	// shellSetEffective overrides the shell.set reply's effective mode
 	// ("" = the requested mode, i.e. it takes effect immediately).
-	shellSetEffective string
+	shellSetEffective     string
 	// fwActive is the firewall.status reply's active flag.
-	fwActive bool
+	fwActive              bool
 	// guardChanged is the guarded (firewall.*/protection) replies' changed
 	// flag; false → {changed:false} ("Nothing to change.").
-	guardChanged bool
+	guardChanged          bool
 	// f2bManaged is the fail2ban.status reply's managed_config ("" = the
 	// panel's fresh-install defaults).
-	f2bManaged string
+	f2bManaged            string
 	// f2bInstalled is the fail2ban.status reply's installed flag.
-	f2bInstalled bool
+	f2bInstalled          bool
 	// f2bRunning is the fail2ban.status reply's running flag (default true).
-	f2bRunning bool
+	f2bRunning            bool
 	// anonRemoved is the db.drop_anonymous_users reply's removed list
 	// ("" = the default two, "none" = none).
-	anonRemoved string
+	anonRemoved           string
 	// mailData overrides the mail.status reply's data ("" = configured
 	// with the test hostname).
-	mailData string
+	mailData              string
 	// mailFilters is the mailbox's stored filters + autoresponder (the
 	// mail.filters_get data); "" = one enabled filter, mail.filters_save
 	// updates it.
-	mailFilters string
+	mailFilters           string
 	// mailQueue overrides the mail.queue reply's data (""); mail.queue_action
 	// and the rest of the mail.admin.* replies have fixed test shapes.
-	mailQueue string
+	mailQueue             string
 	// greylistParams records the last mail.greylist_set parameters, and
 	// greylistReport overrides the mail.greylist_report data (""); mail.rate_get
 	// uses rateData ("") or its default shape.
-	greylistParams string
-	greylistReport string
-	rateData       string
+	greylistParams        string
+	greylistReport        string
+	rateData              string
+	// netAddresses overrides the net.addresses reply ("") = the default two
+	// usable addresses (one IPv4, one IPv6) + a link-local + one gateway.
+	netAddresses          string
+	// ipv6Ranges records the net.ipv6_ranges reply's pushed prefixes
+	// (space-joined) from the last call.
+	ipv6Ranges            string
 	// dnsData overrides the dns.status reply's data ("" = installed,
 	// configured, running, serving bob.example at serial 7).
-	dnsData string
+	dnsData               string
 	// zoneParse overrides the dns.zone_parse reply's data ("" = one new A
 	// record, the zone's own NS and one skipped line).
-	zoneParse string
+	zoneParse             string
 	// failStatus is the HTTP status a failed action's reply is written with
 	// (e.g. "dns.zone_delete" -> 404).
-	failStatus map[string]int
+	failStatus            map[string]int
 	// ftpStatus shapes the ftp.status reply: "" = installed + configured +
 	// active (one account for u_bob, SFTP on with one key), "missing" =
 	// not installed, "stopped" = configured but not active.
-	ftpStatus string
+	ftpStatus             string
 	// avInstalled is the av.status reply's installed flag (default true).
-	avInstalled bool
+	avInstalled           bool
 	// avVersion is the av.status reply's version string ("" = the full
 	// "ClamAV 1.4.3/27781/2026-09-27").
-	avVersion string
+	avVersion             string
 	// avFreshclam is the av.status reply's freshclam flag (default true).
-	avFreshclam bool
+	avFreshclam           bool
 	// avUpdaterLog is the av.status reply's updater_log ("" = none).
-	avUpdaterLog string
+	avUpdaterLog          string
 	// deployKey is the deploy.key reply's public key ("" = a fixed test key).
-	deployKey string
+	deployKey             string
 	// deployRunJob is the deploy.run reply's job id ("" = 0123456789d0a001).
-	deployRunJob string
+	deployRunJob          string
 	// mongoStatus is the mongo.status reply: "" = installed+running,
 	// "down" = installed but not running, "missing" = not installed.
-	mongoStatus string
+	mongoStatus           string
 	// mongoOverview overrides the mongo.overview reply ("" = the default
 	// prefixed + foreign databases/users).
-	mongoOverview string
+	mongoOverview         string
 	// mongoBackups overrides the mongo.backups reply ("" = the default).
-	mongoBackups string
+	mongoBackups          string
 	// hulkAvailable is the hulk.status reply's available flag (default true);
 	// false = nftables is not installed.
-	hulkAvailable bool
+	hulkAvailable         bool
 	// hulkActive is the hulk.status reply's active flag (default true).
-	hulkActive bool
+	hulkActive            bool
 	// modsecActive is the modsec.status reply's active flag (default true).
-	modsecActive bool
+	modsecActive          bool
 	// avScanJobID is the av.scan reply's job id (default "0123456789abcdef").
-	avScanJobID string
+	avScanJobID           string
 	// avQuarantineItemsJSON is the av.quarantine_list reply's items array
 	// (default: empty).
 	avQuarantineItemsJSON string
 	// sslInspectJSON overrides the ssl.inspect reply (" " = the default
 	// valid 129-day Let's Encrypt certificate).
-	sslInspectJSON string
+	sslInspectJSON        string
 	// sslRenewalJSON overrides the ssl.renewal_status reply ("" = certbot
 	// installed + the renewal timer active).
-	sslRenewalJSON string
+	sslRenewalJSON        string
 	// sitesInspectJSON overrides the sites.inspect reply ("" = the default:
 	// a healthy site with a 123 MiB root and a stored config).
-	sitesInspectJSON string
+	sitesInspectJSON      string
 	// stats* configure the stats.status/stats.data replies. statsInstalled
 	// defaults to true; statsEnabled defaults to false.
-	statsInstalled   bool
-	statsEnabled     bool
-	statsMonthsJSON  string
-	statsUpdatedAt   string
-	statsDataFound   bool
-	statsDataContent string
+	statsInstalled        bool
+	statsEnabled          bool
+	statsMonthsJSON       string
+	statsUpdatedAt        string
+	statsDataFound        bool
+	statsDataContent      string
 	// mc* configure the memcached.status reply. mcInstalled/mcActive default
 	// to true; mcPort defaults to 11211; mcError "" = no error.
-	mcInstalled bool
-	mcActive    bool
-	mcPort      int
-	mcError     string
+	mcInstalled           bool
+	mcActive              bool
+	mcPort                int
+	mcError               string
 	// mcStats "" = no stats section (memcached answering, but no stats).
-	mcStats string
+	mcStats               string
 	// installJobID is the packages.install reply's job id.
-	installJobID string
+	installJobID          string
 	// redisInfoJSON overrides the redis.info reply's data ("" = the fixture).
-	redisInfoJSON string
+	redisInfoJSON         string
 	// cronLogContent overrides the cron.log reply's content ("" = the
 	// fixture: loose output + three framed runs, the last still running).
-	cronLogContent string
+	cronLogContent        string
 	// discoveryInventory overrides the discovery.inventory reply ("" = the
 	// default inventory: one discovered site + one WhaCP-managed site).
-	discoveryInventory string
+	discoveryInventory    string
 	// adoptPreviewJSON overrides the adopt.preview reply ("" = the default
 	// clean preview with one unlink step and a kept database).
-	adoptPreviewJSON string
+	adoptPreviewJSON      string
 	// adoptRunJobID is the adopt.run reply's job id ("" = 0123456789e0a001).
-	adoptRunJobID string
+	adoptRunJobID         string
 	// dbOverviewJSON overrides the db.overview reply ("" = the default
 	// a_main/b_main/legacy_shop fixture).
-	dbOverviewJSON string
+	dbOverviewJSON        string
 }
 
 // defaultDiscoveryInventory is the fake's discovery.inventory fixture: one
@@ -340,6 +346,29 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				{"version":"8.3.1","fpm_binary":"/usr/sbin/php-fpm8.3"}]}}`))
 		case "agent.status":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"sites_root":"/home/whacp"}}`))
+		case "net.addresses":
+			sa.mu.Lock()
+			data := sa.netAddresses
+			sa.mu.Unlock()
+			if data == "" {
+				data = `{"addresses":[` +
+					`{"address":"203.0.113.20","interface":"eth0","family":4,"prefix_len":24,"scope":"global"},` +
+					`{"address":"2001:db8:100::5","interface":"eth0","family":6,"prefix_len":64,"scope":"global"},` +
+					`{"address":"fe80::1","interface":"eth0","family":6,"prefix_len":64,"scope":"link"}],` +
+					`"gateways":["203.0.113.1"]}`
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":` + data + `}`))
+		case "net.ipv6_ranges":
+			sa.mu.Lock()
+			if rs, ok := p["ranges"].([]any); ok {
+				out := make([]string, 0, len(rs))
+				for _, x := range rs {
+					out = append(out, fmt.Sprint(x))
+				}
+				sa.ipv6Ranges = strings.Join(out, " ")
+			}
+			sa.mu.Unlock()
+			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
 		case "dns.status":
 			sa.mu.Lock()
 			data := sa.dnsData

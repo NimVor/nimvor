@@ -24,6 +24,7 @@ import (
 type IpSite struct {
 	ID     int64
 	Domain string
+	Owner  string // the owner's username ("" = none)
 }
 
 // IPAddress is one ip_addresses row with the websites bound to it.
@@ -44,15 +45,16 @@ type IpService struct {
 	sites    *WebsiteRepository
 	dns      *DnsService
 	cfg      *settings.Repository
+	agent    AgentCaller
 	audit    Auditor
 	serverID int64
 }
 
 // NewIpService builds the service.
 func NewIpService(db *sql.DB, websites *WebsiteService, sites *WebsiteRepository,
-	dns *DnsService, cfg *settings.Repository, audit Auditor, serverID int64) *IpService {
+	dns *DnsService, cfg *settings.Repository, ag AgentCaller, audit Auditor, serverID int64) *IpService {
 	return &IpService{db: db, websites: websites, sites: sites, dns: dns,
-		cfg: cfg, audit: audit, serverID: serverID}
+		cfg: cfg, agent: ag, audit: audit, serverID: serverID}
 }
 
 // recordAudit is the nil-safe audit hook.
@@ -118,7 +120,7 @@ func InPrefix(ip, prefix string) bool {
 // sitesUsing is the websites bound to an address (IpService::sitesUsing).
 func (s *IpService) sitesUsing(ctx context.Context, ip string) ([]IpSite, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT w.id, w.domain FROM websites w WHERE w.server_id = ? AND (w.ipv4 = ? OR w.ipv6 = ?) ORDER BY w.domain`,
+		`SELECT w.id, w.domain, u.username FROM websites w LEFT JOIN users u ON u.id = w.owner_id WHERE w.server_id = ? AND (w.ipv4 = ? OR w.ipv6 = ?) ORDER BY w.domain`,
 		s.serverID, ip, ip)
 	if err != nil {
 		return nil, err
@@ -127,7 +129,9 @@ func (s *IpService) sitesUsing(ctx context.Context, ip string) ([]IpSite, error)
 	out := []IpSite{}
 	for rows.Next() {
 		var t IpSite
-		if rows.Scan(&t.ID, &t.Domain) == nil {
+		var owner sql.NullString
+		if rows.Scan(&t.ID, &t.Domain, &owner) == nil {
+			t.Owner = owner.String
 			out = append(out, t)
 		}
 	}

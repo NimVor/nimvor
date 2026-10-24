@@ -31,8 +31,8 @@ import (
 // importOwner is one selectable owner (administrators may import into any
 // account).
 type importOwner struct {
-	ID         int64
-	Username   string
+	ID          int64
+	Username    string
 	DisplayName string
 }
 

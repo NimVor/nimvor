@@ -20,7 +20,7 @@ func (s *Server) ipService(r *http.Request, user *identity.User) *hosting.IpServ
 	return hosting.NewIpService(s.db, s.websiteService(r, user), hosting.NewWebsiteRepository(s.db),
 		hosting.NewDnsService(s.db, hosting.NewDnsRepository(s.db), s.agent, s.settings,
 			hosting.NewWebsiteRepository(s.db), s.websiteAuditHook(r, user)), s.settings,
-		s.websiteAuditHook(r, user), s.currentServerID(r))
+		s.agent, s.websiteAuditHook(r, user), s.currentServerID(r))
 }
 
 // advancedIPPool is the pool the advanced page offers for the website

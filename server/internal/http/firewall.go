@@ -99,13 +99,13 @@ type firewallRuleRow struct {
 
 // firewallRequiredRow is one "ports WhaCP keeps open" row.
 type firewallRequiredRow struct {
-	Port     string
-	Proto    string // display (upper)
-	ProtoRaw string // the agent's value, what the Allow form sends
-	From     string
-	Service  string
-	Critical bool
-	Open     bool
+	Port        string
+	Proto       string // display (upper)
+	ProtoRaw    string // the agent's value, what the Allow form sends
+	From        string
+	Service     string
+	Critical    bool
+	Open        bool
 	StatusLabel string
 	StatusClass string
 	Comment     string // the cleaned service name the Allow form sends
