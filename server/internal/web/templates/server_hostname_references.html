@@ -1,0 +1,44 @@
+{{define "server_hostname_references"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>{{.Title}}</h1>
+  <form method="get" action="/server/hostname-references">
+    <label>Old host name
+      <input type="text" name="old" value="{{.Old}}" placeholder="old.example.com">
+    </label>
+    <button type="submit">Search</button>
+  </form>
+  {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+  {{if .Report}}
+  <pre class="text-muted">{{.Report}}</pre>
+  {{if .WebmailStale}}
+  <form method="post" action="/server/hostname-references/webmail" data-confirm="Re-apply webmail for the current hostname?">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Re-apply webmail ({{.WebmailHostname}})</button>
+  </form>
+  {{end}}
+  <form method="post" action="/server/hostname-references/mail" data-confirm="Re-apply mail server for the current hostname?">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Re-apply mail server</button>
+  </form>
+  {{end}}
+  <p><a href="/server#settings">← Back to server settings</a></p>
+</main>
+</body>
+</html>{{end}}

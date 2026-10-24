@@ -1,0 +1,53 @@
+{{define "server_packages"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>{{.Title}}</h1>
+  <p class="text-muted">{{.Subtitle}}</p>
+  <form method="post" action="/packages/refresh" class="inline-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Check for updates</button>
+  </form>
+  {{if .AgentError}}<p class="error">Agent error: {{.AgentError}}</p>{{end}}
+  {{if .Health}}<p class="text-muted">Package health available (see agent output).</p>{{end}}
+  {{if .Updates}}<p class="text-muted">Updates pending.</p>
+  <form method="post" action="/packages/upgrade" data-confirm="Install all updates now?">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Install all updates</button>
+  </form>{{end}}
+  {{if .Packages}}
+  <table class="data-table">
+    <thead><tr><th>Component</th><th>Installed</th></tr></thead>
+    <tbody>
+    {{range .Packages}}<tr><td>{{.name}}</td><td>{{if .installed}}yes{{else}}no{{end}}</td></tr>{{end}}
+    </tbody>
+  </table>
+  {{else}}<p class="text-muted">No components returned.</p>{{end}}
+  <h2>Repair</h2>
+  <form method="post" action="/packages/repair" data-confirm="Repair packages now?">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Repair</button>
+  </form>
+  <form method="post" action="/packages/repair" data-confirm="Remove duplicate packages?">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <input type="hidden" name="remove_duplicates" value="1">
+    <button type="submit" class="danger">Remove duplicates</button>
+  </form>
+</main>
+</body>
+</html>{{end}}

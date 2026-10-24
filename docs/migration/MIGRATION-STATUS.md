@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **360 ☑ done+tested, 4 ◑ partial, 187 ☐** of 551.
+`server/internal/http/server.go`): **400 ☑ done+tested, 4 ◑ partial, 147 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -1205,10 +1205,47 @@ deliveries, discovery and monitoring sweeps).
   token."}` to match PHP's `abort(404)` wording.
 - Docs bumped to **360 ☑ / 4 ◑ / 187 ☐**.
 
-Next up in Batch 69: SystemController (14 routes: server overview,
-phpVersions, services, restart/reload, firewall, updates, cron, users,
-packages, etc.), then PhpController (8), AccountBackupsController (8),
-Roles (7).
+Next up in Batch 69: PhpController (8 routes), AccountBackupsController
+(8), Roles (7).
+
+## Batch 69b — SystemController (14 routes) ☑
+
+- Ported files:
+  - `server/internal/http/system.go` (NEW ~380 LOC): Packages list (GET
+    /packages with JSON for the install-queue XHR), install/refresh/
+    upgrade/repair (POST with job tracking via JobTracker), hostname
+    set + mail server re-sync (best effort), hostname references read
+    (+ webmail/remail re-apply), root password change (admin-only,
+    panel-password re-confirmation, password policy check mirroring
+    PHP's ≥14 chars, ≥3/4 classes, no colons/controls), time zone,
+    graphical login toggle, scheduled reboot and cancel.
+  - `server/internal/web/templates/server_packages.html` (NEW):
+    minimal server_packages template — updates CTA, component list,
+    repair/remove-duplicates forms (mirrors the PHP components list
+    surface; the richer queue widget is added when JS assets land).
+  - `server/internal/web/templates/server_hostname_references.html`
+    (NEW): minimal hostname-references page with search form +
+    webmail/mail re-apply buttons.
+  - `server/internal/http/server.go`: registered 14 routes (packages
+    group under `packages.manage`, server group under `server.manage`);
+    all use the existing `s.guard(routeName, perm, handler)` pattern
+    (session + CSRF + permission + feature gating).
+- Job actions (`packages.install`, `packages.refresh`,
+  `packages.upgrade`, `packages.repair`) are tracked via
+  `hosting.NewJobTracker(s.db).Track(...)` just like memcached/ftp
+  installs so the dashboard job widget shows them.
+- Mail-server resync after a host-name change is best-effort: the
+  `mail.configure` agent call is wrapped in its own try/catch with a
+  tailored success/error flash message (parity with PHP).
+- Root password policy matches PHP exactly: minimum 14 runes, three
+  of {lower, upper, digit, symbol}, no colon or C0 controls; the admin
+  role is enforced in addition to the `server.manage` permission.
+- Docs bumped: **400 ☑ / 4 ◑ / 147 ☐** (378+ after prior awk recount;
+  python recount confirmed 400 with 14 new ☐→☑ flips from 386 baseline
+  at merge of PR #68).
+
+Next up in Batch 69: PhpController (8 routes), AccountBackupsController
+(8), Roles (7).
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24). CI
 (`gofmt` / `go vet` / `go test -race` / `make build`) is the verification gate
