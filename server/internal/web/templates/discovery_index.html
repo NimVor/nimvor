@@ -1,0 +1,149 @@
+{{define "discovery_index"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
+<title>Discovery · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Discovery</h1>
+  <p class="text-muted">Read-only inventory of the existing server</p>
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+
+  {{template "discovery_bar" .}}
+
+  <div class="alert alert-info small">
+    <i class="bi bi-shield-check me-1"></i>
+    Discovery only <strong>reads</strong> configuration files and service state. It never writes, reloads, migrates or deletes anything.
+    The agent itself runs with a read-only view of the filesystem enforced by systemd.
+  </div>
+
+  {{if .OSUnsupported}}
+  <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i>
+    {{if .OSName}}{{.OSName}}{{else}}This OS{{end}} is not an officially supported release. Discovery runs in best-effort mode.
+  </div>
+  {{end}}
+
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-4 col-xl-3">
+      {{if .CanSites}}<a class="text-decoration-none" href="/websites">{{end}}
+      <div class="card wcp-count-card h-100"><div class="card-body">
+        <i class="bi bi-globe2"></i>
+        <div class="wcp-kpi">{{.Websites}}</div>
+        <div class="wcp-kpi-label">Websites</div>
+      </div></div>
+      {{if .CanSites}}</a>{{end}}
+    </div>
+    <div class="col-6 col-md-4 col-xl-3">
+      {{if .CanPHP}}<a class="text-decoration-none" href="/php">{{end}}
+      <div class="card wcp-count-card h-100"><div class="card-body">
+        <i class="bi bi-filetype-php"></i>
+        <div class="wcp-kpi">{{.PHPVersions}}</div>
+        <div class="wcp-kpi-label">PHP versions</div>
+      </div></div>
+      {{if .CanPHP}}</a>{{end}}
+    </div>
+    <div class="col-6 col-md-4 col-xl-3">
+      {{if .CanPHP}}<a class="text-decoration-none" href="/php">{{end}}
+      <div class="card wcp-count-card h-100"><div class="card-body">
+        <i class="bi bi-diagram-2"></i>
+        <div class="wcp-kpi">{{.PHPPools}}</div>
+        <div class="wcp-kpi-label">PHP-FPM pools</div>
+      </div></div>
+      {{if .CanPHP}}</a>{{end}}
+    </div>
+    <div class="col-6 col-md-4 col-xl-3">
+      {{if .CanDBs}}<a class="text-decoration-none" href="/databases">{{end}}
+      <div class="card wcp-count-card h-100"><div class="card-body">
+        <i class="bi bi-database"></i>
+        <div class="wcp-kpi">{{.Databases}}</div>
+        <div class="wcp-kpi-label">Databases</div>
+      </div></div>
+      {{if .CanDBs}}</a>{{end}}
+    </div>
+    <div class="col-6 col-md-4 col-xl-3">
+      {{if .CanSSL}}<a class="text-decoration-none" href="/ssl">{{end}}
+      <div class="card wcp-count-card h-100"><div class="card-body">
+        <i class="bi bi-shield-lock"></i>
+        <div class="wcp-kpi">{{.Certificates}}</div>
+        <div class="wcp-kpi-label">Let's Encrypt certificates</div>
+      </div></div>
+      {{if .CanSSL}}</a>{{end}}
+    </div>
+    <div class="col-6 col-md-4 col-xl-3">
+      {{if .CanCron}}<a class="text-decoration-none" href="/cron">{{end}}
+      <div class="card wcp-count-card h-100"><div class="card-body">
+        <i class="bi bi-clock-history"></i>
+        <div class="wcp-kpi">{{.CronJobs}}</div>
+        <div class="wcp-kpi-label">Cron jobs</div>
+      </div></div>
+      {{if .CanCron}}</a>{{end}}
+    </div>
+    <div class="col-6 col-md-4 col-xl-3">
+      <div class="card wcp-count-card h-100"><div class="card-body">
+        <i class="bi bi-cpu"></i>
+        <div class="wcp-kpi">{{.Services}}</div>
+        <div class="wcp-kpi-label">Services</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-3">
+      <div class="card wcp-count-card h-100"><div class="card-body">
+        <i class="bi bi-people"></i>
+        <div class="wcp-kpi">{{.SystemUsers}}</div>
+        <div class="wcp-kpi-label">System accounts</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-exclamation-diamond me-1"></i>Discovery notes</div>
+        <ul class="list-group list-group-flush small">
+          {{if not .Warnings}}
+          <li class="list-group-item text-body-secondary">No problems were encountered while reading the configuration.</li>
+          {{end}}
+          {{range .Warnings}}<li class="list-group-item">{{.}}</li>{{end}}
+        </ul>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-clock me-1"></i>Snapshot history</div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0 wcp-table">
+            <thead><tr><th>When</th><th>Websites</th><th>By</th><th>Checksum</th></tr></thead>
+            <tbody>
+            {{range .History}}
+              <tr>
+                <td>{{stamp .CreatedAt}}</td>
+                <td>{{.WebsiteCount}}</td>
+                <td>{{if .Username.Valid}}{{.Username.String}}{{else}}automatic{{end}}</td>
+                <td><code class="small">{{printf "%.12s" .Checksum}}</code></td>
+              </tr>
+            {{end}}
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer small text-body-secondary">A changed checksum means the server configuration changed between snapshots.</div>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
+</body>
+</html>{{end}}

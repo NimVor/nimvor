@@ -75,7 +75,7 @@ Total routes: 551
 | GET | `/components` | ComponentsController::index | components | server.view | yes | yes | ☐ |
 | GET | `/confirm-password` | AuthController::confirmForm | auth.confirm |  | yes | yes | ☐ |
 | POST | `/confirm-password` | AuthController::confirm | auth.confirm.submit |  | yes | yes | ☐ |
-| GET | `/cron` | DiscoveryController::cron | cron | cron.view | yes | yes | ☐ |
+| GET | `/cron` | DiscoveryController::cron | cron | cron.view | yes | yes | ☑ |
 | GET | `/dashboard/live` | DashboardController::live | dashboard.live | dashboard.view | yes | yes | ☐ |
 | POST | `/database-users/{id}/assign` | DatabasesController::assign | dbusers.assign | databases.manage | yes | yes | ☑ |
 | POST | `/database-users/{id}/delete` | DatabasesController::deleteUser | dbusers.delete | databases.manage | yes | yes | ☑ |
@@ -101,8 +101,8 @@ Total routes: 551
 | POST | `/databases/{id}/import` | DatabasesController::import | databases.import | databases.manage | yes | yes | ☑ |
 | GET | `/databases` | DatabasesController::index | databases | databases.view | yes | yes | ☑ |
 | POST | `/databases` | DatabasesController::store | databases.store | databases.manage | yes | yes | ☑ |
-| POST | `/discovery/run` | DiscoveryController::run | discovery.run | discovery.run | yes | yes | ☐ |
-| GET | `/discovery` | DiscoveryController::index | discovery | websites.view | yes | yes | ☐ |
+| POST | `/discovery/run` | DiscoveryController::run | discovery.run | discovery.run | yes | yes | ☑ |
+| GET | `/discovery` | DiscoveryController::index | discovery | websites.view | yes | yes | ☑ |
 | POST | `/dns/install` | DnsController::install | dns.install | packages.manage | yes | yes | ☐ |
 | POST | `/dns/setup` | DnsController::setup | dns.setup | server.manage | yes | yes | ☐ |
 | POST | `/dns/zones/{id}/bulk` | DnsController::bulk | dns.bulk | dns.manage | yes | yes | ☑ |
@@ -269,7 +269,7 @@ Total routes: 551
 | GET | `/php/{version}/modules` | PhpController::modules | php.modules | php.view | yes | yes | ☐ |
 | POST | `/php/{version}/toggle` | PhpController::toggle | php.toggle | php.manage | yes | yes | ☐ |
 | GET | `/php/{version}` | PhpController::show | php.show | php.manage | yes | yes | ☐ |
-| GET | `/php` | DiscoveryController::php | php | php.view | yes | yes | ☐ |
+| GET | `/php` | DiscoveryController::php | php | php.view | yes | yes | ☑ |
 | POST | `/plans/{id}/delete` | PlansController::destroy | plans.delete | plans.manage | yes | yes | ☐ |
 | GET | `/plans` | PlansController::index | plans | plans.manage | yes | yes | ☑ |
 | POST | `/plans` | PlansController::store | plans.store | plans.manage | yes | yes | ☐ |
@@ -524,7 +524,7 @@ Total routes: 551
 | GET | `/ssl/services` | SslCenterController::services | ssl.services | ssl.view | yes | yes | ☐ |
 | GET | `/ssl/tls` | SslCenterController::tls | ssl.tls | ssl.view | yes | yes | ☐ |
 | POST | `/ssl/tls` | SslCenterController::saveTls | ssl.tls.save | server.manage | yes | yes | ☐ |
-| GET | `/ssl` | DiscoveryController::ssl | ssl | ssl.view | yes | yes | ☐ |
+| GET | `/ssl` | DiscoveryController::ssl | ssl | ssl.view | yes | yes | ☑ |
 | GET | `/system-users` | ServerController::systemUsers | system_users | system_users.view | yes | yes | ☐ |
 | POST | `/terminal/root/open` | TerminalController::openRoot | terminal.root | security.manage | yes | yes | ☑ |
 | POST | `/terminal/sessions/{id}/close` | TerminalController::close | terminal.close | security.manage | yes | yes | ☑ |
