@@ -225,7 +225,7 @@ func TestMailAdminSaveSettingsFailure(t *testing.T) {
 	sa.failActions["mail.settings_set"] = "Postfix refused the settings."
 	token, cookie := pageToken(t, h, cookie, "/mail/admin/server")
 	rr := postForm(h, "/mail/admin/server", url.Values{
-		"_token": {token},
+		"_token":             {token},
 		"current[relayhost]": {""},
 		"postfix[relayhost]": {"smtp.example.com"},
 	}, cookie)

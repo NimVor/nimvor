@@ -17,9 +17,9 @@ func TestStrengthVectors(t *testing.T) {
 		want int
 	}{
 		{"", 0},
-		{"aaaaaaaaaaaaaaaa", 9},  // pool 26, weighted length 2 (one distinct rune)
-		{"abcdefghij1234", 62},   // pool 36, 12 distinct
-		{"Abcdefghij1234!", 98},  // pool 95, 15 distinct
+		{"aaaaaaaaaaaaaaaa", 9},      // pool 26, weighted length 2 (one distinct rune)
+		{"abcdefghij1234", 62},       // pool 36, 12 distinct
+		{"Abcdefghij1234!", 98},      // pool 95, 15 distinct
 		{"Aa1!Aa1!Aa1!Aa1!Aa1!", 52}, // pool 95, weighted length 8 (4 distinct)
 	}
 	for _, c := range cases {

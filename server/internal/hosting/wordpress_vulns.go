@@ -27,13 +27,13 @@ const (
 )
 
 var (
-	wpVulnSeverity    = map[string]string{"c": "critical", "h": "high", "m": "medium", "l": "low", "n": "none"}
-	wpVulnSlugRe      = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)
-	wpVulnVersionRe   = regexp.MustCompile(`^[0-9A-Za-z.+-]{1,40}$`)
-	wpVulnCveRe       = regexp.MustCompile(`^CVE-\d{4}-\d{3,}$`)
-	wpVulnLinkRe      = regexp.MustCompile(`^https://[^\s"<>]{1,300}$`)
-	wpVulnScoreRe     = regexp.MustCompile(`^\d{1,2}(\.\d)?$`)
-	wpVulnTagRe       = regexp.MustCompile(`<[^>]*>`)
+	wpVulnSeverity  = map[string]string{"c": "critical", "h": "high", "m": "medium", "l": "low", "n": "none"}
+	wpVulnSlugRe    = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)
+	wpVulnVersionRe = regexp.MustCompile(`^[0-9A-Za-z.+-]{1,40}$`)
+	wpVulnCveRe     = regexp.MustCompile(`^CVE-\d{4}-\d{3,}$`)
+	wpVulnLinkRe    = regexp.MustCompile(`^https://[^\s"<>]{1,300}$`)
+	wpVulnScoreRe   = regexp.MustCompile(`^\d{1,2}(\.\d)?$`)
+	wpVulnTagRe     = regexp.MustCompile(`<[^>]*>`)
 )
 
 // WpVulnFetch returns the body of the url, or "" when it cannot be reached
@@ -85,7 +85,7 @@ type wpVulnEntry struct {
 			Score    string `json:"score"`
 		} `json:"cvss"`
 	} `json:"impact"`
-	Source   []wpVulnSource `json:"source"`
+	Source []wpVulnSource `json:"source"`
 }
 
 type wpVulnTarget struct{ kind, slug, version, title string }
@@ -97,7 +97,7 @@ type WpVulnerabilities struct {
 }
 
 // NewWpVulnerabilities builds the checker; cacheDir holds the per-item
-// answer caches ('' disables the cache).
+// answer caches (” disables the cache).
 func NewWpVulnerabilities(cacheDir string) *WpVulnerabilities {
 	return &WpVulnerabilities{cacheDir: cacheDir}
 }
@@ -201,7 +201,7 @@ func (s *WpVulnerabilities) get(path string) ([]wpVulnEntry, bool) {
 }
 
 // WpVulnAffecting are the vulnerabilities in data that affect version (the
-// core answers are per version already: version '' = all)
+// core answers are per version already: version ” = all)
 // (WordPressVulnerabilities::affecting). The caller adds the target's
 // kind / slug / title / version.
 func WpVulnAffecting(data []wpVulnEntry, version string) []WpVulnItem {

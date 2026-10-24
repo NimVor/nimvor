@@ -102,8 +102,10 @@ func TestRedisSiteApiKeys(t *testing.T) {
 	var body struct {
 		Success bool `json:"success"`
 		Data    struct {
-			Keys   []struct {
-				Key  struct{ Text string `json:"text"` } `json:"key"`
+			Keys []struct {
+				Key struct {
+					Text string `json:"text"`
+				} `json:"key"`
 				Type string `json:"type"`
 				TTL  int64  `json:"ttl"`
 			} `json:"keys"`
@@ -159,8 +161,8 @@ func TestRedisSiteApiEditAudited(t *testing.T) {
 		t.Errorf("audit target = %s %s", targetType, targetID)
 	}
 	var det struct {
-		DB   any     `json:"db"`
-		Keys []any   `json:"keys"`
+		DB   any   `json:"db"`
+		Keys []any `json:"keys"`
 	}
 	if err := json.Unmarshal([]byte(keys), &det); err != nil || len(det.Keys) != 1 {
 		t.Fatalf("audit details = %s", keys)
@@ -171,7 +173,7 @@ func TestRedisSiteApiEditAudited(t *testing.T) {
 }
 
 func TestRedisSiteApiDeleteAudited(t *testing.T) {
-	h, _, sa, db := cacheEnv(t)
+	h, _, _, db := cacheEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/sites/10/redis")
 

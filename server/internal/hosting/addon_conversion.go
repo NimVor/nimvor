@@ -163,14 +163,14 @@ func (s *AddonConversionService) Convert(ctx context.Context, site *Website, in 
 		"generate":              in["generate"],
 		"plan_id":               in["plan_id"],
 		"domain":                "",
-		"dns_dkim":         "1",
-		"dns_spf":          "1",
-		"dns_dmarc":        "1",
-		"dns_registrar_ns": "",
-		"dns_overwrite":    "",
-		"mail_routing":     "auto",
-		"spam_filter":      "1",
-		"spam_box":         "1",
+		"dns_dkim":              "1",
+		"dns_spf":               "1",
+		"dns_dmarc":             "1",
+		"dns_registrar_ns":      "",
+		"dns_overwrite":         "",
+		"mail_routing":          "auto",
+		"spam_filter":           "1",
+		"spam_box":              "1",
 	}
 	account, err := s.accounts.Create(ctx, acctIn, actor)
 	if err != nil {

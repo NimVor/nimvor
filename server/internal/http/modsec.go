@@ -374,14 +374,14 @@ func (s *Server) modsecIndex(w http.ResponseWriter, r *http.Request) {
 					title += " " + strconv.Itoa(*rr.ID)
 				}
 				modals = append(modals, modsecRuleModal{
-					MID: "ms-rule-" + strconv.Itoa(i),
-					Title: title,
-					Index: i,
-					SHA:   modsecRuleSHA(rr.Text),
+					MID:     "ms-rule-" + strconv.Itoa(i),
+					Title:   title,
+					Index:   i,
+					SHA:     modsecRuleSHA(rr.Text),
 					Comment: rr.Comment,
-					Rule:  rr.Text,
-					NextID: nextID,
-					CSRF:  session.CSRFToken(sess),
+					Rule:    rr.Text,
+					NextID:  nextID,
+					CSRF:    session.CSRFToken(sess),
 				})
 			}
 			data["RuleModals"] = modals
@@ -1471,18 +1471,18 @@ func (s *Server) siteFirewall(w http.ResponseWriter, r *http.Request) {
 		byDomain[strings.ToLower(a)] = site.ID
 	}
 	data := map[string]any{
-		"User":        user,
-		"CSRF":        session.CSRFToken(sess),
-		"Site":        site,
-		"AgentError":  agentMsg,
-		"IsActive":    status != nil && status["active"] == true,
-		"CanChange":   canChange,
-		"CanManage":   isAdmin,
-		"Events":      []modsecEventRow{},
-		"Success":     "",
-		"Error":       "",
-		"ModeChecked": map[string]bool{"off": true},
-		"VendorsText": "none",
+		"User":         user,
+		"CSRF":         session.CSRFToken(sess),
+		"Site":         site,
+		"AgentError":   agentMsg,
+		"IsActive":     status != nil && status["active"] == true,
+		"CanChange":    canChange,
+		"CanManage":    isAdmin,
+		"Events":       []modsecEventRow{},
+		"Success":      "",
+		"Error":        "",
+		"ModeChecked":  map[string]bool{"off": true},
+		"VendorsText":  "none",
 		"DisabledText": "none",
 	}
 	if status != nil {
@@ -1614,4 +1614,3 @@ func modsecSHAEquals(text, sha string) bool {
 	sum := sha256.Sum256([]byte(text))
 	return subtle.ConstantTimeCompare([]byte(hex.EncodeToString(sum[:])), []byte(sha)) == 1
 }
-

@@ -195,7 +195,7 @@ func (s *Server) siteConvert(w http.ResponseWriter, r *http.Request) {
 		var ue *hosting.UserError
 		if errors.As(err, &ue) {
 			sess.Flash("error", ue.What)
-		} else if ae := &agent.Error{}; errors.As(err, ae) {
+		} else if ae := (&agent.Error{}); errors.As(err, ae) {
 			sess.Flash("error", site.Domain+" was not converted; everything was put back as it was. "+ae.Message)
 		} else {
 			// Not an agent failure: the steps are not necessarily undone.

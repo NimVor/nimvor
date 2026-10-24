@@ -32,21 +32,21 @@ var filesOps = map[string]struct {
 	action   string
 	mutating bool
 }{
-	"list":   {"files.list", false},
-	"read":   {"files.read", false},
-	"search": {"files.search", false},
-	"write":  {"files.write", true},
-	"mkdir":  {"files.mkdir", true},
-	"rename": {"files.rename", true},
-	"copy":   {"files.copy", true},
-	"delete": {"files.delete", true},
-	"chmod":  {"files.chmod", true},
-	"compress":   {"files.compress", true},
-	"extract":    {"files.extract", true},
-	"trash_list":     {"files.trash_list", false},
-	"trash_restore":  {"files.trash_restore", true},
-	"trash_delete":   {"files.trash_delete", true},
-	"trash_empty":    {"files.trash_empty", true},
+	"list":          {"files.list", false},
+	"read":          {"files.read", false},
+	"search":        {"files.search", false},
+	"write":         {"files.write", true},
+	"mkdir":         {"files.mkdir", true},
+	"rename":        {"files.rename", true},
+	"copy":          {"files.copy", true},
+	"delete":        {"files.delete", true},
+	"chmod":         {"files.chmod", true},
+	"compress":      {"files.compress", true},
+	"extract":       {"files.extract", true},
+	"trash_list":    {"files.trash_list", false},
+	"trash_restore": {"files.trash_restore", true},
+	"trash_delete":  {"files.trash_delete", true},
+	"trash_empty":   {"files.trash_empty", true},
 }
 
 // filesFields is the PHP FIELDS whitelist: the only request fields that

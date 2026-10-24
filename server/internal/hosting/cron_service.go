@@ -39,13 +39,13 @@ var PresetSchedules = [][2]string{
 }
 
 var presetLabels = map[string]string{
-	"* * * * *":     "Every minute",
-	"*/5 * * * *":   "Every 5 minutes",
-	"*/15 * * * *":  "Every 15 minutes",
-	"0 * * * *":     "Every hour",
-	"0 3 * * *":     "Every day at 03:00",
-	"0 3 * * 0":     "Every Sunday at 03:00",
-	"0 3 1 * *":     "First day of the month at 03:00",
+	"* * * * *":    "Every minute",
+	"*/5 * * * *":  "Every 5 minutes",
+	"*/15 * * * *": "Every 15 minutes",
+	"0 * * * *":    "Every hour",
+	"0 3 * * *":    "Every day at 03:00",
+	"0 3 * * 0":    "Every Sunday at 03:00",
+	"0 3 1 * *":    "First day of the month at 03:00",
 }
 
 // PresetLabel is the human name of a preset schedule ("" for a custom one).

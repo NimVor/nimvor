@@ -263,13 +263,13 @@ func TestSiteCronEdit(t *testing.T) {
 	}
 	token, cookie := siteFormToken(t, h, bob, "/sites/10/cron?edit=1")
 	rr = postForm(h, "/sites/10/cron", url.Values{
-		"_token":          {token},
-		"job_id":          {"1"},
-		"schedule":        {"0 3 * * *"},
-		"command":         {"/usr/bin/php backup.php --full"},
-		"description":     {"Nightly backup (full)"},
-		"enabled":         {"1"},
-		"email_output":    {"1"},
+		"_token":       {token},
+		"job_id":       {"1"},
+		"schedule":     {"0 3 * * *"},
+		"command":      {"/usr/bin/php backup.php --full"},
+		"description":  {"Nightly backup (full)"},
+		"enabled":      {"1"},
+		"email_output": {"1"},
 	}, cookie)
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("update = %d: %s", rr.Code, rr.Body.String())
@@ -319,11 +319,11 @@ func TestSiteCronEmailFlow(t *testing.T) {
 	// Turning the switch off clears the recipient.
 	token, cookie := siteFormToken(t, h, bob, "/sites/10/cron")
 	rr = postForm(h, "/sites/10/cron", url.Values{
-		"_token":       {token},
-		"job_id":       {fmt.Sprint(id)},
-		"schedule":     {"0 * * * *"},
-		"command":      {"echo mailed"},
-		"enabled":      {"1"},
+		"_token":   {token},
+		"job_id":   {fmt.Sprint(id)},
+		"schedule": {"0 * * * *"},
+		"command":  {"echo mailed"},
+		"enabled":  {"1"},
 	}, cookie)
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("update = %d: %s", rr.Code, rr.Body.String())

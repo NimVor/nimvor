@@ -462,4 +462,3 @@ func nextCookie(t *testing.T, rr *httptest.ResponseRecorder, fallback *http.Cook
 	}
 	return fallback
 }
-

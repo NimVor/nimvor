@@ -274,7 +274,7 @@ func TestCloudflareServerSsl(t *testing.T) {
 		t.Fatalf("ssl POST = %d loc=%q", rr.Code, rr.Header().Get("Location"))
 	}
 	flashAt(t, h, refreshCookie(admin, rr), "/cloudflare?zone="+cfZoneID, "SSL mode updated.")
-	if !f.captured("PATCH /zones/"+cfZoneID+"/settings/ssl") {
+	if !f.captured("PATCH /zones/" + cfZoneID + "/settings/ssl") {
 		t.Errorf("ssl PATCH not made: %v", f.calls)
 	}
 	var tt, tid, det string
@@ -312,7 +312,7 @@ func TestCloudflareServerAlwaysHttps(t *testing.T) {
 		t.Fatalf("always-https POST = %d", rr.Code)
 	}
 	flashAt(t, h, refreshCookie(admin, rr), "/cloudflare?zone="+cfZoneID, "Always Use HTTPS updated.")
-	if !f.captured("PATCH /zones/"+cfZoneID+"/settings/always_use_https") {
+	if !f.captured("PATCH /zones/" + cfZoneID + "/settings/always_use_https") {
 		t.Errorf("always_use_https PATCH not made: %v", f.calls)
 	}
 	var det string
@@ -334,7 +334,7 @@ func TestCloudflareServerProxy(t *testing.T) {
 		t.Fatalf("proxy POST = %d", rr.Code)
 	}
 	flashAt(t, h, refreshCookie(admin, rr), "/cloudflare?zone="+cfZoneID, "DNS record updated.")
-	if !f.captured("PATCH /zones/"+cfZoneID+"/dns_records/"+cfRecA) {
+	if !f.captured("PATCH /zones/" + cfZoneID + "/dns_records/" + cfRecA) {
 		t.Errorf("record PATCH not made: %v", f.calls)
 	}
 	var det string

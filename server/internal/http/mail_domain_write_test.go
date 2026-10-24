@@ -286,8 +286,8 @@ func TestMailPublishDns(t *testing.T) {
 		t.Fatalf("MX record wrong: n=%d", n)
 	}
 	for q, what := range map[string]string{
-		`SELECT COUNT(*) FROM dns_records WHERE zone_id = 50 AND type = 'TXT' AND value = 'v=spf1 a mx ~all'`: "SPF",
-		`SELECT COUNT(*) FROM dns_records WHERE zone_id = 50 AND type = 'TXT' AND value = 'v=DKIM1; k=rsa; p=MEow'`: "DKIM",
+		`SELECT COUNT(*) FROM dns_records WHERE zone_id = 50 AND type = 'TXT' AND value = 'v=spf1 a mx ~all'`:                   "SPF",
+		`SELECT COUNT(*) FROM dns_records WHERE zone_id = 50 AND type = 'TXT' AND value = 'v=DKIM1; k=rsa; p=MEow'`:             "DKIM",
 		`SELECT COUNT(*) FROM dns_records WHERE zone_id = 50 AND type = 'TXT' AND value LIKE 'v=DMARC1%postmaster@bob.example'`: "DMARC",
 	} {
 		if n := rowCount(t, db, q); n != 1 {

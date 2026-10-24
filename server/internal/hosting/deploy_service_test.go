@@ -27,10 +27,10 @@ func TestDeployValidateRepo(t *testing.T) {
 	}
 	bad := []string{
 		"",
-		"http://github.com/owner/repo.git",      // http, not https
-		"ftp://github.com/owner/repo.git",       // unknown scheme
-		"https://github.com/owner/../repo.git",  // path traversal
-		"git@github.com:owner/..%2Frepo.git",    // traversal-ish
+		"http://github.com/owner/repo.git",        // http, not https
+		"ftp://github.com/owner/repo.git",         // unknown scheme
+		"https://github.com/owner/../repo.git",    // path traversal
+		"git@github.com:owner/..%2Frepo.git",      // traversal-ish
 		"https://user:pass@github.com/o/repo.git", // credentials not allowed
 		"not a url",
 	}

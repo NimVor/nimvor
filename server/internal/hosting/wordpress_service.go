@@ -174,7 +174,7 @@ func wpVersionRank(s string) int {
 }
 
 // WpBaseURL is the installation's address, from the website's own domain
-// and document root (never from what WordPress says about itself); '' when
+// and document root (never from what WordPress says about itself); ” when
 // the installation is outside the document root (WordPressService::baseUrl).
 func WpBaseURL(site *Website, install *WordPressInstall) string {
 	dir := strings.TrimRight(site.Root, "/")
@@ -316,7 +316,7 @@ func (s *WordPressService) Install(ctx context.Context, site *Website, id int64)
 			&i.PluginUpdates, &i.ThemeUpdates, &i.Issues, &i.ScannedAt, &i.CheckedAt,
 			&i.VulnProtection, &i.Vulns, &i.VulnsCheckedAt, &i.ClonedFrom, &i.CronJobID,
 			&i.Domain, &i.HTTPS, &i.PHPVersion, &i.SystemUser, &i.Root, &i.DocumentRoot, &i.OwnerName)
-		if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, &UserError{What: "That WordPress installation was not found; scan the website again."}
 	}
 	if err != nil {
@@ -370,7 +370,7 @@ func (s *WordPressService) Scan(ctx context.Context, sites []Website) (*WordPres
 		return nil, err
 	}
 	var o struct {
-		Errors  []struct {
+		Errors []struct {
 			Domain string `json:"domain"`
 			Error  string `json:"error"`
 		} `json:"errors"`
@@ -705,7 +705,7 @@ func wpAsBool(v any) bool {
 }
 
 // WordPressChecks are the security and health checks: [level
-// (danger|warning|info), title, detail, fix op or ''] (WordPressService::checks).
+// (danger|warning|info), title, detail, fix op or ”] (WordPressService::checks).
 func WordPressChecks(info *WordPressInfo, site *Website) []WordPressCheck {
 	c := []WordPressCheck{}
 	add := func(level, title, detail, fix string) {
@@ -803,8 +803,8 @@ func WordPressChecks(info *WordPressInfo, site *Website) []WordPressCheck {
 // (updates run in the background) or the verify_core outcome.
 type WordPressManageResult struct {
 	Message  string
-	Job      string // "" when the operation finished itself
-	JobKind  string // the job's tracked label (for the tracker)
+	Job      string   // "" when the operation finished itself
+	JobKind  string   // the job's tracked label (for the tracker)
 	Files    []string // verify_core: the differing files (nil otherwise)
 	VerifyOK bool     // verify_core: every core file matches
 }
@@ -812,25 +812,25 @@ type WordPressManageResult struct {
 // wpOps are the panel's operations (WordPressService::OPS, labels only —
 // the agent decides what runs and where).
 var wpOps = map[string]string{
-	"core_update":         "Update WordPress",
-	"plugin_update":       "Update plugins",
-	"theme_update":        "Update themes",
-	"plugin_activate":     "Activate plugin",
-	"plugin_deactivate":   "Deactivate plugin",
-	"plugin_auto_on":      "Turn automatic updates on",
-	"plugin_auto_off":     "Turn automatic updates off",
-	"theme_activate":      "Activate theme",
-	"theme_auto_on":       "Turn automatic updates on",
-	"theme_auto_off":      "Turn automatic updates off",
-	"maintenance_on":      "Turn maintenance mode on",
-	"maintenance_off":     "Turn maintenance mode off",
-	"disable_file_edit":   "Turn off the file editor",
-	"debug_off":           "Turn debugging off",
-	"protect_config":      "Protect wp-config.php",
-	"core_auto_update":    "Automatic WordPress updates",
-	"verify_core":         "Verify core files",
-	"search_engines_on":   "Let search engines index the site",
-	"search_engines_off":  "Ask search engines not to index the site",
+	"core_update":        "Update WordPress",
+	"plugin_update":      "Update plugins",
+	"theme_update":       "Update themes",
+	"plugin_activate":    "Activate plugin",
+	"plugin_deactivate":  "Deactivate plugin",
+	"plugin_auto_on":     "Turn automatic updates on",
+	"plugin_auto_off":    "Turn automatic updates off",
+	"theme_activate":     "Activate theme",
+	"theme_auto_on":      "Turn automatic updates on",
+	"theme_auto_off":     "Turn automatic updates off",
+	"maintenance_on":     "Turn maintenance mode on",
+	"maintenance_off":    "Turn maintenance mode off",
+	"disable_file_edit":  "Turn off the file editor",
+	"debug_off":          "Turn debugging off",
+	"protect_config":     "Protect wp-config.php",
+	"core_auto_update":   "Automatic WordPress updates",
+	"verify_core":        "Verify core files",
+	"search_engines_on":  "Let search engines index the site",
+	"search_engines_off": "Ask search engines not to index the site",
 }
 
 var wpItemRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`)

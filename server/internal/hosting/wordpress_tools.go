@@ -642,7 +642,7 @@ var (
 )
 
 // ownedDatabase is the installation's database when it is one of the
-// owner's databases in the panel ('' when not)
+// owner's databases in the panel (” when not)
 // (WordPressToolsService::ownedDatabase).
 func (s *WordPressTools) ownedDatabase(name string, ownerID *int64) (string, error) {
 	var owner sql.NullInt64
@@ -714,7 +714,7 @@ func (s *WordPressTools) CloneTo(ctx context.Context, site *Website, install *Wo
 	if sub != "" && !wpClonePathRe.MatchString(sub) {
 		return "", &ValidationError{Fields: map[string]string{"target_path": "Use a folder name of letters, digits, dots, dashes and underscores."}}
 	}
-	path := strings.Trim(docRel + (func() string {
+	path := strings.Trim(docRel+(func() string {
 		if sub != "" {
 			return "/" + sub
 		}

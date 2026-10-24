@@ -74,7 +74,7 @@ func hulkForm() url.Values {
 		"hulk_ip_enabled": {"1"}, "hulk_ip_period": {"15"}, "hulk_ip_max": {"15"},
 		"hulk_ip_command": {""}, "hulk_ip_firewall": {"0"},
 		"hulk_oneday_max": {"30"}, "hulk_oneday_command": {""}, "hulk_oneday_firewall": {"0"},
-		"hulk_retention": {"360"},
+		"hulk_retention":   {"360"},
 		"hulk_notify_root": {"1"}, "hulk_notify_root_netblock": {"0"}, "hulk_notify_brute": {"1"},
 		"hulk_whitelist": {"203.0.113.10, 198.51.100.0/24"},
 	}
@@ -448,7 +448,7 @@ func TestHulkUnblockAndClear(t *testing.T) {
 		('oneday','203.0.113.9',NULL,'30 failures in 60 minutes','sshd','sshd',30,1,?,?),
 		('user',NULL,'root','3 failures','web','whacp',3,0,?,?)`,
 		now-60, now+600, now-30, now+300)
-	exec(`INSERT INTO hulk_events (id,server_id,` + "`time`" + `,service,authservice,user,ip,country,ok) VALUES
+	exec(`INSERT INTO hulk_events (id,server_id,`+"`time`"+`,service,authservice,user,ip,country,ok) VALUES
 		('e1',1,?, 'sshd','sshd','root','203.0.113.9','US',0),('e2',1,?, 'sshd','sshd','admin','198.51.100.7','CA',0)`,
 		now-120, now-60)
 

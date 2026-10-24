@@ -33,9 +33,9 @@ import (
 
 // sshRootLabels is the view's $rootLabels.
 var sshRootLabels = map[string]string{
-	"prohibit-password":   "With SSH keys only",
-	"no":                  "Not allowed",
-	"yes":                 "With password or key (not recommended)",
+	"prohibit-password":    "With SSH keys only",
+	"no":                   "Not allowed",
+	"yes":                  "With password or key (not recommended)",
 	"forced-commands-only": "Forced commands only",
 }
 
@@ -83,8 +83,8 @@ func (s *Server) sshIndex(w http.ResponseWriter, r *http.Request) {
 	if res, err := s.agent.Call(r.Context(), "ssh.keys", nil); err == nil {
 		var ks struct {
 			Admins []struct {
-				User  string `json:"user"`
-				Keys  []struct {
+				User string `json:"user"`
+				Keys []struct {
 					Type        string `json:"type"`
 					Bits        int    `json:"bits"`
 					Comment     string `json:"comment"`
@@ -156,10 +156,10 @@ func (s *Server) sshIndex(w http.ResponseWriter, r *http.Request) {
 			port = "22"
 		}
 		data["SSH"] = &sshPageStatus{
-			Port:   eff["port"],
+			Port:     eff["port"],
 			FormPort: port,
-			Root:   root,
-			Managed: st.Managed,
+			Root:     root,
+			Managed:  st.Managed,
 		}
 	}
 	data["Pending"] = s.securityPending(r.Context())
@@ -317,8 +317,8 @@ func (s *Server) sshRemoveKey(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
-// commentCleanRe is the generate form's comment cleanup.
-var commentCleanRe = regexp.MustCompile(`[^A-Za-z0-9@._+-]+`)
+// sshCommentCleanRe is the generate form's comment cleanup.
+var sshCommentCleanRe = regexp.MustCompile(`[^A-Za-z0-9@._+-]+`)
 var hostCleanRe = regexp.MustCompile(`^[A-Za-z0-9.-]+$`)
 
 // sshGenerateKey generates a key pair in the panel and allows its public
@@ -354,7 +354,7 @@ func (s *Server) sshGenerateKey(w http.ResponseWriter, r *http.Request) {
 		fail("Use a passphrase of at least 8 characters, or leave it empty.")
 		return
 	}
-	comment := strings.Trim(commentCleanRe.ReplaceAllString(r.FormValue("comment"), "-"), "-")
+	comment := strings.Trim(sshCommentCleanRe.ReplaceAllString(r.FormValue("comment"), "-"), "-")
 	if comment == "" {
 		comment = target + "@whacp"
 	}
@@ -432,18 +432,18 @@ func (s *Server) sshGenerateKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store, max-age=0")
 	w.Header().Set("Pragma", "no-cache")
 	s.render(w, "security_ssh_key_created", map[string]any{
-		"User":         user,
-		"CSRF":         session.CSRFToken(sess),
-		"Private":      string(pemBytes),
-		"PrivateB64":   base64.StdEncoding.EncodeToString(pemBytes),
-		"Public":       public,
+		"User":        user,
+		"CSRF":        session.CSRFToken(sess),
+		"Private":     string(pemBytes),
+		"PrivateB64":  base64.StdEncoding.EncodeToString(pemBytes),
+		"Public":      public,
 		"Fingerprint": kr.Key.Fingerprint,
-		"Account":   target,
-		"Encrypted": passphrase != "",
-		"SSHPort":   port,
-		"PortArg":   portArg,
-		"ServerName": serverName,
-		"File":      file,
+		"Account":     target,
+		"Encrypted":   passphrase != "",
+		"SSHPort":     port,
+		"PortArg":     portArg,
+		"ServerName":  serverName,
+		"File":        file,
 	})
 }
 

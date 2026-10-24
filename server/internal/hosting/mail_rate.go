@@ -17,9 +17,9 @@ const RateMax = 1000000
 // RateConfig is the outgoing mail limits as the agent reports them
 // (mailRateSettings: the per-account limits by account name).
 type RateConfig struct {
-	Enabled  bool             `json:"enabled"`
-	PerHour  int              `json:"per_hour"`
-	Accounts map[string]int   `json:"accounts"`
+	Enabled  bool           `json:"enabled"`
+	PerHour  int            `json:"per_hour"`
+	Accounts map[string]int `json:"accounts"`
 }
 
 // RateAccountUsage is this hour's use of one website account.

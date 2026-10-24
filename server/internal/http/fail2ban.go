@@ -59,9 +59,9 @@ func (s *Server) fail2banIndex(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
 	sess := sessionFrom(r.Context())
 	var st struct {
-		Installed bool     `json:"installed"`
-		Running   bool     `json:"running"`
-		Managed   string   `json:"managed_config"`
+		Installed bool   `json:"installed"`
+		Running   bool   `json:"running"`
+		Managed   string `json:"managed_config"`
 		Jails     []struct {
 			Name        string   `json:"name"`
 			Banned      int      `json:"currently_banned"`

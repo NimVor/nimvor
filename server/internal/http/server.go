@@ -24,8 +24,8 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/security"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
-	"github.com/mchkhawarshahzad/whacp/server/internal/web"
 	"github.com/mchkhawarshahzad/whacp/server/internal/twofactor"
+	"github.com/mchkhawarshahzad/whacp/server/internal/web"
 )
 
 // Server holds the dependencies shared by handlers.

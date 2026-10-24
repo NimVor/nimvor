@@ -40,8 +40,8 @@ type mailDomainMailboxRow struct {
 type mailDomainEdit struct {
 	Errors      map[string]string
 	Old         map[string]string
-	MailboxOpen bool // open the create-mailbox modal
-	AliasOpen   bool // open the add-forwarder modal
+	MailboxOpen bool  // open the create-mailbox modal
+	AliasOpen   bool  // open the add-forwarder modal
 	Edit        int64 // open the inline edit form for this mailbox
 }
 

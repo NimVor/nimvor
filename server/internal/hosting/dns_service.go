@@ -644,10 +644,10 @@ func (s *DnsService) CleanRecord(in map[string]string, zone string) (*CleanRecor
 		return n, true
 	}
 	zoneRe := regexp.MustCompile(`\.` + regexp.QuoteMeta(zone) + `\.?$`)
-	type := strings.ToUpper(str("type"))
+	recType := strings.ToUpper(str("type"))
 	name := strings.ToLower(str("name"))
 	// SRV: _service._protocol[.name].
-	if type == "SRV" && (str("srv_service") != "" || str("srv_protocol") != "") {
+	if recType == "SRV" && (str("srv_service") != "" || str("srv_protocol") != "") {
 		svc := strings.TrimLeft(strings.ToLower(str("srv_service")), "_")
 		proto := strings.TrimLeft(strings.ToLower(str("srv_protocol")), "_")
 		if name != "" && name != "@" {
@@ -664,12 +664,12 @@ func (s *DnsService) CleanRecord(in map[string]string, zone string) (*CleanRecor
 	errs := map[string]string{}
 	isType := false
 	for _, t := range DnsRecordTypes {
-		if t == type {
+		if t == recType {
 			isType = true
 		}
 	}
 	if !isType {
-		errs["type"] = "Choose a record type."
+		errs["type"] = "Choose a record recType."
 	}
 	if name != "@" && name != "*" && !recNameRe.MatchString(name) {
 		errs["name"] = "Use @ for the domain itself, or a name such as www, mail or *.dev."
@@ -686,7 +686,7 @@ func (s *DnsService) CleanRecord(in map[string]string, zone string) (*CleanRecor
 	host := func(h string) bool {
 		return len(h) <= 253 && recHostRe.MatchString(strings.ToLower(h))
 	}
-	switch type {
+	switch recType {
 	case "A":
 		if ip := net.ParseIP(value); ip == nil || ip.To4() == nil {
 			errs["value"] = "Enter an IPv4 address such as 192.0.2.10."
@@ -699,12 +699,12 @@ func (s *DnsService) CleanRecord(in map[string]string, zone string) (*CleanRecor
 		value = strings.ToLower(value)
 		if value == "" || value == "." || !host(value) || net.ParseIP(strings.TrimRight(value, ".")) != nil {
 			hint := "www.example.com."
-			if type == "NS" {
+			if recType == "NS" {
 				hint = "ns1.example.com."
 			}
 			errs["value"] = "Enter a host name (not an address), e.g. " + hint + " A name ending in a dot is absolute."
 		}
-		if type == "PTR" && !strings.HasSuffix(zone, ".arpa") {
+		if recType == "PTR" && !strings.HasSuffix(zone, ".arpa") {
 			errs["type"] = "PTR records belong in reverse zones (in-addr.arpa or ip6.arpa)."
 		}
 	case "MX":
@@ -785,12 +785,12 @@ func (s *DnsService) CleanRecord(in map[string]string, zone string) (*CleanRecor
 	}
 	return &CleanRecord{
 		Name:     name,
-		Type:     type,
+		Type:     recType,
 		TTL:      ttl,
 		Value:    value,
-		Priority: priorityOrZero(type, priority, prioOK),
-		Weight:   srvInt(type, weight, weightOK),
-		Port:     srvInt(type, port, portOK),
+		Priority: priorityOrZero(recType, priority, prioOK),
+		Weight:   srvInt(recType, weight, weightOK),
+		Port:     srvInt(recType, port, portOK),
 	}, nil
 }
 

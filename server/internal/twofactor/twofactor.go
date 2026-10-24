@@ -208,7 +208,7 @@ func sha256hex(s string) string {
 }
 
 // normalizeRecovery lowercases and strips non-alphanumerics
-// (strtolower(preg_replace('/[^A-Za-z0-9]/', '', $code))).
+// (strtolower(preg_replace('/[^A-Za-z0-9]/', ”, $code))).
 func normalizeRecovery(code string) string {
 	var b strings.Builder
 	for _, r := range strings.ToLower(code) {

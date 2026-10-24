@@ -145,9 +145,9 @@ func shellRows(st *shellStatusData) []shellViewRow {
 	for _, a := range st.Accounts {
 		row := shellViewRow{
 			User: a.User, Owner: a.Owner,
-			Websites:      a.Folder,
-			SSHLogin:      a.SSHLogin, Keys: a.Keys, PasswordLogin: a.PasswordLogin,
-			Mode:          a.Mode, Effective: a.Effective,
+			Websites: a.Folder,
+			SSHLogin: a.SSHLogin, Keys: a.Keys, PasswordLogin: a.PasswordLogin,
+			Mode: a.Mode, Effective: a.Effective,
 			EffectiveLabel: a.Effective, EffectiveClass: "",
 		}
 		if l, ok := labels[a.Effective]; ok {
@@ -199,10 +199,10 @@ func (s *Server) shellAccessIndex(w http.ResponseWriter, r *http.Request) {
 	okMsg, _ := sess.PullFlash("success")
 	errMsg, _ := sess.PullFlash("error")
 	s.render(w, "security_shell", map[string]any{
-		"User":       user,
-		"CSRF":       session.CSRFToken(sess),
-		"Status":     status,
-		"Rows":       func() []shellViewRow {
+		"User":   user,
+		"CSRF":   session.CSRFToken(sess),
+		"Status": status,
+		"Rows": func() []shellViewRow {
 			if status == nil {
 				return nil
 			}
@@ -419,8 +419,12 @@ var securityReturnTo = map[string]bool{
 	"/security/fail2ban": true, "/security/ssh": true,
 }
 
-func (s *Server) securityConfirm(w http.ResponseWriter, r *http.Request) { s.securityGuardAction(w, r, "confirm") }
-func (s *Server) securityUndo(w http.ResponseWriter, r *http.Request)   { s.securityGuardAction(w, r, "undo") }
+func (s *Server) securityConfirm(w http.ResponseWriter, r *http.Request) {
+	s.securityGuardAction(w, r, "confirm")
+}
+func (s *Server) securityUndo(w http.ResponseWriter, r *http.Request) {
+	s.securityGuardAction(w, r, "undo")
+}
 
 func (s *Server) securityGuardAction(w http.ResponseWriter, r *http.Request, which string) {
 	sess := sessionFrom(r.Context())

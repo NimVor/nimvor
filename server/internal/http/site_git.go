@@ -208,17 +208,17 @@ func (s *Server) gitPageData(w http.ResponseWriter, r *http.Request, user *ident
 		}
 	}
 	data := map[string]any{
-		"User":                       user,
-		"CSRF":                       session.CSRFToken(sessionFrom(r.Context())),
-		"Site":                       site,
-		"Cfg":                        cfg,
-		"KeyError":                   keyError,
-		"History":                    gitHistoryViews(history),
-		"WebhookURL":                 webhookURL,
-		"WebhookSecret":              webhookSecret,
-		"CanManage":                  true, // the route itself is deploy.manage-gated
-		"Form":                       form,
-		"Errors":                     fieldErrs,
+		"User":                     user,
+		"CSRF":                     session.CSRFToken(sessionFrom(r.Context())),
+		"Site":                     site,
+		"Cfg":                      cfg,
+		"KeyError":                 keyError,
+		"History":                  gitHistoryViews(history),
+		"WebhookURL":               webhookURL,
+		"WebhookSecret":            webhookSecret,
+		"CanManage":                true, // the route itself is deploy.manage-gated
+		"Form":                     form,
+		"Errors":                   fieldErrs,
 		"DocumentRootServesDeploy": cfg != nil && cfg.Path != "" && !strings.HasPrefix(site.DocumentRoot, strings.TrimSuffix(site.Root, "/")+"/"+cfg.Path),
 	}
 	data["Success"], _ = sess.PullFlash("success")

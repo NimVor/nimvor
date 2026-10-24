@@ -128,7 +128,7 @@ func backupScheduleInt(r *http.Request, field string, def int) int {
 // backupScheduleFlag mirrors PHP's filter_var($input[$field] ?? true,
 // FILTER_VALIDATE_BOOL) for the hidden-0 + checkbox-1 pairs.
 func backupScheduleFlag(r *http.Request, field string) bool {
-	v, ok := r.Form[field]
+	_, ok := r.Form[field]
 	if !ok {
 		return true
 	}

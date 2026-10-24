@@ -279,4 +279,3 @@ type ModsecVendorInfo struct {
 	FirstID     int
 	LastID      int
 }
-

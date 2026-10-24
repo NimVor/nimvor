@@ -94,7 +94,7 @@ func (s *Server) siteLogs(w http.ResponseWriter, r *http.Request) {
 	var agentErr *agent.Error
 	raw, err := s.agent.Call(ctx, "logs.sources", map[string]any{"domain": site.Domain})
 	if err != nil {
-		if ae := &agent.Error{}; errors.As(err, &ae) {
+		if ae := (&agent.Error{}); errors.As(err, &ae) {
 			agentErr = ae
 		} else {
 			s.log.Error("logs.sources", "site", site.ID, "error", err)
@@ -173,10 +173,10 @@ func logCategoryTitle(key string) (string, bool) {
 }
 
 var (
-	logPHPUnitRe   = regexp.MustCompile(`^php.*fpm`)
-	logMailUnitRe  = regexp.MustCompile(`^(postfix|dovecot|rspamd|whacp-opendkim|whacp-greylist|whacp-mailrate)`)
-	logDBUnitRe    = regexp.MustCompile(`^(mariadb|mysql)`)
-	logSecUnitRe   = regexp.MustCompile(`^(fail2ban|sshd?|ssh)\.`)
+	logPHPUnitRe  = regexp.MustCompile(`^php.*fpm`)
+	logMailUnitRe = regexp.MustCompile(`^(postfix|dovecot|rspamd|whacp-opendkim|whacp-greylist|whacp-mailrate)`)
+	logDBUnitRe   = regexp.MustCompile(`^(mariadb|mysql)`)
+	logSecUnitRe  = regexp.MustCompile(`^(fail2ban|sshd?|ssh)\.`)
 )
 
 // logCategory is the kind a log source belongs to (LogsController::category).
@@ -225,7 +225,7 @@ func (s *Server) logsIndex(w http.ResponseWriter, r *http.Request) {
 	var agentErr *agent.Error
 	raw, err := s.agent.Call(ctx, "logs.sources", nil)
 	if err != nil {
-		if ae := &agent.Error{}; errors.As(err, &ae) {
+		if ae := (&agent.Error{}); errors.As(err, &ae) {
 			agentErr = ae
 		} else {
 			s.log.Error("logs.sources", "error", err)
