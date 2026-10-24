@@ -56,6 +56,39 @@ func (r *Repository) String(ctx context.Context, key, def string) (string, error
 	return raw, nil
 }
 
+// Prefix returns every setting whose key starts with prefix, decoded the way
+// String decodes a JSON string. Used by the areas that keep a small keyed
+// collection in settings (the MongoDB per-database notes). The settings table
+// is small, so the prefix is matched in Go and the LIKE wildcards in a key
+// ("_", "%") can never widen the match.
+func (r *Repository) Prefix(ctx context.Context, prefix string) (map[string]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT key, value FROM settings`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var key, raw string
+		if err := rows.Scan(&key, &raw); err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(key, prefix) {
+			continue
+		}
+		if strings.HasPrefix(raw, `"`) {
+			var str string
+			if err := json.Unmarshal([]byte(raw), &str); err != nil {
+				continue
+			}
+			out[key] = str
+			continue
+		}
+		out[key] = raw
+	}
+	return out, rows.Err()
+}
+
 // Int returns the setting as an integer, or def when the row is absent or not
 // a whole number (PHP: (int) cast of the JSON scalar).
 func (r *Repository) Int(ctx context.Context, key string, def int) (int, error) {
