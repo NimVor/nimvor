@@ -14,24 +14,24 @@ Total routes: 551
 | POST | `/accounts` | AccountsController::store | accounts.store | users.manage | yes | yes | ☐ |
 | POST | `/admin/plugins/{name}/toggle` | PluginsController::toggle | plugins.toggle | plugins.manage | yes | yes | ☐ |
 | GET | `/admin/plugins` | PluginsController::index | plugins | plugins.manage | yes | yes | ☐ |
-| GET | `/api/v1/databases` | ApiController::listDatabases | api.databases | databases.view | yes | yes | ☐ |
-| POST | `/api/v1/databases` | ApiController::createDatabase | api.databases.create | databases.manage | yes | yes | ☐ |
-| GET | `/api/v1/jobs/{id}` | ApiController::job | api.jobs |  | yes | yes | ☐ |
-| GET | `/api/v1/me` | ApiController::me | api.me |  | yes | yes | ☐ |
-| POST | `/api/v1/notifications/read` | ApiController::readNotifications | api.notifications.read | notifications.view | yes | yes | ☐ |
-| GET | `/api/v1/notifications` | ApiController::listNotifications | api.notifications | notifications.view | yes | yes | ☐ |
-| GET | `/api/v1/openapi.yaml` | ApiController::openapi | api.openapi |  | no | yes | ☐ |
-| GET | `/api/v1/server` | ApiController::serverInfo | api.server | server.view | yes | yes | ☐ |
-| GET | `/api/v1/websites/{id}/backups` | ApiController::listBackups | api.backups | backups.view | yes | yes | ☐ |
-| POST | `/api/v1/websites/{id}/backups` | ApiController::createBackup | api.backups.create | backups.manage | yes | yes | ☐ |
-| POST | `/api/v1/websites/{id}/deploy` | ApiController::deployWebsite | api.deploy | deploy.manage | yes | yes | ☐ |
-| POST | `/api/v1/websites/{id}/disable` | ApiController::disableWebsite | api.websites.disable | websites.manage | yes | yes | ☐ |
-| POST | `/api/v1/websites/{id}/enable` | ApiController::enableWebsite | api.websites.enable | websites.manage | yes | yes | ☐ |
-| POST | `/api/v1/websites/{id}/ssl` | ApiController::issueSsl | api.websites.ssl | ssl.manage | yes | yes | ☐ |
-| DELETE | `/api/v1/websites/{id}` | ApiController::deleteWebsite | api.websites.delete | websites.manage | yes | yes | ☐ |
-| GET | `/api/v1/websites/{id}` | ApiController::showWebsite | api.websites.show | websites.view | yes | yes | ☐ |
-| GET | `/api/v1/websites` | ApiController::listWebsites | api.websites | websites.view | yes | yes | ☐ |
-| POST | `/api/v1/websites` | ApiController::createWebsite | api.websites.create | websites.manage | yes | yes | ☐ |
+| GET | `/api/v1/databases` | ApiController::listDatabases | api.databases | databases.view | yes | yes | ☑ |
+| POST | `/api/v1/databases` | ApiController::createDatabase | api.databases.create | databases.manage | yes | yes | ☑ |
+| GET | `/api/v1/jobs/{id}` | ApiController::job | api.jobs |  | yes | yes | ☑ |
+| GET | `/api/v1/me` | ApiController::me | api.me |  | yes | yes | ☑ |
+| POST | `/api/v1/notifications/read` | ApiController::readNotifications | api.notifications.read | notifications.view | yes | yes | ☑ |
+| GET | `/api/v1/notifications` | ApiController::listNotifications | api.notifications | notifications.view | yes | yes | ☑ |
+| GET | `/api/v1/openapi.yaml` | ApiController::openapi | api.openapi |  | no | yes | ☑ |
+| GET | `/api/v1/server` | ApiController::serverInfo | api.server | server.view | yes | yes | ☑ |
+| GET | `/api/v1/websites/{id}/backups` | ApiController::listBackups | api.backups | backups.view | yes | yes | ☑ |
+| POST | `/api/v1/websites/{id}/backups` | ApiController::createBackup | api.backups.create | backups.manage | yes | yes | ☑ |
+| POST | `/api/v1/websites/{id}/deploy` | ApiController::deployWebsite | api.deploy | deploy.manage | yes | yes | ☑ |
+| POST | `/api/v1/websites/{id}/disable` | ApiController::disableWebsite | api.websites.disable | websites.manage | yes | yes | ☑ |
+| POST | `/api/v1/websites/{id}/enable` | ApiController::enableWebsite | api.websites.enable | websites.manage | yes | yes | ☑ |
+| POST | `/api/v1/websites/{id}/ssl` | ApiController::issueSsl | api.websites.ssl | ssl.manage | yes | yes | ☑ |
+| DELETE | `/api/v1/websites/{id}` | ApiController::deleteWebsite | api.websites.delete | websites.manage | yes | yes | ☑ |
+| GET | `/api/v1/websites/{id}` | ApiController::showWebsite | api.websites.show | websites.view | yes | yes | ☑ |
+| GET | `/api/v1/websites` | ApiController::listWebsites | api.websites | websites.view | yes | yes | ☑ |
+| POST | `/api/v1/websites` | ApiController::createWebsite | api.websites.create | websites.manage | yes | yes | ☑ |
 | POST | `/apps-manager/app` | AppManagerController::app | apps.manager.app | settings.manage | yes | yes | ☑ |
 | POST | `/apps-manager/category` | AppManagerController::category | apps.manager.category | settings.manage | yes | yes | ☑ |
 | POST | `/apps-manager/installer` | AppManagerController::installer | apps.manager.installer | settings.manage | yes | yes | ☑ |

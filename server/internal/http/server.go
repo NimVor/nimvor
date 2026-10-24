@@ -50,6 +50,7 @@ type Server struct {
 	loginIPs  *security.LoginIpVerifier
 	hulk      *security.Hulk
 	cfDo      cfTransport // per-website Cloudflare transport (nil = real)
+	apiAuth   *auth.APIAuthenticator
 }
 
 // New builds the server and registers the routes implemented so far. It
@@ -87,6 +88,7 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		policy:    policy,
 		loginIPs:  security.NewLoginIpVerifier(db),
 		hulk:      security.NewHulk(db, st),
+		apiAuth:   auth.NewAPIAuthenticator(db, users),
 	}
 	s.routes()
 	return s, nil
@@ -109,6 +111,27 @@ func (s *Server) routes() {
 		fs := http.FileServer(http.Dir(s.cfg.StaticDir))
 		s.mux.Handle("GET /assets/", http.StripPrefix("/assets/", fs))
 	}
+
+	// REST v1 API (ApiController). Registered before web routes so they take
+	// precedence. Permissions mirror panel/routes/web.php API group.
+	s.mux.HandleFunc("GET /api/v1/openapi.yaml", s.apiPublic(s.apiOpenapi))
+	s.mux.HandleFunc("GET /api/v1/me", s.apiGuard("", false, s.apiMe))
+	s.mux.HandleFunc("GET /api/v1/server", s.apiGuard("server.view", false, s.apiServerInfo))
+	s.mux.HandleFunc("GET /api/v1/websites", s.apiGuard("websites.view", false, s.apiListWebsites))
+	s.mux.HandleFunc("POST /api/v1/websites", s.apiGuard("websites.manage", true, s.apiCreateWebsite))
+	s.mux.HandleFunc("GET /api/v1/websites/{id}", s.apiGuard("websites.view", false, s.apiShowWebsite))
+	s.mux.HandleFunc("POST /api/v1/websites/{id}/enable", s.apiGuard("websites.manage", true, s.apiEnableWebsite))
+	s.mux.HandleFunc("POST /api/v1/websites/{id}/disable", s.apiGuard("websites.manage", true, s.apiDisableWebsite))
+	s.mux.HandleFunc("DELETE /api/v1/websites/{id}", s.apiGuard("websites.manage", true, s.apiDeleteWebsite))
+	s.mux.HandleFunc("POST /api/v1/websites/{id}/ssl", s.apiGuard("ssl.manage", true, s.apiIssueSsl))
+	s.mux.HandleFunc("GET /api/v1/websites/{id}/backups", s.apiGuard("backups.view", false, s.apiListBackups))
+	s.mux.HandleFunc("POST /api/v1/websites/{id}/backups", s.apiGuard("backups.manage", true, s.apiCreateBackup))
+	s.mux.HandleFunc("POST /api/v1/websites/{id}/deploy", s.apiGuard("deploy.manage", true, s.apiDeployWebsite))
+	s.mux.HandleFunc("GET /api/v1/databases", s.apiGuard("databases.view", false, s.apiListDatabases))
+	s.mux.HandleFunc("POST /api/v1/databases", s.apiGuard("databases.manage", true, s.apiCreateDatabase))
+	s.mux.HandleFunc("GET /api/v1/jobs/{id}", s.apiGuard("", false, s.apiJob))
+	s.mux.HandleFunc("GET /api/v1/notifications", s.apiGuard("notifications.view", false, s.apiListNotifications))
+	s.mux.HandleFunc("POST /api/v1/notifications/read", s.apiGuard("notifications.view", true, s.apiReadNotifications))
 
 	// Authentication.
 	s.mux.HandleFunc("GET /login", s.sessionCtx(s.showLogin))
