@@ -38,10 +38,11 @@ func (s *Server) usersCreate(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "users_form", data)
 }
 
-// usersStore POST /users — creates a panel user. Stub (UserService::create
-// is heavy).
+// usersStore POST /users — creates a panel user. Mirrors
+// UsersController::store / UserService::create.
 func (s *Server) usersStore(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	actor := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -50,8 +51,171 @@ func (s *Server) usersStore(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "Panel-user creation is not yet ported in the Go panel.")
-	http.Redirect(w, r, "/users/new", http.StatusSeeOther)
+	repo := identity.NewRepository(s.db)
+	username := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
+	email := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
+	display := strings.TrimSpace(r.FormValue("display_name"))
+	password := r.FormValue("password")
+	confirm := r.FormValue("password_confirmation")
+	roleID, _ := strconv.ParseInt(r.FormValue("role_id"), 10, 64)
+	planIDRaw, _ := strconv.ParseInt(r.FormValue("plan_id"), 10, 64)
+	active := r.FormValue("is_active") == "1"
+	errs := map[string]string{}
+	// Username: 3–32 lowercase [a-z0-9._-], start with a letter.
+	if !validUsername(username) {
+		errs["username"] = "Use 3–32 lowercase letters, digits, dots, dashes or underscores, starting with a letter."
+	} else if taken, e := repo.UsernameExists(username, 0); e == nil && taken {
+		errs["username"] = "This username is already taken."
+	}
+	if email == "" || !isEmail(email) || len(email) > 190 {
+		errs["email"] = "Enter a valid email address."
+	} else if taken, e := repo.EmailExists(email, 0); e == nil && taken {
+		errs["email"] = "This email address is already in use."
+	}
+	if len(display) > 100 || strings.ContainsAny(display, "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x7f") {
+		errs["display_name"] = "Use at most 100 printable characters."
+	}
+	var newRoleName string
+	if roleID <= 0 {
+		errs["role_id"] = "Choose a valid role."
+	} else if rr, e := s.roles.Find(r.Context(), roleID); e != nil {
+		errs["role_id"] = "Choose a valid role."
+	} else {
+		newRoleName = rr.Name
+	}
+	if weak, wErr := s.policy.Check(r.Context(), password, username); wErr != nil {
+		errs["password"] = "Password policy unavailable."
+	} else if weak != "" {
+		errs["password"] = weak
+	} else if password != confirm {
+		errs["password_confirmation"] = "The passwords do not match."
+	}
+	// Role-assignment guard: the actor must hold every permission the new
+	// role grants (assertCanAssign).
+	if _, blocked := errs["role_id"]; !blocked {
+		mine, mErr := s.roles.PermissionsFor(r.Context(), actor.RoleID)
+		theirs, tErr := s.roles.PermissionsFor(r.Context(), roleID)
+		if mErr != nil || tErr != nil || !strContainsAll(mine, theirs) {
+			errs["role_id"] = "You cannot assign a role with permissions you do not have yourself."
+		}
+	}
+	// Reseller (scope=own) restriction: can only create customers (no
+	// users.manage roles), customer-limit applies, parent_id = actor.
+	var parentID *int64
+	if actor.RoleScope != "all" {
+		// Forbid any role that carries users.manage (i.e. staff roles).
+		if _, blocked := errs["role_id"]; !blocked {
+			perms, _ := s.roles.PermissionsFor(r.Context(), roleID)
+			if strSliceHas(perms, "users.manage") {
+				errs["role_id"] = "You can only create hosting customers."
+			}
+		}
+		if len(errs) == 0 {
+			pl := hosting.NewPlanLimits(s.db)
+			if pErr := pl.AssertCanCreate(r.Context(), "customers", &actor.ID, 1); pErr != nil {
+				errs["username"] = pErr.Error()
+			} else {
+				aid := actor.ID
+				parentID = &aid
+			}
+		}
+	}
+	// Plan assignment: must be assignable to this actor.
+	var planID *int64
+	if planIDRaw > 0 {
+		pid := planIDRaw
+		planID = &pid
+	}
+	if len(errs) == 0 {
+		pr := hosting.NewPlanRepository(s.db)
+		if pErr := pr.AssertAssignable(r.Context(), actor, planID); pErr != nil {
+			errs["plan_id"] = pErr.Error()
+		}
+	}
+	if len(errs) > 0 {
+		for _, m := range errs {
+			sess.Flash("error", m)
+			break
+		}
+		http.Redirect(w, r, "/users/new", http.StatusSeeOther)
+		return
+	}
+	pwHash, herr := identity.HashPassword(password)
+	if herr != nil {
+		sess.Flash("error", herr.Error())
+		http.Redirect(w, r, "/users/new", http.StatusSeeOther)
+		return
+	}
+	id, cerr := repo.Create(r.Context(), &identity.NewUser{
+		Username:     username,
+		Email:        email,
+		DisplayName:  display,
+		PasswordHash: pwHash,
+		RoleID:       roleID,
+		IsActive:     active,
+	})
+	if cerr != nil {
+		sess.Flash("error", cerr.Error())
+		http.Redirect(w, r, "/users/new", http.StatusSeeOther)
+		return
+	}
+	if parentID != nil || planID != nil {
+		_ = repo.SetOwnership(r.Context(), id, parentID, planID)
+	}
+	uid := actor.ID
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "user.create", TargetType: "user", TargetID: strconv.FormatInt(id, 10),
+		Result: audit.Success,
+		Details: map[string]any{
+			"username":  username,
+			"role_id":   roleID,
+			"parent_id": parentID,
+			"plan_id":   planID,
+		},
+		UserID: &uid, Username: actor.Username,
+	})
+	_ = newRoleName
+	sess.Flash("success", "User created.")
+	http.Redirect(w, r, "/users", http.StatusSeeOther)
+}
+
+// validUsername implements the PHP regex ^[a-z][a-z0-9._-]{2,31}$ (3–32
+// chars total, starts with a letter).
+func validUsername(u string) bool {
+	if len(u) < 3 || len(u) > 32 {
+		return false
+	}
+	if u[0] < 'a' || u[0] > 'z' {
+		return false
+	}
+	for i := 1; i < len(u); i++ {
+		c := u[i]
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+// strSliceHas reports whether the slice contains s.
+func strSliceHas(hay []string, needle string) bool {
+	for _, v := range hay {
+		if v == needle {
+			return true
+		}
+	}
+	return false
+}
+
+// strContainsAll reports whether all required strings appear in owned.
+func strContainsAll(owned []string, required []string) bool {
+	for _, r := range required {
+		if !strSliceHas(owned, r) {
+			return false
+		}
+	}
+	return true
 }
 
 // usersEdit GET /users/{id}/edit — edit-panel-user form. Best-effort loads
@@ -130,7 +294,7 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 	errs := map[string]string{}
 	if email == "" || !isEmail(email) || len(email) > 190 {
 		errs["email"] = "Enter a valid email address."
-	} else if taken, e := repo.EmailExists(r.Context(), email, id); e == nil && taken {
+	} else if taken, e := repo.EmailExists(r.Context(), email, int(id)); e == nil && taken {
 		errs["email"] = "This email address is already in use."
 	}
 	if len(display) > 100 {

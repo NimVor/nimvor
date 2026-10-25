@@ -2147,3 +2147,69 @@ Tally remains 551 ☑ / 0 ◑ / 0 ☐.
 Tally remains 551 ☑ / 0 ◑ / 0 ☐. Remaining PHP-stub flash handlers:
 `usersStore` (POST /users — create), accounts create/terminate/confirm-
 terminate (3), plugins.toggle (1), and the setup-wizard JSON step runner.
+
+## Batch 98 — Panel-user create (POST /users) ☑
+
+- `server/internal/authz/authorizer.go`: added `RoleRepository.Find(ctx, id)`
+  so the create/update handlers can validate role existence and load role
+  metadata without re-running All.
+- `server/internal/http/users_crud.go` — `usersStore` (POST `/users`):
+  - Replaces the "not yet ported" flash stub with the real create flow
+    matching `UsersController::store` / `UserService::create`.
+  - Validates username (3–32 `[a-z][a-z0-9._-]*` regex + uniqueness),
+    email (isEmail + length ≤190 + uniqueness), display_name ≤100
+    printable chars (no control/del), role_id existence, password
+    strength via `s.policy.Check` + confirmation.
+  - `assertCanAssign`: actor must hold every permission granted by the
+    new role (diff against `PermissionsFor(actor.RoleID)`); blocks
+    privilege escalation.
+  - Own-scope (reseller) restriction: forbids creating roles with
+    `users.manage` (staff), enforces the `customers` plan limit via
+    `PlanLimits.AssertCanCreate`, and sets `parent_id = actor`.
+  - Plan assignment validated through `PlanRepository.AssertAssignable`;
+    applied via `identity.Repository.SetOwnership`.
+  - Password hashed with `identity.HashPassword`, account inserted via
+    `identity.Repository.Create`, and a `user.create` audit is written
+    with username/role_id/parent_id/plan_id.
+  - Helpers added at file scope: `validUsername`, `strSliceHas`,
+    `strContainsAll`.
+- Cleaned up an earlier duplicated `CountActiveWithRole` /
+  `EmailExists` / `UsernameExists` block in `identity/users.go` that
+  conflicted with the existing canonical helpers; call sites now use
+  the original `(int)` signatures.
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐. Remaining PHP-stub flash handlers:
+accounts create/terminate/confirm-terminate (3), plugins.toggle (1),
+setup-wizard JSON step runner.
+
+## Batch 99 — Hosting-account create (POST /accounts) ☑
+
+- `server/internal/http/accounts.go` — `accountsStore` (POST `/accounts`):
+  - Replaced the stub with a real call into `hosting.AccountService::Create`
+    which provisions the panel login (customer or reseller via the
+    `reseller` checkbox), plan assignment, hosting options, initial
+    website (with optional www alias), DNS zone, and rolls back the
+    login if website creation fails. The service itself was already
+    implemented in an earlier batch; this commit wires the HTTP
+    endpoint to it.
+  - Errors (including `hosting.ValidationError` per-field messages) are
+    surfaced as flash errors; when the `generate` checkbox is set the
+    service returns an auto-generated password which is shown in the
+    success flash.
+  - `accountService(r, user)` builds the service graph with per-request
+    audit hooks bound through `accountAuditHook` (same pattern as
+    `websiteService`/`websiteAuditHook`); `websiteAuditHook` is
+    reused for website-related events inside account creation.
+- `accountsCreate` now sets `Stub=false` and passes `CanReseller`
+  (true when the actor has `role_scope = "all"`).
+- `server/internal/web/templates/accounts_create.html`: replaced the
+  `<pre>{{.Plans}}</pre>` stub page with a working form covering
+  domain (optional), username, contact email, display name, password +
+  confirmation, generate-password toggle, www alias, reseller toggle
+  (admin-only) and plan selector, posting to POST `/accounts` with
+  CSRF.
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐. Remaining PHP-stub flash handlers:
+accounts terminate/confirm-terminate (2) — heavy multi-resource
+provisioning requiring agent jobs; plugins.toggle (1); setup-wizard
+JSON step runner.

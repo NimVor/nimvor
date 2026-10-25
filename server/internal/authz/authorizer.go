@@ -50,6 +50,20 @@ func (r *RoleRepository) All(ctx context.Context) ([]RoleRow, error) {
 	return out, rows.Err()
 }
 
+// Find loads a single role by id. Returns sql.ErrNoRows when missing.
+// Mirrors RoleRepository::find.
+func (r *RoleRepository) Find(ctx context.Context, id int64) (*RoleRow, error) {
+	var rr RoleRow
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id, name, label, description, is_system, scope, require_two_factor FROM roles WHERE id = ?`,
+		id,
+	).Scan(&rr.ID, &rr.Name, &rr.Label, &rr.Description, &rr.IsSystem, &rr.Scope, &rr.RequireTwoFactor)
+	if err != nil {
+		return nil, err
+	}
+	return &rr, nil
+}
+
 // SetRequireTwoFactor is RoleRepository::setRequireTwoFactor.
 func (r *RoleRepository) SetRequireTwoFactor(ctx context.Context, id int64, required bool) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE roles SET require_two_factor = ? WHERE id = ?`, required, id)

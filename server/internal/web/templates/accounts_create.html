@@ -11,11 +11,72 @@
   <form method="post" action="/logout" class="logout-form"><input type="hidden" name="_token" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
 </header>
 <main class="container">
-  <h1>New account</h1>
+  <h1>Create a new hosting account</h1>
+  <p class="text-muted">A hosting account with its first website, DNS and plan assignment.</p>
   {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
   {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  {{if .Stub}}<p class="alert alert-warning">The full account-provisioning flow (system user, website, DNS zone, plan assignment) is not yet ported in the Go panel. The plan list below is shown for reference.</p>{{end}}
-  <pre class="font-monospace small">{{.Plans}}</pre>
+  {{if .Stub}}<p class="alert alert-warning">The full account-provisioning flow is not yet ported in the Go panel.</p>{{end}}
+  <form method="post" action="/accounts" novalidate>
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <div class="card mb-3">
+      <div class="card-header">Domain and login</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label" for="a-domain">Domain</label>
+          <input class="form-control" id="a-domain" name="domain" placeholder="example.com" autocomplete="off" spellcheck="false">
+          <div class="form-text">Optional. When supplied, a website and DNS zone are provisioned for the account (with www).</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="a-username">Username</label>
+          <input class="form-control" id="a-username" name="username" required maxlength="31" autocomplete="off" spellcheck="false">
+          <div class="form-text">3–31 lowercase letters, digits, - or _, starting with a letter. Also used as the system account.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="a-email">Contact email</label>
+          <input class="form-control" id="a-email" type="email" name="email" required maxlength="190">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="a-display">Display name</label>
+          <input class="form-control" id="a-display" name="display_name" maxlength="100">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="a-password">Password</label>
+          <input class="form-control font-monospace" type="password" id="a-password" name="password" autocomplete="new-password" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="a-password2">Confirm password</label>
+          <input class="form-control font-monospace" type="password" id="a-password2" name="password_confirmation" autocomplete="new-password" required>
+        </div>
+        <div class="form-check mb-2">
+          <input type="hidden" name="generate" value="0">
+          <input class="form-check-input" type="checkbox" id="a-generate" name="generate" value="1">
+          <label class="form-check-label" for="a-generate">Generate a strong password</label>
+        </div>
+        <div class="form-check mb-2">
+          <input type="hidden" name="www" value="0">
+          <input class="form-check-input" type="checkbox" id="a-www" name="www" value="1" checked>
+          <label class="form-check-label" for="a-www">Add www. alias for the domain</label>
+        </div>
+        {{if .CanReseller}}<div class="form-check mb-2">
+          <input type="hidden" name="reseller" value="0">
+          <input class="form-check-input" type="checkbox" id="a-reseller" name="reseller" value="1">
+          <label class="form-check-label" for="a-reseller">Create as reseller</label>
+        </div>{{end}}
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header">Package</div>
+      <div class="card-body">
+        <label class="form-label" for="a-plan">Hosting plan</label>
+        <select class="form-select" id="a-plan" name="plan_id">
+          <option value="">No plan (unlimited)</option>
+          {{range .Plans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" type="submit">Create account</button>
+    <a class="btn btn-link" href="/users">Cancel</a>
+  </form>
 </main>
 </body>
 </html>{{end}}
