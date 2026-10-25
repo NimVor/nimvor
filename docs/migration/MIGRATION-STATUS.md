@@ -1921,3 +1921,34 @@ Tally remains 551 ☑ / 0 ◑ / 0 ☐.
 All four handlers mirror the PHP SslCenterController flows (CSRF validation, audit entries, flash + 303 redirect, 120s timeouts where appropriate).
 
 Tally remains 551 ☑ / 0 ◑ / 0 ☐.
+
+## Batch 92 — Settings test email + account suspend/unsuspend ☑
+
+- `server/internal/http/server.go`: added a `mailer *mail.Mailer` field and
+  wired the already-constructed `ml` Mailer into the Server struct so
+  handlers can send outgoing email. Also explicitly initialized `cfDo` to
+  `nil` (the zero value was already used, this just makes it explicit).
+- `server/internal/http/settings_handlers.go` (`settingsMailTest`, POST
+  `/settings/mail/test`): now sends a short plain-text "WhaCP test message"
+  to the current user's email via `s.mailer.Send`, audits
+  `settings.mail_test` success/failure (recipient + error), and flashes a
+  user-facing success or the delivery error. Also updated the misleading
+  "outgoing mail not yet wired" flash on `settingsMail` save to "Send a
+  test message to check them."
+- `server/internal/http/users_crud.go` (`usersSuspend`/`usersUnsuspend`,
+  POST `/users/{id}/suspend|unsuspend`): now flip the `suspended_at` /
+  `suspend_reason` columns directly (COALESCE so re-suspend keeps the
+  original timestamp; reason whitespace-collapsed and capped at 250 bytes
+  to match PHP `SuspensionService`). Added staff-only (IsAll) guard,
+  self-suspend refusal, staff-account refusal, and target-exists checks
+  reusing `canManageUser`/`FindByID`. Audit `account.suspend` /
+  `account.unsuspend` with username and reason. The existing `canAct` /
+  `suspended` SQL gates already prevent sign-ins of suspended users (and
+  their reseller children); server-side service shutdown (websites/mail/
+  DB/cron/workers/SSH) is re-applied by the scheduler/enforce job after
+  the flag flips.
+- Drive-by: fixed a stray `}\tif` formatting/parse bug in
+  `server/internal/http/backups_handlers.go` that would have blocked a
+  real build.
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐.
