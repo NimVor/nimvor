@@ -76,6 +76,10 @@ func (r *Repository) Find(ctx context.Context, id int64) (*User, error) {
 	return r.scanUser(r.db.QueryRowContext(ctx, q, id))
 }
 
+// FindByID is an alias for Find, kept for callers that read more naturally
+// with the longer name.
+func (r *Repository) FindByID(ctx context.Context, id int64) (*User, error) { return r.Find(ctx, id) }
+
 // ManagedUser is a user row for the admin list, with the plan name.
 type ManagedUser struct {
 	User

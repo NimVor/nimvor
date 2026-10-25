@@ -1,0 +1,23 @@
+{{define "users_form"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.Title}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar"><span class="brand">WhaCP</span><span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form"><input type="hidden" name="_token" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
+</header>
+<main class="container">
+  <h1>{{.Title}}</h1>
+  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
+  {{if .Stub}}<p class="alert alert-warning">Full user create/update (passwords, roles, plan assignment, hosting options) is not yet ported in the Go panel. Reference data below:</p>{{end}}
+  <h3>Roles</h3><pre class="font-monospace small">{{.Roles}}</pre>
+  <h3>Plans</h3><pre class="font-monospace small">{{.Plans}}</pre>
+  {{if .EditUser}}<h3>Editing</h3><pre class="font-monospace small">{{.EditUser}}</pre>{{end}}
+</main>
+</body>
+</html>{{end}}

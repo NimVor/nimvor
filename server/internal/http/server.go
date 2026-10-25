@@ -886,6 +886,25 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /accounts/terminate", s.guard("accounts.terminate", "users.manage", s.accountsTerminate))
 	s.mux.HandleFunc("POST /accounts/terminate/confirm", s.guard("accounts.terminate.confirm", "users.manage", s.accountsTerminateConfirm))
 
+	// Panel users CRUD (admin + reseller scoping). Users create/edit render
+	// forms with reference data (roles/plans) and a stub notice; store/update/
+	// destroy/suspend/unsuspend/plan/limits/options/bandwidth-reset are CSRF-
+	// checked stubs. resetTwoFactor is fully implemented (disables TOTP and
+	// removes WebAuthn credentials + audit).
+	s.mux.HandleFunc("GET /users/new", s.guard("users.create", "users.manage", s.usersCreate))
+	s.mux.HandleFunc("POST /users", s.guard("users.store", "users.manage", s.usersStore))
+	s.mux.HandleFunc("GET /users/{id}/edit", s.guard("users.edit", "users.manage", s.usersEdit))
+	s.mux.HandleFunc("POST /users/{id}", s.guard("users.update", "users.manage", s.usersUpdate))
+	s.mux.HandleFunc("POST /users/{id}/delete", s.guard("users.delete", "users.manage", s.usersDestroy))
+	s.mux.HandleFunc("POST /users/{id}/two-factor/reset", s.guard("users.2fa.reset", "users.manage", s.usersResetTwoFactor))
+	s.mux.HandleFunc("POST /users/{id}/suspend", s.guard("users.suspend", "users.manage", s.usersSuspend))
+	s.mux.HandleFunc("POST /users/{id}/unsuspend", s.guard("users.unsuspend", "users.manage", s.usersUnsuspend))
+	s.mux.HandleFunc("GET /users/{id}/plan", s.guard("users.plan", "users.manage", s.usersPlan))
+	s.mux.HandleFunc("POST /users/{id}/plan", s.guard("users.plan.change", "users.manage", s.usersChangePlan))
+	s.mux.HandleFunc("POST /users/{id}/limits", s.guard("users.limits", "users.manage", s.usersSaveLimits))
+	s.mux.HandleFunc("POST /users/{id}/hosting-options", s.guard("users.options", "users.manage", s.usersSaveOptions))
+	s.mux.HandleFunc("POST /users/{id}/bandwidth/reset", s.guard("users.bandwidth.reset", "users.manage", s.usersResetBandwidth))
+
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
 	s.mux.HandleFunc("POST /servers", s.guard("servers.store", "servers.manage", s.serversStore))
