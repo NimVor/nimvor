@@ -1394,3 +1394,34 @@ MailFilters, etc.).
 - Cleanup: removed duplicate `writeJSON` in `system.go` (shared helper lives in
   server.go).
 - Docs: **441 ☑ / 4 ◑ / 106 ☐**.
+
+## Batch 72a — Dashboard live + /healthz correction (2 routes) ☑
+
+- `server/internal/http/dashboard_live.go` (NEW): `dashboardLive` handler
+  (GET /dashboard/live) calls agent `system.metrics` + `system.metrics_history`
+  always; `services.status` is only included when the caller holds
+  `services.view` (mirrors PHP's `$this->view->can(P::SERVICES_VIEW)` gate).
+  Any agent failure returns `{success:false,error:{message}}` with HTTP 503.
+- Corrected ROUTE-MATRIX entry for `GET /healthz` from ☐ to ☑ — it has
+  pointed at the shared `s.health` DB-ping handler since early batches
+  (same contract as HealthController::show), just was never ticked.
+- `server/internal/http/server.go`: registered `GET /dashboard/live` under
+  `dashboard.view`.
+- Docs: **443 ☑ / 4 ◑ / 104 ☐** of 551 routes.
+
+## Batch 72b — FfmpegController (4 routes) ☑
+
+- `server/internal/http/ffmpeg.go` (NEW ~200 LOC): 4 handlers
+  - GET /ffmpeg (admin-gated) renders install state, plans table with the
+    ffmpeg flag, and install/uninstall/apply action forms; calls agent
+    `ffmpeg.status` and a simple plans query for the table.
+  - POST /ffmpeg/install queues `packages.install {name:ffmpeg}` with job
+    tracking via `hosting.NewJobTracker` and audit.
+  - POST /ffmpeg/uninstall calls `ffmpeg.uninstall`, audited.
+  - POST /ffmpeg/apply calls `ffmpeg.access` with reconcile=true and
+    flashes the result.
+- `server/internal/web/templates/server_ffmpeg.html` (NEW): minimal page
+  matching the existing server_* template header/topbar pattern.
+- `server/internal/http/server.go`: 4 routes registered (server.view /
+  packages.manage / server.manage gates as in PHP).
+- Docs: **447 ☑ / 4 ◑ / 100 ☐** of 551 routes.

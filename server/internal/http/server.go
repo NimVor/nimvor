@@ -140,6 +140,7 @@ func (s *Server) routes() {
 
 	// Authenticated shell (dashboard). Feature pages are ported in later phases.
 	s.mux.HandleFunc("GET /{$}", s.sessionCtx(s.requireAuth(s.dashboard)))
+	s.mux.HandleFunc("GET /dashboard/live", s.guard("dashboard.live", "dashboard.view", s.dashboardLive))
 
 	// Websites — list + detail. Permission-gated (websites.view) and
 	// tenant-scoped; no plan feature gates the list itself.
@@ -769,6 +770,12 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /password/forgot", s.sessionCtx(s.doForgot))
 	s.mux.HandleFunc("GET /password/reset/{token}", s.sessionCtx(s.showReset))
 	s.mux.HandleFunc("POST /password/reset/{token}", s.sessionCtx(s.doReset))
+
+	// FFmpeg (administrators; installation, plan-based access).
+	s.mux.HandleFunc("GET /ffmpeg", s.guard("ffmpeg", "server.view", s.ffmpegIndex))
+	s.mux.HandleFunc("POST /ffmpeg/install", s.guard("ffmpeg.install", "packages.manage", s.ffmpegInstall))
+	s.mux.HandleFunc("POST /ffmpeg/uninstall", s.guard("ffmpeg.uninstall", "packages.manage", s.ffmpegUninstall))
+	s.mux.HandleFunc("POST /ffmpeg/apply", s.guard("ffmpeg.apply", "server.manage", s.ffmpegApply))
 
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))

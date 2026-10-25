@@ -76,7 +76,7 @@ Total routes: 551
 | GET | `/confirm-password` | AuthController::confirmForm | auth.confirm |  | yes | yes | ☐ |
 | POST | `/confirm-password` | AuthController::confirm | auth.confirm.submit |  | yes | yes | ☐ |
 | GET | `/cron` | DiscoveryController::cron | cron | cron.view | yes | yes | ☑ |
-| GET | `/dashboard/live` | DashboardController::live | dashboard.live | dashboard.view | yes | yes | ☐ |
+| GET | `/dashboard/live` | DashboardController::live | dashboard.live | dashboard.view | yes | yes | ☑ |
 | POST | `/database-users/{id}/assign` | DatabasesController::assign | dbusers.assign | databases.manage | yes | yes | ☑ |
 | POST | `/database-users/{id}/delete` | DatabasesController::deleteUser | dbusers.delete | databases.manage | yes | yes | ☑ |
 | POST | `/database-users/{id}/hosts` | DatabasesController::addHost | dbusers.host | databases.manage | yes | yes | ☑ |
@@ -121,15 +121,15 @@ Total routes: 551
 | POST | `/features/{id}/delete` | FeaturesController::destroy | features.delete | plans.manage | yes | yes | ☐ |
 | GET | `/features` | FeaturesController::index | features | plans.manage | yes | yes | ☐ |
 | POST | `/features` | FeaturesController::store | features.store | plans.manage | yes | yes | ☐ |
-| POST | `/ffmpeg/apply` | FfmpegController::apply | ffmpeg.apply | server.manage | yes | yes | ☐ |
-| POST | `/ffmpeg/install` | FfmpegController::install | ffmpeg.install | packages.manage | yes | yes | ☐ |
-| POST | `/ffmpeg/uninstall` | FfmpegController::uninstall | ffmpeg.uninstall | packages.manage | yes | yes | ☐ |
-| GET | `/ffmpeg` | FfmpegController::index | ffmpeg | server.view | yes | yes | ☐ |
+| POST | `/ffmpeg/apply` | FfmpegController::apply | ffmpeg.apply | server.manage | yes | yes | ☑ |
+| POST | `/ffmpeg/install` | FfmpegController::install | ffmpeg.install | packages.manage | yes | yes | ☑ |
+| POST | `/ffmpeg/uninstall` | FfmpegController::uninstall | ffmpeg.uninstall | packages.manage | yes | yes | ☑ |
+| GET | `/ffmpeg` | FfmpegController::index | ffmpeg | server.view | yes | yes | ☑ |
 | POST | `/ftp/configure` | FtpController::configure | ftp.configure | server.manage | yes | yes | ☑ |
 | POST | `/ftp/disable` | FtpController::disable | ftp.disable | server.manage | yes | yes | ☑ |
 | POST | `/ftp/install` | FtpController::install | ftp.install | packages.manage | yes | yes | ☑ |
 | GET | `/ftp` | FtpController::index | ftp | server.manage | yes | yes | ☑ |
-| GET | `/healthz` | HealthController::show | health |  | no | yes | ☐ |
+| GET | `/healthz` | HealthController::show | health |  | no | yes | ☑ |
 | POST | `/hooks/deploy/{token}` | DeployController::webhook | hooks.deploy |  | no | no | ☑ |
 | GET | `/ips/migrate` | IpController::migrate | ips.migrate | server.view | yes | yes | ☑ |
 | POST | `/ips/migrate` | IpController::runMigration | ips.migrate.run | server.manage | yes | yes | ☑ |
