@@ -1590,3 +1590,29 @@ MailFilters, etc.).
   a success flash that matches the PHP message.
 - `server/internal/http/server.go`: 1 route registered.
 - Docs: **479 ☑ / 4 ◑ / 68 ☐**.
+
+## Batch 80 — Limits (3) + PHP Manager (5) ☑
+
+- `server/internal/http/limits.go` (NEW ~95 LOC): 3 handlers
+  - GET /limits best-effort calls agent `resource_limits.status`; when
+    the agent doesn't support it yet, renders a friendly "not yet
+    ported" notice.
+  - POST /limits/apply and POST /limits/quota/enable are CSRF-checked
+    stubs that flash a friendly error (ResourceLimitService /
+    DiskQuotaService not yet ported).
+- `server/internal/http/php_manager.go` (NEW ~200 LOC): 5 handlers
+  - GET /php/manager calls agent `discovery.php` + `php.available` and
+    renders live data with a friendly stub notice for review/apply.
+  - GET /php/manager/export is fully implemented: downloads
+    `settings.php_profile` as a pretty-printed whacp-php-profile JSON
+    (defaults to an empty profile with format/version markers when
+    none is saved); sets no-store Cache-Control and attachment
+    Content-Disposition.
+  - POST /php/manager/review and /apply are CSRF-checked stubs
+    (/apply audits a failure entry) flashing a "not yet ported" error.
+  - POST /php/manager/import validates upload (≤64KB), parses the
+    JSON, checks format/versions[] non-empty, audits a success entry
+    and flashes a not-yet-ported notice (no plan computation yet).
+- New templates: `limits_index.html`, `php_manager.html`.
+- `server/internal/http/server.go`: 8 routes registered.
+- Docs: **487 ☑ / 4 ◑ / 60 ☐**.
