@@ -70,9 +70,9 @@ Total routes: 551
 | POST | `/cloudflare/purge` | CloudflareController::purge | cloudflare.purge | server.manage | yes | yes | ☑ |
 | POST | `/cloudflare/ssl` | CloudflareController::ssl | cloudflare.ssl | server.manage | yes | yes | ☑ |
 | GET | `/cloudflare` | CloudflareController::index | cloudflare | server.view | yes | yes | ☑ |
-| POST | `/components/profile` | ComponentsController::profile | components.profile | server.manage | yes | yes | ☐ |
-| POST | `/components/{id}/{step}` | ComponentsController::fix | components.fix | server.view | yes | yes | ☐ |
-| GET | `/components` | ComponentsController::index | components | server.view | yes | yes | ☐ |
+| POST | `/components/profile` | ComponentsController::profile | components.profile | server.manage | yes | yes | ☑ |
+| POST | `/components/{id}/{step}` | ComponentsController::fix | components.fix | server.view | yes | yes | ☑ |
+| GET | `/components` | ComponentsController::index | components | server.view | yes | yes | ☑ |
 | GET | `/confirm-password` | AuthController::confirmForm | auth.confirm |  | yes | yes | ☐ |
 | POST | `/confirm-password` | AuthController::confirm | auth.confirm.submit |  | yes | yes | ☐ |
 | GET | `/cron` | DiscoveryController::cron | cron | cron.view | yes | yes | ☑ |

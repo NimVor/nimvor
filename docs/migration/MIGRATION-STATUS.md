@@ -1481,3 +1481,20 @@ MailFilters, etc.).
   (POST /profile/sessions/revoke) using `identity.BumpSessionEpoch`.
 - `server/internal/http/server.go`: 13 new route registrations.
 - Docs: **468 ☑ / 4 ◑ / 79 ☐** of 551 routes.
+
+## Batch 75 — ComponentsController (3 routes) ☑
+
+- `server/internal/http/components.go` (NEW ~270 LOC): 3 handlers
+  - GET /components calls agent `components.status` and parses the
+    `components_expected` setting (defaulting to installed ids).
+  - POST /components/profile validates the expected component list against
+    the known page map and stores it in settings; audited.
+  - POST /components/{id}/{step} implements the "fix" flow for install
+    (packages.install job tracking), start/boot (services.control start/
+    enable with per-unit audit), and a placeholder for the ports step
+    (redirects to the Firewall page since firewall.allow_ports isn't
+    ported yet). Permission gating is re-checked per step.
+- `server/internal/web/templates/components_index.html` (NEW): minimal
+  JSON dump page (same pattern as server_index pre blocks).
+- `server/internal/http/server.go`: 3 routes registered.
+- Docs: **471 ☑ / 4 ◑ / 76 ☐**.
