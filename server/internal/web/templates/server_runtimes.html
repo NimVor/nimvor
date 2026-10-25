@@ -1,0 +1,74 @@
+{{define "server_runtimes"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Runtimes · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Runtimes</h1>
+  <p class="text-muted">Node.js and Python versions for website workers and apps.</p>
+  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
+  {{if .AgentError}}<p class="alert alert-warning">Agent unavailable: {{.AgentError}}</p>{{end}}
+
+  <div class="card">
+    <div class="card-header d-flex justify-content-between">
+      <span>Installed runtimes</span>
+      {{if .CanManage}}
+      <form method="get" action="#add-node" class="inline-form">
+        <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('add-node').style.display='block'">Install Node.js</button>
+      </form>
+      {{end}}
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Runtime</th><th>Version</th><th>Path</th><th></th></tr></thead>
+      <tbody>
+      {{if .Status}}
+        {{range .Status.node}}<tr>
+          <td>Node.js</td><td><code>{{.version}}</code></td><td>{{.binary}}</td>
+          <td>{{if $.CanManage}}<form method="post" action="/runtimes/remove" data-confirm="Remove this runtime?">
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <input type="hidden" name="kind" value="node"><input type="hidden" name="version" value="{{.version}}">
+            <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+          </form>{{end}}</td>
+        </tr>{{end}}
+        {{range .Status.python}}<tr>
+          <td>Python</td><td><code>{{.version}}</code></td><td>{{.binary}}</td>
+          <td>{{if $.CanManage}}<form method="post" action="/runtimes/remove" data-confirm="Remove this runtime?">
+            <input type="hidden" name="_token" value="{{$.CSRF}}">
+            <input type="hidden" name="kind" value="python"><input type="hidden" name="version" value="{{.version}}">
+            <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+          </form>{{end}}</td>
+        </tr>{{end}}
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  {{if .CanManage}}
+  <div id="add-node" class="card mt-3">
+    <div class="card-header">Install Node.js</div>
+    <form method="post" action="/runtimes/install" class="card-body">
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      <label for="ver">Version</label>
+      <input id="ver" name="version" placeholder="20.17.0" pattern="\d{1,2}\.\d{1,3}\.\d{1,3}" required>
+      <p class="text-muted small">Exact release from nodejs.org, e.g. 20.17.0.</p>
+      <button type="submit" class="btn btn-primary">Install</button>
+    </form>
+  </div>
+  {{end}}
+</main>
+</body>
+</html>{{end}}

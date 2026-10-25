@@ -593,6 +593,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /dns", s.guard("", "dns.manage", s.dnsIndex))
 	s.mux.HandleFunc("POST /dns/install", s.guard("dns.install", "packages.manage", s.dnsInstall))
 	s.mux.HandleFunc("POST /dns/setup", s.guard("dns.setup", "server.manage", s.dnsSetup))
+
+	// Domains — every hostname served, with cert coverage.
+	s.mux.HandleFunc("GET /domains", s.guard("domains", "websites.view", s.domainsIndex))
 	// DNS: the website's DNS set-up page (DnsController::site), zone creation
 	// (DnsController::store) and the zone's records page (DnsController::show
 	// — read-only until the record routes land).
@@ -765,6 +768,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /profile/two-factor/enable", s.guard("", "", s.profileTwoFactorEnable))
 	s.mux.HandleFunc("POST /profile/two-factor/disable", s.guard("", "", s.profileTwoFactorDisable))
 	s.mux.HandleFunc("POST /profile/two-factor/recovery", s.guard("", "", s.profileTwoFactorRecovery))
+	s.mux.HandleFunc("POST /profile/sessions/revoke", s.guard("", "", s.profileRevokeSessions))
 
 	// Password reset by email (minimal layout, no signed-in session needed;
 	// the answer is the same whether or not the account exists).
@@ -785,12 +789,27 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /nginx/reload", s.guard("nginx.reload", "services.manage", s.nginxReload))
 	s.mux.HandleFunc("POST /nginx/tuning", s.guard("nginx.tuning", "server.manage", s.nginxTuning))
 
+	// Runtimes (Node.js/Python versions for website workers and apps).
+	s.mux.HandleFunc("GET /runtimes", s.guard("runtimes", "server.view", s.runtimesIndex))
+	s.mux.HandleFunc("POST /runtimes/install", s.guard("runtimes.install", "server.manage", s.runtimesInstall))
+	s.mux.HandleFunc("POST /runtimes/remove", s.guard("runtimes.remove", "server.manage", s.runtimesRemove))
+
 	// Server services listing and system accounts (GET pages).
+	s.mux.HandleFunc("GET /server", s.guard("server", "server.view", s.serverIndex))
+	s.mux.HandleFunc("GET /server/health", s.guard("server.health", "server.view", s.serverHealth))
 	s.mux.HandleFunc("GET /services", s.guard("services", "services.view", s.servicesIndex))
 	s.mux.HandleFunc("GET /system-users", s.guard("system_users", "system_users.view", s.systemUsersIndex))
 
+	// Plugins (administrators; plugin runtime is a stub in Go).
+	s.mux.HandleFunc("GET /admin/plugins", s.guard("plugins", "plugins.manage", s.pluginsIndex))
+	s.mux.HandleFunc("POST /admin/plugins/{name}/toggle", s.guard("plugins.toggle", "plugins.manage", s.pluginsToggle))
+
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
+	s.mux.HandleFunc("POST /servers", s.guard("servers.store", "servers.manage", s.serversStore))
+	s.mux.HandleFunc("POST /servers/{id}/check", s.guard("servers.check", "servers.manage", s.serversCheck))
+	s.mux.HandleFunc("POST /servers/{id}/delete", s.guard("servers.delete", "servers.manage", s.serversDestroy))
+	s.mux.HandleFunc("POST /servers/switch", s.guard("servers.switch", "", s.serversSwitch))
 }
 
 // health mirrors HealthController::show — {"status":"ok"} or 503.

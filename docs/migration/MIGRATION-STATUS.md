@@ -1450,3 +1450,34 @@ MailFilters, etc.).
 - `server/internal/web/templates/server_system_users.html` (NEW).
 - `server/internal/http/server.go`: 8 route registrations.
 - Docs: **455 ☑ / 4 ◑ / 92 ☐** of 551 routes.
+
+## Batch 74 — Runtimes/Server pages/Plugins/Domains/Servers CRUD/RevokeSessions (13 routes) ☑
+
+- `server/internal/http/runtimes.go` (NEW ~170 LOC): 3 handlers
+  - GET /runtimes reads `runtime.status` from the agent.
+  - POST /runtimes/install validates Node.js semver (regex) and calls
+    `runtime.install` with job tracking + audit.
+  - POST /runtimes/remove calls `runtime.remove` for managed node/python.
+  - New `server_runtimes.html` template with install form and per-row remove.
+- `server/internal/http/server_index.go` + `server_index.html` (NEW):
+  GET /server — reads `system.info` + `system.metrics` + `discovery.firewall`
+  plus best-effort `server.settings`/`server.timezones`/`server.graphical`;
+  renders them in pre blocks so the admin overview page loads.
+- `server/internal/http/server_health.go` + `server_health.html` (NEW):
+  GET /server/health — calls `server.health` when available, falling back
+  to a composite system.info+services.status payload.
+- `server/internal/http/domains.go` + `domains_index.html` (NEW):
+  GET /domains — uses DiscoveryService.Inventory with ForScope scoping for
+  non-admins, lists hostnames+aliases with cert coverage flag.
+- `server/internal/http/plugins.go` + `plugins.html` (NEW):
+  GET /admin/plugins renders an empty plugins page; POST
+  /admin/plugins/{name}/toggle returns a friendly not-implemented flash
+  (plugins runtime not yet ported).
+- `server/internal/http/servers_crud.go` (NEW): ServersController CRUD
+  (POST /servers, /{id}/check, /{id}/delete, /switch). `hosting.ServerRepository`
+  gains `Add`/`Remove`/`Check` (Add is a minimal name+url scaffold, Remove
+  refuses id=1 local server).
+- `server/internal/http/users_handlers.go`: added `profileRevokeSessions`
+  (POST /profile/sessions/revoke) using `identity.BumpSessionEpoch`.
+- `server/internal/http/server.go`: 13 new route registrations.
+- Docs: **468 ☑ / 4 ◑ / 79 ☐** of 551 routes.
