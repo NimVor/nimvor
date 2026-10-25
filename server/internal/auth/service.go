@@ -49,15 +49,11 @@ const dummyHash = "$argon2id$v=19$m=65536,t=4,p=1$dVkvM1B6dzNvTFI1bW40Rg$4ObwPqs
 
 // User-facing messages, matching AuthService.php wording.
 const (
-	msgInvalid   = "Invalid username or password."
-	msgSuspended = "This account is suspended. Please contact your hosting provider."
-	// msgSecondFactorUnavailable is shown when a user whose second factor is a
-	// security key (not yet ported to the Go panel) tries to sign in. It must
-	// never silently sign them in without the factor.
-	msgSecondFactorUnavailable = "Two-factor sign-in is required for this account and is not yet available here. Use the existing panel to sign in."
-	msgSignInExpired           = "Your sign-in expired. Enter your password again."
-	msgTwoFactorBadCode        = "That code is not valid. Check the time on your phone and try again."
-	msgTooManyTwoFactorTries   = "Too many failed attempts. Enter your password again."
+	msgInvalid               = "Invalid username or password."
+	msgSuspended             = "This account is suspended. Please contact your hosting provider."
+	msgSignInExpired         = "Your sign-in expired. Enter your password again."
+	msgTwoFactorBadCode      = "That code is not valid. Check the time on your phone and try again."
+	msgTooManyTwoFactorTries = "Too many failed attempts. Enter your password again."
 )
 
 // Service is the session authentication service. It is stateless across
@@ -182,15 +178,26 @@ func (s *Service) Attempt(ctx context.Context, sess *session.Session, username, 
 		return "", true, nil
 	}
 
-	// Security-key-only users (WebAuthn is a later batch): refuse rather
-	// than bypass the factor.
+	// Security-key-only accounts: enter a pending 2FA state (same as TOTP)
+	// but leave TOTP disabled; the WebAuthn handler completes it. We do not
+	// silently sign them in.
 	var nKey int
 	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM webauthn_credentials WHERE user_id = ?", row.ID).Scan(&nKey); err != nil {
 		return "", false, err
 	}
 	if nKey > 0 {
-		s.audit.Record(ctx, audit.Entry{UserID: &row.ID, Username: row.Username, Action: "auth.login", TargetType: "user", TargetID: strconv.FormatInt(row.ID, 10), Result: audit.Denied, IP: ip, Details: map[string]any{"reason": "security_key_not_available"}})
-		return msgSecondFactorUnavailable, false, nil
+		fp, err := s.fingerprint(ctx, hash, row.ID)
+		if err != nil {
+			return "", false, err
+		}
+		sess.Regenerate()
+		sess.Set(key2FAID, strconv.FormatInt(row.ID, 10))
+		sess.Set(key2FAUser, row.Username)
+		sess.Set(key2FAFP, fp)
+		sess.Set(key2FAAt, strconv.FormatInt(s.now(), 10))
+		sess.Set(key2FATries, "0")
+		s.audit.Record(ctx, audit.Entry{UserID: &row.ID, Username: row.Username, Action: "auth.login", TargetType: "user", TargetID: strconv.FormatInt(row.ID, 10), Result: audit.Success, IP: ip, Details: map[string]any{"step": "password", "two_factor": "security_key"}})
+		return "", true, nil
 	}
 
 	if err := s.finishLogin(ctx, sess, row.ID, row.Username, hash, ip, nil); err != nil {
@@ -338,6 +345,41 @@ func (s *Service) CompleteTwoFactor(ctx context.Context, sess *session.Session, 
 		return s.secondFactorFailed(ctx, sess, p, ip)
 	}
 	return "", s.finishLogin(ctx, sess, p.id, p.username, hash, ip, map[string]any{"two_factor": method})
+}
+
+// PendingSigninID returns the user ID of the pending second-factor sign-in,
+// or 0 if no sign-in is pending. Used by WebAuthn handlers (which need to
+// look up webauthn_credentials before the session is signed in).
+func (s *Service) PendingSigninID(sess *session.Session) int64 {
+	if !s.PendingTwoFactor(sess) {
+		return 0
+	}
+	return atoi64(sess.Get(key2FAID))
+}
+
+// SecondFactorFailed counts a failed second-factor attempt for a non-TOTP
+// factor (e.g. a bad WebAuthn assertion).
+func (s *Service) SecondFactorFailed(ctx context.Context, sess *session.Session, ip string) (string, error) {
+	p, msg, _, err := s.checkPending(ctx, sess, ip)
+	if err != nil || msg != "" {
+		return msg, err
+	}
+	return s.secondFactorFailed(ctx, sess, p, ip)
+}
+
+// CompleteSecondFactor signs the session in after a second factor that the
+// provider verified itself (WebAuthn). reason is a short tag (e.g.
+// "security_key"); details are merged into the audit entry.
+func (s *Service) CompleteSecondFactor(ctx context.Context, sess *session.Session, ip, method string, details map[string]any) (string, error) {
+	p, msg, hash, err := s.checkPending(ctx, sess, ip)
+	if err != nil || msg != "" {
+		return msg, err
+	}
+	if details == nil {
+		details = map[string]any{}
+	}
+	details["two_factor"] = method
+	return "", s.finishLogin(ctx, sess, p.id, p.username, hash, ip, details)
 }
 
 // secondFactorFailed counts a failed second-factor attempt (throttle +
