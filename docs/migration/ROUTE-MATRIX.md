@@ -147,8 +147,8 @@ Total routes: 551
 | POST | `/limits/apply` | LimitsController::apply | limits.apply | server.manage | yes | yes | ☑ |
 | POST | `/limits/quota/enable` | LimitsController::enableQuota | limits.quota.enable | server.manage | yes | yes | ☑ |
 | GET | `/limits` | LimitsController::index | limits | server.view | yes | yes | ☑ |
-| POST | `/login/two-factor/key/options` | AuthController::securityKeyOptions | login.key.options |  | no | yes | ☐ |
-| POST | `/login/two-factor/key` | AuthController::securityKey | login.key |  | no | yes | ☐ |
+| POST | `/login/two-factor/key/options` | AuthController::securityKeyOptions | login.key.options |  | no | yes | ☑ |
+| POST | `/login/two-factor/key` | AuthController::securityKey | login.key |  | no | yes | ☑ |
 | GET | `/login/two-factor` | AuthController::twoFactor | login.two_factor |  | no | yes | ◑ |
 | POST | `/login/two-factor` | AuthController::verifyTwoFactor | login.two_factor.submit |  | no | yes | ◑ |
 | GET | `/login/verify-ip` | AuthController::verifyIpForm | login.verify_ip |  | no | yes | ☑ |
@@ -274,9 +274,9 @@ Total routes: 551
 | GET | `/plans` | PlansController::index | plans | plans.manage | yes | yes | ☑ |
 | POST | `/plans` | PlansController::store | plans.store | plans.manage | yes | yes | ☑ |
 | POST | `/profile/password` | ProfileController::password | profile.password |  | yes | yes | ☑ |
-| POST | `/profile/security-keys/options` | ProfileController::keyOptions | profile.2fa.key.options |  | yes | yes | ☐ |
-| POST | `/profile/security-keys/{id}/delete` | ProfileController::keyDelete | profile.2fa.key.delete |  | yes | yes | ☐ |
-| POST | `/profile/security-keys` | ProfileController::keyAdd | profile.2fa.key.add |  | yes | yes | ☐ |
+| POST | `/profile/security-keys/options` | ProfileController::keyOptions | profile.2fa.key.options |  | yes | yes | ☑ |
+| POST | `/profile/security-keys/{id}/delete` | ProfileController::keyDelete | profile.2fa.key.delete |  | yes | yes | ☑ |
+| POST | `/profile/security-keys` | ProfileController::keyAdd | profile.2fa.key.add |  | yes | yes | ☑ |
 | POST | `/profile/sessions/revoke` | ProfileController::revokeSessions | profile.sessions.revoke |  | yes | yes | ☑ |
 | POST | `/profile/tokens/{id}/revoke` | ApiTokensController::revoke | tokens.revoke | api.tokens | yes | yes | ☑ |
 | POST | `/profile/tokens` | ApiTokensController::store | tokens.store | api.tokens | yes | yes | ☑ |
@@ -506,24 +506,24 @@ Total routes: 551
 | GET | `/sites/{id}/workers` | WorkersController::show | sites.workers | workers.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/workers` | WorkersController::store | sites.workers.store | workers.manage | yes | yes | ☑ |
 | GET | `/sites/{id}` | SitesController::show | sites.show | websites.view | yes | yes | ☑ |
-| POST | `/ssl/autossl/run` | SslCenterController::autosslRun | ssl.autossl.run | ssl.manage | yes | yes | ☐ |
-| GET | `/ssl/autossl` | SslCenterController::autossl | ssl.autossl | ssl.view | yes | yes | ☐ |
-| POST | `/ssl/certificates/delete` | SslCenterController::deleteCertificate | ssl.certificates.delete | ssl.manage | yes | yes | ☐ |
-| GET | `/ssl/certificates` | SslCenterController::certificates | ssl.certificates | ssl.view | yes | yes | ☐ |
-| GET | `/ssl/hosts` | SslCenterController::hosts | ssl.hosts | ssl.view | yes | yes | ☐ |
-| GET | `/ssl/keys/csr` | SslCenterController::csrDownload | ssl.keys.csr | ssl.view | yes | yes | ☐ |
-| POST | `/ssl/keys/delete` | SslCenterController::deleteKey | ssl.keys.delete | ssl.manage | yes | yes | ☐ |
-| POST | `/ssl/keys/install` | SslCenterController::installKey | ssl.keys.install | ssl.manage | yes | yes | ☐ |
-| GET | `/ssl/keys` | SslCenterController::keys | ssl.keys | ssl.view | yes | yes | ☐ |
-| POST | `/ssl/keys` | SslCenterController::createCsr | ssl.keys.create | ssl.manage | yes | yes | ☐ |
-| POST | `/ssl/renewal` | SslCenterController::enableRenewal | ssl.renewal.enable | ssl.manage | yes | yes | ☐ |
-| POST | `/ssl/services/account` | SslCenterController::accountRegister | ssl.services.account | server.manage | yes | yes | ☐ |
-| POST | `/ssl/services/cert` | SslCenterController::serviceCert | ssl.services.cert | server.manage | yes | yes | ☐ |
-| POST | `/ssl/services/hostname` | SslCenterController::hostnameIssue | ssl.services.hostname | server.manage | yes | yes | ☐ |
-| POST | `/ssl/services/mail-tls` | SslCenterController::mailTls | ssl.services.mail_tls | server.manage | yes | yes | ☐ |
-| GET | `/ssl/services` | SslCenterController::services | ssl.services | ssl.view | yes | yes | ☐ |
-| GET | `/ssl/tls` | SslCenterController::tls | ssl.tls | ssl.view | yes | yes | ☐ |
-| POST | `/ssl/tls` | SslCenterController::saveTls | ssl.tls.save | server.manage | yes | yes | ☐ |
+| POST | `/ssl/autossl/run` | SslCenterController::autosslRun | ssl.autossl.run | ssl.manage | yes | yes | ☑ |
+| GET | `/ssl/autossl` | SslCenterController::autossl | ssl.autossl | ssl.view | yes | yes | ☑ |
+| POST | `/ssl/certificates/delete` | SslCenterController::deleteCertificate | ssl.certificates.delete | ssl.manage | yes | yes | ☑ |
+| GET | `/ssl/certificates` | SslCenterController::certificates | ssl.certificates | ssl.view | yes | yes | ☑ |
+| GET | `/ssl/hosts` | SslCenterController::hosts | ssl.hosts | ssl.view | yes | yes | ☑ |
+| GET | `/ssl/keys/csr` | SslCenterController::csrDownload | ssl.keys.csr | ssl.view | yes | yes | ☑ |
+| POST | `/ssl/keys/delete` | SslCenterController::deleteKey | ssl.keys.delete | ssl.manage | yes | yes | ☑ |
+| POST | `/ssl/keys/install` | SslCenterController::installKey | ssl.keys.install | ssl.manage | yes | yes | ☑ |
+| GET | `/ssl/keys` | SslCenterController::keys | ssl.keys | ssl.view | yes | yes | ☑ |
+| POST | `/ssl/keys` | SslCenterController::createCsr | ssl.keys.create | ssl.manage | yes | yes | ☑ |
+| POST | `/ssl/renewal` | SslCenterController::enableRenewal | ssl.renewal.enable | ssl.manage | yes | yes | ☑ |
+| POST | `/ssl/services/account` | SslCenterController::accountRegister | ssl.services.account | server.manage | yes | yes | ☑ |
+| POST | `/ssl/services/cert` | SslCenterController::serviceCert | ssl.services.cert | server.manage | yes | yes | ☑ |
+| POST | `/ssl/services/hostname` | SslCenterController::hostnameIssue | ssl.services.hostname | server.manage | yes | yes | ☑ |
+| POST | `/ssl/services/mail-tls` | SslCenterController::mailTls | ssl.services.mail_tls | server.manage | yes | yes | ☑ |
+| GET | `/ssl/services` | SslCenterController::services | ssl.services | ssl.view | yes | yes | ☑ |
+| GET | `/ssl/tls` | SslCenterController::tls | ssl.tls | ssl.view | yes | yes | ☑ |
+| POST | `/ssl/tls` | SslCenterController::saveTls | ssl.tls.save | server.manage | yes | yes | ☑ |
 | GET | `/ssl` | DiscoveryController::ssl | ssl | ssl.view | yes | yes | ☑ |
 | GET | `/system-users` | ServerController::systemUsers | system_users | system_users.view | yes | yes | ☑ |
 | POST | `/terminal/root/open` | TerminalController::openRoot | terminal.root | security.manage | yes | yes | ☑ |

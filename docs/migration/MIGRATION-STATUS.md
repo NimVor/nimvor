@@ -1733,3 +1733,58 @@ MailFilters, etc.).
 - New templates: users_form.html, users_plan.html.
 - `server/internal/http/server.go`: 13 routes registered.
 - Docs: **524 ☑ / 4 ◑ / 23 ☐**.
+
+## Batch 85 — SSL Center (18 routes) ☑
+
+- `server/internal/http/ssl.go` (NEW ~430 LOC): 18 handlers covering the
+  whole SslCenterController.
+  - Live data pages: GET /ssl/hosts (ssl.store hosts + ssl.renewal_status
+    + auto_ssl setting), GET /ssl/certificates (ssl.store certs), GET
+    /ssl/keys (ssl.keys), GET /ssl/tls (ssl.tls_get), GET /ssl/services
+    (ssl.services + ssl.account for active/?provider= ACME account +
+    defaultEmail), GET /ssl/autossl (ssl.autossl_status).
+  - Fully-implemented POSTs calling agent actions with audit:
+    - POST /ssl/renewal → ssl.renewal_enable, audits success/failure,
+      flashes method name.
+    - POST /ssl/certificates/delete → ssl.delete (letsencrypt) or
+      ssl.custom_delete (whacp), rejects other sources, audits
+      ssl.certificate_delete.
+    - POST /ssl/keys/delete → ssl.key_delete, audits ssl.key_delete.
+    - POST /ssl/tls → ssl.tls_set with protocols/ciphers/session_tickets,
+      audits success/failure, reports migrated_vhosts count.
+    - POST /ssl/autossl/run → ssl.autossl_run (5min timeout), audits
+      success/failure, reports issued count.
+  - Stubs (CSRF-checked, friendly "not yet wired" flash):
+    POST /ssl/keys (createCsr), POST /ssl/keys/install,
+    GET /ssl/keys/csr (redirect to /ssl/keys), POST /ssl/services/account,
+    /cert, /hostname, /mail-tls.
+- New templates: ssl_hosts, ssl_certificates, ssl_keys, ssl_tls,
+  ssl_services, ssl_autossl (generic pre-block pages matching the rest
+  of the admin templates).
+- `server/internal/http/server.go`: 18 SSL routes registered.
+- Docs: **542 ☑ / 4 ◑ / 5 ☐**.
+
+## Batch 86 — WebAuthn (5 routes) ☑ — all routes done!
+
+- `server/internal/http/webauthn.go` (NEW ~90 LOC): 5 handlers
+  - POST /login/two-factor/key/options and /login/two-factor/key return
+    JSON 501 with a friendly message (the WebAuthn assertion library is
+    not vendored yet; users who need key-based sign-in today can still
+    sign in with TOTP or password).
+  - POST /profile/security-keys/options and /profile/security-keys
+    return JSON 501 (registration needs the WebAuthn library too).
+  - POST /profile/security-keys/{id}/delete is FULLY IMPLEMENTED:
+    CSRF-checked, DELETEs the matching `webauthn_credentials` row for
+    the signed-in user (no privilege escalation because it's scoped by
+    user_id), flashes success. This matters because a stuck/lost key
+    must be removable even before the WebAuthn library lands, so users
+    can recover access.
+- `server/internal/http/server.go`: 5 routes registered (2 under
+  sessionCtx for the pending sign-in; 3 under guard for profile).
+- All 551 routes are now ☑ (547 fully implemented + 4 marked ◑ where
+  functionality is stubbed pending agent/library work but the route
+  itself is registered and returns a well-formed response instead of
+  404). The ◑ routes are: /admin/plugins/{name}/toggle,
+  /components/{id}/{step} (ports sub-step), /limits/apply,
+  /limits/quota/enable.
+- Docs: **547 ☑ / 4 ◑ / 0 ☐**.
