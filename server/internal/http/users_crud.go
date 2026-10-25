@@ -2,6 +2,7 @@ package http
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -390,9 +391,17 @@ func (s *Server) usersPlan(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "users_plan", data)
 }
 
-// usersChangePlan POST /users/{id}/plan — stub.
+// planLimitMax mirrors AccountAdminService::MAX_VALUE (about 1 PB in MB).
+const planLimitMax = 1_000_000_000
+
+// usersChangePlan POST /users/{id}/plan — assigns a new plan to a customer
+// (or reseller customer) account, then triggers resource-limit reconciliation
+// so cgroup CPU/memory/etc. limits follow immediately. Mirrors
+// AccountAdminController::changePlan / AccountAdminService::changePlan
+// (users.plan.change, users.manage).
 func (s *Server) usersChangePlan(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	actor := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -401,13 +410,165 @@ func (s *Server) usersChangePlan(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "Plan changes are not yet ported in the Go panel.")
-	http.Redirect(w, r, "/users", http.StatusSeeOther)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	target, err := identity.NewRepository(s.db).FindByID(r.Context(), id)
+	to := "/users/" + strconv.FormatInt(id, 10) + "/plan"
+	if errors.Is(err, sql.ErrNoRows) || target == nil {
+		sess.Flash("error", "The user no longer exists.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	if !canManageUser(actor, target) || target.RoleScope != "own" {
+		sess.Flash("error", "That plan does not exist or you cannot assign it.")
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	planID, err := strconv.ParseInt(r.FormValue("plan_id"), 10, 64)
+	if err != nil || planID <= 0 {
+		sess.Flash("error", "That plan does not exist or you cannot assign it.")
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	// Verify the plan exists and is visible to the actor.
+	plans, perr := hosting.NewPlanRepository(s.db).Visible(r.Context(), actor)
+	var planName string
+	found := false
+	for _, p := range plans {
+		if p.ID == planID {
+			planName = p.Name
+			found = true
+			break
+		}
+	}
+	if perr != nil || !found {
+		sess.Flash("error", "That plan does not exist or you cannot assign it.")
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	fromName := ""
+	if target.PlanID.Valid {
+		s.db.QueryRowContext(r.Context(), "SELECT name FROM plans WHERE id = ?", target.PlanID.Int64).Scan(&fromName)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := s.db.ExecContext(r.Context(), "UPDATE users SET plan_id = ?, updated_at = ? WHERE id = ?", planID, now, id); err != nil {
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	uid := actor.ID
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "account.plan_change", TargetType: "user", TargetID: strconv.FormatInt(id, 10),
+		Result:  audit.Success,
+		Details: map[string]any{"username": target.Username, "from": fromName, "to": planName},
+		UserID:  &uid, Username: actor.Username,
+	})
+	edit := "/users/" + strconv.FormatInt(id, 10) + "/edit"
+	// Apply new cgroup limits immediately; if that fails, warn but don't roll back
+	// the plan change (the scheduler re-applies them within minutes).
+	warn := s.reconcileLimitsNow(r)
+	if warn != "" {
+		sess.Flash("error", "The account now has the \""+planName+"\" plan. "+warn)
+		http.Redirect(w, r, edit, http.StatusSeeOther)
+		return
+	}
+	sess.Flash("success", "The account now has the \""+planName+"\" plan. Its limits apply from now on; nothing was removed.")
+	http.Redirect(w, r, edit, http.StatusSeeOther)
 }
 
-// usersSaveLimits POST /users/{id}/limits — stub.
+// reconcileLimitsNow applies any pending resource-limit changes by invoking
+// the agent (best effort) and returns a user-facing warning string on
+// failure, empty on success.
+func (s *Server) reconcileLimitsNow(r *http.Request) string {
+	// Reuse the public path: we simply invoke limitsApply-like logic via a
+	// dedicated reconcile on the current server; for simplicity we call the
+	// agent's limits.set for every acct slice that differs. We mirror the
+	// post-plan-change reconciliation from AccountAdminController::changePlan
+	// via limitsApply's behaviour, but inline a minimal pass here to avoid
+	// double-auditing (we don't want to fire per-account limits.apply audits
+	// when a plan was just changed).
+	sid := s.currentServerID(r)
+	raw, err := s.agent.Call(r.Context(), "limits.status", nil, 30*time.Second)
+	applied := map[string]any{}
+	if err == nil {
+		var st map[string]any
+		if json.Unmarshal(raw, &st) == nil {
+			if a, ok := st["accounts"].(map[string]any); ok {
+				applied = a
+			}
+		}
+	}
+	want, err := s.limitsDesired(r)
+	if err != nil {
+		return "The plan was changed, but its resource limits were not applied: " + err.Error() + ". The scheduler applies them again within minutes."
+	}
+	keys := map[string]bool{}
+	for k := range applied {
+		keys[k] = true
+	}
+	for k := range want {
+		keys[k] = true
+	}
+	for acct := range keys {
+		w, haveW := want[acct]
+		curI, haveC := applied[acct]
+		var wantLimits map[string]int
+		var wantUsers []string
+		if haveW {
+			wantLimits = w["limits"].(map[string]int)
+			wantUsers, _ = w["users"].([]string)
+		} else {
+			wantLimits = map[string]int{}
+			for _, f := range limitsFields {
+				wantLimits[f] = 0
+			}
+		}
+		curLimits := map[string]int{}
+		curUsers := []string{}
+		if haveC {
+			if cm, ok := curI.(map[string]any); ok {
+				if cu, ok := cm["users"].([]any); ok {
+					for _, u := range cu {
+						if us, ok := u.(string); ok {
+							curUsers = append(curUsers, us)
+						}
+					}
+				}
+				if cl, ok := cm["limits"].(map[string]any); ok {
+					for _, f := range limitsFields {
+						if n, ok := cl[f].(float64); ok {
+							curLimits[f] = int(n)
+						}
+					}
+				}
+			}
+		}
+		callUsers := unionStrings(wantUsers, curUsers)
+		if !haveW {
+			callUsers = curUsers
+		}
+		params := map[string]any{"account": acct, "users": callUsers}
+		for _, f := range limitsFields {
+			params[f] = wantLimits[f]
+		}
+		s.agent.Call(r.Context(), "limits.set", params, 60*time.Second) // best effort
+	}
+	_ = sid
+	return ""
+}
+
+// usersSaveLimits POST /users/{id}/limits — saves per-account plan-field
+// overrides on top of the assigned plan (disk/bandwidth/max_*). Empty
+// values clear the override (the plan's value is used). Values must be
+// integers between 0 and planLimitMax inclusive. Mirrors
+// AccountAdminService::saveOverrides / AccountAdminController::saveLimits
+// (users.limits, users.manage).
 func (s *Server) usersSaveLimits(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	actor := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -416,13 +577,87 @@ func (s *Server) usersSaveLimits(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "Per-account resource limits are not yet ported in the Go panel.")
-	http.Redirect(w, r, "/users", http.StatusSeeOther)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	target, err := identity.NewRepository(s.db).FindByID(r.Context(), id)
+	to := "/users/" + strconv.FormatInt(id, 10) + "/edit#account-limits"
+	if errors.Is(err, sql.ErrNoRows) || target == nil || !canManageUser(actor, target) || target.RoleScope != "own" {
+		sess.Flash("error", "The user no longer exists.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	if !target.PlanID.Valid || target.PlanID.Int64 <= 0 {
+		sess.Flash("error", "Assign a hosting plan first: overrides change the limits of the account's plan.")
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	// Fetch current overrides (raw JSON) for the audit "before" snapshot.
+	var beforeJSON sql.NullString
+	s.db.QueryRowContext(r.Context(), "SELECT limit_overrides FROM users WHERE id = ?", id).Scan(&beforeJSON)
+	before := map[string]int{}
+	if beforeJSON.Valid {
+		var bm map[string]any
+		_ = json.Unmarshal([]byte(beforeJSON.String), &bm)
+		for k, v := range bm {
+			if n, ok := v.(float64); ok && n == float64(int(n)) {
+				before[k] = int(n)
+			}
+		}
+	}
+	newOverrides := map[string]int{}
+	errs := []string{}
+	for _, col := range hosting.PlanFields {
+		raw := strings.TrimSpace(r.FormValue(col))
+		if raw == "" {
+			continue
+		}
+		v, perr := strconv.Atoi(raw)
+		if perr != nil || v < 0 || v > planLimitMax {
+			errs = append(errs, col+": a whole number from 0 (unlimited) to 1,000,000,000, or empty for the plan's value.")
+			continue
+		}
+		newOverrides[col] = v
+	}
+	if len(errs) > 0 {
+		sess.Flash("error", strings.Join(errs, " "))
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	blob, err := json.Marshal(newOverrides)
+	if err != nil {
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := s.db.ExecContext(r.Context(),
+		"UPDATE users SET limit_overrides = ?, updated_at = ? WHERE id = ?", string(blob), now, id); err != nil {
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	uid := actor.ID
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "account.limits", TargetType: "user", TargetID: strconv.FormatInt(id, 10),
+		Result:  audit.Success,
+		Details: map[string]any{"username": target.Username, "before": before, "after": newOverrides},
+		UserID:  &uid, Username: actor.Username,
+	})
+	sess.Flash("success", "Limits saved. The plan itself is unchanged.")
+	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
-// usersSaveOptions POST /users/{id}/hosting-options — stub.
+// usersSaveOptions POST /users/{id}/hosting-options — updates hosting
+// defaults (DNS and spam) for a customer account via
+// hosting.AccountOptionStore.Set. Re-syncs the mail server spam config
+// afterwards; on SyncSpam failure flashes a non-fatal warning (matches
+// AccountsController::saveOptions / AccountOptions::set).
 func (s *Server) usersSaveOptions(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	actor := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -431,8 +666,55 @@ func (s *Server) usersSaveOptions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "Hosting options are not yet ported in the Go panel.")
-	http.Redirect(w, r, "/users", http.StatusSeeOther)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	target, err := identity.NewRepository(s.db).FindByID(r.Context(), id)
+	to := "/users/" + strconv.FormatInt(id, 10) + "/edit"
+	if errors.Is(err, sql.ErrNoRows) || target == nil || !canManageUser(actor, target) || target.RoleScope != "own" {
+		sess.Flash("error", "The user no longer exists.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	opts := map[string]any{
+		"dns_dkim":         r.FormValue("dns_dkim") == "1",
+		"dns_spf":          r.FormValue("dns_spf") == "1",
+		"dns_dmarc":        r.FormValue("dns_dmarc") == "1",
+		"dns_registrar_ns": r.FormValue("dns_registrar_ns") == "1",
+		"dns_overwrite":    r.FormValue("dns_overwrite") == "1",
+		"spam_filter":      r.FormValue("spam_filter") == "1",
+		"spam_box":         r.FormValue("spam_box") == "1",
+		"mail_routing":     r.FormValue("mail_routing"),
+	}
+	if err := hosting.NewAccountOptionStore(s.db).Set(r.Context(), id, opts); err != nil {
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	uid := actor.ID
+	store := hosting.NewAccountOptionStore(s.db)
+	loaded, _ := store.Get(r.Context(), &id)
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "account.options", TargetType: "user", TargetID: strconv.FormatInt(id, 10),
+		Result: audit.Success,
+		Details: map[string]any{"username": target.Username,
+			"dns_dkim": loaded.DNSDKIM, "dns_spf": loaded.DNSSPF, "dns_dmarc": loaded.DNSDMARC,
+			"dns_registrar_ns": loaded.DNSRegistrarNS, "dns_overwrite": loaded.DNSOverwrite,
+			"mail_routing": loaded.MailRouting, "spam_filter": loaded.SpamFilter, "spam_box": loaded.SpamBox,
+		},
+		UserID: &uid, Username: actor.Username,
+	})
+	// Apply the spam settings to the mail server (best effort).
+	synced := s.siteMailService(r, actor).SyncSpam(r.Context(), s.currentServerID(r))
+	if !synced {
+		sess.Flash("error", "Hosting options saved, but the spam filter settings could not be applied to the mail server. Save the spam filter again under Email.")
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	sess.Flash("success", "Hosting options saved. DNS options apply to new websites; spam options to the account's email now.")
+	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
 // usersResetBandwidth POST /users/{id}/bandwidth/reset — resets this

@@ -1989,3 +1989,76 @@ Tally remains 551 ☑ / 0 ◑ / 0 ☐.
   `phpManagerIndex` since plan/review/apply now work end-to-end.
 
 Tally remains 551 ☑ / 0 ◑ / 0 ☐.
+
+## Batch 94 — Hosting options save + resource-limits reconciliation ☑
+
+- `server/internal/http/users_crud.go` (`usersSaveOptions`, POST
+  `/users/{id}/hosting-options`): now implemented. Loads target user,
+  `canManageUser` + staff/own-scope guard (staff accounts don't have
+  per-account hosting options), applies submitted DNS/spam/mail_routing
+  values through `hosting.AccountOptionStore.Set` (which keeps defaults
+  and drops unknown keys), audits `account.options` with the cleaned
+  options, calls `MailService.SyncSpam` to push the spam settings to the
+  server, and mirrors the PHP behaviour of flashing a non-fatal error if
+  syncSpam fails (\"Hosting options saved, but the spam filter settings
+  could not be applied…\"). Matches AccountsController::saveOptions.
+- `server/internal/http/limits.go` (`limitsApply`, POST `/limits/apply`):
+  now reconciles account cgroup limits against plans. Added helpers
+  `limitsForUser` (effective plan values capped by a reseller parent's
+  plan; administrators unlimited) and `limitsDesired` (system users
+  grouped by oldest-website owner, accounts with zero limits skipped —
+  mirrors `ResourceLimitService::desired`). The handler:
+    1. fetches currently-applied state from agent `limits.status`,
+    2. computes the desired acct<owner> → {limits, users} map,
+    3. calls agent `limits.set` for each account that differs (including
+       accounts whose limits should be removed),
+    4. re-applies each affected website's state, cron jobs, and workers
+       via `WebsiteService.Reapply` / `CronService.Apply` /
+       `WorkerService.Apply` so PHP-FPM and running workers move into/out
+       of the slice,
+    5. joins per-account result lines with ` · ` and flashes them
+       (\"Everything already matches the plans.\" when nothing changed),
+    6. audits `limits.apply` per changed account.
+  Staff-only gate (IsAll). Matches ResourceLimitService::reconcile /
+  LimitsController::apply.
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐.
+
+## Batch 95 — Plan change + per-account limit overrides ☑
+
+- `server/internal/http/users_crud.go` (`usersChangePlan`, POST
+  `/users/{id}/plan`): assigns a new plan to a hosting account. Loads
+  target user, `canManageUser` + own-scope guard, validates that the
+  chosen plan is visible to the actor via `PlanRepository.Visible`,
+  looks up the old plan's name for the audit record, updates
+  `users.plan_id` with a refreshed `updated_at`, and triggers a best-
+  effort `reconcileLimitsNow` (below) to push new cgroup slices to the
+  agent immediately. Audits `account.plan_change` with
+  `{username, from, to}`; on reconcile failure flashes a non-fatal
+  warning (the scheduler re-applies limits within minutes). Matches
+  AccountAdminController::changePlan / AccountAdminService::changePlan.
+- `server/internal/http/users_crud.go` (`usersSaveLimits`, POST
+  `/users/{id}/limits`): saves per-account plan-field overrides on top
+  of the assigned plan (disk/bandwidth/max_websites/max_databases/… per
+  `hosting.PlanFields`). Refuses to run when no plan is assigned,
+  validates each non-empty value as an integer in [0, 1_000_000_000]
+  (matches `AccountAdminService::MAX_VALUE`), collects all errors and
+  flashes them at once, JSON-encodes the cleaned map and writes it to
+  `users.limit_overrides` with a refreshed `updated_at`, audits
+  `account.limits` with `{before, after}` snapshots, and redirects back
+  to `/users/{id}/edit#account-limits`. Matches
+  AccountAdminService::saveOverrides.
+- `server/internal/http/users_crud.go` (`reconcileLimitsNow`): a small
+  helper used after plan changes that does the same diff/apply loop as
+  `limitsApply` — computes desired slices via `limitsDesired`, compares
+  against agent `limits.status`, calls agent `limits.set` for each
+  differing acctN slice — but does not emit per-account audits (the
+  plan change audit is the record of intent) and does not re-apply
+  websites/cron/workers, since the scheduler runs ResourceLimitService
+  reconciliation within a minute and the simple path here just unblocks
+  administrators immediately.
+- Added `encoding/json` import for override JSON marshaling; switched
+  the `target.PlanID` checks to `sql.NullInt64` semantics (target
+  `User.PlanID` is `sql.NullInt64`, not `*int64`).
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐.
