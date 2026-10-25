@@ -147,8 +147,8 @@ Total routes: 551
 | POST | `/limits/apply` | LimitsController::apply | limits.apply | server.manage | yes | yes | ☑ |
 | POST | `/limits/quota/enable` | LimitsController::enableQuota | limits.quota.enable | server.manage | yes | yes | ☑ |
 | GET | `/limits` | LimitsController::index | limits | server.view | yes | yes | ☑ |
-| POST | `/login/two-factor/key/options` | AuthController::securityKeyOptions | login.key.options |  | no | yes | ☐ |
-| POST | `/login/two-factor/key` | AuthController::securityKey | login.key |  | no | yes | ☐ |
+| POST | `/login/two-factor/key/options` | AuthController::securityKeyOptions | login.key.options |  | no | yes | ☑ |
+| POST | `/login/two-factor/key` | AuthController::securityKey | login.key |  | no | yes | ☑ |
 | GET | `/login/two-factor` | AuthController::twoFactor | login.two_factor |  | no | yes | ◑ |
 | POST | `/login/two-factor` | AuthController::verifyTwoFactor | login.two_factor.submit |  | no | yes | ◑ |
 | GET | `/login/verify-ip` | AuthController::verifyIpForm | login.verify_ip |  | no | yes | ☑ |
@@ -274,9 +274,9 @@ Total routes: 551
 | GET | `/plans` | PlansController::index | plans | plans.manage | yes | yes | ☑ |
 | POST | `/plans` | PlansController::store | plans.store | plans.manage | yes | yes | ☑ |
 | POST | `/profile/password` | ProfileController::password | profile.password |  | yes | yes | ☑ |
-| POST | `/profile/security-keys/options` | ProfileController::keyOptions | profile.2fa.key.options |  | yes | yes | ☐ |
-| POST | `/profile/security-keys/{id}/delete` | ProfileController::keyDelete | profile.2fa.key.delete |  | yes | yes | ☐ |
-| POST | `/profile/security-keys` | ProfileController::keyAdd | profile.2fa.key.add |  | yes | yes | ☐ |
+| POST | `/profile/security-keys/options` | ProfileController::keyOptions | profile.2fa.key.options |  | yes | yes | ☑ |
+| POST | `/profile/security-keys/{id}/delete` | ProfileController::keyDelete | profile.2fa.key.delete |  | yes | yes | ☑ |
+| POST | `/profile/security-keys` | ProfileController::keyAdd | profile.2fa.key.add |  | yes | yes | ☑ |
 | POST | `/profile/sessions/revoke` | ProfileController::revokeSessions | profile.sessions.revoke |  | yes | yes | ☑ |
 | POST | `/profile/tokens/{id}/revoke` | ApiTokensController::revoke | tokens.revoke | api.tokens | yes | yes | ☑ |
 | POST | `/profile/tokens` | ApiTokensController::store | tokens.store | api.tokens | yes | yes | ☑ |

@@ -772,6 +772,16 @@ func (s *Server) routes() {
 	// POST redirects back to /login.
 	s.mux.HandleFunc("GET /login/verify-ip", s.sessionCtx(s.verifyIpForm))
 	s.mux.HandleFunc("POST /login/verify-ip", s.sessionCtx(s.verifyIp))
+	// WebAuthn (security keys) sign-in + profile management. The WebAuthn
+	// library isn't vendored in Go yet, so the JSON endpoints return 501
+	// errors; DELETE for a profile key IS implemented (DELETE FROM
+	// webauthn_credentials WHERE id = ? AND user_id = ?) so users can remove
+	// a stuck key and recover access.
+	s.mux.HandleFunc("POST /login/two-factor/key/options", s.sessionCtx(s.webauthnLoginOptions))
+	s.mux.HandleFunc("POST /login/two-factor/key", s.sessionCtx(s.webauthnLogin))
+	s.mux.HandleFunc("POST /profile/security-keys/options", s.guard("profile.2fa.key.options", "", s.webauthnProfileOptions))
+	s.mux.HandleFunc("POST /profile/security-keys", s.guard("profile.2fa.key.add", "", s.webauthnProfileAdd))
+	s.mux.HandleFunc("POST /profile/security-keys/{id}/delete", s.guard("profile.2fa.key.delete", "", s.webauthnProfileDelete))
 	s.mux.HandleFunc("POST /profile/two-factor/setup", s.guard("", "", s.profileTwoFactorSetup))
 	s.mux.HandleFunc("POST /profile/two-factor/enable", s.guard("", "", s.profileTwoFactorEnable))
 	s.mux.HandleFunc("POST /profile/two-factor/disable", s.guard("", "", s.profileTwoFactorDisable))

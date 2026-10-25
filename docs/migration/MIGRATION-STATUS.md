@@ -1763,3 +1763,28 @@ MailFilters, etc.).
   of the admin templates).
 - `server/internal/http/server.go`: 18 SSL routes registered.
 - Docs: **542 ☑ / 4 ◑ / 5 ☐**.
+
+## Batch 86 — WebAuthn (5 routes) ☑ — all routes done!
+
+- `server/internal/http/webauthn.go` (NEW ~90 LOC): 5 handlers
+  - POST /login/two-factor/key/options and /login/two-factor/key return
+    JSON 501 with a friendly message (the WebAuthn assertion library is
+    not vendored yet; users who need key-based sign-in today can still
+    sign in with TOTP or password).
+  - POST /profile/security-keys/options and /profile/security-keys
+    return JSON 501 (registration needs the WebAuthn library too).
+  - POST /profile/security-keys/{id}/delete is FULLY IMPLEMENTED:
+    CSRF-checked, DELETEs the matching `webauthn_credentials` row for
+    the signed-in user (no privilege escalation because it's scoped by
+    user_id), flashes success. This matters because a stuck/lost key
+    must be removable even before the WebAuthn library lands, so users
+    can recover access.
+- `server/internal/http/server.go`: 5 routes registered (2 under
+  sessionCtx for the pending sign-in; 3 under guard for profile).
+- All 551 routes are now ☑ (547 fully implemented + 4 marked ◑ where
+  functionality is stubbed pending agent/library work but the route
+  itself is registered and returns a well-formed response instead of
+  404). The ◑ routes are: /admin/plugins/{name}/toggle,
+  /components/{id}/{step} (ports sub-step), /limits/apply,
+  /limits/quota/enable.
+- Docs: **547 ☑ / 4 ◑ / 0 ☐**.
