@@ -1,0 +1,24 @@
+{{define "auth_verify_ip"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify your sign-in · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-login">
+<main class="login-card">
+  <h1>Verify your sign-in</h1>
+  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
+  <p class="muted">IP-address verification by emailed code is not yet ported in the Go panel. Sign in from a known IP address or use another factor.</p>
+  <form method="post" action="/login/verify-ip" autocomplete="off">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <label for="code">Verification code</label>
+    <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="20" autofocus>
+    <button type="submit" class="btn btn-primary">Verify</button>
+    <button type="submit" name="cancel" value="1" class="btn btn-secondary">Cancel</button>
+  </form>
+  <p class="muted small"><a href="/login">Back to sign in</a></p>
+</main>
+</body>
+</html>{{end}}

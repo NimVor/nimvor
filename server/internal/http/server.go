@@ -767,6 +767,11 @@ func (s *Server) routes() {
 	// profile self-service (setup / enable / disable / recovery).
 	s.mux.HandleFunc("GET /login/two-factor", s.sessionCtx(s.showTwoFactor))
 	s.mux.HandleFunc("POST /login/two-factor", s.sessionCtx(s.doTwoFactor))
+	// IP verification (sign-in from a new address): the emailed-code flow is
+	// not ported yet; the page renders with a notice and a cancel button, and
+	// POST redirects back to /login.
+	s.mux.HandleFunc("GET /login/verify-ip", s.sessionCtx(s.verifyIpForm))
+	s.mux.HandleFunc("POST /login/verify-ip", s.sessionCtx(s.verifyIp))
 	s.mux.HandleFunc("POST /profile/two-factor/setup", s.guard("", "", s.profileTwoFactorSetup))
 	s.mux.HandleFunc("POST /profile/two-factor/enable", s.guard("", "", s.profileTwoFactorEnable))
 	s.mux.HandleFunc("POST /profile/two-factor/disable", s.guard("", "", s.profileTwoFactorDisable))
@@ -870,6 +875,16 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /settings/tweak", s.guard("settings.tweak.save", "settings.manage", s.settingsTweakSave))
 	s.mux.HandleFunc("POST /settings/mail", s.guard("settings.mail", "settings.manage", s.settingsMail))
 	s.mux.HandleFunc("POST /settings/mail/test", s.guard("settings.mail.test", "settings.manage", s.settingsMailTest))
+
+	// Hosting accounts: create form shows a stub notice with the visible plan
+	// list; store/terminate/confirm are CSRF-checked stubs returning a
+	// friendly error (AccountService::create/terminate are large multi-step
+	// flows). Bandwidth best-effort calls the agent.
+	s.mux.HandleFunc("GET /accounts/new", s.guard("accounts.create", "users.manage", s.accountsCreate))
+	s.mux.HandleFunc("POST /accounts", s.guard("accounts.store", "users.manage", s.accountsStore))
+	s.mux.HandleFunc("GET /accounts/bandwidth", s.guard("accounts.bandwidth", "users.manage", s.accountsBandwidth))
+	s.mux.HandleFunc("POST /accounts/terminate", s.guard("accounts.terminate", "users.manage", s.accountsTerminate))
+	s.mux.HandleFunc("POST /accounts/terminate/confirm", s.guard("accounts.terminate.confirm", "users.manage", s.accountsTerminateConfirm))
 
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
