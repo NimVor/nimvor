@@ -120,6 +120,45 @@ func (s *SslService) Issue(ctx context.Context, site *Website, email string, inc
 	return nil
 }
 
+// InstallFromKey installs a certificate whose private key was generated on
+// the server (via ssl.csr_create). When selfSigned is true the agent uses
+// the key's own self-signed certificate and cert/chain are ignored.
+// Mirrors SslService::installFromKey.
+func (s *SslService) InstallFromKey(ctx context.Context, site *Website, keyID, cert, chain string, selfSigned bool) error {
+	if !selfSigned && strings.TrimSpace(cert) == "" {
+		return &UserError{What: "Paste the certificate the certificate authority issued for this key."}
+	}
+	certIn := cert
+	chainIn := chain
+	if selfSigned {
+		certIn, chainIn = "", ""
+	}
+	res, err := s.agent.Call(ctx, "ssl.custom", map[string]any{
+		"name": site.Domain, "key_id": keyID, "certificate": certIn, "chain": chainIn,
+		"use_self_signed": selfSigned, "domain": site.Domain,
+	})
+	if err != nil {
+		s.recordAudit(ctx, "ssl.install_key", "failure", site.ID, map[string]any{
+			"domain": site.Domain, "key_id": keyID, "error": agentMessage(err),
+		})
+		return err
+	}
+	files, err := sslFiles(res)
+	if err != nil {
+		return err
+	}
+	if err := s.wsvc.patch(ctx, site, map[string]any{
+		"https": true, "ssl_mode": "custom",
+		"cert_file": files.CertFile, "key_file": files.KeyFile,
+	}, "ssl.custom"); err != nil {
+		return err
+	}
+	s.recordAudit(ctx, "ssl.install_key", "success", site.ID, map[string]any{
+		"domain": site.Domain, "key_id": keyID, "self_signed": selfSigned,
+	})
+	return nil
+}
+
 // InstallCustom validates and installs an uploaded certificate (SslService
 // ::installCustom).
 func (s *SslService) InstallCustom(ctx context.Context, site *Website, cert, key, chain string) error {
