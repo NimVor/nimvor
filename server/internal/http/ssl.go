@@ -527,8 +527,13 @@ func (s *Server) sslServices(w http.ResponseWriter, r *http.Request) {
 
 // sslAccountRegister POST /ssl/services/account — registers an ACME account.
 // Stub: CSRF-checked, flashes a friendly error.
+// sslAccountRegister POST /ssl/services/account — registers (or updates)
+// an ACME account for a provider, persists it as the active acme_provider,
+// and redirects to /ssl/services#lets-encrypt-account.
+// Mirrors SslCenterController::accountRegister (ssl.manage).
 func (s *Server) sslAccountRegister(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -537,14 +542,71 @@ func (s *Server) sslAccountRegister(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "ACME account registration is not yet wired in the Go panel.")
-	http.Redirect(w, r, "/ssl/services", http.StatusSeeOther)
+	provider := r.FormValue("provider")
+	if provider == "" {
+		provider = "letsencrypt"
+	}
+	params := map[string]any{
+		"provider":     provider,
+		"email":        strings.ToLower(strings.TrimSpace(r.FormValue("email"))),
+		"agree_tos":    r.FormValue("agree_tos") == "1",
+		"staging":      r.FormValue("staging") == "1",
+		"eab_kid":      strings.TrimSpace(r.FormValue("eab_kid")),
+		"eab_hmac_key": strings.TrimSpace(r.FormValue("eab_hmac_key")),
+	}
+	raw, err := s.agent.Call(r.Context(), "ssl.account_register", params, 120*time.Second)
+	uid := user.ID
+	if err != nil {
+		// EAB HMAC key is a secret — never audit it.
+		s.audit.Record(r.Context(), audit.Entry{
+			Action: "ssl.account_register", TargetType: "server", TargetID: provider,
+			Result: audit.Failure,
+			Details: map[string]any{
+				"provider": provider,
+				"email":    params["email"],
+				"error":    err.Error(),
+			},
+			UserID: &uid, Username: user.Username,
+		})
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, "/ssl/services?provider="+url.QueryEscape(provider)+"#lets-encrypt-account", http.StatusSeeOther)
+		return
+	}
+	var res struct {
+		Updated bool `json:"updated"`
+	}
+	_ = json.Unmarshal(raw, &res)
+	if err := s.settings.Set(r.Context(), "acme_provider", provider, user.ID); err != nil {
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, "/ssl/services#lets-encrypt-account", http.StatusSeeOther)
+		return
+	}
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "ssl.account_register", TargetType: "server", TargetID: provider,
+		Result: audit.Success,
+		Details: map[string]any{
+			"provider": provider, "email": params["email"], "updated": res.Updated,
+		},
+		UserID: &uid, Username: user.Username,
+	})
+	label := map[string]string{"letsencrypt": "Let's Encrypt", "zerossl": "ZeroSSL", "buypass": "Buypass Go"}[provider]
+	if label == "" {
+		label = provider
+	}
+	if res.Updated {
+		sess.Flash("success", "The "+label+" account contact was updated to "+params["email"].(string)+". It is the active certificate authority.")
+	} else {
+		sess.Flash("success", "A "+label+" account was registered with "+params["email"].(string)+". It is now the active certificate authority; certificates can be issued.")
+	}
+	http.Redirect(w, r, "/ssl/services#lets-encrypt-account", http.StatusSeeOther)
 }
 
-// sslServiceCert POST /ssl/services/cert — issues a certificate for a
-// service. Stub.
+// sslServiceCert POST /ssl/services/cert — selects a certificate for the
+// panel or the mail server (ssl.service_cert agent call).
+// Mirrors SslCenterController::serviceCert (ssl.manage).
 func (s *Server) sslServiceCert(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -553,14 +615,46 @@ func (s *Server) sslServiceCert(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "Service certificate issuance is not yet wired in the Go panel.")
+	service := r.FormValue("service")
+	name := r.FormValue("cert_name")
+	uid := user.ID
+	if _, err := s.agent.Call(r.Context(), "ssl.service_cert", map[string]any{
+		"service": service, "cert_name": name,
+	}, 120*time.Second); err != nil {
+		s.audit.Record(r.Context(), audit.Entry{
+			Action: "ssl.service_cert", TargetType: "server", TargetID: service,
+			Result: audit.Failure, Details: map[string]any{"cert_name": name, "error": err.Error()},
+			UserID: &uid, Username: user.Username,
+		})
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, "/ssl/services", http.StatusSeeOther)
+		return
+	}
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "ssl.service_cert", TargetType: "server", TargetID: service,
+		Result: audit.Success, Details: map[string]any{"cert_name": name},
+		UserID: &uid, Username: user.Username,
+	})
+	label := "The mail server"
+	reload := ""
+	if service == "panel" {
+		label = "The panel"
+		reload = " Reload the page if the browser still shows the old one."
+	}
+	if name == "" {
+		sess.Flash("success", label+" uses its previous certificate again."+reload)
+	} else {
+		sess.Flash("success", label+" now uses the certificate "+name+"."+reload)
+	}
 	http.Redirect(w, r, "/ssl/services", http.StatusSeeOther)
 }
 
-// sslHostnameIssue POST /ssl/services/hostname — issues a certificate for
-// the panel hostname. Stub.
+// sslHostnameIssue POST /ssl/services/hostname — asks ACME for a
+// certificate for the server's hostname (agent ssl.hostname_issue); tracks
+// the returned job. Mirrors SslCenterController::hostnameIssue (ssl.manage).
 func (s *Server) sslHostnameIssue(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -569,13 +663,52 @@ func (s *Server) sslHostnameIssue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "Hostname certificate issuance is not yet wired in the Go panel.")
+	email := strings.ToLower(strings.TrimSpace(user.Email))
+	provider, _ := s.settings.String(r.Context(), "acme_provider", "letsencrypt")
+	if provider == "" {
+		provider = "letsencrypt"
+	}
+	raw, err := s.agent.Call(r.Context(), "ssl.hostname_issue", map[string]any{
+		"email": email, "provider": provider,
+	}, 60*time.Second)
+	uid := user.ID
+	if err != nil {
+		s.audit.Record(r.Context(), audit.Entry{
+			Action: "ssl.hostname_issue", TargetType: "server", TargetID: "hostname",
+			Result: audit.Failure, Details: map[string]any{"error": err.Error()},
+			UserID: &uid, Username: user.Username,
+		})
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, "/ssl/services", http.StatusSeeOther)
+		return
+	}
+	var res struct {
+		JobID    string `json:"job_id"`
+		Hostname string `json:"hostname"`
+	}
+	_ = json.Unmarshal(raw, &res)
+	hostname := res.Hostname
+	if hostname == "" {
+		hostname = "the host name"
+	}
+	if res.JobID != "" {
+		_ = hosting.NewJobTracker(s.db).Track(r.Context(), s.currentServerID(r), res.JobID, "Let's Encrypt for "+hostname, "server", itoa(s.currentServerID(r)), &uid)
+		sess.Flash("job", res.JobID)
+	}
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "ssl.hostname_issue", TargetType: "server", TargetID: "hostname",
+		Result: audit.Success, Details: map[string]any{"hostname": hostname, "job_id": res.JobID},
+		UserID: &uid, Username: user.Username,
+	})
+	sess.Flash("success", "Asking Let's Encrypt for a certificate for "+hostname+"; the window shows its progress. When it is issued, choose it for the panel and the mail server below.")
 	http.Redirect(w, r, "/ssl/services", http.StatusSeeOther)
 }
 
-// sslMailTls POST /ssl/services/mail-tls — configures mail TLS. Stub.
+// sslMailTls POST /ssl/services/mail-tls — applies TLS settings for the
+// mail server via agent ssl.mail_tls. Mirrors SslCenterController::mailTls.
 func (s *Server) sslMailTls(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -584,7 +717,28 @@ func (s *Server) sslMailTls(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "Mail TLS setup is not yet wired in the Go panel.")
+	profile := map[string]any{
+		"protocols": r.FormValue("protocols"),
+		"ciphers":   r.FormValue("ciphers"),
+	}
+	uid := user.ID
+	if _, err := s.agent.Call(r.Context(), "ssl.mail_tls", profile, 120*time.Second); err != nil {
+		details := map[string]any{"protocols": profile["protocols"], "ciphers": profile["ciphers"], "error": err.Error()}
+		s.audit.Record(r.Context(), audit.Entry{
+			Action: "ssl.mail_tls", TargetType: "server", TargetID: "mail",
+			Result: audit.Failure, Details: details,
+			UserID: &uid, Username: user.Username,
+		})
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, "/ssl/services", http.StatusSeeOther)
+		return
+	}
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "ssl.mail_tls", TargetType: "server", TargetID: "mail",
+		Result: audit.Success, Details: profile,
+		UserID: &uid, Username: user.Username,
+	})
+	sess.Flash("success", "The mail server's TLS configuration was applied; Postfix and Dovecot were reloaded.")
 	http.Redirect(w, r, "/ssl/services", http.StatusSeeOther)
 }
 
