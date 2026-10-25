@@ -80,33 +80,6 @@ func (r *Repository) Find(ctx context.Context, id int64) (*User, error) {
 // with the longer name.
 func (r *Repository) FindByID(ctx context.Context, id int64) (*User, error) { return r.Find(ctx, id) }
 
-// EmailExists reports whether a user (other than excludeID) already owns the
-// given email. Emails are stored in lower-case; callers should lower-case
-// the argument before calling. Mirrors the duplicate-email guard in
-// UserService::validate.
-func (r *Repository) EmailExists(ctx context.Context, email string, excludeID int64) (bool, error) {
-	var n int64
-	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE email = ? AND id <> ?`, email, excludeID).Scan(&n)
-	return n > 0, err
-}
-
-// CountActiveWithRole returns the number of active users with the given role
-// name (e.g. "admin"), used for the last-administrator guard in
-// users.update and users.delete.
-func (r *Repository) CountActiveWithRole(ctx context.Context, roleName string) (int64, error) {
-	var n int64
-	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = ? AND u.is_active = 1`, roleName).Scan(&n)
-	return n, err
-}
-
-// UsernameExists reports whether a username is already taken. Mirrors the
-// uniqueness check in UserService::validate for creation.
-func (r *Repository) UsernameExists(ctx context.Context, username string) (bool, error) {
-	var n int64
-	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE username = ?`, username).Scan(&n)
-	return n > 0, err
-}
-
 // ManagedUser is a user row for the admin list, with the plan name.
 type ManagedUser struct {
 	User
