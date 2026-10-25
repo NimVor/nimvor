@@ -26,7 +26,7 @@ func NewRepository(db *sql.DB) *Repository { return &Repository{db: db} }
 func (r *Repository) raw(ctx context.Context, key string) (string, bool, error) {
 	var v string
 	err := r.db.QueryRowContext(ctx, `SELECT value FROM settings WHERE key = ?`, key).Scan(&v)
-	if errors.Is(err, sql.ErrNoRecord) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return "", false, nil
 	}
 	if err != nil {
@@ -124,6 +124,31 @@ func (r *Repository) Bool(ctx context.Context, key string, def bool) (bool, erro
 	default:
 		return def, nil
 	}
+}
+
+// All returns every stored setting decoded as a string (matching Prefix).
+func (r *Repository) All(ctx context.Context) (map[string]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT key, value FROM settings ORDER BY key`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var k, raw string
+		if err := rows.Scan(&k, &raw); err != nil {
+			return nil, err
+		}
+		if strings.HasPrefix(raw, `"`) {
+			var s string
+			if err := json.Unmarshal([]byte(raw), &s); err == nil {
+				out[k] = s
+				continue
+			}
+		}
+		out[k] = raw
+	}
+	return out, rows.Err()
 }
 
 // Set persists a setting JSON-encoded (PHP SettingRepository::set), for a

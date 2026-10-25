@@ -1,0 +1,37 @@
+{{define "settings_basic"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Basic settings · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar"><span class="brand">WhaCP</span><span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form"><input type="hidden" name="_token" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
+</header>
+<main class="container">
+  <h1>Basic settings</h1>
+  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
+  {{if .AgentError}}<p class="alert alert-warning">Agent unavailable: {{.AgentError}}</p>{{end}}
+  <p>Server hostname: <code>{{.Hostname}}</code></p>
+  <p>Public IPv4 addresses: {{range .Addresses}}<code>{{.}}</code> {{end}}</p>
+  <form method="post" action="/settings/basic">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <label>Panel name <input type="text" name="panel_name" value="{{index .Values "panel_name"}}"></label>
+    <label>Public panel URL <input type="url" name="panel_url" value="{{index .Values "panel_url"}}"></label>
+    <label>Default IPv4 for new zones <input type="text" name="dns_default_ipv4" value="{{index .Values "dns_default_ipv4"}}"></label>
+    <label>DNS hostmaster email <input type="text" name="dns_hostmaster" value="{{index .Values "dns_hostmaster"}}"></label>
+    <fieldset><legend>Name servers</legend>
+      <label>NS1 <input type="text" name="ns1"></label>
+      <label>NS2 <input type="text" name="ns2"></label>
+      <label>NS3 <input type="text" name="ns3"></label>
+      <label>NS4 <input type="text" name="ns4"></label>
+      <p class="muted small">Saved: <code>{{index .Values "dns_nameservers"}}</code></p>
+    </fieldset>
+    <button type="submit" class="btn btn-primary">Save</button>
+  </form>
+</main>
+</body>
+</html>{{end}}

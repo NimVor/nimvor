@@ -1646,3 +1646,38 @@ MailFilters, etc.).
 - New templates: `setup_index.html`.
 - `server/internal/http/server.go`: 9 routes registered.
 - Docs: **496 ☑ / 4 ◑ / 51 ☐**.
+
+## Batch 82 — Settings 8 routes ☑
+
+- `server/internal/settings/settings.go`: added `Repository.All(ctx)` which
+  returns every setting decoded as a string (for rendering admin pages);
+  fixed a stale `sql.ErrNoRecord` reference to `sql.ErrNoRows`.
+- `server/internal/http/settings_handlers.go` (NEW ~430 LOC): 8 handlers
+  - GET /settings: renders every key/value pair from settings.All in a
+    table form.
+  - POST /settings: persists submitted keys against a typed allowlist
+    (panel_name/url, session/dashboard/discovery/alert/av/nginx/...),
+    coercing bool-suffixed keys to booleans and numeric-looking values
+    to ints; audited.
+  - GET /settings/basic: best-effort fetches `system.info` for hostname
+    and public IPv4 addresses (filtering private/reserved ranges);
+    renders the basic form with nameserver fields 1..4.
+  - POST /settings/basic: saves panel_name/url/dns_default_ipv4/
+    dns_hostmaster plus up to 4 nameservers (each validated as FQDN via
+    `validHostname`, dedup'd, comma-joined into dns_nameservers); audited.
+  - GET /settings/tweak: renders stored tweak keys with a "not fully
+    ported" notice.
+  - POST /settings/tweak: saves tweak/alert/av/nginx keys against a
+    separate allowlist; audited.
+  - POST /settings/mail: persists mail_* keys (host/port/encryption/
+    username/from/alert_to + optional password) and flashes a notice
+    that outgoing mail isn't wired up yet; audited.
+  - POST /settings/mail/test: CSRF-checked stub flashing a friendly
+    "not yet ported" error (Mailer::send not ported).
+  - Helpers: `hashFor`, `isSafeTab` (2-20 chars [a-z0-9_-]) to prevent
+    tab-based open redirects or fragment injection, `isPublicIPv4`,
+    `dedup`, `looksInt`, `knownSettingKeys`/`tweakKeys` allowlists.
+- New templates: settings_index.html, settings_basic.html,
+  settings_tweak.html.
+- `server/internal/http/server.go`: 8 routes registered.
+- Docs: **504 ☑ / 4 ◑ / 43 ☐**.
