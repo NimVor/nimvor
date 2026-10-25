@@ -839,6 +839,25 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /php/manager/import", s.guard("php.manager.import", "packages.manage", s.phpManagerImport))
 	s.mux.HandleFunc("POST /php/manager/review", s.guard("php.manager.review", "packages.manage", s.phpManagerReview))
 
+	// Setup wizard: index shows live components/metrics from the agent with
+	// a stub notice about the step runner; POST /setup/step returns a 501
+	// JSON response (ServerSetupService is not ported); POST /setup/dismiss
+	// is fully implemented (sets the seen+done flags + audit).
+	s.mux.HandleFunc("GET /setup", s.guard("setup", "server.manage", s.setupIndex))
+	s.mux.HandleFunc("POST /setup/step", s.guard("setup.step", "server.manage", s.setupStep))
+	s.mux.HandleFunc("POST /setup/dismiss", s.guard("setup.dismiss", "server.manage", s.setupDismiss))
+
+	// Mail server admin install/setup actions (POST; index and domain/
+	// mailbox CRUD live in mail.go). These call the agent packages.install /
+	// mail.configure / mail.spam_configure / mail.webmail_configure and
+	// track jobs where applicable.
+	s.mux.HandleFunc("POST /mail/install", s.guard("mail.install", "packages.manage", s.mailInstall))
+	s.mux.HandleFunc("POST /mail/setup", s.guard("mail.setup", "server.manage", s.mailSetup))
+	s.mux.HandleFunc("POST /mail/spam/install", s.guard("mail.spam.install", "packages.manage", s.mailInstallSpam))
+	s.mux.HandleFunc("POST /mail/spam", s.guard("mail.spam", "server.manage", s.mailSpam))
+	s.mux.HandleFunc("POST /mail/webmail/install", s.guard("mail.webmail.install", "packages.manage", s.mailInstallWebmail))
+	s.mux.HandleFunc("POST /mail/webmail", s.guard("mail.webmail", "server.manage", s.mailWebmail))
+
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
 	s.mux.HandleFunc("POST /servers", s.guard("servers.store", "servers.manage", s.serversStore))
