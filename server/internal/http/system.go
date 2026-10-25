@@ -585,11 +585,5 @@ func systemRootPasswordProblem(pw string) string {
 	return ""
 }
 
-// writeJSON is a small JSON helper used only by the systemPackages/install
-// JSON branch; mirrors writeAPI but outside /api/v1 scope.
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
+// writeJSON lives in server.go (shared helper); system handlers call it for
+// JSON responses from e.g. systemPackages and systemInstall.
