@@ -12,8 +12,8 @@ Total routes: 551
 | POST | `/accounts/terminate/confirm` | AccountAdminController::confirmTerminate | accounts.terminate.confirm | users.manage | yes | yes | ☐ |
 | POST | `/accounts/terminate` | AccountAdminController::terminate | accounts.terminate | users.manage | yes | yes | ☐ |
 | POST | `/accounts` | AccountsController::store | accounts.store | users.manage | yes | yes | ☐ |
-| POST | `/admin/plugins/{name}/toggle` | PluginsController::toggle | plugins.toggle | plugins.manage | yes | yes | ☐ |
-| GET | `/admin/plugins` | PluginsController::index | plugins | plugins.manage | yes | yes | ☐ |
+| POST | `/admin/plugins/{name}/toggle` | PluginsController::toggle | plugins.toggle | plugins.manage | yes | yes | ☑ |
+| GET | `/admin/plugins` | PluginsController::index | plugins | plugins.manage | yes | yes | ☑ |
 | GET | `/api/v1/databases` | ApiController::listDatabases | api.databases | databases.view | yes | yes | ☑ |
 | POST | `/api/v1/databases` | ApiController::createDatabase | api.databases.create | databases.manage | yes | yes | ☑ |
 | GET | `/api/v1/jobs/{id}` | ApiController::job | api.jobs |  | yes | yes | ☑ |
@@ -117,7 +117,7 @@ Total routes: 551
 | GET | `/dns/zones/{id}` | DnsController::show | dns.zone | dns.manage | yes | yes | ☑ |
 | POST | `/dns/zones` | DnsController::store | dns.store | dns.manage | yes | yes | ☑ |
 | GET | `/dns` | DnsController::index | dns | dns.manage | yes | yes | ☑ |
-| GET | `/domains` | DomainsController::index | domains | websites.view | yes | yes | ☐ |
+| GET | `/domains` | DomainsController::index | domains | websites.view | yes | yes | ☑ |
 | POST | `/features/{id}/delete` | FeaturesController::destroy | features.delete | plans.manage | yes | yes | ☐ |
 | GET | `/features` | FeaturesController::index | features | plans.manage | yes | yes | ☐ |
 | POST | `/features` | FeaturesController::store | features.store | plans.manage | yes | yes | ☐ |
@@ -277,7 +277,7 @@ Total routes: 551
 | POST | `/profile/security-keys/options` | ProfileController::keyOptions | profile.2fa.key.options |  | yes | yes | ☐ |
 | POST | `/profile/security-keys/{id}/delete` | ProfileController::keyDelete | profile.2fa.key.delete |  | yes | yes | ☐ |
 | POST | `/profile/security-keys` | ProfileController::keyAdd | profile.2fa.key.add |  | yes | yes | ☐ |
-| POST | `/profile/sessions/revoke` | ProfileController::revokeSessions | profile.sessions.revoke |  | yes | yes | ☐ |
+| POST | `/profile/sessions/revoke` | ProfileController::revokeSessions | profile.sessions.revoke |  | yes | yes | ☑ |
 | POST | `/profile/tokens/{id}/revoke` | ApiTokensController::revoke | tokens.revoke | api.tokens | yes | yes | ☑ |
 | POST | `/profile/tokens` | ApiTokensController::store | tokens.store | api.tokens | yes | yes | ☑ |
 | POST | `/profile/two-factor/disable` | ProfileController::twoFactorDisable | profile.2fa.disable |  | yes | yes | ☑ |
@@ -301,9 +301,9 @@ Total routes: 551
 | POST | `/roles/{id}` | RolesController::update | roles.update | roles.manage | yes | yes | ☑ |
 | GET | `/roles` | RolesController::index | roles | users.view | yes | yes | ☑ |
 | POST | `/roles` | RolesController::store | roles.store | roles.manage | yes | yes | ☑ |
-| POST | `/runtimes/install` | RuntimeController::install | runtimes.install | server.manage | yes | yes | ☐ |
-| POST | `/runtimes/remove` | RuntimeController::remove | runtimes.remove | server.manage | yes | yes | ☐ |
-| GET | `/runtimes` | RuntimeController::index | runtimes | server.view | yes | yes | ☐ |
+| POST | `/runtimes/install` | RuntimeController::install | runtimes.install | server.manage | yes | yes | ☑ |
+| POST | `/runtimes/remove` | RuntimeController::remove | runtimes.remove | server.manage | yes | yes | ☑ |
+| GET | `/runtimes` | RuntimeController::index | runtimes | server.view | yes | yes | ☑ |
 | POST | `/security/advisories/run` | SecurityChecksController::runAdvisories | security.advisories.run | security.view | yes | yes | ☑ |
 | GET | `/security/advisories` | SecurityChecksController::advisories | security.advisories | security.view | yes | yes | ☑ |
 | GET | `/security/compilers` | HardeningController::compilers | security.compilers | security.view | yes | yes | ☑ |
@@ -365,7 +365,7 @@ Total routes: 551
 | POST | `/security/undo` | SecurityController::undo | security.undo | security.manage | yes | yes | ☑ |
 | GET | `/security` | SecurityController::index | security | security.view | yes | yes | ☑ |
 | POST | `/server/graphical` | SystemController::graphical | server.graphical | server.manage | yes | yes | ☑ |
-| GET | `/server/health` | ServerHealthController::index | server.health | server.view | yes | yes | ☐ |
+| GET | `/server/health` | ServerHealthController::index | server.health | server.view | yes | yes | ☑ |
 | POST | `/server/hostname-references/mail` | SystemController::hostnameRemail | server.hostname_references.mail | server.manage | yes | yes | ☑ |
 | POST | `/server/hostname-references/webmail` | SystemController::hostnameWebmail | server.hostname_references.webmail | server.manage | yes | yes | ☑ |
 | GET | `/server/hostname-references` | SystemController::hostnameReferences | server.hostname_references | server.manage | yes | yes | ☑ |
@@ -374,12 +374,12 @@ Total routes: 551
 | POST | `/server/reboot` | SystemController::reboot | server.reboot | server.manage | yes | yes | ☑ |
 | POST | `/server/root-password` | SystemController::rootPassword | server.root_password | server.manage | yes | yes | ☑ |
 | POST | `/server/timezone` | SystemController::timezone | server.timezone | server.manage | yes | yes | ☑ |
-| GET | `/server` | ServerController::index | server | server.view | yes | yes | ☐ |
-| POST | `/servers/switch` | ServersController::switch | servers.switch |  | yes | yes | ☐ |
-| POST | `/servers/{id}/check` | ServersController::check | servers.check | servers.manage | yes | yes | ☐ |
-| POST | `/servers/{id}/delete` | ServersController::destroy | servers.delete | servers.manage | yes | yes | ☐ |
+| GET | `/server` | ServerController::index | server | server.view | yes | yes | ☑ |
+| POST | `/servers/switch` | ServersController::switch | servers.switch |  | yes | yes | ☑ |
+| POST | `/servers/{id}/check` | ServersController::check | servers.check | servers.manage | yes | yes | ☑ |
+| POST | `/servers/{id}/delete` | ServersController::destroy | servers.delete | servers.manage | yes | yes | ☑ |
 | GET | `/servers` | ServersController::index | servers | servers.manage | yes | yes | ☑ |
-| POST | `/servers` | ServersController::store | servers.store | servers.manage | yes | yes | ☐ |
+| POST | `/servers` | ServersController::store | servers.store | servers.manage | yes | yes | ☑ |
 | POST | `/services/control` | ServicesController::control | services.control | services.manage | yes | yes | ☑ |
 | POST | `/services/restart-all` | TopbarController::restartAll | services.restart_all | services.manage | yes | yes | ☑ |
 | POST | `/services/whacp/{key}/restart` | ServicesController::restartWhacp | services.whacp.restart | services.manage | yes | yes | ☑ |

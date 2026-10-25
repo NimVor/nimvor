@@ -1,0 +1,38 @@
+{{define "domains_index"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Domains · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Domains</h1>
+  <p class="text-muted">Every hostname served by Nginx, discovered {{.DiscoveredAt}}.</p>
+  <table class="data-table">
+    <thead><tr><th>Hostname</th><th>Website</th><th>Certificate</th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td><code>{{.Name}}</code>{{if .Primary}} <span class="badge bg-info">primary</span>{{end}}</td>
+        <td>{{.Domain}}</td>
+        <td>{{if .Covered}}<span class="badge bg-success">covered</span>{{else}}<span class="badge bg-warning">not covered</span>{{end}}</td>
+      </tr>
+    {{else}}
+      <tr><td colspan="3" class="text-muted">No hostnames discovered.</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</main>
+</body>
+</html>{{end}}

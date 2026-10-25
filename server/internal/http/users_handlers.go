@@ -141,3 +141,29 @@ func (s *Server) apiTokenRevoke(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, "/profile#api-tokens", http.StatusSeeOther)
 }
+
+// profileRevokeSessions ends all of the signed-in user's other sessions by
+// bumping their session_epoch (mirrors ProfileController::revokeSessions —
+// POST /profile/sessions/revoke). The current session keeps working until
+// the epoch in its sealed cookie is refreshed on the next request; every
+// other session fails validation and is signed out.
+func (s *Server) profileRevokeSessions(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	if !session.ValidateCSRF(sess, formToken(r)) {
+		http.Error(w, "Page expired", http.StatusBadRequest)
+		return
+	}
+	user := userFrom(r.Context())
+	if err := identity.NewRepository(s.db).BumpSessionEpoch(r.Context(), user.ID); err != nil {
+		s.log.Error("bump session epoch", "error", err)
+		sess.Flash("error", "Could not sign out other sessions.")
+		http.Redirect(w, r, "/profile#sessions", http.StatusSeeOther)
+		return
+	}
+	sess.Flash("success", "You were signed out everywhere else.")
+	http.Redirect(w, r, "/profile#sessions", http.StatusSeeOther)
+}
