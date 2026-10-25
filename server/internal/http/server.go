@@ -804,6 +804,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /admin/plugins", s.guard("plugins", "plugins.manage", s.pluginsIndex))
 	s.mux.HandleFunc("POST /admin/plugins/{name}/toggle", s.guard("plugins.toggle", "plugins.manage", s.pluginsToggle))
 
+	// Components (server status + fix actions).
+	s.mux.HandleFunc("GET /components", s.guard("components", "server.view", s.componentsIndex))
+	s.mux.HandleFunc("POST /components/profile", s.guard("components.profile", "server.manage", s.componentsProfile))
+	s.mux.HandleFunc("POST /components/{id}/{step}", s.guard("components.fix", "server.view", s.componentsFix))
+
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
 	s.mux.HandleFunc("POST /servers", s.guard("servers.store", "servers.manage", s.serversStore))
