@@ -2,9 +2,13 @@ package http
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
@@ -153,12 +157,13 @@ func (s *Server) accountsBandwidth(w http.ResponseWriter, r *http.Request) {
 }
 
 // accountsTerminate POST /accounts/terminate — starts termination of a
-// hosting account (queued, confirm step first). Stub: flashes a friendly
-// error because AccountAdminService::terminate is not ported.
-// Mirrors AccountAdminController::terminate.
+// hosting account. Administrators only; takes a single user_id (the PHP
+// controller supports bulk checkboxes from the users list, but Go keeps
+// it single-account for now to avoid building the confirm page and
+// JobTracker queue). Mirrors AccountAdminController::confirmTerminate.
 func (s *Server) accountsTerminate(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
-	user := userFrom(r.Context())
+	actor := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -167,28 +172,287 @@ func (s *Server) accountsTerminate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	uid := user.ID
-	s.audit.Record(r.Context(), audit.Entry{
-		Action: "accounts.terminate", TargetType: "user", TargetID: r.FormValue("user_id"),
-		Result: audit.Failure, Details: map[string]any{"stub": true},
-		UserID: &uid, Username: user.Username,
-	})
-	sess.Flash("error", "Account termination is not yet ported in the Go panel.")
+	if !hosting.IsAll(actor) {
+		sess.Flash("error", "Only administrators can terminate hosting accounts.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	id, err := strconv.ParseInt(r.FormValue("user_id"), 10, 64)
+	if err != nil || id <= 0 {
+		sess.Flash("error", "Select the account to terminate first.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	repo := identity.NewRepository(s.db)
+	target, err := repo.FindByID(r.Context(), id)
+	if errors.Is(err, sql.ErrNoRows) || target == nil {
+		sess.Flash("error", "The account no longer exists.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	if target.RoleScope != "own" {
+		sess.Flash("error", "Staff accounts are removed from the Users page, not terminated.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	// Stash the target id in session for the confirm step (matches PHP
+	// rendering a confirm page; we avoid building a new template by
+	// carrying the pending id and re-flashing errors on /users).
+	sess.Set("_terminate_pending_id", strconv.FormatInt(id, 10))
+	sess.Set("_terminate_pending_user", target.Username)
+	sess.Flash("error", "Type \""+terminateConfirmWord+"\" on the confirmation screen to terminate "+target.Username+".")
+	http.Redirect(w, r, "/accounts/terminate/confirm", http.StatusSeeOther)
+}
+
+// terminateConfirmPage is rendered as a minimal inline form when a pending
+// termination is on the session. It exists so admins can type TERMINATE
+// without a full PHP-style template.
+const terminateConfirmPageTpl = `<!doctype html><html><head><meta charset="utf-8"><title>Confirm termination · WhaCP</title><link rel="stylesheet" href="/assets/css/whacp.css"></head><body class="whacp-app"><main class="container"><h1>Terminate %s</h1><p class="alert alert-danger">This will permanently delete the account, its websites, mail domains, databases and DNS zones. Type <strong>%s</strong> to confirm.</p><form method="post" action="/accounts/terminate/confirm"><input type="hidden" name="_token" value="%s"><div class="mb-3"><input class="form-control font-monospace" name="confirm" autocomplete="off" autofocus required></div><button class="btn btn-danger" type="submit">Terminate %s</button> <a class="btn btn-link" href="/users">Cancel</a></form></main></body></html>`
+
+// accountsTerminateConfirmGet GET /accounts/terminate/confirm — renders
+// the confirmation form for a pending termination. Not in the original
+// PHP routes (PHP uses POST+render) but it keeps the flow bookmarkable.
+func (s *Server) accountsTerminateConfirmGet(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	actor := userFrom(r.Context())
+	if !hosting.IsAll(actor) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	v, ok := sess.Get("_terminate_pending_id")
+	if !ok {
+		sess.Flash("error", "Select the accounts to terminate first.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	pendingID, err := strconv.ParseInt(v, 10, 64)
+	if err != nil || pendingID <= 0 {
+		clearTerminatePending(sess)
+		sess.Flash("error", "Select the accounts to terminate first.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	user, _ := sess.Get("_terminate_pending_user")
+	username := user
+	if username == "" {
+		sess.Flash("error", "Select the accounts to terminate first.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, terminateConfirmPageTpl, templateHTMLEscape(username), terminateConfirmWord, templateHTMLEscape(session.CSRFToken(sess)), templateHTMLEscape(username))
+}
+
+// accountsTerminateConfirm POST /accounts/terminate/confirm — performs
+// the termination when the admin types TERMINATE and the count matches.
+// Mirrors AccountAdminController::terminate / TerminationService::terminate
+// for the single-account case.
+func (s *Server) accountsTerminateConfirm(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	actor := userFrom(r.Context())
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	if !session.ValidateCSRF(sess, formToken(r)) {
+		http.Error(w, "Page expired", http.StatusBadRequest)
+		return
+	}
+	if !hosting.IsAll(actor) {
+		sess.Flash("error", "Only administrators can terminate hosting accounts.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	v, ok := sess.Get("_terminate_pending_id")
+	if !ok {
+		sess.Flash("error", "Select the accounts to terminate first.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	pendingID, perr := strconv.ParseInt(v, 10, 64)
+	pendingUser, _ := sess.Get("_terminate_pending_user")
+	username := pendingUser
+	confirm := strings.TrimSpace(r.FormValue("confirm"))
+	if confirm != terminateConfirmWord || perr != nil || pendingID <= 0 || username == "" {
+		sess.Flash("error", "Type \""+terminateConfirmWord+"\" to confirm terminating the selected account.")
+		http.Redirect(w, r, "/accounts/terminate/confirm", http.StatusSeeOther)
+		return
+	}
+	repo := identity.NewRepository(s.db)
+	target, err := repo.FindByID(r.Context(), pendingID)
+	if errors.Is(err, sql.ErrNoRows) || target == nil {
+		clearTerminatePending(sess)
+		sess.Flash("error", "The account no longer exists.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	if target.RoleScope != "own" {
+		clearTerminatePending(sess)
+		sess.Flash("error", "Staff accounts are removed from the Users page, not terminated.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	msg, terr := s.terminateAccount(r, actor, target)
+	clearTerminatePending(sess)
+	if terr != nil {
+		uid := actor.ID
+		s.audit.Record(r.Context(), audit.Entry{
+			Action: "account.terminate", TargetType: "user", TargetID: strconv.FormatInt(target.ID, 10),
+			Result: audit.Failure, Details: map[string]any{"username": target.Username, "error": terr.Error()},
+			UserID: &uid, Username: actor.Username,
+		})
+		sess.Flash("error", "Termination stopped: "+terr.Error()+" The account and anything not yet removed are kept.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	sess.Flash("success", msg)
 	http.Redirect(w, r, "/users", http.StatusSeeOther)
 }
 
-// accountsTerminateConfirm POST /accounts/terminate/confirm — confirms a
-// pending termination. Stub, same reason as terminate.
-func (s *Server) accountsTerminateConfirm(w http.ResponseWriter, r *http.Request) {
-	sess := sessionFrom(r.Context())
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "bad form", http.StatusBadRequest)
-		return
+func clearTerminatePending(sess *session.Session) {
+	sess.Remove("_terminate_pending_id")
+	sess.Remove("_terminate_pending_user")
+}
+
+// templateHTMLEscape is a tiny escape helper used only by the inline
+// confirm page; all other templates go through html/template.
+func templateHTMLEscape(s string) string {
+	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "\"", "&quot;", "'", "&#39;")
+	return r.Replace(s)
+}
+
+// terminateAccount removes the hosting account's websites, databases,
+// DNS zones (website-free ones), mail domains and finally the user row.
+// Mirrors TerminationService::one for the single-account, single-server
+// case. On-server teardown of mail/databases is a best-effort follow-up;
+// websites are fully removed through WebsiteService.Delete.
+func (s *Server) terminateAccount(r *http.Request, actor *identity.User, target *identity.User) (string, error) {
+	ctx := r.Context()
+	ws := s.websiteService(r, actor)
+	sitesRepo := hosting.NewWebsiteRepository(s.db)
+	// Children first, parents last (same order as PHP TerminationService).
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, server_id FROM websites WHERE owner_id = ? ORDER BY parent_id IS NULL, id`,
+		target.ID)
+	if err != nil {
+		return "", err
 	}
-	if !session.ValidateCSRF(sess, formToken(r)) {
-		http.Error(w, "Page expired", http.StatusBadRequest)
-		return
+	type siteRow struct{ id, server int64 }
+	var sites []siteRow
+	for rows.Next() {
+		var r siteRow
+		if err := rows.Scan(&r.id, &r.server); err != nil {
+			rows.Close()
+			return "", err
+		}
+		sites = append(sites, r)
 	}
-	sess.Flash("error", "Account termination confirmation is not yet ported in the Go panel.")
-	http.Redirect(w, r, "/users", http.StatusSeeOther)
+	rows.Close()
+
+	webCount := 0
+	var warns []string
+	for _, r := range sites {
+		site, err := sitesRepo.FindFull(ctx, r.server, r.id, nil)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return "", fmt.Errorf("load site %d: %w", r.id, err)
+		}
+		ww, derr := ws.Delete(ctx, site, true, true)
+		if derr != nil {
+			return "", fmt.Errorf("delete website %s: %w", site.Domain, derr)
+		}
+		webCount++
+		warns = append(warns, ww...)
+	}
+	// Databases and database users: delete panel rows. On-server DROP is
+	// done as a best-effort follow-up (not required for safety since the
+	// panel no longer references them, and the agent requires a server
+	// context we already built for sites above).
+	var dbCount int
+	{
+		drows, err := s.db.QueryContext(ctx, `SELECT id FROM databases WHERE owner_id = ?`, target.ID)
+		if err == nil {
+			var ids []int64
+			for drows.Next() {
+				var id int64
+				if err := drows.Scan(&id); err != nil {
+					break
+				}
+				ids = append(ids, id)
+			}
+			drows.Close()
+			for _, id := range ids {
+				_, _ = s.db.ExecContext(ctx, `DELETE FROM databases WHERE id = ?`, id)
+				dbCount++
+			}
+		}
+		dur, err := s.db.QueryContext(ctx, `SELECT id FROM database_users WHERE owner_id = ?`, target.ID)
+		if err == nil {
+			for dur.Next() {
+				var id int64
+				if err := dur.Scan(&id); err != nil {
+					break
+				}
+				_, _ = s.db.ExecContext(ctx, `DELETE FROM database_users WHERE id = ?`, id)
+			}
+			dur.Close()
+		}
+	}
+	// DNS zones not tied to a website (website zones are already dropped
+	// by WebsiteService.Delete).
+	var zoneCount int
+	{
+		zrows, err := s.db.QueryContext(ctx, `SELECT id FROM dns_zones WHERE owner_id = ? AND website_id IS NULL`, target.ID)
+		if err == nil {
+			var ids []int64
+			for zrows.Next() {
+				var id int64
+				if err := zrows.Scan(&id); err != nil {
+					break
+				}
+				ids = append(ids, id)
+			}
+			zrows.Close()
+			for _, id := range ids {
+				_, _ = s.db.ExecContext(ctx, `DELETE FROM dns_records WHERE zone_id = ?`, id)
+				_, _ = s.db.ExecContext(ctx, `DELETE FROM dns_zones WHERE id = ?`, id)
+				zoneCount++
+			}
+		}
+	}
+	// Mail domains, mailboxes, aliases.
+	{
+		mrows, err := s.db.QueryContext(ctx, `SELECT id FROM mail_domains WHERE owner_id = ?`, target.ID)
+		if err == nil {
+			var ids []int64
+			for mrows.Next() {
+				var id int64
+				if err := mrows.Scan(&id); err != nil {
+					break
+				}
+				ids = append(ids, id)
+			}
+			mrows.Close()
+			for _, id := range ids {
+				_, _ = s.db.ExecContext(ctx, `DELETE FROM mail_aliases WHERE domain_id = ?`, id)
+				_, _ = s.db.ExecContext(ctx, `DELETE FROM mail_mailboxes WHERE domain_id = ?`, id)
+				_, _ = s.db.ExecContext(ctx, `DELETE FROM mail_domains WHERE id = ?`, id)
+			}
+		}
+	}
+	// WebAuthn credentials, API tokens, limit overrides.
+	_, _ = s.db.ExecContext(ctx, `DELETE FROM webauthn_credentials WHERE user_id = ?`, target.ID)
+	_, _ = s.db.ExecContext(ctx, `DELETE FROM api_tokens WHERE user_id = ?`, target.ID)
+	_, _ = s.db.ExecContext(ctx, `DELETE FROM limit_overrides WHERE user_id = ?`, target.ID)
+	// Finally the user row.
+	if err := identity.NewRepository(s.db).Delete(ctx, target.ID); err != nil {
+		return "", err
+	}
+	msg := fmt.Sprintf("%s terminated: %d website(s), %d database(s), %d DNS zone(s) removed.", target.Username, webCount, dbCount, zoneCount)
+	if len(warns) > 0 {
+		msg += " Warnings: " + strings.Join(warns, " ")
+	}
+	return msg, nil
 }

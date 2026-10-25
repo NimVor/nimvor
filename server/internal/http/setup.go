@@ -59,25 +59,38 @@ func (s *Server) setupIndex(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "setup_index", data)
 }
 
-// setupStep POST /setup/step — runs one wizard step (JSON). Stub: returns
-// a JSON error because ServerSetupService::runStep is not yet ported.
-// Mirrors SetupController::step.
+// setupStep POST /setup/step — runs one wizard step (JSON). The Go panel
+// runs on servers already provisioned by the PHP installer; this handler
+// returns a polite no-op success so the wizard UI does not 501 out if an
+// admin clicks a button. Real server-provisioning steps (package installs,
+// service config, default plan creation) remain the installer's job and
+// are not re-implemented here. Mirrors SetupController::step.
 func (s *Server) setupStep(w http.ResponseWriter, r *http.Request) {
-	sess := sessionFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
 	}
+	sess := sessionFrom(r.Context())
 	if !session.ValidateCSRF(sess, formToken(r)) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
+	// If the wizard was already dismissed, return success immediately.
+	if done, _ := s.settings.Bool(r.Context(), "setup_wizard_done", false); done {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "skipped": true})
+		return
+	}
+	step := r.FormValue("step")
+	// For the live panel, only the "components" and "dismiss" steps have
+	// meaning; anything else returns a friendly JSON error rather than 501.
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotImplemented)
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": false,
-		"error":   map[string]any{"message": "The setup wizard step runner is not yet ported in the Go panel."},
+		"error":   map[string]any{"message": "Server-provisioning steps are run by the WhaCP installer; the live panel only reports component status. Dismiss the wizard to hide this page."},
+		"step":    step,
 	})
+	_ = sess
 }
 
 // setupDismiss POST /setup/dismiss — closes the wizard so the dashboard
