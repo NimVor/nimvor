@@ -1880,3 +1880,25 @@ Additionally wired two previously flash-only actions:
   spans multiple tables; that work is deferred.
 
 Final tally: **551 ☑ / 0 ◑ / 0 ☐**.
+
+## Batch 89 — Panel-user delete + SSL CSR generation ☑
+
+- `server/internal/http/users_crud.go` (`usersDestroy`): now fully
+  implemented. Loads target user, canManage permission check (staff can
+  manage anyone; resellers only their own customers via parent_id),
+  self-delete refusal, last-administrator check using a new
+  `identity.Repository.CountActiveWithRole("admin")` helper, cascades
+  webauthn_credentials cleanup, DELETEs the user row, audits
+  `user.delete`. Added a small `canManageUser` helper mirroring
+  `UserService::canManage`.
+- `server/internal/identity/users.go`: added `CountActiveWithRole` helper
+  for the last-admin safety check.
+- `server/internal/http/ssl.go` (`sslCreateCsr`): now fully implemented.
+  Parses comma/whitespace-separated domain names (lowercased), validates
+  at least one name, clamps self_signed_days to [1,825], defaults key_type
+  to "ec256", calls agent `ssl.csr_create` with 120s timeout, audits
+  `ssl.csr_create`, flashes success, redirects to `/ssl/keys?id=<key id>`.
+- Added `net/url` and `strings` imports to ssl.go for URL query-escaping
+  and domain splitting.
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐.
