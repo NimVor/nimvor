@@ -459,6 +459,24 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /roles/{id}/two-factor", s.guard("roles.2fa", "roles.manage", s.rolesTwoFactor))
 	s.mux.HandleFunc("POST /roles/{id}/delete", s.guard("roles.delete", "roles.manage", s.rolesDestroy))
 
+	// Batch 70 — MonitoringController (7 routes: dashboard, live stats,
+	// process manager, trace, signal, kill-user).
+	s.mux.HandleFunc("GET /monitoring", s.guard("monitoring", "monitoring.view", s.monitoringIndex))
+	s.mux.HandleFunc("GET /monitoring/live", s.guard("monitoring.live", "monitoring.view", s.monitoringLive))
+	s.mux.HandleFunc("GET /monitoring/live.json", s.guard("monitoring.live.data", "monitoring.view", s.monitoringLiveData))
+	s.mux.HandleFunc("GET /monitoring/processes", s.guard("monitoring.processes", "monitoring.view", s.monitoringProcesses))
+	s.mux.HandleFunc("GET /monitoring/processes/trace", s.guard("monitoring.processes.trace", "server.manage", s.monitoringTrace))
+	s.mux.HandleFunc("POST /monitoring/processes/signal", s.guard("monitoring.processes.signal", "server.manage", s.monitoringSignal))
+	s.mux.HandleFunc("POST /monitoring/processes/kill-user", s.guard("monitoring.processes.kill_user", "server.manage", s.monitoringKillUser))
+
+	// Batch 70 — TopbarController (5 routes: load status, restart-all,
+	// WhaCP update page/check/start). All admin-only.
+	s.mux.HandleFunc("GET /topbar/status", s.guard("topbar.status", "monitoring.view", s.topbarStatus))
+	s.mux.HandleFunc("POST /services/restart-all", s.guard("services.restart_all", "services.manage", s.topbarRestartAll))
+	s.mux.HandleFunc("GET /whacp/update", s.guard("whacp.update", "server.manage", s.topbarUpdate))
+	s.mux.HandleFunc("POST /whacp/update/check", s.guard("whacp.update.check", "server.manage", s.topbarUpdateCheck))
+	s.mux.HandleFunc("POST /whacp/update", s.guard("whacp.update.start", "server.manage", s.topbarUpdateStart))
+
 	// Batch 36 — per-website Cloudflare area (direct Cloudflare API; the
 	// customer's own per-website token is stored encrypted).
 	s.mux.HandleFunc("GET /sites/{id}/cloudflare", s.guard("sites.cloudflare", "websites.manage", s.siteCloudflare))

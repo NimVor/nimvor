@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **423 ☑ done+tested, 4 ◑ partial, 124 ☐** of 551.
+`server/internal/http/server.go`): **435 ☑ done+tested, 4 ◑ partial, 112 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -1332,3 +1332,35 @@ in this batch). Next batches move to background-job follow-ups and the
 remaining controllers (Services, Cron, Server overview, ServerHealth,
 MailFilters, etc.).
 
+
+## Batch 70a — MonitoringController (7 routes) ☑
+
+- `server/internal/http/monitoring.go` (NEW ~230 LOC): 7 handlers
+  (index with range selector, live admin-only page that polls
+  system.live via JSON, liveData JSON endpoint, processes list via
+  processes.list agent call, trace (processes.trace), signal
+  (processes.signal with command truncated to 200 chars for audit)
+  and kill-user (processes.kill_user, TERM/KILL). Admin-only pages
+  use hosting.IsAll(user) matching PHP's Scope::isAll.
+- 4 minimal templates: monitoring_index, monitoring_live (with
+  polling JS), monitoring_processes, monitoring_trace.
+- `server/internal/http/server.go`: 7 routes registered (monitoring.view
+  for list/live/processes; server.manage for trace/signal/kill-user).
+- Docs: **430 ☑ / 4 ◑ / 117 ☐**.
+
+## Batch 70b — TopbarController (5 routes) ☑
+
+- `server/internal/http/topbar.go` (NEW ~180 LOC): 5 handlers
+  - GET /topbar/status (admin-only JSON, polls agent.status for load avg)
+  - POST /services/restart-all (tracks job, audits services list,
+    flashes job + restart message; referrer validated to same-origin
+    paths via safeReferer)
+  - GET /whacp/update (renders page; also supports JSON for AJAX poll)
+  - POST /whacp/update/check (stub — points to the update page)
+  - POST /whacp/update (kicks whacp.update agent call with audit).
+- `server/internal/web/templates/server_update.html` (NEW): minimal
+  update page with status display + start/check buttons.
+- `server/internal/http/server.go`: 5 routes registered (monitoring.view
+  for status; services.manage for restart-all; server.manage for
+  whacp.update).
+- Docs: **435 ☑ / 4 ◑ / 112 ☐**.

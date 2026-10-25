@@ -1,0 +1,21 @@
+{{define "server_update"}}<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.Title}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head><body class="whacp-app">
+<header class="topbar"><span class="brand">WhaCP</span><span class="spacer"></span>
+<span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+<form method="post" action="/logout" class="logout-form"><input type="hidden" name="_token" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
+</header><main class="container">
+<h1>WhaCP update</h1>
+{{if .AgentError}}<p class="error">{{.AgentError}}</p>{{end}}
+{{if .Status}}<pre class="text-muted">{{.Status}}</pre>{{end}}
+<form method="post" action="/whacp/update">
+<input type="hidden" name="_token" value="{{.CSRF}}">
+<button type="submit">Start update</button>
+</form>
+<form method="post" action="/whacp/update/check">
+<input type="hidden" name="_token" value="{{.CSRF}}">
+<button type="submit">Check for updates</button>
+</form>
+</main></body></html>{{end}}
