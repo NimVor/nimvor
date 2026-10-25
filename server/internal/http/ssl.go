@@ -1,14 +1,18 @@
 package http
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
+	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
@@ -279,11 +283,13 @@ func (s *Server) sslCreateCsr(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
-// sslInstallKey POST /ssl/keys/install — installs a custom private key +
-// certificate via ssl.custom_install. Stub: returns a friendly error
-// until file upload is wired.
+// sslInstallKey POST /ssl/keys/install — installs a certificate whose
+// private key was generated on the server (SslCenterController::installKey,
+// ssl.manage). Uses hosting.SslService.InstallFromKey, which calls agent
+// ssl.custom with key_id and patches the website to HTTPS.
 func (s *Server) sslInstallKey(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -292,8 +298,38 @@ func (s *Server) sslInstallKey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "Custom key/cert installation is not yet wired in the Go panel.")
-	http.Redirect(w, r, "/ssl/keys", http.StatusSeeOther)
+	keyID := r.FormValue("key_id")
+	if keyID == "" {
+		keyID = r.FormValue("id")
+	}
+	back := "/ssl/keys"
+	if keyID != "" {
+		back = "/ssl/keys?id=" + url.QueryEscape(keyID)
+	}
+	siteID, err := strconv.ParseInt(r.FormValue("website_id"), 10, 64)
+	if err != nil || siteID <= 0 {
+		sess.Flash("error", "Choose a website.")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	repo := hosting.NewWebsiteRepository(s.db)
+	site, err := repo.FindFull(r.Context(), s.currentServerID(r), siteID, user)
+	if errors.Is(err, sql.ErrNoRows) || site == nil || err != nil {
+		sess.Flash("error", "Choose a website.")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	cert := r.FormValue("certificate")
+	chain := r.FormValue("chain")
+	selfSigned := r.FormValue("self_signed") == "1"
+	svc := s.sslService(r, user)
+	if err := svc.InstallFromKey(r.Context(), site, keyID, cert, chain, selfSigned); err != nil {
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	sess.Flash("success", "Certificate installed on "+site.Domain+" and HTTPS enabled.")
+	http.Redirect(w, r, "/sites/"+strconv.FormatInt(site.ID, 10)+"/ssl", http.StatusSeeOther)
 }
 
 // sslDeleteKey POST /ssl/keys/delete — removes a private key via
@@ -325,13 +361,52 @@ func (s *Server) sslDeleteKey(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/ssl/keys", http.StatusSeeOther)
 }
 
-// sslCsrDownload GET /ssl/keys/csr — downloads a CSR file. Stub: returns
-// a friendly error.
+// sslCsrDownload GET /ssl/keys/csr — downloads a CSR PEM file for the
+// given key id (SslCenterController::csrDownload, ssl.manage). Uses agent
+// ssl.key to fetch the key record; if a CSR exists it is served as
+// application/pkcs10 with Content-Disposition.
 func (s *Server) sslCsrDownload(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
-	sess.Flash("error", "CSR download is not yet wired in the Go panel.")
-	http.Redirect(w, r, "/ssl/keys", http.StatusSeeOther)
+	user := userFrom(r.Context())
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		sess.Flash("error", "That CSR does not exist.")
+		http.Redirect(w, r, "/ssl/keys", http.StatusSeeOther)
+		return
+	}
+	raw, err := s.agent.Call(r.Context(), "ssl.key", map[string]any{"id": id}, 30*time.Second)
+	if err != nil {
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, "/ssl/keys", http.StatusSeeOther)
+		return
+	}
+	var key struct {
+		ID  string `json:"id"`
+		CSR string `json:"csr"`
+	}
+	if err := json.Unmarshal(raw, &key); err != nil || strings.TrimSpace(key.CSR) == "" {
+		sess.Flash("error", "That CSR does not exist.")
+		http.Redirect(w, r, "/ssl/keys", http.StatusSeeOther)
+		return
+	}
+	// Sanitize the file name like the PHP panel does.
+	filename := unsafeCSRFilename.ReplaceAllString(strings.ToLower(key.ID), "_") + ".csr"
+	if filename == ".csr" {
+		filename = "key.csr"
+	}
+	w.Header().Set("Content-Type", "application/pkcs10")
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	uid := user.ID
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "ssl.csr_download", TargetType: "server", TargetID: "ssl",
+		Result: audit.Success, Details: map[string]any{"id": key.ID},
+		UserID: &uid, Username: user.Username,
+	})
+	_, _ = w.Write([]byte(key.CSR))
 }
+
+var unsafeCSRFilename = regexp.MustCompile(`[^a-z0-9.-]`)
 
 // sslTls GET /ssl/tls — current TLS configuration from ssl.tls_get.
 // Mirrors SslCenterController::tls.

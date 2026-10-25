@@ -1902,3 +1902,11 @@ Final tally: **551 ☑ / 0 ◑ / 0 ☐**.
   and domain splitting.
 
 Tally remains 551 ☑ / 0 ◑ / 0 ☐.
+
+## Batch 90 — SSL key installation + CSR download ☑
+
+- `server/internal/hosting/ssl_service.go`: added `InstallFromKey(ctx, site, keyID, cert, chain, selfSigned)` which calls agent `ssl.custom` with `key_id` (or `use_self_signed: true`) plus optional `certificate`/`chain` body, patches the website to HTTPS with `ssl_mode=custom`, audits `ssl.install_key` success/failure, and re-queries the cert info. Matches the PHP `SslService::installFromKey` flow.
+- `server/internal/http/ssl.go` (`sslInstallKey`): POST `/ssl/keys/install` now fully wired. Loads target website via `FindFull` (staff/reseller permissions inherited from the repo), validates CSRF + key_id/website_id, delegates to `SslService.InstallFromKey`, flashes and redirects to the website's `/ssl` page on success, back to `/ssl/keys?id=...` on error. Added `database/sql`, `errors`, `hosting`, and `regexp` imports as needed.
+- `server/internal/http/ssl.go` (`sslCsrDownload`): GET `/ssl/keys/csr` now fetches the key via agent `ssl.key`, serves the CSR PEM as `application/pkcs10` with `Content-Disposition: attachment` (filename sanitised to `[a-z0-9.-].csr`, default `key.csr`), audits `ssl.csr_download`, and returns a 404-flash redirect when the CSR does not exist.
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐.
