@@ -78,7 +78,7 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		log:       log,
 		mux:       http.NewServeMux(),
 		sessions:  session.NewManager(c, session.DefaultCookieName, cfg.Production),
-		auth:      auth.NewService(db, users, auth.NewThrottle(db), tf, al),
+		auth:      auth.NewService(db, users, auth.NewThrottle(db), tf, al).WithIpVerification(security.NewLoginIpVerifier(db), ml, st),
 		users:     users,
 		roles:     authz.NewRoleRepository(db),
 		features:  authz.NewFeatureService(db),

@@ -10,7 +10,7 @@
 <main class="login-card">
   <h1>Verify your sign-in</h1>
   {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  <p class="muted">IP-address verification by emailed code is not yet ported in the Go panel. Sign in from a known IP address or use another factor.</p>
+  <p class="muted">A six-digit verification code was just emailed to the account's address. Enter it below to finish signing in.</p>
   <form method="post" action="/login/verify-ip" autocomplete="off">
     <input type="hidden" name="_token" value="{{.CSRF}}">
     <label for="code">Verification code</label>
