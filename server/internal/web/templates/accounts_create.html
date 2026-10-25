@@ -70,7 +70,7 @@
         <label class="form-label" for="a-plan">Hosting plan</label>
         <select class="form-select" id="a-plan" name="plan_id">
           <option value="">No plan (unlimited)</option>
-          {{range .Plans}}<option value="{{.ID}}">{{.Name}}{{if .Description}} — {{.Description}}{{end}}</option>{{end}}
+          {{range .Plans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
         </select>
       </div>
     </div>
