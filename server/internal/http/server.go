@@ -53,6 +53,7 @@ type Server struct {
 	cfDo      cfTransport // per-website Cloudflare transport (nil = real)
 	apiAuth   *auth.APIAuthenticator
 	wa        *wa.Service
+	mailer    *mail.Mailer
 }
 
 // New builds the server and registers the routes implemented so far. It
@@ -91,8 +92,10 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		policy:    policy,
 		loginIPs:  security.NewLoginIpVerifier(db),
 		hulk:      security.NewHulk(db, st),
+		cfDo:      cfTransport(nil),
 		apiAuth:   auth.NewAPIAuthenticator(db, users),
 		wa:        wasvc,
+		mailer:    ml,
 	}
 	s.routes()
 	return s, nil
