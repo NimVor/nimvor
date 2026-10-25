@@ -1952,3 +1952,40 @@ Tally remains 551 ☑ / 0 ◑ / 0 ☐.
   real build.
 
 Tally remains 551 ☑ / 0 ◑ / 0 ☐.
+
+## Batch 93 — Bandwidth reset + PHP Manager review/apply/import ☑
+
+- `server/internal/http/users_crud.go` (`usersResetBandwidth`, POST
+  `/users/{id}/bandwidth/reset`): now implemented. Loads target user,
+  `canManageUser` permission check, sums `website_usage.bw_bytes` across
+  the account and its direct reseller customers for the current UTC
+  `YYYY-MM` month, resets matching `bw_bytes` to 0, audits
+  `account.bandwidth_reset` with `{username, month, mb_before}`, supports
+  `?return_to=bandwidth` to redirect to `/accounts/bandwidth` (otherwise
+  `/users/{id}/edit`), flashes the MB counted. Matches
+  `AccountAdminService::resetBandwidth`.
+- `server/internal/http/php_manager.go` (`phpManagerReview`, POST
+  `/php/manager/review`): validates versions/extensions (regex
+  `^[5-9]\.[0-9]{1,2}$` / `^[a-z][a-z0-9_]{1,30}$`, matching PHP), calls
+  agent `php.profile_plan` (120s), and renders a new
+  `server/internal/web/templates/php_manager_review.html` template
+  showing the plan JSON plus hidden fields and a "Confirm removal of
+  packages" checkbox for apply.
+- `server/internal/http/php_manager.go` (`phpManagerApply`, POST
+  `/php/manager/apply`): calls agent `php.profile_apply` with
+  `confirm_removals`, tracks the returned job via
+  `hosting.NewJobTracker`, persists the profile (with `job_id` +
+  `applied_at`) to the `php_profile` setting, audits
+  `php.profile_apply`, flashes job id + "Applying the PHP profile…".
+- `server/internal/http/php_manager.go` (`phpManagerImport`, POST
+  `/php/manager/import`): parses the uploaded `whacp-php-profile.json`,
+  validates versions/extensions through the same regex pipeline, calls
+  agent `php.profile_plan`, then renders the same review template so the
+  administrator can confirm before applying (matches the PHP
+  `PhpManagerController::import` flow instead of flashing a stub).
+- New embedded template `server/internal/web/templates/php_manager_review.html`
+  (uses the existing topbar layout, no inline scripts/styles).
+- Removed the `Stub: true` flag and "not yet ported" alert from
+  `phpManagerIndex` since plan/review/apply now work end-to-end.
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐.

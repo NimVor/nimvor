@@ -435,9 +435,14 @@ func (s *Server) usersSaveOptions(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/users", http.StatusSeeOther)
 }
 
-// usersResetBandwidth POST /users/{id}/bandwidth/reset — stub.
+// usersResetBandwidth POST /users/{id}/bandwidth/reset — resets this
+// month's bandwidth counter (bw_bytes = 0) for all websites owned by the
+// target account (and their direct customers for a reseller). Mirrors
+// AccountAdminController::resetBandwidth / AccountAdminService::resetBandwidth
+// (users.bandwidth.reset, users.manage).
 func (s *Server) usersResetBandwidth(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	actor := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -446,8 +451,69 @@ func (s *Server) usersResetBandwidth(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "Bandwidth reset is not yet ported in the Go panel.")
-	http.Redirect(w, r, "/users", http.StatusSeeOther)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	repo := identity.NewRepository(s.db)
+	target, err := repo.FindByID(r.Context(), id)
+	if errors.Is(err, sql.ErrNoRows) || target == nil {
+		sess.Flash("error", "The user no longer exists.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	if !canManageUser(actor, target) {
+		sess.Flash("error", "You cannot manage that account.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	owners := []int64{id}
+	// Include direct customers (matches PlanLimits::family).
+	rows, err := s.db.QueryContext(r.Context(), "SELECT id FROM users WHERE parent_id = ?", id)
+	if err == nil {
+		for rows.Next() {
+			var cid int64
+			if rows.Scan(&cid) == nil {
+				owners = append(owners, cid)
+			}
+		}
+		rows.Close()
+	}
+	month := time.Now().UTC().Format("2006-01")
+	// Sum current month bandwidth (MB) before reset.
+	var usedMB int
+	if len(owners) > 0 {
+		placeholders := strings.Repeat("?,", len(owners))
+		placeholders = placeholders[:len(placeholders)-1]
+		args := make([]any, 0, len(owners)+1)
+		args = append(args, month)
+		for _, o := range owners {
+			args = append(args, o)
+		}
+		q := `SELECT COALESCE(SUM(bw_bytes),0) FROM website_usage
+		      WHERE bw_month = ? AND website_id IN (SELECT id FROM websites WHERE owner_id IN (` + placeholders + `))`
+		var usedBytes int64
+		if err := s.db.QueryRowContext(r.Context(), q, args...).Scan(&usedBytes); err == nil {
+			usedMB = int(usedBytes / (1024 * 1024))
+		}
+		_, _ = s.db.ExecContext(r.Context(),
+			`UPDATE website_usage SET bw_bytes = 0 WHERE bw_month = ? AND website_id IN (SELECT id FROM websites WHERE owner_id IN (`+placeholders+`))`,
+			args...)
+	}
+	back := "/users/" + strconv.FormatInt(id, 10) + "/edit"
+	if r.FormValue("return_to") == "bandwidth" {
+		back = "/accounts/bandwidth"
+	}
+	uid := actor.ID
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "account.bandwidth_reset", TargetType: "user", TargetID: strconv.FormatInt(id, 10),
+		Result:  audit.Success,
+		Details: map[string]any{"username": target.Username, "month": month, "mb_before": usedMB},
+		UserID:  &uid, Username: actor.Username,
+	})
+	sess.Flash("success", "Bandwidth of "+target.Username+" reset for "+month+" ("+strconv.Itoa(usedMB)+" MB were counted).")
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 // flashStr pulls a flash value without consuming it (for forms rendered
