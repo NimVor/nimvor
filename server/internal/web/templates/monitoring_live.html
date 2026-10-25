@@ -1,0 +1,16 @@
+{{define "monitoring_live"}}<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.Title}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head><body class="whacp-app">
+<header class="topbar"><span class="brand">WhaCP</span><span class="spacer"></span>
+<span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+<form method="post" action="/logout" class="logout-form"><input type="hidden" name="_token" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
+</header><main class="container">
+<h1>Live statistics</h1>
+<p><a href="/monitoring">← Back</a> · <a href="/monitoring/processes">Processes</a></p>
+<div id="live" class="text-muted">Loading…</div>
+<script>
+(function(){var d=document.getElementById('live');function tick(){fetch('/monitoring/live.json',{credentials:'same-origin'}).then(r=>r.json()).then(j=>{d.textContent=JSON.stringify(j,null,2);}).catch(e=>{d.textContent='error: '+e;});setTimeout(tick,2000);}tick();})();
+</script>
+</main></body></html>{{end}}

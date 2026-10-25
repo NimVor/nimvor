@@ -1,0 +1,21 @@
+{{define "monitoring_processes"}}<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.Title}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head><body class="whacp-app">
+<header class="topbar"><span class="brand">WhaCP</span><span class="spacer"></span>
+<span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+<form method="post" action="/logout" class="logout-form"><input type="hidden" name="_token" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
+</header><main class="container">
+<h1>Processes</h1>
+<p><a href="/monitoring">← Back</a> · <a href="/monitoring/live">Live</a> · <a href="?show=suspicious"{{if eq .Show "suspicious"}} class="active"{{end}}>Suspicious</a></p>
+{{if .AgentError}}<p class="error">{{.AgentError}}</p>{{end}}
+{{if .Snap}}<pre class="text-muted">{{.Snap}}</pre>{{end}}
+<h2>Signal by user</h2>
+<form method="post" action="/monitoring/processes/kill-user">
+<input type="hidden" name="_token" value="{{.CSRF}}">
+<label>User <input name="user" required></label>
+<select name="signal"><option value="TERM">TERM (ask)</option><option value="KILL">KILL</option></select>
+<button type="submit">Signal all</button>
+</form>
+</main></body></html>{{end}}
