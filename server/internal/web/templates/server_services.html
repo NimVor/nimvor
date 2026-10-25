@@ -1,0 +1,46 @@
+{{define "server_services"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Services · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Services</h1>
+  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
+  {{if .AgentError}}<p class="alert alert-warning">Agent unavailable: {{.AgentError}}</p>{{end}}
+  <div class="card">
+    <div class="card-header">System services</div>
+    <pre class="card-body font-monospace">{{.Services}}</pre>
+  </div>
+  {{if .Whacp}}
+  <div class="card mt-3">
+    <div class="card-header">WhaCP services</div>
+    <pre class="card-body font-monospace">{{.Whacp}}</pre>
+    <div class="card-body">
+      <form method="post" action="/services/whacp/panel/restart" class="inline-form" data-confirm="Restart the panel? You will be signed out briefly.">
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <button type="submit" class="btn btn-outline-warning">Restart panel</button>
+      </form>
+      <form method="post" action="/services/whacp/agent/restart" class="inline-form" data-confirm="Restart the agent? Running tasks finish first.">
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <button type="submit" class="btn btn-outline-warning">Restart agent</button>
+      </form>
+    </div>
+  </div>
+  {{end}}
+</main>
+</body>
+</html>{{end}}
