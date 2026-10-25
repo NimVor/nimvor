@@ -144,9 +144,9 @@ Total routes: 551
 | GET | `/ips` | IpController::index | ips | server.view | yes | yes | ☑ |
 | POST | `/ips` | IpController::store | ips.store | server.manage | yes | yes | ☑ |
 | GET | `/jobs/{id}` | JobsController::show | jobs.show |  | yes | yes | ☑ |
-| POST | `/limits/apply` | LimitsController::apply | limits.apply | server.manage | yes | yes | ☐ |
-| POST | `/limits/quota/enable` | LimitsController::enableQuota | limits.quota.enable | server.manage | yes | yes | ☐ |
-| GET | `/limits` | LimitsController::index | limits | server.view | yes | yes | ☐ |
+| POST | `/limits/apply` | LimitsController::apply | limits.apply | server.manage | yes | yes | ☑ |
+| POST | `/limits/quota/enable` | LimitsController::enableQuota | limits.quota.enable | server.manage | yes | yes | ☑ |
+| GET | `/limits` | LimitsController::index | limits | server.view | yes | yes | ☑ |
 | POST | `/login/two-factor/key/options` | AuthController::securityKeyOptions | login.key.options |  | no | yes | ☐ |
 | POST | `/login/two-factor/key` | AuthController::securityKey | login.key |  | no | yes | ☐ |
 | GET | `/login/two-factor` | AuthController::twoFactor | login.two_factor |  | no | yes | ◑ |
@@ -257,11 +257,11 @@ Total routes: 551
 | GET | `/password/reset/{token}` | PasswordResetController::show | password.reset.form |  | no | yes | ☑ |
 | POST | `/password/reset/{token}` | PasswordResetController::reset | password.reset |  | no | yes | ☑ |
 | POST | `/php/install` | PhpController::install | php.install | php.manage | yes | yes | ☑ |
-| POST | `/php/manager/apply` | PhpManagerController::apply | php.manager.apply | packages.manage | yes | yes | ☐ |
-| GET | `/php/manager/export` | PhpManagerController::export | php.manager.export | packages.manage | yes | yes | ☐ |
-| POST | `/php/manager/import` | PhpManagerController::import | php.manager.import | packages.manage | yes | yes | ☐ |
-| POST | `/php/manager/review` | PhpManagerController::review | php.manager.review | packages.manage | yes | yes | ☐ |
-| GET | `/php/manager` | PhpManagerController::index | php.manager | packages.manage | yes | yes | ☐ |
+| POST | `/php/manager/apply` | PhpManagerController::apply | php.manager.apply | packages.manage | yes | yes | ☑ |
+| GET | `/php/manager/export` | PhpManagerController::export | php.manager.export | packages.manage | yes | yes | ☑ |
+| POST | `/php/manager/import` | PhpManagerController::import | php.manager.import | packages.manage | yes | yes | ☑ |
+| POST | `/php/manager/review` | PhpManagerController::review | php.manager.review | packages.manage | yes | yes | ☑ |
+| GET | `/php/manager` | PhpManagerController::index | php.manager | packages.manage | yes | yes | ☑ |
 | POST | `/php/repository` | PhpController::enableRepository | php.repository | packages.manage | yes | yes | ☑ |
 | POST | `/php/{version}/extensions/{op}` | PhpController::extension | php.extension | php.manage | yes | yes | ☑ |
 | POST | `/php/{version}/fpm` | PhpController::fpm | php.fpm | php.manage | yes | yes | ☑ |

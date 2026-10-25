@@ -822,6 +822,23 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /plans", s.guard("plans.store", "plans.manage", s.plansStore))
 	s.mux.HandleFunc("POST /plans/{id}/delete", s.guard("plans.delete", "plans.manage", s.plansDestroy))
 
+	// Resource limits (cgroups) and disk quotas — placeholder handlers until
+	// ResourceLimitService/DiskQuotaService are ported; the index page shows
+	// a friendly notice and POST routes return a flash error instead of 404.
+	s.mux.HandleFunc("GET /limits", s.guard("limits", "server.view", s.limitsIndex))
+	s.mux.HandleFunc("POST /limits/apply", s.guard("limits.apply", "server.manage", s.limitsApply))
+	s.mux.HandleFunc("POST /limits/quota/enable", s.guard("limits.quota.enable", "server.manage", s.limitsEnableQuota))
+
+	// PHP Manager (EasyApache-style version/extension chooser). Export is
+	// fully implemented (downloads saved php_profile JSON); review/apply/
+	// import are stubs that flash a friendly "not yet ported" error; index
+	// shows live discovery + available data from the agent.
+	s.mux.HandleFunc("GET /php/manager", s.guard("php.manager", "packages.manage", s.phpManagerIndex))
+	s.mux.HandleFunc("POST /php/manager/apply", s.guard("php.manager.apply", "packages.manage", s.phpManagerApply))
+	s.mux.HandleFunc("GET /php/manager/export", s.guard("php.manager.export", "packages.manage", s.phpManagerExport))
+	s.mux.HandleFunc("POST /php/manager/import", s.guard("php.manager.import", "packages.manage", s.phpManagerImport))
+	s.mux.HandleFunc("POST /php/manager/review", s.guard("php.manager.review", "packages.manage", s.phpManagerReview))
+
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
 	s.mux.HandleFunc("POST /servers", s.guard("servers.store", "servers.manage", s.serversStore))
