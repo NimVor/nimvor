@@ -1,0 +1,55 @@
+{{define "php_show"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>{{.Title}}</h1>
+  <p><a href="/php">← Back to PHP versions</a></p>
+  {{if .AgentError}}<p class="error">Agent error: {{.AgentError}}</p>{{end}}
+  <nav class="tabs">
+    <a href="/php/{{.Version}}?tab=extensions"{{if eq .Tab "extensions"}} class="active"{{end}}>Extensions</a>
+    <a href="/php/{{.Version}}?tab=ini"{{if eq .Tab "ini"}} class="active"{{end}}>php.ini</a>
+    <a href="/php/{{.Version}}?tab=fpm"{{if eq .Tab "fpm"}} class="active"{{end}}>PHP-FPM</a>
+  </nav>
+  {{if eq .Tab "extensions"}}
+  <p class="text-muted">Extensions for PHP {{.Version}}.</p>
+  <ul>
+    {{range .Extensions}}<li>{{.}}</li>{{end}}
+  </ul>
+  {{else if eq .Tab "ini"}}
+  <p class="text-muted">php.ini settings for PHP {{.Version}} — see agent for full editor.</p>
+  <form method="post" action="/php/{{.Version}}/ini">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <textarea name="content" rows="15" cols="80" placeholder="key = value"></textarea><br>
+    <input type="hidden" name="mode" value="text">
+    <button type="submit">Save</button>
+  </form>
+  {{else}}
+  <p class="text-muted">PHP-FPM settings for PHP {{.Version}}.</p>
+  <form method="post" action="/php/{{.Version}}/fpm">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <label>log_level <input name="log_level" value="notice"></label><br>
+    <label>emergency_restart_threshold <input name="emergency_restart_threshold" value="0"></label><br>
+    <label>emergency_restart_interval_seconds <input name="emergency_restart_interval_seconds" value="0"></label><br>
+    <label>process_control_timeout_seconds <input name="process_control_timeout_seconds" value="10"></label><br>
+    <label>process_max <input name="process_max" value="0"></label><br>
+    <button type="submit">Save</button>
+  </form>
+  {{end}}
+</main>
+</body>
+</html>{{end}}

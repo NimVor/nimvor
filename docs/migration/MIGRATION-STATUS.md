@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **400 ☑ done+tested, 4 ◑ partial, 147 ☐** of 551.
+`server/internal/http/server.go`): **408 ☑ done+tested, 4 ◑ partial, 139 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -1246,6 +1246,41 @@ Next up in Batch 69: PhpController (8 routes), AccountBackupsController
 
 Next up in Batch 69: PhpController (8 routes), AccountBackupsController
 (8), Roles (7).
+
+## Batch 69c — PhpController (8 routes) ☑
+
+- Ported files:
+  - `server/internal/http/php.go` (NEW ~350 LOC): 8 handlers
+    - POST /php/repository (enable third-party PHP repo — PPA/Remi;
+      `confirm=yes` gate, php.repository.enable job tracked).
+    - POST /php/install (validate version `/^[5-9]\.[0-9]{1,2}$/`, fire
+      php.install job, audit with installed packages list).
+    - POST /php/{version}/toggle (php.set_enabled on/off; audit
+      php.enable / php.disable).
+    - GET /php/{version} (render per-version page fetching
+      php.extensions / php.ini_get / php.fpm_get concurrently).
+    - POST /php/{version}/extensions/{op} (install/remove/toggle;
+      toggle is synchronous set, install/remove are job-tracked;
+      extension name regex `/^[a-z0-9_]{2,20}$/`, op whitelist).
+    - POST /php/{version}/ini (accept text mode (raw content) or
+      form mode `ini[key]=value` with key regex `/^[a-z0-9_.]{2,64}$/`;
+      fire php.ini_set synchronously).
+    - POST /php/{version}/fpm (parse the four integer pool settings
+      with 0 = empty; fire php.fpm_set).
+    - GET /php/{version}/modules (JSON for the per-site runtime
+      form — returns {success,modules} mirroring PHP, 404 for invalid
+      versions, 502 on agent errors).
+  - `server/internal/web/templates/php_show.html` (NEW): minimal
+    per-version page with extensions/ini/fpm tabs and simple forms.
+  - `server/internal/http/server.go`: 8 routes registered under
+    `s.guard(...)` — packages.manage for repository, php.manage for
+    mutators, php.view for the JSON modules list.
+- Validators mirror PHP exactly: version regex `^[5-9]\.[0-9]{1,2}$`,
+  extension name `^[a-z0-9_]{2,20}$`, ini key `^[a-z0-9_.]{2,64}$`,
+  extension op whitelist {install,remove,toggle}.
+- Docs bumped: **408 ☑ / 4 ◑ / 139 ☐**.
+
+Next in Batch 69: AccountBackupsController (8), Roles (7).
 
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24). CI
 (`gofmt` / `go vet` / `go test -race` / `make build`) is the verification gate
