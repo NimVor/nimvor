@@ -1910,3 +1910,14 @@ Tally remains 551 ☑ / 0 ◑ / 0 ☐.
 - `server/internal/http/ssl.go` (`sslCsrDownload`): GET `/ssl/keys/csr` now fetches the key via agent `ssl.key`, serves the CSR PEM as `application/pkcs10` with `Content-Disposition: attachment` (filename sanitised to `[a-z0-9.-].csr`, default `key.csr`), audits `ssl.csr_download`, and returns a 404-flash redirect when the CSR does not exist.
 
 Tally remains 551 ☑ / 0 ◑ / 0 ☐.
+
+## Batch 91 — SSL Services (ACME register / service cert / hostname issue / mail TLS) ☑
+
+- `server/internal/http/ssl.go` (`sslAccountRegister`, POST `/ssl/services/account`): now fully implemented. Parses provider (default `letsencrypt`), email, agree_tos, staging, eab_kid/eab_hmac_key, calls agent `ssl.account_register` with 120s timeout, persists the provider to the `acme_provider` setting (EAB HMAC key is a secret and never written to the audit log), audits `ssl.account_register` success/failure, flashes a provider-labelled success message, redirects to `/ssl/services#lets-encrypt-account`.
+- `server/internal/http/ssl.go` (`sslServiceCert`, POST `/ssl/services/cert`): wires agent `ssl.service_cert` with `service` (panel|mail) and `cert_name`, audits `ssl.service_cert` success/failure, flashes service-specific success ("The panel/The mail server now uses the certificate …") with a browser-reload hint for the panel.
+- `server/internal/http/ssl.go` (`sslHostnameIssue`, POST `/ssl/services/hostname`): wires agent `ssl.hostname_issue` with the current user's email and the stored `acme_provider`, tracks the returned job via `hosting.NewJobTracker`, flashes the job id and success redirects to `/ssl/services`.
+- `server/internal/http/ssl.go` (`sslMailTls`, POST `/ssl/services/mail-tls`): wires agent `ssl.mail_tls` with `protocols`/`ciphers`, audits `ssl.mail_tls` success/failure, flashes "The mail server's TLS configuration was applied; Postfix and Dovecot were reloaded."
+
+All four handlers mirror the PHP SslCenterController flows (CSRF validation, audit entries, flash + 303 redirect, 120s timeouts where appropriate).
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐.
