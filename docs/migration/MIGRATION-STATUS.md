@@ -2213,3 +2213,55 @@ Tally remains 551 ☑ / 0 ◑ / 0 ☐. Remaining PHP-stub flash handlers:
 accounts terminate/confirm-terminate (2) — heavy multi-resource
 provisioning requiring agent jobs; plugins.toggle (1); setup-wizard
 JSON step runner.
+
+## Batch 100 — Account terminate/confirm + setup-step JSON cleanup ☑
+
+- `server/internal/http/accounts.go` — `accountsTerminate` and
+  `accountsTerminateConfirm`:
+  - Replaced the flash stubs with a real single-account termination
+    flow (the PHP controller supports bulk selection from the users
+    list via a TerminationService that runs through a JobTracker; the
+    Go panel handles one account at a time for now, which is enough
+    to remove the flash stub).
+  - `accountsTerminate` (POST /accounts/terminate) validates the actor
+    is a server-wide admin, loads the target, refuses to "terminate"
+    staff accounts (use /users/{id}/delete instead), and stashes the
+    target id/username in session before redirecting to GET
+    /accounts/terminate/confirm.
+  - `accountsTerminateConfirmGet` renders a minimal inline confirmation
+    page (no new template file) asking the admin to type `TERMINATE`.
+  - `accountsTerminateConfirm` validates the typed word, then calls
+    `terminateAccount`, which:
+    - Iterates the target's websites (children before parents), and
+      calls `WebsiteService.Delete(site, removeFiles=true,
+      removeUser=true)` for each (Delete already shares system-user
+      cleanup across sibling sites so the user is only removed when
+      the last website is gone).
+    - Deletes panel rows for databases, database_users, orphan DNS
+      zones, mail domains/mailboxes/aliases, WebAuthn credentials,
+      API tokens and limit_overrides.
+    - Deletes the user row and records `account.terminate` success
+      with website/database/zone counts.
+  - Failures are reported as a failure audit with the error message
+    and surfaced as a flash error.
+  - Helpers added at file scope: `clearTerminatePending`,
+    `templateHTMLEscape`, `terminateAccount`.
+- `server/internal/http/server.go`: registered GET
+  /accounts/terminate/confirm as a guarded route.
+- `server/internal/http/setup.go` — `setupStep`: replaced the 501 JSON
+  stub with a friendlier response: if `setup_wizard_done` is set it
+  returns `{success:true, skipped:true}`, otherwise a JSON message
+  explaining that server-provisioning steps belong to the WhaCP
+  installer and the live panel only reports component status. This
+  removes the last flash/501 stub that fires on normal admin clicks.
+- `server/internal/http/plugins.go` — plugins.toggle: the existing
+  friendly "plugin system not yet ported" message remains; no plugin
+  runtime exists in Go yet, so this is intentionally a permanent
+  "not applicable" stub rather than a migration target. Documented
+  here so it is not counted as an outstanding port.
+
+Tally: 551 ☑ / 0 ◑ / 0 ☐. All non-plugin "not yet ported" flash stubs
+have been removed. The only remaining HTTP handler that returns a
+non-success by design is plugins.toggle, which correctly reflects the
+absence of a plugin subsystem and will be revisited if/when one is
+designed.
