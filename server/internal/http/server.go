@@ -772,6 +772,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /profile/two-factor/disable", s.guard("", "", s.profileTwoFactorDisable))
 	s.mux.HandleFunc("POST /profile/two-factor/recovery", s.guard("", "", s.profileTwoFactorRecovery))
 	s.mux.HandleFunc("POST /profile/sessions/revoke", s.guard("", "", s.profileRevokeSessions))
+	s.mux.HandleFunc("POST /profile/password", s.guard("profile.password", "", s.profilePassword))
 
 	// Password reset by email (minimal layout, no signed-in session needed;
 	// the answer is the same whether or not the account exists).
@@ -816,6 +817,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /features", s.guard("features", "plans.manage", s.featuresIndex))
 	s.mux.HandleFunc("POST /features", s.guard("features.store", "plans.manage", s.featuresStore))
 	s.mux.HandleFunc("POST /features/{id}/delete", s.guard("features.delete", "plans.manage", s.featuresDestroy))
+
+	// Hosting plans (staff + resellers via PlanService::visible scoping).
+	s.mux.HandleFunc("POST /plans", s.guard("plans.store", "plans.manage", s.plansStore))
+	s.mux.HandleFunc("POST /plans/{id}/delete", s.guard("plans.delete", "plans.manage", s.plansDestroy))
 
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))

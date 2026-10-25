@@ -401,6 +401,29 @@ func (s *Service) User(ctx context.Context, sess *session.Session) (*identity.Us
 	return user, nil
 }
 
+// RefreshOwnSession keeps the current session valid after a password
+// change by bumping the session epoch (invalidating every other session)
+// and rewriting the fingerprint bound to the new hash. Mirrors
+// AuthService::refreshFingerprint.
+func (s *Service) RefreshOwnSession(ctx context.Context, sess *session.Session, user *identity.User) error {
+	if user == nil {
+		return nil
+	}
+	if err := s.users.BumpSessionEpoch(ctx, user.ID); err != nil {
+		return err
+	}
+	hash, err := s.users.PasswordHash(ctx, user.ID)
+	if err != nil {
+		return err
+	}
+	fp, err := s.fingerprint(ctx, hash, user.ID)
+	if err != nil {
+		return err
+	}
+	sess.Set(keyFP, fp)
+	return nil
+}
+
 // Logout clears the session and records the sign-out (AuthService::logout).
 func (s *Service) Logout(ctx context.Context, sess *session.Session, user *identity.User) {
 	if user != nil {

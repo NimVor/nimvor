@@ -14,6 +14,40 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const (
+	// PasswordMinLength mirrors PasswordHasher::MIN_LENGTH.
+	PasswordMinLength = 12
+	// PasswordMaxLength mirrors PasswordHasher::MAX_LENGTH.
+	PasswordMaxLength = 1024
+)
+
+// PasswordWeakness returns a user-facing problem with the password, or ""
+// when acceptable (PasswordHasher::weakness). The username argument is
+// optional (case-insensitive substring check).
+func PasswordWeakness(password, username string) string {
+	rs := []rune(password)
+	n := len(rs)
+	if n < PasswordMinLength {
+		return "The password must be at least 12 characters long."
+	}
+	if n > PasswordMaxLength {
+		return "The password is too long."
+	}
+	if username != "" && strings.Contains(strings.ToLower(password), strings.ToLower(username)) {
+		return "The password must not contain the username."
+	}
+	seen := map[rune]bool{}
+	for _, r := range rs {
+		seen[r] = true
+	}
+	if len(seen) < 5 {
+		return "The password is too repetitive."
+	}
+	return ""
+}
+
+
+
 // Argon2id parameters matching PHP 8.3's PASSWORD_ARGON2ID defaults
 // (memory_cost=65536 KiB, time_cost=4, threads=1), so a hash produced here is
 // indistinguishable from one produced by the PHP panel and verifies on both

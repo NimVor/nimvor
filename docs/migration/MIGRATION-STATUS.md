@@ -1539,3 +1539,54 @@ MailFilters, etc.).
   JSON dump page (same pre-block pattern as components_index).
 - `server/internal/http/server.go`: 3 routes registered under plans.manage.
 - Docs: **476 ☑ / 4 ◑ / 71 ☐**.
+
+## Batch 78 — PlansController missing routes (2 routes) ☑
+
+- `server/internal/hosting/plans.go`: extended `PlanRepository` with
+  - `PlanFields`/`PlanLimits`/`PlanSave` mirroring PHP PlanService
+    constants and input shape.
+  - `Save(ctx, actor, PlanSave)` (int64, error): validates name
+    (≤60 chars, unique per owner via COALESCE(owner_id,0),name),
+    description ≤300, numeric fields 0..10M, cgroup limits within
+    allowed ranges (or 0), verifies feature_list_id exists for staff;
+    resellers cannot set max_customers/feature_list_id/ffmpeg. Writes
+    the plan row plus cgroup-limit and feature_list columns in a
+    transaction. Returns ErrNotFound for unknown ids (with ownership
+    check for resellers).
+  - `Delete(ctx, actor, id) (string, error)`: returns the removed
+    plan's name; refuses to delete plans still assigned to users;
+    resellers may only delete their own.
+  - Added package-level `ErrNotFound`.
+- `server/internal/http/plans_handlers.go` (NEW ~120 LOC): plansStore /
+  plansDestroy with CSRF, flash redirects and audit records; includes
+  a small `formInt` helper.
+- `server/internal/http/server.go`: 2 routes registered (POST /plans,
+  POST /plans/{id}/delete). The post-save FFmpeg/bandwidth/quota/limits
+  reconciliation calls that fire in PHP are intentionally deferred —
+  those services are not yet ported; the plan row itself is saved
+  faithfully.
+- Docs: **478 ☑ / 4 ◑ / 69 ☐**.
+
+## Batch 79 — Profile password change (1 route) ☑
+
+- `server/internal/identity/password.go`: added `PasswordMinLength`/
+  `PasswordMaxLength` constants and `PasswordWeakness(password, username)`
+  — checks ≥12 chars, ≤1024 chars, doesn't contain the username
+  (case-insensitive), and has at least 5 distinct runes.
+- `server/internal/identity/users.go`: added `PasswordChangeError`
+  (Field + Message + BadCurrent flag) and
+  `Repository.ChangeOwnPassword(ctx, id, current, new, confirm)` which
+  verifies the current password, matches confirmation, runs the
+  weakness policy, re-hashes, and updates the password row. Audit
+  logging is left to the caller to keep identity free of the audit
+  dependency.
+- `server/internal/auth/service.go`: added `RefreshOwnSession` which
+  bumps `users.session_epoch` (signs other sessions out) and rewrites
+  `_auth_fp` so the current session stays valid after the hash
+  changes.
+- `server/internal/http/users_handlers.go`: added `profilePassword`
+  (POST /profile/password) with CSRF check, wrong-current-password
+  failure audit, flash errors, success audit, fingerprint refresh, and
+  a success flash that matches the PHP message.
+- `server/internal/http/server.go`: 1 route registered.
+- Docs: **479 ☑ / 4 ◑ / 68 ☐**.

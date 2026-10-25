@@ -222,6 +222,50 @@ func (r *Repository) UpdatePassword(ctx context.Context, id int64, hash string) 
 	return err
 }
 
+// PasswordChangeError carries per-field messages when ChangeOwnPassword
+// rejects input (mirrors ValidationException thrown from
+// UserService::changeOwnPassword). BadCurrent flags a wrong-current-password
+// failure so callers can audit it.
+type PasswordChangeError struct {
+	Field      string
+	Message    string
+	BadCurrent bool
+}
+
+func (e *PasswordChangeError) Error() string { return e.Message }
+
+// ChangeOwnPassword validates the user's current password and sets a new
+// one (UserService::changeOwnPassword). Returns a *PasswordChangeError for
+// field problems. Audit logging (success / bad-current-password) is left
+// to the HTTP handler so identity stays free of the audit dependency.
+func (r *Repository) ChangeOwnPassword(ctx context.Context, id int64, current, newPW, confirm string) error {
+	hash, err := r.PasswordHash(ctx, id)
+	if err != nil {
+		return err
+	}
+	u, err := r.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if u == nil {
+		return &PasswordChangeError{Field: "current_password", Message: "The user no longer exists."}
+	}
+	if !VerifyPassword(hash, current) {
+		return &PasswordChangeError{Field: "current_password", Message: "The current password is incorrect.", BadCurrent: true}
+	}
+	if newPW != confirm {
+		return &PasswordChangeError{Field: "password_confirmation", Message: "The passwords do not match."}
+	}
+	if w := PasswordWeakness(newPW, u.Username); w != "" {
+		return &PasswordChangeError{Field: "password", Message: w}
+	}
+	newHash, err := HashPassword(newPW)
+	if err != nil {
+		return err
+	}
+	return r.UpdatePassword(ctx, id, newHash)
+}
+
 // NewUser is the data for Repository.Create (UserRepository::create).
 type NewUser struct {
 	Username     string
