@@ -7,12 +7,14 @@ import (
 )
 
 // verifyIpForm GET /login/verify-ip — IP-verification page for sign-ins
-// from an unknown address (AuthController::verifyIpForm). The LoginIpVerifier
-// email-code flow is not ported to Go yet; this handler renders a page that
-// tells the user the flow isn't available and offers a link back to /login
-// so they can try again. The POST handler redirects to /login as well.
+// from an unknown address. If there is no pending IP-verification sign-in,
+// redirects back to /login (AuthController::verifyIpForm).
 func (s *Server) verifyIpForm(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	if !s.auth.PendingIpVerification(sess) {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
 	data := map[string]any{
 		"CSRF":  session.CSRFToken(sess),
 		"Error": "",
@@ -24,9 +26,9 @@ func (s *Server) verifyIpForm(w http.ResponseWriter, r *http.Request) {
 }
 
 // verifyIp POST /login/verify-ip — handles the emailed verification code.
-// Stub: clears any pending state and redirects to /login with a flash
-// message because LoginIpVerifier and IP-verification email delivery are
-// not yet ported. Mirrors AuthController::verifyIp.
+// Mirrors AuthController::verifyIp. On cancel, drops the pending state.
+// Otherwise passes the code to auth.CompleteIpVerification; a 6-digit match
+// signs the session in and redirects to /.
 func (s *Server) verifyIp(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -34,6 +36,7 @@ func (s *Server) verifyIp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.FormValue("cancel") == "1" {
+		s.auth.CancelIpVerification(sess)
 		sess.Flash("error", "Sign-in cancelled.")
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
@@ -42,6 +45,22 @@ func (s *Server) verifyIp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "IP verification by email code is not yet ported in the Go panel. Sign in from a known IP address or use another factor.")
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	code := r.FormValue("code")
+	ip := clientIP(r)
+	msg, err := s.auth.CompleteIpVerification(r.Context(), sess, code, ip)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if msg != "" {
+		sess.Flash("error", msg)
+		if s.auth.PendingIpVerification(sess) {
+			http.Redirect(w, r, "/login/verify-ip", http.StatusSeeOther)
+		} else {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+		}
+		return
+	}
+	session.RotateCSRF(sess)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

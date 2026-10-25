@@ -80,6 +80,33 @@ func (r *Repository) Find(ctx context.Context, id int64) (*User, error) {
 // with the longer name.
 func (r *Repository) FindByID(ctx context.Context, id int64) (*User, error) { return r.Find(ctx, id) }
 
+// EmailExists reports whether a user (other than excludeID) already owns the
+// given email. Emails are stored in lower-case; callers should lower-case
+// the argument before calling. Mirrors the duplicate-email guard in
+// UserService::validate.
+func (r *Repository) EmailExists(ctx context.Context, email string, excludeID int64) (bool, error) {
+	var n int64
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE email = ? AND id <> ?`, email, excludeID).Scan(&n)
+	return n > 0, err
+}
+
+// CountActiveWithRole returns the number of active users with the given role
+// name (e.g. "admin"), used for the last-administrator guard in
+// users.update and users.delete.
+func (r *Repository) CountActiveWithRole(ctx context.Context, roleName string) (int64, error) {
+	var n int64
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = ? AND u.is_active = 1`, roleName).Scan(&n)
+	return n, err
+}
+
+// UsernameExists reports whether a username is already taken. Mirrors the
+// uniqueness check in UserService::validate for creation.
+func (r *Repository) UsernameExists(ctx context.Context, username string) (bool, error) {
+	var n int64
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE username = ?`, username).Scan(&n)
+	return n > 0, err
+}
+
 // ManagedUser is a user row for the admin list, with the plan name.
 type ManagedUser struct {
 	User
@@ -215,6 +242,41 @@ func (r *Repository) APITokens(ctx context.Context, userID int64) ([]APIToken, e
 		out = append(out, t)
 	}
 	return out, rows.Err()
+}
+
+// UserUpdate is the validated set of mutable user fields for Update.
+type UserUpdate struct {
+	Email       string
+	DisplayName string
+	RoleID      int64
+	IsActive    bool
+	Password    string // empty = leave unchanged
+}
+
+// Update stores mutable user fields, optionally replacing the password
+// when u.Password is non-empty. Mirrors UserRepository::update columns
+// set by UserService::update.
+func (r *Repository) Update(ctx context.Context, id int64, u UserUpdate) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET email = ?, display_name = ?, role_id = ?, is_active = ?, updated_at = ? WHERE id = ?`,
+		u.Email, u.DisplayName, u.RoleID, boolInt(u.IsActive), now, id)
+	if err != nil {
+		return err
+	}
+	if u.Password != "" {
+		if err := r.UpdatePassword(ctx, id, u.Password); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // UpdatePassword stores a new hash and stamps password_changed_at.

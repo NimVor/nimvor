@@ -2062,3 +2062,88 @@ Tally remains 551 ☑ / 0 ◑ / 0 ☐.
   `User.PlanID` is `sql.NullInt64`, not `*int64`).
 
 Tally remains 551 ☑ / 0 ◑ / 0 ☐.
+
+## Batch 96 — IP-verification email code (sign-in gate) ☑
+
+- `server/internal/auth/service.go`: added the \"limit sign-ins to verified
+  IP addresses\" email-code flow.
+  - New session keys `_auth_ip_*` (id, username, fp, at, tries, code-sha256,
+    ip, details) with 15-minute TTL and 5-try cap.
+  - New optional fields on `Service`: `ipVerifier`, `mailSender`,
+    `policyReader` and a `WithIpVerification(v,m,p)` builder.
+  - New helper `finishOrVerifyIP`: after a correct password (or second
+    factor), if the `policy_verified_ips` setting is on and the address
+    isn't already in `login_ips` for the user, generates a cryptographically
+    random six-digit code (crypto/rand), emails it to the account's address
+    via the existing `mail.Mailer`, stores `sha256("whacp-login-ip|"+code)`
+    in the pending session (the plaintext code is never persisted), audits
+    `auth.login` with `step=password, ip_verification=required`, and
+    redirects to `/login/verify-ip`. Refuses cleanly when the account has
+    no email address or SMTP is unconfigured.
+  - New methods `PendingIpVerification`, `CancelIpVerification`,
+    `CompleteIpVerification`: constant-time code compare, throttle
+    + `bad_ip_code` audit, try counter, TTL expiration, fingerprint and
+    IP matching (same as the 2FA flow), then on success calls
+    `ipVerifier.Remember` and `finishLogin` with `ip_verified=true` in
+    details.
+  - `Attempt` and `CompleteTwoFactor`/`CompleteSecondFactor` now route
+    through `finishOrVerifyIP` so IP verification happens after 2FA too,
+    matching PHP `AuthService::finishOrVerifyIp`.
+  - New helper `secureCode` (crypto/rand) and `sha256Hex`; added
+    `encoding/json`, `fmt`, `math/big`, `strings` imports.
+- `server/internal/security/loginip.go`: added `Verified(ctx, userID, ip)`
+  so the auth service can check whether an address is already trusted
+  (mirrors PHP `LoginIpVerifier::verified`).
+- `server/internal/http/server.go`: wired `WithIpVerification(loginIPs, ml, st)`
+  when constructing `auth.NewService(...)` so the email-code gate is live.
+- `server/internal/http/auth_handlers.go`: POST `/login` and the 2FA
+  completion now redirect to `/login/verify-ip` when
+  `s.auth.PendingIpVerification(sess)` is true after a password/2FA
+  success (instead of going straight to `/`).
+- `server/internal/http/verify_ip.go` (`verifyIp`, POST `/login/verify-ip`):
+  now fully implemented. Cancel clears the pending IP state and returns
+  to `/login`; otherwise delegates to `s.auth.CompleteIpVerification`,
+  flashes errors (redirecting to `/login/verify-ip` while pending, else
+  to `/login`), and on success rotates the CSRF token and redirects to
+  `/`. The GET handler renders the form when a code is pending, else
+  redirects to `/login`.
+- `server/internal/web/templates/auth_verify_ip.html`: replaced the
+  \"not yet ported\" notice with the real instructional copy matching the
+  PHP view.
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐.
+
+## Batch 97 — Panel-user update (POST /users/{id}) ☑
+
+- `server/internal/identity/users.go`:
+  - New `UserUpdate{Email,DisplayName,RoleID,IsActive,Password}` payload.
+  - `Repository.Update(ctx, id, UserUpdate)` writes email / display_name /
+    role_id / is_active / updated_at and, when Password is non-empty,
+    password_hash via a single UPDATE statement.
+  - Helpers `EmailExists(ctx, email, excludeID)`,
+    `CountActiveWithRole(ctx, roleName)` and `UsernameExists(ctx, username)`
+    for validation & the last-administrator guard.
+- `server/internal/http/users_crud.go` — `usersUpdate` (POST `/users/{id}`):
+  - Replaces the "not yet ported" flash stub with the real update flow,
+    matching `UsersController::update` / `UserService::update`.
+  - Loads target user and runs `canManageUser` (server-wide role or
+    reseller parent-chain walk) to guard edit scope.
+  - Validates: email (isEmail + length ≤190 + uniqueness vs. other
+    accounts), display_name ≤100 chars, role_id references an existing
+    role, password strength via `s.policy.Check` + confirmation when
+    non-empty, self-disable prevention, last-administrator guard
+    (refuses to demote/deactivate the final active "admin" role).
+  - On password change, `identity.HashPassword` produces an argon2id hash
+    that gets passed through to `Repository.Update` (session-epoch
+    invalidation on password change will be added in the next batch,
+    since it requires plumbing the auth service into the CRUD
+    handlers).
+  - On role change / active toggle / password change, writes a
+    `user.update` audit with the same `details` shape the PHP panel
+    produces.
+  - Helper `isEmail` and `canManageUser(repo, actor, target)` (with
+    parent-chain walk via `Repository.FindByID`).
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐. Remaining PHP-stub flash handlers:
+`usersStore` (POST /users — create), accounts create/terminate/confirm-
+terminate (3), plugins.toggle (1), and the setup-wizard JSON step runner.

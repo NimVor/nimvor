@@ -2,12 +2,17 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"math/big"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
@@ -15,6 +20,17 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 	"github.com/mchkhawarshahzad/whacp/server/internal/twofactor"
 )
+
+// secureCode returns a random 6-digit numeric string using crypto/rand
+// (matches PHP random_int(100000,999999)).
+func secureCode() string {
+	n, err := rand.Int(rand.Reader, big.NewInt(900000))
+	if err != nil {
+		// Fallback: extremely unlikely but keep the flow working.
+		return "000000"
+	}
+	return fmt.Sprintf("%06d", 100000+n.Int64())
+}
 
 // Session keys. These live only in the Go panel's sealed cookie (not shared
 // with the PHP file sessions), so the names need only be stable here. The
@@ -33,6 +49,17 @@ const (
 	key2FATries  = "_auth_2fa_tries"
 	pendingTTL   = 300 // seconds allowed between the password and the second factor
 	pendingTries = 5
+
+	// IP-verification pending-sign-in keys.
+	keyIPID     = "_auth_ip_id"
+	keyIPUser   = "_auth_ip_username"
+	keyIPFP     = "_auth_ip_fp"
+	keyIPAt     = "_auth_ip_at"
+	keyIPTries  = "_auth_ip_tries"
+	keyIPCode   = "_auth_ip_code"
+	keyIPIP     = "_auth_ip_ip"
+	ipCodeTTL   = 900 // 15 minutes (LoginIpVerifier::CODE_TTL)
+	ipCodeTries = 5
 
 	// keyAuthConfirmedAt is set on the session by ConfirmPassword; the
 	// confirmed window lasts ConfirmTTL seconds (mirrors CONFIRMED_KEY
@@ -67,6 +94,40 @@ type Service struct {
 	idleTimeout     int64
 	absoluteTimeout int64
 	now             func() int64
+
+	// ipVerifier stores/remembers verified IP addresses. When nil the
+	// "limit sign-ins to verified IP addresses" policy is disabled.
+	ipVerifier ipRememberer
+	// mailSender is the SMTP mailer used to send the one-time code.
+	mailSender ipMailSender
+	// policyReader reads settings (policy_verified_ips, panel_name).
+	policyReader ipPolicyReader
+}
+
+// ipRememberer stores verified IPs (security.LoginIpVerifier shape).
+type ipRememberer interface {
+	Verified(ctx context.Context, userID int64, ip string) bool
+	Remember(ctx context.Context, userID int64, ip string) error
+}
+
+// ipMailSender sends plain-text email.
+type ipMailSender interface {
+	Send(ctx context.Context, to []string, subject, text string) error
+	Configured(ctx context.Context) (bool, error)
+}
+
+// ipPolicyReader reads bool/string settings.
+type ipPolicyReader interface {
+	Bool(ctx context.Context, key string, def bool) (bool, error)
+	String(ctx context.Context, key, def string) (string, error)
+}
+
+// WithIpVerification wires the "verified IP addresses" login gate.
+func (s *Service) WithIpVerification(v ipRememberer, m ipMailSender, p ipPolicyReader) *Service {
+	s.ipVerifier = v
+	s.mailSender = m
+	s.policyReader = p
+	return s
 }
 
 // NewService builds the auth service with the PHP defaults (30-minute idle,
@@ -200,8 +261,10 @@ func (s *Service) Attempt(ctx context.Context, sess *session.Session, username, 
 		return "", true, nil
 	}
 
-	if err := s.finishLogin(ctx, sess, row.ID, row.Username, hash, ip, nil); err != nil {
+	if msg, err := s.finishOrVerifyIP(ctx, sess, row.ID, row.Username, hash, ip, nil); err != nil {
 		return "", false, err
+	} else if msg != "" {
+		return msg, false, nil
 	}
 	return "", false, nil
 }
@@ -210,6 +273,183 @@ func (s *Service) Attempt(ctx context.Context, sess *session.Session, username, 
 // brute-force-protection refusal). The Go panel has no HULK port yet, so it
 // never refuses; the login throttle above still applies.
 func (s *Service) bruteForceRefusal(username, ip string) string { return "" }
+
+// finishOrVerifyIP signs the session in, unless the verified-IP policy is
+// enabled and the address isn't already trusted: then a random six-digit
+// code is emailed and the sign-in pends until verifyIp submits it.
+// Mirrors AuthService::finishOrVerifyIp.
+func (s *Service) finishOrVerifyIP(ctx context.Context, sess *session.Session, id int64, username, hash, ip string, details map[string]any) error {
+	if !s.ipRequired(ctx, id, ip) {
+		return s.finishLogin(ctx, sess, id, username, hash, ip, details)
+	}
+	s.clearTwoFactorKeys(sess)
+	s.clearIpKeys(sess)
+	var email string
+	s.db.QueryRowContext(ctx, "SELECT email FROM users WHERE id = ?", id).Scan(&email)
+	email = strings.TrimSpace(strings.ToLower(email))
+	configured, _ := s.mailSender.Configured(ctx)
+	if email == "" || !configured {
+		reason := "your account has no email address"
+		if configured {
+			reason = "the panel cannot send email"
+		}
+		uid := id
+		s.audit.Record(ctx, audit.Entry{UserID: &uid, Username: username, Action: "auth.login", TargetType: "user", TargetID: strconv.FormatInt(id, 10), Result: audit.Denied, IP: ip, Details: map[string]any{"reason": "ip_not_verified", "ip": ip}})
+		return fmt.Errorf("Sign-ins from new IP addresses must be verified by email, but %s. Ask your administrator to verify this address for you.", reason)
+	}
+	code := secureCode()
+	panelName, _ := s.policyReader.String(ctx, "panel_name", "WhaCP")
+	body := strings.Join([]string{
+		"Someone (hopefully you) signed in to the " + panelName + " account \"" + username + "\" from the IP address " + ip + ", which has not been used before.",
+		"",
+		"To allow it, enter this code within 15 minutes: " + code,
+		"",
+		"If this was not you, do not enter the code and change your password.",
+	}, "\n")
+	if err := s.mailSender.Send(ctx, []string{email}, panelName+": verify a sign-in from a new IP address", body); err != nil {
+		uid := id
+		s.audit.Record(ctx, audit.Entry{UserID: &uid, Username: username, Action: "auth.login", TargetType: "user", TargetID: strconv.FormatInt(id, 10), Result: audit.Denied, IP: ip, Details: map[string]any{"reason": "ip_code_email_failed", "ip": ip}})
+		return errors.New("The verification email could not be sent. Try again later or ask your administrator to verify this address.")
+	}
+	fp, err := s.fingerprint(ctx, hash, id)
+	if err != nil {
+		return err
+	}
+	codeHash := sha256Hex("whacp-login-ip|" + code)
+	sess.Regenerate()
+	sess.Set(keyIPID, strconv.FormatInt(id, 10))
+	sess.Set(keyIPUser, username)
+	sess.Set(keyIPFP, fp)
+	sess.Set(keyIPAt, strconv.FormatInt(s.now(), 10))
+	sess.Set(keyIPTries, "0")
+	sess.Set(keyIPCode, codeHash)
+	sess.Set(keyIPIP, ip)
+	if details != nil {
+		if dj, err := json.Marshal(details); err == nil {
+			sess.Set("_auth_ip_details", string(dj))
+		}
+	}
+	uid := id
+	s.audit.Record(ctx, audit.Entry{UserID: &uid, Username: username, Action: "auth.login", TargetType: "user", TargetID: strconv.FormatInt(id, 10), Result: audit.Success, IP: ip, Details: map[string]any{"step": "password", "ip_verification": "required", "ip": ip}})
+	return nil
+}
+
+func (s *Service) ipRequired(ctx context.Context, userID int64, ip string) bool {
+	if s.ipVerifier == nil || s.mailSender == nil || s.policyReader == nil {
+		return false
+	}
+	on, _ := s.policyReader.Bool(ctx, "policy_verified_ips", false)
+	if !on {
+		return false
+	}
+	return !s.ipVerifier.Verified(ctx, userID, ip)
+}
+
+// PendingIpVerification reports whether the session is waiting for an
+// emailed IP verification code (AuthService::pendingIpVerification).
+func (s *Service) PendingIpVerification(sess *session.Session) bool {
+	id := sess.Get(keyIPID)
+	if id == "" {
+		return false
+	}
+	if s.now()-atoi64(sess.Get(keyIPAt)) > ipCodeTTL {
+		s.clearIpKeys(sess)
+		return false
+	}
+	return true
+}
+
+// CancelIpVerification drops an IP-verification pending sign-in.
+func (s *Service) CancelIpVerification(sess *session.Session) {
+	s.clearIpKeys(sess)
+}
+
+// CompleteIpVerification checks the code submitted to POST /login/verify-ip
+// and, on success, finishes the login. Returns a user-facing error
+// message, or "" on success. Mirrors AuthService::completeIpVerification.
+func (s *Service) CompleteIpVerification(ctx context.Context, sess *session.Session, code, ip string) (string, error) {
+	if !s.PendingIpVerification(sess) {
+		return "Your sign-in expired. Enter your password again.", nil
+	}
+	id := atoi64(sess.Get(keyIPID))
+	username := sess.Get(keyIPUser)
+	fp := sess.Get(keyIPFP)
+	tries := int(atoi64(sess.Get(keyIPTries)))
+	wantHash := sess.Get(keyIPCode)
+	pendingIP := sess.Get(keyIPIP)
+	user, err := s.users.Find(ctx, id)
+	if err != nil && !errors.Is(err, identity.ErrNotFound) {
+		return "", err
+	}
+	hash, err := s.users.PasswordHash(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	retry, err := s.throttle.RetryAfter(ctx, username, ip)
+	if err != nil {
+		return "", err
+	}
+	if pendingIP != ip || retry > 0 || hash == "" || user == nil || !identity.CanAct(user) {
+		s.clearIpKeys(sess)
+		return "Your sign-in expired. Enter your password again.", nil
+	}
+	gotFP, err := s.fingerprint(ctx, hash, id)
+	if err != nil {
+		return "", err
+	}
+	if subtle.ConstantTimeCompare([]byte(gotFP), []byte(fp)) != 1 {
+		s.clearIpKeys(sess)
+		return "Your sign-in expired. Enter your password again.", nil
+	}
+	code = strings.TrimSpace(code)
+	if len(code) > 20 {
+		code = code[:20]
+	}
+	if subtle.ConstantTimeCompare([]byte(wantHash), []byte(sha256Hex("whacp-login-ip|"+code))) != 1 {
+		if err := s.throttle.RecordFailure(ctx, username, ip); err != nil {
+			return "", err
+		}
+		uid := id
+		s.audit.Record(ctx, audit.Entry{UserID: &uid, Username: username, Action: "auth.login", TargetType: "user", TargetID: strconv.FormatInt(id, 10), Result: audit.Failure, IP: ip, Details: map[string]any{"reason": "bad_ip_code", "ip": ip}})
+		tries++
+		if tries >= ipCodeTries {
+			s.clearIpKeys(sess)
+			return "Too many failed attempts. Enter your password again.", nil
+		}
+		sess.Set(keyIPTries, strconv.Itoa(tries))
+		return "That code is not valid.", nil
+	}
+	if err := s.ipVerifier.Remember(ctx, id, ip); err != nil {
+		return "", err
+	}
+	var details map[string]any
+	if raw := sess.Get("_auth_ip_details"); raw != "" {
+		_ = json.Unmarshal([]byte(raw), &details)
+	}
+	if details == nil {
+		details = map[string]any{}
+	}
+	details["ip_verified"] = true
+	s.clearIpKeys(sess)
+	return "", s.finishLogin(ctx, sess, id, username, hash, ip, details)
+}
+
+func (s *Service) clearIpKeys(sess *session.Session) {
+	sess.Remove(keyIPID)
+	sess.Remove(keyIPUser)
+	sess.Remove(keyIPFP)
+	sess.Remove(keyIPAt)
+	sess.Remove(keyIPTries)
+	sess.Remove(keyIPCode)
+	sess.Remove(keyIPIP)
+	sess.Remove("_auth_ip_details")
+}
+
+// sha256Hex returns the hex SHA-256 of a string (matches LoginIpVerifier::hash).
+func sha256Hex(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:])
+}
 
 // finishLogin records the success, writes the signed-in session and audits it.
 func (s *Service) finishLogin(ctx context.Context, sess *session.Session, id int64, username, hash, ip string, details map[string]any) error {
@@ -344,7 +584,17 @@ func (s *Service) CompleteTwoFactor(ctx context.Context, sess *session.Session, 
 		}
 		return s.secondFactorFailed(ctx, sess, p, ip)
 	}
-	return "", s.finishLogin(ctx, sess, p.id, p.username, hash, ip, map[string]any{"two_factor": method})
+	s.clearTwoFactorKeys(sess)
+	return s.finishOrVerifyIPStr(ctx, sess, p.id, p.username, hash, ip, map[string]any{"two_factor": method})
+}
+
+// finishOrVerifyIPStr is a string-returning wrapper around finishOrVerifyIP
+// used by second-factor completions (which return "","nil" on success).
+func (s *Service) finishOrVerifyIPStr(ctx context.Context, sess *session.Session, id int64, username, hash, ip string, details map[string]any) (string, error) {
+	if err := s.finishOrVerifyIP(ctx, sess, id, username, hash, ip, details); err != nil {
+		return "", err
+	}
+	return "", nil
 }
 
 // PendingSigninID returns the user ID of the pending second-factor sign-in,
@@ -379,7 +629,7 @@ func (s *Service) CompleteSecondFactor(ctx context.Context, sess *session.Sessio
 		details = map[string]any{}
 	}
 	details["two_factor"] = method
-	return "", s.finishLogin(ctx, sess, p.id, p.username, hash, ip, details)
+	return s.finishOrVerifyIPStr(ctx, sess, p.id, p.username, hash, ip, details)
 }
 
 // secondFactorFailed counts a failed second-factor attempt (throttle +

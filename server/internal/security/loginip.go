@@ -25,6 +25,14 @@ type LoginIpVerifier struct{ db *sql.DB }
 
 func NewLoginIpVerifier(db *sql.DB) *LoginIpVerifier { return &LoginIpVerifier{db: db} }
 
+// Verified reports whether the user already has this IP on their verified
+// list (LoginIpVerifier::verified).
+func (v *LoginIpVerifier) Verified(ctx context.Context, userID int64, ip string) bool {
+	var id int64
+	err := v.db.QueryRowContext(ctx, "SELECT id FROM login_ips WHERE user_id = ? AND ip = ?", userID, ip).Scan(&id)
+	return err == nil
+}
+
 // Remember records an address as verified (or refreshes last_used_at).
 func (v *LoginIpVerifier) Remember(ctx context.Context, userID int64, ip string) error {
 	now := time.Now().UTC().Format(time.RFC3339)

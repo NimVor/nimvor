@@ -51,6 +51,11 @@ func (s *Server) doLogin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login/two-factor", http.StatusSeeOther)
 		return
 	}
+	if s.auth.PendingIpVerification(sess) {
+		// Password accepted; a verification code was emailed.
+		http.Redirect(w, r, "/login/verify-ip", http.StatusSeeOther)
+		return
+	}
 	if msg != "" {
 		sess.Flash("error", msg)
 		sess.Flash("old_username", username)
@@ -102,13 +107,22 @@ func (s *Server) doTwoFactor(w http.ResponseWriter, r *http.Request) {
 	}
 	if msg != "" {
 		sess.Flash("error", msg)
-		// Still waiting for the factor -> stay on this step; otherwise the
-		// sign-in expired and the user starts again (AuthController::verifyTwoFactor).
+		// Still waiting for the factor -> stay on this step; if an emailed
+		// IP code is now pending -> go there; otherwise the sign-in expired
+		// and the user starts again (AuthController::verifyTwoFactor).
 		if s.auth.PendingTwoFactor(sess) {
 			http.Redirect(w, r, "/login/two-factor", http.StatusSeeOther)
 			return
 		}
+		if s.auth.PendingIpVerification(sess) {
+			http.Redirect(w, r, "/login/verify-ip", http.StatusSeeOther)
+			return
+		}
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if s.auth.PendingIpVerification(sess) {
+		http.Redirect(w, r, "/login/verify-ip", http.StatusSeeOther)
 		return
 	}
 	// Signed in: rotate the CSRF token.
