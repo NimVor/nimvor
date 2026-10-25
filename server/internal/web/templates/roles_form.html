@@ -1,0 +1,48 @@
+{{define "roles_form"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.Title}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span><span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form"><input type="hidden" name="_token" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
+</header>
+<main class="container">
+<h1>{{.Title}}</h1>
+<p><a href="/roles">← Back to roles</a></p>
+{{if .Role.ID}}
+<form method="post" action="/roles/{{.Role.ID}}">
+{{else}}
+<form method="post" action="/roles">
+{{end}}
+<input type="hidden" name="_token" value="{{.CSRF}}">
+<label>Name <input name="name" value="{{.Role.Name}}" {{if .Role.IsSystem}}readonly{{end}} required></label><br>
+<label>Label <input name="label" value="{{.Role.Label}}" required></label><br>
+<label>Description <input name="description" value="{{.Role.Description}}"></label><br>
+<label>Scope <select name="scope"><option value="own"{{if eq .Role.Scope "own"}} selected{{end}}>Own account</option><option value="all"{{if eq .Role.Scope "all"}} selected{{end}}>Server-wide (admin)</option></select></label><br>
+<fieldset><legend>Permissions</legend>
+{{range .Permissions}}
+<label><input type="checkbox" name="permissions[]" value="{{.Name}}"{{if .Granted}} checked{{end}}> {{.Name}}</label><br>
+{{end}}
+</fieldset>
+<button type="submit">Save</button>
+</form>
+{{if .Role.ID}}
+<form method="post" action="/roles/{{.Role.ID}}/two-factor">
+<input type="hidden" name="_token" value="{{.CSRF}}">
+<label><input type="checkbox" name="require_two_factor" value="1"{{if .Role.RequireTwoFactor}} checked{{end}}> Require two-factor sign-in</label>
+<button type="submit">Save policy</button>
+</form>
+{{if .Role.IsSystem}}
+<form method="post" action="/roles/{{.Role.ID}}/reset" data-confirm="Reset to default permissions?">
+<input type="hidden" name="_token" value="{{.CSRF}}"><button type="submit">Reset to defaults</button>
+</form>
+{{end}}
+{{end}}
+</main>
+</body>
+</html>{{end}}

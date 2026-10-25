@@ -1,0 +1,50 @@
+{{define "backups_account_restore"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Restore account backup</h1>
+  <p><a href="/backups#accounts">← Back to backups</a></p>
+  <p class="text-muted">File: {{.Path}}</p>
+  {{if .Manifest}}
+  <pre class="text-muted">{{.Manifest}}</pre>
+  {{if not .Restore}}
+  <form method="post" action="/backups/accounts/restore" data-confirm="Type the account username to confirm.">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <input type="hidden" name="path" value="{{.Path}}">
+    <label>Confirm (type the username): <input name="confirm" required></label>
+    <button type="submit">Start import</button>
+  </form>
+  {{else}}
+  <p>State: {{.ImportState}}</p>
+  {{if eq .Restore.Status "imported"}}
+  <form method="post" action="/backups/accounts/restores/{{.Restore.ID}}/recreate" data-confirm="Recreate account and its websites now?">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Recreate account</button>
+  </form>
+  {{end}}
+  {{if .Secrets}}
+  <h3>Generated credentials (save now — shown once)</h3>
+  <ul>{{range .Secrets}}<li>{{.what}}: <code>{{.name}}</code> / <code>{{.password}}</code></li>{{end}}</ul>
+  {{end}}
+  {{end}}
+  {{else}}
+  <p class="error">Manifest not available.</p>
+  {{end}}
+</main>
+</body>
+</html>{{end}}
