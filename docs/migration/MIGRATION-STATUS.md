@@ -1788,3 +1788,67 @@ MailFilters, etc.).
   /components/{id}/{step} (ports sub-step), /limits/apply,
   /limits/quota/enable.
 - Docs: **547 ☑ / 4 ◑ / 0 ☐**.
+
+## Batch 87 — WebAuthn (fully wired, Go-native) ☑
+
+- `server/internal/webauthn/` (NEW package, ~570 LOC + tests): a
+  dependency-free Go port of `panel/app/Security/WebAuthn.php`. No external
+  libraries required — everything (CBOR decoder, COSE-to-PEM for ES256/RS256,
+  "ed25519:&lt;b64&gt;" storage, sha256 client-data verification,
+  authenticator-data parser, signature verification via stdlib crypto/ecdsa,
+  crypto/rsa, crypto/ed25519, clone detection via counter) lives in this
+  package.
+  - `New`, `Credentials`, `Has`, `Delete`, `DeleteAll`.
+  - `NewChallenge`/`TakeChallenge` (session-held one-time 32-byte challenges,
+    TTL = 5 minutes).
+  - `RegistrationOptions` builds the navigator.credentials.create() payload
+    (user handle = sha256("whacp-user|&lt;id&gt;"), matching PHP).
+  - `Register` parses the attestation object CBOR, validates client data +
+    rpId hash + user-present flag, extracts the attested credential, stores
+    the COSE key converted to PEM/ed25519 string (same DB schema).
+  - `LoginOptions` builds allowCredentials from the user's registered keys.
+  - `Verify` validates the assertion (clientData, authData, signature),
+    updates sign_count and last_used_at, returns the key name; flags cloned
+    keys (counter went backwards) via a sentinel error so the caller can
+    audit `auth.webauthn_clone`.
+  - B64U / UnB64U helpers matching WebAuthn base64url.
+- `server/internal/http/webauthn.go` rewritten (~250 LOC):
+  - `webauthnLoginOptions` — for the pending sign-in, calls
+    `wa.LoginOptions` and persists the challenge in the session.
+  - `webauthnLogin` — parses JSON assertion, takes the challenge, calls
+    `wa.Verify`, uses `auth.CompleteSecondFactor` on success; on bad
+    assertion falls through `auth.SecondFactorFailed` for throttle/audit;
+    on cloned key records `auth.webauthn_clone` audit. Returns
+    `{"success":true,"data":{"redirect":"..."}}` compatible with the PHP
+    client; sets `restart:true` when the pending sign-in expires.
+  - `webauthnProfileOptions` — for signed-in user, builds registration
+    options, persists register challenge.
+  - `webauthnProfileAdd` — accepts form or JSON, CSRF-checked, validates
+    name (<=60 chars, <=MaxKeys=10), takes challenge, calls `wa.Register`,
+    audits `auth.webauthn_add`, flashes and returns redirect.
+  - `webauthnProfileDelete` — CSRF-checked, calls `wa.Delete`, audits
+    `auth.webauthn_remove` with the key name.
+- `server/internal/auth/service.go`:
+  - Removed the "WebAuthn not available" refusal during `Attempt`. Accounts
+    whose only second factor is a security key now enter the same
+    pending-2FA state as TOTP accounts; the JS on the two-factor page
+    auto-triggers the key prompt.
+  - Added `PendingSigninID`, `SecondFactorFailed`, `CompleteSecondFactor`
+    so the WebAuthn handler can reuse the existing throttle / finishLogin
+    pipeline instead of duplicating it.
+- `server/internal/http/server.go`: registers a `wa *webauthn.Service` on
+  the Server struct.
+- `server/internal/http/users_handlers.go`: `profileShow` now loads the
+  user's registered keys into `.Keys` for the template.
+- Templates:
+  - `two_factor.html`: adds a "Use a security key" button with inline JS
+    that calls /login/two-factor/key/options and /login/two-factor/key via
+    `navigator.credentials.get`; auto-clicks for key-only accounts.
+  - `profile.html`: adds a Security keys table (name / added / last used /
+    Remove) and an inline "Add a security key" form with JS that calls
+    /profile/security-keys/options and /profile/security-keys via
+    `navigator.credentials.create`.
+- Unit tests in `server/internal/webauthn/webauthn_test.go` cover CBOR
+  round-trips of COSE ES256/Ed25519/RSA keys, B64U encoding, client-data
+  validation and auth-data parsing.
+- Docs: WebAuthn 5 routes stay ☑; tally remains 547 ☑ / 4 ◑ / 0 ☐.

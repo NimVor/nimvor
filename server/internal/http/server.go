@@ -26,6 +26,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 	"github.com/mchkhawarshahzad/whacp/server/internal/twofactor"
 	"github.com/mchkhawarshahzad/whacp/server/internal/web"
+	wa "github.com/mchkhawarshahzad/whacp/server/internal/webauthn"
 )
 
 // Server holds the dependencies shared by handlers.
@@ -51,6 +52,7 @@ type Server struct {
 	hulk      *security.Hulk
 	cfDo      cfTransport // per-website Cloudflare transport (nil = real)
 	apiAuth   *auth.APIAuthenticator
+	wa        *wa.Service
 }
 
 // New builds the server and registers the routes implemented so far. It
@@ -68,6 +70,7 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 	policy := security.NewPolicy(st)
 	ml := mail.New(st, c, log)
 	resets := auth.NewResetService(db, users, ml, st, policy, al, log)
+	wasvc := wa.New(db)
 	s := &Server{
 		cfg:       cfg,
 		db:        db,
@@ -89,6 +92,7 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		loginIPs:  security.NewLoginIpVerifier(db),
 		hulk:      security.NewHulk(db, st),
 		apiAuth:   auth.NewAPIAuthenticator(db, users),
+		wa:        wasvc,
 	}
 	s.routes()
 	return s, nil

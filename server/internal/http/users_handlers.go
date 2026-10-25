@@ -53,6 +53,12 @@ func (s *Server) profileShow(w http.ResponseWriter, r *http.Request) {
 	if setupSecret != "" {
 		setupURI = twofactor.URI(setupSecret, user.Username, "WhaCP")
 	}
+	keys, err := s.wa.Credentials(user.ID)
+	if err != nil {
+		s.log.Error("list webauthn keys", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
 	success, _ := sess.PullFlash("success")
 	errMsg, _ := sess.PullFlash("error")
 	recovery, _ := sess.PullFlash("recovery_codes")
@@ -62,6 +68,7 @@ func (s *Server) profileShow(w http.ResponseWriter, r *http.Request) {
 		"CSRF":          session.CSRFToken(sess),
 		"Tokens":        tokens,
 		"TwoFactor":     twoFactor,
+		"Keys":          keys,
 		"SetupSecret":   setupSecret,
 		"SetupURI":      setupURI,
 		"RecoveryCodes": recovery,
@@ -199,7 +206,7 @@ func (s *Server) profilePassword(w http.ResponseWriter, r *http.Request) {
 					Action: "user.password_change", TargetType: "user",
 					TargetID: strconv.FormatInt(user.ID, 10), Result: audit.Failure,
 					Details: map[string]any{"reason": "bad_current_password"},
-					UserID: &uid, Username: user.Username,
+					UserID:  &uid, Username: user.Username,
 				})
 			}
 			sess.Flash("error", pe.Message)
