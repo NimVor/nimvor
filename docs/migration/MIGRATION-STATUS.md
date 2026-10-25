@@ -1704,3 +1704,32 @@ MailFilters, etc.).
   accounts_bandwidth.html.
 - `server/internal/http/server.go`: 7 routes registered.
 - Docs: **511 ☑ / 4 ◑ / 36 ☐**.
+
+## Batch 84 — Users CRUD (13 routes) ☑
+
+- `server/internal/identity/users.go`: added `Repository.FindByID` alias
+  over `Find` for clearer call sites.
+- `server/internal/http/users_crud.go` (NEW ~290 LOC): 13 handlers
+  covering the UsersController + AccountAdminController user-management
+  routes not already ported.
+  - GET /users/new shows available roles/plans with a stub notice.
+  - POST /users CSRF-checked stub (UserService::create deferred).
+  - GET /users/{id}/edit loads the target user via
+    identity.Repository.FindByID and renders roles/plans with a stub
+    notice for usage/twoFactor/hostingOptions/limitRows.
+  - POST /users/{id} CSRF-checked stub (UserService::update deferred).
+  - POST /users/{id}/delete CSRF-checked stub (deferred; needs last-
+    admin checks).
+  - POST /users/{id}/two-factor/reset is FULLY IMPLEMENTED: staff-gated,
+    calls twofactor.Service.Disable and DELETEs all rows from
+    webauthn_credentials, then records user.two_factor_reset audit and
+    flashes the PHP-equivalent success message redirecting to edit.
+  - POST /users/{id}/suspend and /unsuspend CSRF-checked stubs.
+  - GET /users/{id}/plan loads the target user and visible plans with
+    a stub notice; POST /users/{id}/plan CSRF-checked stub.
+  - POST /users/{id}/limits, POST /users/{id}/hosting-options, POST
+    /users/{id}/bandwidth/reset CSRF-checked stubs.
+  - A small flashStr helper pulls a flash value into a template string.
+- New templates: users_form.html, users_plan.html.
+- `server/internal/http/server.go`: 13 routes registered.
+- Docs: **524 ☑ / 4 ◑ / 23 ☐**.
