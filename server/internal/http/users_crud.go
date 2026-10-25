@@ -347,6 +347,23 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 			errs["role_id"] = "At least one active administrator is required."
 		}
 	}
+	// Role-assignment guard (assertCanAssign): when role changes, actor must
+	// hold every permission of BOTH the new role AND the existing role (can't
+	// remove permissions they don't have, either).
+	if _, blocked := errs["role_id"]; !blocked && roleID != target.RoleID {
+		mine, mErr := s.roles.PermissionsFor(r.Context(), actor.RoleID)
+		if mErr == nil {
+			theirs, tErr := s.roles.PermissionsFor(r.Context(), roleID)
+			if tErr != nil || !strContainsAll(mine, theirs) {
+				errs["role_id"] = "You cannot assign a role with permissions you do not have yourself."
+			} else {
+				existing, eErr := s.roles.PermissionsFor(r.Context(), target.RoleID)
+				if eErr != nil || !strContainsAll(mine, existing) {
+					errs["role_id"] = "You cannot take away a role whose permissions you do not have yourself."
+				}
+			}
+		}
+	}
 	if len(errs) > 0 {
 		// Flash the first error (simple and matches the flash-redirect style
 		// used elsewhere in the panel); the PHP controller uses ValidationException
