@@ -812,6 +812,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /components/profile", s.guard("components.profile", "server.manage", s.componentsProfile))
 	s.mux.HandleFunc("POST /components/{id}/{step}", s.guard("components.fix", "server.view", s.componentsFix))
 
+	// Feature lists (administrators manage plans' allowed features).
+	s.mux.HandleFunc("GET /features", s.guard("features", "plans.manage", s.featuresIndex))
+	s.mux.HandleFunc("POST /features", s.guard("features.store", "plans.manage", s.featuresStore))
+	s.mux.HandleFunc("POST /features/{id}/delete", s.guard("features.delete", "plans.manage", s.featuresDestroy))
+
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
 	s.mux.HandleFunc("POST /servers", s.guard("servers.store", "servers.manage", s.serversStore))

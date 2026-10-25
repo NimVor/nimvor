@@ -8,7 +8,9 @@ package authz
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 )
@@ -254,4 +256,205 @@ func featureForRoute(route string, disabled []string) string {
 		}
 	}
 	return ""
+}
+
+// FeatureList is one row returned by Lists (matches the PHP
+// FeatureService::lists shape).
+type FeatureList struct {
+	ID           int64    `json:"id"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	CreatedAt    string   `json:"created_at"`
+	UpdatedAt    string   `json:"updated_at"`
+	Plans        int      `json:"plans"`
+	Disabled     []string `json:"disabled"`
+	EnabledOptIn []string `json:"enabled_optin"`
+}
+
+// Lists returns all feature lists, each with the current count of plans
+// using it and its disabled / opt-in feature names (FeatureService::lists).
+func (s *FeatureService) Lists(ctx context.Context) ([]FeatureList, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT l.id, l.name, l.description, l.created_at, l.updated_at,
+		(SELECT COUNT(*) FROM plans p WHERE p.feature_list_id = l.id) AS plans
+		FROM feature_lists l ORDER BY l.name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FeatureList
+	for rows.Next() {
+		var fl FeatureList
+		if err := rows.Scan(&fl.ID, &fl.Name, &fl.Description, &fl.CreatedAt, &fl.UpdatedAt, &fl.Plans); err != nil {
+			return nil, err
+		}
+		out = append(out, fl)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		id := out[i].ID
+		dRows, err := s.db.QueryContext(ctx, "SELECT feature FROM feature_list_disabled WHERE list_id = ?", id)
+		if err == nil {
+			for dRows.Next() {
+				var f string
+				if dRows.Scan(&f) == nil {
+					out[i].Disabled = append(out[i].Disabled, f)
+				}
+			}
+			dRows.Close()
+		}
+		eRows, err := s.db.QueryContext(ctx, "SELECT feature FROM feature_list_enabled WHERE list_id = ?", id)
+		if err == nil {
+			for eRows.Next() {
+				var f string
+				if eRows.Scan(&f) == nil {
+					out[i].EnabledOptIn = append(out[i].EnabledOptIn, f)
+				}
+			}
+			eRows.Close()
+		}
+	}
+	return out, nil
+}
+
+// ErrFeatureListNotFound is returned by Delete / Save(id) when the list
+// doesn't exist.
+var ErrFeatureListNotFound = errors.New("feature list not found")
+
+// Save creates or updates a feature list. name is required (max 60 chars)
+// and unique; description is optional (max 300); features is the set of
+// enabled features, intersected with the known feature keys. Mirrors
+// FeatureService::save.
+func (s *FeatureService) Save(ctx context.Context, id *int64, name, description string, features []string, actorID int64) (int64, error) {
+	name = strings.TrimSpace(name)
+	desc := strings.TrimSpace(description)
+	if name == "" || len(name) > 60 {
+		return 0, errors.New("Enter a name (up to 60 characters).")
+	}
+	if len(desc) > 300 {
+		return 0, errors.New("Keep the description under 300 characters.")
+	}
+	var existing int64
+	var args []any
+	q := "SELECT id FROM feature_lists WHERE name = ?"
+	args = append(args, name)
+	if id != nil {
+		q += " AND id != ?"
+		args = append(args, *id)
+	}
+	if err := s.db.QueryRowContext(ctx, q, args...).Scan(&existing); err == nil {
+		return 0, errors.New("A feature list with this name exists.")
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
+	enabled := []string{}
+	for _, f := range features {
+		if _, ok := Features[f]; ok {
+			enabled = append(enabled, f)
+		}
+	}
+	normalKeys := []string{}
+	for k := range Features {
+		if !isDefaultOff(k) {
+			normalKeys = append(normalKeys, k)
+		}
+	}
+	enabledSet := map[string]bool{}
+	for _, f := range enabled {
+		enabledSet[f] = true
+	}
+	disabled := []string{}
+	for _, k := range normalKeys {
+		if !enabledSet[k] {
+			disabled = append(disabled, k)
+		}
+	}
+	optIn := []string{}
+	for _, f := range enabled {
+		if isDefaultOff(f) {
+			optIn = append(optIn, f)
+		}
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	var outID int64
+	if id == nil {
+		res, err := tx.ExecContext(ctx, "INSERT INTO feature_lists (name, description, created_at, updated_at) VALUES (?, ?, ?, ?)", name, desc, now, now)
+		if err != nil {
+			return 0, err
+		}
+		outID, err = res.LastInsertId()
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		outID = *id
+		if err := tx.QueryRowContext(ctx, "SELECT id FROM feature_lists WHERE id = ?", outID).Scan(&outID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return 0, ErrFeatureListNotFound
+			}
+			return 0, err
+		}
+		if _, err := tx.ExecContext(ctx, "UPDATE feature_lists SET name = ?, description = ?, updated_at = ? WHERE id = ?", name, desc, now, outID); err != nil {
+			return 0, err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM feature_list_disabled WHERE list_id = ?", outID); err != nil {
+		return 0, err
+	}
+	for _, f := range disabled {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO feature_list_disabled (list_id, feature) VALUES (?, ?)", outID, f); err != nil {
+			return 0, err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM feature_list_enabled WHERE list_id = ?", outID); err != nil {
+		return 0, err
+	}
+	for _, f := range optIn {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO feature_list_enabled (list_id, feature) VALUES (?, ?)", outID, f); err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return outID, nil
+}
+
+// Delete removes a feature list, nulling it on any plans that reference
+// it. Returns the removed list's name (FeatureService::delete).
+func (s *FeatureService) Delete(ctx context.Context, id int64) (string, error) {
+	var name string
+	if err := s.db.QueryRowContext(ctx, "SELECT name FROM feature_lists WHERE id = ?", id).Scan(&name); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrFeatureListNotFound
+		}
+		return "", err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, "UPDATE plans SET feature_list_id = NULL WHERE feature_list_id = ?", id); err != nil {
+		return "", err
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM feature_list_disabled WHERE list_id = ?", id); err != nil {
+		return "", err
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM feature_list_enabled WHERE list_id = ?", id); err != nil {
+		return "", err
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM feature_lists WHERE id = ?", id); err != nil {
+		return "", err
+	}
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+	return name, nil
 }

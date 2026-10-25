@@ -1513,3 +1513,29 @@ MailFilters, etc.).
 - `server/internal/http/server.go`: 2 routes registered under the
   `requireAuth` wrapper.
 - Docs: **473 ☑ / 4 ◑ / 74 ☐**.
+
+## Batch 77 — FeaturesController (3 routes) ☑
+
+- `server/internal/authz/features.go`: extended `FeatureService` with
+  - `FeatureList` struct carrying id/name/description/timestamps/plans
+    count plus disabled / opt-in feature slices.
+  - `Lists(ctx)` — loads every feature list with its disabled and
+    opt-in feature names from `feature_list_disabled` /
+    `feature_list_enabled`.
+  - `Save(ctx, id, name, description, features, actorID)` — validates
+    name (≤60, unique) and description (≤300), intersects requested
+    features with the known registry, splits into normal (disabled
+    when not selected) vs. default-off (enabled_optin when selected),
+    and writes the three tables in a transaction.
+  - `Delete(ctx, id)` — in a transaction, nulls `plans.feature_list_id`
+    for any plan referencing the list, removes the enabled/disabled
+    rows, and deletes the list; returns its name.
+  - Added `ErrFeatureListNotFound`.
+- `server/internal/http/features.go` (NEW ~140 LOC): featuresIndex /
+  featuresStore / featuresDestroy handlers — admin-gated, CSRF-checked,
+  audit-recorded, with flash redirects and a `featureCatalogue()`
+  grouping helper.
+- `server/internal/web/templates/features_index.html` (NEW): minimal
+  JSON dump page (same pre-block pattern as components_index).
+- `server/internal/http/server.go`: 3 routes registered under plans.manage.
+- Docs: **476 ☑ / 4 ◑ / 71 ☐**.

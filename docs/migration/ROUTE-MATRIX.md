@@ -118,9 +118,9 @@ Total routes: 551
 | POST | `/dns/zones` | DnsController::store | dns.store | dns.manage | yes | yes | ☑ |
 | GET | `/dns` | DnsController::index | dns | dns.manage | yes | yes | ☑ |
 | GET | `/domains` | DomainsController::index | domains | websites.view | yes | yes | ☑ |
-| POST | `/features/{id}/delete` | FeaturesController::destroy | features.delete | plans.manage | yes | yes | ☐ |
-| GET | `/features` | FeaturesController::index | features | plans.manage | yes | yes | ☐ |
-| POST | `/features` | FeaturesController::store | features.store | plans.manage | yes | yes | ☐ |
+| POST | `/features/{id}/delete` | FeaturesController::destroy | features.delete | plans.manage | yes | yes | ☑ |
+| GET | `/features` | FeaturesController::index | features | plans.manage | yes | yes | ☑ |
+| POST | `/features` | FeaturesController::store | features.store | plans.manage | yes | yes | ☑ |
 | POST | `/ffmpeg/apply` | FfmpegController::apply | ffmpeg.apply | server.manage | yes | yes | ☑ |
 | POST | `/ffmpeg/install` | FfmpegController::install | ffmpeg.install | packages.manage | yes | yes | ☑ |
 | POST | `/ffmpeg/uninstall` | FfmpegController::uninstall | ffmpeg.uninstall | packages.manage | yes | yes | ☑ |
