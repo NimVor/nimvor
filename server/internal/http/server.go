@@ -426,6 +426,17 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /server/reboot", s.guard("server.reboot", "server.manage", s.systemReboot))
 	s.mux.HandleFunc("POST /server/reboot/cancel", s.guard("server.reboot_cancel", "server.manage", s.systemCancelReboot))
 
+	// Batch 69 — PhpController (8 routes: repository/install/toggle +
+	// per-version show/extensions/ini/fpm + JSON modules list).
+	s.mux.HandleFunc("POST /php/repository", s.guard("php.repository", "packages.manage", s.phpRepository))
+	s.mux.HandleFunc("POST /php/install", s.guard("php.install", "php.manage", s.phpInstall))
+	s.mux.HandleFunc("POST /php/{version}/toggle", s.guard("php.toggle", "php.manage", s.phpToggle))
+	s.mux.HandleFunc("GET /php/{version}/modules", s.guard("php.modules", "php.view", s.phpModules))
+	s.mux.HandleFunc("GET /php/{version}", s.guard("php.show", "php.manage", s.phpShow))
+	s.mux.HandleFunc("POST /php/{version}/extensions/{op}", s.guard("php.extension", "php.manage", s.phpExtension))
+	s.mux.HandleFunc("POST /php/{version}/ini", s.guard("php.ini", "php.manage", s.phpIni))
+	s.mux.HandleFunc("POST /php/{version}/fpm", s.guard("php.fpm", "php.manage", s.phpFpm))
+
 	// Batch 36 — per-website Cloudflare area (direct Cloudflare API; the
 	// customer's own per-website token is stored encrypted).
 	s.mux.HandleFunc("GET /sites/{id}/cloudflare", s.guard("sites.cloudflare", "websites.manage", s.siteCloudflare))

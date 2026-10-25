@@ -201,11 +201,11 @@ Total routes: 551
 | POST | `/mail/webmail/install` | MailController::installWebmail | mail.webmail.install | packages.manage | yes | yes | ☐ |
 | POST | `/mail/webmail` | MailController::webmail | mail.webmail | server.manage | yes | yes | ☐ |
 | GET | `/mail` | MailController::index | mail | mail.manage | yes | yes | ☑ |
-| POST | `/memcached/configure` | MemcachedController::configure | memcached.configure | redis.manage | yes | yes |☑ |
-| POST | `/memcached/flush` | MemcachedController::flush | memcached.flush | redis.manage | yes | yes |☑ |
-| POST | `/memcached/install` | MemcachedController::install | memcached.install | packages.manage | yes | yes |☑ |
-| POST | `/memcached/restart` | MemcachedController::restart | memcached.restart | services.manage | yes | yes |☑ |
-| GET | `/memcached` | MemcachedController::index | memcached | redis.manage | yes | yes |☑ |
+| POST | `/memcached/configure` | MemcachedController::configure | memcached.configure | redis.manage | yes | yes | ☑ |
+| POST | `/memcached/flush` | MemcachedController::flush | memcached.flush | redis.manage | yes | yes | ☑ |
+| POST | `/memcached/install` | MemcachedController::install | memcached.install | packages.manage | yes | yes | ☑ |
+| POST | `/memcached/restart` | MemcachedController::restart | memcached.restart | services.manage | yes | yes | ☑ |
+| GET | `/memcached` | MemcachedController::index | memcached | redis.manage | yes | yes | ☑ |
 | POST | `/mongo/admin-password` | MongoController::adminPassword | mongo.admin_password | mongo.manage | yes | yes | ☑ |
 | POST | `/mongo/auth` | MongoController::auth | mongo.auth | mongo.manage | yes | yes | ☑ |
 | POST | `/mongo/backup` | MongoController::backup | mongo.backup | mongo.manage | yes | yes | ☑ |
@@ -256,19 +256,19 @@ Total routes: 551
 | POST | `/password/forgot` | PasswordResetController::send | password.send |  | no | yes | ☑ |
 | GET | `/password/reset/{token}` | PasswordResetController::show | password.reset.form |  | no | yes | ☑ |
 | POST | `/password/reset/{token}` | PasswordResetController::reset | password.reset |  | no | yes | ☑ |
-| POST | `/php/install` | PhpController::install | php.install | php.manage | yes | yes | ☐ |
+| POST | `/php/install` | PhpController::install | php.install | php.manage | yes | yes | ☑ |
 | POST | `/php/manager/apply` | PhpManagerController::apply | php.manager.apply | packages.manage | yes | yes | ☐ |
 | GET | `/php/manager/export` | PhpManagerController::export | php.manager.export | packages.manage | yes | yes | ☐ |
 | POST | `/php/manager/import` | PhpManagerController::import | php.manager.import | packages.manage | yes | yes | ☐ |
 | POST | `/php/manager/review` | PhpManagerController::review | php.manager.review | packages.manage | yes | yes | ☐ |
 | GET | `/php/manager` | PhpManagerController::index | php.manager | packages.manage | yes | yes | ☐ |
-| POST | `/php/repository` | PhpController::enableRepository | php.repository | packages.manage | yes | yes | ☐ |
-| POST | `/php/{version}/extensions/{op}` | PhpController::extension | php.extension | php.manage | yes | yes | ☐ |
-| POST | `/php/{version}/fpm` | PhpController::fpm | php.fpm | php.manage | yes | yes | ☐ |
-| POST | `/php/{version}/ini` | PhpController::ini | php.ini | php.manage | yes | yes | ☐ |
-| GET | `/php/{version}/modules` | PhpController::modules | php.modules | php.view | yes | yes | ☐ |
-| POST | `/php/{version}/toggle` | PhpController::toggle | php.toggle | php.manage | yes | yes | ☐ |
-| GET | `/php/{version}` | PhpController::show | php.show | php.manage | yes | yes | ☐ |
+| POST | `/php/repository` | PhpController::enableRepository | php.repository | packages.manage | yes | yes | ☑ |
+| POST | `/php/{version}/extensions/{op}` | PhpController::extension | php.extension | php.manage | yes | yes | ☑ |
+| POST | `/php/{version}/fpm` | PhpController::fpm | php.fpm | php.manage | yes | yes | ☑ |
+| POST | `/php/{version}/ini` | PhpController::ini | php.ini | php.manage | yes | yes | ☑ |
+| GET | `/php/{version}/modules` | PhpController::modules | php.modules | php.view | yes | yes | ☑ |
+| POST | `/php/{version}/toggle` | PhpController::toggle | php.toggle | php.manage | yes | yes | ☑ |
+| GET | `/php/{version}` | PhpController::show | php.show | php.manage | yes | yes | ☑ |
 | GET | `/php` | DiscoveryController::php | php | php.view | yes | yes | ☑ |
 | POST | `/plans/{id}/delete` | PlansController::destroy | plans.delete | plans.manage | yes | yes | ☐ |
 | GET | `/plans` | PlansController::index | plans | plans.manage | yes | yes | ☑ |
@@ -285,14 +285,14 @@ Total routes: 551
 | POST | `/profile/two-factor/recovery` | ProfileController::twoFactorRecovery | profile.2fa.recovery |  | yes | yes | ☑ |
 | POST | `/profile/two-factor/setup` | ProfileController::twoFactorSetup | profile.2fa.setup |  | yes | yes | ☑ |
 | GET | `/profile` | ProfileController::show | profile |  | yes | yes | ◑ |
-| POST | `/redis/browser/api` | RedisBrowserController::api | redis.browser.api | redis.manage | yes | yes |☑ |
-| GET | `/redis/browser` | RedisBrowserController::browse | redis.browser | redis.manage | yes | yes |☑ |
-| POST | `/redis/configure` | RedisController::configure | redis.configure | redis.manage | yes | yes |☑ |
-| POST | `/redis/flush` | RedisController::flush | redis.flush | redis.manage | yes | yes |☑ |
-| POST | `/redis/password` | RedisController::password | redis.password | redis.manage | yes | yes |☑ |
-| POST | `/redis/users/delete` | RedisController::deleteUser | redis.users.delete | redis.manage | yes | yes |☑ |
-| POST | `/redis/users` | RedisController::createUser | redis.users.store | redis.manage | yes | yes |☑ |
-| GET | `/redis` | RedisController::index | redis | redis.manage | yes | yes |☑ |
+| POST | `/redis/browser/api` | RedisBrowserController::api | redis.browser.api | redis.manage | yes | yes | ☑ |
+| GET | `/redis/browser` | RedisBrowserController::browse | redis.browser | redis.manage | yes | yes | ☑ |
+| POST | `/redis/configure` | RedisController::configure | redis.configure | redis.manage | yes | yes | ☑ |
+| POST | `/redis/flush` | RedisController::flush | redis.flush | redis.manage | yes | yes | ☑ |
+| POST | `/redis/password` | RedisController::password | redis.password | redis.manage | yes | yes | ☑ |
+| POST | `/redis/users/delete` | RedisController::deleteUser | redis.users.delete | redis.manage | yes | yes | ☑ |
+| POST | `/redis/users` | RedisController::createUser | redis.users.store | redis.manage | yes | yes | ☑ |
+| GET | `/redis` | RedisController::index | redis | redis.manage | yes | yes | ☑ |
 | GET | `/roles/new` | RolesController::create | roles.create | roles.manage | yes | yes | ☐ |
 | POST | `/roles/{id}/delete` | RolesController::destroy | roles.delete | roles.manage | yes | yes | ☐ |
 | GET | `/roles/{id}/edit` | RolesController::edit | roles.edit | users.view | yes | yes | ☐ |
@@ -447,10 +447,10 @@ Total routes: 551
 | POST | `/sites/{id}/ip` | IpController::assignSite | sites.ip | server.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/logs` | LogsController::site | sites.logs | logs.view | yes | yes | ☑ |
 | GET | `/sites/{id}/mail` | MailController::site | sites.mail | mail.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/malware/release` | AvController::release | sites.malware.release | security.manage | yes | yes |☑ |
-| POST | `/sites/{id}/malware/scan` | AvController::scan | sites.malware.scan | websites.manage | yes | yes |☑ |
-| GET | `/sites/{id}/malware` | AvController::show | sites.malware | websites.view | yes | yes |☑ |
-| GET | `/sites/{id}/memcached` | SitesController::memcached | sites.memcached | websites.view | yes | yes |☑ |
+| POST | `/sites/{id}/malware/release` | AvController::release | sites.malware.release | security.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/malware/scan` | AvController::scan | sites.malware.scan | websites.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/malware` | AvController::show | sites.malware | websites.view | yes | yes | ☑ |
+| GET | `/sites/{id}/memcached` | SitesController::memcached | sites.memcached | websites.view | yes | yes | ☑ |
 | POST | `/sites/{id}/mongo/backup` | SiteMongoController::backup | sites.mongo.backup | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/mongo/backups/delete` | SiteMongoController::deleteBackup | sites.mongo.backup_delete | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/mongo/browse` | SiteMongoController::browse | sites.mongo.browse | websites.manage | yes | yes | ☑ |
@@ -470,8 +470,8 @@ Total routes: 551
 | GET | `/sites/{id}/python` | SiteRuntimeController::index | sites.python | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/python` | SiteRuntimeController::update | sites.python.update | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/reapply` | SitesController::reapply | sites.reapply | websites.manage | yes | yes | ☑ |
-| POST | `/sites/{id}/redis/api` | RedisBrowserController::siteApi | sites.redis.api | websites.manage | yes | yes |☑ |
-| GET | `/sites/{id}/redis` | RedisBrowserController::siteBrowse | sites.redis | websites.manage | yes | yes |☑ |
+| POST | `/sites/{id}/redis/api` | RedisBrowserController::siteApi | sites.redis.api | websites.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/redis` | RedisBrowserController::siteBrowse | sites.redis | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/restart-php` | SitesController::restartPhp | sites.restart_php | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/security-headers` | SslController::securityHeaders | sites.security_headers | ssl.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/security` | SitesController::security | sites.security | websites.view | yes | yes | ☑ |
@@ -484,9 +484,9 @@ Total routes: 551
 | POST | `/sites/{id}/ssl/options` | SslController::options | sites.ssl.options | ssl.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/ssl/renew` | SslController::renew | sites.ssl.renew | ssl.manage | yes | yes | ☑ |
 | GET | `/sites/{id}/ssl` | SslController::show | sites.ssl | ssl.view | yes | yes | ☑ |
-| POST | `/sites/{id}/stats/enable` | StatsController::enable | sites.stats.enable | websites.manage | yes | yes |☑ |
-| POST | `/sites/{id}/stats/update` | StatsController::update | sites.stats.update | websites.manage | yes | yes |☑ |
-| GET | `/sites/{id}/stats` | StatsController::show | sites.stats | logs.view | yes | yes |☑ |
+| POST | `/sites/{id}/stats/enable` | StatsController::enable | sites.stats.enable | websites.manage | yes | yes | ☑ |
+| POST | `/sites/{id}/stats/update` | StatsController::update | sites.stats.update | websites.manage | yes | yes | ☑ |
+| GET | `/sites/{id}/stats` | StatsController::show | sites.stats | logs.view | yes | yes | ☑ |
 | GET | `/sites/{id}/subdomains` | SitesController::subdomains | sites.subdomains | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/subdomains` | SitesController::storeSubdomain | sites.subdomains.store | websites.manage | yes | yes | ☑ |
 | POST | `/sites/{id}/terminal/open` | TerminalController::openSite | sites.terminal.open | files.manage | yes | yes | ☑ |
