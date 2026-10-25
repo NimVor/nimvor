@@ -24,7 +24,7 @@ func (s *Server) setupIndex(w http.ResponseWriter, r *http.Request) {
 		"Title":      "Setup wizard",
 		"Success":    "",
 		"Error":      "",
-		"Stub":       true,
+		"Stub":       false,
 		"Components": nil,
 		"MemoryMB":   0,
 		"AgentError": nil,

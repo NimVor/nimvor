@@ -16,9 +16,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
-// usersCreate GET /users/new — new-panel-user form. Shows available roles
-// and plans from existing repositories with a friendly stub notice until
-// UserService::create is fully ported.
+// usersCreate GET /users/new — new-panel-user form.
 func (s *Server) usersCreate(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
@@ -33,7 +31,7 @@ func (s *Server) usersCreate(w http.ResponseWriter, r *http.Request) {
 		"EditID":  int64(0),
 		"Error":   flashStr(sess, "error"),
 		"Success": flashStr(sess, "success"),
-		"Stub":    true,
+		"Stub":    false,
 	}
 	s.render(w, "users_form", data)
 }
@@ -248,7 +246,7 @@ func (s *Server) usersEdit(w http.ResponseWriter, r *http.Request) {
 		"Plans":    plans,
 		"Error":    flashStr(sess, "error"),
 		"Success":  flashStr(sess, "success"),
-		"Stub":     true,
+		"Stub":     false,
 	}
 	s.render(w, "users_form", data)
 }
@@ -699,7 +697,7 @@ func (s *Server) usersUnsuspend(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
-// usersPlan GET /users/{id}/plan — plan change page stub.
+// usersPlan GET /users/{id}/plan — plan change page.
 func (s *Server) usersPlan(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	me := userFrom(r.Context())
@@ -723,7 +721,7 @@ func (s *Server) usersPlan(w http.ResponseWriter, r *http.Request) {
 		"Plans":   plans,
 		"Error":   flashStr(sess, "error"),
 		"Success": flashStr(sess, "success"),
-		"Stub":    true,
+		"Stub":    false,
 	}
 	s.render(w, "users_plan", data)
 }

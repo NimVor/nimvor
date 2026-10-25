@@ -14,8 +14,19 @@
   <h1>{{.Title}}</h1>
   {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
   {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  {{if .Stub}}<p class="alert alert-warning">Plan change is not yet ported in the Go panel. Visible plans for reference:</p>{{end}}
-  <pre class="font-monospace small">{{.Plans}}</pre>
+  <p class="text-muted">Current plan: {{if .Target.PlanID.Valid}}assigned{{else}}<em>none (unlimited)</em>{{end}}.</p>
+  <form method="post" action="/users/{{.Target.ID}}/plan" novalidate>
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <div class="mb-3">
+      <label class="form-label" for="p-plan">New plan</label>
+      <select class="form-select" id="p-plan" name="plan_id">
+        <option value="">No plan (unlimited)</option>
+        {{range .Plans}}<option value="{{.ID}}"{{if and $.Target.PlanID.Valid (eq $.Target.PlanID.Int64 .ID)}} selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+    </div>
+    <button class="btn btn-primary" type="submit">Assign plan</button>
+    <a class="btn btn-link" href="/users">Cancel</a>
+  </form>
 </main>
 </body>
 </html>{{end}}

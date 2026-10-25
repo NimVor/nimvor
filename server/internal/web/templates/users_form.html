@@ -14,10 +14,65 @@
   <h1>{{.Title}}</h1>
   {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
   {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  {{if .Stub}}<p class="alert alert-warning">Full user create/update (passwords, roles, plan assignment, hosting options) is not yet ported in the Go panel. Reference data below:</p>{{end}}
-  <h3>Roles</h3><pre class="font-monospace small">{{.Roles}}</pre>
-  <h3>Plans</h3><pre class="font-monospace small">{{.Plans}}</pre>
-  {{if .EditUser}}<h3>Editing</h3><pre class="font-monospace small">{{.EditUser}}</pre>{{end}}
+  <form method="post" action="{{if .EditID}}/users/{{.EditID}}{{else}}/users{{end}}" novalidate>
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <div class="card mb-3">
+      <div class="card-header">Account</div>
+      <div class="card-body">
+        {{if not .EditID}}<div class="mb-3">
+          <label class="form-label" for="u-username">Username</label>
+          <input class="form-control" id="u-username" name="username" required maxlength="32" autocomplete="off" spellcheck="false">
+        </div>{{end}}
+        <div class="mb-3">
+          <label class="form-label" for="u-email">Email</label>
+          <input class="form-control" id="u-email" type="email" name="email" {{if .EditUser}}value="{{.EditUser.Email}}"{{end}} required maxlength="190">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="u-display">Display name</label>
+          <input class="form-control" id="u-display" name="display_name" {{if .EditUser}}value="{{.EditUser.DisplayName}}"{{end}} maxlength="100">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="u-role">Role</label>
+          <select class="form-select" id="u-role" name="role_id">
+            {{range .Roles}}<option value="{{.ID}}"{{if and $.EditUser (eq $.EditUser.RoleID .ID)}} selected{{end}}>{{.Label}}</option>{{end}}
+          </select>
+        </div>
+        <div class="form-check mb-2">
+          <input type="hidden" name="is_active" value="0">
+          <input class="form-check-input" type="checkbox" id="u-active" name="is_active" value="1"{{if not .EditUser}} checked{{else if .EditUser.IsActive}} checked{{end}}>
+          <label class="form-check-label" for="u-active">Active</label>
+        </div>
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header">Password {{if .EditID}}(leave blank to keep current){{end}}</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label" for="u-password">Password</label>
+          <input class="form-control font-monospace" type="password" id="u-password" name="password" autocomplete="new-password"{{if not .EditID}} required{{end}}>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="u-password2">Confirm password</label>
+          <input class="form-control font-monospace" type="password" id="u-password2" name="password_confirmation" autocomplete="new-password"{{if not .EditID}} required{{end}}>
+        </div>
+        <div class="form-check mb-2">
+          <input type="hidden" name="generate" value="0">
+          <input class="form-check-input" type="checkbox" id="u-generate" name="generate" value="1"{{if not .EditID}}{{end}}>
+          <label class="form-check-label" for="u-generate">Generate a strong password</label>
+        </div>
+      </div>
+    </div>
+    {{if .EditID}}<div class="card mb-3">
+      <div class="card-header">Package</div>
+      <div class="card-body">
+        <a class="btn btn-outline-secondary" href="/users/{{.EditID}}/plan">Change plan</a>
+        <a class="btn btn-outline-secondary" href="/users/{{.EditID}}/limits">Resource limits</a>
+        <a class="btn btn-outline-secondary" href="/users/{{.EditID}}/hosting-options">Hosting options</a>
+      </div>
+    </div>{{end}}
+    <button class="btn btn-primary" type="submit">{{if .EditID}}Save changes{{else}}Create user{{end}}</button>
+    <a class="btn btn-link" href="/users">Cancel</a>
+  </form>
 </main>
 </body>
 </html>{{end}}
