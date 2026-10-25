@@ -1,0 +1,39 @@
+{{define "php_manager_review"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review PHP profile · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar">
+  <span class="brand">WhaCP</span>
+  <span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit">Sign out</button>
+  </form>
+</header>
+<main class="container">
+  <h1>Review PHP profile</h1>
+  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
+  <p>Applying this profile will install, update or remove PHP packages on the server. Review the plan below before confirming.</p>
+  <h3>Versions</h3>
+  <p>{{range .Versions}}<span class="badge">{{.}}</span> {{end}}</p>
+  <h3>Extensions</h3>
+  <p class="small">{{range .Extensions}}<code>{{.}}</code> {{end}}</p>
+  <h3>Plan</h3>
+  <pre class="font-monospace small">{{.PlanJSON}}</pre>
+  <form method="post" action="/php/manager/apply">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    {{range .Versions}}<input type="hidden" name="versions" value="{{.}}">{{end}}
+    {{range .Extensions}}<input type="hidden" name="extensions" value="{{.}}">{{end}}
+    <label><input type="checkbox" name="confirm_removals" value="1"> Confirm removal of packages listed above</label>
+    <p><button type="submit" class="btn btn-primary">Apply profile</button>
+    <a class="btn" href="/php/manager">Cancel</a></p>
+  </form>
+</main>
+</body>
+</html>{{end}}

@@ -110,7 +110,8 @@ func (s *Server) backupsIndex(w http.ResponseWriter, r *http.Request) {
 	} else {
 		cond, args := hosting.Condition(user, "w.owner_id")
 		backups, err = svc.ListForUserSQL(ctx, s.currentServerID(r), cond, args, 200)
-	}	if err != nil {
+	}
+	if err != nil {
 		s.log.Error("backups list", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
@@ -150,16 +151,16 @@ func (s *Server) backupsIndex(w http.ResponseWriter, r *http.Request) {
 		"CSRF":          session.CSRFToken(sess),
 		"Admin":         isAdmin,
 		"Backups":       backups,
-		"Schedules":    schedules,
+		"Schedules":     schedules,
 		"ServerBackups": serverBackups,
-		"Storages":     storages,
+		"Storages":      storages,
 		"KeyInfo":       keyInfo,
 		"PanelURL":      panelURL,
 		"AccountFiles":  accountFiles,
-		"Accounts":     accounts,
+		"Accounts":      accounts,
 		"IsAdminRole":   user.RoleName == "admin",
 		"CanManage":     s.can(r, "backups.manage"),
-		"StorageTypes": hosting.StorageTypes,
+		"StorageTypes":  hosting.StorageTypes,
 		"Success":       mustPullFlash(sess, "success"),
 		"Error":         mustPullFlash(sess, "error"),
 		"Errors":        mustJSONFlash(sess, "errors"),

@@ -1921,3 +1921,71 @@ Tally remains 551 ☑ / 0 ◑ / 0 ☐.
 All four handlers mirror the PHP SslCenterController flows (CSRF validation, audit entries, flash + 303 redirect, 120s timeouts where appropriate).
 
 Tally remains 551 ☑ / 0 ◑ / 0 ☐.
+
+## Batch 92 — Settings test email + account suspend/unsuspend ☑
+
+- `server/internal/http/server.go`: added a `mailer *mail.Mailer` field and
+  wired the already-constructed `ml` Mailer into the Server struct so
+  handlers can send outgoing email. Also explicitly initialized `cfDo` to
+  `nil` (the zero value was already used, this just makes it explicit).
+- `server/internal/http/settings_handlers.go` (`settingsMailTest`, POST
+  `/settings/mail/test`): now sends a short plain-text "WhaCP test message"
+  to the current user's email via `s.mailer.Send`, audits
+  `settings.mail_test` success/failure (recipient + error), and flashes a
+  user-facing success or the delivery error. Also updated the misleading
+  "outgoing mail not yet wired" flash on `settingsMail` save to "Send a
+  test message to check them."
+- `server/internal/http/users_crud.go` (`usersSuspend`/`usersUnsuspend`,
+  POST `/users/{id}/suspend|unsuspend`): now flip the `suspended_at` /
+  `suspend_reason` columns directly (COALESCE so re-suspend keeps the
+  original timestamp; reason whitespace-collapsed and capped at 250 bytes
+  to match PHP `SuspensionService`). Added staff-only (IsAll) guard,
+  self-suspend refusal, staff-account refusal, and target-exists checks
+  reusing `canManageUser`/`FindByID`. Audit `account.suspend` /
+  `account.unsuspend` with username and reason. The existing `canAct` /
+  `suspended` SQL gates already prevent sign-ins of suspended users (and
+  their reseller children); server-side service shutdown (websites/mail/
+  DB/cron/workers/SSH) is re-applied by the scheduler/enforce job after
+  the flag flips.
+- Drive-by: fixed a stray `}\tif` formatting/parse bug in
+  `server/internal/http/backups_handlers.go` that would have blocked a
+  real build.
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐.
+
+## Batch 93 — Bandwidth reset + PHP Manager review/apply/import ☑
+
+- `server/internal/http/users_crud.go` (`usersResetBandwidth`, POST
+  `/users/{id}/bandwidth/reset`): now implemented. Loads target user,
+  `canManageUser` permission check, sums `website_usage.bw_bytes` across
+  the account and its direct reseller customers for the current UTC
+  `YYYY-MM` month, resets matching `bw_bytes` to 0, audits
+  `account.bandwidth_reset` with `{username, month, mb_before}`, supports
+  `?return_to=bandwidth` to redirect to `/accounts/bandwidth` (otherwise
+  `/users/{id}/edit`), flashes the MB counted. Matches
+  `AccountAdminService::resetBandwidth`.
+- `server/internal/http/php_manager.go` (`phpManagerReview`, POST
+  `/php/manager/review`): validates versions/extensions (regex
+  `^[5-9]\.[0-9]{1,2}$` / `^[a-z][a-z0-9_]{1,30}$`, matching PHP), calls
+  agent `php.profile_plan` (120s), and renders a new
+  `server/internal/web/templates/php_manager_review.html` template
+  showing the plan JSON plus hidden fields and a "Confirm removal of
+  packages" checkbox for apply.
+- `server/internal/http/php_manager.go` (`phpManagerApply`, POST
+  `/php/manager/apply`): calls agent `php.profile_apply` with
+  `confirm_removals`, tracks the returned job via
+  `hosting.NewJobTracker`, persists the profile (with `job_id` +
+  `applied_at`) to the `php_profile` setting, audits
+  `php.profile_apply`, flashes job id + "Applying the PHP profile…".
+- `server/internal/http/php_manager.go` (`phpManagerImport`, POST
+  `/php/manager/import`): parses the uploaded `whacp-php-profile.json`,
+  validates versions/extensions through the same regex pipeline, calls
+  agent `php.profile_plan`, then renders the same review template so the
+  administrator can confirm before applying (matches the PHP
+  `PhpManagerController::import` flow instead of flashing a stub).
+- New embedded template `server/internal/web/templates/php_manager_review.html`
+  (uses the existing topbar layout, no inline scripts/styles).
+- Removed the `Stub: true` flag and "not yet ported" alert from
+  `phpManagerIndex` since plan/review/apply now work end-to-end.
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐.
