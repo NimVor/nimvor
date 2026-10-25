@@ -2181,3 +2181,35 @@ terminate (3), plugins.toggle (1), and the setup-wizard JSON step runner.
 Tally remains 551 ☑ / 0 ◑ / 0 ☐. Remaining PHP-stub flash handlers:
 accounts create/terminate/confirm-terminate (3), plugins.toggle (1),
 setup-wizard JSON step runner.
+
+## Batch 99 — Hosting-account create (POST /accounts) ☑
+
+- `server/internal/http/accounts.go` — `accountsStore` (POST `/accounts`):
+  - Replaced the stub with a real call into `hosting.AccountService::Create`
+    which provisions the panel login (customer or reseller via the
+    `reseller` checkbox), plan assignment, hosting options, initial
+    website (with optional www alias), DNS zone, and rolls back the
+    login if website creation fails. The service itself was already
+    implemented in an earlier batch; this commit wires the HTTP
+    endpoint to it.
+  - Errors (including `hosting.ValidationError` per-field messages) are
+    surfaced as flash errors; when the `generate` checkbox is set the
+    service returns an auto-generated password which is shown in the
+    success flash.
+  - `accountService(r, user)` builds the service graph with per-request
+    audit hooks bound through `accountAuditHook` (same pattern as
+    `websiteService`/`websiteAuditHook`); `websiteAuditHook` is
+    reused for website-related events inside account creation.
+- `accountsCreate` now sets `Stub=false` and passes `CanReseller`
+  (true when the actor has `role_scope = "all"`).
+- `server/internal/web/templates/accounts_create.html`: replaced the
+  `<pre>{{.Plans}}</pre>` stub page with a working form covering
+  domain (optional), username, contact email, display name, password +
+  confirmation, generate-password toggle, www alias, reseller toggle
+  (admin-only) and plan selector, posting to POST `/accounts` with
+  CSRF.
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐. Remaining PHP-stub flash handlers:
+accounts terminate/confirm-terminate (2) — heavy multi-resource
+provisioning requiring agent jobs; plugins.toggle (1); setup-wizard
+JSON step runner.
