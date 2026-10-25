@@ -373,6 +373,13 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	roleChanged := target.RoleID != roleID
 	pwChanged := pwHash != ""
+	if pwChanged {
+		// Invalidate all other sessions for this user, matching PHP
+		// AuthService behavior when a password is reset.
+		if err := repo.BumpSessionEpoch(r.Context(), id); err != nil {
+			s.log.Error("bump session epoch on password change", "error", err)
+		}
+	}
 	uid := actor.ID
 	s.audit.Record(r.Context(), audit.Entry{
 		Action: "user.update", TargetType: "user", TargetID: strconv.FormatInt(id, 10),
