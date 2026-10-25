@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **408 ☑ done+tested, 4 ◑ partial, 139 ☐** of 551.
+`server/internal/http/server.go`): **423 ☑ done+tested, 4 ◑ partial, 124 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -1285,3 +1285,50 @@ Next in Batch 69: AccountBackupsController (8), Roles (7).
 Build/test the Go module with: `cd server && go test ./...` (deps pinned for Go 1.24). CI
 (`gofmt` / `go vet` / `go test -race` / `make build`) is the verification gate
 for this sandbox — no local Go toolchain is available.
+
+## Batch 69d — AccountBackupsController (8 routes) ☑
+
+- `server/internal/hosting/account_backup.go`: extended
+  AccountBackupService with Create/Delete/Chunk/Upload/Inspect/Start/
+  RestoreRecord/ImportState/Recreate methods + AccountRestore row
+  struct. The agent performs the actual tarball pack/unpack and
+  streaming; this service writes audit entries, persists the
+  `account_restores` row, and hands job IDs back to handlers.
+- `server/internal/http/account_backups.go` (NEW ~350 LOC): 8 handlers
+  — create (admin-only via RoleScope=="all", job-tracked), download
+  (chunked streaming, base64 decoded per chunk, session released so
+  streaming isn't blocked), delete (path-sanitised agent call),
+  upload (multipart chunk XHR, JSON envelope), preview (Inspect +
+  render), start (confirm-username gate, inserts account_restores
+  row), show (loads restore + import state + one-shot secrets from
+  session), recreate (advances status→restoring, asks agent, returns
+  jobs to track + generated secrets).
+- `server/internal/web/templates/backups_account_restore.html` (NEW):
+  minimal restore page with confirm form, state display and
+  one-shot credentials list.
+- `server/internal/http/server.go`: 8 routes registered (backups.manage
+  for most; users.manage for restore/recreate since they create/edit
+  accounts).
+- Docs: **416 ☑ / 4 ◑ / 131 ☐**.
+
+## Batch 69e — RolesController (8 routes) ☑
+
+- `server/internal/http/roles.go` (NEW ~300 LOC): 8 handlers — index,
+  create, store, edit, update, reset (defaults re-seeded via
+  authz.SyncDefaults for built-in roles), destroy (guards: system
+  roles cannot be deleted, roles with users cannot be deleted),
+  two-factor policy toggle. Permissions are stored as a checkbox
+  list; `syncRolePerms` replaces the role_permissions join in a tx.
+- `server/internal/web/templates/roles_index.html` +
+  `roles_form.html` (NEW): minimal list and form with scope selector,
+  permissions checklist, 2FA toggle and reset-to-defaults button.
+- `server/internal/http/server.go`: 8 routes registered
+  (users.view for list/edit; roles.manage for mutations).
+- Docs: **423 ☑ / 4 ◑ / 124 ☐**.
+
+End of Batch 69 (ApiController 18 + SystemController 14 + PhpController
+8 + AccountBackupsController 8 + RolesController 7 = 55 routes ported
+in this batch). Next batches move to background-job follow-ups and the
+remaining controllers (Services, Cron, Server overview, ServerHealth,
+MailFilters, etc.).
+

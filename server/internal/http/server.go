@@ -437,6 +437,28 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /php/{version}/ini", s.guard("php.ini", "php.manage", s.phpIni))
 	s.mux.HandleFunc("POST /php/{version}/fpm", s.guard("php.fpm", "php.manage", s.phpFpm))
 
+	// Batch 69 — AccountBackupsController (8 routes: account backup create/
+	// download/delete/upload/preview/start/show/recreate).
+	s.mux.HandleFunc("POST /backups/accounts", s.guard("backups.accounts.create", "backups.manage", s.accountBackupCreate))
+	s.mux.HandleFunc("GET /backups/accounts/download", s.guard("backups.accounts.download", "backups.manage", s.accountBackupDownload))
+	s.mux.HandleFunc("POST /backups/accounts/delete", s.guard("backups.accounts.delete", "backups.manage", s.accountBackupDelete))
+	s.mux.HandleFunc("POST /backups/accounts/upload", s.guard("backups.accounts.upload", "backups.manage", s.accountBackupUpload))
+	s.mux.HandleFunc("GET /backups/accounts/restore", s.guard("backups.accounts.preview", "backups.manage", s.accountBackupPreview))
+	s.mux.HandleFunc("POST /backups/accounts/restore", s.guard("backups.accounts.restore", "users.manage", s.accountBackupStart))
+	s.mux.HandleFunc("GET /backups/accounts/restores/{id}", s.guard("backups.accounts.restores", "backups.manage", s.accountBackupShow))
+	s.mux.HandleFunc("POST /backups/accounts/restores/{id}/recreate", s.guard("backups.accounts.recreate", "users.manage", s.accountBackupRecreate))
+
+	// Batch 69 — RolesController (8 routes: list/create/store/edit/update/
+	// reset/destroy/two-factor).
+	s.mux.HandleFunc("GET /roles", s.guard("roles", "users.view", s.rolesIndex))
+	s.mux.HandleFunc("GET /roles/new", s.guard("roles.create", "roles.manage", s.rolesCreate))
+	s.mux.HandleFunc("POST /roles", s.guard("roles.store", "roles.manage", s.rolesStore))
+	s.mux.HandleFunc("GET /roles/{id}/edit", s.guard("roles.edit", "users.view", s.rolesEdit))
+	s.mux.HandleFunc("POST /roles/{id}", s.guard("roles.update", "roles.manage", s.rolesUpdate))
+	s.mux.HandleFunc("POST /roles/{id}/reset", s.guard("roles.reset", "roles.manage", s.rolesReset))
+	s.mux.HandleFunc("POST /roles/{id}/two-factor", s.guard("roles.2fa", "roles.manage", s.rolesTwoFactor))
+	s.mux.HandleFunc("POST /roles/{id}/delete", s.guard("roles.delete", "roles.manage", s.rolesDestroy))
+
 	// Batch 36 — per-website Cloudflare area (direct Cloudflare API; the
 	// customer's own per-website token is stored encrypted).
 	s.mux.HandleFunc("GET /sites/{id}/cloudflare", s.guard("sites.cloudflare", "websites.manage", s.siteCloudflare))
