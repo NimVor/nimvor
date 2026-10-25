@@ -318,6 +318,14 @@ func (r *Repository) Delete(ctx context.Context, id int64) error {
 	return err
 }
 
+// CountActiveWithRole returns the number of active users whose role has the
+// given name (e.g. "admin"). Used for the last-admin safety check.
+func (r *Repository) CountActiveWithRole(ctx context.Context, roleName string) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = ? AND u.is_active = 1", roleName).Scan(&n)
+	return n, err
+}
+
 // UsernameExists reports whether the login is taken
 // (UserRepository::usernameExists). exceptID skips one row (0 = none).
 func (r *Repository) UsernameExists(ctx context.Context, username string, exceptID int64) (bool, error) {

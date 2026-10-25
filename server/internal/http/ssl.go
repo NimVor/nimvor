@@ -3,7 +3,9 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
@@ -192,11 +194,12 @@ func (s *Server) sslKeys(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "ssl_keys", data)
 }
 
-// sslCreateCsr POST /ssl/keys — generates a CSR via the agent. Stub:
-// returns a friendly error because CSR generation needs form inputs we
-// don't wire up here.
+// sslCreateCsr POST /ssl/keys — generates a private key + CSR (and
+// optionally a self-signed certificate) via the agent's ssl.csr_create
+// action. Mirrors SslCenterController::createCsr (ssl.manage).
 func (s *Server) sslCreateCsr(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -205,8 +208,75 @@ func (s *Server) sslCreateCsr(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "CSR generation is not yet wired in the Go panel.")
-	http.Redirect(w, r, "/ssl/keys", http.StatusSeeOther)
+	// names is a comma/whitespace-separated list, lowercased and trimmed.
+	namesRaw := r.FormValue("names")
+	var names []string
+	for _, f := range strings.FieldsFunc(namesRaw, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' || r == '\t' }) {
+		if n := strings.ToLower(strings.TrimSpace(f)); n != "" {
+			names = append(names, n)
+		}
+	}
+	if len(names) == 0 {
+		sess.Flash("error", "Give at least one domain name for the CSR.")
+		http.Redirect(w, r, "/ssl/keys", http.StatusSeeOther)
+		return
+	}
+	selfSignedDays := 0
+	if r.FormValue("self_signed") == "1" {
+		days := 365
+		if d, err := strconv.Atoi(r.FormValue("self_signed_days")); err == nil && d > 0 {
+			days = d
+		}
+		if days < 1 {
+			days = 1
+		}
+		if days > 825 {
+			days = 825
+		}
+		selfSignedDays = days
+	}
+	keyType := r.FormValue("key_type")
+	if keyType == "" {
+		keyType = "ec256"
+	}
+	params := map[string]any{
+		"names":               names,
+		"organization":        r.FormValue("organization"),
+		"organizational_unit": r.FormValue("organizational_unit"),
+		"locality":            r.FormValue("locality"),
+		"province":            r.FormValue("province"),
+		"country":             strings.ToUpper(r.FormValue("country")),
+		"email":               r.FormValue("email"),
+		"key_type":            keyType,
+		"self_signed_days":    selfSignedDays,
+	}
+	raw, err := s.agent.Call(r.Context(), "ssl.csr_create", params, 120*time.Second)
+	if err != nil {
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, "/ssl/keys", http.StatusSeeOther)
+		return
+	}
+	var res struct {
+		ID string `json:"id"`
+	}
+	keyID := ""
+	_ = json.Unmarshal(raw, &res)
+	if res.ID != "" {
+		keyID = res.ID
+	}
+	uid := user.ID
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "ssl.csr_create", TargetType: "server", TargetID: "ssl",
+		Result:  audit.Success,
+		Details: map[string]any{"id": keyID, "names": names, "key_type": keyType, "self_signed": selfSignedDays > 0},
+		UserID:  &uid, Username: user.Username,
+	})
+	sess.Flash("success", "Key and CSR created. Send the CSR to your certificate authority; the private key stays on this server.")
+	target := "/ssl/keys"
+	if keyID != "" {
+		target = "/ssl/keys?id=" + url.QueryEscape(keyID)
+	}
+	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
 // sslInstallKey POST /ssl/keys/install — installs a custom private key +
@@ -301,8 +371,8 @@ func (s *Server) sslSaveTls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	profile := map[string]any{
-		"protocols":      r.FormValue("protocols"),
-		"ciphers":        r.FormValue("ciphers"),
+		"protocols":       r.FormValue("protocols"),
+		"ciphers":         r.FormValue("ciphers"),
 		"session_tickets": r.FormValue("session_tickets") == "1",
 	}
 	res, err := s.agent.Call(r.Context(), "ssl.tls_set", profile, 120*time.Second)
@@ -344,16 +414,16 @@ func (s *Server) sslServices(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	data := map[string]any{
-		"CSRF":          session.CSRFToken(sess),
-		"User":          user,
-		"Title":         "Services SSL",
-		"Svc":           nil,
-		"Account":       nil,
+		"CSRF":           session.CSRFToken(sess),
+		"User":           user,
+		"Title":          "Services SSL",
+		"Svc":            nil,
+		"Account":        nil,
 		"ActiveProvider": "letsencrypt",
-		"DefaultEmail":  "",
-		"Error":         flashStr(sess, "error"),
-		"Success":       flashStr(sess, "success"),
-		"AgentError":    nil,
+		"DefaultEmail":   "",
+		"Error":          flashStr(sess, "error"),
+		"Success":        flashStr(sess, "success"),
+		"AgentError":     nil,
 	}
 	if user != nil {
 		data["DefaultEmail"] = user.Email
