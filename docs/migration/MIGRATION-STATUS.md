@@ -2112,3 +2112,38 @@ Tally remains 551 ☑ / 0 ◑ / 0 ☐.
   PHP view.
 
 Tally remains 551 ☑ / 0 ◑ / 0 ☐.
+
+## Batch 97 — Panel-user update (POST /users/{id}) ☑
+
+- `server/internal/identity/users.go`:
+  - New `UserUpdate{Email,DisplayName,RoleID,IsActive,Password}` payload.
+  - `Repository.Update(ctx, id, UserUpdate)` writes email / display_name /
+    role_id / is_active / updated_at and, when Password is non-empty,
+    password_hash via a single UPDATE statement.
+  - Helpers `EmailExists(ctx, email, excludeID)`,
+    `CountActiveWithRole(ctx, roleName)` and `UsernameExists(ctx, username)`
+    for validation & the last-administrator guard.
+- `server/internal/http/users_crud.go` — `usersUpdate` (POST `/users/{id}`):
+  - Replaces the "not yet ported" flash stub with the real update flow,
+    matching `UsersController::update` / `UserService::update`.
+  - Loads target user and runs `canManageUser` (server-wide role or
+    reseller parent-chain walk) to guard edit scope.
+  - Validates: email (isEmail + length ≤190 + uniqueness vs. other
+    accounts), display_name ≤100 chars, role_id references an existing
+    role, password strength via `s.policy.Check` + confirmation when
+    non-empty, self-disable prevention, last-administrator guard
+    (refuses to demote/deactivate the final active "admin" role).
+  - On password change, `identity.HashPassword` produces an argon2id hash
+    that gets passed through to `Repository.Update` (session-epoch
+    invalidation on password change will be added in the next batch,
+    since it requires plumbing the auth service into the CRUD
+    handlers).
+  - On role change / active toggle / password change, writes a
+    `user.update` audit with the same `details` shape the PHP panel
+    produces.
+  - Helper `isEmail` and `canManageUser(repo, actor, target)` (with
+    parent-chain walk via `Repository.FindByID`).
+
+Tally remains 551 ☑ / 0 ◑ / 0 ☐. Remaining PHP-stub flash handlers:
+`usersStore` (POST /users — create), accounts create/terminate/confirm-
+terminate (3), plugins.toggle (1), and the setup-wizard JSON step runner.

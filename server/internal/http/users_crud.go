@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -88,9 +89,12 @@ func (s *Server) usersEdit(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "users_form", data)
 }
 
-// usersUpdate POST /users/{id} — updates a panel user. Stub.
+// usersUpdate POST /users/{id} — updates a panel user's email, display
+// name, role, active flag and optional password. Mirrors
+// UsersController::update / UserService::update (users.update, users.manage).
 func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	actor := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -99,8 +103,177 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "Panel-user updates are not yet ported in the Go panel.")
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	repo := identity.NewRepository(s.db)
+	target, err := repo.FindByID(r.Context(), id)
+	if errors.Is(err, sql.ErrNoRows) || target == nil {
+		sess.Flash("error", "The user no longer exists.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	if !canManageUser(repo, actor, target) {
+		sess.Flash("error", "The user no longer exists.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	// Validate fields.
+	email := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
+	display := strings.TrimSpace(r.FormValue("display_name"))
+	password := r.FormValue("password")
+	confirm := r.FormValue("password_confirmation")
+	roleID, err := strconv.ParseInt(r.FormValue("role_id"), 10, 64)
+	active := r.FormValue("is_active") == "1"
+	errs := map[string]string{}
+	if email == "" || !isEmail(email) || len(email) > 190 {
+		errs["email"] = "Enter a valid email address."
+	} else if taken, e := repo.EmailExists(r.Context(), email, id); e == nil && taken {
+		errs["email"] = "This email address is already in use."
+	}
+	if len(display) > 100 {
+		errs["display_name"] = "Use at most 100 printable characters."
+	}
+	// Validate role exists.
+	var newRoleName string
+	var newRoleScope string
+	if roleID <= 0 {
+		errs["role_id"] = "Choose a valid role."
+	} else {
+		rr := struct {
+			Name  string
+			Scope string
+		}{}
+		if e := s.db.QueryRowContext(r.Context(), "SELECT name, scope FROM roles WHERE id = ?", roleID).Scan(&rr.Name, &rr.Scope); e != nil {
+			errs["role_id"] = "Choose a valid role."
+		} else {
+			newRoleName = rr.Name
+			newRoleScope = rr.Scope
+		}
+	}
+	// Self-disable guard.
+	if id == actor.ID && !active {
+		errs["is_active"] = "You cannot disable your own account."
+	}
+	// Password validation (only if a new password is supplied).
+	pwHash := ""
+	if password != "" {
+		weak, wErr := s.policy.Check(r.Context(), password, target.Username)
+		if wErr != nil {
+			errs["password"] = "Password policy unavailable."
+		} else if weak != "" {
+			errs["password"] = weak
+		} else if password != confirm {
+			errs["password_confirmation"] = "The passwords do not match."
+		} else {
+			h, herr := identity.HashPassword(password)
+			if herr != nil {
+				errs["password"] = herr.Error()
+			} else {
+				pwHash = h
+			}
+		}
+	}
+	// Last-administrator guard: currently admin+active, new state isn't.
+	wasAdmin := target.RoleName == "admin" && target.IsActive
+	staysAdmin := newRoleName == "admin" && active
+	if wasAdmin && !staysAdmin {
+		n, _ := repo.CountActiveWithRole(r.Context(), "admin")
+		if n <= 1 {
+			errs["role_id"] = "At least one active administrator is required."
+		}
+	}
+	if len(errs) > 0 {
+		// Flash the first error (simple and matches the flash-redirect style
+		// used elsewhere in the panel); the PHP controller uses ValidationException
+		// to render per-field errors on the form, but Go flash stubs here don't
+		// yet carry an errors map — keep it to a single friendly message.
+		for _, m := range errs {
+			sess.Flash("error", m)
+			break
+		}
+		http.Redirect(w, r, "/users/"+strconv.FormatInt(id, 10)+"/edit", http.StatusSeeOther)
+		return
+	}
+	u := identity.UserUpdate{
+		Email:       email,
+		DisplayName: display,
+		RoleID:      roleID,
+		IsActive:    active,
+		Password:    pwHash,
+	}
+	if err := repo.Update(r.Context(), id, u); err != nil {
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, "/users/"+strconv.FormatInt(id, 10)+"/edit", http.StatusSeeOther)
+		return
+	}
+	roleChanged := target.RoleID != roleID
+	pwChanged := pwHash != ""
+	uid := actor.ID
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "user.update", TargetType: "user", TargetID: strconv.FormatInt(id, 10),
+		Result: audit.Success,
+		Details: map[string]any{
+			"username":         target.Username,
+			"role_changed":     roleChanged,
+			"active":           active,
+			"password_changed": pwChanged,
+		},
+		UserID: &uid, Username: actor.Username,
+	})
+	sess.Flash("success", "User updated.")
 	http.Redirect(w, r, "/users", http.StatusSeeOther)
+}
+
+// isEmail is a light-touch email check — the Go stdlib has no built-in, and
+// this mirrors filter_var(FILTER_VALIDATE_EMAIL) well enough for the form.
+func isEmail(s string) bool {
+	at := strings.IndexByte(s, '@')
+	if at < 1 || at == len(s)-1 {
+		return false
+	}
+	host := s[at+1:]
+	return strings.Contains(host, ".") && !strings.ContainsAny(s, " \t\r\n<>")
+}
+
+// canManageUser reports whether actor may manage target per the parent-chain
+// rule in UserService::canManage: server-wide roles manage everyone, own-scope
+// (reseller) roles manage only accounts whose ancestor (through parent_id) is
+// the actor. The traversal uses repo.Find to walk up the chain safely.
+func canManageUser(repo *identity.Repository, actor *identity.User, target *identity.User) bool {
+	if actor == nil || target == nil {
+		return false
+	}
+	if actor.RoleScope == "all" {
+		return true
+	}
+	if target.ID == actor.ID {
+		return true
+	}
+	seen := map[int64]bool{target.ID: true}
+	parent := target.ParentID.Int64
+	if !target.ParentID.Valid {
+		return false
+	}
+	for {
+		if parent == actor.ID {
+			return true
+		}
+		if seen[parent] {
+			return false
+		}
+		seen[parent] = true
+		p, err := repo.FindByID(context.Background(), parent)
+		if err != nil || p == nil {
+			return false
+		}
+		if !p.ParentID.Valid {
+			return false
+		}
+		parent = p.ParentID.Int64
+	}
 }
 
 // usersDestroy POST /users/{id}/delete — deletes a panel user. Fully
