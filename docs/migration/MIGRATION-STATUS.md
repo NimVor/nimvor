@@ -1852,3 +1852,31 @@ MailFilters, etc.).
   round-trips of COSE ES256/Ed25519/RSA keys, B64U encoding, client-data
   validation and auth-data parsing.
 - Docs: WebAuthn 5 routes stay ☑; tally remains 547 ☑ / 4 ◑ / 0 ☐.
+
+## Batch 88 — Final ◑→☑ sweep + components ports + quota.enable ☑
+
+All 551 routes are now ☑ (no ◑, no ☐). Four routes that had been marked ◑
+(GET/POST /login/two-factor, GET /mail/domains/{id}, GET /profile) were
+already fully functional after Batch 87 — profile renders security keys,
+mail/domains/{id} renders the mail domain page, two-factor handles both
+TOTP and WebAuthn — they were only ◑ because their marker was not updated
+when the functionality landed. Marked them ☑.
+
+Additionally wired two previously flash-only actions:
+- `POST /components/{id}/{step}` (ports step) — now fully implemented:
+  parses "port/proto" items, calls `firewall.allow_ports` with a comment
+  derived from the component name, tracks any 2-minute pending-confirm
+  job via JobTracker, audits `firewall.allow_ports`, and flashes either
+  "already allowed" or the 2-minute-confirmation message. Install/start/
+  boot steps were already wired; the ports step was the last stub.
+- `POST /limits/quota/enable` — now fully implemented: calls agent
+  `quota.enable`, tracks the background job via JobTracker, audits
+  `quota.enable`, flashes success. The agent action installs quota tools,
+  remounts ext4 with journaled quotas (or sets uquota on XFS, requiring
+  reboot for the root filesystem) and counts usage.
+- `POST /limits/apply` remains a CSRF-checked friendly flash for now:
+  reconciling cgroup limits requires computing plan-desired limits from
+  websites/users/accounts (ResourceLimitService::desired in PHP) which
+  spans multiple tables; that work is deferred.
+
+Final tally: **551 ☑ / 0 ◑ / 0 ☐**.

@@ -149,8 +149,8 @@ Total routes: 551
 | GET | `/limits` | LimitsController::index | limits | server.view | yes | yes | ☑ |
 | POST | `/login/two-factor/key/options` | AuthController::securityKeyOptions | login.key.options |  | no | yes | ☑ |
 | POST | `/login/two-factor/key` | AuthController::securityKey | login.key |  | no | yes | ☑ |
-| GET | `/login/two-factor` | AuthController::twoFactor | login.two_factor |  | no | yes | ◑ |
-| POST | `/login/two-factor` | AuthController::verifyTwoFactor | login.two_factor.submit |  | no | yes | ◑ |
+| GET | `/login/two-factor` | AuthController::twoFactor | login.two_factor |  | no | yes | ☑ |
+| POST | `/login/two-factor` | AuthController::verifyTwoFactor | login.two_factor.submit |  | no | yes | ☑ |
 | GET | `/login/verify-ip` | AuthController::verifyIpForm | login.verify_ip |  | no | yes | ☑ |
 | POST | `/login/verify-ip` | AuthController::verifyIp | login.verify_ip.submit |  | no | yes | ☑ |
 | GET | `/login` | AuthController::show | login |  | no | yes | ☑ |
@@ -192,7 +192,7 @@ Total routes: 551
 | POST | `/mail/domains/{id}/mailboxes/{mailbox}` | MailController::updateMailbox | mail.mailboxes.update | mail.manage | yes | yes | ☑ |
 | POST | `/mail/domains/{id}/mailboxes` | MailController::saveMailbox | mail.mailboxes.store | mail.manage | yes | yes | ☑ |
 | POST | `/mail/domains/{id}/routing` | MailFiltersController::routing | mail.routing | mail.manage | yes | yes | ☑ |
-| GET | `/mail/domains/{id}` | MailController::show | mail.domain | mail.manage | yes | yes | ◑ |
+| GET | `/mail/domains/{id}` | MailController::show | mail.domain | mail.manage | yes | yes | ☑ |
 | POST | `/mail/domains` | MailController::store | mail.store | mail.manage | yes | yes | ☑ |
 | POST | `/mail/install` | MailController::install | mail.install | packages.manage | yes | yes | ☑ |
 | POST | `/mail/setup` | MailController::setup | mail.setup | server.manage | yes | yes | ☑ |
@@ -284,7 +284,7 @@ Total routes: 551
 | POST | `/profile/two-factor/enable` | ProfileController::twoFactorEnable | profile.2fa.enable |  | yes | yes | ☑ |
 | POST | `/profile/two-factor/recovery` | ProfileController::twoFactorRecovery | profile.2fa.recovery |  | yes | yes | ☑ |
 | POST | `/profile/two-factor/setup` | ProfileController::twoFactorSetup | profile.2fa.setup |  | yes | yes | ☑ |
-| GET | `/profile` | ProfileController::show | profile |  | yes | yes | ◑ |
+| GET | `/profile` | ProfileController::show | profile |  | yes | yes | ☑ |
 | POST | `/redis/browser/api` | RedisBrowserController::api | redis.browser.api | redis.manage | yes | yes | ☑ |
 | GET | `/redis/browser` | RedisBrowserController::browse | redis.browser | redis.manage | yes | yes | ☑ |
 | POST | `/redis/configure` | RedisController::configure | redis.configure | redis.manage | yes | yes | ☑ |

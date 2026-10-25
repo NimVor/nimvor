@@ -276,9 +276,75 @@ func (s *Server) componentsFix(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	default: // ports
-		// Stub: firewall.allow_ports is complex; for now we just flash a
-		// "not yet ported" message so the page doesn't crash.
-		sess.Flash("error", "Port-opening step is not ported yet; use the Firewall page.")
+		// Open the required ports in the firewall via agent action
+		// firewall.allow_ports (matches ComponentsController::fix ports
+		// branch). Each item is "port/proto" (proto defaults to "tcp").
+		var ports []map[string]any
+		for _, it := range items {
+			port, proto := it, "tcp"
+			if i := strings.Index(it, "/"); i >= 0 {
+				port, proto = it[:i], it[i+1:]
+				if proto == "" {
+					proto = "tcp"
+				}
+			}
+			ports = append(ports, map[string]any{"port": port, "proto": proto})
+		}
+		// Comment is the component name (≤60 chars, single line).
+		comment := strings.TrimSpace(strings.Map(func(r rune) rune {
+			if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') ||
+				r == ' ' || r == '.' || r == '_' || r == ':' || r == '\\' || r == '/' || r == '-' {
+				return r
+			}
+			return ' '
+		}, nameOf(id)))
+		if len(comment) > 60 {
+			comment = comment[:60]
+		}
+		raw, err := s.agent.Call(r.Context(), "firewall.allow_ports", map[string]any{"ports": ports, "comment": comment}, 90*time.Second)
+		if err != nil {
+			sess.Flash("error", err.Error())
+			http.Redirect(w, r, back, http.StatusSeeOther)
+			return
+		}
+		// Track any confirmation job (ports sometimes open with a
+		// temporary "pending" rule that must be confirmed within 2 min).
+		var jobID string
+		var changed []any
+		var parsed map[string]any
+		if err := json.Unmarshal(raw, &parsed); err == nil {
+			if j, _ := parsed["pending"].(map[string]any); j != nil {
+				if id, _ := j["id"].(string); id != "" {
+					jobID = id
+				}
+			}
+			if c, _ := parsed["changed"].([]any); c != nil {
+				changed = c
+			}
+		}
+		if jobID != "" {
+			_ = hosting.NewJobTracker(s.db).Track(r.Context(), s.currentServerID(r), jobID, "Open ports for "+nameOf(id), "server", itoa(s.currentServerID(r)), &uid)
+			sess.Flash("job", jobID)
+		}
+		s.audit.Record(r.Context(), audit.Entry{
+			Action: "firewall.allow_ports", TargetType: "server", TargetID: "security",
+			Result: audit.Success, Details: map[string]any{"ports": items, "pending": jobID},
+			UserID: &uid, Username: user.Username,
+		})
+		if len(changed) == 0 && jobID == "" {
+			sess.Flash("success", "Those ports are already allowed.")
+		} else {
+			sess.Flash("success", "Opened "+strings.Join(items, ", ")+". Check that you can still connect, then click Keep change within 2 minutes — otherwise it is undone automatically.")
+		}
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	}
+}
+
+// nameOf returns a human-friendly title for a component id (used for audit
+// comments and firewall rule comments). Falls back to the id.
+func nameOf(id string) string {
+	if t, ok := componentsPages[id]; ok && t != "" {
+		return t
+	}
+	return id
 }
