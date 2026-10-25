@@ -420,9 +420,14 @@ func (s *Server) usersSaveLimits(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/users", http.StatusSeeOther)
 }
 
-// usersSaveOptions POST /users/{id}/hosting-options — stub.
+// usersSaveOptions POST /users/{id}/hosting-options — updates hosting
+// defaults (DNS and spam) for a customer account via
+// hosting.AccountOptionStore.Set. Re-syncs the mail server spam config
+// afterwards; on SyncSpam failure flashes a non-fatal warning (matches
+// AccountsController::saveOptions / AccountOptions::set).
 func (s *Server) usersSaveOptions(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	actor := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -431,8 +436,55 @@ func (s *Server) usersSaveOptions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "Hosting options are not yet ported in the Go panel.")
-	http.Redirect(w, r, "/users", http.StatusSeeOther)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	target, err := identity.NewRepository(s.db).FindByID(r.Context(), id)
+	to := "/users/" + strconv.FormatInt(id, 10) + "/edit"
+	if errors.Is(err, sql.ErrNoRows) || target == nil || !canManageUser(actor, target) || target.RoleScope != "own" {
+		sess.Flash("error", "The user no longer exists.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	opts := map[string]any{
+		"dns_dkim":         r.FormValue("dns_dkim") == "1",
+		"dns_spf":          r.FormValue("dns_spf") == "1",
+		"dns_dmarc":        r.FormValue("dns_dmarc") == "1",
+		"dns_registrar_ns": r.FormValue("dns_registrar_ns") == "1",
+		"dns_overwrite":    r.FormValue("dns_overwrite") == "1",
+		"spam_filter":      r.FormValue("spam_filter") == "1",
+		"spam_box":         r.FormValue("spam_box") == "1",
+		"mail_routing":     r.FormValue("mail_routing"),
+	}
+	if err := hosting.NewAccountOptionStore(s.db).Set(r.Context(), id, opts); err != nil {
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	uid := actor.ID
+	store := hosting.NewAccountOptionStore(s.db)
+	loaded, _ := store.Get(r.Context(), &id)
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "account.options", TargetType: "user", TargetID: strconv.FormatInt(id, 10),
+		Result: audit.Success,
+		Details: map[string]any{"username": target.Username,
+			"dns_dkim": loaded.DNSDKIM, "dns_spf": loaded.DNSSPF, "dns_dmarc": loaded.DNSDMARC,
+			"dns_registrar_ns": loaded.DNSRegistrarNS, "dns_overwrite": loaded.DNSOverwrite,
+			"mail_routing": loaded.MailRouting, "spam_filter": loaded.SpamFilter, "spam_box": loaded.SpamBox,
+		},
+		UserID: &uid, Username: actor.Username,
+	})
+	// Apply the spam settings to the mail server (best effort).
+	synced := s.siteMailService(r, actor).SyncSpam(r.Context(), s.currentServerID(r))
+	if !synced {
+		sess.Flash("error", "Hosting options saved, but the spam filter settings could not be applied to the mail server. Save the spam filter again under Email.")
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	sess.Flash("success", "Hosting options saved. DNS options apply to new websites; spam options to the account's email now.")
+	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
 // usersResetBandwidth POST /users/{id}/bandwidth/reset — resets this
