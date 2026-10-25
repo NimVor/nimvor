@@ -858,6 +858,19 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /mail/webmail/install", s.guard("mail.webmail.install", "packages.manage", s.mailInstallWebmail))
 	s.mux.HandleFunc("POST /mail/webmail", s.guard("mail.webmail", "server.manage", s.mailWebmail))
 
+	// Panel settings pages (basic/tweak/mail/test + generic update). The
+	// generic update enforces a key allowlist so a rogue form cannot
+	// smuggle arbitrary keys into the settings table. Mail test is a stub
+	// until Mailer::send is ported.
+	s.mux.HandleFunc("GET /settings", s.guard("settings", "settings.view", s.settingsIndex))
+	s.mux.HandleFunc("POST /settings", s.guard("settings.update", "settings.manage", s.settingsUpdate))
+	s.mux.HandleFunc("GET /settings/basic", s.guard("settings.basic", "settings.view", s.settingsBasic))
+	s.mux.HandleFunc("POST /settings/basic", s.guard("settings.basic.save", "settings.manage", s.settingsBasicSave))
+	s.mux.HandleFunc("GET /settings/tweak", s.guard("settings.tweak", "settings.view", s.settingsTweak))
+	s.mux.HandleFunc("POST /settings/tweak", s.guard("settings.tweak.save", "settings.manage", s.settingsTweakSave))
+	s.mux.HandleFunc("POST /settings/mail", s.guard("settings.mail", "settings.manage", s.settingsMail))
+	s.mux.HandleFunc("POST /settings/mail/test", s.guard("settings.mail.test", "settings.manage", s.settingsMailTest))
+
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
 	s.mux.HandleFunc("POST /servers", s.guard("servers.store", "servers.manage", s.serversStore))

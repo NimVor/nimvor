@@ -1,0 +1,30 @@
+{{define "settings_index"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel settings · WhaCP</title>
+<link rel="stylesheet" href="/assets/css/whacp.css">
+</head>
+<body class="whacp-app">
+<header class="topbar"><span class="brand">WhaCP</span><span class="spacer"></span>
+  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
+  <form method="post" action="/logout" class="logout-form"><input type="hidden" name="_token" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
+</header>
+<main class="container">
+  <h1>Panel settings</h1>
+  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
+  <form method="post" action="/settings">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <p class="muted small">Edit values in JSON-string form below and Save. A limited allowlist of settings keys is accepted.</p>
+    <table class="data-table">
+      <thead><tr><th>Key</th><th>Value</th></tr></thead>
+      <tbody>
+      {{range $k, $v := .Values}}<tr><td><code>{{$k}}</code></td><td><input type="text" name="{{$k}}" value="{{$v}}"></td></tr>{{end}}
+      </tbody>
+    </table>
+    <button type="submit" class="btn btn-primary">Save</button>
+  </form>
+</main>
+</body>
+</html>{{end}}
