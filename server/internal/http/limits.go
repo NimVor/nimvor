@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
+	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
@@ -65,9 +67,9 @@ func (s *Server) limitsApply(w http.ResponseWriter, r *http.Request) {
 }
 
 // limitsEnableQuota POST /limits/quota/enable — kicks off a background job
-// that turns on disk quotas for websites' file systems. Stub: returns a
-// friendly error because DiskQuotaService.enable is not yet ported.
-// Mirrors LimitsController::enableQuota (limits.quota.enable, server.manage).
+// that turns on disk quotas for websites' file systems via the agent's
+// `quota.enable` action. Mirrors LimitsController::enableQuota
+// (limits.quota.enable, server.manage).
 func (s *Server) limitsEnableQuota(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -78,6 +80,36 @@ func (s *Server) limitsEnableQuota(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	sess.Flash("error", "Disk-quota enablement is not yet ported in the Go panel.")
+	user := userFrom(r.Context())
+	// quota.enable is a privileged server-management action.
+	if !s.can(r, "server.manage") {
+		sess.Flash("error", "Disk quotas are managed by server administrators.")
+		http.Redirect(w, r, "/limits#disk-quotas", http.StatusSeeOther)
+		return
+	}
+	raw, err := s.agent.Call(r.Context(), "quota.enable", map[string]any{}, 60*time.Second)
+	if err != nil {
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, "/limits#disk-quotas", http.StatusSeeOther)
+		return
+	}
+	var parsed struct {
+		JobID string `json:"job_id"`
+	}
+	jobID := ""
+	if err := json.Unmarshal(raw, &parsed); err == nil && parsed.JobID != "" {
+		jobID = parsed.JobID
+	}
+	uid := user.ID
+	if jobID != "" {
+		_ = hosting.NewJobTracker(s.db).Track(r.Context(), s.currentServerID(r), jobID, "Turn on disk quotas", "server", itoa(s.currentServerID(r)), &uid)
+		sess.Flash("job", jobID)
+	}
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "quota.enable", TargetType: "server", TargetID: itoa(s.currentServerID(r)),
+		Result: audit.Success, Details: map[string]any{"job_id": jobID},
+		UserID: &uid, Username: user.Username,
+	})
+	sess.Flash("success", "Turning disk quotas on. Follow the log below; the plans' disk space is enforced once they are on.")
 	http.Redirect(w, r, "/limits#disk-quotas", http.StatusSeeOther)
 }
