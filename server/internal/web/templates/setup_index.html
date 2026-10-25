@@ -20,7 +20,7 @@
   <h1>Setup wizard</h1>
   {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
   {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  {{if .Stub}}<p class="alert alert-warning">The orchestrating step runner (which installs packages, configures services, and provisions a default plan) is not yet ported in the Go panel. Live component and memory data from the agent is shown below; the wizard form itself is stubbed.</p>{{end}}
+  <p class="text-muted">Server-provisioning steps (package installs, service configuration, default plan creation) are performed by the WhaCP installer. Live component and memory data from the agent are shown below.</p>
   <p>Server memory: {{.MemoryMB}} MB</p>
   <h3>Components</h3>
   <pre class="font-monospace small">{{.Components}}</pre>

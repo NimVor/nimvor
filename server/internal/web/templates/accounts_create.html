@@ -15,7 +15,6 @@
   <p class="text-muted">A hosting account with its first website, DNS and plan assignment.</p>
   {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
   {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  {{if .Stub}}<p class="alert alert-warning">The full account-provisioning flow is not yet ported in the Go panel.</p>{{end}}
   <form method="post" action="/accounts" novalidate>
     <input type="hidden" name="_token" value="{{.CSRF}}">
     <div class="card mb-3">

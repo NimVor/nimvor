@@ -225,7 +225,7 @@ func (s *Server) settingsTweak(w http.ResponseWriter, r *http.Request) {
 		"User":    user,
 		"Title":   "Tweak settings",
 		"Values":  vals,
-		"Stub":    true,
+		"Stub":    false,
 		"Success": "",
 		"Error":   "",
 	}
