@@ -473,6 +473,8 @@ func (s *Server) routes() {
 	// WhaCP update page/check/start). All admin-only.
 	s.mux.HandleFunc("GET /topbar/status", s.guard("topbar.status", "monitoring.view", s.topbarStatus))
 	s.mux.HandleFunc("POST /services/restart-all", s.guard("services.restart_all", "services.manage", s.topbarRestartAll))
+	s.mux.HandleFunc("POST /services/control", s.guard("services.control", "services.manage", s.servicesControl))
+	s.mux.HandleFunc("POST /services/whacp/{key}/restart", s.guard("services.whacp.restart", "services.manage", s.servicesRestartWhacp))
 	s.mux.HandleFunc("GET /whacp/update", s.guard("whacp.update", "server.manage", s.topbarUpdate))
 	s.mux.HandleFunc("POST /whacp/update/check", s.guard("whacp.update.check", "server.manage", s.topbarUpdateCheck))
 	s.mux.HandleFunc("POST /whacp/update", s.guard("whacp.update.start", "server.manage", s.topbarUpdateStart))
@@ -743,9 +745,13 @@ func (s *Server) routes() {
 	// Notifications (per-recipient visibility).
 	s.mux.HandleFunc("GET /notifications", s.guard("", "notifications.view", s.notificationsIndex))
 	s.mux.HandleFunc("POST /notifications/read", s.guard("", "notifications.view", s.notificationsRead))
+	s.mux.HandleFunc("GET /notifications/summary", s.guard("", "notifications.view", s.notificationsSummary))
+	s.mux.HandleFunc("POST /notifications/email", s.guard("", "notifications.view", s.notificationsEmail))
 
 	// Own profile (authenticated; no special permission).
 	s.mux.HandleFunc("GET /profile", s.guard("", "", s.profileShow))
+	s.mux.HandleFunc("POST /profile/tokens", s.guard("", "api.tokens", s.apiTokenStore))
+	s.mux.HandleFunc("POST /profile/tokens/{id}/revoke", s.guard("", "api.tokens", s.apiTokenRevoke))
 
 	// Two-factor sign-in: the second-factor step of a sign-in (the pending
 	// state lives in the sealed cookie; no signed-in session yet) plus the

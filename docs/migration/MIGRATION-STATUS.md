@@ -1364,3 +1364,33 @@ MailFilters, etc.).
   for status; services.manage for restart-all; server.manage for
   whacp.update).
 - Docs: **435 ☑ / 4 ◑ / 112 ☐**.
+
+## Batch 71 — Notifications / API tokens / Services smalls (6 routes) ☑
+
+- `server/internal/notify/notify.go`: added `UnreadCount`, `ListUnread`,
+  `SetEmailOpt`, `EmailOpt` helpers for the topbar summary JSON and the email
+  opt-in toggle.
+- `server/internal/identity/api_tokens.go` (NEW): `Repository.CreateAPIToken`
+  (whcp_&lt;prefix&gt;_&lt;secret&gt; tokens, sha256-hashed, "read"/"write" abilities)
+  and `RevokeAPIToken` (owner-scoped delete).
+- `server/internal/http/notifications_handlers.go`: added `notificationsSummary`
+  (GET /notifications/summary — JSON for the topbar bell: unread count plus
+  latest 5 and 8 trimmed unread items with relative time, same-origin link
+  filter) and `notificationsEmail` (POST /notifications/email — toggles
+  users.notify_email).
+- `server/internal/http/users_handlers.go`: added `apiTokenStore` (POST
+  /profile/tokens — flashes the one-shot plaintext token back to /profile,
+  rendered by the existing Tokens/Surprise/NewToken profile template data) and
+  `apiTokenRevoke` (POST /profile/tokens/{id}/revoke).
+- `server/internal/http/services.go` (NEW): `servicesControl` (POST
+  /services/control — systemd unit regex validation for start/stop/restart/
+  reload/enable/disable, supports ?return_to=/mail/admin/server and JSON
+  callers for the dashboard widget) and `servicesRestartWhacp` (POST
+  /services/whacp/{key}/restart — admin-gated via hosting.IsAll, handles the
+  scheduled-restart response path).
+- `server/internal/http/server.go`: registered 6 routes (notifications.view
+  summary+email; api.tokens store+revoke; services.manage control+restart-
+  whacp).
+- Cleanup: removed duplicate `writeJSON` in `system.go` (shared helper lives in
+  server.go).
+- Docs: **441 ☑ / 4 ◑ / 106 ☐**.

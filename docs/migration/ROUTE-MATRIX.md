@@ -243,9 +243,9 @@ Total routes: 551
 | POST | `/nginx/test` | NginxController::test | nginx.test | server.view | yes | yes | ☐ |
 | POST | `/nginx/tuning` | NginxController::tuning | nginx.tuning | server.manage | yes | yes | ☐ |
 | GET | `/nginx` | NginxController::index | nginx | server.view | yes | yes | ☐ |
-| POST | `/notifications/email` | NotificationsController::email | notifications.email | notifications.view | yes | yes | ☐ |
+| POST | `/notifications/email` | NotificationsController::email | notifications.email | notifications.view | yes | yes | ☑ |
 | POST | `/notifications/read` | NotificationsController::read | notifications.read | notifications.view | yes | yes | ☑ |
-| GET | `/notifications/summary` | NotificationsController::summary | notifications.summary | notifications.view | yes | yes | ☐ |
+| GET | `/notifications/summary` | NotificationsController::summary | notifications.summary | notifications.view | yes | yes | ☑ |
 | GET | `/notifications` | NotificationsController::index | notifications | notifications.view | yes | yes | ☑ |
 | POST | `/packages/install` | SystemController::install | packages.install | packages.manage | yes | yes | ☑ |
 | POST | `/packages/refresh` | SystemController::refresh | packages.refresh | packages.manage | yes | yes | ☑ |
@@ -278,8 +278,8 @@ Total routes: 551
 | POST | `/profile/security-keys/{id}/delete` | ProfileController::keyDelete | profile.2fa.key.delete |  | yes | yes | ☐ |
 | POST | `/profile/security-keys` | ProfileController::keyAdd | profile.2fa.key.add |  | yes | yes | ☐ |
 | POST | `/profile/sessions/revoke` | ProfileController::revokeSessions | profile.sessions.revoke |  | yes | yes | ☐ |
-| POST | `/profile/tokens/{id}/revoke` | ApiTokensController::revoke | tokens.revoke | api.tokens | yes | yes | ☐ |
-| POST | `/profile/tokens` | ApiTokensController::store | tokens.store | api.tokens | yes | yes | ☐ |
+| POST | `/profile/tokens/{id}/revoke` | ApiTokensController::revoke | tokens.revoke | api.tokens | yes | yes | ☑ |
+| POST | `/profile/tokens` | ApiTokensController::store | tokens.store | api.tokens | yes | yes | ☑ |
 | POST | `/profile/two-factor/disable` | ProfileController::twoFactorDisable | profile.2fa.disable |  | yes | yes | ☑ |
 | POST | `/profile/two-factor/enable` | ProfileController::twoFactorEnable | profile.2fa.enable |  | yes | yes | ☑ |
 | POST | `/profile/two-factor/recovery` | ProfileController::twoFactorRecovery | profile.2fa.recovery |  | yes | yes | ☑ |
@@ -380,9 +380,9 @@ Total routes: 551
 | POST | `/servers/{id}/delete` | ServersController::destroy | servers.delete | servers.manage | yes | yes | ☐ |
 | GET | `/servers` | ServersController::index | servers | servers.manage | yes | yes | ☑ |
 | POST | `/servers` | ServersController::store | servers.store | servers.manage | yes | yes | ☐ |
-| POST | `/services/control` | ServicesController::control | services.control | services.manage | yes | yes | ☐ |
+| POST | `/services/control` | ServicesController::control | services.control | services.manage | yes | yes | ☑ |
 | POST | `/services/restart-all` | TopbarController::restartAll | services.restart_all | services.manage | yes | yes | ☑ |
-| POST | `/services/whacp/{key}/restart` | ServicesController::restartWhacp | services.whacp.restart | services.manage | yes | yes | ☐ |
+| POST | `/services/whacp/{key}/restart` | ServicesController::restartWhacp | services.whacp.restart | services.manage | yes | yes | ☑ |
 | GET | `/services` | ServerController::services | services | services.view | yes | yes | ☐ |
 | GET | `/settings/basic` | WebHostSettingsController::basic | settings.basic | settings.view | yes | yes | ☐ |
 | POST | `/settings/basic` | WebHostSettingsController::saveBasic | settings.basic.save | settings.manage | yes | yes | ☐ |
