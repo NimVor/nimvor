@@ -1425,3 +1425,28 @@ MailFilters, etc.).
 - `server/internal/http/server.go`: 4 routes registered (server.view /
   packages.manage / server.manage gates as in PHP).
 - Docs: **447 ☑ / 4 ◑ / 100 ☐** of 551 routes.
+
+## Batch 73 — Nginx/DNS install-setup/Services-SystemUsers pages (8 routes) ☑
+
+- `server/internal/http/nginx.go` (NEW ~210 LOC): 4 handlers for Nginx
+  status/test/reload/tuning. GET /nginx reads `nginx.status` from the agent
+  and loads tuning defaults from settings; POST /nginx/test runs
+  `nginx.test` and returns {ok,output} flash; POST /nginx/reload calls
+  `nginx.reload` with audit; POST /nginx/tuning persists the six tuning
+  settings via `s.settings.Set` then calls `nginx.tuning_apply` with audit.
+- `server/internal/web/templates/server_nginx.html` (NEW): status panel +
+  test/reload buttons + tuning form.
+- `server/internal/http/dns_install.go` (NEW): `dnsInstall` (POST /dns/install)
+  queues `packages.install bind9` with job tracking + audit, and `dnsSetup`
+  (POST /dns/setup) calls `dns.configure` with the `confirm_edit_package_config`
+  flag matching PHP.
+- `server/internal/http/services_pages.go` (NEW): `servicesIndex`
+  (GET /services) — polls `services.status` and (best-effort)
+  `whacp.services`; new `server_services.html` template with restart-panel
+  forms hitting the already-ported `servicesRestartWhacp` routes.
+- `server/internal/http/system_users.go` (NEW): `systemUsersIndex`
+  (GET /system-users) — pulls the latest discovery inventory, decodes
+  its `users` array, filters system accounts unless `?all=1`.
+- `server/internal/web/templates/server_system_users.html` (NEW).
+- `server/internal/http/server.go`: 8 route registrations.
+- Docs: **455 ☑ / 4 ◑ / 92 ☐** of 551 routes.

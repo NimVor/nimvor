@@ -103,8 +103,8 @@ Total routes: 551
 | POST | `/databases` | DatabasesController::store | databases.store | databases.manage | yes | yes | ☑ |
 | POST | `/discovery/run` | DiscoveryController::run | discovery.run | discovery.run | yes | yes | ☑ |
 | GET | `/discovery` | DiscoveryController::index | discovery | websites.view | yes | yes | ☑ |
-| POST | `/dns/install` | DnsController::install | dns.install | packages.manage | yes | yes | ☐ |
-| POST | `/dns/setup` | DnsController::setup | dns.setup | server.manage | yes | yes | ☐ |
+| POST | `/dns/install` | DnsController::install | dns.install | packages.manage | yes | yes | ☑ |
+| POST | `/dns/setup` | DnsController::setup | dns.setup | server.manage | yes | yes | ☑ |
 | POST | `/dns/zones/{id}/bulk` | DnsController::bulk | dns.bulk | dns.manage | yes | yes | ☑ |
 | POST | `/dns/zones/{id}/delete` | DnsController::delete | dns.delete | dns.manage | yes | yes | ☑ |
 | GET | `/dns/zones/{id}/export` | DnsController::export | dns.export | dns.manage | yes | yes | ☑ |
@@ -239,10 +239,10 @@ Total routes: 551
 | GET | `/monitoring/processes/trace` | MonitoringController::trace | monitoring.processes.trace | server.manage | yes | yes | ☑ |
 | GET | `/monitoring/processes` | MonitoringController::processes | monitoring.processes | monitoring.view | yes | yes | ☑ |
 | GET | `/monitoring` | MonitoringController::index | monitoring | monitoring.view | yes | yes | ☑ |
-| POST | `/nginx/reload` | NginxController::reload | nginx.reload | services.manage | yes | yes | ☐ |
-| POST | `/nginx/test` | NginxController::test | nginx.test | server.view | yes | yes | ☐ |
-| POST | `/nginx/tuning` | NginxController::tuning | nginx.tuning | server.manage | yes | yes | ☐ |
-| GET | `/nginx` | NginxController::index | nginx | server.view | yes | yes | ☐ |
+| POST | `/nginx/reload` | NginxController::reload | nginx.reload | services.manage | yes | yes | ☑ |
+| POST | `/nginx/test` | NginxController::test | nginx.test | server.view | yes | yes | ☑ |
+| POST | `/nginx/tuning` | NginxController::tuning | nginx.tuning | server.manage | yes | yes | ☑ |
+| GET | `/nginx` | NginxController::index | nginx | server.view | yes | yes | ☑ |
 | POST | `/notifications/email` | NotificationsController::email | notifications.email | notifications.view | yes | yes | ☑ |
 | POST | `/notifications/read` | NotificationsController::read | notifications.read | notifications.view | yes | yes | ☑ |
 | GET | `/notifications/summary` | NotificationsController::summary | notifications.summary | notifications.view | yes | yes | ☑ |
@@ -383,7 +383,7 @@ Total routes: 551
 | POST | `/services/control` | ServicesController::control | services.control | services.manage | yes | yes | ☑ |
 | POST | `/services/restart-all` | TopbarController::restartAll | services.restart_all | services.manage | yes | yes | ☑ |
 | POST | `/services/whacp/{key}/restart` | ServicesController::restartWhacp | services.whacp.restart | services.manage | yes | yes | ☑ |
-| GET | `/services` | ServerController::services | services | services.view | yes | yes | ☐ |
+| GET | `/services` | ServerController::services | services | services.view | yes | yes | ☑ |
 | GET | `/settings/basic` | WebHostSettingsController::basic | settings.basic | settings.view | yes | yes | ☐ |
 | POST | `/settings/basic` | WebHostSettingsController::saveBasic | settings.basic.save | settings.manage | yes | yes | ☐ |
 | POST | `/settings/mail/test` | SettingsController::testMail | settings.mail.test | settings.manage | yes | yes | ☐ |
@@ -525,7 +525,7 @@ Total routes: 551
 | GET | `/ssl/tls` | SslCenterController::tls | ssl.tls | ssl.view | yes | yes | ☐ |
 | POST | `/ssl/tls` | SslCenterController::saveTls | ssl.tls.save | server.manage | yes | yes | ☐ |
 | GET | `/ssl` | DiscoveryController::ssl | ssl | ssl.view | yes | yes | ☑ |
-| GET | `/system-users` | ServerController::systemUsers | system_users | system_users.view | yes | yes | ☐ |
+| GET | `/system-users` | ServerController::systemUsers | system_users | system_users.view | yes | yes | ☑ |
 | POST | `/terminal/root/open` | TerminalController::openRoot | terminal.root | security.manage | yes | yes | ☑ |
 | POST | `/terminal/sessions/{id}/close` | TerminalController::close | terminal.close | security.manage | yes | yes | ☑ |
 | POST | `/terminal/unlock` | TerminalController::unlock | sites.terminal.unlock | files.manage | yes | yes | ☑ |

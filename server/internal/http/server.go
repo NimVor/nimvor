@@ -591,6 +591,8 @@ func (s *Server) routes() {
 
 	// DNS zones list. dns.manage is withheld by the dns plan feature when off.
 	s.mux.HandleFunc("GET /dns", s.guard("", "dns.manage", s.dnsIndex))
+	s.mux.HandleFunc("POST /dns/install", s.guard("dns.install", "packages.manage", s.dnsInstall))
+	s.mux.HandleFunc("POST /dns/setup", s.guard("dns.setup", "server.manage", s.dnsSetup))
 	// DNS: the website's DNS set-up page (DnsController::site), zone creation
 	// (DnsController::store) and the zone's records page (DnsController::show
 	// — read-only until the record routes land).
@@ -776,6 +778,16 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /ffmpeg/install", s.guard("ffmpeg.install", "packages.manage", s.ffmpegInstall))
 	s.mux.HandleFunc("POST /ffmpeg/uninstall", s.guard("ffmpeg.uninstall", "packages.manage", s.ffmpegUninstall))
 	s.mux.HandleFunc("POST /ffmpeg/apply", s.guard("ffmpeg.apply", "server.manage", s.ffmpegApply))
+
+	// Nginx (administrators; service state, test/reload, tuning).
+	s.mux.HandleFunc("GET /nginx", s.guard("nginx", "server.view", s.nginxIndex))
+	s.mux.HandleFunc("POST /nginx/test", s.guard("nginx.test", "server.view", s.nginxTest))
+	s.mux.HandleFunc("POST /nginx/reload", s.guard("nginx.reload", "services.manage", s.nginxReload))
+	s.mux.HandleFunc("POST /nginx/tuning", s.guard("nginx.tuning", "server.manage", s.nginxTuning))
+
+	// Server services listing and system accounts (GET pages).
+	s.mux.HandleFunc("GET /services", s.guard("services", "services.view", s.servicesIndex))
+	s.mux.HandleFunc("GET /system-users", s.guard("system_users", "system_users.view", s.systemUsersIndex))
 
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
