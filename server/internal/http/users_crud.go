@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -277,7 +276,7 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
 	}
-	if !canManageUser(repo, actor, target) {
+	if !canManageUser(actor, target) {
 		sess.Flash("error", "The user no longer exists.")
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
@@ -422,44 +421,6 @@ func isEmail(s string) bool {
 	}
 	host := s[at+1:]
 	return strings.Contains(host, ".") && !strings.ContainsAny(s, " \t\r\n<>")
-}
-
-// canManageUser reports whether actor may manage target per the parent-chain
-// rule in UserService::canManage: server-wide roles manage everyone, own-scope
-// (reseller) roles manage only accounts whose ancestor (through parent_id) is
-// the actor. The traversal uses repo.Find to walk up the chain safely.
-func canManageUser(repo *identity.Repository, actor *identity.User, target *identity.User) bool {
-	if actor == nil || target == nil {
-		return false
-	}
-	if actor.RoleScope == "all" {
-		return true
-	}
-	if target.ID == actor.ID {
-		return true
-	}
-	seen := map[int64]bool{target.ID: true}
-	parent := target.ParentID.Int64
-	if !target.ParentID.Valid {
-		return false
-	}
-	for {
-		if parent == actor.ID {
-			return true
-		}
-		if seen[parent] {
-			return false
-		}
-		seen[parent] = true
-		p, err := repo.FindByID(context.Background(), parent)
-		if err != nil || p == nil {
-			return false
-		}
-		if !p.ParentID.Valid {
-			return false
-		}
-		parent = p.ParentID.Int64
-	}
 }
 
 // usersDestroy POST /users/{id}/delete — deletes a panel user. Fully
