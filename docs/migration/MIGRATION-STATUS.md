@@ -1616,3 +1616,33 @@ MailFilters, etc.).
 - New templates: `limits_index.html`, `php_manager.html`.
 - `server/internal/http/server.go`: 8 routes registered.
 - Docs: **487 ☑ / 4 ◑ / 60 ☐**.
+
+## Batch 81 — Setup wizard (3) + Mail admin install/setup (6) = 9 routes ☑
+
+- `server/internal/http/setup.go` (NEW ~140 LOC): 3 handlers
+  - GET /setup marks `setup_wizard_seen`, fetches `components.status` and
+    `system.metrics` from the agent (memory in MB computed), and renders
+    a friendly page noting the step-runner is not yet ported.
+  - POST /setup/step returns a 501 JSON error (ServerSetupService
+    not ported).
+  - POST /setup/dismiss is fully implemented: sets both
+    `setup_wizard_seen` and `setup_wizard_done`, records
+    `server.setup_dismiss` audit, and flashes success redirecting to /.
+- `server/internal/http/mail_admin.go` (NEW ~300 LOC): 6 admin mail
+  actions (install/setup/spam install/spam/webmail install/webmail).
+  - Install actions call agent `packages.install` with job tracking via
+    `hosting.NewJobTracker` and flash a "job" key for the progress UI.
+  - `mail.configure` validates hostname with the same FQDN regex as PHP
+    (`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`) and passes
+    through the agent's `notes[]` in the success flash.
+  - `mail.spam_configure` validates mark (1–50), reject (mark–100)
+    float thresholds and passes enabled/add_header/reject/confirm_replace.
+  - `mail.webmail_configure` validates hostname when enabling, calls the
+    agent, and returns "Webmail is on at <url>. <notes[1..]>." or the
+    off-state message.
+  - All six handlers are CSRF-checked and audited.
+  - New `validHostname` helper matches the PHP regex; avoids importing
+    regexp by walking runes.
+- New templates: `setup_index.html`.
+- `server/internal/http/server.go`: 9 routes registered.
+- Docs: **496 ☑ / 4 ◑ / 51 ☐**.
