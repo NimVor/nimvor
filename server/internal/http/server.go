@@ -817,6 +817,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /features", s.guard("features.store", "plans.manage", s.featuresStore))
 	s.mux.HandleFunc("POST /features/{id}/delete", s.guard("features.delete", "plans.manage", s.featuresDestroy))
 
+	// Hosting plans (staff + resellers via PlanService::visible scoping).
+	s.mux.HandleFunc("POST /plans", s.guard("plans.store", "plans.manage", s.plansStore))
+	s.mux.HandleFunc("POST /plans/{id}/delete", s.guard("plans.delete", "plans.manage", s.plansDestroy))
+
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
 	s.mux.HandleFunc("POST /servers", s.guard("servers.store", "servers.manage", s.serversStore))

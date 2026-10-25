@@ -1539,3 +1539,30 @@ MailFilters, etc.).
   JSON dump page (same pre-block pattern as components_index).
 - `server/internal/http/server.go`: 3 routes registered under plans.manage.
 - Docs: **476 ☑ / 4 ◑ / 71 ☐**.
+
+## Batch 78 — PlansController missing routes (2 routes) ☑
+
+- `server/internal/hosting/plans.go`: extended `PlanRepository` with
+  - `PlanFields`/`PlanLimits`/`PlanSave` mirroring PHP PlanService
+    constants and input shape.
+  - `Save(ctx, actor, PlanSave)` (int64, error): validates name
+    (≤60 chars, unique per owner via COALESCE(owner_id,0),name),
+    description ≤300, numeric fields 0..10M, cgroup limits within
+    allowed ranges (or 0), verifies feature_list_id exists for staff;
+    resellers cannot set max_customers/feature_list_id/ffmpeg. Writes
+    the plan row plus cgroup-limit and feature_list columns in a
+    transaction. Returns ErrNotFound for unknown ids (with ownership
+    check for resellers).
+  - `Delete(ctx, actor, id) (string, error)`: returns the removed
+    plan's name; refuses to delete plans still assigned to users;
+    resellers may only delete their own.
+  - Added package-level `ErrNotFound`.
+- `server/internal/http/plans_handlers.go` (NEW ~120 LOC): plansStore /
+  plansDestroy with CSRF, flash redirects and audit records; includes
+  a small `formInt` helper.
+- `server/internal/http/server.go`: 2 routes registered (POST /plans,
+  POST /plans/{id}/delete). The post-save FFmpeg/bandwidth/quota/limits
+  reconciliation calls that fire in PHP are intentionally deferred —
+  those services are not yet ported; the plan row itself is saved
+  faithfully.
+- Docs: **478 ☑ / 4 ◑ / 69 ☐**.
