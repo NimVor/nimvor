@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 	"github.com/mchkhawarshahzad/whacp/server/internal/twofactor"
@@ -166,4 +167,61 @@ func (s *Server) profileRevokeSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	sess.Flash("success", "You were signed out everywhere else.")
 	http.Redirect(w, r, "/profile#sessions", http.StatusSeeOther)
+}
+
+// profilePassword POST /profile/password — changes the signed-in user's
+// password (ProfileController::password). Audits a wrong-current-password
+// failure, validates the new password against PasswordWeakness (length,
+// repetition, doesn't contain username, confirmation matches), then
+// refreshes the current session's fingerprint and bumps the epoch so
+// every other session is signed out.
+func (s *Server) profilePassword(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	if !session.ValidateCSRF(sess, formToken(r)) {
+		http.Error(w, "Page expired", http.StatusBadRequest)
+		return
+	}
+	user := userFrom(r.Context())
+	current := r.FormValue("current_password")
+	newPW := r.FormValue("password")
+	confirm := r.FormValue("password_confirmation")
+	repo := identity.NewRepository(s.db)
+	err := repo.ChangeOwnPassword(r.Context(), user.ID, current, newPW, confirm)
+	if err != nil {
+		if pe, ok := err.(*identity.PasswordChangeError); ok {
+			if pe.BadCurrent {
+				uid := user.ID
+				s.audit.Record(r.Context(), audit.Entry{
+					Action: "user.password_change", TargetType: "user",
+					TargetID: strconv.FormatInt(user.ID, 10), Result: audit.Failure,
+					Details: map[string]any{"reason": "bad_current_password"},
+					UserID: &uid, Username: user.Username,
+				})
+			}
+			sess.Flash("error", pe.Message)
+			http.Redirect(w, r, "/profile", http.StatusSeeOther)
+			return
+		}
+		s.log.Error("change own password", "error", err)
+		sess.Flash("error", "Could not change password.")
+		http.Redirect(w, r, "/profile", http.StatusSeeOther)
+		return
+	}
+	// Refresh current session so we stay signed in; bump epoch signs
+	// every other session out.
+	if err := s.auth.RefreshOwnSession(r.Context(), sess, user); err != nil {
+		s.log.Error("refresh session after password change", "error", err)
+	}
+	uid := user.ID
+	s.audit.Record(r.Context(), audit.Entry{
+		Action: "user.password_change", TargetType: "user",
+		TargetID: strconv.FormatInt(user.ID, 10), Result: audit.Success,
+		UserID: &uid, Username: user.Username,
+	})
+	sess.Flash("success", "Password changed. Other sessions have been signed out.")
+	http.Redirect(w, r, "/profile", http.StatusSeeOther)
 }

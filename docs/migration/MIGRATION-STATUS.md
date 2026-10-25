@@ -1566,3 +1566,27 @@ MailFilters, etc.).
   those services are not yet ported; the plan row itself is saved
   faithfully.
 - Docs: **478 ☑ / 4 ◑ / 69 ☐**.
+
+## Batch 79 — Profile password change (1 route) ☑
+
+- `server/internal/identity/password.go`: added `PasswordMinLength`/
+  `PasswordMaxLength` constants and `PasswordWeakness(password, username)`
+  — checks ≥12 chars, ≤1024 chars, doesn't contain the username
+  (case-insensitive), and has at least 5 distinct runes.
+- `server/internal/identity/users.go`: added `PasswordChangeError`
+  (Field + Message + BadCurrent flag) and
+  `Repository.ChangeOwnPassword(ctx, id, current, new, confirm)` which
+  verifies the current password, matches confirmation, runs the
+  weakness policy, re-hashes, and updates the password row. Audit
+  logging is left to the caller to keep identity free of the audit
+  dependency.
+- `server/internal/auth/service.go`: added `RefreshOwnSession` which
+  bumps `users.session_epoch` (signs other sessions out) and rewrites
+  `_auth_fp` so the current session stays valid after the hash
+  changes.
+- `server/internal/http/users_handlers.go`: added `profilePassword`
+  (POST /profile/password) with CSRF check, wrong-current-password
+  failure audit, flash errors, success audit, fingerprint refresh, and
+  a success flash that matches the PHP message.
+- `server/internal/http/server.go`: 1 route registered.
+- Docs: **479 ☑ / 4 ◑ / 68 ☐**.

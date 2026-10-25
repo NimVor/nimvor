@@ -273,7 +273,7 @@ Total routes: 551
 | POST | `/plans/{id}/delete` | PlansController::destroy | plans.delete | plans.manage | yes | yes | ☑ |
 | GET | `/plans` | PlansController::index | plans | plans.manage | yes | yes | ☑ |
 | POST | `/plans` | PlansController::store | plans.store | plans.manage | yes | yes | ☑ |
-| POST | `/profile/password` | ProfileController::password | profile.password |  | yes | yes | ☐ |
+| POST | `/profile/password` | ProfileController::password | profile.password |  | yes | yes | ☑ |
 | POST | `/profile/security-keys/options` | ProfileController::keyOptions | profile.2fa.key.options |  | yes | yes | ☐ |
 | POST | `/profile/security-keys/{id}/delete` | ProfileController::keyDelete | profile.2fa.key.delete |  | yes | yes | ☐ |
 | POST | `/profile/security-keys` | ProfileController::keyAdd | profile.2fa.key.add |  | yes | yes | ☐ |
