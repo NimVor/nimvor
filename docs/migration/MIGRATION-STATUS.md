@@ -1733,3 +1733,33 @@ MailFilters, etc.).
 - New templates: users_form.html, users_plan.html.
 - `server/internal/http/server.go`: 13 routes registered.
 - Docs: **524 ☑ / 4 ◑ / 23 ☐**.
+
+## Batch 85 — SSL Center (18 routes) ☑
+
+- `server/internal/http/ssl.go` (NEW ~430 LOC): 18 handlers covering the
+  whole SslCenterController.
+  - Live data pages: GET /ssl/hosts (ssl.store hosts + ssl.renewal_status
+    + auto_ssl setting), GET /ssl/certificates (ssl.store certs), GET
+    /ssl/keys (ssl.keys), GET /ssl/tls (ssl.tls_get), GET /ssl/services
+    (ssl.services + ssl.account for active/?provider= ACME account +
+    defaultEmail), GET /ssl/autossl (ssl.autossl_status).
+  - Fully-implemented POSTs calling agent actions with audit:
+    - POST /ssl/renewal → ssl.renewal_enable, audits success/failure,
+      flashes method name.
+    - POST /ssl/certificates/delete → ssl.delete (letsencrypt) or
+      ssl.custom_delete (whacp), rejects other sources, audits
+      ssl.certificate_delete.
+    - POST /ssl/keys/delete → ssl.key_delete, audits ssl.key_delete.
+    - POST /ssl/tls → ssl.tls_set with protocols/ciphers/session_tickets,
+      audits success/failure, reports migrated_vhosts count.
+    - POST /ssl/autossl/run → ssl.autossl_run (5min timeout), audits
+      success/failure, reports issued count.
+  - Stubs (CSRF-checked, friendly "not yet wired" flash):
+    POST /ssl/keys (createCsr), POST /ssl/keys/install,
+    GET /ssl/keys/csr (redirect to /ssl/keys), POST /ssl/services/account,
+    /cert, /hostname, /mail-tls.
+- New templates: ssl_hosts, ssl_certificates, ssl_keys, ssl_tls,
+  ssl_services, ssl_autossl (generic pre-block pages matching the rest
+  of the admin templates).
+- `server/internal/http/server.go`: 18 SSL routes registered.
+- Docs: **542 ☑ / 4 ◑ / 5 ☐**.

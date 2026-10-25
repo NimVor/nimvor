@@ -905,6 +905,31 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /users/{id}/hosting-options", s.guard("users.options", "users.manage", s.usersSaveOptions))
 	s.mux.HandleFunc("POST /users/{id}/bandwidth/reset", s.guard("users.bandwidth.reset", "users.manage", s.usersResetBandwidth))
 
+	// SSL Center: host/cert/key/tls/services/autossl pages pull live data
+	// from the agent where possible (ssl.store/ssl.keys/ssl.tls_get/
+	// ssl.services/ssl.autossl_status); POST endpoints either call agent
+	// actions (enableRenewal, deleteCertificate, deleteKey, saveTls,
+	// autosslRun) with audit logging or return friendly stubs for the
+	// certificate-issuance / CSR-upload flows that need file handling.
+	s.mux.HandleFunc("GET /ssl/hosts", s.guard("ssl.hosts", "ssl.view", s.sslHosts))
+	s.mux.HandleFunc("POST /ssl/renewal", s.guard("ssl.renewal.enable", "ssl.manage", s.sslEnableRenewal))
+	s.mux.HandleFunc("GET /ssl/certificates", s.guard("ssl.certificates", "ssl.view", s.sslCertificates))
+	s.mux.HandleFunc("POST /ssl/certificates/delete", s.guard("ssl.certificates.delete", "ssl.manage", s.sslDeleteCertificate))
+	s.mux.HandleFunc("GET /ssl/keys", s.guard("ssl.keys", "ssl.view", s.sslKeys))
+	s.mux.HandleFunc("POST /ssl/keys", s.guard("ssl.keys.create", "ssl.manage", s.sslCreateCsr))
+	s.mux.HandleFunc("POST /ssl/keys/install", s.guard("ssl.keys.install", "ssl.manage", s.sslInstallKey))
+	s.mux.HandleFunc("POST /ssl/keys/delete", s.guard("ssl.keys.delete", "ssl.manage", s.sslDeleteKey))
+	s.mux.HandleFunc("GET /ssl/keys/csr", s.guard("ssl.keys.csr", "ssl.view", s.sslCsrDownload))
+	s.mux.HandleFunc("GET /ssl/tls", s.guard("ssl.tls", "ssl.view", s.sslTls))
+	s.mux.HandleFunc("POST /ssl/tls", s.guard("ssl.tls.save", "server.manage", s.sslSaveTls))
+	s.mux.HandleFunc("GET /ssl/services", s.guard("ssl.services", "ssl.view", s.sslServices))
+	s.mux.HandleFunc("POST /ssl/services/account", s.guard("ssl.services.account", "server.manage", s.sslAccountRegister))
+	s.mux.HandleFunc("POST /ssl/services/cert", s.guard("ssl.services.cert", "server.manage", s.sslServiceCert))
+	s.mux.HandleFunc("POST /ssl/services/hostname", s.guard("ssl.services.hostname", "server.manage", s.sslHostnameIssue))
+	s.mux.HandleFunc("POST /ssl/services/mail-tls", s.guard("ssl.services.mail_tls", "server.manage", s.sslMailTls))
+	s.mux.HandleFunc("GET /ssl/autossl", s.guard("ssl.autossl", "ssl.view", s.sslAutoSsl))
+	s.mux.HandleFunc("POST /ssl/autossl/run", s.guard("ssl.autossl.run", "ssl.manage", s.sslAutoSslRun))
+
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))
 	s.mux.HandleFunc("POST /servers", s.guard("servers.store", "servers.manage", s.serversStore))
