@@ -73,8 +73,8 @@ Total routes: 551
 | POST | `/components/profile` | ComponentsController::profile | components.profile | server.manage | yes | yes | ☑ |
 | POST | `/components/{id}/{step}` | ComponentsController::fix | components.fix | server.view | yes | yes | ☑ |
 | GET | `/components` | ComponentsController::index | components | server.view | yes | yes | ☑ |
-| GET | `/confirm-password` | AuthController::confirmForm | auth.confirm |  | yes | yes | ☐ |
-| POST | `/confirm-password` | AuthController::confirm | auth.confirm.submit |  | yes | yes | ☐ |
+| GET | `/confirm-password` | AuthController::confirmForm | auth.confirm |  | yes | yes | ☑ |
+| POST | `/confirm-password` | AuthController::confirm | auth.confirm.submit |  | yes | yes | ☑ |
 | GET | `/cron` | DiscoveryController::cron | cron | cron.view | yes | yes | ☑ |
 | GET | `/dashboard/live` | DashboardController::live | dashboard.live | dashboard.view | yes | yes | ☑ |
 | POST | `/database-users/{id}/assign` | DatabasesController::assign | dbusers.assign | databases.manage | yes | yes | ☑ |

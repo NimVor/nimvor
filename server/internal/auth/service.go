@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"strconv"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
@@ -32,6 +33,12 @@ const (
 	key2FATries  = "_auth_2fa_tries"
 	pendingTTL   = 300 // seconds allowed between the password and the second factor
 	pendingTries = 5
+
+	// keyAuthConfirmedAt is set on the session by ConfirmPassword; the
+	// confirmed window lasts ConfirmTTL seconds (mirrors CONFIRMED_KEY
+	// and CONFIRM_TTL in the PHP AuthService).
+	keyAuthConfirmedAt = "_auth_confirmed_at"
+	ConfirmTTL         = 15 * 60
 )
 
 // dummyHash is a real argon2id hash of a random, discarded value (same cost as
@@ -401,6 +408,52 @@ func (s *Service) Logout(ctx context.Context, sess *session.Session, user *ident
 	}
 	sess.Invalidate()
 }
+
+// ConfirmPassword re-verifies the signed-in user's password for a step-up
+// gate (AuthService::confirmPassword). On success it stamps the session
+// with keyAuthConfirmedAt; on failure it records the audit failure.
+func (s *Service) ConfirmPassword(ctx context.Context, sess *session.Session, user *identity.User, password, ip string) bool {
+	if user == nil {
+		return false
+	}
+	if password == "" {
+		return false
+	}
+	hash, err := s.users.PasswordHash(ctx, user.ID)
+	if err != nil || hash == "" {
+		return false
+	}
+	if !identity.VerifyPassword(hash, password) {
+		uid := user.ID
+		s.audit.Record(ctx, audit.Entry{
+			UserID: &uid, Username: user.Username, Action: "auth.confirm",
+			TargetType: "user", TargetID: strconv.FormatInt(user.ID, 10),
+			Result: audit.Failure, IP: ip,
+		})
+		return false
+	}
+	sess.Set(keyAuthConfirmedAt, strconv.FormatInt(s.now().Unix(), 10))
+	uid := user.ID
+	s.audit.Record(ctx, audit.Entry{
+		UserID: &uid, Username: user.Username, Action: "auth.confirm",
+		TargetType: "user", TargetID: strconv.FormatInt(user.ID, 10),
+		Result: audit.Success, IP: ip,
+	})
+	return true
+}
+
+// IsConfirmed reports whether the session has a recent confirm-password
+// step-up (AuthService::passwordConfirmed).
+func (s *Service) IsConfirmed(sess *session.Session) bool {
+	ts := atoi64(sess.Get(keyAuthConfirmedAt))
+	if ts == 0 {
+		return false
+	}
+	return s.now().Unix()-ts <= ConfirmTTL
+}
+
+// now returns the current time (overridable in tests).
+func (s *Service) now() time.Time { return time.Now() }
 
 // fingerprint binds the session to the account's password hash and session
 // epoch, so either change ends the session. Identical formula to

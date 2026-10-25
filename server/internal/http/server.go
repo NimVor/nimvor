@@ -137,6 +137,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /login", s.sessionCtx(s.showLogin))
 	s.mux.HandleFunc("POST /login", s.sessionCtx(s.doLogin))
 	s.mux.HandleFunc("POST /logout", s.sessionCtx(s.doLogout))
+	// Step-up password confirmation (sensitive changes redirect here).
+	s.mux.HandleFunc("GET /confirm-password", s.sessionCtx(s.requireAuth(s.confirmPasswordForm)))
+	s.mux.HandleFunc("POST /confirm-password", s.sessionCtx(s.requireAuth(s.confirmPassword)))
 
 	// Authenticated shell (dashboard). Feature pages are ported in later phases.
 	s.mux.HandleFunc("GET /{$}", s.sessionCtx(s.requireAuth(s.dashboard)))

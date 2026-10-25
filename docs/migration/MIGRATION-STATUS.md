@@ -1498,3 +1498,18 @@ MailFilters, etc.).
   JSON dump page (same pattern as server_index pre blocks).
 - `server/internal/http/server.go`: 3 routes registered.
 - Docs: **471 ☑ / 4 ◑ / 76 ☐**.
+
+## Batch 76 — Auth confirm-password (2 routes) ☑
+
+- `server/internal/auth/service.go`: added `keyAuthConfirmedAt`,
+  `ConfirmTTL=900s`, `ConfirmPassword` (verifies password via
+  identity.VerifyPassword, audits failure, stamps session on success)
+  and `IsConfirmed` helpers.
+- `server/internal/http/auth_handlers.go`: added
+  `confirmPasswordForm` (GET) and `confirmPassword` (POST) handlers plus
+  a `safeReturnPath` helper that clamps the `return` query/form param to
+  a server-relative path so the flow cannot be abused for open redirects.
+- `server/internal/web/templates/auth_confirm_password.html` (NEW).
+- `server/internal/http/server.go`: 2 routes registered under the
+  `requireAuth` wrapper.
+- Docs: **473 ☑ / 4 ◑ / 74 ☐**.
