@@ -137,6 +137,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /login", s.sessionCtx(s.showLogin))
 	s.mux.HandleFunc("POST /login", s.sessionCtx(s.doLogin))
 	s.mux.HandleFunc("POST /logout", s.sessionCtx(s.doLogout))
+	// Step-up password confirmation (sensitive changes redirect here).
+	s.mux.HandleFunc("GET /confirm-password", s.sessionCtx(s.requireAuth(s.confirmPasswordForm)))
+	s.mux.HandleFunc("POST /confirm-password", s.sessionCtx(s.requireAuth(s.confirmPassword)))
 
 	// Authenticated shell (dashboard). Feature pages are ported in later phases.
 	s.mux.HandleFunc("GET /{$}", s.sessionCtx(s.requireAuth(s.dashboard)))
@@ -808,6 +811,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /components", s.guard("components", "server.view", s.componentsIndex))
 	s.mux.HandleFunc("POST /components/profile", s.guard("components.profile", "server.manage", s.componentsProfile))
 	s.mux.HandleFunc("POST /components/{id}/{step}", s.guard("components.fix", "server.view", s.componentsFix))
+
+	// Feature lists (administrators manage plans' allowed features).
+	s.mux.HandleFunc("GET /features", s.guard("features", "plans.manage", s.featuresIndex))
+	s.mux.HandleFunc("POST /features", s.guard("features.store", "plans.manage", s.featuresStore))
+	s.mux.HandleFunc("POST /features/{id}/delete", s.guard("features.delete", "plans.manage", s.featuresDestroy))
 
 	// Managed servers (staff).
 	s.mux.HandleFunc("GET /servers", s.guard("", "servers.manage", s.serversIndex))

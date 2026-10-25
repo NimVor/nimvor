@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
@@ -115,6 +117,75 @@ func (s *Server) doTwoFactor(w http.ResponseWriter, r *http.Request) {
 }
 
 // doLogout clears the session. CSRF-protected like any state change.
+// confirmPasswordForm GET /confirm-password — step-up password confirmation
+// page before a sensitive action (AuthController::confirmForm).
+func (s *Server) confirmPasswordForm(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	ret := safeReturnPath(r.URL.Query().Get("return"))
+	data := map[string]any{
+		"CSRF":    session.CSRFToken(sess),
+		"Return":  ret,
+		"Error":   "",
+		"Success": "",
+	}
+	if ef, ok := sess.PullFlash("error"); ok {
+		data["Error"] = ef
+	}
+	if sf, ok := sess.PullFlash("success"); ok {
+		data["Success"] = sf
+	}
+	s.render(w, "auth_confirm_password", data)
+}
+
+// confirmPassword POST /confirm-password — verifies the password and stamps
+// the session; on success redirects back to the intended return URL
+// (AuthController::confirm).
+func (s *Server) confirmPassword(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	if !session.ValidateCSRF(sess, formToken(r)) {
+		http.Error(w, "Page expired", http.StatusBadRequest)
+		return
+	}
+	ret := safeReturnPath(r.FormValue("return"))
+	password := r.FormValue("password")
+	user := userFrom(r.Context())
+	if !s.auth.ConfirmPassword(r.Context(), sess, user, password, clientIP(r)) {
+		sess.Flash("error", "That password is not correct.")
+		http.Redirect(w, r, "/confirm-password?return="+url.QueryEscape(ret), http.StatusSeeOther)
+		return
+	}
+	sess.Flash("success", "Password confirmed for 15 minutes. Submit your change again.")
+	http.Redirect(w, r, ret, http.StatusSeeOther)
+}
+
+// safeReturnPath clamps the return URL to a server-relative path starting
+// with "/" (never "//" or a scheme) so the confirm flow cannot be abused
+// for open redirects. Mirrors Authenticate::safePath.
+func safeReturnPath(p string) string {
+	if p == "" {
+		return "/"
+	}
+	// Strip anything starting with a scheme or "//" to prevent external
+	// redirects; we only ever redirect to our own pages.
+	if len(p) >= 2 && p[0] == '/' && p[1] == '/' {
+		return "/"
+	}
+	for _, bad := range []string{"://", "\r", "\n"} {
+		if strings.Contains(p, bad) {
+			return "/"
+		}
+	}
+	if p[0] != '/' {
+		return "/"
+	}
+	return p
+}
+
+// doLogout signs the user out.
 func (s *Server) doLogout(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	_ = r.ParseForm()

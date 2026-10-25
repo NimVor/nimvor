@@ -73,8 +73,8 @@ Total routes: 551
 | POST | `/components/profile` | ComponentsController::profile | components.profile | server.manage | yes | yes | ☑ |
 | POST | `/components/{id}/{step}` | ComponentsController::fix | components.fix | server.view | yes | yes | ☑ |
 | GET | `/components` | ComponentsController::index | components | server.view | yes | yes | ☑ |
-| GET | `/confirm-password` | AuthController::confirmForm | auth.confirm |  | yes | yes | ☐ |
-| POST | `/confirm-password` | AuthController::confirm | auth.confirm.submit |  | yes | yes | ☐ |
+| GET | `/confirm-password` | AuthController::confirmForm | auth.confirm |  | yes | yes | ☑ |
+| POST | `/confirm-password` | AuthController::confirm | auth.confirm.submit |  | yes | yes | ☑ |
 | GET | `/cron` | DiscoveryController::cron | cron | cron.view | yes | yes | ☑ |
 | GET | `/dashboard/live` | DashboardController::live | dashboard.live | dashboard.view | yes | yes | ☑ |
 | POST | `/database-users/{id}/assign` | DatabasesController::assign | dbusers.assign | databases.manage | yes | yes | ☑ |
@@ -118,9 +118,9 @@ Total routes: 551
 | POST | `/dns/zones` | DnsController::store | dns.store | dns.manage | yes | yes | ☑ |
 | GET | `/dns` | DnsController::index | dns | dns.manage | yes | yes | ☑ |
 | GET | `/domains` | DomainsController::index | domains | websites.view | yes | yes | ☑ |
-| POST | `/features/{id}/delete` | FeaturesController::destroy | features.delete | plans.manage | yes | yes | ☐ |
-| GET | `/features` | FeaturesController::index | features | plans.manage | yes | yes | ☐ |
-| POST | `/features` | FeaturesController::store | features.store | plans.manage | yes | yes | ☐ |
+| POST | `/features/{id}/delete` | FeaturesController::destroy | features.delete | plans.manage | yes | yes | ☑ |
+| GET | `/features` | FeaturesController::index | features | plans.manage | yes | yes | ☑ |
+| POST | `/features` | FeaturesController::store | features.store | plans.manage | yes | yes | ☑ |
 | POST | `/ffmpeg/apply` | FfmpegController::apply | ffmpeg.apply | server.manage | yes | yes | ☑ |
 | POST | `/ffmpeg/install` | FfmpegController::install | ffmpeg.install | packages.manage | yes | yes | ☑ |
 | POST | `/ffmpeg/uninstall` | FfmpegController::uninstall | ffmpeg.uninstall | packages.manage | yes | yes | ☑ |
