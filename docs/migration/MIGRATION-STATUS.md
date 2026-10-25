@@ -1681,3 +1681,26 @@ MailFilters, etc.).
   settings_tweak.html.
 - `server/internal/http/server.go`: 8 routes registered.
 - Docs: **504 ☑ / 4 ◑ / 43 ☐**.
+
+## Batch 83 — Auth verify-ip (2) + Accounts (5) = 7 routes ☑
+
+- `server/internal/http/verify_ip.go` (NEW ~55 LOC): verifyIpForm + verifyIp
+  handlers for the sign-in IP-verification step. The LoginIpVerifier
+  email-code flow is not ported yet, so the page renders a friendly notice
+  and POST (including cancel=1) clears pending state and redirects back
+  to /login with a flash.
+- `server/internal/http/accounts.go` (NEW ~130 LOC): 5 handlers
+  - GET /accounts/new shows the visible plan list from PlanRepository
+    with a friendly "not yet ported" notice.
+  - POST /accounts CSRF-checked stub flashing a friendly error (account
+    provisioning creates system user + website + DNS zone — heavy).
+  - GET /accounts/bandwidth best-effort calls agent `accounts.bandwidth`
+    and shows returned data or a stub notice.
+  - POST /accounts/terminate CSRF-checked stub that records an audit
+    failure entry and flashes a friendly error.
+  - POST /accounts/terminate/confirm CSRF-checked stub flashing a
+    friendly error.
+- New templates: auth_verify_ip.html, accounts_create.html,
+  accounts_bandwidth.html.
+- `server/internal/http/server.go`: 7 routes registered.
+- Docs: **511 ☑ / 4 ◑ / 36 ☐**.

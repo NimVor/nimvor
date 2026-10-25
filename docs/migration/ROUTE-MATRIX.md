@@ -7,11 +7,11 @@ Total routes: 551
 | Method | Path | Controller::method | Name | Permission | Auth | CSRF | Ported |
 |---|---|---|---|---|---|---|---|
 | GET | `/` | DashboardController::index | dashboard | dashboard.view | yes | yes | ☑ |
-| GET | `/accounts/bandwidth` | AccountAdminController::bandwidth | accounts.bandwidth | users.manage | yes | yes | ☐ |
-| GET | `/accounts/new` | AccountsController::create | accounts.create | users.manage | yes | yes | ☐ |
-| POST | `/accounts/terminate/confirm` | AccountAdminController::confirmTerminate | accounts.terminate.confirm | users.manage | yes | yes | ☐ |
-| POST | `/accounts/terminate` | AccountAdminController::terminate | accounts.terminate | users.manage | yes | yes | ☐ |
-| POST | `/accounts` | AccountsController::store | accounts.store | users.manage | yes | yes | ☐ |
+| GET | `/accounts/bandwidth` | AccountAdminController::bandwidth | accounts.bandwidth | users.manage | yes | yes | ☑ |
+| GET | `/accounts/new` | AccountsController::create | accounts.create | users.manage | yes | yes | ☑ |
+| POST | `/accounts/terminate/confirm` | AccountAdminController::confirmTerminate | accounts.terminate.confirm | users.manage | yes | yes | ☑ |
+| POST | `/accounts/terminate` | AccountAdminController::terminate | accounts.terminate | users.manage | yes | yes | ☑ |
+| POST | `/accounts` | AccountsController::store | accounts.store | users.manage | yes | yes | ☑ |
 | POST | `/admin/plugins/{name}/toggle` | PluginsController::toggle | plugins.toggle | plugins.manage | yes | yes | ☑ |
 | GET | `/admin/plugins` | PluginsController::index | plugins | plugins.manage | yes | yes | ☑ |
 | GET | `/api/v1/databases` | ApiController::listDatabases | api.databases | databases.view | yes | yes | ☑ |
@@ -151,8 +151,8 @@ Total routes: 551
 | POST | `/login/two-factor/key` | AuthController::securityKey | login.key |  | no | yes | ☐ |
 | GET | `/login/two-factor` | AuthController::twoFactor | login.two_factor |  | no | yes | ◑ |
 | POST | `/login/two-factor` | AuthController::verifyTwoFactor | login.two_factor.submit |  | no | yes | ◑ |
-| GET | `/login/verify-ip` | AuthController::verifyIpForm | login.verify_ip |  | no | yes | ☐ |
-| POST | `/login/verify-ip` | AuthController::verifyIp | login.verify_ip.submit |  | no | yes | ☐ |
+| GET | `/login/verify-ip` | AuthController::verifyIpForm | login.verify_ip |  | no | yes | ☑ |
+| POST | `/login/verify-ip` | AuthController::verifyIp | login.verify_ip.submit |  | no | yes | ☑ |
 | GET | `/login` | AuthController::show | login |  | no | yes | ☑ |
 | POST | `/login` | AuthController::login | login.submit |  | no | yes | ☑ |
 | POST | `/logout` | AuthController::logout | logout |  | yes | yes | ☑ |
