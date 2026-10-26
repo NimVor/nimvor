@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 	"io"
 	"net/http"
@@ -237,7 +238,7 @@ func (s *Server) accountBackupShow(w http.ResponseWriter, r *http.Request) {
 	var secrets []any
 	if raw := sess.Get(accountSecretsKey); raw != "" {
 		if m := agentObject(json.RawMessage(raw)); m != nil {
-			if rid, _ := m["id"].(int64); rid == id {
+			if rid, _ := m["id"].(float64); int64(rid) == id {
 				if list, ok := m["list"].([]any); ok {
 					secrets = list
 				}
@@ -267,7 +268,16 @@ func (s *Server) accountBackupRecreate(w http.ResponseWriter, r *http.Request) {
 	}
 	to := "/backups/accounts/restores/" + strconv.FormatInt(id, 10)
 	svc := s.accountBackupSvc(r, user)
-	out, err := svc.Recreate(r.Context(), id, user)
+	out, err := svc.RecreateAccount(r.Context(), id, user, s.restoreDeps(r, user))
+	uid := user.ID
+	if err == nil {
+		res := audit.Success
+		if n, _ := out["problems"].(int); n > 0 {
+			res = audit.Failure
+		}
+		s.audit.Record(r.Context(), audit.Entry{Action: "backup.account_restore", TargetType: "user", TargetID: strconv.FormatInt(out["account_id"].(int64), 10), Result: res, UserID: &uid, Username: user.Username,
+			Details: map[string]any{"problems": out["problems"]}})
+	}
 	if err != nil {
 		accountBackupErr(w, r, err.Error(), to)
 		return
@@ -406,4 +416,20 @@ func (s *Server) restoreView(r *http.Request, manifest map[string]any, rec *host
 		data["Report"] = report
 	}
 	return data
+}
+
+// restoreDeps binds the services an account restore drives to the acting
+// administrator, so every step is audited as theirs.
+func (s *Server) restoreDeps(r *http.Request, user *identity.User) hosting.RestoreDeps {
+	return hosting.RestoreDeps{
+		Accounts:  s.accountService(r, user),
+		Websites:  s.websiteService(r, user),
+		Databases: s.databaseService(r, user),
+		Dns:       s.siteDnsService(r, user),
+		DnsRepo:   hosting.NewDnsRepository(s.db),
+		Cron:      s.cronService(r, user),
+		Backups:   s.backupsAdminService(r, user),
+		Users:     identity.NewRepository(s.db),
+		Sites:     hosting.NewWebsiteRepository(s.db),
+	}
 }

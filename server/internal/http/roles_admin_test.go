@@ -20,6 +20,12 @@ func rolesEnv(t *testing.T) (http.Handler, *sql.DB) {
 }
 
 func rolesEnvServer(t *testing.T) (*Server, *sql.DB) {
+	s, db, _ := rolesEnvServerAgent(t, false)
+	return s, db
+}
+
+// rolesEnvServerAgent is rolesEnvServer, optionally with the fake agent running.
+func rolesEnvServerAgent(t *testing.T, withAgent bool) (*Server, *sql.DB, *sitesAgent) {
 	t.Helper()
 	db, err := database.Open(":memory:")
 	if err != nil {
@@ -42,11 +48,18 @@ func rolesEnvServer(t *testing.T) (*Server, *sql.DB) {
 	exec(`INSERT INTO users (id,username,email,display_name,password_hash,role_id,is_active,password_changed_at,created_at,updated_at)
 		VALUES (1,'admin','a@x','Admin',?,(SELECT id FROM roles WHERE name='admin'),1,'2026-01-01T00:00:00Z','',''),
 		       (2,'mgr','m@x','Mgr',?,100,1,'2026-01-01T00:00:00Z','','')`, loginHash, loginHash)
-	s, err := New(testConfig(t), db, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	cfg := testConfig(t)
+	var sa *sitesAgent
+	if withAgent {
+		var socket, tokenFile string
+		sa, socket, tokenFile = startSitesAgent(t, false)
+		cfg.AgentSocket, cfg.AgentTokenFile = socket, tokenFile
+	}
+	s, err := New(cfg, db, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return s, db
+	return s, db, sa
 }
 
 func roleForm(token, name string, perms ...string) url.Values {

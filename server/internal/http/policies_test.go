@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -745,5 +746,49 @@ func TestProcessTracePageRenders(t *testing.T) {
 	b := rec.Body.String()
 	if !strings.Contains(b, "Trace of process 42") && !strings.Contains(b, "Open files and connections") {
 		t.Fatalf("trace page lacks its sections: %s", b)
+	}
+}
+
+// Recreating an account from an imported backup file rebuilds the account, its
+// website and database, reports each step, and shows the new passwords once.
+func TestAccountRestoreRecreate(t *testing.T) {
+	s, db, _ := rolesEnvServerAgent(t, true)
+	h := s.Handler()
+	cookie := loginAsUser(t, h, "admin")
+	manifest := `{"username":"jane","meta":{"user":{"username":"jane","email":"jane@x.test","role":"customer"},
+	  "websites":[{"domain":"jane.example","type":"main","kind":"php","php_version":"8.3.1","system_user":"jane","aliases":[],"databases":["jane_db"]}],
+	  "databases":[{"name":"jane_db","website":"jane.example"}],"database_users":[],"dns_zones":[],"cron_jobs":[]},
+	  "sites":[]}`
+	res, err := db.Exec(`INSERT INTO account_restores (server_id,path,username,manifest,status,job_id,user_id,created_at,updated_at)
+		VALUES (1,'/var/backups/a.whacp','jane',?,'imported','j1',1,'','')`, manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _ := res.LastInsertId()
+	page := "/backups/accounts/restores/" + strconv.FormatInt(id, 10)
+	token, cookie := siteFormToken(t, h, cookie, page)
+	rr := postForm(h, page+"/recreate", url.Values{"_token": {token}}, cookie)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("recreate = %d: %s", rr.Code, rr.Body.String())
+	}
+	var n int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM users WHERE username='jane'`).Scan(&n)
+	if n != 1 {
+		var status, report string
+		_ = db.QueryRow(`SELECT status, report FROM account_restores WHERE id=?`, id).Scan(&status, &report)
+		t.Fatalf("account not created; restore %s: %s", status, report)
+	}
+	_ = db.QueryRow(`SELECT COUNT(*) FROM websites WHERE domain='jane.example'`).Scan(&n)
+	if n != 1 {
+		t.Error("website not created")
+	}
+	var status, report string
+	_ = db.QueryRow(`SELECT status, report FROM account_restores WHERE id=?`, id).Scan(&status, &report)
+	if status != "done" || !strings.Contains(report, "Account jane created") {
+		t.Errorf("restore %s: %s", status, report)
+	}
+	shown := get(t, h, page, refreshCookie(cookie, rr))
+	if !strings.Contains(shown.Body.String(), "New passwords") {
+		t.Error("the generated password is not shown once")
 	}
 }

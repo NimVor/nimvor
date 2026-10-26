@@ -7,6 +7,12 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Changed (Go differential audit, Wave 1: pages and forms)
+- **Restoring an account from a backup file works**: "Recreate the account" rebuilds the
+  account (new generated password), its websites (main first, then subdomains and
+  addon domains), databases and users with grants, DNS zones (records not there yet
+  are added) and cron jobs, starts each website's file and database restore, and
+  reports every step. Existing objects of the account are kept; ones that belong to
+  someone else are skipped. New passwords are shown once.
 - **More PHP-parity pages**: Notifications (filters, per-row mark read), Plans (full
   field set, feature list), Features, Servers, Users, Websites (grid/list), Audit log,
   Domains, Roles, System accounts, DNS and Email overviews, Packages, PHP page install
@@ -57,8 +63,7 @@ All notable changes to WhaCP are documented here. The format follows
   spellings are accepted).
 
 ### Not yet ported (tracked)
-- Setup wizard steps, AutoSSL engine and scheduler, account restore (rebuilding the
-  account from a backup file), `/admin/plugins`, connecting remote servers (pinned TLS
+- Setup wizard steps, AutoSSL engine and scheduler, `/admin/plugins`, connecting remote servers (pinned TLS
   agent client).
 
 ### Fixed (Go differential audit, Wave 0)

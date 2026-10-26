@@ -16,8 +16,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 )
 
 // AccountRestore is one row from account_restores.
@@ -236,33 +234,6 @@ func (s *AccountBackupService) ImportState(ctx context.Context, r *AccountRestor
 	}
 	return r.Status
 }
-
-// Recreate moves from 'imported' to 'restoring', creates the account if
-// needed (via agent for the bulk of the work), then returns generated
-// secrets (one-shot password) and website restore jobs to track.
-func (s *AccountBackupService) Recreate(ctx context.Context, id int64, actor *identity.User) (map[string]any, error) {
-	r, err := s.RestoreRecord(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if r == nil {
-		return nil, errors.New("restore no longer exists")
-	}
-	if r.Status != "imported" {
-		if r.Status == "done" {
-			return nil, errors.New("this account was already restored")
-		}
-		return nil, errors.New("the file is not imported yet")
-	}
-	// PHP rebuilds the account, websites, databases, DNS zones and cron jobs
-	// panel-side (AccountBackupService::recreate); the agent has no such
-	// action, so the old call always failed after marking the restore failed.
-	// Leave the record as imported and say what is missing.
-	return nil, ErrRecreateUnavailable
-}
-
-// ErrRecreateUnavailable: rebuilding an account from a backup is not ported yet.
-var ErrRecreateUnavailable = errors.New("restoring an account from a backup file is not available in this panel yet; the website backups inside it were imported and can be restored from each website's Backups page")
 
 func (s *AccountBackupService) finishRecord(ctx context.Context, id int64, status string, report []any) {
 	blob, _ := json.Marshal(report)
