@@ -603,6 +603,14 @@ if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
         curl -fsSk "https://127.0.0.1:${PUBLIC_HTTPS}/healthz" >/dev/null && ok "panel answers over HTTPS on port ${PUBLIC_HTTPS}" \
             || warn "panel does not answer on https://127.0.0.1:${PUBLIC_HTTPS}/"
     fi
+    # Run the panel's self-check binary as the whacp user (non-fatal — a
+    # warning here never blocks install, but surfaces config/key/token/DB
+    # problems early).
+    if runuser -u whacp -- "$BIN_PANEL" doctor >"$LOG_DIR/doctor.log" 2>&1; then
+        ok "self-checks pass"
+    else
+        warn "self-checks reported problems: see $LOG_DIR/doctor.log"
+    fi
 fi
 
 # --------------------------------------------------- 10. summary ----

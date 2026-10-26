@@ -12,16 +12,16 @@ import (
 //go:embed migrations/*.sql
 var migrationFS embed.FS
 
-// Migration is one ordered schema change, identified by the same name the PHP
-// migrator used (the file basename without extension, e.g. "0057_mongo_remotes").
+// Migration is one ordered schema change, identified by its file basename
+// without extension (e.g. "0057_mongo_remotes").
 type Migration struct {
 	Name string
 	SQL  string
 }
 
-// migrations returns the embedded migrations in lexical (apply) order. The names
-// match the PHP migration files exactly, so a database created by the PHP panel
-// already has them recorded and they are skipped on upgrade.
+// migrations returns the embedded migrations in lexical (apply) order. Names
+// are recorded in the `migrations` ledger table once applied, so a database
+// upgraded from an earlier version skips rows already present.
 func migrations() ([]Migration, error) {
 	entries, err := migrationFS.ReadDir("migrations")
 	if err != nil {
@@ -42,8 +42,7 @@ func migrations() ([]Migration, error) {
 	return out, nil
 }
 
-// ensureTable creates the migrations ledger if absent — identical to the PHP
-// Migrator's table, so the two share state.
+// ensureTable creates the migrations ledger if absent.
 func ensureTable(db *sql.DB) error {
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)`)
 	return err
@@ -91,8 +90,8 @@ func Pending(db *sql.DB) ([]string, error) {
 
 // Migrate applies every pending migration in order, each in its own
 // transaction, recording the name on success. Running it twice is harmless;
-// already-applied names (including every migration from an existing PHP
-// install) are skipped. Returns the names applied by this call.
+// already-applied names (including migrations applied by earlier versions
+// of the panel) are skipped. Returns the names applied by this call.
 //
 // A single app-level advisory lock (a BEGIN IMMEDIATE transaction on the
 // ledger) prevents two instances from migrating at once; with MaxOpenConns=1

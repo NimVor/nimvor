@@ -389,7 +389,8 @@ func (s *Server) sslCsrDownload(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/ssl/keys", http.StatusSeeOther)
 		return
 	}
-	// Sanitize the file name like the PHP panel does.
+	// Sanitize the file name to ASCII letters/digits/underscores so it
+	// is always a safe on-disk name.
 	filename := unsafeCSRFilename.ReplaceAllString(strings.ToLower(key.ID), "_") + ".csr"
 	if filename == ".csr" {
 		filename = "key.csr"
@@ -525,8 +526,6 @@ func (s *Server) sslServices(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "ssl_services", data)
 }
 
-// sslAccountRegister POST /ssl/services/account — registers an ACME account.
-// Stub: CSRF-checked, flashes a friendly error.
 // sslAccountRegister POST /ssl/services/account — registers (or updates)
 // an ACME account for a provider, persists it as the active acme_provider,
 // and redirects to /ssl/services#lets-encrypt-account.

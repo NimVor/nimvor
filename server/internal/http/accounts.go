@@ -124,8 +124,10 @@ func (s *Server) accountAuditHook(r *http.Request, user *identity.User) hosting.
 }
 
 // accountsBandwidth GET /accounts/bandwidth — bandwidth usage report per
-// account. Stub: best-effort calls agent `accounts.bandwidth` and falls
-// back to a friendly notice. Mirrors AccountAdminController::bandwidth.
+// account. Calls agent `accounts.bandwidth` and renders the result; if
+// the agent action is unavailable it surfaces the error on the page so
+// the operator can see what's missing. Mirrors
+// AccountAdminController::bandwidth.
 func (s *Server) accountsBandwidth(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
@@ -209,8 +211,8 @@ func (s *Server) accountsTerminate(w http.ResponseWriter, r *http.Request) {
 }
 
 // accountsTerminateConfirmGet GET /accounts/terminate/confirm — renders
-// the confirmation form for a pending termination. Not in the original
-// PHP routes (PHP uses POST+render) but it keeps the flow bookmarkable.
+// the confirmation form for a pending termination. A separate GET page
+// (rather than re-rendering from a POST) keeps the flow bookmarkable.
 func (s *Server) accountsTerminateConfirmGet(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	actor := userFrom(r.Context())
@@ -335,7 +337,8 @@ func (s *Server) terminateAccount(r *http.Request, actor *identity.User, target 
 	ctx := r.Context()
 	ws := s.websiteService(r, actor)
 	sitesRepo := hosting.NewWebsiteRepository(s.db)
-	// Children first, parents last (same order as PHP TerminationService).
+	// Children first, parents last (child sites must be removed before their
+	// parent addon domain so nginx -t always sees a consistent config).
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, server_id FROM websites WHERE owner_id = ? ORDER BY parent_id IS NULL, id`,
 		target.ID)

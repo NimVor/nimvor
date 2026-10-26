@@ -298,10 +298,17 @@ ssh -L 8090:127.0.0.1:8090 you@server
 systemctl status whacp-agent whacp-panel
 curl -s http://127.0.0.1:8090/healthz
 sudo -u whacp whacp has-admin && echo "administrator exists"
+sudo -u whacp whacp doctor    # self-checks (config, key, DB, agent socket)
 ```
 
 `/healthz` returns `{"status":"ok"}` when the panel is up and can reach
-the agent. The panel log is in `/var/log/whacp/panel.log` and in
+the agent. `whacp doctor` runs a set of local self-checks (key file
+permissions, agent token file, database integrity, pending migrations,
+administrator count, agent socket, listen address, log directory, static
+assets) and exits non-zero with a summary of any problems it finds; it is
+safe to run while the services are stopped and is invoked automatically
+(its output goes to `/var/log/whacp/doctor.log`) at the end of
+`install.sh`. The panel log is in `/var/log/whacp/panel.log` and in
 `journalctl -u whacp-panel`; the agent log in `journalctl -u whacp-agent`.
 
 ### If the installation was interrupted
