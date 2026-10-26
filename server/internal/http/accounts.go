@@ -195,6 +195,11 @@ func (s *Server) accountsTerminate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
 	}
+	if target.ID == actor.ID {
+		sess.Flash("error", "You cannot terminate your own account. Ask another administrator to remove it.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
 	// Stash the target id in session for the confirm step (matches PHP
 	// rendering a confirm page; we avoid building a new template by
 	// carrying the pending id and re-flashing errors on /users).
@@ -203,11 +208,6 @@ func (s *Server) accountsTerminate(w http.ResponseWriter, r *http.Request) {
 	sess.Flash("error", "Type \""+terminateConfirmWord+"\" on the confirmation screen to terminate "+target.Username+".")
 	http.Redirect(w, r, "/accounts/terminate/confirm", http.StatusSeeOther)
 }
-
-// terminateConfirmPage is rendered as a minimal inline form when a pending
-// termination is on the session. It exists so admins can type TERMINATE
-// without a full PHP-style template.
-const terminateConfirmPageTpl = `<!doctype html><html><head><meta charset="utf-8"><title>Confirm termination · WhaCP</title><link rel="stylesheet" href="/assets/css/whacp.css"></head><body class="whacp-app"><main class="container"><h1>Terminate %s</h1><p class="alert alert-danger">This will permanently delete the account, its websites, mail domains, databases and DNS zones. Type <strong>%s</strong> to confirm.</p><form method="post" action="/accounts/terminate/confirm"><input type="hidden" name="_token" value="%s"><div class="mb-3"><input class="form-control font-monospace" name="confirm" autocomplete="off" autofocus required></div><button class="btn btn-danger" type="submit">Terminate %s</button> <a class="btn btn-link" href="/users">Cancel</a></form></main></body></html>`
 
 // accountsTerminateConfirmGet GET /accounts/terminate/confirm — renders
 // the confirmation form for a pending termination. Not in the original
@@ -240,7 +240,14 @@ func (s *Server) accountsTerminateConfirmGet(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, terminateConfirmPageTpl, templateHTMLEscape(username), terminateConfirmWord, templateHTMLEscape(session.CSRFToken(sess)), templateHTMLEscape(username))
+	s.render(w, "accounts_terminate", map[string]any{
+		"CSRF":    session.CSRFToken(sess),
+		"User":    actor,
+		"Title":   "Confirm termination",
+		"Username": username,
+		"Word":    terminateConfirmWord,
+		"Error":   flashStr(sess, "error"),
+	})
 }
 
 // accountsTerminateConfirm POST /accounts/terminate/confirm — performs
@@ -292,6 +299,12 @@ func (s *Server) accountsTerminateConfirm(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
 	}
+	if target.ID == actor.ID {
+		clearTerminatePending(sess)
+		sess.Flash("error", "You cannot terminate your own account. Ask another administrator to remove it.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
 	msg, terr := s.terminateAccount(r, actor, target)
 	clearTerminatePending(sess)
 	if terr != nil {
@@ -312,13 +325,6 @@ func (s *Server) accountsTerminateConfirm(w http.ResponseWriter, r *http.Request
 func clearTerminatePending(sess *session.Session) {
 	sess.Remove("_terminate_pending_id")
 	sess.Remove("_terminate_pending_user")
-}
-
-// templateHTMLEscape is a tiny escape helper used only by the inline
-// confirm page; all other templates go through html/template.
-func templateHTMLEscape(s string) string {
-	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "\"", "&quot;", "'", "&#39;")
-	return r.Replace(s)
 }
 
 // terminateAccount removes the hosting account's websites, databases,

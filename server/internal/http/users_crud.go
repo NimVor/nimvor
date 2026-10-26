@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -58,6 +57,13 @@ func (s *Server) usersStore(w http.ResponseWriter, r *http.Request) {
 	roleID, _ := strconv.ParseInt(r.FormValue("role_id"), 10, 64)
 	planIDRaw, _ := strconv.ParseInt(r.FormValue("plan_id"), 10, 64)
 	active := r.FormValue("is_active") == "1"
+	generate := r.FormValue("generate") == "1"
+	if generate {
+		if g, err := hosting.GeneratedPassword(); err == nil {
+			password = g
+			confirm = g
+		}
+	}
 	errs := map[string]string{}
 	// Username: 3–32 lowercase [a-z0-9._-], start with a letter.
 	if !validUsername(username) {
@@ -173,7 +179,11 @@ func (s *Server) usersStore(w http.ResponseWriter, r *http.Request) {
 		UserID: &uid, Username: actor.Username,
 	})
 	_ = newRoleName
-	sess.Flash("success", "User created.")
+	if generate {
+		sess.Flash("success", "User "+username+" created. Generated password: "+password)
+	} else {
+		sess.Flash("success", "User created.")
+	}
 	http.Redirect(w, r, "/users", http.StatusSeeOther)
 }
 
@@ -277,7 +287,7 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
 	}
-	if !canManageUser(repo, actor, target) {
+	if !canManageUser(actor, target) {
 		sess.Flash("error", "The user no longer exists.")
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
@@ -289,6 +299,13 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 	confirm := r.FormValue("password_confirmation")
 	roleID, err := strconv.ParseInt(r.FormValue("role_id"), 10, 64)
 	active := r.FormValue("is_active") == "1"
+	generate := r.FormValue("generate") == "1"
+	if generate {
+		if g, err := hosting.GeneratedPassword(); err == nil {
+			password = g
+			confirm = g
+		}
+	}
 	errs := map[string]string{}
 	if email == "" || !isEmail(email) || len(email) > 190 {
 		errs["email"] = "Enter a valid email address."
@@ -347,6 +364,23 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 			errs["role_id"] = "At least one active administrator is required."
 		}
 	}
+	// Role-assignment guard (assertCanAssign): when role changes, actor must
+	// hold every permission of BOTH the new role AND the existing role (can't
+	// remove permissions they don't have, either).
+	if _, blocked := errs["role_id"]; !blocked && roleID != target.RoleID {
+		mine, mErr := s.roles.PermissionsFor(r.Context(), actor.RoleID)
+		if mErr == nil {
+			theirs, tErr := s.roles.PermissionsFor(r.Context(), roleID)
+			if tErr != nil || !strContainsAll(mine, theirs) {
+				errs["role_id"] = "You cannot assign a role with permissions you do not have yourself."
+			} else {
+				existing, eErr := s.roles.PermissionsFor(r.Context(), target.RoleID)
+				if eErr != nil || !strContainsAll(mine, existing) {
+					errs["role_id"] = "You cannot take away a role whose permissions you do not have yourself."
+				}
+			}
+		}
+	}
 	if len(errs) > 0 {
 		// Flash the first error (simple and matches the flash-redirect style
 		// used elsewhere in the panel); the PHP controller uses ValidationException
@@ -373,6 +407,13 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	roleChanged := target.RoleID != roleID
 	pwChanged := pwHash != ""
+	if pwChanged {
+		// Invalidate all other sessions for this user, matching PHP
+		// AuthService behavior when a password is reset.
+		if err := repo.BumpSessionEpoch(r.Context(), id); err != nil {
+			s.log.Error("bump session epoch on password change", "error", err)
+		}
+	}
 	uid := actor.ID
 	s.audit.Record(r.Context(), audit.Entry{
 		Action: "user.update", TargetType: "user", TargetID: strconv.FormatInt(id, 10),
@@ -385,7 +426,11 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 		},
 		UserID: &uid, Username: actor.Username,
 	})
-	sess.Flash("success", "User updated.")
+	if pwChanged && generate {
+		sess.Flash("success", "User updated. Generated password: "+password)
+	} else {
+		sess.Flash("success", "User updated.")
+	}
 	http.Redirect(w, r, "/users", http.StatusSeeOther)
 }
 
@@ -398,44 +443,6 @@ func isEmail(s string) bool {
 	}
 	host := s[at+1:]
 	return strings.Contains(host, ".") && !strings.ContainsAny(s, " \t\r\n<>")
-}
-
-// canManageUser reports whether actor may manage target per the parent-chain
-// rule in UserService::canManage: server-wide roles manage everyone, own-scope
-// (reseller) roles manage only accounts whose ancestor (through parent_id) is
-// the actor. The traversal uses repo.Find to walk up the chain safely.
-func canManageUser(repo *identity.Repository, actor *identity.User, target *identity.User) bool {
-	if actor == nil || target == nil {
-		return false
-	}
-	if actor.RoleScope == "all" {
-		return true
-	}
-	if target.ID == actor.ID {
-		return true
-	}
-	seen := map[int64]bool{target.ID: true}
-	parent := target.ParentID.Int64
-	if !target.ParentID.Valid {
-		return false
-	}
-	for {
-		if parent == actor.ID {
-			return true
-		}
-		if seen[parent] {
-			return false
-		}
-		seen[parent] = true
-		p, err := repo.FindByID(context.Background(), parent)
-		if err != nil || p == nil {
-			return false
-		}
-		if !p.ParentID.Valid {
-			return false
-		}
-		parent = p.ParentID.Int64
-	}
 }
 
 // usersDestroy POST /users/{id}/delete — deletes a panel user. Fully
