@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 	"io"
@@ -35,8 +36,9 @@ func (s *Server) accountBackupCreate(w http.ResponseWriter, r *http.Request) {
 		accountBackupErr(w, r, err.Error(), "/backups#accounts")
 		return
 	}
+	uid := user.ID
+	s.audit.Record(r.Context(), audit.Entry{Action: "backup.account", TargetType: "user", TargetID: strconv.FormatInt(userID, 10), Result: audit.Success, UserID: &uid, Username: user.Username})
 	if job != "" {
-		uid := user.ID
 		_ = hosting.NewJobTracker(s.db).Track(r.Context(), s.currentServerID(r), job, "Account backup", "user", strconv.FormatInt(userID, 10), &uid)
 	}
 	sess := sessionFrom(r.Context())

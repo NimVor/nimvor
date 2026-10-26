@@ -32,6 +32,9 @@ All notable changes to WhaCP are documented here. The format follows
 - Inline scripts and styles moved to assets (`noinline_test.go` keeps them out).
 
 ### Fixed (Go differential audit, Wave 1)
+- Account backups were created empty (`sites: []`, a bare user id) and unaudited. They
+  now describe the account like the PHP panel (user, websites, databases and grants,
+  DNS zones with their zone files, cron jobs) and back up each website.
 - Ticked switches (hidden `0` then checkbox `1`) were read first-value-wins, so every
   ticked switch looked off (including "Generate a strong password"); the last value
   now wins, as in PHP.
@@ -56,8 +59,7 @@ All notable changes to WhaCP are documented here. The format follows
 ### Not yet ported (tracked)
 - Setup wizard steps, AutoSSL engine and scheduler, account restore (rebuilding the
   account from a backup file), `/admin/plugins`, connecting remote servers (pinned TLS
-  agent client). Account backups created here still carry no website, database, DNS
-  or cron description, so they cannot be restored into a rebuilt account.
+  agent client).
 
 ### Fixed (Go differential audit, Wave 0)
 - **Two-factor sign-in stopped working ~90 s after the panel started**: the TOTP

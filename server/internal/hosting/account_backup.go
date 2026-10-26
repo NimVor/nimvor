@@ -56,21 +56,16 @@ func NewAccountBackupService(db *sql.DB, ag AgentCaller, serverID int64, _ Audit
 // Create asks the agent to build an account backup for userID and
 // returns the job id.
 func (s *AccountBackupService) Create(ctx context.Context, userID int64, label string, actorID sql.NullInt64) (string, error) {
-	// Describe the user (websites + databases) from SQL, mirroring PHP's
-	// describe(). Fall back to a minimal payload when the lookup fails; the
-	// agent validates and will return its own error.
-	meta := map[string]any{"user": map[string]any{"id": userID}}
-	var username string
-	err := s.db.QueryRowContext(ctx,
-		`SELECT username FROM users WHERE id = ?`, userID).Scan(&username)
-	if err == nil {
-		meta["user"] = map[string]any{"id": userID, "username": username}
+	meta, sites, err := s.Describe(ctx, userID)
+	if err != nil {
+		return "", err
 	}
+	username, _ := meta["user"].(map[string]any)["username"].(string)
 	raw, err := s.agent.Call(ctx, "backup.account", map[string]any{
 		"username": username,
-		"label":    truncate(label, 100),
+		"label":    truncate(strings.TrimSpace(label), 100),
 		"meta":     meta,
-		"sites":    []any{},
+		"sites":    sites,
 	}, 120*time.Second)
 	if err != nil {
 		return "", wrapAgentErr(err)
