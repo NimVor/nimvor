@@ -460,3 +460,45 @@ func TestPackagesPageHasQueueAndComponentRows(t *testing.T) {
 		t.Error("packages page prints a raw map")
 	}
 }
+
+func TestSettingsSwitchPostedAsHiddenZeroThenOneIsOn(t *testing.T) {
+	h, db := rolesEnv(t)
+	c := loginAsUser(t, h, "admin")
+	tok, c := siteFormToken(t, h, c, "/settings")
+	rr := postForm(h, "/settings", url.Values{"_token": {tok}, "tab": {"security"}, "av_quarantine": {"0", "1"}}, c)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("POST /settings = %d", rr.Code)
+	}
+	if got := settingValue(t, db, "av_quarantine"); got != "true" {
+		t.Errorf("a switch posted as 0 then 1 stored %q, want true", got)
+	}
+}
+
+func TestNotificationsPageFiltersAndMarksOneRead(t *testing.T) {
+	h, db := rolesEnv(t)
+	for _, q := range []string{
+		`INSERT INTO notifications (id, server_id, kind, severity, title, body, link, dedupe_key, created_at) VALUES (801, 1, 'job', 'error', 'Backup failed', '', '', 'k801', '2026-01-01T00:00:00Z')`,
+		`INSERT INTO notifications (id, server_id, kind, severity, title, body, link, dedupe_key, created_at) VALUES (802, 1, 'job', 'info', 'All good', '', '', 'k802', '2026-01-02T00:00:00Z')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatalf("fixture: %v", err)
+		}
+	}
+	c := loginAsUser(t, h, "admin")
+	body := get(t, h, "/notifications?severity=error", c).Body.String()
+	if !pageHas(body, "Backup failed") || pageHas(body, "All good") {
+		t.Error("the severity filter did not narrow the list")
+	}
+	tok, c := siteFormToken(t, h, c, "/notifications")
+	rr := postForm(h, "/notifications/read", url.Values{"_token": {tok}, "ids[]": {"801"}}, c)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("POST /notifications/read = %d", rr.Code)
+	}
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM notification_reads WHERE notification_id IN (801, 802)`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("marking one notification read recorded %d reads, want 1", n)
+	}
+}

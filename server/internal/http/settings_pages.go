@@ -61,7 +61,7 @@ func (s *Server) backWithErrors(w http.ResponseWriter, r *http.Request, to strin
 		if k == "_token" || strings.Contains(k, "password") || strings.Contains(k, "secret") || len(v) == 0 {
 			continue
 		}
-		old[k] = v[0]
+		old[k] = v[len(v)-1]
 	}
 	eb, _ := json.Marshal(errs)
 	ob, _ := json.Marshal(old)
@@ -334,10 +334,12 @@ func (s *Server) settingsIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func postMap(r *http.Request) map[string]string {
+	// A switch posts a hidden 0 and then its checkbox 1: the last value wins,
+	// like PHP's $_POST.
 	m := map[string]string{}
 	for k, v := range r.PostForm {
 		if len(v) > 0 {
-			m[k] = v[0]
+			m[k] = v[len(v)-1]
 		}
 	}
 	return m

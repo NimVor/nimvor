@@ -2,9 +2,12 @@ package http
 
 import (
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/notify"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
@@ -12,19 +15,140 @@ import (
 // notificationsIndex lists the notifications the user may see, newest first.
 // Mirrors NotificationsController::index (route "notifications",
 // notifications.view).
+const notificationsPerPage = 25
+
+type notifRow struct {
+	ID                                  int64
+	Title, Body, When, Where, Job, Link string
+	Icon, Label                         string
+	IsRead                              bool
+	HasLink                             bool
+}
+
+func notifQuery(show, severity, website string, page int) string {
+	q := url.Values{}
+	if show != "" {
+		q.Set("show", show)
+	}
+	if severity != "" {
+		q.Set("severity", severity)
+	}
+	if website != "" {
+		q.Set("website", website)
+	}
+	if page > 1 {
+		q.Set("page", strconv.Itoa(page))
+	}
+	if len(q) == 0 {
+		return ""
+	}
+	return "?" + q.Encode()
+}
+
+func notifFilter(r *http.Request) (notify.Filter, string, string, string) {
+	q := r.URL.Query()
+	f := notify.Filter{Unread: q.Get("show") != "all"}
+	show := ""
+	if !f.Unread {
+		show = "all"
+	}
+	sev := q.Get("severity")
+	switch sev {
+	case "error", "warning", "success", "info":
+		f.Severity = sev
+	default:
+		sev = ""
+	}
+	site := ""
+	if id, _ := strconv.ParseInt(q.Get("website"), 10, 64); id > 0 {
+		f.WebsiteID = id
+		site = strconv.FormatInt(id, 10)
+	}
+	return f, show, sev, site
+}
+
 func (s *Server) notificationsIndex(w http.ResponseWriter, r *http.Request) {
-	user := userFrom(r.Context())
-	items, err := notify.NewRepository(s.db).List(r.Context(), user, 50)
+	ctx := r.Context()
+	user := userFrom(ctx)
+	sess := sessionFrom(ctx)
+	repo := notify.NewRepository(s.db)
+	f, show, sev, site := notifFilter(r)
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	total, err := repo.Count(ctx, user, f)
+	if err != nil {
+		s.log.Error("count notifications", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	items, err := repo.ListFiltered(ctx, user, f, notificationsPerPage, (page-1)*notificationsPerPage)
 	if err != nil {
 		s.log.Error("list notifications", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	s.render(w, "notifications", map[string]any{
-		"User":          user,
-		"CSRF":          session.CSRFToken(sessionFrom(r.Context())),
-		"Notifications": items,
-	})
+	unread, _ := repo.UnreadCount(ctx, user)
+	icons := map[string]string{"error": "x-octagon-fill text-danger", "warning": "exclamation-triangle-fill text-warning", "success": "check-circle-fill text-success", "info": "info-circle-fill text-info"}
+	labels := map[string]string{"error": "Failures", "warning": "Warnings", "success": "Finished", "info": "Information"}
+	rows := make([]notifRow, 0, len(items))
+	for _, n := range items {
+		icon, ok := icons[n.Severity]
+		if !ok {
+			icon = icons["info"]
+		}
+		label, ok := labels[n.Severity]
+		if !ok {
+			label = labels["info"]
+		}
+		row := notifRow{ID: n.ID, Title: n.Title, Body: n.Body, Icon: icon, Label: label, IsRead: n.IsRead, Job: n.JobID, Link: n.Link,
+			HasLink: strings.HasPrefix(n.Link, "/") && !strings.HasPrefix(n.Link, "//")}
+		if t, err := time.Parse(time.RFC3339, n.CreatedAt); err == nil {
+			row.When = t.UTC().Format("2006-01-02 15:04")
+		} else {
+			row.When = n.CreatedAt
+		}
+		if n.Domain.Valid {
+			row.Where = n.Domain.String
+		}
+		rows = append(rows, row)
+	}
+	pages := (total + notificationsPerPage - 1) / notificationsPerPage
+	if pages < 1 {
+		pages = 1
+	}
+	type siteOpt struct {
+		ID       int64
+		Domain   string
+		Selected bool
+	}
+	var sites []siteOpt
+	if list, err := hosting.NewWebsiteRepository(s.db).All(ctx, s.currentServerID(r), user); err == nil {
+		for _, st := range list {
+			sites = append(sites, siteOpt{st.ID, st.Domain, st.ID == f.WebsiteID})
+		}
+	}
+	emailOn, _ := repo.EmailOpt(ctx, user.ID)
+	type sevOpt struct {
+		Value, Label string
+		Selected     bool
+	}
+	var sevs []sevOpt
+	for _, k := range []string{"error", "warning", "success", "info"} {
+		sevs = append(sevs, sevOpt{k, labels[k], k == sev})
+	}
+	data := map[string]any{
+		"User": user, "CSRF": session.CSRFToken(sess), "Title": "Notifications",
+		"Success": pullFlashKey(sess, "success"), "Error": pullFlashKey(sess, "error"),
+		"Rows": rows, "Unread": unread, "ShowAll": show == "all", "Show": show, "Severity": sev, "Website": site,
+		"Sites": sites, "Sevs": sevs, "EmailOn": emailOn, "Email": user.Email,
+		"Page": page, "Pages": pages, "Paged": pages > 1,
+		"UnreadURL": "/notifications" + notifQuery("", sev, site, 1), "AllURL": "/notifications" + notifQuery("all", sev, site, 1),
+		"PrevURL": "/notifications" + notifQuery(show, sev, site, page-1), "NextURL": "/notifications" + notifQuery(show, sev, site, page+1),
+		"HasPrev": page > 1, "HasNext": page < pages, "Retention": 30,
+	}
+	s.render(w, "notifications", data)
 }
 
 // notificationsRead marks all the user's visible notifications read (CSRF-
@@ -39,12 +163,42 @@ func (s *Server) notificationsRead(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	if _, err := notify.NewRepository(s.db).MarkAllRead(r.Context(), userFrom(r.Context())); err != nil {
+	user := userFrom(r.Context())
+	repo := notify.NewRepository(s.db)
+	var marked int64
+	var err error
+	if r.FormValue("all") == "1" {
+		marked, err = repo.MarkAllRead(r.Context(), user)
+	} else {
+		var ids []int64
+		for _, v := range append(append([]string{}, r.Form["ids[]"]...), r.Form["ids"]...) {
+			if id, e := strconv.ParseInt(v, 10, 64); e == nil && id > 0 {
+				ids = append(ids, id)
+			}
+		}
+		marked, err = repo.MarkRead(r.Context(), user, ids)
+	}
+	if err != nil {
 		s.log.Error("mark notifications read", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/notifications", http.StatusSeeOther)
+	if wantsJSON(r) {
+		unread, _ := repo.UnreadCount(r.Context(), user)
+		writeJSON(w, http.StatusOK, map[string]any{"success": true, "marked": marked, "unread": unread})
+		return
+	}
+	q := url.Values{}
+	for _, k := range []string{"show", "severity", "website"} {
+		if v := r.FormValue(k); v != "" {
+			q.Set(k, v)
+		}
+	}
+	back := "/notifications"
+	if len(q) > 0 {
+		back += "?" + q.Encode()
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 // notificationsSummary returns the JSON payload the topbar bell polls: unread
@@ -123,7 +277,8 @@ func (s *Server) notificationsEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := userFrom(r.Context())
-	on := r.FormValue("notify_email") == "1"
+	vals := r.Form["notify_email"]
+	on := len(vals) > 0 && vals[len(vals)-1] == "1"
 	if err := notify.NewRepository(s.db).SetEmailOpt(r.Context(), user.ID, on); err != nil {
 		s.log.Error("set email opt-in", "error", err)
 		sess.Flash("error", "Could not save the preference.")

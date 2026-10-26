@@ -984,3 +984,4 @@ button.wcp-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .wcp-s-width-260px { width: 260px; }
 .wcp-s-width-2rem { width: 2rem; }
 .wcp-w-check { width: 2.5rem; }
+.wcp-s-preline { white-space: pre-line; }

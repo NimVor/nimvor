@@ -5,6 +5,7 @@ package notify
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
@@ -23,6 +24,7 @@ type Notification struct {
 	CreatedAt string
 	Domain    sql.NullString
 	IsRead    bool
+	JobID     string
 }
 
 // Repository reads notifications.
@@ -197,4 +199,113 @@ func (r *Repository) Store(ctx context.Context, websiteID sql.NullInt64, kind, s
 		return 0, nil
 	}
 	return res.LastInsertId()
+}
+
+// Filter narrows a notification list (NotificationService::filtered).
+type Filter struct {
+	Unread    bool
+	Severity  string
+	WebsiteID int64
+}
+
+func (f Filter) where() (string, []any) {
+	var conds []string
+	var args []any
+	if f.Unread {
+		conds = append(conds, "r.read_at IS NULL")
+	}
+	if f.Severity != "" {
+		conds = append(conds, "n.severity = ?")
+		args = append(args, f.Severity)
+	}
+	if f.WebsiteID > 0 {
+		conds = append(conds, "n.website_id = ?")
+		args = append(args, f.WebsiteID)
+	}
+	if len(conds) == 0 {
+		return "1 = 1", nil
+	}
+	return strings.Join(conds, " AND "), args
+}
+
+// ListFiltered returns a page of the notifications the user may see.
+func (r *Repository) ListFiltered(ctx context.Context, u *identity.User, f Filter, limit, offset int) ([]Notification, error) {
+	if limit < 1 || limit > 200 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	cond, vargs := visibility(u)
+	fcond, fargs := f.where()
+	var uid int64
+	if u != nil {
+		uid = u.ID
+	}
+	args := append([]any{uid}, vargs...)
+	args = append(args, fargs...)
+	args = append(args, limit, offset)
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT n.id, n.kind, n.severity, n.title, n.body, n.link, n.created_at, n.job_id,
+		       w.domain, (r.read_at IS NOT NULL) AS is_read
+		FROM notifications n
+		LEFT JOIN websites w ON w.id = n.website_id
+		LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = ?
+		WHERE `+cond+` AND `+fcond+` ORDER BY n.id DESC LIMIT ? OFFSET ?`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Notification
+	for rows.Next() {
+		var n Notification
+		if err := rows.Scan(&n.ID, &n.Kind, &n.Severity, &n.Title, &n.Body, &n.Link, &n.CreatedAt, &n.JobID, &n.Domain, &n.IsRead); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
+// Count is how many notifications match the filter for the user.
+func (r *Repository) Count(ctx context.Context, u *identity.User, f Filter) (int, error) {
+	cond, vargs := visibility(u)
+	fcond, fargs := f.where()
+	var uid int64
+	if u != nil {
+		uid = u.ID
+	}
+	args := append([]any{uid}, vargs...)
+	args = append(args, fargs...)
+	var n int
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM notifications n
+		LEFT JOIN websites w ON w.id = n.website_id
+		LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = ?
+		WHERE `+cond+` AND `+fcond, args...).Scan(&n)
+	return n, err
+}
+
+// MarkRead marks just the given notifications read for the user, within the
+// same visibility rule (NotificationService::markRead with ids).
+func (r *Repository) MarkRead(ctx context.Context, u *identity.User, ids []int64) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	cond, vargs := visibility(u)
+	var uid int64
+	if u != nil {
+		uid = u.ID
+	}
+	in := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+	args := append([]any{uid, time.Now().UTC().Format(time.RFC3339)}, vargs...)
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	res, err := r.db.ExecContext(ctx, `
+		INSERT OR IGNORE INTO notification_reads (notification_id, user_id, read_at)
+		SELECT n.id, ?, ? FROM notifications n WHERE `+cond+` AND n.id IN (`+in+`)`, args...)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
