@@ -6,11 +6,14 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
-- Update, host-name references, runtimes and account-restore pages now match the PHP layouts. The runtimes install form opens again (it used an inline handler the CSP blocks). The account-restore page read the username from the wrong manifest key, so typing the username to confirm always failed. Not ported: the newest-version lookup on the update page; account backups created here still hold no websites, databases, DNS or cron description.
-
-- Create-account form now has the PHP version, spam filter/Spam Box, mail routing and DNS (DKIM, SPF, DMARC, registrar name servers, overwrite) options with settings defaults; validation errors keep what was typed. A ticked switch (hidden 0 + checkbox 1) is read as on again (last posted value wins), which also fixes "Generate a strong password".
-
 ### Changed (Go differential audit, Wave 1: pages and forms)
+- **More PHP-parity pages**: Notifications (filters, per-row mark read), Plans (full
+  field set, feature list), Features, Servers, Users, Websites (grid/list), Audit log,
+  Domains, Roles, System accounts, DNS and Email overviews, Packages, PHP page install
+  forms, the website form's PHP directive editor (61 directives validated) and the
+  account Create form (PHP version, mail and DNS options with settings defaults).
+- Update, host-name references, runtimes, account-restore and process-trace pages
+  match the PHP layouts. Not ported: the newest-version lookup on the update page.
 - **Every page now has the panel shell**: sidebar built from the user's permissions,
   plan features and scope, topbar, notification bell, command palette, job and
   confirmation dialogs (`_shell.html`, `nav.go`).
@@ -29,6 +32,13 @@ All notable changes to WhaCP are documented here. The format follows
 - Inline scripts and styles moved to assets (`noinline_test.go` keeps them out).
 
 ### Fixed (Go differential audit, Wave 1)
+- Ticked switches (hidden `0` then checkbox `1`) were read first-value-wins, so every
+  ticked switch looked off (including "Generate a strong password"); the last value
+  now wins, as in PHP.
+- The runtimes install form never opened (inline handler blocked by the CSP), and the
+  account-restore confirmation could never match (wrong manifest key).
+- Notification "mark read" marked everything read; plan validation errors showed only
+  "validation failed"; the mail status parse failed when Postfix was installed.
 - **Saved email settings never took effect**: the form wrote `mail_host` etc. while the
   mailer reads `mail.host`, and stored the password in plain text. It now writes the
   `mail.*` keys with the password encrypted. Settings forms no longer store
@@ -45,7 +55,9 @@ All notable changes to WhaCP are documented here. The format follows
 
 ### Not yet ported (tracked)
 - Setup wizard steps, AutoSSL engine and scheduler, account restore (rebuilding the
-  account from a backup file), `/limits`, `/accounts/bandwidth`, `/admin/plugins`.
+  account from a backup file), `/admin/plugins`, connecting remote servers (pinned TLS
+  agent client). Account backups created here still carry no website, database, DNS
+  or cron description, so they cannot be restored into a rebuilt account.
 
 ### Fixed (Go differential audit, Wave 0)
 - **Two-factor sign-in stopped working ~90 s after the panel started**: the TOTP
