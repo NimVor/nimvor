@@ -25,6 +25,7 @@ type RoleRow struct {
 	Scope            string
 	RequireTwoFactor bool
 	UserCount        int
+	Customized       bool // a built-in role whose permissions were changed from the defaults
 }
 
 // All lists every role with its user count. Mirrors RoleRepository::all.
@@ -33,7 +34,7 @@ type RoleRow struct {
 func (r *RoleRepository) All(ctx context.Context) ([]RoleRow, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT r.id, r.name, r.label, r.description, r.is_system, r.scope, r.require_two_factor,
-		       (SELECT COUNT(*) FROM users u WHERE u.role_id = r.id) AS user_count
+		       (SELECT COUNT(*) FROM users u WHERE u.role_id = r.id) AS user_count, r.customized
 		FROM roles r ORDER BY r.id`)
 	if err != nil {
 		return nil, err
@@ -42,7 +43,7 @@ func (r *RoleRepository) All(ctx context.Context) ([]RoleRow, error) {
 	var out []RoleRow
 	for rows.Next() {
 		var rr RoleRow
-		if err := rows.Scan(&rr.ID, &rr.Name, &rr.Label, &rr.Description, &rr.IsSystem, &rr.Scope, &rr.RequireTwoFactor, &rr.UserCount); err != nil {
+		if err := rows.Scan(&rr.ID, &rr.Name, &rr.Label, &rr.Description, &rr.IsSystem, &rr.Scope, &rr.RequireTwoFactor, &rr.UserCount, &rr.Customized); err != nil {
 			return nil, err
 		}
 		out = append(out, rr)
@@ -55,9 +56,9 @@ func (r *RoleRepository) All(ctx context.Context) ([]RoleRow, error) {
 func (r *RoleRepository) Find(ctx context.Context, id int64) (*RoleRow, error) {
 	var rr RoleRow
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, name, label, description, is_system, scope, require_two_factor FROM roles WHERE id = ?`,
+		`SELECT id, name, label, description, is_system, scope, require_two_factor, customized FROM roles WHERE id = ?`,
 		id,
-	).Scan(&rr.ID, &rr.Name, &rr.Label, &rr.Description, &rr.IsSystem, &rr.Scope, &rr.RequireTwoFactor)
+	).Scan(&rr.ID, &rr.Name, &rr.Label, &rr.Description, &rr.IsSystem, &rr.Scope, &rr.RequireTwoFactor, &rr.Customized)
 	if err != nil {
 		return nil, err
 	}

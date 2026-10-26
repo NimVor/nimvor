@@ -6,6 +6,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"regexp"
 	"sort"
@@ -156,6 +157,11 @@ func (s *Server) auditRole(r *http.Request, actor *identity.User, action string,
 }
 
 func (s *Server) roleFail(w http.ResponseWriter, r *http.Request, err error, back string) {
+	// Keep what was typed so the form is not lost on a refused save.
+	if back == "/roles/new" {
+		old, _ := json.Marshal(map[string]string{"name": r.PostFormValue("name"), "label": r.PostFormValue("label"), "description": r.PostFormValue("description")})
+		sessionFrom(r.Context()).Flash("old", string(old))
+	}
 	if re, ok := err.(roleError); ok {
 		rolesFlashErr(w, r, string(re), back)
 		return

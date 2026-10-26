@@ -8,48 +8,173 @@ package http
 import (
 	"context"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/authz"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
-// rolesIndex GET /roles
+type roleListRow struct {
+	ID                       int64
+	Label, Description, Name string
+	System, Customized       bool
+	Users                    int
+	ActionLabel              string
+	CanDelete                bool
+	DeleteConfirm            string
+}
+
+// rolesIndex GET /roles (RolesController::index).
 func (s *Server) rolesIndex(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
+	sess := sessionFrom(r.Context())
 	roles, err := s.roles.All(r.Context())
 	if err != nil {
 		http.Error(w, "failed to load roles", http.StatusInternalServerError)
 		return
 	}
+	manage := s.can(r, "roles.manage")
+	rows := make([]roleListRow, 0, len(roles))
+	for _, ro := range roles {
+		row := roleListRow{ID: ro.ID, Label: ro.Label, Description: ro.Description, Name: ro.Name, System: ro.IsSystem, Customized: ro.Customized,
+			Users: ro.UserCount, ActionLabel: "Edit", CanDelete: !ro.IsSystem && manage, DeleteConfirm: "Delete the role \"" + ro.Label + "\"?"}
+		if ro.Name == "admin" || !manage {
+			row.ActionLabel = "View"
+		}
+		rows = append(rows, row)
+	}
 	s.render(w, "roles_index", map[string]any{
-		"User":  user,
-		"CSRF":  session.CSRFToken(sessionFrom(r.Context())),
-		"Title": "Roles",
-		"Roles": roles,
+		"User": user, "CSRF": session.CSRFToken(sess), "Title": "Roles", "Rows": rows, "Manage": manage,
+		"Success": pullFlashKey(sess, "success"), "Error": pullFlashKey(sess, "error"),
+	})
+}
+
+type rolePerm struct {
+	Name, Label, Why string
+	On, Lock         bool
+}
+
+type rolePermGroup struct {
+	Name, ID string
+	Items    []rolePerm
+}
+
+type roleFormView struct {
+	New, System, AdminRole, Readonly, OwnScope, Customized, CanReset, TwoFactor bool
+	ID                                                                          int64
+	Name, Label, Description, Title, Subtitle, ResetConfirm                     string
+	Groups                                                                      []rolePermGroup
+	Missing                                                                     string
+	CanManage                                                                   bool
+}
+
+// roleForm builds the form of a new role (role == nil) or an existing one.
+func (s *Server) roleForm(r *http.Request, role *authz.RoleRow, granted map[string]bool) (*roleFormView, error) {
+	ctx := r.Context()
+	user := userFrom(ctx)
+	manage := s.can(r, "roles.manage")
+	v := &roleFormView{New: role == nil, CanManage: manage}
+	if role != nil {
+		v.ID, v.Name, v.Label, v.Description = role.ID, role.Name, role.Label, role.Description
+		v.System, v.Customized, v.TwoFactor = role.IsSystem, role.Customized, role.RequireTwoFactor
+		v.AdminRole = role.IsSystem && role.Name == "admin"
+		v.OwnScope = role.Scope == "own"
+		v.CanReset = v.System && !v.AdminRole && manage
+		v.ResetConfirm = "Give \"" + role.Label + "\" WhaCP's default permissions again?"
+		v.Title, v.Subtitle = role.Label, role.Description
+	} else {
+		v.Title, v.Subtitle = "New role", "Choose what members of the role may do"
+	}
+	v.Readonly = v.AdminRole || !manage
+	own := map[string]bool{}
+	if names, err := s.roles.PermissionsFor(ctx, user.RoleID); err == nil {
+		for _, n := range names {
+			own[n] = true
+		}
+	}
+	ownScope := map[string]bool{}
+	for _, n := range authz.OwnScopeAllowed() {
+		ownScope[n] = true
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT name, label, grp FROM permissions ORDER BY grp, name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	idx := map[string]int{}
+	for rows.Next() {
+		var name, label, grp string
+		if err := rows.Scan(&name, &label, &grp); err != nil {
+			return nil, err
+		}
+		on := granted[name]
+		why := ""
+		if v.OwnScope && !ownScope[name] && !strings.HasPrefix(name, "plugin.") {
+			why = "Server-wide: not for resellers or hosting customers"
+		} else if !own[name] {
+			why = "You do not have this permission yourself"
+		}
+		g, ok := idx[grp]
+		if !ok {
+			g = len(v.Groups)
+			idx[grp] = g
+			v.Groups = append(v.Groups, rolePermGroup{Name: grp, ID: "perm-grp-" + strings.Trim(nonAlnum.ReplaceAllString(strings.ToLower(grp), "-"), "-")})
+		}
+		v.Groups[g].Items = append(v.Groups[g].Items, rolePerm{Name: name, Label: label, On: on, Why: why, Lock: !on && why != ""})
+	}
+	if role != nil && role.IsSystem && !v.AdminRole {
+		for _, d := range authz.DefaultRoles {
+			if d.Name != role.Name {
+				continue
+			}
+			var missing []string
+			for _, p := range d.Permissions {
+				if p != "*" && !granted[p] {
+					missing = append(missing, p)
+				}
+			}
+			v.Missing = strings.Join(missing, ", ")
+		}
+	}
+	return v, rows.Err()
+}
+
+var nonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
+
+func (s *Server) renderRoleForm(w http.ResponseWriter, r *http.Request, role *authz.RoleRow, granted map[string]bool) {
+	v, err := s.roleForm(r, role, granted)
+	if err != nil {
+		http.Error(w, "failed to load permissions", http.StatusInternalServerError)
+		return
+	}
+	sess := sessionFrom(r.Context())
+	if role == nil {
+		old := flashJSON(sess, "old")
+		if n, ok := old["name"]; ok {
+			v.Name = n
+		}
+		if l, ok := old["label"]; ok {
+			v.Label = l
+		}
+		if d, ok := old["description"]; ok {
+			v.Description = d
+		}
+	}
+	s.render(w, "roles_form", map[string]any{
+		"User": userFrom(r.Context()), "CSRF": session.CSRFToken(sess), "Title": v.Title, "V": v,
+		"Success": pullFlashKey(sess, "success"), "Error": pullFlashKey(sess, "error"),
 	})
 }
 
 // rolesCreate GET /roles/new
 func (s *Server) rolesCreate(w http.ResponseWriter, r *http.Request) {
-	user := userFrom(r.Context())
-	perms, err := s.allPermissionCheckboxes(r.Context(), map[string]bool{})
-	if err != nil {
-		http.Error(w, "failed to load permissions", http.StatusInternalServerError)
-		return
-	}
-	s.render(w, "roles_form", map[string]any{
-		"User":        user,
-		"CSRF":        session.CSRFToken(sessionFrom(r.Context())),
-		"Title":       "New role",
-		"Role":        map[string]any{"id": 0, "name": "", "label": "", "description": "", "scope": "own", "require_two_factor": false},
-		"Permissions": perms,
-	})
+	s.renderRoleForm(w, r, nil, map[string]bool{})
 }
 
 // rolesEdit GET /roles/{id}/edit
 func (s *Server) rolesEdit(w http.ResponseWriter, r *http.Request) {
-	user := userFrom(r.Context())
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.Redirect(w, r, "/roles", http.StatusSeeOther)
@@ -69,18 +194,7 @@ func (s *Server) rolesEdit(w http.ResponseWriter, r *http.Request) {
 	for _, p := range granted {
 		grantSet[p] = true
 	}
-	perms, err := s.allPermissionCheckboxes(r.Context(), grantSet)
-	if err != nil {
-		http.Error(w, "failed to load permissions", http.StatusInternalServerError)
-		return
-	}
-	s.render(w, "roles_form", map[string]any{
-		"User":        user,
-		"CSRF":        session.CSRFToken(sessionFrom(r.Context())),
-		"Title":       "Edit role",
-		"Role":        role,
-		"Permissions": perms,
-	})
+	s.renderRoleForm(w, r, role, grantSet)
 }
 
 // ---- helpers ----

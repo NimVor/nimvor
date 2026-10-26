@@ -12,16 +12,31 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>Roles</h1>
-  <p><a href="/roles/new">New role</a></p>
-  <table class="data-table"><thead><tr><th>Name</th><th>Label</th><th>Scope</th><th>2FA</th><th>Users</th><th></th></tr></thead><tbody>
-  {{range .Roles}}<tr>
-    <td>{{.Name}}</td><td>{{.Label}}{{if .IsSystem}} <span class="badge text-bg-light border">built-in</span>{{end}}</td><td>{{.Scope}}</td>
-    <td>{{if .RequireTwoFactor}}required{{else}}—{{end}}</td>
-    <td>{{.UserCount}}</td>
-    <td><a href="/roles/{{.ID}}/edit">Edit</a>{{if not .IsSystem}} · <form method="post" action="/roles/{{.ID}}/delete" class="inline"><input type="hidden" name="_token" value="{{$.CSRF}}"><button type="submit">Delete</button></form>{{end}}</td>
-  </tr>{{end}}
-  </tbody></table>
+  {{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
+  {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+  <p class="text-body-secondary">What each kind of user may do</p>
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-person-badge me-1"></i>Roles</span>
+      {{if .Manage}}<a class="btn btn-sm btn-outline-primary" href="/roles/new"><i class="bi bi-plus"></i> New role</a>{{end}}</div>
+    <div class="table-responsive">
+      <table class="table mb-0 wcp-table">
+        <thead><tr><th>Role</th><th>Description</th><th class="text-end">Users</th><th></th></tr></thead>
+        <tbody>
+        {{range .Rows}}
+          <tr>
+            <td class="fw-semibold">{{.Label}}{{if .System}} <span class="badge text-bg-light border">built-in</span>{{end}}{{if .Customized}} <span class="badge bg-warning-subtle text-warning-emphasis border">changed</span>{{end}}</td>
+            <td class="small">{{.Description}}</td>
+            <td class="text-end">{{.Users}}</td>
+            <td class="text-end text-nowrap">
+              <a class="btn btn-sm btn-outline-secondary" href="/roles/{{.ID}}/edit">{{.ActionLabel}}</a>
+              {{if .CanDelete}}<form method="post" action="/roles/{{.ID}}/delete" class="d-inline" data-wcp-confirm="{{.DeleteConfirm}}"><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-outline-danger" type="submit">Delete</button></form>{{end}}
+            </td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}

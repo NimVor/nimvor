@@ -619,3 +619,24 @@ func TestAuditPageShowsDetailsResultFilterAndPaging(t *testing.T) {
 		t.Error("second page not shown")
 	}
 }
+
+func TestRolesPagesShowDescriptionsGroupsAndPolicy(t *testing.T) {
+	h, _ := rolesEnv(t)
+	c := loginAsUser(t, h, "admin")
+	list := get(t, h, "/roles", c).Body.String()
+	for _, want := range []string{"Administrator", "built-in", "New role", "View"} {
+		if !pageHas(list, want) {
+			t.Errorf("roles list lacks %q", want)
+		}
+	}
+	form := get(t, h, "/roles/2/edit", c).Body.String() // Operator
+	for _, want := range []string{"Permissions", "permissions[]", "Reset to WhaCP defaults", "Sign-in policy", "built-in role"} {
+		if !pageHas(form, want) {
+			t.Errorf("role form lacks %q", want)
+		}
+	}
+	admin := get(t, h, "/roles/1/edit", c).Body.String()
+	if !pageHas(admin, "always has every permission") {
+		t.Error("the Administrator role form lacks its notice")
+	}
+}
