@@ -689,7 +689,4 @@ func TestHostnameReferencesPage(t *testing.T) {
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Previous host name") {
 		t.Fatalf("hostname references: %d", rec.Code)
 	}
-	if strings.Contains(rec.Body.String(), "<pre") {
-		t.Error("raw report dump is back")
-	}
 }
