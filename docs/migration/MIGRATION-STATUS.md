@@ -2288,3 +2288,12 @@ designed.
   and `templateHTMLEscape` helper. Added a self-termination guard on
   both the POST start and the confirm endpoint, matching PHP
   UserService::delete ("ask another administrator").
+
+- `usersStore`/`usersUpdate`: wire up the "Generate a strong password"
+  checkbox present on users_form.html. When `generate=1`, the handlers
+  call `hosting.GeneratedPassword()` for a 20-char unambiguous-set
+  password (same alphabet used by AccountService.Create), use it as both
+  password and confirmation (so the confirmation check passes), and
+  surface the generated password in the success flash. The
+  accounts_create flow already honored the flag through
+  AccountService.Create; this brings panel-user create/edit in line.
