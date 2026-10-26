@@ -532,23 +532,30 @@ var unsafeCSRFilename = regexp.MustCompile(`[^a-z0-9.-]`)
 // sslTls GET /ssl/tls — current TLS configuration from ssl.tls_get.
 // Mirrors SslCenterController::tls.
 func (s *Server) sslTls(w http.ResponseWriter, r *http.Request) {
-	sess := sessionFrom(r.Context())
-	user := userFrom(r.Context())
-	data := map[string]any{
-		"CSRF":       session.CSRFToken(sess),
-		"User":       user,
-		"Title":      "TLS settings",
-		"Tls":        nil,
-		"Error":      flashStr(sess, "error"),
-		"Success":    flashStr(sess, "success"),
-		"AgentError": nil,
+	data, ok := s.sslBase(w, r, "tls", "SSL/TLS")
+	if !ok {
+		return
 	}
-	if raw, err := s.agent.Call(r.Context(), "ssl.tls_get", nil, 60*time.Second); err == nil {
-		var parsed any
-		_ = json.Unmarshal(raw, &parsed)
-		data["Tls"] = parsed
-	} else {
-		data["AgentError"] = err.Error()
+	data["CanManage"], _ = s.authorizer().Can(r.Context(), userFrom(r.Context()), "server.manage")
+	raw, err := s.agent.Call(r.Context(), "ssl.tls_get", nil, 60*time.Second)
+	if err != nil {
+		data["AgentError"] = agentMessage(err)
+		s.render(w, "ssl_tls", data)
+		return
+	}
+	var tls any
+	_ = json.Unmarshal(raw, &tls)
+	p := jmap(tls)["profile"]
+	proto, ciphers := jstr(p, "protocols"), jstr(p, "ciphers")
+	if proto == "" {
+		proto = "tls12"
+	}
+	if ciphers == "" {
+		ciphers = "default"
+	}
+	data["Tls"] = map[string]any{
+		"Protocols": proto, "Ciphers": ciphers, "Tickets": jbool(p, "session_tickets"),
+		"Path": jstr(tls, "path"), "Snippet": jstr(tls, "snippet"), "Vhosts": int(jnum(tls, "vhosts")), "Legacy": int(jnum(tls, "legacy_vhosts")),
 	}
 	s.render(w, "ssl_tls", data)
 }
