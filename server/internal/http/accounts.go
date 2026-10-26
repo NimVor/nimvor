@@ -195,6 +195,11 @@ func (s *Server) accountsTerminate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
 	}
+	if target.ID == actor.ID {
+		sess.Flash("error", "You cannot terminate your own account. Ask another administrator to remove it.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
 	// Stash the target id in session for the confirm step (matches PHP
 	// rendering a confirm page; we avoid building a new template by
 	// carrying the pending id and re-flashing errors on /users).
@@ -291,6 +296,12 @@ func (s *Server) accountsTerminateConfirm(w http.ResponseWriter, r *http.Request
 	if target.RoleScope != "own" {
 		clearTerminatePending(sess)
 		sess.Flash("error", "Staff accounts are removed from the Users page, not terminated.")
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	if target.ID == actor.ID {
+		clearTerminatePending(sess)
+		sess.Flash("error", "You cannot terminate your own account. Ask another administrator to remove it.")
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
 	}
