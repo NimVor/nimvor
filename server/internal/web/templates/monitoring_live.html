@@ -12,7 +12,5 @@
 <h1>Live statistics</h1>
 <p><a href="/monitoring">← Back</a> · <a href="/monitoring/processes">Processes</a></p>
 <div id="live" class="text-muted">Loading…</div>
-<script>
-(function(){var d=document.getElementById('live');function tick(){fetch('/monitoring/live.json',{credentials:'same-origin'}).then(r=>r.json()).then(j=>{d.textContent=JSON.stringify(j,null,2);}).catch(e=>{d.textContent='error: '+e;});setTimeout(tick,2000);}tick();})();
-</script>
+<script src="/assets/js/monitoring-live.js"></script>
 </main></body></html>{{end}}

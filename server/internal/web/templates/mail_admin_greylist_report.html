@@ -71,7 +71,7 @@
         <select class="form-select form-select-sm w-auto" name="per" aria-label="Rows per page">
           {{range .Percents}}<option value="{{.}}"{{if eq (printf "%v" .) (printf "%v" $.Q.per)}} selected{{end}}>{{.}} per page</option>{{end}}
         </select>
-        <input class="form-control form-control-sm" style="max-width: 220px;" type="search" name="search" value="{{.Q.search}}" placeholder="IP address or email address" aria-label="Search records">
+        <input class="wcp-s-max-width-220px form-control form-control-sm" type="search" name="search" value="{{.Q.search}}" placeholder="IP address or email address" aria-label="Search records">
         <button class="btn btn-sm btn-outline-secondary">Show</button>
       </form>
     </div>

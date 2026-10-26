@@ -71,7 +71,7 @@
               <td class="text-end text-nowrap">
                 <details class="d-inline-block text-start position-relative">
                   <summary class="btn btn-sm btn-outline-secondary" title="Change"><i class="bi bi-pencil"></i></summary>
-                  <form class="card card-body shadow-sm position-absolute end-0 mt-1" style="width: 260px;" method="post" action="/sites/{{$.Site.ID}}/ftp/accounts">
+                  <form class="wcp-s-width-260px card card-body shadow-sm position-absolute end-0 mt-1" method="post" action="/sites/{{$.Site.ID}}/ftp/accounts">
                     <input type="hidden" name="_token" value="{{$.CSRF}}">
                     <input type="hidden" name="existing" value="1">
                     <input type="hidden" name="name" value="{{$a.Name}}">

@@ -62,7 +62,7 @@
       {{if and (gt (len .Sites) 0) .V.CanFTP}}
       <details class="position-relative d-inline-block">
         <summary class="btn btn-sm btn-primary"><i class="bi bi-plus-lg me-1"></i>Add FTP</summary>
-        <div class="card shadow-sm position-absolute start-0 mt-1 p-1" style="min-width: 180px;">
+        <div class="wcp-s-min-width-180px card shadow-sm position-absolute start-0 mt-1 p-1">
           <div class="small text-muted px-2 pb-1">For the website…</div>
           {{range .Sites}}<a class="d-block px-2 py-1 text-decoration-none" href="/sites/{{.ID}}/ftp#new-ftp"><i class="bi bi-globe2 me-1"></i>{{.Domain}}</a>{{end}}
         </div>

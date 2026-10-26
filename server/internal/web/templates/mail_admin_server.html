@@ -106,7 +106,7 @@
     <div class="card-header"><i class="bi bi-journal-text me-1"></i>Latest mail log{{if .Log}}{{if .Log.Source}} <span class="small text-body-secondary fw-normal">({{.Log.Source}})</span>{{end}}{{end}}</div>
     {{if .Log}}
       {{if .Log.Lines}}
-      <pre class="p-3 small mb-0" style="max-height: 400px; overflow: auto;">{{range .Log.Lines}}{{.Time}} {{.Ident}}: {{.Message}}
+      <pre class="wcp-s-max-height-400px-overflow-auto p-3 small mb-0">{{range .Log.Lines}}{{.Time}} {{.Ident}}: {{.Message}}
 {{end}}</pre>
       {{else}}
       <div class="card-body small text-body-secondary">No mail log lines.</div>

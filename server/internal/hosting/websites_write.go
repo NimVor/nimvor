@@ -1533,3 +1533,13 @@ func (s *WebsiteService) revertMove(ctx context.Context, site *Website) {
 	})
 	_ = s.restore(ctx, site)
 }
+
+// PhpFormDefaults are the values the create-website form starts with (the
+// defaults of the validation table), so a new site needs no typing.
+func PhpFormDefaults() map[string]string {
+	out := map[string]string{"client_max_body_mb": "64"}
+	for k, b := range phpIntBounds {
+		out[k] = strconv.Itoa(b.def)
+	}
+	return out
+}

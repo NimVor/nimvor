@@ -60,11 +60,11 @@
       <button class="btn btn-sm btn-outline-secondary" form="queue-form" name="action" value="release">Release</button>
       <button class="btn btn-sm btn-outline-danger" form="queue-form" name="action" value="delete" data-wcp-confirm-submit="Delete the selected messages? They are removed from the queue and never delivered.">Delete</button>
       {{end}}
-      <input class="form-control form-control-sm ms-auto" style="max-width: 260px;" type="search" placeholder="Search sender, recipient, reason" aria-label="Search the queue" data-wcp-dt-search>
+      <input class="wcp-s-max-width-260px form-control form-control-sm ms-auto" type="search" placeholder="Search sender, recipient, reason" aria-label="Search the queue" data-wcp-dt-search>
     </div>
     <div class="table-responsive">
       <table class="table align-middle mb-0">
-        <thead><tr>{{if .CanManage}}<th style="width: 2rem;"><span class="visually-hidden">Select</span></th>{{end}}<th>Queue ID</th><th>Sender</th><th>Recipients</th><th>Status</th><th class="text-end">Size</th><th class="text-end">Age</th><th></th></tr></thead>
+        <thead><tr>{{if .CanManage}}<th class="wcp-s-width-2rem"><span class="visually-hidden">Select</span></th>{{end}}<th>Queue ID</th><th>Sender</th><th>Recipients</th><th>Status</th><th class="text-end">Size</th><th class="text-end">Age</th><th></th></tr></thead>
         <tbody>
         {{range .Rows}}
           <tr>
@@ -72,7 +72,7 @@
             <td class="font-monospace small">{{.ID}}</td>
             <td class="small text-break">{{if .Sender}}{{.Sender}}{{else}}<span class="text-body-secondary">(bounce)</span>{{end}}</td>
             <td class="small text-break">{{.Recipients}}</td>
-            <td class="small"><span class="wcp-state {{.StatusClass}}">{{.Status}}</span>{{if .Reason}}<div class="text-body-secondary text-truncate" style="max-width: 220px;" title="{{.Reason}}">{{.Reason}}</div>{{end}}</td>
+            <td class="small"><span class="wcp-state {{.StatusClass}}">{{.Status}}</span>{{if .Reason}}<div class="wcp-s-max-width-220px text-body-secondary text-truncate" title="{{.Reason}}">{{.Reason}}</div>{{end}}</td>
             <td class="text-end small">{{bytes .Size}}</td>
             <td class="text-end small">{{.Age}}</td>
             <td class="text-end text-nowrap"><button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-mail-headers="/mail/admin/queue/{{.ID}}" aria-label="Headers of {{.ID}}"><i class="bi bi-envelope-open"></i></button></td>

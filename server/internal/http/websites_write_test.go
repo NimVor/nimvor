@@ -1806,3 +1806,14 @@ func csrfTokenFromLogin(t *testing.T, h http.Handler, cookie *http.Cookie) (stri
 	t.Helper()
 	return siteFormToken(t, h, cookie, "/websites")
 }
+
+// The create form must start with the PHP defaults filled in.
+func TestWebsitesNewFormIsPrefilled(t *testing.T) {
+	h, cookie, _, _ := sitesEnv(t, false, false)
+	body := get(t, h, "/websites/new", cookie).Body.String()
+	for _, want := range []string{`name="memory_limit_mb" min="32" max="8192" value="256"`, `name="max_children"`, `value="500"`} {
+		if !pageHas(body, want) {
+			t.Errorf("form not prefilled: missing %q", want)
+		}
+	}
+}

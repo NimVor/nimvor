@@ -141,6 +141,9 @@ func (s *Server) siteFormBase(r *http.Request, user *identity.User, site *hostin
 	} else if form["kind"] == "" {
 		// The create form starts on PHP, the first (and default) type.
 		form["kind"] = "php"
+		for k, v := range hosting.PhpFormDefaults() {
+			form[k] = v
+		}
 	}
 	title := "Create website"
 	action := "/websites/new"

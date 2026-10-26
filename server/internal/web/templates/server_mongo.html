@@ -508,7 +508,7 @@
     <div class="card-header"><i class="bi bi-journal-text me-1"></i>MongoDB log{{with .Log}} <span class="small text-body-secondary">{{.Path}}</span>{{end}}</div>
     <div class="card-body">
       {{with .Log}}
-      <pre class="small mb-0" style="max-height:32rem;overflow:auto">{{.Lines}}</pre>
+      <pre class="wcp-s-max-height-32rem-overflow-auto small mb-0">{{.Lines}}</pre>
       {{else}}
       <p class="text-body-secondary small mb-0">The log could not be read.</p>
       {{end}}

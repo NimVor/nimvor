@@ -969,3 +969,17 @@ button.wcp-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
     .wcp-mongo3 { flex-direction: column; }
     .wcp-mongo-side { width: auto; max-height: 14rem; }
 }
+
+/* Utility classes that replace inline style attributes (the CSP forbids them). */
+.wcp-s-height-6px { height: 6px; }
+.wcp-s-max-height-32rem-overflow-auto { max-height:32rem;overflow:auto; }
+.wcp-s-max-height-400px-overflow-auto { max-height: 400px; overflow: auto; }
+.wcp-s-max-width-12rem { max-width:12rem; }
+.wcp-s-max-width-16rem { max-width:16rem; }
+.wcp-s-max-width-220px { max-width: 220px; }
+.wcp-s-max-width-22rem { max-width:22rem; }
+.wcp-s-max-width-260px { max-width: 260px; }
+.wcp-s-max-width-9rem { max-width:9rem; }
+.wcp-s-min-width-180px { min-width: 180px; }
+.wcp-s-width-260px { width: 260px; }
+.wcp-s-width-2rem { width: 2rem; }

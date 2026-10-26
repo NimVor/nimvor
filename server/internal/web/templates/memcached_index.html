@@ -73,7 +73,7 @@
         <div class="mb-3">
           <div class="d-flex small mb-1"><span>Memory</span><span class="ms-auto">{{.V.UsedHuman}} of {{.V.LimitHuman}}</span></div>
           <div class="progress" role="progressbar" aria-label="Memory used" aria-valuenow="{{.V.Pct}}" aria-valuemin="0" aria-valuemax="100">
-            <div class="progress-bar{{if .V.PctHigh}} bg-warning{{end}}" style="width: {{.V.Pct}}%"></div>
+            <div class="progress-bar{{if .V.PctHigh}} bg-warning{{end}}" data-wcp-width="{{.V.Pct}}"></div>
           </div>
         </div>
         <dl class="wcp-dl mb-0">

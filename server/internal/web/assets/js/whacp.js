@@ -1900,3 +1900,15 @@
         changedOnly.addEventListener('change', apply);
     });
 })();
+
+// Progress bars: the width comes from data-wcp-width (an inline style attribute
+// would be refused by the panel's Content-Security-Policy).
+(function () {
+    'use strict';
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-wcp-width]').forEach(function (el) {
+            var n = parseFloat(el.getAttribute('data-wcp-width'));
+            if (!isNaN(n)) { el.style.width = Math.max(0, Math.min(100, n)) + '%'; }
+        });
+    });
+})();
