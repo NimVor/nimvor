@@ -57,6 +57,13 @@ func (s *Server) usersStore(w http.ResponseWriter, r *http.Request) {
 	roleID, _ := strconv.ParseInt(r.FormValue("role_id"), 10, 64)
 	planIDRaw, _ := strconv.ParseInt(r.FormValue("plan_id"), 10, 64)
 	active := r.FormValue("is_active") == "1"
+	generate := r.FormValue("generate") == "1"
+	if generate {
+		if g, err := hosting.GeneratedPassword(); err == nil {
+			password = g
+			confirm = g
+		}
+	}
 	errs := map[string]string{}
 	// Username: 3–32 lowercase [a-z0-9._-], start with a letter.
 	if !validUsername(username) {
@@ -172,7 +179,11 @@ func (s *Server) usersStore(w http.ResponseWriter, r *http.Request) {
 		UserID: &uid, Username: actor.Username,
 	})
 	_ = newRoleName
-	sess.Flash("success", "User created.")
+	if generate {
+		sess.Flash("success", "User "+username+" created. Generated password: "+password)
+	} else {
+		sess.Flash("success", "User created.")
+	}
 	http.Redirect(w, r, "/users", http.StatusSeeOther)
 }
 
@@ -288,6 +299,13 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 	confirm := r.FormValue("password_confirmation")
 	roleID, err := strconv.ParseInt(r.FormValue("role_id"), 10, 64)
 	active := r.FormValue("is_active") == "1"
+	generate := r.FormValue("generate") == "1"
+	if generate {
+		if g, err := hosting.GeneratedPassword(); err == nil {
+			password = g
+			confirm = g
+		}
+	}
 	errs := map[string]string{}
 	if email == "" || !isEmail(email) || len(email) > 190 {
 		errs["email"] = "Enter a valid email address."
@@ -408,7 +426,11 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 		},
 		UserID: &uid, Username: actor.Username,
 	})
-	sess.Flash("success", "User updated.")
+	if pwChanged && generate {
+		sess.Flash("success", "User updated. Generated password: "+password)
+	} else {
+		sess.Flash("success", "User updated.")
+	}
 	http.Redirect(w, r, "/users", http.StatusSeeOther)
 }
 
