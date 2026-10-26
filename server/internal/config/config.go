@@ -20,13 +20,13 @@ type Config struct {
 // Load reads configuration from the environment, applying defaults.
 func Load() Config {
 	return Config{
-		Listen:         env("WHACP_LISTEN", "127.0.0.1:8080"),
-		DBPath:         env("WHACP_DB", "/var/lib/whacp/whacp.sqlite"),
-		StaticDir:      env("WHACP_STATIC", "/usr/share/whacp/assets"),
+		Listen:         env("WHACP_LISTEN", "127.0.0.1:8090"),
+		DBPath:         env("WHACP_DB_PATH", "/var/lib/whacp/whacp.sqlite"),
+		StaticDir:      os.Getenv("WHACP_STATIC"), // empty → use embedded assets
 		AgentSocket:    env("WHACP_AGENT_SOCKET", "/run/whacp/agent.sock"),
-		AgentTokenFile: env("WHACP_AGENT_TOKEN", "/etc/whacp/agent.token"),
+		AgentTokenFile: env("WHACP_AGENT_TOKEN_FILE", "/etc/whacp/agent.token"),
 		KeyFile:        env("WHACP_KEY_FILE", "/etc/whacp/panel.key"),
-		LogFile:        env("WHACP_LOG_FILE", "/var/lib/whacp/logs/panel.log"),
+		LogFile:        env("WHACP_LOG_FILE", "/var/log/whacp/panel.log"),
 		Production:     os.Getenv("WHACP_PRODUCTION") == "1",
 	}
 }

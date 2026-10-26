@@ -2313,12 +2313,27 @@ designed.
 - ☑ Rewrote `scripts/dev.sh` to launch the agent + Go server directly
   (env-file config, auto-key gen) instead of `php -S panel/public`.
 - ☑ Cleaned `.gitignore` of obsolete `panel/` entries.
-- ☐ Installer (`installer/install.sh`, `installer/upgrade.sh`) still
-  copies `panel/` onto the target host and invokes `$PREFIX/panel/bin/whacp`.
-  It needs a focused pure-Go rewrite (systemd unit for `whacp-server`,
-  built-in migrations on startup, CLI bootstrap via the server binary) —
-  tracked separately.
+- ☑ **Installer (`installer/install.sh`, `installer/upgrade.sh`) rewritten
+  for pure-Go deployments**:
+  - Installs `dist/whacp-agent` + `dist/whacp` (server) to /usr/local/bin;
+    frontend assets (CSS/JS/fonts) are **embedded into the `whacp`
+    binary** via `//go:embed server/internal/web/assets` (no more
+    `/usr/share/whacp/assets` or panel/public copy).
+  - Configuration written to `/etc/whacp/server.env` (env-file) instead
+    of `panel.php`; systemd unit uses `EnvironmentFile=-/etc/whacp/server.env`.
+  - `whacp bootstrap-admin --username/--email/--role` subcommand reads a
+    password from stdin and creates the first admin; `whacp -has-admin`
+    exits 0 if an admin exists (used by the installer to decide whether
+    to prompt). Migrations and `authz.SyncDefaults` run automatically on
+    server startup, so there is no separate `whacp-migrate up` step.
+  - `installer/config/panel.php` and the `whacp-scheduler.{service,timer}`
+    PHP-CLI units deleted. `upgrade.sh` rewritten to back up and swap
+    Go binaries (no more `panel/` tree swap or `composer install`).
+  - `uninstall.sh` updated to remove `whacp` binary and drop the
+    scheduler timer/unit references.
+  - `scripts/dev.sh` uses the new env-file + `bootstrap-admin` to seed
+    the dev admin.
 - ☐ Tests under `tests/integration/` still use `fixtures/populate.php` /
   `verify.php` against the PHP app; rewrite in Go or replace with direct
-  DB seed + HTTP-probe against `whacp-server` once the installer lands.
+  DB seed + HTTP-probe against `whacp-server`.
 

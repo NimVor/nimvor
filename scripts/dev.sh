@@ -43,10 +43,8 @@ WHACP_LISTEN=127.0.0.1:$PORT
 WHACP_DB_PATH=$DEV/whacp.sqlite
 WHACP_LOG_FILE=$DEV/server.log
 WHACP_KEY_FILE=$DEV/server.key
-WHACP_SESSION_PATH=$DEV/sessions
 WHACP_AGENT_SOCKET=$DEV/agent.sock
 WHACP_AGENT_TOKEN_FILE=$DEV/token
-WHACP_DEV=true
 ENV
 umask 077
 [[ -f $DEV/server.key ]] || openssl rand -hex 32 > "$DEV/server.key"
@@ -55,13 +53,9 @@ echo "Building agent + server…"
 (cd "$ROOT/agent" && go build -o "$DEV/whacp-agent" ./cmd/whacp-agent)
 (cd "$ROOT/server" && go build -o "$DEV/whacp" ./cmd/whacp)
 
-# Create DB + seed an admin user on first run.
+# Set up env so bootstrap-admin can find the DB/key.
 mkdir -p "$DEV/sessions"
-if [[ ! -s $DEV/whacp.sqlite ]]; then
-    # The server auto-migrates on startup; start it briefly to create the DB,
-    # then create an admin account via a small helper if a CLI isn't wired up.
-    echo "(first run: letting server migrate the DB)"
-fi
+set -a; . "$DEV/server.env"; set +a
 
 "$DEV/whacp-agent" -config "$DEV/agent.json" > "$DEV/agent.log" 2>&1 &
 AGENT_PID=$!
@@ -69,7 +63,11 @@ AGENT_PID=$!
 trap "kill $AGENT_PID 2>/dev/null || true" EXIT
 for _ in $(seq 1 20); do [[ -S $DEV/agent.sock ]] && break; sleep 0.2; done
 
-set -a; . "$DEV/server.env"; set +a
+# Seed an admin user on first run. The server auto-migrates on startup.
+if ! "$DEV/whacp" bootstrap-admin --username admin --email admin@example.com --role admin <<<"dev-password-change-me" 2>/dev/null; then
+    : # admin already exists (or server will create it on first run)
+fi
+
 echo "Server: http://127.0.0.1:$PORT/  (agent log: .dev/agent.log, server log: .dev/server.log)"
-echo "Dev user (first-run seed): admin / dev-password-change-me"
+echo "Dev user: admin / dev-password-change-me"
 exec "$DEV/whacp"

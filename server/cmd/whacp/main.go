@@ -1,22 +1,35 @@
 // Command whacp is the Go WhaCP control-panel server. It opens the existing
 // SQLite database, applies any pending migrations, and serves the panel over
 // HTTP (behind the nginx reverse proxy in production).
+//
+// Subcommands:
+//
+//	(no args)        serve the panel (default)
+//	serve            same as no args
+//	bootstrap-admin  create the first administrator (reads username/email/role
+//	                 from flags; password from stdin). Exits 0 if an admin
+//	                 already exists (nothing to do).
+//	version          print version and exit
 package main
 
 import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/authz"
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	whttp "github.com/mchkhawarshahzad/whacp/server/internal/http"
 )
 
@@ -24,21 +37,55 @@ import (
 var version = "dev"
 
 func main() {
+	// If the first argument is a known subcommand, dispatch; otherwise fall
+	// through to "serve" (preserves existing flag behaviour).
+	cmd := "serve"
+	hasAdminFlag := false
+	for _, a := range os.Args[1:] {
+		if a == "-has-admin" {
+			hasAdminFlag = true
+		}
+	}
+	if hasAdminFlag {
+		cmd = "has-admin"
+	} else if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
+		cmd = os.Args[1]
+		os.Args = append(os.Args[:1], os.Args[2:]...)
+	}
+
+	log := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	switch cmd {
+	case "version":
+		fmt.Println("whacp", version)
+		return
+	case "has-admin":
+		os.Exit(runHasAdmin(log))
+	case "bootstrap-admin":
+		os.Exit(runBootstrapAdmin(log))
+	case "serve", "":
+		os.Exit(runServe(log))
+	default:
+		fmt.Fprintf(os.Stderr, "unknown command %q (use: serve | bootstrap-admin | has-admin | version)\n", cmd)
+		os.Exit(2)
+	}
+}
+
+func runServe(log *slog.Logger) int {
 	noMigrate := flag.Bool("no-migrate", false, "do not apply pending migrations on start")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 
-	log := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	if *showVersion {
 		log.Info("whacp", "version", version)
-		return
+		return 0
 	}
 	cfg := config.Load()
 
 	db, err := database.Open(cfg.DBPath)
 	if err != nil {
 		log.Error("open database", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	defer db.Close()
 
@@ -46,7 +93,7 @@ func main() {
 		ran, err := database.Migrate(db)
 		if err != nil {
 			log.Error("migrate", "error", err)
-			os.Exit(1)
+			return 1
 		}
 		if len(ran) > 0 {
 			log.Info("migrations applied", "count", len(ran), "last", ran[len(ran)-1])
@@ -57,13 +104,13 @@ func main() {
 	// (idempotent), exactly as the PHP panel does at boot.
 	if err := authz.SyncDefaults(context.Background(), db); err != nil {
 		log.Error("sync roles/permissions", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	panel, err := whttp.New(cfg, db, log)
 	if err != nil {
 		log.Error("build server", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	srv := &http.Server{
 		Addr:              cfg.Listen,
@@ -74,7 +121,6 @@ func main() {
 		IdleTimeout:       90 * time.Second,
 	}
 
-	// Graceful shutdown on SIGINT/SIGTERM.
 	idle := make(chan struct{})
 	go func() {
 		sig := make(chan os.Signal, 1)
@@ -92,7 +138,130 @@ func main() {
 	log.Info("listening", "addr", cfg.Listen, "version", version)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Error("serve", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	<-idle
+	return 0
+}
+
+// runHasAdmin exits 0 if at least one active administrator exists, 1 otherwise.
+// Used by the installer to decide whether to prompt for first-admin creation.
+func runHasAdmin(log *slog.Logger) int {
+	flag.Parse()
+	cfg := config.Load()
+	db, err := database.Open(cfg.DBPath)
+	if err != nil {
+		log.Error("open database", "error", err)
+		return 2
+	}
+	defer db.Close()
+	// Migrate+sync first so the roles table exists on a fresh DB.
+	if _, err := database.Migrate(db); err != nil {
+		log.Error("migrate", "error", err)
+		return 2
+	}
+	if err := authz.SyncDefaults(context.Background(), db); err != nil {
+		log.Error("sync roles/permissions", "error", err)
+		return 2
+	}
+	users := identity.NewRepository(db)
+	n, err := users.CountActiveWithRole(context.Background(), "admin")
+	if err != nil {
+		log.Error("count admins", "error", err)
+		return 2
+	}
+	if n > 0 {
+		fmt.Println("yes")
+		return 0
+	}
+	fmt.Println("no")
+	return 1
+}
+
+// runBootstrapAdmin creates the first administrator. It reads the password
+// from stdin (one line, trailing newline stripped). If an active admin
+// already exists, it prints a message and exits 0 without changing anything.
+func runBootstrapAdmin(log *slog.Logger) int {
+	username := flag.String("username", "admin", "admin username")
+	email := flag.String("email", "", "admin email (required)")
+	role := flag.String("role", "admin", "role name (admin, reseller, user)")
+	passwordFile := flag.String("password-file", "-", "file to read password from ('-' for stdin)")
+	flag.Parse()
+
+	if *email == "" {
+		fmt.Fprintln(os.Stderr, "--email is required")
+		return 2
+	}
+
+	cfg := config.Load()
+	db, err := database.Open(cfg.DBPath)
+	if err != nil {
+		log.Error("open database", "error", err)
+		return 1
+	}
+	defer db.Close()
+
+	if _, err := database.Migrate(db); err != nil {
+		log.Error("migrate", "error", err)
+		return 1
+	}
+	if err := authz.SyncDefaults(context.Background(), db); err != nil {
+		log.Error("sync roles/permissions", "error", err)
+		return 1
+	}
+
+	users := identity.NewRepository(db)
+	existing, err := users.CountActiveWithRole(context.Background(), "admin")
+	if err != nil {
+		log.Error("count admins", "error", err)
+		return 1
+	}
+	if existing > 0 {
+		fmt.Println("administrator already exists")
+		return 0
+	}
+
+	// Find the role id.
+	var roleID int64
+	if err := db.QueryRowContext(context.Background(), "SELECT id FROM roles WHERE name = ?", *role).Scan(&roleID); err != nil {
+		log.Error("lookup role", "role", *role, "error", err)
+		return 1
+	}
+
+	// Read the password.
+	var pwBytes []byte
+	if *passwordFile == "-" {
+		pwBytes, err = io.ReadAll(os.Stdin)
+	} else {
+		pwBytes, err = os.ReadFile(*passwordFile)
+	}
+	if err != nil {
+		log.Error("read password", "error", err)
+		return 1
+	}
+	pw := strings.TrimRight(string(pwBytes), "\r\n")
+	if len(pw) < 8 {
+		fmt.Fprintln(os.Stderr, "password must be at least 8 characters")
+		return 1
+	}
+
+	hash, err := identity.HashPassword(pw)
+	if err != nil {
+		log.Error("hash password", "error", err)
+		return 1
+	}
+
+	if _, err := users.Create(context.Background(), &identity.NewUser{
+		Username:     *username,
+		Email:        *email,
+		DisplayName:  *username,
+		PasswordHash: hash,
+		RoleID:       roleID,
+		IsActive:     true,
+	}); err != nil {
+		log.Error("create admin", "error", err)
+		return 1
+	}
+	fmt.Printf("created administrator %q\n", *username)
+	return 0
 }
