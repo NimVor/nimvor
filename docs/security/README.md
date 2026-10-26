@@ -69,13 +69,20 @@ whole.
 ## Hardening checklist for operators
 
 - Keep the panel on loopback; if you proxy it, use TLS and IP restrictions.
-- Set `secure_cookie => true` whenever the panel is served over HTTPS.
+- Set `WHACP_PRODUCTION=1` in `/etc/whacp/server.env` whenever the panel
+  is served over HTTPS (installer `--public-https` does this
+  automatically); this flips the Secure flag on the session cookie and
+  sends HSTS.
 - Protect `/etc/whacp/agent.token` (0640 root:whacp); rotate it by writing a
   new value and restarting both services.
 - Review the audit log regularly (`security.*` and `auth.login` failures).
 - Turn on two-factor sign-in for every administrator and reseller.
-- Run `bin/whacp doctor` after installing, upgrading or changing
-  `/etc/whacp`; it flags world-readable secrets and a stopped scheduler.
+- After installing, upgrading or changing `/etc/whacp`, verify
+  `/healthz` returns `{"status":"ok"}` and `systemctl status whacp-panel
+  whacp-agent` shows both services active; permissions on
+  `/etc/whacp/panel.key` and `/etc/whacp/agent.token` should be 0640
+  root:whacp (the installer creates them that way and refuses to start if
+  they are world-readable).
 - Stay in read-only mode until you need write mode; remote agents should
   allow only the panel's IP.
 - Keep a copy of the backup key off the server (*Backups → Server
