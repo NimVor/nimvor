@@ -45,6 +45,7 @@ WHACP_LOG_FILE=$DEV/server.log
 WHACP_KEY_FILE=$DEV/server.key
 WHACP_AGENT_SOCKET=$DEV/agent.sock
 WHACP_AGENT_TOKEN_FILE=$DEV/token
+WHACP_PRODUCTION=0
 ENV
 umask 077
 [[ -f $DEV/server.key ]] || openssl rand -base64 32 > "$DEV/server.key"

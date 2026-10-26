@@ -3,8 +3,10 @@
 //	whacp-migrate status   # list applied/pending
 //	whacp-migrate up        # apply all pending migrations
 //
-// It shares the migrations ledger with the PHP panel (by migration name), so
-// running it against an existing installation applies only new migrations.
+// It reads the same SQLite database and migration ledger the `whacp serve`
+// binary uses, so operators can inspect or pre-apply pending migrations
+// before restarting the panel. (The panel itself applies pending migrations
+// automatically on boot, so in normal operation this helper is not needed.)
 package main
 
 import (

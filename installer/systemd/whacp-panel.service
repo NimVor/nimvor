@@ -1,6 +1,6 @@
 [Unit]
 Description=WhaCP panel (loopback web interface)
-Documentation=https://github.com/mchkhawarshahzad/WhaCP/tree/main/docs/installation
+Documentation=https://github.com/mchkhawarshahzad/WhaCP/blob/HEAD/docs/installation/README.md
 After=network.target whacp-agent.service
 Wants=whacp-agent.service
 
