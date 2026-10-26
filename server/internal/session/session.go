@@ -1,9 +1,8 @@
-// Package session implements the panel's server-side session as a sealed
-// cookie. Unlike the PHP panel (PHP native file sessions), the Go panel keeps
-// no session files: the session payload is JSON, sealed with NaCl secretbox
-// under the panel key (internal/crypto), so it is tamper-proof and readable
-// only by the panel. Cookie attributes (HttpOnly, SameSite=Lax, Secure in
-// production) match app/Http/Session/NativeSession.php.
+// Package session implements the panel's session as a sealed cookie.
+// No session files are kept on disk: the session payload is JSON, sealed with
+// NaCl secretbox under the panel key (internal/crypto), so it is tamper-proof
+// and readable only by the panel. Cookie attributes (HttpOnly, SameSite=Lax,
+// Secure in production) are strict and production-ready.
 package session
 
 import (
@@ -14,12 +13,10 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
 )
 
-// DefaultCookieName is the session cookie name. It is deliberately distinct
-// from the PHP session cookie so the Go and PHP panels can run side by side
-// during the migration without clobbering each other's sessions.
+// DefaultCookieName is the session cookie name.
 const DefaultCookieName = "whacp_session"
 
-// DefaultMaxAge mirrors the PHP session.gc_maxlifetime (86400s / 24h).
+// DefaultMaxAge is the session idle timeout — 24 hours.
 const DefaultMaxAge = 24 * time.Hour
 
 // Manager seals and opens sessions.

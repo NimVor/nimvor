@@ -108,7 +108,7 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) routes() {
-	// Unauthenticated liveness probe — parity with the PHP /healthz.
+	// Unauthenticated liveness probe.
 	s.mux.HandleFunc("GET /healthz", s.health)
 	// The public, signed Git push webhook (no session, no CSRF — the
 	// signature and the replay table are the gates).

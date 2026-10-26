@@ -1,6 +1,6 @@
-// Package database opens the WhaCP SQLite database and applies migrations,
-// preserving the exact behaviour of the PHP panel's Connection and Migrator so
-// an existing installation upgrades in place.
+// Package database opens the WhaCP SQLite database and applies migrations.
+// Existing installations upgrade in place because migrations are applied by
+// name (any migration already recorded in the `migrations` ledger is skipped).
 package database
 
 import (
@@ -12,9 +12,9 @@ import (
 	_ "modernc.org/sqlite" // pure-Go driver: no cgo, single static binary
 )
 
-// Open opens (or creates) the SQLite database at path with the same PRAGMAs the
-// PHP panel sets: foreign keys on, a 5s busy timeout, WAL journalling and
-// NORMAL synchronous. A file database is created 0640 in a 0750 directory.
+// Open opens (or creates) the SQLite database at path with production-safe
+// PRAGMAs: foreign keys on, a 5s busy timeout, WAL journalling and NORMAL
+// synchronous. A file database is created 0640 in a 0750 directory.
 func Open(path string) (*sql.DB, error) {
 	memory := path == ":memory:"
 	if !memory {
