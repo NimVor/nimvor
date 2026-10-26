@@ -12,33 +12,49 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>Audit log</h1>
-  <form method="get" action="/audit" class="filter-form">
-    <input name="action" value="{{.Filters.Action}}" placeholder="action" aria-label="Filter by action">
-    <input name="user" value="{{.Filters.User}}" placeholder="user" aria-label="Filter by user">
-    <input name="q" value="{{.Filters.Q}}" placeholder="search target / ip" aria-label="Search">
-    <button type="submit">Filter</button>
-  </form>
-  <p class="text-muted">{{.Total}} entries</p>
-  {{if .Rows}}
-  <table class="data-table">
-    <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Target</th><th>Result</th><th>IP</th></tr></thead>
-    <tbody>
-    {{range .Rows}}
-      <tr class="result-{{.Result}}">
-        <td>{{.CreatedAt}}</td>
-        <td>{{.Username}}</td>
-        <td>{{.Action}}</td>
-        <td>{{.TargetType}}{{if .TargetID}}:{{.TargetID}}{{end}}</td>
-        <td>{{.Result}}</td>
-        <td>{{.IP}}</td>
-      </tr>
+  <p class="text-body-secondary">{{.Total}} recorded event(s)</p>
+  <div class="card">
+    <div class="card-header">
+      <form class="row g-2" method="get" action="/audit">
+        <div class="col-md-3"><input class="form-control form-control-sm" name="action" value="{{.Filters.Action}}" placeholder="Action prefix, e.g. user." aria-label="Action"></div>
+        <div class="col-md-2"><input class="form-control form-control-sm" name="user" value="{{.Filters.User}}" placeholder="Username" aria-label="User"></div>
+        <div class="col-md-2"><select class="form-select form-select-sm" name="result" aria-label="Result"><option value="">Any result</option>{{range .Results}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+        <div class="col-md-3"><input class="form-control form-control-sm" name="q" value="{{.Filters.Q}}" placeholder="Target, IP or details" aria-label="Search"></div>
+        <div class="col-md-2 d-flex gap-2"><button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button><a class="btn btn-sm btn-link" href="/audit">Reset</a></div>
+      </form>
+    </div>
+    {{if not .Rows}}
+    <div class="card-body text-center py-5 text-body-secondary wcp-empty"><i class="bi bi-list-check display-6"></i><p class="mt-3 mb-0">No events match.</p></div>
+    {{else}}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0 wcp-table">
+        <thead><tr><th>Time (UTC)</th><th>User</th><th>Action</th><th>Target</th><th>Result</th><th>IP</th><th>Details</th></tr></thead>
+        <tbody>
+        {{range .Rows}}
+          <tr>
+            <td class="text-nowrap small">{{.Time}}</td>
+            <td>{{.User}}</td>
+            <td><code>{{.Action}}</code></td>
+            <td class="small">{{.Target}}</td>
+            <td><span class="badge {{.Cls}}">{{.Result}}</span></td>
+            <td class="small">{{.IP}}</td>
+            <td class="small">{{if .Details}}<code class="wcp-break">{{.Details}}</code>{{end}}</td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
     {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <p class="text-muted">No audit entries match.</p>
-  {{end}}
+    {{if .Paged}}
+    <div class="card-footer">
+      <nav aria-label="Audit log pages"><ul class="pagination pagination-sm mb-0">
+        <li class="page-item{{if not .HasPrev}} disabled{{end}}"><a class="page-link" href="{{.PrevURL}}">Previous</a></li>
+        <li class="page-item disabled"><span class="page-link">Page {{.Page}} of {{.Pages}}</span></li>
+        <li class="page-item{{if not .HasNext}} disabled{{end}}"><a class="page-link" href="{{.NextURL}}">Next</a></li>
+      </ul></nav>
+    </div>
+    {{end}}
+  </div>
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}

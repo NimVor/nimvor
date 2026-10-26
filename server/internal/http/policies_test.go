@@ -600,3 +600,22 @@ func TestCreateDatabaseWithUserHonoursTheSwitches(t *testing.T) {
 		t.Error("the new password was not shown once")
 	}
 }
+
+func TestAuditPageShowsDetailsResultFilterAndPaging(t *testing.T) {
+	h, db := rolesEnv(t)
+	for i := 0; i < 55; i++ {
+		if _, err := db.Exec(`INSERT INTO audit_logs (username, action, target_type, target_id, result, ip, details, created_at) VALUES ('admin', 'probe.event', 'thing', ?, 'failure', '203.0.113.9', '{"why":"because"}', '2026-01-01T00:00:00Z')`, i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := loginAsUser(t, h, "admin")
+	body := get(t, h, "/audit?action=probe.&result=failure", c).Body.String()
+	for _, want := range []string{"probe.event", "because", "Any result", "Page 1 of 2", "Next"} {
+		if !pageHas(body, want) {
+			t.Errorf("audit page lacks %q", want)
+		}
+	}
+	if p2 := get(t, h, "/audit?action=probe.&result=failure&page=2", c).Body.String(); !pageHas(p2, "Page 2 of 2") {
+		t.Error("second page not shown")
+	}
+}

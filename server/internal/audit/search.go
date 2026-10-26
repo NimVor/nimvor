@@ -16,6 +16,7 @@ type Record struct {
 	TargetID   string
 	Result     string
 	IP         string
+	Details    string
 	CreatedAt  string
 }
 
@@ -80,7 +81,7 @@ func (l *Logger) Search(ctx context.Context, f Filters, page, perPage int) (Page
 		return out, err
 	}
 	rows, err := l.db.QueryContext(ctx,
-		"SELECT id, user_id, username, action, target_type, target_id, result, ip, created_at FROM audit_logs "+
+		"SELECT id, user_id, username, action, target_type, target_id, result, ip, details, created_at FROM audit_logs "+
 			clause+" ORDER BY id DESC LIMIT ? OFFSET ?",
 		append(args, perPage, (page-1)*perPage)...)
 	if err != nil {
@@ -89,7 +90,7 @@ func (l *Logger) Search(ctx context.Context, f Filters, page, perPage int) (Page
 	defer rows.Close()
 	for rows.Next() {
 		var r Record
-		if err := rows.Scan(&r.ID, &r.UserID, &r.Username, &r.Action, &r.TargetType, &r.TargetID, &r.Result, &r.IP, &r.CreatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.UserID, &r.Username, &r.Action, &r.TargetType, &r.TargetID, &r.Result, &r.IP, &r.Details, &r.CreatedAt); err != nil {
 			return out, err
 		}
 		out.Rows = append(out.Rows, r)
