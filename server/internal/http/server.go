@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"time"
@@ -113,11 +114,22 @@ func (s *Server) routes() {
 	// signature and the replay table are the gates).
 	s.mux.HandleFunc("POST /hooks/deploy/{token}", s.deployWebhook)
 
-	// Reused frontend assets (Bootstrap, the 12 JS files, CSS) served as-is.
+	// Reused frontend assets (Bootstrap, the 12 JS files, CSS). Serve them
+	// from the embedded filesystem baked into the binary; cfg.StaticDir can
+	// override for local development so designers can edit CSS/JS without
+	// rebuilding.
+	var assetFS http.FileSystem
 	if s.cfg.StaticDir != "" {
-		fs := http.FileServer(http.Dir(s.cfg.StaticDir))
-		s.mux.Handle("GET /assets/", http.StripPrefix("/assets/", fs))
+		assetFS = http.Dir(s.cfg.StaticDir)
+	} else {
+		sub, err := web.Assets()
+		if err != nil {
+			panic(err)
+		}
+		assetFS = http.FS(sub)
 	}
+	fileHandler := http.FileServer(assetFS)
+	s.mux.Handle("GET /assets/", http.StripPrefix("/assets/", fileHandler))
 
 	// REST v1 API (ApiController). Registered before web routes so they take
 	// precedence. Permissions mirror panel/routes/web.php API group.

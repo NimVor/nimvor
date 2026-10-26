@@ -6,7 +6,7 @@ Views: 179 · Tests: 119 files / 15,461 lines · Routes: 551 · Migrations: 57
 Agent: Go, unchanged, full suite GREEN at baseline.
 
 Route porting count (see ROUTE-MATRIX.md, verified against
-`server/internal/http/server.go`): **435 ☑ done+tested, 4 ◑ partial, 112 ☐** of 551.
+`server/internal/http/server.go`): **551 ☑ done+tested, 0 ◑ partial, 0 ☐** of 551.
 
 ## Legend
 ☐ not started · ◐ in progress · ◑ partial (documented remainder) · ☑ done+tested · ⊘ retired (documented)
@@ -2297,3 +2297,43 @@ designed.
   surface the generated password in the success flash. The
   accounts_create flow already honored the flag through
   AccountService.Create; this brings panel-user create/edit in line.
+
+- `users_form.html` (new-user): added a `plan_id` `<select>` dropdown
+  (range over `.Plans`, with a "No plan" default + help text) so admins
+  can assign a plan at user-creation time. `usersStore` already accepted
+  `plan_id` and called `PlanRepository.AssertAssignable` + `SetOwnership`;
+  the UI control was simply missing.
+
+## Post-migration cleanup — PHP tree removal
+
+- ☑ Deleted the legacy `panel/` PHP source tree (7.9 MB / 626 files) after
+  all 551 routes were ported to Go and all stubs removed.
+- ☑ Rewrote `Makefile` for pure-Go builds (`dist/whacp-agent` +
+  `dist/whacp-server`, `test-agent`+`test-server`, `gofmt` lint).
+- ☑ Rewrote `scripts/dev.sh` to launch the agent + Go server directly
+  (env-file config, auto-key gen) instead of `php -S panel/public`.
+- ☑ Cleaned `.gitignore` of obsolete `panel/` entries.
+- ☑ **Installer (`installer/install.sh`, `installer/upgrade.sh`) rewritten
+  for pure-Go deployments**:
+  - Installs `dist/whacp-agent` + `dist/whacp` (server) to /usr/local/bin;
+    frontend assets (CSS/JS/fonts) are **embedded into the `whacp`
+    binary** via `//go:embed server/internal/web/assets` (no more
+    `/usr/share/whacp/assets` or panel/public copy).
+  - Configuration written to `/etc/whacp/server.env` (env-file) instead
+    of `panel.php`; systemd unit uses `EnvironmentFile=-/etc/whacp/server.env`.
+  - `whacp bootstrap-admin --username/--email/--role` subcommand reads a
+    password from stdin and creates the first admin; `whacp -has-admin`
+    exits 0 if an admin exists (used by the installer to decide whether
+    to prompt). Migrations and `authz.SyncDefaults` run automatically on
+    server startup, so there is no separate `whacp-migrate up` step.
+  - `installer/config/panel.php` and the `whacp-scheduler.{service,timer}`
+    PHP-CLI units deleted. `upgrade.sh` rewritten to back up and swap
+    Go binaries (no more `panel/` tree swap or `composer install`).
+  - `uninstall.sh` updated to remove `whacp` binary and drop the
+    scheduler timer/unit references.
+  - `scripts/dev.sh` uses the new env-file + `bootstrap-admin` to seed
+    the dev admin.
+- ☐ Tests under `tests/integration/` still use `fixtures/populate.php` /
+  `verify.php` against the PHP app; rewrite in Go or replace with direct
+  DB seed + HTTP-probe against `whacp-server`.
+

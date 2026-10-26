@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
 # Runs WhaCP locally without root: the agent inspects the fixture server in
-# agent/tests/fixtures/ubuntu-host (or DEV_ROOT) and the panel is served on
-# http://127.0.0.1:${DEV_PORT:-8090}. State lives in .dev/.
+# agent/tests/fixtures/ubuntu-host (or DEV_ROOT) and the Go web server is
+# served on http://127.0.0.1:${DEV_PORT:-8090}. State lives in .dev/.
 #
-#   scripts/dev.sh            start agent + panel (Ctrl-C stops both)
+#   scripts/dev.sh            start agent + server (Ctrl-C stops both)
 #   DEV_ROOT=/ scripts/dev.sh inspect this machine instead of the fixture
 #   DEV_WRITE=1 scripts/dev.sh write mode against a disposable copy of the
 #                              fixture in .dev/root (system tools are not run
@@ -38,33 +38,36 @@ cat > "$DEV/agent.json" <<JSON
   "metrics_interval": "3s"
 }
 JSON
-cat > "$DEV/panel.php" <<PHP
-<?php
-return [
-    'app' => ['env' => 'development', 'debug' => true],
-    'database' => ['path' => '$DEV/whacp.sqlite'],
-    'log' => ['file' => '$DEV/panel.log', 'level' => 'debug'],
-    'session' => ['path' => '$DEV/sessions', 'secure_cookie' => false],
-    'agent' => ['socket' => '$DEV/agent.sock', 'token_file' => '$DEV/token'],
-];
-PHP
+cat > "$DEV/server.env" <<ENV
+WHACP_LISTEN=127.0.0.1:$PORT
+WHACP_DB_PATH=$DEV/whacp.sqlite
+WHACP_LOG_FILE=$DEV/server.log
+WHACP_KEY_FILE=$DEV/server.key
+WHACP_AGENT_SOCKET=$DEV/agent.sock
+WHACP_AGENT_TOKEN_FILE=$DEV/token
+ENV
+umask 077
+[[ -f $DEV/server.key ]] || openssl rand -hex 32 > "$DEV/server.key"
 
-echo "Building agent…"
+echo "Building agent + server…"
 (cd "$ROOT/agent" && go build -o "$DEV/whacp-agent" ./cmd/whacp-agent)
-[[ -f $ROOT/panel/vendor/autoload.php ]] || (cd "$ROOT/panel" && composer install -q)
+(cd "$ROOT/server" && go build -o "$DEV/whacp" ./cmd/whacp)
 
-export WHACP_CONFIG="$DEV/panel.php"
-php "$ROOT/panel/bin/whacp" migrate
-if [[ $(php "$ROOT/panel/bin/whacp" users:count) == 0 ]]; then
-    echo "dev-password-change-me" | php "$ROOT/panel/bin/whacp" user:create admin admin@example.com --role=admin
-    echo "Created dev user: admin / dev-password-change-me"
-fi
+# Set up env so bootstrap-admin can find the DB/key.
+mkdir -p "$DEV/sessions"
+set -a; . "$DEV/server.env"; set +a
 
 "$DEV/whacp-agent" -config "$DEV/agent.json" > "$DEV/agent.log" 2>&1 &
 AGENT_PID=$!
-trap 'kill $AGENT_PID 2>/dev/null || true' EXIT
+# shellcheck disable=SC2064
+trap "kill $AGENT_PID 2>/dev/null || true" EXIT
 for _ in $(seq 1 20); do [[ -S $DEV/agent.sock ]] && break; sleep 0.2; done
-php "$ROOT/panel/bin/whacp" agent:check
 
-echo "Panel: http://127.0.0.1:$PORT/  (agent log: .dev/agent.log, panel log: .dev/panel.log)"
-php -S "127.0.0.1:$PORT" -t "$ROOT/panel/public" "$ROOT/panel/public/router.php"
+# Seed an admin user on first run. The server auto-migrates on startup.
+if ! "$DEV/whacp" bootstrap-admin --username admin --email admin@example.com --role admin <<<"dev-password-change-me" 2>/dev/null; then
+    : # admin already exists (or server will create it on first run)
+fi
+
+echo "Server: http://127.0.0.1:$PORT/  (agent log: .dev/agent.log, server log: .dev/server.log)"
+echo "Dev user: admin / dev-password-change-me"
+exec "$DEV/whacp"
