@@ -229,3 +229,26 @@ func TestServicesPageRendersWithoutRawDump(t *testing.T) {
 		t.Error("services page prints a raw Go map")
 	}
 }
+
+func TestPhpManagerPageAndReviewGrouping(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rr := get(t, h, "/php/manager", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /php/manager = %d", rr.Code)
+	}
+	if pageHas(rr.Body.String(), "map[") {
+		t.Error("php manager prints a raw Go map")
+	}
+	plan := map[string]any{"changes": true, "removals": true, "items": []any{
+		map[string]any{"action": "install", "version": "8.3", "packages": []any{"php8.3-fpm"}},
+		map[string]any{"action": "remove", "version": "8.1", "extension": "gd", "detail": "no site uses it"},
+	}}
+	groups, changes, removals := phpReviewData(plan)
+	if !changes || !removals || len(groups) != 2 || groups[0].Key != "install" || groups[1].Items[0].What != "PHP 8.1 · gd" {
+		t.Errorf("unexpected review grouping: %+v", groups)
+	}
+	if groups[0].Items[0].Packages != "php8.3-fpm" {
+		t.Errorf("packages = %q", groups[0].Items[0].Packages)
+	}
+}

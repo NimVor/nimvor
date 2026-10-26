@@ -17,13 +17,13 @@ var phpExtRE = regexp.MustCompile(`^[a-z][a-z0-9_]{1,30}$`)
 // phpProfileFromRequest reads and validates the versions/extensions lists
 // from a PHP Manager form. Mirrors PhpManagerController::fromRequest.
 func phpProfileFromRequest(r *http.Request) (versions, exts []string) {
-	for _, v := range r.Form["versions"] {
+	for _, v := range append(append([]string{}, r.Form["versions[]"]...), r.Form["versions"]...) {
 		v = trimWS(v)
 		if phpVersionRE.MatchString(v) {
 			versions = append(versions, v)
 		}
 	}
-	for _, e := range r.Form["extensions"] {
+	for _, e := range append(append([]string{}, r.Form["extensions[]"]...), r.Form["extensions"]...) {
 		e = trimWS(e)
 		if phpExtRE.MatchString(e) {
 			exts = append(exts, e)
@@ -53,33 +53,19 @@ func trimWS(s string) string {
 func (s *Server) phpManagerIndex(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
-	data := map[string]any{
-		"CSRF":       session.CSRFToken(sess),
-		"User":       user,
-		"Title":      "PHP Manager",
-		"Success":    "",
-		"Error":      "",
-		"Discovery":  nil,
-		"Available":  nil,
-		"AgentError": nil,
+	data, err := s.phpManagerView(r.Context())
+	if err != nil {
+		data = map[string]any{"AgentError": err.Error()}
 	}
+	data["CSRF"] = session.CSRFToken(sess)
+	data["User"] = user
+	data["Title"] = "PHP Manager"
+	data["Success"], data["Error"] = "", ""
 	if sf, ok := sess.PullFlash("success"); ok {
 		data["Success"] = sf
 	}
 	if ef, ok := sess.PullFlash("error"); ok {
 		data["Error"] = ef
-	}
-	if raw, err := s.agent.Call(r.Context(), "discovery.php", nil, 60*time.Second); err == nil {
-		var d any
-		_ = json.Unmarshal(raw, &d)
-		data["Discovery"] = d
-	} else {
-		data["AgentError"] = err.Error()
-	}
-	if raw, err := s.agent.Call(r.Context(), "php.available", nil, 60*time.Second); err == nil {
-		var a any
-		_ = json.Unmarshal(raw, &a)
-		data["Available"] = a
 	}
 	s.render(w, "php_manager", data)
 }
@@ -114,17 +100,7 @@ func (s *Server) phpManagerReview(w http.ResponseWriter, r *http.Request) {
 	}
 	var plan any
 	_ = json.Unmarshal(raw, &plan)
-	planJSON, _ := json.MarshalIndent(plan, "", "  ")
-	s.render(w, "php_manager_review", map[string]any{
-		"CSRF":       session.CSRFToken(sess),
-		"User":       user,
-		"Title":      "Review PHP profile",
-		"Versions":   versions,
-		"Extensions": exts,
-		"Plan":       plan,
-		"PlanJSON":   string(planJSON),
-		"Error":      "",
-	})
+	s.renderPhpReview(w, session.CSRFToken(sess), user, versions, exts, plan)
 }
 
 // phpManagerApply POST /php/manager/apply — applies a PHP profile as a
@@ -310,15 +286,5 @@ func (s *Server) phpManagerImport(w http.ResponseWriter, r *http.Request) {
 	})
 	var plan any
 	_ = json.Unmarshal(raw, &plan)
-	planJSON, _ := json.MarshalIndent(plan, "", "  ")
-	s.render(w, "php_manager_review", map[string]any{
-		"CSRF":       session.CSRFToken(sess),
-		"User":       user,
-		"Title":      "Review PHP profile",
-		"Versions":   versions,
-		"Extensions": exts,
-		"Plan":       plan,
-		"PlanJSON":   string(planJSON),
-		"Error":      "",
-	})
+	s.renderPhpReview(w, session.CSRFToken(sess), user, versions, exts, plan)
 }
