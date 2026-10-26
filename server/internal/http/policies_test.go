@@ -544,3 +544,14 @@ func TestServersConnectIsRefusedNotStoredDead(t *testing.T) {
 		t.Errorf("a server without token or pin was stored (n=%d, err=%v)", n, err)
 	}
 }
+
+func TestUsersPageHasRowActionsAndBulkTerminate(t *testing.T) {
+	h, _ := rolesEnv(t)
+	c := loginAsUser(t, h, "admin")
+	body := get(t, h, "/users", c).Body.String()
+	for _, want := range []string{"Create account", "New user", "Terminate selected", "Last sign-in", "Edit", "Delete"} {
+		if !pageHas(body, want) {
+			t.Errorf("users page lacks %q", want)
+		}
+	}
+}

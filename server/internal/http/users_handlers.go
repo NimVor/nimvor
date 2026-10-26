@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
+	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 	"github.com/mchkhawarshahzad/whacp/server/internal/twofactor"
@@ -15,18 +16,55 @@ import (
 // usersIndex lists the panel users the actor may manage: all users for staff,
 // only their own customers for a reseller (UserRepository::manageableBy).
 // Mirrors UsersController::index (route "users", users.view).
+type userListRow struct {
+	ID                                                  int64
+	Username, Name, Email, Role, Plan, StatusLabel, Cls string
+	LastLogin, LastIP, DeleteConfirm                    string
+	Self, CanTerminate                                  bool
+}
+
 func (s *Server) usersIndex(w http.ResponseWriter, r *http.Request) {
-	user := userFrom(r.Context())
-	users, err := identity.NewRepository(s.db).ManageableBy(r.Context(), user)
+	ctx := r.Context()
+	user := userFrom(ctx)
+	sess := sessionFrom(ctx)
+	users, err := identity.NewRepository(s.db).ManageableBy(ctx, user)
 	if err != nil {
 		s.log.Error("list users", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	manage := s.can(r, "users.manage")
+	bulk := manage && hosting.IsAll(user)
+	rows := make([]userListRow, 0, len(users))
+	for _, u := range users {
+		row := userListRow{ID: u.ID, Username: u.Username, Email: u.Email, Role: u.RoleLabel, Plan: "—", Self: u.ID == user.ID,
+			CanTerminate: bulk && u.RoleScope == "own", LastLogin: "never"}
+		if u.DisplayName != "" {
+			row.Name = u.DisplayName + " · "
+		}
+		if u.PlanName.Valid {
+			row.Plan = u.PlanName.String
+		}
+		switch {
+		case u.Suspended:
+			row.StatusLabel, row.Cls = "suspended", "text-bg-danger"
+		case u.IsActive:
+			row.StatusLabel, row.Cls = "active", "text-bg-success"
+		default:
+			row.StatusLabel, row.Cls = "disabled", "text-bg-secondary"
+		}
+		if u.LastLoginAt.Valid {
+			row.LastLogin = timeAgo(u.LastLoginAt.String)
+		}
+		if u.LastLoginIP.Valid {
+			row.LastIP = u.LastLoginIP.String
+		}
+		row.DeleteConfirm = "Delete the panel user \"" + u.Username + "\"? They will no longer be able to sign in. This cannot be undone."
+		rows = append(rows, row)
+	}
 	s.render(w, "users", map[string]any{
-		"User":  user,
-		"CSRF":  session.CSRFToken(sessionFrom(r.Context())),
-		"Users": users,
+		"User": user, "CSRF": session.CSRFToken(sess), "Title": "Panel users", "Rows": rows, "Manage": manage, "Bulk": bulk,
+		"Success": pullFlashKey(sess, "success"), "Error": pullFlashKey(sess, "error"),
 	})
 }
 
