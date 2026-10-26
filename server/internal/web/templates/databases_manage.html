@@ -18,6 +18,8 @@
     {{if .Site}}<input type="hidden" name="website_id" value="{{.Site.ID}}">{{end}}
     <label for="db-name">New database</label>
     <input id="db-name" name="name" type="text" required placeholder="{{if .Prefix}}{{.Prefix}}{{end}}name">
+    <div class="form-check form-switch small"><input type="hidden" name="create_user" value="0"><input class="form-check-input" type="checkbox" name="create_user" value="1" id="db-cu" checked><label class="form-check-label" for="db-cu">Create a user with full access</label></div>
+    <div class="form-check form-switch small"><input type="hidden" name="store_password" value="0"><input class="form-check-input" type="checkbox" name="store_password" value="1" id="db-sp"><label class="form-check-label" for="db-sp">Keep the password (encrypted) so it can be shown again</label></div>
     <button type="submit">Create</button>
   </form>
   {{end}}

@@ -161,6 +161,12 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, serverID int64, ac
 // stored), both audited. Returns the database id, the (prefixed) name, the
 // username and the plaintext password (stored sealed, shown once).
 func (s *DatabaseService) CreateWithUser(ctx context.Context, serverID int64, actor *identity.User, name, username string, websiteID *int64) (dbID int64, dbName, user, password string, err error) {
+	return s.CreateWithUserStore(ctx, serverID, actor, name, username, websiteID, true)
+}
+
+// CreateWithUserStore is CreateWithUser with the choice of keeping the
+// password (sealed) so it can be shown again; the form leaves it off by default.
+func (s *DatabaseService) CreateWithUserStore(ctx context.Context, serverID int64, actor *identity.User, name, username string, websiteID *int64, store bool) (dbID int64, dbName, user, password string, err error) {
 	pfx := prefix(actor)
 	rawName := strings.ToLower(strings.TrimSpace(name))
 	name = pfx + rawName
@@ -239,9 +245,12 @@ func (s *DatabaseService) CreateWithUser(ctx context.Context, serverID int64, ac
 			Fix:  "Create the user from the Users tab.",
 		}
 	}
-	enc, err := s.crypto.Encrypt([]byte(password))
-	if err != nil {
-		return 0, "", "", "", err
+	enc := ""
+	if store {
+		enc, err = s.crypto.Encrypt([]byte(password))
+		if err != nil {
+			return 0, "", "", "", err
+		}
 	}
 	uid, err := s.db.InsertDBUser(ctx, serverID, username, "localhost", ownerID, enc)
 	if err != nil {
@@ -252,7 +261,7 @@ func (s *DatabaseService) CreateWithUser(ctx context.Context, serverID int64, ac
 		return 0, "", "", "", err
 	}
 	if s.auditlog != nil {
-		s.auditlog("database.user_create", "database_user", username, map[string]any{"database": name, "stored": true})
+		s.auditlog("database.user_create", "database_user", username, map[string]any{"database": name, "stored": store})
 	}
 	return id, name, username, password, nil
 }

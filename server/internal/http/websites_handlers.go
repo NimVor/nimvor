@@ -227,7 +227,15 @@ func (s *Server) databasesStore(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	svc := s.databaseService(r, user)
-	_, err := svc.CreateDatabase(r.Context(), s.currentServerID(r), user, r.FormValue("name"), websiteID)
+	// A switch posts a hidden 0 and then its checkbox's 1: the last value counts.
+	withUser := lastPostValue(r, "create_user") == "1"
+	var err error
+	var secretUser, secretPassword string
+	if withUser {
+		_, _, secretUser, secretPassword, err = svc.CreateWithUserStore(r.Context(), s.currentServerID(r), user, r.FormValue("name"), r.FormValue("username"), websiteID, lastPostValue(r, "store_password") == "1")
+	} else {
+		_, err = svc.CreateDatabase(r.Context(), s.currentServerID(r), user, r.FormValue("name"), websiteID)
+	}
 	if err != nil {
 		var ve *hosting.ValidationError
 		var ue *hosting.UserError
@@ -247,6 +255,9 @@ func (s *Server) databasesStore(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
+	}
+	if withUser && secretPassword != "" {
+		s.flashSecret(sess, "Database user created", secretUser, secretPassword)
 	}
 	sess.Flash("success", "Database created.")
 	http.Redirect(w, r, back, http.StatusSeeOther)

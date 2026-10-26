@@ -576,3 +576,27 @@ func TestWebsitesListHasPerSiteOperations(t *testing.T) {
 		t.Error("websites page prints a raw map")
 	}
 }
+
+func TestCreateDatabaseWithUserHonoursTheSwitches(t *testing.T) {
+	h, cookie, ra, db := writeEnv(t, 5, 0)
+	token, cookie := dbFormToken(t, h, cookie)
+	// create_user on (hidden 0 then 1), store_password off (just the hidden 0).
+	rr := postForm(h, "/databases", url.Values{"_token": {token}, "name": {"shop"}, "create_user": {"0", "1"}, "store_password": {"0"}}, cookie)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("create = %d", rr.Code)
+	}
+	acts := ra.called()
+	if len(acts) != 3 || acts[0] != "db.create" || acts[1] != "db.user_create" || acts[2] != "db.grant" {
+		t.Fatalf("agent actions = %v, want [db.create db.user_create db.grant]", acts)
+	}
+	var enc string
+	if err := db.QueryRow(`SELECT password_enc FROM database_users WHERE username = 'bob_shop'`).Scan(&enc); err != nil {
+		t.Fatalf("the user was not recorded: %v", err)
+	}
+	if enc != "" {
+		t.Errorf("password stored although the switch was off: %q", enc)
+	}
+	if body := get(t, h, "/databases", cookie).Body.String(); !pageHas(body, "Database user created") {
+		t.Error("the new password was not shown once")
+	}
+}
