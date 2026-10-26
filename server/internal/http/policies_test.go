@@ -166,3 +166,15 @@ func TestPagesCarryTheNavigationShell(t *testing.T) {
 		t.Error("the sidebar lacks an area the role may open")
 	}
 }
+
+// Forms that PHP's pages have and that the Go pages once lacked.
+func TestProfileHasPasswordAndSessionForms(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	body := get(t, h, "/profile", admin).Body.String()
+	for _, want := range []string{`action="/profile/password"`, `name="current_password"`, `action="/profile/sessions/revoke"`, `name="expires_days"`} {
+		if !pageHas(body, want) {
+			t.Errorf("profile page lacks %s", want)
+		}
+	}
+}

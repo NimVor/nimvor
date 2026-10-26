@@ -64,8 +64,11 @@ func (s *Server) profileShow(w http.ResponseWriter, r *http.Request) {
 	errMsg, _ := sess.PullFlash("error")
 	recovery, _ := sess.PullFlash("recovery_codes")
 	newToken, _ := sess.PullFlash("api_token")
+	rules, _ := s.policy.Describe(r.Context())
 	s.render(w, "profile", map[string]any{
 		"User":          user,
+		"Title":         "Profile",
+		"PasswordRules": rules,
 		"CSRF":          session.CSRFToken(sess),
 		"Tokens":        tokens,
 		"TwoFactor":     twoFactor,
@@ -176,12 +179,14 @@ func (s *Server) profileRevokeSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := userFrom(r.Context())
-	if err := identity.NewRepository(s.db).BumpSessionEpoch(r.Context(), user.ID); err != nil {
+	if err := s.auth.RefreshOwnSession(r.Context(), sess, user); err != nil {
 		s.log.Error("bump session epoch", "error", err)
 		sess.Flash("error", "Could not sign out other sessions.")
 		http.Redirect(w, r, "/profile#sessions", http.StatusSeeOther)
 		return
 	}
+	s.audit.Record(r.Context(), audit.Entry{UserID: &user.ID, Username: user.Username, Action: "auth.sessions_revoked",
+		TargetType: "user", TargetID: strconv.FormatInt(user.ID, 10), Result: audit.Success, IP: clientIP(r)})
 	sess.Flash("success", "You were signed out everywhere else.")
 	http.Redirect(w, r, "/profile#sessions", http.StatusSeeOther)
 }

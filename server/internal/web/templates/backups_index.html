@@ -178,6 +178,8 @@
             <div class="col-md-6 s3-fields ftp-fields sftp-fields"><label class="form-label" for="st-endpoint">Endpoint</label><input class="form-control form-control-sm" id="st-endpoint" name="endpoint" placeholder="https://s3.eu-central-1.amazonaws.com" value="{{index .Old "endpoint"}}"></div>
             <div class="col-md-6 s3-fields"><label class="form-label" for="st-region">Region</label><input class="form-control form-control-sm" id="st-region" name="region" value="{{index .Old "region"}}" placeholder="eu-central-1"></div>
             <div class="col-md-6 s3-fields"><label class="form-label" for="st-bucket">Bucket</label><input class="form-control form-control-sm" id="st-bucket" name="bucket" value="{{index .Old "bucket"}}"></div>
+            <div class="col-md-6 s3-fields"><label class="form-label" for="st-access">Access key</label><input class="form-control form-control-sm" id="st-access" name="access_key" autocomplete="off"></div>
+            <div class="col-md-6 s3-fields"><label class="form-label" for="st-secret">Secret key</label><input class="form-control form-control-sm" id="st-secret" type="password" name="secret_key" autocomplete="new-password"></div>
             <div class="col-md-6 s3-fields"><div class="form-check mt-4"><input type="hidden" name="path_style" value="0"><input class="form-check-input" type="checkbox" id="st-pathstyle" name="path_style" value="1"><label class="form-check-label" for="st-pathstyle">Path-style endpoint (MinIO, Garage)</label></div></div>
 
             <div class="col-md-6 sftp-fields ftp-fields"><label class="form-label" for="st-host">Host</label><input class="form-control form-control-sm" id="st-host" name="host" value="{{index .Old "host"}}"></div>

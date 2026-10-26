@@ -217,7 +217,7 @@ func (s *Server) doLogout(w http.ResponseWriter, r *http.Request) {
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	data := map[string]any{
-		"User": userFrom(r.Context()),
+		"User":  userFrom(r.Context()),
 		"CSRF":  session.CSRFToken(sess),
 		"Title": "Dashboard",
 	}
