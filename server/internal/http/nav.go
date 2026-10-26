@@ -4,6 +4,7 @@ import (
 	"context"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"github.com/mchkhawarshahzad/whacp/server/internal/notify"
@@ -94,3 +95,26 @@ func (s *Server) installNav() {
 		return s.buildNav(context.Background(), u)
 	})
 }
+
+// routeURL maps a PHP route name to its path (menu entries only).
+func routeURL(name string) string {
+	routeURLsOnce.Do(func() {
+		routeURLs = map[string]string{}
+		for _, g := range navGroups {
+			for _, it := range g.Items {
+				routeURLs[it.Route] = it.URL
+				for _, c := range it.Children {
+					if c.View == "" {
+						routeURLs[c.Route] = c.URL
+					}
+				}
+			}
+		}
+	})
+	return routeURLs[name]
+}
+
+var (
+	routeURLs     map[string]string
+	routeURLsOnce sync.Once
+)

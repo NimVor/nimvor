@@ -12,11 +12,52 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>Components</h1>
   {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
   {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  {{if .AgentError}}<p class="alert alert-warning">Agent unavailable: {{.AgentError}}</p>{{end}}
-  <pre class="font-monospace small">{{.Components}}</pre>
+  <p class="text-body-secondary">What each part of the server needs, and what is missing.
+  {{if .Components}}<button class="btn btn-sm btn-outline-secondary ms-2" type="button" data-bs-toggle="modal" data-bs-target="#components-profile"><i class="bi bi-ui-checks me-1" aria-hidden="true"></i>What this server should have</button>{{end}}</p>
+  {{if not .Components}}
+    <p class="alert alert-warning">The agent could not be reached{{if .AgentError}}: {{.AgentError}}{{end}}.</p>
+  {{else}}
+  <div class="wcp-panel mb-3"><div class="wcp-statusbar">
+    <span class="fw-medium">This server</span>
+    <span>{{if .AllReady}}<span class="wcp-state is-ok">All {{.UsedCount}} components ready</span>{{else}}<span class="wcp-state is-warn">{{.Ready}} of {{.UsedCount}} components ready</span>{{end}}</span>
+    <span class="small wcp-muted">Each step has a Fix. Opening ports is undone after 2 minutes unless you keep the change; installing runs in the background (see the job log).</span>
+  </div></div>
+  <div class="row g-3 mb-4">{{range .Cards}}{{template "wcp_component_card" (dict "C" . "CSRF" $.CSRF)}}{{end}}</div>
+  {{if .UnusedCards}}
+  <details class="mb-3" id="components-unused"><summary class="fw-medium mb-2">Not used on this server ({{len .UnusedCards}})</summary>
+    <div class="row g-3 mt-1">{{range .UnusedCards}}{{template "wcp_component_card" (dict "C" . "CSRF" $.CSRF)}}{{end}}</div></details>
+  {{end}}
+  <div class="modal fade" id="components-profile" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">What this server should have</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body">
+    <form method="post" action="/components/profile" data-wcp-busy><input type="hidden" name="_token" value="{{.CSRF}}">
+      <p class="small wcp-muted">Components you tick are checked and shown first; the others are listed under “Not used on this server”. Nothing is installed or removed here.</p>
+      {{range .Cards}}<div class="form-check"><input class="form-check-input" type="checkbox" name="expected[]" value="{{.ID}}" id="cp-{{.ID}}" checked><label class="form-check-label" for="cp-{{.ID}}">{{.Name}}{{if not .Installed}} <span class="small wcp-muted">(not installed)</span>{{end}}</label></div>{{end}}
+      {{range .UnusedCards}}<div class="form-check"><input class="form-check-input" type="checkbox" name="expected[]" value="{{.ID}}" id="cp-{{.ID}}"><label class="form-check-label" for="cp-{{.ID}}">{{.Name}}{{if not .Installed}} <span class="small wcp-muted">(not installed)</span>{{end}}</label></div>{{end}}
+      <div class="d-flex justify-content-end gap-2 mt-3"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary">Save</button></div>
+    </form></div></div></div></div>
+  {{end}}
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}
+
+{{define "wcp_component_card"}}{{$c := .C}}
+<div class="col-md-6 col-xxl-4"><div class="wcp-panel h-100 d-flex flex-column" id="c-{{$c.ID}}" data-component="{{$c.ID}}">
+  <div class="d-flex align-items-start gap-2 p-3 pb-2"><div class="flex-grow-1 min-w-0"><div class="fw-semibold">{{$c.Name}}</div><div class="small wcp-muted">{{$c.Description}}</div></div><span class="wcp-state {{$c.StateClass}} text-nowrap small">{{$c.StateText}}</span></div>
+  <ul class="list-unstyled small px-3 mb-2 flex-grow-1">
+  {{range $c.Steps}}
+    <li class="d-flex align-items-start gap-2 py-1 border-top" data-step="{{.ID}}" data-status="{{.Status}}">
+      <i class="bi {{.Icon}} mt-1" aria-hidden="true"></i>
+      <div class="flex-grow-1 min-w-0"><span class="fw-medium">{{.Label}}</span>{{if .Detail}}<div class="wcp-muted text-break">{{.Detail}}</div>{{end}}</div>
+      {{if .PageURL}}<a class="btn btn-sm btn-outline-primary text-nowrap" href="{{.PageURL}}">{{.PageLabel}}</a>
+      {{else if .FixAction}}<form method="post" action="{{.FixAction}}" data-wcp-busy{{if .FixConfirm}} data-wcp-confirm="{{.FixConfirm}}"{{end}}><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-outline-primary text-nowrap">{{.FixLabel}}</button></form>{{end}}
+    </li>
+  {{end}}
+  </ul>
+  <div class="d-flex flex-wrap gap-2 px-3 pb-3 small">
+    {{if $c.SettingsURL}}<a href="{{$c.SettingsURL}}"><i class="bi bi-gear me-1" aria-hidden="true"></i>Settings</a>{{end}}
+    {{if $c.Units}}<span class="wcp-muted font-monospace text-truncate">{{$c.Units}}</span>{{end}}
+    {{if and (not $c.Used) $c.Installed}}<span class="wcp-muted">Installed, though not marked as needed.</span>{{end}}
+  </div>
+</div></div>
+{{end}}

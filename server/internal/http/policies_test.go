@@ -197,3 +197,20 @@ func TestServerHealthRendersWithoutAgent(t *testing.T) {
 		t.Error("health page prints a raw Go map")
 	}
 }
+
+func TestComponentsPageRendersCards(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rr := get(t, h, "/components", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /components = %d", rr.Code)
+	}
+	for _, want := range []string{"Web server", "Database server", "Email"} {
+		if !pageHas(rr.Body.String(), want) {
+			t.Errorf("components page lacks %q", want)
+		}
+	}
+	if pageHas(rr.Body.String(), "map[") {
+		t.Error("components page prints a raw Go map")
+	}
+}

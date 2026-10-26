@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -67,7 +68,110 @@ func (s *Server) componentsIndex(w http.ResponseWriter, r *http.Request) {
 	} else {
 		data["AgentError"] = err.Error()
 	}
+	data["Cards"], data["UnusedCards"], data["Ready"], data["UsedCount"], data["AllReady"] = s.componentCards(r, data)
 	s.render(w, "components_index", data)
+}
+
+type componentStep struct {
+	ID, Label, Status, Detail, Icon string
+	FixAction, FixLabel, FixConfirm string
+	PageURL, PageLabel              string
+}
+
+type componentCard struct {
+	ID, Name, Description, StateText, StateClass, SettingsURL, Units string
+	Used, Installed                                                  bool
+	Steps                                                            []componentStep
+}
+
+// componentCards ports the card building of components/index.php.
+func (s *Server) componentCards(r *http.Request, data map[string]any) (used, unused []componentCard, ready, usedCount int, allReady bool) {
+	comps, _ := data["Components"].([]any)
+	expected := map[string]bool{}
+	if ex, ok := data["Expected"].([]string); ok {
+		for _, e := range ex {
+			expected[e] = true
+		}
+	}
+	user := userFrom(r.Context())
+	az := s.authorizer()
+	can := func(perm string) bool { ok, err := az.Can(r.Context(), user, perm); return err == nil && ok }
+	labels := map[string]string{"installed": "Packages", "setup": "Set up", "running": "Running", "boot": "Starts at boot", "ports": "Ports open"}
+	fix := map[string]struct{ action, perm, label string }{
+		"installed": {"install", "packages.manage", "Install"}, "running": {"start", "services.manage", "Start"},
+		"boot": {"boot", "services.manage", "Start at boot"}, "ports": {"ports", "security.manage", "Open ports"},
+	}
+	icons := map[string]string{"ok": "bi-check-circle-fill text-success", "todo": "bi-exclamation-circle-fill text-warning", "na": "bi-dash-circle text-body-secondary"}
+	for _, c := range comps {
+		id := jstr(c, "id")
+		card := componentCard{ID: id, Name: jstr(c, "name"), Description: jstr(c, "description"), Used: expected[id], Installed: jbool(c, "installed")}
+		pageURL := routeURL(componentsPages[id])
+		switch {
+		case !card.Installed:
+			card.StateText = "Not installed"
+		case jbool(c, "ready"):
+			card.StateText, card.StateClass = "Ready", "is-ok"
+		default:
+			card.StateText, card.StateClass = "Needs attention", "is-warn"
+		}
+		if pageURL != "" && card.Installed {
+			card.SettingsURL = pageURL
+		}
+		if us, ok := jmap(c)["units"].([]any); ok {
+			var names []string
+			for _, u := range us {
+				if str, ok := u.(string); ok {
+					names = append(names, str)
+				}
+			}
+			card.Units = strings.Join(names, " ")
+		}
+		steps, _ := jmap(c)["steps"].([]any)
+		for _, st := range steps {
+			sid, status, detail := jstr(st, "id"), jstr(st, "status"), jstr(st, "detail")
+			if status == "na" && detail == "" {
+				continue
+			}
+			step := componentStep{ID: sid, Label: labels[sid], Status: status, Detail: detail, Icon: icons[status]}
+			if step.Label == "" {
+				step.Label = sid
+			}
+			if step.Icon == "" {
+				step.Icon = "bi-dash-circle"
+			}
+			if status == "todo" {
+				f, hasFix := fix[sid]
+				viaPage := sid == "setup" || (sid == "installed" && (id == "php" || id == "mongodb")) || (sid == "running" && id == "firewall")
+				if viaPage && pageURL != "" {
+					step.PageURL, step.PageLabel = pageURL, "Open"
+					if sid == "setup" {
+						step.PageLabel = "Set up"
+					}
+				} else if !viaPage && hasFix && can(f.perm) {
+					step.FixAction, step.FixLabel = "/components/"+id+"/"+f.action, f.label
+					if f.action == "ports" {
+						var items []string
+						if its, ok := jmap(st)["items"].([]any); ok {
+							for _, it := range its {
+								items = append(items, fmt.Sprint(it))
+							}
+						}
+						step.FixConfirm = "Open " + strings.Join(items, ", ") + " in the firewall for " + card.Name + "? You then have 2 minutes to keep the change."
+					}
+				}
+			}
+			card.Steps = append(card.Steps, step)
+		}
+		if card.Used {
+			used = append(used, card)
+			if jbool(c, "ready") {
+				ready++
+			}
+		} else {
+			unused = append(unused, card)
+		}
+	}
+	return used, unused, ready, len(used), ready == len(used)
 }
 
 // componentsInstalled returns the ids of components marked installed from
