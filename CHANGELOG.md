@@ -6,6 +6,35 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed (Go differential audit, Wave 1: pages and forms)
+- **Every page now has the panel shell**: sidebar built from the user's permissions,
+  plan features and scope, topbar, notification bell, command palette, job and
+  confirmation dialogs (`_shell.html`, `nav.go`).
+- **Real pages instead of raw agent dumps**: Server (system, disks, interfaces,
+  settings with change dialogs), Server health (checks per section), Components
+  (status cards with Fix actions and the expected-profile dialog), Services,
+  PHP Manager (version and extension picker, grouped review), Monitoring
+  processes, and the SSL Center (hosts, certificates, keys and CSRs, TLS,
+  services, AutoSSL).
+- Create-website form is prefilled with the PHP defaults; the profile page has the
+  password and sign-out-everywhere forms; new backup storage takes S3 keys.
+- Inline scripts and styles moved to assets (`noinline_test.go` keeps them out).
+
+### Fixed (Go differential audit, Wave 1)
+- SSL keys could not be deleted, WhaCP certificates could not be deleted and the
+  default key type was invalid: the panel sent the agent the wrong parameters.
+- Account backup download and upload used actions or fields the agent does not
+  have. Restoring an account now says it is unavailable instead of failing
+  after marking the restore failed.
+- AutoSSL called agent actions that do not exist; it now reads the queue and log
+  from the database. SSL Center pages and actions are for server administrators only.
+- PHP Manager forms post `versions[]` / `extensions[]` like the PHP panel (both
+  spellings are accepted).
+
+### Not yet ported (tracked)
+- Setup wizard steps, AutoSSL engine and scheduler, account restore (rebuilding the
+  account from a backup file), `/limits`, `/accounts/bandwidth`, `/admin/plugins`.
+
 ### Fixed (Go differential audit, Wave 0)
 - **Two-factor sign-in stopped working ~90 s after the panel started**: the TOTP
   clock was frozen at process start. It now reads the real clock.
