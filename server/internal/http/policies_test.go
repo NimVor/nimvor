@@ -442,3 +442,21 @@ func TestMailIndexRenders(t *testing.T) {
 		t.Error("mail page lacks its domain panel or prints a raw map")
 	}
 }
+
+func TestPackagesPageHasQueueAndComponentRows(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rr := get(t, h, "/packages", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /packages = %d", rr.Code)
+	}
+	body := rr.Body.String()
+	for _, want := range []string{"Installation queue", "Updates pending", "Components installed"} {
+		if !pageHas(body, want) {
+			t.Errorf("packages page lacks %q", want)
+		}
+	}
+	if pageHas(body, "map[") {
+		t.Error("packages page prints a raw map")
+	}
+}

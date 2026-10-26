@@ -25,55 +25,112 @@ import (
 
 // systemPackages renders GET /packages — components list, updates count,
 // broken-package health. The XHR client (data-wcp-pkg-list) receives JSON.
-func (s *Server) systemPackages(w http.ResponseWriter, r *http.Request) {
-	user := userFrom(r.Context())
-	data := map[string]any{
-		"User":       user,
-		"CSRF":       session.CSRFToken(sessionFrom(r.Context())),
-		"Title":      "Packages",
-		"Subtitle":   "Components and system updates",
-		"Packages":   []any{},
-		"Updates":    nil,
-		"Health":     nil,
-		"AgentError": "",
-	}
-	listRaw, err := s.agent.Call(r.Context(), "packages.list", nil, 60*time.Second)
-	if err != nil {
-		data["AgentError"] = agentMessage(err)
-	} else {
-		var pkgs []any
-		if err := json.Unmarshal(listRaw, &pkgs); err == nil {
-			data["Packages"] = pkgs
-		} else {
-			// Agent may wrap {success,data}; unwrap.
-			var env struct {
-				Data []any `json:"data"`
-			}
-			if json.Unmarshal(listRaw, &env) == nil {
-				data["Packages"] = env.Data
-			}
-		}
-	}
-	upRaw, err := s.agent.Call(r.Context(), "packages.updates", nil, 150*time.Second)
-	if err == nil {
-		var upd any
-		if json.Unmarshal(upRaw, &upd) == nil {
-			data["Updates"] = upd
-		}
-	}
-	healthRaw, err := s.agent.Call(r.Context(), "packages.health", nil, 150*time.Second)
-	if err == nil {
-		var h any
-		if json.Unmarshal(healthRaw, &h) == nil {
-			data["Health"] = h
-		}
-	}
+type pkgRow struct {
+	Name, Description, Version, Reason, State string
+	Installed, Unavailable, Other, Broken     bool
+	Kind                                      string // installed | broken | present-broken | unavailable | missing
+	ModsecLink                                bool
+}
 
+type pkgUpdate struct {
+	Name, Current, New string
+	Security           bool
+}
+
+type pkgProblem struct {
+	Package, Kind, Detail string
+	Tried                 bool
+}
+
+func (s *Server) systemPackages(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := userFrom(ctx)
+	sess := sessionFrom(ctx)
+	data := map[string]any{
+		"User": user, "CSRF": session.CSRFToken(sess), "Title": "Packages", "AgentError": "",
+		"Success": pullFlashKey(sess, "success"), "Error": pullFlashKey(sess, "error"),
+	}
+	var list []any
+	if raw, err := s.agent.Call(ctx, "packages.list", nil, 60*time.Second); err != nil {
+		data["AgentError"] = agentMessage(err)
+	} else if json.Unmarshal(raw, &list) != nil {
+		var env struct {
+			Data []any `json:"data"`
+		}
+		if json.Unmarshal(raw, &env) == nil {
+			list = env.Data
+		}
+	}
 	// XHR / JSON client expects {success,packages} like PHP.
 	if wantsJSON(r) {
-		writeJSON(w, http.StatusOK, map[string]any{"success": true, "packages": data["Packages"]})
+		writeJSON(w, http.StatusOK, map[string]any{"success": true, "packages": list})
 		return
 	}
+	var rows []pkgRow
+	stats := map[string]int{"installed": 0, "pending": 0, "failed": 0}
+	unavailable := 0
+	for _, x := range list {
+		row := pkgRow{Name: jstr(x, "name"), Description: jstr(x, "description"), Version: jstr(x, "version"), Reason: jstr(x, "reason"), State: jstr(x, "state"),
+			Installed: jbool(x, "installed"), Unavailable: jbool(x, "unavailable"), Other: jstr(x, "source") == "other"}
+		switch {
+		case row.Installed && row.State == "installed":
+			row.Kind = "broken"
+		case row.Installed:
+			row.Kind = "installed"
+		case row.State == "installed":
+			row.Kind = "present-broken"
+		case row.Unavailable:
+			row.Kind = "unavailable"
+			row.ModsecLink = row.Name == "libnginx-mod-http-modsecurity"
+		default:
+			row.Kind = "missing"
+		}
+		if !(!row.Installed && row.Unavailable) {
+			switch {
+			case row.State == "installed":
+				stats["failed"]++
+			case row.Installed:
+				stats["installed"]++
+			default:
+				stats["pending"]++
+			}
+		} else {
+			unavailable++
+		}
+		rows = append(rows, row)
+	}
+	var ups []pkgUpdate
+	var upd any
+	if raw, err := s.agent.Call(ctx, "packages.updates", nil, 150*time.Second); err == nil {
+		_ = json.Unmarshal(raw, &upd)
+		l, _ := jmap(upd)["updates"].([]any)
+		for _, u := range l {
+			ups = append(ups, pkgUpdate{jstr(u, "name"), jstr(u, "current"), jstr(u, "new"), jbool(u, "security")})
+		}
+	}
+	var problems []pkgProblem
+	var health any
+	if raw, err := s.agent.Call(ctx, "packages.health", nil, 150*time.Second); err == nil {
+		_ = json.Unmarshal(raw, &health)
+		kinds := map[string]string{"failed_script": "install script failed", "missing_dependency": "missing dependency", "duplicate": "duplicate version", "half_configured": "not fully installed"}
+		pl, _ := jmap(health)["problems"].([]any)
+		for _, p := range pl {
+			k := jstr(p, "kind")
+			if l, ok := kinds[k]; ok {
+				k = l
+			}
+			problems = append(problems, pkgProblem{jstr(p, "package"), k, jstr(p, "detail"), jbool(p, "tried")})
+		}
+	}
+	idx := jstr(upd, "index_refreshed")
+	if len(idx) > 10 {
+		idx = idx[:10]
+	}
+	data["Rows"], data["Stats"], data["Unavailable"], data["Updates"], data["Problems"] = rows, stats, unavailable, ups, problems
+	data["HasUpdates"], data["UpdateCount"], data["SecurityCount"] = upd != nil, int(jnum(upd, "count")), int(jnum(upd, "security"))
+	data["IndexDate"], data["IndexStale"] = idx, jbool(upd, "index_stale")
+	data["Repairable"], data["Duplicates"] = jbool(health, "repairable"), jbool(health, "duplicates")
+	data["ComponentCount"] = len(rows)
 	s.render(w, "server_packages", data)
 }
 
