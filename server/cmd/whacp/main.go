@@ -37,20 +37,28 @@ import (
 var version = "dev"
 
 func main() {
-	// If the first argument is a known subcommand, dispatch; otherwise fall
-	// through to "serve" (preserves existing flag behaviour).
+	// Dispatch subcommands. The convention is:
+	//   whacp [flags]                      serve (default)
+	//   whacp serve [flags]                same as default
+	//   whacp bootstrap-admin [flags]      create first admin
+	//   whacp has-admin                    probe: exit 0/1
+	//   whacp version                      print version
 	cmd := "serve"
-	hasAdminFlag := false
-	for _, a := range os.Args[1:] {
-		if a == "-has-admin" {
-			hasAdminFlag = true
+	args := os.Args[1:]
+	// Detect "has-admin" first because it is a flag-looking subcommand (used
+	// by the installer as `whacp -has-admin`); strip it before flag.Parse.
+	filtered := make([]string, 0, len(args))
+	for _, a := range args {
+		if a == "-has-admin" || a == "has-admin" {
+			cmd = "has-admin"
+			continue
 		}
+		filtered = append(filtered, a)
 	}
-	if hasAdminFlag {
-		cmd = "has-admin"
-	} else if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
-		cmd = os.Args[1]
-		os.Args = append(os.Args[:1], os.Args[2:]...)
+	os.Args = append([]string{os.Args[0]}, filtered...)
+	if len(filtered) > 0 && !strings.HasPrefix(filtered[0], "-") {
+		cmd = filtered[0]
+		os.Args = append([]string{os.Args[0]}, filtered[1:]...)
 	}
 
 	log := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -81,6 +89,14 @@ func runServe(log *slog.Logger) int {
 		return 0
 	}
 	cfg := config.Load()
+
+	// Tee structured logs to the configured file so the Logs viewer can tail
+	// it; stderr always receives logs too (for journalctl / docker logs).
+	if cfg.LogFile != "" {
+		if lf, err := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o640); err == nil {
+			log = slog.New(slog.NewJSONHandler(io.MultiWriter(os.Stderr, lf), &slog.HandlerOptions{Level: slog.LevelInfo}))
+		}
+	}
 
 	db, err := database.Open(cfg.DBPath)
 	if err != nil {
