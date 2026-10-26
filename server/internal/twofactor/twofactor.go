@@ -228,7 +228,7 @@ type Service struct {
 
 // New builds the two-factor service.
 func New(db *sql.DB, c *crypto.Crypto) *Service {
-	return &Service{db: db, crypto: c, now: time.Now().Unix}
+	return &Service{db: db, crypto: c, now: func() int64 { return time.Now().Unix() }}
 }
 
 // WithClock returns a copy with a replaced clock (tests).

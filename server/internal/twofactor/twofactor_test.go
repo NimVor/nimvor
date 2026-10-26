@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -342,5 +343,16 @@ func TestURI(t *testing.T) {
 	want := "otpauth://totp/WhaCP%3Aroot%40example.test?secret=SECRET&issuer=WhaCP&algorithm=SHA1&digits=6&period=30"
 	if got != want {
 		t.Fatalf("URI = %q, want %q", got, want)
+	}
+}
+
+// The default service must read the real clock on every call, not the time
+// it was constructed at.
+func TestNewUsesLiveClock(t *testing.T) {
+	s := New(nil, nil)
+	a := s.now()
+	time.Sleep(1100 * time.Millisecond)
+	if b := s.now(); b <= a {
+		t.Fatalf("clock is frozen: %d then %d", a, b)
 	}
 }

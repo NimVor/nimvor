@@ -37,7 +37,13 @@ func enable2FAForUser(t *testing.T, db *sql.DB) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	codes, err := tf.Enable(context.Background(), 1, secret, freshCode(t, secret))
+	// Enrol with the previous step's code so the current step stays unused
+	// (a step is single-use) for the sign-in the test performs next.
+	prev, err := twofactor.Code(secret, time.Now().Unix()/twofactor.Period-1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	codes, err := tf.Enable(context.Background(), 1, secret, prev)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,26 +187,16 @@ func TestLoginTwoFactorStepWithoutPending(t *testing.T) {
 	}
 }
 
-func TestLoginKeyOnlyUserRefused(t *testing.T) {
+// A user with only a security key is sent to the second-factor step (the key
+// ceremony completes it); the password alone must not sign them in.
+func TestLoginKeyOnlyUserNeedsTheKey(t *testing.T) {
 	h, db := serverWithUser(t)
 	if _, err := db.Exec(`INSERT INTO webauthn_credentials (user_id, credential_id, public_key, name, created_at)
 		VALUES (1,'cred1','key','yubikey','2026-01-01')`); err != nil {
 		t.Fatal(err)
 	}
-	cookie, token := getLogin(t, h)
-	rr := postForm(h, "/login", url.Values{"_token": {token}, "username": {"root"}, "password": {loginPassword}}, cookie)
-	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/login" {
-		t.Fatalf("key-only login = %d loc=%q, want 303 /login (refusal)", rr.Code, rr.Header().Get("Location"))
-	}
-	c := rr.Result().Cookies()
-	if len(c) > 0 {
-		cookie = c[0]
-	}
-	rr = getWith(t, h, "/login", cookie)
-	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), "Two-factor sign-in is required") {
-		t.Fatalf("refusal message not shown:\n%s", rr.Body.String())
-	}
-	if rr = getWith(t, h, "/", cookie); rr.Code != http.StatusSeeOther {
+	cookie := loginPasswordStep(t, h)
+	if rr := getWith(t, h, "/", cookie); rr.Code != http.StatusSeeOther {
 		t.Fatalf("key-only user signed in without the key (dashboard %d)", rr.Code)
 	}
 }

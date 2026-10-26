@@ -24,7 +24,7 @@
   {{if .Error}}<p class="alert alert-danger" role="alert">{{.Error}}</p>{{end}}
   {{if .RecoveryCodes}}
   <div class="alert alert-warning" role="alert">
-    <strong>Recovery codes</strong> — store these somewhere safe. Each works once, if you lose access to your authenticator app.
+    <strong>Recovery codes</strong> — store these somewhere safe. These codes work once each, if you lose access to your authenticator app.
     <pre class="recovery-list">{{.RecoveryCodes}}</pre>
   </div>
   {{end}}
@@ -39,7 +39,7 @@
   <h2 id="two-factor">Two-factor sign-in</h2>
   {{if .SetupSecret}}
   <div class="card">
-    <p>Enter this secret into your authenticator app (or scan the URI), then confirm with a code it shows.</p>
+    <p>Two-factor sign-in is off until you confirm it. Enter this secret into your authenticator app (or scan the URI), then confirm with a code it shows.</p>
     <p>Secret: <code class="font-monospace">{{.SetupSecret}}</code></p>
     <p class="small">URI: <code class="font-monospace">{{.SetupURI}}</code></p>
     <form method="post" action="/profile/two-factor/enable">

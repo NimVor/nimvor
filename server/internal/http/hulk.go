@@ -411,8 +411,14 @@ func (s *Server) hulkSave(w http.ResponseWriter, r *http.Request) {
 	e9 := hulkStringError(whitelist, 4000)
 	// The SettingsService::update order (definition table): user period/max,
 	// ip period/max/command, oneday max/command, retention, whitelist.
-	if msgs := strings.Join([]string{e1, e2, e3, e4, e7, e5, e8, e6, e9}, " "); msgs != "" {
-		fail(msgs)
+	var errMsgs []string
+	for _, e := range []string{e1, e2, e3, e4, e7, e5, e8, e6, e9} {
+		if e != "" {
+			errMsgs = append(errMsgs, e)
+		}
+	}
+	if len(errMsgs) > 0 {
+		fail(strings.Join(errMsgs, " "))
 		return
 	}
 	changed := map[string]any{
