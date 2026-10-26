@@ -616,42 +616,121 @@ func (s *Server) sslSaveTls(w http.ResponseWriter, r *http.Request) {
 // sslServices GET /ssl/services — panel/mail/host SSL status via
 // ssl.services, plus ssl.account for the active (or ?provider=) provider.
 // Mirrors SslCenterController::services.
+type sslLE struct {
+	Name, Label, Selected string
+	Chosen                bool
+}
+
+type sslServiceCard struct {
+	Key, Title, Icon, Missing, Note, File string
+	Has                                   bool
+	Cert                                  sslCertBadge
+}
+
 func (s *Server) sslServices(w http.ResponseWriter, r *http.Request) {
-	sess := sessionFrom(r.Context())
+	data, ok := s.sslBase(w, r, "services", "SSL/TLS")
+	if !ok {
+		return
+	}
 	user := userFrom(r.Context())
-	data := map[string]any{
-		"CSRF":           session.CSRFToken(sess),
-		"User":           user,
-		"Title":          "Services SSL",
-		"Svc":            nil,
-		"Account":        nil,
-		"ActiveProvider": "letsencrypt",
-		"DefaultEmail":   "",
-		"Error":          flashStr(sess, "error"),
-		"Success":        flashStr(sess, "success"),
-		"AgentError":     nil,
+	data["CanManage"], _ = s.authorizer().Can(r.Context(), user, "server.manage")
+	active, _ := s.settings.String(r.Context(), "acme_provider", "letsencrypt")
+	if active == "" {
+		active = "letsencrypt"
 	}
-	if user != nil {
-		data["DefaultEmail"] = user.Email
+	raw, err := s.agent.Call(r.Context(), "ssl.services", nil, 60*time.Second)
+	if err != nil {
+		data["AgentError"] = agentMessage(err)
+		s.render(w, "ssl_services", data)
+		return
 	}
-	if prov, _ := s.settings.String(r.Context(), "acme_provider", "letsencrypt"); prov != "" {
-		data["ActiveProvider"] = prov
-	}
-	if raw, err := s.agent.Call(r.Context(), "ssl.services", nil, 60*time.Second); err == nil {
-		var parsed any
-		_ = json.Unmarshal(raw, &parsed)
-		data["Svc"] = parsed
-		shown := r.URL.Query().Get("provider")
-		if shown == "" {
-			shown = data["ActiveProvider"].(string)
+	var svc any
+	_ = json.Unmarshal(raw, &svc)
+	hostname := jstr(svc, "hostname")
+	var les []sslLE
+	hasHostCert := false
+	les0, _ := jmap(svc)["lets_encrypt"].([]any)
+	for _, le := range les0 {
+		names := strList(jmap(le)["names"])
+		var shown []string
+		for _, n := range names {
+			if n != "" && len(shown) < 3 {
+				shown = append(shown, n)
+			}
 		}
-		if raw2, err2 := s.agent.Call(r.Context(), "ssl.account", map[string]any{"provider": shown}, 30*time.Second); err2 == nil {
-			var a any
-			_ = json.Unmarshal(raw2, &a)
-			data["Account"] = a
+		fits := hostname != "" && hasString(names, hostname)
+		hasHostCert = hasHostCert || fits
+		les = append(les, sslLE{Name: jstr(le, "name"), Chosen: fits,
+			Label: jstr(le, "name") + " (" + strings.Join(shown, ", ") + "; " + jstr(le, "days_remaining") + " days)"})
+	}
+	data["Hostname"], data["HostnameShown"] = hostname, hostname
+	if hostname == "" {
+		data["HostnameShown"] = "unknown"
+	}
+	data["HasHostCert"], data["LE"], data["Certbot"] = hasHostCert, les, jbool(svc, "certbot_installed")
+	card := func(key, title, icon, missing, note string) sslServiceCard {
+		c := jmap(svc)[key]
+		cd := sslServiceCard{Key: key, Title: title, Icon: icon, Missing: missing, Note: note}
+		if cert := jmap(c)["certificate"]; cert != nil {
+			cd.Has, cd.Cert, cd.File = true, sslCert(cert, 14), jstr(cert, "file")
 		}
-	} else {
-		data["AgentError"] = err.Error()
+		return cd
+	}
+	panel := card("panel", "WhaCP panel (web services)", "window", "The panel is not served over HTTPS by Nginx on this server (it was installed without --public-https; reach it through an SSH tunnel).",
+		"The panel's HTTPS uses the server-wide TLS configuration (protocols and ciphers on the TLS configuration tab) once a certificate is chosen here.")
+	mail := card("mail", "Mail server (SMTP, submission, IMAP)", "envelope", "Email is not set up on this server yet (Email → Mail server).",
+		"Postfix and Dovecot use the same certificate. Mail programs check that it covers the server name they connect to (usually the mail host name).")
+	data["Panel"], data["Mail"] = panel, mail
+	mt := jmap(svc)["mail_tls"]
+	proto, ciphers := jstr(mt, "protocols"), jstr(mt, "ciphers")
+	if proto == "" {
+		proto = "tls12"
+	}
+	if ciphers == "" {
+		ciphers = "default"
+	}
+	data["HasMail"] = jmap(svc)["mail"] != nil
+	data["MailTLS"] = map[string]any{"Protocols": proto, "Ciphers": ciphers}
+	// The certificate authority card: ?provider= previews another CA before switching.
+	shown := r.URL.Query().Get("provider")
+	if shown == "" {
+		shown = active
+	}
+	if raw2, err2 := s.agent.Call(r.Context(), "ssl.account", map[string]any{"provider": shown}, 60*time.Second); err2 == nil {
+		var a any
+		_ = json.Unmarshal(raw2, &a)
+		type prov struct {
+			ID, Label string
+			Selected  bool
+		}
+		var provs []prov
+		pl, _ := jmap(a)["providers"].([]any)
+		for _, p := range pl {
+			l := jstr(p, "label")
+			if jstr(p, "id") == active {
+				l += " (active)"
+			}
+			provs = append(provs, prov{ID: jstr(p, "id"), Label: l, Selected: jstr(p, "id") == jstr(a, "provider")})
+		}
+		email := jstr(a, "email")
+		form := email
+		if form == "" && user != nil {
+			form = user.Email
+		}
+		registered := jbool(a, "registered")
+		btn := "Register account"
+		if registered {
+			btn = "Update registration"
+			if active != jstr(a, "provider") {
+				btn += " and use this provider"
+			}
+		}
+		data["Acct"] = map[string]any{
+			"Registered": registered, "Email": email, "FormEmail": form, "URI": jstr(a, "account_uri"), "Provider": jstr(a, "provider"),
+			"Label": jstr(a, "label"), "RequiresEAB": jbool(a, "requires_eab"), "Active": active == jstr(a, "provider"),
+			"IsLE": jstr(a, "provider") == "letsencrypt", "Terms": jstr(a, "terms_url"), "Providers": provs, "Many": len(provs) > 1,
+			"Certbot": jbool(a, "certbot_installed"), "Button": btn,
+		}
 	}
 	s.render(w, "ssl_services", data)
 }
