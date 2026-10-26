@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -19,6 +20,15 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 		set(h, "X-Content-Type-Options", "nosniff")
 		set(h, "X-Frame-Options", "DENY")
 		set(h, "Referrer-Policy", "same-origin")
+		set(h, "Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+		set(h, "Cross-Origin-Opener-Policy", "same-origin")
+		set(h, "Cross-Origin-Resource-Policy", "same-origin")
+		// Pages carry session-specific content: never cache them (static
+		// assets under /assets/ are not session-specific).
+		if !strings.HasPrefix(r.URL.Path, "/assets/") {
+			set(h, "Cache-Control", "no-store")
+			set(h, "Pragma", "no-cache")
+		}
 		if s.cfg.Production {
 			set(h, "Strict-Transport-Security", "max-age=31536000")
 		}

@@ -84,12 +84,14 @@ func main() {
 		os.Exit(runBootstrapAdmin(log))
 	case "set-admin-password":
 		os.Exit(runSetAdminPassword(log))
+	case "user:2fa-reset", "reset-2fa":
+		os.Exit(runReset2FA(log))
 	case "doctor":
 		os.Exit(runDoctor(log))
 	case "serve", "":
 		os.Exit(runServe(log))
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command %q (use: serve | bootstrap-admin | set-admin-password | doctor | has-admin | version)\n", cmd)
+		fmt.Fprintf(os.Stderr, "unknown command %q (use: serve | bootstrap-admin | set-admin-password | user:2fa-reset | doctor | has-admin | version)\n", cmd)
 		os.Exit(2)
 	}
 }
@@ -360,6 +362,54 @@ func runSetAdminPassword(log *slog.Logger) int {
 		return 1
 	}
 	fmt.Printf("password reset for administrator %q\n", *username)
+	return 0
+}
+
+// runReset2FA turns two-factor sign-in off for a user (bin/whacp
+// user:2fa-reset): the recovery path when an authenticator is lost and the
+// recovery codes are gone. It also removes the user's security keys and ends
+// their sessions.
+func runReset2FA(log *slog.Logger) int {
+	username := flag.String("username", "", "user whose two-factor sign-in is switched off")
+	flag.Parse()
+	if *username == "" && flag.NArg() > 0 {
+		*username = flag.Arg(0)
+	}
+	if *username == "" {
+		fmt.Fprintln(os.Stderr, "usage: whacp user:2fa-reset <username>")
+		return 2
+	}
+	cfg := config.Load()
+	db, err := database.Open(cfg.DBPath)
+	if err != nil {
+		log.Error("open database", "error", err)
+		return 1
+	}
+	defer db.Close()
+	ctx := context.Background()
+	var id int64
+	if err := db.QueryRowContext(ctx, `SELECT id FROM users WHERE username = ?`, *username).Scan(&id); err != nil {
+		fmt.Fprintf(os.Stderr, "no user named %q\n", *username)
+		return 1
+	}
+	for _, q := range []string{
+		`DELETE FROM user_two_factor WHERE user_id = ?`,
+		`DELETE FROM webauthn_credentials WHERE user_id = ?`,
+		`UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?`,
+	} {
+		if _, err := db.ExecContext(ctx, q, id); err != nil {
+			log.Error("reset two-factor", "error", err)
+			return 1
+		}
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO audit_logs (user_id, username, action, target_type, target_id, result, details, created_at)
+		 VALUES (NULL, 'cli', 'user.two_factor_reset', 'user', ?, 'success', '{"via":"cli"}', ?)`,
+		fmt.Sprint(id), now); err != nil {
+		log.Warn("audit row not written", "error", err)
+	}
+	fmt.Printf("Two-factor sign-in is off for %s.\n", *username)
 	return 0
 }
 

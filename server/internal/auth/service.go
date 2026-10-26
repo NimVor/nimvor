@@ -37,6 +37,7 @@ func secureCode() string {
 // binds to the account's password hash and session epoch identically.
 const (
 	keyUserID   = "_auth_user_id"
+	keySID      = "_auth_sid"
 	keyFP       = "_auth_fp"
 	keyLoginAt  = "_auth_login_at"
 	keyActivity = "_auth_last_activity"
@@ -469,6 +470,7 @@ func (s *Service) finishLogin(ctx context.Context, sess *session.Session, id int
 	sess.Set(keyFP, fp)
 	sess.Set(keyLoginAt, strconv.FormatInt(now, 10))
 	sess.Set(keyActivity, strconv.FormatInt(now, 10))
+	sess.Set(keySID, newSID())
 	// Signing in counts as confirming the password (AuthService: CONFIRMED_KEY).
 	sess.Set(keyAuthConfirmedAt, strconv.FormatInt(now, 10))
 	if details == nil {
@@ -682,6 +684,16 @@ func (s *Service) User(ctx context.Context, sess *session.Session) (*identity.Us
 		sess.Invalidate()
 		return nil, nil
 	}
+	if sid := sess.Get(keySID); sid != "" {
+		var n int
+		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM revoked_sessions WHERE sid = ?`, sid).Scan(&n); err != nil {
+			return nil, err
+		}
+		if n > 0 {
+			sess.Invalidate()
+			return nil, nil
+		}
+	}
 	user, err := s.users.Find(ctx, id)
 	if err != nil && !errors.Is(err, identity.ErrNotFound) {
 		return nil, err
@@ -733,6 +745,14 @@ func (s *Service) RefreshOwnSession(ctx context.Context, sess *session.Session, 
 func (s *Service) Logout(ctx context.Context, sess *session.Session, user *identity.User) {
 	if user != nil {
 		s.audit.Record(ctx, audit.Entry{UserID: &user.ID, Username: user.Username, Action: "auth.logout", TargetType: "user", TargetID: strconv.FormatInt(user.ID, 10), Result: audit.Success, IP: ""})
+	}
+	// A sealed cookie cannot be deleted from the client's copy: remember the
+	// session id so a replayed cookie is refused.
+	if sid := sess.Get(keySID); sid != "" {
+		now := s.now()
+		if _, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO revoked_sessions (sid, revoked_at) VALUES (?, ?)`, sid, now); err == nil {
+			_, _ = s.db.ExecContext(ctx, `DELETE FROM revoked_sessions WHERE revoked_at < ?`, now-s.absoluteTimeout-3600)
+		}
 	}
 	sess.Invalidate()
 }
@@ -810,3 +830,11 @@ func trimSpace(s string) string {
 
 // SetClock replaces the time source (tests).
 func (s *Service) SetClock(now func() int64) { s.now = now }
+
+func newSID() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		panic(err) // the OS entropy source failing is unrecoverable
+	}
+	return hex.EncodeToString(b)
+}

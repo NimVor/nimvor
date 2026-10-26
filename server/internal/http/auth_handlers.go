@@ -2,7 +2,7 @@ package http
 
 import (
 	"bytes"
-	"net"
+	"github.com/mchkhawarshahzad/whacp/server/internal/clientip"
 	"net/http"
 	"net/url"
 	"strings"
@@ -321,10 +321,4 @@ func clip(s string, max int) string {
 
 // clientIP returns the remote address without the port. Trusted-proxy handling
 // (X-Forwarded-For) is a later concern; for now the direct peer is used.
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
-}
+func clientIP(r *http.Request) string { return clientip.FromRequest(r) }

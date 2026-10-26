@@ -270,9 +270,9 @@ func TestSiteBackupsRestore(t *testing.T) {
 
 	// A database the backup does not contain.
 	rr = backupPost(t, h, bob, restore, url.Values{
-		"restore_files":     {"0"},
-		"restore_databases": {"nope"},
-		"confirm_domain":    {"bob.example"},
+		"restore_files":       {"0"},
+		"restore_databases[]": {"nope"},
+		"confirm_domain":      {"bob.example"},
 	})
 	rr = get(t, h, "/sites/10/backups", bob)
 	bob = refreshCookie(bob, rr)
@@ -292,9 +292,9 @@ func TestSiteBackupsRestore(t *testing.T) {
 
 	// The real restore: files plus one database.
 	rr = backupPost(t, h, bob, restore, url.Values{
-		"restore_files":     {"1"},
-		"restore_databases": {"u_bob_shop"},
-		"confirm_domain":    {"bob.example"},
+		"restore_files":       {"1"},
+		"restore_databases[]": {"u_bob_shop"},
+		"confirm_domain":      {"bob.example"},
 	})
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("POST restore = %d", rr.Code)
@@ -451,7 +451,8 @@ func TestSiteBackupsDownload(t *testing.T) {
 	req.AddCookie(bob)
 	rr = httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
-	if rr.Code != http.StatusNotFound || rr.Body.String() != "Not found" {
+	// BackupsController::stream answers a bad part name with a flash redirect.
+	if rr.Code != http.StatusSeeOther {
 		t.Errorf("GET download (bad file) = %d %q", rr.Code, rr.Body.String())
 	}
 
@@ -463,7 +464,7 @@ func TestSiteBackupsDownload(t *testing.T) {
 	req.AddCookie(bob)
 	rr = httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
-	if rr.Code != http.StatusNotFound {
+	if rr.Code != http.StatusSeeOther {
 		t.Errorf("GET download (remote only) = %d", rr.Code)
 	}
 
@@ -522,6 +523,9 @@ func TestSiteBackupsRefresh(t *testing.T) {
 func TestSiteBackupsHideScheduled(t *testing.T) {
 	h, sa, db := backupWEnv(t)
 	bob := loginAsUser(t, h, "bob")
+	if _, err := db.Exec(`INSERT INTO backup_schedules (id, website_id, kind, frequency, created_at) VALUES (7, 10, 'site', 'daily', '')`); err != nil {
+		t.Fatal(err)
+	}
 	manual := backupSeed(t, db, "completed", backupManifest, nil, "")
 	auto := backupSeed(t, db, "completed", backupManifest, 7, "")
 	backupSeed(t, db, "completed", backupManifest, 7, "")
@@ -641,7 +645,7 @@ func TestSiteBackupsAdminStorage(t *testing.T) {
 	// A customer never sees the select, even with storage_id submitted.
 	bob := loginAsUser(t, h, "bob")
 	rr = get(t, h, "/sites/10/backups", bob)
-	if pageHas(rr.Body.String(), "Nightly") {
+	if pageHas(rr.Body.String(), `name="storage_id"`) {
 		t.Error("customer page shows the storage select")
 	}
 }

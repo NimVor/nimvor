@@ -106,6 +106,8 @@ checks the settings.
 
 Infrastructure settings (listen address, paths, cookies, proxies, production mode) are in `/etc/whacp/server.env` (loaded by systemd's `EnvironmentFile=`).
 
+`WHACP_TRUSTED_PROXIES` (default `127.0.0.1,::1`) lists the reverse proxies whose `X-Forwarded-For` header is trusted for the client address; set it to your proxy's address if it is not on the same host. `whacp user:2fa-reset <username>` switches two-factor sign-in off for a user who lost their authenticator.
+
 ### Basic WebHost Settings
 
 **Administration → Basic WebHost Settings** has the essentials of a new

@@ -18,11 +18,11 @@ func TestFreshInstallAppliesAllMigrations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	if len(ran) != 57 {
-		t.Fatalf("expected 57 migrations applied on a fresh DB, got %d", len(ran))
+	if len(ran) != 58 {
+		t.Fatalf("expected 58 migrations applied on a fresh DB, got %d", len(ran))
 	}
 	// The first and a late migration must both be present and ordered.
-	if ran[0] != "0001_initial_schema" || ran[len(ran)-1] != "0057_mongo_remotes" {
+	if ran[0] != "0001_initial_schema" || ran[len(ran)-1] != "0058_revoked_sessions" {
 		t.Fatalf("unexpected order: first=%s last=%s", ran[0], ran[len(ran)-1])
 	}
 	// Core tables exist.

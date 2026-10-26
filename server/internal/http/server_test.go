@@ -40,7 +40,7 @@ func testConfig(t *testing.T) config.Config {
 	if err := os.WriteFile(kf, []byte(base64.StdEncoding.EncodeToString(key[:])+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return config.Config{Production: true, KeyFile: kf}
+	return config.Config{Production: true, KeyFile: kf, TrustedProxies: "127.0.0.1,::1"}
 }
 
 func TestHealthEndpoint(t *testing.T) {

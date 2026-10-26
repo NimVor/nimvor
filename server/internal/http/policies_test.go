@@ -89,3 +89,56 @@ func TestStepUpRequiredForSensitiveRoutes(t *testing.T) {
 		t.Fatalf("JSON stale confirmation = %d %s", jr.Code, jr.Body.String())
 	}
 }
+
+// A sealed cookie copied before sign-out must not work afterwards.
+func TestLogoutRevokesTheCopiedSessionCookie(t *testing.T) {
+	h, _ := rolesEnv(t)
+	c := loginAsUser(t, h, "admin")
+	stolen := &http.Cookie{Name: c.Name, Value: c.Value}
+	if rr := get(t, h, "/users", stolen); rr.Code != http.StatusOK {
+		t.Fatalf("session before logout = %d", rr.Code)
+	}
+	token, c := siteFormToken(t, h, c, "/users")
+	if rr := postForm(h, "/logout", map[string][]string{"_token": {token}}, c); rr.Code != http.StatusSeeOther {
+		t.Fatalf("logout = %d", rr.Code)
+	}
+	rr := get(t, h, "/users", &http.Cookie{Name: stolen.Name, Value: stolen.Value})
+	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/login" {
+		t.Fatalf("replayed cookie after logout = %d loc=%q, want redirect to /login", rr.Code, rr.Header().Get("Location"))
+	}
+}
+
+// Behind the installer's nginx the peer is the proxy; the client address must
+// come from X-Forwarded-For (and only from a trusted peer).
+func TestClientIPBehindTrustedProxy(t *testing.T) {
+	rolesEnv(t) // builds a server, which installs the default trusted proxies
+	r := httptest.NewRequest("GET", "/", nil)
+	r.RemoteAddr = "127.0.0.1:40000"
+	r.Header.Set("X-Forwarded-For", "203.0.113.77")
+	if got := clientIP(r); got != "203.0.113.77" {
+		t.Fatalf("clientIP via trusted proxy = %q", got)
+	}
+	r.RemoteAddr = "198.51.100.5:40000"
+	if got := clientIP(r); got != "198.51.100.5" {
+		t.Fatalf("clientIP from an untrusted peer = %q (header must be ignored)", got)
+	}
+}
+
+func TestSecurityHeadersMatchPHP(t *testing.T) {
+	h, _ := rolesEnv(t)
+	rr := get(t, h, "/login", nil)
+	for k, want := range map[string]string{
+		"Cache-Control":                "no-store",
+		"Permissions-Policy":           "camera=(), microphone=(), geolocation=(), payment=()",
+		"Cross-Origin-Opener-Policy":   "same-origin",
+		"Cross-Origin-Resource-Policy": "same-origin",
+		"X-Frame-Options":              "DENY",
+	} {
+		if got := rr.Header().Get(k); got != want {
+			t.Errorf("%s = %q, want %q", k, got, want)
+		}
+	}
+	if cc := get(t, h, "/assets/css/whacp.css", nil).Header().Get("Cache-Control"); cc == "no-store" {
+		t.Errorf("static assets must stay cacheable, got %q", cc)
+	}
+}

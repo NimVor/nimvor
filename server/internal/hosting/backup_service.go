@@ -586,13 +586,12 @@ func (s *BackupService) callAgent(ctx context.Context, action string, params any
 	if out == nil {
 		return nil
 	}
-	var env struct {
-		Data json.RawMessage `json:"data"`
+	// agent.Client.Call already unwraps the {success,data} envelope: raw is
+	// the action's payload.
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
 	}
-	if err := json.Unmarshal(raw, &env); err != nil {
-		return err
-	}
-	return json.Unmarshal(env.Data, out)
+	return json.Unmarshal(raw, out)
 }
 
 // backupNow is the row timestamp (the PHP's gmdate('c')).

@@ -16,6 +16,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"github.com/mchkhawarshahzad/whacp/server/internal/clientip"
 	"net/http"
 	"regexp"
 	"strings"
@@ -154,10 +155,4 @@ func (e *StatusError) Error() string { return e.Message }
 
 // clientIP returns the remote address (no trusted-proxy handling — same as
 // the web middleware for now).
-func clientIP(r *http.Request) string {
-	addr := r.RemoteAddr
-	if i := strings.LastIndex(addr, ":"); i >= 0 {
-		return addr[:i]
-	}
-	return addr
-}
+func clientIP(r *http.Request) string { return clientip.FromRequest(r) }

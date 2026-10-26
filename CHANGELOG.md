@@ -6,6 +6,35 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed (Go differential audit, Wave 0)
+- **Two-factor sign-in stopped working ~90 s after the panel started**: the TOTP
+  clock was frozen at process start. It now reads the real clock.
+- **Role administration is guarded again** (RoleService parity): a role manager can
+  no longer grant permissions they do not hold or edit the Administrator role;
+  names, labels and permissions are validated, permission writes are
+  transactional and `role.*` events are audited. The scope field is gone from the
+  role form.
+- **Sign-in policies are enforced**: roles that require two-factor, the password-age
+  policy and the 15-minute step-up password confirmation for sensitive routes
+  (users, roles, tokens, security policies, SSH keys, panel update). Signing in
+  counts as a confirmation, as in the PHP panel.
+- **API tokens work**: issued as `whacp_<40 hex>`, expire (default 90 days), capped at
+  20 per user, created/revoked with audit rows. The API enforces the 120/min rate
+  limit, plan-feature gating and records `api.auth_failed`.
+- Resellers can no longer open another user's edit or plan page.
+- **Logout revokes the session**: a copied session cookie is refused afterwards
+  (new `revoked_sessions` table, migration 0058 — Go panel only).
+- **Client address behind a reverse proxy**: `X-Forwarded-For` is honoured for the
+  proxies in `WHACP_TRUSTED_PROXIES` (default `127.0.0.1,::1`), so lockouts, audit
+  and verified-IP policies see real addresses behind the installer's nginx.
+- Site backups: create/restore/download no longer report failure after the agent has
+  already acted (the agent envelope was unwrapped twice).
+- HULK settings can be saved again (the validation message aggregate was never empty).
+- Security headers now match PHP (`Cache-Control: no-store`, Permissions-Policy, COOP/CORP).
+- The panel refuses to start with a missing or unreadable key file.
+- New CLI command `whacp user:2fa-reset <username>` (recovery when an authenticator
+  is lost).
+
 ### Fixed (Go migration audit)
 - The Go panel at the migration HEAD did not compile and, once built, panicked
   at start-up (duplicate/ambiguous routes). It now builds, vets, starts and passes a

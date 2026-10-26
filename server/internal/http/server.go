@@ -8,6 +8,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"github.com/mchkhawarshahzad/whacp/server/internal/clientip"
 	"log/slog"
 	"net/http"
 	"time"
@@ -64,6 +66,16 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		return nil, err
 	}
 	c := crypto.New(cfg.KeyFile)
+	// Fail at start-up, not at the first login, when the panel key is missing
+	// or unreadable (every sealed session would otherwise fail silently).
+	if _, err := c.Encrypt([]byte("startup-check")); err != nil {
+		return nil, fmt.Errorf("panel key %s is not usable: %w", cfg.KeyFile, err)
+	}
+	proxies, badProxies := clientip.Parse(cfg.TrustedProxies)
+	if len(badProxies) > 0 {
+		return nil, fmt.Errorf("WHACP_TRUSTED_PROXIES has invalid entries: %v", badProxies)
+	}
+	clientip.SetTrusted(proxies)
 	users := identity.NewRepository(db)
 	tf := twofactor.New(db, c)
 	al := audit.New(db, log)
