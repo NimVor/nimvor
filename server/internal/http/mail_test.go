@@ -68,7 +68,7 @@ func TestMailDomainsWebsiteAwareScopeAndCounts(t *testing.T) {
 		t.Fatalf("TENANT LEAK: custA saw another tenant's mail domain:\n%s", body)
 	}
 	// a.example shows 2 mailboxes and 1 alias.
-	if !pageHas(body, "<td>2</td>") || !pageHas(body, "<td>1</td>") {
+	if !pageHas(body, ">2</td>") || !pageHas(body, ">1</td>") {
 		t.Fatalf("mailbox/alias counts missing:\n%s", body)
 	}
 }

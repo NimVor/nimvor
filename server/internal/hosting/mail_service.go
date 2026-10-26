@@ -44,17 +44,50 @@ func NewMailService(db *sql.DB, repo *MailRepository, agent AgentCaller, sites *
 
 // MailStatus is the agent's mail.status data.
 type MailStatus struct {
-	Installed  bool        `json:"installed"`
-	Configured bool        `json:"configured"`
-	Hostname   string      `json:"hostname"`
-	Running    MailRunning `json:"running"`
-	Spam       MailSpam    `json:"spam"`
-	Webmail    MailWebmail `json:"webmail"`
-	Mailboxes  []struct {
+	Installed     MailInstalled `json:"installed"`
+	Configured    bool          `json:"configured"`
+	Hostname      string        `json:"hostname"`
+	Running       MailRunning   `json:"running"`
+	Spam          MailSpam      `json:"spam"`
+	Webmail       MailWebmail   `json:"webmail"`
+	SpamInstalled bool          `json:"spam_installed"`
+	SpamRunning   bool          `json:"spam_running"`
+	Mailboxes     []struct {
 		Address string `json:"address"`
 		QuotaMB int    `json:"quota_mb"`
 		Bytes   int64  `json:"bytes"`
 	} `json:"mailboxes"`
+}
+
+// MailInstalled is the agent's per-package installed map (postfix, dovecot,
+// opendkim ...). A bare true/false is accepted too (older agents, tests).
+type MailInstalled map[string]bool
+
+func (m *MailInstalled) UnmarshalJSON(b []byte) error {
+	var one bool
+	if err := json.Unmarshal(b, &one); err == nil {
+		*m = MailInstalled{"mail": one}
+		return nil
+	}
+	var many map[string]bool
+	if err := json.Unmarshal(b, &many); err != nil {
+		return err
+	}
+	*m = many
+	return nil
+}
+
+// AllInstalled: every mail package is present (PHP: no false in installed).
+func (st *MailStatus) AllInstalled() bool {
+	if st == nil || len(st.Installed) == 0 {
+		return false
+	}
+	for _, ok := range st.Installed {
+		if !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // MailRunning is the per-component running state of mail.status.
@@ -66,15 +99,18 @@ type MailRunning struct {
 
 // MailWebmail is the agent's webmail state.
 type MailWebmail struct {
-	Enabled  bool   `json:"enabled"`
-	Hostname string `json:"hostname"`
+	Installed bool   `json:"installed"`
+	Enabled   bool   `json:"enabled"`
+	Hostname  string `json:"hostname"`
+	PHP       string `json:"php"`
+	Running   bool   `json:"running"`
 }
 
 // MailSpam is the server's configured spam settings (mail.status.spam).
 type MailSpam struct {
-	Enabled   bool
-	AddHeader *float64
-	Reject    *float64
+	Enabled   bool     `json:"enabled"`
+	AddHeader *float64 `json:"add_header"`
+	Reject    *float64 `json:"reject"`
 }
 
 // Status asks the agent for the mail server's state (nil when unreachable,

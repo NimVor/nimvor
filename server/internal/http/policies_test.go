@@ -430,3 +430,15 @@ func TestDnsIndexOffersInstallWhenBindMissing(t *testing.T) {
 		t.Error("dns page lacks its zone panel or prints a raw map")
 	}
 }
+
+func TestMailIndexRenders(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rr := get(t, h, "/mail", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /mail = %d", rr.Code)
+	}
+	if !pageHas(rr.Body.String(), "Mail domains") || pageHas(rr.Body.String(), "map[") {
+		t.Error("mail page lacks its domain panel or prints a raw map")
+	}
+}
