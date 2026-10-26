@@ -226,3 +226,9 @@ func scanStrings(ctx context.Context, tx *sql.Tx, q string, args ...any) ([]stri
 	}
 	return out, rows.Err()
 }
+
+// OwnScopeAllowed is Permissions::ownScopeAllowed — the only permissions a
+// role limited to its own objects (resellers, hosting customers) may hold.
+func OwnScopeAllowed() []string {
+	return concat(hostingSelf, []string{"users.view", "users.manage", "plans.manage"})
+}

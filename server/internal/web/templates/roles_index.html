@@ -22,7 +22,7 @@
   <p><a href="/roles/new">New role</a></p>
   <table class="data-table"><thead><tr><th>Name</th><th>Label</th><th>Scope</th><th>2FA</th><th>Users</th><th></th></tr></thead><tbody>
   {{range .Roles}}<tr>
-    <td>{{.Name}}</td><td>{{.Label}}</td><td>{{.Scope}}</td>
+    <td>{{.Name}}</td><td>{{.Label}}{{if .IsSystem}} <span class="badge text-bg-light border">built-in</span>{{end}}</td><td>{{.Scope}}</td>
     <td>{{if .RequireTwoFactor}}required{{else}}—{{end}}</td>
     <td>{{.UserCount}}</td>
     <td><a href="/roles/{{.ID}}/edit">Edit</a>{{if not .IsSystem}} · <form method="post" action="/roles/{{.ID}}/delete" class="inline"><input type="hidden" name="_token" value="{{$.CSRF}}"><button type="submit">Delete</button></form>{{end}}</td>

@@ -25,7 +25,6 @@
 <label>Name <input name="name" value="{{.Role.Name}}" {{if .Role.IsSystem}}readonly{{end}} required></label><br>
 <label>Label <input name="label" value="{{.Role.Label}}" required></label><br>
 <label>Description <input name="description" value="{{.Role.Description}}"></label><br>
-<label>Scope <select name="scope"><option value="own"{{if eq .Role.Scope "own"}} selected{{end}}>Own account</option><option value="all"{{if eq .Role.Scope "all"}} selected{{end}}>Server-wide (admin)</option></select></label><br>
 <fieldset><legend>Permissions</legend>
 {{range .Permissions}}
 <label><input type="checkbox" name="permissions[]" value="{{.Name}}"{{if .Granted}} checked{{end}}> {{.Name}}</label><br>
