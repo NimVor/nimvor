@@ -140,6 +140,7 @@ func runServe(log *slog.Logger) int {
 		return 1
 	}
 
+	whttp.PanelVersion = version
 	panel, err := whttp.New(cfg, db, log)
 	if err != nil {
 		log.Error("build server", "error", err)

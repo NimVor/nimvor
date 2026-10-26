@@ -11,20 +11,83 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>Tweak settings</h1>
-  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
-  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  {{if .Stub}}<p class="alert alert-warning">Per-tab categorisation (security, monitoring, server, …) is not fully ported yet. The raw key/value table below lets you adjust every tweak setting.</p>{{end}}
-  <form method="post" action="/settings/tweak">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <table class="data-table">
-      <thead><tr><th>Key</th><th>Value</th></tr></thead>
-      <tbody>
-      {{range $k, $v := .Values}}<tr><td><code>{{$k}}</code></td><td><input type="text" name="{{$k}}" value="{{$v}}"></td></tr>{{end}}
-      </tbody>
-    </table>
-    <button type="submit" class="btn btn-primary">Save</button>
-  </form>
+  {{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
+  {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+  <p class="text-body-secondary">Every panel setting with its default; search, change, reset</p>
+  <div class="mb-3"><a class="btn btn-sm btn-outline-secondary" href="/settings/basic"><i class="bi bi-house-gear me-1" aria-hidden="true"></i>Basic WebHost Settings</a></div>
+  <div data-wcp-tweak>
+    <div class="wcp-panel mb-3">
+      <div class="wcp-statusbar flex-wrap">
+        <label class="visually-hidden" for="tw-search">Search settings</label>
+        <div class="input-group input-group-sm wcp-tweak-search">
+          <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+          <input class="form-control" type="search" id="tw-search" placeholder="Search all settings (name, description or key)" data-wcp-tweak-search autocomplete="off">
+        </div>
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input" type="checkbox" role="switch" id="tw-changed" data-wcp-tweak-changed>
+          <label class="form-check-label small" for="tw-changed">Only settings changed from the default ({{.ChangedTotal}})</label>
+        </div>
+        <span class="small wcp-muted" data-wcp-tweak-count role="status" aria-live="polite"></span>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-lg-3">
+        <nav class="nav nav-pills flex-column wcp-settings-nav" role="tablist" aria-label="Setting groups" aria-orientation="vertical">
+          {{range .Tabs}}<a class="nav-link d-flex align-items-center{{if .Active}} active{{end}}" id="tw-tab-{{.ID}}" href="#{{.ID}}" data-bs-toggle="pill" data-bs-target="#{{.ID}}" role="tab" aria-controls="{{.ID}}" aria-selected="{{if .Active}}true{{else}}false{{end}}">
+            <i class="bi bi-{{.Icon}} me-2" aria-hidden="true"></i><span class="me-auto">{{.Label}}</span>
+            <span class="badge rounded-pill text-bg-light border" data-wcp-tweak-tabcount>{{.Count}}</span></a>{{end}}
+        </nav>
+      </div>
+      <div class="col-lg-9 tab-content">
+        {{range .Tabs}}{{$tab := .}}
+        <section class="tab-pane fade{{if .Active}} show active{{end}}" id="{{.ID}}" role="tabpanel" aria-labelledby="tw-tab-{{.ID}}" data-wcp-tweak-pane>
+          <h2 class="h6 d-none mb-2" data-wcp-tweak-heading>{{.Label}}</h2>
+          <form class="wcp-panel" method="post" action="/settings/tweak" data-wcp-busy novalidate>
+            <input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="tab" value="{{.ID}}">
+            {{if not .Can}}<div class="wcp-infobar m-3"><i class="bi bi-lock" aria-hidden="true"></i><span>{{if .OnlyAdmins}}Only administrators change these settings.{{else}}You may view these settings.{{end}}</span></div>{{end}}
+            <div class="list-group list-group-flush">
+            {{range .Fields}}
+              <div class="list-group-item py-3" data-setting="{{.Key}}" data-changed="{{if .Changed}}1{{else}}0{{end}}" data-search="{{.Search}}">
+                <div class="row g-2 align-items-start">
+                  <div class="col-md-6">
+                    <label class="fw-medium" for="tw-{{.Key}}">{{.Label}}</label>
+                    {{if .Changed}}<span class="badge text-bg-warning ms-1">Changed</span>{{end}}
+                    {{if .Help}}<div class="small wcp-muted">{{.Help}}</div>{{end}}
+                    <div class="small wcp-muted mt-1">Default: <span class="fw-medium">{{.DefaultShown}}</span> · <code class="small">{{.Key}}</code></div>
+                  </div>
+                  <div class="col-md-6">
+                    {{if .IsOwn}}
+                      <div class="small"><span class="fw-medium">{{if .IsBool}}{{if .Checked}}On{{else}}Off{{end}}{{else}}{{.Value}}{{end}}</span>{{if .HasOwnLink}} · <a href="{{.OwnURL}}">change on its page</a> (it also protects you from being locked out){{end}}</div>
+                    {{else if .IsBool}}
+                      <div class="form-check form-switch"><input type="hidden" name="{{.Key}}" value="0"><input class="form-check-input" type="checkbox" role="switch" id="tw-{{.Key}}" name="{{.Key}}" value="1"{{if .Checked}} checked{{end}}{{if not $tab.Can}} disabled{{end}}><label class="form-check-label small" for="tw-{{.Key}}">On</label></div>
+                    {{else if .IsSelect}}
+                      <select class="form-select form-select-sm{{if .Error}} is-invalid{{end}}" id="tw-{{.Key}}" name="{{.Key}}"{{if not $tab.Can}} disabled{{end}}>{{$v := .Value}}{{range .Options}}<option value="{{.Value}}"{{if eq .Value $v}} selected{{end}}>{{.Label}}</option>{{end}}</select>
+                    {{else if .IsNumber}}
+                      <input class="form-control form-control-sm{{if .Error}} is-invalid{{end}}" type="number" id="tw-{{.Key}}" name="{{.Key}}" value="{{.Value}}" min="{{.Min}}" max="{{.Max}}"{{if not $tab.Can}} disabled{{end}}>
+                      <div class="form-text">{{.Min}}–{{.Max}}</div>
+                    {{else}}
+                      <input class="form-control form-control-sm{{if .Error}} is-invalid{{end}}" type="{{if .IsURL}}url{{else}}text{{end}}" id="tw-{{.Key}}" name="{{.Key}}" value="{{.Value}}" maxlength="{{.MaxLen}}"{{if not $tab.Can}} disabled{{end}}>
+                    {{end}}
+                    {{if .Error}}<div class="invalid-feedback d-block">{{.Error}}</div>{{end}}
+                    {{if and $tab.Can .Changed (not .IsOwn)}}<button class="btn btn-link btn-sm p-0 mt-1" type="submit" name="reset" value="{{.Key}}" data-wcp-confirm-submit="Reset “{{.Label}}” to its default ({{.DefaultShown}})?"><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Reset to default</button>{{end}}
+                  </div>
+                </div>
+              </div>
+            {{end}}
+            </div>
+            {{if .Can}}
+            <div class="d-flex flex-wrap gap-2 p-3 border-top">
+              <button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save {{lower .Label}}</button>
+              {{if gt .Changed 0}}<button class="btn btn-outline-secondary" type="submit" name="reset" value="all" data-wcp-confirm-submit="Reset the {{.Changed}} changed setting(s) under {{.Label}} to their defaults?">Reset this tab to defaults</button>{{end}}
+            </div>
+            {{end}}
+          </form>
+        </section>
+        {{end}}
+        <div class="wcp-panel p-4 text-center wcp-muted d-none" data-wcp-tweak-empty>No setting matches.</div>
+      </div>
+    </div>
+  </div>
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}

@@ -18,9 +18,17 @@ All notable changes to WhaCP are documented here. The format follows
   services, AutoSSL).
 - Create-website form is prefilled with the PHP defaults; the profile page has the
   password and sign-out-everywhere forms; new backup storage takes S3 keys.
+- **Settings, Basic WebHost Settings and Tweak Settings are real pages**: all 82 setting
+  definitions (types, bounds, defaults, help) are validated like PHP's SettingsService,
+  with categories, per-setting defaults, change markers and reset, name servers and
+  new-account defaults. Resource limits and Bandwidth pages read real data.
 - Inline scripts and styles moved to assets (`noinline_test.go` keeps them out).
 
 ### Fixed (Go differential audit, Wave 1)
+- **Saved email settings never took effect**: the form wrote `mail_host` etc. while the
+  mailer reads `mail.host`, and stored the password in plain text. It now writes the
+  `mail.*` keys with the password encrypted. Settings forms no longer store
+  unvalidated values or lose unchecked switches.
 - SSL keys could not be deleted, WhaCP certificates could not be deleted and the
   default key type was invalid: the panel sent the agent the wrong parameters.
 - Account backup download and upload used actions or fields the agent does not

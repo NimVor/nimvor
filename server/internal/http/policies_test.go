@@ -1,8 +1,10 @@
 package http
 
 import (
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -321,5 +323,97 @@ func TestBandwidthPageListsAccountsOverTheirLimit(t *testing.T) {
 		if !pageHas(rr.Body.String(), want) {
 			t.Errorf("bandwidth page lacks %q", want)
 		}
+	}
+}
+
+func settingValue(t *testing.T, db *sql.DB, key string) string {
+	t.Helper()
+	var v string
+	if err := db.QueryRow(`SELECT value FROM settings WHERE key = ?`, key).Scan(&v); err != nil {
+		return ""
+	}
+	return v
+}
+
+func TestSettingsSaveValidatesAndStoresTypedValues(t *testing.T) {
+	h, db := rolesEnv(t)
+	c := loginAsUser(t, h, "admin")
+	tok, c := siteFormToken(t, h, c, "/settings")
+
+	// An out-of-range number is refused and nothing is stored.
+	rr := postForm(h, "/settings", url.Values{"_token": {tok}, "tab": {"general"}, "session_idle_minutes": {"2"}, "panel_name": {"Renamed"}}, c)
+	c = refreshCookie(c, rr)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("POST /settings = %d", rr.Code)
+	}
+	if got := settingValue(t, db, "session_idle_minutes"); got != "" {
+		t.Errorf("invalid value stored: %q", got)
+	}
+	if got := settingValue(t, db, "panel_name"); got != "" {
+		t.Errorf("a valid field was stored alongside an invalid one: %q", got)
+	}
+
+	// Valid values are stored typed; an unchecked switch posts 0 and is false.
+	tok, c = siteFormToken(t, h, c, "/settings")
+	rr = postForm(h, "/settings", url.Values{"_token": {tok}, "tab": {"general"}, "session_idle_minutes": {"45"}, "panel_name": {"Renamed"}, "apps_installer_enabled": {"0"}}, c)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("POST /settings = %d", rr.Code)
+	}
+	if got := settingValue(t, db, "session_idle_minutes"); got != "45" {
+		t.Errorf("session_idle_minutes = %q, want 45", got)
+	}
+	if got := settingValue(t, db, "apps_installer_enabled"); got != "false" {
+		t.Errorf("apps_installer_enabled = %q, want false", got)
+	}
+	// Unknown keys are ignored.
+	if got := settingValue(t, db, "evil_key"); got != "" {
+		t.Errorf("unknown key stored: %q", got)
+	}
+}
+
+func TestSettingsMailUsesTheKeysTheMailerReads(t *testing.T) {
+	h, db := rolesEnv(t)
+	c := loginAsUser(t, h, "admin")
+	tok, c := siteFormToken(t, h, c, "/settings")
+	rr := postForm(h, "/settings/mail", url.Values{"_token": {tok}, "host": {"smtp.example.com"}, "port": {"587"}, "encryption": {"starttls"},
+		"username": {"u"}, "password": {"s3cret-value"}, "from": {"panel@example.com"}, "alert_to": {"a@example.com, b@example.com"}}, c)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("POST /settings/mail = %d", rr.Code)
+	}
+	if got := settingValue(t, db, "mail.host"); got != `"smtp.example.com"` {
+		t.Errorf("mail.host = %q", got)
+	}
+	if got := settingValue(t, db, "mail_host"); got != "" {
+		t.Errorf("legacy mail_host key written: %q", got)
+	}
+	pw := settingValue(t, db, "mail.password")
+	if pw == "" || strings.Contains(pw, "s3cret-value") {
+		t.Errorf("password must be stored encrypted, got %q", pw)
+	}
+	// Plain SMTP to a remote host is refused.
+	tok, c = siteFormToken(t, h, c, "/settings")
+	postForm(h, "/settings/mail", url.Values{"_token": {tok}, "host": {"smtp.example.org"}, "port": {"25"}, "encryption": {"none"}, "from": {"p@example.org"}}, c)
+	if got := settingValue(t, db, "mail.host"); got != `"smtp.example.com"` {
+		t.Errorf("an invalid mail config replaced the stored one: %q", got)
+	}
+}
+
+func TestTweakSettingsResetRestoresDefault(t *testing.T) {
+	h, db := rolesEnv(t)
+	c := loginAsUser(t, h, "admin")
+	if _, err := db.Exec(`INSERT INTO settings (key, value, updated_at) VALUES ('dashboard_refresh_seconds', '60', '2026-01-01T00:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
+	rr := get(t, h, "/settings/tweak", c)
+	if !pageHas(rr.Body.String(), "Reset to default") {
+		t.Fatal("a changed setting has no reset link")
+	}
+	tok, c := siteFormToken(t, h, c, "/settings/tweak")
+	rr = postForm(h, "/settings/tweak", url.Values{"_token": {tok}, "tab": {"general"}, "reset": {"dashboard_refresh_seconds"}}, c)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("POST /settings/tweak = %d", rr.Code)
+	}
+	if got := settingValue(t, db, "dashboard_refresh_seconds"); got != "10" {
+		t.Errorf("after reset dashboard_refresh_seconds = %q, want 10", got)
 	}
 }
