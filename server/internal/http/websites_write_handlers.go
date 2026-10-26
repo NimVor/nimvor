@@ -69,9 +69,13 @@ func postValues(r *http.Request) map[string]string {
 	if err := r.ParseForm(); err != nil {
 		return map[string]string{}
 	}
+	// A switch posts a hidden 0 before its checkbox's 1; as in PHP's $_POST the
+	// last value wins (the first one made every ticked switch read as off).
 	out := map[string]string{}
-	for k := range r.PostForm {
-		out[k] = r.PostFormValue(k)
+	for k, v := range r.PostForm {
+		if len(v) > 0 {
+			out[k] = v[len(v)-1]
+		}
 	}
 	return out
 }

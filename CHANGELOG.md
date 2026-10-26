@@ -6,6 +6,8 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+- Create-account form now has the PHP version, spam filter/Spam Box, mail routing and DNS (DKIM, SPF, DMARC, registrar name servers, overwrite) options with settings defaults; validation errors keep what was typed. A ticked switch (hidden 0 + checkbox 1) is read as on again (last posted value wins), which also fixes "Generate a strong password".
+
 ### Changed (Go differential audit, Wave 1: pages and forms)
 - **Every page now has the panel shell**: sidebar built from the user's permissions,
   plan features and scope, topbar, notification bell, command palette, job and

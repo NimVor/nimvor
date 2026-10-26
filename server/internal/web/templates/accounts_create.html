@@ -15,6 +15,7 @@
   <p class="text-muted">A hosting account with its first website, DNS and plan assignment.</p>
   {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
   {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
+  {{if .Errors}}<div class="alert alert-danger"><ul class="mb-0">{{range $k,$v := .Errors}}<li>{{$v}}</li>{{end}}</ul></div>{{end}}
   <form method="post" action="/accounts" novalidate>
     <input type="hidden" name="_token" value="{{.CSRF}}">
     <div class="card mb-3">
@@ -22,21 +23,21 @@
       <div class="card-body">
         <div class="mb-3">
           <label class="form-label" for="a-domain">Domain</label>
-          <input class="form-control" id="a-domain" name="domain" placeholder="example.com" autocomplete="off" spellcheck="false">
+          <input class="form-control" id="a-domain" name="domain" value="{{index .Old "domain"}}" placeholder="example.com" autocomplete="off" spellcheck="false">
           <div class="form-text">Optional. When supplied, a website and DNS zone are provisioned for the account (with www).</div>
         </div>
         <div class="mb-3">
           <label class="form-label" for="a-username">Username</label>
-          <input class="form-control" id="a-username" name="username" required maxlength="31" autocomplete="off" spellcheck="false">
+          <input class="form-control" id="a-username" name="username" value="{{index .Old "username"}}" required maxlength="31" autocomplete="off" spellcheck="false">
           <div class="form-text">3–31 lowercase letters, digits, - or _, starting with a letter. Also used as the system account.</div>
         </div>
         <div class="mb-3">
           <label class="form-label" for="a-email">Contact email</label>
-          <input class="form-control" id="a-email" type="email" name="email" required maxlength="190">
+          <input class="form-control" id="a-email" type="email" name="email" value="{{index .Old "email"}}" required maxlength="190">
         </div>
         <div class="mb-3">
           <label class="form-label" for="a-display">Display name</label>
-          <input class="form-control" id="a-display" name="display_name" maxlength="100">
+          <input class="form-control" id="a-display" name="display_name" value="{{index .Old "display_name"}}" maxlength="100">
         </div>
         <div class="mb-3">
           <label class="form-label" for="a-password">Password</label>
@@ -58,7 +59,7 @@
         </div>
         {{if .CanReseller}}<div class="form-check mb-2">
           <input type="hidden" name="reseller" value="0">
-          <input class="form-check-input" type="checkbox" id="a-reseller" name="reseller" value="1">
+          <input class="form-check-input" type="checkbox" id="a-reseller" name="reseller" value="1"{{if .Reseller}} checked{{end}}>
           <label class="form-check-label" for="a-reseller">Create as reseller</label>
         </div>{{end}}
       </div>
@@ -69,8 +70,41 @@
         <label class="form-label" for="a-plan">Hosting plan</label>
         <select class="form-select" id="a-plan" name="plan_id">
           <option value="">No plan (unlimited)</option>
-          {{range .Plans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+          {{range .Plans}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
         </select>
+        {{if .PhpVersions}}<label class="form-label mt-3" for="a-php">PHP version</label>
+        <select class="form-select" id="a-php" name="php_version">
+          {{range .PhpVersions}}<option value="{{.V}}"{{if .Selected}} selected{{end}}>PHP {{.V}}</option>{{end}}
+        </select>{{end}}
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header">Email</div>
+      <div class="card-body">
+        {{range .MailSwitches}}<div class="form-check form-switch mb-2">
+          <input type="hidden" name="{{.Name}}" value="0">
+          <input class="form-check-input" type="checkbox" role="switch" id="a-{{.Name}}" name="{{.Name}}" value="1"{{if .On}} checked{{end}}>
+          <label class="form-check-label" for="a-{{.Name}}">{{.Label}}</label>
+          <div class="form-text">{{.Help}}</div>
+        </div>{{end}}
+        <div class="mt-3 mb-1 fw-semibold small">Mail routing</div>
+        {{range .Routings}}<div class="form-check">
+          <input class="form-check-input" type="radio" name="mail_routing" id="a-mr-{{.Value}}" value="{{.Value}}"{{if .Checked}} checked{{end}}>
+          <label class="form-check-label" for="a-mr-{{.Value}}">{{.Label}}</label>
+          <div class="form-text">{{.Help}}</div>
+        </div>{{end}}
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header">DNS</div>
+      <div class="card-body">
+        {{range .DNSSwitches}}<div class="form-check form-switch mb-2">
+          <input type="hidden" name="{{.Name}}" value="0">
+          <input class="form-check-input" type="checkbox" role="switch" id="a-{{.Name}}" name="{{.Name}}" value="1"{{if .On}} checked{{end}}>
+          <label class="form-check-label" for="a-{{.Name}}">{{.Label}}</label>
+          <div class="form-text"><code>{{.Help}}</code></div>
+        </div>{{end}}
+        {{if .Nameservers}}<div class="form-text mt-2">Name servers: {{join .Nameservers ", "}}</div>{{end}}
       </div>
     </div>
     <button class="btn btn-primary" type="submit">Create account</button>

@@ -651,3 +651,24 @@ func TestWebsiteFormOffersDirectiveEditorAndDocumentRoot(t *testing.T) {
 		}
 	}
 }
+
+// The create-account form carries the PHP panel's PHP version, mail and DNS
+// options, and a ticked switch (hidden 0 then 1) counts as on.
+func TestAccountsNewFormFields(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rec := get(t, h, "/accounts/new", admin)
+	if rec.Code != 200 {
+		t.Fatalf("status %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{`name="dns_dkim"`, `name="dns_spf"`, `name="dns_dmarc"`, `name="dns_registrar_ns"`,
+		`name="dns_overwrite"`, `name="spam_filter"`, `name="spam_box"`, `name="mail_routing"`, `v=spf1`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("form lacks %s", want)
+		}
+	}
+	if strings.Contains(body, "style=") || strings.Contains(body, "<script>") {
+		t.Error("inline style/script in template")
+	}
+}

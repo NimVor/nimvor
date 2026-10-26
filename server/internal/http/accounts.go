@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"sort"
 	"strconv"
@@ -22,28 +23,107 @@ import (
 // real form (domain, username, contact, password, plan, reseller/www
 // toggles) backed by hosting.AccountService::create.
 // Mirrors AccountsController::create (accounts.create, users.manage).
+type acctSwitch struct {
+	Name, Label, Help string
+	On                bool
+	Raw               bool // Help contains markup
+}
+
+type acctRouting struct {
+	Value, Label, Help string
+	Checked            bool
+}
+
 func (s *Server) accountsCreate(w http.ResponseWriter, r *http.Request) {
-	sess := sessionFrom(r.Context())
-	user := userFrom(r.Context())
+	ctx := r.Context()
+	sess := sessionFrom(ctx)
+	user := userFrom(ctx)
+	vals, _ := s.settings.Values(ctx)
+	errs, old := flashJSON(sess, "errors"), flashJSON(sess, "old")
+	sent := len(old) > 0
+	on := func(k string) bool {
+		if sent {
+			return old[k] == "1" || strings.EqualFold(old[k], "on") || strings.EqualFold(old[k], "true")
+		}
+		return vals["account_"+k] == "1"
+	}
+	ip := strings.TrimSpace(vals["dns_default_ipv4"])
+	spf := "v=spf1 +a +mx"
+	if net.ParseIP(ip) != nil && strings.Count(ip, ".") == 3 {
+		spf += " +ip4:" + ip
+	}
+	spf += " ~all"
+	nameservers, _ := s.siteDnsService(r, user).Nameservers(ctx)
+	versions := s.websiteService(r, user).PhpVersions(ctx)
+	phpSel := old["php_version"]
+	if !sent || phpSel == "" {
+		phpSel = vals["default_php_version"]
+		if phpSel == "" || !hasString(versions, phpSel) {
+			phpSel = ""
+			if len(versions) > 0 {
+				phpSel = versions[len(versions)-1]
+			}
+		}
+	}
+	planSel := old["plan_id"]
+	if !sent && vals["default_plan_id"] != "0" {
+		planSel = vals["default_plan_id"]
+	}
+	routing := old["mail_routing"]
+	if routing == "" {
+		routing = vals["account_mail_routing"]
+	}
+	if routing == "" {
+		routing = "auto"
+	}
+	var routings []acctRouting
+	for _, o := range [][3]string{
+		{"auto", "Automatically detect configuration (recommended)", "Local when the domain's MX record points here."},
+		{"local", "Local mail exchanger", "This server receives the domain's mail."},
+		{"backup", "Backup mail exchanger", "Another server receives the mail; nothing is stored here."},
+		{"remote", "Remote mail exchanger", "Another server receives the mail; nothing is stored here (no local mailboxes)."},
+	} {
+		routings = append(routings, acctRouting{o[0], o[1], o[2], routing == o[0]})
+	}
+	sw := func(name, label, help string, raw bool) acctSwitch {
+		return acctSwitch{Name: name, Label: label, Help: help, On: on(name), Raw: raw}
+	}
+	type planOpt struct {
+		ID       int64
+		Label    string
+		Selected bool
+	}
+	var plans []planOpt
+	if ps, err := hosting.NewPlanRepository(s.db).Visible(ctx, user); err == nil {
+		for _, p := range ps {
+			label := p.Name
+			if p.Description != "" {
+				label += " — " + p.Description
+			}
+			plans = append(plans, planOpt{p.ID, label, strconv.FormatInt(p.ID, 10) == planSel})
+		}
+	}
+	type phpOpt struct {
+		V        string
+		Selected bool
+	}
+	var php []phpOpt
+	for _, v := range versions {
+		php = append(php, phpOpt{v, v == phpSel})
+	}
 	data := map[string]any{
-		"CSRF":        session.CSRFToken(sess),
-		"User":        user,
-		"Title":       "New account",
-		"Plans":       nil,
-		"Error":       "",
-		"Success":     "",
-		"Stub":        false,
-		"CanReseller": hosting.IsAll(user),
-	}
-	if sf, ok := sess.PullFlash("success"); ok {
-		data["Success"] = sf
-	}
-	if ef, ok := sess.PullFlash("error"); ok {
-		data["Error"] = ef
-	}
-	plans, err := hosting.NewPlanRepository(s.db).Visible(r.Context(), user)
-	if err == nil {
-		data["Plans"] = plans
+		"CSRF": session.CSRFToken(sess), "User": user, "Title": "Create a new account", "Plans": plans, "PhpVersions": php,
+		"Error": pullFlashKey(sess, "error"), "Success": pullFlashKey(sess, "success"), "CanReseller": hosting.IsAll(user),
+		"Old": old, "Errors": errs, "SPF": spf, "Nameservers": nameservers, "Routings": routings,
+		"Reseller": old["reseller"] == "1",
+		"MailSwitches": []acctSwitch{sw("spam_filter", "Enable the spam filter (Rspamd)", "Scans incoming mail for the account's domains when the server's spam filter is on.", false),
+			sw("spam_box", "Enable Spam Box", "Mail marked as spam goes to the mailbox's Junk folder instead of the inbox.", false)},
+		"DNSSwitches": []acctSwitch{
+			sw("dns_dkim", "Enable DKIM on this account", "Signs the domain's mail; needs email hosted here.", false),
+			sw("dns_spf", "Enable SPF on this account", spf, false),
+			sw("dns_dmarc", "Enable DMARC on this account", "v=DMARC1; p=none; — needs DKIM and SPF.", false),
+			sw("dns_registrar_ns", "Use the name servers at the domain's registrar", "No DNS zone is created here (locally set name servers are ignored).", false),
+			sw("dns_overwrite", "Overwrite an existing DNS zone of the account", "Replaces the records of a zone that exists for the domain.", false)},
 	}
 	s.render(w, "accounts_create", data)
 }
@@ -68,14 +148,11 @@ func (s *Server) accountsStore(w http.ResponseWriter, r *http.Request) {
 	acct, err := svc.Create(r.Context(), postValues(r), actor)
 	if err != nil {
 		var ve *hosting.ValidationError
-		msg := err.Error()
 		if errors.As(err, &ve) {
-			for _, m := range ve.Fields {
-				msg = m
-				break
-			}
+			s.backWithErrors(w, r, "/accounts/new", ve.Fields)
+			return
 		}
-		sess.Flash("error", msg)
+		sess.Flash("error", err.Error())
 		http.Redirect(w, r, "/accounts/new", http.StatusSeeOther)
 		return
 	}
