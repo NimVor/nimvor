@@ -9,7 +9,6 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
-	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
 // domainsIndex GET /domains — lists every hostname served by the server with
@@ -55,6 +54,8 @@ func (s *Server) domainsIndex(w http.ResponseWriter, r *http.Request) {
 				"Domain":  site.Domain,
 				"SiteID":  site.ID,
 				"Covered": covered,
+				"Enabled": site.Enabled,
+				"HTTPS":   site.HTTPS,
 			})
 		}
 	}
@@ -63,14 +64,11 @@ func (s *Server) domainsIndex(w http.ResponseWriter, r *http.Request) {
 		aj := domainsApex(rows[j]["Name"].(string))
 		return ai < aj || (ai == aj && rows[i]["Name"].(string) < rows[j]["Name"].(string))
 	})
-	sess := sessionFrom(r.Context())
-	s.render(w, "domains_index", map[string]any{
-		"CSRF":         session.CSRFToken(sess),
-		"User":         user,
-		"Title":        "Domains",
-		"Rows":         rows,
-		"DiscoveredAt": inv.CreatedAt,
-	})
+	pd := s.discoveryPageData(r, *inv)
+	pd["Title"] = "Domains"
+	pd["Rows"] = rows
+	pd["Count"] = len(rows)
+	s.render(w, "domains_index", pd)
 }
 
 // ownedDomains returns the domains of websites the actor owns, used to scope
