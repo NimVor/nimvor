@@ -690,3 +690,15 @@ func TestHostnameReferencesPage(t *testing.T) {
 		t.Fatalf("hostname references: %d", rec.Code)
 	}
 }
+
+func TestRuntimesPageRenders(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rec := get(t, h, "/runtimes", admin)
+	if rec.Code != 200 {
+		t.Fatalf("runtimes: %d", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "onclick=") {
+		t.Error("inline handler in runtimes template")
+	}
+}

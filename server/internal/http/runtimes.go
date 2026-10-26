@@ -1,9 +1,9 @@
 package http
 
 import (
-	"encoding/json"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
@@ -30,18 +30,28 @@ func (s *Server) runtimesIndex(w http.ResponseWriter, r *http.Request) {
 		"Error":      "",
 		"CanManage":  s.can(r, "server.manage"),
 	}
-	if sf, ok := sess.PullFlash("success"); ok {
-		data["Success"] = sf
-	}
-	if ef, ok := sess.PullFlash("error"); ok {
-		data["Error"] = ef
+	data["Success"], data["Error"] = pullFlashKey(sess, "success"), pullFlashKey(sess, "error")
+	type rtRow struct{ Kind, Version, Binary string }
+	rows := func(v any) []rtRow {
+		var out []rtRow
+		list, _ := v.([]any)
+		for _, it := range list {
+			m, _ := it.(map[string]any)
+			out = append(out, rtRow{strings.Title(jstr(m, "kind")), jstr(m, "version"), jstr(m, "binary")})
+		}
+		return out
 	}
 	if raw, err := s.agent.Call(r.Context(), "runtime.status", nil, 60*time.Second); err == nil {
-		var st any
-		_ = json.Unmarshal(raw, &st)
-		data["Status"] = st
+		st := agentObject(raw)
+		data["Status"] = st != nil
+		managed := rows(st["node"])
+		for i := range managed {
+			managed[i].Kind = "Node.js"
+		}
+		py := rows(st["python"])
+		data["Managed"], data["System"], data["Arch"] = append(managed, py...), rows(st["system"]), jstr(st, "arch")
 	} else {
-		data["AgentError"] = err.Error()
+		data["AgentError"] = agentMessage(err)
 	}
 	s.render(w, "server_runtimes", data)
 }
