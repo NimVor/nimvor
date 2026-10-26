@@ -2265,3 +2265,26 @@ have been removed. The only remaining HTTP handler that returns a
 non-success by design is plugins.toggle, which correctly reflects the
 absence of a plugin subsystem and will be revisited if/when one is
 designed.
+
+## Post-Batch-100 correctness follow-ups ☑
+
+- `usersUpdate` (POST /users/{id}) now calls `Repository.BumpSessionEpoch`
+  when a password is supplied, matching PHP AuthService behavior so other
+  sessions for that user are invalidated. Failures are logged, not fatal.
+- `usersUpdate` now runs `assertCanAssign` against BOTH the new and the
+  existing role when a role changes (an actor cannot hand out, or take
+  away, a permission they do not hold themselves), matching PHP
+  `UserService::update`. Reuses the existing `strContainsAll` helper.
+- Removed the duplicate `canManageUser(repo, actor, target)` parent-chain
+  walker introduced in Batch 97; resellers in WhaCP manage only direct
+  children (parent_id = actor), which matches `hosting.CanManage` and
+  the simpler `canManageUser(actor, target)` already used by
+  `usersDestroy`/suspend/etc. Switched the single `usersUpdate` caller
+  and dropped the unused `"context"` import.
+- `accountsTerminate`/confirm: replaced the inline `fmt.Fprintf` HTML
+  string with a real `accounts_terminate.html` template rendered through
+  the existing template engine (auto-escaped, header/CSRF/cancel link/
+  error area). Removed the obsolete `terminateConfirmPageTpl` constant
+  and `templateHTMLEscape` helper. Added a self-termination guard on
+  both the POST start and the confirm endpoint, matching PHP
+  UserService::delete ("ask another administrator").
