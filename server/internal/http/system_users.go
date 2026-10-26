@@ -3,9 +3,9 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
-	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
 // systemUsersIndex GET /system-users — lists system accounts (UIDs from the
@@ -37,13 +37,25 @@ func (s *Server) systemUsersIndex(w http.ResponseWriter, r *http.Request) {
 		}
 		users = append(users, u)
 	}
-	sess := sessionFrom(r.Context())
-	s.render(w, "server_system_users", map[string]any{
-		"CSRF":         session.CSRFToken(sess),
-		"User":         user,
-		"Title":        "System accounts",
-		"Users":        users,
-		"ShowSystem":   showSystem,
-		"DiscoveredAt": inv.CreatedAt,
-	})
+	type row struct {
+		Name, Comment, Home, Shell string
+		UID, GID                   int64
+		CanLogin                   bool
+	}
+	rows := make([]row, 0, len(users))
+	for _, u := range users {
+		sh := jstr(u, "shell")
+		rw := row{Name: jstr(u, "name"), Comment: jstr(u, "comment"), Home: jstr(u, "home"), Shell: sh, UID: int64(jnum(u, "uid")), GID: int64(jnum(u, "gid"))}
+		if _, ok := u["can_login"]; ok {
+			rw.CanLogin = jbool(u, "can_login")
+		} else {
+			rw.CanLogin = sh != "" && !strings.HasSuffix(sh, "nologin") && !strings.HasSuffix(sh, "/false")
+		}
+		rows = append(rows, rw)
+	}
+	pd := s.discoveryPageData(r, *inv)
+	pd["Title"] = "System accounts"
+	pd["Rows"] = rows
+	pd["ShowSystem"] = showSystem
+	s.render(w, "server_system_users", pd)
 }

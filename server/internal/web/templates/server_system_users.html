@@ -12,26 +12,33 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>System accounts</h1>
-  <p class="text-muted">Discovered {{.DiscoveredAt}}.
-    {{if .ShowSystem}}<a href="/system-users">Hide system accounts</a>{{else}}<a href="/system-users?all=1">Show system accounts</a>{{end}}
-  </p>
-  <table class="data-table">
-    <thead><tr><th>UID</th><th>Name</th><th>GID</th><th>Home</th><th>Shell</th></tr></thead>
-    <tbody>
-    {{range .Users}}
-      <tr>
-        <td>{{.uid}}</td>
-        <td><code>{{.name}}</code>{{if .system}} <span class="badge bg-secondary">system</span>{{end}}</td>
-        <td>{{.gid}}</td>
-        <td>{{.home}}</td>
-        <td>{{.shell}}</td>
-      </tr>
-    {{else}}
-      <tr><td colspan="5" class="text-muted">No accounts to show.</td></tr>
-    {{end}}
-    </tbody>
-  </table>
+  {{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
+  {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+    <span class="text-body-secondary me-auto">Linux accounts from /etc/passwd</span>
+    <a class="btn btn-sm btn-outline-secondary" href="{{if .ShowSystem}}/system-users{{else}}/system-users?all=1{{end}}">{{if .ShowSystem}}Hide system accounts{{else}}Show system accounts{{end}}</a>
+  </div>
+  {{template "discovery_bar" .}}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 wcp-table">
+        <thead><tr><th>User</th><th>UID</th><th>GID</th><th>Home</th><th>Shell</th><th>Login</th></tr></thead>
+        <tbody>
+        {{range .Rows}}
+          <tr>
+            <td class="fw-semibold">{{.Name}}{{if .Comment}}<div class="small text-body-secondary fw-normal">{{.Comment}}</div>{{end}}</td>
+            <td>{{.UID}}</td><td>{{.GID}}</td>
+            <td><code class="small">{{.Home}}</code></td><td><code class="small">{{.Shell}}</code></td>
+            <td>{{if .CanLogin}}<span class="badge text-bg-warning">shell</span>{{else}}<span class="badge text-bg-secondary">no shell</span>{{end}}</td>
+          </tr>
+        {{else}}
+          <tr><td colspan="6" class="text-center py-4 wcp-muted">No accounts to show.</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer small text-body-secondary">Password hashes (/etc/shadow) are never read.</div>
+  </div>
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}
