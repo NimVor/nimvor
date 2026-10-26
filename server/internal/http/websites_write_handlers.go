@@ -92,6 +92,56 @@ type siteFormView struct {
 	AllowedTypes   map[string]bool
 }
 
+type iniField struct {
+	Key, Hint, Value, Error string
+	Select                  bool
+	Options                 []string
+}
+
+type iniGroup struct {
+	Name   string
+	Fields []iniField
+}
+
+// iniGroups builds the "Additional PHP directives" editor: every directive the
+// catalogue offers, grouped, with the value the website has (or what was just
+// submitted) and its error.
+func iniGroups(f *siteFormView) ([]iniGroup, int) {
+	stored := map[string]string{}
+	if f.Site != nil {
+		for k, v := range f.Site.PhpSettings.INI {
+			stored[k] = v
+		}
+	}
+	var groups []iniGroup
+	idx := map[string]int{}
+	set := 0
+	for _, d := range hosting.PhpDirectives {
+		val := stored[d.Key]
+		if v, ok := f.Form["ini["+d.Key+"]"]; ok {
+			val = v
+		}
+		if val != "" {
+			set++
+		}
+		fld := iniField{Key: d.Key, Hint: d.Hint, Value: val, Error: f.Errors["ini."+d.Key]}
+		switch {
+		case d.Kind == "bool":
+			fld.Select, fld.Options = true, []string{"On", "Off"}
+		case strings.HasPrefix(d.Kind, "enum:"):
+			fld.Select, fld.Options = true, strings.Split(strings.TrimPrefix(d.Kind, "enum:"), "|")
+		}
+		g, ok := idx[d.Group]
+		if !ok {
+			g = len(groups)
+			idx[d.Group] = g
+			groups = append(groups, iniGroup{Name: d.Group})
+		}
+		groups[g].Fields = append(groups[g].Fields, fld)
+	}
+	return groups, set
+}
+
 // renderSiteForm re-renders the website form. A 200 status (not a redirect) is
 // deliberate: the submitted values and field errors are rendered inline, so
 // nothing is lost on a rejected form (parity with PHP's old input + errors).
@@ -111,6 +161,22 @@ func (s *Server) renderSiteForm(w http.ResponseWriter, r *http.Request, user *id
 		"ProfileDefault": f.ProfileDefault,
 		"Owners":         f.Owners,
 		"AllowedTypes":   f.AllowedTypes,
+	}
+	groups, set := iniGroups(f)
+	data["IniGroups"], data["IniSet"] = groups, set
+	docSub := f.Form["document_root_sub"]
+	if _, ok := f.Form["document_root_sub"]; !ok {
+		docSub = "public_html"
+		if f.Site != nil && strings.HasPrefix(f.Site.DocumentRoot, f.Site.Root) {
+			if sub := strings.TrimLeft(strings.TrimPrefix(f.Site.DocumentRoot, f.Site.Root), "/"); sub != "" {
+				docSub = sub
+			}
+		}
+	}
+	data["DocSub"] = docSub
+	data["DocPrefix"] = "<sites root>/<domain>/"
+	if f.Site != nil && f.Site.Root != "" {
+		data["DocPrefix"] = f.Site.Root + "/"
 	}
 	s.render(w, "site_form", data)
 }

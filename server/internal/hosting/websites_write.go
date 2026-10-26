@@ -633,18 +633,19 @@ func (s *WebsiteService) Validate(ctx context.Context, in map[string]string, exi
 			addErr("start_servers", "Dynamic needs 1 ≤ min spare ≤ start ≤ max spare ≤ max PHP processes (or leave all three at 0).")
 		}
 	}
-	// The website's own php.ini directives. The Go form does not offer the
-	// directive editor yet (a later batch); values arrive as ini[name]=value
-	// and are checked minimally (the agent re-checks on apply).
+	// The website's own php.ini directives (ini[name]=value from the editor).
+	// Blank means "server default"; the agent checks each value again on apply.
 	ps.INI = stored.INI
 	if ini := collectINI(in); len(ini) > 0 {
-		valid := map[string]string{}
-		for name, value := range ini {
-			if !iniNameRe.MatchString(name) || len(value) > 1024 {
-				addErr("ini."+name, "Not a valid php.ini directive or value.")
-				continue
-			}
-			valid[name] = value
+		iniRoot := ""
+		if existing != nil {
+			iniRoot = existing.Root
+		} else {
+			iniRoot = strings.TrimSuffix(s.SitesRoot(ctx), "/") + "/" + domain
+		}
+		valid, ierrs := ValidatePhpINI(ini, iniRoot)
+		for k, m := range ierrs {
+			addErr(k, m)
 		}
 		ps.INI = valid
 	}

@@ -148,6 +148,41 @@
     </fieldset>
     {{end}}
 
+    {{if eq (index .Form "kind") "php"}}
+    <fieldset id="php-ini">
+      <legend>Additional PHP directives <span class="small text-muted">({{.IniSet}} set)</span></legend>
+      <div class="small text-muted mb-2">Leave a directive on the server default unless you need it. The server checks each value again when it is applied.</div>
+      <div class="table-responsive wcp-scroll-400">
+        <table class="table table-sm align-middle mb-0 wcp-table" id="php-ini-table">
+          <tbody>
+          {{range .IniGroups}}
+            <tr class="table-light"><th colspan="2" class="small">{{.Name}}</th></tr>
+            {{range .Fields}}
+            <tr>
+              <td class="w-50"><label class="font-monospace small" for="ini-{{.Key}}">{{.Key}}</label>{{if .Hint}}<div class="small text-body-secondary">{{.Hint}}</div>{{end}}</td>
+              <td>
+                {{if .Select}}{{$v := .Value}}<select class="form-select form-select-sm{{if .Error}} is-invalid{{end}}" id="ini-{{.Key}}" name="ini[{{.Key}}]"><option value="">Server default</option>{{range .Options}}<option value="{{.}}"{{if eq . $v}} selected{{end}}>{{.}}</option>{{end}}</select>
+                {{else}}<input class="form-control form-control-sm font-monospace{{if .Error}} is-invalid{{end}}" id="ini-{{.Key}}" name="ini[{{.Key}}]" value="{{.Value}}" placeholder="Server default" autocomplete="off" spellcheck="false">{{end}}
+                {{if .Error}}<div class="invalid-feedback d-block">{{.Error}}</div>{{end}}
+              </td>
+            </tr>
+            {{end}}
+          {{end}}
+          </tbody>
+        </table>
+      </div>
+    </fieldset>
+    {{end}}
+
+    <fieldset>
+      <legend>Document root</legend>
+      <label>Folder served
+        <span class="input-group"><span class="input-group-text small">{{.DocPrefix}}</span><input type="text" name="document_root_sub" value="{{.DocSub}}"></span>
+        {{with index .Errors "document_root_sub"}}<span class="text-danger small">{{.}}</span>{{end}}
+        <span class="small text-muted">For Laravel use <code>public_html/public</code>.</span>
+      </label>
+    </fieldset>
+
     <fieldset>
       <legend>Server</legend>
       <label>Max upload to the server (MB)

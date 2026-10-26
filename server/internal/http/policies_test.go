@@ -640,3 +640,14 @@ func TestRolesPagesShowDescriptionsGroupsAndPolicy(t *testing.T) {
 		t.Error("the Administrator role form lacks its notice")
 	}
 }
+
+func TestWebsiteFormOffersDirectiveEditorAndDocumentRoot(t *testing.T) {
+	h, _ := rolesEnv(t)
+	c := loginAsUser(t, h, "admin")
+	body := get(t, h, "/websites/new", c).Body.String()
+	for _, want := range []string{"Additional PHP directives", "ini[display_errors]", "ini[date.timezone]", "document_root_sub", "public_html"} {
+		if !pageHas(body, want) && !strings.Contains(body, want) {
+			t.Errorf("website form lacks %q", want)
+		}
+	}
+}
