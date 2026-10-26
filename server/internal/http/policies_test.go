@@ -287,3 +287,15 @@ func TestSslCenterPagesRenderForAdminOnly(t *testing.T) {
 		t.Error("a non-administrator opened the SSL keys page")
 	}
 }
+
+func TestLimitsPageRenders(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rr := get(t, h, "/limits", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /limits = %d", rr.Code)
+	}
+	if !pageHas(rr.Body.String(), "Limited accounts") || pageHas(rr.Body.String(), "map[") {
+		t.Error("limits page lacks its table or prints a raw map")
+	}
+}

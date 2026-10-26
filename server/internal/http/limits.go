@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -149,18 +150,51 @@ func (s *Server) limitsDesired(r *http.Request) (map[string]map[string]any, erro
 // this handler returns a friendly page indicating the feature is not yet
 // available while the route itself is registered so the nav link works.
 // Mirrors LimitsController::index (limits, server.view).
+type limitRow struct {
+	Acct, Username, Plan, Slice, Limits, Users, Memory, MemPct, Tasks, Throttled, OOM, State, StateClass string
+	UserID                                                                                               int64
+	HasName, Active                                                                                      bool
+	Pct                                                                                                  int
+}
+
+type quotaRow struct {
+	User, Account, Used, Limit string
+	Pct                        int
+	HasLimit                   bool
+}
+
+func limitsText(l any) string {
+	var p []string
+	if n := int(jnum(l, "cpu_percent")); n > 0 {
+		p = append(p, fmt.Sprintf("CPU %d%%", n))
+	}
+	if n := jnum(l, "memory_mb"); n > 0 {
+		p = append(p, strings.TrimSuffix(fmtBytes(n*1048576), ".0")+" memory")
+	}
+	if n := int(jnum(l, "tasks_max")); n > 0 {
+		p = append(p, fmt.Sprintf("%d processes", n))
+	}
+	if n := int(jnum(l, "io_read_mbps")); n > 0 {
+		p = append(p, fmt.Sprintf("read %d MB/s", n))
+	}
+	if n := int(jnum(l, "io_write_mbps")); n > 0 {
+		p = append(p, fmt.Sprintf("write %d MB/s", n))
+	}
+	if len(p) == 0 {
+		return "—"
+	}
+	return strings.Join(p, " · ")
+}
+
+// limitsIndex GET /limits — cgroup limits of hosting accounts and disk quotas
+// (LimitsController::index, server.view).
 func (s *Server) limitsIndex(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
 	sess := sessionFrom(r.Context())
+	ctx := r.Context()
 	data := map[string]any{
-		"CSRF":       session.CSRFToken(sess),
-		"User":       user,
-		"Title":      "Resource limits",
-		"Success":    "",
-		"Error":      "",
-		"Status":     nil,
-		"AgentError": nil,
-		"NotReady":   true,
+		"CSRF": session.CSRFToken(sess), "User": user, "Title": "Resource limits",
+		"Success": "", "Error": "", "AgentError": "",
 	}
 	if sf, ok := sess.PullFlash("success"); ok {
 		data["Success"] = sf
@@ -168,16 +202,139 @@ func (s *Server) limitsIndex(w http.ResponseWriter, r *http.Request) {
 	if ef, ok := sess.PullFlash("error"); ok {
 		data["Error"] = ef
 	}
-	// Best-effort: try calling resource-limits.status on the agent; if it
-	// doesn't exist the page will fall back to the "not yet ported" card.
-	if raw, err := s.agent.Call(r.Context(), "resource_limits.status", nil, 60*time.Second); err == nil {
-		var parsed any
-		_ = json.Unmarshal(raw, &parsed)
-		data["Status"] = parsed
-		data["NotReady"] = false
+	data["CanManage"] = s.can(r, "server.manage")
+	var status any
+	if raw, err := s.agent.Call(ctx, "limits.status", nil, 60*time.Second); err == nil {
+		_ = json.Unmarshal(raw, &status)
+		data["NoCgroup"] = !jbool(status, "cgroup_v2")
 	} else {
-		data["AgentError"] = err.Error()
+		data["AgentError"] = agentMessage(err)
 	}
+	applied, _ := jmap(status)["accounts"].(map[string]any)
+	desired, _ := s.limitsDesired(r)
+	seen := map[string]bool{}
+	var accts []string
+	for k := range desired {
+		seen[k] = true
+		accts = append(accts, k)
+	}
+	for k := range applied {
+		if !seen[k] {
+			accts = append(accts, k)
+		}
+	}
+	sort.Strings(accts)
+	var rows []limitRow
+	for _, acct := range accts {
+		d, haveD := desired[acct]
+		a, haveA := applied[acct]
+		row := limitRow{Acct: acct, Slice: "whacp-" + acct + ".slice", Users: "", Memory: "idle", Tasks: "—", Throttled: "—"}
+		var lim any
+		if haveA {
+			lim = jmap(a)["limits"]
+		}
+		if haveD {
+			dl := map[string]any{}
+			for k, v := range d["limits"].(map[string]int) {
+				dl[k] = float64(v)
+			}
+			lim = dl
+		}
+		row.Limits = limitsText(lim)
+		if haveD {
+			row.Users = strings.Join(d["users"].([]string), ", ")
+		} else if haveA {
+			row.Users = strings.Join(strList(jmap(a)["users"]), ", ")
+		}
+		if haveD {
+			if oid, ok := d["owner_id"].(int64); ok {
+				row.UserID = oid
+				var uname, plan string
+				if err := s.db.QueryRowContext(ctx, `SELECT u.username, COALESCE(p.name,'') FROM users u LEFT JOIN plans p ON p.id = u.plan_id WHERE u.id = ?`, oid).Scan(&uname, &plan); err == nil {
+					row.HasName, row.Username, row.Plan = true, uname, plan
+					if plan == "" {
+						row.Plan = "no plan"
+					}
+				}
+			}
+		}
+		if u := jmap(a)["usage"]; haveA && jbool(u, "active") {
+			row.Active = true
+			mem := jnum(u, "memory_bytes")
+			row.Memory = fmtBytes(mem)
+			if mm := jnum(lim, "memory_mb") * 1048576; mm > 0 {
+				row.Pct = int(math.Min(100, math.Round(100*mem/mm)))
+				row.MemPct = fmt.Sprintf(" (%d%%)", row.Pct)
+			}
+			row.Tasks = jstr(u, "tasks")
+			if k := int(jnum(u, "oom_kills")); k > 0 {
+				row.OOM = fmt.Sprintf("%d out-of-memory kills", k)
+			}
+			if t := jnum(u, "cpu_throttled_usec"); t > 0 {
+				row.Throttled = formatDuration(int64(math.Round(t / 1e6)))
+			}
+		}
+		match := haveD && haveA
+		if match {
+			al := jmap(jmap(a)["limits"])
+			for k, v := range d["limits"].(map[string]int) {
+				if int(jnum(al, k)) != v {
+					match = false
+				}
+			}
+		}
+		switch {
+		case !haveD:
+			row.State, row.StateClass = "Being removed", "is-warn"
+		case match:
+			row.State, row.StateClass = "Applied", "is-ok"
+		default:
+			row.State, row.StateClass = "Pending", "is-warn"
+		}
+		rows = append(rows, row)
+	}
+	data["Rows"], data["Count"] = rows, len(rows)
+	// Disk quotas.
+	var q any
+	if raw, err := s.agent.Call(ctx, "quota.status", nil, 60*time.Second); err == nil {
+		_ = json.Unmarshal(raw, &q)
+		st := jstr(q, "state")
+		fs := jstr(q, "fstype")
+		mp := jstr(q, "mount_point")
+		confirm := "Turn on disk quotas for " + mp + " (" + fs + ")? "
+		if fs == "xfs" {
+			confirm += "WhaCP adds uquota to /etc/fstab"
+			if mp == "/" {
+				confirm += " and rootflags=uquota to the kernel options"
+			}
+			confirm += "; quotas start after you reboot the server."
+		} else {
+			confirm += "The file system is remounted with user quotas (no downtime), every file is counted once (this can take a while on a large disk) and /etc/fstab is updated so they stay on after a reboot. The quota tools, and on some cloud kernels the kernel's extra modules, are installed if missing."
+		}
+		confirm += " Then each account's plan disk space is enforced: writes beyond it fail with “Disk quota exceeded”."
+		data["Quota"] = map[string]any{"State": st, "On": st == "on", "Off": st == "off", "Pending": st == "pending_reboot", "Unsupported": st == "unsupported",
+			"Path": jstr(q, "path"), "Mount": mp, "FS": fs, "Device": jstr(q, "device"), "Note": jstr(q, "note"), "Confirm": confirm}
+	}
+	var qrows []quotaRow
+	if qr, err := s.db.QueryContext(ctx, `SELECT q.system_user, q.used_kb, q.hard_kb, COALESCE((SELECT u.username FROM websites w JOIN users u ON u.id = w.owner_id WHERE w.server_id = q.server_id AND w.system_user = q.system_user ORDER BY w.id LIMIT 1),'—') FROM disk_quotas q WHERE q.server_id = ? ORDER BY q.system_user`, s.currentServerID(r)); err == nil {
+		for qr.Next() {
+			var su, acct string
+			var used, hard int64
+			if qr.Scan(&su, &used, &hard, &acct) == nil {
+				row := quotaRow{User: su, Account: acct, Used: fmtBytes(float64(used * 1024)), Limit: "none", HasLimit: hard > 0}
+				if hard > 0 {
+					row.Limit = fmtBytes(float64(hard * 1024))
+					row.Pct = int(math.Min(100, math.Round(100*float64(used)/float64(hard))))
+				}
+				qrows = append(qrows, row)
+			}
+		}
+		qr.Close()
+	}
+	data["QuotaRows"] = qrows
+	var job string
+	_ = s.db.QueryRowContext(ctx, `SELECT job_id FROM agent_jobs WHERE server_id = ? AND kind = 'Turn on disk quotas' ORDER BY created_at DESC LIMIT 1`, s.currentServerID(r)).Scan(&job)
+	data["QuotaJob"] = job
 	s.render(w, "limits_index", data)
 }
 
