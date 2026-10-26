@@ -1,5 +1,5 @@
 {{define "security_ssh_key_created"}}<!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,18 +7,11 @@
 <link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
 <link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/assets/css/whacp.css">
+<link rel="icon" href="/assets/img/logo.svg" type="image/svg+xml">
+<script src="/assets/js/theme.js"></script>
 </head>
-<body class="whacp-app">
-<header class="topbar">
-  <span class="brand">WhaCP</span>
-  <span class="spacer"></span>
-  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
-  <form method="post" action="/logout" class="logout-form">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <button type="submit">Sign out</button>
-  </form>
-</header>
-<main class="container">
+<body class="wcp-body">
+{{template "wcp_open" .}}
   <p><a href="/servers">&larr; Servers</a></p>
   <h1>New SSH key</h1>
   <p class="text-muted">Security · SSH</p>
@@ -45,8 +38,6 @@
     <p class="small mb-1"><strong>PuTTY:</strong> open PuTTYgen, <em>Conversions → Import key</em>, choose the file, then <em>Save private key</em> (.ppk) and use it under <em>Connection → SSH → Auth → Credentials</em>.</p>
     <p class="small wcp-muted mb-0">Test a new connection with the key before you turn off password logins on the SSH page.</p>
   </div>
-</main>
-<script src="/assets/js/whacp.js"></script>
-<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+{{template "wcp_close" .}}
 </body>
 </html>{{end}}

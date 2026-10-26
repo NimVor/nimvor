@@ -1912,3 +1912,40 @@
         });
     });
 })();
+
+// Sidebar: mark the current area and open its sub-menu. The server renders the
+// same menu on every page; the browser knows which page is showing.
+(function () {
+    'use strict';
+    document.addEventListener('DOMContentLoaded', function () {
+        var path = window.location.pathname;
+        var best = null, bestLen = -1;
+        document.querySelectorAll('.wcp-nav-link[data-wcp-prefix]').forEach(function (a) {
+            var p = a.getAttribute('data-wcp-prefix');
+            var hit = p === '/' ? path === '/' : (path === p || path.indexOf(p + '/') === 0);
+            if (hit && p.length > bestLen) { best = a; bestLen = p.length; }
+        });
+        if (best) {
+            best.classList.add('active');
+            best.setAttribute('aria-current', 'page');
+            var sub = best.nextElementSibling;
+            if (sub && sub.classList.contains('wcp-subnav')) {
+                sub.hidden = false;
+                best.setAttribute('aria-expanded', 'true');
+            }
+        }
+        document.querySelectorAll('.wcp-subnav-link').forEach(function (a) {
+            var u = (a.getAttribute('data-wcp-prefix') || '').split('?')[0];
+            if (u && path === u && a.getAttribute('href').indexOf('?') < 0) { a.classList.add('active'); }
+        });
+    });
+})();
+
+// Top bar title: pages that do not pass one use their <title> ("Name · WhaCP").
+(function () {
+    'use strict';
+    document.addEventListener('DOMContentLoaded', function () {
+        var el = document.querySelector('.wcp-topbar-title > div');
+        if (el && el.textContent.trim() === '') { el.textContent = document.title.split(' · ')[0]; }
+    });
+})();

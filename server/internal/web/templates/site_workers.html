@@ -1,5 +1,5 @@
 {{define "site_workers"}}<!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,18 +7,11 @@
 <link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
 <link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/assets/css/whacp.css">
+<link rel="icon" href="/assets/img/logo.svg" type="image/svg+xml">
+<script src="/assets/js/theme.js"></script>
 </head>
-<body class="whacp-app">
-<header class="topbar">
-  <span class="brand">WhaCP</span>
-  <span class="spacer"></span>
-  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
-  <form method="post" action="/logout" class="logout-form">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <button type="submit">Sign out</button>
-  </form>
-</header>
-<main class="container">
+<body class="wcp-body">
+{{template "wcp_open" .}}
   <p><a href="/sites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
   <h1>Workers</h1>
   {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
@@ -117,6 +110,6 @@
   <p class="text-muted">No workers yet. Keep a command running: queue consumers, Node.js or Python servers and other long-running processes.</p>
   {{end}}
   <p class="small text-muted">Workers run as <code>{{.Site.SystemUser}}</code> under systemd with a private /tmp and no privilege escalation. They stop while the website is disabled.</p>
-</main>
+{{template "wcp_close" .}}
 </body>
 </html>{{end}}

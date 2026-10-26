@@ -107,6 +107,7 @@ func New() (*Templates, error) {
 		"list":     list,
 		"hours":    hours,
 		"mapItems": mapItems,
+		"shellNav": shellNav,
 		// strings.Join, used by the IP pages for their comma-separated lists.
 		"join": strings.Join,
 	}).ParseFS(files, "templates/*.html")

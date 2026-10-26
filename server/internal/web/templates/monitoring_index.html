@@ -1,16 +1,15 @@
-{{define "monitoring_index"}}<!doctype html><html lang="en"><head>
+{{define "monitoring_index"}}<!doctype html><html lang="en" data-bs-theme="light"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}} · WhaCP</title>
 <link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
 <link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/assets/css/whacp.css">
-</head><body class="whacp-app">
-<header class="topbar"><span class="brand">WhaCP</span><span class="spacer"></span>
-<span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
-<form method="post" action="/logout" class="logout-form"><input type="hidden" name="_token" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
-</header><main class="container">
+<link rel="icon" href="/assets/img/logo.svg" type="image/svg+xml">
+<script src="/assets/js/theme.js"></script>
+</head><body class="wcp-body">
+{{template "wcp_open" .}}
 <h1>Monitoring</h1>
 <nav><a href="?range=24h"{{if eq .Range "24h"}} class="active"{{end}}>24h</a> · <a href="?range=7d"{{if eq .Range "7d"}} class="active"{{end}}>7 days</a> · <a href="?range=30d"{{if eq .Range "30d"}} class="active"{{end}}>30 days</a></nav>
 <p><a href="/monitoring/live">Live statistics</a> · <a href="/monitoring/processes">Processes</a></p>
 <p class="text-muted">Time series and alerts populate as the monitoring scheduler runs.</p>
-</main></body></html>{{end}}
+{{template "wcp_close" .}}</body></html>{{end}}

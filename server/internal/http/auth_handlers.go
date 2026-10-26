@@ -218,8 +218,8 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	data := map[string]any{
 		"User": userFrom(r.Context()),
-		"CSRF": session.CSRFToken(sess),
-		"Nav":  s.navFor(r),
+		"CSRF":  session.CSRFToken(sess),
+		"Title": "Dashboard",
 	}
 	s.render(w, "dashboard", data)
 }

@@ -1,43 +1,35 @@
 {{define "dashboard"}}<!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
 <title>Dashboard · WhaCP</title>
 <link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
 <link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/assets/css/whacp.css">
+<link rel="icon" href="/assets/img/logo.svg" type="image/svg+xml">
+<script src="/assets/js/theme.js"></script>
 </head>
-<body class="whacp-app">
-<header class="topbar">
-  <span class="brand">WhaCP</span>
-  <span class="spacer"></span>
-  <span class="who">{{.User.DisplayName}} ({{.User.Username}})</span>
-  <form method="post" action="/logout" class="logout-form">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <button type="submit">Sign out</button>
-  </form>
-</header>
-<nav class="main-nav" aria-label="Sections">
-  <ul>
-    {{if .Nav.websites}}<li><a href="/websites">Websites</a></li>{{end}}
-    {{if .Nav.databases}}<li><a href="/databases">Databases</a></li>{{end}}
-    {{if .Nav.dns}}<li><a href="/dns">DNS</a></li>{{end}}
-    {{if .Nav.mail}}<li><a href="/mail">Email</a></li>{{end}}
-    {{if .Nav.users}}<li><a href="/users">Users</a></li>{{end}}
-    {{if .Nav.roles}}<li><a href="/roles">Roles</a></li>{{end}}
-    {{if .Nav.plans}}<li><a href="/plans">Plans</a></li>{{end}}
-    {{if .Nav.servers}}<li><a href="/servers">Servers</a></li>{{end}}
-    {{if .Nav.notifications}}<li><a href="/notifications">Notifications</a></li>{{end}}
-    {{if .Nav.audit}}<li><a href="/audit">Audit log</a></li>{{end}}
-    {{if .Nav.profile}}<li><a href="/profile">Profile</a></li>{{end}}
-  </ul>
-</nav>
-<main class="container">
-  <h1>Signed in</h1>
-  <p>Role: {{.User.RoleLabel}} ({{.User.RoleScope}})</p>
-  <p class="text-muted">Choose a section above. The menu shows only what your
-  role and plan allow.</p>
-</main>
+<body class="wcp-body">
+{{template "wcp_open" .}}
+  <p class="text-body-secondary">Signed in as {{.User.DisplayName}} · {{.User.RoleLabel}}. The menu and the cards below show only what your role and plan allow.</p>
+  {{$nav := shellNav .User}}
+  {{if $nav}}
+  {{if $nav.Quick}}
+  <h2 class="h6 text-uppercase text-body-secondary mt-4">Quick actions</h2>
+  <div class="row g-3">
+    {{range $q := $nav.Quick}}<div class="col-sm-6 col-lg-3"><a class="card h-100 text-decoration-none" href="{{$q.URL}}"><div class="card-body"><i class="bi bi-{{$q.Icon}} me-1"></i><strong>{{$q.Label}}</strong><div class="small text-body-secondary">{{$q.Desc}}</div></div></a></div>{{end}}
+  </div>
+  {{end}}
+  <h2 class="h6 text-uppercase text-body-secondary mt-4">Tools &amp; settings</h2>
+  {{range $g := $nav.Groups}}{{if ne $g.Name "Overview"}}
+  <h3 class="h6 mt-3">{{$g.Name}}</h3>
+  <div class="row g-3">
+    {{range $i := $g.Items}}<div class="col-sm-6 col-lg-4 col-xl-3"><a class="card h-100 text-decoration-none" href="{{$i.URL}}"><div class="card-body"><i class="bi bi-{{$i.Icon}} me-1"></i><strong>{{$i.Label}}</strong><div class="small text-body-secondary">{{$i.Desc}}</div></div></a></div>{{end}}
+  </div>
+  {{end}}{{end}}
+  {{end}}
+{{template "wcp_close" .}}
 </body>
 </html>{{end}}

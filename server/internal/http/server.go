@@ -110,6 +110,7 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		mailer:    ml,
 	}
 	s.routes()
+	s.installNav()
 	return s, nil
 }
 

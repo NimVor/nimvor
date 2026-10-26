@@ -142,3 +142,27 @@ func TestSecurityHeadersMatchPHP(t *testing.T) {
 		t.Errorf("static assets must stay cacheable, got %q", cc)
 	}
 }
+
+// Every signed-in page carries the shared shell: a permission-filtered
+// sidebar, the search palette and the confirm/job modals.
+func TestPagesCarryTheNavigationShell(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	for _, path := range []string{"/", "/users", "/roles", "/profile"} {
+		body := get(t, h, path, admin).Body.String()
+		for _, want := range []string{`id="wcp-sidebar"`, `href="/backups"`, `id="wcp-palette"`, `id="wcp-job"`, `id="wcp-confirm"`} {
+			if !pageHas(body, want) {
+				t.Errorf("%s: shell element %q missing", path, want)
+			}
+		}
+	}
+	// A role without the permission does not see the item.
+	mgr := loginAsUser(t, h, "mgr")
+	body := get(t, h, "/users", mgr).Body.String()
+	if pageHas(body, `href="/backups"`) || pageHas(body, `href="/settings"`) {
+		t.Error("the sidebar shows areas the role may not open")
+	}
+	if !pageHas(body, `href="/users"`) {
+		t.Error("the sidebar lacks an area the role may open")
+	}
+}
