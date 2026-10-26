@@ -42,6 +42,14 @@
           <input class="form-check-input" type="checkbox" id="u-active" name="is_active" value="1"{{if not .EditUser}} checked{{else if .EditUser.IsActive}} checked{{end}}>
           <label class="form-check-label" for="u-active">Active</label>
         </div>
+        <div class="mb-3">
+          <label class="form-label" for="u-plan">Plan (optional)</label>
+          <select class="form-select" id="u-plan" name="plan_id">
+            <option value="">No plan</option>
+            {{range .Plans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+          </select>
+          <div class="form-text">Assign a hosting plan if this account is a reseller-owned customer. Staff accounts usually have no plan.</div>
+        </div>
       </div>
     </div>
     <div class="card mb-3">

@@ -312,7 +312,7 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 	} else if taken, e := repo.EmailExists(r.Context(), email, int(id)); e == nil && taken {
 		errs["email"] = "This email address is already in use."
 	}
-	if len(display) > 100 {
+	if len(display) > 100 || strings.ContainsAny(display, "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x7f") {
 		errs["display_name"] = "Use at most 100 printable characters."
 	}
 	// Validate role exists.
