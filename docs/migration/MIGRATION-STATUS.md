@@ -2297,3 +2297,11 @@ designed.
   surface the generated password in the success flash. The
   accounts_create flow already honored the flag through
   AccountService.Create; this brings panel-user create/edit in line.
+
+## Post-merge polish ☑
+
+- `usersUpdate` display_name validation now rejects control/DEL characters
+  (matches the create path and PHP `UserService::validate`).
+- `accountsBandwidth` now sets `Stub=false` (the agent call already
+  populates live bandwidth data; the "Stub" was a leftover flag that did
+  not reflect reality).

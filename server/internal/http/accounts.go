@@ -134,7 +134,7 @@ func (s *Server) accountsBandwidth(w http.ResponseWriter, r *http.Request) {
 		"User":       user,
 		"Title":      "Account bandwidth",
 		"Status":     nil,
-		"Stub":       true,
+		"Stub":       false,
 		"Error":      "",
 		"Success":    "",
 		"AgentError": nil,
