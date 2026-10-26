@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -205,15 +206,36 @@ func (s *Server) monitoringTrace(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/monitoring/processes", http.StatusSeeOther)
 		return
 	}
-	var trace any
-	_ = json.Unmarshal(raw, &trace)
+	trace := agentObject(raw)
+	d := jmap(trace)["detail"]
+	det, _ := d.(map[string]any)
+	type kv struct{ K, V string }
+	var status []kv
+	if st, ok := det["status"].(map[string]any); ok {
+		keys := make([]string, 0, len(st))
+		for k := range st {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			status = append(status, kv{k, jstr(st, k)})
+		}
+	}
+	dash := func(m map[string]any, k string) string {
+		if v := jstr(m, k); v != "" {
+			return v
+		}
+		return "—"
+	}
+	files := strList(det["files"])
 	s.auditMonitoring(r, user, "processes.trace", "process", strconv.Itoa(pid), audit.Success, nil)
 	s.render(w, "monitoring_trace", map[string]any{
-		"User":  user,
-		"CSRF":  session.CSRFToken(sessionFrom(r.Context())),
-		"Title": "Trace",
-		"Trace": trace,
-		"Start": start,
+		"User": user, "CSRF": session.CSRFToken(sessionFrom(r.Context())), "Title": "Trace of process " + strconv.Itoa(pid),
+		"PID": pid, "Name": jstr(trace, "name"), "Start": start, "HasDetail": det != nil,
+		"DetailError": truncateStr(jstr(trace, "detail_error"), 300),
+		"Exe":         dash(det, "exe"), "Cwd": dash(det, "cwd"), "Root": dash(det, "root"), "Deleted": jbool(det, "deleted"),
+		"Status": status, "Files": strings.Join(files, "\n"), "FileCount": len(files),
+		"Strace": jbool(trace, "strace_available"), "StraceOut": jstr(trace, "strace"),
 	})
 }
 

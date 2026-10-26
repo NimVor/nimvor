@@ -734,3 +734,16 @@ func TestRestoreViewDescribesBackup(t *testing.T) {
 		t.Fatalf("a staff name must conflict, got %v", v["Account"])
 	}
 }
+
+func TestProcessTracePageRenders(t *testing.T) {
+	h, _, _ := dbServerEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rec := get(t, h, "/monitoring/processes/trace?pid=42&start=7", admin)
+	if rec.Code != 200 {
+		t.Fatalf("trace: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	b := rec.Body.String()
+	if !strings.Contains(b, "Trace of process 42") && !strings.Contains(b, "Open files and connections") {
+		t.Fatalf("trace page lacks its sections: %s", b)
+	}
+}
