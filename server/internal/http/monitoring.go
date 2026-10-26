@@ -11,8 +11,10 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
@@ -77,8 +79,28 @@ func (s *Server) monitoringLiveData(w http.ResponseWriter, r *http.Request) {
 }
 
 // monitoringProcesses GET /monitoring/processes — admin-only process list.
+type procRow struct {
+	PID, Start, Owner, UnitLabel, Nice, CPU, Mem, Running, Command, Short, Hidden, Title, Kind string
+	Listens                                                                                    string
+	Notes, Suspicious                                                                          []string
+	Operable                                                                                   bool
+}
+
+func procDuration(sec int64) string {
+	switch {
+	case sec >= 86400:
+		return fmt.Sprintf("%dd %dh", sec/86400, sec%86400/3600)
+	case sec >= 3600:
+		return fmt.Sprintf("%dh %dm", sec/3600, sec%3600/60)
+	case sec >= 60:
+		return fmt.Sprintf("%dm", sec/60)
+	}
+	return fmt.Sprintf("%ds", sec)
+}
+
 func (s *Server) monitoringProcesses(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
+	sess := sessionFrom(r.Context())
 	if !hosting.IsAll(user) {
 		s.renderError(w, http.StatusForbidden, "Access denied", "The process manager is for server administrators.")
 		return
@@ -87,22 +109,84 @@ func (s *Server) monitoringProcesses(w http.ResponseWriter, r *http.Request) {
 	if show != "suspicious" {
 		show = ""
 	}
-	var snap any
-	var agentErr string
+	data := map[string]any{
+		"User": user, "CSRF": session.CSRFToken(sess), "Title": "Processes", "Show": show,
+		"Success": "", "Error": "", "AgentError": "",
+	}
+	if sf, ok := sess.PullFlash("success"); ok {
+		data["Success"] = sf
+	}
+	if ef, ok := sess.PullFlash("error"); ok {
+		data["Error"] = ef
+	}
+	canManage, _ := s.authorizer().Can(r.Context(), user, "server.manage")
+	data["CanManage"] = canManage
 	raw, err := s.agent.Call(r.Context(), "processes.list", nil, 60*time.Second)
 	if err != nil {
-		agentErr = agentMessage(err)
-	} else {
-		_ = json.Unmarshal(raw, &snap)
+		data["AgentError"] = agentMessage(err)
+		s.render(w, "monitoring_processes", data)
+		return
 	}
-	s.render(w, "monitoring_processes", map[string]any{
-		"User":       user,
-		"CSRF":       session.CSRFToken(sessionFrom(r.Context())),
-		"Title":      "Processes",
-		"Snap":       snap,
-		"AgentError": agentErr,
-		"Show":       show,
-	})
+	var snap any
+	_ = json.Unmarshal(raw, &snap)
+	var rows []procRow
+	list, _ := jmap(snap)["processes"].([]any)
+	for _, x := range list {
+		m := jmap(x)
+		row := procRow{PID: jstr(x, "pid"), Start: jstr(x, "start"), Owner: jstr(x, "user"), Nice: jstr(x, "nice"),
+			CPU: fmt.Sprintf("%.1f", jnum(x, "cpu_percent")), Mem: fmt.Sprintf("%.1f", jnum(x, "mem_percent")),
+			Running: procDuration(int64(jnum(x, "seconds"))), Command: jstr(x, "command"),
+			Notes: strList(m["notes"]), Suspicious: strList(m["suspicious"]), Listens: strings.Join(strList(m["listens"]), ", ")}
+		unit := jstr(x, "unit")
+		if unit != "" {
+			if _, err := strconv.Atoi(row.Owner); err == nil {
+				row.UnitLabel = strings.TrimSuffix(unit, ".service")
+			}
+			if !strings.HasSuffix(unit, ".service") {
+				unit = ""
+			}
+		}
+		if unit != "" {
+			for i, n := range row.Notes {
+				row.Notes[i] = n + " (" + unit + ")"
+			}
+		}
+		if exe := jstr(x, "exe"); exe != "" {
+			row.Title = "Program: " + exe
+			if cwd := jstr(x, "cwd"); cwd != "" {
+				row.Title += "\nFolder: " + cwd
+			}
+		}
+		switch {
+		case len(row.Suspicious) > 0:
+			row.Kind = "suspicious user"
+		case jbool(x, "kernel"):
+			row.Kind = "kernel"
+		default:
+			row.Kind = "user"
+		}
+		row.Operable = !jbool(x, "kernel") && jnum(x, "pid") > 1
+		row.Short, row.Hidden = truncateStr(row.Command, 120), truncateStr(row.Command, 200)
+		rows = append(rows, row)
+	}
+	data["Rows"] = rows
+	var users []string
+	for _, u := range strList(jmap(snap)["users"]) {
+		users = append(users, u)
+	}
+	data["Users"] = users
+	var killable []string
+	for _, u := range users {
+		if u != "root" && u != "whacp" {
+			killable = append(killable, u)
+		}
+	}
+	data["Killable"] = killable
+	data["Count"] = len(rows)
+	data["SuspiciousCount"] = int(jnum(snap, "suspicious"))
+	data["Detailed"] = jbool(snap, "detailed")
+	data["ScanError"] = truncateStr(jstr(snap, "scan_error"), 300)
+	s.render(w, "monitoring_processes", data)
 }
 
 // monitoringTrace GET /monitoring/processes/trace — admin-only syscall trace.

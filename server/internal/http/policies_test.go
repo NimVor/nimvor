@@ -252,3 +252,19 @@ func TestPhpManagerPageAndReviewGrouping(t *testing.T) {
 		t.Errorf("packages = %q", groups[0].Items[0].Packages)
 	}
 }
+
+func TestProcessesPageListsProcesses(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rr := get(t, h, "/monitoring/processes", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /monitoring/processes = %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if pageHas(body, "map[") {
+		t.Error("processes page prints a raw Go map")
+	}
+	if !pageHas(body, "History and alerts") {
+		t.Error("processes page lacks the monitoring tabs")
+	}
+}
