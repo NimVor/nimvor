@@ -1,39 +1,31 @@
 # WhaCP developer tasks.
 
 GO      ?= go
-PHP     ?= php
 VERSION ?= $(shell cat VERSION 2>/dev/null || echo dev)
 
-.PHONY: all build test test-agent test-panel lint smoke upgrade-test e2e dev clean release
+.PHONY: all build test test-agent test-server lint dev clean release
 
 all: lint test
 
-build: dist/whacp-agent
+build: dist/whacp-agent dist/whacp
 
 dist/whacp-agent: $(shell find agent -name '*.go')
 	cd agent && CGO_ENABLED=0 $(GO) build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o ../dist/whacp-agent ./cmd/whacp-agent
 
-test: test-agent test-panel
+dist/whacp: $(shell find server -name '*.go')
+	cd server && CGO_ENABLED=0 $(GO) build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o ../dist/whacp ./cmd/whacp
+
+test: test-agent test-server
 
 test-agent:
 	cd agent && $(GO) vet ./... && $(GO) test -race ./...
 
-test-panel: panel/vendor/autoload.php
-	cd panel && vendor/bin/phpunit
+test-server:
+	cd server && $(GO) vet ./... && $(GO) test -race ./...
 
-lint: panel/vendor/autoload.php
-	@test -z "$$(cd agent && gofmt -l .)" || (echo "gofmt needed:"; cd agent && gofmt -l .; exit 1)
-	cd panel && find app bin config database public resources routes tests -name '*.php' -print0 | xargs -0 -n1 -P4 $(PHP) -l > /dev/null
-	for f in installer/install.sh installer/upgrade.sh installer/uninstall.sh scripts/dev.sh tests/integration/smoke.sh tests/integration/upgrade.sh tests/integration/public-https.sh tests/e2e/run.sh scripts/release.sh; do bash -n $$f || exit 1; done
-
-smoke: panel/vendor/autoload.php
-	tests/integration/smoke.sh
-
-e2e: panel/vendor/autoload.php
-	tests/e2e/run.sh
-
-upgrade-test: panel/vendor/autoload.php
-	tests/integration/upgrade.sh
+lint:
+	@test -z "$$(gofmt -l $$(find agent server -name '*.go'))" || (echo "gofmt needed:"; gofmt -l $$(find agent server -name '*.go'); exit 1)
+	@for f in installer/install.sh installer/upgrade.sh installer/uninstall.sh scripts/dev.sh tests/integration/smoke.sh tests/integration/upgrade.sh tests/integration/public-https.sh tests/e2e/run.sh scripts/release.sh; do [ -f $$f ] && bash -n $$f || exit 1; done
 
 dev:
 	scripts/dev.sh
@@ -41,8 +33,5 @@ dev:
 release:
 	scripts/release.sh
 
-panel/vendor/autoload.php:
-	cd panel && composer install --no-interaction
-
 clean:
-	rm -rf dist .dev panel/storage/.phpunit.cache
+	rm -rf dist .dev
