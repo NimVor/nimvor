@@ -17,7 +17,7 @@ import (
 )
 
 // apiOpenapi serves a stubbed OpenAPI document describing the API v1 surface.
-// The full spec from panel/resources/api/openapi.yaml is shipped alongside but
+// The full OpenAPI spec is served inline below (apiOpenapiYaml const) and
 // we keep a minimal self-describing document embedded here to avoid extra
 // build plumbing.
 func (s *Server) apiOpenapi(w http.ResponseWriter, r *http.Request) {

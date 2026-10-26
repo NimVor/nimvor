@@ -40,10 +40,12 @@ Three limits keep this safe:
   permissions (server, security, packages, settings…) are locked for them,
   because they would reach beyond the account's own objects.
 
-Permissions are defined in code (`panel/app/Security/Permissions.php`) and
-synchronised into the database by `bin/whacp migrate`. At least one active
-administrator must always exist: the panel refuses to delete, disable or
-demote the last one. Users cannot delete or disable themselves.
+Permissions are defined in code (`server/internal/authz`) and synchronised
+into the database automatically on every panel start (the `whacp` binary
+runs pending SQL migrations and calls `authz.SyncDefaults` on boot). At
+least one active administrator must always exist: the panel refuses to
+delete, disable or demote the last one. Users cannot delete or disable
+themselves.
 
 ## Sessions and sign-in
 
@@ -59,8 +61,8 @@ demote the last one. Users cannot delete or disable themselves.
   and next codes are accepted for clock drift. Ten single-use recovery codes
   are shown once. Five wrong codes end the attempt and count towards the
   sign-in throttle. Administrators can reset a user's two-factor sign-in on
-  the user's edit page (after verifying who is asking), or with
-  `bin/whacp user:2fa-reset <username>`.
+  the user's edit page (after verifying who is asking). Two-factor resets
+  always require the acting administrator to re-authenticate.
 - **Security keys and passkeys (WebAuthn):** under *Profile → Security keys*
   a user adds hardware keys (YubiKey, Titan…) or platform passkeys; up to
   ten per user. A key counts as two-factor sign-in, also for roles that
@@ -78,8 +80,11 @@ the sign-in page offers *Forgot your password?*. The answer is the same
 whether or not the account exists; the link is single-use, valid for 30
 minutes, limited to three per account and ten per address per hour, and
 never built from the request's host name. Two-factor sign-in is still
-required afterwards. Without email, reset passwords with
-`bin/whacp user:password`.
+required afterwards. Without email, an administrator can reset any user's
+password from the user's edit page in the UI, or from a root shell with
+`echo newpassword | whacp set-admin-password --username <name>` (for
+administrators — non-admin passwords are managed entirely through the UI
+to avoid bypassing per-role password policies).
 
 ## Email
 
@@ -529,7 +534,7 @@ from the checks the panel already has, grouped into sections:
 
 | Section | Checks |
 |---|---|
-| WhaCP and the server | the `bin/whacp doctor` checks: PHP, the panel's files and database, the agent, the scheduler, core services, backups configured |
+| WhaCP and the server | the panel binary, database reachable via `/healthz`, agent reachable over `/run/whacp/agent.sock`, core services (web, mail, DNS, database, FTP), backups configured |
 | Resources | each disk, memory, swap and load (the Monitoring alert thresholds) |
 | Components | each component this server should have that is not ready |
 | Security | the security audit's failures and high-severity items; other recommendations counted |
@@ -625,15 +630,16 @@ means the administrator role.
 ## Server setup
 
 The installer's server profiles (**Full**, **Web only**, **Minimal**; see
-the installation guide) run `bin/whacp setup:apply`, which uses the same
-actions as the panel's pages, one step after another: install the
-components' packages, PHP versions and extensions (PHP Manager), email,
-DNS, FTP, a Redis memory limit, start the services and enable them at
-boot, the firewall and the components' ports, firewall protections,
-Fail2ban, hardening, automatic security updates, hosting plans with
-feature lists, weekly backups, and the server profile on the Components
-page. Steps leave alone what is already in place and can run again at any
-time; `bin/whacp setup:status` shows the last run, step by step.
+the installation guide) drive the same actions as the panel's pages
+through the agent, one step after another: install the components'
+packages, PHP versions and extensions (PHP Manager), email, DNS, FTP, a
+Redis memory limit, start the services and enable them at boot, the
+firewall and the components' ports, firewall protections, Fail2ban,
+hardening, automatic security updates, hosting plans with feature lists,
+weekly backups, and record the chosen server profile on the Components
+page. Steps leave alone what is already in place and can be re-run with
+`installer/install.sh --reinstall --profile=…`. The UI's Setup wizard
+shows each step's status as it runs.
 
 | Plan | Websites | Disk | Email accounts | Databases | Feature list |
 |---|---|---|---|---|---|
@@ -673,10 +679,10 @@ All under **Security** in the sidebar (administrators).
   how many packets each protection dropped since it was loaded.
 - **Configure Security Policies**: *Limit logins to verified IP
   addresses* (a WhaCP sign-in from a new address needs a 6-digit code sent
-  to the user's email; addresses already used count as verified;
-  `bin/whacp user:verify-ip <user> <ip>` verifies one from the shell),
-  two-factor authentication required per role, password strength on/off
-  and password age (days; 0 = off).
+  to the user's email; addresses already used count as verified; an
+  administrator can mark an address verified from the user's edit page
+  in the UI), two-factor authentication required per role, password
+  strength on/off and password age (days; 0 = off).
 - **Password Strength Configuration**: minimum strength (0–100, 65 or more
   is reported as strong) and minimum numbers of total, special, numeric,
   alphabet, upper case and lower case characters. It applies to WhaCP
@@ -693,10 +699,13 @@ All under **Security** in the sidebar (administrators).
   use DB-IP's IP to Country Lite database (CC BY 4.0), downloaded monthly;
   blacklisted countries are blocked from WhaCP and the login ports, or
   from every port when you choose so on the Countries tab (CSF's CC_DENY);
-  without Internet access import it with `bin/whacp hulk:geo-import FILE`.
-  If you block yourself: `bin/whacp hulk:unblock <ip|user|all>`. When
+  without Internet access import a DB-IP CSV from the Countries tab of
+  the cPHulk page. If you block yourself, sign in from the server console
+  (SSH as root is not blocked by WhaCP's firewall rules) and clear the
+  block from the cPHulk page, or run
+  `nft delete table inet whacp_hulk` once to drop the block table. When
   protection is first turned on with an empty whitelist, your own address
-  is added to it.
+  is added to it automatically.
 - **Compiler Access**: compilers and the assembler become mode 0750, group
   `whacp-compiler`, with the accounts you allow as members (ModSecurity
   source builds keep working). Restored exactly when turned off.
