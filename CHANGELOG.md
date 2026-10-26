@@ -6,6 +6,8 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+- Update, host-name references, runtimes and account-restore pages now match the PHP layouts. The runtimes install form opens again (it used an inline handler the CSP blocks). The account-restore page read the username from the wrong manifest key, so typing the username to confirm always failed. Not ported: the newest-version lookup on the update page; account backups created here still hold no websites, databases, DNS or cron description.
+
 - Create-account form now has the PHP version, spam filter/Spam Box, mail routing and DNS (DKIM, SPF, DMARC, registrar name servers, overwrite) options with settings defaults; validation errors keep what was typed. A ticked switch (hidden 0 + checkbox 1) is read as on again (last posted value wins), which also fixes "Generate a strong password".
 
 ### Changed (Go differential audit, Wave 1: pages and forms)

@@ -185,10 +185,7 @@ func (s *AccountBackupService) Start(ctx context.Context, path string, actorID s
 	}
 	_ = json.Unmarshal(raw, &env)
 	manifest, _ := insp["manifest"].(map[string]any)
-	username := ""
-	if u, ok := manifest["user"].(map[string]any); ok {
-		username, _ = u["username"].(string)
-	}
+	username := ManifestUsername(manifest)
 	now := time.Now().UTC().Format(time.RFC3339)
 	mblob, _ := json.Marshal(manifest)
 	res, err := s.db.ExecContext(ctx,
@@ -306,4 +303,19 @@ func wrapAgentErr(err error) error {
 		return nil
 	}
 	return fmt.Errorf("account backup: %w", err)
+}
+
+// ManifestUsername is the account a backup file describes: the authenticated
+// top-level username, else the one in the panel's description.
+func ManifestUsername(m map[string]any) string {
+	if u, _ := m["username"].(string); u != "" {
+		return u
+	}
+	if meta, ok := m["meta"].(map[string]any); ok {
+		if u, ok := meta["user"].(map[string]any); ok {
+			name, _ := u["username"].(string)
+			return name
+		}
+	}
+	return ""
 }

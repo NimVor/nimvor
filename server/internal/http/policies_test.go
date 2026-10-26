@@ -702,3 +702,35 @@ func TestRuntimesPageRenders(t *testing.T) {
 		t.Error("inline handler in runtimes template")
 	}
 }
+
+// A backup file's description is read from the manifest the agent returns
+// (username at the top level, the panel's description under meta), and each
+// website is compared with what exists here.
+func TestRestoreViewDescribesBackup(t *testing.T) {
+	s, db := rolesEnvServer(t)
+	if _, err := db.Exec(`INSERT INTO websites (id,server_id,owner_id,domain,system_user,root,document_root,kind,php_version,status,created_at,updated_at)
+		VALUES (50,1,1,'taken.example','u','/h','/h/p','php','8.3','active','','')`); err != nil {
+		t.Fatal(err)
+	}
+	manifest := map[string]any{
+		"username": "jane", "key_id": "k1", "created_at": "2026-01-02T03:04:05Z",
+		"meta": map[string]any{
+			"user":      map[string]any{"username": "jane", "plan": "Gone"},
+			"websites":  []any{map[string]any{"domain": "taken.example", "kind": "php", "php_version": "8.3", "databases": []any{"jane_db"}}, map[string]any{"domain": "new.example", "kind": "php", "php_version": "8.2"}},
+			"databases": []any{"a", "b"},
+		},
+	}
+	req := httptest.NewRequest("GET", "/", nil)
+	v := s.restoreView(req, manifest, nil)
+	if v["Username"] != "jane" || v["Account"] != "create" || v["PlanFound"] != false || v["DBs"] != 2 {
+		t.Fatalf("view: %v", v)
+	}
+	sites := v["Sites"].([]restoreSite)
+	if len(sites) != 2 || !strings.Contains(sites[0].Here, "someone else") || sites[1].Here != "will be created" || sites[0].Databases != "jane_db" {
+		t.Fatalf("sites: %+v", sites)
+	}
+	manifest["username"] = "admin"
+	if v := s.restoreView(req, manifest, nil); v["Account"] != "conflict" {
+		t.Fatalf("a staff name must conflict, got %v", v["Account"])
+	}
+}

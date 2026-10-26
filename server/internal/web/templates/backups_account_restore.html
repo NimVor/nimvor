@@ -12,34 +12,62 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>Restore account backup</h1>
-  <p><a href="/backups#accounts">← Back to backups</a></p>
-  <p class="text-muted">File: {{.Path}}</p>
-  {{if .Manifest}}
-  <pre class="text-muted">{{.Manifest}}</pre>
-  {{if not .Restore}}
-  <form method="post" action="/backups/accounts/restore" data-confirm="Type the account username to confirm.">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <input type="hidden" name="path" value="{{.Path}}">
-    <label>Confirm (type the username): <input name="confirm" required></label>
-    <button type="submit">Start import</button>
-  </form>
-  {{else}}
-  <p>State: {{.ImportState}}</p>
-  {{if eq .Restore.Status "imported"}}
-  <form method="post" action="/backups/accounts/restores/{{.Restore.ID}}/recreate" data-confirm="Recreate account and its websites now?">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <button type="submit">Recreate account</button>
-  </form>
-  {{end}}
-  {{if .Secrets}}
-  <h3>Generated credentials (save now — shown once)</h3>
-  <ul>{{range .Secrets}}<li>{{.what}}: <code>{{.name}}</code> / <code>{{.password}}</code></li>{{end}}</ul>
-  {{end}}
-  {{end}}
-  {{else}}
-  <p class="error">Manifest not available.</p>
-  {{end}}
+  {{if .Error}}<div class="alert alert-danger" role="alert">{{.Error}}</div>{{end}}
+  {{if .Success}}<div class="alert alert-success" role="status">{{.Success}}</div>{{end}}
+  <p class="text-body-secondary"><a href="/backups#accounts">&larr; Backups</a> · <span class="font-monospace">{{.Path}}</span></p>
+  {{if .Secrets}}<div class="alert alert-warning">
+    <div class="fw-semibold mb-1"><i class="bi bi-key me-1"></i>New passwords: copy them now, they are not shown again</div>
+    <table class="table table-sm mb-0 small"><tbody>{{range .Secrets}}<tr><td>{{.what}}</td><td class="font-monospace">{{.name}}</td><td class="font-monospace text-break">{{.password}}</td></tr>{{end}}</tbody></table>
+  </div>{{end}}
+  <div class="row g-3">
+    <div class="col-xl-7">
+      <div class="card mb-3"><div class="card-header"><i class="bi bi-person-vcard me-1"></i>In the file</div><div class="card-body">
+        <dl class="row small mb-0">
+          <dt class="col-4">Account</dt><dd class="col-8">{{.Username}} <span class="text-body-secondary">({{.Role}}{{if .PlanName}}, plan {{.PlanName}}{{end}}{{if .Parent}}, reseller {{.Parent}}{{end}})</span>
+            {{if .ShowPlan}}<div>{{if eq .Account "create"}}<span class="badge text-bg-success">will be created</span>{{else if eq .Account "existing"}}<span class="badge text-bg-warning">exists: its websites are restored into it</span>{{else}}<span class="badge text-bg-danger">a staff user has this name: cannot be restored</span>{{end}}</div>{{end}}</dd>
+          <dt class="col-4">Made</dt><dd class="col-8">{{.Created}}{{if .Label}} · {{.Label}}{{end}}</dd>
+          <dt class="col-4">Backup key</dt><dd class="col-8"><code>{{.KeyID}}</code></dd>
+          {{if not .PlanFound}}<dt class="col-4">Plan</dt><dd class="col-8"><span class="badge text-bg-warning">"{{.PlanName}}" does not exist here: the account gets no plan</span></dd>{{end}}
+        </dl></div></div>
+      <div class="card mb-3"><div class="card-header"><i class="bi bi-globe2 me-1"></i>Websites <span class="badge text-bg-light border">{{len .Sites}}</span></div>
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0 wcp-table">
+          <thead><tr><th>Website</th><th>Type</th><th>Databases</th>{{if .ShowPlan}}<th>Here</th>{{end}}</tr></thead><tbody>
+          {{range .Sites}}<tr><td class="fw-semibold">{{.Domain}}</td><td class="small">{{.Kind}}</td><td class="small">{{.Databases}}</td>{{if $.ShowPlan}}<td class="small"><span class="badge {{.HereCls}}">{{.Here}}</span></td>{{end}}</tr>
+          {{else}}<tr><td colspan="4" class="text-body-secondary">The file lists no websites.</td></tr>{{end}}
+          </tbody></table></div></div>
+      <div class="card"><div class="card-header"><i class="bi bi-list-check me-1"></i>Also in the file</div><div class="card-body small">
+        <div>{{.DBs}} database(s), {{.DBUsers}} database user(s) (with new passwords), {{.Zones}} DNS zone(s), {{.Crons}} cron job(s).</div>
+        <div class="text-body-secondary mt-1">Not in account backups: email (mailboxes and messages), SSL certificates (AutoSSL issues them again once the domains point here) and FTP accounts. The account gets a new panel password.</div>
+      </div></div>
+    </div>
+    <div class="col-xl-5">
+      {{if not .Restore}}
+      <form class="card" method="post" action="/backups/accounts/restore" data-wcp-busy>
+        <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="path" value="{{.Path}}">
+        <div class="card-header"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</div>
+        <div class="card-body">
+          <ol class="small ps-3"><li>The file is checked (backup key, authenticated description, every part's checksum) and its website backups are put in place.</li>
+            <li>Then you recreate the account: its websites, databases, users, DNS zones and cron jobs, and each website's files and databases are restored.</li></ol>
+          <label class="form-label small" for="ar-confirm">Type <strong>{{.Username}}</strong> to confirm</label>
+          <input class="form-control" id="ar-confirm" name="confirm" autocomplete="off" required{{if eq .Account "conflict"}} disabled{{end}}>
+        </div>
+        <div class="card-footer d-flex justify-content-end gap-2"><a class="btn btn-sm btn-outline-secondary" href="/backups#accounts">Cancel</a><button class="btn btn-sm btn-primary"{{if eq .Account "conflict"}} disabled{{end}}>Check and import</button></div>
+      </form>
+      {{else}}
+      <div class="card"><div class="card-header"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</div><div class="card-body">
+        {{if eq .Status "importing"}}<p class="mb-2"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Checking the file and importing its website backups…</p>
+        {{else if eq .Status "imported"}}<p class="mb-2"><span class="badge text-bg-success">File checked and imported</span></p>
+          <form method="post" action="/backups/accounts/restores/{{.Restore.ID}}/recreate" data-wcp-busy data-wcp-confirm="Recreate the account {{.Username}} and restore its websites now?"><input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-primary">Recreate the account and restore its websites</button></form>
+        {{else if eq .Status "restoring"}}<p class="mb-0"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Recreating the account…</p>{{end}}
+        {{if or (eq .Status "done") (eq .Status "failed")}}
+          <p class="mb-2">{{if eq .Status "done"}}<span class="badge text-bg-success">Done</span>{{else}}<span class="badge text-bg-danger">Failed</span>{{end}} <span class="small text-body-secondary">{{.Updated}}</span></p>
+          <ul class="list-unstyled small mb-0">{{range .Report}}<li class="mb-1"><i class="bi {{if eq .Level "ok"}}bi-check-circle text-success{{else if eq .Level "warning"}}bi-exclamation-triangle text-warning{{else if eq .Level "error"}}bi-x-circle text-danger{{else}}bi-info-circle text-body-secondary{{end}} me-1"></i>{{.Text}}</li>{{end}}</ul>
+          {{if eq .Status "done"}}<div class="mt-3 d-flex flex-wrap gap-2"><a class="btn btn-sm btn-outline-primary" href="/users">Users</a><a class="btn btn-sm btn-outline-secondary" href="/websites">Websites</a></div>{{end}}
+        {{end}}
+      </div></div>
+      {{end}}
+    </div>
+  </div>
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}

@@ -5,6 +5,7 @@ package http
 // for per-account backup archives. Administrators only (RoleScope == "all").
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
@@ -14,6 +15,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 const accountSecretsKey = "account_restore_secrets"
@@ -157,15 +159,12 @@ func (s *Server) accountBackupPreview(w http.ResponseWriter, r *http.Request) {
 		accountBackupErr(w, r, err.Error(), "/backups#accounts")
 		return
 	}
-	data := map[string]any{
-		"User":     user,
-		"CSRF":     session.CSRFToken(sessionFrom(r.Context())),
-		"Title":    "Restore account backup",
-		"Path":     path,
-		"Manifest": insp["manifest"],
-		"Plan":     insp["plan"],
-		"Restore":  nil,
-	}
+	manifest, _ := insp["manifest"].(map[string]any)
+	sess := sessionFrom(r.Context())
+	data := s.restoreView(r, manifest, nil)
+	data["User"], data["CSRF"], data["Path"] = user, session.CSRFToken(sess), path
+	data["Title"] = "Restore the account " + hosting.ManifestUsername(manifest)
+	data["Error"], data["Success"] = pullFlashKey(sess, "error"), pullFlashKey(sess, "success")
 	s.render(w, "backups_account_restore", data)
 }
 
@@ -185,10 +184,7 @@ func (s *Server) accountBackupStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	manifest, _ := insp["manifest"].(map[string]any)
-	username := ""
-	if u, ok := manifest["user"].(map[string]any); ok {
-		username, _ = u["username"].(string)
-	}
+	username := hosting.ManifestUsername(manifest)
 	if r.PostFormValue("confirm") != username {
 		to := "/backups#accounts"
 		if path != "" {
@@ -247,22 +243,11 @@ func (s *Server) accountBackupShow(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sess.Remove(accountSecretsKey)
-	plan := map[string]any{}
-	if meta, ok := rec.Manifest["meta"].(map[string]any); ok {
-		// plan lookup is best-effort; show empty plan if we can't compute it.
-		_ = meta
-	}
-	data := map[string]any{
-		"User":        user,
-		"CSRF":        session.CSRFToken(sess),
-		"Title":       "Account restore",
-		"Path":        rec.Path,
-		"Manifest":    rec.Manifest,
-		"Plan":        plan,
-		"Restore":     rec,
-		"ImportState": state,
-		"Secrets":     secrets,
-	}
+	data := s.restoreView(r, rec.Manifest, rec)
+	data["User"], data["CSRF"], data["Path"] = user, session.CSRFToken(sess), rec.Path
+	data["Title"] = "Restore the account " + rec.Username
+	data["ImportState"], data["Secrets"] = state, secrets
+	data["Error"], data["Success"] = pullFlashKey(sess, "error"), pullFlashKey(sess, "success")
 	s.render(w, "backups_account_restore", data)
 }
 
@@ -328,4 +313,95 @@ func accountBackupErr(w http.ResponseWriter, r *http.Request, msg, to string) {
 	sess := sessionFrom(r.Context())
 	sess.Flash("error", msg)
 	http.Redirect(w, r, to, http.StatusSeeOther)
+}
+
+type restoreSite struct {
+	Domain, Kind, Databases, Here, HereCls string
+}
+
+// restoreView describes what a backup file holds and what restoring it would
+// do here (AccountRestoreController::show): the account, each website and
+// whether the plan exists. Pure reads.
+func (s *Server) restoreView(r *http.Request, manifest map[string]any, rec *hosting.AccountRestore) map[string]any {
+	ctx := r.Context()
+	meta, _ := manifest["meta"].(map[string]any)
+	u, _ := meta["user"].(map[string]any)
+	username := hosting.ManifestUsername(manifest)
+	count := func(k string) int { l, _ := meta[k].([]any); return len(l) }
+
+	account := "create"
+	var scope sql.NullString
+	if err := s.db.QueryRowContext(ctx, `SELECT r.scope FROM users u JOIN roles r ON r.id = u.role_id WHERE u.username = ?`, username).Scan(&scope); err == nil {
+		account = "existing"
+		if scope.String == "all" {
+			account = "conflict"
+		}
+	}
+	planFound := true
+	if p := jstr(u, "plan"); p != "" {
+		var n int
+		_ = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM plans WHERE name = ?`, p).Scan(&n)
+		planFound = n > 0
+	}
+	var sites []restoreSite
+	list, _ := meta["websites"].([]any)
+	for _, it := range list {
+		w, _ := it.(map[string]any)
+		domain := jstr(w, "domain")
+		var owner sql.NullString
+		here, cls := "will be created", "text-bg-success"
+		if err := s.db.QueryRowContext(ctx, `SELECT u.username FROM websites w LEFT JOIN users u ON u.id = w.owner_id WHERE w.domain = ?`, domain).Scan(&owner); err == nil {
+			if owner.String == username {
+				here, cls = "exists in the account: restored into it", "text-bg-warning"
+			} else {
+				here, cls = "belongs to someone else: skipped", "text-bg-danger"
+			}
+		}
+		kind := jstr(w, "type")
+		if kind == "" {
+			kind = "main"
+		}
+		if jstr(w, "kind") == "php" {
+			kind += " · PHP " + jstr(w, "php_version")
+		} else if k := jstr(w, "kind"); k != "" {
+			kind += " · " + k
+		}
+		dbs := strings.Join(strList(w["databases"]), ", ")
+		if dbs == "" {
+			dbs = "—"
+		}
+		sites = append(sites, restoreSite{domain, kind, dbs, here, cls})
+	}
+	role := jstr(u, "role")
+	if role == "" {
+		role = "customer"
+	}
+	created := jstr(manifest, "created_at")
+	if len(created) > 16 {
+		created = created[:16]
+	}
+	data := map[string]any{
+		"Username": username, "Role": role, "PlanName": jstr(u, "plan"), "Parent": jstr(u, "parent"),
+		"Account": account, "PlanFound": planFound, "Created": created, "Label": jstr(manifest, "label"),
+		"KeyID": jstr(manifest, "key_id"), "Sites": sites,
+		"DBs": count("databases"), "DBUsers": count("database_users"), "Zones": count("dns_zones"), "Crons": count("cron_jobs"),
+		"Restore": nil, "Status": "", "ShowPlan": true,
+	}
+	if rec != nil {
+		data["Restore"], data["Status"] = rec, rec.Status
+		data["ShowPlan"] = rec.Status == "importing" || rec.Status == "imported"
+		if len(rec.UpdatedAt) > 16 {
+			data["Updated"] = rec.UpdatedAt[:16]
+		} else {
+			data["Updated"] = rec.UpdatedAt
+		}
+		type line struct{ Level, Text string }
+		var report []line
+		for _, it := range rec.Report {
+			m, _ := it.(map[string]any)
+			report = append(report, line{jstr(m, "level"), jstr(m, "text")})
+		}
+		data["Report"] = report
+	}
+	return data
 }
