@@ -47,7 +47,7 @@ WHACP_AGENT_SOCKET=$DEV/agent.sock
 WHACP_AGENT_TOKEN_FILE=$DEV/token
 ENV
 umask 077
-[[ -f $DEV/server.key ]] || openssl rand -hex 32 > "$DEV/server.key"
+[[ -f $DEV/server.key ]] || openssl rand -base64 32 > "$DEV/server.key"
 
 echo "Building agent + server…"
 (cd "$ROOT/agent" && go build -o "$DEV/whacp-agent" ./cmd/whacp-agent)

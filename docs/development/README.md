@@ -44,13 +44,20 @@ agent/
     systemd/              unit status
   api/openapi.yaml
   tests/fixtures/ubuntu-host/   fake server used by tests and scripts/dev.sh
-panel/
-  app/{Core,Http,Security,Services,Repositories,Agent,Database,View,Support}
-  config/app.php          defaults (override: /etc/whacp/panel.php or $WHACP_CONFIG)
-  database/migrations/    ordered SQL migrations
-  public/                 front controller, router for php -S, assets (vendored Bootstrap)
-  resources/views/        templates
-  routes/web.php          routes with per-route permissions
+server/                         Go control-panel server (templates + assets embedded)
+  cmd/whacp/             main server binary (serves HTTP; auto-migrates DB; CLI subcommands)
+  cmd/whacp-migrate/     standalone migration status/up tool (optional)
+  internal/config/       env-driven Config (WHACP_LISTEN, WHACP_DB_PATH, etc.;
+                         production builds: /etc/whacp/server.env via systemd EnvironmentFile;
+                         see server/internal/config/config.go for env var names)
+  internal/database/     SQLite open + migrations (embedded SQL, name-compatible with PHP)
+  internal/{auth,session,crypto,authz,identity,security,hosting,mail,settings,audit,...}
+  internal/web/          html/template templates + //go:embed assets (CSS, JS, fonts)
+  internal/http/         routing, middleware, handlers (ports 551 routes)
+  internal/webauthn/     stdlib WebAuthn (RP) implementation
+plugins/                  plugin SDK (PHP, intentionally; runs isolated under bwrap)
+installer/                install.sh / upgrade.sh / uninstall.sh + systemd units + config templates
+scripts/                  dev.sh (local dev loop), release.sh (cross-compile archives)
   tests/{Unit,Integration,Http}
 ```
 
