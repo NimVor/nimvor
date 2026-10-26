@@ -178,3 +178,22 @@ func TestProfileHasPasswordAndSessionForms(t *testing.T) {
 		}
 	}
 }
+
+// With no agent the health page still renders every section ("Not checked")
+// instead of failing.
+func TestServerHealthRendersWithoutAgent(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rr := get(t, h, "/server/health", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /server/health = %d", rr.Code)
+	}
+	for _, want := range []string{"WhaCP and the server", "Resources", "Components", "Security", "Updates", "Backups and tasks", "Not checked"} {
+		if !pageHas(rr.Body.String(), want) {
+			t.Errorf("health page lacks %q", want)
+		}
+	}
+	if pageHas(rr.Body.String(), "map[") {
+		t.Error("health page prints a raw Go map")
+	}
+}

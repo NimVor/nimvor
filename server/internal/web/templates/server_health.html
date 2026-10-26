@@ -12,11 +12,36 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>Server health</h1>
-  <p class="text-muted">Checked at {{.CheckedAt}} UTC.</p>
-  {{if .AgentError}}<p class="alert alert-warning">Agent unavailable: {{.AgentError}}</p>{{end}}
-  <div class="card">
-    <div class="card-body font-monospace small"><pre>{{.Result}}</pre></div>
+  <p class="text-body-secondary">Is anything wrong? Every check in one place. <a class="btn btn-sm btn-outline-secondary ms-2" href="/server/health"><i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Check again</a></p>
+  <div class="wcp-panel mb-3" data-health="{{.Status}}">
+    <div class="wcp-statusbar flex-wrap">
+      <i class="bi {{.StatusIcon}} fs-4" aria-hidden="true"></i>
+      <span class="fw-semibold">{{.Headline}}</span>
+      <span class="small"><span class="wcp-state is-error">{{.Fail}} problem(s)</span> <span class="wcp-state is-warn">{{.Warn}} to look at</span> <span class="wcp-state is-ok">{{.OK}} OK</span>{{if gt .Unknown 0}} <span class="wcp-state">{{.Unknown}} not checked</span>{{end}}</span>
+      <span class="small wcp-muted ms-auto">Checked {{.CheckedAt}} UTC</span>
+    </div>
+  </div>
+  <div class="row g-3">
+  {{range .Sections}}
+    <div class="col-xl-6">
+      <section class="wcp-panel h-100" data-section="{{.ID}}" data-status="{{.Worst}}" aria-labelledby="h-{{.ID}}">
+        <div class="d-flex align-items-center gap-2 px-3 pt-3 pb-2">
+          <i class="bi bi-{{.Icon}}" aria-hidden="true"></i>
+          <h2 class="h6 mb-0 me-auto" id="h-{{.ID}}">{{.Label}}</h2>
+          <span class="wcp-state {{.State}} small">{{.WorstWord}}</span>
+        </div>
+        <ul class="list-unstyled mb-0 small">
+          {{range .Checks}}
+          <li class="d-flex align-items-start gap-2 px-3 py-2 border-top" data-check-status="{{.Status}}">
+            <i class="bi {{.Icon}} mt-1" aria-hidden="true"></i>
+            <div class="flex-grow-1 min-w-0"><div class="fw-medium">{{.Label}}<span class="visually-hidden"> ({{.Word}})</span></div><div class="wcp-muted text-break">{{.Detail}}</div></div>
+            {{if .URL}}<a class="btn btn-sm btn-outline-primary text-nowrap" href="{{.URL}}">Open</a>{{end}}
+          </li>
+          {{else}}<li class="px-3 py-2 border-top wcp-muted">Nothing to check here.</li>{{end}}
+        </ul>
+      </section>
+    </div>
+  {{end}}
   </div>
 {{template "wcp_close" .}}
 </body>
