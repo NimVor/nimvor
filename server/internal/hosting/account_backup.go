@@ -106,7 +106,7 @@ func (s *AccountBackupService) Chunk(ctx context.Context, path string, offset in
 	if !safePathRe.MatchString(path) {
 		return nil, errors.New("invalid backup path")
 	}
-	raw, err := s.agent.Call(ctx, "backup.account_chunk", map[string]any{"path": path, "offset": offset}, 60*time.Second)
+	raw, err := s.agent.Call(ctx, "backup.account_download", map[string]any{"path": path, "offset": offset}, 60*time.Second)
 	if err != nil {
 		return nil, wrapAgentErr(err)
 	}
@@ -123,7 +123,7 @@ func (s *AccountBackupService) Upload(ctx context.Context, name string, offset i
 	raw, err := s.agent.Call(ctx, "backup.account_upload", map[string]any{
 		"name":   name,
 		"offset": offset,
-		"bytes":  bytes,
+		"data":   bytes,
 		"final":  final,
 	}, 120*time.Second)
 	if err != nil {
@@ -262,24 +262,15 @@ func (s *AccountBackupService) Recreate(ctx context.Context, id int64, actor *id
 		}
 		return nil, errors.New("the file is not imported yet")
 	}
-	now := time.Now().UTC().Format(time.RFC3339)
-	if _, err := s.db.ExecContext(ctx, `UPDATE account_restores SET status='restoring', updated_at=? WHERE id=?`, now, id); err != nil {
-		return nil, err
-	}
-	raw, err := s.agent.Call(ctx, "backup.account_recreate", map[string]any{"restore_id": id, "path": r.Path}, 120*time.Second)
-	if err != nil {
-		s.finishRecord(ctx, id, "failed", []any{map[string]any{"level": "error", "text": err.Error()}})
-		return nil, wrapAgentErr(err)
-	}
-	var out map[string]any
-	_ = json.Unmarshal(raw, &out)
-	// Mark done when the agent replies synchronously; otherwise leave as
-	// 'restoring' so a later job update can advance it.
-	if _, hasJobs := out["jobs"]; hasJobs {
-		s.finishRecord(ctx, id, "done", []any{})
-	}
-	return out, nil
+	// PHP rebuilds the account, websites, databases, DNS zones and cron jobs
+	// panel-side (AccountBackupService::recreate); the agent has no such
+	// action, so the old call always failed after marking the restore failed.
+	// Leave the record as imported and say what is missing.
+	return nil, ErrRecreateUnavailable
 }
+
+// ErrRecreateUnavailable: rebuilding an account from a backup is not ported yet.
+var ErrRecreateUnavailable = errors.New("restoring an account from a backup file is not available in this panel yet; the website backups inside it were imported and can be restored from each website's Backups page")
 
 func (s *AccountBackupService) finishRecord(ctx context.Context, id int64, status string, report []any) {
 	blob, _ := json.Marshal(report)
