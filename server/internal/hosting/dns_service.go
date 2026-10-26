@@ -76,6 +76,7 @@ type DnsStatus struct {
 	Installed  bool            `json:"installed"`
 	Configured bool            `json:"configured"`
 	Running    bool            `json:"running"`
+	ConfigFile string          `json:"config_file"`
 	Zones      []DnsServedZone `json:"zones"`
 }
 

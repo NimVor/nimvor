@@ -17,6 +17,7 @@ type Zone struct {
 	WebsiteID sql.NullInt64
 	Website   sql.NullString // the attached website's domain, if any
 	Records   int
+	Serial    int
 	CreatedAt string
 }
 
@@ -35,7 +36,7 @@ func (r *DnsRepository) Zones(ctx context.Context, serverID int64, u *identity.U
 	args := append([]any{serverID}, params...)
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT z.id, z.name, z.website_id, w.domain AS website,
-		       (SELECT COUNT(*) FROM dns_records rr WHERE rr.zone_id = z.id) AS records, z.created_at
+		       (SELECT COUNT(*) FROM dns_records rr WHERE rr.zone_id = z.id) AS records, z.serial, z.created_at
 		FROM dns_zones z LEFT JOIN websites w ON w.id = z.website_id
 		WHERE z.server_id = ? AND `+cond+` ORDER BY z.name`, args...)
 	if err != nil {
@@ -45,7 +46,7 @@ func (r *DnsRepository) Zones(ctx context.Context, serverID int64, u *identity.U
 	var out []Zone
 	for rows.Next() {
 		var z Zone
-		if err := rows.Scan(&z.ID, &z.Name, &z.WebsiteID, &z.Website, &z.Records, &z.CreatedAt); err != nil {
+		if err := rows.Scan(&z.ID, &z.Name, &z.WebsiteID, &z.Website, &z.Records, &z.Serial, &z.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, z)

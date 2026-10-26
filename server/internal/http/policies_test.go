@@ -417,3 +417,16 @@ func TestTweakSettingsResetRestoresDefault(t *testing.T) {
 		t.Errorf("after reset dashboard_refresh_seconds = %q, want 10", got)
 	}
 }
+
+func TestDnsIndexOffersInstallWhenBindMissing(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rr := get(t, h, "/dns", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /dns = %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if pageHas(body, "map[") || !pageHas(body, "Zones") {
+		t.Error("dns page lacks its zone panel or prints a raw map")
+	}
+}

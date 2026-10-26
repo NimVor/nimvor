@@ -12,24 +12,72 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>DNS zones</h1>
-  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
-  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
-  {{if .Zones}}
-  <table class="data-table">
-    <thead><tr><th>Zone</th><th>Website</th><th>Records</th></tr></thead>
-    <tbody>
-    {{range .Zones}}
-      <tr>
-        <td>{{.Name}}</td>
-        <td>{{if .Website.Valid}}{{.Website.String}}{{else}}—{{end}}</td>
-        <td>{{.Records}}</td>
-      </tr>
-    {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <p class="text-muted">No DNS zones yet.</p>
+  {{if .Error}}<div class="alert alert-danger" role="alert">{{.Error}}</div>{{end}}
+  {{if .Success}}<div class="alert alert-success" role="status">{{.Success}}</div>{{end}}
+  <p class="text-body-secondary">Zones served by this server's DNS server (BIND)</p>
+  {{if .AgentError}}<div class="alert alert-warning">The agent could not be reached: {{.AgentError}}</div>
+  {{else if not .Ready}}
+  <div class="card mb-3"><div class="card-body">
+    {{if not .Installed}}
+      <p>The DNS server (BIND) is not installed on this server.</p>
+      {{if .CanInstall}}<form method="post" action="/dns/install"><input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-primary"><i class="bi bi-download me-1"></i>Install BIND</button></form>{{end}}
+    {{else if .CanManage}}
+      <p>{{if not .Configured}}BIND is installed but not set up for WhaCP yet.{{else}}BIND is set up but not running.{{end}}</p>
+      <form method="post" action="/dns/setup" data-wcp-busy>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        {{if not .Configured}}<div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="dns-confirm" required><label class="form-check-label" for="dns-confirm">Add one <code>include</code> line for WhaCP's zones to <code>{{.ConfigFile}}</code> (a backup is kept)</label></div>{{end}}
+        <button class="btn btn-primary"><i class="bi bi-play me-1"></i>Set up and start</button>
+      </form>
+    {{else}}<p class="mb-0">The DNS server is not set up yet; ask the administrator.</p>{{end}}
+  </div></div>
+  {{end}}
+  {{if not .Nameservers}}
+  <div class="alert alert-info small">{{if .CanSettings}}Set the <strong>DNS name servers</strong> (and the default IPv4 for new zones) under <a href="/settings/basic#nameservers">Basic WebHost Settings</a> before creating zones.{{else}}An administrator has to set the DNS name servers before zones can be created.{{end}}</div>
+  {{end}}
+  <div class="wcp-panel">
+    <div class="wcp-actionbar">
+      <div class="fw-semibold"><i class="bi bi-signpost me-1" aria-hidden="true"></i>Zones <span class="badge rounded-pill text-bg-light border fw-normal">{{.Count}}</span></div>
+      {{if and .Ready .Nameservers}}<div class="wcp-actionbar-end"><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-zone"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>New zone</button></div>{{end}}
+    </div>
+    <div class="wcp-dtable"><div class="table-responsive">
+      <table class="table mb-0 wcp-table align-middle">
+        <thead><tr><th>Zone</th><th>Website</th><th class="text-end">Records</th><th>Serial</th><th>Status</th></tr></thead>
+        <tbody>
+        {{range .Rows}}
+          <tr>
+            <td><a href="/dns/zones/{{.ID}}" class="font-monospace">{{.Name}}</a></td>
+            <td>{{.Website}}</td>
+            <td class="text-end">{{.Records}}</td>
+            <td class="font-monospace small">{{.Serial}}</td>
+            <td>{{if .Cls}}<span class="badge {{.Cls}}">{{.State}}</span>{{else}}{{.State}}{{end}}</td>
+          </tr>
+        {{else}}
+          <tr><td colspan="5" class="text-body-secondary">No zones yet.</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+  {{if and .Ready .Nameservers}}
+  <div class="modal fade" id="new-zone" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h2 class="modal-title h5">New zone</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+      <form method="post" action="/dns/zones" data-wcp-busy>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <div class="mb-3">
+          <label class="form-label" for="dns-site">Website</label>
+          <select class="form-select" id="dns-site" name="website_id">
+            {{if .Admin}}<option value="">— none (enter the domain below) —</option>{{end}}
+            {{range .Sites}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Domain}}</option>{{end}}
+          </select>
+        </div>
+        {{if .Admin}}<div class="mb-3"><label class="form-label" for="dns-name">Domain (empty = the website's domain)</label><input class="form-control" id="dns-name" name="name" placeholder="example.com"></div>{{end}}
+        <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="template" value="1" id="dns-tpl" checked><label class="form-check-label" for="dns-tpl">Add the usual records (@ and www to this server, SPF, CAA for Let's Encrypt)</label></div>
+        <button class="btn btn-primary btn-sm">Create zone</button>
+        <div class="form-text">Name servers: {{join .Nameservers ", "}}. After creating the zone, set these name servers for the domain at its registrar.</div>
+      </form>
+    </div>
+  </div></div></div>
   {{end}}
 {{template "wcp_close" .}}
 </body>

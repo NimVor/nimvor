@@ -16,22 +16,70 @@ import (
 // dnsIndex lists the DNS zones the user may see, tenant-scoped (website-aware).
 // Gated by dns.manage, which the dns plan feature withholds when disabled.
 // Mirrors DnsController::index (route "dns", dns.manage).
+type dnsZoneRow struct {
+	ID                        int64
+	Name, Website, State, Cls string
+	Records, Serial           int
+}
+
 func (s *Server) dnsIndex(w http.ResponseWriter, r *http.Request) {
-	user := userFrom(r.Context())
-	zones, err := hosting.NewDnsRepository(s.db).Zones(r.Context(), s.currentServerID(r), user)
+	ctx := r.Context()
+	user := userFrom(ctx)
+	sess := sessionFrom(ctx)
+	zones, err := hosting.NewDnsRepository(s.db).Zones(ctx, s.currentServerID(r), user)
 	if err != nil {
 		s.log.Error("list dns zones", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	sess := sessionFrom(r.Context())
-	s.render(w, "dns", map[string]any{
-		"User":    user,
-		"CSRF":    session.CSRFToken(sess),
-		"Zones":   zones,
-		"Success": pullFlashKey(sess, "success"),
-		"Error":   pullFlashKey(sess, "error"),
-	})
+	svc := s.siteDnsService(r, user)
+	status, serr := svc.Status(ctx)
+	nameservers, _ := svc.Nameservers(ctx)
+	ready := serr == nil && status != nil && status.Configured && status.Running
+	rows := make([]dnsZoneRow, 0, len(zones))
+	for _, z := range zones {
+		row := dnsZoneRow{ID: z.ID, Name: z.Name, Website: "—", Records: z.Records, Serial: z.Serial, State: "—"}
+		if z.Website.Valid {
+			row.Website = z.Website.String
+		}
+		if serr == nil && status != nil {
+			switch srv := status.ServedSerial(z.Name); {
+			case srv == nil:
+				row.State, row.Cls = "not served", "text-bg-danger"
+			case *srv != z.Serial:
+				row.State, row.Cls = "out of date", "text-bg-warning"
+			default:
+				row.State, row.Cls = "served", "text-bg-success"
+			}
+		}
+		rows = append(rows, row)
+	}
+	type siteOpt struct {
+		ID       int64
+		Domain   string
+		Selected bool
+	}
+	pre, _ := strconv.ParseInt(r.URL.Query().Get("website"), 10, 64)
+	var sites []siteOpt
+	if list, err := hosting.NewWebsiteRepository(s.db).All(ctx, s.currentServerID(r), user); err == nil {
+		for _, st := range list {
+			sites = append(sites, siteOpt{st.ID, st.Domain, st.ID == pre})
+		}
+	}
+	data := map[string]any{
+		"User": user, "CSRF": session.CSRFToken(sess), "Title": "DNS", "Rows": rows, "Count": len(rows),
+		"Success": pullFlashKey(sess, "success"), "Error": pullFlashKey(sess, "error"),
+		"Ready": ready, "Nameservers": nameservers, "Sites": sites, "Admin": hosting.IsAll(user),
+		"CanInstall": s.can(r, "packages.manage"), "CanManage": s.can(r, "server.manage"), "CanSettings": s.can(r, "settings.manage"),
+		"AgentError": "",
+	}
+	if serr != nil {
+		data["AgentError"] = agentMessage(serr)
+	}
+	if status != nil {
+		data["Installed"], data["Configured"], data["ConfigFile"] = status.Installed, status.Configured, status.ConfigFile
+	}
+	s.render(w, "dns", data)
 }
 
 // siteDnsService builds the DNS service bound to the current actor.
