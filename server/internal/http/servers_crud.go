@@ -10,7 +10,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
-// serversStore POST /servers — adds a new managed remote server.
+// serversStore POST /servers — refuses, honestly: no remote agent connection yet.
 // Mirrors ServersController::store (servers.store, servers.manage). The real
 // token exchange is not yet ported; this records name/url/kind so the page
 // works end-to-end and returns an id.
@@ -24,31 +24,14 @@ func (s *Server) serversStore(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	user := userFrom(r.Context())
-	if !hosting.IsAll(user) {
+	if !hosting.IsAll(userFrom(r.Context())) {
 		http.Redirect(w, r, "/servers", http.StatusSeeOther)
 		return
 	}
-	name := r.FormValue("name")
-	url := r.FormValue("url")
-	if name == "" || url == "" {
-		sess.Flash("error", "Name and URL are required.")
-		http.Redirect(w, r, "/servers", http.StatusSeeOther)
-		return
-	}
-	id, err := hosting.NewServerRepository(s.db).Add(r.Context(), hosting.ServerInput{Name: name, URL: url, Kind: "remote"})
-	if err != nil {
-		sess.Flash("error", err.Error())
-		http.Redirect(w, r, "/servers", http.StatusSeeOther)
-		return
-	}
-	uid := user.ID
-	s.audit.Record(r.Context(), audit.Entry{
-		Action: "server.add", TargetType: "server", TargetID: strconv.FormatInt(id, 10),
-		Result: audit.Success, Details: map[string]any{"name": name, "url": url},
-		UserID: &uid, Username: user.Username,
-	})
-	sess.Flash("success", "Server connected (id "+strconv.FormatInt(id, 10)+"). Switch to it with the selector at the top.")
+	// This panel talks to its own agent only: there is no pinned-TLS client for
+	// remote agents yet, so a row stored here (with no token or pin, as this
+	// handler used to do) could never be reached or used.
+	sess.Flash("error", "Connecting other servers is not available in this panel yet. It manages this server only.")
 	http.Redirect(w, r, "/servers", http.StatusSeeOther)
 }
 

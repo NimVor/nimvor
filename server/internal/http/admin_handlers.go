@@ -192,17 +192,58 @@ func (s *Server) plansIndex(w http.ResponseWriter, r *http.Request) {
 
 // serversIndex lists the managed servers (staff only). Mirrors
 // ServersController::index (route "servers", servers.manage).
+type serverRow struct {
+	ID                                                 int64
+	Name, Where, Agent, StatusLabel, StatusClass, Seen string
+	Websites                                           int
+	Remote                                             bool
+	Confirm                                            string
+}
+
+// serversIndex lists the managed servers (staff only). Mirrors
+// ServersController::index (route "servers", servers.manage).
 func (s *Server) serversIndex(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
+	sess := sessionFrom(r.Context())
 	servers, err := hosting.NewServerRepository(s.db).All(r.Context())
 	if err != nil {
 		s.log.Error("list servers", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	labels := map[string]string{"online": "online", "offline": "unreachable", "timeout": "timed out", "auth_failed": "authentication failed",
+		"certificate_mismatch": "certificate mismatch", "refused": "refused", "version_mismatch": "version mismatch", "unknown": "not checked yet"}
+	rows := make([]serverRow, 0, len(servers))
+	for _, sv := range servers {
+		row := serverRow{ID: sv.ID, Name: sv.Name, Agent: sv.AgentVersion, Websites: sv.Websites, Remote: sv.Kind == "remote",
+			Confirm: "Remove " + sv.Name + " from WhaCP? Nothing is changed on the server itself."}
+		if sv.Kind == "local" {
+			row.Where, row.StatusLabel, row.StatusClass = "this machine (Unix socket)", "local", "text-bg-success"
+		} else {
+			row.Where = sv.URL
+			row.StatusLabel = labels[sv.Status]
+			if row.StatusLabel == "" {
+				row.StatusLabel = sv.Status
+			}
+			switch sv.Status {
+			case "online":
+				row.StatusClass = "text-bg-success"
+			case "version_mismatch", "unknown":
+				row.StatusClass = "text-bg-warning"
+			default:
+				row.StatusClass = "text-bg-danger"
+			}
+		}
+		if sv.LastSeenAt.Valid {
+			row.Seen = sv.LastSeenAt.String
+			if len(row.Seen) > 16 {
+				row.Seen = row.Seen[:16]
+			}
+		}
+		rows = append(rows, row)
+	}
 	s.render(w, "servers", map[string]any{
-		"User":    user,
-		"CSRF":    session.CSRFToken(sessionFrom(r.Context())),
-		"Servers": servers,
+		"User": user, "CSRF": session.CSRFToken(sess), "Title": "Servers", "Rows": rows,
+		"Success": pullFlashKey(sess, "success"), "Error": pullFlashKey(sess, "error"),
 	})
 }

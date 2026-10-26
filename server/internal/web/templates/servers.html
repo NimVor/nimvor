@@ -12,22 +12,30 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>Servers</h1>
-  <table class="data-table">
-    <thead><tr><th>Name</th><th>Kind</th><th>Status</th><th>Agent</th><th>Websites</th><th>Last seen</th></tr></thead>
-    <tbody>
-    {{range .Servers}}
-      <tr class="status-{{.Status}}">
-        <td>{{.Name}}</td>
-        <td>{{.Kind}}</td>
-        <td>{{.Status}}</td>
-        <td>{{if .AgentVersion}}{{.AgentVersion}}{{else}}—{{end}}</td>
-        <td>{{.Websites}}</td>
-        <td>{{if .LastSeenAt.Valid}}{{.LastSeenAt.String}}{{else}}never{{end}}</td>
-      </tr>
-    {{end}}
-    </tbody>
-  </table>
+  {{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
+  {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+  <p class="text-body-secondary">Servers this panel knows about</p>
+  <div class="wcp-infobar mb-3"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>This panel manages this server only. Connecting and switching to other servers needs the remote agent connection, which is not part of it yet.</span></div>
+  <div class="card">
+    <div class="table-responsive"><table class="table align-middle mb-0">
+      <thead><tr><th>Server</th><th>Agent</th><th>Status</th><th>Websites</th><th class="text-end">Actions</th></tr></thead>
+      <tbody>
+      {{range .Rows}}
+        <tr>
+          <td><strong>{{.Name}}</strong><div class="small text-body-secondary">{{.Where}}</div></td>
+          <td class="small">{{if .Agent}}{{.Agent}}{{else}}—{{end}}</td>
+          <td><span class="badge {{.StatusClass}}">{{.StatusLabel}}</span>{{if .Seen}}<div class="small text-body-secondary">seen {{.Seen}}</div>{{end}}</td>
+          <td>{{.Websites}}</td>
+          <td class="text-end text-nowrap">
+            {{if .Remote}}
+            <form class="d-inline" method="post" action="/servers/{{.ID}}/delete" data-wcp-confirm="{{.Confirm}}"><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>
+            {{end}}
+          </td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table></div>
+  </div>
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}

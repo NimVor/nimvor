@@ -530,3 +530,17 @@ func TestPlansPageAndFeatureManagerRender(t *testing.T) {
 		t.Error("feature manager lacks its dialog or prints a raw map")
 	}
 }
+
+func TestServersConnectIsRefusedNotStoredDead(t *testing.T) {
+	h, db := rolesEnv(t)
+	c := loginAsUser(t, h, "admin")
+	tok, c := siteFormToken(t, h, c, "/servers")
+	rr := postForm(h, "/servers", url.Values{"_token": {tok}, "name": {"web2"}, "url": {"https://203.0.113.10:8443"}, "pin": {"sha256//x"}, "token": {"t"}}, c)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("POST /servers = %d", rr.Code)
+	}
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM servers WHERE name = 'web2'`).Scan(&n); err != nil || n != 0 {
+		t.Errorf("a server without token or pin was stored (n=%d, err=%v)", n, err)
+	}
+}
