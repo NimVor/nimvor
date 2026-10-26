@@ -193,11 +193,19 @@
   {{end}}
   <form method="post" action="/profile/tokens" class="inline-form">
     <input type="hidden" name="_token" value="{{.CSRF}}">
-    <input name="name" placeholder="Token name" required maxlength="100">
+    <input name="name" placeholder="Token name" required maxlength="60">
     <select name="ability">
       <option value="read">read</option>
       <option value="write">write</option>
     </select>
+    <label>Expires in
+      <select name="expires_days">
+        <option value="30">30 days</option>
+        <option value="90" selected>90 days</option>
+        <option value="365">1 year</option>
+        <option value="0">Never</option>
+      </select>
+    </label>
     <button type="submit">Create token</button>
   </form>
 </main>

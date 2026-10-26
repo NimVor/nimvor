@@ -239,7 +239,7 @@ func (s *Server) usersEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	repo := identity.NewRepository(s.db)
 	target, err := repo.FindByID(r.Context(), id)
-	if errors.Is(err, sql.ErrNoRows) || target == nil {
+	if errors.Is(err, sql.ErrNoRows) || target == nil || !canManageUser(me, target) {
 		sess.Flash("error", "The user no longer exists.")
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
@@ -712,7 +712,7 @@ func (s *Server) usersPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	target, err := identity.NewRepository(s.db).FindByID(r.Context(), id)
-	if errors.Is(err, sql.ErrNoRows) || target == nil {
+	if errors.Is(err, sql.ErrNoRows) || target == nil || !canManageUser(me, target) {
 		sess.Flash("error", "The user no longer exists.")
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return

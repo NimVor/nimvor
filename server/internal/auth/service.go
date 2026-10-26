@@ -469,6 +469,8 @@ func (s *Service) finishLogin(ctx context.Context, sess *session.Session, id int
 	sess.Set(keyFP, fp)
 	sess.Set(keyLoginAt, strconv.FormatInt(now, 10))
 	sess.Set(keyActivity, strconv.FormatInt(now, 10))
+	// Signing in counts as confirming the password (AuthService: CONFIRMED_KEY).
+	sess.Set(keyAuthConfirmedAt, strconv.FormatInt(now, 10))
 	if details == nil {
 		details = map[string]any{}
 	}
@@ -805,3 +807,6 @@ func trimSpace(s string) string {
 	}
 	return s[start:end]
 }
+
+// SetClock replaces the time source (tests).
+func (s *Service) SetClock(now func() int64) { s.now = now }

@@ -133,23 +133,23 @@ func (s *Server) routes() {
 	// REST v1 API (ApiController). Registered before web routes so they take
 	// precedence. Permissions mirror panel/routes/web.php API group.
 	s.mux.HandleFunc("GET /api/v1/openapi.yaml", s.apiPublic(s.apiOpenapi))
-	s.mux.HandleFunc("GET /api/v1/me", s.apiGuard("", false, s.apiMe))
-	s.mux.HandleFunc("GET /api/v1/server", s.apiGuard("server.view", false, s.apiServerInfo))
-	s.mux.HandleFunc("GET /api/v1/websites", s.apiGuard("websites.view", false, s.apiListWebsites))
-	s.mux.HandleFunc("POST /api/v1/websites", s.apiGuard("websites.manage", true, s.apiCreateWebsite))
-	s.mux.HandleFunc("GET /api/v1/websites/{id}", s.apiGuard("websites.view", false, s.apiShowWebsite))
-	s.mux.HandleFunc("POST /api/v1/websites/{id}/enable", s.apiGuard("websites.manage", true, s.apiEnableWebsite))
-	s.mux.HandleFunc("POST /api/v1/websites/{id}/disable", s.apiGuard("websites.manage", true, s.apiDisableWebsite))
-	s.mux.HandleFunc("DELETE /api/v1/websites/{id}", s.apiGuard("websites.manage", true, s.apiDeleteWebsite))
-	s.mux.HandleFunc("POST /api/v1/websites/{id}/ssl", s.apiGuard("ssl.manage", true, s.apiIssueSsl))
-	s.mux.HandleFunc("GET /api/v1/websites/{id}/backups", s.apiGuard("backups.view", false, s.apiListBackups))
-	s.mux.HandleFunc("POST /api/v1/websites/{id}/backups", s.apiGuard("backups.manage", true, s.apiCreateBackup))
-	s.mux.HandleFunc("POST /api/v1/websites/{id}/deploy", s.apiGuard("deploy.manage", true, s.apiDeployWebsite))
-	s.mux.HandleFunc("GET /api/v1/databases", s.apiGuard("databases.view", false, s.apiListDatabases))
-	s.mux.HandleFunc("POST /api/v1/databases", s.apiGuard("databases.manage", true, s.apiCreateDatabase))
-	s.mux.HandleFunc("GET /api/v1/jobs/{id}", s.apiGuard("", false, s.apiJob))
-	s.mux.HandleFunc("GET /api/v1/notifications", s.apiGuard("notifications.view", false, s.apiListNotifications))
-	s.mux.HandleFunc("POST /api/v1/notifications/read", s.apiGuard("notifications.view", true, s.apiReadNotifications))
+	s.mux.HandleFunc("GET /api/v1/me", s.apiGuard("api.me", "", false, s.apiMe))
+	s.mux.HandleFunc("GET /api/v1/server", s.apiGuard("api.server", "server.view", false, s.apiServerInfo))
+	s.mux.HandleFunc("GET /api/v1/websites", s.apiGuard("api.websites", "websites.view", false, s.apiListWebsites))
+	s.mux.HandleFunc("POST /api/v1/websites", s.apiGuard("api.websites.create", "websites.manage", true, s.apiCreateWebsite))
+	s.mux.HandleFunc("GET /api/v1/websites/{id}", s.apiGuard("api.websites.show", "websites.view", false, s.apiShowWebsite))
+	s.mux.HandleFunc("POST /api/v1/websites/{id}/enable", s.apiGuard("api.websites.enable", "websites.manage", true, s.apiEnableWebsite))
+	s.mux.HandleFunc("POST /api/v1/websites/{id}/disable", s.apiGuard("api.websites.disable", "websites.manage", true, s.apiDisableWebsite))
+	s.mux.HandleFunc("DELETE /api/v1/websites/{id}", s.apiGuard("api.websites.delete", "websites.manage", true, s.apiDeleteWebsite))
+	s.mux.HandleFunc("POST /api/v1/websites/{id}/ssl", s.apiGuard("api.websites.ssl", "ssl.manage", true, s.apiIssueSsl))
+	s.mux.HandleFunc("GET /api/v1/websites/{id}/backups", s.apiGuard("api.backups", "backups.view", false, s.apiListBackups))
+	s.mux.HandleFunc("POST /api/v1/websites/{id}/backups", s.apiGuard("api.backups.create", "backups.manage", true, s.apiCreateBackup))
+	s.mux.HandleFunc("POST /api/v1/websites/{id}/deploy", s.apiGuard("api.deploy", "deploy.manage", true, s.apiDeployWebsite))
+	s.mux.HandleFunc("GET /api/v1/databases", s.apiGuard("api.databases", "databases.view", false, s.apiListDatabases))
+	s.mux.HandleFunc("POST /api/v1/databases", s.apiGuard("api.databases.create", "databases.manage", true, s.apiCreateDatabase))
+	s.mux.HandleFunc("GET /api/v1/jobs/{id}", s.apiGuard("api.jobs", "", false, s.apiJob))
+	s.mux.HandleFunc("GET /api/v1/notifications", s.apiGuard("api.notifications", "notifications.view", false, s.apiListNotifications))
+	s.mux.HandleFunc("POST /api/v1/notifications/read", s.apiGuard("api.notifications.read", "notifications.view", true, s.apiReadNotifications))
 
 	// Authentication.
 	s.mux.HandleFunc("GET /login", s.sessionCtx(s.showLogin))
@@ -789,7 +789,7 @@ func (s *Server) routes() {
 
 	// Own profile (authenticated; no special permission).
 	s.mux.HandleFunc("GET /profile", s.guard("", "", s.profileShow))
-	s.mux.HandleFunc("POST /profile/tokens", s.guard("", "api.tokens", s.apiTokenStore))
+	s.mux.HandleFunc("POST /profile/tokens", s.guard("tokens.store", "api.tokens", s.apiTokenStore))
 	s.mux.HandleFunc("POST /profile/tokens/{id}/revoke", s.guard("", "api.tokens", s.apiTokenRevoke))
 
 	// Two-factor sign-in: the second-factor step of a sign-in (the pending

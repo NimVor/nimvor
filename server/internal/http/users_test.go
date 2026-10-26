@@ -116,3 +116,27 @@ func TestUsersRequiresPermission(t *testing.T) {
 		t.Fatalf("/users without users.view = %d, want 403", got.Code)
 	}
 }
+
+// A reseller must not open the edit or plan page of a user that is not one
+// of their customers (PHP answers "The user no longer exists").
+func TestUsersResellerCannotOpenForeignUserPages(t *testing.T) {
+	h, db := rolesEnv(t)
+	if _, err := db.Exec(`INSERT INTO users (id,username,email,display_name,password_hash,role_id,is_active,password_changed_at,created_at,updated_at,parent_id)
+		VALUES (3,'res','res@x','Res',?,(SELECT id FROM roles WHERE name='reseller'),1,'2026-01-01T00:00:00Z','','',NULL),
+		       (4,'own','own@x','Own',?,(SELECT id FROM roles WHERE name='customer'),1,'2026-01-01T00:00:00Z','','',3)`, loginHash, loginHash); err != nil {
+		t.Fatal(err)
+	}
+	res := loginAsUser(t, h, "res")
+	for _, path := range []string{"/users/1/edit", "/users/1/plan", "/users/2/edit"} { // admin, staff
+		rr := get(t, h, path, res)
+		if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/users" {
+			t.Fatalf("GET %s = %d loc=%q, want 303 /users", path, rr.Code, rr.Header().Get("Location"))
+		}
+		if pageHas(rr.Body.String(), "a@x") || pageHas(rr.Body.String(), "m@x") {
+			t.Fatalf("GET %s leaked the user's data", path)
+		}
+	}
+	if rr := get(t, h, "/users/4/edit", res); rr.Code != http.StatusOK {
+		t.Fatalf("own customer edit page = %d", rr.Code)
+	}
+}

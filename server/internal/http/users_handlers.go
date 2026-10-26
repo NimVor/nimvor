@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -92,25 +93,31 @@ func (s *Server) apiTokenStore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := userFrom(r.Context())
-	name := strings.TrimSpace(r.FormValue("name"))
-	ability := r.FormValue("ability")
-	if ability != "write" {
-		ability = "read"
-	}
-	if name == "" {
-		sess.Flash("error", "Token name is required.")
-		http.Redirect(w, r, "/profile#api-tokens", http.StatusSeeOther)
-		return
+	days := 90
+	if v := strings.TrimSpace(r.FormValue("expires_days")); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			n = -1
+		}
+		days = n
 	}
 	plain, _, err := identity.NewRepository(s.db).CreateAPIToken(r.Context(), user.ID, identity.NewAPIToken{
-		Name: name, Ability: ability,
+		Name: r.FormValue("name"), Ability: r.FormValue("ability"), ExpiresDays: days,
 	})
 	if err != nil {
-		s.log.Error("create api token", "error", err)
-		sess.Flash("error", "Could not create the token.")
+		var te identity.APITokenError
+		if errors.As(err, &te) {
+			sess.Flash("error", te.Error())
+		} else {
+			s.log.Error("create api token", "error", err)
+			sess.Flash("error", "Could not create the token.")
+		}
 		http.Redirect(w, r, "/profile#api-tokens", http.StatusSeeOther)
 		return
 	}
+	s.audit.Record(r.Context(), audit.Entry{UserID: &user.ID, Username: user.Username, Action: "api.token_create",
+		TargetType: "user", TargetID: strconv.FormatInt(user.ID, 10), Result: audit.Success, IP: clientIP(r),
+		Details: map[string]any{"name": strings.TrimSpace(r.FormValue("name")), "ability": r.FormValue("ability"), "expires_days": days}})
 	sess.Flash("api_token", plain)
 	sess.Flash("success", "Token created. Copy it now: it is shown only once.")
 	http.Redirect(w, r, "/profile#api-tokens", http.StatusSeeOther)
@@ -145,6 +152,9 @@ func (s *Server) apiTokenRevoke(w http.ResponseWriter, r *http.Request) {
 	if n == 0 {
 		sess.Flash("error", "Token not found.")
 	} else {
+		s.audit.Record(r.Context(), audit.Entry{UserID: &user.ID, Username: user.Username, Action: "api.token_revoke",
+			TargetType: "user", TargetID: strconv.FormatInt(user.ID, 10), Result: audit.Success, IP: clientIP(r),
+			Details: map[string]any{"token": id}})
 		sess.Flash("success", "Token revoked.")
 	}
 	http.Redirect(w, r, "/profile#api-tokens", http.StatusSeeOther)

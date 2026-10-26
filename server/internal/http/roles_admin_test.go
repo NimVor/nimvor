@@ -15,6 +15,11 @@ import (
 // rolesEnv seeds the real permission catalogue and default roles, plus an
 // "mgr" user whose custom role may manage roles/users but nothing else.
 func rolesEnv(t *testing.T) (http.Handler, *sql.DB) {
+	s, db := rolesEnvServer(t)
+	return s.Handler(), db
+}
+
+func rolesEnvServer(t *testing.T) (*Server, *sql.DB) {
 	t.Helper()
 	db, err := database.Open(":memory:")
 	if err != nil {
@@ -41,7 +46,7 @@ func rolesEnv(t *testing.T) (http.Handler, *sql.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return s.Handler(), db
+	return s, db
 }
 
 func roleForm(token, name string, perms ...string) url.Values {

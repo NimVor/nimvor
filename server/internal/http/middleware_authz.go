@@ -68,7 +68,7 @@ func (s *Server) guard(routeName, permission string, next http.HandlerFunc) http
 	if routeName != "" {
 		h = s.requireFeatureRoute(routeName, h)
 	}
-	return s.sessionCtx(s.requireAuth(h))
+	return s.sessionCtx(s.requireAuth(s.requirePolicies(routeName, h)))
 }
 
 // deny writes a 403 as JSON or an HTML error page.

@@ -26,7 +26,7 @@ func adminEnv(t *testing.T, loginAs string) http.Handler {
 		}
 	}
 	exec(`INSERT INTO roles (id,name,label,scope,require_two_factor,is_system,created_at) VALUES
-		(1,'administrator','Administrator','all',1,1,''),(2,'reseller','Reseller','own',0,1,'')`)
+		(1,'administrator','Administrator','all',0,1,''),(2,'reseller','Reseller','own',0,1,'')`)
 	exec(`INSERT INTO permissions (id,name,label,grp) VALUES (1,'users.view','v','Admin'),(2,'plans.manage','p','Admin')`)
 	exec(`INSERT INTO role_permissions (role_id,permission_id) VALUES (1,1),(1,2),(2,1),(2,2)`)
 	exec(`INSERT INTO users (id,username,email,display_name,password_hash,role_id,is_active,password_changed_at,created_at,updated_at) VALUES

@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -124,6 +125,11 @@ func TestSavePolicies(t *testing.T) {
 	h, _, db := policyEnv(t)
 	// Bob's last sign-in address — seeding counts it as verified.
 	if _, err := db.Exec(`UPDATE users SET last_login_ip = '198.51.100.7' WHERE id = 2`); err != nil {
+		t.Fatal(err)
+	}
+	// The administrator changed the password recently, so the age policy
+	// saved below does not lock them out of the page that follows.
+	if _, err := db.Exec(`UPDATE users SET password_changed_at = ? WHERE id = 1`, time.Now().UTC().Format(time.RFC3339)); err != nil {
 		t.Fatal(err)
 	}
 	admin := loginAsUser(t, h, "admin")
