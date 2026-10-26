@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // PlanLimits enforces a plan's resource caps, ported from Services\PlanLimits.
@@ -117,7 +118,7 @@ func (p *PlanLimits) Value(ctx context.Context, ownerID *int64, column string) (
 	if ownerID == nil {
 		return 0, nil
 	}
-	if !strings.HasPrefix(column, "max_") {
+	if !strings.HasPrefix(column, "max_") && column != "bandwidth_mb" && column != "disk_quota_mb" {
 		return 0, fmt.Errorf("planlimits: unknown plan column %q", column)
 	}
 	var name string
@@ -263,4 +264,24 @@ func (p *PlanLimits) countFor(ctx context.Context, resource string, owners []int
 		return 0, err
 	}
 	return n, nil
+}
+
+// Owners is the user and their direct customers: a reseller's limits cover
+// its customers too (PlanLimits::owners).
+func (p *PlanLimits) Owners(ctx context.Context, userID int64) []int64 { return p.family(ctx, userID) }
+
+// BandwidthUsedMB is the megabytes counted this month for the given owners'
+// websites (PlanLimits::count('bandwidth_mb')).
+func (p *PlanLimits) BandwidthUsedMB(ctx context.Context, owners []int64) int {
+	if len(owners) == 0 {
+		return 0
+	}
+	in := strings.TrimSuffix(strings.Repeat("?,", len(owners)), ",")
+	args := []any{time.Now().UTC().Format("2006-01")}
+	for _, o := range owners {
+		args = append(args, o)
+	}
+	var b int64
+	_ = p.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(bw_bytes),0) FROM website_usage WHERE bw_month = ? AND website_id IN (SELECT id FROM websites WHERE owner_id IN (`+in+`))`, args...).Scan(&b)
+	return int(b / (1024 * 1024))
 }

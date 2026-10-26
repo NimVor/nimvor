@@ -299,3 +299,27 @@ func TestLimitsPageRenders(t *testing.T) {
 		t.Error("limits page lacks its table or prints a raw map")
 	}
 }
+
+func TestBandwidthPageListsAccountsOverTheirLimit(t *testing.T) {
+	h, db := rolesEnv(t)
+	for _, q := range []string{
+		`INSERT INTO plans (id,name,bandwidth_mb,created_at,updated_at) VALUES (900,'Metered',100,'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')`,
+		`UPDATE users SET plan_id = 900 WHERE username = 'mgr'`,
+		`INSERT INTO websites (server_id, owner_id, domain, system_user, root, document_root, kind, created_at, updated_at) VALUES (1, (SELECT id FROM users WHERE username='mgr'), 'bw.test', 'bwuser', '/h/bw', '/h/bw/public', 'php', '2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')`,
+		`INSERT INTO website_usage (website_id, bytes, files, measured_at, bw_month, bw_bytes) VALUES ((SELECT id FROM websites WHERE domain='bw.test'), 0, 0, '2026-01-01T00:00:00Z', strftime('%Y-%m','now'), 300*1024*1024)`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatalf("fixture: %v", err)
+		}
+	}
+	admin := loginAsUser(t, h, "admin")
+	rr := get(t, h, "/accounts/bandwidth", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /accounts/bandwidth = %d", rr.Code)
+	}
+	for _, want := range []string{"mgr", "Metered", "300", "200"} {
+		if !pageHas(rr.Body.String(), want) {
+			t.Errorf("bandwidth page lacks %q", want)
+		}
+	}
+}

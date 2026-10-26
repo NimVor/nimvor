@@ -3,10 +3,10 @@ package http
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -128,18 +128,33 @@ func (s *Server) accountAuditHook(r *http.Request, user *identity.User) hosting.
 // the agent action is unavailable it surfaces the error on the page so
 // the operator can see what's missing. Mirrors
 // AccountAdminController::bandwidth.
+type bwRow struct {
+	ID                                  int64
+	Username, Role, Plan                string
+	Used, Limit, Excess                 string
+	Over, Suspended, Blocked            bool
+	Confirm, UserSuspendConfirm, Reason string
+}
+
+func commaInt(n int) string {
+	s := strconv.Itoa(n)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	return s
+}
+
+// accountsBandwidth GET /accounts/bandwidth — accounts with a monthly
+// bandwidth limit and this month's use (AccountAdminController::bandwidth).
 func (s *Server) accountsBandwidth(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
+	ctx := r.Context()
+	all := r.URL.Query().Get("show") == "all"
+	month := time.Now().UTC().Format("January 2006")
 	data := map[string]any{
-		"CSRF":       session.CSRFToken(sess),
-		"User":       user,
-		"Title":      "Account bandwidth",
-		"Status":     nil,
-		"Stub":       false,
-		"Error":      "",
-		"Success":    "",
-		"AgentError": nil,
+		"CSRF": session.CSRFToken(sess), "User": user, "Title": "Bandwidth", "All": all, "Month": month,
+		"Success": "", "Error": "", "Admin": hosting.IsAll(user),
 	}
 	if sf, ok := sess.PullFlash("success"); ok {
 		data["Success"] = sf
@@ -147,13 +162,70 @@ func (s *Server) accountsBandwidth(w http.ResponseWriter, r *http.Request) {
 	if ef, ok := sess.PullFlash("error"); ok {
 		data["Error"] = ef
 	}
-	if raw, err := s.agent.Call(r.Context(), "accounts.bandwidth", nil, 60*time.Second); err == nil {
-		var parsed any
-		_ = json.Unmarshal(raw, &parsed)
-		data["Status"] = parsed
-	} else {
-		data["AgentError"] = err.Error()
+	limits := hosting.NewPlanLimits(s.db)
+	rows, err := s.db.QueryContext(ctx, `SELECT u.id, u.username, r.name, p.name,
+		(u.suspended_at IS NOT NULL OR EXISTS (SELECT 1 FROM users sp WHERE sp.id = u.parent_id AND sp.suspended_at IS NOT NULL)),
+		COALESCE(u.bw_blocked_month = strftime('%Y-%m','now') OR EXISTS (SELECT 1 FROM users bp WHERE bp.id = u.parent_id AND bp.bw_blocked_month = strftime('%Y-%m','now')), 0)
+		FROM users u JOIN roles r ON r.id = u.role_id JOIN plans p ON p.id = u.plan_id ORDER BY u.username`)
+	type acct struct {
+		id                 int64
+		name, role, plan   string
+		suspended, blocked bool
 	}
+	var accts []acct
+	if err == nil {
+		for rows.Next() {
+			var a acct
+			var su, bl int
+			if rows.Scan(&a.id, &a.name, &a.role, &a.plan, &su, &bl) == nil {
+				a.suspended, a.blocked = su == 1, bl == 1
+				accts = append(accts, a)
+			}
+		}
+		rows.Close()
+	}
+	type scored struct {
+		row          bwRow
+		excess, used int
+	}
+	var out []scored
+	for _, a := range accts {
+		id := a.id
+		limit, _ := limits.Value(ctx, &id, "bandwidth_mb")
+		if limit <= 0 {
+			continue
+		}
+		used := limits.BandwidthUsedMB(ctx, limits.Owners(ctx, a.id))
+		if !all && used <= limit {
+			continue
+		}
+		excess := used - limit
+		if excess < 0 {
+			excess = 0
+		}
+		row := bwRow{ID: a.id, Username: a.name, Role: a.role, Plan: a.plan, Used: commaInt(used), Limit: commaInt(limit), Excess: "—",
+			Over: excess > 0, Suspended: a.suspended, Blocked: a.blocked, Reason: "Bandwidth limit exceeded (" + month + ")"}
+		if excess > 0 {
+			row.Excess = commaInt(excess)
+		}
+		row.Confirm = "Reset " + a.name + "'s bandwidth for " + month + " to 0? The usage counted so far this month (" + commaInt(used) + " MB) is discarded; earlier months are not affected."
+		if a.blocked {
+			row.Confirm += " Its websites are unblocked at once."
+		}
+		row.UserSuspendConfirm = "Suspend " + a.name + "? Its websites go offline and email logins, databases, FTP/SFTP, cron jobs and workers stop until you unsuspend it. Nothing is deleted."
+		out = append(out, scored{row, excess, used})
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].excess != out[j].excess {
+			return out[i].excess > out[j].excess
+		}
+		return out[i].used > out[j].used
+	})
+	var list []bwRow
+	for _, o := range out {
+		list = append(list, o.row)
+	}
+	data["Rows"] = list
 	s.render(w, "accounts_bandwidth", data)
 }
 
