@@ -105,11 +105,11 @@ func TestModsecPageRenders(t *testing.T) {
 		">942100<", "SQL Injection Attack", "203.0.113.9",
 		// The custom rules tab.
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
-	if strings.Contains(body, "949110") {
+	if pageHas(body, "949110") {
 		t.Errorf("the anomaly-score summary rule 949110 must not be shown")
 	}
 	for _, want := range []string{
@@ -133,12 +133,12 @@ func TestModsecPageRenders(t *testing.T) {
 		"New custom rule", "Custom rule 10001", "Custom rule 10002",
 		`id:10003,phase:1,deny,status:403,log,msg:'example'`, // the suggested id
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
 	// The custom rules are disabled in the fake's config.
-	if !strings.Contains(body, "not in use (Server-wide settings)") {
+	if !pageHas(body, "not in use (Server-wide settings)") {
 		t.Errorf("missing the custom-rules-disabled state")
 	}
 }
@@ -150,7 +150,7 @@ func TestModsecPageDeniedForNonAllScope(t *testing.T) {
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("GET = %d (want 403)", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "ModSecurity rules are managed by server administrators.") {
+	if !pageHas(rr.Body.String(), "ModSecurity rules are managed by server administrators.") {
 		t.Errorf("missing the deny message")
 	}
 }
@@ -164,10 +164,10 @@ func TestModsecPageAgentError(t *testing.T) {
 		t.Fatalf("GET = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "the agent socket is not running") {
+	if !pageHas(body, "the agent socket is not running") {
 		t.Errorf("missing the agent warning")
 	}
-	if strings.Contains(body, "Web application firewall (ModSecurity)") {
+	if pageHas(body, "Web application firewall (ModSecurity)") {
 		t.Errorf("the page content must not render without a status")
 	}
 }
@@ -572,11 +572,11 @@ func TestSiteFirewallPage(t *testing.T) {
 		"OWASP Core Rule Set", ">942100<", "203.0.113.9",
 		`wcp-state is-error">Blocked (403)`, `wcp-state is-warn">Detected`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
-	if strings.Contains(body, "Turn off here") {
+	if pageHas(body, "Turn off here") {
 		t.Errorf("an owner may not turn rules off from an event")
 	}
 	// An administrator sees the "turn off here" actions.
@@ -585,7 +585,7 @@ func TestSiteFirewallPage(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("admin GET = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Turn off here") {
+	if !pageHas(rr.Body.String(), "Turn off here") {
 		t.Errorf("admin page missing the turn-off actions")
 	}
 }
@@ -599,10 +599,10 @@ func TestSiteFirewallInactive(t *testing.T) {
 		t.Fatalf("GET = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "The web application firewall is not active on this server") {
+	if !pageHas(body, "The web application firewall is not active on this server") {
 		t.Errorf("missing the inactive state")
 	}
-	if !strings.Contains(body, "Please ask your hosting provider to enable it.") {
+	if !pageHas(body, "Please ask your hosting provider to enable it.") {
 		t.Errorf("missing the owner's hint")
 	}
 	// An administrator gets the link to the ModSecurity page.
@@ -611,7 +611,7 @@ func TestSiteFirewallInactive(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("admin GET = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), `<a class="btn btn-primary" href="/security/modsec">Open ModSecurity</a>`) {
+	if !pageHas(rr.Body.String(), `<a class="btn btn-primary" href="/security/modsec">Open ModSecurity</a>`) {
 		t.Errorf("admin page missing the ModSecurity link")
 	}
 }
@@ -623,7 +623,7 @@ func TestSiteFirewallNotFound(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("GET = %d (want 404)", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "This website does not exist or you do not have access to it.") {
+	if !pageHas(rr.Body.String(), "This website does not exist or you do not have access to it.") {
 		t.Errorf("missing the 404 message")
 	}
 }

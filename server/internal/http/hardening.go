@@ -190,7 +190,7 @@ func (s *Server) hardeningSaveCompilers(w http.ResponseWriter, r *http.Request) 
 	}
 	if _, err := s.agent.Call(r.Context(), "hardening.compilers",
 		map[string]any{"restricted": restricted, "users": send}, 120*time.Second); err != nil {
-		agentErrorRedirect(w, r, "hardening compilers", err, to)
+		s.agentErrorRedirect(w, r, "hardening compilers", err, to)
 		return
 	}
 	s.hardeningAudit(r, "hardening.compilers", map[string]any{"restricted": restricted, "users": users})
@@ -232,7 +232,7 @@ func (s *Server) hardeningSaveSmtp(w http.ResponseWriter, r *http.Request) {
 	}
 	enabled := r.FormValue("enabled") == "1"
 	if _, err := s.agent.Call(r.Context(), "hardening.smtp", map[string]any{"enabled": enabled}, 120*time.Second); err != nil {
-		agentErrorRedirect(w, r, "hardening smtp", err, to)
+		s.agentErrorRedirect(w, r, "hardening smtp", err, to)
 		return
 	}
 	s.hardeningAudit(r, "hardening.smtp", map[string]any{"enabled": enabled})
@@ -314,7 +314,7 @@ func (s *Server) hardeningSaveEgress(w http.ResponseWriter, r *http.Request) {
 		"udp_ports":        udp,
 	}
 	if _, err := s.agent.Call(r.Context(), "hardening.egress", params, 120*time.Second); err != nil {
-		agentErrorRedirect(w, r, "hardening egress", err, to)
+		s.agentErrorRedirect(w, r, "hardening egress", err, to)
 		return
 	}
 	s.hardeningAudit(r, "hardening.egress", params)
@@ -349,7 +349,7 @@ func (s *Server) hardeningSaveForkbomb(w http.ResponseWriter, r *http.Request) {
 	}
 	enabled := r.FormValue("enabled") == "1"
 	if _, err := s.agent.Call(r.Context(), "hardening.forkbomb", map[string]any{"enabled": enabled}, 60*time.Second); err != nil {
-		agentErrorRedirect(w, r, "hardening forkbomb", err, to)
+		s.agentErrorRedirect(w, r, "hardening forkbomb", err, to)
 		return
 	}
 	s.hardeningAudit(r, "hardening.forkbomb", map[string]any{"enabled": enabled})
@@ -388,7 +388,7 @@ func (s *Server) hardeningSaveTraceroute(w http.ResponseWriter, r *http.Request)
 	}
 	enabled := r.FormValue("enabled") == "1"
 	if _, err := s.agent.Call(r.Context(), "hardening.traceroute", map[string]any{"enabled": enabled}, 60*time.Second); err != nil {
-		agentErrorRedirect(w, r, "hardening traceroute", err, to)
+		s.agentErrorRedirect(w, r, "hardening traceroute", err, to)
 		return
 	}
 	s.hardeningAudit(r, "hardening.traceroute", map[string]any{"enabled": enabled})

@@ -46,6 +46,10 @@ func stamp(iso string) string {
 
 // dict builds a map from key/value pairs for passing several values to a
 // subtemplate ({{template "x" (dict "a" 1 "b" 2)}}).
+// list builds a slice literal for {{range}} (text/template's "slice" is the
+// slicing builtin, not a constructor).
+func list(v ...any) []any { return v }
+
 func dict(kv ...any) map[string]any {
 	m := make(map[string]any, len(kv)/2)
 	for i := 0; i+1 < len(kv); i += 2 {
@@ -94,13 +98,14 @@ func mapItems(m map[string]string) []mapItem {
 func New() (*Templates, error) {
 	t, err := template.New("whacp").Funcs(template.FuncMap{
 		// PHP's strtoupper / strtolower in the badge labels.
-		"upper":   strings.ToUpper,
-		"lower":   strings.ToLower,
-		"weekday": weekday,
-		"bytes":   bytes,
-		"stamp":   stamp,
-		"dict":    dict,
-		"hours":   hours,
+		"upper":    strings.ToUpper,
+		"lower":    strings.ToLower,
+		"weekday":  weekday,
+		"bytes":    bytes,
+		"stamp":    stamp,
+		"dict":     dict,
+		"list":     list,
+		"hours":    hours,
 		"mapItems": mapItems,
 		// strings.Join, used by the IP pages for their comma-separated lists.
 		"join": strings.Join,

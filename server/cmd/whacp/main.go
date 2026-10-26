@@ -39,8 +39,8 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/authz"
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
-	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	whttp "github.com/mchkhawarshahzad/whacp/server/internal/http"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 )
 
 // set by the build (-ldflags "-X main.version=...").

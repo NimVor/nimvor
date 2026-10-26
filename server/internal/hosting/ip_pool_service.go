@@ -153,23 +153,34 @@ func (s *IpService) PoolFull(ctx context.Context) ([]IpPoolRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	// One-connection pool: read every row, close the cursor, then do the
+	// per-address lookups (nested queries would deadlock on the held connection).
 	out := []IpPoolRow{}
 	for rows.Next() {
 		var r IpPoolRow
 		var rangeID sql.NullInt64
 		if err := rows.Scan(&r.ID, &r.Address, &r.Family, &r.Kind, &r.Reserved, &r.Reason, &rangeID); err != nil {
+			rows.Close()
 			return nil, err
 		}
 		if rangeID.Valid {
-			r.RangeID = &rangeID.Int64
+			id := rangeID.Int64
+			r.RangeID = &id
 		}
-		r.Sites = []IpSite{}
-		if s, err := s.sitesUsing(ctx, r.Address); err != nil {
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	for i := range out {
+		r := &out[i]
+		sites, err := s.sitesUsing(ctx, r.Address)
+		if err != nil {
 			return nil, err
-		} else {
-			r.Sites = s
 		}
+		r.Sites = sites
 		inRange := false
 		for _, g := range ranges {
 			inRange = inRange || InPrefix(r.Address, g.Prefix)
@@ -178,9 +189,8 @@ func (s *IpService) PoolFull(ctx context.Context) ([]IpPoolRow, error) {
 			p := have[r.Address] || inRange
 			r.Present = &p
 		}
-		out = append(out, r)
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // FindByID is the pool row for an id (nil when it is not pooled).
@@ -342,13 +352,23 @@ func (s *IpService) Ranges(ctx context.Context) ([]IpRange, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	// One pooled connection: finish reading the ranges before the count lookups.
 	out := []IpRange{}
 	for rows.Next() {
 		var g IpRange
 		if err := rows.Scan(&g.ID, &g.Prefix, &g.Note); err != nil {
+			rows.Close()
 			return nil, err
 		}
+		out = append(out, g)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	for i := range out {
+		g := &out[i]
 		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ip_addresses WHERE range_id = ?`, g.ID).Scan(&g.Allocated); err != nil {
 			return nil, err
 		}
@@ -356,9 +376,8 @@ func (s *IpService) Ranges(ctx context.Context) ([]IpRange, error) {
 			`SELECT COUNT(*) FROM ip_addresses a WHERE a.range_id = ? AND EXISTS (SELECT 1 FROM websites w WHERE w.ipv6 = a.address)`, g.ID).Scan(&g.Used); err != nil {
 			return nil, err
 		}
-		out = append(out, g)
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // pushRanges tells the agent which routed IPv6 ranges are local

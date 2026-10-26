@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -37,14 +36,13 @@ func TestWordPressManageDone(t *testing.T) {
 	}
 	// The flash + the operation the agent got.
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Turn maintenance mode off: done for bob.example (public_html).") {
+	if !pageHas(rr.Body.String(), "Turn maintenance mode off: done for bob.example (public_html).") {
 		t.Errorf("the done flash is missing: %s", rr.Body.String())
 	}
-	last := len(sa.called()) - 1
-	if op, _ := sa.param(last, "op").(string); op != "maintenance_off" {
+	if op, _ := agentParam(t, sa, "wordpress.manage", "op").(string); op != "maintenance_off" {
 		t.Errorf("agent got op %q", op)
 	}
-	if items, _ := sa.param(last, "items").([]any); len(items) != 0 {
+	if items, _ := agentParam(t, sa, "wordpress.manage", "items").([]any); len(items) != 0 {
 		t.Errorf("agent got items %v", items)
 	}
 	if n := wpAuditCount(t, db, "wordpress.maintenance_off"); n != 1 {
@@ -75,7 +73,7 @@ func TestWordPressManageJob(t *testing.T) {
 		"Update WordPress for bob.example (public_html) started; you will be notified when it finishes.",
 		"Job <code>0123456789ab0001</code> started in the background.",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("the overview misses %q", want)
 		}
 	}
@@ -100,7 +98,7 @@ func TestWordPressManageVerifyCore(t *testing.T) {
 		"wp-includes/theme-compat/class-wp-theme-compat.php",
 		"wp-content/uploads/evil.php",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("the verify state misses %q", want)
 		}
 	}
@@ -113,10 +111,10 @@ func TestWordPressManageVerifyCore(t *testing.T) {
 		t.Fatalf("verify = %d", res.Code)
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "All WordPress core files match the official release.") {
+	if !pageHas(rr.Body.String(), "All WordPress core files match the official release.") {
 		t.Error("the clean verify flash is missing")
 	}
-	if !strings.Contains(rr.Body.String(), "Every WordPress core file matches the official release.") {
+	if !pageHas(rr.Body.String(), "Every WordPress core file matches the official release.") {
 		t.Error("the clean verify panel is missing")
 	}
 }
@@ -132,7 +130,7 @@ func TestWordPressManageErrors(t *testing.T) {
 		t.Fatalf("manage = %d", res.Code)
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Unknown operation.") {
+	if !pageHas(rr.Body.String(), "Unknown operation.") {
 		t.Error("the unknown-operation flash is missing")
 	}
 
@@ -148,7 +146,7 @@ func TestWordPressManageErrors(t *testing.T) {
 		t.Error("the invalid value still reached the agent")
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Choose minor, all or no automatic updates.") {
+	if !pageHas(rr.Body.String(), "Choose minor, all or no automatic updates.") {
 		t.Error("the value-guard flash is missing")
 	}
 
@@ -167,7 +165,7 @@ func TestWordPressManageErrors(t *testing.T) {
 		t.Error("the suspended account still reached the agent")
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "The hosting account is suspended; WordPress cannot be changed.") {
+	if !pageHas(rr.Body.String(), "The hosting account is suspended; WordPress cannot be changed.") {
 		t.Error("the suspended flash is missing")
 	}
 
@@ -180,8 +178,7 @@ func TestWordPressManageErrors(t *testing.T) {
 	if res.Code != http.StatusSeeOther {
 		t.Fatalf("manage = %d", res.Code)
 	}
-	last := len(sa.called()) - 1
-	items, _ := sa.param(last, "items").([]any)
+	items, _ := agentParam(t, sa, "wordpress.manage", "items").([]any)
 	if len(items) != 2 || items[0] != "hello" || items[1] != "jetpack" {
 		t.Errorf("agent got items %v", items)
 	}

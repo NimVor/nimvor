@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -54,9 +55,9 @@ func hardenEnv(t *testing.T) (http.Handler, *sitesAgent, *sql.DB) {
 		(1,'admin','a@x','Admin',?,1,1,'2026-01-01T00:00:00Z','',''),
 		(2,'bob','b@x','Bob',?,2,1,'2026-01-01T00:00:00Z','','')`,
 		loginHash, loginHash)
-	exec(`INSERT INTO websites (id,server_id,domain,system_user,root,document_root,kind,created_at) VALUES
-		(1,1,'a.example.com','u1-site','/home/u1-site','/home/u1-site/public_html','php',''),
-		(2,1,'b.example.com','u2-site','/home/u2-site','/home/u2-site/public_html','php','')`)
+	exec(`INSERT INTO websites (id,server_id,domain,system_user,root,document_root,kind,created_at,updated_at) VALUES
+		(1,1,'a.example.com','u1-site','/home/u1-site','/home/u1-site/public_html','php','',''),
+		(2,1,'b.example.com','u2-site','/home/u2-site','/home/u2-site/public_html','php','','')`)
 
 	kf := filepath.Join(t.TempDir(), "panel.key")
 	var key [32]byte
@@ -87,7 +88,7 @@ func TestHardeningCompilersPage(t *testing.T) {
 		`name="users[]" value="u1-site"`, `name="users[]" value="u2-site"`,
 		"/usr/bin/gcc", "0750",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -116,7 +117,7 @@ func TestHardeningCompilersSave(t *testing.T) {
 	if got := agentParam(t, sa, "hardening.compilers", "restricted"); got != true {
 		t.Errorf("restricted = %v", got)
 	}
-	if got := agentParam(t, sa, "hardening.compilers", "users"); got != []any{"u2-site", "u1-site"} {
+	if got := agentParam(t, sa, "hardening.compilers", "users"); !reflect.DeepEqual(got, []any{"u2-site", "u1-site"}) {
 		t.Errorf("users = %v", got)
 	}
 	var target, result string
@@ -137,7 +138,7 @@ func TestHardeningCompilersSaveRoot(t *testing.T) {
 		t.Fatalf("save = %d", rr.Code)
 	}
 	flashAt(t, h, refreshCookie(admin, rr), "/security/compilers", "Compilers are restricted to root.")
-	if got := agentParam(t, sa, "hardening.compilers", "users"); got != []any{} {
+	if got := agentParam(t, sa, "hardening.compilers", "users"); !reflect.DeepEqual(got, []any{}) {
 		t.Errorf("users = %v (root-only sends none)", got)
 	}
 }
@@ -173,7 +174,7 @@ func TestHardeningSmtpPage(t *testing.T) {
 		"ports 25, 465, 587 are allowed for:", "root, postfix, mailman, whacp",
 		`name="enabled" value="0"`, ">Disable<",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -211,12 +212,12 @@ func TestHardeningEgressPage(t *testing.T) {
 		`name="tcp_ports" value="53, 80, 443"`, `name="udp_ports" value="53"`,
 		`name="metadata_blocked" value="1" id="eg-meta" checked`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
 	// block_private is not set in the fixture → no checked.
-	if strings.Contains(body, `name="block_private" value="1" id="eg-private" checked`) {
+	if pageHas(body, `name="block_private" value="1" id="eg-private" checked`) {
 		t.Error("block_private must not be checked")
 	}
 }
@@ -233,10 +234,10 @@ func TestHardeningEgressSave(t *testing.T) {
 		t.Fatalf("save = %d", rr.Code)
 	}
 	flashAt(t, h, refreshCookie(admin, rr), "/security/egress", "Outgoing connection limits for website accounts saved.")
-	if got := agentParam(t, sa, "hardening.egress", "tcp_ports"); got != []any{float64(80), float64(443)} {
+	if got := agentParam(t, sa, "hardening.egress", "tcp_ports"); !reflect.DeepEqual(got, []any{float64(80), float64(443)}) {
 		t.Errorf("tcp_ports = %v (deduplicated + sorted)", got)
 	}
-	if got := agentParam(t, sa, "hardening.egress", "udp_ports"); got != []any{} {
+	if got := agentParam(t, sa, "hardening.egress", "udp_ports"); !reflect.DeepEqual(got, []any{}) {
 		t.Errorf("udp_ports = %v", got)
 	}
 	if got := agentParam(t, sa, "hardening.egress", "block_private"); got != false {
@@ -288,7 +289,7 @@ func TestHardeningForkbombPage(t *testing.T) {
 		"limited to 200 processes (hard limit 300)",
 		`name="enabled" value="1"`, ">Enable Protection<",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -325,7 +326,7 @@ func TestHardeningTraceroutePage(t *testing.T) {
 		"/usr/bin/traceroute", "0755",
 		`name="enabled" value="0"`, ">Disable<",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -354,11 +355,11 @@ func TestHardeningAgentDown(t *testing.T) {
 		t.Fatalf("GET = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "the socket is closed") {
+	if !pageHas(body, "the socket is closed") {
 		t.Error("the agent error is not shown")
 	}
 	for _, not := range []string{"Compiler access for unprivileged users", "Compilers on this server"} {
-		if strings.Contains(body, not) {
+		if pageHas(body, not) {
 			t.Errorf("the agent-down page must not show %q", not)
 		}
 	}
@@ -371,7 +372,7 @@ func TestHardeningDeniedScope(t *testing.T) {
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("GET (bob) = %d, want 403", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Only administrators manage server hardening.") {
+	if !pageHas(rr.Body.String(), "Only administrators manage server hardening.") {
 		t.Errorf("the 403 message is wrong: %s", rr.Body.String())
 	}
 }

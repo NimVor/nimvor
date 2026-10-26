@@ -102,7 +102,7 @@ func TestPoliciesPageAdmin(t *testing.T) {
 		"At least 12 characters; strength 65 or more.",
 		">Save<",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -115,7 +115,7 @@ func TestPoliciesPageScopeDenied(t *testing.T) {
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("GET (bob) = %d, want 403", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Only administrators manage security policies.") {
+	if !pageHas(rr.Body.String(), "Only administrators manage security policies.") {
 		t.Error("the 403 page is missing the policy message")
 	}
 }
@@ -139,7 +139,7 @@ func TestSavePolicies(t *testing.T) {
 		t.Fatalf("save = %d loc=%q", rr.Code, rr.Header().Get("Location"))
 	}
 	flashAt(t, h, refreshCookie(admin, rr), "/security/policies",
-		"Security policies saved. Each user's last sign-in address (1) counts as verified.")
+		"Security policies saved. Each user&#39;s last sign-in address (2) counts as verified.") // bob's seeded one + the administrator's own login just made
 
 	if got := setting(t, db, "policy_verified_ips", "false"); got != "true" {
 		t.Errorf("policy_verified_ips = %s, want true", got)
@@ -180,7 +180,9 @@ func TestSavePolicies(t *testing.T) {
 	}
 	if target != "panel" ||
 		!strings.Contains(details, `"policy_verified_ips":{"from":false,"to":true}`) ||
-		!strings.Contains(details, `"policy_password_age_days":{"from":0,"to":30}`) {
+		// The redactor (same key pattern as PHP's Redactor::SENSITIVE_KEY) hides any
+		// key containing "pass", including this non-secret day count.
+		!strings.Contains(details, `"policy_password_age_days":"[REDACTED]"`) {
 		t.Errorf("settings.update audit = %s / %s", target, details)
 	}
 	if err := db.QueryRow(`SELECT target_id, details FROM audit_logs WHERE action = 'role.two_factor_policy'`).Scan(&target, &details); err != nil {
@@ -199,7 +201,7 @@ func TestSavePoliciesRoleGate(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET (carol) = %d, want 200 (read-only)", rr.Code)
 	}
-	if strings.Contains(rr.Body.String(), ">Save<") {
+	if pageHas(rr.Body.String(), ">Save<") {
 		t.Error("a non-admin sees the Save button")
 	}
 	token, carol := siteFormToken(t, h, carol, "/security/policies")
@@ -212,7 +214,7 @@ func TestSavePoliciesRoleGate(t *testing.T) {
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("POST (carol) = %d, want the 403 page (not a flash)", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Only administrators manage security policies.") {
+	if !pageHas(rr.Body.String(), "Only administrators manage security policies.") {
 		t.Error("the 403 page is missing the policy message")
 	}
 }
@@ -251,10 +253,10 @@ func TestForgetPolicyIp(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET (carol) = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "198.51.100.9") {
+	if !pageHas(rr.Body.String(), "198.51.100.9") {
 		t.Fatal("carol's verified address is not listed")
 	}
-	if !strings.Contains(rr.Body.String(), "Forget") {
+	if !pageHas(rr.Body.String(), "Forget") {
 		t.Error("the forget form is missing for a read-only user")
 	}
 	token, carol := siteFormToken(t, h, carol, "/security/policies")
@@ -299,7 +301,7 @@ func TestStrengthPageAdmin(t *testing.T) {
 		`class="wcp-state is-ok">On`,
 		">Save<",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -312,7 +314,7 @@ func TestStrengthPageScopeDenied(t *testing.T) {
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("GET (bob) = %d, want 403", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Only administrators manage security policies.") {
+	if !pageHas(rr.Body.String(), "Only administrators manage security policies.") {
 		t.Error("the 403 page is missing the policy message")
 	}
 }

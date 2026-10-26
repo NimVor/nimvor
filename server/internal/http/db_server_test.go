@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -89,7 +90,7 @@ func TestDbServerPageDenied(t *testing.T) {
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("GET /databases/server (own-scope) = %d, want 403", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "managed by server administrators") {
+	if !pageHas(rr.Body.String(), "managed by server administrators") {
 		t.Errorf("denial page missing the message: %s", rr.Body.String())
 	}
 }
@@ -127,11 +128,11 @@ func TestDbServerOverviewPage(t *testing.T) {
 		"Unblock hosts",
 		"Restart",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("overview missing %q", want)
 		}
 	}
-	if strings.Contains(body, "low</span>") || strings.Contains(body, "high</span>") {
+	if pageHas(body, "low</span>") || pageHas(body, "high</span>") {
 		t.Errorf("unexpected low/high warning badge")
 	}
 	if len(sa.called()) != 1 || sa.called()[0] != "db.server_status" {
@@ -148,10 +149,10 @@ func TestDbServerAgentErrorPage(t *testing.T) {
 		t.Fatalf("GET /databases/server (agent down) = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "the socket is closed") || !strings.Contains(body, "could not report the database server") {
+	if !pageHas(body, "the socket is closed") || !pageHas(body, "could not report the database server") {
 		t.Errorf("agent error page missing the error: %s", body)
 	}
-	if strings.Contains(body, "10.11.6-MariaDB") {
+	if pageHas(body, "10.11.6-MariaDB") {
 		t.Errorf("a failed status must not render the overview")
 	}
 }
@@ -165,12 +166,12 @@ func TestDbServerDownPage(t *testing.T) {
 		t.Fatalf("GET /databases/server (server down) = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "The database server does not answer") || !strings.Contains(body, "Connection refused (111)") {
+	if !pageHas(body, "The database server does not answer") || !pageHas(body, "Connection refused (111)") {
 		t.Errorf("down page missing the status error: %s", body)
 	}
 	// The flush buttons need a running server; restart stays (for the
 	// services) but the page must not show the overview cards.
-	if strings.Contains(body, "Reload privileges") || strings.Contains(body, "10.11.6-MariaDB") {
+	if pageHas(body, "Reload privileges") || pageHas(body, "10.11.6-MariaDB") {
 		t.Errorf("down page must not show the overview or flush buttons")
 	}
 }
@@ -195,12 +196,12 @@ func TestDbServerSettingsPage(t *testing.T) {
 		"zz-whacp.cnf",
 		"dbs-restart",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("settings page missing %q", want)
 		}
 	}
 	// The bool field renders the ON/OFF select.
-	if !strings.Contains(body, `name="settings[skip_name_resolve]"`) || !strings.Contains(body, "<option value=\"ON\">") {
+	if !pageHas(body, `name="settings[skip_name_resolve]"`) || !pageHas(body, "<option value=\"ON\">") {
 		t.Errorf("bool setting select missing")
 	}
 }
@@ -358,7 +359,7 @@ func TestDbServerConnectionsPage(t *testing.T) {
 		"u_bob", "SELECT * FROM posts", "server thread",
 		`name="id" value="7"`, `name="query_only" value="1"`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("connections page missing %q", want)
 		}
 	}
@@ -380,12 +381,12 @@ func TestDbServerLogsPage(t *testing.T) {
 		`value="journal:mariadb.service"`,
 		"Database logs",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("db logs page missing %q", want)
 		}
 	}
 	for _, not := range []string{"nginx:access", "system:auth", "Authentication log"} {
-		if strings.Contains(body, not) {
+		if pageHas(body, not) {
 			t.Errorf("db logs page must not list %q", not)
 		}
 	}
@@ -419,4 +420,31 @@ func inList(list []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// thousands used to loop forever (and grow its string) for any value >= 1000,
+// hanging the server page. It must group by threes and terminate.
+func TestThousandsGroupsAndTerminates(t *testing.T) {
+	cases := map[float64]string{
+		0: "0", 7: "7", 999: "999", 1000: "1,000", 12345: "12,345", 1234567: "1,234,567",
+		-1234: "-1,234", 2.5: "3", -0.4: "0",
+	}
+	for in, want := range cases {
+		done := make(chan string, 1)
+		go func() { done <- thousands(in) }()
+		select {
+		case got := <-done:
+			if got != want {
+				t.Errorf("thousands(%v) = %q, want %q", in, got, want)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("thousands(%v) did not terminate", in)
+		}
+	}
+	if got := decimals(1234567.891, 2); got != "1,234,567.89" {
+		t.Errorf("decimals = %q", got)
+	}
+	if got := decimals(-1234.5, 1); got != "-1,234.5" {
+		t.Errorf("decimals negative = %q", got)
+	}
 }

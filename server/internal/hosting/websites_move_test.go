@@ -12,6 +12,7 @@ func TestMoveToAccount(t *testing.T) {
 	ctx := context.Background()
 	site := findSite(t, h, 10) // cust.example, owner 3, user u_cust
 	owner := int64(9)
+	seedAccount(t, h.db, owner)
 
 	if err := h.svc.MoveToAccount(ctx, site, "u_new", &owner, true, false); err != nil {
 		t.Fatal(err)
@@ -43,6 +44,7 @@ func TestMoveToAccountDetaches(t *testing.T) {
 		t.Fatalf("seed parent = %+v", site.ParentID)
 	}
 	owner := int64(9)
+	seedAccount(t, h.db, owner)
 	if err := h.svc.MoveToAccount(ctx, site, "u_new", &owner, false, true); err != nil {
 		t.Fatal(err)
 	}
@@ -62,6 +64,7 @@ func TestMoveToAccountFailureReverts(t *testing.T) {
 	h.agent.failActions = map[string]error{"sites.apply": errors.New("agent down")}
 	site := findSite(t, h, 10)
 	owner := int64(9)
+	seedAccount(t, h.db, owner)
 
 	err := h.svc.MoveToAccount(ctx, site, "u_new", &owner, true, false)
 	if err == nil {
@@ -116,5 +119,28 @@ func TestMoveToAccountKeepsOwnerNil(t *testing.T) {
 	}
 	if ownerCol.Valid {
 		t.Fatalf("owner_id should be NULL, got %+v", ownerCol)
+	}
+}
+
+// UpdateFields must bind its placeholders in SQL order (values, updated_at, id):
+// swapping the last two made the UPDATE match no row and every website change a
+// silent no-op.
+func TestUpdateFieldsPersistsAndStampsUpdatedAt(t *testing.T) {
+	h := newHarness(t, writeDB(t))
+	ctx := context.Background()
+	if err := h.svc.sites.UpdateFields(ctx, 10, map[string]any{"system_user": "u_changed", "enabled": false}); err != nil {
+		t.Fatal(err)
+	}
+	var user string
+	var enabled int
+	var updated string
+	if err := h.db.QueryRowContext(ctx, "SELECT system_user, enabled, updated_at FROM websites WHERE id = 10").Scan(&user, &enabled, &updated); err != nil {
+		t.Fatal(err)
+	}
+	if user != "u_changed" || enabled != 0 {
+		t.Fatalf("row after UpdateFields = %q enabled=%d", user, enabled)
+	}
+	if len(updated) < 10 || updated[:2] != "20" {
+		t.Fatalf("updated_at = %q, want an RFC 3339 timestamp (not the row id)", updated)
 	}
 }

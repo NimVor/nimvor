@@ -9,7 +9,6 @@ package http
 import (
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -24,16 +23,16 @@ func TestSiteDatabasesScoped(t *testing.T) {
 		`name="website_id" value="10"`,
 		`name="return_to" value="/sites/10/databases"`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("site page missing %q:\\n%s", want, body)
 		}
 	}
-	if strings.Contains(body, "<th>Website</th>") {
+	if pageHas(body, "<th>Website</th>") {
 		t.Fatalf("site page shows the Website column:\\n%s", body)
 	}
 	// Nothing from the other tenants.
 	for _, leak := range []string{"b_main", "c_main", "alice_db"} {
-		if strings.Contains(body, leak) {
+		if pageHas(body, leak) {
 			t.Fatalf("TENANT LEAK: bob's site page shows %q:\\n%s", leak, body)
 		}
 	}
@@ -47,7 +46,7 @@ func TestSiteDatabasesForeignIs404(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("foreign site = %d, want 404", rr.Code)
 	}
-	if body := rr.Body.String(); strings.Contains(body, "a_main") || strings.Contains(body, "bob_db") {
+	if body := rr.Body.String(); pageHas(body, "a_main") || pageHas(body, "bob_db") {
 		t.Fatalf("TENANT LEAK in 404 body:\\n%s", body)
 	}
 	// A nonexistent id is also 404.
@@ -60,10 +59,10 @@ func TestSiteDatabasesAdminSeesAll(t *testing.T) {
 	h, _, _ := dbUsersEnv(t, "")
 	admin := loginAsUser(t, h, "admin")
 	body := get(t, h, "/sites/10/databases", admin).Body.String()
-	if !strings.Contains(body, "a_main") || !strings.Contains(body, "bob_db") {
+	if !pageHas(body, "a_main") || !pageHas(body, "bob_db") {
 		t.Fatalf("admin missing the site's data:\\n%s", body)
 	}
-	if !strings.Contains(body, `name="return_to" value="/sites/10/databases"`) {
+	if !pageHas(body, `name="return_to" value="/sites/10/databases"`) {
 		t.Fatalf("admin site page missing the return_to:\\n%s", body)
 	}
 }
@@ -83,7 +82,7 @@ func TestSiteDatabasesCreateAttachesSite(t *testing.T) {
 	}
 	bob = refreshCookie(bob, rr)
 	body := get(t, h, "/sites/10/databases", bob).Body.String()
-	if !strings.Contains(body, "Database created.") || !strings.Contains(body, "bob_site_db") {
+	if !pageHas(body, "Database created.") || !pageHas(body, "bob_site_db") {
 		t.Fatalf("site page missing the created database:\\n%s", body)
 	}
 	var siteID, ownerID *int64
@@ -93,11 +92,11 @@ func TestSiteDatabasesCreateAttachesSite(t *testing.T) {
 		t.Fatalf("new row = %v %v %q %v", siteID, ownerID, name, err)
 	}
 	// The agent saw the create.
-	if acts := sa.called(); len(acts) == 0 || acts[len(acts)-1] != "db.create" {
+	if acts := sa.writes(); len(acts) == 0 || acts[len(acts)-1] != "db.create" {
 		t.Fatalf("agent actions = %v", acts)
 	}
 	// The global page still shows it too (same row, scoped list).
-	if body := get(t, h, "/databases", bob).Body.String(); !strings.Contains(body, "bob_site_db") {
+	if body := get(t, h, "/databases", bob).Body.String(); !pageHas(body, "bob_site_db") {
 		t.Fatalf("global page missing the new database:\\n%s", body)
 	}
 }
@@ -111,7 +110,7 @@ func TestSiteDatabasesWithheldByDisabledMysqlFeature(t *testing.T) {
 	}
 	h2, cookie2, _ := dbEnv(t, "custB")
 	body := get(t, h2, "/sites/11/databases", cookie2).Body.String()
-	if !strings.Contains(body, "b_main") {
+	if !pageHas(body, "b_main") {
 		t.Fatalf("custB site page missing own database:\\n%s", body)
 	}
 }

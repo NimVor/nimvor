@@ -235,7 +235,7 @@ func (s *Server) componentsFix(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		job := ""
-		if m, _ := res.(map[string]any); m != nil {
+		if m := agentObject(res); m != nil {
 			if j, _ := m["job_id"].(string); j != "" {
 				job = j
 			}

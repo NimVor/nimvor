@@ -8,22 +8,21 @@ package http
 // the once-shown private-key page (no-store).
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"golang.org/x/crypto/ssh"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/agent"
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
@@ -214,7 +213,7 @@ func (s *Server) sshConfigure(w http.ResponseWriter, r *http.Request) {
 	}
 	reply, err := s.agent.Call(r.Context(), "ssh.configure", set, 90*time.Second)
 	if err != nil {
-		agentErrorRedirect(w, r, "ssh configure", err, "/security/ssh")
+		s.agentErrorRedirect(w, r, "ssh configure", err, "/security/ssh")
 		return
 	}
 	sess.Flash("success", s.guardRecord(r, "ssh.configure", reply, set))
@@ -250,7 +249,7 @@ func (s *Server) sshAddKey(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimSpace(r.FormValue("key"))
 	res, err := s.agent.Call(r.Context(), "ssh.key_add", map[string]any{"user": target, "key": key}, 60*time.Second)
 	if err != nil {
-		agentErrorRedirect(w, r, "ssh key add", err, to)
+		s.agentErrorRedirect(w, r, "ssh key add", err, to)
 		return
 	}
 	var kr struct {
@@ -299,7 +298,7 @@ func (s *Server) sshRemoveKey(w http.ResponseWriter, r *http.Request) {
 	target := r.FormValue("user")
 	fingerprint := r.FormValue("fingerprint")
 	if _, err := s.agent.Call(r.Context(), "ssh.key_remove", map[string]any{"user": target, "fingerprint": fingerprint}, 60*time.Second); err != nil {
-		agentErrorRedirect(w, r, "ssh key remove", err, to)
+		s.agentErrorRedirect(w, r, "ssh key remove", err, to)
 		return
 	}
 	s.audit.Record(r.Context(), audit.Entry{
@@ -366,25 +365,30 @@ func (s *Server) sshGenerateKey(w http.ResponseWriter, r *http.Request) {
 		fail("The key pair could not be generated.")
 		return
 	}
-	der, err := x509.MarshalPKCS8PrivateKey(rsaKey)
+	// The private key is written in the OpenSSH format; with a passphrase it is
+	// encrypted with bcrypt-pbkdf + AES-256-CTR (golang.org/x/crypto/ssh). The
+	// stdlib's x509.EncryptPEMBlock is deprecated (MD5-based key derivation) and
+	// is deliberately not used.
+	var block *pem.Block
+	if passphrase == "" {
+		block, err = ssh.MarshalPrivateKey(rsaKey, comment)
+	} else {
+		block, err = ssh.MarshalPrivateKeyWithPassphrase(rsaKey, comment, []byte(passphrase))
+	}
 	if err != nil {
 		fail("The key pair could not be generated.")
 		return
 	}
-	var pemBytes []byte
-	if passphrase == "" {
-		pemBytes = pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
-	} else if derEnc, err := x509.PEMEncrypt("AES-256-CBC", []byte(passphrase), der, rand.Reader); err == nil {
-		pemBytes = pem.EncodeToMemory(derEnc)
-	}
-	if len(pemBytes) == 0 {
+	pemBytes := pem.EncodeToMemory(block)
+	sshPub, err := ssh.NewPublicKey(&rsaKey.PublicKey)
+	if err != nil {
 		fail("The key pair could not be generated.")
 		return
 	}
-	public := "ssh-rsa " + base64.StdEncoding.EncodeToString(sshRsaWire(rsaKey.PublicKey.N, rsaKey.PublicKey.E)) + " " + comment
+	public := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(sshPub))) + " " + comment
 	res, err := s.agent.Call(r.Context(), "ssh.key_add", map[string]any{"user": target, "key": public}, 60*time.Second)
 	if err != nil {
-		agentErrorRedirect(w, r, "ssh key generate", err, to)
+		s.agentErrorRedirect(w, r, "ssh key generate", err, to)
 		return
 	}
 	var kr struct {
@@ -445,41 +449,4 @@ func (s *Server) sshGenerateKey(w http.ResponseWriter, r *http.Request) {
 		"ServerName":  serverName,
 		"File":        file,
 	})
-}
-
-// sshRsaWire is the ssh-rsa public key wire format (string "ssh-rsa",
-// mpint e, mpint n).
-func sshRsaWire(n, e *big.Int) []byte {
-	var out bytes.Buffer
-	write := func(b []byte) {
-		var lenBuf [4]byte
-		binaryU32(lenBuf[:], uint32(len(b)))
-		out.Write(lenBuf[:])
-		out.Write(b)
-	}
-	write([]byte("ssh-rsa"))
-	write(mpint(e))
-	write(mpint(n))
-	return out.Bytes()
-}
-
-func binaryU32(b []byte, v uint32) {
-	b[0] = byte(v >> 24)
-	b[1] = byte(v >> 16)
-	b[2] = byte(v >> 8)
-	b[3] = byte(v)
-}
-
-// mpint is the ssh "mpint" (multi-precision integer) encoding.
-func mpint(bi *big.Int) []byte {
-	b := bi.Bytes() // big-endian, no leading zeros
-	if b == nil {
-		b = []byte{}
-	}
-	if len(b) > 0 && b[0]&0x80 != 0 {
-		b = append([]byte{0}, b...)
-	}
-	var lenBuf [4]byte
-	binaryU32(lenBuf[:], uint32(len(b)))
-	return append(lenBuf[:], b...)
 }

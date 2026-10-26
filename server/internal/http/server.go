@@ -8,7 +8,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"time"
@@ -704,7 +703,19 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /ips/migrate", s.guard("ips.migrate", "server.view", s.ipMigratePage))
 	s.mux.HandleFunc("POST /ips/migrate", s.guard("ips.migrate.run", "server.manage", s.ipRunMigration))
 	s.mux.HandleFunc("POST /ips/{id}", s.guard("ips.update", "server.manage", s.ipUpdate))
-	s.mux.HandleFunc("POST /ips/{id}/delete", s.guard("ips.delete", "server.manage", s.ipDelete))
+	// POST /ips/{id}/delete would overlap POST /ips/ranges/{id} ("/ips/ranges/
+	// delete" matches both and neither is more specific), which Go's mux
+	// rejects at start-up. Register the wildcard-action form instead: the
+	// literal "ranges" pattern is the more specific one, and only the "delete"
+	// action is served here.
+	ipDelete := s.guard("ips.delete", "server.manage", s.ipDelete)
+	s.mux.HandleFunc("POST /ips/{id}/{action}", func(w http.ResponseWriter, r *http.Request) {
+		if r.PathValue("action") != "delete" {
+			http.NotFound(w, r)
+			return
+		}
+		ipDelete(w, r)
+	})
 
 	// Discovery (DiscoveryController): the read-only inventory pages. Every
 	// page is tenant-scoped in the handler (DiscoveryService::forScope); only
@@ -739,8 +750,8 @@ func (s *Server) routes() {
 	// customers).
 	s.mux.HandleFunc("GET /users", s.guard("", "users.view", s.usersIndex))
 
-	// Roles (staff) and hosting plans (staff / reseller-own).
-	s.mux.HandleFunc("GET /roles", s.guard("", "users.view", s.rolesIndex))
+	// Hosting plans (staff / reseller-own); roles are registered with the
+	// RolesController routes above.
 	s.mux.HandleFunc("GET /plans", s.guard("", "plans.manage", s.plansIndex))
 
 	// Background job log (the job viewer polls it). Authenticated only —

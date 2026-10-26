@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
@@ -261,7 +260,7 @@ func (s *Service) Attempt(ctx context.Context, sess *session.Session, username, 
 		return "", true, nil
 	}
 
-	if msg, err := s.finishOrVerifyIP(ctx, sess, row.ID, row.Username, hash, ip, nil); err != nil {
+	if msg, err := s.finishOrVerifyIPStr(ctx, sess, row.ID, row.Username, hash, ip, nil); err != nil {
 		return "", false, err
 	} else if msg != "" {
 		return msg, false, nil
@@ -295,7 +294,7 @@ func (s *Service) finishOrVerifyIP(ctx context.Context, sess *session.Session, i
 		}
 		uid := id
 		s.audit.Record(ctx, audit.Entry{UserID: &uid, Username: username, Action: "auth.login", TargetType: "user", TargetID: strconv.FormatInt(id, 10), Result: audit.Denied, IP: ip, Details: map[string]any{"reason": "ip_not_verified", "ip": ip}})
-		return fmt.Errorf("Sign-ins from new IP addresses must be verified by email, but %s. Ask your administrator to verify this address for you.", reason)
+		return &userError{"Sign-ins from new IP addresses must be verified by email, but " + reason + ". Ask your administrator to verify this address for you."}
 	}
 	code := secureCode()
 	panelName, _ := s.policyReader.String(ctx, "panel_name", "WhaCP")
@@ -309,7 +308,7 @@ func (s *Service) finishOrVerifyIP(ctx context.Context, sess *session.Session, i
 	if err := s.mailSender.Send(ctx, []string{email}, panelName+": verify a sign-in from a new IP address", body); err != nil {
 		uid := id
 		s.audit.Record(ctx, audit.Entry{UserID: &uid, Username: username, Action: "auth.login", TargetType: "user", TargetID: strconv.FormatInt(id, 10), Result: audit.Denied, IP: ip, Details: map[string]any{"reason": "ip_code_email_failed", "ip": ip}})
-		return errors.New("The verification email could not be sent. Try again later or ask your administrator to verify this address.")
+		return &userError{"The verification email could not be sent. Try again later or ask your administrator to verify this address."}
 	}
 	fp, err := s.fingerprint(ctx, hash, id)
 	if err != nil {
@@ -562,7 +561,7 @@ func (s *Service) checkPending(ctx context.Context, sess *session.Session, ip st
 		s.clearTwoFactorKeys(sess)
 		return nil, msgSignInExpired, "", nil
 	}
-	return p, "", "", nil
+	return p, "", hash, nil
 }
 
 // CompleteTwoFactor verifies the second factor of a pending sign-in and, on
@@ -592,10 +591,22 @@ func (s *Service) CompleteTwoFactor(ctx context.Context, sess *session.Session, 
 // used by second-factor completions (which return "","nil" on success).
 func (s *Service) finishOrVerifyIPStr(ctx context.Context, sess *session.Session, id int64, username, hash, ip string, details map[string]any) (string, error) {
 	if err := s.finishOrVerifyIP(ctx, sess, id, username, hash, ip, details); err != nil {
+		// A refusal meant for the person signing in is a message, not a server
+		// failure; anything else is an internal error.
+		var ue *userError
+		if errors.As(err, &ue) {
+			return ue.msg, nil
+		}
 		return "", err
 	}
 	return "", nil
 }
+
+// userError is a sign-in refusal whose text is shown to the user (PHP returned
+// these as plain strings). Anything that is not a *userError is an internal error.
+type userError struct{ msg string }
+
+func (e *userError) Error() string { return e.msg }
 
 // PendingSigninID returns the user ID of the pending second-factor sign-in,
 // or 0 if no sign-in is pending. Used by WebAuthn handlers (which need to
@@ -747,7 +758,7 @@ func (s *Service) ConfirmPassword(ctx context.Context, sess *session.Session, us
 		})
 		return false
 	}
-	sess.Set(keyAuthConfirmedAt, strconv.FormatInt(s.now().Unix(), 10))
+	sess.Set(keyAuthConfirmedAt, strconv.FormatInt(s.now(), 10))
 	uid := user.ID
 	s.audit.Record(ctx, audit.Entry{
 		UserID: &uid, Username: user.Username, Action: "auth.confirm",
@@ -764,11 +775,8 @@ func (s *Service) IsConfirmed(sess *session.Session) bool {
 	if ts == 0 {
 		return false
 	}
-	return s.now().Unix()-ts <= ConfirmTTL
+	return s.now()-ts <= ConfirmTTL
 }
-
-// now returns the current time (overridable in tests).
-func (s *Service) now() time.Time { return time.Now() }
 
 // fingerprint binds the session to the account's password hash and session
 // epoch, so either change ends the session. Identical formula to

@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
@@ -112,17 +111,17 @@ func TestSiteShowPage(t *testing.T) {
 		"data-wcp-tile=\"manual-settings\"",
 		"data-wcp-feature=\"create database mysql mariadb new add\"",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
 	// The tile notes: disk usage on Files, the database count on Databases,
 	// "On" on SSL.
-	if !strings.Contains(body, `data-wcp-tile="files"`) || !strings.Contains(body, "123 MB") {
+	if !pageHas(body, `data-wcp-tile="files"`) || !pageHas(body, "123 MB") {
 		t.Errorf("Files tile missing the disk note:\n%s", body)
 	}
 	// A customer without deploy.manage gets no Git tile.
-	if strings.Contains(body, `data-wcp-tile="git-deployment"`) {
+	if pageHas(body, `data-wcp-tile="git-deployment"`) {
 		t.Error("Git tile shown without deploy.manage")
 	}
 	// Carol (viewer) sees her own hub without the management tiles or the
@@ -130,12 +129,12 @@ func TestSiteShowPage(t *testing.T) {
 	carol := loginAsUser(t, h, "carol")
 	body = get(t, h, "/sites/20", carol).Body.String()
 	for _, banned := range []string{"data-wcp-tile=\"manual-settings\"", "data-wcp-tile=\"settings\"", "Disable the website", "Delete the website"} {
-		if strings.Contains(body, banned) {
+		if pageHas(body, banned) {
 			t.Errorf("viewer page shows %q", banned)
 		}
 	}
 	// …but her hub still lists the areas she may open.
-	if !strings.Contains(body, `data-wcp-tile="web-firewall"`) {
+	if !pageHas(body, `data-wcp-tile="web-firewall"`) {
 		t.Errorf("viewer page missing the firewall tile (websites.view):\n%s", body)
 	}
 }
@@ -149,8 +148,8 @@ func TestSiteShowAlerts(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := get(t, h, "/sites/10", bob).Body.String()
-	if !strings.Contains(body, "The last change failed:") || !strings.Contains(body, "The nginx reload failed.") ||
-		!strings.Contains(body, "Re-apply configuration") {
+	if !pageHas(body, "The last change failed:") || !pageHas(body, "The nginx reload failed.") ||
+		!pageHas(body, "Re-apply configuration") {
 		t.Errorf("failed-change banner missing:\n%s", body)
 	}
 	if _, err := db.Exec(`UPDATE websites SET status = 'active', last_error = '' WHERE id = 10`); err != nil {
@@ -162,7 +161,7 @@ func TestSiteShowAlerts(t *testing.T) {
 		t.Fatal(err)
 	}
 	body = get(t, h, "/sites/10", bob).Body.String()
-	if !strings.Contains(body, "Monthly bandwidth used up.") {
+	if !pageHas(body, "Monthly bandwidth used up.") {
 		t.Errorf("bandwidth banner missing:\n%s", body)
 	}
 	if _, err := db.Exec(`UPDATE users SET bw_blocked_month = '' WHERE id = 2`); err != nil {
@@ -172,10 +171,10 @@ func TestSiteShowAlerts(t *testing.T) {
 	// The agent down: the inspect error banner, no disk fact.
 	sa.failActions["sites.inspect"] = "The agent is not running."
 	body = get(t, h, "/sites/10", bob).Body.String()
-	if !strings.Contains(body, "The agent is not running.") {
+	if !pageHas(body, "The agent is not running.") {
 		t.Errorf("agent error banner missing:\n%s", body)
 	}
-	if strings.Contains(body, "123 MB") {
+	if pageHas(body, "123 MB") {
 		t.Error("disk fact shown while the agent is down")
 	}
 	delete(sa.failActions, "sites.inspect")
@@ -183,7 +182,7 @@ func TestSiteShowAlerts(t *testing.T) {
 	// A missing server config: the warning with the re-apply link.
 	sa.sitesInspectJSON = `{"domain":"bob.example","config_exists":false,"enabled":false,"pool_versions":[],"root_exists":true,"disk_bytes":129184560,"disk_complete":true}`
 	body = get(t, h, "/sites/10", bob).Body.String()
-	if !strings.Contains(body, "This website's configuration is missing on the server.") {
+	if !pageHas(body, "This website's configuration is missing on the server.") {
 		t.Errorf("missing-config warning absent:\n%s", body)
 	}
 }
@@ -218,12 +217,12 @@ func TestSiteAdvancedPage(t *testing.T) {
 		`name="remove_files"`,
 		`name="remove_user"`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
 	// The IP card is part of the IP pool area, not ported yet.
-	if strings.Contains(body, "id=\"ip\"") {
+	if pageHas(body, "id=\"ip\"") {
 		t.Error("IP card rendered before the IP pool area is ported")
 	}
 
@@ -243,7 +242,7 @@ func TestSiteShowNotFound(t *testing.T) {
 		if rr.Code != http.StatusNotFound {
 			t.Fatalf("GET %s (carol) = %d, want 404", path, rr.Code)
 		}
-		if !strings.Contains(rr.Body.String(), "This website does not exist or you do not have access to it.") {
+		if !pageHas(rr.Body.String(), "This website does not exist or you do not have access to it.") {
 			t.Errorf("GET %s 404 page missing message", path)
 		}
 	}

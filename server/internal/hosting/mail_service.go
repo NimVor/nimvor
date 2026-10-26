@@ -172,13 +172,28 @@ func (s *MailService) spamExceptions(ctx context.Context, serverID int64) (noFil
 	if err != nil {
 		return nil, nil, err
 	}
-	defer rows.Close()
+	// One pooled connection: read the domains, close the cursor, then look up
+	// each account's options (a nested query would deadlock).
+	type domOwner struct {
+		domain string
+		owner  sql.NullInt64
+	}
+	var doms []domOwner
 	for rows.Next() {
-		var domain string
-		var owner sql.NullInt64
-		if err := rows.Scan(&domain, &owner); err != nil {
+		var d domOwner
+		if err := rows.Scan(&d.domain, &d.owner); err != nil {
+			rows.Close()
 			return nil, nil, err
 		}
+		doms = append(doms, d)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, nil, err
+	}
+	rows.Close()
+	for _, d := range doms {
+		domain, owner := d.domain, d.owner
 		opts, err := s.options.Get(ctx, nullToPtr(owner))
 		if err != nil {
 			return nil, nil, err
@@ -190,7 +205,7 @@ func (s *MailService) spamExceptions(ctx context.Context, serverID int64) (noFil
 			noJunk = append(noJunk, domain)
 		}
 	}
-	return noFilter, noJunk, rows.Err()
+	return noFilter, noJunk, nil
 }
 
 // SyncSpam applies the accounts' spam options to the server (MailService::

@@ -77,7 +77,7 @@ func (s *Server) runtimesInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jobID := ""
-	if m, _ := raw.(map[string]any); m != nil {
+	if m := agentObject(raw); m != nil {
 		if j, ok := m["job_id"].(string); ok {
 			jobID = j
 		}

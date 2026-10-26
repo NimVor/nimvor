@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -27,9 +26,10 @@ func ipEnv(t *testing.T, loginAs string) (http.Handler, *http.Cookie, *sitesAgen
 			t.Fatalf("seed %q: %v", q, err)
 		}
 	}
-	exec(`INSERT INTO permissions (id,name,label,grp) VALUES
-		(9,'websites.manage','wm','web'),(10,'server.manage','sm','server')`)
-	exec(`INSERT INTO role_permissions (role_id,permission_id) VALUES (1,9),(1,10),(2,9)`)
+	// importEnv already seeded websites.manage (id 3) for the administrator; add
+	// server.manage, and give the customer role websites.manage too.
+	exec(`INSERT INTO permissions (id,name,label,grp) VALUES (10,'server.manage','sm','server'),(11,'server.view','sv','server')`)
+	exec(`INSERT INTO role_permissions (role_id,permission_id) VALUES (1,10),(1,11),(2,3)`)
 	exec(`INSERT INTO websites (id,server_id,owner_id,domain,system_user,root,document_root,kind,php_version,status,ipv4,created_at,updated_at)
 		VALUES (20,1,2,'alice.example','u_alice','/home/whacp/alice.example','/home/whacp/alice.example/public_html','php','8.3.1','active',NULL,'','')`)
 	exec(`INSERT INTO domains (server_id,website_id,name,is_primary) VALUES (1,20,'alice.example',1)`)
@@ -59,21 +59,21 @@ func TestAdvancedIPCardAdminOnly(t *testing.T) {
 		"IP addresses", "Every address of the server", "10.10.0.15",
 		"Save addresses", "10.10.0.99", // the website's current address is preselected
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("IP card missing %q", want)
 		}
 	}
-	if strings.Contains(body, "192.168.1.20") {
+	if pageHas(body, "192.168.1.20") {
 		t.Error("a reserved address must not be offered")
 	}
-	if strings.Contains(body, "172.16.0.9") {
+	if pageHas(body, "172.16.0.9") {
 		t.Error("an address dedicated to another website must not be offered")
 	}
 
 	// The customer does not see the card.
 	h2, c2, _, _ := ipEnv(t, "bob")
 	body = get(t, h2, "/sites/10/advanced", c2).Body.String()
-	if strings.Contains(body, "IP addresses") || strings.Contains(body, "Save addresses") {
+	if pageHas(body, "IP addresses") || pageHas(body, "Save addresses") {
 		t.Error("the customer must not see the IP card")
 	}
 }
@@ -111,7 +111,7 @@ func TestIPAssignSavedAndDNSFollowed(t *testing.T) {
 	}
 	// The success flash counts the DNS record.
 	rr = get(t, h, "/sites/10/advanced", cookie)
-	if !strings.Contains(rr.Body.String(), "Addresses saved and the website reloaded; 1 DNS record(s) updated") {
+	if !pageHas(rr.Body.String(), "Addresses saved and the website reloaded; 1 DNS record(s) updated") {
 		t.Errorf("success flash missing:\\n%s", rr.Body.String())
 	}
 	_ = sa
@@ -128,26 +128,27 @@ func TestIPAssignValidationErrors(t *testing.T) {
 	}
 
 	// Not in the pool.
+	var rr *httptest.ResponseRecorder
 	rr, cookie = post("8.8.8.8", cookie)
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("not-pooled assign = %d", rr.Code)
 	}
 	rr = get(t, h, "/sites/10/advanced", cookie)
-	if !strings.Contains(rr.Body.String(), "8.8.8.8 is not in the IP pool.") {
+	if !pageHas(rr.Body.String(), "8.8.8.8 is not in the IP pool.") {
 		t.Error("not-pooled error flash missing")
 	}
 
 	// Reserved.
 	rr, cookie = post("192.168.1.20", cookie)
 	rr = get(t, h, "/sites/10/advanced", cookie)
-	if !strings.Contains(rr.Body.String(), "192.168.1.20 is reserved (Staging).") {
+	if !pageHas(rr.Body.String(), "192.168.1.20 is reserved (Staging).") {
 		t.Error("reserved error flash missing")
 	}
 
 	// Dedicated to another website.
 	rr, cookie = post("172.16.0.9", cookie)
 	rr = get(t, h, "/sites/10/advanced", cookie)
-	if !strings.Contains(rr.Body.String(), "172.16.0.9 is dedicated to alice.example.") {
+	if !pageHas(rr.Body.String(), "172.16.0.9 is dedicated to alice.example.") {
 		t.Error("dedicated error flash missing")
 	}
 
@@ -157,7 +158,7 @@ func TestIPAssignValidationErrors(t *testing.T) {
 		t.Fatalf("wrong-family assign = %d", rr.Code)
 	}
 	rr = get(t, h, "/sites/10/advanced", cookie)
-	if !strings.Contains(rr.Body.String(), "Choose an IPv4 address from the pool.") {
+	if !pageHas(rr.Body.String(), "Choose an IPv4 address from the pool.") {
 		t.Error("wrong-family error flash missing")
 	}
 
@@ -202,7 +203,7 @@ func TestIPAssignDNSFailureRollsBack(t *testing.T) {
 		t.Error("website.ip_rollback audit missing")
 	}
 	rr = get(t, h, "/sites/10/advanced", cookie)
-	if !strings.Contains(rr.Body.String(), "The DNS records could not be updated, so the website was moved back to its previous address.") {
+	if !pageHas(rr.Body.String(), "The DNS records could not be updated, so the website was moved back to its previous address.") {
 		t.Error("rollback flash missing")
 	}
 }

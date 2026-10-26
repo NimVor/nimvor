@@ -125,12 +125,12 @@ func TestSiteMongoPage(t *testing.T) {
 		"/sites/10/mongo/databases",
 		"/sites/10/mongo/databases/drop",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
 	// The foreign database is filtered out.
-	if strings.Contains(page, "other_app") {
+	if pageHas(page, "other_app") {
 		t.Error("the foreign database must not be listed")
 	}
 }
@@ -153,11 +153,11 @@ func TestSiteMongoPageUsers(t *testing.T) {
 		"/sites/10/mongo/users/drop",
 		"/sites/10/mongo/users",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("users page missing %q", want)
 		}
 	}
-	if strings.Contains(page, "other_user") {
+	if pageHas(page, "other_user") {
 		t.Error("the foreign user must not be listed")
 	}
 }
@@ -179,11 +179,11 @@ func TestSiteMongoPageBackups(t *testing.T) {
 		"/sites/10/mongo/restore",
 		"/sites/10/mongo/backups/delete",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("backups page missing %q", want)
 		}
 	}
-	if strings.Contains(page, mongoTestForeignBackup) {
+	if pageHas(page, mongoTestForeignBackup) {
 		t.Error("the foreign backup must not be listed")
 	}
 }
@@ -197,7 +197,7 @@ func TestSiteMongoPageStates(t *testing.T) {
 		if rr.Code != http.StatusOK {
 			t.Fatalf("= %d", rr.Code)
 		}
-		if !strings.Contains(rr.Body.String(), "MongoDB is not available on this server") {
+		if !pageHas(rr.Body.String(), "MongoDB is not available on this server") {
 			t.Error("missing the not-installed state")
 		}
 	})
@@ -209,7 +209,7 @@ func TestSiteMongoPageStates(t *testing.T) {
 		if rr.Code != http.StatusOK {
 			t.Fatalf("= %d", rr.Code)
 		}
-		if !strings.Contains(rr.Body.String(), "MongoDB is installed but not running") {
+		if !pageHas(rr.Body.String(), "MongoDB is installed but not running") {
 			t.Error("missing the not-running state")
 		}
 	})
@@ -221,7 +221,7 @@ func TestSiteMongoPageStates(t *testing.T) {
 		if rr.Code != http.StatusOK {
 			t.Fatalf("= %d", rr.Code)
 		}
-		if !strings.Contains(rr.Body.String(), "the agent is offline") {
+		if !pageHas(rr.Body.String(), "the agent is offline") {
 			t.Error("missing the agent error")
 		}
 	})
@@ -404,10 +404,10 @@ func TestSiteMongoBackup(t *testing.T) {
 	bob = refreshCookie(bob, rr)
 	rr = get(t, h, "/sites/10/mongo", bob)
 	page := rr.Body.String()
-	if !strings.Contains(page, "Backing up u_bob_shop…") {
+	if !pageHas(page, "Backing up u_bob_shop…") {
 		t.Error("missing the backup flash")
 	}
-	if !strings.Contains(page, "Job "+mongoTestBackupJob+" started in the background.") {
+	if !pageHas(page, "Job "+mongoTestBackupJob+" started in the background.") {
 		t.Error("missing the job flash")
 	}
 	if n := mongoAuditCount(t, db, "mongo.backup"); n != 1 {
@@ -438,10 +438,10 @@ func TestSiteMongoRestore(t *testing.T) {
 	bob = refreshCookie(bob, rr)
 	rr = get(t, h, "/sites/10/mongo", bob)
 	page := rr.Body.String()
-	if !strings.Contains(page, "Restoring from the backup…") {
+	if !pageHas(page, "Restoring from the backup…") {
 		t.Error("missing the restore flash")
 	}
-	if !strings.Contains(page, "Job "+mongoTestRestoreJob+" started in the background.") {
+	if !pageHas(page, "Job "+mongoTestRestoreJob+" started in the background.") {
 		t.Error("missing the job flash")
 	}
 	if got := agentParam(t, sa, "mongo.restore", "db"); got != "u_bob_shop" {

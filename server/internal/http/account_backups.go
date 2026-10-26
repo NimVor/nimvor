@@ -5,20 +5,15 @@ package http
 // for per-account backup archives. Administrators only (RoleScope == "all").
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
+	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
+	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 	"io"
 	"net/http"
 	"net/url"
 	"path/filepath"
-	"regexp"
 	"strconv"
-	"strings"
-
-	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
-	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
-	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
 const accountSecretsKey = "account_restore_secrets"
@@ -242,8 +237,8 @@ func (s *Server) accountBackupShow(w http.ResponseWriter, r *http.Request) {
 	rec, _ = svc.RestoreRecord(r.Context(), id)
 	sess := sessionFrom(r.Context())
 	var secrets []any
-	if raw := sess.Get(accountSecretsKey); raw != nil {
-		if m, ok := raw.(map[string]any); ok {
+	if raw := sess.Get(accountSecretsKey); raw != "" {
+		if m := agentObject(json.RawMessage(raw)); m != nil {
 			if rid, _ := m["id"].(int64); rid == id {
 				if list, ok := m["list"].([]any); ok {
 					secrets = list
@@ -258,15 +253,15 @@ func (s *Server) accountBackupShow(w http.ResponseWriter, r *http.Request) {
 		_ = meta
 	}
 	data := map[string]any{
-		"User":       user,
-		"CSRF":       session.CSRFToken(sess),
-		"Title":      "Account restore",
-		"Path":       rec.Path,
-		"Manifest":   rec.Manifest,
-		"Plan":       plan,
-		"Restore":    rec,
+		"User":        user,
+		"CSRF":        session.CSRFToken(sess),
+		"Title":       "Account restore",
+		"Path":        rec.Path,
+		"Manifest":    rec.Manifest,
+		"Plan":        plan,
+		"Restore":     rec,
 		"ImportState": state,
-		"Secrets":    secrets,
+		"Secrets":     secrets,
 	}
 	s.render(w, "backups_account_restore", data)
 }
@@ -319,7 +314,9 @@ func (s *Server) accountBackupRecreate(w http.ResponseWriter, r *http.Request) {
 	}
 	// One-shot secrets.
 	if secrets, ok := out["secrets"].([]any); ok && len(secrets) > 0 {
-		sessionFrom(r.Context()).Set(accountSecretsKey, map[string]any{"id": id, "list": secrets})
+		if blob, err := json.Marshal(map[string]any{"id": id, "list": secrets}); err == nil {
+			sessionFrom(r.Context()).Set(accountSecretsKey, string(blob))
+		}
 	}
 	sessionFrom(r.Context()).Flash("success", "Account recreated; its websites are being restored.")
 	http.Redirect(w, r, to, http.StatusSeeOther)
@@ -331,21 +328,4 @@ func accountBackupErr(w http.ResponseWriter, r *http.Request, msg, to string) {
 	sess := sessionFrom(r.Context())
 	sess.Flash("error", msg)
 	http.Redirect(w, r, to, http.StatusSeeOther)
-}
-
-func sanitizeDownloadName(name string) string {
-	return regexp.MustCompile(`[^A-Za-z0-9._-]`).ReplaceAllString(name, "_")
-}
-
-// accountBackupSvc returns the AccountBackupService bound to the request
-// server id and user auditor.
-func (s *Server) accountBackupSvc(_ *http.Request, user *identity.User) *hosting.AccountBackupService {
-	return hosting.NewAccountBackupService(s.db, s.agent, s.currentServerID(nil), func(action, targetType, target string, details map[string]any) {
-		var uid *int64
-		if user != nil {
-			id := user.ID
-			uid = &id
-		}
-		s.audit.Record(context.Background(), audit.Entry{Action: action, TargetType: targetType, TargetID: target, Details: details, UserID: uid, Username: usernameOr(user)})
-	})
 }

@@ -165,7 +165,8 @@ func (s *Server) mailAdminMessage(w http.ResponseWriter, r *http.Request) {
 		ID      string            `json:"id"`
 		Headers map[string]string `json:"headers"`
 	}
-	if raw, err := s.agent.Call(r.Context(), "mail.queue_message", map[string]any{"id": id}); err != nil {
+	raw, err := s.agent.Call(r.Context(), "mail.queue_message", map[string]any{"id": id})
+	if err != nil {
 		msg := "The message could not be read."
 		if ae := (&agent.Error{}); errors.As(err, &ae) && ae.Message != "" {
 			msg = ae.Message
@@ -471,7 +472,7 @@ func mailShownValue(k, v string) string {
 		if err != nil {
 			return v
 		}
-		return strconv.FormatInt(math.Round(float64(n)/1048576), 10)
+		return strconv.FormatInt(int64(math.Round(float64(n)/1048576)), 10)
 	case "maximal_queue_lifetime", "bounce_queue_lifetime":
 		if n, err := strconv.Atoi(strings.TrimSuffix(v, "d")); err == nil {
 			return strconv.Itoa(n)
@@ -623,23 +624,37 @@ func (s *Server) mailAdminSaveSettings(w http.ResponseWriter, r *http.Request) {
 	pf := map[string]string{}
 	dc := map[string]string{}
 	current := map[string]string{}
+	// name[key] -> key. (strings.Trim with a word is a character-SET cut: it ate
+	// the first/last letters of keys such as smtpd_helo_required and
+	// message_size_limit.)
+	bracketKey := func(k, name string) (string, bool) {
+		rest, ok := strings.CutPrefix(k, name+"[")
+		if !ok {
+			return "", false
+		}
+		key, ok := strings.CutSuffix(rest, "]")
+		return key, ok && key != ""
+	}
+	// Two passes: the current[...] snapshot must be complete before the
+	// changed-only comparison (the form map's order is random).
+	for k, vals := range r.PostForm {
+		if key, ok := bracketKey(k, "current"); ok && len(vals) > 0 {
+			current[key] = vals[0]
+		}
+	}
 	for k, vals := range r.PostForm {
 		if len(vals) == 0 {
 			continue
 		}
 		v := vals[0]
-		switch {
-		case strings.HasPrefix(k, "current["):
-			current[strings.Trim(k, "current[]")] = v
-		case strings.HasPrefix(k, "postfix["):
-			key := strings.Trim(k, "postfix[]")
+		if key, ok := bracketKey(k, "postfix"); ok {
 			// Only fields that changed are sent (unchanged Postfix values
 			// stay as Postfix has them).
-			if cur, ok := current[key]; !ok || cur != v {
+			if cur, had := current[key]; !had || cur != v {
 				pf[key] = v
 			}
-		case strings.HasPrefix(k, "dovecot["):
-			dc[strings.Trim(k, "dovecot[]")] = v
+		} else if key, ok := bracketKey(k, "dovecot"); ok {
+			dc[key] = v
 		}
 	}
 	if _, err := s.agent.Call(r.Context(), "mail.settings_set", map[string]any{"postfix": pf, "dovecot": dc}, 120*time.Second); err != nil {
@@ -710,7 +725,8 @@ func (s *Server) mailAdminRepair(w http.ResponseWriter, r *http.Request) {
 		target = "mail"
 	}
 	var res hosting.RepairResult
-	if raw, err := s.agent.Call(r.Context(), "mail.repair_permissions", map[string]any{"domain": domain}, 600*time.Second); err != nil {
+	raw, err := s.agent.Call(r.Context(), "mail.repair_permissions", map[string]any{"domain": domain}, 600*time.Second)
+	if err != nil {
 		s.mailAdminAudit(r, user, "mail.repair_permissions", target, "failure", map[string]any{"error": s.mailAgentErr("mail.repair_permissions", err)})
 		s.flashMailAdminFailure(sess, "The mailbox permissions could not be repaired.", err)
 		http.Redirect(w, r, "/mail/admin/tools", http.StatusSeeOther)

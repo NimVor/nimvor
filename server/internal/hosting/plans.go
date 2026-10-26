@@ -79,9 +79,9 @@ var PlanFields = []string{
 	"max_customers",
 }
 
-// PlanLimits lists cgroup-style limit columns with (min, max) when set
+// PlanLimitColumns lists cgroup-style limit columns with (min, max) when set
 // (PlanService::LIMITS).
-var PlanLimits = map[string][2]int{
+var PlanLimitColumns = map[string][2]int{
 	"cpu_percent":   {10, 12800},
 	"memory_mb":     {64, 2097152},
 	"tasks_max":     {16, 1048576},
@@ -128,7 +128,7 @@ func (r *PlanRepository) Save(ctx context.Context, actor *identity.User, in Plan
 		fields[f] = v
 	}
 	limits := map[string]int{}
-	for f, rng := range PlanLimits {
+	for f, rng := range PlanLimitColumns {
 		v, ok := in.Limits[f]
 		if !ok {
 			v = 0
@@ -258,7 +258,7 @@ func (r *PlanRepository) Save(ctx context.Context, actor *identity.User, in Plan
 	limSets := ""
 	limVals := []any{}
 	first := true
-	for c := range PlanLimits {
+	for c := range PlanLimitColumns {
 		if !first {
 			limSets += ", "
 		}

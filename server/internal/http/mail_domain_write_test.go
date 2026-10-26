@@ -53,7 +53,7 @@ func TestMailMailboxCreate(t *testing.T) {
 		"_token": {token}, "local": {"info2"}, "password": {"s3cure-passw0rd"}, "quota_mb": {"512"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/domains/60")
-	if !strings.Contains(body, "Mailbox info2@bob.example created.") {
+	if !pageHas(body, "Mailbox info2@bob.example created.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM mail_mailboxes WHERE domain_id = 60 AND local = 'info2' AND quota_mb = 512`); n != 1 {
@@ -82,7 +82,7 @@ func TestMailMailboxCreateValidation(t *testing.T) {
 		"data-wcp-modal-open",
 		`value="bad name"`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("re-render missing %q", want)
 		}
 	}
@@ -97,14 +97,14 @@ func TestMailMailboxCreateDuplicate(t *testing.T) {
 	rr := postForm(h, "/mail/domains/60/mailboxes", url.Values{
 		"_token": {token}, "local": {"info"}, "password": {"s3cure-passw0rd"},
 	}, cookie)
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "This address exists already.") {
+	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), "This address exists already.") {
 		t.Fatalf("duplicate not caught: %d\n%s", rr.Code, firstLines(rr.Body.String(), 5))
 	}
 	// An alias address is taken too.
 	rr = postForm(h, "/mail/domains/60/mailboxes", url.Values{
 		"_token": {token}, "local": {"sales"}, "password": {"s3cure-passw0rd"},
 	}, cookie)
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "This address exists already.") {
+	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), "This address exists already.") {
 		t.Fatalf("alias-taken not caught: %d", rr.Code)
 	}
 }
@@ -126,7 +126,7 @@ func TestMailMailboxGenerate(t *testing.T) {
 	}
 	body := get(t, h, "/mail/domains/60", cookie2).Body.String()
 	for _, want := range []string{"Mailbox password", "gen@bob.example", "shown only once"} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("generated password not flashed (missing %q):\n%s", want, firstLines(body, 12))
 		}
 	}
@@ -149,7 +149,7 @@ func TestMailMailboxUpdate(t *testing.T) {
 		"_token": {token}, "quota_mb": {"2048"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/domains/60")
-	if !strings.Contains(body, "Mailbox saved.") {
+	if !pageHas(body, "Mailbox saved.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM mail_mailboxes WHERE id = 1 AND quota_mb = 2048`); n != 1 {
@@ -165,7 +165,7 @@ func TestMailMailboxDelete(t *testing.T) {
 		"_token": {token}, "confirm": {"wrong@bob.example"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/domains/60")
-	if !strings.Contains(body, "Type the address to confirm.") {
+	if !pageHas(body, "Type the address to confirm.") {
 		t.Fatalf("confirm mismatch not reported:\n%s", firstLines(body, 5))
 	}
 	// The right word: gone.
@@ -173,7 +173,7 @@ func TestMailMailboxDelete(t *testing.T) {
 		"_token": {token}, "confirm": {"info@bob.example"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/domains/60")
-	if !strings.Contains(body, "Mailbox deleted. Its mail was moved to the server's trash folder.") {
+	if !pageHas(body, "Mailbox deleted. Its mail was moved to the server's trash folder.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM mail_mailboxes`); n != 0 {
@@ -188,7 +188,7 @@ func TestMailAliasSaveAndDelete(t *testing.T) {
 		"_token": {token}, "alias_local": {"support"}, "destinations": {"ops@example.com, info@bob.example"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/domains/60")
-	if !strings.Contains(body, "Alias saved.") || !strings.Contains(body, "support@bob.example") {
+	if !pageHas(body, "Alias saved.") || !pageHas(body, "support@bob.example") {
 		t.Fatalf("alias not saved:\n%s", firstLines(body, 5))
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM mail_aliases WHERE domain_id = 60 AND local = 'support' AND destinations = 'ops@example.com, info@bob.example'`); n != 1 {
@@ -208,7 +208,7 @@ func TestMailAliasSaveAndDelete(t *testing.T) {
 	// Delete the support alias (id 2: the fixture's alias is id 1).
 	rr = postForm(h, "/mail/domains/60/aliases/2/delete", url.Values{"_token": {token}}, cookie)
 	body = mailFollow(t, h, rr, "/mail/domains/60")
-	if !strings.Contains(body, "Alias deleted.") {
+	if !pageHas(body, "Alias deleted.") {
 		t.Fatalf("alias not deleted:\n%s", firstLines(body, 5))
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM mail_aliases WHERE domain_id = 60 AND local = 'support'`); n != 0 {
@@ -227,7 +227,7 @@ func TestMailAliasValidation(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{"not-an-email is not an email address.", "data-wcp-modal-open"} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("re-render missing %q", want)
 		}
 	}
@@ -235,7 +235,7 @@ func TestMailAliasValidation(t *testing.T) {
 	rr = postForm(h, "/mail/domains/60/aliases", url.Values{
 		"_token": {token}, "alias_local": {"info"}, "destinations": {"ops@example.com"},
 	}, cookie)
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "A mailbox has this address.") {
+	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), "A mailbox has this address.") {
 		t.Fatalf("mailbox/alias conflict not caught: %d", rr.Code)
 	}
 }
@@ -247,7 +247,7 @@ func TestMailRouting(t *testing.T) {
 		"_token": {token}, "routing": {"backup"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/domains/60")
-	if !strings.Contains(body, "Mail routing: Backup mail exchanger.") {
+	if !pageHas(body, "Mail routing: Backup mail exchanger.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM mail_domains WHERE id = 60 AND routing = 'backup'`); n != 1 {
@@ -261,7 +261,7 @@ func TestMailRouting(t *testing.T) {
 		"_token": {token}, "routing": {"nowhere"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/domains/60")
-	if !strings.Contains(body, "Choose local, backup or remote.") {
+	if !pageHas(body, "Choose local, backup or remote.") {
 		t.Fatalf("bad routing not refused:\n%s", firstLines(body, 5))
 	}
 }
@@ -276,7 +276,7 @@ func TestMailPublishDns(t *testing.T) {
 	token, cookie := pageToken(t, h, cookie, "/mail/domains/60")
 	rr := postForm(h, "/mail/domains/60/dns", url.Values{"_token": {token}}, cookie)
 	body := mailFollow(t, h, rr, "/mail/domains/60")
-	if !strings.Contains(body, "4 record(s) added to the DNS zone.") {
+	if !pageHas(body, "4 record(s) added to the DNS zone.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_records WHERE zone_id = 50`); n != 8 {
@@ -297,7 +297,7 @@ func TestMailPublishDns(t *testing.T) {
 	// Publishing again changes nothing.
 	rr = postForm(h, "/mail/domains/60/dns", url.Values{"_token": {token}}, cookie)
 	body = mailFollow(t, h, rr, "/mail/domains/60")
-	if !strings.Contains(body, "The DNS zone already has these records.") {
+	if !pageHas(body, "The DNS zone already has these records.") {
 		t.Fatalf("second publish not idempotent:\n%s", firstLines(body, 5))
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_records WHERE zone_id = 50`); n != 8 {
@@ -316,13 +316,13 @@ func TestMailDnsCheck(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{`"checks"`, `"MX"`, `"pass"`, `"v=spf1 a mx ~all"`} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("check reply missing %q: %s", want, body)
 		}
 	}
 	// A domain the user does not see is a 404.
 	rr = get(t, h, "/mail/domains/999/dns-check", cookie)
-	if rr.Code != http.StatusNotFound || !strings.Contains(rr.Body.String(), `"error"`) {
+	if rr.Code != http.StatusNotFound || !pageHas(rr.Body.String(), `"error"`) {
 		t.Fatalf("check of unknown domain = %d %s", rr.Code, rr.Body.String())
 	}
 }
@@ -335,7 +335,7 @@ func TestMailDomainDelete(t *testing.T) {
 		"_token": {token}, "confirm": {"carol.example"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail")
-	if !strings.Contains(body, "Email is no longer hosted for carol.example.") {
+	if !pageHas(body, "Email is no longer hosted for carol.example.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM mail_domains WHERE id = 65`); n != 0 {
@@ -351,7 +351,7 @@ func TestMailDomainDelete(t *testing.T) {
 		"_token": {token}, "confirm": {"bob.example"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/domains/60")
-	if !strings.Contains(body, "Delete the domain's mailboxes and aliases first.") {
+	if !pageHas(body, "Delete the domain's mailboxes and aliases first.") {
 		t.Fatalf("occupied domain not refused:\n%s", firstLines(body, 5))
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM mail_domains WHERE id = 60`); n != 1 {
@@ -367,7 +367,7 @@ func TestMailMailboxAgentFailure(t *testing.T) {
 		"_token": {token}, "local": {"info2"}, "password": {"s3cure-passw0rd"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/domains/60")
-	if !strings.Contains(body, "The mailbox could not be saved.") {
+	if !pageHas(body, "The mailbox could not be saved.") {
 		t.Fatalf("agent failure not flashed:\n%s", firstLines(body, 5))
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM mail_mailboxes`); n != 1 {

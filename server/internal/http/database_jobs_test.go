@@ -26,7 +26,7 @@ func TestDatabaseDumpStartsJob(t *testing.T) {
 		"Dump started. The file is written to the server backup directory.",
 		"deadbeefcafe0001",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("dump flash missing %q:\\n%s", want, page)
 		}
 	}
@@ -56,8 +56,8 @@ func TestDatabaseDumpForeignNotFound(t *testing.T) {
 	rr := postForm(h, "/databases/100/dump", url.Values{"_token": {token}}, alice) // bob's db
 	alice = refreshCookie(alice, rr)
 	flashAt(t, h, alice, "/databases", "Database not found.")
-	if len(sa.called()) != 0 {
-		t.Fatalf("agent called for a foreign database: %v", sa.called())
+	if len(sa.writes()) != 0 {
+		t.Fatalf("agent called for a foreign database: %v", sa.writes())
 	}
 }
 
@@ -74,7 +74,7 @@ func TestDatabaseImportStartsJob(t *testing.T) {
 	bob = refreshCookie(bob, rr)
 	page := get(t, h, "/databases", bob).Body.String()
 	for _, want := range []string{"Import into a_main started.", "deadbeefcafe0002"} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("import flash missing %q:\\n%s", want, page)
 		}
 	}
@@ -111,8 +111,8 @@ func TestDatabaseImportValidation(t *testing.T) {
 		bob = refreshCookie(bob, rr)
 		flashAt(t, h, bob, "/databases", "Choose a .sql or .sql.gz file inside the website folder.")
 	}
-	if len(sa.called()) != 0 {
-		t.Fatalf("agent called on invalid import paths: %v", sa.called())
+	if len(sa.writes()) != 0 {
+		t.Fatalf("agent called on invalid import paths: %v", sa.writes())
 	}
 }
 
@@ -158,7 +158,7 @@ func TestDatabaseImportOnlySiteDatabases(t *testing.T) {
 	}, alice)
 	alice = refreshCookie(alice, rr)
 	flashAt(t, h, alice, "/databases", "Only a database of one of your websites can be imported into.")
-	if len(sa.called()) != 0 {
-		t.Fatalf("agent called for refused imports: %v", sa.called())
+	if len(sa.writes()) != 0 {
+		t.Fatalf("agent called for refused imports: %v", sa.writes())
 	}
 }

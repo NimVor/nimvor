@@ -57,12 +57,12 @@ func TestWordPressShow(t *testing.T) {
 		"Before the sync · files and database",
 		"Log in to WordPress", // the manage's sign-in
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("show page missing %q", want)
 		}
 	}
 	// The other restore point belongs to another installation: absent.
-	if strings.Contains(page, "Before the clone") {
+	if pageHas(page, "Before the clone") {
 		t.Error("a foreign restore point is listed")
 	}
 	// A viewer cannot see bob's website: flashed, redirected to the list.
@@ -84,11 +84,11 @@ func TestWordPressShowAgentError(t *testing.T) {
 		t.Fatalf("show = %d: %s", rr.Code, rr.Body.String())
 	}
 	page := rr.Body.String()
-	if !strings.Contains(page, "The website could not be read") ||
-		!strings.Contains(page, "WordPress could not be read.") {
+	if !pageHas(page, "The website could not be read") ||
+		!pageHas(page, "WordPress could not be read.") {
 		t.Error("the agent's error is not shown")
 	}
-	if strings.Contains(page, "Health checks") {
+	if pageHas(page, "Health checks") {
 		t.Error("the overview is rendered although the agent failed")
 	}
 }
@@ -167,7 +167,7 @@ func TestWordPressLogs(t *testing.T) {
 		"Newest first; the last 2 lines.",
 		"2.0 KB",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("logs page missing %q", want)
 		}
 	}
@@ -179,13 +179,13 @@ func TestWordPressLogs(t *testing.T) {
 	// An empty log.
 	sa.wpDebugLog = "empty"
 	rr = get(t, h, "/sites/10/wordpress/1/logs", bob)
-	if !strings.Contains(rr.Body.String(), "The debug log is empty.") {
+	if !pageHas(rr.Body.String(), "The debug log is empty.") {
 		t.Error("the empty log state is missing")
 	}
 	// No log file at all.
 	sa.wpDebugLog = "missing"
 	rr = get(t, h, "/sites/10/wordpress/1/logs", bob)
-	if !strings.Contains(rr.Body.String(), "No debug log") {
+	if !pageHas(rr.Body.String(), "No debug log") {
 		t.Error("the missing log state is missing")
 	}
 }

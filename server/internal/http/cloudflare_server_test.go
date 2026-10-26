@@ -103,11 +103,11 @@ func TestCloudflareServerNotConnected(t *testing.T) {
 		`name="token"`,
 		"stored encrypted",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
-	if strings.Contains(page, ">Zones<") {
+	if pageHas(page, ">Zones<") {
 		t.Error("not-connected page shows the zones card")
 	}
 	// A read-only user can view the page but not the token form.
@@ -117,10 +117,10 @@ func TestCloudflareServerNotConnected(t *testing.T) {
 		t.Fatalf("/cloudflare (carol) = %d: %s", rr.Code, rr.Body.String())
 	}
 	page = rr.Body.String()
-	if !strings.Contains(page, "Ask an administrator to connect Cloudflare.") {
+	if !pageHas(page, "Ask an administrator to connect Cloudflare.") {
 		t.Error("viewer page missing the ask-an-admin hint")
 	}
-	if strings.Contains(page, `name="token"`) {
+	if pageHas(page, `name="token"`) {
 		t.Error("viewer page shows the token form")
 	}
 }
@@ -192,7 +192,7 @@ func TestCloudflareServerZonesList(t *testing.T) {
 		"bob.example",
 		`href="/cloudflare?zone=` + cfZoneID + `"`,
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -216,7 +216,7 @@ func TestCloudflareServerZoneSelected(t *testing.T) {
 		"Purge cache",
 		`name="record"`,
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -238,7 +238,7 @@ func TestCloudflareServerZonePending(t *testing.T) {
 	}
 	page := rr.Body.String()
 	for _, want := range []string{"This zone is pending.", "ns-one.example-dns.com"} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("pending page missing %q", want)
 		}
 	}
@@ -256,10 +256,10 @@ func TestCloudflareServerZoneError(t *testing.T) {
 		t.Fatalf("/cloudflare = %d: %s", rr.Code, rr.Body.String())
 	}
 	page := rr.Body.String()
-	if !strings.Contains(page, "Cloudflare: Access denied to this account.") {
+	if !pageHas(page, "Cloudflare: Access denied to this account.") {
 		t.Error("API error infobar missing")
 	}
-	if strings.Contains(page, `id="cf-zone"`) || strings.Contains(page, ">Zones<") {
+	if pageHas(page, `id="cf-zone"`) || pageHas(page, ">Zones<") {
 		t.Error("error page still shows the zones/zone cards")
 	}
 }
@@ -443,7 +443,7 @@ func TestCloudflareServerReadOnly(t *testing.T) {
 		"cloudflare/proxy",
 		`name="token"`,
 	} {
-		if strings.Contains(page, banned) {
+		if pageHas(page, banned) {
 			t.Errorf("read-only page shows %q", banned)
 		}
 	}
@@ -453,7 +453,7 @@ func TestCloudflareServerReadOnly(t *testing.T) {
 		">Proxied<",
 		">DNS only<",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("read-only page missing %q", want)
 		}
 	}

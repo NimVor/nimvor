@@ -90,15 +90,15 @@ func TestFail2banPage(t *testing.T) {
 		"Protection settings", "SSH login failures", "value=\"30\"", "value=\"5\"", "value=\"3\"", "203.0.113.100",
 		`id="j-sshd" checked`, `id="j-nginx-botsearch" checked`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
-	if strings.Contains(body, "No active jails.") {
+	if pageHas(body, "No active jails.") {
 		t.Errorf("the empty-jails row shows although there are jails")
 	}
 	// recidive is not in the managed file's enabled list.
-	if strings.Contains(body, `id="j-recidive" checked`) {
+	if pageHas(body, `id="j-recidive" checked`) {
 		t.Errorf("recidive checked although not in the managed file")
 	}
 	if !sa.f2bInstalled {
@@ -116,11 +116,11 @@ func TestFail2banPageDefaults(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{`value="60"`, `value="10"`, `value="5"`, `id="j-sshd" checked`, `id="j-recidive" checked`} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
-	if strings.Contains(body, "203.0.113.100") {
+	if pageHas(body, "203.0.113.100") {
 		t.Errorf("the ignore list shows the old managed file")
 	}
 }
@@ -133,7 +133,7 @@ func TestFail2banPageNotInstalled(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "fail2ban is not installed") {
+	if !pageHas(rr.Body.String(), "fail2ban is not installed") {
 		t.Errorf("the not-installed state is missing")
 	}
 }
@@ -147,7 +147,7 @@ func TestFail2banPageAgentDown(t *testing.T) {
 		t.Fatalf("GET = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "the socket is closed") || strings.Contains(body, "Brute-force protection (fail2ban)") {
+	if !pageHas(body, "the socket is closed") || pageHas(body, "Brute-force protection (fail2ban)") {
 		t.Errorf("agent-down page wrong: %s", body[:min(300, len(body))])
 	}
 }
@@ -161,7 +161,7 @@ func TestFail2banPageCustomer(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, not := range []string{"Protection settings", "Unban", "Test and apply"} {
-		if strings.Contains(body, not) {
+		if pageHas(body, not) {
 			t.Errorf("a change control shows for a non-manager: %q", not)
 		}
 	}
@@ -404,7 +404,7 @@ func TestSecurityFixAutoUpdates(t *testing.T) {
 		"Job <code>ab12cd34ef56ab78</code> started in the background.",
 		"Turning on automatic security updates…",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}

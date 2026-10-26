@@ -107,7 +107,7 @@ func (s *Server) servicesRestartWhacp(w http.ResponseWriter, r *http.Request) {
 	}
 	unit := key
 	scheduled := false
-	if m, ok := resRaw.(map[string]any); ok {
+	if m := agentObject(resRaw); m != nil {
 		if u, ok := m["unit"].(string); ok && u != "" {
 			unit = u
 		}

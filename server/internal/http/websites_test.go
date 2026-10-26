@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -60,10 +59,10 @@ func TestWebsitesListScopedToTenant(t *testing.T) {
 	// Customer A must see only their own site, never customer B's.
 	h, cookie, _ := websitesEnv(t, "custA")
 	body := get(t, h, "/websites", cookie).Body.String()
-	if !strings.Contains(body, "alpha-a.example") {
+	if !pageHas(body, "alpha-a.example") {
 		t.Fatalf("custA did not see their own website:\n%s", body)
 	}
-	if strings.Contains(body, "beta-b.example") {
+	if pageHas(body, "beta-b.example") {
 		t.Fatalf("TENANT LEAK: custA saw another tenant's website:\n%s", body)
 	}
 }
@@ -71,7 +70,7 @@ func TestWebsitesListScopedToTenant(t *testing.T) {
 func TestWebsitesListAdminSeesAll(t *testing.T) {
 	h, cookie, _ := websitesEnv(t, "admin")
 	body := get(t, h, "/websites", cookie).Body.String()
-	if !strings.Contains(body, "alpha-a.example") || !strings.Contains(body, "beta-b.example") {
+	if !pageHas(body, "alpha-a.example") || !pageHas(body, "beta-b.example") {
 		t.Fatalf("admin should see every website:\n%s", body)
 	}
 }

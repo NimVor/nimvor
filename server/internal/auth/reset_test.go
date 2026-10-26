@@ -214,16 +214,20 @@ func TestRequestThrottlesUserThenIP(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// Requests 1–3 sent mail; 4–10 hit the per-user limit; 11+ the IP limit.
+	// Requests 1–3 sent mail. Like PasswordReset::request, the per-IP counter
+	// counts every row carrying the IP: the anonymous "request" row AND the
+	// token row of a sent mail (2 rows per mail), so the count before request
+	// n is 2,4,6,7,8,9,10 -> requests 4–7 hit the per-user limit and request 8
+	// onwards (8–11) the per-IP limit of 10.
 	if mail.sent != 3 {
 		t.Fatalf("mail sent = %d, want 3", mail.sent)
 	}
 	rows := auditRows(t, db, "auth.password_reset_request")
-	if n := countReason(rows, "throttled_user"); n != 7 {
-		t.Errorf("throttled_user = %d, want 7 (requests 4..10): %v", n, rows)
+	if n := countReason(rows, "throttled_user"); n != 4 {
+		t.Errorf("throttled_user = %d, want 4 (requests 4..7): %v", n, rows)
 	}
-	if n := countReason(rows, "throttled_ip"); n != 1 {
-		t.Errorf("throttled_ip = %d, want 1 (request 11): %v", n, rows)
+	if n := countReason(rows, "throttled_ip"); n != 4 {
+		t.Errorf("throttled_ip = %d, want 4 (requests 8..11): %v", n, rows)
 	}
 	// The IP counter also counts unknown accounts.
 	if err := svc.Request(ctx, "nobody-here", ip); err != nil {
@@ -325,9 +329,9 @@ func TestResetFieldErrors(t *testing.T) {
 		t.Fatalf("malformed token accepted: %v", fe)
 	}
 
-	// Weak password (strength 62 < 65 under the default policy).
-	weak := "The password is too weak (strength 62, at least 65 is required). Make it longer or mix upper and lower case, digits and symbols."
-	if fe, err := svc.Reset(ctx, token, "abcdefghij1234", "abcdefghij1234"); err != nil {
+	// Weak password (strength 56 < 65 under the default policy; PHP strength()).
+	weak := "The password is too weak (strength 56, at least 65 is required). Make it longer or mix upper and lower case, digits and symbols."
+	if fe, err := svc.Reset(ctx, token, "abcdefghijkl", "abcdefghijkl"); err != nil {
 		t.Fatal(err)
 	} else if fe["password"] != weak {
 		t.Fatalf("weak password = %v", fe)

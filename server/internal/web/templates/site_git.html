@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="{{.CSRF}}">
 <title>Git · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/assets/css/whacp.css">
 </head>
 <body class="whacp-app">
@@ -42,7 +44,7 @@
         <dt>On push</dt><dd>{{if .Cfg.AutoDeploy}}<span class="wcp-state is-ok">deploys automatically</span>{{else}}<span class="text-body-secondary">manual only</span>{{end}}</dd>
       </dl>
       {{if .DocumentRootServesDeploy}}
-      <div class="alert alert-info small mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>The website is served from <code>{{.Site.DocumentRoot}}</code>. To serve the deployed code, set the document root to e.g. <code>{{.Cfg.Path}}/public</code> in <a href="/sites/{{.Site.ID}}/edit">Settings</a>.</div>
+      <div class="alert alert-info small mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>The website is served from <code>{{.Site.DocumentRoot}}</code>. To serve the deployed code, set the document root to e.g. <code>{{.Cfg.Path}}/public</code> in <a href="/sites/{{.Site.ID}}/settings">Settings</a>.</div>
       {{end}}
     </div>
   </div>
@@ -155,6 +157,9 @@
     </div>
   </div>
   {{end}}
+{{template "wcp_confirm_modal"}}
 </main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
 </body>
 </html>{{end}}

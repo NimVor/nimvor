@@ -134,7 +134,7 @@ func TestSiteStatsPage(t *testing.T) {
 		"Countries", ">US<", "100", "Unknown",
 		"No data.", // the empty lists (referrers, search, systems, errors)
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -153,7 +153,7 @@ func TestSiteStatsPage(t *testing.T) {
 	if rr = get(t, h, "/sites/10/stats", bob); rr.Code != http.StatusOK {
 		t.Fatalf("bob GET = %d", rr.Code)
 	}
-	if strings.Contains(rr.Body.String(), "Update now") || strings.Contains(rr.Body.String(), "Turn off") {
+	if pageHas(rr.Body.String(), "Update now") || pageHas(rr.Body.String(), "Turn off") {
 		t.Error("bob may not update or switch the statistics")
 	}
 }
@@ -168,7 +168,7 @@ func TestSiteStatsMonthFallback(t *testing.T) {
 	if got := agentParam(t, sa, "stats.data", "month"); got != "202609" {
 		t.Errorf("month fallback = %v, want 202609", got)
 	}
-	if !strings.Contains(rr.Body.String(), `<option value="202609" selected>September 2026</option>`) {
+	if !pageHas(rr.Body.String(), `<option value="202609" selected>September 2026</option>`) {
 		t.Error("the fallback month is not selected")
 	}
 }
@@ -181,20 +181,20 @@ func TestSiteStatsOffNoData(t *testing.T) {
 		t.Fatalf("GET = %d: %s", rr.Code, rr.Body.String())
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "Visitor statistics are off") {
+	if !pageHas(body, "Visitor statistics are off") {
 		t.Error("the off state is missing")
 	}
-	if !strings.Contains(body, "Turn on statistics") {
+	if !pageHas(body, "Turn on statistics") {
 		t.Error("the administrator's turn-on button is missing")
 	}
-	if strings.Contains(body, "Most viewed pages") || strings.Contains(body, "No data yet") {
+	if pageHas(body, "Most viewed pages") || pageHas(body, "No data yet") {
 		t.Error("the off state must not show the report")
 	}
 	bob := loginAsUser(t, h, "bob")
 	if rr = get(t, h, "/sites/10/stats", bob); rr.Code != http.StatusOK {
 		t.Fatalf("bob GET = %d", rr.Code)
 	}
-	if strings.Contains(rr.Body.String(), "Turn on statistics") {
+	if pageHas(rr.Body.String(), "Turn on statistics") {
 		t.Error("bob may not turn the statistics on")
 	}
 }
@@ -207,17 +207,17 @@ func TestSiteStatsNotInstalled(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET = %d: %s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), "Statistics are not available on this server yet") {
+	if !pageHas(rr.Body.String(), "Statistics are not available on this server yet") {
 		t.Error("the not-installed state is missing")
 	}
-	if !strings.Contains(rr.Body.String(), "Open Packages") {
+	if !pageHas(rr.Body.String(), "Open Packages") {
 		t.Error("the administrator's Packages link is missing")
 	}
 	bob := loginAsUser(t, h, "bob")
 	if rr = get(t, h, "/sites/10/stats", bob); rr.Code != http.StatusOK {
 		t.Fatalf("bob GET = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Please ask your hosting provider to install AWStats.") {
+	if !pageHas(rr.Body.String(), "Please ask your hosting provider to install AWStats.") {
 		t.Error("bob's not-installed hint is missing")
 	}
 }
@@ -230,7 +230,7 @@ func TestSiteStatsAgentDown(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET = %d: %s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), "the socket is closed") {
+	if !pageHas(rr.Body.String(), "the socket is closed") {
 		t.Error("the agent error is missing")
 	}
 }
@@ -247,10 +247,10 @@ func TestSiteStatsNoDataYet(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET = %d: %s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), "No data yet") {
+	if !pageHas(rr.Body.String(), "No data yet") {
 		t.Error("the no-data state is missing")
 	}
-	if !strings.Contains(rr.Body.String(), "Statistics are off; showing the data collected before") {
+	if !pageHas(rr.Body.String(), "Statistics are off; showing the data collected before") {
 		t.Error("the disabled-with-data toolbar text is missing")
 	}
 }
@@ -345,7 +345,7 @@ func TestSiteStatsUpdate(t *testing.T) {
 		t.Errorf("agent_jobs = %s/%s", kind, targetID)
 	}
 	body := flashAt(t, h, refreshCookie(admin, rr), "/sites/10/stats", "Updating the statistics.")
-	if !strings.Contains(body, `Job <code>fedcba9876543210</code> started in the background.`) {
+	if !pageHas(body, `Job <code>fedcba9876543210</code> started in the background.`) {
 		t.Error("the job infobar is missing")
 	}
 }
@@ -383,7 +383,7 @@ func TestSiteStatsNotFound(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("GET = %d, want 404", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "This website does not exist or you do not have access to it.") {
+	if !pageHas(rr.Body.String(), "This website does not exist or you do not have access to it.") {
 		t.Error("the 404 message is missing")
 	}
 	token, admin := siteFormToken(t, h, admin, "/sites/10/stats")

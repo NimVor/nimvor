@@ -63,10 +63,10 @@ func (s *Server) pluginsToggle(w http.ResponseWriter, r *http.Request) {
 	enable := r.FormValue("enabled") == "1"
 	uid := user.ID
 	s.audit.Record(r.Context(), audit.Entry{
-		Action: "plugin." + map[bool]string{true: "enable", false: "disable"}[enable],
+		Action:     "plugin." + map[bool]string{true: "enable", false: "disable"}[enable],
 		TargetType: "plugin", TargetID: name, Result: audit.Failure,
 		Details: map[string]any{"reason": "plugin system not yet ported to Go"},
-		UserID: &uid, Username: user.Username,
+		UserID:  &uid, Username: user.Username,
 	})
 	sess.Flash("error", "Plugin '"+name+"' not found (plugins runtime is not yet ported to Go).")
 	http.Redirect(w, r, "/admin/plugins", http.StatusSeeOther)

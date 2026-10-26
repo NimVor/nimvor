@@ -34,11 +34,11 @@ func TestRedisServerPage(t *testing.T) {
 		"<a href=\"/redis\">← Redis</a>",
 		"/assets/js/redisbrowser.js",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
-	if strings.Contains(page, "Keys are limited to this prefix") {
+	if pageHas(page, "Keys are limited to this prefix") {
 		t.Errorf("server-wide page shows the fixed-prefix text")
 	}
 }
@@ -59,11 +59,11 @@ func TestRedisSitePage(t *testing.T) {
 		"<h1>Redis keys of bob.example</h1>",
 		`<a href="/sites/10">← bob.example</a>`,
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
-	if strings.Contains(page, `data-rb-prefix`) {
+	if pageHas(page, `data-rb-prefix`) {
 		t.Errorf("site page shows the free prefix input")
 	}
 }
@@ -122,7 +122,7 @@ func TestRedisSiteApiKeys(t *testing.T) {
 	if got := agentParam(t, sa, "redis.keys", "prefix"); got != "u_bob:" {
 		t.Errorf("redis.keys prefix = %v (the site prefix must be forced)", got)
 	}
-	if got := agentParam(t, sa, "redis.keys", "db"); got != 0 {
+	if got := agentParam(t, sa, "redis.keys", "db"); got != float64(0) { // JSON numbers decode to float64
 		t.Errorf("redis.keys db = %v", got)
 	}
 	if got := agentParam(t, sa, "redis.keys", "pattern"); got != "*" {
@@ -149,7 +149,7 @@ func TestRedisSiteApiEditAudited(t *testing.T) {
 	if got := agentParam(t, sa, "redis.key_edit", "prefix"); got != "u_bob:" {
 		t.Errorf("redis.key_edit prefix = %v", got)
 	}
-	if got := agentParam(t, sa, "redis.key_edit", "ttl"); got != int64(300) {
+	if got := agentParam(t, sa, "redis.key_edit", "ttl"); got != float64(300) { // JSON numbers decode to float64
 		t.Errorf("redis.key_edit ttl = %v (int, not string)", got)
 	}
 	var action, targetType, targetID, keys string
@@ -283,7 +283,7 @@ func TestRedisApiAgentDown(t *testing.T) {
 	if rr.Code != http.StatusBadGateway {
 		t.Fatalf("api keys = %d: %s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), "Redis is not running on this server.") {
+	if !pageHas(rr.Body.String(), "Redis is not running on this server.") {
 		t.Errorf("agent message missing: %s", rr.Body.String())
 	}
 }

@@ -58,7 +58,7 @@ func TestWordPressToolDebug(t *testing.T) {
 		t.Errorf("the debug column = %d", debug)
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Debugging settings saved: WP_DEBUG, WP_DEBUG_LOG.") {
+	if !pageHas(rr.Body.String(), "Debugging settings saved: WP_DEBUG, WP_DEBUG_LOG.") {
 		t.Errorf("the debug flash is missing: %s", rr.Body.String())
 	}
 
@@ -74,7 +74,7 @@ func TestWordPressToolDebug(t *testing.T) {
 		t.Errorf("the debug column = %d after off", debug)
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Debugging is off.") {
+	if !pageHas(rr.Body.String(), "Debugging is off.") {
 		t.Error("the off flash is missing")
 	}
 }
@@ -105,7 +105,7 @@ func TestWordPressToolPasswordProtection(t *testing.T) {
 		t.Errorf("audit rows = %d", n)
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Password protection is on: visitors to bob.example/ must sign in as wpuser.") {
+	if !pageHas(rr.Body.String(), "Password protection is on: visitors to bob.example/ must sign in as wpuser.") {
 		t.Errorf("the on flash is missing: %s", rr.Body.String())
 	}
 
@@ -123,7 +123,7 @@ func TestWordPressToolPasswordProtection(t *testing.T) {
 		t.Error("the invalid password still reached the agent")
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Use 8 to 128 characters.") {
+	if !pageHas(rr.Body.String(), "Use 8 to 128 characters.") {
 		t.Error("the password flash is missing")
 	}
 
@@ -140,7 +140,7 @@ func TestWordPressToolPasswordProtection(t *testing.T) {
 		t.Error("the agent got enabled=true")
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Password protection is off.") {
+	if !pageHas(rr.Body.String(), "Password protection is off.") {
 		t.Error("the off flash is missing")
 	}
 }
@@ -168,7 +168,7 @@ func TestWordPressToolHotlink(t *testing.T) {
 		t.Errorf("audit rows = %d", n)
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Hotlink protection is on: images and media are only served to pages of this website and partner.com, *.cdn.example.com.") {
+	if !pageHas(rr.Body.String(), "Hotlink protection is on: images and media are only served to pages of this website and partner.com, *.cdn.example.com.") {
 		t.Errorf("the on flash is missing: %s", rr.Body.String())
 	}
 
@@ -185,7 +185,7 @@ func TestWordPressToolHotlink(t *testing.T) {
 		t.Error("the bad host still reached the agent")
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), `"bad_host" is not a host name (a leading *. is allowed).`) {
+	if !pageHas(rr.Body.String(), `"bad_host" is not a host name (a leading *. is allowed).`) {
 		t.Error("the host flash is missing")
 	}
 }
@@ -217,7 +217,7 @@ func TestWordPressToolAdminPassword(t *testing.T) {
 		t.Errorf("audit rows = %d", n)
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "The password of the WordPress administrator bob was changed and their other sessions were signed out.") {
+	if !pageHas(rr.Body.String(), "The password of the WordPress administrator bob was changed and their other sessions were signed out.") {
 		t.Errorf("the flash is missing: %s", rr.Body.String())
 	}
 
@@ -235,7 +235,7 @@ func TestWordPressToolAdminPassword(t *testing.T) {
 		t.Error("the mismatch still reached the agent")
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "The passwords do not match.") {
+	if !pageHas(rr.Body.String(), "The passwords do not match.") {
 		t.Error("the mismatch flash is missing")
 	}
 }
@@ -280,7 +280,7 @@ func TestWordPressToolDbPassword(t *testing.T) {
 	}
 	// A second look: the flash is consumed.
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if strings.Contains(rr.Body.String(), marker) {
+	if pageHas(rr.Body.String(), marker) {
 		t.Error("the password is shown twice")
 	}
 }
@@ -306,7 +306,7 @@ func TestWordPressToolSecurity(t *testing.T) {
 		t.Errorf("agent got measures %v", measures)
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Security measures applied: 9 measure(s).") {
+	if !pageHas(rr.Body.String(), "Security measures applied: 9 measure(s).") {
 		t.Errorf("the flash is missing: %s", rr.Body.String())
 	}
 
@@ -323,7 +323,7 @@ func TestWordPressToolSecurity(t *testing.T) {
 		t.Error("the empty measures still reached the agent")
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Choose at least one measure.") {
+	if !pageHas(rr.Body.String(), "Choose at least one measure.") {
 		t.Error("the guard flash is missing")
 	}
 }
@@ -363,7 +363,7 @@ func TestWordPressToolCron(t *testing.T) {
 		t.Errorf("audit rows = %d", n)
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "wp-cron.php is taken over: WordPress's scheduled tasks now run every 5 minutes from a cron job (listed under Cron jobs).") {
+	if !pageHas(rr.Body.String(), "wp-cron.php is taken over: WordPress's scheduled tasks now run every 5 minutes from a cron job (listed under Cron jobs).") {
 		t.Errorf("the flash is missing: %s", rr.Body.String())
 	}
 
@@ -398,7 +398,7 @@ func TestWordPressToolCron(t *testing.T) {
 		t.Errorf("cron_job_id = %d after off", linked.Int64)
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "WordPress runs its scheduled tasks on visits again (wp-cron.php).") {
+	if !pageHas(rr.Body.String(), "WordPress runs its scheduled tasks on visits again (wp-cron.php).") {
 		t.Error("the off flash is missing")
 	}
 }
@@ -438,7 +438,7 @@ func TestWordPressToolVulnerability(t *testing.T) {
 		t.Errorf("audit rows = %d", n)
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Vulnerability protection is on: requests to the website are filtered by ModSecurity with the OWASP Core Rule Set (blocking), and the installation is checked for known vulnerabilities every day.") {
+	if !pageHas(rr.Body.String(), "Vulnerability protection is on: requests to the website are filtered by ModSecurity with the OWASP Core Rule Set (blocking), and the installation is checked for known vulnerabilities every day.") {
 		t.Errorf("the on flash is missing: %s", rr.Body.String())
 	}
 
@@ -458,7 +458,7 @@ func TestWordPressToolVulnerability(t *testing.T) {
 		t.Errorf("vuln_protection after off = %d", on)
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Vulnerability protection is off (ModSecurity only logs for this website now).") {
+	if !pageHas(rr.Body.String(), "Vulnerability protection is off (ModSecurity only logs for this website now).") {
 		t.Error("the off flash is missing")
 	}
 
@@ -479,7 +479,7 @@ func TestWordPressToolVulnerability(t *testing.T) {
 		t.Errorf("vuln_protection after the guard = %d", on)
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Vulnerability protection needs ModSecurity, which is not installed or not turned on on this server. Ask your hosting provider to turn on ModSecurity.") {
+	if !pageHas(rr.Body.String(), "Vulnerability protection needs ModSecurity, which is not installed or not turned on on this server. Ask your hosting provider to turn on ModSecurity.") {
 		t.Errorf("the guard flash is missing: %s", rr.Body.String())
 	}
 }
@@ -511,7 +511,7 @@ func TestWordPressToolVulnCheck(t *testing.T) {
 		t.Fatalf("tool = %d %q", res.Code, res.Header().Get("Location"))
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "2 known vulnerabilities found.") {
+	if !pageHas(rr.Body.String(), "2 known vulnerabilities found.") {
 		t.Errorf("the flash is missing: %s", rr.Body.String())
 	}
 	var vulns, checkedAt string
@@ -543,7 +543,7 @@ func TestWordPressToolVulnCheck(t *testing.T) {
 		t.Fatalf("tool = %d", res.Code)
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "The vulnerability database (wpvulnerability.net) could not be reached from this server; try again later.") {
+	if !pageHas(rr.Body.String(), "The vulnerability database (wpvulnerability.net) could not be reached from this server; try again later.") {
 		t.Errorf("the unreachable flash is missing: %s", rr.Body.String())
 	}
 }
@@ -628,10 +628,10 @@ func TestWordPressToolClone(t *testing.T) {
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
 	page := rr.Body.String()
-	if !strings.Contains(page, "Cloning started; the copy appears in the WordPress list when it is done.") {
+	if !pageHas(page, "Cloning started; the copy appears in the WordPress list when it is done.") {
 		t.Errorf("the flash is missing: %s", page)
 	}
-	if !strings.Contains(page, "Job <code>0123456789c0a001</code> started in the background.") {
+	if !pageHas(page, "Job <code>0123456789c0a001</code> started in the background.") {
 		t.Error("the job notice is missing")
 	}
 }
@@ -665,7 +665,7 @@ func TestWordPressToolSync(t *testing.T) {
 		t.Error("the guard still reached the agent")
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Choose files, the database or both.") {
+	if !pageHas(rr.Body.String(), "Choose files, the database or both.") {
 		t.Error("the guard flash is missing")
 	}
 
@@ -702,7 +702,7 @@ func TestWordPressToolSync(t *testing.T) {
 		t.Errorf("audit rows = %d", n)
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Sync started. A restore point of the target is saved first.") {
+	if !pageHas(rr.Body.String(), "Sync started. A restore point of the target is saved first.") {
 		t.Error("the flash is missing")
 	}
 }
@@ -722,7 +722,7 @@ func TestWordPressToolRestore(t *testing.T) {
 		t.Error("the guard still reached the agent")
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Choose a restore point.") {
+	if !pageHas(rr.Body.String(), "Choose a restore point.") {
 		t.Error("the guard flash is missing")
 	}
 
@@ -752,7 +752,7 @@ func TestWordPressToolRestore(t *testing.T) {
 		t.Errorf("audit rows = %d", n)
 	}
 	rr = get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Restoring started.") {
+	if !pageHas(rr.Body.String(), "Restoring started.") {
 		t.Error("the flash is missing")
 	}
 }
@@ -767,7 +767,7 @@ func TestWordPressToolUnknown(t *testing.T) {
 		t.Fatalf("tool = %d", res.Code)
 	}
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
-	if !strings.Contains(rr.Body.String(), "Unknown tool.") {
+	if !pageHas(rr.Body.String(), "Unknown tool.") {
 		t.Error("the unknown-tool flash is missing")
 	}
 }

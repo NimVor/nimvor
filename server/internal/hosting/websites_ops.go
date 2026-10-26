@@ -23,7 +23,7 @@ func (s *WebsiteService) RestartPhp(ctx context.Context, site *Website) error {
 		return &UserError{What: "This website does not use PHP."}
 	}
 	unit := "php" + site.PhpVersion + "-fpm.service"
-	raw, err := s.agent.Call(ctx, "discovery.php")
+	raw, err := s.agent.Call(ctx, "discovery.php", nil)
 	if err != nil {
 		return err
 	}

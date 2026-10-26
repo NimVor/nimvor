@@ -35,7 +35,7 @@ func NewRuntimeService(agent AgentCaller) *RuntimeService { return &RuntimeServi
 // Status is the installed and system runtimes (RuntimeService::status).
 func (s *RuntimeService) Status(ctx context.Context) (RuntimeStatus, error) {
 	var st RuntimeStatus
-	raw, err := s.agent.Call(ctx, "runtime.status")
+	raw, err := s.agent.Call(ctx, "runtime.status", nil)
 	if err != nil {
 		return st, err
 	}

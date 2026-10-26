@@ -35,7 +35,7 @@ func (s *Server) plansStore(w http.ResponseWriter, r *http.Request) {
 		fields[f] = formInt(r, f, 0)
 	}
 	limits := map[string]int{}
-	for f := range hosting.PlanLimits {
+	for f := range hosting.PlanLimitColumns {
 		limits[f] = formInt(r, f, 0)
 	}
 	var fl *int64

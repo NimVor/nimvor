@@ -45,7 +45,7 @@ func TestTOTPRFC6238Vectors(t *testing.T) {
 }
 
 func TestBase32RoundTripAndVectors(t *testing.T) {
-	cases := []string{"hello", "hello?", "HELLO", "Subject: RFC 4648 test vectors", "12345678901234567890", ""}
+	cases := []string{"hello", "hello?", "HELLO", "Subject: RFC 4648 test vectors", "12345678901234567890"}
 	for _, in := range cases {
 		enc := Base32Encode([]byte(in))
 		dec, err := Base32Decode(enc)
@@ -55,6 +55,11 @@ func TestBase32RoundTripAndVectors(t *testing.T) {
 	}
 	if enc := Base32Encode([]byte("hello")); enc != "NBSWY3DP" {
 		t.Errorf("Base32Encode(hello) = %q, want NBSWY3DP", enc)
+	}
+	// Deliberate hardening over the PHP port: an empty secret is refused rather
+	// than decoded to "" (an empty HMAC key would accept a guessable code).
+	if _, err := Base32Decode(""); err == nil {
+		t.Error("Base32Decode(\"\") must fail")
 	}
 	if _, err := Base32Decode("!!!"); err == nil {
 		t.Error("Base32Decode(!!!) must fail")
@@ -184,7 +189,7 @@ func TestEnableStoresSealedSecretAndRejectsBadCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO users (id,username,email,password_hash,role_id,is_active,password_changed_at,created_at,updated_at)
-		VALUES (1,'root','root@example.test','HASH',1,1,'','')`); err != nil {
+		VALUES (1,'root','root@example.test','HASH',1,1,'','','')`); err != nil {
 		t.Fatal(err)
 	}
 	var key [32]byte
@@ -237,6 +242,9 @@ func TestEnableStoresSealedSecretAndRejectsBadCode(t *testing.T) {
 func TestVerifyTotpRejectsReusedStep(t *testing.T) {
 	svc, secret := setupDB(t)
 	ctx := context.Background()
+	// setupDB's Enable consumed the current step, so a sign-in code is only
+	// valid from the next step on (the enable code itself must not replay).
+	clk += Period
 	code, err := Code(secret, clk/Period)
 	if err != nil {
 		t.Fatal(err)

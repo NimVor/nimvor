@@ -99,7 +99,13 @@ func (s *Server) wordpressIndex(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sess := sessionFrom(r.Context())
+	successMsg, _ := sess.PullFlash("success")
+	errorMsg, _ := sess.PullFlash("error")
+	jobMsg, _ := sess.PullFlash("job")
 	s.render(w, "wordpress_index", map[string]any{
+		"Success":       successMsg,
+		"Error":         errorMsg,
+		"Job":           jobMsg,
 		"User":          user,
 		"CSRF":          session.CSRFToken(sess),
 		"Installs":      installs,
@@ -173,7 +179,13 @@ func (s *Server) wordpressSiteList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess := sessionFrom(r.Context())
+	successMsg, _ := sess.PullFlash("success")
+	errorMsg, _ := sess.PullFlash("error")
+	jobMsg, _ := sess.PullFlash("job")
 	s.render(w, "wordpress_site", map[string]any{
+		"Success":   successMsg,
+		"Error":     errorMsg,
+		"Job":       jobMsg,
 		"User":      user,
 		"CSRF":      session.CSRFToken(sess),
 		"Site":      site,
@@ -1027,7 +1039,7 @@ func (s *Server) wpCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	sess := sessionFrom(r.Context())
 	sess.Flash("wp_force", "1")
-	http.Redirect(w, r, fmt.Sprintf("/sites/%d/wordpress/%d", site.ID, r.PathValue("wp")), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/sites/%d/wordpress/%s", site.ID, r.PathValue("wp")), http.StatusSeeOther)
 }
 
 // wpLogin opens WordPress signed in with a one-time link
@@ -1093,7 +1105,7 @@ func (s *Server) wpLogs(w http.ResponseWriter, r *http.Request) {
 		"Site":    site,
 		"Install": install,
 		"Log":     log,
-		"LogSize": formatBytes(log.Size),
+		"LogSize": formatBytes(int64(log.Size)),
 		"Where":   installPathOrSlash(install.Path),
 		"ShowURL": fmt.Sprintf("/sites/%d/wordpress/%d", site.ID, install.ID),
 		"SelfURL": fmt.Sprintf("/sites/%d/wordpress/%d/logs", site.ID, install.ID),

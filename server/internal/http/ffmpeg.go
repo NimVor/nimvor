@@ -64,7 +64,7 @@ func (s *Server) ffmpegIndex(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			plans = append(plans, map[string]any{
-				"ID":     id, "Name": name, "Ffmpeg": ff == 1,
+				"ID": id, "Name": name, "Ffmpeg": ff == 1,
 				"Owner": owner, "Users": users,
 			})
 		}
@@ -92,7 +92,7 @@ func (s *Server) ffmpegJob(w http.ResponseWriter, r *http.Request, action string
 		return
 	}
 	job := ""
-	if m, ok := raw.(map[string]any); ok {
+	if m := agentObject(raw); m != nil {
 		if j, ok := m["job_id"].(string); ok {
 			job = j
 		}
@@ -159,7 +159,7 @@ func (s *Server) ffmpegApply(w http.ResponseWriter, r *http.Request) {
 		Result: audit.Success, UserID: &uid, Username: user.Username,
 	})
 	msg := "FFmpeg access matches the plans."
-	if m, ok := raw.(map[string]any); ok {
+	if m := agentObject(raw); m != nil {
 		if added, _ := m["added"].([]any); len(added) > 0 {
 			msg = "FFmpeg access reconciled."
 		}

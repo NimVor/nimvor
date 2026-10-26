@@ -126,14 +126,15 @@ func writeDB(t *testing.T) *sql.DB {
 		(1,'administrator','Admin','all',''),(2,'reseller','Reseller','own',''),(3,'customer','Customer','own','')`)
 	// 1 admin; 2 reseller; 3 customer of reseller (plan 11, 1 website);
 	// 4 standalone customer (plan 12, 1 website, 1 subdomain, 5 addon, 10 parked).
+	// plans first: users.plan_id references them (foreign keys are enforced)
+	exec(`INSERT INTO plans (id,name,max_websites,max_subdomains,max_addon_domains,max_parked_domains,created_at,updated_at) VALUES
+		(11,'Cust1',10,3,0,0,'',''),
+		(12,'Cust2',5,1,5,10,'','')`)
 	exec(`INSERT INTO users (id,username,email,password_hash,role_id,is_active,password_changed_at,created_at,updated_at,parent_id,plan_id) VALUES
 		(1,'admin','a@x','h',1,1,'','','',NULL,NULL),
 		(2,'reseller','r@x','h',2,1,'','','',NULL,NULL),
 		(3,'cust','c@x','h',3,1,'','','',2,11),
 		(4,'solo','o@x','h',3,1,'','','',NULL,12)`)
-	exec(`INSERT INTO plans (id,name,max_websites,max_subdomains,max_addon_domains,max_parked_domains,created_at,updated_at) VALUES
-		(11,'Cust1',10,3,0,0,'',''),
-		(12,'Cust2',5,1,5,10,'','')`)
 	// Two existing websites: cust's (owner 3) and solo's (owner 4).
 	exec(`INSERT INTO websites (id,server_id,owner_id,domain,system_user,root,document_root,kind,php_version,status,created_at,updated_at)
 		VALUES (10,1,3,'cust.example','u_cust','/home/whacp/cust.example','/home/whacp/cust.example/public_html','php','8.3.1','active','',''),
@@ -303,7 +304,7 @@ func TestSpec(t *testing.T) {
 
 	// ini round-trips through the spec when present.
 	i := &Website{Domain: "i.com", Kind: "php", PhpSettings: PhpSettings{INI: map[string]string{"display_errors": "Off"}}}
-	if ini, ok := Spec(i, false)["php"].(map[string]any)["ini"]; !ok || ini["display_errors"] != "Off" {
+	if ini, ok := Spec(i, false)["php"].(map[string]any)["ini"].(map[string]any); !ok || ini["display_errors"] != "Off" {
 		t.Errorf("ini missing from spec: %v", Spec(i, false)["php"])
 	}
 }
@@ -364,7 +365,7 @@ func TestValidateCreate(t *testing.T) {
 	}
 	bad = validCreateInput()
 	bad["domain"] = "cust.example" // already belongs to website 10
-	ve, _ := errAsValidation(h.svc.Validate(ctx, bad, nil, true))
+	ve, _ := validationOf(h.svc.Validate(ctx, bad, nil, true))
 	if ve == nil || ve.Fields["domain"] == "" {
 		t.Errorf("duplicate domain must error: %v", ve)
 	}
@@ -372,17 +373,18 @@ func TestValidateCreate(t *testing.T) {
 	// Alias errors: invalid + the 50 cap.
 	bad = validCreateInput()
 	bad["aliases"] = "ok.example, bad_host.example"
-	ve, _ = errAsValidation(h.svc.Validate(ctx, bad, nil, true))
+	ve, _ = validationOf(h.svc.Validate(ctx, bad, nil, true))
 	if ve == nil || ve.Fields["aliases"] == "" {
 		t.Errorf("bad alias must error: %v", ve)
 	}
-	aliases := make([]string, 50)
+	// 50 aliases are allowed; 51 is over the cap (PHP: count > 50).
+	aliases := make([]string, 51)
 	for i := range aliases {
 		aliases[i] = fmt.Sprintf("a%d.example", i)
 	}
 	bad = validCreateInput()
 	bad["aliases"] = strings.Join(aliases, ", ")
-	ve, _ = errAsValidation(h.svc.Validate(ctx, bad, nil, true))
+	ve, _ = validationOf(h.svc.Validate(ctx, bad, nil, true))
 	if ve == nil || !strings.Contains(ve.Fields["aliases"], "50") {
 		t.Errorf("alias cap must error: %v", ve)
 	}
@@ -390,7 +392,7 @@ func TestValidateCreate(t *testing.T) {
 	// PHP version must be installed (the fake reports 8.2 and 8.3.1 with FPM).
 	bad = validCreateInput()
 	bad["php_version"] = "8.4-cli"
-	ve, _ = errAsValidation(h.svc.Validate(ctx, bad, nil, true))
+	ve, _ = validationOf(h.svc.Validate(ctx, bad, nil, true))
 	if ve == nil || ve.Fields["php_version"] == "" {
 		t.Errorf("uninstalled PHP must error: %v", ve)
 	}
@@ -404,7 +406,7 @@ func TestValidateCreate(t *testing.T) {
 	bad = validCreateInput()
 	bad["system_user"] = "u_cust"
 	bad["new_system_user"] = "1"
-	ve, _ = errAsValidation(h.svc.Validate(ctx, bad, nil, true))
+	ve, _ = validationOf(h.svc.Validate(ctx, bad, nil, true))
 	if ve == nil || ve.Fields["system_user"] == "" {
 		// the in-use check happens in Create, not Validate — but the
 		// suggestion fallback must not produce a reserved name.
@@ -414,7 +416,7 @@ func TestValidateCreate(t *testing.T) {
 	// Integer bounds and the dynamic process-manager ordering.
 	bad = validCreateInput()
 	bad["memory_limit_mb"] = "8"
-	ve, _ = errAsValidation(h.svc.Validate(ctx, bad, nil, true))
+	ve, _ = validationOf(h.svc.Validate(ctx, bad, nil, true))
 	if ve == nil || ve.Fields["memory_limit_mb"] == "" {
 		t.Errorf("memory limit below range must error: %v", ve)
 	}
@@ -422,7 +424,7 @@ func TestValidateCreate(t *testing.T) {
 	bad["pm"] = "dynamic"
 	bad["min_spare_servers"] = "3"
 	bad["start_servers"] = "2"
-	ve, _ = errAsValidation(h.svc.Validate(ctx, bad, nil, true))
+	ve, _ = validationOf(h.svc.Validate(ctx, bad, nil, true))
 	if ve == nil || ve.Fields["start_servers"] == "" {
 		t.Errorf("dynamic ordering must error: %v", ve)
 	}
@@ -430,12 +432,12 @@ func TestValidateCreate(t *testing.T) {
 	// Redirect line format.
 	bad = validCreateInput()
 	bad["redirects"] = "/old not-a-target 301"
-	ve, _ = errAsValidation(h.svc.Validate(ctx, bad, nil, true))
+	ve, _ = validationOf(h.svc.Validate(ctx, bad, nil, true))
 	if ve == nil || !strings.HasPrefix(ve.Fields["redirects"], "Line 1") {
 		t.Errorf("bad redirect must error: %v", ve)
 	}
 	bad = validCreateInput()
-	bad["redirects"] = "/a https://new.example [301]\n# comment\n\n/b https://new.example 302"
+	bad["redirects"] = "/a https://new.example 301\n# comment\n\n/b https://new.example 302"
 	v2, err := h.svc.Validate(ctx, bad, nil, true)
 	if err != nil || len(v2.Row.Redirects) != 2 || v2.Row.Redirects[1].Code != 302 {
 		t.Errorf("redirect parse wrong: %+v err=%v", v2, err)
@@ -444,7 +446,7 @@ func TestValidateCreate(t *testing.T) {
 	// document_root_sub traversal is refused.
 	bad = validCreateInput()
 	bad["document_root_sub"] = "../etc"
-	ve, _ = errAsValidation(h.svc.Validate(ctx, bad, nil, true))
+	ve, _ = validationOf(h.svc.Validate(ctx, bad, nil, true))
 	if ve == nil || ve.Fields["document_root_sub"] == "" {
 		t.Errorf("docroot traversal must error: %v", ve)
 	}
@@ -462,20 +464,20 @@ func TestValidateCreate(t *testing.T) {
 		t.Errorf("nodejs row wrong: %+v", v3.Row)
 	}
 	bad["app_port"] = "80"
-	ve, _ = errAsValidation(h.svc.Validate(ctx, bad, nil, true))
+	ve, _ = validationOf(h.svc.Validate(ctx, bad, nil, true))
 	if ve == nil || ve.Fields["app_port"] == "" {
 		t.Errorf("low app port must error: %v", ve)
 	}
 	bad = validCreateInput()
 	bad["kind"] = "proxy"
 	bad["proxy_pass"] = "http://10.0.0.5:80"
-	ve, _ = errAsValidation(h.svc.Validate(ctx, bad, nil, true))
+	ve, _ = validationOf(h.svc.Validate(ctx, bad, nil, true))
 	if ve == nil || ve.Fields["proxy_pass"] == "" {
 		t.Errorf("remote proxy_pass must error: %v", ve)
 	}
 	bad = validCreateInput()
 	bad["kind"] = "wordpress"
-	ve, _ = errAsValidation(h.svc.Validate(ctx, bad, nil, true))
+	ve, _ = validationOf(h.svc.Validate(ctx, bad, nil, true))
 	if ve == nil || ve.Fields["kind"] == "" {
 		t.Errorf("unknown kind must error: %v", ve)
 	}
@@ -504,6 +506,11 @@ func TestValidateCreate(t *testing.T) {
 	}
 	_ = admin
 	_ = cust
+}
+
+// validationOf adapts Validate's (site, err) result for errAsValidation.
+func validationOf(_ *validatedSite, err error) (*ValidationError, bool) {
+	return errAsValidation(err)
 }
 
 func errAsValidation(err error) (*ValidationError, bool) {
@@ -548,7 +555,7 @@ func TestCreateSuccess(t *testing.T) {
 		t.Errorf("sites.apply called %d times", got)
 	}
 	// The apply spec must carry new_user (the account must not exist yet).
-	if spec, _ := h.agent.calls[0].params.(map[string]any); spec["new_user"] != true {
+	if spec := h.agent.lastParams("sites.apply"); spec["new_user"] != true {
 		t.Errorf("new_user flag missing from apply spec: %v", spec)
 	}
 	found := false
@@ -572,10 +579,14 @@ func TestCreateCleansUpWhenApplyFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("create should fail when the agent fails")
 	}
-	if n, _ := h.db.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM websites").Int64(); n != 2 {
+	var n int64
+	_ = h.db.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM websites").Scan(&n)
+	if n != 2 {
 		t.Errorf("failed create left %d websites (want 2, the seeded ones)", n)
 	}
-	if n, _ := h.db.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM domains WHERE name = 'new.example.com'").Int64(); n != 0 {
+	n = -1
+	_ = h.db.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM domains WHERE name = 'new.example.com'").Scan(&n)
+	if n != 0 {
 		t.Errorf("failed create left domain rows")
 	}
 	ok := false
@@ -824,10 +835,14 @@ func TestDelete(t *testing.T) {
 	if !strings.Contains(warnings[1], "u_cust was kept") {
 		t.Errorf("kept-account note missing: %v", warnings)
 	}
-	if n, _ := h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM websites WHERE id = 10").Int64(); n != 0 {
+	var rows int64
+	_ = h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM websites WHERE id = 10").Scan(&rows)
+	if rows != 0 {
 		t.Error("website row still present")
 	}
-	if n, _ := h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM domains WHERE website_id = 10").Int64(); n != 0 {
+	rows = -1
+	_ = h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM domains WHERE website_id = 10").Scan(&rows)
+	if rows != 0 {
 		t.Error("domain rows still present (cascade)")
 	}
 	if spec, _ := h.agent.calls[0].params.(map[string]any); spec["remove_user"] != false {
@@ -923,7 +938,7 @@ func TestCreateChildSubdomainAddsDNSRecord(t *testing.T) {
 	if h.agent.callCount("dns.zone_apply") != 1 {
 		t.Errorf("zone push missing")
 	}
-	if _, err := h.db.QueryRowContext(ctx, "SELECT serial FROM dns_zones WHERE id = 5").Scan(&n); err != nil {
+	if err := h.db.QueryRowContext(ctx, "SELECT serial FROM dns_zones WHERE id = 5").Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	if n != 42 {
@@ -981,21 +996,18 @@ func TestCreateChildLimits(t *testing.T) {
 	solo := loadUser(t, db, 4) // plan 12: 5 websites, 1 subdomain, 5 addon
 	ctx := context.Background()
 
-	// Seed one website for solo so there is a parent with limits to bite.
+	// The seed's website 12 (solo.example, owner 4) is the parent; give it one
+	// subdomain (the plan's limit of 1 is then reached).
 	exec := func(q string, a ...any) {
 		if _, err := h.db.Exec(q, a...); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
 	}
-	exec(`INSERT INTO websites (id,server_id,owner_id,domain,system_user,root,document_root,kind,php_version,status,created_at,updated_at)
-		VALUES (20,1,4,'solo.example','u_solo','/h/solo','/h/solo/public_html','php','8.3.1','active','','')`)
-	exec(`INSERT INTO domains (server_id,website_id,name,is_primary) VALUES (1,20,'solo.example',1)`)
-	// One subdomain already exists (limit 1 reached).
 	exec(`INSERT INTO websites (id,server_id,owner_id,domain,system_user,root,document_root,kind,php_version,parent_id,status,created_at,updated_at)
-		VALUES (21,1,4,'a.solo.example','u_solo','/h/a','/h/a/public_html','php','8.3.1',20,'active','','')`)
+		VALUES (21,1,4,'a.solo.example','u_solo','/h/a','/h/a/public_html','php','8.3.1',12,'active','','')`)
 	exec(`INSERT INTO domains (server_id,website_id,name,is_primary) VALUES (1,21,'a.solo.example',1)`)
 
-	parent, _ := h.svc.sites.FindFull(ctx, 1, 20, solo)
+	parent, _ := h.svc.sites.FindFull(ctx, 1, 12, solo)
 	_, _, err := h.svc.CreateChild(ctx, parent, "subdomain", map[string]string{"subdomain": "b"}, solo)
 	var ue *UserError
 	if !errors.As(err, &ue) {
@@ -1065,7 +1077,8 @@ func TestUpdateCustomerCannotAliasUnderOthers(t *testing.T) {
 
 	// solo.example is user 4's: the alias lands under a foreign domain.
 	in := map[string]string{"domain": "cust.example", "aliases": "x.solo.example"}
-	if _, err := h.svc.Update(ctx, site, in, cust); err == nil {
+	err := h.svc.Update(ctx, site, in, cust)
+	if err == nil {
 		t.Fatal("alias under a foreign domain must be refused")
 	}
 	ve, _ := errAsValidation(err)

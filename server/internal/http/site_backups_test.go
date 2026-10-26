@@ -129,7 +129,7 @@ func TestSiteBackupsPageEmpty(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{"No backups yet", "No automatic backups scheduled", "Back up now", "u_bob_shop", "No schedule."} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -146,7 +146,7 @@ func TestSiteBackupsPageEmpty(t *testing.T) {
 	}
 	// The viewer gets no "Back up now" and no actions column.
 	rr = get(t, h, "/sites/20/backups", carol)
-	if strings.Contains(rr.Body.String(), "Back up now") {
+	if pageHas(rr.Body.String(), "Back up now") {
 		t.Error("viewer page offers Back up now")
 	}
 }
@@ -215,7 +215,7 @@ func TestSiteBackupsCreate(t *testing.T) {
 	rr = get(t, h, "/sites/10/backups", bob)
 	bob = refreshCookie(bob, rr)
 	body := rr.Body.String()
-	if !strings.Contains(body, "Running") || !strings.Contains(body, backupTestJob) || !strings.Contains(body, "pre-launch") {
+	if !pageHas(body, "Running") || !pageHas(body, backupTestJob) || !pageHas(body, "pre-launch") {
 		t.Errorf("page missing running row: %s", body)
 	}
 }
@@ -243,7 +243,7 @@ func TestSiteBackupsCreateNothingToBackUp(t *testing.T) {
 		t.Errorf("backups rows = %d", n)
 	}
 	rr = get(t, h, "/sites/10/backups", bob)
-	if !strings.Contains(rr.Body.String(), "Nothing to back up.") {
+	if !pageHas(rr.Body.String(), "Nothing to back up.") {
 		t.Error("missing 'Nothing to back up.' flash")
 	}
 }
@@ -264,7 +264,7 @@ func TestSiteBackupsRestore(t *testing.T) {
 	}
 	rr = get(t, h, "/sites/10/backups", bob)
 	bob = refreshCookie(bob, rr)
-	if !strings.Contains(rr.Body.String(), "Type the domain name to confirm the restore.") {
+	if !pageHas(rr.Body.String(), "Type the domain name to confirm the restore.") {
 		t.Error("missing confirm error")
 	}
 
@@ -276,7 +276,7 @@ func TestSiteBackupsRestore(t *testing.T) {
 	})
 	rr = get(t, h, "/sites/10/backups", bob)
 	bob = refreshCookie(bob, rr)
-	if !strings.Contains(rr.Body.String(), "The backup does not contain database nope.") {
+	if !pageHas(rr.Body.String(), "The backup does not contain database nope.") {
 		t.Error("missing missing-database error")
 	}
 
@@ -286,7 +286,7 @@ func TestSiteBackupsRestore(t *testing.T) {
 	})
 	rr = get(t, h, "/sites/10/backups", bob)
 	bob = refreshCookie(bob, rr)
-	if !strings.Contains(rr.Body.String(), "Choose what to restore.") {
+	if !pageHas(rr.Body.String(), "Choose what to restore.") {
 		t.Error("missing choose-what error")
 	}
 
@@ -301,7 +301,7 @@ func TestSiteBackupsRestore(t *testing.T) {
 	}
 	rr = get(t, h, "/sites/10/backups", bob)
 	bob = refreshCookie(bob, rr)
-	if !strings.Contains(rr.Body.String(), "Restore started. A safety backup of the current files is taken first.") {
+	if !pageHas(rr.Body.String(), "Restore started. A safety backup of the current files is taken first.") {
 		t.Error("missing restore flash")
 	}
 	calls := sa.called()
@@ -349,7 +349,7 @@ func TestSiteBackupsRestoreRunning(t *testing.T) {
 	}
 	rr = get(t, h, "/sites/10/backups", bob)
 	bob = refreshCookie(bob, rr)
-	if !strings.Contains(rr.Body.String(), "Only completed website backups can be restored.") {
+	if !pageHas(rr.Body.String(), "Only completed website backups can be restored.") {
 		t.Error("missing running-restore error")
 	}
 }
@@ -368,7 +368,7 @@ func TestSiteBackupsDelete(t *testing.T) {
 	}
 	rr = get(t, h, "/sites/10/backups", bob)
 	bob = refreshCookie(bob, rr)
-	if !strings.Contains(rr.Body.String(), "This backup is still running.") {
+	if !pageHas(rr.Body.String(), "This backup is still running.") {
 		t.Error("missing still-running error")
 	}
 
@@ -396,7 +396,7 @@ func TestSiteBackupsDelete(t *testing.T) {
 		t.Error("row not deleted")
 	}
 	rr = get(t, h, "/sites/10/backups", bob)
-	if !strings.Contains(rr.Body.String(), "Backup deleted.") {
+	if !pageHas(rr.Body.String(), "Backup deleted.") {
 		t.Error("missing delete flash")
 	}
 }
@@ -411,7 +411,7 @@ func TestSiteBackupsDeleteNotFound(t *testing.T) {
 	}
 	rr = get(t, h, "/sites/10/backups", bob)
 	bob = refreshCookie(bob, rr)
-	if !strings.Contains(rr.Body.String(), "Backup not found.") {
+	if !pageHas(rr.Body.String(), "Backup not found.") {
 		t.Error("missing not-found flash")
 	}
 }
@@ -499,13 +499,14 @@ func TestSiteBackupsRefresh(t *testing.T) {
 	if !strings.Contains(manifest, "files.tar.gz") || !strings.Contains(manifest, "u_bob_shop") {
 		t.Errorf("stored manifest = %s", manifest)
 	}
+	var errMsg string
 	status, errMsg, _ = backupStatus(t, db, lost)
 	if status != "failed" || errMsg != "The job was lost (agent restarted)." {
 		t.Errorf("lost job = %q %q", status, errMsg)
 	}
 	// The page shows the completed row with its parts.
 	body := rr.Body.String()
-	if !strings.Contains(body, "Completed") || !strings.Contains(body, "u_bob_shop") || !strings.Contains(body, "The job was lost (agent restarted).") {
+	if !pageHas(body, "Completed") || !pageHas(body, "u_bob_shop") || !pageHas(body, "The job was lost (agent restarted).") {
 		t.Errorf("page after refresh: %s", body)
 	}
 	// A failed job is also reflected.
@@ -542,13 +543,13 @@ func TestSiteBackupsHideScheduled(t *testing.T) {
 	})
 	rr = get(t, h, "/sites/10/backups", bob)
 	bob = refreshCookie(bob, rr)
-	if !strings.Contains(rr.Body.String(), "Backup not found.") {
+	if !pageHas(rr.Body.String(), "Backup not found.") {
 		t.Error("scheduled restore not hidden")
 	}
 	rr = backupPost(t, h, bob, "/sites/10/backups/2/delete", url.Values{})
 	rr = get(t, h, "/sites/10/backups", bob)
 	bob = refreshCookie(bob, rr)
-	if !strings.Contains(rr.Body.String(), "Backup not found.") {
+	if !pageHas(rr.Body.String(), "Backup not found.") {
 		t.Error("scheduled delete not hidden")
 	}
 	// The manual backup stays deletable.
@@ -616,7 +617,7 @@ func TestSiteBackupsAdminStorage(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET (admin) = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Nightly (SFTP server)") {
+	if !pageHas(rr.Body.String(), "Nightly (SFTP server)") {
 		t.Error("admin page missing the storage option")
 	}
 	// …and can pick it: the agent call carries the remote config.
@@ -640,7 +641,7 @@ func TestSiteBackupsAdminStorage(t *testing.T) {
 	// A customer never sees the select, even with storage_id submitted.
 	bob := loginAsUser(t, h, "bob")
 	rr = get(t, h, "/sites/10/backups", bob)
-	if strings.Contains(rr.Body.String(), "Nightly") {
+	if pageHas(rr.Body.String(), "Nightly") {
 		t.Error("customer page shows the storage select")
 	}
 }

@@ -12,6 +12,7 @@ package http
 import (
 	"encoding/json"
 	"errors"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -65,7 +66,7 @@ func (s *Server) phpRepository(w http.ResponseWriter, r *http.Request) {
 		uid := user.ID
 		_ = hosting.NewJobTracker(s.db).Track(r.Context(), s.currentServerID(r), jobID, "Add "+name, "php", "repository", &uid)
 	}
-	phpAudit(r, user, "php.repository.enable", "php", name, audit.Success, nil)
+	s.phpAudit(r, user, "php.repository.enable", "php", name, audit.Success, nil)
 	sess := sessionFrom(r.Context())
 	if jobID != "" {
 		sess.Flash("job", jobID)
@@ -108,7 +109,7 @@ func (s *Server) phpInstall(w http.ResponseWriter, r *http.Request) {
 		uid := user.ID
 		_ = hosting.NewJobTracker(s.db).Track(r.Context(), s.currentServerID(r), jobID, "Install PHP "+version, "php", version, &uid)
 	}
-	phpAudit(r, user, "php.install", "php", version, audit.Success, map[string]any{"packages": pkgs})
+	s.phpAudit(r, user, "php.install", "php", version, audit.Success, map[string]any{"packages": pkgs})
 	sess := sessionFrom(r.Context())
 	if jobID != "" {
 		sess.Flash("job", jobID)
@@ -137,7 +138,7 @@ func (s *Server) phpToggle(w http.ResponseWriter, r *http.Request) {
 		action = "php.enable"
 		msg = "PHP " + version + " started and enabled."
 	}
-	phpAudit(r, user, action, "php", version, audit.Success, nil)
+	s.phpAudit(r, user, action, "php", version, audit.Success, nil)
 	sess := sessionFrom(r.Context())
 	sess.Flash("success", msg)
 	http.Redirect(w, r, "/php", http.StatusSeeOther)
@@ -213,7 +214,7 @@ func (s *Server) phpExtension(w http.ResponseWriter, r *http.Request) {
 			action = "php.extension_enable"
 			msg = name + " switched on for PHP " + version + "; PHP-FPM was reloaded."
 		}
-		phpAudit(r, user, action, "php", version, audit.Success, map[string]any{"extension": name})
+		s.phpAudit(r, user, action, "php", version, audit.Success, map[string]any{"extension": name})
 		sess := sessionFrom(r.Context())
 		sess.Flash("success", msg)
 		http.Redirect(w, r, to, http.StatusSeeOther)
@@ -227,7 +228,7 @@ func (s *Server) phpExtension(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := s.agent.Call(r.Context(), action, map[string]any{"version": version, "name": name}, 120*time.Second)
 	if err != nil {
-		phpAudit(r, user, "php.extension_"+op, "php", version, audit.Failure, map[string]any{"extension": name, "error": err.Error()})
+		s.phpAudit(r, user, "php.extension_"+op, "php", version, audit.Failure, map[string]any{"extension": name, "error": err.Error()})
 		phpFlashErr(w, r, agentMessage(err), to)
 		return
 	}
@@ -247,7 +248,7 @@ func (s *Server) phpExtension(w http.ResponseWriter, r *http.Request) {
 		uid := user.ID
 		_ = hosting.NewJobTracker(s.db).Track(r.Context(), s.currentServerID(r), jobID, label, "php", version, &uid)
 	}
-	phpAudit(r, user, "php.extension_"+op, "php", version, audit.Success, map[string]any{"extension": name, "package": pkg})
+	s.phpAudit(r, user, "php.extension_"+op, "php", version, audit.Success, map[string]any{"extension": name, "package": pkg})
 	sess := sessionFrom(r.Context())
 	if jobID != "" {
 		sess.Flash("job", jobID)
@@ -291,11 +292,11 @@ func (s *Server) phpIni(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if _, err := s.agent.Call(r.Context(), "php.ini_set", map[string]any{"version": version, "content": content}, 60*time.Second); err != nil {
-		phpAudit(r, user, "php.ini", "php", version, audit.Failure, map[string]any{"error": err.Error()})
+		s.phpAudit(r, user, "php.ini", "php", version, audit.Failure, map[string]any{"error": err.Error()})
 		phpFlashErr(w, r, agentMessage(err), to)
 		return
 	}
-	phpAudit(r, user, "php.ini", "php", version, audit.Success, nil)
+	s.phpAudit(r, user, "php.ini", "php", version, audit.Success, nil)
 	sess := sessionFrom(r.Context())
 	sess.Flash("success", "php.ini settings of PHP "+version+" saved; PHP-FPM was reloaded.")
 	http.Redirect(w, r, to, http.StatusSeeOther)
@@ -323,11 +324,11 @@ func (s *Server) phpFpm(w http.ResponseWriter, r *http.Request) {
 		settings[k] = n
 	}
 	if _, err := s.agent.Call(r.Context(), "php.fpm_set", settings, 60*time.Second); err != nil {
-		phpAudit(r, user, "php.fpm", "php", version, audit.Failure, map[string]any{"error": err.Error()})
+		s.phpAudit(r, user, "php.fpm", "php", version, audit.Failure, map[string]any{"error": err.Error()})
 		phpFlashErr(w, r, agentMessage(err), to)
 		return
 	}
-	phpAudit(r, user, "php.fpm", "php", version, audit.Success, nil)
+	s.phpAudit(r, user, "php.fpm", "php", version, audit.Success, nil)
 	sess := sessionFrom(r.Context())
 	sess.Flash("success", "PHP-FPM settings of PHP "+version+" saved; PHP-FPM was reloaded.")
 	http.Redirect(w, r, to, http.StatusSeeOther)
@@ -368,7 +369,7 @@ func (s *Server) phpModules(w http.ResponseWriter, r *http.Request) {
 
 // ---- helpers ----
 
-func phpAudit(r *http.Request, user *identity.User, action, targetType, targetID, result string, details map[string]any) {
+func (s *Server) phpAudit(r *http.Request, user *identity.User, action, targetType, targetID, result string, details map[string]any) {
 	var uid *int64
 	if user != nil {
 		id := user.ID

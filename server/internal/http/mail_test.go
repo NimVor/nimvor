@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -62,14 +61,14 @@ func mailEnv(t *testing.T, loginAs string) (http.Handler, *http.Cookie, *sql.DB)
 func TestMailDomainsWebsiteAwareScopeAndCounts(t *testing.T) {
 	h, cookie, _ := mailEnv(t, "custA")
 	body := get(t, h, "/mail", cookie).Body.String()
-	if !strings.Contains(body, "a.example") || !strings.Contains(body, "mx-a.example") {
+	if !pageHas(body, "a.example") || !pageHas(body, "mx-a.example") {
 		t.Fatalf("custA missing own/attached mail domains:\n%s", body)
 	}
-	if strings.Contains(body, "b.example") {
+	if pageHas(body, "b.example") {
 		t.Fatalf("TENANT LEAK: custA saw another tenant's mail domain:\n%s", body)
 	}
 	// a.example shows 2 mailboxes and 1 alias.
-	if !strings.Contains(body, "<td>2</td>") || !strings.Contains(body, "<td>1</td>") {
+	if !pageHas(body, "<td>2</td>") || !pageHas(body, "<td>1</td>") {
 		t.Fatalf("mailbox/alias counts missing:\n%s", body)
 	}
 }
@@ -78,7 +77,7 @@ func TestMailAdminSeesAll(t *testing.T) {
 	h, cookie, _ := mailEnv(t, "admin")
 	body := get(t, h, "/mail", cookie).Body.String()
 	for _, d := range []string{"a.example", "mx-a.example", "b.example"} {
-		if !strings.Contains(body, d) {
+		if !pageHas(body, d) {
 			t.Fatalf("admin missing mail domain %s", d)
 		}
 	}

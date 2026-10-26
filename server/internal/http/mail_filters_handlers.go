@@ -81,7 +81,7 @@ func filterModalFor(f *hosting.MailFilter, index int) filterModal {
 // mailFiltersTarget loads the route's domain + mailbox; ok is false after
 // the "not found" redirect / 404 page is sent.
 func (s *Server) mailFiltersTarget(w http.ResponseWriter, r *http.Request, user *identity.User) (*hosting.MailDomainFull, *hosting.Mailbox, string, bool) {
-	d, err := hosting.NewMailRepository(s.db).Domain(r.Context(), s.currentServerID(r), pathID(r), user)
+	d, err := hosting.NewMailRepository(s.db).Domain(r.Context(), s.currentServerID(r), pathIDOrZero(r), user)
 	if err != nil {
 		s.log.Error("load mail domain", "error", err)
 		s.showNotFound(w)

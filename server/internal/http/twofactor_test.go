@@ -85,7 +85,7 @@ func TestLoginTwoFactorEndToEnd(t *testing.T) {
 
 	// The step renders with the code form and the pending user.
 	body, token := getTwoFactorPage(t, h, cookie)
-	if !strings.Contains(body, `name="code"`) || !strings.Contains(body, "root") {
+	if !pageHas(body, `name="code"`) || !pageHas(body, "root") {
 		t.Fatalf("two-factor page missing form/user:\n%s", body)
 	}
 
@@ -96,7 +96,7 @@ func TestLoginTwoFactorEndToEnd(t *testing.T) {
 	}
 	cookie = nextCookie(t, rr, cookie)
 	body, token = getTwoFactorPage(t, h, cookie)
-	if !strings.Contains(body, "not valid") {
+	if !pageHas(body, "not valid") {
 		t.Fatalf("bad-code error not shown:\n%s", body)
 	}
 
@@ -197,7 +197,7 @@ func TestLoginKeyOnlyUserRefused(t *testing.T) {
 		cookie = c[0]
 	}
 	rr = getWith(t, h, "/login", cookie)
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "Two-factor sign-in is required") {
+	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), "Two-factor sign-in is required") {
 		t.Fatalf("refusal message not shown:\n%s", rr.Body.String())
 	}
 	if rr = getWith(t, h, "/", cookie); rr.Code != http.StatusSeeOther {
@@ -270,7 +270,7 @@ func TestProfileTwoFactorSetupAndEnable(t *testing.T) {
 	cookie := signInProfile(t, h)
 
 	body, token := profilePage(t, h, cookie)
-	if !strings.Contains(body, "Two-factor sign-in is off") {
+	if !pageHas(body, "Two-factor sign-in is off") {
 		t.Fatalf("profile should say 2FA is off:\n%s", body)
 	}
 
@@ -287,7 +287,7 @@ func TestProfileTwoFactorSetupAndEnable(t *testing.T) {
 		t.Fatalf("staged secret not shown:\n%s", body)
 	}
 	secret := m[1]
-	if !strings.Contains(body, "otpauth://totp/") {
+	if !pageHas(body, "otpauth://totp/") {
 		t.Fatalf("otpauth URI not shown:\n%s", body)
 	}
 
@@ -299,10 +299,10 @@ func TestProfileTwoFactorSetupAndEnable(t *testing.T) {
 	}
 	cookie = nextCookie(t, rr, cookie)
 	body, _ = profilePage(t, h, cookie)
-	if !strings.Contains(body, "Two-factor sign-in is on") {
+	if !pageHas(body, "Two-factor sign-in is on") {
 		t.Fatalf("profile should say 2FA is on:\n%s", body)
 	}
-	if !strings.Contains(body, "Recovery codes") || !strings.Contains(body, "work once") {
+	if !pageHas(body, "Recovery codes") || !pageHas(body, "work once") {
 		t.Fatalf("one-time recovery codes not shown:\n%s", body)
 	}
 }
@@ -320,7 +320,7 @@ func TestProfileTwoFactorEnableNeedsSetupAndPassword(t *testing.T) {
 	}
 	cookie = nextCookie(t, rr, cookie)
 	body, token := profilePage(t, h, cookie)
-	if !strings.Contains(body, "Start the setup again.") {
+	if !pageHas(body, "Start the setup again.") {
 		t.Fatalf("setup-required error not shown:\n%s", body)
 	}
 
@@ -336,7 +336,7 @@ func TestProfileTwoFactorEnableNeedsSetupAndPassword(t *testing.T) {
 		url.Values{"code": {freshCode(t, m[1])}, "password": {"wrong"}}, cookie)
 	cookie = nextCookie(t, rr, cookie)
 	body, _ = profilePage(t, h, cookie)
-	if !strings.Contains(body, "Your current password is not correct.") {
+	if !pageHas(body, "Your current password is not correct.") {
 		t.Fatalf("wrong-password error not shown:\n%s", body)
 	}
 }
@@ -355,10 +355,10 @@ func TestProfileTwoFactorEnableRejectsBadCode(t *testing.T) {
 		url.Values{"code": {"000000"}, "password": {loginPassword}}, cookie)
 	cookie = nextCookie(t, rr, cookie)
 	body, _ = profilePage(t, h, cookie)
-	if !strings.Contains(body, "That code is not valid") {
+	if !pageHas(body, "That code is not valid") {
 		t.Fatalf("bad-code error not shown:\n%s", body)
 	}
-	if !strings.Contains(body, "Two-factor sign-in is off") {
+	if !pageHas(body, "Two-factor sign-in is off") {
 		t.Fatalf("2FA must still be off after a bad code:\n%s", body)
 	}
 }
@@ -370,7 +370,7 @@ func TestProfileTwoFactorDisable(t *testing.T) {
 	// Enable it first (directly in the DB, then refresh the page).
 	enable2FAForUser(t, db)
 	body, token := profilePage(t, h, cookie)
-	if !strings.Contains(body, "Two-factor sign-in is on") {
+	if !pageHas(body, "Two-factor sign-in is on") {
 		t.Fatalf("2FA should be on:\n%s", body)
 	}
 
@@ -379,7 +379,7 @@ func TestProfileTwoFactorDisable(t *testing.T) {
 		url.Values{"password": {"wrong"}}, cookie)
 	cookie = nextCookie(t, rr, cookie)
 	body, token = profilePage(t, h, cookie)
-	if !strings.Contains(body, "Your current password is not correct.") || !strings.Contains(body, "is on") {
+	if !pageHas(body, "Your current password is not correct.") || !pageHas(body, "is on") {
 		t.Fatalf("disable with wrong password succeeded or error missing:\n%s", body)
 	}
 
@@ -388,7 +388,7 @@ func TestProfileTwoFactorDisable(t *testing.T) {
 		url.Values{"password": {loginPassword}}, cookie)
 	cookie = nextCookie(t, rr, cookie)
 	body, _ = profilePage(t, h, cookie)
-	if !strings.Contains(body, "Two-factor sign-in is off") {
+	if !pageHas(body, "Two-factor sign-in is off") {
 		t.Fatalf("2FA must be off after disable:\n%s", body)
 	}
 
@@ -397,7 +397,7 @@ func TestProfileTwoFactorDisable(t *testing.T) {
 		url.Values{"password": {loginPassword}}, cookie)
 	cookie = nextCookie(t, rr, cookie)
 	body, _ = profilePage(t, h, cookie)
-	if !strings.Contains(body, "Two-factor sign-in is off.") {
+	if !pageHas(body, "Two-factor sign-in is off.") {
 		t.Fatalf("recovery while off not refused:\n%s", body)
 	}
 }
@@ -412,7 +412,7 @@ func TestProfileTwoFactorRecoveryRegeneratesCodes(t *testing.T) {
 		url.Values{"password": {loginPassword}}, cookie)
 	cookie = nextCookie(t, rr, cookie)
 	body, _ := profilePage(t, h, cookie)
-	if !strings.Contains(body, "New recovery codes created") {
+	if !pageHas(body, "New recovery codes created") {
 		t.Fatalf("regeneration success not shown:\n%s", body)
 	}
 	pre := regexp.MustCompile(`<pre class="recovery-list">([^<]+)</pre>`).FindStringSubmatch(body)
@@ -450,6 +450,7 @@ func getWith(t *testing.T, h http.Handler, path string, cookie *http.Cookie) *ht
 	}
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
+	adoptCookie(cookie, rr)
 	return rr
 }
 

@@ -9,6 +9,7 @@ package mail
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/tls"
@@ -18,6 +19,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"mime"
+	"mime/quotedprintable"
 	"net"
 	"os"
 	"regexp"
@@ -496,45 +499,22 @@ func normalizeNewlines(s string) string {
 	return strings.ReplaceAll(s, "\n", "\r\n")
 }
 
-// qpEncode is a byte-level quoted-printable encoder (PHP's
-// quoted_printable_encode for the ASCII bodies this panel sends; UTF-8
-// sequences are encoded per byte, as PHP does).
+// qpEncode is quoted-printable (RFC 2045) for the UTF-8 body: CRLF stay hard
+// line breaks, long lines get soft breaks at 76 columns and "=" and
+// non-ASCII bytes are escaped. It uses the standard library's encoder, which
+// matches PHP's quoted_printable_encode up to equivalent encodings (checked
+// differentially against PHP 8.3: only tab / trailing-space escaping differ).
 func qpEncode(s string) string {
-	var b strings.Builder
-	b.Grow(len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c >= 0x20 && c <= 0x7e && c != '=' {
-			b.WriteByte(c)
-		} else {
-			fmt.Fprintf(&b, "=%02X", c)
-		}
-	}
-	return b.String()
+	var buf bytes.Buffer
+	w := quotedprintable.NewWriter(&buf)
+	_, _ = w.Write([]byte(s))
+	_ = w.Close()
+	return buf.String()
 }
 
-// mimeQ is mb_encode_mimeheader($s, 'UTF-8', 'Q', "\r\n") for the subjects
-// this panel sends: plain ASCII subjects pass through unchanged; anything
-// with non-ASCII bytes (or '=') is Q-encoded.
+// mimeQ is mb_encode_mimeheader($s, 'UTF-8', 'Q', "\r\n"): a subject with
+// non-ASCII or control bytes becomes an RFC 2047 Q encoded-word
+// ("=?UTF-8?q?...?="); a plain ASCII subject passes through unchanged.
 func mimeQ(s string) string {
-	needEncode := false
-	for i := 0; i < len(s); i++ {
-		if s[i] >= 0x80 || s[i] == '=' {
-			needEncode = true
-			break
-		}
-	}
-	if !needEncode {
-		return s
-	}
-	var b strings.Builder
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c >= 0x20 && c <= 0x7e && c != '=' {
-			b.WriteByte(c)
-		} else {
-			fmt.Fprintf(&b, "=%02X", c)
-		}
-	}
-	return b.String()
+	return mime.QEncoding.Encode("UTF-8", s)
 }

@@ -189,7 +189,7 @@ type fail2banView struct {
 
 // agentErrorRedirect flashes the agent's message (an agent error on a
 // change flashes the redirect — the Go adaptation of the PHP page's 500).
-func agentErrorRedirect(w http.ResponseWriter, r *http.Request, action string, err error, to string) {
+func (s *Server) agentErrorRedirect(w http.ResponseWriter, r *http.Request, action string, err error, to string) {
 	sess := sessionFrom(r.Context())
 	var ae *agent.Error
 	msg := "The WhaCP agent could not be reached."
@@ -245,7 +245,7 @@ func (s *Server) fail2banConfigure(w http.ResponseWriter, r *http.Request) {
 		"ignore":       ignore,
 	}
 	if _, err := s.agent.Call(r.Context(), "fail2ban.configure", cfg, 60*time.Second); err != nil {
-		agentErrorRedirect(w, r, "fail2ban configure", err, "/security/fail2ban")
+		s.agentErrorRedirect(w, r, "fail2ban configure", err, "/security/fail2ban")
 		return
 	}
 	s.audit.Record(r.Context(), audit.Entry{
@@ -283,7 +283,7 @@ func (s *Server) fail2banUnban(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := s.agent.Call(r.Context(), "fail2ban.unban", map[string]any{"jail": jail, "ip": ip}); err != nil {
-		agentErrorRedirect(w, r, "fail2ban unban", err, "/security/fail2ban")
+		s.agentErrorRedirect(w, r, "fail2ban unban", err, "/security/fail2ban")
 		return
 	}
 	s.audit.Record(r.Context(), audit.Entry{

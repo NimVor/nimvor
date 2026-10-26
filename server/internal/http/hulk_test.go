@@ -105,11 +105,11 @@ func TestHulkPageDisabled(t *testing.T) {
 		// The variable list.
 		"<code>%ip</code> - the blocked IP address",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
-	if strings.Contains(body, `id="h-scope-local" checked`) {
+	if pageHas(body, `id="h-scope-local" checked`) {
 		t.Errorf("the local scope radio is checked although the default is all")
 	}
 }
@@ -132,7 +132,7 @@ func TestHulkPageAgentErrorAndNftables(t *testing.T) {
 		"the nftables service is not running",
 		"wcp-state is-ok\">Enabled", // status unknown: the enabled state
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("agent-error page missing %q", want)
 		}
 	}
@@ -144,7 +144,7 @@ func TestHulkPageAgentErrorAndNftables(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "wcp-state is-warn\">Enabled (WhaCP sign-ins only: nftables is not installed)") {
+	if !pageHas(rr.Body.String(), "wcp-state is-warn\">Enabled (WhaCP sign-ins only: nftables is not installed)") {
 		t.Errorf("missing the nftables-missing state")
 	}
 	sa.hulkAvailable = true
@@ -157,7 +157,7 @@ func TestHulkPageDeniedForNonAllScope(t *testing.T) {
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("GET = %d (want 403)", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Only administrators manage brute force protection.") {
+	if !pageHas(rr.Body.String(), "Only administrators manage brute force protection.") {
 		t.Errorf("missing the deny message")
 	}
 }
@@ -394,6 +394,7 @@ func hulkMultipart(t *testing.T, h http.Handler, path string, fileField, fileNam
 	}
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
+	adoptCookie(cookie, rr)
 	return rr
 }
 
@@ -464,7 +465,7 @@ func TestHulkUnblockAndClear(t *testing.T) {
 		"Failed Logins Report", "198.51.100.7", "United States", "Canada",
 		"2 blocks in force",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("report page missing %q", want)
 		}
 	}

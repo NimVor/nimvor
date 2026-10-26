@@ -6,6 +6,7 @@ package http
 // are synced against the seed default set when resetting a role.
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -40,10 +41,10 @@ func (s *Server) rolesCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, "roles_form", map[string]any{
-		"User":    user,
-		"CSRF":    session.CSRFToken(sessionFrom(r.Context())),
-		"Title":   "New role",
-		"Role":    map[string]any{"id": 0, "name": "", "label": "", "description": "", "scope": "own", "require_two_factor": false},
+		"User":        user,
+		"CSRF":        session.CSRFToken(sessionFrom(r.Context())),
+		"Title":       "New role",
+		"Role":        map[string]any{"id": 0, "name": "", "label": "", "description": "", "scope": "own", "require_two_factor": false},
 		"Permissions": perms,
 	})
 }

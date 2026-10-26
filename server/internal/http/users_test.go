@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -67,11 +66,11 @@ func (l *loggedIn) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func TestUsersResellerSeesOnlyOwnCustomers(t *testing.T) {
 	h := usersEnv(t, "reseller")
 	body := get(t, h, "/users", nil).Body.String()
-	if !strings.Contains(body, "subcust") {
+	if !pageHas(body, "subcust") {
 		t.Fatalf("reseller missing own customer:\n%s", body)
 	}
 	for _, other := range []string{"admin", "reseller", "solocust"} {
-		if strings.Contains(body, ">"+other+"<") || strings.Contains(body, "<td>"+other+"</td>") {
+		if pageHas(body, ">"+other+"<") || pageHas(body, "<td>"+other+"</td>") {
 			t.Fatalf("reseller saw a non-customer user %q:\n%s", other, body)
 		}
 	}
@@ -81,7 +80,7 @@ func TestUsersAdminSeesAll(t *testing.T) {
 	h := usersEnv(t, "admin")
 	body := get(t, h, "/users", nil).Body.String()
 	for _, u := range []string{"admin", "reseller", "subcust", "solocust"} {
-		if !strings.Contains(body, u) {
+		if !pageHas(body, u) {
 			t.Fatalf("admin missing user %s", u)
 		}
 	}

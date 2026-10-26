@@ -2,10 +2,11 @@ package hosting
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -173,10 +174,12 @@ func (s *AccountService) Create(ctx context.Context, in map[string]string, actor
 // (AccountService::optionsFrom): the checkboxes default off, mail routing
 // defaults to "auto", and DMARC requires DKIM and SPF.
 func (s *AccountService) OptionsFrom(in map[string]string) map[string]any {
+	dkim, spf := formBool(in["dns_dkim"]), formBool(in["dns_spf"])
 	out := map[string]any{
-		"dns_dkim":         formBool(in["dns_dkim"]),
-		"dns_spf":          formBool(in["dns_spf"]),
-		"dns_dmarc":        formBool(in["dns_dmarc"]),
+		"dns_dkim": dkim,
+		"dns_spf":  spf,
+		// DMARC needs DKIM and SPF.
+		"dns_dmarc":        formBool(in["dns_dmarc"]) && dkim && spf,
 		"dns_registrar_ns": formBool(in["dns_registrar_ns"]),
 		"dns_overwrite":    formBool(in["dns_overwrite"]),
 		"spam_filter":      formBool(in["spam_filter"]),
@@ -187,8 +190,6 @@ func (s *AccountService) OptionsFrom(in map[string]string) map[string]any {
 	} else {
 		out["mail_routing"] = "auto"
 	}
-	// DMARC needs DKIM and SPF.
-	out["dns_dmarc"] = out["dns_dmarc"] && out["dns_dkim"] && out["dns_spf"]
 	return out
 }
 
@@ -207,7 +208,8 @@ const passwordChars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789
 func GeneratedPassword() (string, error) {
 	buf := make([]byte, 20)
 	for i := range buf {
-		n, err := rand.Int(rand.Reader, int64(len(passwordChars)))
+		// crypto/rand: these are account passwords, never a seeded PRNG.
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(passwordChars))))
 		if err != nil {
 			return "", err
 		}

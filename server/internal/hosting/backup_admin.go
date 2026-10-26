@@ -53,10 +53,10 @@ func (s *BackupService) StoragesDetailed(ctx context.Context) ([]StorageDetailed
 	var out []StorageDetailed
 	for rows.Next() {
 		var (
-			d                StorageDetailed
-			enc, testErr     string
-			active, testOK   int
-			testedAt         sql.NullString
+			d              StorageDetailed
+			enc, testErr   string
+			active, testOK int
+			testedAt       sql.NullString
 		)
 		if err := rows.Scan(&d.ID, &d.Name, &d.Kind, &enc, &d.CreatedAt, &active, &testOK, &testErr, &testedAt); err != nil {
 			return nil, err
@@ -359,12 +359,12 @@ func (s *BackupService) BuildStorage(ctx context.Context, input map[string]strin
 // TestStorage calls backup.remote_test and returns what must be trusted (PHP testStorage).
 func (s *BackupService) TestStorage(ctx context.Context, cfg map[string]any) (map[string]string, error) {
 	var res struct {
-		HostKey    string `json:"host_key"`
+		HostKey     string `json:"host_key"`
 		Fingerprint string `json:"fingerprint"`
-		TLSPin     string `json:"tls_pin"`
-		TLSSubject string `json:"tls_subject"`
-		Created    bool   `json:"created"`
-		FolderID   string `json:"folder_id"`
+		TLSPin      string `json:"tls_pin"`
+		TLSSubject  string `json:"tls_subject"`
+		Created     bool   `json:"created"`
+		FolderID    string `json:"folder_id"`
 	}
 	if err := s.callAgent(ctx, "backup.remote_test", map[string]any{"remote": cfg}, durPtr(120*time.Second), &res); err != nil {
 		return nil, err
@@ -750,7 +750,9 @@ func (s *BackupService) CreateServer(ctx context.Context, opts ServerCreateOptio
 		params["remote"] = remote
 		params["keep_local"] = opts.KeepLocal
 	}
-	var res struct{ JobID string `json:"job_id"` }
+	var res struct {
+		JobID string `json:"job_id"`
+	}
 	if err := s.callAgent(ctx, "backup.server", params, nil, &res); err != nil {
 		return "", err
 	}
@@ -841,7 +843,9 @@ func (s *BackupService) RestoreServer(ctx context.Context, b *Backup, components
 		}
 		params["remote"] = remote
 	}
-	var res struct{ JobID string `json:"job_id"` }
+	var res struct {
+		JobID string `json:"job_id"`
+	}
 	if err := s.callAgent(ctx, "backup.server_restore", params, nil, &res); err != nil {
 		return "", err
 	}
@@ -964,5 +968,3 @@ func nullable(s string) any {
 	}
 	return s
 }
-
-

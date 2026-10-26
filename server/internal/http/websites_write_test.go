@@ -307,7 +307,7 @@ const defaultWpInfoReply = `{
 
 func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string) {
 	t.Helper()
-	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, failActions: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true, hulkAvailable: true, hulkActive: true, modsecActive: true, avScanJobID: "0123456789abcdef", statsInstalled: true}
+	sa := &sitesAgent{failApply: failApply, jobs: map[string]string{}, failActions: map[string]string{}, termKillClosed: 1, f2bRunning: true, avInstalled: true, avFreshclam: true, hulkAvailable: true, hulkActive: true, modsecActive: true, avScanJobID: "0123456789abcdef", statsInstalled: true, mcInstalled: true, mcActive: true}
 	dir := t.TempDir()
 	socket := filepath.Join(dir, "agent.sock")
 	tokenFile := filepath.Join(dir, "token")
@@ -796,8 +796,6 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"ab12cd34ef56ab78"}}`))
 		case "security.host_known":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"marked":["cron/daily-backup","systemd/whacp-agent.service"]}}`))
-		case "db.server_settings":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"ok":true}}`))
 		case "ssh.status":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"effective":{"port":"22","permitrootlogin":"prohibit-password","passwordauthentication":"no","pubkeyauthentication":"yes","maxauthtries":"4","x11forwarding":"no","kbdinteractiveauthentication":"no"},` +
 				`"root_has_keys":true,"admins_with_keys":["root"],"managed_file":"/etc/ssh/sshd_config.d/50-whacp.conf","managed_config":"Port 22"}}`))
@@ -825,13 +823,11 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				`{"id":"kernel_settings","title":"Recommended kernel settings","status":"warn","severity":"medium","detail":"Some kernel security settings are not recommended.","remedy":"Apply the recommended kernel security settings.","fix":"apply"},` +
 				`{"id":"mysql_anonymous","title":"MySQL anonymous users","status":"fail","severity":"low","detail":"The database server has anonymous accounts.","remedy":"Remove the anonymous MySQL users."},` +
 				`{"id":"updates","title":"Security updates","status":"fail","severity":"high","detail":"2 security update(s) are waiting.","remedy":"Install updates under Server → Packages."},` +
-				`{"id":"ssh","title":"SSH server","status":"info","severity":"low","detail":"The SSH configuration could not be read."}]}}`))
+				`{"id":"ssh","title":"SSH server","status":"info","severity":"low","detail":"The SSH configuration could not be read."}]}`))
 		case "ssh.logins":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"available":true,"today":[2,17],"yesterday":[1,40],"week":[9,300],` +
 				`"last_success":{"time":"2026-10-22T08:12:00Z","user":"admin","ip":"203.0.113.50","port":22,"method":"publickey"},` +
 				`"last_failure":{"time":"2026-10-22T09:01:00Z","user":"root","ip":"198.51.100.77"}}}`))
-		case "hardening.status":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"forkbomb":{"enabled":false},"traceroute":{"enabled":true,"programs":["traceroute","traceroute6"]}}}`))
 		case "db.drop_anonymous_users":
 			sa.mu.Lock()
 			none := sa.anonRemoved == "none"
@@ -914,7 +910,7 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				_, _ = w.Write([]byte(`{"success":false,"error":{"code":"invalid_params","message":"id is not a queue ID","request_id":"t"}}`))
 				return
 			}
-			_, _ = w.Write([]byte(`{"success":true,"data":{"id":` + fmt.Sprintf("%q", id) + `,"headers":{"from":"<bounce+job@example.com>","to":"a@bob.example","subject":"Job failed","date":"Thu, 23 Oct 2026 10:00:00 +0000","message-id":"<job-1@example.com>"}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"id":` + fmt.Sprintf("%q", id) + `,"headers":{"from":"<bounce+job@example.com>","to":"a@bob.example","subject":"Job failed","date":"Thu, 23 Oct 2026 10:00:00 +0000","message-id":"<job-1@example.com>"}}}`))
 		case "mail.queue_action":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"action":"done","count":1}}`))
 		case "mail.report":
@@ -1325,13 +1321,36 @@ func (sa *sitesAgent) called() []string {
 	return append([]string(nil), sa.actions...)
 }
 
+// writes is called() without the read-only live reads the databases page makes
+// whenever it is shown (db.overview), so a test can assert "the agent was (not)
+// asked to change anything" even after following the redirect to the page.
+func (sa *sitesAgent) writes() []string {
+	out := []string{}
+	for _, a := range sa.called() {
+		if a == "db.overview" {
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+// param is the key of the i-th recorded call's params, counting the calls the
+// way writes() does (the read-only db.overview a page view makes is skipped).
 func (sa *sitesAgent) param(i int, key string) any {
 	sa.mu.Lock()
 	defer sa.mu.Unlock()
-	if i >= len(sa.params) {
-		return nil
+	n := 0
+	for idx := range sa.params {
+		if idx < len(sa.actions) && sa.actions[idx] == "db.overview" {
+			continue
+		}
+		if n == i {
+			return sa.params[idx][key]
+		}
+		n++
 	}
-	return sa.params[i][key]
+	return nil
 }
 
 // sitesEnv builds a server with a recording agent, a customer (bob) who owns
@@ -1408,11 +1427,9 @@ func siteFormToken(t *testing.T, h http.Handler, cookie *http.Cookie, path strin
 	if m == nil {
 		t.Fatalf("no CSRF token on %s", path)
 	}
-	refreshed := cookie
-	if cs := rr.Result().Cookies(); len(cs) > 0 {
-		refreshed = cs[0]
-	}
-	return m[1], refreshed
+	// get() already adopted the response cookie in place; hand the same pointer
+	// back so the caller's cookie and the returned one stay one object.
+	return m[1], refreshCookie(cookie, rr)
 }
 
 func TestWebsitesNewForm(t *testing.T) {
@@ -1423,7 +1440,7 @@ func TestWebsitesNewForm(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{"Create website", `name="domain"`, `name="php_version"`, "8.3.1", "PHP application"} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("form missing %q", want)
 		}
 	}
@@ -1444,10 +1461,10 @@ func TestWebsitesStoreValidationRerendersWithOldInput(t *testing.T) {
 		t.Fatalf("validation re-render = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "Enter a valid domain name") {
+	if !pageHas(body, "Enter a valid domain name") {
 		t.Error("field error not rendered")
 	}
-	if !strings.Contains(body, `value="no-dots"`) {
+	if !pageHas(body, `value="no-dots"`) {
 		t.Error("old input not preserved")
 	}
 	for _, a := range sa.called() {
@@ -1527,7 +1544,7 @@ func TestWebsitesStorePlanLimitRerenders(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("limit re-render = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "allows at most 1 websites") {
+	if !pageHas(rr.Body.String(), "allows at most 1 websites") {
 		t.Errorf("limit message missing: %s", rr.Body.String())
 	}
 	for _, a := range sa.called() {
@@ -1685,7 +1702,7 @@ func TestSubdomainStore(t *testing.T) {
 	// "www" is the website's own alias, never a subdomain.
 	token2, cookie2 := siteFormToken(t, h, cookie, "/sites/10/subdomains")
 	rr = postForm(h, "/sites/10/subdomains", url.Values{"_token": {token2}, "subdomain": {"www"}}, cookie2)
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "Use letters, digits and hyphens") {
+	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), "Use letters, digits and hyphens") {
 		t.Errorf("www subdomain must be rejected: %d", rr.Code)
 	}
 	apply := 0
@@ -1726,7 +1743,7 @@ func TestAddonStore(t *testing.T) {
 	// A subdomain of the parent is not an addon.
 	token2, cookie2 := siteFormToken(t, h, cookie, "/sites/10/addons")
 	rr = postForm(h, "/sites/10/addons", url.Values{"_token": {token2}, "domain": {"x.bob.example"}}, cookie2)
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "add it as a subdomain") {
+	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), "add it as a subdomain") {
 		t.Errorf("addon under parent must be rejected: %d", rr.Code)
 	}
 }

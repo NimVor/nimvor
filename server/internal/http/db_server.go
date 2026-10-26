@@ -386,7 +386,7 @@ func formMap(form url.Values, prefix string) map[string]string {
 	out := map[string]string{}
 	for k := range form {
 		if strings.HasPrefix(k, prefix) && strings.HasSuffix(k, "]") {
-			key := k[len(prefix)+1 : len(k)-1]
+			key := k[len(prefix) : len(k)-1] // prefix already ends with "["
 			if key != "" {
 				out[key] = form.Get(k)
 			}
@@ -464,6 +464,7 @@ type dbServerView struct {
 	PoolSize       string
 	HitRate        *float64
 	TmpDisk        *float64
+	HitV, TmpV     float64 // HitRate / TmpDisk as plain numbers (templates cannot compare or format a pointer)
 	OpenTables     string
 	TableOpenCache string
 	BytesRecv      string
@@ -532,11 +533,11 @@ func buildDbServerView(section string, status map[string]any, conns []dbServerCo
 	}
 	if rr := num("Innodb_buffer_pool_read_requests"); rr > 0 {
 		h := 100 * (1 - num("Innodb_buffer_pool_reads")/rr)
-		v.HitRate = &h
+		v.HitRate, v.HitV = &h, h
 	}
 	if ctt := num("Created_tmp_tables"); ctt > 0 {
 		d := 100 * num("Created_tmp_disk_tables") / ctt
-		v.TmpDisk = &d
+		v.TmpDisk, v.TmpV = &d, d
 	}
 	v.OpenTables = thousands(num("Open_tables"))
 	v.TableOpenCache = jsonStr(vars, "table_open_cache")
@@ -714,18 +715,17 @@ func bytesText(n int64) string {
 	return strconv.FormatFloat(v, 'f', 0, 64) + " " + units[i]
 }
 
-// thousands mirrors number_format($n, 0) (groups of three).
+// thousands mirrors number_format($n, 0) (groups of three). The loop walks
+// the digits right-to-left, inserting a comma every three places; the previous
+// version re-inserted at the same index and never terminated for n >= 1000.
 func thousands(n float64) string {
 	neg := n < 0
-	i := int64(n)
-	if i < 0 {
-		i = -i
-	}
+	i := int64(math.Round(math.Abs(n))) // PHP rounds half away from zero
 	s := strconv.FormatInt(i, 10)
-	for len(s) > 3 {
-		s = s[:len(s)-3] + "," + s[len(s)-3:]
+	for pos := len(s) - 3; pos > 0; pos -= 3 {
+		s = s[:pos] + "," + s[pos:]
 	}
-	if neg {
+	if neg && i != 0 {
 		s = "-" + s
 	}
 	return s
@@ -734,10 +734,19 @@ func thousands(n float64) string {
 // decimals mirrors number_format($n, $d) (groups + d decimals).
 func decimals(n float64, d int) string {
 	s := strconv.FormatFloat(n, 'f', d, 64)
+	// Group the integer digits (after any sign) in threes, keep the decimals.
+	intPart, frac := s, ""
 	if i := strings.IndexByte(s, '.'); i >= 0 {
-		s = thousands(s[:i]) + s[i:]
+		intPart, frac = s[:i], s[i:]
 	}
-	return s
+	sign := ""
+	if strings.HasPrefix(intPart, "-") {
+		sign, intPart = "-", intPart[1:]
+	}
+	for i := len(intPart) - 3; i > 0; i -= 3 {
+		intPart = intPart[:i] + "," + intPart[i:]
+	}
+	return sign + intPart + frac
 }
 
 // cutText is PHP's mb_strimwidth($s, 0, $n, '…') for the ASCII case.

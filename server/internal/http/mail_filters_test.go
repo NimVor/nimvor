@@ -6,7 +6,6 @@ package http
 import (
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -29,7 +28,7 @@ func TestMailFiltersPage(t *testing.T) {
 		"Autoresponder",
 		"Out of office",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("filters page missing %q", want)
 		}
 	}
@@ -54,10 +53,10 @@ func TestMailFilterSave(t *testing.T) {
 		"actions[0][type]": {"fileinto"}, "actions[0][value]": {"boss"},
 	}, cookie)
 	body := mailFollow(t, h, rr, filtersPage)
-	if !strings.Contains(body, "Filter “Vacation” saved.") {
+	if !pageHas(body, "Filter “Vacation” saved.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
-	if !strings.Contains(body, "Vacation") || !strings.Contains(body, "To spam") {
+	if !pageHas(body, "Vacation") || !pageHas(body, "To spam") {
 		t.Fatalf("new filter not listed:\n%s", firstLines(body, 12))
 	}
 	// The agent stored both filters.
@@ -65,7 +64,7 @@ func TestMailFilterSave(t *testing.T) {
 		t.Fatalf("agent actions %v missing mail.filters_save", sa.called())
 	}
 	rr = get(t, h, filtersPage, cookie)
-	if !strings.Contains(rr.Body.String(), "From contains “boss@example.com”") {
+	if !pageHas(rr.Body.String(), "From contains “boss@example.com”") {
 		t.Fatalf("saved filter not listed:\n%s", firstLines(rr.Body.String(), 12))
 	}
 }
@@ -79,13 +78,13 @@ func TestMailFilterEdit(t *testing.T) {
 		"actions[0][type]": {"fileinto"}, "actions[0][value]": {"spam"},
 	}, cookie)
 	body := mailFollow(t, h, rr, filtersPage)
-	if !strings.Contains(body, "Filter “Renamed” saved.") {
+	if !pageHas(body, "Filter “Renamed” saved.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
-	if strings.Contains(body, "To spam") {
+	if pageHas(body, "To spam") {
 		t.Fatalf("edit replaced the filter, the old one must not remain:\n%s", firstLines(body, 12))
 	}
-	if !strings.Contains(body, "any condition matches") {
+	if !pageHas(body, "any condition matches") {
 		t.Fatalf("any-mode not stored")
 	}
 }
@@ -96,7 +95,7 @@ func TestMailFilterSaveValidation(t *testing.T) {
 	// Nothing at all: all three field messages, joined, on the redirect.
 	rr := postForm(h, filtersPage, url.Values{"_token": {token}}, cookie)
 	body := mailFollow(t, h, rr, filtersPage)
-	if !strings.Contains(body, "Name the filter. Add at least one condition. Add at least one action.") {
+	if !pageHas(body, "Name the filter. Add at least one condition. Add at least one action.") {
 		t.Fatalf("validation messages missing:\n%s", firstLines(body, 5))
 	}
 	// A name without a condition and without an action.
@@ -104,7 +103,7 @@ func TestMailFilterSaveValidation(t *testing.T) {
 		"_token": {token}, "name": {"Empty"},
 	}, cookie)
 	body = mailFollow(t, h, rr, filtersPage)
-	if !strings.Contains(body, "Add at least one condition. Add at least one action.") {
+	if !pageHas(body, "Add at least one condition. Add at least one action.") {
 		t.Fatalf("partial validation missing:\n%s", firstLines(body, 5))
 	}
 }
@@ -114,23 +113,23 @@ func TestMailFilterToggle(t *testing.T) {
 	token, cookie := pageToken(t, h, cookie, filtersPage)
 	rr := postForm(h, filtersPage+"/0/toggle", url.Values{"_token": {token}}, cookie)
 	body := mailFollow(t, h, rr, filtersPage)
-	if !strings.Contains(body, "Filter “To spam” disabled.") {
+	if !pageHas(body, "Filter “To spam” disabled.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	rr = get(t, h, filtersPage, cookie)
-	if !strings.Contains(rr.Body.String(), "text-body-secondary") || !strings.Contains(rr.Body.String(), ">off<") {
+	if !pageHas(rr.Body.String(), "text-body-secondary") || !pageHas(rr.Body.String(), ">off<") {
 		t.Fatalf("filter not shown disabled:\n%s", firstLines(rr.Body.String(), 12))
 	}
 	// Back on.
 	rr = postForm(h, filtersPage+"/0/toggle", url.Values{"_token": {token}}, cookie)
 	body = mailFollow(t, h, rr, filtersPage)
-	if !strings.Contains(body, "Filter “To spam” enabled.") {
+	if !pageHas(body, "Filter “To spam” enabled.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	// Toggling a filter that is gone.
 	rr = postForm(h, filtersPage+"/5/toggle", url.Values{"_token": {token}}, cookie)
 	body = mailFollow(t, h, rr, filtersPage)
-	if !strings.Contains(body, "The filter no longer exists.") {
+	if !pageHas(body, "The filter no longer exists.") {
 		t.Fatalf("missing index not caught:\n%s", firstLines(body, 5))
 	}
 }
@@ -140,11 +139,11 @@ func TestMailFilterDelete(t *testing.T) {
 	token, cookie := pageToken(t, h, cookie, filtersPage)
 	rr := postForm(h, filtersPage+"/0/delete", url.Values{"_token": {token}}, cookie)
 	body := mailFollow(t, h, rr, filtersPage)
-	if !strings.Contains(body, "Filter “To spam” deleted.") {
+	if !pageHas(body, "Filter “To spam” deleted.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	rr = get(t, h, filtersPage, cookie)
-	if !strings.Contains(rr.Body.String(), "No filters") {
+	if !pageHas(rr.Body.String(), "No filters") {
 		t.Fatalf("filter list not empty after delete:\n%s", firstLines(rr.Body.String(), 12))
 	}
 	if !containsAction(sa.called(), "mail.filters_save") {
@@ -160,13 +159,13 @@ func TestMailResponder(t *testing.T) {
 		"body": {"Back next week."}, "days": {"3"}, "start": {"2026-10-26"}, "end": {"2026-10-31"},
 	}, cookie)
 	body := mailFollow(t, h, rr, filtersPage)
-	if !strings.Contains(body, "Autoresponder on.") {
+	if !pageHas(body, "Autoresponder on.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	rr = get(t, h, filtersPage, cookie)
 	page := rr.Body.String()
 	for _, want := range []string{`name="subject" maxlength="200" value="Out of office"`, "Back next week.", `name="days" value="3"`} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Fatalf("responder not stored (missing %q)", want)
 		}
 	}
@@ -178,7 +177,7 @@ func TestMailResponder(t *testing.T) {
 		"_token": {token}, "enabled": {"0"}, "subject": {"Out of office"}, "body": {"Back next week."}, "days": {"3"},
 	}, cookie)
 	body = mailFollow(t, h, rr, filtersPage)
-	if !strings.Contains(body, "Autoresponder off.") {
+	if !pageHas(body, "Autoresponder off.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 }

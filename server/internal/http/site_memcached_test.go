@@ -13,7 +13,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
@@ -87,14 +86,14 @@ func TestSiteMemcachedPage(t *testing.T) {
 		"$m->addServer('127.0.0.1', 11211);",
 		"Memcached has no per-site separation",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
 	for _, banned := range []string{
 		"Memcached is not available", "not running", "Memcached state unknown",
 	} {
-		if strings.Contains(page, banned) {
+		if pageHas(page, banned) {
 			t.Errorf("page unexpectedly shows %q", banned)
 		}
 	}
@@ -113,7 +112,7 @@ func TestSiteMemcachedCustomPort(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("/sites/10/memcached = %d: %s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), "<code>11212</code>") {
+	if !pageHas(rr.Body.String(), "<code>11212</code>") {
 		t.Errorf("page lacks the custom port 11212")
 	}
 }
@@ -133,11 +132,11 @@ func TestSiteMemcachedNotInstalled(t *testing.T) {
 		"Memcached is not available on this server",
 		"Ask your administrator to enable Memcached",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
-	if strings.Contains(page, "Connect your application") {
+	if pageHas(page, "Connect your application") {
 		t.Errorf("connection card shown although not installed")
 	}
 }
@@ -153,7 +152,7 @@ func TestSiteMemcachedStopped(t *testing.T) {
 		t.Fatalf("/sites/10/memcached = %d: %s", rr.Code, rr.Body.String())
 	}
 	page := rr.Body.String()
-	if !strings.Contains(page, "Memcached is <strong>not running</strong>") || !strings.Contains(page, "text-bg-danger") {
+	if !pageHas(page, "Memcached is <strong>not running</strong>") || !pageHas(page, "text-bg-danger") {
 		t.Errorf("page lacks the stopped state: %s", rr.Body.String())
 	}
 }
@@ -173,11 +172,11 @@ func TestSiteMemcachedAgentDown(t *testing.T) {
 		"Memcached state unknown.",
 		"the agent refused",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
-	if strings.Contains(page, "Connect your application") {
+	if pageHas(page, "Connect your application") {
 		t.Errorf("connection card shown although the state is unknown")
 	}
 }

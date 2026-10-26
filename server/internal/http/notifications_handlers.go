@@ -96,7 +96,7 @@ func (s *Server) notificationsSummary(w http.ResponseWriter, r *http.Request) {
 			"severity": n.Severity,
 			"title":    n.Title,
 			"body":     body,
-			"ago":      timeAgo(n.CreatedAt),
+			"ago":      notificationAgo(n.CreatedAt),
 			"read":     n.IsRead,
 			"link":     link,
 			"where":    where,
@@ -138,11 +138,11 @@ func (s *Server) notificationsEmail(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/notifications", http.StatusSeeOther)
 }
 
-// timeAgo is a tiny English relative-time formatter for ISO-8601 created_at
+// notificationAgo is a tiny English relative-time formatter for ISO-8601 created_at
 // timestamps ("3 minutes ago", "2 hours ago"), matching the PHP time_ago()
 // helper used by the summary payload. Precise granularity is not required for
 // the UI; we stay in whole units.
-func timeAgo(ts string) string {
+func notificationAgo(ts string) string {
 	t, err := time.Parse(time.RFC3339, ts)
 	if err != nil {
 		return ""
@@ -176,26 +176,4 @@ func timeAgo(ts string) string {
 		}
 		return itoa(n) + " months ago"
 	}
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	buf := make([]byte, 0, 8)
-	for n > 0 {
-		buf = append(buf, byte('0'+n%10))
-		n /= 10
-	}
-	if neg {
-		buf = append(buf, '-')
-	}
-	for i, j := 0, len(buf)-1; i < j; i, j = i+1, j-1 {
-		buf[i], buf[j] = buf[j], buf[i]
-	}
-	return string(buf)
 }

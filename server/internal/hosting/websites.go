@@ -58,7 +58,11 @@ type Website struct {
 
 // bandwidthBlocked is UserRepository::BANDWIDTH_BLOCKED — the account (or its
 // reseller) is over its monthly bandwidth this month.
-const bandwidthBlockedExpr = `(u.bw_blocked_month = strftime('%Y-%m','now') OR EXISTS (SELECT 1 FROM users bp WHERE bp.id = u.parent_id AND bp.bw_blocked_month = strftime('%Y-%m','now')))`
+//
+// A website without an owner (the LEFT JOIN yields NULLs) is never blocked:
+// the comparison is NULL there, so it is coalesced to 0 (a bare NULL cannot be
+// scanned into the bool/int field and made every such site unreadable).
+const bandwidthBlockedExpr = `COALESCE(u.bw_blocked_month = strftime('%Y-%m','now') OR EXISTS (SELECT 1 FROM users bp WHERE bp.id = u.parent_id AND bp.bw_blocked_month = strftime('%Y-%m','now')), 0)`
 
 // websiteSelect lists the display columns plus the derived flags. It mirrors
 // the SELECT in WebsiteRepository::all/find.
@@ -82,15 +86,18 @@ func NewWebsiteRepository(db *sql.DB) *WebsiteRepository { return &WebsiteReposi
 func (r *WebsiteRepository) All(ctx context.Context, serverID int64, u *identity.User) ([]Website, error) {
 	cond, params := Condition(u, "w.owner_id")
 	args := append([]any{serverID}, params...)
+	// The full column set, like PHP's "SELECT w.*": callers such as the WordPress
+	// scan and the malware/IP pages need root, php_version and the like (the slim
+	// display select left them empty, so e.g. "scan all" saw no PHP website).
 	rows, err := r.db.QueryContext(ctx,
-		websiteSelect+" WHERE w.server_id = ? AND "+cond+" ORDER BY w.domain", args...)
+		fullSelect+" WHERE w.server_id = ? AND "+cond+" ORDER BY w.domain", args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var out []Website
 	for rows.Next() {
-		w, err := scanWebsite(rows)
+		w, err := scanFull(rows)
 		if err != nil {
 			return nil, err
 		}

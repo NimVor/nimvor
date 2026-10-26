@@ -85,7 +85,7 @@ func (s *Server) sslEnableRenewal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	method := ""
-	if m, _ := res.(map[string]any); m != nil {
+	if m := agentObject(res); m != nil {
 		if mm, _ := m["method"].(string); mm != "" {
 			method = mm
 		}
@@ -464,7 +464,7 @@ func (s *Server) sslSaveTls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	moved := 0
-	if m, _ := res.(map[string]any); m != nil {
+	if m := agentObject(res); m != nil {
 		if mv, ok := m["migrated_vhosts"].(float64); ok {
 			moved = int(mv)
 		}
@@ -795,7 +795,7 @@ func (s *Server) sslAutoSslRun(w http.ResponseWriter, r *http.Request) {
 		Action: "ssl.autossl_run", TargetType: "server", TargetID: "ssl",
 		Result: audit.Success, UserID: &uid, Username: user.Username,
 	})
-	if m, _ := res.(map[string]any); m != nil {
+	if m := agentObject(res); m != nil {
 		if issued, ok := m["issued"].(float64); ok && issued > 0 {
 			sess.Flash("success", "Issued "+strconv.Itoa(int(issued))+" certificate(s).")
 			http.Redirect(w, r, "/ssl/autossl", http.StatusSeeOther)

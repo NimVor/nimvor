@@ -145,7 +145,7 @@ func (s *DiskUsageService) Start(ctx context.Context, serverID, websiteID int64,
 // and prunes old finished scans (the five latest per folder are kept).
 // Mirrors DiskUsageService::refresh: a job that is gone (agent restarted)
 // is failed; anything else waits for the next view.
-func (s *DiskUsageService) Refresh(ctx context.Context, serverID, websiteID int64, agent AgentCaller) error {
+func (s *DiskUsageService) Refresh(ctx context.Context, serverID, websiteID int64, ag AgentCaller) error {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, job_id FROM disk_usage_scans WHERE website_id = ? AND server_id = ? AND status = 'running'`,
 		websiteID, serverID)
@@ -171,7 +171,7 @@ func (s *DiskUsageService) Refresh(ctx context.Context, serverID, websiteID int6
 	}
 	rows.Close()
 	for _, p := range todo {
-		res, err := agent.Call(ctx, "jobs.get", map[string]any{"id": p.jobID})
+		res, err := ag.Call(ctx, "jobs.get", map[string]any{"id": p.jobID})
 		if err != nil {
 			var ae *agent.Error
 			if errors.As(err, &ae) && ae.Code == "not_found" {

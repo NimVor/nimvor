@@ -32,7 +32,7 @@ func (s *Server) webauthnLoginOptions(w http.ResponseWriter, r *http.Request) {
 		writeWebAuthnErr(w, http.StatusUnauthorized, "Your sign-in expired. Enter your password again.")
 		return
 	}
-	origin, rpID := s.webauthnOrigin(r)
+	_, rpID := s.webauthnOrigin(r)
 	has, err := s.wa.Has(uid)
 	if err != nil {
 		s.log.Error("webauthn has-keys", "error", err)
@@ -116,13 +116,18 @@ func (s *Server) webauthnLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.auth.CompleteSecondFactor(r.Context(), sess, clientIP(r), "security_key", map[string]any{"key": name}); err != nil {
+	msg, err := s.auth.CompleteSecondFactor(r.Context(), sess, clientIP(r), "security_key", map[string]any{"key": name})
+	if err != nil {
 		s.log.Error("webauthn finish login", "error", err)
 		writeWebAuthnErr(w, http.StatusInternalServerError, "Internal error.")
 		return
 	}
-	// The panel also supports IP verification after 2FA; Go panel doesn't
-	// yet, so redirect to /.
+	if msg != "" {
+		// A refusal (expired pending sign-in, lockout, IP not verified, …):
+		// the session is NOT signed in, so never answer with a success redirect.
+		writeWebAuthnErr(w, http.StatusForbidden, msg)
+		return
+	}
 	writeWebAuthnOK(w, map[string]any{"redirect": "/"})
 }
 
@@ -136,7 +141,7 @@ func (s *Server) webauthnProfileOptions(w http.ResponseWriter, r *http.Request) 
 		writeWebAuthnErr(w, http.StatusUnauthorized, "You must be signed in.")
 		return
 	}
-	origin, rpID := s.webauthnOrigin(r)
+	_, rpID := s.webauthnOrigin(r)
 	rpName, err := s.settings.String(r.Context(), "panel_name", "WhaCP")
 	if err != nil {
 		s.log.Error("webauthn settings panel_name", "error", err)

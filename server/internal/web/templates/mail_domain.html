@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="{{.CSRF}}">
 <title>Email domain {{.Domain.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/assets/css/whacp.css">
 </head>
 <body class="whacp-app">
@@ -22,7 +24,7 @@
   <h1>Email domain <span class="font-monospace">{{.Domain.Domain}}</span></h1>
   {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
   {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
-  {{if .Secret.Password}}
+  {{if and .Secret .Secret.Password}}
   <div class="alert alert-warning" role="alert">
     <div class="fw-semibold mb-2"><i class="bi bi-key me-1"></i>{{.Secret.Title}} — copy the password now</div>
     <div class="row g-2 align-items-center small">
@@ -275,6 +277,7 @@
       {{end}}
     </div>
   </div>
+{{template "wcp_confirm_modal"}}
 </main>
 <script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="/assets/js/whacp.js"></script>

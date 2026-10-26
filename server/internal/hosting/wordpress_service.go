@@ -85,92 +85,129 @@ func NewWordPressService(db *sql.DB, ag AgentCaller, serverID int64, audit Audit
 	return &WordPressService{db: db, agent: ag, serverID: serverID, audit: audit}
 }
 
-// wpVersionCompare mirrors PHP's version_compare for the dotted versions
-// the toolkit compares (WordPress releases, PHP versions): numeric parts
-// compare numerically (a missing part is 0), and the release specials
-// order dev < pl < alpha < beta < rc < release.
+// wpVersionCompare is PHP's version_compare($a, $b) (-1, 0, 1), used for
+// WordPress and PHP versions. It is a direct port of php_version_compare so
+// every edge case (1.0 < 1.0.0, 1.0rc1 < 1.0 < 1.0pl1, ...) matches PHP —
+// the vulnerability-range check in wordpress_vulns.go depends on it.
 func wpVersionCompare(a, b string) int {
-	parts := func(s string) []string {
-		return strings.FieldsFunc(strings.ToLower(strings.TrimSpace(s)), func(r rune) bool {
-			return r == '.' || r == '-' || r == '+' || r == '_'
-		})
+	if a == "" && b == "" {
+		return 0
 	}
-	ra, rb := parts(a), parts(b)
-	for i := 0; i < len(ra) || i < len(rb); i++ {
-		x, y := "", ""
-		if i < len(ra) {
-			x = ra[i]
-		}
-		if i < len(rb) {
-			y = rb[i]
-		}
-		if x == "" && y == "" {
-			continue
-		}
-		if x == "" {
-			if _, err := strconv.Atoi(y); err == nil {
-				continue // a missing part is 0
+	if a == "" {
+		return -1
+	}
+	if b == "" {
+		return 1
+	}
+	return phpVersionCompareParts(canonVersion(a), canonVersion(b))
+}
+
+func isDigit(c byte) bool { return c >= '0' && c <= '9' }
+
+func isAlnum(c byte) bool {
+	return isDigit(c) || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
+// canonVersion is php_canonicalize_version: '-', '_' and '+' (and any other
+// non-alphanumeric) become '.', and a '.' is inserted wherever digits meet
+// non-digits ("1.0rc1" -> "1.0.rc.1").
+func canonVersion(v string) []string {
+	isNDig := func(c byte) bool { return !isDigit(c) && c != '.' }
+	out := []byte{v[0]}
+	lp := v[0]
+	for i := 1; i < len(v); i++ {
+		c := v[i]
+		lq := out[len(out)-1]
+		switch {
+		case c == '-' || c == '_' || c == '+':
+			if lq != '.' {
+				out = append(out, '.')
 			}
-			return 1 // release beats a special string
-		}
-		if y == "" {
-			if _, err := strconv.Atoi(x); err == nil {
-				continue
+		case (isNDig(lp) && isDigit(c)) || (isDigit(lp) && isNDig(c)):
+			if lq != '.' {
+				out = append(out, '.')
 			}
-			return -1
-		}
-		nx, ex := strconv.Atoi(x)
-		ny, ey := strconv.Atoi(y)
-		if !ex && !ey {
-			if nx != ny {
-				if nx < ny {
-					return -1
-				}
-				return 1
+			out = append(out, c)
+		case !isAlnum(c):
+			if lq != '.' {
+				out = append(out, '.')
 			}
-			continue
+		default:
+			out = append(out, c)
 		}
-		if ex && ey {
-			rx, ry := wpVersionRank(x), wpVersionRank(y)
-			if rx != ry {
-				if rx < ry {
-					return -1
-				}
-				return 1
-			}
-			return strings.Compare(x, y)
+		lp = c
+	}
+	return strings.Split(string(out), ".")
+}
+
+// specialForm orders the non-numeric parts like php's special_forms table;
+// "#" stands for a number. An unknown string sorts below everything (-6).
+func specialForm(s string) int {
+	for _, f := range []struct {
+		name string
+		rank int
+	}{
+		{"dev", 0}, {"alpha", 1}, {"a", 1}, {"beta", 2}, {"b", 2},
+		{"RC", 3}, {"rc", 3}, {"#", 4}, {"pl", 5}, {"p", 5},
+	} {
+		if strings.HasPrefix(s, f.name) { // strncmp(form, name, len(name))
+			return f.rank
 		}
-		// One side numeric, the other a string: PHP prepends "0" to the
-		// string and compares as text.
-		if ex {
-			if strings.Compare("0"+x, strconv.Itoa(ny)) < 0 {
-				return -1
-			}
-			return 1
-		}
-		if strings.Compare(strconv.Itoa(nx), "0"+y) < 0 {
-			return -1
-		}
+	}
+	return -6
+}
+
+func sign(n int) int {
+	switch {
+	case n < 0:
+		return -1
+	case n > 0:
 		return 1
 	}
 	return 0
 }
 
-func wpVersionRank(s string) int {
-	switch s {
-	case "dev":
-		return 0
-	case "pl":
-		return 1
-	case "alpha", "a":
-		return 2
-	case "beta", "b":
-		return 3
-	case "rc", "pr":
-		return 4
-	default:
-		return 5
+func partIsNum(p string) bool { return p != "" && isDigit(p[0]) }
+
+func phpVersionCompareParts(x, y []string) int {
+	i, cmp := 0, 0
+	for ; i < len(x) && i < len(y); i++ {
+		p1, p2 := x[i], y[i]
+		switch {
+		case partIsNum(p1) && partIsNum(p2):
+			n1, _ := strconv.ParseInt(p1, 10, 64)
+			n2, _ := strconv.ParseInt(p2, 10, 64)
+			switch {
+			case n1 < n2:
+				cmp = -1
+			case n1 > n2:
+				cmp = 1
+			}
+		case !partIsNum(p1) && !partIsNum(p2):
+			cmp = sign(specialForm(p1) - specialForm(p2))
+		case partIsNum(p1):
+			cmp = sign(specialForm("#") - specialForm(p2))
+		default:
+			cmp = sign(specialForm(p1) - specialForm("#"))
+		}
+		if cmp != 0 {
+			return cmp
+		}
 	}
+	// Equal so far: the version with parts left over decides.
+	if i < len(x) {
+		if partIsNum(x[i]) {
+			return 1
+		}
+		return phpVersionCompareParts(x[i:], []string{"#"})
+	}
+	if i < len(y) {
+		if partIsNum(y[i]) {
+			return -1
+		}
+		return phpVersionCompareParts([]string{"#"}, y[i:])
+	}
+	return 0
 }
 
 // WpBaseURL is the installation's address, from the website's own domain
@@ -708,7 +745,11 @@ func wpAsBool(v any) bool {
 // (danger|warning|info), title, detail, fix op or ”] (WordPressService::checks).
 func WordPressChecks(info *WordPressInfo, site *Website) []WordPressCheck {
 	c := []WordPressCheck{}
-	add := func(level, title, detail, fix string) {
+	add := func(level, title, detail string, fixOp ...string) {
+		fix := ""
+		if len(fixOp) > 0 {
+			fix = fixOp[0] // optional, PHP's $fix = ''
+		}
 		c = append(c, WordPressCheck{Level: level, Title: title, Detail: detail, Fix: fix})
 	}
 	if info.Core.Latest != "" && wpVersionCompare(info.Version, info.Core.Latest) < 0 {
@@ -729,7 +770,7 @@ func WordPressChecks(info *WordPressInfo, site *Website) []WordPressCheck {
 			pTitles = append(pTitles, p.Title)
 		}
 	}
-	if pTitles != nil {
+	if len(pTitles) > 0 {
 		add("warning", fmt.Sprintf("%d plugin update(s) available", len(pTitles)), strings.Join(pTitles, ", "), "plugin_update")
 	}
 	tTitles := []string{}
@@ -738,7 +779,7 @@ func WordPressChecks(info *WordPressInfo, site *Website) []WordPressCheck {
 			tTitles = append(tTitles, t.Title)
 		}
 	}
-	if tTitles != nil {
+	if len(tTitles) > 0 {
 		add("warning", fmt.Sprintf("%d theme update(s) available", len(tTitles)), strings.Join(tTitles, ", "), "theme_update")
 	}
 	if info.Constants.Debug {

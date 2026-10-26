@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/crypto"
@@ -99,8 +98,8 @@ func TestSiteBackupsScheduleStore(t *testing.T) {
 		t.Fatalf("GET after create = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "Schedule added.") || !strings.Contains(body, "Every day at 03:00") ||
-		!strings.Contains(body, "Add schedule") {
+	if !pageHas(body, "Schedule added.") || !pageHas(body, "Every day at 03:00") ||
+		!pageHas(body, "Add schedule") {
 		t.Errorf("page missing the schedule: %s", body)
 	}
 
@@ -131,10 +130,10 @@ func TestSiteBackupsScheduleStore(t *testing.T) {
 		t.Errorf("custom row = %s %02d wd=%d f=%d d=%d e=%d r=%d", freq2, hour2, weekday2, files2, dbs2, enc2, retention2)
 	}
 	rr = get(t, h, "/sites/10/backups", admin)
-	if !strings.Contains(rr.Body.String(), "Every Tuesday at 05:00") {
+	if !pageHas(rr.Body.String(), "Every Tuesday at 05:00") {
 		t.Error("page missing the weekly schedule line")
 	}
-	if !strings.Contains(rr.Body.String(), "not encrypted") {
+	if !pageHas(rr.Body.String(), "not encrypted") {
 		t.Error("page missing the unencrypted note")
 	}
 
@@ -166,7 +165,7 @@ func TestSiteBackupsScheduleStore(t *testing.T) {
 		t.Errorf("storage row = keep_local %d storage %d", keep3, storageID)
 	}
 	rr = get(t, h, "/sites/10/backups", admin)
-	if !strings.Contains(rr.Body.String(), "copy to Nightly") {
+	if !pageHas(rr.Body.String(), "copy to Nightly") {
 		t.Error("page missing the storage copy note")
 	}
 }
@@ -211,7 +210,7 @@ func TestSiteBackupsScheduleStoreValidation(t *testing.T) {
 				t.Fatalf("GET = %d", rr.Code)
 			}
 			body := rr.Body.String()
-			if !strings.Contains(body, tc.msg) {
+			if !pageHas(body, tc.msg) {
 				t.Errorf("missing %q in the re-shown form", tc.msg)
 			}
 		})
@@ -223,7 +222,7 @@ func TestSiteBackupsScheduleStoreValidation(t *testing.T) {
 		"include_files": {"1"}, "include_databases": {"1"}, "encrypt": {"1"},
 	})
 	rr = get(t, h, "/sites/10/backups", admin)
-	if !strings.Contains(rr.Body.String(), `value="30"`) || !strings.Contains(rr.Body.String(), "Choose an hour between 0 and 23.") {
+	if !pageHas(rr.Body.String(), `value="30"`) || !pageHas(rr.Body.String(), "Choose an hour between 0 and 23.") {
 		t.Error("old input not kept on the re-shown form")
 	}
 
@@ -235,7 +234,7 @@ func TestSiteBackupsScheduleStoreValidation(t *testing.T) {
 		"storage_id": {"2"},
 	})
 	rr = get(t, h, "/sites/10/backups", admin)
-	if !strings.Contains(rr.Body.String(), "Choose a storage that is turned on.") {
+	if !pageHas(rr.Body.String(), "Choose a storage that is turned on.") {
 		t.Error("missing the turned-off storage error")
 	}
 	rr = backupPost(t, h, admin, "/sites/10/backup-schedules", url.Values{
@@ -244,7 +243,7 @@ func TestSiteBackupsScheduleStoreValidation(t *testing.T) {
 		"storage_id": {"99"},
 	})
 	rr = get(t, h, "/sites/10/backups", admin)
-	if !strings.Contains(rr.Body.String(), "Choose a storage that is turned on.") {
+	if !pageHas(rr.Body.String(), "Choose a storage that is turned on.") {
 		t.Error("missing the unknown storage error")
 	}
 	var n int
@@ -269,7 +268,7 @@ func TestSiteBackupsScheduleStoreNonAdmin(t *testing.T) {
 		t.Fatalf("POST (bob) = %d", rr.Code)
 	}
 	rr = get(t, h, "/sites/10/backups", bob)
-	if !strings.Contains(rr.Body.String(), bannerAdmin) {
+	if !pageHas(rr.Body.String(), bannerAdmin) {
 		t.Error("missing the administrator notice flash")
 	}
 	var n int
@@ -312,19 +311,19 @@ func TestSiteBackupsScheduleDelete(t *testing.T) {
 		t.Error("schedule still stored")
 	}
 	rr = get(t, h, "/sites/10/backups", admin)
-	if !strings.Contains(rr.Body.String(), "Schedule removed. Existing backups are kept.") {
+	if !pageHas(rr.Body.String(), "Schedule removed. Existing backups are kept.") {
 		t.Error("missing the removal flash")
 	}
 
 	// Unknown and other-website schedules: "Schedule not found.", untouched.
 	rr = backupPost(t, h, admin, "/sites/10/backup-schedules/999/delete", url.Values{})
 	rr = get(t, h, "/sites/10/backups", admin)
-	if !strings.Contains(rr.Body.String(), "Schedule not found.") {
+	if !pageHas(rr.Body.String(), "Schedule not found.") {
 		t.Error("missing the not-found flash (unknown id)")
 	}
 	rr = backupPost(t, h, admin, fmt.Sprintf("/sites/10/backup-schedules/%d/delete", other), url.Values{})
 	rr = get(t, h, "/sites/10/backups", admin)
-	if !strings.Contains(rr.Body.String(), "Schedule not found.") {
+	if !pageHas(rr.Body.String(), "Schedule not found.") {
 		t.Error("missing the not-found flash (other website)")
 	}
 	if err := db.QueryRow(`SELECT COUNT(*) FROM backup_schedules WHERE id = ?`, other).Scan(&n); err != nil {
@@ -341,7 +340,7 @@ func TestSiteBackupsScheduleDelete(t *testing.T) {
 		t.Fatalf("POST delete (bob) = %d", rr.Code)
 	}
 	rr = get(t, h, "/sites/10/backups", bob)
-	if !strings.Contains(rr.Body.String(), bannerAdmin) {
+	if !pageHas(rr.Body.String(), bannerAdmin) {
 		t.Error("missing the administrator notice flash")
 	}
 	if err := db.QueryRow(`SELECT COUNT(*) FROM backup_schedules WHERE id = ?`, other).Scan(&n); err != nil {

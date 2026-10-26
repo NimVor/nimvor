@@ -98,9 +98,7 @@ func pageToken(t *testing.T, h http.Handler, cookie *http.Cookie, path string) (
 	if m == nil {
 		t.Fatalf("no CSRF token on %s", path)
 	}
-	if cs := rr.Result().Cookies(); len(cs) > 0 {
-		cookie = cs[0]
-	}
+	cookie = refreshCookie(cookie, rr)
 	return m[1], cookie
 }
 
@@ -137,7 +135,7 @@ func TestImportPreviewAndDetail(t *testing.T) {
 		"www.old.test", "Let's Encrypt", "160 days",
 		"php /var/www/old/cron/daily.php",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("detail missing %q", want)
 		}
 	}
@@ -154,11 +152,11 @@ func TestImportPreviewAndDetail(t *testing.T) {
 		"server { # whacp }", "server { root /var/www/old; }",
 		"No owner (administrators)", "bob", // the owner select (admin)
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("preview missing %q", want)
 		}
 	}
-	if strings.Contains(body, "cannot run yet") {
+	if pageHas(body, "cannot run yet") {
 		t.Error("a clean preview must not be blocked")
 	}
 
@@ -195,11 +193,11 @@ func TestImportBlockedPreviewCannotRun(t *testing.T) {
 	rr := get(t, h, "/websites/abc123/import", cookie)
 	body := rr.Body.String()
 	for _, want := range []string{"cannot run yet", "The source directory /var/www/old is not readable."} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("blocked preview missing %q:\\n%s", want, body)
 		}
 	}
-	if !strings.Contains(body, "disabled") {
+	if !pageHas(body, "disabled") {
 		t.Error("the import button must be disabled for a blocked preview")
 	}
 
@@ -220,7 +218,7 @@ func TestImportBlockedPreviewCannotRun(t *testing.T) {
 		}
 	}
 	rr = get(t, h, "/websites/abc123/import", cookie)
-	if !strings.Contains(rr.Body.String(), "The import is blocked.") {
+	if !pageHas(rr.Body.String(), "The import is blocked.") {
 		t.Error("blocked flash missing")
 	}
 	if rowCount(t, db, `SELECT COUNT(*) FROM websites`) != 1 {
@@ -288,7 +286,7 @@ func TestImportRunRefreshSuccessAndUndo(t *testing.T) {
 	rr = get(t, h, "/sites/"+strconv.FormatInt(id, 10), cookie)
 	body := rr.Body.String()
 	for _, want := range []string{"Importing from /var/www/old", "Import started."} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("hub (running) missing %q:\\n%s", want, body)
 		}
 	}
@@ -302,7 +300,7 @@ func TestImportRunRefreshSuccessAndUndo(t *testing.T) {
 	rr = get(t, h, "/sites/"+strconv.FormatInt(id, 10), cookie)
 	body = rr.Body.String()
 	for _, want := range []string{"Imported from /var/www/old", "Undo import"} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("hub (done) missing %q:\\n%s", want, body)
 		}
 	}
@@ -383,7 +381,7 @@ func TestImportRunFailedCleansUp(t *testing.T) {
 		t.Fatalf("hub after failed import = %d loc %q, want 303 /websites", rr.Code, rr.Header().Get("Location"))
 	}
 	rr = get(t, h, "/websites", cookie)
-	if !strings.Contains(rr.Body.String(), "The import of old.test failed") {
+	if !pageHas(rr.Body.String(), "The import of old.test failed") {
 		t.Errorf("failed-import flash missing:\\n%s", rr.Body.String())
 	}
 	if rowCount(t, db, `SELECT COUNT(*) FROM websites`) != 1 {
@@ -414,7 +412,7 @@ func TestImportForbiddenForCustomer(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("customer detail = %d", rr.Code)
 	}
-	if strings.Contains(rr.Body.String(), "Import into WhaCP") {
+	if pageHas(rr.Body.String(), "Import into WhaCP") {
 		t.Error("a customer without import.run must not see the import action")
 	}
 	// The import routes are 403.
@@ -442,24 +440,24 @@ func TestWebsitesIndexOtherWebsites(t *testing.T) {
 		"Other websites on this server (read-only)", "old.test", "www.old.test",
 		"Import", "/websites/abc123/import", "1 catch-all",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("index missing %q", want)
 		}
 	}
-	if !strings.Contains(body, "bob.example") {
+	if !pageHas(body, "bob.example") {
 		t.Error("the managed website must still be listed")
 	}
-	if strings.Contains(body, "managed.test") {
+	if pageHas(body, "managed.test") {
 		t.Error("a WhaCP-managed website must not appear under the other websites")
 	}
 
 	// A customer without import.run sees the section but no Import links.
 	h2, c2, _, _ := importEnv(t, "bob")
 	body = get(t, h2, "/websites", c2).Body.String()
-	if !strings.Contains(body, "Other websites on this server (read-only)") || !strings.Contains(body, "old.test") {
+	if !pageHas(body, "Other websites on this server (read-only)") || !pageHas(body, "old.test") {
 		t.Error("the customer must still see the other websites")
 	}
-	if strings.Contains(body, `/websites/abc123/import`) {
+	if pageHas(body, `/websites/abc123/import`) {
 		t.Error("the customer without import.run must not see Import links")
 	}
 }
@@ -470,7 +468,7 @@ func TestWebsiteShowUnknownDoesNotLeak(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("numeric (managed) id on the discovery page = %d, want 404", rr.Code)
 	}
-	if strings.Contains(rr.Body.String(), "bob.example") {
+	if pageHas(rr.Body.String(), "bob.example") {
 		t.Fatal("TENANT LEAK on the discovery detail page")
 	}
 }
@@ -482,14 +480,14 @@ func TestWebsiteShowAgentDown(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("agent-down detail = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "The agent is not running.") {
+	if !pageHas(rr.Body.String(), "The agent is not running.") {
 		t.Error("the agent error must be shown")
 	}
 	rr = get(t, h, "/websites", cookie)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("agent-down index = %d", rr.Code)
 	}
-	if strings.Contains(rr.Body.String(), "Other websites on this server") {
+	if pageHas(rr.Body.String(), "Other websites on this server") {
 		t.Error("without an agent the other-websites section must be absent")
 	}
 }

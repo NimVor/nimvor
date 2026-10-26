@@ -71,6 +71,7 @@ func get(t *testing.T, h http.Handler, path string, cookie *http.Cookie) *httpte
 	}
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
+	adoptCookie(cookie, rr)
 	return rr
 }
 

@@ -78,12 +78,12 @@ func (s *Server) nginxIndex(w http.ResponseWriter, r *http.Request) {
 
 func nginxDefaultTuning() map[string]any {
 	return map[string]any{
-		"ClientMaxBodyMB":  128,
-		"KeepaliveTimeout": 65,
+		"ClientMaxBodyMB":   128,
+		"KeepaliveTimeout":  65,
 		"ClientBodyTimeout": 60,
-		"SendTimeout":      60,
-		"Gzip":             false,
-		"HideVersion":      false,
+		"SendTimeout":       60,
+		"Gzip":              false,
+		"HideVersion":       false,
 	}
 }
 
@@ -112,7 +112,7 @@ func (s *Server) nginxTest(w http.ResponseWriter, r *http.Request) {
 	}
 	ok := false
 	output := ""
-	if m, _ := raw.(map[string]any); m != nil {
+	if m := agentObject(raw); m != nil {
 		ok, _ = m["ok"].(bool)
 		if o, _ := m["output"].(string); o != "" {
 			output = o

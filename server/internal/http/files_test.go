@@ -107,6 +107,7 @@ func postMultipart(t *testing.T, h http.Handler, path string, fields map[string]
 	}
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
+	adoptCookie(cookie, rr)
 	return rr
 }
 
@@ -128,7 +129,7 @@ func TestFilesShowPage(t *testing.T) {
 		"after 30 days they are deleted automatically",
 		"File manager",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("manager page missing %q", want)
 		}
 	}
@@ -141,13 +142,13 @@ func TestFilesShowStartPath(t *testing.T) {
 	h, _, _ := filesEnv(t)
 	bob := loginAsUser(t, h, "bob")
 
-	if rr := get(t, h, "/sites/10/files?path=app", bob); rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `data-start="app"`) {
+	if rr := get(t, h, "/sites/10/files?path=app", bob); rr.Code != http.StatusOK || !pageHas(rr.Body.String(), `data-start="app"`) {
 		t.Errorf("?path=app must open the manager in app/ (got %d)", rr.Code)
 	}
 	// A traversal (or unprintable) start point is ignored, not followed.
 	for _, bad := range []string{"../etc", "a/../b"} {
 		rr := get(t, h, "/sites/10/files?path="+bad, bob)
-		if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `data-start="public_html"`) {
+		if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), `data-start="public_html"`) {
 			t.Errorf("?path=%s must fall back to the document root (got %d)", bad, rr.Code)
 		}
 	}
@@ -179,7 +180,7 @@ func TestFilesEditPage(t *testing.T) {
 		`data-download="/sites/10/files/download?path=app/config.php"`,
 		"bob.example/app/config.php",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("editor page missing %q", want)
 		}
 	}

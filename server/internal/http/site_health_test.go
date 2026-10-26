@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"encoding/base64"
@@ -107,12 +106,12 @@ func TestSiteSecurityPage(t *testing.T) {
 		"3 item(s) need attention",
 		"You can fix this",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
 	// No certificate line without HTTPS, and no provider-side badge.
-	if strings.Contains(body, "Certificate") || strings.Contains(body, "Ask your provider") {
+	if pageHas(body, "Certificate") || pageHas(body, "Ask your provider") {
 		t.Errorf("page has an unexpected check:\n%s", body)
 	}
 	// Carol (viewer) sees her own site's page.
@@ -123,10 +122,10 @@ func TestSiteSecurityPage(t *testing.T) {
 	// …and her page is clean except for HTTPS being off and the missing
 	// scan (fresh PHP, no certificate).
 	body = get(t, h, "/sites/20/security", carol).Body.String()
-	if strings.Contains(body, "no longer gets security updates") {
+	if pageHas(body, "no longer gets security updates") {
 		t.Errorf("PHP 8.3 flagged as old:\n%s", body)
 	}
-	if !strings.Contains(body, "2 item(s) need attention") {
+	if !pageHas(body, "2 item(s) need attention") {
 		t.Errorf("carol page infobar wrong:\n%s", body)
 	}
 }
@@ -153,7 +152,7 @@ func TestSiteSecurityHTTPSStates(t *testing.T) {
 		"Certificate is valid",
 		"Valid for 129 more day(s).",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -163,28 +162,28 @@ func TestSiteSecurityHTTPSStates(t *testing.T) {
 		t.Fatal(err)
 	}
 	body = get(t, h, "/sites/10/security", bob).Body.String()
-	if !strings.Contains(body, "HTTPS is on and enforced") {
+	if !pageHas(body, "HTTPS is on and enforced") {
 		t.Errorf("forced HTTPS not reported:\n%s", body)
 	}
 
 	// Expiring certificate (10 days): a warning.
 	sa.sslInspectJSON = `{"dns_names":["bob.example"],"issuer":"R3, Let's Encrypt","not_after":"2026-11-05T00:00:00Z","days_remaining":10,"expired":false}`
 	body = get(t, h, "/sites/10/security", bob).Body.String()
-	if !strings.Contains(body, "Your certificate expires soon") || !strings.Contains(body, "It is valid for 10 more day(s).") {
+	if !pageHas(body, "Your certificate expires soon") || !pageHas(body, "It is valid for 10 more day(s).") {
 		t.Errorf("expiring cert not flagged:\n%s", body)
 	}
 
 	// Critically expiring (2 days): a bad check.
 	sa.sslInspectJSON = `{"dns_names":["bob.example"],"issuer":"R3, Let's Encrypt","not_after":"2026-10-28T00:00:00Z","days_remaining":2,"expired":false}`
 	body = get(t, h, "/sites/10/security", bob).Body.String()
-	if !strings.Contains(body, "It is valid for 2 more day(s).") {
+	if !pageHas(body, "It is valid for 2 more day(s).") {
 		t.Errorf("critical cert not flagged:\n%s", body)
 	}
 
 	// Expired (-30 days): a bad check with the day count clamped at zero.
 	sa.sslInspectJSON = `{"dns_names":["bob.example"],"issuer":"R3, Let's Encrypt","not_after":"2026-09-23T00:00:00Z","days_remaining":-30,"expired":true}`
 	body = get(t, h, "/sites/10/security", bob).Body.String()
-	if !strings.Contains(body, "It is valid for 0 more day(s).") {
+	if !pageHas(body, "It is valid for 0 more day(s).") {
 		t.Errorf("expired cert not flagged:\n%s", body)
 	}
 
@@ -193,7 +192,7 @@ func TestSiteSecurityHTTPSStates(t *testing.T) {
 		t.Fatal(err)
 	}
 	body = get(t, h, "/sites/10/security", bob).Body.String()
-	if strings.Contains(body, "Certificate is valid") || strings.Contains(body, "expires soon") {
+	if pageHas(body, "Certificate is valid") || pageHas(body, "expires soon") {
 		t.Errorf("certificate line without a cert file:\n%s", body)
 	}
 }
@@ -206,14 +205,14 @@ func TestSiteSecurityMalware(t *testing.T) {
 
 	healthScan(t, db, 10, 2)
 	body := get(t, h, "/sites/10/security", bob).Body.String()
-	if !strings.Contains(body, "Malware was found in your files") || !strings.Contains(body, "2 infected file(s) in the last scan.") {
+	if !pageHas(body, "Malware was found in your files") || !pageHas(body, "2 infected file(s) in the last scan.") {
 		t.Errorf("infected scan not flagged:\n%s", body)
 	}
 
 	// A clean scan clears it.
 	healthScan(t, db, 10, 0)
 	body = get(t, h, "/sites/10/security", bob).Body.String()
-	if !strings.Contains(body, "No malware found") {
+	if !pageHas(body, "No malware found") {
 		t.Errorf("clean scan not reported:\n%s", body)
 	}
 }
@@ -229,7 +228,7 @@ func TestSiteHealthPage(t *testing.T) {
 		"No successful backup yet",
 		"1 item(s) need attention",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -237,7 +236,7 @@ func TestSiteHealthPage(t *testing.T) {
 	// A failed backup does not count.
 	healthBackup(t, db, 10, "failed", "2026-10-19T12:00:00Z")
 	body = get(t, h, "/sites/10/health", bob).Body.String()
-	if !strings.Contains(body, "No successful backup yet") {
+	if !pageHas(body, "No successful backup yet") {
 		t.Errorf("failed backup counted:\n%s", body)
 	}
 
@@ -249,7 +248,7 @@ func TestSiteHealthPage(t *testing.T) {
 		"Last backup: 2026-10-20T12:00:00Z",
 		"Everything here looks good.",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -268,11 +267,11 @@ func TestSiteHealthDisabled(t *testing.T) {
 		"Your website is turned off",
 		"Ask your provider",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
-	if !strings.Contains(body, "2 item(s) need attention") {
+	if !pageHas(body, "2 item(s) need attention") {
 		t.Errorf("infobar count wrong:\n%s", body)
 	}
 }
@@ -288,7 +287,7 @@ func TestSiteSecurityNotFound(t *testing.T) {
 		if rr.Code != http.StatusNotFound {
 			t.Fatalf("GET %s (carol) = %d, want 404", path, rr.Code)
 		}
-		if !strings.Contains(rr.Body.String(), "This website does not exist or you do not have access to it.") {
+		if !pageHas(rr.Body.String(), "This website does not exist or you do not have access to it.") {
 			t.Errorf("GET %s 404 page missing message", path)
 		}
 	}

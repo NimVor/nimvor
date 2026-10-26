@@ -292,10 +292,11 @@ func (r *WebsiteRepository) UpdateFields(ctx context.Context, id int64, fields m
 	if len(cols) == 0 {
 		return nil
 	}
-	args = append(args, id)
+	// Placeholder order: the field values, updated_at, then the id.
+	args = append(args, time.Now().UTC().Format(time.RFC3339), id)
 	_, err := r.db.ExecContext(ctx,
 		"UPDATE websites SET "+strings.Join(cols, ", ")+", updated_at = ? WHERE id = ?",
-		append(args, time.Now().UTC().Format(time.RFC3339))...)
+		args...)
 	return err
 }
 

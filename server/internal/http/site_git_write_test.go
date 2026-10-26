@@ -148,13 +148,13 @@ func TestGitPageConnect(t *testing.T) {
 		t.Fatalf("/sites/10/git = %d: %s", rr.Code, rr.Body.String())
 	}
 	page := rr.Body.String()
-	if !strings.Contains(page, "Connect a repository") {
+	if !pageHas(page, "Connect a repository") {
 		t.Error("unconnected page missing the connect heading")
 	}
-	if strings.Contains(page, "id=\"deploy-summary\"") {
+	if pageHas(page, "id=\"deploy-summary\"") {
 		t.Error("unconnected page must not show the deployment summary")
 	}
-	if !strings.Contains(page, "Deploy key") {
+	if !pageHas(page, "Deploy key") {
 		// The key/webhook cards are hidden until connected.
 		t.Log("note: deploy key card hidden (expected when unconnected)")
 	}
@@ -183,7 +183,7 @@ func TestGitPageConnected(t *testing.T) {
 		"No deployments yet.",
 		"composer install --no-dev",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -213,10 +213,10 @@ func TestGitPageKeyError(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("/sites/10/git = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "The deploy key could not be created: ssh-keygen is not installed") {
+	if !pageHas(rr.Body.String(), "The deploy key could not be created: ssh-keygen is not installed") {
 		t.Error("page missing the key error")
 	}
-	if strings.Contains(rr.Body.String(), "manual only") == false {
+	if pageHas(rr.Body.String(), "manual only") == false {
 		t.Error("auto_deploy=0 should show 'manual only'")
 	}
 }
@@ -325,7 +325,7 @@ func TestGitConfigureValidation(t *testing.T) {
 		"At most 20 commands.",
 		`value="http://bad..repo"`,
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("re-render missing %q", want)
 		}
 	}
@@ -362,7 +362,7 @@ func TestGitDeploy(t *testing.T) {
 		"Job " + gitTestJob + " started in the background",
 		"running",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page after deploy missing %q", want)
 		}
 	}
@@ -465,10 +465,10 @@ func TestGitRemove(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET after remove = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Repository disconnected. The deployed files were left in place.") {
+	if !pageHas(rr.Body.String(), "Repository disconnected. The deployed files were left in place.") {
 		t.Error("missing the remove flash")
 	}
-	if !strings.Contains(rr.Body.String(), "Connect a repository") {
+	if !pageHas(rr.Body.String(), "Connect a repository") {
 		t.Error("page after remove must show the connect form")
 	}
 	var n int
@@ -505,7 +505,7 @@ func TestGitHistoryRefresh(t *testing.T) {
 		"succeeded",
 		"unknown",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("history page missing %q", want)
 		}
 	}

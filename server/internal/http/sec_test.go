@@ -104,12 +104,12 @@ func TestSecurityOverview(t *testing.T) {
 		"Fork bomb protection is disabled.",
 		"Traceroute is enabled for every user.",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
 	// The passing firewall check shows no "Open" link (non-pass only).
-	if strings.Contains(body, `href="/security/firewall"`) {
+	if pageHas(body, `href="/security/firewall"`) {
 		t.Error("a passing check must not offer an Open link")
 	}
 	// The sorting: status (fail, warn, pass, info) then title.
@@ -135,7 +135,7 @@ func TestSecurityOverviewCustomer(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{"Safety rating", "45 / 100", `href="/security/ssh"`} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -143,7 +143,7 @@ func TestSecurityOverviewCustomer(t *testing.T) {
 		"Remove anonymous users", "Apply recommended settings",
 		"Forget the files marked as known", "Audit log",
 	} {
-		if strings.Contains(body, not) {
+		if pageHas(body, not) {
 			t.Errorf("a view-only customer must not see %q", not)
 		}
 	}
@@ -158,11 +158,11 @@ func TestSecurityOverviewAgentDown(t *testing.T) {
 		t.Fatalf("GET = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "the socket is closed") {
+	if !pageHas(body, "the socket is closed") {
 		t.Error("the agent error is not shown")
 	}
 	for _, not := range []string{"Safety rating", "Last login information"} {
-		if strings.Contains(body, not) {
+		if pageHas(body, not) {
 			t.Errorf("the agent-down page must not show %q", not)
 		}
 	}
@@ -177,10 +177,10 @@ func TestSecurityOverviewProtectionOff(t *testing.T) {
 		t.Fatalf("GET = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "SSH brute-force protection is off") || !strings.Contains(body, "Set up protection") {
+	if !pageHas(body, "SSH brute-force protection is off") || !pageHas(body, "Set up protection") {
 		t.Error("the protection-off note is missing")
 	}
-	if strings.Contains(body, "protection (fail2ban) is on") {
+	if pageHas(body, "protection (fail2ban) is on") {
 		t.Error("the protection-on note must not show")
 	}
 }
@@ -195,7 +195,7 @@ func TestSecurityOverviewPending(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{"Unconfirmed change", "SSH settings changed", `name="return_to" value="/security"`} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("pending banner missing %q", want)
 		}
 	}

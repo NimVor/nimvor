@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -59,10 +58,10 @@ func notifyEnv(t *testing.T, loginAs string) http.Handler {
 func TestNotificationsScopedToRecipient(t *testing.T) {
 	h := notifyEnv(t, "custA")
 	body := get(t, h, "/notifications", nil).Body.String()
-	if !strings.Contains(body, "Cert for A") || !strings.Contains(body, "Backup for A") {
+	if !pageHas(body, "Cert for A") || !pageHas(body, "Backup for A") {
 		t.Fatalf("custA missing own notifications:\n%s", body)
 	}
-	if strings.Contains(body, "Cert for B") {
+	if pageHas(body, "Cert for B") {
 		t.Fatalf("TENANT LEAK: custA saw another tenant's notification:\n%s", body)
 	}
 }
@@ -71,7 +70,7 @@ func TestNotificationsAdminSeesAll(t *testing.T) {
 	h := notifyEnv(t, "admin")
 	body := get(t, h, "/notifications", nil).Body.String()
 	for _, n := range []string{"Cert for A", "Backup for A", "Cert for B"} {
-		if !strings.Contains(body, n) {
+		if !pageHas(body, n) {
 			t.Fatalf("admin missing notification %q", n)
 		}
 	}
@@ -95,7 +94,7 @@ func TestNotificationsMarkAllReadScoped(t *testing.T) {
 	}
 	// After marking read, the customer's own items render without the unread class.
 	body := get(t, h, "/notifications", nil).Body.String()
-	if strings.Contains(body, "is-unread") {
+	if pageHas(body, "is-unread") {
 		t.Fatalf("notifications still unread after mark-all-read:\n%s", body)
 	}
 }

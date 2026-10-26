@@ -48,9 +48,9 @@ win_11 120
 macos_15 40
 END_OS
 BEGIN_DOMAIN
-us 100
-de 50
-ip 20
+us 10 100 5000
+de 5 50 2500
+ip 2 20 900
 END_DOMAIN
 BEGIN_ERRORS
 404_not_found 5
@@ -114,7 +114,7 @@ func TestParseFixture(t *testing.T) {
 
 func TestParseEmptyAndMalformed(t *testing.T) {
 	r := Parse("")
-	if len(r.Days) != 0 || r.Visits != 0 || r.PagesTop != nil {
+	if len(r.Days) != 0 || r.Visits != 0 || len(r.PagesTop) != 0 {
 		t.Errorf("empty input = %#v", r)
 	}
 	// A section without END_ swallows the rest (as in PHP); rows before

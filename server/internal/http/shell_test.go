@@ -100,7 +100,7 @@ func TestShellPage(t *testing.T) {
 		"On (1 key, password)", "<span class=\"text-body-secondary\">Off</span>",
 		"Apply to all accounts", "data-wcp-confirm-word=\"all\"", "Set</button>",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -115,7 +115,7 @@ func TestShellPageAgentDown(t *testing.T) {
 		t.Fatalf("GET = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "the socket is closed") || strings.Contains(body, "Website accounts") {
+	if !pageHas(body, "the socket is closed") || pageHas(body, "Website accounts") {
 		t.Errorf("agent-down page wrong: %s", body[:min(300, len(body))])
 	}
 }
@@ -133,7 +133,7 @@ func TestShellPagePendingBanner(t *testing.T) {
 		"Unconfirmed change:", "Firewall enabled", `data-wcp-countdown="2026-01-01T12:03:00Z"`,
 		"/security/confirm", "/security/undo", "Keep change", "Undo now",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}

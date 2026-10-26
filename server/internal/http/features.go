@@ -20,13 +20,13 @@ func (s *Server) featuresIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := map[string]any{
-		"CSRF":     session.CSRFToken(sess),
-		"User":     user,
-		"Title":    "Feature lists",
-		"Lists":    nil,
+		"CSRF":      session.CSRFToken(sess),
+		"User":      user,
+		"Title":     "Feature lists",
+		"Lists":     nil,
 		"Catalogue": featureCatalogue(),
-		"Success":  "",
-		"Error":    "",
+		"Success":   "",
+		"Error":     "",
 	}
 	if sf, ok := sess.PullFlash("success"); ok {
 		data["Success"] = sf
@@ -80,7 +80,7 @@ func (s *Server) featuresStore(w http.ResponseWriter, r *http.Request) {
 		Action: "feature_list.save", TargetType: "feature_list",
 		TargetID: strconv.FormatInt(saved, 10), Result: audit.Success,
 		Details: map[string]any{"name": name, "features": enabled},
-		UserID: &uid, Username: user.Username,
+		UserID:  &uid, Username: user.Username,
 	})
 	sess.Flash("success", "Feature list saved. It applies to the plans using it immediately.")
 	http.Redirect(w, r, "/features", http.StatusSeeOther)
@@ -119,7 +119,7 @@ func (s *Server) featuresDestroy(w http.ResponseWriter, r *http.Request) {
 		Action: "feature_list.delete", TargetType: "feature_list",
 		TargetID: strconv.FormatInt(id, 10), Result: audit.Success,
 		Details: map[string]any{"name": name},
-		UserID: &uid, Username: user.Username,
+		UserID:  &uid, Username: user.Username,
 	})
 	sess.Flash("success", "Feature list \u201C"+name+"\u201D removed; plans that used it now have every feature.")
 	http.Redirect(w, r, "/features", http.StatusSeeOther)

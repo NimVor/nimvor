@@ -35,7 +35,7 @@ func (s *Server) mailInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	job := ""
-	if m, _ := res.(map[string]any); m != nil {
+	if m := agentObject(res); m != nil {
 		if j, _ := m["job_id"].(string); j != "" {
 			job = j
 		}
@@ -82,7 +82,7 @@ func (s *Server) mailSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	notes := []string{}
-	if m, _ := res.(map[string]any); m != nil {
+	if m := agentObject(res); m != nil {
 		if arr, _ := m["notes"].([]any); arr != nil {
 			for _, n := range arr {
 				if s, ok := n.(string); ok {
@@ -126,7 +126,7 @@ func (s *Server) mailInstallSpam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	job := ""
-	if m, _ := res.(map[string]any); m != nil {
+	if m := agentObject(res); m != nil {
 		if j, _ := m["job_id"].(string); j != "" {
 			job = j
 		}
@@ -212,7 +212,7 @@ func (s *Server) mailInstallWebmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	job := ""
-	if m, _ := res.(map[string]any); m != nil {
+	if m := agentObject(res); m != nil {
 		if j, _ := m["job_id"].(string); j != "" {
 			job = j
 		}
@@ -270,7 +270,7 @@ func (s *Server) mailWebmail(w http.ResponseWriter, r *http.Request) {
 	if enabled {
 		url := ""
 		notes := []string{}
-		if m, _ := res.(map[string]any); m != nil {
+		if m := agentObject(res); m != nil {
 			if u, _ := m["url"].(string); u != "" {
 				url = u
 			}

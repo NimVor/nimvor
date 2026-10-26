@@ -6,6 +6,16 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed (Go migration audit)
+- The Go panel at the migration HEAD did not compile and, once built, panicked
+  at start-up (duplicate/ambiguous routes). It now builds, vets, starts and passes a
+  real-binary smoke/E2E run. 38 further defects found by the audit are fixed,
+  among them: website updates that silently did nothing, 2FA sign-ins that were
+  invalidated on the next request, nine single-DB-connection deadlocks (DNS edits,
+  IP pages, account termination, policy save), mail/DNS validators and form-key
+  parsing, dead confirm-gated buttons, unstyled pages, and a replayable
+  terminal-unlock lockout. See `docs/audits/GO_MIGRATION_FINAL_AUDIT.md`.
+
 ### Fixed
 - **MongoDB was unreachable from the customer panel.** A website's customer
   dashboard is a fixed tile grid, and it had no MongoDB tile (only MySQL), so

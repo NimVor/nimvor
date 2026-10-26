@@ -149,6 +149,14 @@ func TestUserRepositoryWrites(t *testing.T) {
 		t.Fatal("EmailExists with exceptID = true")
 	}
 
+	// Foreign keys are enforced: the reseller (parent) and the plan must exist.
+	if _, err := db.Exec(`INSERT INTO users (id,username,email,password_hash,role_id,is_active,password_changed_at,created_at,updated_at)
+		VALUES (7,'reseller','reseller@example.test','HASH',1,1,'','','')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO plans (id,name,created_at,updated_at) VALUES (11,'Starter','','')`); err != nil {
+		t.Fatal(err)
+	}
 	parent, plan := int64(7), int64(11)
 	if err := repo.SetOwnership(ctx, id, &parent, &plan); err != nil {
 		t.Fatal(err)

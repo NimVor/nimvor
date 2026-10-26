@@ -131,7 +131,7 @@ func TestDatabasesPageShowsUsersAndGrants(t *testing.T) {
 	admin := loginAsUser(t, h, "admin")
 	body := get(t, h, "/databases", admin).Body.String()
 	for _, want := range []string{"a_main", "b_main", "c_main", "bob_db", "alice_db", "All privileges", "This server"} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("admin page missing %q:\\n%s", want, body)
 		}
 	}
@@ -192,11 +192,11 @@ func TestDBUserCreateFlashesSecretAndAudits(t *testing.T) {
 	page := get(t, h, "/databases", admin).Body.String()
 	pw := agentParam(t, sa, "db.user_create", "password").(string)
 	for _, want := range []string{"Database user created", "copy the password now", "newuser", pw} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) && !pageHas(page, htmlTextEscape(want)) {
 			t.Errorf("secret flash missing %q in:\\n%s", want, page)
 		}
 	}
-	if acts := sa.called(); len(acts) != 1 || acts[0] != "db.user_create" {
+	if acts := sa.writes(); len(acts) != 1 || acts[0] != "db.user_create" {
 		t.Fatalf("agent actions = %v", acts)
 	}
 	if sa.param(0, "user") != "newuser" || sa.param(0, "host") != "%" {
@@ -230,8 +230,8 @@ func TestDBUserCreateValidationErrors(t *testing.T) {
 	rr = postForm(h, "/database-users", url.Values{"_token": {token}, "username": {"okname"}, "host_choice": {"ip"}, "host_ip": {"999.1.1.1"}}, bob)
 	bob = refreshCookie(bob, rr)
 	flashAt(t, h, bob, "/databases", "Enter an IP address (e.g. 203.0.113.5) or a network with % (e.g. 203.0.113.%).")
-	if len(sa.called()) != 0 {
-		t.Fatalf("agent called on validation failure: %v", sa.called())
+	if len(sa.writes()) != 0 {
+		t.Fatalf("agent called on validation failure: %v", sa.writes())
 	}
 	var n int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM database_users`).Scan(&n); err != nil || n != 2 {
@@ -249,7 +249,7 @@ func TestDBUserCreatePrefixedForCustomer(t *testing.T) {
 	}
 	bob = refreshCookie(bob, rr)
 	page := get(t, h, "/databases", bob).Body.String()
-	if !strings.Contains(page, "Database user created") || !strings.Contains(page, "bob_appuser") {
+	if !pageHas(page, "Database user created") || !pageHas(page, "bob_appuser") {
 		t.Fatalf("prefixed secret flash missing:\\n%s", page)
 	}
 	if sa.param(0, "user") != "bob_appuser" {
@@ -261,7 +261,7 @@ func TestDBUserCreatePrefixedForCustomer(t *testing.T) {
 	if err := db.QueryRow(`SELECT password_enc, owner_id FROM database_users WHERE username = 'bob_appuser'`).Scan(&enc, &owner); err != nil || enc != "" || !owner.Valid || owner.Int64 != 2 {
 		t.Fatalf("row = enc %q owner %v err %v", enc, owner, err)
 	}
-	if !strings.Contains(page, "Not stored") {
+	if !pageHas(page, "Not stored") {
 		t.Fatalf("user table missing 'Not stored':\\n%s", page)
 	}
 }
@@ -279,13 +279,13 @@ func TestDBUserRemoteHostsSettingOff(t *testing.T) {
 	rr = postForm(h, "/database-users", url.Values{"_token": {token}, "username": {"r2"}, "host_choice": {"ip"}, "host_ip": {"203.0.113.5"}}, bob)
 	bob = refreshCookie(bob, rr)
 	flashAt(t, h, bob, "/databases", "Database users may connect from this server only (your hosting provider's setting).")
-	if len(sa.called()) != 0 {
-		t.Fatalf("agent called despite the setting: %v", sa.called())
+	if len(sa.writes()) != 0 {
+		t.Fatalf("agent called despite the setting: %v", sa.writes())
 	}
 	// The form itself hides the host choice for this customer (a hidden
 	// localhost input only; no "any host" option, no per-user remote form).
 	body := get(t, h, "/databases", bob).Body.String()
-	if strings.Contains(body, "Any host (%)") || strings.Contains(body, `/database-users/30/hosts`) {
+	if pageHas(body, "Any host (%)") || pageHas(body, `/database-users/30/hosts`) {
 		t.Fatalf("customer with remote hosts disabled sees host options:\\n%s", body)
 	}
 }
@@ -316,7 +316,7 @@ func TestDBUserPasswordReset(t *testing.T) {
 	bob = refreshCookie(bob, rr)
 	page := get(t, h, "/databases", bob).Body.String()
 	pw, _ := agentParam(t, sa, "db.user_password", "password").(string)
-	if !strings.Contains(page, "New password") || !strings.Contains(page, "bob_db") || !strings.Contains(page, pw) {
+	if !pageHas(page, "New password") || !pageHas(page, "bob_db") || !pageHas(page, htmlTextEscape(pw)) {
 		t.Fatalf("reset flash missing:\\n%s", page)
 	}
 	if sa.param(0, "user") != "bob_db" || sa.param(0, "host") != "localhost" {
@@ -350,7 +350,7 @@ func TestDBUserRevealStoredAndMissing(t *testing.T) {
 	rr = postForm(h, "/database-users/30/reveal", url.Values{"_token": {token}}, bob)
 	bob = refreshCookie(bob, rr)
 	page := get(t, h, "/databases", bob).Body.String()
-	if !strings.Contains(page, "Stored password") || !strings.Contains(page, newPw) {
+	if !pageHas(page, "Stored password") || !pageHas(page, newPw) {
 		t.Fatalf("reveal flash missing:\\n%s", page)
 	}
 	// The reveal is audited (target_type database_user).
@@ -377,7 +377,7 @@ func TestDBUserDelete(t *testing.T) {
 	}
 	bob = refreshCookie(bob, rr)
 	flashAt(t, h, bob, "/databases", "Database user removed.")
-	if acts := sa.called(); len(acts) == 0 || acts[len(acts)-1] != "db.user_drop" {
+	if acts := sa.writes(); len(acts) == 0 || acts[len(acts)-1] != "db.user_drop" {
 		t.Fatalf("agent actions = %v", acts)
 	}
 	var n int
@@ -458,8 +458,8 @@ func TestDBUserAddHost(t *testing.T) {
 	bob = refreshCookie(bob, rr)
 	page := get(t, h, "/databases", bob).Body.String()
 	pw, _ := agentParam(t, sa, "db.user_create", "password").(string)
-	for _, want := range []string{"Remote access added: bob_db from 203.0.113.5", pw} {
-		if !strings.Contains(page, want) {
+	for _, want := range []string{"Remote access added: bob_db from 203.0.113.5", htmlTextEscape(pw)} {
+		if !pageHas(page, want) {
 			t.Errorf("add-host flash missing %q in:\\n%s", want, page)
 		}
 	}

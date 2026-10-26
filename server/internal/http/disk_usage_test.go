@@ -73,7 +73,7 @@ func TestDiskUsageShowUnmeasured(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{"Not measured yet", "including the domain's mailboxes", "Measure</button>", "/sites/10/disk-usage/scan"} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -94,7 +94,7 @@ func TestDiskUsageShowBadPathIgnored(t *testing.T) {
 	body := rr.Body.String()
 	// The bad path is dropped: the root folder (with the mailboxes note) is
 	// shown and no crumb for the escape.
-	if !strings.Contains(body, "including the domain's mailboxes") || strings.Contains(body, "etc") {
+	if !pageHas(body, "including the domain's mailboxes") || pageHas(body, "etc") {
 		t.Errorf("bad ?path= was not ignored: %s", body[:min(200, len(body))])
 	}
 }
@@ -161,7 +161,7 @@ func TestDiskUsageShowFinishedScan(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{"Measured", "Total", "13.0 MB", "77%", "Email (mailboxes)", "Files in this folder", "Measure again", `path=public_html`} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -170,7 +170,8 @@ func TestDiskUsageShowFinishedScan(t *testing.T) {
 		t.Errorf("default sort is not by size")
 	}
 	// ?sort=name sorts by folder name (ascending).
-	if rr2 := get(t, h, "/sites/10/disk-usage?sort=name", bob); rr2.Code != http.StatusOK {
+	rr2 := get(t, h, "/sites/10/disk-usage?sort=name", bob)
+	if rr2.Code != http.StatusOK {
 		t.Fatalf("GET ?sort=name = %d", rr2.Code)
 	}
 	b2 := rr2.Body.String()
@@ -178,10 +179,12 @@ func TestDiskUsageShowFinishedScan(t *testing.T) {
 		t.Errorf("name sort is not ascending")
 	}
 	// ?sort=files sorts by file count (descending): public_html (42) first.
-	if rr3 := get(t, h, "/sites/10/disk-usage?sort=files", bob); rr3.Code != http.StatusOK {
+	rr3 := get(t, h, "/sites/10/disk-usage?sort=files", bob)
+	if rr3.Code != http.StatusOK {
 		t.Fatalf("GET ?sort=files = %d", rr3.Code)
 	}
-	if i, j := strings.Index(rr3.Body.String(), "path=public_html"); i < 0 || i > strings.Index(rr3.Body.String(), "path=app\"") {
+	b3 := rr3.Body.String()
+	if i, j := strings.Index(b3, "path=public_html"), strings.Index(b3, "path=app\""); i < 0 || i > j {
 		t.Errorf("files sort is not descending")
 	}
 }
@@ -204,7 +207,7 @@ func TestDiskUsageRefreshSettlesSucceeded(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{`path=app"`, "Total", "Measured"} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -225,7 +228,7 @@ func TestDiskUsageRefreshSettlesNotFound(t *testing.T) {
 	if status != "failed" || !strings.Contains(errMsg, "interrupted") {
 		t.Errorf("settled = %s, %s", status, errMsg)
 	}
-	if !strings.Contains(rr.Body.String(), "The measurement failed:") {
+	if !pageHas(rr.Body.String(), "The measurement failed:") {
 		t.Errorf("page missing the failure alert")
 	}
 }

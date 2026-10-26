@@ -131,7 +131,7 @@ func TestSiteCronPage(t *testing.T) {
 		"/sites/10/cron/1/delete",
 		"Jobs run as <code>u_bob</code> from <code>/home/whacp/bob.example</code>",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -145,11 +145,11 @@ func TestSiteCronPageReadOnly(t *testing.T) {
 		t.Fatalf("/sites/20/cron = %d: %s", rr.Code, rr.Body.String())
 	}
 	page := rr.Body.String()
-	if !strings.Contains(page, "No cron jobs yet") {
+	if !pageHas(page, "No cron jobs yet") {
 		t.Error("viewer page missing the empty state")
 	}
 	for _, banned := range []string{"Add cron job", `name="command"`, "/cron/", "data-wcp-confirm"} {
-		if strings.Contains(page, banned) {
+		if pageHas(page, banned) {
 			t.Errorf("read-only page shows %q", banned)
 		}
 	}
@@ -234,7 +234,7 @@ func TestSiteCronAddValidation(t *testing.T) {
 		"Enter the command on a single line",
 		`name="description" value="x"`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("re-render missing %q", want)
 		}
 	}
@@ -258,7 +258,7 @@ func TestSiteCronEdit(t *testing.T) {
 		t.Fatalf("edit page = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, `name="job_id" value="1"`) || !strings.Contains(body, `value="/usr/bin/php backup.php"`) {
+	if !pageHas(body, `name="job_id" value="1"`) || !pageHas(body, `value="/usr/bin/php backup.php"`) {
 		t.Errorf("edit form not pre-filled:\n%s", body)
 	}
 	token, cookie := siteFormToken(t, h, bob, "/sites/10/cron?edit=1")
@@ -396,7 +396,7 @@ func TestSiteCronRun(t *testing.T) {
 		t.Fatalf("cron page after run = %d: %s", rr.Code, rr.Body.String())
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "Command started.") || !strings.Contains(body, "0123456789c0a001") {
+	if !pageHas(body, "Command started.") || !pageHas(body, "0123456789c0a001") {
 		t.Errorf("page after run missing the flash or the job banner:\n%s", body)
 	}
 	p := agentParam(t, sa, "cron.run", "command")
@@ -446,7 +446,7 @@ func TestSiteCronLog(t *testing.T) {
 		`/sites/10/cron/1/run`,
 		"All cron jobs",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("log page missing %q", want)
 		}
 	}
@@ -465,7 +465,7 @@ func TestSiteCronLogAgentError(t *testing.T) {
 		t.Fatalf("log = %d: %s", rr.Code, rr.Body.String())
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "the log could not be opened") || !strings.Contains(body, "No runs recorded yet") {
+	if !pageHas(body, "the log could not be opened") || !pageHas(body, "No runs recorded yet") {
 		t.Errorf("agent-error log page wrong:\n%s", body)
 	}
 }
@@ -503,7 +503,7 @@ func TestSiteCronForeignSite(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("viewer on a foreign site = %d, want 404", rr.Code)
 	}
-	if strings.Contains(rr.Body.String(), "backup.php") {
+	if pageHas(rr.Body.String(), "backup.php") {
 		t.Fatal("TENANT LEAK: viewer saw another site's cron job")
 	}
 	bob := loginAsUser(t, h, "bob")

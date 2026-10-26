@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 
@@ -227,11 +226,11 @@ func TestLogsPage(t *testing.T) {
 		`data-tail="/logs/tail"`,
 		`data-download="/logs/download"`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("page missing %q", want)
 		}
 	}
-	if strings.Contains(body, "alice") || strings.Contains(body, "journal:whacp-worker-alice-app") {
+	if pageHas(body, "alice") || pageHas(body, "journal:whacp-worker-alice-app") {
 		t.Fatal("the page listed another tenant's worker")
 	}
 }
@@ -247,10 +246,10 @@ func TestLogsPageAgentError(t *testing.T) {
 		t.Fatalf("GET /sites/10/logs (agent down) = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "The server could not list the logs:") || !strings.Contains(body, "the agent is down") {
+	if !pageHas(body, "The server could not list the logs:") || !pageHas(body, "the agent is down") {
 		t.Fatalf("agent error alert missing: %s", body)
 	}
-	if !strings.Contains(body, "journal:whacp-worker-bob-app.service") {
+	if !pageHas(body, "journal:whacp-worker-bob-app.service") {
 		t.Fatal("worker entries missing despite the agent failure")
 	}
 }
@@ -286,7 +285,7 @@ func TestLogsTailAuthorization(t *testing.T) {
 	}
 	// The refusal answers JSON the viewer can display.
 	rr := get(t, h, "/logs/tail?source=nginx:access", bob)
-	if !strings.Contains(rr.Body.String(), `"You may not read this log."`) {
+	if !pageHas(rr.Body.String(), `"You may not read this log."`) {
 		t.Fatalf("403 body = %s", rr.Body.String())
 	}
 }
@@ -317,13 +316,13 @@ func TestLogsTailParams(t *testing.T) {
 	}
 	// A successful tail passes the agent's data through.
 	rr := get(t, h, "/logs/tail?source="+src, bob)
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `{"success":true,"data":{"lines":["l1","l2"]`) {
+	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), `{"success":true,"data":{"lines":["l1","l2"]`) {
 		t.Fatalf("tail = %d %s", rr.Code, rr.Body.String())
 	}
 	// An agent failure is a 502 with the agent's message.
 	la.failActions = map[string]string{"logs.tail": "the journal could not be read"}
 	rr = get(t, h, "/logs/tail?source="+src, bob)
-	if rr.Code != http.StatusBadGateway || !strings.Contains(rr.Body.String(), "the journal could not be read") {
+	if rr.Code != http.StatusBadGateway || !pageHas(rr.Body.String(), "the journal could not be read") {
 		t.Fatalf("agent-failure tail = %d %s", rr.Code, rr.Body.String())
 	}
 }
@@ -336,21 +335,21 @@ func TestLogsPanelTail(t *testing.T) {
 	bob := loginAs(t, h, "bob")
 
 	rr := get(t, h, "/logs/tail?source=panel", admin)
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"lines":["alpha","beta","alpha line"]`) {
+	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), `"lines":["alpha","beta","alpha line"]`) {
 		t.Fatalf("panel tail = %d %s", rr.Code, rr.Body.String())
 	}
 	rr = get(t, h, "/logs/tail?source=panel&filter=ALPHA", admin)
-	if !strings.Contains(rr.Body.String(), `"lines":["alpha","alpha line"]`) {
+	if !pageHas(rr.Body.String(), `"lines":["alpha","alpha line"]`) {
 		t.Fatalf("panel filter = %s", rr.Body.String())
 	}
 	rr = get(t, h, "/logs/tail?source=panel&lines=2", admin)
-	if !strings.Contains(rr.Body.String(), `"lines":["beta","alpha line"]`) {
+	if !pageHas(rr.Body.String(), `"lines":["beta","alpha line"]`) {
 		t.Fatalf("panel lines=2 = %s", rr.Body.String())
 	}
 	// follow from 0: everything, and the new offset.
 	rr = get(t, h, "/logs/tail?source=panel&follow=1&offset=0", admin)
 	body := rr.Body.String()
-	if !strings.Contains(body, `"lines":["alpha","beta","alpha line"]`) || !strings.Contains(body, `"offset":22`) {
+	if !pageHas(body, `"lines":["alpha","beta","alpha line"]`) || !pageHas(body, `"offset":22`) {
 		t.Fatalf("panel follow = %s", body)
 	}
 	// Bob cannot read it (asserted again on the tail endpoint).
@@ -406,7 +405,7 @@ func TestLogsIndexRequiresStaff(t *testing.T) {
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("GET /logs (customer) = %d, want 403", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Server logs are only available to administrators.") {
+	if !pageHas(rr.Body.String(), "Server logs are only available to administrators.") {
 		t.Fatalf("403 page = %s", rr.Body.String())
 	}
 }
@@ -445,12 +444,12 @@ func TestLogsIndexPage(t *testing.T) {
 		`/logs?view=whacp`,
 		"Web server, PHP, database, system and WhaCP logs",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("page missing %q", want)
 		}
 	}
 	// The per-site sources are not on the global list.
-	if strings.Contains(body, "bob.example") {
+	if pageHas(body, "bob.example") {
 		t.Fatal("the global list leaked per-site sources")
 	}
 }
@@ -464,31 +463,31 @@ func TestLogsIndexCategoryFilter(t *testing.T) {
 		t.Fatalf("GET /logs?view=web = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, `<h1>Web server logs</h1>`) {
+	if !pageHas(body, `<h1>Web server logs</h1>`) {
 		t.Fatalf("category title missing: %s", body)
 	}
 	for _, want := range []string{`value="nginx:access"`, `value="nginx:error"`} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("web view missing %q", want)
 		}
 	}
 	for _, not := range []string{`value="php:8.3.1"`, `value="panel"`, `value="journal:redis.service"`} {
-		if strings.Contains(body, not) {
+		if pageHas(body, not) {
 			t.Fatalf("web view leaked %q", not)
 		}
 	}
 	// The whacp category holds the agent journal and the panel log.
 	rr = get(t, h, "/logs?view=whacp", admin)
 	body = rr.Body.String()
-	if !strings.Contains(body, `value="journal:whacp-agent.service"`) || !strings.Contains(body, `value="panel"`) {
+	if !pageHas(body, `value="journal:whacp-agent.service"`) || !pageHas(body, `value="panel"`) {
 		t.Fatalf("whacp view incomplete: %s", body)
 	}
-	if !strings.Contains(body, `<h1>WhaCP logs</h1>`) {
+	if !pageHas(body, `<h1>WhaCP logs</h1>`) {
 		t.Fatal("whacp title missing")
 	}
 	// An unknown view does not filter (PHP: isset check).
 	rr = get(t, h, "/logs?view=bogus", admin)
-	if !strings.Contains(rr.Body.String(), `value="nginx:access"`) || !strings.Contains(rr.Body.String(), `value="panel"`) {
+	if !pageHas(rr.Body.String(), `value="nginx:access"`) || !pageHas(rr.Body.String(), `value="panel"`) {
 		t.Fatal("bogus view filtered the list")
 	}
 }
@@ -503,10 +502,10 @@ func TestLogsIndexAgentError(t *testing.T) {
 		t.Fatalf("GET /logs (agent down) = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "The server could not list the logs:") || !strings.Contains(body, "the agent is down") {
+	if !pageHas(body, "The server could not list the logs:") || !pageHas(body, "the agent is down") {
 		t.Fatalf("agent error alert missing: %s", body)
 	}
-	if !strings.Contains(body, `value="panel"`) {
+	if !pageHas(body, `value="panel"`) {
 		t.Fatal("the panel log is missing despite the agent failure")
 	}
 }

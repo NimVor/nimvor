@@ -505,7 +505,9 @@ func extractAuthDataFromAttestation(b []byte) ([]byte, error) {
 // CoseToKey converts a COSE public-key map to the stored form: PEM for
 // ES256/RS256 or "ed25519:<b64>" for Ed25519.
 func CoseToKey(k map[any]any) (string, error) {
-	i64 := func(key any) (int64, bool) {
+	// The CBOR decoder yields int64 map keys, so look the labels up as int64
+	// (an untyped constant would box as int and never match).
+	i64 := func(key int64) (int64, bool) {
 		v, ok := k[key]
 		if !ok {
 			return 0, false
@@ -520,7 +522,7 @@ func CoseToKey(k map[any]any) (string, error) {
 		}
 		return 0, false
 	}
-	bytes := func(key any) ([]byte, bool) {
+	bytes := func(key int64) ([]byte, bool) {
 		v, ok := k[key]
 		if !ok {
 			return nil, false

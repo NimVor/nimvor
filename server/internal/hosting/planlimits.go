@@ -74,10 +74,7 @@ func (p *PlanLimits) assertCanCreate(ctx context.Context, resource string, owner
 		if !ok || limit <= 0 {
 			continue
 		}
-		var (
-			used int
-			err  error
-		)
+		var used int // err is already declared by planLimit's results above
 		if counter != nil {
 			used, err = counter(owners)
 		} else {

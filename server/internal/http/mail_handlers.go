@@ -130,7 +130,7 @@ func (s *Server) mailDomainStore(w http.ResponseWriter, r *http.Request) {
 func (s *Server) mailDomainShow(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
 	repo := hosting.NewMailRepository(s.db)
-	domain, err := repo.Domain(r.Context(), s.currentServerID(r), pathID(r), user)
+	domain, err := repo.Domain(r.Context(), s.currentServerID(r), pathIDOrZero(r), user)
 	if err != nil {
 		s.log.Error("show mail domain", "error", err)
 		s.showNotFound(w)

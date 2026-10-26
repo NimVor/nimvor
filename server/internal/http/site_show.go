@@ -212,7 +212,7 @@ func (s *Server) siteAdvanced(w http.ResponseWriter, r *http.Request) {
 		"ConfigMissing":  inspect != nil && !inspect.ConfigExists,
 		"KindLabel":      showKindLabel(site.Kind),
 		"Disk":           showDisk(inspect),
-		"LastAppliedAgo": timeAgo(site.AppliedAt.String()),
+		"LastAppliedAgo": timeAgo(site.AppliedAt.String),
 		"Jobs":           jobRows,
 		"OwnerName":      site.OwnerName.String,
 		"IPPool":         s.advancedIPPool(r, user, site),

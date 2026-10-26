@@ -80,7 +80,7 @@ func TestForgotPasswordFlow(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET /password/forgot = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), `action="/password/forgot"`) {
+	if !pageHas(rr.Body.String(), `action="/password/forgot"`) {
 		t.Fatalf("forgot form missing:\n%s", rr.Body.String())
 	}
 	m := csrfRe.FindStringSubmatch(rr.Body.String())
@@ -122,7 +122,7 @@ func TestForgotPasswordFlow(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("GET bad token = %d, want 404", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "expired or was already used") {
+	if !pageHas(rr.Body.String(), "expired or was already used") {
 		t.Fatalf("bad-token page missing the explanation:\n%s", rr.Body.String())
 	}
 
@@ -131,7 +131,7 @@ func TestForgotPasswordFlow(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET valid token = %d, want 200:\n%s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), `action="/password/reset/`+token+`"`) {
+	if !pageHas(rr.Body.String(), `action="/password/reset/`+token+`"`) {
 		t.Fatalf("reset form missing:\n%s", rr.Body.String())
 	}
 	m2 := csrfRe.FindStringSubmatch(rr.Body.String())
@@ -149,7 +149,7 @@ func TestForgotPasswordFlow(t *testing.T) {
 	}
 	cookie = nextCookie(t, rr, cookie)
 	rr = getWith(t, h, "/password/reset/"+token, cookie)
-	if !strings.Contains(rr.Body.String(), "The passwords do not match.") {
+	if !pageHas(rr.Body.String(), "The passwords do not match.") {
 		t.Fatalf("flashed error not shown:\n%s", rr.Body.String())
 	}
 	cookie = nextCookie(t, rr, cookie)
@@ -180,10 +180,10 @@ func TestForgotPasswordUnavailable(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET /password/forgot = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Password reset by email is not set up on this panel") {
+	if !pageHas(rr.Body.String(), "Password reset by email is not set up on this panel") {
 		t.Fatalf("unavailable notice missing:\n%s", rr.Body.String())
 	}
-	if strings.Contains(rr.Body.String(), `action="/password/forgot"`) {
+	if pageHas(rr.Body.String(), `action="/password/forgot"`) {
 		t.Fatalf("form rendered although the feature is unavailable:\n%s", rr.Body.String())
 	}
 }

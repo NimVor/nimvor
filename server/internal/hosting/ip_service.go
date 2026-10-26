@@ -147,22 +147,30 @@ func (s *IpService) Pool(ctx context.Context) ([]IPAddress, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	// SQLite pool of one connection: close the cursor before the per-address
+	// lookups below, or they wait forever for the connection it holds.
 	out := []IPAddress{}
 	for rows.Next() {
 		var r IPAddress
 		if err := rows.Scan(&r.ID, &r.Address, &r.Family, &r.Kind, &r.Reserved, &r.Reason); err != nil {
+			rows.Close()
 			return nil, err
-		}
-		r.Sites = []IpSite{}
-		if s, err := s.sitesUsing(ctx, r.Address); err != nil {
-			return nil, err
-		} else {
-			r.Sites = s
 		}
 		out = append(out, r)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	for i := range out {
+		sites, err := s.sitesUsing(ctx, out[i].Address)
+		if err != nil {
+			return nil, err
+		}
+		out[i].Sites = sites
+	}
+	return out, nil
 }
 
 // PoolForSite is the pool the advanced page offers for one website

@@ -150,12 +150,12 @@ func TestMongoIndexDatabases(t *testing.T) {
 		"/mongo/backups/delete",
 		"/mongo/browser",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
 	// Only the databases section is loaded, so no users table yet.
-	if strings.Contains(page, "u_bob_ro") {
+	if pageHas(page, "u_bob_ro") {
 		t.Error("the users of the databases tab should not be listed")
 	}
 }
@@ -169,7 +169,7 @@ func TestMongoIndexUsersSection(t *testing.T) {
 	}
 	page := rr.Body.String()
 	for _, want := range []string{"u_bob_ro", "dbOwner", "/mongo/users", "/mongo/users/password", "/mongo/users/drop"} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("users section missing %q", want)
 		}
 	}
@@ -182,7 +182,7 @@ func TestMongoIndexInvalidSectionFallsBack(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET /mongo?section=nonsense = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "/mongo/databases") {
+	if !pageHas(rr.Body.String(), "/mongo/databases") {
 		t.Error("an unknown section should fall back to the databases tab")
 	}
 }
@@ -197,7 +197,7 @@ func TestMongoIndexNotInstalled(t *testing.T) {
 	}
 	page := rr.Body.String()
 	for _, want := range []string{"MongoDB is not installed on this server.", "/mongo/repository", "/mongo/install"} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("install card missing %q", want)
 		}
 	}
@@ -212,10 +212,10 @@ func TestMongoIndexServiceDown(t *testing.T) {
 		t.Fatalf("GET /mongo = %d", rr.Code)
 	}
 	page := rr.Body.String()
-	if !strings.Contains(page, "MongoDB is installed but the service is not running.") {
+	if !pageHas(page, "MongoDB is installed but the service is not running.") {
 		t.Error("a stopped service should be reported")
 	}
-	if !strings.Contains(page, "/mongo/service") || !strings.Contains(page, `value="start"`) {
+	if !pageHas(page, "/mongo/service") || !pageHas(page, `value="start"`) {
 		t.Error("a stopped service should offer a start button")
 	}
 }
@@ -232,7 +232,7 @@ func TestMongoIndexConfigSection(t *testing.T) {
 		"/etc/mongod.conf", "/mongo/config", "/mongo/config-file",
 		"/mongo/admin-password", "/mongo/auth", "net:", "127.0.0.1",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("config section missing %q", want)
 		}
 	}
@@ -245,7 +245,7 @@ func TestMongoIndexLogSection(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET /mongo?section=log = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "waiting for connections") {
+	if !pageHas(rr.Body.String(), "waiting for connections") {
 		t.Error("the log section should show the log tail")
 	}
 }
@@ -384,10 +384,10 @@ func TestMongoPageHidesManagementForViewer(t *testing.T) {
 		t.Fatalf("GET /mongo as a viewer = %d", rr.Code)
 	}
 	page := rr.Body.String()
-	if strings.Contains(page, "/mongo/databases/drop") {
+	if pageHas(page, "/mongo/databases/drop") {
 		t.Error("a viewer must not be offered the drop form")
 	}
-	if !strings.Contains(page, "u_bob_shop") {
+	if !pageHas(page, "u_bob_shop") {
 		t.Error("a viewer can still read the database list")
 	}
 }
@@ -409,7 +409,7 @@ func TestMongoNoteSavedAndRead(t *testing.T) {
 		t.Errorf("stored note = %s, want the JSON string", raw)
 	}
 	page := get(t, h, "/mongo", admin).Body.String()
-	if !strings.Contains(page, "the shop&#39;s catalogue") {
+	if !pageHas(page, "the shop&#39;s catalogue") {
 		t.Error("the saved note should be rendered on the databases tab")
 	}
 }
@@ -441,7 +441,7 @@ func TestMongoBrowseReadAllowedForViewer(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("POST /mongo/browse (documents) = %d: %s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), `"success":true`) {
+	if !pageHas(rr.Body.String(), `"success":true`) {
 		t.Errorf("body = %s", rr.Body.String())
 	}
 }
@@ -469,7 +469,7 @@ func TestMongoBrowseUnknownOp(t *testing.T) {
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("unknown op = %d, want 400", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Unknown operation.") {
+	if !pageHas(rr.Body.String(), "Unknown operation.") {
 		t.Errorf("body = %s", rr.Body.String())
 	}
 }
@@ -487,7 +487,7 @@ func TestMongoBrowseAdminWrite(t *testing.T) {
 	if !mongoActionRan(sa, "mongo.collection_empty") {
 		t.Error("the collection was not emptied")
 	}
-	if !strings.Contains(rr.Body.String(), `"deleted":12`) {
+	if !pageHas(rr.Body.String(), `"deleted":12`) {
 		t.Errorf("body = %s", rr.Body.String())
 	}
 }
@@ -506,7 +506,7 @@ func TestMongoBrowserPage(t *testing.T) {
 		`href="/mongo"`,
 		"other_app", // the administrator's list is not prefix-filtered
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("browser page missing %q", want)
 		}
 	}
@@ -561,11 +561,11 @@ func TestMongoRemoteAddAndDelete(t *testing.T) {
 	// The page lists it, without the password.
 	page := get(t, h, "/mongo?section=remotes", admin).Body.String()
 	for _, want := range []string{"backup host", "10.0.0.9:27018", "reader"} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("remotes section missing %q", want)
 		}
 	}
-	if strings.Contains(page, "rem0te-pass") {
+	if pageHas(page, "rem0te-pass") {
 		t.Error("the password must never reach the browser")
 	}
 
@@ -603,7 +603,7 @@ func TestMongoRemoteValidation(t *testing.T) {
 		t.Error("an invalid host must not be stored")
 	}
 	page := get(t, h, "/mongo?section=remotes", admin).Body.String()
-	if !strings.Contains(page, "Enter a valid host name or IP address.") {
+	if !pageHas(page, "Enter a valid host name or IP address.") {
 		t.Error("the validation message should be flashed")
 	}
 }
@@ -620,7 +620,7 @@ func TestMongoRemoteTestAndPull(t *testing.T) {
 		t.Fatalf("POST /mongo/remotes/test = %d", rr.Code)
 	}
 	page := get(t, h, "/mongo?section=remotes", admin).Body.String()
-	if !strings.Contains(page, "MongoDB 7.0.14, 3 database(s)") {
+	if !pageHas(page, "MongoDB 7.0.14, 3 database(s)") {
 		t.Error("the ping result should be flashed")
 	}
 
@@ -653,7 +653,7 @@ func TestMongoRemoteDatabasesJSON(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("POST /mongo/remotes/databases = %d: %s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), `"name":"ledger"`) {
+	if !pageHas(rr.Body.String(), `"name":"ledger"`) {
 		t.Errorf("body = %s", rr.Body.String())
 	}
 }
@@ -693,7 +693,7 @@ func TestMongoServiceControl(t *testing.T) {
 		t.Fatalf("POST /mongo/service (bad op) = %d", rr.Code)
 	}
 	page := get(t, h, "/mongo", admin).Body.String()
-	if !strings.Contains(page, "Unknown service operation.") {
+	if !pageHas(page, "Unknown service operation.") {
 		t.Error("an unknown operation should be rejected")
 	}
 }

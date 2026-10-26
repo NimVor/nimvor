@@ -80,8 +80,8 @@ const scheduleColumns = `SELECT sc.id, sc.website_id, sc.kind, COALESCE(sc.all_s
 
 func scanSchedule(row interface{ Scan(...any) error }) (BackupSchedule, error) {
 	var (
-		sc                             BackupSchedule
-		storageName                    sql.NullString
+		sc                                       BackupSchedule
+		storageName                              sql.NullString
 		files, dbs, enc, keep, enabled, allSites int
 	)
 	if err := row.Scan(&sc.ID, &sc.WebsiteID, &sc.Kind, &allSites, &sc.Frequency, &sc.Hour, &sc.Weekday,

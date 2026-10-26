@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WordPress · {{.Site.Domain}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/assets/css/whacp.css">
 </head>
 <body class="whacp-app">
@@ -19,6 +21,9 @@
 <main class="container">
   <p><a href="/websites/{{.Site.ID}}">&larr; {{.Site.Domain}}</a></p>
   <h1>WordPress</h1>
+  {{if .Success}}<p class="alert alert-success" role="status">{{.Success}}</p>{{end}}
+  {{if .Error}}<p class="alert alert-error" role="alert">{{.Error}}</p>{{end}}
+  {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
   <p class="text-muted">{{.Site.Domain}}</p>
 
   <div class="wcp-panel" data-wcp-dt>
@@ -59,5 +64,7 @@
     {{end}}
   </div>
 </main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
 </body>
 </html>{{end}}

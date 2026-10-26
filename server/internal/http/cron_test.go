@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -56,7 +55,7 @@ func cronEnv(t *testing.T, loginAs string) http.Handler {
 func TestSiteCronOwnWebsite(t *testing.T) {
 	h := cronEnv(t, "custA")
 	body := get(t, h, "/sites/10/cron", nil).Body.String()
-	if !strings.Contains(body, "backup.php") || !strings.Contains(body, "Nightly backup") {
+	if !pageHas(body, "backup.php") || !pageHas(body, "Nightly backup") {
 		t.Fatalf("custA missing own cron jobs:\n%s", body)
 	}
 }
@@ -67,7 +66,7 @@ func TestSiteCronForeignWebsiteIs404(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("custA viewing custB's site cron = %d, want 404", rr.Code)
 	}
-	if strings.Contains(rr.Body.String(), "b-secret.php") {
+	if pageHas(rr.Body.String(), "b-secret.php") {
 		t.Fatalf("TENANT LEAK: custA saw custB's cron job:\n%s", rr.Body.String())
 	}
 }

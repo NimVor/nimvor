@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -25,11 +24,11 @@ func TestMailAdminQueue(t *testing.T) {
 	// denies her with the message (the PHP denied()).
 	h, cookie, _, _ = dnsMailEnv(t, "carol")
 	rr := get(t, h, "/mail/admin/queue", cookie)
-	if rr.Code != http.StatusForbidden || !strings.Contains(rr.Body.String(), "Email administration is for server administrators.") {
+	if rr.Code != http.StatusForbidden || !pageHas(rr.Body.String(), "Email administration is for server administrators.") {
 		t.Fatalf("carol's queue page = %d (want the all-scope 403)", rr.Code)
 	}
 	h, cookie, sa, _ := dnsMailEnv(t, "admin")
-	rr := get(t, h, "/mail/admin/queue", cookie)
+	rr = get(t, h, "/mail/admin/queue", cookie)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("queue page = %d: %s", rr.Code, rr.Body.String())
 	}
@@ -45,7 +44,7 @@ func TestMailAdminQueue(t *testing.T) {
 		`data-wcp-mail-headers="/mail/admin/queue/A1B2C3D4E5F607"`,
 		"Retry all deferred",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("queue page missing %q", want)
 		}
 	}
@@ -85,7 +84,7 @@ func TestMailAdminQueueAction(t *testing.T) {
 		"_token": {token}, "action": {"delete"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/queue")
-	if !strings.Contains(body, "Select messages first.") {
+	if !pageHas(body, "Select messages first.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	// Delete one message.
@@ -93,7 +92,7 @@ func TestMailAdminQueueAction(t *testing.T) {
 		"_token": {token}, "action": {"delete"}, "ids[]": {"A1B2C3D4E5F607"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/queue")
-	if !strings.Contains(body, "1 message(s) deleted.") {
+	if !pageHas(body, "1 message(s) deleted.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	params := agentParams(t, sa, "mail.queue_action")
@@ -106,7 +105,7 @@ func TestMailAdminQueueAction(t *testing.T) {
 		"_token": {token}, "action": {"flush"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/queue")
-	if !strings.Contains(body, "Delivery of every deferred message is being retried.") {
+	if !pageHas(body, "Delivery of every deferred message is being retried.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 }
@@ -124,11 +123,11 @@ func TestMailAdminReports(t *testing.T) {
 		"job@example.com",
 		"mail.example.com[10.0.0.2]:25",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("reports page missing %q", want)
 		}
 	}
-	if !strings.Contains(body, "2026-10-22 13:06:00") || !strings.Contains(body, "Connection timed out") {
+	if !pageHas(body, "2026-10-22 13:06:00") || !pageHas(body, "Connection timed out") {
 		t.Fatalf("deferred delivery missing:\n%s", firstLines(body, 20))
 	}
 	// The agent got the default 24h window.
@@ -142,16 +141,16 @@ func TestMailAdminReports(t *testing.T) {
 	for _, want := range []string{
 		"Statistics",
 		"4 in · 3 out · 1 failed",
-		"2026-10-22 12:00",
+		"2026-10-22", // a 7-day range shows daily buckets (the date only)
 		"www-data",
 		"server account",
 		"bob.example",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("stats page missing %q", want)
 		}
 	}
-	if !strings.Contains(body, ">12</div>") {
+	if !pageHas(body, ">12</div>") {
 		t.Fatalf("received total missing:\n%s", firstLines(body, 20))
 	}
 	// A filtered query reaches the agent.
@@ -180,12 +179,12 @@ func TestMailAdminServer(t *testing.T) {
 		`name="postfix[message_size_limit]" value="10"`,
 		`name="current[message_size_limit]" value="10"`,
 		`name="postfix[smtpd_helo_required]"`,
-		`name="dovecot[auth_failure_delay]" value="5"`,
+		`name="dovecot[auth_failure_delay]" value="5s"`, // Dovecot values are shown as the server has them
 		"connect from mail.example.com[10.0.0.2]",
 		"(journal)",
 		"Check and apply",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("server page missing %q", want)
 		}
 	}
@@ -206,7 +205,7 @@ func TestMailAdminSaveSettings(t *testing.T) {
 		"dovecot[auth_failure_delay]": {"10"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/server")
-	if !strings.Contains(body, "Mail server settings applied.") {
+	if !pageHas(body, "Mail server settings applied.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	params := agentParams(t, sa, "mail.settings_set")
@@ -230,7 +229,7 @@ func TestMailAdminSaveSettingsFailure(t *testing.T) {
 		"postfix[relayhost]": {"smtp.example.com"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/server")
-	if !strings.Contains(body, "Postfix refused the settings.") {
+	if !pageHas(body, "Postfix refused the settings.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 }
@@ -249,7 +248,7 @@ func TestMailAdminTools(t *testing.T) {
 		`value="carol.example"`,
 		"All domains",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("tools page missing %q", want)
 		}
 	}
@@ -260,7 +259,7 @@ func TestMailAdminTools(t *testing.T) {
 		"info@bob.example",
 		"A mailbox on this server.",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("trace missing %q", want)
 		}
 	}
@@ -277,10 +276,10 @@ func TestMailAdminRepair(t *testing.T) {
 		"_token": {token}, "domain": {"bob.example"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/tools")
-	if !strings.Contains(body, "Checked 4 folder(s) and 9 file(s); fixed 2.") {
+	if !pageHas(body, "Checked 4 folder(s) and 9 file(s); fixed 2.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
-	if !strings.Contains(body, "Skipped 1 link(s) or special file(s): Maildir/info/cur.") {
+	if !pageHas(body, "Skipped 1 link(s) or special file(s): Maildir/info/cur.") {
 		t.Fatalf("skipped list missing:\n%s", firstLines(body, 5))
 	}
 	params := agentParams(t, sa, "mail.repair_permissions")
@@ -290,7 +289,7 @@ func TestMailAdminRepair(t *testing.T) {
 	// All domains: an empty domain.
 	rr = postForm(h, "/mail/admin/tools/repair", url.Values{"_token": {token}}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/tools")
-	if !strings.Contains(body, "Checked 4 folder(s) and 9 file(s); fixed 2.") {
+	if !pageHas(body, "Checked 4 folder(s) and 9 file(s); fixed 2.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 }
@@ -303,7 +302,7 @@ func TestMailAdminRepairFailure(t *testing.T) {
 		"_token": {token}, "domain": {"bob.example"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/tools")
-	if !strings.Contains(body, "The vmail user does not exist.") {
+	if !pageHas(body, "The vmail user does not exist.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 	"net/http"
 	"strconv"
 	"strings"
@@ -120,6 +121,7 @@ func (s *Server) importPlanFor(w http.ResponseWriter, r *http.Request, user *ide
 	}
 	f.Plan = plan
 	preview, err := imp.Preview(r.Context(), plan)
+	var ue *hosting.UserError
 	switch {
 	case err == nil:
 		f.Preview = preview
@@ -143,7 +145,7 @@ func (s *Server) importOwners(r *http.Request) []importOwner {
 	if user == nil || user.RoleScope != "all" {
 		return nil
 	}
-	rows, err := s.db.Query(r.Context(),
+	rows, err := s.db.QueryContext(r.Context(),
 		`SELECT id, username, display_name FROM users WHERE is_active = 1 ORDER BY username`)
 	if err != nil {
 		return nil

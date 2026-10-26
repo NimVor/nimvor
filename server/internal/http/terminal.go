@@ -29,6 +29,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/agent"
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
+	"github.com/mchkhawarshahzad/whacp/server/internal/auth"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
@@ -38,8 +39,6 @@ const (
 	// TerminalUnlockSeconds is how long a password confirmation unlocks
 	// the root terminal (PHP TerminalService::UNLOCK_SECONDS).
 	TerminalUnlockSeconds = 900
-	terminalFailLimit     = 5
-	terminalLockSeconds   = 900
 )
 
 var (
@@ -164,7 +163,7 @@ func terminalOwner(sess *session.Session) string {
 // terminalUnlocked reports whether the panel password was confirmed
 // within the unlock window.
 func terminalUnlocked(sess *session.Session) bool {
-	until, _ := strconv.Atoi(sess.Get("terminal_unlocked_until"))
+	until, _ := strconv.ParseInt(sess.Get("terminal_unlocked_until"), 10, 64)
 	return until > time.Now().Unix()
 }
 
@@ -259,8 +258,14 @@ func (s *Server) terminalUnlock(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&in)
 	code := strings.TrimSpace(in.Code)
-	if locked, _ := strconv.Atoi(sess.Get("terminal_locked_until")); locked > time.Now().Unix() {
-		mins := int(math.Ceil(float64(locked-time.Now().Unix()) / 60))
+	// The attempt counter lives in the database (the login throttle), not in the
+	// session: the session is a sealed cookie the client holds, so a counter
+	// kept in it can be bypassed by replaying the old cookie after every wrong
+	// guess. "terminal:<user>" keeps it apart from the sign-in counters.
+	throttle := auth.NewThrottle(s.db)
+	tkey := "terminal:" + user.Username
+	if retry, err := throttle.RetryAfter(r.Context(), tkey, clientIP(r)); err == nil && retry > 0 {
+		mins := int(math.Ceil(float64(retry) / 60))
 		terminalJSONError(w, &terminalError{Status: http.StatusTooManyRequests,
 			Message: fmt.Sprintf("Too many wrong attempts. Try again in %d minute(s).", mins)})
 		return
@@ -278,18 +283,12 @@ func (s *Server) terminalUnlock(w http.ResponseWriter, r *http.Request) {
 		okay = code != "" && vErr == nil
 	}
 	if !okay {
-		fails, _ := strconv.Atoi(sess.Get("terminal_unlock_fails"))
-		fails++
-		sess.Set("terminal_unlock_fails", strconv.Itoa(fails))
+		_ = throttle.RecordFailure(r.Context(), tkey, clientIP(r))
 		s.audit.Record(r.Context(), audit.Entry{
 			UserID: &user.ID, Username: user.Username, Action: "terminal.unlock",
 			TargetType: "user", TargetID: strconv.FormatInt(user.ID, 10), Result: audit.Failure,
-			IP: clientIP(r), UserAgent: r.UserAgent(), Details: map[string]any{"attempt": fails},
+			IP: clientIP(r), UserAgent: r.UserAgent(),
 		})
-		if fails >= terminalFailLimit {
-			sess.Set("terminal_locked_until", strconv.FormatInt(time.Now().Unix()+terminalLockSeconds, 10))
-			sess.Set("terminal_unlock_fails", "0")
-		}
 		msg := "The password is wrong."
 		if needsCode {
 			msg = "The password or the authenticator code is wrong."
@@ -297,7 +296,7 @@ func (s *Server) terminalUnlock(w http.ResponseWriter, r *http.Request) {
 		terminalJSONError(w, &terminalError{Status: http.StatusForbidden, Message: msg})
 		return
 	}
-	sess.Set("terminal_unlock_fails", "0")
+	_ = throttle.RecordSuccess(r.Context(), tkey, clientIP(r))
 	sess.Set("terminal_unlocked_until", strconv.FormatInt(time.Now().Unix()+TerminalUnlockSeconds, 10))
 	s.audit.Record(r.Context(), audit.Entry{
 		UserID: &user.ID, Username: user.Username, Action: "terminal.unlock",
@@ -551,7 +550,8 @@ func (s *Server) terminalClose(w http.ResponseWriter, r *http.Request) {
 // terminalCloseOwn ends this sign-in's terminals (best effort — the agent
 // ends idle sessions on its own). Mirrors TerminalService::closeOwn.
 func (s *Server) terminalCloseOwn(ctx context.Context, sess *session.Session) {
-	if owner := sess.Get("terminal_owner"); !terminalOwnerRe.MatchString(owner) {
+	owner := sess.Get("terminal_owner")
+	if !terminalOwnerRe.MatchString(owner) {
 		return
 	}
 	_, _ = s.agent.Call(ctx, "terminal.kill", map[string]any{"owner": owner}, 10*time.Second)

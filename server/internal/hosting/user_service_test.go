@@ -244,9 +244,10 @@ func TestUserCreateResellerScope(t *testing.T) {
 func TestUserCreateCustomersLimit(t *testing.T) {
 	h := newAccountHarness(t)
 	ctx := context.Background()
-	// The reseller's own plan caps its customers at 1.
+	// The seed already gives the reseller one customer (user 3); its plan caps
+	// customers at 2, so exactly one more may be created.
 	if _, err := h.db.Exec(`INSERT INTO plans (id, name, owner_id, max_customers, created_at, updated_at)
-		VALUES (13, 'Reseller1', 2, 1, '', '')`); err != nil {
+		VALUES (13, 'Reseller2', 2, 2, '', '')`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := h.db.Exec(`UPDATE users SET plan_id = 13 WHERE id = 2`); err != nil {
@@ -266,7 +267,7 @@ func TestUserCreateCustomersLimit(t *testing.T) {
 	}
 	_, err := h.users.Create(ctx, form("secondcust"), reseller)
 	var ue *UserError
-	if !errors.As(err, &ue) || ue.What != "Your plan allows at most 1 customers." {
+	if !errors.As(err, &ue) || ue.What != "Your plan allows at most 2 customers." {
 		t.Fatalf("error = %v, want the customers limit", err)
 	}
 }

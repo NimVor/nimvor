@@ -966,7 +966,7 @@ func (s *Server) modsecConfigure(w http.ResponseWriter, r *http.Request) {
 		"detection_only": r.FormValue("detection_only") == "1",
 	}
 	if _, err := s.agent.Call(ctx, "modsec.configure", cfg, 120*time.Second); err != nil {
-		agentErrorRedirect(w, r, "modsec configure", err, to)
+		s.agentErrorRedirect(w, r, "modsec configure", err, to)
 		return
 	}
 	s.audit.Record(ctx, audit.Entry{
@@ -1155,7 +1155,7 @@ func (s *Server) modsecUpdate(w http.ResponseWriter, r *http.Request) {
 	to := "/security/modsec"
 	res, err := s.agent.Call(ctx, "modsec.update", nil, 60*time.Second)
 	if err != nil {
-		agentErrorRedirect(w, r, "modsec update", err, to)
+		s.agentErrorRedirect(w, r, "modsec update", err, to)
 		return
 	}
 	var out struct {
@@ -1225,7 +1225,7 @@ func (s *Server) modsecInstall(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := s.agent.Call(ctx, "modsec.install", params, 60*time.Second)
 	if err != nil {
-		agentErrorRedirect(w, r, "modsec install", err, to)
+		s.agentErrorRedirect(w, r, "modsec install", err, to)
 		return
 	}
 	var out struct {
@@ -1285,7 +1285,7 @@ func (s *Server) modsecInstallCrs(w http.ResponseWriter, r *http.Request) {
 	params := map[string]any{"retention_days": s.modsecRetention(ctx)}
 	res, err := s.agent.Call(ctx, "modsec.crs_install", params, 60*time.Second)
 	if err != nil {
-		agentErrorRedirect(w, r, "modsec crs_install", err, to)
+		s.agentErrorRedirect(w, r, "modsec crs_install", err, to)
 		return
 	}
 	var out struct {
@@ -1337,7 +1337,7 @@ func (s *Server) modsecRollback(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := s.agent.Call(ctx, "modsec.rollback", map[string]any{"id": id}, 60*time.Second)
 	if err != nil {
-		agentErrorRedirect(w, r, "modsec rollback", err, to)
+		s.agentErrorRedirect(w, r, "modsec rollback", err, to)
 		return
 	}
 	var out struct {

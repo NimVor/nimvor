@@ -69,7 +69,7 @@ type DnsRecord struct {
 // Records lists a zone's records in the canonical display order
 // (DnsService::records).
 func (r *DnsRepository) Records(ctx context.Context, zoneID int64) ([]DnsRecord, error) {
-	rows, err := r.db.QueryContext(ctx, `\
+	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, type, ttl, value, priority, weight, port, disabled
 		FROM dns_records WHERE zone_id = ?
 		ORDER BY CASE name WHEN '@' THEN 0 ELSE 1 END, name,

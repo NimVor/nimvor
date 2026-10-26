@@ -48,11 +48,11 @@ func TestFtpIndexServer(t *testing.T) {
 		"/sites/10/ftp#new-ftp", // the Add FTP menu
 		"Save and restart",      // configured → the modal offers a restart
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("server page missing %q", want)
 		}
 	}
-	if strings.Contains(body, "copy the password now") {
+	if pageHas(body, "copy the password now") {
 		t.Error("no secret may flash without a generated password")
 	}
 
@@ -72,7 +72,7 @@ func TestFtpIndexNotInstalled(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{"not installed", "Install pure-ftpd", "vsftpd"} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("not-installed page missing %q", want)
 		}
 	}
@@ -81,7 +81,7 @@ func TestFtpIndexNotInstalled(t *testing.T) {
 	sa.ftpStatus = "stopped"
 	rr = get(t, h, "/ftp", cookie)
 	body = rr.Body.String()
-	if !strings.Contains(body, "Pure-FTPd stopped") || strings.Contains(body, "Stop the FTP server?") {
+	if !pageHas(body, "Pure-FTPd stopped") || pageHas(body, "Stop the FTP server?") {
 		t.Error("stopped state not rendered")
 	}
 }
@@ -107,7 +107,7 @@ func TestFtpInstallTracksJob(t *testing.T) {
 	}
 	rr = get(t, h, "/ftp", cookie)
 	body := rr.Body.String()
-	if !strings.Contains(body, "Installing pure-ftpd") || !strings.Contains(body, "abcdef0123456789") {
+	if !pageHas(body, "Installing pure-ftpd") || !pageHas(body, "abcdef0123456789") {
 		t.Error("install flash missing")
 	}
 
@@ -151,7 +151,7 @@ func TestFtpConfigure(t *testing.T) {
 		t.Error("ftp.configure audit missing")
 	}
 	rr = get(t, h, "/ftp", cookie)
-	if !strings.Contains(rr.Body.String(), "The FTP server is running.") {
+	if !pageHas(rr.Body.String(), "The FTP server is running.") {
 		t.Error("configure success flash missing")
 	}
 
@@ -166,7 +166,7 @@ func TestFtpConfigure(t *testing.T) {
 		t.Fatalf("bad configure = %d", rr.Code)
 	}
 	rr = get(t, h, "/ftp", cookie)
-	if !strings.Contains(rr.Body.String(), "at most 5000 ports wide") {
+	if !pageHas(rr.Body.String(), "at most 5000 ports wide") {
 		t.Error("span error flash missing")
 	}
 	if len(sa.called()) != before {
@@ -179,7 +179,7 @@ func TestFtpConfigure(t *testing.T) {
 		"max_clients": {"10"}, "max_per_ip": {"50"},
 	}, cookie)
 	rr = get(t, h, "/ftp", cookie)
-	if !strings.Contains(rr.Body.String(), "no more per address than in total") {
+	if !pageHas(rr.Body.String(), "no more per address than in total") {
 		t.Error("per-ip error flash missing")
 	}
 }
@@ -201,7 +201,7 @@ func TestFtpDisable(t *testing.T) {
 		t.Fatal("ftp.disable never called")
 	}
 	rr = get(t, h, "/ftp", cookie)
-	if !strings.Contains(rr.Body.String(), "The FTP server was stopped. Accounts are kept.") {
+	if !pageHas(rr.Body.String(), "The FTP server was stopped. Accounts are kept.") {
 		t.Error("disable flash missing")
 	}
 }
@@ -223,11 +223,11 @@ func TestSiteFtpPage(t *testing.T) {
 		"SSH, SFTP and the web terminal",
 		"SHA256:ftptest", "bob@laptop", // the existing key line
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("site page missing %q", want)
 		}
 	}
-	if strings.Contains(body, "copy the password now") {
+	if pageHas(body, "copy the password now") {
 		t.Error("an ungenerated secret must not show")
 	}
 
@@ -235,13 +235,13 @@ func TestSiteFtpPage(t *testing.T) {
 	sa.ftpStatus = "stopped"
 	rr = get(t, h, "/sites/10/ftp", cookie)
 	body = rr.Body.String()
-	if !strings.Contains(body, "The FTP server is not running on this server") {
+	if !pageHas(body, "The FTP server is not running on this server") {
 		t.Error("stopped hint missing")
 	}
-	if strings.Contains(body, "Add FTP account") {
+	if pageHas(body, "Add FTP account") {
 		t.Error("the Add button must be hidden while the server is stopped")
 	}
-	if !strings.Contains(body, `>off<`) {
+	if !pageHas(body, `>off<`) {
 		t.Error("the SFTP badge must be off")
 	}
 }
@@ -275,7 +275,7 @@ func TestSiteFtpSaveCreate(t *testing.T) {
 		t.Error("ftp.account_create audit missing")
 	}
 	rr = get(t, h, "/sites/10/ftp", cookie)
-	if !strings.Contains(rr.Body.String(), "FTP account designer2@bob.example created.") {
+	if !pageHas(rr.Body.String(), "FTP account designer2@bob.example created.") {
 		t.Error("create flash missing")
 	}
 
@@ -293,7 +293,7 @@ func TestSiteFtpSaveCreate(t *testing.T) {
 	}
 	rr = get(t, h, "/sites/10/ftp", cookie)
 	body := rr.Body.String()
-	if !strings.Contains(body, "FTP password for intern@bob.example") || !strings.Contains(body, "copy the password now") {
+	if !pageHas(body, "FTP password for intern@bob.example") || !pageHas(body, "copy the password now") {
 		t.Error("the one-time secret must flash on the next page load")
 	}
 }
@@ -301,7 +301,8 @@ func TestSiteFtpSaveCreate(t *testing.T) {
 func TestSiteFtpSaveValidation(t *testing.T) {
 	h, cookie, sa, _ := ftpEnv(t, "bob")
 	post := func(values url.Values, c *http.Cookie) *http.Cookie {
-		_, c := pageToken(t, h, c, "/sites/10/ftp")
+		token, c := pageToken(t, h, c, "/sites/10/ftp")
+		values.Set("_token", token)
 		rr := postForm(h, "/sites/10/ftp/accounts", values, c)
 		if rr.Code != http.StatusSeeOther {
 			t.Fatalf("save = %d", rr.Code)
@@ -363,10 +364,10 @@ func TestSiteFtpSaveExisting(t *testing.T) {
 	}
 	rr = get(t, h, "/sites/10/ftp", cookie)
 	body := rr.Body.String()
-	if !strings.Contains(body, "FTP account designer@bob.example saved.") {
+	if !pageHas(body, "FTP account designer@bob.example saved.") {
 		t.Error("existing-save flash missing")
 	}
-	if !strings.Contains(body, "copy the password now") {
+	if !pageHas(body, "copy the password now") {
 		t.Error("a regenerated password must flash the secret")
 	}
 }
@@ -384,7 +385,7 @@ func TestSiteFtpPlanLimit(t *testing.T) {
 		t.Fatalf("save at the limit = %d", rr.Code)
 	}
 	rr = get(t, h, "/sites/10/ftp", cookie)
-	if !strings.Contains(rr.Body.String(), "allows at most 1 FTP accounts") {
+	if !pageHas(rr.Body.String(), "allows at most 1 FTP accounts") {
 		t.Errorf("plan limit flash missing:\n%s", rr.Body.String())
 	}
 	for _, a := range sa.called() {
@@ -413,7 +414,7 @@ func TestSiteFtpDelete(t *testing.T) {
 		t.Error("ftp.account_delete audit missing")
 	}
 	rr = get(t, h, "/sites/10/ftp", cookie)
-	if !strings.Contains(rr.Body.String(), "FTP account designer@bob.example deleted. Its files are kept.") {
+	if !pageHas(rr.Body.String(), "FTP account designer@bob.example deleted. Its files are kept.") {
 		t.Error("delete flash missing")
 	}
 
@@ -423,7 +424,7 @@ func TestSiteFtpDelete(t *testing.T) {
 		"_token": {token}, "name": {"x@other.example"},
 	}, cookie)
 	rr = get(t, h, "/sites/10/ftp", cookie)
-	if !strings.Contains(rr.Body.String(), "does not belong to the website") {
+	if !pageHas(rr.Body.String(), "does not belong to the website") {
 		t.Error("foreign delete must be rejected")
 	}
 }
@@ -462,7 +463,7 @@ func TestSiteSftp(t *testing.T) {
 		t.Error("sftp.configure audit missing")
 	}
 	rr = get(t, h, "/sites/10/ftp", cookie)
-	if !strings.Contains(rr.Body.String(), "SFTP access saved.") {
+	if !pageHas(rr.Body.String(), "SFTP access saved.") {
 		t.Error("sftp flash missing")
 	}
 
@@ -479,7 +480,7 @@ func TestSiteSftp(t *testing.T) {
 		t.Error("a rejected sftp form must not reach the agent")
 	}
 	rr = get(t, h, "/sites/10/ftp", cookie)
-	if !strings.Contains(rr.Body.String(), "10–128 characters") {
+	if !pageHas(rr.Body.String(), "10–128 characters") {
 		t.Error("sftp password error flash missing")
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -60,7 +59,7 @@ func subdomainsEnv(t *testing.T, disableSubdomains bool) (http.Handler, *http.Co
 func TestSubdomainsListed(t *testing.T) {
 	h, cookie := subdomainsEnv(t, false)
 	body := get(t, h, "/sites/10/subdomains", cookie).Body.String()
-	if !strings.Contains(body, "blog.a.example") {
+	if !pageHas(body, "blog.a.example") {
 		t.Fatalf("subdomain not listed:\n%s", body)
 	}
 }

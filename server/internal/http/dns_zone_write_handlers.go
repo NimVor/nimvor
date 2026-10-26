@@ -26,7 +26,7 @@ import (
 // found or no access).
 func (s *Server) showZoneOf(r *http.Request) *hosting.DnsZoneFull {
 	user := userFrom(r.Context())
-	z, err := hosting.NewDnsRepository(s.db).Zone(r.Context(), s.currentServerID(r), pathID(r), user)
+	z, err := hosting.NewDnsRepository(s.db).Zone(r.Context(), s.currentServerID(r), pathIDOrZero(r), user)
 	if err != nil {
 		s.log.Error("show dns zone", "error", err)
 		return nil

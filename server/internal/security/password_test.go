@@ -3,6 +3,7 @@ package security
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -18,7 +19,7 @@ func TestStrengthVectors(t *testing.T) {
 	}{
 		{"", 0},
 		{"aaaaaaaaaaaaaaaa", 9},      // pool 26, weighted length 2 (one distinct rune)
-		{"abcdefghij1234", 62},       // pool 36, 12 distinct
+		{"abcdefghij1234", 72},       // pool 36, 14 distinct (PHP strength() = 72)
 		{"Abcdefghij1234!", 98},      // pool 95, 15 distinct
 		{"Aa1!Aa1!Aa1!Aa1!Aa1!", 52}, // pool 95, weighted length 8 (4 distinct)
 	}
@@ -33,7 +34,7 @@ func TestWeakness(t *testing.T) {
 	if got := Weakness("abcdefghijk", ""); got != "The password must be at least 12 characters long." {
 		t.Errorf("short = %q", got)
 	}
-	long := "a1A!a1A!a1A!a1A!a1A!a1A!"
+	long := strings.Repeat("a1A!", 300)
 	if len(long) < 1025 {
 		t.Fatal("test string must exceed MAX_LENGTH")
 	}
@@ -66,7 +67,8 @@ func policyDB(t *testing.T) *sql.DB {
 
 func setSetting(t *testing.T, db *sql.DB, key, json string) {
 	t.Helper()
-	if _, err := db.Exec(`INSERT INTO settings (key, value, updated_at) VALUES (?, ?, '')`, key, json); err != nil {
+	if _, err := db.Exec(`INSERT INTO settings (key, value, updated_at) VALUES (?, ?, '')
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, json); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -84,9 +86,9 @@ func TestPolicyCheckDefaults(t *testing.T) {
 		t.Errorf("username = %q, %v", got, err)
 	}
 
-	// Default policy (enabled, min strength 65): 62 < 65.
-	weak := "The password is too weak (strength 62, at least 65 is required). Make it longer or mix upper and lower case, digits and symbols."
-	if got, err := p.Check(ctx, "abcdefghij1234", ""); err != nil || got != weak {
+	// Default policy (enabled, min strength 65): 56 < 65 (PHP strength()).
+	weak := "The password is too weak (strength 56, at least 65 is required). Make it longer or mix upper and lower case, digits and symbols."
+	if got, err := p.Check(ctx, "abcdefghijkl", ""); err != nil || got != weak {
 		t.Errorf("weak = %q, %v; want %q", got, err, weak)
 	}
 	// 17 distinct mixed-class runes: strength 100, accepted.

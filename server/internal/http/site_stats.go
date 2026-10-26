@@ -147,7 +147,8 @@ func (s *Server) statsDataOf(ctx context.Context, site *hosting.Website, month s
 	if !out.Found {
 		return nil, nil
 	}
-	return &stats.Parse(out.Content), nil
+	rep := stats.Parse(out.Content)
+	return &rep, nil
 }
 
 // statsUpdateOf is StatsService::update (the job id).
@@ -367,7 +368,7 @@ func (s *Server) siteStatsEnable(w http.ResponseWriter, r *http.Request) {
 	to := fmt.Sprintf("/sites/%d/stats", site.ID)
 	on := r.FormValue("enabled") == "1"
 	if _, err := s.agent.Call(ctx, "stats.enable", mergeMaps(statsTarget(site), map[string]any{"enabled": on}), 120*time.Second); err != nil {
-		agentErrorRedirect(w, r, "stats.enable", err, to)
+		s.agentErrorRedirect(w, r, "stats.enable", err, to)
 		return
 	}
 	s.audit.Record(ctx, audit.Entry{
@@ -384,7 +385,7 @@ func (s *Server) siteStatsEnable(w http.ResponseWriter, r *http.Request) {
 	if on {
 		job, err := s.statsUpdateOf(ctx, site)
 		if err != nil {
-			agentErrorRedirect(w, r, "stats.update", err, to)
+			s.agentErrorRedirect(w, r, "stats.update", err, to)
 			return
 		}
 		if job != "" {
@@ -439,7 +440,7 @@ func (s *Server) siteStatsUpdate(w http.ResponseWriter, r *http.Request) {
 	to := fmt.Sprintf("/sites/%d/stats", site.ID)
 	job, err := s.statsUpdateOf(ctx, site)
 	if err != nil {
-		agentErrorRedirect(w, r, "stats.update", err, to)
+		s.agentErrorRedirect(w, r, "stats.update", err, to)
 		return
 	}
 	if job != "" {

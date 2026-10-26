@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
@@ -105,12 +104,12 @@ func TestWorkersIndexTenantScope(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{"Bob queue", `href="/sites/10/workers"`, "bob.example"} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("bob's page missing %q", want)
 		}
 	}
 	for _, not := range []string{"Alice queue", "Dave queue", "alice.example", "dave.example"} {
-		if strings.Contains(body, not) {
+		if pageHas(body, not) {
 			t.Fatalf("bob's page leaked %q", not)
 		}
 	}
@@ -121,11 +120,11 @@ func TestWorkersIndexTenantScope(t *testing.T) {
 		t.Fatalf("GET /workers (reseller) = %d", rr.Code)
 	}
 	body = rr.Body.String()
-	if !strings.Contains(body, "Dave queue") || !strings.Contains(body, `href="/sites/30/workers"`) {
+	if !pageHas(body, "Dave queue") || !pageHas(body, `href="/sites/30/workers"`) {
 		t.Fatalf("dave's page missing his worker: %s", body)
 	}
 	for _, not := range []string{"Bob queue", "Alice queue"} {
-		if strings.Contains(body, not) {
+		if pageHas(body, not) {
 			t.Fatalf("dave's page leaked %q", not)
 		}
 	}
@@ -150,7 +149,7 @@ func TestWorkersIndexPage(t *testing.T) {
 		"active", "2/2 up", "12.0 MB",
 		"unknown",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("page missing %q", want)
 		}
 	}
@@ -173,7 +172,7 @@ func TestWorkersIndexEmpty(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET /workers = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "No workers yet.") {
+	if !pageHas(rr.Body.String(), "No workers yet.") {
 		t.Fatalf("empty state missing: %s", rr.Body.String())
 	}
 }

@@ -164,11 +164,11 @@ func TestAttemptKeyOnlyUserRefused(t *testing.T) {
 	}
 	sess := newSession()
 	msg, pending, err := svc.Attempt(context.Background(), sess, "root", testPassword, "203.0.113.12")
-	if err != nil || pending {
-		t.Fatalf("err=%v pending=%v", err, pending)
+	if err != nil || !pending || msg != "" {
+		t.Fatalf("key-only user: msg=%q pending=%v err=%v, want a pending security-key step", msg, pending, err)
 	}
-	if msg != msgSecondFactorUnavailable {
-		t.Fatalf("key-only user msg = %q, want refusal", msg)
+	if id := svc.PendingSigninID(sess); id != 1 {
+		t.Fatalf("pending sign-in id = %d, want 1", id)
 	}
 	if u, _ := svc.User(context.Background(), sess); u != nil {
 		t.Fatal("a key-only user must NOT be signed in without the key")
@@ -251,6 +251,9 @@ func enable2FA(t *testing.T, svc *Service, clk *fakeClock) string {
 	if _, err := svc.twoFactor.Enable(context.Background(), 1, secret, code); err != nil {
 		t.Fatal(err)
 	}
+	// Enabling consumed the current TOTP step (replay protection), so time moves
+	// on before the test signs in with a fresh code.
+	clk.t += twofactor.Period
 	return secret
 }
 

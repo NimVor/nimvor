@@ -23,6 +23,7 @@ func getJSON(t *testing.T, h http.Handler, path string, cookie *http.Cookie) *ht
 	}
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
+	adoptCookie(cookie, rr)
 	return rr
 }
 
@@ -38,7 +39,7 @@ func seedJobs(t *testing.T, db *sql.DB) {
 	}
 	exec(`INSERT INTO users (id,username,email,display_name,password_hash,role_id,is_active,password_changed_at,created_at,updated_at,plan_id,parent_id)
 		VALUES (5,'dave','e@x','Dave',?,2,1,'2026-01-01T00:00:00Z','','',1,2)`, loginHash)
-	job := func(jobID, kind, targetType, targetID string, userID any, settled string) {
+	job := func(jobID, kind, targetType, targetID string, userID any, settled any) {
 		exec(`INSERT INTO agent_jobs (server_id,job_id,kind,target_type,target_id,user_id,status,settled_at,created_at)
 			VALUES (1,?,?,?,?,?,'queued',?,'2026-01-01T00:00:00Z')`, jobID, kind, targetType, targetID, userID, settled)
 	}

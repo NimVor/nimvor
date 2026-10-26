@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
@@ -106,7 +105,7 @@ func TestSiteDnsSetupPage(t *testing.T) {
 		"Create DNS zone",
 		"<code>ns1.example.com</code>", "<code>ns2.example.com</code>",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("site dns page missing %q:\n%s", want, body)
 		}
 	}
@@ -124,10 +123,10 @@ func TestSiteDnsNotReadyCustomer(t *testing.T) {
 	h, cookie, sa, _ := dnsMailEnv(t, "bob")
 	sa.dnsData = `{"installed":true,"configured":false}`
 	body := get(t, h, "/sites/10/dns", cookie).Body.String()
-	if !strings.Contains(body, "DNS hosting is not available on this server") {
+	if !pageHas(body, "DNS hosting is not available on this server") {
 		t.Fatalf("not-ready site dns page missing the customer text:\n%s", body)
 	}
-	if strings.Contains(body, `action="/dns/zones"`) {
+	if pageHas(body, `action="/dns/zones"`) {
 		t.Fatalf("not-ready page must not offer the create form:\n%s", body)
 	}
 }
@@ -146,23 +145,23 @@ func TestDnsZoneCreateFromSite(t *testing.T) {
 		"_token": {token}, "website_id": {"10"}, "name": {"shop.bob.example"},
 		"template": {"1"}, "return_to": {"/sites/10/dns"},
 	}, cookie)
-	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/dns/zones/51" {
-		t.Fatalf("create zone = %d loc %q, want 303 /dns/zones/51", rr.Code, rr.Header().Get("Location"))
+	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/dns/zones/71" { // AUTOINCREMENT: the seed has zones 50 and 70
+		t.Fatalf("create zone = %d loc %q, want 303 /dns/zones/71", rr.Code, rr.Header().Get("Location"))
 	}
-	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_zones`); n != 2 {
-		t.Fatalf("dns_zones = %d, want 2", n)
+	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_zones`); n != 3 { // the seed's two zones + the new one
+		t.Fatalf("dns_zones = %d, want 3", n)
 	}
-	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_records WHERE zone_id = 51`); n != 6 {
-		t.Fatalf("zone 51 records = %d, want 6", n)
+	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_records WHERE zone_id = 71`); n != 6 {
+		t.Fatalf("zone 71 records = %d, want 6", n)
 	}
 	var hostmaster, spf string
-	if err := db.QueryRow(`SELECT hostmaster FROM dns_zones WHERE id = 51`).Scan(&hostmaster); err != nil {
+	if err := db.QueryRow(`SELECT hostmaster FROM dns_zones WHERE id = 71`).Scan(&hostmaster); err != nil {
 		t.Fatal(err)
 	}
 	if hostmaster != "hostmaster@shop.bob.example" {
 		t.Fatalf("hostmaster = %q", hostmaster)
 	}
-	if err := db.QueryRow(`SELECT value FROM dns_records WHERE zone_id = 51 AND type = 'TXT' AND name = '@'`).Scan(&spf); err != nil {
+	if err := db.QueryRow(`SELECT value FROM dns_records WHERE zone_id = 71 AND type = 'TXT' AND name = '@'`).Scan(&spf); err != nil {
 		t.Fatal(err)
 	}
 	if spf != "v=spf1 +a +mx +ip4:203.0.113.10 ~all" {
@@ -193,7 +192,7 @@ func TestDnsZoneCreateCustomerValidation(t *testing.T) {
 		t.Fatalf("invalid create = %d loc %q, want 303 /sites/10/dns", rr.Code, rr.Header().Get("Location"))
 	}
 	body := get(t, h, "/sites/10/dns", cookie).Body.String()
-	if !strings.Contains(body, "Enter a domain name such as example.com.") {
+	if !pageHas(body, "Enter a domain name such as example.com.") {
 		t.Fatalf("site dns page missing the name error:\n%s", body)
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_zones`); n != 2 {
@@ -209,7 +208,7 @@ func TestDnsZoneCreateTaken(t *testing.T) {
 		t.Fatalf("taken create = %d loc %q, want 303 /dns", rr.Code, rr.Header().Get("Location"))
 	}
 	body := get(t, h, "/dns", cookie).Body.String()
-	if !strings.Contains(body, "This zone exists already.") {
+	if !pageHas(body, "This zone exists already.") {
 		t.Fatalf("dns index missing the taken error:\n%s", body)
 	}
 }
@@ -224,7 +223,7 @@ func TestDnsZonePage(t *testing.T) {
 		">CNAME</span>",
 		"Zone default",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("zone page missing %q:\n%s", want, body)
 		}
 	}
@@ -238,7 +237,7 @@ func TestDnsZonePagePending(t *testing.T) {
 	h, cookie, sa, _ := dnsMailEnv(t, "bob")
 	sa.dnsData = `{"installed":true,"configured":true,"running":true,"zones":[{"zone":"bob.example","serial":9}]}`
 	body := get(t, h, "/dns/zones/50", cookie).Body.String()
-	if !strings.Contains(body, "Update pending (serving serial 9)") {
+	if !pageHas(body, "Update pending (serving serial 9)") {
 		t.Fatalf("zone page missing the pending state:\n%s", body)
 	}
 }
@@ -247,7 +246,7 @@ func TestSiteMailSetupPage(t *testing.T) {
 	h, cookie, sa, _ := dnsMailEnv(t, "bob")
 	// Not ready: the mail server is configured but nothing runs.
 	body := get(t, h, "/sites/10/mail", cookie).Body.String()
-	if !strings.Contains(body, "Email hosting is not available on this server") {
+	if !pageHas(body, "Email hosting is not available on this server") {
 		t.Fatalf("not-ready mail page missing the customer text:\n%s", body)
 	}
 	// Ready: Postfix runs — the set-up form appears.
@@ -259,7 +258,7 @@ func TestSiteMailSetupPage(t *testing.T) {
 		`<input type="hidden" name="website_id" value="10">`,
 		"Set up email",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("site mail page missing %q:\n%s", want, body)
 		}
 	}
@@ -274,23 +273,23 @@ func TestMailDomainCreateFromSite(t *testing.T) {
 		t.Fatalf("invalid create = %d loc %q, want 303 /sites/10/mail", rr.Code, rr.Header().Get("Location"))
 	}
 	body := get(t, h, "/sites/10/mail", cookie).Body.String()
-	if !strings.Contains(body, "Choose the website whose domain receives email.") {
+	if !pageHas(body, "Choose the website whose domain receives email.") {
 		t.Fatalf("site mail page missing the website error:\n%s", body)
 	}
 	token, cookie = pageToken(t, h, cookie, "/sites/10/mail")
 	rr = postForm(h, "/mail/domains", url.Values{"_token": {token}, "website_id": {"10"}, "return_to": {"/sites/10/mail"}}, cookie)
-	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/mail/domains/61" {
-		t.Fatalf("create domain = %d loc %q, want 303 /mail/domains/61", rr.Code, rr.Header().Get("Location"))
+	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/mail/domains/66" {
+		t.Fatalf("create domain = %d loc %q, want 303 /mail/domains/66", rr.Code, rr.Header().Get("Location"))
 	}
 	var sel, txt string
-	if err := db.QueryRow(`SELECT dkim_selector, dkim_txt FROM mail_domains WHERE id = 61`).Scan(&sel, &txt); err != nil {
+	if err := db.QueryRow(`SELECT dkim_selector, dkim_txt FROM mail_domains WHERE id = 66`).Scan(&sel, &txt); err != nil {
 		t.Fatal(err)
 	}
 	if sel != "whacp202601" || txt != "v=DKIM1; k=rsa; p=MEow" {
 		t.Fatalf("dkim = %q / %q", sel, txt)
 	}
 	var websiteID *int64
-	if err := db.QueryRow(`SELECT website_id FROM mail_domains WHERE id = 61`).Scan(&websiteID); err != nil {
+	if err := db.QueryRow(`SELECT website_id FROM mail_domains WHERE id = 66`).Scan(&websiteID); err != nil {
 		t.Fatal(err)
 	}
 	if websiteID == nil || *websiteID != 10 {
@@ -322,7 +321,7 @@ func TestMailDomainPage(t *testing.T) {
 		"993",
 		"587",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("mail domain page missing %q:\n%s", want, body)
 		}
 	}

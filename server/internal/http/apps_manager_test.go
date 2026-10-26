@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -35,6 +34,8 @@ func appsPost(t *testing.T, h http.Handler, cookie *http.Cookie, path string, va
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("post %s = %d, want 303", path, rr.Code)
 	}
+	// The session is a sealed cookie: the flash lives in the response's cookie.
+	cookie = refreshCookie(cookie, rr)
 	body := ipFlash(t, h, cookie, "/apps-manager")
 	return body, cookie
 }
@@ -45,10 +46,10 @@ func TestAppsManagerPage(t *testing.T) {
 	for _, want := range []string{
 		"Application Manager",
 		"The application installer is <strong>on</strong>",
-		"Blogs & CMS", "WordPress", "Joomla", // the seeded catalog
+		"Blogs &amp; CMS", "WordPress", "Joomla", // the seeded catalog
 		"Forums", "phpBB",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("manager page missing %q", want)
 		}
 	}
@@ -64,7 +65,7 @@ func TestAppsManagerInstaller(t *testing.T) {
 	h, cookie, db := appsManagerEnv(t, "admin")
 
 	body, cookie := appsPost(t, h, cookie, "/apps-manager/installer", url.Values{"on": {"0"}})
-	if !strings.Contains(body, "Application installer disabled.") {
+	if !pageHas(body, "Application installer disabled.") {
 		t.Errorf("disable flash missing:\n%s", body)
 	}
 	var value string
@@ -72,7 +73,7 @@ func TestAppsManagerInstaller(t *testing.T) {
 		t.Fatalf("setting after disable = %q (%v)", value, err)
 	}
 	body, cookie = appsPost(t, h, cookie, "/apps-manager/installer", url.Values{"on": {"1"}})
-	if !strings.Contains(body, "Application installer enabled.") {
+	if !pageHas(body, "Application installer enabled.") {
 		t.Errorf("enable flash missing:\n%s", body)
 	}
 	if err := db.QueryRow(`SELECT value FROM settings WHERE key = 'apps_installer_enabled'`).Scan(&value); err != nil || value != "true" {
@@ -87,7 +88,7 @@ func TestAppsManagerCategory(t *testing.T) {
 	h, cookie, db := appsManagerEnv(t, "admin")
 
 	body, cookie := appsPost(t, h, cookie, "/apps-manager/category", url.Values{"slug": {"forums"}, "on": {"0"}})
-	if !strings.Contains(body, "Category disabled.") {
+	if !pageHas(body, "Category disabled.") {
 		t.Errorf("disable flash missing:\n%s", body)
 	}
 	var enabled int
@@ -96,11 +97,11 @@ func TestAppsManagerCategory(t *testing.T) {
 	}
 	// The badge shows on the page.
 	body = ipFlash(t, h, cookie, "/apps-manager")
-	if !strings.Contains(body, "category disabled") {
+	if !pageHas(body, "category disabled") {
 		t.Error("the disabled badge must show")
 	}
 	body, cookie = appsPost(t, h, cookie, "/apps-manager/category", url.Values{"slug": {"forums"}, "on": {"1"}})
-	if !strings.Contains(body, "Category enabled.") {
+	if !pageHas(body, "Category enabled.") {
 		t.Errorf("enable flash missing:\n%s", body)
 	}
 	if err := db.QueryRow(`SELECT enabled FROM app_categories WHERE slug = 'forums'`).Scan(&enabled); err != nil || enabled != 1 {
@@ -116,7 +117,7 @@ func TestAppsManagerApp(t *testing.T) {
 
 	body, cookie := appsPost(t, h, cookie, "/apps-manager/app",
 		url.Values{"slug": {"wordpress"}, "field": {"customer_visible"}, "on": {"0"}})
-	if !strings.Contains(body, "Application updated.") {
+	if !pageHas(body, "Application updated.") {
 		t.Errorf("visibility flash missing:\n%s", body)
 	}
 	var visible int
@@ -125,7 +126,7 @@ func TestAppsManagerApp(t *testing.T) {
 	}
 	body, cookie = appsPost(t, h, cookie, "/apps-manager/app",
 		url.Values{"slug": {"wordpress"}, "field": {"enabled"}, "on": {"0"}})
-	if !strings.Contains(body, "Application updated.") {
+	if !pageHas(body, "Application updated.") {
 		t.Errorf("enabled flash missing:\n%s", body)
 	}
 	var enabled int
@@ -135,7 +136,7 @@ func TestAppsManagerApp(t *testing.T) {
 	// An unknown slug is a flash, no change, no audit.
 	body, cookie = appsPost(t, h, cookie, "/apps-manager/app",
 		url.Values{"slug": {"nope"}, "field": {"enabled"}, "on": {"1"}})
-	if !strings.Contains(body, "Unknown application.") {
+	if !pageHas(body, "Unknown application.") {
 		t.Errorf("unknown app flash missing:\n%s", body)
 	}
 	if rowCount(t, db, `SELECT COUNT(*) FROM audit_logs WHERE action = 'apps.app'`) != 2 {

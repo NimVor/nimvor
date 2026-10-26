@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -53,7 +52,7 @@ func TestAuditViewerStaffOnlyAndLists(t *testing.T) {
 
 	// Admin sees the audit entry.
 	body := get(t, h, "/audit", login("admin")).Body.String()
-	if !strings.Contains(body, "database.create") || !strings.Contains(body, "shop") {
+	if !pageHas(body, "database.create") || !pageHas(body, "shop") {
 		t.Fatalf("admin audit page missing the entry:\n%s", body)
 	}
 	// Customer (no audit.view) is forbidden.

@@ -103,7 +103,7 @@ func (s *Server) dbUsersCreate(w http.ResponseWriter, r *http.Request) {
 	svc := s.databaseService(r, user)
 	host, err := svc.DBUserHostFrom(r.FormValue("host_choice"), r.FormValue("host_ip"), r.FormValue("host"), user)
 	if err != nil { // a validation error (hostChoice/hostIP are never looked up)
-		sess.Flash("error", dbUserErrorFor(err, "")[0])
+		sess.Flash("error", dbUserMsg(err))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
@@ -339,7 +339,7 @@ func (s *Server) dbUserAddHost(w http.ResponseWriter, r *http.Request) {
 	svc := s.databaseService(r, user)
 	host, err := svc.DBUserHostFrom(r.FormValue("host_choice"), r.FormValue("host_ip"), r.FormValue("host"), user)
 	if err != nil { // a validation error (hostChoice/hostIP are never looked up)
-		sess.Flash("error", dbUserErrorFor(err, "")[0])
+		sess.Flash("error", dbUserMsg(err))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
@@ -361,3 +361,6 @@ func (s *Server) dbUserAddHost(w http.ResponseWriter, r *http.Request) {
 	s.flashSecret(sess, title, username, password)
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
+
+// dbUserMsg is the message half of dbUserErrorFor.
+func dbUserMsg(err error) string { m, _ := dbUserErrorFor(err, ""); return m }

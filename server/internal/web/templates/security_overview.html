@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="{{.CSRF}}">
 <title>Security · WhaCP</title>
+<link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/assets/css/whacp.css">
 </head>
 <body class="whacp-app">
@@ -156,7 +158,9 @@
   </div>
   {{end}}
   {{end}}
+{{template "wcp_confirm_modal"}}
 </main>
 <script src="/assets/js/whacp.js"></script>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>{{end}}

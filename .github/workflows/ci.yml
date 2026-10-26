@@ -66,22 +66,6 @@ jobs:
       - name: build
         run: cd server && go build ./cmd/...
 
-  panel:
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        php: ['8.3', '8.4']
-    steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          extensions: pdo_sqlite, curl, mbstring
-          coverage: none
-      - run: cd panel && composer install --no-interaction --no-progress
-      - run: make lint
-      - run: cd panel && vendor/bin/phpunit
-
   # Agent tests against real services on a disposable runner: nginx,
   # PHP-FPM, MariaDB, Redis, UFW, SSH, Fail2ban, WordPress and Laravel
   # (downloaded from wordpress.org / Packagist as in production).
@@ -123,7 +107,6 @@ jobs:
           ! grep -q -- '--- SKIP' realhost.log || { grep -- '--- SKIP' -A1 realhost.log; exit 1; }
       - name: Installer and post-install end-to-end (Ubuntu)
         run: |
-          (cd panel && composer install --no-dev --no-interaction --no-progress --optimize-autoloader)
           mkdir -p dist && (cd agent && CGO_ENABLED=0 go build -trimpath -o ../dist/whacp-agent ./cmd/whacp-agent)
           sudo installer/install.sh --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@whacp.test
           sudo tests/integration/postinstall.sh
@@ -146,7 +129,7 @@ jobs:
     name: realhost-vm (${{ matrix.os }} ${{ matrix.version }})
     if: ${{ inputs.vms || contains(github.event.head_commit.message, '[full ci]') }}
     runs-on: ubuntu-24.04
-    needs: [agent, panel]
+    needs: [agent, server]
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -166,10 +149,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: pdo_sqlite, curl, mbstring, sodium
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -177,9 +156,8 @@ jobs:
           sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
       - name: Boot ${{ matrix.os }} ${{ matrix.version }}
         run: tests/vm.sh boot ${{ matrix.os }} ${{ matrix.version }}
-      - name: Build agent, test binaries and panel dependencies
+      - name: Build agent and test binaries
         run: |
-          (cd panel && composer install --no-dev --no-interaction --no-progress --optimize-autoloader)
           mkdir -p dist
           (cd agent && CGO_ENABLED=0 go build -trimpath -o ../dist/whacp-agent ./cmd/whacp-agent)
           cd agent
@@ -202,7 +180,7 @@ jobs:
         if: always()
         run: |
           tests/vm.sh ssh 'cd /root/whacp && installer/install.sh --install-deps --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@whacp.test'
-          tests/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp agent:check'
+          tests/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && /usr/local/bin/whacp doctor'
           tests/vm.sh ssh 'cd /root/whacp && tests/integration/postinstall.sh'
           tests/vm.sh ssh 'cd /root/whacp && tests/integration/public-https.sh'
       - name: SELinux denials
@@ -216,18 +194,13 @@ jobs:
   # Browser tests (Playwright/Chromium) against a write-mode dev instance.
   e2e:
     runs-on: ubuntu-24.04
-    needs: [agent, panel]
+    needs: [agent, server]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: pdo_sqlite, curl, mbstring, sodium
-      - run: cd panel && composer install --no-interaction --no-progress
       - name: Install Playwright and Redis
         run: |
           sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends redis-server
@@ -244,7 +217,7 @@ jobs:
 
   smoke:
     runs-on: ubuntu-24.04
-    needs: [agent, panel]
+    needs: [agent, server]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -252,11 +225,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: pdo_sqlite, curl, mbstring
-      - run: cd panel && composer install --no-interaction --no-progress
       - run: tests/integration/smoke.sh
       - run: tests/integration/upgrade.sh
       - name: Upgrade from the previous release (real code and data)

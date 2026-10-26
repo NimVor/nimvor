@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -49,10 +48,10 @@ func TestServersListStaffOnly(t *testing.T) {
 	}
 
 	body := get(t, h, "/servers", login("admin")).Body.String()
-	if !strings.Contains(body, "This server") || !strings.Contains(body, "edge1") {
+	if !pageHas(body, "This server") || !pageHas(body, "edge1") {
 		t.Fatalf("admin servers page missing servers:\n%s", body)
 	}
-	if strings.Contains(body, "ANOTHER-SECRET") {
+	if pageHas(body, "ANOTHER-SECRET") {
 		t.Fatalf("SECURITY: servers page leaked the encrypted agent token")
 	}
 	if rr := get(t, h, "/servers", login("cust")); rr.Code != http.StatusForbidden {

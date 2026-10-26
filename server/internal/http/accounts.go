@@ -162,6 +162,10 @@ func (s *Server) accountsBandwidth(w http.ResponseWriter, r *http.Request) {
 // controller supports bulk checkboxes from the users list, but Go keeps
 // it single-account for now to avoid building the confirm page and
 // JobTracker queue). Mirrors AccountAdminController::confirmTerminate.
+// terminateConfirmWord is what an administrator types to confirm terminating a
+// hosting account (the PHP panel's TERMINATE confirmation).
+const terminateConfirmWord = "TERMINATE"
+
 func (s *Server) accountsTerminate(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	actor := userFrom(r.Context())
@@ -220,8 +224,8 @@ func (s *Server) accountsTerminateConfirmGet(w http.ResponseWriter, r *http.Requ
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	v, ok := sess.Get("_terminate_pending_id")
-	if !ok {
+	v := sess.Get("_terminate_pending_id")
+	if v == "" {
 		sess.Flash("error", "Select the accounts to terminate first.")
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
@@ -233,7 +237,7 @@ func (s *Server) accountsTerminateConfirmGet(w http.ResponseWriter, r *http.Requ
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
 	}
-	user, _ := sess.Get("_terminate_pending_user")
+	user := sess.Get("_terminate_pending_user")
 	username := user
 	if username == "" {
 		sess.Flash("error", "Select the accounts to terminate first.")
@@ -242,12 +246,12 @@ func (s *Server) accountsTerminateConfirmGet(w http.ResponseWriter, r *http.Requ
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	s.render(w, "accounts_terminate", map[string]any{
-		"CSRF":    session.CSRFToken(sess),
-		"User":    actor,
-		"Title":   "Confirm termination",
+		"CSRF":     session.CSRFToken(sess),
+		"User":     actor,
+		"Title":    "Confirm termination",
 		"Username": username,
-		"Word":    terminateConfirmWord,
-		"Error":   flashStr(sess, "error"),
+		"Word":     terminateConfirmWord,
+		"Error":    flashStr(sess, "error"),
 	})
 }
 
@@ -271,14 +275,14 @@ func (s *Server) accountsTerminateConfirm(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
 	}
-	v, ok := sess.Get("_terminate_pending_id")
-	if !ok {
+	v := sess.Get("_terminate_pending_id")
+	if v == "" {
 		sess.Flash("error", "Select the accounts to terminate first.")
 		http.Redirect(w, r, "/users", http.StatusSeeOther)
 		return
 	}
 	pendingID, perr := strconv.ParseInt(v, 10, 64)
-	pendingUser, _ := sess.Get("_terminate_pending_user")
+	pendingUser := sess.Get("_terminate_pending_user")
 	username := pendingUser
 	confirm := strings.TrimSpace(r.FormValue("confirm"))
 	if confirm != terminateConfirmWord || perr != nil || pendingID <= 0 || username == "" {
@@ -398,14 +402,20 @@ func (s *Server) terminateAccount(r *http.Request, actor *identity.User, target 
 		}
 		dur, err := s.db.QueryContext(ctx, `SELECT id FROM database_users WHERE owner_id = ?`, target.ID)
 		if err == nil {
+			// Read the ids and close the cursor before deleting: with one pooled
+			// connection the DELETE would wait forever on the cursor's connection.
+			var duIDs []int64
 			for dur.Next() {
 				var id int64
 				if err := dur.Scan(&id); err != nil {
 					break
 				}
-				_, _ = s.db.ExecContext(ctx, `DELETE FROM database_users WHERE id = ?`, id)
+				duIDs = append(duIDs, id)
 			}
 			dur.Close()
+			for _, id := range duIDs {
+				_, _ = s.db.ExecContext(ctx, `DELETE FROM database_users WHERE id = ?`, id)
+			}
 		}
 	}
 	// DNS zones not tied to a website (website zones are already dropped

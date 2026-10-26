@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -27,7 +28,7 @@ func seedCronJobs(t *testing.T, h *accountHarness, websiteID int64) {
 
 func findFull(t *testing.T, h *accountHarness, id int64) *Website {
 	t.Helper()
-	site, err := h.sites.FindFull(context.Background(), 1, id, nil)
+	site, err := NewWebsiteRepository(h.db).FindFull(context.Background(), 1, id, nil)
 	if err != nil || site == nil {
 		t.Fatalf("find site %d: %v", id, err)
 	}
@@ -181,7 +182,7 @@ func TestCronParseRuns(t *testing.T) {
 	if !runs[0].Manual || *runs[0].Start != "2026-10-22T08:15:30Z" || runs[0].End != nil || runs[0].Exit != nil || runs[0].Output != "manual output" {
 		t.Errorf("newest run = %+v", runs[0])
 	}
-	if !runs[1].Manual || runs[1].Start == nil || runs[1].End == nil || runs[1].Exit == nil || *runs[1].Exit != 3 || runs[1].Output != "" {
+	if runs[1].Manual || runs[1].Start == nil || runs[1].End == nil || runs[1].Exit == nil || *runs[1].Exit != 3 || runs[1].Output != "" {
 		t.Errorf("failed run = %+v", runs[1])
 	}
 	if runs[2].Manual || runs[2].Exit == nil || *runs[2].Exit != 0 || runs[2].Output != "out a\nout b" {
@@ -228,7 +229,7 @@ func TestCronRun(t *testing.T) {
 		t.Errorf("job id = %q", jobID)
 	}
 	p := fa.lastParams("cron.run")
-	if p["domain"] != "cust.example" || p["user"] != "u_cust" || p["id"] != 1 || p["command"] != "echo run-me" {
+	if p["domain"] != "cust.example" || p["user"] != "u_cust" || fmt.Sprint(p["id"]) != "1" || p["command"] != "echo run-me" {
 		t.Errorf("cron.run params = %v", p)
 	}
 	var last string

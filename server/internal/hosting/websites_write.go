@@ -268,7 +268,7 @@ func (s *WebsiteService) kindAllowed(ctx context.Context, actor *identity.User, 
 // PhpVersions lists installed PHP versions with FPM, ascending
 // (WebsiteService::phpVersions). Agent failures yield an empty list.
 func (s *WebsiteService) PhpVersions(ctx context.Context) []string {
-	raw, err := s.agent.Call(ctx, "discovery.php")
+	raw, err := s.agent.Call(ctx, "discovery.php", nil)
 	if err != nil {
 		return []string{}
 	}
@@ -294,7 +294,7 @@ func (s *WebsiteService) PhpVersions(ctx context.Context) []string {
 // SitesRoot is the agent's sites root, defaulting to /home/whacp
 // (WebsiteService::sitesRoot).
 func (s *WebsiteService) SitesRoot(ctx context.Context) string {
-	raw, err := s.agent.Call(ctx, "agent.status")
+	raw, err := s.agent.Call(ctx, "agent.status", nil)
 	if err != nil {
 		return "/home/whacp"
 	}
@@ -834,7 +834,7 @@ func (s *WebsiteService) assertNotUnderOthers(ctx context.Context, names []strin
 			if err != nil || owner == nil {
 				continue
 			}
-			if orInt(owner.OwnerID) != orInt(ownerID) {
+			if orInt(ownerPtr(owner.OwnerID)) != orInt(ownerID) {
 				field := "aliases"
 				if n == names[0] {
 					field = "domain"

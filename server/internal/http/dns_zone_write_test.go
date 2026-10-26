@@ -38,13 +38,14 @@ func TestDnsRecordAdd(t *testing.T) {
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_records WHERE zone_id = 50`); n != 5 {
 		t.Fatalf("zone 50 records = %d, want 5", n)
 	}
-	if !containsAction(sa.called(), "dns.record_create") {
-		t.Fatalf("agent actions %v missing dns.record_create", sa.called())
+	if rowCount(t, db, `SELECT COUNT(*) FROM audit_logs WHERE action = 'dns.record_create' AND result = 'success'`) != 1 {
+		t.Fatalf("audit dns.record_create missing (agent actions: %v)", sa.called())
 	}
 	p := agentParams(t, sa, "dns.zone_apply")
-	recs, _ := p["records"].([]map[string]any)
+	recs, _ := p["records"].([]any)
 	found := false
-	for _, r := range recs {
+	for _, ri := range recs {
+		r, _ := ri.(map[string]any)
 		if r["name"] == "mail" && r["type"] == "A" && r["value"] == "203.0.113.20" {
 			found = true
 		}
@@ -64,10 +65,10 @@ func TestDnsRecordAddValidation(t *testing.T) {
 		t.Fatalf("invalid add = %d, want a 200 re-render", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "Enter an IPv4 address such as 192.0.2.10.") {
+	if !pageHas(body, "Enter an IPv4 address such as 192.0.2.10.") {
 		t.Fatalf("re-render missing the value error:\n%s", body)
 	}
-	if !strings.Contains(body, `data-wcp-dns-reopen="/dns/zones/50/records"`) {
+	if !pageHas(body, `data-wcp-dns-reopen="/dns/zones/50/records"`) {
 		t.Fatalf("re-render missing the modal reopen:\n%s", body)
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_records WHERE zone_id = 50`); n != 4 {
@@ -85,7 +86,7 @@ func TestDnsRecordCnameConflict(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("conflicting add = %d, want a 200 re-render", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "www already has a CNAME record") {
+	if !pageHas(rr.Body.String(), "www already has a CNAME record") {
 		t.Fatalf("re-render missing the conflict error:\n%s", rr.Body.String())
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_records WHERE zone_id = 50`); n != 4 {
@@ -112,8 +113,8 @@ func TestDnsRecordUpdateAndDelete(t *testing.T) {
 	if value != "203.0.113.10" {
 		t.Fatalf("updated value = %q", value)
 	}
-	if !containsAction(sa.called(), "dns.record_update") {
-		t.Fatalf("agent actions %v missing dns.record_update", sa.called())
+	if rowCount(t, db, `SELECT COUNT(*) FROM audit_logs WHERE action = 'dns.record_update' AND result = 'success'`) != 1 {
+		t.Fatalf("audit dns.record_update missing (agent actions: %v)", sa.called())
 	}
 	// Delete the CNAME.
 	token, cookie = pageToken(t, h, cookie, "/dns/zones/50")
@@ -124,8 +125,8 @@ func TestDnsRecordUpdateAndDelete(t *testing.T) {
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_records WHERE zone_id = 50`); n != 3 {
 		t.Fatalf("zone 50 records = %d after the delete, want 3", n)
 	}
-	if !containsAction(sa.called(), "dns.record_delete") {
-		t.Fatalf("agent actions %v missing dns.record_delete", sa.called())
+	if rowCount(t, db, `SELECT COUNT(*) FROM audit_logs WHERE action = 'dns.record_delete' AND result = 'success'`) != 1 {
+		t.Fatalf("audit dns.record_delete missing (agent actions: %v)", sa.called())
 	}
 	// A record of another zone is refused.
 	token, cookie = pageToken(t, h, cookie, "/dns/zones/50")
@@ -134,7 +135,7 @@ func TestDnsRecordUpdateAndDelete(t *testing.T) {
 		t.Fatalf("delete of a foreign record = %d loc %q", rr.Code, rr.Header().Get("Location"))
 	}
 	body := get(t, h, "/dns/zones/50", cookie).Body.String()
-	if !strings.Contains(body, "The record no longer exists.") {
+	if !pageHas(body, "The record no longer exists.") {
 		t.Fatalf("missing the foreign-record error:\n%s", body)
 	}
 }
@@ -152,7 +153,7 @@ func TestDnsBulk(t *testing.T) {
 		t.Fatalf("bulk disable = %d", rr.Code)
 	}
 	body := get(t, h, "/dns/zones/50", cookie).Body.String()
-	if !strings.Contains(body, "1 record(s) turned off; the zone was reloaded.") {
+	if !pageHas(body, "1 record(s) turned off; the zone was reloaded.") {
 		t.Fatalf("missing the bulk flash:\n%s", body)
 	}
 	var disabled int
@@ -177,11 +178,11 @@ func TestDnsBulk(t *testing.T) {
 	token, cookie = pageToken(t, h, cookie, "/dns/zones/50")
 	rr = postForm(h, "/dns/zones/50/bulk", url.Values{"_token": {token}, "op": {"delete"}}, cookie)
 	body = get(t, h, "/dns/zones/50", cookie).Body.String()
-	if !strings.Contains(body, "Select records first.") {
+	if !pageHas(body, "Select records first.") {
 		t.Fatalf("missing the empty-selection error:\n%s", body)
 	}
-	if !containsAction(sa.called(), "dns.records_delete") {
-		t.Fatalf("agent actions %v missing dns.records_delete", sa.called())
+	if rowCount(t, db, `SELECT COUNT(*) FROM audit_logs WHERE action = 'dns.records_delete' AND result = 'success'`) != 1 {
+		t.Fatalf("audit dns.records_delete missing (agent actions: %v)", sa.called())
 	}
 }
 
@@ -202,8 +203,8 @@ func TestDnsSettingsAndSync(t *testing.T) {
 	if ttl != 7200 || secs != "198.51.100.1,198.51.100.2" {
 		t.Fatalf("zone 50 ttl/secondaries = %d / %q", ttl, secs)
 	}
-	if !containsAction(sa.called(), "dns.zone_settings") {
-		t.Fatalf("agent actions %v missing dns.zone_settings", sa.called())
+	if rowCount(t, db, `SELECT COUNT(*) FROM audit_logs WHERE action = 'dns.zone_settings' AND result = 'success'`) != 1 {
+		t.Fatalf("audit dns.zone_settings missing (agent actions: %v)", sa.called())
 	}
 	// A bad secondary re-renders with the field message.
 	token, cookie = pageToken(t, h, cookie, "/dns/zones/50")
@@ -213,7 +214,7 @@ func TestDnsSettingsAndSync(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("invalid settings = %d, want a 200 re-render", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Enter IP addresses separated by commas.") {
+	if !pageHas(rr.Body.String(), "Enter IP addresses separated by commas.") {
 		t.Fatalf("re-render missing the secondaries error:\n%s", rr.Body.String())
 	}
 	// Sync loads the zone again.
@@ -227,7 +228,7 @@ func TestDnsSettingsAndSync(t *testing.T) {
 		t.Fatalf("dns.zone_apply calls = %d, want %d", n, applies+1)
 	}
 	body := get(t, h, "/dns/zones/50", cookie).Body.String()
-	if !strings.Contains(body, "The zone was loaded again.") {
+	if !pageHas(body, "The zone was loaded again.") {
 		t.Fatalf("missing the sync flash:\n%s", body)
 	}
 }
@@ -244,7 +245,7 @@ func TestDnsExport(t *testing.T) {
 	if cd := rr.Header().Get("Content-Disposition"); cd != `attachment; filename="bob.example.zone"` {
 		t.Fatalf("export content disposition = %q", cd)
 	}
-	if !strings.Contains(rr.Body.String(), "$ORIGIN bob.example") {
+	if !pageHas(rr.Body.String(), "$ORIGIN bob.example") {
 		t.Fatalf("export body missing the zone file:\n%s", rr.Body.String())
 	}
 }
@@ -269,13 +270,13 @@ func TestDnsImport(t *testing.T) {
 		t.Fatalf("imported ftp = %q", value)
 	}
 	body := get(t, h, "/dns/zones/50", cookie).Body.String()
-	if !strings.Contains(body, "1 record(s) imported, 1 already in the zone (name servers at @ are kept as they are); 1 line(s) skipped (listed below).") {
+	if !pageHas(body, "1 record(s) imported, 1 already in the zone (name servers at @ are kept as they are); 1 line(s) skipped (listed below).") {
 		t.Fatalf("missing the import flash:\n%s", body)
 	}
-	if !strings.Contains(body, "Lines not imported (1)") || !strings.Contains(body, "HINFO bob.example") {
+	if !pageHas(body, "Lines not imported (1)") || !pageHas(body, "HINFO bob.example") {
 		t.Fatalf("missing the skipped lines:\n%s", body)
 	}
-	if !containsAction(sa.called(), "dns.zone_parse") {
+	if !containsAction(sa.called(), "dns.zone_parse") { // an agent action, not an audit entry
 		t.Fatalf("agent actions %v missing dns.zone_parse", sa.called())
 	}
 	// An empty zone file re-renders with the field message.
@@ -284,7 +285,7 @@ func TestDnsImport(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("empty import = %d, want a 200 re-render", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Paste or upload a zone file of up to 1 MB.") {
+	if !pageHas(rr.Body.String(), "Paste or upload a zone file of up to 1 MB.") {
 		t.Fatalf("re-render missing the zonefile error:\n%s", rr.Body.String())
 	}
 }
@@ -297,7 +298,7 @@ func TestDnsZoneDelete(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("wrong confirm = %d, want a 200 re-render", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Type the zone name to confirm.") {
+	if !pageHas(rr.Body.String(), "Type the zone name to confirm.") {
 		t.Fatalf("re-render missing the confirm error:\n%s", rr.Body.String())
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_zones`); n != 2 {
@@ -315,11 +316,11 @@ func TestDnsZoneDelete(t *testing.T) {
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_records WHERE zone_id = 50`); n != 0 {
 		t.Fatalf("zone 50 records = %d after the delete, want 0", n)
 	}
-	if !containsAction(sa.called(), "dns.zone_delete") {
-		t.Fatalf("agent actions %v missing dns.zone_delete", sa.called())
+	if rowCount(t, db, `SELECT COUNT(*) FROM audit_logs WHERE action = 'dns.zone_delete' AND result = 'success'`) != 1 {
+		t.Fatalf("audit dns.zone_delete missing (agent actions: %v)", sa.called())
 	}
 	body := get(t, h, "/dns", cookie).Body.String()
-	if !strings.Contains(body, "Zone bob.example deleted.") {
+	if !pageHas(body, "Zone bob.example deleted.") {
 		t.Fatalf("missing the delete flash:\n%s", body)
 	}
 }
@@ -334,7 +335,7 @@ func TestDnsZoneDeleteAgentRefusedAnd404(t *testing.T) {
 		t.Fatalf("refused delete = %d loc %q", rr.Code, rr.Header().Get("Location"))
 	}
 	body := get(t, h, "/dns/zones/50", cookie).Body.String()
-	if !strings.Contains(body, "the zone is in use") {
+	if !pageHas(body, "the zone is in use") {
 		t.Fatalf("missing the agent error:\n%s", body)
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM dns_zones WHERE id = 50`); n != 1 {

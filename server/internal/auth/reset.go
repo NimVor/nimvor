@@ -210,7 +210,7 @@ func (s *ResetService) UserFor(ctx context.Context, token string) (*identity.Use
 	err := s.db.QueryRowContext(ctx,
 		`SELECT user_id FROM password_resets WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?`,
 		sha256hex(token), s.now()).Scan(&userID)
-	if errors.Is(err, sql.ErrNoRecord) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

@@ -29,7 +29,7 @@ func TestBackupsIndexAdmin(t *testing.T) {
 		"Website backups",
 		"Back up now",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("admin page missing %q", want)
 		}
 	}
@@ -50,11 +50,11 @@ func TestBackupsIndexCustomer(t *testing.T) {
 		"Encryption key",
 		"Account files",
 	} {
-		if strings.Contains(body, mustNot) {
+		if pageHas(body, mustNot) {
 			t.Errorf("customer page shows %q", mustNot)
 		}
 	}
-	if !strings.Contains(body, "Website backups") {
+	if !pageHas(body, "Website backups") {
 		t.Error("customer page missing website backups section")
 	}
 }

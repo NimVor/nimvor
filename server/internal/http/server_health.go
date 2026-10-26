@@ -17,11 +17,11 @@ func (s *Server) serverHealth(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
 	sess := sessionFrom(r.Context())
 	data := map[string]any{
-		"CSRF":      session.CSRFToken(sess),
-		"User":      user,
-		"Title":     "Server health",
-		"Result":    nil,
-		"CheckedAt": time.Now().UTC().Format("2006-01-02 15:04"),
+		"CSRF":       session.CSRFToken(sess),
+		"User":       user,
+		"Title":      "Server health",
+		"Result":     nil,
+		"CheckedAt":  time.Now().UTC().Format("2006-01-02 15:04"),
 		"AgentError": nil,
 	}
 	// Try the agent health endpoint; if the agent doesn't support it we just

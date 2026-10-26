@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
@@ -138,13 +137,13 @@ func TestConvertPage(t *testing.T) {
 		"Cron jobs: 1 · workers: 1",
 		`action="/sites/30/convert"`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("page missing %q", want)
 		}
 	}
 	// The parent's addons page links here.
 	rr = get(t, h, "/sites/10/addons", admin)
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `/sites/30/convert`) {
+	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), `/sites/30/convert`) {
 		t.Fatalf("addons page missing the convert link (status %d)", rr.Code)
 	}
 }
@@ -170,11 +169,11 @@ func TestConvertValidationReRenders(t *testing.T) {
 		"also the website's system account",
 		`name="email" value="keep@example.test"`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("re-render missing %q", want)
 		}
 	}
-	if strings.Contains(body, "somepass123") {
+	if pageHas(body, "somepass123") {
 		t.Fatal("the submitted password was echoed back")
 	}
 }
@@ -196,7 +195,8 @@ func TestConvertSuccess(t *testing.T) {
 	}
 	// The addon is re-owned: new system user and owner, detached from the
 	// parent. The parent's row is untouched.
-	var sysUser, parent sql.NullInt64
+	var sysUser string
+	var parent sql.NullInt64
 	var owner int64
 	if err := db.QueryRow(`SELECT system_user, owner_id, parent_id FROM websites WHERE id = 30`).Scan(&sysUser, &owner, &parent); err != nil {
 		t.Fatal(err)
@@ -236,7 +236,7 @@ func TestConvertSuccess(t *testing.T) {
 	// The flash lands on the parent's addons page (the flashed state is
 	// sealed into the cookie the POST response sets).
 	rr = get(t, h, "/sites/10/addons", refreshCookie(admin, rr))
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "addon.example is now the hosting account newacct") {
+	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), "addon.example is now the hosting account newacct") {
 		t.Fatalf("addons page flash missing (status %d)", rr.Code)
 	}
 	// The audit trail.
@@ -266,11 +266,12 @@ func TestConvertAgentFailureFlash(t *testing.T) {
 	}
 	rr = get(t, h, "/sites/10/addons", refreshCookie(admin, rr))
 	body := rr.Body.String()
-	if !strings.Contains(body, "addon.example was not converted; everything was put back as it was.") {
+	if !pageHas(body, "addon.example was not converted; everything was put back as it was.") {
 		t.Fatalf("failure flash missing: %s", body)
 	}
 	// The row is back where it started.
-	var sysUser, parent sql.NullInt64
+	var sysUser string
+	var parent sql.NullInt64
 	var owner int64
 	if err := db.QueryRow(`SELECT system_user, owner_id, parent_id FROM websites WHERE id = 30`).Scan(&sysUser, &owner, &parent); err != nil {
 		t.Fatal(err)

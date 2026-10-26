@@ -167,6 +167,19 @@ func safeReferer(r *http.Request, fallback string) string {
 	return fallback
 }
 
-func itoa(n int64) string {
-	return strconv.FormatInt(n, 10)
+// itoa formats any integer width (server ids are int64, counts are int).
+func itoa[T ~int | ~int32 | ~int64](n T) string {
+	return strconv.FormatInt(int64(n), 10)
+}
+
+// agentObject decodes an agent action's result payload (agent.Client.Call
+// returns the raw JSON "data") into a generic object. It returns nil when the
+// payload is empty or not a JSON object, so callers can keep the PHP-style
+// "if it is an object, read these keys" shape.
+func agentObject(raw json.RawMessage) map[string]any {
+	var m map[string]any
+	if len(raw) == 0 || json.Unmarshal(raw, &m) != nil {
+		return nil
+	}
+	return m
 }

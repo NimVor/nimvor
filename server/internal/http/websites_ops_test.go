@@ -20,22 +20,31 @@ import (
 
 // refreshCookie takes the freshly sealed session cookie off a response.
 func refreshCookie(cookie *http.Cookie, rr *httptest.ResponseRecorder) *http.Cookie {
-	if cs := rr.Result().Cookies(); len(cs) > 0 {
-		return cs[0]
+	if cookie == nil {
+		if cs := rr.Result().Cookies(); len(cs) > 0 {
+			return cs[0]
+		}
+		return nil
 	}
+	// Update the caller's cookie in place (a browser jar) and hand the same
+	// pointer back, so every holder of it sees the new session.
+	adoptCookie(cookie, rr)
 	return cookie
 }
 
 // flashAt fetches a page and asserts the flashed message is on it.
-func flashAt(t *testing.T, h http.Handler, cookie *http.Cookie, path, want string) {
+func flashAt(t *testing.T, h http.Handler, cookie *http.Cookie, path, want string) string {
 	t.Helper()
 	rr := get(t, h, path, cookie)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET %s = %d: %s", path, rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), want) {
+	// The page is HTML: html/template escapes quotes, apostrophes, & < > and + in
+	// text, so the flash reads the same once decoded.
+	if body := rr.Body.String(); !pageHas(body, want) && !pageHas(body, htmlTextEscape(want)) {
 		t.Errorf("flash %q not on %s", want, path)
 	}
+	return rr.Body.String()
 }
 
 // seedAppSite inserts a Node.js app site (kind proxy + app_runtime) for the
@@ -256,12 +265,12 @@ func TestSiteRuntimePage(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{`name="app_runtime"`, "Node.js 20.1.0", "Node.js 22.0.0", "node app.js", "Edit command, env &amp; restart"} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("runtime page missing %q", want)
 		}
 	}
 	// The stored runtime (node:20.1.0) is the selected option.
-	if !strings.Contains(body, `value="node:20.1.0" selected`) {
+	if !pageHas(body, `value="node:20.1.0" selected`) {
 		t.Errorf("current runtime not selected: %s", body)
 	}
 }
@@ -313,10 +322,10 @@ func TestSiteRuntimeUpdateValidation(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("validation re-render = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Choose a Node.js") {
+	if !pageHas(rr.Body.String(), "Choose a Node.js") {
 		t.Errorf("field error not rendered")
 	}
-	if !strings.Contains(rr.Body.String(), `value="python:3.12" selected`) {
+	if !pageHas(rr.Body.String(), `value="python:3.12" selected`) {
 		t.Errorf("old input not preserved as selected")
 	}
 	var rt string

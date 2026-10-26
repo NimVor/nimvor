@@ -8,7 +8,6 @@ package http
 import (
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -39,7 +38,7 @@ func TestMailGreylistPage(t *testing.T) {
 		`id="trusted-new"`, `id="trusted-0"`, `id="trusted-1"`,
 		`action="/mail/admin/greylisting/trusted/0/delete"`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("greylisting page missing %q:\n%s", want, firstLines(body, 40))
 		}
 	}
@@ -56,7 +55,7 @@ func TestMailGreylistSave(t *testing.T) {
 		"spf_bypass": {"1"}, "auto_trust_new": {"1"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/greylisting")
-	if !strings.Contains(body, "Greylisting settings saved; greylisting is on.") {
+	if !pageHas(body, "Greylisting settings saved; greylisting is on.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	p := agentParams(t, sa, "mail.greylist_set")
@@ -81,7 +80,7 @@ func TestMailGreylistSave(t *testing.T) {
 		"_token": {token}, "enabled": {"0"}, "deferral": {"5"}, "resend": {"240"}, "expire": {"4320"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/greylisting")
-	if !strings.Contains(body, "Greylisting settings saved; greylisting is off.") {
+	if !pageHas(body, "Greylisting settings saved; greylisting is off.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 }
@@ -94,7 +93,7 @@ func TestMailGreylistTrusted(t *testing.T) {
 		"_token": {token}, "range": {"  "}, "comment": {"x"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/greylisting")
-	if !strings.Contains(body, "Enter an IP address or range.") {
+	if !pageHas(body, "Enter an IP address or range.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	// Add one.
@@ -102,7 +101,7 @@ func TestMailGreylistTrusted(t *testing.T) {
 		"_token": {token}, "range": {"203.0.113.99"}, "comment": {"test server"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/greylisting")
-	if !strings.Contains(body, "Trusted host 203.0.113.99 saved.") {
+	if !pageHas(body, "Trusted host 203.0.113.99 saved.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	p := agentParams(t, sa, "mail.greylist_set")
@@ -119,7 +118,7 @@ func TestMailGreylistTrusted(t *testing.T) {
 		"_token": {token}, "range": {"10.0.0.1"}, "comment": {"edited"}, "index": {"0"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/greylisting")
-	if !strings.Contains(body, "Trusted host 10.0.0.1 saved.") || !strings.Contains(body, "edited") {
+	if !pageHas(body, "Trusted host 10.0.0.1 saved.") || !pageHas(body, "edited") {
 		t.Fatalf("edit missing:\n%s", firstLines(body, 40))
 	}
 	p = agentParams(t, sa, "mail.greylist_set")
@@ -131,13 +130,13 @@ func TestMailGreylistTrusted(t *testing.T) {
 	// Delete index 1 (the original 198.51.100.0/24).
 	rr = postForm(h, "/mail/admin/greylisting/trusted/1/delete", url.Values{"_token": {token}}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/greylisting")
-	if !strings.Contains(body, "Trusted host removed.") {
+	if !pageHas(body, "Trusted host removed.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	// Delete a missing one.
 	rr = postForm(h, "/mail/admin/greylisting/trusted/9/delete", url.Values{"_token": {token}}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/greylisting")
-	if !strings.Contains(body, "That trusted host no longer exists.") {
+	if !pageHas(body, "That trusted host no longer exists.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 }
@@ -149,7 +148,7 @@ func TestMailGreylistProviders(t *testing.T) {
 		"_token": {token}, "trust[]": {"yahoo"}, "auto_update[]": {"google", "yahoo"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/greylisting")
-	if !strings.Contains(body, "Mail providers saved.") {
+	if !pageHas(body, "Mail providers saved.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	p := agentParams(t, sa, "mail.greylist_set")
@@ -174,7 +173,7 @@ func TestMailGreylistUpdateProviders(t *testing.T) {
 	token, cookie := pageToken(t, h, cookie, "/mail/admin/greylisting")
 	rr := postForm(h, "/mail/admin/greylisting/providers/update", url.Values{"_token": {token}}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/greylisting")
-	if !strings.Contains(body, "Provider address ranges updated from their SPF records.") {
+	if !pageHas(body, "Provider address ranges updated from their SPF records.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	p := agentParams(t, sa, "mail.greylist_update_providers")
@@ -200,7 +199,7 @@ func TestMailGreylistReport(t *testing.T) {
 		"Remove selected", "Remove expired", "Remove all",
 		"dir=asc",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("report page missing %q:\n%s", want, firstLines(body, 60))
 		}
 	}
@@ -227,7 +226,7 @@ func TestMailGreylistCleanup(t *testing.T) {
 		"_token": {token}, "op": {"purge"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/greylisting/report")
-	if !strings.Contains(body, "1 record(s) removed.") {
+	if !pageHas(body, "1 record(s) removed.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	p := agentParams(t, sa, "mail.greylist_cleanup")
@@ -240,7 +239,7 @@ func TestMailGreylistCleanup(t *testing.T) {
 		"sel[]": {`["198.51.100.9","boss@example.com","info@bob.example"]`},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/greylisting/report")
-	if !strings.Contains(body, "1 record(s) removed.") {
+	if !pageHas(body, "1 record(s) removed.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	p = agentParams(t, sa, "mail.greylist_cleanup")
@@ -253,7 +252,7 @@ func TestMailGreylistCleanup(t *testing.T) {
 		"_token": {token}, "op": {"delete"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/greylisting/report")
-	if !strings.Contains(body, "Select records first.") {
+	if !pageHas(body, "Select records first.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	// unknown op
@@ -261,7 +260,7 @@ func TestMailGreylistCleanup(t *testing.T) {
 		"_token": {token}, "op": {"nuke"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/greylisting/report")
-	if !strings.Contains(body, "Unknown operation.") {
+	if !pageHas(body, "Unknown operation.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 }
@@ -285,7 +284,7 @@ func TestMailRatePage(t *testing.T) {
 		"Limits reached", "Reset all this hour",
 		"max=\"1000000\"",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("limits page missing %q:\n%s", want, firstLines(body, 60))
 		}
 	}
@@ -302,7 +301,7 @@ func TestMailRateSave(t *testing.T) {
 		"accounts[u12]": {"250"}, "accounts[u10]": {""},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/sending-limits")
-	if !strings.Contains(body, "Mail sending limits saved; they are on.") {
+	if !pageHas(body, "Mail sending limits saved; they are on.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	p := agentParams(t, sa, "mail.rate_set")
@@ -318,7 +317,7 @@ func TestMailRateSave(t *testing.T) {
 		"_token": {token}, "enabled": {"1"}, "per_hour": {"abc"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/sending-limits")
-	if !strings.Contains(body, "Enter a number between 0 (no limit) and 1000000.") {
+	if !pageHas(body, "Enter a number between 0 (no limit) and 1000000.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	// An unknown account.
@@ -327,7 +326,7 @@ func TestMailRateSave(t *testing.T) {
 		"accounts[ghost]": {"5"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/sending-limits")
-	if !strings.Contains(body, "ghost is not a website account.") {
+	if !pageHas(body, "ghost is not a website account.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	// Off.
@@ -335,7 +334,7 @@ func TestMailRateSave(t *testing.T) {
 		"_token": {token}, "per_hour": {"100"},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/sending-limits")
-	if !strings.Contains(body, "Mail sending limits saved; they are off.") {
+	if !pageHas(body, "Mail sending limits saved; they are off.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 }
@@ -352,7 +351,7 @@ func TestMailRateSaveTurnsOn(t *testing.T) {
 		"_token": {token}, "enabled": {"1"}, "per_hour": {"300"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/sending-limits")
-	if !strings.Contains(body, "Mail sending limits saved; they are on.") {
+	if !pageHas(body, "Mail sending limits saved; they are on.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	acts := sa.called()
@@ -377,7 +376,7 @@ func TestMailRateReset(t *testing.T) {
 		"_token": {token}, "account": {"u10"},
 	}, cookie)
 	body := mailFollow(t, h, rr, "/mail/admin/sending-limits")
-	if !strings.Contains(body, "u10 may send again this hour.") {
+	if !pageHas(body, "u10 may send again this hour.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 	p := agentParams(t, sa, "mail.rate_reset")
@@ -388,7 +387,7 @@ func TestMailRateReset(t *testing.T) {
 		"_token": {token}, "account": {""},
 	}, cookie)
 	body = mailFollow(t, h, rr, "/mail/admin/sending-limits")
-	if !strings.Contains(body, "All accounts may send again this hour.") {
+	if !pageHas(body, "All accounts may send again this hour.") {
 		t.Fatalf("flash missing:\n%s", firstLines(body, 5))
 	}
 }

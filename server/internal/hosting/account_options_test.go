@@ -2,7 +2,9 @@ package hosting
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"testing"
 )
 
@@ -34,6 +36,7 @@ func TestAccountOptionsSetMerge(t *testing.T) {
 	ctx := context.Background()
 	store := NewAccountOptionStore(h.db)
 	id := int64(42)
+	seedAccount(t, h.db, id)
 
 	if err := store.Set(ctx, id, map[string]any{"mail_routing": "backup", "dns_dkim": "1"}); err != nil {
 		t.Fatal(err)
@@ -61,6 +64,7 @@ func TestAccountOptionsSetCleaning(t *testing.T) {
 	ctx := context.Background()
 	store := NewAccountOptionStore(h.db)
 	id := int64(43)
+	seedAccount(t, h.db, id)
 
 	// Unknown mail routing falls back to auto; unknown keys are dropped;
 	// a non-bool checkbox value is coerced.
@@ -94,6 +98,7 @@ func TestAccountOptionsStoredBlob(t *testing.T) {
 	ctx := context.Background()
 	store := NewAccountOptionStore(h.db)
 	id := int64(44)
+	seedAccount(t, h.db, id)
 	if err := store.Set(ctx, id, map[string]any{"dns_registrar_ns": true}); err != nil {
 		t.Fatal(err)
 	}
@@ -112,3 +117,13 @@ func TestAccountOptionsStoredBlob(t *testing.T) {
 }
 
 func int64Ptr(v int64) *int64 { return &v }
+
+// seedAccount inserts a bare customer so account_options rows (which reference
+// users, foreign keys enforced) have an owner.
+func seedAccount(t *testing.T, db *sql.DB, id int64) {
+	t.Helper()
+	if _, err := db.Exec(`INSERT INTO users (id,username,email,password_hash,role_id,is_active,password_changed_at,created_at,updated_at)
+		VALUES (?,?,?,'h',3,1,'','','')`, id, fmt.Sprintf("acct%d", id), fmt.Sprintf("acct%d@x", id)); err != nil {
+		t.Fatal(err)
+	}
+}

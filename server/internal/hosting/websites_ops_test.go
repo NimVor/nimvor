@@ -481,7 +481,8 @@ func TestWorkerPlanLimit(t *testing.T) {
 func TestWorkerChangeRuntime(t *testing.T) {
 	h := newHarness(t, writeDB(t))
 	site := findSite(t, h, 10)
-	ws := newWorkerService(t, h, nil)
+	var log []auditRec
+	ws := newWorkerService(t, h, &log)
 	if err := ws.Save(context.Background(), site, nil, WorkerInput{
 		Name: "app", Command: "node app.js", Runtime: "node:20.1.0", EnvText: "PORT=3000",
 	}); err != nil {
@@ -489,7 +490,6 @@ func TestWorkerChangeRuntime(t *testing.T) {
 	}
 	workers, _ := ws.ForSite(context.Background(), site.ID)
 	before := h.agent.callCount("workers.apply")
-	var log []auditRec
 	if err := ws.ChangeRuntime(context.Background(), site, workers[0], "node:22.0.0"); err != nil {
 		t.Fatal(err)
 	}

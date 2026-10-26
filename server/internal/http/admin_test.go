@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -54,10 +53,10 @@ func adminEnv(t *testing.T, loginAs string) http.Handler {
 func TestRolesListShowsSystemRoles(t *testing.T) {
 	h := adminEnv(t, "admin")
 	body := get(t, h, "/roles", nil).Body.String()
-	if !strings.Contains(body, "Administrator") || !strings.Contains(body, "Reseller") {
+	if !pageHas(body, "Administrator") || !pageHas(body, "Reseller") {
 		t.Fatalf("roles page missing roles:\n%s", body)
 	}
-	if !strings.Contains(body, "built-in") {
+	if !pageHas(body, "built-in") {
 		t.Fatalf("roles page missing system marker:\n%s", body)
 	}
 }
@@ -65,7 +64,7 @@ func TestRolesListShowsSystemRoles(t *testing.T) {
 func TestPlansAdminSeesGlobalAndReseller(t *testing.T) {
 	h := adminEnv(t, "admin")
 	body := get(t, h, "/plans", nil).Body.String()
-	if !strings.Contains(body, "GlobalPlan") || !strings.Contains(body, "ResellerPlan") {
+	if !pageHas(body, "GlobalPlan") || !pageHas(body, "ResellerPlan") {
 		t.Fatalf("admin should see all plans:\n%s", body)
 	}
 }
@@ -73,10 +72,10 @@ func TestPlansAdminSeesGlobalAndReseller(t *testing.T) {
 func TestPlansResellerSeesOnlyOwn(t *testing.T) {
 	h := adminEnv(t, "reseller")
 	body := get(t, h, "/plans", nil).Body.String()
-	if !strings.Contains(body, "ResellerPlan") {
+	if !pageHas(body, "ResellerPlan") {
 		t.Fatalf("reseller missing own plan:\n%s", body)
 	}
-	if strings.Contains(body, "GlobalPlan") {
+	if pageHas(body, "GlobalPlan") {
 		t.Fatalf("reseller must not see the global plan:\n%s", body)
 	}
 }

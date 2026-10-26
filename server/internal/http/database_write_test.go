@@ -45,10 +45,15 @@ func startRecordingAgent(t *testing.T) (*recordingAgent, string, string) {
 		action := r.URL.Path[len("/v1/actions/"):]
 		var p map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&p)
-		ra.mu.Lock()
-		ra.actions = append(ra.actions, action)
-		ra.params = append(ra.params, p)
-		ra.mu.Unlock()
+		// db.overview is the read-only live section every databases page view
+		// makes (also after a redirect); the tests assert on the calls that could
+		// change the server, so it is answered but not recorded.
+		if action != "db.overview" {
+			ra.mu.Lock()
+			ra.actions = append(ra.actions, action)
+			ra.params = append(ra.params, p)
+			ra.mu.Unlock()
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 	})

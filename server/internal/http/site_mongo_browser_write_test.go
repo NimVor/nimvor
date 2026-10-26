@@ -56,12 +56,12 @@ func TestSiteMongoBrowserPage(t *testing.T) {
 		`href="/sites/10/mongo"`,
 		`/assets/js/mongobrowser.js`,
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("browser page missing %q", want)
 		}
 	}
 	// Databases outside the account's prefix are not offered.
-	if strings.Contains(page, "other_app") {
+	if pageHas(page, "other_app") {
 		t.Error("the browser offers a foreign database")
 	}
 
@@ -69,13 +69,13 @@ func TestSiteMongoBrowserPage(t *testing.T) {
 	rr = get(t, h, "/sites/10/mongo/browser?db=u_bob_shop", bob)
 	page = rr.Body.String()
 	for _, want := range []string{`data-current="u_bob_shop"`, `<option value="u_bob_shop" selected>u_bob_shop</option>`} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("browser page (?db=u_bob_shop) missing %q", want)
 		}
 	}
 	// A database outside the list never becomes the selection.
 	rr = get(t, h, "/sites/10/mongo/browser?db=other_app", bob)
-	if !strings.Contains(rr.Body.String(), `data-current=""`) {
+	if !pageHas(rr.Body.String(), `data-current=""`) {
 		t.Error("a foreign ?db= became the selection")
 	}
 }
@@ -89,10 +89,10 @@ func TestSiteMongoBrowserPageStates(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("= %d", rr.Code)
 	}
-	if strings.Contains(rr.Body.String(), "u_bob_shop") {
+	if pageHas(rr.Body.String(), "u_bob_shop") {
 		t.Error("databases listed while MongoDB is not running")
 	}
-	if !strings.Contains(rr.Body.String(), `data-current=""`) {
+	if !pageHas(rr.Body.String(), `data-current=""`) {
 		t.Error("a selection without a database list")
 	}
 	// The viewer cannot open the browser.
@@ -235,7 +235,7 @@ func TestSiteMongoBrowserErrors(t *testing.T) {
 	}
 	// Without a CSRF token the reply says so.
 	rr = postJSON(t, h, "/sites/10/mongo/browse", map[string]any{"op": "collections", "db": "u_bob_shop"}, bob, "")
-	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "Page expired") {
+	if rr.Code != http.StatusBadRequest || !pageHas(rr.Body.String(), "Page expired") {
 		t.Errorf("no CSRF = %d %s", rr.Code, rr.Body.String())
 	}
 	// The viewer cannot browse.
@@ -289,7 +289,7 @@ func TestSiteMongoExport(t *testing.T) {
 	}
 
 	// Unsafe characters do not reach the file name.
-	rr = get(t, h, "/sites/10/mongo/export?db=u_bob_shop&collection=a/b c", bob)
+	rr = get(t, h, "/sites/10/mongo/export?db=u_bob_shop&collection=a%2Fb%20c", bob)
 	if cd := rr.Header().Get("Content-Disposition"); cd != `attachment; filename="u_bob_shop.a_b_c.json"` {
 		t.Errorf("safe-name Content-Disposition = %q", cd)
 	}

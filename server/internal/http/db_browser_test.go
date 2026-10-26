@@ -30,6 +30,7 @@ func postJSON(t *testing.T, h http.Handler, path string, body any, cookie *http.
 	}
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
+	adoptCookie(cookie, rr)
 	return rr
 }
 
@@ -46,7 +47,7 @@ func TestDbBrowserPage(t *testing.T) {
 		`data-database="a_main"`,
 		`href="/sites/10/databases"`,
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("browser page missing %q:\n%s", want, page)
 		}
 	}
@@ -72,7 +73,7 @@ func TestDbBrowserServerPage(t *testing.T) {
 		`data-database="legacy_shop"`,
 		`data-api="/databases/browse/api?name=legacy_shop"`,
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("server browser page missing %q:\n%s", want, page)
 		}
 	}

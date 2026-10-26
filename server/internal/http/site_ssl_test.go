@@ -18,7 +18,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
@@ -110,12 +109,12 @@ func TestSiteSslPageNoHttps(t *testing.T) {
 		"Security headers",
 		"Upload your own certificate",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
 	for _, banned := range []string{"Renew now", "ssl/disable", "ssl/options"} {
-		if strings.Contains(page, banned) {
+		if pageHas(page, banned) {
 			t.Errorf("not-HTTPS page shows %q", banned)
 		}
 	}
@@ -142,7 +141,7 @@ func TestSiteSslPageCertValid(t *testing.T) {
 		"ssl/disable",
 		`name="delete_certificate"`,
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -157,7 +156,7 @@ func TestSiteSslPageCertExpiring(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("/sites/10/ssl = %d: %s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), ">Expires soon<") {
+	if !pageHas(rr.Body.String(), ">Expires soon<") {
 		t.Errorf("expiring cert not flagged:\n%s", rr.Body.String())
 	}
 }
@@ -171,7 +170,7 @@ func TestSiteSslPageCertExpired(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("/sites/10/ssl = %d: %s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), ">Expired<") {
+	if !pageHas(rr.Body.String(), ">Expired<") {
 		t.Errorf("expired cert not flagged:\n%s", rr.Body.String())
 	}
 }
@@ -185,7 +184,7 @@ func TestSiteSslPageNoCertbot(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("/sites/10/ssl = %d: %s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), "certbot is not installed on this server") {
+	if !pageHas(rr.Body.String(), "certbot is not installed on this server") {
 		t.Error("certbot warning missing")
 	}
 }
@@ -199,11 +198,11 @@ func TestSiteSslPageReadOnly(t *testing.T) {
 		t.Fatalf("/sites/10/ssl (bob) = %d: %s", rr.Code, rr.Body.String())
 	}
 	page := rr.Body.String()
-	if !strings.Contains(page, ">Secure<") {
+	if !pageHas(page, ">Secure<") {
 		t.Error("read-only page missing the certificate state")
 	}
 	for _, banned := range []string{"ssl/issue", "ssl/renew", "ssl/disable", "ssl/options", "security-headers", "Upload your own"} {
-		if strings.Contains(page, banned) {
+		if pageHas(page, banned) {
 			t.Errorf("read-only page shows %q", banned)
 		}
 	}

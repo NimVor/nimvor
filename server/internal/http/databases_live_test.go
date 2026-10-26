@@ -19,14 +19,14 @@ func TestDatabasesPageShowsLiveSizes(t *testing.T) {
 	}
 	page := rr.Body.String()
 	for _, want := range []string{"MariaDB 10.11.6", "10.0 MB", "12 tables"} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("databases page missing %q:\n%s", want, page)
 		}
 	}
 	// bob's a_main is in the overview (OK, not Missing) and the
 	// unmanaged section is all-scope only.
 	for _, notWant := range []string{"Missing", "Other databases on this server"} {
-		if strings.Contains(page, notWant) {
+		if pageHas(page, notWant) {
 			t.Errorf("databases page should not contain %q", notWant)
 		}
 	}
@@ -42,7 +42,7 @@ func TestDatabasesPageShowsMissingAndUnmanaged(t *testing.T) {
 		// legacy_shop exists on the server but is not under WhaCP management.
 		"Other databases on this server", "legacy_shop", "2.0 MB",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("databases page missing %q:\n%s", want, page)
 		}
 	}
@@ -62,12 +62,12 @@ func TestDatabasesPageServerDown(t *testing.T) {
 		"Database server unavailable",
 		"unknown",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("databases page missing %q:\n%s", want, page)
 		}
 	}
 	// The sizes fall back to the WhaCP records (no live numbers).
-	if strings.Contains(page, "10.0 MB") {
+	if pageHas(page, "10.0 MB") {
 		t.Errorf("databases page shows a live size while the server is down")
 	}
 	if len(sa.called()) == 0 {
@@ -80,11 +80,11 @@ func TestSiteDatabasesShowsSizesNoUnmanaged(t *testing.T) {
 	admin := loginAsUser(t, h, "admin")
 	page := get(t, h, "/sites/10/databases", admin).Body.String()
 	for _, want := range []string{"MariaDB 10.11.6", "10.0 MB", "12 tables"} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("site databases page missing %q:\n%s", want, page)
 		}
 	}
-	if strings.Contains(page, "Other databases on this server") {
+	if pageHas(page, "Other databases on this server") {
 		t.Errorf("site databases page must not list unmanaged databases")
 	}
 }
@@ -94,7 +94,7 @@ func TestDatabasesPageUnmanagedOnlyForAllScope(t *testing.T) {
 	alice := loginAsUser(t, h, "alice")
 	page := get(t, h, "/databases", alice).Body.String()
 	for _, notWant := range []string{"Other databases on this server", "legacy_shop"} {
-		if strings.Contains(page, notWant) {
+		if pageHas(page, notWant) {
 			t.Errorf("non-admin page should not contain %q", notWant)
 		}
 	}

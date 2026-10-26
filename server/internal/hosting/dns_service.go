@@ -542,7 +542,7 @@ func (s *DnsService) pushTx(ctx context.Context, tx *sql.Tx, zoneID int64) error
 		}
 		return err
 	}
-	rows, err := tx.QueryContext(ctx, `\
+	rows, err := tx.QueryContext(ctx, `
 		SELECT name, type, ttl, value, priority, weight, port, disabled
 		FROM dns_records WHERE zone_id = ?
 		ORDER BY CASE name WHEN '@' THEN 0 ELSE 1 END, name,
@@ -605,7 +605,7 @@ func (s *DnsService) pushTx(ctx context.Context, tx *sql.Tx, zoneID int64) error
 var DnsRecordTypes = []string{"A", "AAAA", "CNAME", "MX", "TXT", "NS", "SRV", "CAA", "PTR"}
 
 var (
-	recNameRe   = regexp.MustCompile(`^(\*\.?)([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)*[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?$`)
+	recNameRe   = regexp.MustCompile(`^(\*\.)?([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)*[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?$`)
 	recHostRe   = regexp.MustCompile(`^(@|\.|([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9])?\.)*[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9])?\.?)$`)
 	srvNameRe   = regexp.MustCompile(`^_[a-z0-9-]{1,63}\._(tcp|udp|tls|sctp)(\.|$)`)
 	caaIodefRe  = regexp.MustCompile(`^(mailto:[^@\s]+@[^@\s]+|https?://\S+)$`)
@@ -669,7 +669,7 @@ func (s *DnsService) CleanRecord(in map[string]string, zone string) (*CleanRecor
 		}
 	}
 	if !isType {
-		errs["type"] = "Choose a record recType."
+		errs["type"] = "Choose a record type."
 	}
 	if name != "@" && name != "*" && !recNameRe.MatchString(name) {
 		errs["name"] = "Use @ for the domain itself, or a name such as www, mail or *.dev."
@@ -875,7 +875,7 @@ func (s *DnsService) SaveRecord(ctx context.Context, zone *DnsZoneFull, recordID
 		}
 		rows, err := tx.QueryContext(ctx,
 			`SELECT id, name, type, ttl, value, priority, weight, port, disabled FROM dns_records WHERE zone_id = ?`+
-				(idNotClause(recordID)), *recordIDOr(zone.ID, recordID)...)
+				(idNotClause(recordID)), recordIDOr(zone.ID, recordID)...)
 		if err != nil {
 			return err
 		}
@@ -923,8 +923,13 @@ func (s *DnsService) SaveRecord(ctx context.Context, zone *DnsZoneFull, recordID
 		action = "dns.record_update"
 	}
 	details := map[string]any{"zone": zone.Name}
+	// Commit first: the audit write needs the single pooled connection the open
+	// transaction holds (auditing inside it deadlocked every record change).
+	if err := tx.Commit(); err != nil {
+		return err
+	}
 	s.auditRecord(ctx, action, zone.ID, details, before, after)
-	return tx.Commit()
+	return nil
 }
 
 func idNotClause(recordID *int64) string {
@@ -991,10 +996,13 @@ func (s *DnsService) Settings(ctx context.Context, zone *DnsZoneFull, ttl int, s
 	if err := s.pushTx(ctx, tx, zone.ID); err != nil {
 		return err
 	}
-	if s.auditlog != nil {
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if s.auditlog != nil { // after the commit: the open tx holds the only connection
 		s.auditlog(ctx, "dns.zone_settings", "dns_zone", fmt.Sprint(zone.ID), "success", map[string]any{"zone": zone.Name, "ttl": ttl, "secondaries": ips})
 	}
-	return tx.Commit()
+	return nil
 }
 
 // Sync loads the zone again, e.g. after the DNS server was reinstalled
@@ -1063,11 +1071,11 @@ func (s *DnsService) Bulk(ctx context.Context, zone *DnsZoneFull, ids []int64, o
 	if err := s.pushTx(ctx, tx, zone.ID); err != nil {
 		return 0, err
 	}
-	if s.auditlog != nil {
-		s.auditlog(ctx, "dns.records_"+op, "dns_zone", fmt.Sprint(zone.ID), "success", map[string]any{"zone": zone.Name, "count": n})
-	}
 	if err := tx.Commit(); err != nil {
 		return 0, err
+	}
+	if s.auditlog != nil { // after the commit: the open tx holds the only connection
+		s.auditlog(ctx, "dns.records_"+op, "dns_zone", fmt.Sprint(zone.ID), "success", map[string]any{"zone": zone.Name, "count": n})
 	}
 	return n, nil
 }
@@ -1177,11 +1185,11 @@ func (s *DnsService) Import(ctx context.Context, zone *DnsZoneFull, text string)
 			return nil, err
 		}
 	}
-	if s.auditlog != nil {
-		s.auditlog(ctx, "dns.zone_import", "dns_zone", fmt.Sprint(zone.ID), "success", map[string]any{"zone": zone.Name, "added": out.Added})
-	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
+	}
+	if s.auditlog != nil { // after the commit: the open tx holds the only connection
+		s.auditlog(ctx, "dns.zone_import", "dns_zone", fmt.Sprint(zone.ID), "success", map[string]any{"zone": zone.Name, "added": out.Added})
 	}
 	return out, nil
 }

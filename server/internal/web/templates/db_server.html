@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="{{.CSRF}}">
 <title>{{.Title}} · WhaCP</title>
+<link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/assets/css/whacp.css">
 </head>
 <body class="whacp-app">
@@ -80,8 +82,8 @@
           <progress class="wcp-meter w-100 mb-2" max="100" value="{{.}}" aria-label="Buffer pool used">{{.}}%</progress>
           {{end}}
           <dl class="row mb-0">
-            {{with .HitRate}}<dt class="col-7 fw-normal text-muted">Buffer pool hit rate</dt><dd class="col-5 mb-1">{{printf "%.2f" .}}%{{if lt . 99}} <span class="wcp-state is-warn">low</span>{{end}}</dd>{{end}}
-            {{with .TmpDisk}}<dt class="col-7 fw-normal text-muted">Temporary tables on disk</dt><dd class="col-5 mb-1">{{printf "%.1f" .}}%{{if gt . 25}} <span class="wcp-state is-warn">high</span>{{end}}</dd>{{end}}
+            {{if .HitRate}}<dt class="col-7 fw-normal text-muted">Buffer pool hit rate</dt><dd class="col-5 mb-1">{{printf "%.2f" .HitV}}%{{if lt .HitV 99.0}} <span class="wcp-state is-warn">low</span>{{end}}</dd>{{end}}
+            {{if .TmpDisk}}<dt class="col-7 fw-normal text-muted">Temporary tables on disk</dt><dd class="col-5 mb-1">{{printf "%.1f" .TmpV}}%{{if gt .TmpV 25.0}} <span class="wcp-state is-warn">high</span>{{end}}</dd>{{end}}
             <dt class="col-7 fw-normal text-muted">Open tables</dt><dd class="col-5 mb-1">{{.OpenTables}} of {{.TableOpenCache}}</dd>
             <dt class="col-7 fw-normal text-muted">Received / sent</dt><dd class="col-5 mb-1">{{.BytesRecv}} / {{.BytesSent}}</dd>
             <dt class="col-7 fw-normal text-muted">Selects / inserts / updates / deletes</dt><dd class="col-5 mb-1">{{.ComSelect}} / {{.ComInsert}} / {{.ComUpdate}} / {{.ComDelete}}</dd>
@@ -216,6 +218,9 @@
   {{end}}
   {{end}}
   {{end}}
+{{template "wcp_confirm_modal"}}
 </main>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/js/whacp.js"></script>
 </body>
 </html>{{end}}

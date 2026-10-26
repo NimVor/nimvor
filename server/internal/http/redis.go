@@ -190,6 +190,12 @@ func (s *Server) redisIndexData(r *http.Request, errMessage string, submitted bo
 		}
 	}
 	success, _ := sess.PullFlash("success")
+	// An action that redirects back with an error (wrong confirmation, refused
+	// user, unknown website) flashes it; without this pull those failures were
+	// never shown. A validation error rendered in place takes precedence.
+	if flashed, _ := sess.PullFlash("error"); errMessage == "" {
+		errMessage = flashed
+	}
 	return map[string]any{
 		"User":          user,
 		"CSRF":          session.CSRFToken(sess),

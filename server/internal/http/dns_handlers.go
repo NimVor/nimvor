@@ -139,7 +139,7 @@ var siteMailTargetRe = regexp.MustCompile(`^/sites/\d+/mail$`)
 // dns.zone, dns.manage).
 func (s *Server) dnsZoneShow(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
-	zone, err := hosting.NewDnsRepository(s.db).Zone(r.Context(), s.currentServerID(r), pathID(r), user)
+	zone, err := hosting.NewDnsRepository(s.db).Zone(r.Context(), s.currentServerID(r), pathIDOrZero(r), user)
 	if err != nil {
 		s.log.Error("show dns zone", "error", err)
 		s.showNotFound(w)
@@ -158,9 +158,9 @@ func (s *Server) dnsZoneShow(w http.ResponseWriter, r *http.Request) {
 	s.renderZone(w, r, zone, s.zoneRecords(r.Context(), zone.ID, sort), nil, nil, skipped, sort)
 }
 
-// pathID parses the {id} path value (0 when malformed; the scoped lookup
+// pathIDOrZero parses the {id} path value (0 when malformed; the scoped lookup
 // then 404s, as in the other pages).
-func pathID(r *http.Request) int64 {
+func pathIDOrZero(r *http.Request) int64 {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		return 0

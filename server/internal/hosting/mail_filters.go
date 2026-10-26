@@ -178,7 +178,7 @@ func MailFilterFromForm(in map[string]string) (*MailFilter, error) {
 	if len(actions) == 0 {
 		errs["actions"] = "Add at least one action."
 	}
-	if errs != nil {
+	if len(errs) > 0 {
 		return nil, &ValidationError{Fields: errs}
 	}
 	return &MailFilter{

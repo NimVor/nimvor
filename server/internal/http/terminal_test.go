@@ -115,7 +115,7 @@ func TestTerminalSitePage(t *testing.T) {
 		"in a sandbox that shows only this account's website folder",
 		"The session closes after 15 minutes without input",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -135,11 +135,11 @@ func TestTerminalSitePageShellOff(t *testing.T) {
 		t.Fatalf("GET = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "Shell access is off for this website") || strings.Contains(body, "wcp-term") {
+	if !pageHas(body, "Shell access is off for this website") || pageHas(body, "wcp-term") {
 		t.Errorf("shell-off page wrong: %s", body[:min(200, len(body))])
 	}
 	// A customer without security.manage sees the plain hint, not the link.
-	if !strings.Contains(body, "Please ask your hosting provider to enable shell access") {
+	if !pageHas(body, "Please ask your hosting provider to enable shell access") {
 		t.Errorf("missing the provider hint")
 	}
 }
@@ -153,7 +153,7 @@ func TestTerminalSitePageAgentDown(t *testing.T) {
 		t.Fatalf("GET = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "the socket is closed") || strings.Contains(body, "wcp-term") {
+	if !pageHas(body, "the socket is closed") || pageHas(body, "wcp-term") {
 		t.Errorf("agent-down page wrong: %s", body[:min(300, len(body))])
 	}
 }
@@ -296,7 +296,7 @@ func TestTerminalUnlockNeedsCode(t *testing.T) {
 	}
 	token, admin := siteFormToken(t, h, admin, "/terminal")
 	// The page offers the code field…
-	if rr := get(t, h, "/terminal", admin); !strings.Contains(rr.Body.String(), `name="code"`) {
+	if rr := get(t, h, "/terminal", admin); !pageHas(rr.Body.String(), `name="code"`) {
 		t.Errorf("unlock form missing the code field")
 	}
 	// …the right password without the code is refused (and named as such).
@@ -308,7 +308,9 @@ func TestTerminalUnlockNeedsCode(t *testing.T) {
 		t.Errorf("body = %v", body)
 	}
 	// …with the code it unlocks.
-	code, _ = twofactor.Code(secret, time.Now().Unix()/30)
+	// Enable consumed the current step (replay protection): use the next one,
+	// which the verifier still accepts (previous/current/next window).
+	code, _ = twofactor.Code(secret, time.Now().Unix()/30+1)
 	rr = postJSON(t, h, "/terminal/unlock", map[string]any{"password": loginPassword, "code": code}, admin, token)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("unlock (with code) = %d: %s", rr.Code, rr.Body.String())
@@ -368,7 +370,7 @@ func TestTerminalIndex(t *testing.T) {
 		`data-wcp-confirm=`, "/terminal/sessions/abcdef0123456789/close",
 		`data-auth="panel"`, `data-open-url="/terminal/root/open"`, "This is a root shell on the server",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -409,7 +411,7 @@ func TestTerminalLogoutClosesSessions(t *testing.T) {
 	admin := loginAsUser(t, h, "admin")
 	// Confirm the password and open a terminal (creates the owner token).
 	token, admin := siteFormToken(t, h, admin, "/terminal")
-	postJSON(t, h, "/terminal/unlock", map[string]any{"password": loginPassword}, admin, token)
+	admin = refreshCookie(admin, postJSON(t, h, "/terminal/unlock", map[string]any{"password": loginPassword}, admin, token))
 	admin = refreshCookie(admin, postJSON(t, h, "/terminal/root/open", map[string]any{}, admin, token))
 	// Sign out.
 	logoutToken, admin := siteFormToken(t, h, admin, "/")
@@ -428,5 +430,27 @@ func TestTerminalOpenBadCSRF(t *testing.T) {
 	rr := postJSON(t, h, "/sites/10/terminal/open", map[string]any{}, bob, "")
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("open without token = %d, want 400", rr.Code)
+	}
+}
+
+// The wrong-guess counter must survive a client that throws away the response
+// cookie: sessions are sealed cookies the client holds, so a counter kept in the
+// session could be reset by replaying the old one. After five wrong guesses the
+// unlock is refused even for the right password, with the ORIGINAL cookie.
+func TestTerminalUnlockLockoutSurvivesCookieReplay(t *testing.T) {
+	h, _, _, _ := terminalEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	token, admin := siteFormToken(t, h, admin, "/terminal")
+	copied := *admin // a client that throws every Set-Cookie away: replay a frozen copy
+	replay := &copied
+	for i := 0; i < 5; i++ {
+		rr := postJSON(t, h, "/terminal/unlock", map[string]any{"password": "nope"}, replay, token)
+		if rr.Code != http.StatusForbidden {
+			t.Fatalf("guess %d = %d, want 403", i, rr.Code)
+		}
+	}
+	rr := postJSON(t, h, "/terminal/unlock", map[string]any{"password": loginPassword}, replay, token)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("right password after 5 replayed wrong guesses = %d, want 429 (lockout bypassed)", rr.Code)
 	}
 }

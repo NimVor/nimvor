@@ -93,12 +93,12 @@ func TestWebsiteShowScopedAndForeignIs404(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("numeric id on the discovery page = %d, want 404", rr.Code)
 	}
-	if strings.Contains(rr.Body.String(), "a.example") || strings.Contains(rr.Body.String(), "a_main") {
+	if pageHas(rr.Body.String(), "a.example") || pageHas(rr.Body.String(), "a_main") {
 		t.Fatalf("TENANT LEAK on the discovery detail page:\n%s", rr.Body.String())
 	}
 	// The discovered website resolves for any viewer (websites.view, as in PHP).
 	rr = get(t, h, "/websites/abc123", cookie)
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "old.test") {
+	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), "old.test") {
 		t.Fatalf("discovered website detail = %d", rr.Code)
 	}
 }
@@ -106,10 +106,10 @@ func TestWebsiteShowScopedAndForeignIs404(t *testing.T) {
 func TestDatabasesListTenantScoped(t *testing.T) {
 	h, cookie, _ := dbEnv(t, "custB")
 	body := get(t, h, "/databases", cookie).Body.String()
-	if !strings.Contains(body, "b_main") {
+	if !pageHas(body, "b_main") {
 		t.Fatalf("custB missing own database:\n%s", body)
 	}
-	if strings.Contains(body, "a_main") {
+	if pageHas(body, "a_main") {
 		t.Fatalf("TENANT LEAK: custB saw another tenant's database:\n%s", body)
 	}
 }
@@ -125,7 +125,7 @@ func TestDatabasesListWithheldByDisabledMysqlFeature(t *testing.T) {
 func TestAdminDatabasesSeesAll(t *testing.T) {
 	h, cookie, _ := dbEnv(t, "admin")
 	body := get(t, h, "/databases", cookie).Body.String()
-	if !strings.Contains(body, "a_main") || !strings.Contains(body, "b_main") {
+	if !pageHas(body, "a_main") || !pageHas(body, "b_main") {
 		t.Fatalf("admin should see all databases:\n%s", body)
 	}
 }

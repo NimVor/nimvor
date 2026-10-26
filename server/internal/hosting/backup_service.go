@@ -380,7 +380,7 @@ func (s *BackupService) Download(ctx context.Context, b *Backup, file string) (*
 			Size int64  `json:"size"`
 			EOF  bool   `json:"eof"`
 		}
-		if err := s.callAgent(ctx, "backup.download", map[string]any{"kind": kind, "domain": domain, "id": b.BackupID, "file": file, "offset": offset}, 120*time.Second, &out); err != nil {
+		if err := s.callAgent(ctx, "backup.download", map[string]any{"kind": kind, "domain": domain, "id": b.BackupID, "file": file, "offset": offset}, durPtr(120*time.Second), &out); err != nil {
 			return nil, err
 		}
 		data, err := base64.StdEncoding.DecodeString(out.Data)

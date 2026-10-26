@@ -28,7 +28,8 @@ var HulkVariables = []struct{ Name, Desc string }{
 
 // ValidEntry is HulkService::validEntry — an IP address or network.
 func ValidEntry(s string) bool {
-	if i := strings.IndexByte(s, '/'); i == -1 {
+	i := strings.IndexByte(s, '/')
+	if i == -1 {
 		return net.ParseIP(s) != nil
 	}
 	addr, bits := s[:i], s[i+1:]
@@ -191,8 +192,9 @@ func (h *Hulk) SetCountries(ctx context.Context, marks map[string]string) (int, 
 // Report is HulkService::report — the failed logins within the retention
 // window (newest first, at most 1000).
 func (h *Hulk) Report(ctx context.Context) ([]ReportRow, error) {
-	retention, _ := h.settings.Int(ctx, "hulk_retention", 360)
-	limit := 1000 // (int) max(1, min(5000, $limit)) with the default limit 1000.
+	retentionMin, _ := h.settings.Int(ctx, "hulk_retention", 360)
+	retention := int64(retentionMin) // minutes; widened to match the Unix-time (int64) arithmetic below
+	limit := 1000                    // (int) max(1, min(5000, $limit)) with the default limit 1000.
 	now := time.Now().Unix()
 	rows, err := h.db.QueryContext(ctx,
 		"SELECT user, ip, country, service, authservice, `time` FROM hulk_events WHERE ok = 0 AND `time` > ? ORDER BY `time` DESC LIMIT ?",

@@ -46,8 +46,6 @@ func PasswordWeakness(password, username string) string {
 	return ""
 }
 
-
-
 // Argon2id parameters matching PHP 8.3's PASSWORD_ARGON2ID defaults
 // (memory_cost=65536 KiB, time_cost=4, threads=1), so a hash produced here is
 // indistinguishable from one produced by the PHP panel and verifies on both

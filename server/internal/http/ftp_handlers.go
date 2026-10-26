@@ -547,7 +547,7 @@ func (s *Server) siteFtpSave(w http.ResponseWriter, r *http.Request) {
 	}
 	owner := (*int64)(nil)
 	if site.OwnerID.Valid {
-		v := site.OwnerID.Int
+		v := site.OwnerID.Int64
 		owner = &v
 	}
 	imp := s.ftpService()

@@ -56,10 +56,10 @@ func checksEnv(t *testing.T, httpsSite bool) (http.Handler, *sitesAgent, *sql.DB
 	if httpsSite {
 		https = 1
 	}
-	exec("INSERT INTO websites (id,server_id,domain,system_user,root,document_root,kind,enabled,https,created_at) VALUES " +
-		"(1,1,'a.example.com','ua','/home/ua','/home/ua/public_html','php',1," + strconv.Itoa(https) + ",'')," +
-		"(2,1,'b.example.com','ub','/home/ub','/home/ub/public_html','php',1,0,'')," +
-		"(3,1,'c.example.com','uc','/home/uc','/home/uc/public_html','php',0,1,'')")
+	exec("INSERT INTO websites (id,server_id,domain,system_user,root,document_root,kind,enabled,https,created_at,updated_at) VALUES " +
+		"(1,1,'a.example.com','ua','/home/ua','/home/ua/public_html','php',1," + strconv.Itoa(https) + ",'','')," +
+		"(2,1,'b.example.com','ub','/home/ub','/home/ub/public_html','php',1,0,'','')," +
+		"(3,1,'c.example.com','uc','/home/uc','/home/uc/public_html','php',0,1,'','')")
 
 	kf := filepath.Join(t.TempDir(), "panel.key")
 	var key [32]byte
@@ -88,7 +88,7 @@ func TestIntegrityPageInitial(t *testing.T) {
 		">Run check<", ">Set baseline<",
 		"Run the check to verify the agent binary, WhaCP configuration and the installed packages.",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -110,7 +110,7 @@ func TestIntegrityRun(t *testing.T) {
 		`<span class="badge text-bg-warning">MEDIUM</span>`,
 		"/usr/bin/passwd", "modified", "(package)", "checksum changed",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("result missing %q", want)
 		}
 	}
@@ -144,7 +144,7 @@ func TestIntegrityRunAgentDown(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("run = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "The integrity check could not run: the socket is closed") {
+	if !pageHas(rr.Body.String(), "The integrity check could not run: the socket is closed") {
 		t.Error("the error is not shown")
 	}
 	var n int
@@ -213,11 +213,11 @@ func TestTlsPageInitial(t *testing.T) {
 		"4 endpoint(s): HTTPS websites and mail",
 		"Run the audit to probe the server's HTTPS and mail endpoints.",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
-	if strings.Contains(body, `btn-primary" disabled`) {
+	if pageHas(body, `btn-primary" disabled`) {
 		t.Error("the run button must be enabled with endpoints")
 	}
 }
@@ -235,12 +235,12 @@ func TestTlsRun(t *testing.T) {
 		"a.example.com:443", "best: TLS 1.3, lowest: TLS 1.0",
 		"TLS 1.0 accepted", `<span class="badge text-bg-danger">HIGH</span>`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("result missing %q", want)
 		}
 	}
 	// The clean endpoint (no findings) is not rendered.
-	if strings.Contains(body, "b.example.com:443") {
+	if pageHas(body, "b.example.com:443") {
 		t.Error("an endpoint without findings must not render a panel")
 	}
 	// The endpoint list: the one website + the three mail ports.
@@ -275,7 +275,7 @@ func TestTlsRunAgentDown(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("run = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "The TLS audit could not run: the socket is closed") {
+	if !pageHas(rr.Body.String(), "The TLS audit could not run: the socket is closed") {
 		t.Error("the error is not shown")
 	}
 	var n int
@@ -297,11 +297,11 @@ func TestTlsNoEndpoints(t *testing.T) {
 		"0 endpoint(s): HTTPS websites and mail",
 		"No HTTPS websites or mail endpoints to audit yet.",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
-	if !strings.Contains(body, `btn-primary" disabled`) {
+	if !pageHas(body, `btn-primary" disabled`) {
 		t.Error("the run button must be disabled without endpoints")
 	}
 	token, admin := siteFormToken(t, h, admin, "/security/tls")
@@ -309,7 +309,7 @@ func TestTlsNoEndpoints(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("run = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "No HTTPS websites or mail endpoints to audit yet.") {
+	if !pageHas(rr.Body.String(), "No HTTPS websites or mail endpoints to audit yet.") {
 		t.Error("the no-endpoints run re-renders the same note")
 	}
 	for _, a := range sa.called() {
@@ -331,7 +331,7 @@ func TestAdvisoriesPageInitial(t *testing.T) {
 		"Vulnerability advisories", "from the operating system's own advisories",
 		">Check now<", "Check now to list pending updates and their advisories.",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -359,11 +359,11 @@ func TestAdvisoriesRun(t *testing.T) {
 		"vim", "9.0", "9.1",
 		`<span class="badge text-bg-secondary">normal</span>`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("result missing %q", want)
 		}
 	}
-	if strings.Contains(body, "unknown") {
+	if pageHas(body, "unknown") {
 		t.Error("the unknown badge only renders when its count is above zero")
 	}
 	// The description's em dash + the vim row's empty advisory/cve cells.
@@ -386,7 +386,7 @@ func TestAdvisoriesRunAgentDown(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("run = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "The advisory check could not run: the socket is closed") {
+	if !pageHas(rr.Body.String(), "The advisory check could not run: the socket is closed") {
 		t.Error("the error is not shown")
 	}
 }

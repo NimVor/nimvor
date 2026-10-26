@@ -68,12 +68,12 @@ func (s *Server) usersStore(w http.ResponseWriter, r *http.Request) {
 	// Username: 3–32 lowercase [a-z0-9._-], start with a letter.
 	if !validUsername(username) {
 		errs["username"] = "Use 3–32 lowercase letters, digits, dots, dashes or underscores, starting with a letter."
-	} else if taken, e := repo.UsernameExists(username, 0); e == nil && taken {
+	} else if taken, e := repo.UsernameExists(r.Context(), username, 0); e == nil && taken {
 		errs["username"] = "This username is already taken."
 	}
 	if email == "" || !isEmail(email) || len(email) > 190 {
 		errs["email"] = "Enter a valid email address."
-	} else if taken, e := repo.EmailExists(email, 0); e == nil && taken {
+	} else if taken, e := repo.EmailExists(r.Context(), email, 0); e == nil && taken {
 		errs["email"] = "This email address is already in use."
 	}
 	if len(display) > 100 || strings.ContainsAny(display, "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x7f") {
@@ -309,7 +309,7 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 	errs := map[string]string{}
 	if email == "" || !isEmail(email) || len(email) > 190 {
 		errs["email"] = "Enter a valid email address."
-	} else if taken, e := repo.EmailExists(r.Context(), email, int(id)); e == nil && taken {
+	} else if taken, e := repo.EmailExists(r.Context(), email, id); e == nil && taken {
 		errs["email"] = "This email address is already in use."
 	}
 	if len(display) > 100 || strings.ContainsAny(display, "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x7f") {
@@ -317,7 +317,6 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	// Validate role exists.
 	var newRoleName string
-	var newRoleScope string
 	if roleID <= 0 {
 		errs["role_id"] = "Choose a valid role."
 	} else {
@@ -329,7 +328,6 @@ func (s *Server) usersUpdate(w http.ResponseWriter, r *http.Request) {
 			errs["role_id"] = "Choose a valid role."
 		} else {
 			newRoleName = rr.Name
-			newRoleScope = rr.Scope
 		}
 	}
 	// Self-disable guard.

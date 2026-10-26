@@ -8,6 +8,7 @@ package http
 // read-only; only recording the file-integrity baseline changes state.
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"

@@ -6,6 +6,7 @@
 package http
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -525,6 +526,9 @@ func (s *Server) ipAllocate(w http.ResponseWriter, r *http.Request) {
 		}
 		if siteID > 0 {
 			site, err := hosting.NewWebsiteRepository(s.db).FindFull(r.Context(), s.currentServerID(r), siteID, user)
+			if errors.Is(err, sql.ErrNoRows) {
+				site, err = nil, nil // FindFull reports a missing (or not visible) website as ErrNoRows
+			}
 			if err != nil {
 				return "", err
 			}
@@ -591,7 +595,7 @@ func (s *Server) ipMigratePage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/ips/migrate", http.StatusSeeOther)
 		return
 	}
-	offer := make([]hosting.IpAddress, 0, len(pool))
+	offer := make([]hosting.IPAddress, 0, len(pool))
 	for _, a := range pool {
 		if a.Reserved == 0 || len(a.Sites) > 0 {
 			offer = append(offer, a)

@@ -87,7 +87,7 @@ func TestSSHPage(t *testing.T) {
 		// The key forms (role admin).
 		"Generate a new key", "Or add an existing public key",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -105,12 +105,12 @@ func TestSSHPageCustomer(t *testing.T) {
 	for _, want := range []string{
 		"SSH server", "Validate and apply", "Only administrators add or remove SSH keys.",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
 	for _, not := range []string{"Generate a new key", "Or add an existing public key"} {
-		if strings.Contains(body, not) {
+		if pageHas(body, not) {
 			t.Errorf("a key form shows for a non-admin: %q", not)
 		}
 	}
@@ -125,7 +125,7 @@ func TestSSHPageAgentDown(t *testing.T) {
 		t.Fatalf("GET = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "the socket is closed") || strings.Contains(body, "SSH server") {
+	if !pageHas(body, "the socket is closed") || pageHas(body, "SSH server") {
 		t.Errorf("agent-down page wrong: %s", body[:min(300, len(body))])
 	}
 }
@@ -228,7 +228,7 @@ func TestSSHGenerateKey(t *testing.T) {
 		"whacp-root-example.com.pem", "ssh -i ~/.ssh/whacp-root-example.com.pem root@example.com",
 		"allowed for <strong>root</strong>",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -248,7 +248,7 @@ func TestSSHGenerateKey(t *testing.T) {
 		t.Fatalf("generate (plain) = %d", rr.Code)
 	}
 	body = rr.Body.String()
-	if !strings.Contains(body, "BEGIN PRIVATE KEY") || !strings.Contains(body, "It has no passphrase") {
+	if !pageHas(body, "BEGIN PRIVATE KEY") || !pageHas(body, "It has no passphrase") {
 		t.Errorf("the unencrypted key page is wrong")
 	}
 }

@@ -145,8 +145,12 @@ func (s *Server) apiDeleteWebsite(w http.ResponseWriter, r *http.Request) {
 	writeAPI(w, http.StatusOK, map[string]any{"deleted": site.ID, "warnings": warnings})
 }
 
-func (s *Server) apiEnableWebsite(w http.ResponseWriter, r *http.Request)  { s.apiSetEnabled(w, r, true) }
-func (s *Server) apiDisableWebsite(w http.ResponseWriter, r *http.Request) { s.apiSetEnabled(w, r, false) }
+func (s *Server) apiEnableWebsite(w http.ResponseWriter, r *http.Request) {
+	s.apiSetEnabled(w, r, true)
+}
+func (s *Server) apiDisableWebsite(w http.ResponseWriter, r *http.Request) {
+	s.apiSetEnabled(w, r, false)
+}
 
 func (s *Server) apiSetEnabled(w http.ResponseWriter, r *http.Request, enabled bool) {
 	u := auth.APIUserFrom(r.Context())
@@ -441,5 +445,3 @@ func unwrapEnvelopeAny(raw json.RawMessage) any {
 	_ = json.Unmarshal(raw, &out)
 	return out
 }
-
-

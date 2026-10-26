@@ -9,7 +9,7 @@ PORT="${E2E_PORT:-8097}"
 export E2E_BASE="http://127.0.0.1:$PORT" E2E_OUT="${E2E_OUT:-$(mktemp -d)}"
 mkdir -p "$E2E_OUT"
 rm -rf "$ROOT/.dev"
-# Own process group, so agent and PHP server stop with it.
+# Own process group, so agent and panel stop with it.
 setsid bash -c "cd '$ROOT' && DEV_WRITE=1 DEV_PORT=$PORT exec scripts/dev.sh" > "$E2E_OUT/dev.log" 2>&1 &
 DEV=$!
 trap 'kill -- -$DEV 2>/dev/null; true' EXIT

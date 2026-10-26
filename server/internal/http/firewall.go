@@ -505,7 +505,7 @@ func (s *Server) firewallToggle(w http.ResponseWriter, r *http.Request) {
 			"enabled": true, "allow_services": allowServices, "allow_from": allowFrom,
 		}, 90*time.Second)
 		if err != nil {
-			agentErrorRedirect(w, r, "firewall toggle", err, to)
+			s.agentErrorRedirect(w, r, "firewall toggle", err, to)
 			return
 		}
 		sess.Flash("success", s.guardRecord(r, "firewall.enable", reply, map[string]any{
@@ -518,7 +518,7 @@ func (s *Server) firewallToggle(w http.ResponseWriter, r *http.Request) {
 	}
 	reply, err := s.agent.Call(r.Context(), "firewall.set_enabled", map[string]any{"enabled": false})
 	if err != nil {
-		agentErrorRedirect(w, r, "firewall toggle", err, to)
+		s.agentErrorRedirect(w, r, "firewall toggle", err, to)
 		return
 	}
 	sess.Flash("success", s.guardRecord(r, "firewall.disable", reply, nil))
@@ -549,7 +549,7 @@ func (s *Server) firewallAddRule(w http.ResponseWriter, r *http.Request) {
 	}
 	reply, err := s.agent.Call(r.Context(), "firewall.rule_add", rule)
 	if err != nil {
-		agentErrorRedirect(w, r, "firewall rule", err, "/security/firewall")
+		s.agentErrorRedirect(w, r, "firewall rule", err, "/security/firewall")
 		return
 	}
 	sess.Flash("success", s.guardRecord(r, "firewall.rule_add", reply, rule))
@@ -571,7 +571,7 @@ func (s *Server) firewallDeleteRule(w http.ResponseWriter, r *http.Request) {
 	spec := r.FormValue("spec")
 	reply, err := s.agent.Call(r.Context(), "firewall.rule_delete", map[string]any{"spec": spec})
 	if err != nil {
-		agentErrorRedirect(w, r, "firewall rule", err, "/security/firewall")
+		s.agentErrorRedirect(w, r, "firewall rule", err, "/security/firewall")
 		return
 	}
 	sess.Flash("success", s.guardRecord(r, "firewall.rule_delete", reply, map[string]any{"rule": spec}))
@@ -765,7 +765,7 @@ func (s *Server) firewallProtection(w http.ResponseWriter, r *http.Request) {
 	}
 	reply, err := s.agent.Call(r.Context(), "firewall.protection_set", p, 90*time.Second)
 	if err != nil {
-		agentErrorRedirect(w, r, "firewall protection", err, to)
+		s.agentErrorRedirect(w, r, "firewall protection", err, to)
 		return
 	}
 	sess.Flash("success", s.guardRecord(r, "firewall.protection", reply, p))

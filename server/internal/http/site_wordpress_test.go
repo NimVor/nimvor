@@ -12,7 +12,6 @@ import (
 	"database/sql"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -49,7 +48,7 @@ func TestWordPressIndex(t *testing.T) {
 		"All <span class=\"badge rounded-pill text-bg-light border fw-normal\">3</span>",
 		"href=\"/sites/10/wordpress/",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("index missing %q", want)
 		}
 	}
@@ -60,7 +59,7 @@ func TestWordPressIndex(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("bob's index = %d", rr.Code)
 	}
-	if strings.Contains(rr.Body.String(), "carol.example") {
+	if pageHas(rr.Body.String(), "carol.example") {
 		t.Error("bob sees a foreign installation")
 	}
 	// The viewer has no websites.manage: no scan form.
@@ -69,19 +68,19 @@ func TestWordPressIndex(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("carol's index = %d", rr.Code)
 	}
-	if strings.Contains(rr.Body.String(), "Scan all websites") {
+	if pageHas(rr.Body.String(), "Scan all websites") {
 		t.Error("carol (no websites.manage) sees the scan form")
 	}
 
 	// The outdated filter.
 	rr = get(t, h, "/wordpress?filter=outdated", admin)
 	page = rr.Body.String()
-	if !strings.Contains(page, "bob.example") || strings.Contains(page, "carol.example") {
+	if !pageHas(page, "bob.example") || pageHas(page, "carol.example") {
 		t.Errorf("outdated filter wrong: %s", page)
 	}
 	// The issues filter (none seeded) shows nothing in this list.
 	rr = get(t, h, "/wordpress?filter=issues", admin)
-	if !strings.Contains(rr.Body.String(), "Nothing in this list") {
+	if !pageHas(rr.Body.String(), "Nothing in this list") {
 		t.Error("issues filter missing its empty state")
 	}
 }
@@ -101,7 +100,7 @@ func TestWordPressSiteList(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("list = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "/sites/10/wordpress/1\">Manage") {
+	if !pageHas(rr.Body.String(), "/sites/10/wordpress/1\">Manage") {
 		t.Error("list missing the install row")
 	}
 	// The viewer cannot see bob's website: flashed, redirected to the list.

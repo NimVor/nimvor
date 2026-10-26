@@ -398,7 +398,7 @@ func (s *Server) mongoExport(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, back, http.StatusSeeOther)
 			return
 		}
-		agentErrorRedirect(w, r, "mongo export", err, back)
+		s.agentErrorRedirect(w, r, "mongo export", err, back)
 		return
 	}
 	ext, contentType := "json", "application/json"

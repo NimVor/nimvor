@@ -138,11 +138,11 @@ func TestSiteCloudflareNotConnected(t *testing.T) {
 		`name="token"`,
 		"WhaCP stores it encrypted",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
-	if strings.Contains(page, "Connected to the Cloudflare zone") {
+	if pageHas(page, "Connected to the Cloudflare zone") {
 		t.Error("not-connected page shows the connected banner")
 	}
 }
@@ -239,12 +239,12 @@ func TestSiteCloudflareIndexConnected(t *testing.T) {
 		`value="flexible"`,
 		"selected",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
 	for _, banned := range []string{"TXT bob.example", "other.example", "could not be reached"} {
-		if strings.Contains(page, banned) {
+		if pageHas(page, banned) {
 			t.Errorf("page must not contain %q", banned)
 		}
 	}
@@ -407,11 +407,11 @@ func TestSiteCloudflareApiError(t *testing.T) {
 		t.Fatalf("/sites/10/cloudflare = %d: %s", rr.Code, rr.Body.String())
 	}
 	page := rr.Body.String()
-	if !strings.Contains(page, "Cloudflare could not be reached with your token: Cloudflare: Access denied to this zone.") {
+	if !pageHas(page, "Cloudflare could not be reached with your token: Cloudflare: Access denied to this zone.") {
 		t.Error("API error banner missing")
 	}
 	for _, banned := range []string{"cloudflare/ssl", "cloudflare/proxy", "cloudflare/purge", "cloudflare/always-https"} {
-		if strings.Contains(page, banned) {
+		if pageHas(page, banned) {
 			t.Errorf("error page still shows the %s form", banned)
 		}
 	}

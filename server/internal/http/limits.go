@@ -91,18 +91,28 @@ func (s *Server) limitsDesired(r *http.Request) (map[string]map[string]any, erro
 		user    string
 		ownerID int64
 	}
-	var sus []su
+	// The pool has one connection: read the groups first, close the cursor,
+	// then look up each owner (a nested query would wait on the held connection).
+	type first struct {
+		user string
+		id   int64
+	}
+	var firsts []first
 	for rows.Next() {
-		var u string
-		var firstID int64
-		if err := rows.Scan(&u, &firstID); err != nil {
+		var f first
+		if err := rows.Scan(&f.user, &f.id); err != nil {
 			continue
 		}
+		firsts = append(firsts, f)
+	}
+	rows.Close()
+	var sus []su
+	for _, f := range firsts {
 		var owner int64
-		if err := s.db.QueryRowContext(r.Context(), "SELECT owner_id FROM websites WHERE id = ?", firstID).Scan(&owner); err != nil || owner <= 0 {
+		if err := s.db.QueryRowContext(r.Context(), "SELECT owner_id FROM websites WHERE id = ?", f.id).Scan(&owner); err != nil || owner <= 0 {
 			continue
 		}
-		sus = append(sus, su{user: u, ownerID: owner})
+		sus = append(sus, su{user: f.user, ownerID: owner})
 	}
 	out := make(map[string]map[string]any)
 	for _, it := range sus {

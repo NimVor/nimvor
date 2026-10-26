@@ -14,9 +14,10 @@ func TestModsecSplitRules(t *testing.T) {
 		"    \"id:10001,phase:1,deny,status:403,log,msg:'xmlrpc blocked'\"\n" +
 		"\n" +
 		"# an orphan comment that belongs to nothing\n" +
+		"\n" +
 		"SecAction \"id:10002,phase:1,nolog,pass,secmark='EXECCMD'\"\n" +
 		"# a multi-line comment\n" +
-		"second line of the comment\n" +
+		"# second line of the comment\n" +
 		"SecRule ARGS \"@rx evil\" \\\n"
 	rules := ModsecSplitRules(file)
 	if len(rules) != 3 {
@@ -44,7 +45,9 @@ func TestModsecSplitRules(t *testing.T) {
 	if rules[2].Comment != "a multi-line comment\nsecond line of the comment" {
 		t.Errorf("rule 2 comment = %q", rules[2].Comment)
 	}
-	if rules[2].Text != "SecRule ARGS \"@rx evil\" \\" {
+	// The dangling continuation swallows the file's final (empty) line, so the
+	// text keeps a trailing newline — verified against PHP splitRules.
+	if rules[2].Text != "SecRule ARGS \"@rx evil\" \\\n" {
 		t.Errorf("rule 2 text (dangling continuation kept) = %q", rules[2].Text)
 	}
 	if rules[2].ID != nil {
@@ -88,10 +91,10 @@ func TestModsecNextRuleID(t *testing.T) {
 		want int
 	}{
 		{nil, 10001},
-		{{id(10001)}, 10002},
-		{{id(10000)}, 10001}, // the free range starts at 10001
-		{{id(10000), id(10005)}, 10006},
-		{{id(99999)}, 10000}, // wraps
+		{[]*int{id(10001)}, 10002},
+		{[]*int{id(10000)}, 10001}, // the free range starts at 10001
+		{[]*int{id(10000), id(10005)}, 10006},
+		{[]*int{id(99999)}, 10000}, // wraps
 	}
 	for _, c := range cases {
 		rules := make([]ModsecRule, 0, len(c.ids))

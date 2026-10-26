@@ -9,7 +9,6 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/agent"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
-	"github.com/mchkhawarshahzad/whacp/server/internal/security"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
@@ -19,27 +18,6 @@ import (
 // parent's addons page; the panel shows it as its own page (GET) and
 // re-renders validation errors in place (the same convention as the website
 // form and the workers page).
-
-// accountService builds the one-step account service with the audit hook
-// bound to the current actor (same wiring as the website service).
-func (s *Server) accountService(r *http.Request, user *identity.User) *hosting.AccountService {
-	audit := s.websiteAuditHook(r, user)
-	return hosting.NewAccountService(
-		hosting.NewUserService(
-			identity.NewRepository(s.db),
-			s.roles,
-			security.NewPolicy(s.settings),
-			hosting.NewPlanRepository(s.db),
-			hosting.NewPlanLimits(s.db),
-			audit,
-		),
-		identity.NewRepository(s.db),
-		s.websiteService(r, user),
-		hosting.NewAccountOptionStore(s.db),
-		s.db,
-		audit,
-	)
-}
 
 // conversionService builds the addon-conversion service for the current actor.
 func (s *Server) conversionService(r *http.Request, user *identity.User) *hosting.AddonConversionService {
@@ -195,7 +173,7 @@ func (s *Server) siteConvert(w http.ResponseWriter, r *http.Request) {
 		var ue *hosting.UserError
 		if errors.As(err, &ue) {
 			sess.Flash("error", ue.What)
-		} else if ae := (&agent.Error{}); errors.As(err, ae) {
+		} else if ae := (*agent.Error)(nil); errors.As(err, &ae) {
 			sess.Flash("error", site.Domain+" was not converted; everything was put back as it was. "+ae.Message)
 		} else {
 			// Not an agent failure: the steps are not necessarily undone.

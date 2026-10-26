@@ -39,13 +39,6 @@ func TestCBOREncodeDecodeCOSEKey(t *testing.T) {
 		copy(p[32-len(b):], b)
 		return p
 	}
-	m := map[any]any{
-		int64(1):  int64(2),
-		int64(3):  int64(-7),
-		int64(-1): int64(1),
-		int64(-2): pad(x),
-		int64(-3): pad(y),
-	}
 	// Build CBOR manually enough for our decoder: map(5) + keys+values
 	var buf bytes.Buffer
 	buf.WriteByte(0xa5) // map of 5
@@ -85,12 +78,6 @@ func TestEd25519COSE(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := map[any]any{
-		int64(1):  int64(1), // OKP
-		int64(3):  int64(-8),
-		int64(-1): int64(6), // Ed25519
-		int64(-2): []byte(pub),
-	}
 	var buf bytes.Buffer
 	buf.WriteByte(0xa4)
 	writeCborInt(&buf, 1)
@@ -121,12 +108,6 @@ func TestRSACOSE(t *testing.T) {
 	}
 	n := priv.PublicKey.N.Bytes()
 	e := bigEndianBytes(int64(priv.PublicKey.E))
-	m := map[any]any{
-		int64(1):  int64(3),
-		int64(3):  int64(-257),
-		int64(-1): n,
-		int64(-2): e,
-	}
 	var buf bytes.Buffer
 	buf.WriteByte(0xa4)
 	writeCborInt(&buf, 1)

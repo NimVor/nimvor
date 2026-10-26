@@ -38,11 +38,11 @@ func TestMemcachedIndex(t *testing.T) {
 		`action="/memcached/restart"`,
 		`action="/memcached/flush"`,
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
-	if strings.Contains(page, "Memcached is not installed") {
+	if pageHas(page, "Memcached is not installed") {
 		t.Errorf("page shows the not-installed state")
 	}
 }
@@ -58,13 +58,13 @@ func TestMemcachedIndexNotInstalled(t *testing.T) {
 		t.Fatalf("/memcached = %d: %s", rr.Code, rr.Body.String())
 	}
 	page := rr.Body.String()
-	if !strings.Contains(page, "Memcached is not installed on this server.") {
+	if !pageHas(page, "Memcached is not installed on this server.") {
 		t.Errorf("page lacks the not-installed state")
 	}
-	if !strings.Contains(page, `action="/memcached/install"`) {
+	if !pageHas(page, `action="/memcached/install"`) {
 		t.Errorf("admin page lacks the install form")
 	}
-	if strings.Contains(page, "32.0 MB") {
+	if pageHas(page, "32.0 MB") {
 		t.Errorf("stats shown although not installed")
 	}
 }
@@ -76,10 +76,10 @@ func TestMemcachedIndexNoInstallPermission(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("/memcached (ops) = %d: %s", rr.Code, rr.Body.String())
 	}
-	if strings.Contains(rr.Body.String(), `action="/memcached/install"`) {
+	if pageHas(rr.Body.String(), `action="/memcached/install"`) {
 		t.Errorf("ops (no packages.manage) sees the install form")
 	}
-	if strings.Contains(rr.Body.String(), `action="/memcached/restart"`) {
+	if pageHas(rr.Body.String(), `action="/memcached/restart"`) {
 		t.Errorf("ops (no services.manage) sees the restart form")
 	}
 }
@@ -94,7 +94,7 @@ func TestMemcachedIndexAgentDown(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("/memcached = %d: %s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), "the agent refused") {
+	if !pageHas(rr.Body.String(), "the agent refused") {
 		t.Errorf("page lacks the agent error")
 	}
 }
@@ -172,9 +172,9 @@ func TestMemcachedFlush(t *testing.T) {
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("flush = %d", rr.Code)
 	}
-	flashAt(t, h, refreshCookie(admin, rr), "/memcached", "Type \u0022flush\u0022 to confirm.")
-	if n := len(sa.actions); n != 0 {
-		t.Errorf("the agent was called for the wrong confirm: %v", sa.actions)
+	flashAt(t, h, refreshCookie(admin, rr), "/memcached", "Type &#34;flush&#34; to confirm.") // html/template escapes the quotes
+	if acts := writeActions(sa.actions); len(acts) != 0 {
+		t.Errorf("the agent was called for the wrong confirm: %v", acts)
 	}
 
 	// The right word.
@@ -204,10 +204,10 @@ func TestMemcachedInstall(t *testing.T) {
 	cookie := refreshCookie(admin, rr)
 	rr = get(t, h, "/memcached", cookie)
 	body := rr.Body.String()
-	if !strings.Contains(body, "Installing Memcached…") {
+	if !pageHas(body, "Installing Memcached…") {
 		t.Errorf("install flash missing: %s", body)
 	}
-	if !strings.Contains(body, "Job <code>abcdef0123456789</code> started in the background.") {
+	if !pageHas(body, "Job <code>abcdef0123456789</code> started in the background.") {
 		t.Errorf("job infobar missing: %s", body)
 	}
 	if got := agentParam(t, sa, "packages.install", "name"); got != "memcached" {
@@ -280,7 +280,7 @@ func TestRedisIndex(t *testing.T) {
 		`value="10"`,
 		"bob.example (u_bob)",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
@@ -301,11 +301,11 @@ func TestRedisIndexAgentDown(t *testing.T) {
 		"Redis is not reachable.",
 		"Install Redis",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
-	if strings.Contains(page, `href="/redis/browser"`) {
+	if pageHas(page, `href="/redis/browser"`) {
 		t.Errorf("the browse button is shown although Redis is down")
 	}
 }
@@ -349,7 +349,7 @@ func TestRedisConfigureInvalid(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("configure = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Enter 0 (no limit) or a size in MB.") {
+	if !pageHas(rr.Body.String(), "Enter 0 (no limit) or a size in MB.") {
 		t.Errorf("size error missing: %s", rr.Body.String())
 	}
 	rr = postForm(h, "/redis/configure", url.Values{
@@ -358,11 +358,11 @@ func TestRedisConfigureInvalid(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("configure = %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "Choose an eviction policy.") {
+	if !pageHas(rr.Body.String(), "Choose an eviction policy.") {
 		t.Errorf("policy error missing")
 	}
 	// The modal keeps the submitted size.
-	if !strings.Contains(rr.Body.String(), `value="512"`) {
+	if !pageHas(rr.Body.String(), `value="512"`) {
 		t.Errorf("the submitted size is not prefilled on the re-render")
 	}
 }
@@ -385,7 +385,7 @@ func TestRedisPassword(t *testing.T) {
 		"User: <code>default</code>",
 		"Password set. Update applications that connect without a user name.",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
@@ -428,8 +428,8 @@ func TestRedisFlush(t *testing.T) {
 		t.Fatalf("flush = %d", rr.Code)
 	}
 	flashAt(t, h, refreshCookie(admin, rr), "/redis", "Type db1 to confirm.")
-	if n := len(sa.actions); n != 0 {
-		t.Errorf("the agent was called for the wrong confirm: %v", sa.actions)
+	if acts := writeActions(sa.actions); len(acts) != 0 {
+		t.Errorf("the agent was called for the wrong confirm: %v", acts)
 	}
 
 	rr = postForm(h, "/redis/flush", url.Values{"_token": {token}, "db": {"1"}, "confirm": {"db1"}}, admin)
@@ -463,7 +463,7 @@ func TestRedisCreateUser(t *testing.T) {
 		"User: <code>u_bob</code>",
 		"Redis user created. It can only use keys starting with u_bob:",
 	} {
-		if !strings.Contains(page, want) {
+		if !pageHas(page, want) {
 			t.Errorf("page lacks %q", want)
 		}
 	}
@@ -513,8 +513,8 @@ func TestRedisDeleteUser(t *testing.T) {
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("delete = %d", rr.Code)
 	}
-	if n := len(sa.actions); n != 0 {
-		t.Errorf("the agent was called for the refused users: %v", sa.actions)
+	if acts := writeActions(sa.actions); len(acts) != 0 {
+		t.Errorf("the agent was called for the refused users: %v", acts)
 	}
 
 	rr = postForm(h, "/redis/users/delete", url.Values{"_token": {token}, "user": {"u_bob"}}, admin)
@@ -541,4 +541,18 @@ func TestRedisForbidden(t *testing.T) {
 	if rr.Code != http.StatusForbidden {
 		t.Errorf("flush (bob) = %d", rr.Code)
 	}
+}
+
+// writeActions drops the read-only status reads the index page makes after a
+// redirect (memcached.status, redis.info), leaving only calls that could change
+// the server.
+func writeActions(actions []string) []string {
+	out := []string{}
+	for _, a := range actions {
+		if a == "memcached.status" || a == "redis.info" {
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
 }

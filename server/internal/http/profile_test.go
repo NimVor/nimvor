@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -44,18 +43,18 @@ func TestProfileShowsOwnAccountAndTokens(t *testing.T) {
 	cookie := rr.Result().Cookies()[0]
 
 	body := get(t, h, "/profile", cookie).Body.String()
-	if !strings.Contains(body, "Bob Jones") || !strings.Contains(body, "bob@example.test") {
+	if !pageHas(body, "Bob Jones") || !pageHas(body, "bob@example.test") {
 		t.Fatalf("profile missing own details:\n%s", body)
 	}
-	if !strings.Contains(body, "CI deploy") || !strings.Contains(body, "whcp_bob") {
+	if !pageHas(body, "CI deploy") || !pageHas(body, "whcp_bob") {
 		t.Fatalf("profile missing own token:\n%s", body)
 	}
 	// The secret itself must never render — only the prefix.
-	if strings.Contains(body, "h1") && strings.Contains(body, "token_hash") {
+	if pageHas(body, "h1") && pageHas(body, "token_hash") {
 		t.Fatalf("profile leaked token hash")
 	}
 	// Another user's token must not appear.
-	if strings.Contains(body, "Amy token") || strings.Contains(body, "whcp_amy") {
+	if pageHas(body, "Amy token") || pageHas(body, "whcp_amy") {
 		t.Fatalf("TOKEN LEAK: bob's profile showed another user's token:\n%s", body)
 	}
 }

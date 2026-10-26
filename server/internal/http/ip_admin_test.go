@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -34,17 +33,17 @@ func TestIpPagesAdminOnly(t *testing.T) {
 		"Not on the server",            // pooled but not on the interfaces
 		"bob.example", "alice.example", // the bound sites
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("pool page missing %q", want)
 		}
 	}
-	if strings.Contains(body, "fe80::1") {
+	if pageHas(body, "fe80::1") {
 		t.Error("the link-local address must not be offered")
 	}
-	if strings.Contains(body, "Rebuild pool") == false {
+	if pageHas(body, "Rebuild pool") == false {
 		t.Error("the rebuild action must show for administrators")
 	}
-	if !strings.Contains(body, "Edit") {
+	if !pageHas(body, "Edit") {
 		t.Error("the edit modal trigger must show for administrators")
 	}
 
@@ -75,22 +74,22 @@ func TestIpStoreValidationAndAdd(t *testing.T) {
 
 	// Not on the server.
 	_, body := post(url.Values{"address": {"8.8.8.8"}, "kind": {"shared"}})
-	if !strings.Contains(body, "8.8.8.8 is not configured on this server.") {
+	if !pageHas(body, "8.8.8.8 is not configured on this server.") {
 		t.Errorf("not-on-server flash missing:\n%s", body)
 	}
 	// Already pooled.
 	_, body = post(url.Values{"address": {"10.10.0.99"}, "kind": {"shared"}})
-	if !strings.Contains(body, "10.10.0.99 is already in the pool.") {
+	if !pageHas(body, "10.10.0.99 is already in the pool.") {
 		t.Error("already-pooled flash missing")
 	}
 	// A wrong kind.
 	_, body = post(url.Values{"address": {"203.0.113.20"}, "kind": {"weird"}})
-	if !strings.Contains(body, "Choose shared or dedicated.") {
+	if !pageHas(body, "Choose shared or dedicated.") {
 		t.Error("kind flash missing")
 	}
 	// The good one.
 	_, body = post(url.Values{"address": {"203.0.113.20"}, "kind": {"dedicated"}})
-	if !strings.Contains(body, "Address added to the pool.") {
+	if !pageHas(body, "Address added to the pool.") {
 		t.Errorf("success flash missing:\n%s", body)
 	}
 	var kind string
@@ -122,7 +121,7 @@ func TestIpUpdateAndDelete(t *testing.T) {
 		t.Fatalf("update = %d", rr.Code)
 	}
 	body := ipFlash(t, h, cookie, "/ips")
-	if !strings.Contains(body, "Say why the address is reserved.") {
+	if !pageHas(body, "Say why the address is reserved.") {
 		t.Errorf("reason flash missing:\n%s", body)
 	}
 	// Reserved with a reason.
@@ -130,8 +129,8 @@ func TestIpUpdateAndDelete(t *testing.T) {
 	postForm(h, "/ips/"+idOf("10.10.0.15"), url.Values{
 		"_token": {token}, "kind": {"shared"}, "reserved": {"1"}, "reason": {"Mail server"},
 	}, cookie)
-	body := ipFlash(t, h, cookie, "/ips")
-	if !strings.Contains(body, "Address saved.") {
+	body = ipFlash(t, h, cookie, "/ips")
+	if !pageHas(body, "Address saved.") {
 		t.Errorf("saved flash missing:\n%s", body)
 	}
 	var reserved int
@@ -147,8 +146,8 @@ func TestIpUpdateAndDelete(t *testing.T) {
 	postForm(h, "/ips/"+idOf("10.10.0.99"), url.Values{
 		"_token": {token}, "kind": {"shared"}, "reserved": {"1"}, "reason": {"x"},
 	}, cookie)
-	body := ipFlash(t, h, cookie, "/ips")
-	if !strings.Contains(body, "10.10.0.99 is used by bob.example; move those websites first.") {
+	body = ipFlash(t, h, cookie, "/ips")
+	if !pageHas(body, "10.10.0.99 is used by bob.example; move those websites first.") {
 		t.Errorf("in-use reserved flash missing:\n%s", body)
 	}
 
@@ -159,7 +158,7 @@ func TestIpUpdateAndDelete(t *testing.T) {
 		t.Fatalf("delete = %d", rr.Code)
 	}
 	body = ipFlash(t, h, cookie, "/ips")
-	if !strings.Contains(body, "Address removed from the pool (the server keeps it on its interface).") {
+	if !pageHas(body, "Address removed from the pool (the server keeps it on its interface).") {
 		t.Errorf("delete flash missing:\n%s", body)
 	}
 	if rowCount(t, db, `SELECT COUNT(*) FROM ip_addresses WHERE address = '10.10.0.15'`) != 0 {
@@ -169,7 +168,7 @@ func TestIpUpdateAndDelete(t *testing.T) {
 	token, _ = pageToken(t, h, cookie, "/ips")
 	postForm(h, "/ips/"+idOf("10.10.0.99")+"/delete", url.Values{"_token": {token}}, cookie)
 	body = ipFlash(t, h, cookie, "/ips")
-	if !strings.Contains(body, "10.10.0.99 is used by bob.example; it cannot be removed.") {
+	if !pageHas(body, "10.10.0.99 is used by bob.example; it cannot be removed.") {
 		t.Errorf("in-use delete flash missing:\n%s", body)
 	}
 	if rowCount(t, db, `SELECT COUNT(*) FROM ip_addresses WHERE address = '10.10.0.99'`) != 1 {
@@ -187,10 +186,10 @@ func TestIpRebuild(t *testing.T) {
 	body := ipFlash(t, h, cookie, "/ips")
 	// The two unpooled addresses are added; the four old pool rows are no
 	// longer on the server (the fixture's agent has only the new ones).
-	if !strings.Contains(body, "Pool rebuilt: 2 address(es) added, 4 no longer on the server (kept, listed below).") {
+	if !pageHas(body, "Pool rebuilt: 2 address(es) added, 4 no longer on the server (kept, listed below).") {
 		t.Errorf("rebuild flash missing:\n%s", body)
 	}
-	if !strings.Contains(body, "No longer on the server") || !strings.Contains(body, "10.10.0.99") {
+	if !pageHas(body, "No longer on the server") || !pageHas(body, "10.10.0.99") {
 		t.Error("the kept-but-missing notice is missing")
 	}
 	for _, addr := range []string{"203.0.113.20", "2001:db8:100::5"} {
@@ -208,12 +207,12 @@ func TestIpRebuild(t *testing.T) {
 	token2, c2 := pageToken(t, h2, c2, "/ips")
 	postForm(h2, "/ips/rebuild", url.Values{"_token": {token2}}, c2)
 	body2 := ipFlash(t, h2, c2, "/ips")
-	if !strings.Contains(body2, "The change could not be made.") {
+	if !pageHas(body2, "The change could not be made.") {
 		t.Errorf("agent-down rebuild flash missing:\n%s", body2)
 	}
 	// The page itself degrades: the agent-error card, unknown presence.
 	body2 = ipFlash(t, h2, c2, "/ips")
-	if !strings.Contains(body2, "the agent is down") || !strings.Contains(body2, "unknown") {
+	if !pageHas(body2, "the agent is down") || !pageHas(body2, "unknown") {
 		t.Error("the pool page must degrade with the agent down")
 	}
 }
@@ -223,7 +222,7 @@ func TestIpRanges(t *testing.T) {
 
 	// Empty at first.
 	body := ipFlash(t, h, cookie, "/ips/ranges")
-	if !strings.Contains(body, "No IPv6 range yet.") {
+	if !pageHas(body, "No IPv6 range yet.") {
 		t.Error("the empty state must show")
 	}
 
@@ -236,7 +235,7 @@ func TestIpRanges(t *testing.T) {
 		t.Fatalf("store range = %d", rr.Code)
 	}
 	body = ipFlash(t, h, cookie, "/ips/ranges")
-	if !strings.Contains(body, "Range added; its addresses are now local to this server.") {
+	if !pageHas(body, "Range added; its addresses are now local to this server.") {
 		t.Errorf("add flash missing:\n%s", body)
 	}
 	if sa.ipv6Ranges != "2001:db8:100::/64" {
@@ -258,11 +257,11 @@ func TestIpRanges(t *testing.T) {
 		return body, cookie
 	}
 	body, cookie = post(url.Values{"prefix": {"203.0.113.0/24"}})
-	if !strings.Contains(body, "Enter an IPv6 range such as 2001:db8:100::/64.") {
+	if !pageHas(body, "Enter an IPv6 range such as 2001:db8:100::/64.") {
 		t.Errorf("v4 prefix flash missing:\n%s", body)
 	}
 	body, cookie = post(url.Values{"prefix": {"2001:db8:100::/64"}})
-	if !strings.Contains(body, "That range is already added.") {
+	if !pageHas(body, "That range is already added.") {
 		t.Errorf("duplicate flash missing:\n%s", body)
 	}
 
@@ -270,7 +269,7 @@ func TestIpRanges(t *testing.T) {
 	token, cookie = pageToken(t, h, cookie, "/ips/ranges")
 	postForm(h, "/ips/ranges/"+idStr, url.Values{"_token": {token}, "note": {"Updated note"}}, cookie)
 	body = ipFlash(t, h, cookie, "/ips/ranges")
-	if !strings.Contains(body, "Range saved.") {
+	if !pageHas(body, "Range saved.") {
 		t.Errorf("note flash missing:\n%s", body)
 	}
 	var note string
@@ -282,7 +281,7 @@ func TestIpRanges(t *testing.T) {
 	token, cookie = pageToken(t, h, cookie, "/ips/ranges")
 	postForm(h, "/ips/ranges/"+idStr+"/allocate", url.Values{"_token": {token}}, cookie)
 	body = ipFlash(t, h, cookie, "/ips/ranges")
-	if !strings.Contains(body, "2001:db8:100::10 allocated.") {
+	if !pageHas(body, "2001:db8:100::10 allocated.") {
 		t.Errorf("allocate flash missing:\n%s", body)
 	}
 	var rangeID *int64
@@ -296,7 +295,7 @@ func TestIpRanges(t *testing.T) {
 		"_token": {token}, "website_id": {"10"}, "dns": {"1"},
 	}, cookie)
 	body = ipFlash(t, h, cookie, "/ips/ranges")
-	if !strings.Contains(body, "2001:db8:100::11 allocated and assigned to bob.example; 1 DNS record(s) updated.") {
+	if !pageHas(body, "2001:db8:100::11 allocated and assigned to bob.example; 1 DNS record(s) updated.") {
 		t.Errorf("assign flash missing:\n%s", body)
 	}
 	var v6 string
@@ -317,7 +316,7 @@ func TestIpRanges(t *testing.T) {
 		"_token": {token}, "website_id": {"999"},
 	}, cookie)
 	body = ipFlash(t, h, cookie, "/ips/ranges")
-	if !strings.Contains(body, "That website does not exist.") {
+	if !pageHas(body, "That website does not exist.") {
 		t.Errorf("unknown website flash missing:\n%s", body)
 	}
 
@@ -325,7 +324,7 @@ func TestIpRanges(t *testing.T) {
 	token, cookie = pageToken(t, h, cookie, "/ips/ranges")
 	postForm(h, "/ips/ranges/"+idStr+"/delete", url.Values{"_token": {token}}, cookie)
 	body = ipFlash(t, h, cookie, "/ips/ranges")
-	if !strings.Contains(body, "Addresses of this range are used by bob.example; move those websites first.") {
+	if !pageHas(body, "Addresses of this range are used by bob.example; move those websites first.") {
 		t.Errorf("in-use remove flash missing:\n%s", body)
 	}
 	// ...but once the websites are off it, it goes with its free rows.
@@ -335,7 +334,7 @@ func TestIpRanges(t *testing.T) {
 	token, cookie = pageToken(t, h, cookie, "/ips/ranges")
 	postForm(h, "/ips/ranges/"+idStr+"/delete", url.Values{"_token": {token}}, cookie)
 	body = ipFlash(t, h, cookie, "/ips/ranges")
-	if !strings.Contains(body, "Range removed.") {
+	if !pageHas(body, "Range removed.") {
 		t.Errorf("remove flash missing:\n%s", body)
 	}
 	if rowCount(t, db, `SELECT COUNT(*) FROM ipv6_ranges WHERE id = ?`, idStr) != 0 {
@@ -357,35 +356,35 @@ func TestIpMigratePlanValidation(t *testing.T) {
 
 	// No query: the form without a plan.
 	body := ipFlash(t, h, cookie, "/ips/migrate")
-	if !strings.Contains(body, "Choose the addresses") || strings.Contains(body, "Changes:") {
+	if !pageHas(body, "Choose the addresses") || pageHas(body, "Changes:") {
 		t.Error("the bare wizard must show the form only")
 	}
 	// A plan: one website follows.
 	body = ipFlash(t, h, cookie, "/ips/migrate?source=10.10.0.99&dest=10.10.0.15")
-	if !strings.Contains(body, "Changes:") || !strings.Contains(body, "Websites (1)") || !strings.Contains(body, "bob.example") {
+	if !pageHas(body, "Changes:") || !pageHas(body, "Websites (1)") || !pageHas(body, "bob.example") {
 		t.Errorf("the plan must list the website:\n%s", body)
 	}
-	if !strings.Contains(body, "its own A records follow") {
+	if !pageHas(body, "its own A records follow") {
 		t.Error("the plan must say the A records follow")
 	}
 	// Reserved destination.
 	body = ipFlash(t, h, cookie, "/ips/migrate?source=10.10.0.99&dest=192.168.1.20")
-	if !strings.Contains(body, "192.168.1.20 is reserved.") {
+	if !pageHas(body, "192.168.1.20 is reserved.") {
 		t.Errorf("reserved dest error missing:\n%s", body)
 	}
 	// Same address.
 	body = ipFlash(t, h, cookie, "/ips/migrate?source=10.10.0.99&dest=10.10.0.99")
-	if !strings.Contains(body, "Choose a different address.") {
+	if !pageHas(body, "Choose a different address.") {
 		t.Errorf("same-address error missing:\n%s", body)
 	}
 	// Missing source.
 	body = ipFlash(t, h, cookie, "/ips/migrate?dest=10.10.0.15")
-	if !strings.Contains(body, "Choose the address to move from (from the pool).") {
+	if !pageHas(body, "Choose the address to move from (from the pool).") {
 		t.Errorf("missing source error missing:\n%s", body)
 	}
 	// A dedicated destination that already has a website.
 	body = ipFlash(t, h, cookie, "/ips/migrate?source=10.10.0.99&dest=172.16.0.9")
-	if !strings.Contains(body, "172.16.0.9 is dedicated; it can take only one website.") {
+	if !pageHas(body, "172.16.0.9 is dedicated; it can take only one website.") {
 		t.Errorf("dedicated dest error missing:\n%s", body)
 	}
 }
@@ -402,7 +401,7 @@ func TestIpMigrateRun(t *testing.T) {
 		t.Fatalf("unconfirmed migration = %d", rr.Code)
 	}
 	body := ipFlash(t, h, cookie, "/ips/migrate")
-	if !strings.Contains(body, "Confirm the migration first.") {
+	if !pageHas(body, "Confirm the migration first.") {
 		t.Errorf("confirm flash missing:\n%s", body)
 	}
 
@@ -412,7 +411,7 @@ func TestIpMigrateRun(t *testing.T) {
 		"_token": {token}, "source": {"10.10.0.99"}, "dest": {"10.10.0.15"}, "confirm": {"1"},
 	}, cookie)
 	body = ipFlash(t, h, cookie, "/ips/migrate")
-	if !strings.Contains(body, "Migration complete.") {
+	if !pageHas(body, "Migration complete.") {
 		t.Errorf("success flash missing:\n%s", body)
 	}
 	var v4 string
@@ -424,10 +423,27 @@ func TestIpMigrateRun(t *testing.T) {
 		t.Fatalf("A record after migration = %q (%v)", value, err)
 	}
 	// The results are listed per website.
-	if !strings.Contains(body, "Results") || !strings.Contains(body, "bob.example") || !strings.Contains(body, "Done") {
+	if !pageHas(body, "Results") || !pageHas(body, "bob.example") || !pageHas(body, "Done") {
 		t.Errorf("the results card is missing:\n%s", body)
 	}
 	if rowCount(t, db, `SELECT COUNT(*) FROM audit_logs WHERE action = 'ip.migrate' AND result = 'success'`) != 1 {
 		t.Error("ip.migrate audit missing")
+	}
+}
+
+// POST /ips/{id}/{action} serves only "delete": the mux cannot also hold the
+// literal POST /ips/{id}/delete (it overlaps POST /ips/ranges/{id}), so any
+// other action — and the ambiguous /ips/ranges/delete — must 404, never reach a
+// handler.
+func TestIPActionRouteOnlyServesDelete(t *testing.T) {
+	h, cookie, _, _ := ipEnv(t, "admin")
+	token, cookie := pageToken(t, h, cookie, "/ips")
+	for _, path := range []string{"/ips/10.10.0.15/frobnicate", "/ips/ranges/delete"} {
+		rr := postForm(h, path, url.Values{"_token": {token}}, cookie)
+		// 404 for an unknown action; "/ips/ranges/delete" is the range-update
+		// route with a non-numeric id, which answers 400. Never a 2xx/3xx/5xx.
+		if rr.Code != http.StatusNotFound && rr.Code != http.StatusBadRequest {
+			t.Errorf("POST %s = %d, want 404/400", path, rr.Code)
+		}
 	}
 }

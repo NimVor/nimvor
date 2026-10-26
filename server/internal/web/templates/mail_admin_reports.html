@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="{{.CSRF}}">
 <title>Delivery reports · WhaCP</title>
+<link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/assets/css/whacp.css">
 </head>
 <body class="whacp-app">
@@ -55,7 +57,7 @@
 
   {{if eq .Tab "stats"}}
   <section class="row g-2 mb-3" aria-label="Totals">
-    {{range $k := (slice "received" "sent" "delivered" "deferred" "bounced" "rejected" "auth_ok" "auth_failed")}}
+    {{range $k := (list "received" "sent" "delivered" "deferred" "bounced" "rejected" "auth_ok" "auth_failed")}}
     <div class="col-6 col-xl">
       <div class="card">
         <div class="card-body py-2">

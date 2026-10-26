@@ -46,7 +46,9 @@ func (s *Server) systemPackages(w http.ResponseWriter, r *http.Request) {
 			data["Packages"] = pkgs
 		} else {
 			// Agent may wrap {success,data}; unwrap.
-			var env struct{ Data []any `json:"data"` }
+			var env struct {
+				Data []any `json:"data"`
+			}
 			if json.Unmarshal(listRaw, &env) == nil {
 				data["Packages"] = env.Data
 			}
@@ -197,13 +199,13 @@ func (s *Server) systemHostnameReferences(w http.ResponseWriter, r *http.Request
 	user := userFrom(r.Context())
 	old := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("old")))
 	data := map[string]any{
-		"User":           user,
-		"CSRF":           session.CSRFToken(sessionFrom(r.Context())),
-		"Title":          "Host name references",
-		"Old":            old,
-		"Report":         nil,
-		"Error":          "",
-		"WebmailStale":   false,
+		"User":            user,
+		"CSRF":            session.CSRFToken(sessionFrom(r.Context())),
+		"Title":           "Host name references",
+		"Old":             old,
+		"Report":          nil,
+		"Error":           "",
+		"WebmailStale":    false,
 		"WebmailHostname": "",
 	}
 	if old != "" {
@@ -529,14 +531,6 @@ func (s *Server) systemServerIP(r *http.Request) string {
 		return read(sys)
 	}
 	return ""
-}
-
-func agentMessage(err error) string {
-	var ae *agent.Error
-	if errors.As(err, &ae) && ae.Message != "" {
-		return ae.Message
-	}
-	return "The WhaCP agent could not be reached."
 }
 
 func agentErrMap(err error) map[string]any {

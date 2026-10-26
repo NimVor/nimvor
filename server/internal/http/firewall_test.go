@@ -89,7 +89,7 @@ func TestFirewallPage(t *testing.T) {
 		"Protection", "Turn on the protections below", "100", "Exempt addresses and networks", "Apply",
 		"Add firewall rule", "data-wcp-confirm=",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
@@ -112,11 +112,11 @@ func TestFirewallPageOn(t *testing.T) {
 		`data-wcp-confirm="Turn off the firewall? Every listening service becomes reachable."`,
 		"Not allowed", "data-wcp-busy", "Delete the rule",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
-	if strings.Contains(body, "Turn on the firewall") {
+	if pageHas(body, "Turn on the firewall") {
 		t.Errorf("the enable form shows while the firewall is on")
 	}
 }
@@ -132,14 +132,14 @@ func TestFirewallPageCustomer(t *testing.T) {
 	for _, want := range []string{
 		"Firewall", "All rules: 2", "disabled",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
 		}
 	}
 	for _, not := range []string{
 		"Turn on the firewall", "Add firewall rule", "Delete the rule", "data-wcp-switch-submit",
 	} {
-		if strings.Contains(body, not) {
+		if pageHas(body, not) {
 			t.Errorf("a change control shows for a viewer-only account: %q", not)
 		}
 	}
@@ -158,7 +158,7 @@ func TestFirewallPageAgentDown(t *testing.T) {
 		t.Fatalf("GET = %d", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "the socket is closed") || strings.Contains(body, "SSH port") {
+	if !pageHas(body, "the socket is closed") || pageHas(body, "SSH port") {
 		t.Errorf("agent-down page wrong: %s", body[:min(300, len(body))])
 	}
 }

@@ -48,7 +48,7 @@ func TestSiteWorkersScopedAndForeign404(t *testing.T) {
 	cookie := rr.Result().Cookies()[0]
 
 	body := get(t, h, "/sites/10/workers", cookie).Body.String()
-	if !strings.Contains(body, "Queue worker") {
+	if !pageHas(body, "Queue worker") {
 		t.Fatalf("custA missing own worker:\n%s", body)
 	}
 	foreign := get(t, h, "/sites/11/workers", cookie)

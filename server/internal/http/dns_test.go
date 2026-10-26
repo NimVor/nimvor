@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
@@ -65,15 +64,15 @@ func dnsEnv(t *testing.T, loginAs string) (http.Handler, *http.Cookie, *sql.DB) 
 func TestDnsZonesWebsiteAwareScope(t *testing.T) {
 	h, cookie, _ := dnsEnv(t, "custA")
 	body := get(t, h, "/dns", cookie).Body.String()
-	if !strings.Contains(body, "a.example") {
+	if !pageHas(body, "a.example") {
 		t.Fatalf("custA missing own zone:\n%s", body)
 	}
 	// An admin-owned zone attached to custA's website is visible via WithWebsite.
-	if !strings.Contains(body, "extra-a.example") {
+	if !pageHas(body, "extra-a.example") {
 		t.Fatalf("WithWebsite: zone attached to custA's website not visible:\n%s", body)
 	}
 	// custB's zone must never appear.
-	if strings.Contains(body, "b.example") {
+	if pageHas(body, "b.example") {
 		t.Fatalf("TENANT LEAK: custA saw another tenant's zone:\n%s", body)
 	}
 }
@@ -82,7 +81,7 @@ func TestDnsZonesAdminSeesAll(t *testing.T) {
 	h, cookie, _ := dnsEnv(t, "admin")
 	body := get(t, h, "/dns", cookie).Body.String()
 	for _, z := range []string{"a.example", "extra-a.example", "b.example"} {
-		if !strings.Contains(body, z) {
+		if !pageHas(body, z) {
 			t.Fatalf("admin missing zone %s", z)
 		}
 	}

@@ -52,15 +52,28 @@ func (v *LoginIpVerifier) SeedFromLastLogins(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
-	n := 0
+	// The pool has a single connection (SQLite): read every row first and close
+	// the cursor before writing, or the inserts below wait forever for the
+	// connection this cursor holds.
+	type seed struct {
+		id int64
+		ip string
+	}
+	var seeds []seed
 	for rows.Next() {
-		var id int64
-		var ip string
-		if rows.Scan(&id, &ip) != nil {
-			continue
+		var sd seed
+		if rows.Scan(&sd.id, &sd.ip) == nil {
+			seeds = append(seeds, sd)
 		}
-		if v.Remember(ctx, id, ip) != nil {
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, err
+	}
+	rows.Close()
+	n := 0
+	for _, sd := range seeds {
+		if v.Remember(ctx, sd.id, sd.ip) != nil {
 			return n, nil // best effort, as in PHP
 		}
 		n++

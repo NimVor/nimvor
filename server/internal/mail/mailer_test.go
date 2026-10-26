@@ -82,11 +82,7 @@ func runFakeSMTP(t *testing.T, caps string, cert *tls.Certificate) *fakeSMTP {
 			switch {
 			case strings.HasPrefix(line, "EHLO"):
 				out.ehlo = line
-				capsLine := "HELP"
-				if caps != "" {
-					capsLine = caps
-				}
-				write("250-fake\r\n250 " + capsLine + "\r\n")
+				write("250-fake\r\n250 " + ehloCaps(caps) + "\r\n")
 			case line == "STARTTLS":
 				write("220 Go ahead\r\n")
 				if cert != nil {
@@ -98,7 +94,6 @@ func runFakeSMTP(t *testing.T, caps string, cert *tls.Certificate) *fakeSMTP {
 					out.tlsUpgraded = true
 					conn = tc
 					in = bufio.NewReader(tc)
-					write("250-fake\r\n250 " + capsLine + "\r\n")
 				}
 			case strings.HasPrefix(line, "AUTH PLAIN "):
 				raw, _ := base64.StdEncoding.DecodeString(strings.TrimPrefix(line, "AUTH PLAIN "))
@@ -129,8 +124,14 @@ func runFakeSMTP(t *testing.T, caps string, cert *tls.Certificate) *fakeSMTP {
 				write("354 End data with <CR><LF>.<CR><LF>\r\n")
 				var body []string
 				for {
-					d := read()
-					if d == "." || d == "" {
+					// Only the lone "." ends DATA; the blank line between the
+					// headers and the body is part of the message.
+					raw, err := in.ReadString('\n')
+					if err != nil {
+						break
+					}
+					d := strings.TrimRight(raw, "\r\n")
+					if d == "." {
 						break
 					}
 					body = append(body, d)
@@ -427,5 +428,35 @@ func TestSendStartTLSNotOffered(t *testing.T) {
 	m := newTestMailer(t, db, c)
 	if got := deliveryMessage(t, m.Send(context.Background(), []string{"a@example.com"}, "s", "b")); got != "The mail server does not offer STARTTLS." {
 		t.Fatalf("Send message = %q", got)
+	}
+}
+
+// ehloCaps is the capability line the fake server advertises (HELP when the
+// test configures none).
+func ehloCaps(caps string) string {
+	if caps != "" {
+		return caps
+	}
+	return "HELP"
+}
+
+// A non-ASCII subject must be an RFC 2047 encoded-word, and a long body line must
+// be soft-wrapped (quoted-printable lines are at most 76 characters).
+func TestMessageEncodesHeaderAndWrapsBody(t *testing.T) {
+	msg, err := Message("panel@example.com", []string{"a@example.com"}, "Zugangsdaten für Ünïcode", strings.Repeat("word ", 60))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !regexp.MustCompile(`(?m)^Subject: =\?UTF-8\?[qQ]\?.+\?=\r?$`).MatchString(msg) {
+		t.Errorf("subject is not an encoded-word:\n%s", msg)
+	}
+	_, body, _ := strings.Cut(msg, "\r\n\r\n")
+	for _, line := range strings.Split(body, "\r\n") {
+		if len(line) > 76 {
+			t.Errorf("body line of %d characters is not soft-wrapped: %q", len(line), line)
+		}
+	}
+	if !strings.Contains(body, "=\r\n") {
+		t.Error("a 300-character line must contain soft line breaks")
 	}
 }

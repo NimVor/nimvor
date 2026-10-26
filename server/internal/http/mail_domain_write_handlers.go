@@ -48,7 +48,7 @@ type mailDomainEdit struct {
 // mailDomainOf loads the route's mail domain for the user; nil (and the
 // "not found" redirect already sent) when it does not exist for them.
 func (s *Server) mailDomainOf(w http.ResponseWriter, r *http.Request, user *identity.User) *hosting.MailDomainFull {
-	d, err := hosting.NewMailRepository(s.db).Domain(r.Context(), s.currentServerID(r), pathID(r), user)
+	d, err := hosting.NewMailRepository(s.db).Domain(r.Context(), s.currentServerID(r), pathIDOrZero(r), user)
 	if err != nil {
 		s.log.Error("load mail domain", "error", err)
 		s.showNotFound(w)
@@ -412,7 +412,7 @@ func (s *Server) mailPublishDns(w http.ResponseWriter, r *http.Request) {
 // dnsCheck, JSON for the whacp.js button).
 func (s *Server) mailDnsCheck(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
-	d, err := hosting.NewMailRepository(s.db).Domain(r.Context(), s.currentServerID(r), pathID(r), user)
+	d, err := hosting.NewMailRepository(s.db).Domain(r.Context(), s.currentServerID(r), pathIDOrZero(r), user)
 	if err != nil || d == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)

@@ -428,7 +428,7 @@ func (s *Server) dropAnonymousUsers(w http.ResponseWriter, r *http.Request) {
 	to := "/security"
 	res, err := s.agent.Call(r.Context(), "db.drop_anonymous_users", nil, 60*time.Second)
 	if err != nil {
-		agentErrorRedirect(w, r, "db drop anonymous users", err, to)
+		s.agentErrorRedirect(w, r, "db drop anonymous users", err, to)
 		return
 	}
 	removed := []string{}

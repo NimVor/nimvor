@@ -462,7 +462,7 @@ func (s *Server) hulkSave(w http.ResponseWriter, r *http.Request) {
 	}
 	h := s.hulkService()
 	if err := s.hulkSync(ctx, h); err != nil {
-		agentErrorRedirect(w, r, "hulk sync", err, to)
+		s.agentErrorRedirect(w, r, "hulk sync", err, to)
 		return
 	}
 	sess.Flash("success", "cPHulk settings saved."+note)
@@ -566,7 +566,7 @@ func (s *Server) hulkCountries(w http.ResponseWriter, r *http.Request) {
 		Details:    map[string]any{"marked": marks},
 	})
 	if err := s.hulkSync(ctx, h); err != nil {
-		agentErrorRedirect(w, r, "hulk sync", err, to)
+		s.agentErrorRedirect(w, r, "hulk sync", err, to)
 		return
 	}
 	plural := "ies"

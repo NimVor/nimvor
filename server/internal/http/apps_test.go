@@ -106,12 +106,12 @@ func TestAppsPageCatalog(t *testing.T) {
 	h, cookie, _, _ := appsEnv(t, "bob")
 	body := get(t, h, "/sites/10/apps", cookie).Body.String()
 	for _, want := range []string{"Applications", "WordPress", "Grav", "Install"} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Fatalf("apps page missing %q:\\n%s", want, body)
 		}
 	}
 	// The subdomain is a PHP site: it is an enabled install target.
-	if !strings.Contains(body, "www.bob.example") || !strings.Contains(body, "subdomain") {
+	if !pageHas(body, "www.bob.example") || !pageHas(body, "subdomain") {
 		t.Fatalf("apps page missing the subdomain target:\\n%s", body)
 	}
 }
@@ -120,7 +120,7 @@ func TestAppsInstallWordpress(t *testing.T) {
 	h, cookie, sa, db := appsEnv(t, "bob")
 	token, cookie := pageToken(t, h, cookie, "/sites/10/apps")
 	rr := postForm(h, "/sites/10/apps/wordpress", url.Values{
-		"_token": {token}, "title": {"Bob's blog"}, "admin_user": {"admin"}, "admin_email": {"bob@x"},
+		"_token": {token}, "title": {"Bob's blog"}, "admin_user": {"admin"}, "admin_email": {"bob@x.test"},
 	}, cookie)
 	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/sites/10/apps" {
 		t.Fatalf("install wordpress = %d loc %q", rr.Code, rr.Header().Get("Location"))
@@ -133,7 +133,7 @@ func TestAppsInstallWordpress(t *testing.T) {
 	}
 	p := agentParams(t, sa, "apps.install")
 	if p["app"] != "wordpress" || p["path"] != "public_html" || p["php_version"] != "8.3.1" ||
-		p["url"] != "http://bob.example" || p["title"] != "Bob's blog" || p["admin_user"] != "admin" || p["admin_email"] != "bob@x" {
+		p["url"] != "http://bob.example" || p["title"] != "Bob's blog" || p["admin_user"] != "admin" || p["admin_email"] != "bob@x.test" {
 		t.Fatalf("apps.install params = %v", p)
 	}
 	pw, _ := p["admin_password"].(string)
@@ -141,14 +141,14 @@ func TestAppsInstallWordpress(t *testing.T) {
 		t.Fatalf("admin_password len = %d, want 20", len(pw))
 	}
 	dbp, _ := p["db"].(map[string]any)
-	if dbp == nil || dbp["name"] != "b_bob_wp" || dbp["user"] != "b_bob_wp" || dbp["host"] != "localhost" {
+	if dbp == nil || dbp["name"] != "bob_bob_wp" || dbp["user"] != "bob_bob_wp" || dbp["host"] != "localhost" {
 		t.Fatalf("apps.install db params = %v", dbp)
 	}
 	// The database + user exist, granted, and the install row is running.
-	if n := rowCount(t, db, `SELECT COUNT(*) FROM databases WHERE name = 'b_bob_wp'`); n != 1 {
+	if n := rowCount(t, db, `SELECT COUNT(*) FROM databases WHERE name = 'bob_bob_wp'`); n != 1 {
 		t.Fatalf("databases rows = %d", n)
 	}
-	if n := rowCount(t, db, `SELECT COUNT(*) FROM database_users WHERE username = 'b_bob_wp'`); n != 1 {
+	if n := rowCount(t, db, `SELECT COUNT(*) FROM database_users WHERE username = 'bob_bob_wp'`); n != 1 {
 		t.Fatalf("database_users rows = %d", n)
 	}
 	var appRowID, status string
@@ -175,9 +175,10 @@ func TestAppsInstallWordpress(t *testing.T) {
 	// keeps the row running ("activating").
 	sa.jobs["feedfacefeed1a01"] = `{"success":true,"data":{"status":"running","error":""}}`
 	// The page shows the once-only credentials and the activating row.
-	body := get(t, h, "/sites/10/apps", cookie).Body.String()
-	for _, want := range []string{"WordPress is being installed.", "WordPress administrator", pw, "activating"} {
-		if !strings.Contains(body, want) {
+	body := get(t, h, "/sites/10/apps", refreshCookie(cookie, rr)).Body.String()
+	// html/template escapes the generated password (+, &, ' ...) in the page.
+	for _, want := range []string{"WordPress is being installed.", "WordPress administrator", htmlTextEscape(pw), "activating"} {
+		if !pageHas(body, want) {
 			t.Fatalf("post-install page missing %q:\\n%s", want, body)
 		}
 	}
@@ -196,7 +197,7 @@ func TestAppsInstallStagedRefreshAndDocroot(t *testing.T) {
 	// The agent finishes the job; the next page view settles the row and
 	// points the document root at <path>/upload (OpenCart's web root).
 	sa.jobs["feedfacefeed1a01"] = `{"success":true,"data":{"status":"succeeded","error":""}}`
-	body := get(t, h, "/sites/10/apps", cookie).Body.String()
+	body := get(t, h, "/sites/10/apps", refreshCookie(cookie, rr)).Body.String()
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM app_installs WHERE app = 'opencart' AND status = 'succeeded'`); n != 1 {
 		t.Fatalf("succeeded opencart installs = %d", n)
 	}
@@ -207,7 +208,7 @@ func TestAppsInstallStagedRefreshAndDocroot(t *testing.T) {
 	if docroot != "/home/whacp/bob.example/public_html/upload" {
 		t.Fatalf("document_root = %q", docroot)
 	}
-	if !strings.Contains(body, "http://bob.example/install/") || !strings.Contains(body, "Finish setup") {
+	if !pageHas(body, "http://bob.example/install/") || !pageHas(body, "Finish setup") {
 		t.Fatalf("page missing the finish-setup link:\\n%s", body)
 	}
 }
@@ -216,7 +217,7 @@ func TestAppsRefreshUnknown(t *testing.T) {
 	h, cookie, sa, db := appsEnv(t, "bob")
 	token, cookie := pageToken(t, h, cookie, "/sites/10/apps")
 	rr := postForm(h, "/sites/10/apps/wordpress", url.Values{
-		"_token": {token}, "title": {"T"}, "admin_user": {"admin"}, "admin_email": {"bob@x"},
+		"_token": {token}, "title": {"T"}, "admin_user": {"admin"}, "admin_email": {"bob@x.test"},
 	}, cookie)
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("install = %d", rr.Code)
@@ -224,7 +225,7 @@ func TestAppsRefreshUnknown(t *testing.T) {
 	// No jobs.get reply registered: the agent answers not_found, so the
 	// row settles to 'unknown'.
 	_ = sa
-	get(t, h, "/sites/10/apps", cookie)
+	get(t, h, "/sites/10/apps", refreshCookie(cookie, rr))
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM app_installs WHERE status = 'unknown'`); n != 1 {
 		t.Fatalf("unknown installs = %d", n)
 	}
@@ -245,8 +246,8 @@ func TestAppsInstallValidation(t *testing.T) {
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM app_installs`); n != 0 {
 		t.Fatalf("installs created on validation failure = %d", n)
 	}
-	body := get(t, h, "/sites/10/apps", cookie).Body.String()
-	if !strings.Contains(body, "Enter the administrator's email address.") {
+	body := get(t, h, "/sites/10/apps", refreshCookie(cookie, rr)).Body.String()
+	if !pageHas(body, "Enter the administrator&#39;s email address.") {
 		t.Fatalf("page missing the field error:\\n%s", body)
 	}
 }
@@ -255,7 +256,7 @@ func TestAppsInstallNotPHP(t *testing.T) {
 	h, cookie, sa, db := appsEnv(t, "bob")
 	token, cookie := pageToken(t, h, cookie, "/sites/12/apps")
 	rr := postForm(h, "/sites/12/apps/wordpress", url.Values{
-		"_token": {token}, "title": {"T"}, "admin_user": {"admin"}, "admin_email": {"bob@x"},
+		"_token": {token}, "title": {"T"}, "admin_user": {"admin"}, "admin_email": {"bob@x.test"},
 	}, cookie)
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("install = %d", rr.Code)
@@ -266,11 +267,11 @@ func TestAppsInstallNotPHP(t *testing.T) {
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM app_installs`); n != 0 {
 		t.Fatalf("installs on a non-PHP site = %d", n)
 	}
-	body := get(t, h, "/sites/12/apps", cookie).Body.String()
-	if !strings.Contains(body, "WordPress needs a PHP website.") {
+	body := get(t, h, "/sites/12/apps", refreshCookie(cookie, rr)).Body.String()
+	if !pageHas(body, "WordPress needs a PHP website.") {
 		t.Fatalf("page missing the PHP warning:\\n%s", body)
 	}
-	if !strings.Contains(body, "Applications need a PHP website") {
+	if !pageHas(body, "Applications need a PHP website") {
 		t.Fatalf("page missing the non-PHP notice:\\n%s", body)
 	}
 }
@@ -280,7 +281,7 @@ func TestAppsInstallAgentFailureRollsBackDatabase(t *testing.T) {
 	sa.failActions = map[string]string{"apps.install": "no composer on the server"}
 	token, cookie := pageToken(t, h, cookie, "/sites/10/apps")
 	rr := postForm(h, "/sites/10/apps/wordpress", url.Values{
-		"_token": {token}, "title": {"T"}, "admin_user": {"admin"}, "admin_email": {"bob@x"},
+		"_token": {token}, "title": {"T"}, "admin_user": {"admin"}, "admin_email": {"bob@x.test"},
 	}, cookie)
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("install = %d", rr.Code)
@@ -298,8 +299,8 @@ func TestAppsInstallAgentFailureRollsBackDatabase(t *testing.T) {
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM database_users`); n != 0 {
 		t.Fatalf("database users left after rollback = %d", n)
 	}
-	body := get(t, h, "/sites/10/apps", cookie).Body.String()
-	if !strings.Contains(body, "The application could not be installed.") {
+	body := get(t, h, "/sites/10/apps", refreshCookie(cookie, rr)).Body.String()
+	if !pageHas(body, "The application could not be installed.") {
 		t.Fatalf("page missing the failure message:\\n%s", body)
 	}
 }
@@ -308,7 +309,7 @@ func TestAppsInstallTargetSubdomain(t *testing.T) {
 	h, cookie, sa, db := appsEnv(t, "bob")
 	token, cookie := pageToken(t, h, cookie, "/sites/10/apps")
 	rr := postForm(h, "/sites/10/apps/wordpress", url.Values{
-		"_token": {token}, "target_id": {"11"}, "title": {"T"}, "admin_user": {"admin"}, "admin_email": {"bob@x"},
+		"_token": {token}, "target_id": {"11"}, "title": {"T"}, "admin_user": {"admin"}, "admin_email": {"bob@x.test"},
 	}, cookie)
 	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/sites/11/apps" {
 		t.Fatalf("install on subdomain = %d loc %q", rr.Code, rr.Header().Get("Location"))
@@ -328,7 +329,7 @@ func TestAppsInstallTargetOutsideTheFamily(t *testing.T) {
 	h, cookie, sa, db := appsEnv(t, "bob")
 	token, cookie := pageToken(t, h, cookie, "/sites/10/apps")
 	rr := postForm(h, "/sites/10/apps/wordpress", url.Values{
-		"_token": {token}, "target_id": {"999"}, "title": {"T"}, "admin_user": {"admin"}, "admin_email": {"bob@x"},
+		"_token": {token}, "target_id": {"999"}, "title": {"T"}, "admin_user": {"admin"}, "admin_email": {"bob@x.test"},
 	}, cookie)
 	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/sites/10/apps" {
 		t.Fatalf("install on a foreign target = %d loc %q", rr.Code, rr.Header().Get("Location"))
@@ -339,8 +340,8 @@ func TestAppsInstallTargetOutsideTheFamily(t *testing.T) {
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM app_installs`); n != 0 {
 		t.Fatalf("installs on a foreign target = %d", n)
 	}
-	body := get(t, h, "/sites/10/apps", cookie).Body.String()
-	if !strings.Contains(body, "Choose this website or one of its subdomains.") {
+	body := get(t, h, "/sites/10/apps", refreshCookie(cookie, rr)).Body.String()
+	if !pageHas(body, "Choose this website or one of its subdomains.") {
 		t.Fatalf("page missing the target error:\\n%s", body)
 	}
 }
@@ -351,19 +352,19 @@ func TestAppsInstallerDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := get(t, h, "/sites/10/apps", cookie).Body.String()
-	if !strings.Contains(body, "The application installer is turned off") {
+	if !pageHas(body, "The application installer is turned off") {
 		t.Fatalf("page missing the disabled notice:\\n%s", body)
 	}
 	// And the install is refused too.
 	token, cookie := pageToken(t, h, cookie, "/sites/10/apps")
 	rr := postForm(h, "/sites/10/apps/wordpress", url.Values{
-		"_token": {token}, "title": {"T"}, "admin_user": {"admin"}, "admin_email": {"bob@x"},
+		"_token": {token}, "title": {"T"}, "admin_user": {"admin"}, "admin_email": {"bob@x.test"},
 	}, cookie)
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("install = %d", rr.Code)
 	}
-	body = get(t, h, "/sites/10/apps", cookie).Body.String()
-	if !strings.Contains(body, "This application is not available for installation.") {
+	body = get(t, h, "/sites/10/apps", refreshCookie(cookie, rr)).Body.String()
+	if !pageHas(body, "This application is not available for installation.") {
 		t.Fatalf("page missing the availability error:\\n%s", body)
 	}
 }
@@ -378,4 +379,10 @@ func TestAppsForbidden(t *testing.T) {
 	if rr.Code != http.StatusFound && rr.Code != http.StatusSeeOther {
 		t.Fatalf("anonymous GET apps = %d, want redirect", rr.Code)
 	}
+}
+
+// htmlTextEscape is how html/template renders text: & < > " ' and + become
+// entities (generated passwords contain + and others).
+func htmlTextEscape(s string) string {
+	return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&#34;", "'", "&#39;", "+", "&#43;").Replace(s)
 }

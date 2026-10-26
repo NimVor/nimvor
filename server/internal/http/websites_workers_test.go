@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -34,7 +33,7 @@ func workerPageToken(t *testing.T, h http.Handler, cookie *http.Cookie, path str
 // createWorker posts a minimal valid worker and fails on a non-303.
 func createWorker(t *testing.T, h http.Handler, cookie *http.Cookie, extra url.Values) *httptest.ResponseRecorder {
 	t.Helper()
-	_, cookie := workerPageToken(t, h, cookie, "/sites/10/workers")
+	_, cookie = workerPageToken(t, h, cookie, "/sites/10/workers")
 	values := url.Values{
 		"name": {"app"}, "command": {"node app.js"}, "directory": {""},
 		"env": {""}, "restart": {"always"}, "memory_mb": {"0"},
@@ -108,7 +107,7 @@ func TestWorkerCreateValidation(t *testing.T) {
 		"Please correct the following", "Enter a name",
 		"Run 1 to 20 copies", `value="node bad"`,
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("re-render missing %q", want)
 		}
 	}
@@ -133,13 +132,13 @@ func TestWorkerUpdate(t *testing.T) {
 	// The edit form is pre-filled and carries the worker id.
 	token, cookie := workerPageToken(t, h, cookie, editURL)
 	body := get(t, h, editURL, cookie).Body.String()
-	if !strings.Contains(body, fmt.Sprintf(`name="worker_id" value="%d"`, id)) {
+	if !pageHas(body, fmt.Sprintf(`name="worker_id" value="%d"`, id)) {
 		t.Errorf("edit form missing worker_id:\n%s", body)
 	}
-	if !strings.Contains(body, `value="node app.js"`) {
+	if !pageHas(body, `value="node app.js"`) {
 		t.Error("edit form not pre-filled")
 	}
-	if !strings.Contains(body, "Save and restart") {
+	if !pageHas(body, "Save and restart") {
 		t.Error("edit form missing the save label")
 	}
 
@@ -260,7 +259,7 @@ func TestWorkerPageShowsStatus(t *testing.T) {
 		"whacp-worker-bob-app.service", "active", "2/2 up", "12.0 MB",
 		"Restart", "Edit", "Stop",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("workers page missing %q", want)
 		}
 	}
@@ -269,10 +268,10 @@ func TestWorkerPageShowsStatus(t *testing.T) {
 func TestWorkerPageEmpty(t *testing.T) {
 	h, cookie, _, _ := sitesEnv(t, false, false)
 	body := get(t, h, "/sites/10/workers", cookie).Body.String()
-	if !strings.Contains(body, "No workers yet") {
+	if !pageHas(body, "No workers yet") {
 		t.Errorf("empty state missing:\n%s", body)
 	}
-	if !strings.Contains(body, "Add worker") {
+	if !pageHas(body, "Add worker") {
 		t.Error("create form missing")
 	}
 }

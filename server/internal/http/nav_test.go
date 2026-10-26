@@ -53,10 +53,10 @@ func TestDashboardNavGatedByPermission(t *testing.T) {
 	// Customer: sees Websites + Databases + Profile, not Users or Audit.
 	cust := navEnv(t, "cust")
 	body := get(t, cust, "/", nil).Body.String()
-	if !strings.Contains(body, `href="/websites"`) || !strings.Contains(body, `href="/databases"`) || !strings.Contains(body, `href="/profile"`) {
+	if !pageHas(body, `href="/websites"`) || !pageHas(body, `href="/databases"`) || !pageHas(body, `href="/profile"`) {
 		t.Fatalf("customer nav missing allowed links:\n%s", body)
 	}
-	if strings.Contains(body, `href="/users"`) || strings.Contains(body, `href="/audit"`) {
+	if pageHas(body, `href="/users"`) || pageHas(body, `href="/audit"`) {
 		t.Fatalf("customer nav shows staff-only links:\n%s", body)
 	}
 

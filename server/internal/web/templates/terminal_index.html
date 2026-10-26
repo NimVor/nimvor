@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="{{.CSRF}}">
 <title>Web terminal · WhaCP</title>
+<link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/assets/css/whacp.css">
 <link rel="stylesheet" href="/assets/vendor/xterm/xterm.css">
 </head>
@@ -118,10 +120,12 @@
   </div>
   {{end}}
   {{end}}
+{{template "wcp_confirm_modal"}}
 </main>
 <script src="/assets/js/whacp.js"></script>
 <script src="/assets/vendor/xterm/xterm.js" defer></script>
 <script src="/assets/vendor/xterm/addon-fit.js" defer></script>
 <script src="/assets/js/terminal.js" defer></script>
+<script src="/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>{{end}}

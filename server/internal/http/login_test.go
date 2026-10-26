@@ -74,6 +74,7 @@ func postForm(h http.Handler, path string, form url.Values, cookie *http.Cookie)
 	}
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
+	adoptCookie(cookie, rr)
 	return rr
 }
 
@@ -185,5 +186,26 @@ func TestLogoutEndsSession(t *testing.T) {
 	h.ServeHTTP(d2, req2)
 	if d2.Code == http.StatusOK {
 		t.Fatal("session still valid after logout")
+	}
+}
+
+// adoptCookie makes the shared test helpers behave like a browser cookie jar.
+// A session here is a sealed cookie the CLIENT holds (flashes, CSRF, sign-in
+// state all travel in it), so after every response the cookie the test keeps
+// must take the new value, exactly as a browser would. Tests written for
+// server-side (PHP) sessions never did this and lost every flash. The cookie
+// is updated in place, so a test that wants to model a replaying client copies
+// it first (c := *cookie).
+func adoptCookie(cookie *http.Cookie, rr *httptest.ResponseRecorder) {
+	if cookie == nil {
+		return
+	}
+	for _, c := range rr.Result().Cookies() {
+		if c.Name == cookie.Name {
+			cookie.Value = c.Value
+			if c.MaxAge < 0 {
+				cookie.Value = ""
+			}
+		}
 	}
 }

@@ -43,7 +43,9 @@ func (s *Server) serverIndex(w http.ResponseWriter, r *http.Request) {
 	metricsRaw, err := s.agent.Call(r.Context(), "system.metrics", nil, 30*time.Second)
 	if err != nil {
 		data["AgentError"] = err.Error()
-		_ = json.Unmarshal(infoRaw, &data["Info"])
+		var info any
+		_ = json.Unmarshal(infoRaw, &info)
+		data["Info"] = info
 		s.render(w, "server_index", data)
 		return
 	}

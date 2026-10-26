@@ -35,13 +35,13 @@ func (s *Server) monitoringIndex(w http.ResponseWriter, r *http.Request) {
 		rangeKey = "24h"
 	}
 	s.render(w, "monitoring_index", map[string]any{
-		"User":    user,
-		"CSRF":    session.CSRFToken(sessionFrom(r.Context())),
-		"Title":   "Monitoring",
-		"Range":   rangeKey,
-		"Series":  []any{},
-		"Open":    []any{},
-		"Recent":  []any{},
+		"User":   user,
+		"CSRF":   session.CSRFToken(sessionFrom(r.Context())),
+		"Title":  "Monitoring",
+		"Range":  rangeKey,
+		"Series": []any{},
+		"Open":   []any{},
+		"Recent": []any{},
 	})
 }
 
@@ -123,7 +123,7 @@ func (s *Server) monitoringTrace(w http.ResponseWriter, r *http.Request) {
 	}
 	var trace any
 	_ = json.Unmarshal(raw, &trace)
-	auditMonitoring(r, user, "processes.trace", "process", strconv.Itoa(pid), audit.Success, nil)
+	s.auditMonitoring(r, user, "processes.trace", "process", strconv.Itoa(pid), audit.Success, nil)
 	s.render(w, "monitoring_trace", map[string]any{
 		"User":  user,
 		"CSRF":  session.CSRFToken(sessionFrom(r.Context())),
@@ -151,11 +151,11 @@ func (s *Server) monitoringSignal(w http.ResponseWriter, r *http.Request) {
 	cmd := truncateStr(r.PostFormValue("command"), 200)
 	_, err := s.agent.Call(r.Context(), "processes.signal", map[string]any{"pid": pid, "start": start, "signal": sig}, 30*time.Second)
 	if err != nil {
-		auditMonitoring(r, user, "processes.signal", "process", strconv.Itoa(pid), audit.Failure, map[string]any{"signal": sig, "command": cmd, "error": err.Error()})
+		s.auditMonitoring(r, user, "processes.signal", "process", strconv.Itoa(pid), audit.Failure, map[string]any{"signal": sig, "command": cmd, "error": err.Error()})
 		monFlashErr(w, r, agentMessage(err), back)
 		return
 	}
-	auditMonitoring(r, user, "processes.signal", "process", strconv.Itoa(pid), audit.Success, map[string]any{"signal": sig, "command": cmd})
+	s.auditMonitoring(r, user, "processes.signal", "process", strconv.Itoa(pid), audit.Success, map[string]any{"signal": sig, "command": cmd})
 	verb := map[string]string{"TERM": "asked to stop", "KILL": "killed", "HUP": "sent HUP", "STOP": "paused", "CONT": "resumed"}[sig]
 	if verb == "" {
 		verb = "signalled"
@@ -180,7 +180,7 @@ func (s *Server) monitoringKillUser(w http.ResponseWriter, r *http.Request) {
 	}
 	raw, err := s.agent.Call(r.Context(), "processes.kill_user", map[string]any{"user": target, "signal": sig}, 30*time.Second)
 	if err != nil {
-		auditMonitoring(r, user, "processes.kill_user", "account", target, audit.Failure, map[string]any{"signal": sig, "error": err.Error()})
+		s.auditMonitoring(r, user, "processes.kill_user", "account", target, audit.Failure, map[string]any{"signal": sig, "error": err.Error()})
 		monFlashErr(w, r, agentMessage(err), "/monitoring/processes")
 		return
 	}
@@ -190,7 +190,7 @@ func (s *Server) monitoringKillUser(w http.ResponseWriter, r *http.Request) {
 	if n, ok := res["signalled"].(float64); ok {
 		signalled = int(n)
 	}
-	auditMonitoring(r, user, "processes.kill_user", "account", target, audit.Success, map[string]any{"signal": sig, "signalled": signalled})
+	s.auditMonitoring(r, user, "processes.kill_user", "account", target, audit.Success, map[string]any{"signal": sig, "signalled": signalled})
 	msg := strconv.Itoa(signalled) + " process(es) of " + target + " asked to stop."
 	if sig == "KILL" {
 		msg = strconv.Itoa(signalled) + " process(es) of " + target + " killed."
@@ -202,7 +202,7 @@ func (s *Server) monitoringKillUser(w http.ResponseWriter, r *http.Request) {
 
 // ---- helpers ----
 
-func auditMonitoring(r *http.Request, user *identity.User, action, targetType, targetID, result string, details map[string]any) {
+func (s *Server) auditMonitoring(r *http.Request, user *identity.User, action, targetType, targetID, result string, details map[string]any) {
 	var uid *int64
 	if user != nil {
 		id := user.ID

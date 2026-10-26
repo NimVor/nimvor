@@ -107,14 +107,14 @@ func TestDiscoveryIndex(t *testing.T) {
 		"one website has no listen directive", // the merged warnings
 		"Snapshot history", "abcdef012345",    // the checksum, truncated to 12
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("discovery page missing %q", want)
 		}
 	}
 	// Two websites, two PHP versions, two pools, two databases, one
 	// certificate, one cron job, two services and one system account.
 	for _, want := range []string{`<div class="wcp-kpi">2</div>`, `<div class="wcp-kpi">1</div>`} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("discovery counters missing %q", want)
 		}
 	}
@@ -127,12 +127,12 @@ func TestDiscoveryIndexScoped(t *testing.T) {
 	body := discoveryFlash(t, h, cookie, "/discovery")
 	// bob owns bob.example only: one website, one PHP pool and the
 	// certificate naming his domain; the other site's cron job is hidden.
-	if !strings.Contains(body, "Discovered") {
+	if !pageHas(body, "Discovered") {
 		t.Fatalf("no discovery bar:\n%s", body)
 	}
 	// forScope drops every section warning, so no tenant sees another's.
-	if strings.Contains(body, "a pool has no open_basedir") ||
-		strings.Contains(body, "one website has no listen directive") {
+	if pageHas(body, "a pool has no open_basedir") ||
+		pageHas(body, "one website has no listen directive") {
 		t.Errorf("the scope filter kept another tenant's warning")
 	}
 
@@ -176,12 +176,12 @@ func TestDiscoverySSLForCustomer(t *testing.T) {
 		"2026-11-05", "expiring", // 10 days, inside the 14-day warning window
 		"Let&#39;s Encrypt (certbot) lineages", "nginx",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("ssl page missing %q", want)
 		}
 	}
 	// The other tenant's expired certificate must not appear.
-	if strings.Contains(body, "other.example") {
+	if pageHas(body, "other.example") {
 		t.Errorf("ssl page leaked another tenant's certificate")
 	}
 }
@@ -195,7 +195,7 @@ func TestDiscoveryCronForAdministrator(t *testing.T) {
 		"/var/spool/cron/crontabs/u_bob:4",
 		"redacted by the agent",
 	} {
-		if !strings.Contains(body, want) {
+		if !pageHas(body, want) {
 			t.Errorf("cron page missing %q", want)
 		}
 	}
@@ -211,10 +211,10 @@ func TestDiscoveryRun(t *testing.T) {
 		t.Fatalf("run = %d -> %q", rr.Code, rr.Header().Get("Location"))
 	}
 	body := discoveryFlash(t, h, refreshCookie(cookie, rr), "/discovery")
-	if !strings.Contains(body, "Discovery completed: 2 website(s) found.") {
+	if !pageHas(body, "Discovery completed: 2 website(s) found.") {
 		t.Errorf("run flash missing:\n%s", body)
 	}
-	if !strings.Contains(body, "Nothing on the server was changed.") {
+	if !pageHas(body, "Nothing on the server was changed.") {
 		t.Errorf("run flash should state that nothing changed")
 	}
 
@@ -259,7 +259,7 @@ func TestDiscoveryRunAgentFailure(t *testing.T) {
 		t.Fatalf("run on agent failure = %d, want 303", rr.Code)
 	}
 	body := discoveryFlash(t, h, refreshCookie(cookie, rr), "/discovery")
-	if !strings.Contains(body, "the agent refused") {
+	if !pageHas(body, "the agent refused") {
 		t.Errorf("failure flash missing:\n%s", body)
 	}
 }
@@ -273,10 +273,10 @@ func TestDiscoveryUnavailable(t *testing.T) {
 		t.Fatalf("GET /discovery with the agent down = %d, want 200", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "This page needs the WhaCP agent") {
+	if !pageHas(body, "This page needs the WhaCP agent") {
 		t.Errorf("unavailable fallback missing:\n%s", body)
 	}
-	if !strings.Contains(body, "the agent is unreachable") {
+	if !pageHas(body, "the agent is unreachable") {
 		t.Errorf("the agent's message should be shown")
 	}
 }

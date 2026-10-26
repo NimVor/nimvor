@@ -208,9 +208,9 @@ func (s *AccountBackupService) RestoreRecord(ctx context.Context, id int64) (*Ac
 		`SELECT id, server_id, path, username, manifest, status, job_id, report, user_id, created_at, updated_at
 		 FROM account_restores WHERE id = ? AND server_id = ?`, id, s.serverID)
 	var (
-		r       AccountRestore
-		mblob   string
-		rblob   string
+		r     AccountRestore
+		mblob string
+		rblob string
 	)
 	if err := row.Scan(&r.ID, &r.ServerID, &r.Path, &r.Username, &mblob, &r.Status, &r.JobID, &rblob, &r.UserID, &r.CreatedAt, &r.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

@@ -134,9 +134,9 @@ func GreylistParams(cfg *GreylistConfig) map[string]any {
 	}
 	return map[string]any{
 		"enabled":        cfg != nil && cfg.Enabled,
-		"deferral":       greylistParamInt(cfg, cfgDeferral, GreylistDefaultDeferral),
-		"resend":         greylistParamInt(cfg, cfgResend, GreylistDefaultResend),
-		"expire":         greylistParamInt(cfg, cfgExpire, GreylistDefaultExpire),
+		"deferral":       greylistParamInt(cfg, cfgDeferral(cfg), GreylistDefaultDeferral),
+		"resend":         greylistParamInt(cfg, cfgResend(cfg), GreylistDefaultResend),
+		"expire":         greylistParamInt(cfg, cfgExpire(cfg), GreylistDefaultExpire),
 		"spf_bypass":     cfg != nil && cfg.SPFBypass,
 		"auto_trust_new": cfg != nil && cfg.AutoTrustNew,
 		"trusted":        trusted,
