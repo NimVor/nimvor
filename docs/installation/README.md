@@ -197,24 +197,17 @@ server's name; default the system's full host name), `--php=8.2,8.3,8.4`
   versions and extensions are never removed. A failed step is reported and
   the next ones still run.
 
-Run it again, or later on a server installed with `none`:
+Run it again to (re)apply a profile later:
 
 ```bash
-sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp setup:apply --profile=web
-sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp setup:status
+sudo ./installer/install.sh --reinstall --yes --profile=web
 ```
 
-(`php` is the PHP the panel runs on: on Ubuntu 22.04 the installer
-prints its path.) `--only=step,step` runs some steps only (`packages`,
-`php_repository`, `php`, `mail`, `dns`, `ftp`, `caches`, `services`,
-`firewall`, `ports`, `protection`, `fail2ban`, `hardening`,
-`auto_updates`, `plans`, `backups`, `profile`).
-
-### Scheduler
-
-`whacp-scheduler.timer` runs `bin/whacp schedule:run` every minute:
-monitoring samples and alerts, scheduled backups and retention, remote
-server heartbeats. `bin/whacp doctor` warns when it has not run recently.
+The installer applies server profiles at install time (package installs,
+service configuration, default plan creation, firewall, fail2ban,
+hardening). The live panel's Server → Setup page reports component status
+only; server-provisioning steps are not re-run from the UI so they can't
+be triggered by a later session.
 
 ### Remote servers
 
@@ -236,10 +229,10 @@ firewall for the panel's address only.
 | Path | Purpose |
 |------|---------|
 | `/usr/local/bin/whacp-agent` | agent binary |
-| `/opt/whacp/panel` | panel files (root:whacp, not writable by the panel) |
-| `/etc/whacp/{agent.json,panel.php,agent.token}` | configuration (0640 root:whacp) |
+| `/usr/local/bin/whacp` | panel server binary (templates + assets embedded) |
+| `/etc/whacp/{agent.json,server.env,agent.token,panel.key}` | configuration (0640 root:whacp) |
 | `/var/lib/whacp`, `/var/log/whacp` | panel database, sessions, log |
-| `/etc/systemd/system/whacp-{agent,panel,scheduler}.service`, `whacp-scheduler.timer` | services |
+| `/etc/systemd/system/whacp-{agent,panel}.service` | systemd units |
 | `/opt/whacp/plugins` | plugins installed by an administrator (none enabled by default) |
 | user/group `whacp` | panel identity, agent socket group |
 
@@ -272,7 +265,7 @@ Then browse to `https://SERVER-IP:8443/`. The installer:
   checks it with `nginx -t` (it is removed again if Nginx rejects it) and
   reloads Nginx;
 - makes sign-in cookies HTTPS-only and trusts Nginx for the client address
-  and `X-Forwarded-Proto` (`/etc/whacp/panel.php`);
+  and `X-Forwarded-Proto` (sets `WHACP_PRODUCTION=1` in `/etc/whacp/server.env`);
 - opens the port in UFW or firewalld when one is active (SELinux: labels the
   port and allows Nginx to connect to the panel);
 - checks the panel answers over HTTPS.
@@ -302,14 +295,14 @@ ssh -L 8090:127.0.0.1:8090 you@server
 ## Verify
 
 ```bash
-systemctl status whacp-agent whacp-panel whacp-scheduler.timer
-sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp doctor   # Ubuntu 22.04: php8.3
+systemctl status whacp-agent whacp-panel
 curl -s http://127.0.0.1:8090/healthz
+sudo -u whacp whacp has-admin && echo "administrator exists"
 ```
 
-`doctor` checks PHP, the file modes of the key, token, database and
-sessions, the database schema and integrity, the agent (reachable, same
-version) and the scheduler. It exits with 1 when something fails.
+`/healthz` returns `{"status":"ok"}` when the panel is up and can reach
+the agent. The panel log is in `/var/log/whacp/panel.log` and in
+`journalctl -u whacp-panel`; the agent log in `journalctl -u whacp-agent`.
 
 ### If the installation was interrupted
 
@@ -333,10 +326,11 @@ One command, with no options and no prompts:
 2. The latest version is pulled as that owner (fast-forward only; local
    changes stop the update instead of being overwritten).
 3. `install.sh --reinstall --yes` runs from the new version. It installs
-   missing dependencies, rebuilds the agent and the panel's dependencies,
-   migrates the database, loads the SELinux policy module and restarts
-   WhaCP's services. The configuration, agent token, database, write mode
-   and the panel's ports (public HTTPS included) are kept.
+   missing dependencies, rebuilds `whacp-agent` and `whacp`, loads the
+   SELinux policy module and restarts WhaCP's services. Database migrations
+   run automatically on panel start. The configuration, agent token,
+   database, write mode and the panel's ports (public HTTPS included) are
+   kept.
 
 ## Upgrade (release archive)
 

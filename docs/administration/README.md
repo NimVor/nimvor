@@ -99,7 +99,7 @@ checks the settings.
 | Dashboard refresh | 10 s | 3–300 |
 | Certificate warning | 14 days | highlight threshold |
 
-Infrastructure settings (paths, cookies, proxies) are in `/etc/whacp/panel.php`.
+Infrastructure settings (listen address, paths, cookies, proxies, production mode) are in `/etc/whacp/server.env` (loaded by systemd's `EnvironmentFile=`).
 
 ### Basic WebHost Settings
 
@@ -160,8 +160,8 @@ result, IP, user agent and redacted details. Filter by action prefix
 (e.g. `user.`), user, result or free text.
 
 The scheduler keeps the audit log for 365 days; set
-`'audit' => ['retention_days' => N]` in `/etc/whacp/panel.php` to change
-that (`0` keeps it forever). Each removal is itself recorded
+`audit.retention_days` (Administration → Tweak Settings → Monitoring)
+to change it (`0` keeps it forever). Each removal is itself recorded
 (`audit.pruned`, with the count). Job history is kept 90 days after a job
 finished, deployment history 90 days (always the latest 20 per website).
 
@@ -210,19 +210,24 @@ server configuration changed.
 
 ## CLI
 
+The panel is the `whacp` binary at `/usr/local/bin/whacp`. It auto-migrates
+the database on every start (no separate `migrate` step is needed).
+
 ```bash
-export WHACP_CONFIG=/etc/whacp/panel.php
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp migrate
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:create alice alice@example.com --role=operator
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:password alice
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:2fa-reset alice
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:verify-ip alice 203.0.113.5
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp hulk:unblock 203.0.113.5
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp agent:check
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp discovery:run
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp schedule:run   # normally run by whacp-scheduler.timer
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp doctor
+# Print version / probe for an existing admin
+whacp version
+sudo -u whacp whacp has-admin && echo "admin exists"
+
+# Create the first administrator (password from stdin)
+echo 'strong-password' | sudo -u whacp whacp bootstrap-admin \
+    --username alice --email alice@example.com --role admin
 ```
+
+Day-to-day administration (user password reset, 2FA reset, IP verification,
+Hulk unblock, agent discovery) is performed through the web UI; equivalent
+endpoints are gated behind the same role permissions as the pages. Restart
+the panel with `systemctl restart whacp-panel`; the agent with
+`systemctl restart whacp-agent`.
 
 ## Navigation and dashboards
 
