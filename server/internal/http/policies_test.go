@@ -214,3 +214,18 @@ func TestComponentsPageRendersCards(t *testing.T) {
 		t.Error("components page prints a raw Go map")
 	}
 }
+
+func TestServicesPageRendersWithoutRawDump(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rr := get(t, h, "/services", admin)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /services = %d", rr.Code)
+	}
+	if !pageHas(rr.Body.String(), "SSH and the agent cannot be stopped") {
+		t.Error("services page lacks its footer note")
+	}
+	if pageHas(rr.Body.String(), "map[") {
+		t.Error("services page prints a raw Go map")
+	}
+}

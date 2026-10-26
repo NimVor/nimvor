@@ -12,30 +12,78 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>Services</h1>
-  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
-  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  {{if .AgentError}}<p class="alert alert-warning">Agent unavailable: {{.AgentError}}</p>{{end}}
-  <div class="card">
-    <div class="card-header">System services</div>
-    <pre class="card-body font-monospace">{{.Services}}</pre>
-  </div>
+  {{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
+  {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+  {{if .AgentError}}<div class="alert alert-warning">The agent could not be reached: {{.AgentError}}</div>{{end}}
   {{if .Whacp}}
-  <div class="card mt-3">
-    <div class="card-header">WhaCP services</div>
-    <pre class="card-body font-monospace">{{.Whacp}}</pre>
-    <div class="card-body">
-      <form method="post" action="/services/whacp/panel/restart" class="inline-form" data-confirm="Restart the panel? You will be signed out briefly.">
-        <input type="hidden" name="_token" value="{{.CSRF}}">
-        <button type="submit" class="btn btn-outline-warning">Restart panel</button>
-      </form>
-      <form method="post" action="/services/whacp/agent/restart" class="inline-form" data-confirm="Restart the agent? Running tasks finish first.">
-        <input type="hidden" name="_token" value="{{.CSRF}}">
-        <button type="submit" class="btn btn-outline-warning">Restart agent</button>
-      </form>
+  <div class="card mb-3" id="whacp-services">
+    <div class="card-header"><i class="bi bi-boxes me-1"></i>WhaCP</div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Service</th><th>State</th><th>Since</th><th></th></tr></thead>
+        <tbody>
+        {{range .Whacp}}
+          <tr>
+            <td><span class="fw-semibold">{{.Label}}</span><div class="small text-body-secondary font-monospace">{{.Unit}}</div></td>
+            <td><span class="badge {{.Badge}}">{{.State}}</span></td>
+            <td class="small">{{.Since}}</td>
+            <td class="text-end">
+              {{if .Restartable}}
+              <form method="post" action="/services/whacp/{{.Key}}/restart" data-wcp-busy data-wcp-confirm="{{.Confirm}}">
+                <input type="hidden" name="_token" value="{{$.CSRF}}">
+                <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise me-1"></i>Restart</button>
+              </form>
+              {{end}}
+            </td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
     </div>
   </div>
   {{end}}
+  <div class="card">
+    {{if not .Rows}}
+    <div class="card-body text-center py-5 text-body-secondary wcp-empty">
+      <i class="bi bi-cpu display-6"></i>
+      <p class="mt-3 mb-0">No known services were found. systemd may be unavailable on this host.</p>
+    </div>
+    {{else}}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 wcp-table">
+        <thead><tr><th>Service</th><th>State</th><th>Boot</th><th>PID</th><th>Memory</th><th>Since</th><th></th></tr></thead>
+        <tbody>
+        {{range .Rows}}
+          <tr>
+            <td><span class="fw-semibold">{{.Unit}}</span><div class="small text-body-secondary">{{.Description}}</div></td>
+            <td><span class="badge {{.Badge}}">{{.State}}</span></td>
+            <td>{{.Boot}}</td>
+            <td>{{.PID}}</td>
+            <td>{{.Memory}}</td>
+            <td class="small">{{.Since}}</td>
+            <td class="text-end text-nowrap">
+              {{if .Controllable}}
+              <form method="post" action="/services/control" class="d-inline-flex gap-1" data-wcp-busy>
+                <input type="hidden" name="_token" value="{{$.CSRF}}">
+                <input type="hidden" name="unit" value="{{.Unit}}">
+                {{if .Running}}
+                <button class="btn btn-sm btn-outline-secondary" name="op" value="reload" title="Reload"><i class="bi bi-arrow-repeat"></i></button>
+                <button class="btn btn-sm btn-outline-secondary" name="op" value="restart" title="Restart"><i class="bi bi-arrow-clockwise"></i></button>
+                <button class="btn btn-sm btn-outline-danger" name="op" value="stop" title="Stop"><i class="bi bi-stop-fill"></i></button>
+                {{else}}
+                <button class="btn btn-sm btn-outline-success" name="op" value="start" title="Start"><i class="bi bi-play-fill"></i></button>
+                {{end}}
+              </form>
+              {{end}}
+            </td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+    <div class="card-footer small text-body-secondary">Nginx is always tested with <code>nginx -t</code> before it is reloaded or restarted. SSH and the agent cannot be stopped from the panel.</div>
+  </div>
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}
