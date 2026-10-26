@@ -964,25 +964,68 @@ func (s *Server) sslMailTls(w http.ResponseWriter, r *http.Request) {
 
 // sslAutoSsl GET /ssl/autossl — AutoSSL status/log. Best-effort pulls
 // ssl.autossl_status from the agent. Mirrors SslCenterController::autossl.
+type autoSslQueued struct{ Domain, Note, Tries, Next string }
+type autoSslLogRow struct{ Time, Domain, Result, Class, Message string }
+
 func (s *Server) sslAutoSsl(w http.ResponseWriter, r *http.Request) {
-	sess := sessionFrom(r.Context())
-	user := userFrom(r.Context())
-	data := map[string]any{
-		"CSRF":       session.CSRFToken(sess),
-		"User":       user,
-		"Title":      "AutoSSL",
-		"Status":     nil,
-		"Error":      flashStr(sess, "error"),
-		"Success":    flashStr(sess, "success"),
-		"AgentError": nil,
+	data, ok := s.sslBase(w, r, "autossl", "SSL/TLS")
+	if !ok {
+		return
 	}
-	if raw, err := s.agent.Call(r.Context(), "ssl.autossl_status", nil, 60*time.Second); err == nil {
-		var parsed any
-		_ = json.Unmarshal(raw, &parsed)
-		data["Status"] = parsed
+	ctx := r.Context()
+	sid := s.currentServerID(r)
+	var renewal any
+	var renewLog []string
+	if raw, err := s.agent.Call(ctx, "ssl.renewal_status", nil, 60*time.Second); err != nil {
+		data["AgentError"] = agentMessage(err)
 	} else {
-		data["AgentError"] = err.Error()
+		_ = json.Unmarshal(raw, &renewal)
+		if raw2, err2 := s.agent.Call(ctx, "ssl.renewal_log", nil, 60*time.Second); err2 == nil {
+			var l any
+			_ = json.Unmarshal(raw2, &l)
+			renewLog = strList(jmap(l)["lines"])
+		}
 	}
+	rs := map[string]any{"Known": renewal != nil}
+	if renewal != nil {
+		rs["Active"], rs["Method"] = jbool(renewal, "timer_active"), jstr(renewal, "method")
+		rs["NoCertbot"], rs["CanEnable"] = !jbool(renewal, "certbot_installed"), jbool(renewal, "can_enable")
+	}
+	var queued []autoSslQueued
+	if rows, err := s.db.QueryContext(ctx, `SELECT domain, auto_ssl_note, auto_ssl_tries, COALESCE(auto_ssl_next,'') FROM websites WHERE server_id = ? AND auto_ssl IN ('pending','renew') ORDER BY auto_ssl_next`, sid); err == nil {
+		for rows.Next() {
+			var q autoSslQueued
+			if rows.Scan(&q.Domain, &q.Note, &q.Tries, &q.Next) == nil {
+				if t, err := time.Parse(time.RFC3339, q.Next); err == nil {
+					q.Next = t.UTC().Format("2006-01-02 15:04")
+				} else {
+					q.Next = "now"
+				}
+				queued = append(queued, q)
+			}
+		}
+		rows.Close()
+	}
+	class := map[string]string{"issued": "is-ok", "failed": "is-error", "skipped": "is-warn"}
+	var logs []autoSslLogRow
+	if rows, err := s.db.QueryContext(ctx, `SELECT created_at, domain, result, message FROM autossl_log WHERE server_id = ? ORDER BY id DESC LIMIT 300`, sid); err == nil {
+		for rows.Next() {
+			var l autoSslLogRow
+			if rows.Scan(&l.Time, &l.Domain, &l.Result, &l.Message) == nil {
+				if t, err := time.Parse(time.RFC3339, l.Time); err == nil {
+					l.Time = t.UTC().Format("2006-01-02 15:04")
+				}
+				l.Class = class[l.Result]
+				logs = append(logs, l)
+			}
+		}
+		rows.Close()
+	}
+	autoNew, _ := s.settings.Bool(ctx, "auto_ssl", true)
+	autoReplace, _ := s.settings.Bool(ctx, "auto_ssl_replace", true)
+	canSettings, _ := s.authorizer().Can(ctx, userFrom(ctx), "settings.manage")
+	data["Renewal"], data["Queued"], data["Log"], data["RenewLog"] = rs, queued, logs, strings.Join(renewLog, "\n")
+	data["AutoNew"], data["AutoReplace"], data["CanSettings"] = autoNew, autoReplace, canSettings
 	s.render(w, "ssl_autossl", data)
 }
 
@@ -993,7 +1036,6 @@ func (s *Server) sslAutoSslRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess := sessionFrom(r.Context())
-	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -1002,31 +1044,9 @@ func (s *Server) sslAutoSslRun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	res, err := s.agent.Call(r.Context(), "ssl.autossl_run", nil, 300*time.Second)
-	if err != nil {
-		uid := user.ID
-		s.audit.Record(r.Context(), audit.Entry{
-			Action: "ssl.autossl_run", TargetType: "server", TargetID: "ssl",
-			Result: audit.Failure, Details: map[string]any{"error": err.Error()},
-			UserID: &uid, Username: user.Username,
-		})
-		sess.Flash("error", err.Error())
-		http.Redirect(w, r, "/ssl/autossl", http.StatusSeeOther)
-		return
-	}
-	uid := user.ID
-	s.audit.Record(r.Context(), audit.Entry{
-		Action: "ssl.autossl_run", TargetType: "server", TargetID: "ssl",
-		Result: audit.Success, UserID: &uid, Username: user.Username,
-	})
-	if m := agentObject(res); m != nil {
-		if issued, ok := m["issued"].(float64); ok && issued > 0 {
-			sess.Flash("success", "Issued "+strconv.Itoa(int(issued))+" certificate(s).")
-			http.Redirect(w, r, "/ssl/autossl", http.StatusSeeOther)
-			return
-		}
-	}
-	sess.Flash("success", "AutoSSL run finished.")
+	// The agent has no AutoSSL engine (PHP ran it in the panel's scheduler,
+	// which this panel does not have yet); say so rather than claim a run.
+	sess.Flash("error", "AutoSSL cannot run from this panel yet: its scheduler is not part of it. Issue a certificate from a website's SSL page, or from the host list.")
 	http.Redirect(w, r, "/ssl/autossl", http.StatusSeeOther)
 }
 

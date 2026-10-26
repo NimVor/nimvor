@@ -268,3 +268,22 @@ func TestProcessesPageListsProcesses(t *testing.T) {
 		t.Error("processes page lacks the monitoring tabs")
 	}
 }
+
+func TestSslCenterPagesRenderForAdminOnly(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	for _, p := range []string{"/ssl/hosts", "/ssl/autossl", "/ssl/certificates", "/ssl/keys", "/ssl/tls", "/ssl/services"} {
+		rr := get(t, h, p, admin)
+		if rr.Code != http.StatusOK {
+			t.Errorf("GET %s = %d", p, rr.Code)
+			continue
+		}
+		if !pageHas(rr.Body.String(), "Services SSL") || pageHas(rr.Body.String(), "map[") {
+			t.Errorf("%s lacks the SSL tabs or prints a raw map", p)
+		}
+	}
+	mgr := loginAsUser(t, h, "mgr")
+	if rr := get(t, h, "/ssl/keys", mgr); rr.Code == http.StatusOK {
+		t.Error("a non-administrator opened the SSL keys page")
+	}
+}
