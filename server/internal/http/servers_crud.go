@@ -11,9 +11,8 @@ import (
 )
 
 // serversStore POST /servers — refuses, honestly: no remote agent connection yet.
-// Mirrors ServersController::store (servers.store, servers.manage). The real
-// token exchange is not yet ported; this records name/url/kind so the page
-// works end-to-end and returns an id.
+// ServersController::store tests the agent over pinned TLS and stores the
+// encrypted token; that client is not ported yet (servers.store, servers.manage).
 func (s *Server) serversStore(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
