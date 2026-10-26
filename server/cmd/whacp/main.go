@@ -41,6 +41,7 @@ func main() {
 	//   whacp [flags]                      serve (default)
 	//   whacp serve [flags]                same as default
 	//   whacp bootstrap-admin [flags]      create first admin
+	//   whacp set-admin-password [flags]   reset an existing admin's password
 	//   whacp has-admin                    probe: exit 0/1
 	//   whacp version                      print version
 	cmd := "serve"
@@ -71,10 +72,12 @@ func main() {
 		os.Exit(runHasAdmin(log))
 	case "bootstrap-admin":
 		os.Exit(runBootstrapAdmin(log))
+	case "set-admin-password":
+		os.Exit(runSetAdminPassword(log))
 	case "serve", "":
 		os.Exit(runServe(log))
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command %q (use: serve | bootstrap-admin | has-admin | version)\n", cmd)
+		fmt.Fprintf(os.Stderr, "unknown command %q (use: serve | bootstrap-admin | set-admin-password | has-admin | version)\n", cmd)
 		os.Exit(2)
 	}
 }
@@ -279,5 +282,71 @@ func runBootstrapAdmin(log *slog.Logger) int {
 		return 1
 	}
 	fmt.Printf("created administrator %q\n", *username)
+	return 0
+}
+
+// runSetAdminPassword resets an existing administrator's password. It reads
+// the new password from stdin (or --password-file) and updates the user row
+// directly. Used by integration tests and by operators who need a scriptable
+// password reset when the mail/reset-email flow is not available.
+func runSetAdminPassword(log *slog.Logger) int {
+	username := flag.String("username", "admin", "admin username to reset")
+	passwordFile := flag.String("password-file", "-", "file to read password from ('-' for stdin)")
+	flag.Parse()
+
+	cfg := config.Load()
+	db, err := database.Open(cfg.DBPath)
+	if err != nil {
+		log.Error("open database", "error", err)
+		return 1
+	}
+	defer db.Close()
+
+	// Ensure migrations/roles exist so queries succeed on a freshly-installed DB.
+	if _, err := database.Migrate(db); err != nil {
+		log.Error("migrate", "error", err)
+		return 1
+	}
+	if err := authz.SyncDefaults(context.Background(), db); err != nil {
+		log.Error("sync roles/permissions", "error", err)
+		return 1
+	}
+
+	var pwBytes []byte
+	if *passwordFile == "-" {
+		pwBytes, err = io.ReadAll(os.Stdin)
+	} else {
+		pwBytes, err = os.ReadFile(*passwordFile)
+	}
+	if err != nil {
+		log.Error("read password", "error", err)
+		return 1
+	}
+	pw := strings.TrimRight(string(pwBytes), "\r\n")
+	if len(pw) < 8 {
+		fmt.Fprintln(os.Stderr, "password must be at least 8 characters")
+		return 1
+	}
+
+	hash, err := identity.HashPassword(pw)
+	if err != nil {
+		log.Error("hash password", "error", err)
+		return 1
+	}
+
+	res, err := db.ExecContext(context.Background(),
+		`UPDATE users SET password_hash = ?, password_changed_at = ?, updated_at = ?
+		 WHERE username = ? AND is_active = 1 AND role_id IN (SELECT id FROM roles WHERE name = 'admin')`,
+		hash, time.Now().UTC().Format(time.RFC3339), time.Now().UTC().Format(time.RFC3339), *username)
+	if err != nil {
+		log.Error("update password", "error", err)
+		return 1
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		fmt.Fprintf(os.Stderr, "no active administrator named %q\n", *username)
+		return 1
+	}
+	fmt.Printf("password reset for administrator %q\n", *username)
 	return 0
 }

@@ -11,11 +11,16 @@
 set -Eeuo pipefail
 PORT=${PORT:-8090}
 P="http://127.0.0.1:${PORT}"
+DB=/var/lib/whacp/whacp.sqlite
+CONF=/etc/whacp
 RUN=$(date +%s | tail -c 6)
 DOMAIN=${E2E_DOMAIN:-e2e$RUN.whacp.test}
 DBNAME=e2e$RUN
 J=$(mktemp -d)
-CLI=(runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp)
+BIN=/usr/local/bin/whacp
+AGENT=/run/whacp/agent.sock
+ATOK=/etc/whacp/agent.token
+sql() { sqlite3 "$DB" "$@"; }
 fail() { echo "FAIL: $*" >&2; tail -30 /var/log/whacp/panel.log 2>/dev/null >&2 || true; exit 1; }
 pass() { echo "  ok  $*"; }
 remove_site() { # remove_site ID (through the panel)
@@ -47,11 +52,13 @@ waitfor() { # waitfor SECONDS description command...
 
 echo "Post-install checks against $P"
 curl --noproxy '*' -fsS "$P/healthz" >/dev/null || fail "panel health"
-"${CLI[@]}" agent:check >/dev/null || fail "agent health"
+T=$(cat "$ATOK")
+code=$(curl -s -o /dev/null -w '%{http_code}' --unix-socket "$AGENT" -H "Authorization: Bearer $T" http://agent/v1/health)
+[[ $code == 200 ]] || fail "agent health (got $code from agent socket)"
 pass "panel and agent healthy"
 
 PASS="post-install-Check-4521"
-printf '%s\n' "$PASS" | "${CLI[@]}" user:password admin >/dev/null
+printf '%s\n' "$PASS" | runuser -u whacp -- "$BIN" set-admin-password --username admin >/dev/null
 CSRF_FROM=/login
 loc=$(post /login username=admin "password=$PASS")
 [[ $loc == */ ]] || fail "sign-in (redirected to '$loc')"
@@ -60,7 +67,7 @@ unset CSRF_FROM
 pass "signed in as the administrator"
 
 # A leftover from an interrupted run is removed first.
-old=$(php -r '$d = new PDO("sqlite:/var/lib/whacp/whacp.sqlite"); $s = $d->prepare("SELECT id FROM websites WHERE domain = ?"); $s->execute([$argv[1]]); echo (string) $s->fetchColumn();' "$DOMAIN" 2>/dev/null || true)
+old=$(sql "SELECT id FROM websites WHERE domain = '$DOMAIN'" 2>/dev/null || true)
 if [[ -n $old ]]; then remove_site "$old"; fi
 
 # Website (the system's PHP version, set by CI; default 8.3; new account).
@@ -103,7 +110,7 @@ for _ in $(seq 1 90); do
     sleep 1
 done
 if [[ -z $BACKUP ]]; then
-    php -r '$d = new PDO("sqlite:/var/lib/whacp/whacp.sqlite"); foreach ($d->query("SELECT id, status, error, job_id FROM backups ORDER BY id DESC LIMIT 3") as $r) { echo json_encode($r), "\n"; }' >&2 || true
+    sql -header -column "SELECT id, status, error, job_id FROM backups ORDER BY id DESC LIMIT 3" >&2 || true
     fail "backup not listed"
 fi
 pass "encrypted backup #$BACKUP created"
@@ -120,7 +127,7 @@ pass "restore brought back the file and the database row; the site is served"
 # capabilities, and cannot write outside what that account may write.
 CSRF_FROM=/sites/$SITE/cron
 post "/sites/$SITE/cron" "schedule=0 0 1 1 *" "command=cd $ROOT && { id -u; grep ^CapEff /proc/self/status; sendmail -bp 2>&1 | head -1; } > cron-ran.txt; touch /etc/whacp-cron-escape 2>/dev/null; true" description=e2e enabled=1 >/dev/null
-JOB=$(php -r '$d = new PDO("sqlite:/var/lib/whacp/whacp.sqlite"); $s = $d->prepare("SELECT MAX(id) FROM cron_jobs WHERE website_id = ?"); $s->execute([$argv[1]]); echo (string) $s->fetchColumn();' "$SITE")
+JOB=$(sql "SELECT MAX(id) FROM cron_jobs WHERE website_id = $SITE")
 [[ -n $JOB ]] || fail "cron job not created: $(flash /sites/$SITE/cron)"
 post "/sites/$SITE/cron/$JOB/run" >/dev/null
 waitfor 60 "cron job ran" test -s "$ROOT/cron-ran.txt"
@@ -226,26 +233,27 @@ pass "website deleted; nginx -t passes"
 
 # Installer recovery. A second run refuses and points to upgrade.sh. An
 # installation interrupted before its services were written (simulated by
-# removing panel.php and the panel unit) is reported with what is missing
-# and --reinstall; --reinstall completes it and keeps the token, the key,
-# the database and write mode.
+# removing server.env/panel.key and the panel unit) is reported with what
+# is missing and --reinstall; --reinstall completes it and keeps the
+# token, the key, the database and write mode.
 INSTALLER=$(cd "$(dirname "$0")/../.." && pwd)/installer/install.sh
 out=$("$INSTALLER" --yes 2>&1) && fail "a second install.sh succeeded"
 grep -q "upgrade.sh" <<<"$out" || fail "second install did not point to upgrade.sh: $out"
-TOKEN=$(sha256sum < /etc/whacp/agent.token)
-KEY=$(sha256sum < /etc/whacp/panel.key)
-USERS=$("${CLI[@]}" users:count)
-mv /etc/whacp/panel.php "$J/panel.php.orig"
+TOKEN=$(sha256sum < "$CONF/agent.token")
+KEY=$(sha256sum < "$CONF/panel.key")
+USERS=$(sql "SELECT COUNT(*) FROM users WHERE is_active = 1")
+mv "$CONF/server.env" "$J/server.env.orig"
 mv /etc/systemd/system/whacp-panel.service "$J/whacp-panel.service.orig"
 out=$("$INSTALLER" --yes 2>&1) && fail "install.sh over an incomplete installation succeeded"
-grep -q "did not finish" <<<"$out" && grep -q -- "--reinstall" <<<"$out" && grep -q "panel.php" <<<"$out" && grep -q "whacp-panel.service" <<<"$out" \
+grep -q "did not finish" <<<"$out" && grep -q -- "--reinstall" <<<"$out" && grep -q "server.env" <<<"$out" && grep -q "whacp-panel.service" <<<"$out" \
     || fail "incomplete installation not explained: $out"
 "$INSTALLER" --reinstall --yes >"$J/reinstall.log" 2>&1 || { cat "$J/reinstall.log"; fail "install.sh --reinstall did not complete the installation"; }
-[[ -s /etc/whacp/panel.php && -f /etc/systemd/system/whacp-panel.service ]] || fail "--reinstall did not recreate panel.php and the unit"
-[[ $(sha256sum < /etc/whacp/agent.token) == "$TOKEN" && $(sha256sum < /etc/whacp/panel.key) == "$KEY" ]] || fail "--reinstall replaced the token or the panel key"
-[[ $("${CLI[@]}" users:count) == "$USERS" ]] || fail "--reinstall changed the users"
-grep -q '"allow_write_actions": true' /etc/whacp/agent.json || fail "--reinstall turned write mode off"
-"${CLI[@]}" agent:check >/dev/null || fail "panel cannot reach the agent after --reinstall"
+[[ -s "$CONF/server.env" && -f /etc/systemd/system/whacp-panel.service ]] || fail "--reinstall did not recreate server.env and the unit"
+[[ $(sha256sum < "$CONF/agent.token") == "$TOKEN" && $(sha256sum < "$CONF/panel.key") == "$KEY" ]] || fail "--reinstall replaced the token or the panel key"
+[[ $(sql "SELECT COUNT(*) FROM users WHERE is_active = 1") == "$USERS" ]] || fail "--reinstall changed the users"
+grep -q '"allow_write_actions": true' "$CONF/agent.json" || fail "--reinstall turned write mode off"
+code=$(curl -s -o /dev/null -w '%{http_code}' --unix-socket "$AGENT" -H "Authorization: Bearer $(cat "$ATOK")" http://agent/v1/health)
+[[ $code == 200 ]] || fail "panel cannot reach the agent after --reinstall (health $code)"
 waitfor 30 "panel answering after --reinstall" curl -fsS "$P/healthz"
 pass "installer: refuses a second run, explains an interrupted one, --reinstall completes it and keeps token, key, users and write mode"
 echo "Post-install checks passed."
