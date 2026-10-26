@@ -502,3 +502,31 @@ func TestNotificationsPageFiltersAndMarksOneRead(t *testing.T) {
 		t.Errorf("marking one notification read recorded %d reads, want 1", n)
 	}
 }
+
+func TestPlansPageAndFeatureManagerRender(t *testing.T) {
+	h, db := rolesEnv(t)
+	if _, err := db.Exec(`INSERT INTO plans (id,name,description,max_websites,created_at,updated_at) VALUES (950,'Gold','The good one',3,'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
+	c := loginAsUser(t, h, "admin")
+	body := get(t, h, "/plans", c).Body.String()
+	for _, want := range []string{"Gold", "The good one", "New plan", "Resource limits (CPU, memory)", "plan-edit-950"} {
+		if !pageHas(body, want) {
+			t.Errorf("plans page lacks %q", want)
+		}
+	}
+	// Posting a plan with the switch checked (hidden 0, then 1) keeps FFmpeg on.
+	tok, c := siteFormToken(t, h, c, "/plans")
+	rr := postForm(h, "/plans", url.Values{"_token": {tok}, "plan_id": {"950"}, "name": {"Gold"}, "ffmpeg": {"0", "1"}, "max_websites": {"3"}}, c)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("POST /plans = %d", rr.Code)
+	}
+	var ff int
+	if err := db.QueryRow(`SELECT ffmpeg FROM plans WHERE id = 950`).Scan(&ff); err != nil || ff != 1 {
+		t.Errorf("ffmpeg = %d (err %v), want 1", ff, err)
+	}
+	fb := get(t, h, "/features", c).Body.String()
+	if !pageHas(fb, "New feature list") || pageHas(fb, "map[") {
+		t.Error("feature manager lacks its dialog or prints a raw map")
+	}
+}

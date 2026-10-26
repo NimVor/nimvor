@@ -1,3 +1,29 @@
+{{define "feature_modal"}}<div class="modal fade" id="fl-modal-{{.ID}}" tabindex="-1" aria-labelledby="fl-title-{{.ID}}" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <form class="modal-content" method="post" action="/features" data-wcp-busy>
+      <input type="hidden" name="_token" value="{{.CSRF}}">
+      {{if .Existing}}<input type="hidden" name="list_id" value="{{.ID}}">{{end}}
+      <div class="modal-header"><h2 class="modal-title fs-5" id="fl-title-{{.ID}}">{{if .Existing}}Edit {{.Name}}{{else}}New feature list{{end}}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-5"><label class="form-label" for="fl-name-{{.ID}}">Name</label><input class="form-control" id="fl-name-{{.ID}}" name="name" required maxlength="60" value="{{.Name}}"></div>
+          <div class="col-md-7"><label class="form-label" for="fl-desc-{{.ID}}">Description</label><input class="form-control" id="fl-desc-{{.ID}}" name="description" maxlength="300" value="{{.Description}}"></div>
+        </div>
+        <div class="fw-medium mb-2">Features included</div>
+        {{$id := .ID}}{{range .Groups}}
+        <div class="text-uppercase small text-body-secondary fw-semibold mt-3 mb-1">{{.Name}}</div>
+        <div class="row row-cols-1 row-cols-md-2 g-1">
+          {{range .Items}}<div class="col"><div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" name="features[]" value="{{.Key}}" id="fl-{{$id}}-{{.Key}}"{{if .On}} checked{{end}}>
+            <label class="form-check-label" for="fl-{{$id}}-{{.Key}}">{{.Label}}{{if .Off}} <span class="badge text-bg-light border text-body-secondary">off by default</span>{{end}}</label>
+          </div></div>{{end}}
+        </div>
+        {{end}}
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save</button></div>
+    </form>
+  </div>
+</div>{{end}}
 {{define "features_index"}}<!doctype html>
 <html lang="en" data-bs-theme="light">
 <head>
@@ -12,10 +38,38 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>Feature lists</h1>
-  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
-  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  <pre class="font-monospace small">{{.Lists}}</pre>
+  {{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
+  {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+    <span class="text-body-secondary me-auto">Which panel features each hosting plan includes</span>
+    <a class="btn btn-sm btn-outline-secondary" href="/plans"><i class="bi bi-box-seam me-1"></i>Plans</a>
+    <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#fl-modal-0"><i class="bi bi-plus-lg me-1"></i>New feature list</button>
+  </div>
+  <div class="wcp-infobar mb-3"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>Assign a list to a plan under Plans. A feature that is off is refused by the server, not only hidden. A reseller's customers get only features both their own plan and the reseller's plan include.</span></div>
+  <div class="wcp-panel">
+    <div class="wcp-dtable table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>Feature list</th><th>Features</th><th class="text-end">Plans</th><th></th></tr></thead>
+        <tbody>
+        {{range .Lists}}
+          <tr>
+            <td><span class="fw-semibold">{{.Name}}</span>{{if .Description}}<div class="small text-body-secondary">{{.Description}}</div>{{end}}</td>
+            <td class="small">{{.Included}} of {{.Total}}{{if .OffText}}<div class="text-body-secondary">Off: {{.OffText}}</div>{{end}}</td>
+            <td class="text-end">{{.Plans}}</td>
+            <td class="text-end text-nowrap">
+              <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#fl-modal-{{.ID}}">Edit</button>
+              <form class="d-inline" method="post" action="/features/{{.ID}}/delete" data-wcp-confirm="{{.DeleteConfirm}}"><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-outline-danger">Delete</button></form>
+            </td>
+          </tr>
+        {{else}}
+          <tr><td colspan="4" class="text-center py-4 wcp-muted">No feature lists yet: every plan has every feature.</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {{template "feature_modal" (dict "ID" 0 "Existing" false "CSRF" .CSRF "Name" "" "Description" "" "Groups" .NewGroups)}}
+  {{range .Lists}}{{template "feature_modal" (dict "ID" .ID "Existing" true "CSRF" $.CSRF "Name" .Name "Description" .Description "Groups" .Groups)}}{{end}}
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}

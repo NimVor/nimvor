@@ -24,6 +24,11 @@ type Plan struct {
 	MaxDatabases int
 	DiskQuotaMB  int
 	BandwidthMB  int
+	Description  string
+	Fields       map[string]int // every PlanFields column
+	Limits       map[string]int // every PlanLimitColumns column
+	Ffmpeg       bool
+	FeatureList  sql.NullInt64
 }
 
 // PlanRepository reads hosting plans.
@@ -36,9 +41,11 @@ func NewPlanRepository(db *sql.DB) *PlanRepository { return &PlanRepository{db: 
 // owner_id NULL, plus every reseller's), a reseller sees only their own
 // (owner_id = actor). Mirrors PlanService::visible.
 func (r *PlanRepository) Visible(ctx context.Context, actor *identity.User) ([]Plan, error) {
+	limitCols := []string{"cpu_percent", "memory_mb", "tasks_max", "io_read_mbps", "io_write_mbps"}
+	cols := append(append([]string{}, PlanFields...), limitCols...)
 	base := `SELECT p.id, p.name, o.username AS owner_name,
 	         (SELECT COUNT(*) FROM users u WHERE u.plan_id = p.id) AS users,
-	         p.max_websites, p.max_databases, p.disk_quota_mb, p.bandwidth_mb
+	         p.description, p.ffmpeg, p.feature_list_id, p.` + strings.Join(cols, ", p.") + `
 	         FROM plans p LEFT JOIN users o ON o.id = p.owner_id`
 	var (
 		q    string
@@ -62,9 +69,26 @@ func (r *PlanRepository) Visible(ctx context.Context, actor *identity.User) ([]P
 	var out []Plan
 	for rows.Next() {
 		var p Plan
-		if err := rows.Scan(&p.ID, &p.Name, &p.OwnerName, &p.Users, &p.MaxWebsites, &p.MaxDatabases, &p.DiskQuotaMB, &p.BandwidthMB); err != nil {
+		var ffmpeg int
+		vals := make([]int, len(cols))
+		dest := []any{&p.ID, &p.Name, &p.OwnerName, &p.Users, &p.Description, &ffmpeg, &p.FeatureList}
+		for i := range vals {
+			dest = append(dest, &vals[i])
+		}
+		if err := rows.Scan(dest...); err != nil {
 			return nil, err
 		}
+		p.Ffmpeg = ffmpeg == 1
+		p.Fields, p.Limits = map[string]int{}, map[string]int{}
+		for i, c := range cols {
+			if i < len(PlanFields) {
+				p.Fields[c] = vals[i]
+			} else {
+				p.Limits[c] = vals[i]
+			}
+		}
+		p.MaxWebsites, p.MaxDatabases = p.Fields["max_websites"], p.Fields["max_databases"]
+		p.DiskQuotaMB, p.BandwidthMB = p.Fields["disk_quota_mb"], p.Fields["bandwidth_mb"]
 		out = append(out, p)
 	}
 	return out, rows.Err()

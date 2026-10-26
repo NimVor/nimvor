@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -53,11 +54,16 @@ func (s *Server) plansStore(w http.ResponseWriter, r *http.Request) {
 		Fields:      fields,
 		Limits:      limits,
 		FeatureList: fl,
-		Ffmpeg:      r.FormValue("ffmpeg") == "1",
+		Ffmpeg:      lastPostValue(r, "ffmpeg") == "1",
 	}
 	saved, err := hosting.NewPlanRepository(s.db).Save(r.Context(), user, in)
 	if err != nil {
-		sess.Flash("error", err.Error())
+		var ve *hosting.ValidationError
+		if errors.As(err, &ve) {
+			s.backWithErrors(w, r, "/plans", ve.Fields)
+			return
+		}
+		sess.Flash("error", "The plan could not be saved: "+err.Error())
 		http.Redirect(w, r, "/plans", http.StatusSeeOther)
 		return
 	}
@@ -121,4 +127,14 @@ func formInt(r *http.Request, key string, def int) int {
 		return def
 	}
 	return v
+}
+
+// lastPostValue is the last value posted for key: a switch sends a hidden 0
+// before its checkbox's 1, and the last one counts (PHP's $_POST).
+func lastPostValue(r *http.Request, key string) string {
+	v := r.PostForm[key]
+	if len(v) == 0 {
+		return ""
+	}
+	return v[len(v)-1]
 }
