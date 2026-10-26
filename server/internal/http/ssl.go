@@ -20,42 +20,53 @@ import (
 // status from the agent's ssl.store inventory. Mirrors
 // SslCenterController::hosts.
 func (s *Server) sslHosts(w http.ResponseWriter, r *http.Request) {
-	sess := sessionFrom(r.Context())
-	user := userFrom(r.Context())
-	data := map[string]any{
-		"CSRF":       session.CSRFToken(sess),
-		"User":       user,
-		"Title":      "SSL hosts",
-		"Hosts":      nil,
-		"Renewal":    nil,
-		"AutoSsl":    false,
-		"Error":      "",
-		"Success":    "",
-		"AgentError": nil,
+	data, ok := s.sslBase(w, r, "hosts", "SSL/TLS")
+	if !ok {
+		return
 	}
-	if sf, ok := sess.PullFlash("success"); ok {
-		data["Success"] = sf
-	}
-	if ef, ok := sess.PullFlash("error"); ok {
-		data["Error"] = ef
+	warn := data["WarnDays"].(int)
+	raw, err := s.agent.Call(r.Context(), "ssl.store", nil, 60*time.Second)
+	var rows []sslHostRow
+	counts := map[string]int{}
+	var renewal any
+	if err != nil {
+		data["AgentError"] = agentMessage(err)
+	} else {
+		var store any
+		_ = json.Unmarshal(raw, &store)
+		sites := s.sslSitesByName(r.Context(), r)
+		list, _ := jmap(store)["hosts"].([]any)
+		for _, h := range list {
+			c := jmap(h)["certificate"]
+			row := sslHostRow{Name: jstr(h, "name"), File: jstr(h, "file"), HTTPS: jbool(h, "https"), Enabled: jbool(h, "enabled"),
+				Covered: jbool(h, "covered"), Whacp: jbool(h, "whacp"), HasCert: c != nil}
+			if jbool(h, "redirects_to_https") {
+				row.Redirect = "HTTP redirects"
+			}
+			row.State = sslHostState(row.HTTPS, row.Covered, c, warn)
+			counts[row.State]++
+			if c != nil {
+				row.Cert = sslCert(c, warn)
+			}
+			row.SiteID = sites[strings.ToLower(row.Name)]
+			rows = append(rows, row)
+		}
+		if raw2, err2 := s.agent.Call(r.Context(), "ssl.renewal_status", nil, 60*time.Second); err2 == nil {
+			_ = json.Unmarshal(raw2, &renewal)
+		} else {
+			data["AgentError"] = agentMessage(err2)
+		}
 	}
 	autoSsl, _ := s.settings.Bool(r.Context(), "auto_ssl", true)
-	data["AutoSsl"] = autoSsl
-	if raw, err := s.agent.Call(r.Context(), "ssl.store", nil, 60*time.Second); err == nil {
-		var parsed map[string]any
-		if json.Unmarshal(raw, &parsed) == nil {
-			if h, ok := parsed["hosts"]; ok {
-				data["Hosts"] = h
-			}
-		}
-		if raw2, err2 := s.agent.Call(r.Context(), "ssl.renewal_status", nil, 30*time.Second); err2 == nil {
-			var ren any
-			_ = json.Unmarshal(raw2, &ren)
-			data["Renewal"] = ren
-		}
-	} else {
-		data["AgentError"] = err.Error()
+	rs := map[string]any{"Known": renewal != nil}
+	if renewal != nil {
+		rs["Active"] = jbool(renewal, "timer_active")
+		rs["Method"] = jstr(renewal, "method")
+		rs["NoCertbot"] = !jbool(renewal, "certbot_installed")
+		rs["CanEnable"] = jbool(renewal, "can_enable")
 	}
+	data["Rows"], data["Counts"], data["Renewal"], data["AutoSsl"] = rows, counts, rs, autoSsl
+	data["Total"] = len(rows)
 	s.render(w, "ssl_hosts", data)
 }
 
@@ -108,27 +119,43 @@ func (s *Server) sslEnableRenewal(w http.ResponseWriter, r *http.Request) {
 // sslCertificates GET /ssl/certificates — certificate inventory from
 // ssl.store. Mirrors SslCenterController::certificates.
 func (s *Server) sslCertificates(w http.ResponseWriter, r *http.Request) {
-	sess := sessionFrom(r.Context())
-	user := userFrom(r.Context())
-	data := map[string]any{
-		"CSRF":       session.CSRFToken(sess),
-		"User":       user,
-		"Title":      "Certificates",
-		"Certs":      nil,
-		"Error":      flashStr(sess, "error"),
-		"Success":    flashStr(sess, "success"),
-		"AgentError": nil,
+	data, ok := s.sslBase(w, r, "certificates", "SSL/TLS")
+	if !ok {
+		return
 	}
-	if raw, err := s.agent.Call(r.Context(), "ssl.store", nil, 60*time.Second); err == nil {
-		var parsed map[string]any
-		if json.Unmarshal(raw, &parsed) == nil {
-			if c, ok := parsed["certificates"]; ok {
-				data["Certs"] = c
-			}
-		}
+	warn := data["WarnDays"].(int)
+	sources := map[string]string{"letsencrypt": "Let's Encrypt", "whacp": "Installed in WhaCP", "other": "Elsewhere (read only)"}
+	var rows []sslCertRow
+	if raw, err := s.agent.Call(r.Context(), "ssl.store", nil, 60*time.Second); err != nil {
+		data["AgentError"] = agentMessage(err)
 	} else {
-		data["AgentError"] = err.Error()
+		var store any
+		_ = json.Unmarshal(raw, &store)
+		list, _ := jmap(store)["certificates"].([]any)
+		for _, x := range list {
+			c := jmap(x)["certificate"]
+			day := func(k string) string {
+				v := jstr(c, k)
+				if len(v) > 10 {
+					v = v[:10]
+				}
+				return v
+			}
+			row := sslCertRow{Name: jstr(x, "name"), Source: jstr(x, "source"), SourceLabel: sources[jstr(x, "source")], Cert: sslCert(c, warn),
+				Names: strings.Join(strList(jmap(c)["dns_names"]), ", "), Subject: jstr(c, "subject"), Issuer: jstr(c, "issuer"),
+				Valid: day("not_before") + " – " + day("not_after"), Fingerprint: jstr(c, "fingerprint_sha256"), File: jstr(c, "file"),
+				UsedBy: strings.Join(strList(jmap(x)["used_by"]), ", "), Deletable: jbool(x, "deletable") && data["CanManage"].(bool),
+				KeyReadable: jbool(c, "key_world_readable")}
+			if row.Names == "" {
+				row.Names = jstr(c, "common_name")
+			}
+			if n := int(jnum(c, "chain_length")); n > 0 {
+				row.Meta = " · chain of " + strconv.Itoa(n)
+			}
+			rows = append(rows, row)
+		}
 	}
+	data["Rows"], data["Total"] = rows, len(rows)
 	s.render(w, "ssl_certificates", data)
 }
 

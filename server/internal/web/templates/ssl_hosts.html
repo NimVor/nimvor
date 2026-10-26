@@ -11,11 +11,43 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>SSL hosts</h1>
-  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
-  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  {{if .AgentError}}<p class="alert alert-warning">Agent error: {{.AgentError}}</p>{{end}}
-  <pre class="font-monospace small">{{.}}</pre>
+  {{template "ssl_tabs" .}}
+  <div class="wcp-infobar">
+    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+    <span>AutoSSL for new websites is <strong>{{if .AutoSsl}}on{{else}}off{{end}}</strong>.
+      Renewal of Let's Encrypt certificates: {{if not .Renewal.Known}}unknown{{else if .Renewal.Active}}<span class="wcp-state is-ok">active</span> <span class="wcp-muted small">({{.Renewal.Method}})</span>{{else if .Renewal.NoCertbot}}<span class="wcp-state is-warn">certbot is not installed</span>{{else}}<span class="wcp-state is-error">not scheduled</span>{{end}}</span>
+    {{if and .Renewal.Known (not .Renewal.Active) .Renewal.CanEnable .CanManage}}
+    <form method="post" action="/ssl/renewal" class="d-inline"><input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-sm btn-primary">Turn on renewal</button></form>
+    {{end}}
+    <a class="ms-auto" href="/settings#ssl">AutoSSL settings</a>
+  </div>
+  <div class="wcp-panel" data-wcp-dt>
+    <div class="wcp-actionbar">
+      <div class="fw-semibold">{{.Total}} host names · <span class="wcp-state is-ok">{{index .Counts "ok"}} secure</span> <span class="wcp-state is-warn">{{index .Counts "warn"}} need attention</span> <span class="wcp-state">{{index .Counts "none"}} without HTTPS</span></div>
+      <div class="wcp-actionbar-end">
+        <select class="form-select form-select-sm w-auto" aria-label="Show" data-wcp-dt-select="state"><option value="">All hosts</option><option value="warn">Need attention</option><option value="none">Without HTTPS</option><option value="ok">Secure</option></select>
+        <div class="wcp-search"><input class="form-control form-control-sm" type="search" placeholder="Search host names" aria-label="Search host names" data-wcp-dt-search><i class="bi bi-search" aria-hidden="true"></i></div>
+      </div>
+    </div>
+    <div class="wcp-dtable table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>Host name</th><th>HTTPS</th><th>Certificate</th><th>Served by</th><th class="text-end">Operate</th></tr></thead>
+        <tbody>
+        {{range .Rows}}
+          <tr data-wcp-row data-dt-state="{{.State}}">
+            <td class="fw-semibold font-monospace text-break">{{.Name}}{{if not .Enabled}} <span class="badge text-bg-light border fw-normal">disabled</span>{{end}}</td>
+            <td class="small">{{if not .HTTPS}}<span class="wcp-muted">No</span>{{else}}Yes{{if .Redirect}} <span class="wcp-muted">· {{.Redirect}}</span>{{end}}{{end}}</td>
+            <td>{{if .HasCert}}{{template "ssl_cert" .Cert}}{{if not .Covered}}<div class="small text-danger">Does not cover this name (browsers warn)</div>{{end}}{{else}}<span class="wcp-muted small">—</span>{{end}}</td>
+            <td class="small font-monospace text-break">{{.File}}</td>
+            <td class="text-end text-nowrap">{{if .SiteID}}<a class="btn btn-sm btn-outline-secondary" href="/sites/{{.SiteID}}/ssl">{{if .HTTPS}}Manage{{else}}Enable HTTPS{{end}}</a>{{else}}<span class="small wcp-muted">{{if .Whacp}}WhaCP service{{else}}not managed{{end}}</span>{{end}}</td>
+          </tr>
+        {{end}}
+        <tr class="{{if .Rows}}d-none{{end}}" data-wcp-dt-empty><td colspan="5" class="text-center py-4 wcp-muted">No host names found in Nginx.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="wcp-pager" data-wcp-dt-pager></div>
+  </div>
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}
