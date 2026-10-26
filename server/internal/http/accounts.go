@@ -134,7 +134,7 @@ func (s *Server) accountsBandwidth(w http.ResponseWriter, r *http.Request) {
 		"User":       user,
 		"Title":      "Account bandwidth",
 		"Status":     nil,
-		"Stub":       true,
+		"Stub":       false,
 		"Error":      "",
 		"Success":    "",
 		"AgentError": nil,
@@ -149,7 +149,6 @@ func (s *Server) accountsBandwidth(w http.ResponseWriter, r *http.Request) {
 		var parsed any
 		_ = json.Unmarshal(raw, &parsed)
 		data["Status"] = parsed
-		data["Stub"] = false
 	} else {
 		data["AgentError"] = err.Error()
 	}
