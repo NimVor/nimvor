@@ -128,3 +128,13 @@ func sslHostState(https, covered bool, c any, warn int) string {
 	}
 	return "ok"
 }
+
+// sslAdminOnly answers 403 unless the user is a server administrator: the
+// SSL Center is server-wide (SslCenterController::denied).
+func (s *Server) sslAdminOnly(w http.ResponseWriter, r *http.Request) bool {
+	if hosting.IsAll(userFrom(r.Context())) {
+		return true
+	}
+	s.renderError(w, http.StatusForbidden, "Access denied", "The SSL/TLS section is for server administrators. Each website has its own SSL page.")
+	return false
+}

@@ -73,6 +73,9 @@ func (s *Server) sslHosts(w http.ResponseWriter, r *http.Request) {
 // sslEnableRenewal POST /ssl/renewal — enables certbot's renewal timer via
 // agent ssl.renewal_enable. Mirrors SslCenterController::enableRenewal.
 func (s *Server) sslEnableRenewal(w http.ResponseWriter, r *http.Request) {
+	if !s.sslAdminOnly(w, r) {
+		return
+	}
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -163,6 +166,9 @@ func (s *Server) sslCertificates(w http.ResponseWriter, r *http.Request) {
 // certificate (letsencrypt or whacp/custom) via agent. Mirrors
 // SslCenterController::deleteCertificate.
 func (s *Server) sslDeleteCertificate(w http.ResponseWriter, r *http.Request) {
+	if !s.sslAdminOnly(w, r) {
+		return
+	}
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -176,17 +182,18 @@ func (s *Server) sslDeleteCertificate(w http.ResponseWriter, r *http.Request) {
 	source := r.FormValue("source")
 	name := r.FormValue("name")
 	var action string
+	param := "cert_name"
 	switch source {
 	case "letsencrypt":
 		action = "ssl.delete"
 	case "whacp":
-		action = "ssl.custom_delete"
+		action, param = "ssl.custom_delete", "name"
 	default:
 		sess.Flash("error", "Only Let's Encrypt and WhaCP certificates can be deleted here.")
 		http.Redirect(w, r, "/ssl/certificates", http.StatusSeeOther)
 		return
 	}
-	if _, err := s.agent.Call(r.Context(), action, map[string]any{"cert_name": name}, 60*time.Second); err != nil {
+	if _, err := s.agent.Call(r.Context(), action, map[string]any{param: name}, 60*time.Second); err != nil {
 		sess.Flash("error", err.Error())
 		http.Redirect(w, r, "/ssl/certificates", http.StatusSeeOther)
 		return
@@ -204,31 +211,108 @@ func (s *Server) sslDeleteCertificate(w http.ResponseWriter, r *http.Request) {
 // sslKeys GET /ssl/keys — lists stored private keys and certificates via
 // ssl.keys. Mirrors SslCenterController::keys.
 func (s *Server) sslKeys(w http.ResponseWriter, r *http.Request) {
-	sess := sessionFrom(r.Context())
-	user := userFrom(r.Context())
-	data := map[string]any{
-		"CSRF":       session.CSRFToken(sess),
-		"User":       user,
-		"Title":      "Private keys",
-		"Keys":       nil,
-		"Error":      flashStr(sess, "error"),
-		"Success":    flashStr(sess, "success"),
-		"AgentError": nil,
+	data, ok := s.sslBase(w, r, "keys", "SSL/TLS")
+	if !ok {
+		return
 	}
-	if raw, err := s.agent.Call(r.Context(), "ssl.keys", nil, 60*time.Second); err == nil {
-		var parsed any
-		_ = json.Unmarshal(raw, &parsed)
-		data["Keys"] = parsed
-	} else {
-		data["AgentError"] = err.Error()
+	typeLabels := map[string]string{"ecdsa256": "ECDSA P-256 (recommended)", "ecdsa384": "ECDSA P-384", "rsa2048": "RSA 2048", "rsa3072": "RSA 3072", "rsa4096": "RSA 4096"}
+	label := func(t string) string {
+		if l, ok := typeLabels[t]; ok {
+			return l
+		}
+		return t
 	}
+	var keys []sslKeyRow
+	var types []sslKeyType
+	var open any
+	call := func(action string, p any) any {
+		raw, err := s.agent.Call(r.Context(), action, p, 60*time.Second)
+		if err != nil {
+			data["AgentError"] = agentMessage(err)
+			return nil
+		}
+		var v any
+		_ = json.Unmarshal(raw, &v)
+		return v
+	}
+	list := call("ssl.keys", nil)
+	if list != nil {
+		ks, _ := jmap(list)["keys"].([]any)
+		for _, k := range ks {
+			created := jstr(k, "created")
+			if len(created) > 10 {
+				created = created[:10]
+			}
+			has := ""
+			if jbool(k, "has_csr") {
+				has = "CSR"
+			}
+			if jbool(k, "self_signed") {
+				has += " · self-signed"
+			}
+			keys = append(keys, sslKeyRow{ID: jstr(k, "id"), Names: strings.Join(strList(jmap(k)["names"]), ", "), Type: jstr(k, "key_type"), Created: created, Has: has})
+		}
+		for _, t := range strList(jmap(list)["key_types"]) {
+			types = append(types, sslKeyType{Value: t, Label: label(t), Selected: t == "ecdsa256"})
+		}
+	}
+	if id := r.URL.Query().Get("id"); id != "" && list != nil {
+		open = call("ssl.key", map[string]any{"id": id})
+	}
+	if open != nil {
+		names := strList(jmap(open)["names"])
+		kv := &sslKeyView{ID: jstr(open, "id"), Names: strings.Join(names, ", "), Subject: jstr(open, "subject"), Type: label(jstr(open, "key_type")),
+			PublicKey: jstr(open, "public_key_sha256"), CSR: jstr(open, "csr"), SelfSigned: jbool(open, "self_signed")}
+		repo := hosting.NewWebsiteRepository(s.db)
+		if sites, err := repo.All(r.Context(), s.currentServerID(r), userFrom(r.Context())); err == nil {
+			var fit, rest []sslSiteOpt
+			for _, st := range sites {
+				o := sslSiteOpt{ID: st.ID, Domain: st.Domain}
+				if hasFold(names, st.Domain) {
+					fit = append(fit, o)
+				} else {
+					rest = append(rest, o)
+				}
+			}
+			kv.Sites = append(fit, rest...)
+		}
+		data["Key"] = kv
+	}
+	data["Keys"], data["KeyTypes"] = keys, types
 	s.render(w, "ssl_keys", data)
+}
+
+type sslKeyRow struct{ ID, Names, Type, Created, Has string }
+type sslKeyType struct {
+	Value, Label string
+	Selected     bool
+}
+type sslSiteOpt struct {
+	ID     int64
+	Domain string
+}
+type sslKeyView struct {
+	ID, Names, Subject, Type, PublicKey, CSR string
+	SelfSigned                               bool
+	Sites                                    []sslSiteOpt
+}
+
+func hasFold(l []string, v string) bool {
+	for _, x := range l {
+		if strings.EqualFold(x, v) {
+			return true
+		}
+	}
+	return false
 }
 
 // sslCreateCsr POST /ssl/keys — generates a private key + CSR (and
 // optionally a self-signed certificate) via the agent's ssl.csr_create
 // action. Mirrors SslCenterController::createCsr (ssl.manage).
 func (s *Server) sslCreateCsr(w http.ResponseWriter, r *http.Request) {
+	if !s.sslAdminOnly(w, r) {
+		return
+	}
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -268,7 +352,7 @@ func (s *Server) sslCreateCsr(w http.ResponseWriter, r *http.Request) {
 	}
 	keyType := r.FormValue("key_type")
 	if keyType == "" {
-		keyType = "ec256"
+		keyType = "ecdsa256"
 	}
 	params := map[string]any{
 		"names":               names,
@@ -315,6 +399,9 @@ func (s *Server) sslCreateCsr(w http.ResponseWriter, r *http.Request) {
 // ssl.manage). Uses hosting.SslService.InstallFromKey, which calls agent
 // ssl.custom with key_id and patches the website to HTTPS.
 func (s *Server) sslInstallKey(w http.ResponseWriter, r *http.Request) {
+	if !s.sslAdminOnly(w, r) {
+		return
+	}
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -362,6 +449,9 @@ func (s *Server) sslInstallKey(w http.ResponseWriter, r *http.Request) {
 // sslDeleteKey POST /ssl/keys/delete — removes a private key via
 // ssl.key_delete. Mirrors SslCenterController::deleteKey.
 func (s *Server) sslDeleteKey(w http.ResponseWriter, r *http.Request) {
+	if !s.sslAdminOnly(w, r) {
+		return
+	}
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -372,8 +462,8 @@ func (s *Server) sslDeleteKey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	name := r.FormValue("name")
-	if _, err := s.agent.Call(r.Context(), "ssl.key_delete", map[string]any{"name": name}, 60*time.Second); err != nil {
+	name := r.FormValue("id")
+	if _, err := s.agent.Call(r.Context(), "ssl.key_delete", map[string]any{"id": name}, 60*time.Second); err != nil {
 		sess.Flash("error", err.Error())
 		http.Redirect(w, r, "/ssl/keys", http.StatusSeeOther)
 		return
@@ -381,10 +471,10 @@ func (s *Server) sslDeleteKey(w http.ResponseWriter, r *http.Request) {
 	uid := user.ID
 	s.audit.Record(r.Context(), audit.Entry{
 		Action: "ssl.key_delete", TargetType: "server", TargetID: "ssl",
-		Result: audit.Success, Details: map[string]any{"name": name},
+		Result: audit.Success, Details: map[string]any{"id": name},
 		UserID: &uid, Username: user.Username,
 	})
-	sess.Flash("success", "Key deleted.")
+	sess.Flash("success", "Key "+name+" deleted.")
 	http.Redirect(w, r, "/ssl/keys", http.StatusSeeOther)
 }
 
@@ -393,6 +483,9 @@ func (s *Server) sslDeleteKey(w http.ResponseWriter, r *http.Request) {
 // ssl.key to fetch the key record; if a CSR exists it is served as
 // application/pkcs10 with Content-Disposition.
 func (s *Server) sslCsrDownload(w http.ResponseWriter, r *http.Request) {
+	if !s.sslAdminOnly(w, r) {
+		return
+	}
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	id := r.URL.Query().Get("id")
@@ -463,6 +556,9 @@ func (s *Server) sslTls(w http.ResponseWriter, r *http.Request) {
 // sslSaveTls POST /ssl/tls — applies TLS configuration via ssl.tls_set.
 // Mirrors SslCenterController::saveTls.
 func (s *Server) sslSaveTls(w http.ResponseWriter, r *http.Request) {
+	if !s.sslAdminOnly(w, r) {
+		return
+	}
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -558,6 +654,9 @@ func (s *Server) sslServices(w http.ResponseWriter, r *http.Request) {
 // and redirects to /ssl/services#lets-encrypt-account.
 // Mirrors SslCenterController::accountRegister (ssl.manage).
 func (s *Server) sslAccountRegister(w http.ResponseWriter, r *http.Request) {
+	if !s.sslAdminOnly(w, r) {
+		return
+	}
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -631,6 +730,9 @@ func (s *Server) sslAccountRegister(w http.ResponseWriter, r *http.Request) {
 // panel or the mail server (ssl.service_cert agent call).
 // Mirrors SslCenterController::serviceCert (ssl.manage).
 func (s *Server) sslServiceCert(w http.ResponseWriter, r *http.Request) {
+	if !s.sslAdminOnly(w, r) {
+		return
+	}
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -679,6 +781,9 @@ func (s *Server) sslServiceCert(w http.ResponseWriter, r *http.Request) {
 // certificate for the server's hostname (agent ssl.hostname_issue); tracks
 // the returned job. Mirrors SslCenterController::hostnameIssue (ssl.manage).
 func (s *Server) sslHostnameIssue(w http.ResponseWriter, r *http.Request) {
+	if !s.sslAdminOnly(w, r) {
+		return
+	}
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -733,6 +838,9 @@ func (s *Server) sslHostnameIssue(w http.ResponseWriter, r *http.Request) {
 // sslMailTls POST /ssl/services/mail-tls — applies TLS settings for the
 // mail server via agent ssl.mail_tls. Mirrors SslCenterController::mailTls.
 func (s *Server) sslMailTls(w http.ResponseWriter, r *http.Request) {
+	if !s.sslAdminOnly(w, r) {
+		return
+	}
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
@@ -795,6 +903,9 @@ func (s *Server) sslAutoSsl(w http.ResponseWriter, r *http.Request) {
 // sslAutoSslRun POST /ssl/autossl/run — kicks off AutoSSL for all pending
 // domains. Mirrors SslCenterController::autosslRun.
 func (s *Server) sslAutoSslRun(w http.ResponseWriter, r *http.Request) {
+	if !s.sslAdminOnly(w, r) {
+		return
+	}
 	sess := sessionFrom(r.Context())
 	user := userFrom(r.Context())
 	if err := r.ParseForm(); err != nil {
