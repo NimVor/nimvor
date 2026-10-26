@@ -555,3 +555,24 @@ func TestUsersPageHasRowActionsAndBulkTerminate(t *testing.T) {
 		}
 	}
 }
+
+func TestWebsitesListHasPerSiteOperations(t *testing.T) {
+	h, db := rolesEnv(t)
+	if _, err := db.Exec(`INSERT INTO websites (id, server_id, owner_id, domain, system_user, root, document_root, kind, php_version, status, enabled, created_at, updated_at) VALUES (960, 1, NULL, 'ops.example', 'opsuser', '/h/ops', '/h/ops/public', 'php', '8.3', 'active', 1, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
+	c := loginAsUser(t, h, "admin")
+	list := get(t, h, "/websites?view=list", c).Body.String()
+	for _, want := range []string{"ops.example", "/sites/960/toggle", "/sites/960/backups", "Manage", "PHP 8.3"} {
+		if !pageHas(list, want) {
+			t.Errorf("list view lacks %q", want)
+		}
+	}
+	grid := get(t, h, "/websites?view=grid", c).Body.String()
+	if !pageHas(grid, "wcp-site-card") || !pageHas(grid, "ops.example") {
+		t.Error("grid view lacks the site cards")
+	}
+	if pageHas(list, "map[") || pageHas(grid, "map[") {
+		t.Error("websites page prints a raw map")
+	}
+}

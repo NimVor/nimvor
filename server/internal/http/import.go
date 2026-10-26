@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
+	"hash/crc32"
 	"net/http"
 	"strconv"
 	"strings"
@@ -441,12 +442,13 @@ func (s *Server) websitesIndex(w http.ResponseWriter, r *http.Request) {
 	// The other (unmanaged) websites from the latest discovery snapshot. The
 	// section is absent when the agent cannot be asked (as in PHP: the page
 	// renders with discoveredAt = null).
-	var discovered []hosting.DiscoveredSite
+	var discovered, discoveredAll []hosting.DiscoveredSite
 	var warnings []string
 	var catchAll int
 	var discoveredAt string
 	if inv, invErr := s.discoveryService().Inventory(r.Context(), s.currentServerID(r), false, userIDPtr(user)); invErr == nil {
 		for _, d := range hosting.InventoryWebsites(inv.Data) {
+			discoveredAll = append(discoveredAll, d)
 			if discoveredSiteManaged(d) {
 				continue // created by WhaCP: listed as managed, not discovered
 			}
@@ -467,21 +469,145 @@ func (s *Server) websitesIndex(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	errMsg, _ := sess.PullFlash("error")
 	okMsg, _ := sess.PullFlash("success")
+	ctx := r.Context()
+	repo := hosting.NewWebsiteRepository(s.db)
+	ids := make([]int64, len(sites))
+	for i, st := range sites {
+		ids[i] = st.ID
+	}
+	aliases, _ := repo.AliasesFor(ctx, ids)
+	backups := map[int64]int{}
+	if len(ids) > 0 {
+		if rows, err := s.db.QueryContext(ctx, `SELECT website_id, COUNT(*) FROM backups WHERE website_id IS NOT NULL GROUP BY website_id`); err == nil {
+			for rows.Next() {
+				var id int64
+				var n int
+				if rows.Scan(&id, &n) == nil {
+					backups[id] = n
+				}
+			}
+			rows.Close()
+		}
+	}
+	// Certificate details come from the discovery snapshot when there is one.
+	sslByDomain := map[string]*hosting.DiscoveredSSL{}
+	for _, d := range discoveredAll {
+		if d.SSL != nil {
+			sslByDomain[strings.ToLower(d.Domain)] = d.SSL
+		}
+	}
+	warnDays, _ := s.settings.Int(ctx, "ssl_warning_days", 14)
+	simple := !hosting.IsAll(user) && !s.can(r, "users.view")
+	layout := "grid"
+	if v := r.URL.Query().Get("view"); v == "list" || (v != "grid" && !simple) {
+		layout = "list"
+	}
+	canCreate := s.can(r, "websites.manage")
+	pBackupsView, pBackupsManage := s.can(r, "backups.view"), s.can(r, "backups.manage")
+	pFiles, pDB, pLogs, pSSL := s.can(r, "files.manage"), s.can(r, "databases.view"), s.can(r, "logs.view"), s.can(r, "ssl.view")
+	managed := make([]managedSiteRow, 0, len(sites))
+	for _, st := range sites {
+		al := aliases[st.ID]
+		row := managedSiteRow{ID: st.ID, Domain: st.Domain, SystemUser: st.SystemUser, Kind: st.Kind, PHP: st.PhpVersion, HTTPS: st.HTTPS, Enabled: st.Enabled,
+			Owner: "—", Suspended: st.AccountSuspended, NeedsAttention: st.Status == "error", Created: st.CreatedAt, Backups: backups[st.ID],
+			Scheme: "http://", Initial: strings.ToUpper(string([]rune(st.Domain + "?")[:1])), Tint: int(crc32.ChecksumIEEE([]byte(st.Domain)) % 6)}
+		if st.HTTPS {
+			row.Scheme = "https://"
+		}
+		if st.OwnerName.Valid {
+			row.Owner = st.OwnerName.String
+		}
+		row.Active = st.Enabled && st.Status != "error"
+		row.Search = strings.ToLower(st.Domain + " " + strings.Join(al, " ") + " " + st.SystemUser + " " + row.Owner)
+		if len(al) > 0 {
+			row.AliasText = "+" + strconv.Itoa(len(al)) + " alias"
+			if len(al) != 1 {
+				row.AliasText += "es"
+			}
+			row.AliasShort = "+ " + strings.Join(al[:min(2, len(al))], ", ")
+		}
+		row.KindLabel = map[string]string{"php": "PHP", "static": "Static site", "proxy": "Reverse proxy", "nodejs": "Node.js", "python": "Python"}[st.Kind]
+		if row.KindLabel == "" {
+			row.KindLabel = st.Kind
+		}
+		row.Tags = "disabled"
+		if st.Enabled {
+			row.Tags = "active"
+		}
+		if !st.HTTPS {
+			row.Tags += " nossl"
+		}
+		switch {
+		case st.Status == "error":
+			row.Title = "Needs attention"
+		case st.Enabled:
+			row.Title = "Running"
+		default:
+			row.Title = "Disabled"
+		}
+		row.SSLText, row.SSLClass = "Not set", "wcp-muted"
+		if st.HTTPS {
+			row.SSLText, row.SSLClass = "On", "wcp-good"
+			if c := sslByDomain[strings.ToLower(st.Domain)]; c != nil && c.Status != "error" {
+				switch {
+				case c.DaysRemaining <= 0:
+					row.SSLText, row.SSLClass = "Expired", "wcp-bad"
+				case c.DaysRemaining <= warnDays:
+					row.SSLText, row.SSLClass = strconv.Itoa(c.DaysRemaining)+" Days", "wcp-warn"
+				default:
+					row.SSLText, row.SSLClass = strconv.Itoa(c.DaysRemaining)+" Days", "wcp-good"
+				}
+			}
+		}
+		managed = append(managed, row)
+	}
+	subtitle := strconv.Itoa(len(managed)) + " managed by WhaCP"
+	if simple {
+		subtitle = strconv.Itoa(len(managed)) + " website"
+		if len(managed) != 1 {
+			subtitle += "s"
+		}
+	}
+	if discoveredAt != "" {
+		subtitle += " · " + strconv.Itoa(len(discovered)) + " other website(s) found on this server"
+	}
 	s.render(w, "websites", map[string]any{
-		"User":          user,
-		"CSRF":          session.CSRFToken(sess),
-		"Sites":         sites,
-		"Error":         errMsg,
-		"Success":       okMsg,
-		"CanManage":     s.can(r, "websites.manage"),
-		"Discovered":    discovered,
-		"DiscoveredAt":  discoveredAt,
-		"DiscoveredAgo": timeAgo(discoveredAt),
-		"Total":         len(discovered),
-		"CatchAll":      catchAll,
-		"Warnings":      warnings,
-		"CanImport":     s.can(r, "import.run"),
+		"User":           user,
+		"CSRF":           session.CSRFToken(sess),
+		"Title":          "Websites",
+		"Subtitle":       subtitle,
+		"Layout":         layout,
+		"Grid":           layout == "grid",
+		"Simple":         simple,
+		"Managed":        managed,
+		"ManagedCount":   len(managed),
+		"ShowOwner":      s.can(r, "users.view"),
+		"CanCreate":      canCreate,
+		"PBackupsView":   pBackupsView,
+		"PBackupsManage": pBackupsManage,
+		"PFiles":         pFiles,
+		"PDB":            pDB,
+		"PLogs":          pLogs,
+		"PSSL":           pSSL,
+		"Error":          errMsg,
+		"Success":        okMsg,
+		"CanManage":      canCreate,
+		"Discovered":     discovered,
+		"DiscoveredAt":   discoveredAt,
+		"DiscoveredAgo":  timeAgo(discoveredAt),
+		"Total":          len(discovered),
+		"CatchAll":       catchAll,
+		"Warnings":       warnings,
+		"CanImport":      s.can(r, "import.run"),
 	})
+}
+
+type managedSiteRow struct {
+	ID                                                                        int64
+	Domain, SystemUser, Kind, KindLabel, PHP, Owner, Created, Scheme, Initial string
+	AliasText, AliasShort, Search, Tags, Title, SSLText, SSLClass             string
+	HTTPS, Enabled, Suspended, NeedsAttention, Active                         bool
+	Backups, Tint                                                             int
 }
 
 // discoveredSiteManaged reports whether discovery found the website's
