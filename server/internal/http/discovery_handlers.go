@@ -154,6 +154,25 @@ func (s *Server) discoveryPHP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// A version counts as installed for websites only with its PHP-FPM.
+	installedFPM := map[string]bool{}
+	if sec := hosting.InventoryPHPSection(inv.Data); sec != nil {
+		if vs, ok := sec["versions"].([]any); ok {
+			for _, v := range vs {
+				if m, ok := v.(map[string]any); ok && jstr(m, "fpm_binary") != "" {
+					installedFPM[jstr(m, "version")] = true
+				}
+			}
+		}
+	}
+	installable := []string{}
+	for i := len(available) - 1; i >= 0; i-- {
+		if !installedFPM[available[i]] {
+			installable = append(installable, available[i])
+		}
+	}
+	data["Installable"] = installable
+	data["CanPackages"] = s.can(r, "packages.manage")
 	data["PHPSection"] = hosting.InventoryPHPSection(inv.Data)
 	data["Pools"] = hosting.InventorySectionList(inv.Data, "php", "pools")
 	data["Usage"] = hosting.InventoryPHPUsage(inv.Data)
