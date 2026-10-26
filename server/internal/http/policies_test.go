@@ -672,3 +672,24 @@ func TestAccountsNewFormFields(t *testing.T) {
 		t.Error("inline style/script in template")
 	}
 }
+
+func TestWhacpUpdatePageRenders(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rec := get(t, h, "/whacp/update", admin)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Last update") || !strings.Contains(rec.Body.String(), "Source folder") {
+		t.Fatalf("update page: %d", rec.Code)
+	}
+}
+
+func TestHostnameReferencesPage(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rec := get(t, h, "/server/hostname-references", admin)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Previous host name") {
+		t.Fatalf("hostname references: %d", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "<pre") {
+		t.Error("raw report dump is back")
+	}
+}

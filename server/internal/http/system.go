@@ -254,40 +254,53 @@ func (s *Server) systemHostname(w http.ResponseWriter, r *http.Request) {
 // old host name still appears in managed configuration.
 func (s *Server) systemHostnameReferences(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
+	sess := sessionFrom(r.Context())
 	old := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("old")))
+	type finding struct{ Path, Sample string }
+	type group struct {
+		Label, Icon, Hint, LinkURL, LinkText string
+		Items                                []finding
+	}
+	meta := []group{
+		{Label: "DNS zones", Icon: "diagram-3", Hint: "These zone records were written under the old name. Edit the record (MX target, name server, mail host) in the zone, then re-publish it.", LinkURL: "/dns", LinkText: "DNS zones"},
+		{Label: "Nginx sites", Icon: "hdd-stack", Hint: "The host-name certificate site is rewritten when you re-issue it.", LinkURL: "/ssl/services", LinkText: "Re-issue on Services SSL"},
+		{Label: "Mail server", Icon: "envelope", Hint: "Postfix greets with its own host name; re-apply the mail server to use the current one.", LinkURL: "/mail", LinkText: "Email settings"},
+		{Label: "/etc/hosts", Icon: "hdd-network", Hint: "Changing the host name refreshes this automatically. If it is still here, change the host name again on the Server page."},
+	}
+	cats := []string{"dns", "nginx", "mail", "hosts"}
 	data := map[string]any{
-		"User":            user,
-		"CSRF":            session.CSRFToken(sessionFrom(r.Context())),
-		"Title":           "Host name references",
-		"Old":             old,
-		"Report":          nil,
-		"Error":           "",
-		"WebmailStale":    false,
-		"WebmailHostname": "",
+		"User": user, "CSRF": session.CSRFToken(sess), "Title": "Host-name references", "Old": old,
+		"Success": pullFlashKey(sess, "success"), "Error": pullFlashKey(sess, "error"),
+		"Scanned": false, "WebmailStale": false, "MailStale": false,
 	}
 	if old != "" {
 		reportRaw, err := s.agent.Call(r.Context(), "server.hostname_references", map[string]any{"old": old}, 60*time.Second)
 		if err != nil {
 			data["Error"] = agentMessage(err)
-		} else {
-			var report any
-			if json.Unmarshal(reportRaw, &report) == nil {
-				data["Report"] = report
-			}
-		}
-		if mailRaw, err := s.agent.Call(r.Context(), "mail.status", nil, 30*time.Second); err == nil {
-			var mail map[string]any
-			if json.Unmarshal(mailRaw, &mail) == nil {
-				if wm, ok := mail["webmail"].(map[string]any); ok {
-					if enabled, _ := wm["enabled"].(bool); enabled {
-						hostname, _ := wm["hostname"].(string)
-						data["WebmailHostname"] = hostname
-						data["WebmailStale"] = strings.ToLower(hostname) == old
+		} else if rep := agentObject(reportRaw); rep != nil {
+			total := 0
+			if fs, ok := rep["findings"].([]any); ok {
+				for _, f := range fs {
+					m, _ := f.(map[string]any)
+					for i, c := range cats {
+						if jstr(m, "category") == c {
+							meta[i].Items = append(meta[i].Items, finding{jstr(m, "path"), jstr(m, "sample")})
+							total++
+						}
 					}
 				}
 			}
+			data["Scanned"], data["Total"], data["Current"] = true, total, jstr(rep, "current")
+			data["MailStale"], data["MailHostname"] = jbool(rep, "mail_stale"), jstr(rep, "mail_hostname")
+		}
+		if mailRaw, err := s.agent.Call(r.Context(), "mail.status", nil, 30*time.Second); err == nil {
+			if wm, ok := agentObject(mailRaw)["webmail"].(map[string]any); ok && jbool(wm, "enabled") {
+				data["WebmailHostname"] = jstr(wm, "hostname")
+				data["WebmailStale"] = strings.EqualFold(jstr(wm, "hostname"), old)
+			}
 		}
 	}
+	data["Groups"] = meta
 	s.render(w, "server_hostname_references", data)
 }
 

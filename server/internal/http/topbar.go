@@ -106,13 +106,27 @@ func (s *Server) topbarUpdate(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"success": true, "status": status})
 		return
 	}
+	sess := sessionFrom(r.Context())
+	st := agentObject(raw)
+	short := func(sha string) string {
+		if len(sha) >= 7 {
+			return sha[:7]
+		}
+		return "—"
+	}
+	val := func(k string) string {
+		if v := jstr(st, k); v != "" {
+			return v
+		}
+		return "—"
+	}
 	s.render(w, "server_update", map[string]any{
-		"User":       user,
-		"CSRF":       session.CSRFToken(sessionFrom(r.Context())),
-		"Title":      "WhaCP update",
-		"Status":     status,
-		"Check":      nil,
-		"AgentError": agentErr,
+		"User": user, "CSRF": session.CSRFToken(sess), "Title": "WhaCP updates",
+		"Success": pullFlashKey(sess, "success"), "Error": pullFlashKey(sess, "error"),
+		"HasStatus": st != nil, "AgentError": agentErr, "Version": PanelVersion,
+		"Commit": short(jstr(st, "commit")), "Branch": val("branch"), "Path": val("path"),
+		"Updatable": jbool(st, "updatable"), "Running": jbool(st, "running"), "Reason": jstr(st, "reason"),
+		"Command": jstr(st, "command"), "Log": jstr(st, "log"), "LastResult": jstr(st, "last_result"),
 	})
 }
 
@@ -124,7 +138,7 @@ func (s *Server) topbarUpdateCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess := sessionFrom(r.Context())
-	sess.Flash("success", "WhaCP update check: agent-only for now; see page below.")
+	sess.Flash("error", "Looking up the newest version is not available in this panel yet. The installed commit is shown on this page; compare it with the repository, or update over SSH.")
 	http.Redirect(w, r, "/whacp/update", http.StatusSeeOther)
 }
 
