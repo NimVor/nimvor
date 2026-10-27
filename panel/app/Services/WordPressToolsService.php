@@ -544,7 +544,7 @@ final class WordPressToolsService
     {
         $out = [];
         $due = $this->db->fetchAll(
-            "SELECT i.*, w.domain, w.system_user, w.root, w.php_version, w.owner_id, w.account_suspended FROM wordpress_installs i JOIN websites w ON w.id = i.website_id
+            "SELECT i.*, w.domain, w.system_user, w.root, w.php_version, w.owner_id, " . \WhaCP\Repositories\UserRepository::SUSPENDED . " AS account_suspended FROM wordpress_installs i JOIN websites w ON w.id = i.website_id LEFT JOIN users u ON u.id = w.owner_id
              WHERE i.server_id = ? AND i.vuln_protection = 1 AND (i.vulns_checked_at IS NULL OR i.vulns_checked_at < ?) ORDER BY i.vulns_checked_at LIMIT 20",
             [$this->server->id(), gmdate('c', time() - 20 * 3600)]
         );

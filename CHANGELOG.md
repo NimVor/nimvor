@@ -7,6 +7,11 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **The scheduler stopped at the WordPress vulnerability check** ("no such column: w.account_suspended"), so it never
+  finished a run, never recorded that it had run, and the health page kept warning that it had never run. The query
+  now computes the suspension from the owner.
+
+### Fixed
 - **"Scheduler has never run" after installing.** The scheduler timer fired only 2 minutes after boot and then every 5
   minutes after a previous run, so on a server that was already up it never started until the next reboot. It now also
   starts one minute after the timer is enabled.

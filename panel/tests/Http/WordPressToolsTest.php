@@ -265,4 +265,16 @@ final class WordPressToolsTest extends HttpTestCase
         self::assertSame($n, $this->calls('wordpress.security'));
         self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM app_installs WHERE hardened = 0'));
     }
+
+    public function testDailyVulnerabilityCheckQueryRuns(): void
+    {
+        // The query once asked the websites table for a column it does not have
+        // ("account_suspended" is computed from the owner), which made every
+        // scheduler run abort before it recorded that it had run.
+        $this->db->run('UPDATE wordpress_installs SET vuln_protection = 1 WHERE id = ?', [$this->wp]);
+        $tools = $this->app->container->get(\WhaCP\Services\WordPressToolsService::class);
+        $lines = $tools->dailyVulnerabilityCheck();
+        self::assertNotSame([], $lines, 'the protected installation was looked at');
+        self::assertStringContainsString('shop.test', implode("\n", $lines));
+    }
 }
