@@ -193,7 +193,7 @@ func TestMailGreylistReport(t *testing.T) {
 		"2 record(s)",
 		"Deferring", "Retry accepted", "Passed", "Expired",
 		"203.0.113.5", "spam@example.com", "198.51.100.9", "boss@example.com",
-		`value="[&quot;203.0.113.5&quot;,&quot;spam@example.com&quot;,&quot;info@bob.example&quot;]"`,
+		`value="[&#34;203.0.113.5&#34;,&#34;spam@example.com&#34;,&#34;info@bob.example&#34;]"`,
 		"Sender IP address", "Block expire time",
 		"Page 1 of 1",
 		"Remove selected", "Remove expired", "Remove all",

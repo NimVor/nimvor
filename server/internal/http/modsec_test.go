@@ -45,7 +45,7 @@ func modsecEnv(t *testing.T) (http.Handler, *sitesAgent, *sql.DB) {
 		(1,'admin','Administrator','all',''),(2,'customer','Customer','own','')`)
 	exec(`INSERT INTO permissions (id,name,label,grp) VALUES
 		(1,'websites.view','v','web'),(2,'websites.manage','m','web'),(3,'security.view','sv','security'),(4,'security.manage','sm','security')`)
-	exec(`INSERT INTO role_permissions (role_id,permission_id) VALUES (1,1),(1,2),(1,3),(1,4),(2,1),(2,2)`)
+	exec(`INSERT INTO role_permissions (role_id,permission_id) VALUES (1,1),(1,2),(1,3),(1,4),(2,1),(2,2),(2,3)`)
 	exec(`INSERT INTO users (id,username,email,display_name,password_hash,role_id,is_active,password_changed_at,created_at,updated_at) VALUES
 		(1,'admin','a@x','Admin',?,1,1,'2026-01-01T00:00:00Z','',''),
 		(2,'bob','b@x','Bob',?,2,1,'2026-01-01T00:00:00Z','','')`,
@@ -115,14 +115,14 @@ func TestModsecPageRenders(t *testing.T) {
 	for _, want := range []string{
 		// The vendors tab.
 		">OWASP Core Rule Set<", "900000–999999", "Generic protection",
-		">Custom rules<", "10000–999999",
+		">Custom rules<", "10000 to 99999",
 		// The custom rules table.
 		">10001<", "xmlrpc blocked", ">deny<", "10001", // the id cell
 		`data-bs-target="#ms-rule-0"`, `name="sha" value="` + sha256Of(modsecRuleTexts[0]) + `"`,
 		// The installation tab.
 		"2026-10-01 08:00 UTC", "package", `wcp-state is-ok">Done`, "in effect",
 		"Nginx 1.24.0", "Debian 12", "libnginx-mod-http-modsecurity 3.0.10-1",
-		`/security/modsec/rollback/2026-10-01T08:00:00Z-a1b2c3d4`,
+		`/security/modsec/rollback/20261001T080000Z-000001-a1b2c3`,
 		"records are kept 30 days (Settings)",
 		// The settings modal (the fake's config).
 		`id="ms-on" name="enabled" value="1" checked`, `id="ms-crs" name="crs_enabled" value="1" checked`,
@@ -529,20 +529,20 @@ func TestModsecRollback(t *testing.T) {
 	h, sa, db := modsecEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/security/modsec")
-	rr := postForm(h, "/security/modsec/rollback/2026-10-01T08:00:00Z-a1b2c3d4", url.Values{"_token": {token}}, admin)
+	rr := postForm(h, "/security/modsec/rollback/20261001T080000Z-000001-a1b2c3", url.Values{"_token": {token}}, admin)
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("rollback = %d", rr.Code)
 	}
 	flashAt(t, h, refreshCookie(admin, rr), "/security/modsec",
-		"Rolling back installation 2026-10-01T08:00:00Z-a1b2c3d4 in the background. If Nginx would not accept the result, nothing changes.")
-	if id, _ := agentParam(t, sa, "modsec.rollback", "id").(string); id != "2026-10-01T08:00:00Z-a1b2c3d4" {
+		"Rolling back installation 20261001T080000Z-000001-a1b2c3 in the background. If Nginx would not accept the result, nothing changes.")
+	if id, _ := agentParam(t, sa, "modsec.rollback", "id").(string); id != "20261001T080000Z-000001-a1b2c3" {
 		t.Errorf("rollback id = %q", id)
 	}
 	var kind string
 	if err := db.QueryRow(`SELECT kind FROM agent_jobs WHERE job_id='4444444444444444'`).Scan(&kind); err != nil {
 		t.Fatal(err)
 	}
-	if kind != "Roll back ModSecurity installation 2026-10-01T08:00:00Z-a1b2c3d4" {
+	if kind != "Roll back ModSecurity installation 20261001T080000Z-000001-a1b2c3" {
 		t.Errorf("job kind = %q", kind)
 	}
 	// An unknown installation id.
@@ -553,7 +553,7 @@ func TestModsecRollback(t *testing.T) {
 	flashAt(t, h, refreshCookie(admin, rr), "/security/modsec", "Unknown installation.")
 	// A non-administrator is refused by the route's permission.
 	bob := loginAsUser(t, h, "bob")
-	rr = postForm(h, "/security/modsec/rollback/2026-10-01T08:00:00Z-a1b2c3d4", url.Values{"_token": {"x"}}, bob)
+	rr = postForm(h, "/security/modsec/rollback/20261001T080000Z-000001-a1b2c3", url.Values{"_token": {"x"}}, bob)
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("bob rollback = %d (want 403)", rr.Code)
 	}

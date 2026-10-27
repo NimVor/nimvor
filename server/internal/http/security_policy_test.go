@@ -363,8 +363,9 @@ func TestSaveStrength(t *testing.T) {
 		t.Fatalf("settings.update audit row: %v", err)
 	}
 	if target != "panel" ||
-		!strings.Contains(details, `"password_min_strength":{"from":65,"to":66}`) ||
-		!strings.Contains(details, `"password_min_length":{"from":12,"to":14}`) {
+		// Setting names containing "password" are redacted, values included.
+		!strings.Contains(details, `"password_min_strength":"[REDACTED]"`) ||
+		!strings.Contains(details, `"password_min_length":"[REDACTED]"`) {
 		t.Errorf("settings.update audit = %s / %s", target, details)
 	}
 }

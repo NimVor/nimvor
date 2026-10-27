@@ -948,7 +948,8 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			   ],
 			   "providers": {
 			     "google": {"trust": true, "auto_update": true, "ranges": ["209.85.220.0/20"], "updated": 1761225600},
-			     "microsoft": {"trust": false, "auto_update": true, "error": "timeout"}
+			     "microsoft": {"trust": false, "auto_update": true, "error": "timeout"},
+			     "yahoo": {"trust": false, "auto_update": false}
 			   }
 			 },
 			 "providers": [
@@ -1073,7 +1074,7 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			]}}`))
 		case "modsec.installs":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"installs":[
-				{"id":"2026-10-01T08:00:00Z-a1b2c3d4","started_at":"2026-10-01T08:00:00Z","status":"committed","method":"package","nginx_version":"1.24.0","os":"Debian 12","module":"/usr/lib/nginx/modules/ngx_http_modsecurity_module.so","folder":"/var/lib/whacp/modsec-backups/2026-10-01T08:00:00Z","sources":[{"name":"libnginx-mod-http-modsecurity","version":"3.0.10-1","origin":"distribution"}],"can_roll_back":true,"error":""}
+				{"id":"20261001T080000Z-000001-a1b2c3","started_at":"2026-10-01T08:00:00Z","status":"committed","method":"package","nginx_version":"1.24.0","os":"Debian 12","module":"/usr/lib/nginx/modules/ngx_http_modsecurity_module.so","folder":"/var/lib/whacp/modsec-backups/2026-10-01T08:00:00Z","sources":[{"name":"libnginx-mod-http-modsecurity","version":"3.0.10-1","origin":"distribution"}],"can_roll_back":true,"error":""}
 			]}}`))
 		case "modsec.update":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"1111111111111111"}}`))

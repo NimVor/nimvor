@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -108,20 +109,25 @@ func TestSecurityOverview(t *testing.T) {
 			t.Errorf("page missing %q", want)
 		}
 	}
-	// The passing firewall check shows no "Open" link (non-pass only).
-	if pageHas(body, `href="/security/firewall"`) {
-		t.Error("a passing check must not offer an Open link")
+	// The passing firewall check shows no "Open" link (non-pass only): the
+	// links of the checks are looked at, not the command palette's.
+	checks := regexp.MustCompile(`(?s)<div class="wcp-check is-(\w+)">\s*<div class="wcp-check-title">(.*?) <span`).FindAllStringSubmatch(body, -1)
+	if len(checks) < 10 {
+		t.Fatalf("found %d checks", len(checks))
 	}
-	// The sorting: status (fail, warn, pass, info) then title.
-	titles := []string{
-		"MySQL anonymous users", "SSH root login", "Security updates",
-		"Automatic security updates", "Brute-force protection", "Fork bomb protection",
-		"Recommended kernel settings", "SSH password logins", "Traceroute status",
-		"Firewall", "Host persistence", "Password strength requirements", "SSH server",
-	}
-	for i := 0; i+1 < len(titles); i++ {
-		if strings.Index(body, titles[i+1]) < strings.Index(body, titles[i]) {
-			t.Errorf("checks out of order: %q before %q", titles[i+1], titles[i])
+	rank := map[string]int{"fail": 0, "warn": 1, "pass": 2, "info": 3}
+	for i, c := range checks {
+		if c[2] == "Firewall" && c[1] == "pass" {
+			if strings.Contains(body[strings.Index(body, c[0]):][:600], `href="/security/firewall"`) {
+				t.Error("a passing check must not offer an Open link")
+			}
+		}
+		// The sorting: status (fail, warn, pass, info) then title.
+		if i > 0 {
+			p := checks[i-1]
+			if rank[c[1]] < rank[p[1]] || rank[c[1]] == rank[p[1]] && c[2] < p[2] {
+				t.Errorf("checks out of order: %q (%s) after %q (%s)", c[2], c[1], p[2], p[1])
+			}
 		}
 	}
 }

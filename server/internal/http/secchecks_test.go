@@ -182,7 +182,7 @@ func TestIntegrityBaselineAgentDown(t *testing.T) {
 		t.Fatalf("baseline = %d", rr.Code)
 	}
 	flashAt(t, h, refreshCookie(admin, rr), "/security/integrity",
-		"The baseline could not be recorded: the socket is closed.")
+		"The baseline could not be recorded: the socket is closed")
 }
 
 func TestIntegrityBaselineDenied(t *testing.T) {

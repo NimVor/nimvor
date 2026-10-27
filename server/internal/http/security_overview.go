@@ -310,12 +310,12 @@ func (s *Server) securityIndex(w http.ResponseWriter, r *http.Request) {
 					Name string `json:"name"`
 				} `json:"jails"`
 			}
-			if json.Unmarshal(res, &f2b) == nil && f2b.Running {
+			if json.Unmarshal(res, &f2b) == nil && len(agentObject(res)) > 0 {
 				jail := false
 				for _, j := range f2b.Jails {
 					jail = j.Name == "sshd" || jail
 				}
-				if jail {
+				if f2b.Running && jail {
 					sshProtected = "on"
 				} else {
 					sshProtected = "off"
