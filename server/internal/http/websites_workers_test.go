@@ -33,9 +33,9 @@ func workerPageToken(t *testing.T, h http.Handler, cookie *http.Cookie, path str
 // createWorker posts a minimal valid worker and fails on a non-303.
 func createWorker(t *testing.T, h http.Handler, cookie *http.Cookie, extra url.Values) *httptest.ResponseRecorder {
 	t.Helper()
-	_, cookie = workerPageToken(t, h, cookie, "/sites/10/workers")
+	token, cookie := workerPageToken(t, h, cookie, "/sites/10/workers")
 	values := url.Values{
-		"name": {"app"}, "command": {"node app.js"}, "directory": {""},
+		"_token": {token}, "name": {"app"}, "command": {"node app.js"}, "directory": {""},
 		"env": {""}, "restart": {"always"}, "memory_mb": {"0"},
 		"procs": {"1"}, "runtime": {""}, "enabled": {"1"},
 	}

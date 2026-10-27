@@ -96,8 +96,8 @@ func TestHulkPageDisabled(t *testing.T) {
 		"cPHulk Settings", "Countries Management", `Failed Logins Report <span class="badge rounded-pill text-bg-light border fw-normal">0</span>`,
 		// The form's defaults.
 		`value="5"`, `value="15"`, `value="30"`, `value="360"`,
-		`id="h-scope-all" checked`,
-		`id="h-cc-login" checked`,
+		`id="h-scope-all" value="all" checked`,
+		`id="h-cc-login" value="login" checked`,
 		// The countries table (the catalogue order, first and last).
 		">Afghanistan<", ">Zimbabwe<", `name="country[US]"`,
 		// The settings and the report empty states.
@@ -300,6 +300,10 @@ func TestHulkDeniedForNonAdmin(t *testing.T) {
 
 func TestHulkCountriesBulk(t *testing.T) {
 	h, sa, db := hulkEnv(t)
+	// The server is told about the countries only while protection is on.
+	if _, err := db.Exec(`INSERT INTO settings (key, value, updated_at) VALUES ('hulk_enabled', 'true', '')`); err != nil {
+		t.Fatal(err)
+	}
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/security/hulk")
 	rr := postForm(h, "/security/hulk/countries", url.Values{
@@ -350,7 +354,7 @@ func TestHulkCountriesIndividualAndInvalid(t *testing.T) {
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("countries = %d", rr.Code)
 	}
-	flashAt(t, h, refreshCookie(admin, rr), "/security/hulk", "1 country updated.")
+	flashAt(t, h, refreshCookie(admin, rr), "/security/hulk", "2 countries updated.")
 	var mark string
 	if err := db.QueryRow(`SELECT status FROM hulk_countries WHERE code='JP'`).Scan(&mark); err != nil {
 		t.Fatal(err)
@@ -402,7 +406,7 @@ func TestHulkGeoUpload(t *testing.T) {
 	h, _, db := hulkEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	token, admin := siteFormToken(t, h, admin, "/security/hulk")
-	csv := "1,255,US\n256,511,US\n512,767,CA\nbad-line\n999,1000,US\n"
+	csv := "10.0.0.0,10.0.0.255,US\n10.0.1.0,10.0.1.255,US\n10.0.2.0,10.0.2.255,CA\nbad-line\n999,1000,US\n"
 	rr := hulkMultipart(t, h, "/security/hulk/geo", "database", "dbip.csv", csv, token, admin)
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("geo = %d: %s", rr.Code, rr.Body.String())

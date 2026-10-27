@@ -44,7 +44,7 @@ func TestFtpIndexServer(t *testing.T) {
 		"Pure-FTPd running",
 		"designer@bob.example", "bob.example", "public_html", "100.0 MB", // the joined website row
 		"40110–40210", "TLS required (FTPS)",
-		"CN=whacp-ftp", "aabb:ccdd:eeff", // the certificate line
+		"CN=whacp-ftp", "aa:bb:cc:dd:ee:ff", // the certificate line
 		"/sites/10/ftp#new-ftp", // the Add FTP menu
 		"Save and restart",      // configured → the modal offers a restart
 	} {
@@ -156,8 +156,8 @@ func TestFtpConfigure(t *testing.T) {
 	}
 
 	// An out-of-range span is rejected without the agent call.
-	before := len(sa.called())
 	token, cookie = pageToken(t, h, cookie, "/ftp")
+	before := len(sa.called())
 	rr = postForm(h, "/ftp/configure", url.Values{
 		"_token": {token}, "passive_min": {"1024"}, "passive_max": {"20000"},
 		"max_clients": {"50"}, "max_per_ip": {"8"},
@@ -165,12 +165,12 @@ func TestFtpConfigure(t *testing.T) {
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("bad configure = %d", rr.Code)
 	}
+	if len(sa.called()) != before {
+		t.Error("a rejected configure must not reach the agent")
+	}
 	rr = get(t, h, "/ftp", cookie)
 	if !pageHas(rr.Body.String(), "at most 5000 ports wide") {
 		t.Error("span error flash missing")
-	}
-	if len(sa.called()) != before {
-		t.Error("a rejected configure must not reach the agent")
 	}
 	// A per-address limit above the total is rejected.
 	token, cookie = pageToken(t, h, cookie, "/ftp")
@@ -468,8 +468,8 @@ func TestSiteSftp(t *testing.T) {
 	}
 
 	// A short password is rejected without the agent call.
-	before := len(sa.called())
 	token, cookie = pageToken(t, h, cookie, "/sites/10/ftp")
+	before := len(sa.called())
 	rr = postForm(h, "/sites/10/sftp", url.Values{
 		"_token": {token}, "sftp_password": {"short"},
 	}, cookie)

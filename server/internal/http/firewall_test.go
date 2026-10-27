@@ -84,7 +84,7 @@ func TestFirewallPage(t *testing.T) {
 		"All rules: 2", "Port rules: 1", "IP rules: 1", "Listening", "SSH", "Bad guy",
 		`title="deny from 203.0.113.99"`, "Inbound",
 		// The enable form (off + canManage; the test client's public IP).
-		"Turn on the firewall", "allow_services", "Allow my address", "192.0.2.1",
+		"Turn on the firewall", "allow_services", "Always allow my address", "192.0.2.1",
 		// The protection panel (fresh configuration → the defaults).
 		"Protection", "Turn on the protections below", "100", "Exempt addresses and networks", "Apply",
 		"Add firewall rule", "data-wcp-confirm=",
@@ -340,7 +340,8 @@ func TestFirewallProtectionValidation(t *testing.T) {
 		flashAt(t, h, refreshCookie(admin, rr), "/security/firewall", c.want)
 	}
 	for _, a := range sa.called() {
-		if strings.HasPrefix(a, "firewall.") && a != "firewall.status" {
+		// The page reads the state (firewall.status, firewall.protection).
+		if strings.HasPrefix(a, "firewall.") && a != "firewall.status" && a != "firewall.protection" {
 			t.Errorf("a refused change reached the agent: %v", sa.called())
 		}
 	}

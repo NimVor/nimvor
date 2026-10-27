@@ -96,8 +96,7 @@ func (g *Geo) Ranges(ctx context.Context, codes []string) ([]CountryRange, error
 		args[i] = c
 	}
 	query := fmt.Sprintf("SELECT start, `end` FROM geo_ranges WHERE country IN (%s) ORDER BY start",
-		strings.Repeat("?,", len(codes)))
-	query = strings.TrimSuffix(query, ",")
+		strings.TrimSuffix(strings.Repeat("?,", len(codes)), ","))
 	rows, err := g.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
