@@ -21,14 +21,9 @@ operation must be explicit, validated, audited and reversible.**
 
 Two components:
 
-- **`server/`** — Go web control panel (module
-  `github.com/mchkhawarshahzad/whacp/server`, Go 1.24). Single binary
-  `whacp` at `/usr/local/bin/whacp`; serves HTML templates + embedded
-  static assets over HTTP, opens the SQLite database, auto-runs pending
-  SQL migrations and calls `authz.SyncDefaults` on boot, and talks to the
-  agent over an authenticated Unix socket (`POST /v1/actions/<name>`).
-  Never runs shell commands itself; privileged operations are dispatched
-  to the agent.
+- **`panel/`** — PHP 8.3+ web app (custom MVC, SQLite). Never runs shell
+  commands. Talks to the agent over an authenticated channel
+  (`POST /v1/actions/<name>`).
 - **`agent/`** — Go service (module `github.com/mchkhawarshahzad/whacp/agent`,
   Go 1.24). Runs on the managed server. Exposes **named actions only**; no
   shell, only allowlisted binaries (`execx`). Unix socket (token + peer UID)
@@ -36,9 +31,8 @@ Two components:
   (`allow_write_actions`) guards all mutating actions.
 
 Supporting dirs: `installer/` (install/upgrade/uninstall shell scripts),
-`docs/`, `plugins/` (example plugin in PHP — the plugin SDK is intentionally
-PHP for third-party extensions), `scripts/` (incl. `dev.sh`), `tests/`
-(integration, e2e, VM/real-host), `dist/` (built agent + panel binaries).
+`docs/`, `plugins/`, `scripts/` (incl. `dev.sh`), `tests/` (integration, e2e,
+VM/real-host), `dist/` (built agent).
 
 ## 2. Repository / branch facts
 
@@ -115,45 +109,36 @@ matrix (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9, …).
 ## 5. Code style
 
 - **Go:** `gofmt`; small packages under `internal/<domain>`; `context.Context`
-  on anything that can block; `log/slog`; stdlib first. Thin HTTP handlers
-  that call into domain services/repositories; **repositories own SQL**,
-  services own behaviour. Templates live under `server/internal/web/templates/`
-  and are parsed once at server start; static assets are `//go:embed`-ed from
-  `server/internal/web/assets/`.
-- **Plugins (PHP):** PSR-12, `declare(strict_types=1)`, thin entrypoint, output
-  escaped. The plugin SDK is intentionally PHP; plugin code runs under
-  PHP-FPM on hosted sites, not as part of the panel process.
+  on anything that can block; `log/slog`; stdlib first.
+- **PHP:** PSR-12, `declare(strict_types=1)`, constructor injection, thin
+  controllers, **repositories for SQL**, **services for behaviour**. Escape all
+  output with `e()`.
 - **No inline `<script>` or `<style>`.** The panel sends a strict
-  Content-Security-Policy (`script-src 'self'`; see
-  `server/internal/http/server.go` CSP header setup); inline scripts are
-  blocked by the browser. Put page behaviour in the embedded JS assets
-  (`server/internal/web/assets/js/whacp.js` — global delegated handlers
-  keyed off `data-*` attributes) or a page-specific asset. Keep templates
-  free of inline `<script>`/`<style>` blocks.
+  Content-Security-Policy (`script-src 'self'`,
+  `app/Http/Middleware/SecurityHeaders.php`); inline scripts are blocked by the
+  browser. Put page behaviour in `panel/public/assets/js/whacp.js` (global,
+  delegated handlers keyed off `data-*` attributes) or a page-specific asset
+  loaded via `$this->asset(...)`. A regression guard,
+  `tests/Unit/ViewTest.php::testNoViewUsesInlineScripts`, fails the build on any
+  inline `<script>` in a template — keep it green.
 
 ## 6. Per-PR expectations
 
-- One logical change per commit/PR, with tests (parsers → fixture tests; HTTP
-  pages → an `httptest` test against the `Server.Handler()`).
+- One logical change per commit/PR, with tests (parsers → fixture tests; panel
+  pages → an HTTP test).
 - Document new features in `docs/` **and add a `CHANGELOG.md` line** (under
   `## [Unreleased]`). This is frequently the step that gets missed — check it.
 - Describe any host-touching operation and how it validates/rolls back.
-- `make lint test smoke` must pass (gofmt/vet, `go test -race ./...`, the
-  pure-Go integration smoke test).
+- `make lint test smoke` must pass.
 
 ## 7. Key paths to know
 
 | Concern | Path |
 |---|---|
-| Server binary / subcommands | `server/cmd/whacp/` (`serve`, `version`, `bootstrap-admin`, `set-admin-password`, `has-admin`) |
-| Agent binary | `agent/cmd/whacp-agent/` |
-| HTTP routing & middleware | `server/internal/http/server.go` |
-| Auth / roles / permissions | `server/internal/auth/`, `server/internal/authz/`, `server/internal/identity/` |
-| SQL migrations | `server/internal/database/migrations/*.sql` (auto-applied in a transaction on boot) |
-| Embedded web assets | `server/internal/web/assets/` + `server/internal/web/assets.go` (`//go:embed`) |
-| HTML templates | `server/internal/web/templates/*.html` |
-| Plan limits & enforcement | `server/internal/plans/` |
-| Website create/apply (agent side) | `agent/internal/sites/` |
-| CSP / security headers | `server/internal/http/server.go` (`Content-Security-Policy` header) |
+| Plan limits & enforcement | `panel/app/Services/PlanLimits.php` |
+| Website create/child/apply | `panel/app/Services/WebsiteService.php` |
+| App installer | `panel/app/Services/AppInstallerService.php`, `app/Http/Controllers/AppsController.php`, `resources/views/sites/apps.php` |
+| Global panel JS | `panel/public/assets/js/whacp.js` |
+| CSP / security headers | `panel/app/Http/Middleware/SecurityHeaders.php` |
 | Agent actions registry | `agent/internal/actions/`, per-domain `agent/internal/<domain>/` |
 | Release/audit docs | `docs/release/` |

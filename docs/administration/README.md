@@ -40,12 +40,10 @@ Three limits keep this safe:
   permissions (server, security, packages, settings…) are locked for them,
   because they would reach beyond the account's own objects.
 
-Permissions are defined in code (`server/internal/authz`) and synchronised
-into the database automatically on every panel start (the `whacp` binary
-runs pending SQL migrations and calls `authz.SyncDefaults` on boot). At
-least one active administrator must always exist: the panel refuses to
-delete, disable or demote the last one. Users cannot delete or disable
-themselves.
+Permissions are defined in code (`panel/app/Security/Permissions.php`) and
+synchronised into the database by `bin/whacp migrate`. At least one active
+administrator must always exist: the panel refuses to delete, disable or
+demote the last one. Users cannot delete or disable themselves.
 
 ## Sessions and sign-in
 
@@ -61,8 +59,8 @@ themselves.
   and next codes are accepted for clock drift. Ten single-use recovery codes
   are shown once. Five wrong codes end the attempt and count towards the
   sign-in throttle. Administrators can reset a user's two-factor sign-in on
-  the user's edit page (after verifying who is asking). Two-factor resets
-  always require the acting administrator to re-authenticate.
+  the user's edit page (after verifying who is asking), or with
+  `bin/whacp user:2fa-reset <username>`.
 - **Security keys and passkeys (WebAuthn):** under *Profile → Security keys*
   a user adds hardware keys (YubiKey, Titan…) or platform passkeys; up to
   ten per user. A key counts as two-factor sign-in, also for roles that
@@ -80,11 +78,8 @@ the sign-in page offers *Forgot your password?*. The answer is the same
 whether or not the account exists; the link is single-use, valid for 30
 minutes, limited to three per account and ten per address per hour, and
 never built from the request's host name. Two-factor sign-in is still
-required afterwards. Without email, an administrator can reset any user's
-password from the user's edit page in the UI, or from a root shell with
-`echo newpassword | whacp set-admin-password --username <name>` (for
-administrators — non-admin passwords are managed entirely through the UI
-to avoid bypassing per-role password policies).
+required afterwards. Without email, reset passwords with
+`bin/whacp user:password`.
 
 ## Email
 
@@ -104,9 +99,7 @@ checks the settings.
 | Dashboard refresh | 10 s | 3–300 |
 | Certificate warning | 14 days | highlight threshold |
 
-Infrastructure settings (listen address, paths, cookies, proxies, production mode) are in `/etc/whacp/server.env` (loaded by systemd's `EnvironmentFile=`).
-
-`WHACP_TRUSTED_PROXIES` (default `127.0.0.1,::1`) lists the reverse proxies whose `X-Forwarded-For` header is trusted for the client address; set it to your proxy's address if it is not on the same host. `whacp user:2fa-reset <username>` switches two-factor sign-in off for a user who lost their authenticator.
+Infrastructure settings (paths, cookies, proxies) are in `/etc/whacp/panel.php`.
 
 ### Basic WebHost Settings
 
@@ -167,8 +160,8 @@ result, IP, user agent and redacted details. Filter by action prefix
 (e.g. `user.`), user, result or free text.
 
 The scheduler keeps the audit log for 365 days; set
-`audit.retention_days` (Administration → Tweak Settings → Monitoring)
-to change it (`0` keeps it forever). Each removal is itself recorded
+`'audit' => ['retention_days' => N]` in `/etc/whacp/panel.php` to change
+that (`0` keeps it forever). Each removal is itself recorded
 (`audit.pruned`, with the count). Job history is kept 90 days after a job
 finished, deployment history 90 days (always the latest 20 per website).
 
@@ -217,24 +210,19 @@ server configuration changed.
 
 ## CLI
 
-The panel is the `whacp` binary at `/usr/local/bin/whacp`. It auto-migrates
-the database on every start (no separate `migrate` step is needed).
-
 ```bash
-# Print version / probe for an existing admin
-whacp version
-sudo -u whacp whacp has-admin && echo "admin exists"
-
-# Create the first administrator (password from stdin)
-echo 'strong-password' | sudo -u whacp whacp bootstrap-admin \
-    --username alice --email alice@example.com --role admin
+export WHACP_CONFIG=/etc/whacp/panel.php
+sudo -u whacp -E php /opt/whacp/panel/bin/whacp migrate
+sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:create alice alice@example.com --role=operator
+sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:password alice
+sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:2fa-reset alice
+sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:verify-ip alice 203.0.113.5
+sudo -u whacp -E php /opt/whacp/panel/bin/whacp hulk:unblock 203.0.113.5
+sudo -u whacp -E php /opt/whacp/panel/bin/whacp agent:check
+sudo -u whacp -E php /opt/whacp/panel/bin/whacp discovery:run
+sudo -u whacp -E php /opt/whacp/panel/bin/whacp schedule:run   # normally run by whacp-scheduler.timer
+sudo -u whacp -E php /opt/whacp/panel/bin/whacp doctor
 ```
-
-Day-to-day administration (user password reset, 2FA reset, IP verification,
-Hulk unblock, agent discovery) is performed through the web UI; equivalent
-endpoints are gated behind the same role permissions as the pages. Restart
-the panel with `systemctl restart whacp-panel`; the agent with
-`systemctl restart whacp-agent`.
 
 ## Navigation and dashboards
 
@@ -536,7 +524,7 @@ from the checks the panel already has, grouped into sections:
 
 | Section | Checks |
 |---|---|
-| WhaCP and the server | the panel binary, database reachable via `/healthz`, agent reachable over `/run/whacp/agent.sock`, core services (web, mail, DNS, database, FTP), backups configured |
+| WhaCP and the server | the `bin/whacp doctor` checks: PHP, the panel's files and database, the agent, the scheduler, core services, backups configured |
 | Resources | each disk, memory, swap and load (the Monitoring alert thresholds) |
 | Components | each component this server should have that is not ready |
 | Security | the security audit's failures and high-severity items; other recommendations counted |
@@ -632,16 +620,15 @@ means the administrator role.
 ## Server setup
 
 The installer's server profiles (**Full**, **Web only**, **Minimal**; see
-the installation guide) drive the same actions as the panel's pages
-through the agent, one step after another: install the components'
-packages, PHP versions and extensions (PHP Manager), email, DNS, FTP, a
-Redis memory limit, start the services and enable them at boot, the
-firewall and the components' ports, firewall protections, Fail2ban,
-hardening, automatic security updates, hosting plans with feature lists,
-weekly backups, and record the chosen server profile on the Components
-page. Steps leave alone what is already in place and can be re-run with
-`installer/install.sh --reinstall --profile=…`. The UI's Setup wizard
-shows each step's status as it runs.
+the installation guide) run `bin/whacp setup:apply`, which uses the same
+actions as the panel's pages, one step after another: install the
+components' packages, PHP versions and extensions (PHP Manager), email,
+DNS, FTP, a Redis memory limit, start the services and enable them at
+boot, the firewall and the components' ports, firewall protections,
+Fail2ban, hardening, automatic security updates, hosting plans with
+feature lists, weekly backups, and the server profile on the Components
+page. Steps leave alone what is already in place and can run again at any
+time; `bin/whacp setup:status` shows the last run, step by step.
 
 | Plan | Websites | Disk | Email accounts | Databases | Feature list |
 |---|---|---|---|---|---|
@@ -681,10 +668,10 @@ All under **Security** in the sidebar (administrators).
   how many packets each protection dropped since it was loaded.
 - **Configure Security Policies**: *Limit logins to verified IP
   addresses* (a WhaCP sign-in from a new address needs a 6-digit code sent
-  to the user's email; addresses already used count as verified; an
-  administrator can mark an address verified from the user's edit page
-  in the UI), two-factor authentication required per role, password
-  strength on/off and password age (days; 0 = off).
+  to the user's email; addresses already used count as verified;
+  `bin/whacp user:verify-ip <user> <ip>` verifies one from the shell),
+  two-factor authentication required per role, password strength on/off
+  and password age (days; 0 = off).
 - **Password Strength Configuration**: minimum strength (0–100, 65 or more
   is reported as strong) and minimum numbers of total, special, numeric,
   alphabet, upper case and lower case characters. It applies to WhaCP
@@ -696,20 +683,15 @@ All under **Security** in the sidebar (administrators).
   WhaCP and the login ports (SSH, 21, 110, 143, 465, 587, 993, 995, 4190),
   or from every port with the firewall-level options. Blocks live in the
   nftables table `inet whacp_hulk` and expire by themselves; the scheduler
-  restores the table after a restart. The panel runs no command when an
-  address is blocked (the PHP panel's "command to run" setting was removed:
-  the panel never executes commands itself); blocks are notified and audited.
-  Countries
+  restores the table after a restart. Commands run as the panel's account
+  (not root) with a 15-second limit and shell-quoted variables. Countries
   use DB-IP's IP to Country Lite database (CC BY 4.0), downloaded monthly;
   blacklisted countries are blocked from WhaCP and the login ports, or
   from every port when you choose so on the Countries tab (CSF's CC_DENY);
-  without Internet access import a DB-IP CSV from the Countries tab of
-  the cPHulk page. If you block yourself, sign in from the server console
-  (SSH as root is not blocked by WhaCP's firewall rules) and clear the
-  block from the cPHulk page, or run
-  `nft delete table inet whacp_hulk` once to drop the block table. When
+  without Internet access import it with `bin/whacp hulk:geo-import FILE`.
+  If you block yourself: `bin/whacp hulk:unblock <ip|user|all>`. When
   protection is first turned on with an empty whitelist, your own address
-  is added to it automatically.
+  is added to it.
 - **Compiler Access**: compilers and the assembler become mode 0750, group
   `whacp-compiler`, with the accounts you allow as members (ModSecurity
   source builds keep working). Restored exactly when turned off.
@@ -1875,124 +1857,3 @@ time and command line.
   uninstalled.
 - The panel and SSH are not affected.
 
-
-## The scheduler
-
-Background work runs from `whacp-scheduler.timer` (every 5 minutes), which starts
-`whacp schedule:run` as the `whacp` user. One pass runs at a time (a lock beside the
-database). Each pass prints what it did, one line each (`journalctl -u whacp-scheduler`),
-and the time of the last pass is shown under **Server health → Scheduled tasks**.
-
-Passes in this panel:
-
-- **Automatic SSL** — new websites wait until their domain points to this server, then get a
-  Let's Encrypt certificate; certificates that are expired, self-signed, not covering the
-  domain or close to expiry are replaced (looked for every 6 hours). The AutoSSL page shows the
-  queue and the log; "Run AutoSSL for all websites" queues everything now.
-
-- **Monitoring** — a metrics sample (CPU, memory, fullest disk, load, network; kept 30 days)
-  and the alert rules: disk, memory, load, a failed service, an unreachable agent, an expiring
-  certificate, a failed backup, and plan disk-quota and bandwidth limits (this pass also
-  measures each website's disk use hourly and reads its access log for bandwidth). Alerts open,
-  refresh and resolve on their own; each change is a notification, an email to the alert
-  recipients (Settings → Email) and a post to the alert webhook. Monitoring → History and
-  alerts shows the charts and the alerts.
-- **Resource limits** — the plans' CPU, memory, task and I/O limits are compared with the server's and
-  applied where they differ (also when websites are created or deleted).
-- **Brute force protection** — failed logins of the login services are read through the agent, counted
-  against the rules in Security → Brute Force Protection, and blocks are sent to the firewall. Failed WhaCP
-  sign-ins count too and are refused once the address or account is blocked.
-- **Malware scans** — finished scans are recorded, and websites not scanned within `av_scan_days` get a
-  scan between 01:00 and 06:00 (three per pass).
-- **Disk quotas, FFmpeg access, shell access, hardening** — plans' disk space is set as per-user quotas
-  (once quotas are on), the FFmpeg group and SSH shell access follow the plans, and the compiler and
-  traceroute restrictions are re-applied hourly.
-- **Update check, trash, ModSecurity** — the newest WhaCP version is looked up every six hours (shown under
-  Server → WhaCP updates), File Manager trash older than `trash_retention_days` is emptied daily after 03:00 and the
-  ModSecurity audit log is kept small.
-- **Bandwidth** — each account's transfer this month is compared with its plan; over it, its websites answer
-  "509 Bandwidth limit exceeded" until the month ends, the plan allows more or the counter is reset.
-- **Scheduled backups** — website, server-configuration and all-websites schedules start in
-  their slot (a new schedule waits for its first slot; a storage turned off since means "kept on
-  this server only"; a failure notifies the owner), all-websites rounds back up two websites at
-  a time, and the oldest completed backups beyond each schedule's retention are deleted.
-
-- **WordPress** — once a day (an installation is checked again after 20 hours, at most 20 per
-  run) every installation with vulnerability protection is checked against the
-  wpvulnerability.net database; vulnerabilities not seen before notify the website's owner.
-  WordPress installed with the app installer gets the recommended security measures as soon
-  as its installation job has succeeded (setting "Harden new WordPress installations
-  automatically"); a failed installation is marked and not retried.
-
-- **Greylisting** — in the first ten minutes of every sixth hour the agent is asked to refresh the
-  trusted providers' address ranges (it reads them at most once a day, and only while greylisting is on).
-- **Brute force protection** — while it is on and countries are marked (or a database is loaded),
-  the DB-IP country database is downloaded once a month (one try a day if the download fails).
-  Uploading the file by hand still works.
-- **Mail sending limits** — an account that reached its outgoing limit in the last day notifies the
-  administrators and the owner of a website using the account, once per event.
-- **Background jobs** — jobs nobody watched are followed up: the outcome is stored (a job the agent
-  forgot is "unknown", one unfinished after two days is given up on) and its owner notified, always
-  on failure and on success except for quick jobs (cron, compress, extract, malware scan).
-
-Enable the timer on an existing installation with `systemctl enable --now whacp-scheduler.timer`
-(the installer and `upgrade.sh` do it).
-
-## New websites
-
-When a website is created (the form, a new account, or an account restore) the panel sets up
-its DNS when this server hosts DNS and the account does not use its registrar's name servers:
-a zone with the A, www, SPF, DMARC and CAA records the account's options ask for, or an A
-record in the account's own parent zone; with email hosted here, the domain's email with its
-DKIM key and MX record. It then queues the website for automatic SSL. A failure is reported in
-the audit log and never undoes the website.
-
-## The setup wizard
-
-**Server → Setup wizard** (also `whacp setup:apply --profile=full|web|minimal [--hostname=server.example.com]
-[--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]`, and `whacp setup:status` for the last run)
-sets a server up for a profile:
-
-| Profile | For | Components |
-|---|---|---|
-| Full hosting server | 4 GB+ | web server, PHP, MariaDB, email, DNS, FTP, Redis, Memcached, ClamAV, firewall, Fail2ban, certbot |
-| Web hosting only | 2 GB+ | the same without email, DNS and ClamAV |
-| Minimal | under 2 GB | web server, PHP, MariaDB, certbot, firewall, Fail2ban |
-
-Steps: install the components, PHP repository, PHP versions and extensions, email, DNS, FTP, the Redis
-memory limit, start the services, firewall, open the components' ports, firewall protections, Fail2ban,
-hardening, automatic security updates, the plans and feature lists, weekly backups, and the profile
-(what Server → Components expects). Each step skips what is already in place and never removes anything; a
-failed step is reported and the next ones still run, so the setup can be run again after fixing the cause.
-
-Firewall changes are guarded by the agent (undone after two minutes unless kept). The setup keeps them
-itself, but only after reading the firewall again and finding SSH, the panel and the agent's listener open;
-otherwise it lets the change be undone and says which port was closed.
-
-Running the wizard needs the permissions of everything it touches (server, packages, PHP, services,
-security, email, DNS, FTP, plans, backups and settings): in practice an administrator.
-
-## Several servers
-
-Servers → **Connect a server** adds another machine whose agent was installed with
-`install.sh --agent-only --remote-access 0.0.0.0:8443 --allow-from <this server's IP>`. The installer
-prints the **pin** (the SHA-256 of the agent's TLS public key) and the **token**; compare the pin over a
-trusted channel such as your SSH session, then enter the agent's address (`https://203.0.113.10:8443`),
-the pin and the token. WhaCP asks the agent for its health first and stores nothing if it does not answer
-or presents another key.
-
-- The connection is TLS 1.3. The agent's certificate is self-signed, so trust comes only from the pin,
-  which is checked during the handshake: a different key is refused before the token is sent
-  ("certificate mismatch"). If the agent was reinstalled, remove the server and connect it again with the
-  new pin.
-- The token is stored encrypted and is never shown again.
-- The selector at the top (shown when there is more than one server) switches the server all pages work
-  on. Administrators see every server; other users see this server and the ones hosting their (or their
-  customers') websites.
-- **Check** records the state: online, unreachable, timed out, authentication failed, certificate
-  mismatch, refused (the agent's `allowed_clients` does not include this panel) or version mismatch (the
-  agent and the panel are another release: upgrade both together).
-- A server that still has websites in WhaCP cannot be removed; removing one forgets its records in WhaCP
-  and changes nothing on the server itself.
-- The scheduler checks each remote server and runs its passes on every one that answers. The update
-  check, brute force protection and the trash clean-up stay with the local server.

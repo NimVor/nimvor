@@ -25,8 +25,7 @@ Failures set `success: false` and an `error` with a stable `code`
 ## Panel REST API
 
 Versioned under `/api/v1` and described by OpenAPI at `/api/v1/openapi.yaml`
-(the spec is served by the `whacp` binary itself, from
-`server/internal/http/api_handlers.go`). Create a token under *Profile →
+(source: `panel/resources/api/openapi.yaml`). Create a token under *Profile →
 API tokens* (permission *Create personal API tokens*); it is shown once.
 
 ```bash

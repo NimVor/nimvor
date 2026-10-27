@@ -1,3 +1,0 @@
-# Mark the example plugin as vendored/demo code so GitHub Linguist doesn't
-# treat its tiny PHP surface as a significant share of the repository.
-/plugins/example-status/** linguist-vendored

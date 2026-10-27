@@ -21,8 +21,8 @@ read -r -p "Remove WhaCP from this server$([[ $PURGE -eq 1 ]] && echo ' includin
 [[ $reply =~ ^[Yy]$ ]] || { echo "aborted"; exit 1; }
 
 systemctl disable --now whacp-scheduler.timer 2>/dev/null || true
-rm -f /etc/systemd/system/whacp-scheduler.timer /etc/systemd/system/whacp-scheduler.service
-for svc in whacp-panel whacp-agent; do
+rm -f /etc/systemd/system/whacp-scheduler.timer
+for svc in whacp-scheduler whacp-panel whacp-agent; do
     systemctl disable --now "$svc.service" 2>/dev/null || true
     rm -f "/etc/systemd/system/$svc.service"
 done
@@ -70,7 +70,7 @@ if [[ $panel_site -eq 1 ]] && command -v nginx >/dev/null && nginx -t >/dev/null
     systemctl reload nginx 2>/dev/null || true
     echo "Removed the panel's HTTPS site from Nginx."
 fi
-rm -f /usr/local/bin/whacp-agent /usr/local/bin/whacp
+rm -f /usr/local/bin/whacp-agent
 # FFmpeg limited to the whacp-ffmpeg group: back to the package's own modes.
 if getent group whacp-ffmpeg >/dev/null; then
     for f in /usr/bin/ffmpeg /usr/bin/ffprobe; do

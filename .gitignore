@@ -2,6 +2,14 @@
 /dist/
 /.dev/
 
+# PHP
+/panel/vendor/
+/panel/storage/data/*
+/panel/storage/logs/*
+/panel/storage/sessions/*
+/panel/storage/.phpunit.cache/
+!/panel/storage/**/.gitkeep
+
 # Editors / OS
 .idea/
 .vscode/
@@ -12,9 +20,5 @@
 /tests/e2e/node_modules/
 .vm/
 realhost.test
-
-# Go build outputs
+# go build output in the agent folder
 /agent/whacp-agent
-/server/whacp
-/dist/whacp-agent
-/dist/whacp

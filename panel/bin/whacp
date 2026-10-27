@@ -1,0 +1,515 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * WhaCP panel command-line tool.
+ *
+ *   bin/whacp migrate                     Apply database migrations and sync roles
+ *   bin/whacp user:create <username> <email> [--role=admin]
+ *                                         Create a user (password read from stdin or prompted)
+ *   bin/whacp user:password <username>    Reset a user's password
+ *   bin/whacp users:count                 Print the number of panel users
+ *   bin/whacp agent:check                 Check connectivity with the agent
+ *   bin/whacp discovery:run               Run read-only discovery and store a snapshot
+ *   bin/whacp cron:sync                   Write every website's cron schedule on this server again
+ *   bin/whacp schedule:run                Record metrics and alerts, start due backups, apply retention
+ *   bin/whacp user:2fa-reset <username>   Turn off two-factor sign-in for a user (lost phone)
+ *   bin/whacp user:verify-ip <username> <ip>   Let a user sign in from an address without an emailed code
+ *   bin/whacp hulk:unblock <ip|user|all>   Remove brute force protection blocks
+ *   bin/whacp hulk:geo-import <file>   Load the DB-IP country database (brute force protection countries)
+ *   bin/whacp doctor                      Check the installation (exit code 1 on failures)
+ *   bin/whacp setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]
+ *                                         Set up the server for a profile (idempotent; exit code 1 when a step failed)
+ *   bin/whacp setup:status                The last server setup and each step's result
+ */
+
+use WhaCP\Agent\AgentClient;
+use WhaCP\Agent\AgentException;
+use WhaCP\Core\Application;
+use WhaCP\Database\Connection;
+use WhaCP\Repositories\RoleRepository;
+use WhaCP\Repositories\UserRepository;
+use WhaCP\Security\PasswordHasher;
+use WhaCP\Services\AuditLogger;
+use WhaCP\Services\DiscoveryService;
+use WhaCP\Services\UserService;
+use WhaCP\Support\ValidationException;
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+
+$args = array_slice($argv, 1);
+$command = array_shift($args) ?? 'help';
+$options = [];
+$positional = [];
+foreach ($args as $arg) {
+    if (preg_match('/^--([a-z-]+)=(.*)$/', $arg, $m)) {
+        $options[$m[1]] = $m[2];
+    } elseif (preg_match('/^--([a-z-]+)$/', $arg, $m)) {
+        $options[$m[1]] = true;
+    } else {
+        $positional[] = $arg;
+    }
+}
+
+function out(string $msg): void
+{
+    fwrite(STDOUT, $msg . PHP_EOL);
+}
+
+function fail(string $msg, int $code = 1): never
+{
+    fwrite(STDERR, 'Error: ' . $msg . PHP_EOL);
+    exit($code);
+}
+
+function readPassword(string $prompt): string
+{
+    if (!stream_isatty(STDIN)) {
+        return rtrim((string) fgets(STDIN), "\r\n");
+    }
+    fwrite(STDOUT, $prompt);
+    $hasStty = shell_exec('command -v stty') !== null;
+    if ($hasStty) {
+        system('stty -echo');
+    }
+    $value = rtrim((string) fgets(STDIN), "\r\n");
+    if ($hasStty) {
+        system('stty echo');
+    }
+    fwrite(STDOUT, PHP_EOL);
+    return $value;
+}
+
+$app = Application::fromEnvironment();
+$c = $app->container;
+/** @var AuditLogger $audit */
+$audit = $c->get(AuditLogger::class);
+$audit->setActor(null, 'cli:' . (function_exists('posix_getpwuid') ? (posix_getpwuid(posix_geteuid())['name'] ?? 'unknown') : 'unknown'));
+
+switch ($command) {
+    case 'migrate':
+        $app->migrate();
+        out('Database is up to date.');
+        break;
+
+    case 'user:create':
+        [$username, $email] = $positional + [null, null];
+        if ($username === null || $email === null) {
+            fail('usage: bin/whacp user:create <username> <email> [--role=admin|operator|viewer]');
+        }
+        $app->migrate();
+        $role = $c->get(RoleRepository::class)->findByName($options['role'] ?? 'admin') ?? fail('unknown role');
+        $password = readPassword('Password: ');
+        $confirm = stream_isatty(STDIN) ? readPassword('Confirm password: ') : $password;
+        try {
+            $id = $c->get(UserService::class)->create([
+                'username' => $username,
+                'email' => $email,
+                'password' => $password,
+                'password_confirmation' => $confirm,
+                'role_id' => $role['id'],
+                'is_active' => true,
+            ]);
+        } catch (ValidationException $e) {
+            foreach ($e->errors() as $field => $error) {
+                fwrite(STDERR, "  {$field}: {$error}" . PHP_EOL);
+            }
+            fail('user was not created');
+        }
+        out("Created user #{$id} ({$username}) with role {$role['name']}.");
+        break;
+
+    case 'user:password':
+        $username = $positional[0] ?? fail('usage: bin/whacp user:password <username>');
+        $user = $c->get(UserRepository::class)->findForAuth($username) ?? fail('user not found');
+        $hasher = $c->get(PasswordHasher::class);
+        $password = readPassword('New password: ');
+        if (($weak = $c->get(\WhaCP\Security\PasswordPolicy::class)->check($password, $username)) !== null) {
+            fail($weak);
+        }
+        if (stream_isatty(STDIN) && readPassword('Confirm password: ') !== $password) {
+            fail('passwords do not match');
+        }
+        $c->get(UserRepository::class)->updatePassword((int) $user['id'], $hasher->hash($password));
+        $audit->record('user.password_reset', 'user', (string) $user['id'], AuditLogger::SUCCESS, ['via' => 'cli']);
+        out('Password updated. Existing sessions of this user are now invalid.');
+        break;
+
+    case 'user:2fa-reset':
+        $username = $positional[0] ?? fail('usage: bin/whacp user:2fa-reset <username>');
+        $user = $c->get(UserRepository::class)->findForAuth($username) ?? fail('user not found');
+        $c->get(\WhaCP\Security\TwoFactor::class)->disable((int) $user['id']);
+        $audit->record('user.two_factor_reset', 'user', (string) $user['id'], AuditLogger::SUCCESS, ['via' => 'cli']);
+        out('Two-factor sign-in is off for ' . $user['username'] . '.');
+        break;
+
+    case 'user:verify-ip':
+        $username = $positional[0] ?? fail('usage: bin/whacp user:verify-ip <username> <ip>');
+        $ip = $positional[1] ?? fail('usage: bin/whacp user:verify-ip <username> <ip>');
+        filter_var($ip, FILTER_VALIDATE_IP) !== false || fail('not an IP address');
+        $user = $c->get(UserRepository::class)->findForAuth($username) ?? fail('user not found');
+        $c->get(\WhaCP\Security\LoginIpVerifier::class)->remember((int) $user['id'], $ip);
+        $audit->record('user.verify_ip', 'user', (string) $user['id'], AuditLogger::SUCCESS, ['via' => 'cli', 'ip' => $ip]);
+        out($user['username'] . ' can sign in from ' . $ip . ' without an emailed code.');
+        break;
+
+    case 'hulk:unblock':
+        $what = $positional[0] ?? fail('usage: bin/whacp hulk:unblock <ip|user|all>');
+        $db = $c->get(\WhaCP\Database\Connection::class);
+        $n = $what === 'all' ? $db->run('DELETE FROM hulk_blocks')->rowCount() : $db->run('DELETE FROM hulk_blocks WHERE ip = ? OR user = ?', [$what, $what])->rowCount();
+        $audit->record('hulk.unblock', 'server', 'hulk', AuditLogger::SUCCESS, ['via' => 'cli', 'what' => $what]);
+        try {
+            $c->get(\WhaCP\Services\HulkService::class)->sync();
+        } catch (\WhaCP\Agent\AgentException $e) {
+            out('The server rules were not updated yet (the scheduler retries): ' . $e->getMessage());
+        }
+        out("Removed {$n} block(s).");
+        break;
+
+    case 'hulk:geo-import':
+        $file = $positional[0] ?? fail('usage: bin/whacp hulk:geo-import <dbip-country-lite.csv[.gz]>');
+        is_file($file) || fail('no such file');
+        try {
+            $n = $c->get(\WhaCP\Services\GeoIpService::class)->import($file);
+        } catch (\WhaCP\Support\UserFacingException $e) {
+            fail($e->getMessage());
+        }
+        out("Country database loaded ({$n} address ranges).");
+        break;
+
+    case 'doctor':
+        $failed = false;
+        foreach ($c->get(\WhaCP\Services\Doctor::class)->run() as $r) {
+            $failed = $failed || $r['status'] === \WhaCP\Services\Doctor::FAIL;
+            $label = ['ok' => 'PASS', 'warn' => 'WARN', 'fail' => 'FAIL'][$r['status']] ?? strtoupper($r['status']);
+            out(sprintf('[%s] %-24s %s', $label, $r['check'], $r['detail']));
+        }
+        exit($failed ? 1 : 0);
+
+    case 'setup:apply':
+        $profile = (string) ($options['profile'] ?? '');
+        isset(\WhaCP\Services\ServerSetupService::PROFILES[$profile]) || fail('usage: bin/whacp setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]');
+        $c->get(\WhaCP\Services\ServerContext::class)->force(1);
+        $setupOpts = [
+            'hostname' => is_string($options['hostname'] ?? null) ? $options['hostname'] : '',
+            'third_party_repos' => !isset($options['no-third-party-repos']),
+        ];
+        if (is_string($options['php'] ?? null)) {
+            $setupOpts['php'] = array_values(array_filter(array_map('trim', explode(',', $options['php']))));
+        }
+        if (is_string($options['only'] ?? null)) {
+            $setupOpts['only'] = array_values(array_intersect(array_map('trim', explode(',', $options['only'])), array_keys(\WhaCP\Services\ServerSetupService::STEPS)));
+        }
+        out('Setting up this server: ' . \WhaCP\Services\ServerSetupService::PROFILE_NAMES[$profile] . '.');
+        try {
+            $results = $c->get(\WhaCP\Services\ServerSetupService::class)->run($profile, $setupOpts, static fn (string $l) => out($l));
+        } catch (ValidationException $e) {
+            fail(implode(' ', $e->errors()));
+        } catch (AgentException $e) {
+            fail($e->getMessage() . ' ' . $e->remedy());
+        }
+        out('');
+        out('Summary:');
+        $failedSteps = 0;
+        foreach ($results as $r) {
+            $failedSteps += $r['status'] === 'fail' ? 1 : 0;
+            out(sprintf('  [%s] %s', ['ok' => 'DONE', 'skip' => ' OK ', 'fail' => 'FAIL'][$r['status']] ?? $r['status'], $r['label']));
+        }
+        if ($failedSteps > 0) {
+            out('');
+            out($failedSteps . ' step(s) failed (see above). Fix the cause and run the same command again: finished steps are skipped. The setup wizard in the panel shows the same steps.');
+            exit(1);
+        }
+        break;
+
+    case 'setup:status':
+        $last = $c->get(\WhaCP\Services\ServerSetupService::class)->last();
+        if ($last === null) {
+            out('The server setup has not run yet.');
+            break;
+        }
+        out('Profile: ' . (\WhaCP\Services\ServerSetupService::PROFILE_NAMES[$last['profile']] ?? $last['profile']) . ', started ' . $last['started_at'] . ($last['finished_at'] ? ', finished ' . $last['finished_at'] : ', not finished'));
+        foreach ((array) $last['steps'] as $id => $st) {
+            out(sprintf('  [%s] %-34s %s', ['ok' => 'DONE', 'skip' => ' OK ', 'fail' => 'FAIL'][$st['status']] ?? $st['status'], \WhaCP\Services\ServerSetupService::STEPS[$id] ?? $id, $st['detail']));
+        }
+        break;
+
+    case 'users:count':
+        out((string) $c->get(UserRepository::class)->count());
+        break;
+
+    case 'agent:check':
+        try {
+            $health = $c->get(AgentClient::class)->health();
+            out('Agent OK — version ' . ($health['data']['version'] ?? '?'));
+        } catch (AgentException $e) {
+            fail($e->getMessage() . ' ' . $e->reason() . ' ' . $e->remedy());
+        }
+        break;
+
+    case 'discovery:run':
+        try {
+            $result = $c->get(DiscoveryService::class)->run(null);
+            out('Discovery stored: ' . count(DiscoveryService::websites($result['data'])) . ' website(s).');
+        } catch (AgentException $e) {
+            fail($e->getMessage() . ' ' . $e->remedy());
+        }
+        break;
+
+    case 'cron:sync':
+        // After an update of the agent: every schedule is written again in
+        // the agent's current form (e.g. each job in its sandbox).
+        $context = $c->get(\WhaCP\Services\ServerContext::class);
+        $context->force(1);
+        $sites = $c->get(\WhaCP\Repositories\WebsiteRepository::class);
+        $cron = $c->get(\WhaCP\Services\CronService::class);
+        $done = 0;
+        $failed = 0;
+        foreach ($c->get(Connection::class)->fetchAll('SELECT DISTINCT j.website_id FROM cron_jobs j JOIN websites w ON w.id = j.website_id WHERE w.server_id = 1 ORDER BY j.website_id') as $row) {
+            $site = $sites->find(1, (int) $row['website_id'], null);
+            if ($site === null) {
+                continue;
+            }
+            try {
+                $cron->apply($site);
+                $done++;
+            } catch (AgentException $e) {
+                $failed++;
+                out($site['domain'] . ': ' . $e->getMessage());
+            }
+        }
+        $context->force(null);
+        out("Cron schedules written: {$done}" . ($failed > 0 ? ", failed: {$failed}" : '') . '.');
+        if ($failed > 0) {
+            exit(1);
+        }
+        break;
+
+    case 'modsec:installs':
+        // ModSecurity connector and rule installations (transactions).
+        try {
+            foreach ($c->get(\WhaCP\Services\ModSecurityService::class)->installs() as $i) {
+                out(sprintf('%s  %-16s %-22s%s%s', $i['id'], $i['status'], $i['method'] ?? '', !empty($i['can_roll_back']) ? '  [in effect: can be rolled back]' : '', !empty($i['error']) ? '  ' . $i['error'] : ''));
+                if (($i['status'] ?? '') === 'rollback_failed') {
+                    out('    backup for manual recovery: ' . $i['folder'] . '/snapshot');
+                }
+            }
+        } catch (AgentException $e) {
+            fail($e->getMessage());
+        }
+        break;
+
+    case 'modsec:rollback':
+        // Manual rollback of the ModSecurity installation in effect.
+        $id = (string) ($positional[0] ?? '');
+        if ($id === '') {
+            fail('Usage: whacp modsec:rollback <installation id>   (see: whacp modsec:installs)');
+        }
+        try {
+            $job = $c->get(\WhaCP\Services\ModSecurityService::class)->rollback($id, null);
+            $offset = 0;
+            do {
+                sleep(1);
+                $res = $c->get(\WhaCP\Services\JobTracker::class)->poll($job, $offset);
+                fwrite(STDOUT, (string) ($res['log'] ?? ''));
+                $offset = (int) ($res['offset'] ?? $offset);
+            } while (empty($res['done']));
+            if (($res['job']['status'] ?? '') !== 'succeeded') {
+                fail('Rollback failed: ' . ($res['job']['error'] ?? 'see the log above'));
+            }
+            out('Installation ' . $id . ' rolled back.');
+        } catch (\Throwable $e) {
+            fail($e->getMessage());
+        }
+        break;
+
+    case 'schedule:run':
+        // Run by whacp-scheduler.timer; one pass at a time.
+        $lock = fopen(sys_get_temp_dir() . '/whacp-schedule.lock', 'c');
+        if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
+            out('Another scheduler pass is running.');
+            break;
+        }
+        // One pass per server; each server's agent is reached through the
+        // routing transport selected by the forced server context.
+        $context = $c->get(\WhaCP\Services\ServerContext::class);
+        foreach ($c->get(\WhaCP\Services\ServerService::class)->all() as $srv) {
+            $context->force((int) $srv['id']);
+            if ((int) $srv['id'] !== 1) {
+                $c->get(\WhaCP\Services\ServerService::class)->check((int) $srv['id'], $c->get(AgentClient::class));
+            }
+            foreach ($c->get(\WhaCP\Services\MonitoringService::class)->run() as $line) {
+                out('[' . $srv['name'] . '] ' . $line);
+            }
+            foreach ($c->get(\WhaCP\Services\BackupScheduler::class)->run() as $line) {
+                out('[' . $srv['name'] . '] ' . $line);
+            }
+            foreach ($c->get(\WhaCP\Services\AutoSslService::class)->run() as $line) {
+                out('[' . $srv['name'] . '] ' . $line);
+            }
+            foreach ($c->get(\WhaCP\Services\AvService::class)->run() as $line) {
+                out('[' . $srv['name'] . '] ' . $line);
+            }
+            try {
+                foreach ($c->get(\WhaCP\Services\ShellService::class)->reconcile() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                out('[' . $srv['name'] . '] shell access not checked: ' . $e->getMessage());
+            }
+            // File Manager trash: items older than the retention are deleted,
+            // once a day (the first passes after 03:00).
+            $keep = $c->get(\WhaCP\Services\SettingsService::class)->int('trash_retention_days');
+            if ($keep > 0 && (int) date('G') === 3 && (int) date('i') < 10) {
+                foreach ($c->get(\WhaCP\Database\Connection::class)->fetchAll('SELECT domain FROM websites WHERE server_id = ?', [(int) $srv['id']]) as $w) {
+                    try {
+                        $n = (int) (((array) $c->get(AgentClient::class)->call('files.trash_empty', ['domain' => $w['domain'], 'older_than_days' => $keep], 300))['deleted'] ?? 0);
+                        if ($n > 0) {
+                            out('[' . $srv['name'] . '] ' . $w['domain'] . ': ' . $n . ' item(s) older than ' . $keep . ' days deleted from the trash');
+                        }
+                    } catch (\WhaCP\Agent\AgentException $e) {
+                        if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled', 'not_found'], true)) {
+                            out('[' . $srv['name'] . '] ' . $w['domain'] . ': trash not emptied: ' . $e->getMessage());
+                        }
+                    }
+                }
+            }
+            // New WordPress installations: hardened once installed.
+            foreach ($c->get(\WhaCP\Services\WordPressToolsService::class)->autoHarden($c->get(\WhaCP\Services\SettingsService::class)->bool('wordpress_auto_harden')) as $line) {
+                out('[' . $srv['name'] . '] ' . $line);
+            }
+            // WordPress vulnerability protection: a daily check.
+            foreach ($c->get(\WhaCP\Services\WordPressToolsService::class)->dailyVulnerabilityCheck() as $line) {
+                out('[' . $srv['name'] . '] ' . $line);
+            }
+            // Monthly bandwidth (measured by the monitoring pass above).
+            foreach ($c->get(\WhaCP\Services\BandwidthLimitService::class)->reconcile() as $line) {
+                out('[' . $srv['name'] . '] ' . $line);
+            }
+            // Disk quotas (where turned on) follow the plans and the use.
+            try {
+                foreach ($c->get(\WhaCP\Services\DiskQuotaService::class)->reconcile() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    out('[' . $srv['name'] . '] disk quotas not checked: ' . $e->getMessage());
+                }
+            }
+            // Resource limits (cgroups) follow the plans.
+            try {
+                foreach ($c->get(\WhaCP\Services\ResourceLimitService::class)->reconcile() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    out('[' . $srv['name'] . '] resource limits not checked: ' . $e->getMessage());
+                }
+            }
+            // ModSecurity: keep the audit log small.
+            try {
+                foreach ($c->get(\WhaCP\Services\ModSecurityService::class)->trim() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    out('[' . $srv['name'] . '] ModSecurity audit log not checked: ' . $e->getMessage());
+                }
+            }
+            // FFmpeg: the accounts that may run it follow the plans.
+            try {
+                foreach ($c->get(\WhaCP\Services\FfmpegService::class)->reconcile() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    out('[' . $srv['name'] . '] FFmpeg access not checked: ' . $e->getMessage());
+                }
+            }
+            // Brute force protection: failed logins from the services' logs,
+            // blocks, and the rules at the server.
+            try {
+                foreach ($c->get(\WhaCP\Services\HulkService::class)->run() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    out('[' . $srv['name'] . '] brute force protection not checked: ' . $e->getMessage());
+                }
+            }
+            // Compiler and traceroute restrictions: package updates on RHEL
+            // reset the programs' modes. Once an hour.
+            if ((int) date('i') < 10) {
+                try {
+                    $c->get(\WhaCP\Services\HardeningService::class)->reapply();
+                } catch (\WhaCP\Agent\AgentException $e) {
+                    if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                        out('[' . $srv['name'] . '] hardening not reapplied: ' . $e->getMessage());
+                    }
+                }
+            }
+            // A newer WhaCP for this server (the top bar's update button).
+            if ((int) $srv['id'] === 1) {
+                $updates = $c->get(\WhaCP\Services\UpdateCheckService::class);
+                if ($updates->due()) {
+                    $u = $updates->check();
+                    if (!empty($u['available'])) {
+                        out('[' . $srv['name'] . '] a WhaCP update is available');
+                    }
+                }
+            }
+            // Greylisting: trusted providers' address ranges. Asked in the
+            // first ten minutes of every sixth hour; the agent reads them at
+            // most once a day and only while greylisting is on.
+            if ((int) date('G') % 6 === 0 && (int) date('i') < 10) {
+                try {
+                    $c->get(AgentClient::class)->call('mail.greylist_update_providers', ['all' => false], 300);
+                } catch (\WhaCP\Agent\AgentException $e) {
+                    if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                        out('[' . $srv['name'] . '] greylisting providers not updated: ' . $e->getMessage());
+                    }
+                }
+            }
+            // Outgoing mail limits: accounts that reached theirs.
+            try {
+                foreach ($c->get(\WhaCP\Services\MailRateService::class)->alerts() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
+                    out('[' . $srv['name'] . '] mail sending limits not checked: ' . $e->getMessage());
+                }
+            }
+            // Results of background jobs nobody watched (notifications).
+            try {
+                $c->get(\WhaCP\Services\BackupService::class)->refresh();
+                $c->get(\WhaCP\Services\DeployService::class)->refreshRunning();
+                foreach ($c->get(\WhaCP\Services\JobTracker::class)->settlePending() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\WhaCP\Agent\AgentException $e) {
+                out('[' . $srv['name'] . '] jobs not checked: ' . $e->getMessage());
+            }
+        }
+        $context->force(null);
+        $pruned = $c->get(\WhaCP\Services\NotificationService::class)->prune();
+        if ($pruned > 0) {
+            out("Removed {$pruned} old notification(s).");
+        }
+        $removed = $c->get(\WhaCP\Services\RetentionService::class)->prune();
+        if (array_sum($removed) > 0) {
+            out("Removed old history: {$removed['jobs']} job(s), {$removed['deployments']} deployment(s), {$removed['audit']} audit record(s).");
+        }
+        $c->get(\WhaCP\Repositories\SettingRepository::class)->set(\WhaCP\Services\Doctor::SCHEDULER_KEY, gmdate('c'), null);
+        flock($lock, LOCK_UN);
+        break;
+
+    default:
+        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  user:verify-ip <username> <ip>\n  hulk:geo-import <file>\n  hulk:unblock <ip|user|all>\n  agent:check\n  discovery:run\n  cron:sync\n  schedule:run\n  doctor\n  modsec:installs\n  modsec:rollback <installation id>");
+}

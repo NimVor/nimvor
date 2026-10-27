@@ -197,7 +197,7 @@ func TestRealHostCrossSitePHPIsolation(t *testing.T) {
 		"b_docroot": filepath.Join(bRoot, "public_html"), "b_root": bRoot,
 		"b_pool_conf": bPool, "b_socket": bLayout.Socket,
 		"a_root": aRoot, "a_secret": aSecret,
-		"shadow": "/etc/shadow", "panel_cfg": "/etc/whacp/server.env",
+		"shadow": "/etc/shadow", "panel_cfg": "/etc/whacp/panel.php",
 		"b_worker_environ": "/proc/" + bWorker + "/environ",
 		"b_worker_cmdline": "/proc/" + bWorker + "/cmdline",
 	}

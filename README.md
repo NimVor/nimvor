@@ -38,12 +38,12 @@ privileged operation must be explicit, validated, audited and reversible.**
 | Server | packages and updates, hostname, timezone, reboot |
 | Hosting | multiple servers, plans and quotas, resellers and customers |
 | Integration | REST API with personal tokens (OpenAPI), plugins, one-click WordPress and Laravel |
-| Operations | installer, upgrades with automatic rollback, `/healthz` liveness probe |
+| Operations | installer, upgrades with automatic rollback, `bin/whacp doctor` self-checks |
 
 ## Architecture in one picture
 
 ```text
- Browser ──HTTPS/SSH tunnel──▶ WhaCP Panel (Go, embedded assets, SQLite)    REST API /api/v1 (tokens)
+ Browser ──HTTPS/SSH tunnel──▶ WhaCP Panel (PHP 8.3+, MVC, SQLite)      REST API /api/v1 (tokens)
                                    │  never runs shell commands
                                    │  POST /v1/actions/<name>  (bearer token)
                     ┌──────────────┴──────────────────────────┐
@@ -64,7 +64,7 @@ Read more in [docs/architecture](docs/architecture/README.md).
 
 ## Quick start (development, no root needed)
 
-Requirements: Go ≥ 1.24, OpenSSL.
+Requirements: Go ≥ 1.24, PHP ≥ 8.3 with `pdo_sqlite`, `curl`, `mbstring`, Composer, OpenSSL.
 
 ```bash
 git clone https://github.com/mchkhawarshahzad/WhaCP.git && cd WhaCP
@@ -114,8 +114,8 @@ back automatically on failure. Details:
 ## Tests
 
 ```bash
-make lint test     # gofmt, go vet, go test -race (server + agent unit/integration/HTTP)
-make smoke         # end-to-end: agent + panel + login + discovery (no PHP required)
+make lint test     # gofmt, go vet, go test -race, php -l, PHPUnit (unit/integration/HTTP)
+make smoke         # end-to-end: agent + panel + login + discovery + remote TLS agent + doctor
 # Agent tests against real services (nginx, php-fpm, MariaDB, Redis, UFW, …) in a disposable VM/container:
 cd agent && sudo go test -tags realhost ./...
 ```
@@ -124,12 +124,12 @@ cd agent && sudo go test -tags realhost ./...
 
 ```text
 agent/        Go agent (cmd/, internal/<domain>/, api/openapi.yaml, tests/fixtures)
-server/       Go control plane (cmd/, internal/<domain>/, embedded web assets, SQL migrations)
+panel/        PHP control plane (app/, config/, public/, routes/, resources/, tests/)
 installer/    install.sh, upgrade.sh, uninstall.sh, systemd units, default configuration
-plugins/      example plugin (PHP; the plugin SDK is the documented extension point)
+plugins/      example plugin (see docs/plugins)
 docs/         architecture, installation, administration, agent, security, api, plugins, development, troubleshooting
 scripts/      developer tooling (dev.sh)
-tests/        cross-component integration tests (smoke.sh, postinstall.sh, public-https.sh, upgrade.sh)
+tests/        cross-component integration tests (smoke.sh, upgrade.sh)
 storage/      notes on where runtime state lives
 ```
 

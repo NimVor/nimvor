@@ -16,11 +16,9 @@
 
 ### I cannot sign in
 - After 5 failures for a user (or 10 from an IP) sign-in is locked for 15 minutes.
-- Reset a password from *Profile* (for your own account) or as an
-  administrator from *Users* (edit the user → change password).
+- Reset a password: `sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp user:password <user>`.
 - Signing in over plain HTTP from a non-localhost address with
-  `WHACP_PRODUCTION=1` fails silently in browsers (cookies marked
-  Secure) — use the SSH tunnel or HTTPS.
+  `secure_cookie => true` fails silently in browsers — use the SSH tunnel or HTTPS.
 
 ### A website is missing from the list
 - Catch-all server blocks (`server_name _`) are counted, not listed.

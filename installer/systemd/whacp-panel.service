@@ -1,6 +1,6 @@
 [Unit]
 Description=WhaCP panel (loopback web interface)
-Documentation=https://github.com/mchkhawarshahzad/WhaCP/blob/HEAD/docs/installation/README.md
+Documentation=https://github.com/mchkhawarshahzad/WhaCP/tree/main/docs/installation
 After=network.target whacp-agent.service
 Wants=whacp-agent.service
 
@@ -8,11 +8,11 @@ Wants=whacp-agent.service
 Type=simple
 User=whacp
 Group=whacp
-# EnvironmentFile is optional (-) so the unit still starts if the file is
-# temporarily missing; the binary uses built-in defaults for anything unset.
-EnvironmentFile=-/etc/whacp/server.env
-ExecStart=/usr/local/bin/whacp
-ExecStartPre=/usr/local/bin/whacp -version >/dev/null 2>&1 || true
+Environment=WHACP_CONFIG=/etc/whacp/panel.php
+Environment=PHP_CLI_SERVER_WORKERS=4
+# Bound to loopback only. Reach it through an SSH tunnel, or put a TLS
+# reverse proxy in front (see docs/installation/README.md).
+ExecStart=/usr/bin/php -d display_errors=0 -d expose_php=0 -S 127.0.0.1:8090 -t /opt/whacp/panel/public /opt/whacp/panel/public/router.php
 Restart=on-failure
 RestartSec=3s
 

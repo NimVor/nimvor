@@ -29,6 +29,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, curl, mbstring, sodium
+          tools: composer
       - name: Tag matches VERSION
         run: test "${GITHUB_REF_NAME}" = "v$(cat VERSION)"
       - name: Build archives
@@ -37,7 +42,7 @@ jobs:
         run: |
           mkdir -p /tmp/rel && tar -xzf dist/release/whacp-$(cat VERSION)-linux-amd64.tar.gz -C /tmp/rel
           /tmp/rel/whacp-$(cat VERSION)/dist/whacp-agent -version
-          /tmp/rel/whacp-$(cat VERSION)/dist/whacp version
+          test -f /tmp/rel/whacp-$(cat VERSION)/panel/vendor/autoload.php
           sudo bash /tmp/rel/whacp-$(cat VERSION)/installer/install.sh --dry-run --yes --profile=none --admin-user=admin --admin-email=admin@example.com
       - uses: actions/attest-build-provenance@v2
         with:

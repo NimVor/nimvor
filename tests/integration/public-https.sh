@@ -9,7 +9,7 @@
 set -Eeuo pipefail
 HTTPS_PORT=${HTTPS_PORT:-8443}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-BIN=/usr/local/bin/whacp
+CLI=(runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp)
 J=$(mktemp -d)
 trap 'rm -rf "$J"' EXIT
 fail() { echo "FAIL: $*" >&2; journalctl -u nginx -n 20 --no-pager >&2 2>/dev/null || true; tail -20 /var/log/whacp/panel.log >&2 2>/dev/null || true; exit 1; }
@@ -30,8 +30,7 @@ openssl x509 -in "$(sed -n 's/^ *ssl_certificate  *\([^;]*\);/\1/p' /etc/nginx/*
 pass "sign-in page over HTTPS at $P (HTTPS-only cookie, HSTS, certificate for ${IP})"
 
 PASS="public-https-Check-7731"
-# Reset the admin password to a known value for this check.
-printf '%s\n' "$PASS" | runuser -u whacp -- "$BIN" set-admin-password --username admin >/dev/null
+printf '%s\n' "$PASS" | "${CLI[@]}" user:password admin >/dev/null
 tok=$(grep -o 'name="_token" value="[^"]*"' "$J/page" | head -1 | sed 's/.*value="//;s/"$//')
 loc=$("${c[@]}" -o /dev/null -w '%{redirect_url}' --data-urlencode "_token=$tok" --data-urlencode username=admin --data-urlencode "password=$PASS" "$P/login")
 [[ $loc == "$P/" ]] || fail "sign-in redirected to '$loc'"

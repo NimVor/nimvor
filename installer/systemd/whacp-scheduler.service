@@ -1,14 +1,14 @@
 [Unit]
-Description=WhaCP scheduler (automatic SSL and other background work)
-Documentation=https://github.com/mchkhawarshahzad/WhaCP/blob/HEAD/docs/installation/README.md
+Description=WhaCP scheduler (metrics, alerts, scheduled backups and retention)
+Documentation=https://github.com/mchkhawarshahzad/WhaCP/tree/main/docs
 After=whacp-agent.service
 
 [Service]
 Type=oneshot
 User=whacp
 Group=whacp
-EnvironmentFile=-/etc/whacp/server.env
-ExecStart=/usr/local/bin/whacp schedule:run
+Environment=WHACP_CONFIG=/etc/whacp/panel.php
+ExecStart=/usr/bin/php -d display_errors=stderr /opt/whacp/panel/bin/whacp schedule:run
 TimeoutStartSec=15min
 
 NoNewPrivileges=yes

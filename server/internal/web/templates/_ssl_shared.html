@@ -1,5 +1,0 @@
-{{define "ssl_tabs"}}<nav class="wcp-pagetabs" aria-label="SSL/TLS">{{$tab := .Tab}}{{range .Tabs}}<a class="{{if eq .Key $tab}}active{{end}}" href="{{.Href}}"{{if eq .Key $tab}} aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
-  {{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
-  {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
-  {{if .AgentError}}<div class="alert alert-warning">The agent could not be reached: {{.AgentError}}</div>{{end}}{{end}}
-{{define "ssl_cert"}}<span class="wcp-state {{.Class}}">{{.Label}}</span> <span class="small wcp-muted">{{.Line}}</span>{{end}}

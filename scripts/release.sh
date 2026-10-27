@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
 # Build release archives: dist/release/whacp-<version>-linux-<arch>.tar.gz
-# with prebuilt whacp-agent + whacp (server) binaries, plus SHA256SUMS.
-# Archives are reproducible for a given commit (fixed owners, order and
-# timestamps). Run from a clean checkout:
+# with a prebuilt agent and the panel's production dependencies, plus
+# SHA256SUMS. Archives are reproducible for a given commit (fixed owners,
+# order and timestamps). Run from a clean checkout:
 #
 #   scripts/release.sh            # amd64 and arm64
 #   ARCHES=amd64 scripts/release.sh
@@ -28,8 +28,9 @@ git archive --format=tar HEAD | tar -x -C "$WORK/src"
 rm -rf "$WORK/src/.github"
 # Tests, fixtures (which contain sample credentials) and development files
 # are not part of a release.
-rm -rf "$WORK/src/tests" "$WORK/src/agent/tests" "$WORK/src/server/*/testdata" "$WORK/src/scripts/dev.sh"
+rm -rf "$WORK/src/tests" "$WORK/src/agent/tests" "$WORK/src/panel/tests" "$WORK/src/panel/phpunit.xml.dist" "$WORK/src/scripts/dev.sh"
 find "$WORK/src" -name '*_test.go' -delete
+(cd "$WORK/src/panel" && composer install --no-dev --no-interaction --no-progress --optimize-autoloader -q)
 
 for arch in $ARCHES; do
     name=whacp-$VERSION
@@ -38,8 +39,6 @@ for arch in $ARCHES; do
     cp -a "$WORK/src" "$stage"
     (cd agent && CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -buildvcs=false \
         -ldflags "-s -w -X main.version=$VERSION" -o "$stage/dist/whacp-agent" ./cmd/whacp-agent)
-    (cd server && CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -buildvcs=false \
-        -ldflags "-s -w -X main.version=$VERSION" -o "$stage/dist/whacp" ./cmd/whacp)
     if [[ $arch == "$(go env GOARCH)" ]]; then
         got=$("$stage/dist/whacp-agent" -version)
         [[ $got == *"$VERSION"* ]] || { echo "agent reports '$got', expected $VERSION" >&2; exit 1; }
