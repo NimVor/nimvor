@@ -316,6 +316,8 @@ if [[ -d $SRC_DIR/.git ]]; then
 fi
 
 GO_MIN=1.24
+# The release downloaded when no usable Go is installed (go.dev has no "go1.24" file: releases are 1.24.N).
+GO_FETCH=1.24.7
 GO_DIR=/usr/local/lib/whacp-go
 go_version() { local v; v=$("$1" version 2>/dev/null | awk '{print $3}'); printf '%s\n' "${v#go}"; }
 ver_ge() { [[ $(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1) == "$2" ]]; }
@@ -351,16 +353,23 @@ if [[ ($need_build_agent -eq 1 || $need_build_panel -eq 1) && -z $GO ]]; then
         fi
         if [[ -z $GO ]] || ! go_usable "$GO"; then
             # Fetch Go from go.dev.
-            log "Downloading Go ${GO_MIN} from go.dev into $GO_DIR"
+            log "Downloading Go ${GO_FETCH} from go.dev into $GO_DIR"
             if [[ $DRY_RUN -eq 0 ]]; then
                 arch=amd64; [[ $ARCH == aarch64 ]] && arch=arm64
-                f="go${GO_MIN}.linux-${arch}.tar.gz"
+                f="go${GO_FETCH}.linux-${arch}.tar.gz"
                 tmp=$(mktemp -d)
-                curl -fsSL --proto '=https' --tlsv1.2 --retry 3 -o "$tmp/$f" "https://go.dev/dl/$f" || die "could not download Go"
+                curl -fsSL --proto '=https' --tlsv1.2 --retry 3 -o "$tmp/$f" "https://go.dev/dl/$f" || die "could not download Go ($f)"
+                want=$(curl -fsSL --proto '=https' --tlsv1.2 --retry 3 "https://go.dev/dl/$f.sha256" 2>/dev/null \
+                    || curl -fsSL --proto '=https' --tlsv1.2 --retry 3 "https://dl.google.com/go/$f.sha256" 2>/dev/null \
+                    || curl -fsSL --proto '=https' --tlsv1.2 --retry 3 "https://go.dev/dl/?mode=json&include=all" 2>/dev/null \
+                        | awk -v f="$f" '$0 ~ "\"filename\": \""f"\"" {hit=1} hit && /"sha256"/ {gsub(/[^0-9a-f]/, "", $2); print $2; exit}' || true)
+                want=${want%%[[:space:]]*}
+                [[ $want =~ ^[0-9a-f]{64}$ ]] || die "could not fetch the SHA-256 of $f to verify it"
+                [[ $(sha256sum "$tmp/$f" | cut -d' ' -f1) == "$want" ]] || die "the downloaded Go archive does not match its SHA-256"
                 rm -rf "$GO_DIR.new" && mkdir -p "$GO_DIR.new" && tar -C "$GO_DIR.new" -xzf "$tmp/$f"
                 rm -rf "$GO_DIR" && mv "$GO_DIR.new/go" "$GO_DIR"
                 rm -rf "$tmp"
-                ok "Go ${GO_MIN} in $GO_DIR"
+                ok "Go ${GO_FETCH} in $GO_DIR (SHA-256 verified)"
             fi
             GO=$GO_DIR/bin/go
         fi
