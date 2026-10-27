@@ -63,7 +63,7 @@ $fpmSettings = (array) ($fpm['settings'] ?? []);
 <?php elseif ($tab === 'ini'): ?>
     <?php $directives = (array) ($ini['directives'] ?? []); ?>
     <div class="alert alert-info small">
-        These settings go to WhaCP's own file <code><?= e((string) ($ini['file'] ?? '')) ?></code>, loaded after the distribution's php.ini, which is never changed. Empty fields keep PHP's value (shown on the right, as PHP-FPM uses it now). Settings marked <span class="badge text-bg-light border">per website</span> are set by each WhaCP website itself (Website → PHP &amp; settings); here they apply to other pools and the command line.
+        These settings go to NimVor's own file <code><?= e((string) ($ini['file'] ?? '')) ?></code>, loaded after the distribution's php.ini, which is never changed. Empty fields keep PHP's value (shown on the right, as PHP-FPM uses it now). Settings marked <span class="badge text-bg-light border">per website</span> are set by each NimVor website itself (Website → PHP &amp; settings); here they apply to other pools and the command line.
     </div>
     <div class="row g-3">
         <div class="col-xl-7">
@@ -107,7 +107,7 @@ $fpmSettings = (array) ($fpm['settings'] ?? []);
                 <input type="hidden" name="mode" value="text">
                 <div class="card-header"><i class="bi bi-code me-1"></i>Text editor</div>
                 <div class="card-body">
-                    <p class="small text-body-secondary">One <code>setting = value</code> per line; <code>;</code> starts a comment. Only the settings listed on the left are accepted. Empty removes WhaCP's file.</p>
+                    <p class="small text-body-secondary">One <code>setting = value</code> per line; <code>;</code> starts a comment. Only the settings listed on the left are accepted. Empty removes NimVor's file.</p>
                     <textarea class="form-control font-monospace small" name="content" rows="16" spellcheck="false" aria-label="php.ini settings"><?php foreach ($directives as $dir): ?><?php if (isset($iniValues[$dir['key']])): ?><?= e($dir['key'] . ' = ' . $iniValues[$dir['key']]) . "\n" ?><?php endif; ?><?php endforeach; ?></textarea>
                 </div>
                 <div class="card-footer text-end"><button class="btn btn-primary btn-sm">Save and reload PHP-FPM</button></div>
@@ -122,7 +122,7 @@ $fpmSettings = (array) ($fpm['settings'] ?? []);
                 <?= $this->csrfField() ?>
                 <div class="card-header"><i class="bi bi-cpu me-1"></i>Server-wide PHP-FPM settings of PHP <?= e($version) ?></div>
                 <div class="card-body">
-                    <p class="small text-body-secondary">Written to WhaCP's <code><?= e((string) ($fpm['file'] ?? '')) ?></code>, which PHP-FPM loads with its pools. Leave a field empty (or 0) to keep PHP-FPM's default. Each website's process manager, processes and timeouts are in Website → PHP &amp; settings → Advanced PHP-FPM.</p>
+                    <p class="small text-body-secondary">Written to NimVor's <code><?= e((string) ($fpm['file'] ?? '')) ?></code>, which PHP-FPM loads with its pools. Leave a field empty (or 0) to keep PHP-FPM's default. Each website's process manager, processes and timeouts are in Website → PHP &amp; settings → Advanced PHP-FPM.</p>
                     <div class="row g-3">
                         <?php foreach ([
                             ['emergency_restart_threshold', 'Emergency restart after this many failed processes', 'e.g. 10'],

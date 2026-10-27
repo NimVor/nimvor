@@ -11,9 +11,9 @@ use WhaCP\Repositories\WebsiteRepository;
 use WhaCP\Support\UserFacingException;
 
 /**
- * Imports a discovered (non-WhaCP) website into WhaCP management.
+ * Imports a discovered (non-WhaCP) website into NimVor management.
  *
- * The agent previews the plan, copies the files into a new WhaCP website
+ * The agent previews the plan, copies the files into a new NimVor website
  * and switches Nginx over, restoring the old configuration on any error.
  * The old configuration and files are left in place, and an import can be
  * undone.
@@ -173,7 +173,7 @@ final class ImportService
 
     /**
      * Undo an import: the old configuration serves the website again and
-     * the WhaCP copy is removed (the original files were never touched).
+     * the NimVor copy is removed (the original files were never touched).
      *
      * @param array<string, mixed> $site
      */

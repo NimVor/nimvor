@@ -1,6 +1,6 @@
 <?php /** @var \WhaCP\View\View $this */ ?>
 <?php $this->start(); ?>Panel users<?php $this->end('title'); ?>
-<?php $this->start(); ?>People who can sign in to WhaCP<?php $this->end('subtitle'); ?>
+<?php $this->start(); ?>People who can sign in to NimVor<?php $this->end('subtitle'); ?>
 <?php if ($this->can(\WhaCP\Security\Permissions::USERS_MANAGE)): ?>
     <?php $this->start(); ?><?php if ($this->hasRoute('accounts.create')): ?><a class="btn btn-sm btn-primary" href="<?= e($this->url('accounts.create')) ?>"><i class="bi bi-person-plus-fill me-1"></i>Create account</a> <?php endif; ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('users.create')) ?>"><i class="bi bi-person-plus me-1"></i>New user</a><?php $this->end('actions'); ?>
 <?php endif; ?>

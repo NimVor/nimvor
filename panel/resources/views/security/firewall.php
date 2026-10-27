@@ -85,7 +85,7 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
 
 <?php if ($required !== []): ?>
 <div class="wcp-panel mb-3" id="fw-required">
-    <div class="fw-semibold mb-1">Ports WhaCP keeps open</div>
+    <div class="fw-semibold mb-1">Ports NimVor keeps open</div>
     <div class="small text-body-secondary mb-2">SSH and the panel are always opened before the firewall is turned on, and their last rule cannot be deleted while it is on. Service ports are those of services listening on this server.</div>
     <div class="wcp-dtable table-responsive">
         <table class="table align-middle">

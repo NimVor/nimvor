@@ -38,7 +38,7 @@ final class TenantIsolationTest extends HttpTestCase
             'document_root' => '/home/whacp/' . $d . '/public_html', 'document_root_exists' => true, 'https' => true, 'https_redirect' => false,
             'php' => ['version' => '8.3', 'pool' => 'whacp-' . $d, 'listen' => 'unix:/run/php/whacp-' . $d . '.sock', 'user' => 'x', 'resolved' => true],
             'ssl' => ['cert_file' => '/etc/letsencrypt/live/' . $d . '/fullchain.pem', 'names' => [$d], 'issuer' => 'R3', 'not_after' => '2030-01-01T00:00:00Z', 'days_remaining' => 900, 'status' => 'valid', 'lets_encrypt' => true, 'covers_domain' => true],
-            'listen' => ['443 ssl'], 'config_files' => ['/etc/nginx/sites-available/whacp-' . $d . '.conf'], 'access_logs' => [], 'error_logs' => [], 'managed_by' => 'WhaCP', 'proxy_pass' => '',
+            'listen' => ['443 ssl'], 'config_files' => ['/etc/nginx/sites-available/whacp-' . $d . '.conf'], 'access_logs' => [], 'error_logs' => [], 'managed_by' => 'NimVor', 'proxy_pass' => '',
         ];
         $this->agent->succeed('discovery.inventory', [
             'websites' => ['websites' => [$site('alice.test'), $site('victim.test')], 'catch_all_vhosts' => 0, 'warnings' => []],

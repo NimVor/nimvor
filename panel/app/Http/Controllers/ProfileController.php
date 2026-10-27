@@ -139,7 +139,7 @@ final class ProfileController extends Controller
     {
         $o = \WhaCP\Security\WebAuthnOrigin::of($request, $this->settings);
         $name = $this->settings->string('panel_name');
-        return Response::json(['success' => true, 'data' => $this->webAuthn->registrationOptions($this->user($request), $o['rp_id'], $name !== '' ? $name : 'WhaCP')]);
+        return Response::json(['success' => true, 'data' => $this->webAuthn->registrationOptions($this->user($request), $o['rp_id'], $name !== '' ? $name : 'NimVor')]);
     }
 
     public function keyAdd(Request $request): Response

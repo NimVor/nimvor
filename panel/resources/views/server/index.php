@@ -117,7 +117,7 @@ $gOn = !empty($graphical['active']) || ($graphical['default_target'] ?? '') === 
             <?php if ($canManage && $isAdmin): ?>
             <tr>
                 <td class="fw-semibold"><i class="bi bi-key me-1"></i>Root password</td>
-                <td class="small wcp-muted">Not stored by WhaCP</td>
+                <td class="small wcp-muted">Not stored by NimVor</td>
                 <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#root-password">Change</button></td>
             </tr>
             <?php endif; ?>
@@ -147,7 +147,7 @@ $gOn = !empty($graphical['active']) || ($graphical['default_target'] ?? '') === 
         <?= $this->csrfField() ?>
         <label class="form-label" for="s-host">Host name</label>
         <input class="form-control" id="s-host" name="hostname" value="<?= e((string) (($settings['hostname'] ?? '') !== '' ? $settings['hostname'] : ($sys['hostname'] ?? ''))) ?>" required>
-        <div class="form-text">A fully qualified name such as server1.example.com. Point its DNS A record at this server before issuing its certificate. WhaCP updates <code>/etc/hosts</code> and, if mail is set up, the mail server for you. After a rename, <a href="<?= e($this->url('server.hostname_references')) ?>">find the old name</a> left in DNS zones and configs.</div>
+        <div class="form-text">A fully qualified name such as server1.example.com. Point its DNS A record at this server before issuing its certificate. NimVor updates <code>/etc/hosts</code> and, if mail is set up, the mail server for you. After a rename, <a href="<?= e($this->url('server.hostname_references')) ?>">find the old name</a> left in DNS zones and configs.</div>
         <div class="d-flex justify-content-end gap-2 mt-3"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save</button></div>
     </form>
 <?= $this->modalEnd() ?>
@@ -164,7 +164,7 @@ $gOn = !empty($graphical['active']) || ($graphical['default_target'] ?? '') === 
 <?= $this->modalEnd() ?>
 <?php if ($isAdmin): ?>
 <?= $this->modalStart('root-password', 'Root password', false, '') ?>
-    <form method="post" action="<?= e($this->url('server.root_password')) ?>" autocomplete="off" data-wcp-busy data-wcp-confirm="Change the root password of this server? Keep the new one somewhere safe: WhaCP does not store it.">
+    <form method="post" action="<?= e($this->url('server.root_password')) ?>" autocomplete="off" data-wcp-busy data-wcp-confirm="Change the root password of this server? Keep the new one somewhere safe: NimVor does not store it.">
         <?= $this->csrfField() ?>
         <label class="form-label" for="s-root1">New password</label>
         <input class="form-control mb-2" type="password" id="s-root1" name="root_password" minlength="14" maxlength="512" autocomplete="new-password" required>
@@ -172,7 +172,7 @@ $gOn = !empty($graphical['active']) || ($graphical['default_target'] ?? '') === 
         <input class="form-control mb-2" type="password" id="s-root2" name="root_password_confirmation" minlength="14" maxlength="512" autocomplete="new-password" required>
         <label class="form-label" for="s-root3">Your panel password</label>
         <input class="form-control" type="password" id="s-root3" name="current_password" autocomplete="current-password" required>
-        <div class="form-text">At least 14 characters with three of: lower case, upper case, digits, symbols. It is never logged or stored by WhaCP; SSH may still refuse root password logins by its own settings.</div>
+        <div class="form-text">At least 14 characters with three of: lower case, upper case, digits, symbols. It is never logged or stored by NimVor; SSH may still refuse root password logins by its own settings.</div>
         <div class="d-flex justify-content-end gap-2 mt-3"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-danger"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Change root password</button></div>
     </form>
 <?= $this->modalEnd() ?>

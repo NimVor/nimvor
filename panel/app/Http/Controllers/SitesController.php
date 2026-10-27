@@ -19,7 +19,7 @@ use WhaCP\Support\ValidationException;
 use WhaCP\View\View;
 
 /**
- * WhaCP-managed websites (create, settings, enable/disable, delete).
+ * NimVor-managed websites (create, settings, enable/disable, delete).
  */
 final class SitesController extends Controller
 {
@@ -299,7 +299,7 @@ final class SitesController extends Controller
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/sites/' . (int) $id, $e);
         }
-        return $this->redirectWithSuccess('/websites', 'Import undone: the original configuration serves ' . $site['domain'] . ' again, and the WhaCP copy was removed.');
+        return $this->redirectWithSuccess('/websites', 'Import undone: the original configuration serves ' . $site['domain'] . ' again, and the NimVor copy was removed.');
     }
 
     public function edit(Request $request, string $id): Response

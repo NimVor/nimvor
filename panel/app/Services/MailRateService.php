@@ -12,7 +12,7 @@ use WhaCP\Support\UserFacingException;
 /**
  * Outgoing mail limits: recipients per website account and hour, counted
  * and enforced by the agent's policy service at the mail server. Website
- * mail (PHP's mail(), cron jobs, deploy hooks) goes through WhaCP's
+ * mail (PHP's mail(), cron jobs, deploy hooks) goes through NimVor's
  * sendmail to it; website accounts may not use Postfix's own sendmail
  * while the limits are on.
  *
@@ -75,7 +75,7 @@ final class MailRateService
 
     /**
      * Turning the limits on first re-applies every PHP website, so its
-     * PHP uses WhaCP's sendmail (websites saved before this version use
+     * PHP uses NimVor's sendmail (websites saved before this version use
      * Postfix's, which website accounts may then no longer use). The
      * limits stay off when a website cannot be re-applied.
      *
@@ -96,7 +96,7 @@ final class MailRateService
                 }
             }
             if ($failed !== []) {
-                throw new UserFacingException('The limits were not turned on: these websites could not be updated to send mail through WhaCP: ' . implode('; ', $failed) . '. Fix them (Websites → the website → Save) and try again.');
+                throw new UserFacingException('The limits were not turned on: these websites could not be updated to send mail through NimVor: ' . implode('; ', $failed) . '. Fix them (Websites → the website → Save) and try again.');
             }
         }
         $this->agent->call('mail.rate_set', ['enabled' => $cfg['enabled'], 'per_hour' => $cfg['per_hour'], 'accounts' => (object) $cfg['accounts']], 180);

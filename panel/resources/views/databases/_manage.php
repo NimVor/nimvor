@@ -58,7 +58,7 @@ $tab = $openUser ? 'users' : 'dbs';
     <span class="small wcp-muted">Use the database name, user and password in your application's settings (e.g. <code>wp-config.php</code> or <code>.env</code>).</span>
 </div>
 <?php if ($live === null): ?>
-    <div class="alert alert-warning small"><i class="bi bi-plug me-1"></i>The database server could not be queried (is MariaDB/MySQL running and reachable as root over its socket?). Showing WhaCP records only.</div>
+    <div class="alert alert-warning small"><i class="bi bi-plug me-1"></i>The database server could not be queried (is MariaDB/MySQL running and reachable as root over its socket?). Showing NimVor records only.</div>
 <?php endif; ?>
 
 <div class="wcp-panel" id="databases">
@@ -147,7 +147,7 @@ $tab = $openUser ? 'users' : 'dbs';
                             </td>
                             <td class="text-end small text-nowrap"><?= $sz !== null ? e(format_bytes((int) $sz['size_bytes'])) . '<div class="wcp-sub">' . (int) $sz['tables'] . ' tables</div>' : '<span class="wcp-muted">—</span>' ?></td>
                             <?php if (!isset($site)): ?><td class="small"><?php if (!empty($d['website']) && !empty($d['website_id']) && $this->can(P::WEBSITES_VIEW)): ?><a href="<?= e($this->url('sites.databases', ['id' => (int) $d['website_id']])) ?>"><?= e($d['website']) ?></a><?php elseif (!empty($d['website'])): ?><?= e($d['website']) ?><?php else: ?><span class="wcp-muted">Localhost</span><?php endif; ?></td><?php endif; ?>
-                            <td class="small"><?php if ($live === null): ?><span class="wcp-muted">unknown</span><?php elseif ($sz !== null): ?><span class="wcp-state is-ok">OK</span><?php else: ?><span class="wcp-state is-error" title="WhaCP has a record of this database, but the database server does not list it.">Missing</span><?php endif; ?></td>
+                            <td class="small"><?php if ($live === null): ?><span class="wcp-muted">unknown</span><?php elseif ($sz !== null): ?><span class="wcp-state is-ok">OK</span><?php else: ?><span class="wcp-state is-error" title="NimVor has a record of this database, but the database server does not list it.">Missing</span><?php endif; ?></td>
                             <td class="text-end">
                                 <?php if ($canManage): ?>
                                     <span class="wcp-ops">
@@ -224,7 +224,7 @@ $tab = $openUser ? 'users' : 'dbs';
                                 <?php if ($u['stored'] && $canManage): ?>
                                     <form method="post" action="<?= e($this->url('dbusers.reveal', ['id' => $uid])) ?>" class="d-inline"><?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>">**********<button class="wcp-icon-op ms-1" title="Show password" aria-label="Show password of <?= e($u['username']) ?>"><i class="bi bi-eye"></i></button></form>
                                 <?php elseif ($u['stored']): ?>**********
-                                <?php else: ?><span class="wcp-muted" title="WhaCP did not keep this password. Set a new one to see it.">Not stored</span><?php endif; ?>
+                                <?php else: ?><span class="wcp-muted" title="NimVor did not keep this password. Set a new one to see it.">Not stored</span><?php endif; ?>
                             </td>
                             <td class="small"><?= $u['host'] === 'localhost' ? 'This server' : ($u['host'] === '%' ? '<span class="wcp-state is-warn">Any host</span>' : '<code>' . e($u['host']) . '</code>') ?></td>
                             <td class="small">

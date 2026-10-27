@@ -1,7 +1,7 @@
 <?php
 /** @var \WhaCP\View\View $this */
 /** @var string $content */
-$pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('title'))) : ($panel_name ?? 'WhaCP');
+$pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('title'))) : ($panel_name ?? 'NimVor');
 ?>
 <!doctype html>
 <html lang="en" data-bs-theme="light">
@@ -9,7 +9,7 @@ $pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('ti
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= e($this->csrfToken()) ?>">
-    <title><?= e($pageTitle) ?> · <?= e($panel_name ?? 'WhaCP') ?></title>
+    <title><?= e($pageTitle) ?> · <?= e($panel_name ?? 'NimVor') ?></title>
     <link rel="icon" href="<?= e($this->asset('assets/img/logo.svg')) ?>" type="image/svg+xml">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap-icons/bootstrap-icons.min.css')) ?>">

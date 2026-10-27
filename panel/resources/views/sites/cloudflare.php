@@ -13,7 +13,7 @@ $status ??= null;
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'cloudflare']) ?>
 
 <?php if ($status === null): ?>
-    <p class="small text-body-secondary">Put <strong><?= e($site['domain']) ?></strong> behind Cloudflare's free CDN, caching and SSL. Create a Cloudflare <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer">API token</a> for your zone with the permissions <code>Zone:Read</code>, <code>DNS:Edit</code>, <code>Zone Settings:Edit</code> and <code>Cache Purge:Purge</code>, then paste it here. WhaCP stores it encrypted and uses it only for your domain.</p>
+    <p class="small text-body-secondary">Put <strong><?= e($site['domain']) ?></strong> behind Cloudflare's free CDN, caching and SSL. Create a Cloudflare <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer">API token</a> for your zone with the permissions <code>Zone:Read</code>, <code>DNS:Edit</code>, <code>Zone Settings:Edit</code> and <code>Cache Purge:Purge</code>, then paste it here. NimVor stores it encrypted and uses it only for your domain.</p>
     <div class="card">
         <div class="card-header"><i class="bi bi-cloud me-1" aria-hidden="true"></i>Connect Cloudflare</div>
         <form class="card-body" method="post" action="<?= e($this->url('sites.cloudflare.connect', ['id' => $id])) ?>" data-wcp-busy>
@@ -58,7 +58,7 @@ $status ??= null;
                     </div>
                     <div class="col-sm-4"><button class="btn btn-outline-primary w-100">Save</button></div>
                 </form>
-                <p class="small text-body-secondary mt-2 mb-0">Use <strong>Full (strict)</strong> when your site already has a valid certificate (WhaCP's Let's Encrypt), so traffic is encrypted end to end.</p>
+                <p class="small text-body-secondary mt-2 mb-0">Use <strong>Full (strict)</strong> when your site already has a valid certificate (NimVor's Let's Encrypt), so traffic is encrypted end to end.</p>
                 <hr>
                 <form method="post" action="<?= e($this->url('sites.cloudflare.always_https', ['id' => $id])) ?>" data-wcp-busy class="form-check form-switch mb-0">
                     <?= $this->csrfField() ?>

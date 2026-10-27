@@ -2,7 +2,7 @@
 
 **NimVor — A free, open-source server control panel**
 
-*(formerly WhaCP; the program, service and path names on the server are still `whacp`.)*
+*(formerly NimVor; the program, service and path names on the server are still `whacp`.)*
 
 NimVor is a free, MIT-licensed control panel for VPS and dedicated servers. It is
 built around one rule: **a control panel has root-level consequences, so every
@@ -10,11 +10,11 @@ privileged operation must be explicit, validated, audited and reversible.**
 
 > **Status: 1.0.0-rc1 — release candidate.** What was tested for this
 > release, and what was not, is listed in
-> [docs/release/1.0.0-rc1-audit.md](docs/release/1.0.0-rc1-audit.md). WhaCP has
+> [docs/release/1.0.0-rc1-audit.md](docs/release/1.0.0-rc1-audit.md). NimVor has
 > not yet run on a wide range of production servers. Install it in read-only
 > mode first (the default): it inventories the server **without changing
 > anything**. Turn on write mode with `--enable-writes` when you are ready to
-> let WhaCP manage websites.
+> let NimVor manage websites.
 
 ## What works today
 
@@ -45,7 +45,7 @@ privileged operation must be explicit, validated, audited and reversible.**
 ## Architecture in one picture
 
 ```text
- Browser ──HTTPS/SSH tunnel──▶ WhaCP Panel (PHP 8.3+, MVC, SQLite)      REST API /api/v1 (tokens)
+ Browser ──HTTPS/SSH tunnel──▶ NimVor Panel (PHP 8.3+, MVC, SQLite)      REST API /api/v1 (tokens)
                                    │  never runs shell commands
                                    │  POST /v1/actions/<name>  (bearer token)
                     ┌──────────────┴──────────────────────────┐
@@ -54,7 +54,7 @@ privileged operation must be explicit, validated, audited and reversible.**
    SO_PEERCRED check)                             public key, client IP allowlist
                     │                                         │
                     ▼                                         ▼
-                     WhaCP Agent (Go, systemd; read-only sandbox unless write mode)
+                     NimVor Agent (Go, systemd; read-only sandbox unless write mode)
                        ├─ named actions only · write gate · jobs for long work
                        ├─ Detect → Back up → Validate → Apply → Verify → Roll back
                        ├─ Nginx · PHP-FPM · SSL · MySQL/MariaDB · Redis · backups
@@ -95,9 +95,9 @@ ssh -L 8090:127.0.0.1:8090 your-server         # then open http://127.0.0.1:8090
 sudo ./installer/install.sh --reinstall --public-https
 ```
 
-By default WhaCP is **read-only**: the installer never edits Nginx, PHP-FPM,
+By default NimVor is **read-only**: the installer never edits Nginx, PHP-FPM,
 database, firewall or SSH configuration and never reloads existing services.
-Add `--enable-writes` to let WhaCP manage the server. Missing dependencies
+Add `--enable-writes` to let NimVor manage the server. Missing dependencies
 (PHP extensions, Go, Composer, Nginx for `--public-https`) are installed from
 the distribution's repositories (`--no-install-deps` only lists them).
 
@@ -142,7 +142,7 @@ storage/      notes on where runtime state lives
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - [CHANGELOG.md](CHANGELOG.md)
 
-WhaCP is an original implementation. It contains no code, assets, branding or
+NimVor is an original implementation. It contains no code, assets, branding or
 terminology taken from other control panels.
 
 ## License

@@ -10,13 +10,13 @@ $groups = Navigation::visible($this);
     <div class="wcp-sidebar-head">
     <a class="wcp-brand" href="<?= e($this->url('dashboard')) ?>">
         <img src="<?= e($this->asset('assets/img/logo.svg')) ?>" alt="" width="28" height="28">
-        <span><?= e($panel_name ?? 'WhaCP') ?></span>
+        <span><?= e($panel_name ?? 'NimVor') ?></span>
     </a>
     <?php $st = isset($agent_status) && is_callable($agent_status) ? $agent_status() : null; ?>
     <?php if ($st === null): ?>
-        <div class="wcp-mode-pill is-offline" title="The WhaCP agent is not reachable."><i class="bi bi-plug"></i> Agent offline</div>
+        <div class="wcp-mode-pill is-offline" title="The NimVor agent is not reachable."><i class="bi bi-plug"></i> Agent offline</div>
     <?php elseif (empty($st['write_enabled'])): ?>
-        <div class="wcp-mode-pill" title="The agent is in read-only mode: WhaCP observes the server but does not change it."><i class="bi bi-eye"></i> Read-only mode</div>
+        <div class="wcp-mode-pill" title="The agent is in read-only mode: NimVor observes the server but does not change it."><i class="bi bi-eye"></i> Read-only mode</div>
     <?php endif; ?>
     <button class="wcp-search-trigger wcp-sidebar-search" type="button" data-bs-toggle="modal" data-bs-target="#wcp-palette" aria-label="Search tools (Ctrl+K)">
         <i class="bi bi-search" aria-hidden="true"></i><span>Search tools…</span><kbd>Ctrl K</kbd>

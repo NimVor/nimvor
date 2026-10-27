@@ -50,7 +50,7 @@ $whereLabel = ['backups' => 'Made here', 'uploaded' => 'Uploaded', 'folder' => '
 <div class="tab-pane fade" id="server" role="tabpanel">
     <?php if ($canManage): ?>
     <div class="wcp-actionbar mb-3 px-0">
-        <div class="small text-body-secondary">Nginx, PHP, MySQL, Redis, certificates, SSH/firewall and WhaCP configuration for disaster recovery. Always encrypted: it contains private keys.</div>
+        <div class="small text-body-secondary">Nginx, PHP, MySQL, Redis, certificates, SSH/firewall and NimVor configuration for disaster recovery. Always encrypted: it contains private keys.</div>
         <div class="wcp-actionbar-end">
             <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#server-schedule"><i class="bi bi-calendar-check me-1"></i>Backup schedule</button>
             <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#server-backup"><i class="bi bi-plus-lg me-1"></i>Back up the server configuration</button>

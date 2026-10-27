@@ -54,7 +54,7 @@ final class ServersController extends Controller
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/servers', $e);
         }
-        return $this->redirectWithSuccess('/servers', 'Server removed from WhaCP. Nothing was changed on it.');
+        return $this->redirectWithSuccess('/servers', 'Server removed from NimVor. Nothing was changed on it.');
     }
 
     public function switch(Request $request): Response

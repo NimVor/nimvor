@@ -10,7 +10,7 @@ $dis = $canManage ? '' : ' disabled';
 <?= $this->partial('security/_header', get_defined_vars()) ?>
 
 <div class="wcp-panel mb-3">
-    <p class="mb-0">This interface provides the configuration settings of the Security Policy that apply to WhaCP, WhaCP webmail, and on the server.</p>
+    <p class="mb-0">This interface provides the configuration settings of the Security Policy that apply to NimVor, NimVor webmail, and on the server.</p>
 </div>
 
 <form method="post" action="<?= e($this->url('security.policies.save')) ?>" data-wcp-busy>
@@ -24,12 +24,12 @@ $dis = $canManage ? '' : ' disabled';
                 <input class="form-check-input" type="checkbox" role="switch" id="p-ips" name="policy_verified_ips" value="1"<?= !empty($values['policy_verified_ips']) ? ' checked' : '' ?><?= $dis ?>>
                 <label class="form-check-label fw-medium" for="p-ips">Limit logins to verified IP addresses</label>
             </div>
-            <div class="small text-body-secondary mt-1">A WhaCP sign-in from an IP address the user has not verified needs a 6-digit code sent to the user's email address. Addresses users sign in from are remembered; when you turn this on, each user's last sign-in address counts as verified. Users without an email address can only sign in from verified addresses. On the server, <code>sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:verify-ip &lt;user&gt; &lt;ip&gt;</code> verifies an address for a user.</div>
+            <div class="small text-body-secondary mt-1">A NimVor sign-in from an IP address the user has not verified needs a 6-digit code sent to the user's email address. Addresses users sign in from are remembered; when you turn this on, each user's last sign-in address counts as verified. Users without an email address can only sign in from verified addresses. On the server, <code>sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:verify-ip &lt;user&gt; &lt;ip&gt;</code> verifies an address for a user.</div>
         </div>
 
         <div class="border-bottom pb-3 mb-3">
             <div class="fw-medium">Two-Factor Authentication: Google Authenticator</div>
-            <div class="small text-body-secondary mb-2">Users of the selected roles must set up an authenticator app (Google Authenticator or any TOTP app) or a security key before they can use WhaCP.</div>
+            <div class="small text-body-secondary mb-2">Users of the selected roles must set up an authenticator app (Google Authenticator or any TOTP app) or a security key before they can use NimVor.</div>
             <?php foreach ($roles as $role): ?>
                 <div class="form-check form-check-inline">
                     <input class="form-check-input" type="checkbox" name="two_factor_roles[]" value="<?= (int) $role['id'] ?>" id="p-2fa-<?= (int) $role['id'] ?>"<?= !empty($role['require_two_factor']) ? ' checked' : '' ?><?= $dis ?>>
@@ -44,7 +44,7 @@ $dis = $canManage ? '' : ' disabled';
                 <input class="form-check-input" type="checkbox" role="switch" id="p-strength" name="policy_password_strength" value="1"<?= !empty($values['policy_password_strength']) ? ' checked' : '' ?><?= $dis ?>>
                 <label class="form-check-label fw-medium" for="p-strength">Password Strength</label>
             </div>
-            <div class="small text-body-secondary mt-1">New passwords of WhaCP users, mailboxes (webmail) and the server's root password must meet the <a href="<?= e($this->url('security.password_strength')) ?>">Password Strength Configuration</a>: <?= e($rules) ?></div>
+            <div class="small text-body-secondary mt-1">New passwords of NimVor users, mailboxes (webmail) and the server's root password must meet the <a href="<?= e($this->url('security.password_strength')) ?>">Password Strength Configuration</a>: <?= e($rules) ?></div>
         </div>
 
         <div class="mb-3">
@@ -53,7 +53,7 @@ $dis = $canManage ? '' : ' disabled';
                 <input class="form-control" type="number" min="0" max="3650" id="p-age" name="policy_password_age_days" value="<?= (int) $values['policy_password_age_days'] ?>"<?= $dis ?>>
                 <span class="input-group-text">days</span>
             </div>
-            <div class="small text-body-secondary mt-1">WhaCP users must choose a new password when theirs is older than this. 0 turns it off.</div>
+            <div class="small text-body-secondary mt-1">NimVor users must choose a new password when theirs is older than this. 0 turns it off.</div>
         </div>
         <?php if ($canManage): ?><button class="btn btn-primary btn-sm">Save</button><?php endif; ?>
     </div>

@@ -58,7 +58,7 @@ $rootLabels = ['prohibit-password' => 'With SSH keys only', 'no' => 'Not allowed
     <?php if ($canManage): ?>
         <div class="pt-3 d-flex flex-wrap align-items-center gap-3">
             <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Validate and apply</button>
-            <span class="small wcp-muted">Checked with <code>sshd -t</code> and undone after 2 minutes unless you confirm. Keep your current session open and test a new connection before confirming. WhaCP manages <code><?= e($ssh['managed_file'] ?? '') ?></code> only.</span>
+            <span class="small wcp-muted">Checked with <code>sshd -t</code> and undone after 2 minutes unless you confirm. Keep your current session open and test a new connection before confirming. NimVor manages <code><?= e($ssh['managed_file'] ?? '') ?></code> only.</span>
         </div>
         </form>
     <?php endif; ?>
@@ -116,7 +116,7 @@ $rootLabels = ['prohibit-password' => 'With SSH keys only', 'no' => 'Not allowed
         </div>
         <div class="pt-2 d-flex flex-wrap align-items-center gap-3">
             <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Generate and allow key</button>
-            <span class="small wcp-muted">Creates an RSA 4096 key pair, allows it for the account at once and shows the private key one time for download. The passphrase protects the downloaded file; WhaCP does not keep the private key or the passphrase.</span>
+            <span class="small wcp-muted">Creates an RSA 4096 key pair, allows it for the account at once and shows the private key one time for download. The passphrase protects the downloaded file; NimVor does not keep the private key or the passphrase.</span>
         </div>
     </form>
     <form method="post" action="<?= e($this->url('security.ssh.key_add')) ?>" data-wcp-busy>

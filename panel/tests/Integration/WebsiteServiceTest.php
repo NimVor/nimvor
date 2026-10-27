@@ -126,12 +126,12 @@ final class WebsiteServiceTest extends DatabaseTestCase
 
     public function testFailedCreateLeavesNoRecord(): void
     {
-        $this->agent->fail('sites.apply', 409, 'conflict', 'a.test is already configured in /etc/nginx/sites-enabled/a (configuration not managed by WhaCP, enabled).');
+        $this->agent->fail('sites.apply', 409, 'conflict', 'a.test is already configured in /etc/nginx/sites-enabled/a (configuration not managed by NimVor, enabled).');
         try {
             $this->svc->create(['domain' => 'a.test', 'kind' => 'static'], $this->admin);
             self::fail('expected agent error');
         } catch (AgentException $e) {
-            self::assertStringContainsString('not managed by WhaCP', $e->getMessage());
+            self::assertStringContainsString('not managed by NimVor', $e->getMessage());
         }
         self::assertNull($this->repo->findByDomain(1, 'a.test'));
         self::assertNull($this->repo->domainOwner(1, 'a.test'));

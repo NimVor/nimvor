@@ -200,7 +200,7 @@ final class AccountBackupService
         $m = (array) ($res['manifest'] ?? []);
         $meta = (array) ($m['meta'] ?? []);
         if ((int) ($meta['format'] ?? 0) !== self::FORMAT || !is_array($meta['user'] ?? null)) {
-            throw new UserFacingException('This account backup was made by a WhaCP version this panel cannot read.');
+            throw new UserFacingException('This account backup was made by a NimVor version this panel cannot read.');
         }
         return ['manifest' => $m, 'plan' => $this->plan($meta)];
     }

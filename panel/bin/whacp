@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 /**
- * WhaCP panel command-line tool.
+ * NimVor panel command-line tool.
  *
  *   bin/whacp migrate                     Apply database migrations and sync roles
  *   bin/whacp user:create <username> <email> [--role=admin]
@@ -454,13 +454,13 @@ switch ($command) {
                     }
                 }
             }
-            // A newer WhaCP for this server (the top bar's update button).
+            // A newer NimVor for this server (the top bar's update button).
             if ((int) $srv['id'] === 1) {
                 $updates = $c->get(\WhaCP\Services\UpdateCheckService::class);
                 if ($updates->due()) {
                     $u = $updates->check();
                     if (!empty($u['available'])) {
-                        out('[' . $srv['name'] . '] a WhaCP update is available');
+                        out('[' . $srv['name'] . '] a NimVor update is available');
                     }
                 }
             }
@@ -511,5 +511,5 @@ switch ($command) {
         break;
 
     default:
-        out("WhaCP panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  user:verify-ip <username> <ip>\n  hulk:geo-import <file>\n  hulk:unblock <ip|user|all>\n  agent:check\n  discovery:run\n  cron:sync\n  schedule:run\n  doctor\n  modsec:installs\n  modsec:rollback <installation id>");
+        out("NimVor panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  user:verify-ip <username> <ip>\n  hulk:geo-import <file>\n  hulk:unblock <ip|user|all>\n  agent:check\n  discovery:run\n  cron:sync\n  schedule:run\n  doctor\n  modsec:installs\n  modsec:rollback <installation id>");
 }

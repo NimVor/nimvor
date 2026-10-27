@@ -8,7 +8,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= e($this->csrfToken()) ?>">
-    <title><?= e($title ?? 'Sign in') ?> · <?= e($panel_name ?? 'WhaCP') ?></title>
+    <title><?= e($title ?? 'Sign in') ?> · <?= e($panel_name ?? 'NimVor') ?></title>
     <link rel="icon" href="<?= e($this->asset('assets/img/logo.svg')) ?>" type="image/svg+xml">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap-icons/bootstrap-icons.min.css')) ?>">
@@ -19,10 +19,10 @@
 <main class="wcp-auth">
     <div class="wcp-auth-brand">
         <img src="<?= e($this->asset('assets/img/logo.svg')) ?>" alt="" width="40" height="40">
-        <span><?= e($panel_name ?? 'WhaCP') ?></span>
+        <span><?= e($panel_name ?? 'NimVor') ?></span>
     </div>
     <?= $content ?>
-    <p class="wcp-auth-foot">WhaCP <?= e($app_version ?? '') ?></p>
+    <p class="wcp-auth-foot">NimVor <?= e($app_version ?? '') ?></p>
 </main>
 </body>
 </html>

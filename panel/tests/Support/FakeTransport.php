@@ -49,7 +49,7 @@ final class FakeTransport implements AgentTransport
     {
         $this->requests[] = ['method' => $method, 'path' => $path, 'body' => $body, 'token' => $token];
         if ($this->down) {
-            throw new AgentUnavailableException('The WhaCP agent is not reachable.', 'socket missing', 'start it', 'agent_unavailable');
+            throw new AgentUnavailableException('The NimVor agent is not reachable.', 'socket missing', 'start it', 'agent_unavailable');
         }
         if (isset($this->responses[$path])) {
             return $this->responses[$path];

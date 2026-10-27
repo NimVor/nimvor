@@ -9,7 +9,7 @@ $fields = ['password_min_strength' => 'Password strength', 'password_min_length'
 <?= $this->partial('security/_header', get_defined_vars()) ?>
 
 <div class="wcp-panel mb-3">
-    <p class="mb-2">The minimum requirements for new passwords of WhaCP users, mailboxes (webmail) and the server's root password. Existing passwords are not changed; use Password Age (Configure Security Policies) to make users choose new ones.</p>
+    <p class="mb-2">The minimum requirements for new passwords of NimVor users, mailboxes (webmail) and the server's root password. Existing passwords are not changed; use Password Age (Configure Security Policies) to make users choose new ones.</p>
     <div class="d-flex flex-wrap align-items-center gap-2">
         <span class="fw-medium">Enforcement:</span>
         <?= !empty($values['policy_password_strength']) ? '<span class="wcp-state is-ok">On</span>' : '<span class="wcp-state is-off">Off</span>' ?>

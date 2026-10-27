@@ -17,7 +17,7 @@ $workersUrl = \WhaCP\View\SiteMenu::url($this, $site, 'workers');
 $port = preg_match('/:(\d+)/', (string) ($site['proxy_pass'] ?? ''), $m) ? $m[1] : '';
 ?>
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => $appType === 'python' ? 'python' : 'nodejs']) ?>
-<p class="small text-body-secondary">Your <strong><?= e($label) ?></strong> app runs as a background service on a WhaCP-managed runtime, and <?= e($site['domain']) ?> is served in front of it<?= $port !== '' ? ' (it must listen on port <code>' . e($port) . '</code>)' : '' ?>.</p>
+<p class="small text-body-secondary">Your <strong><?= e($label) ?></strong> app runs as a background service on a NimVor-managed runtime, and <?= e($site['domain']) ?> is served in front of it<?= $port !== '' ? ' (it must listen on port <code>' . e($port) . '</code>)' : '' ?>.</p>
 
 <div class="row g-3">
     <div class="col-lg-6">

@@ -54,7 +54,7 @@ $icons = ['mailbox' => 'bi-inbox text-success', 'forward' => 'bi-arrow-return-ri
             <div class="card-body small">
                 <ul class="mb-0 ps-3">
                     <li>Spam filter (Rspamd) state and restart: <a href="<?= e($this->url('mail.admin.server')) ?>">Mail server</a>; its settings: <a href="<?= e($this->url('mail')) ?>">Email</a> → spam filter.</li>
-                    <li>Mailbox format: WhaCP stores every mailbox as Maildir, so there is nothing to convert.</li>
+                    <li>Mailbox format: NimVor stores every mailbox as Maildir, so there is nothing to convert.</li>
                     <li>DNS of a domain (MX, SPF, DKIM, DMARC, reverse DNS): the domain's page under Email → Check DNS.</li>
                 </ul>
             </div>

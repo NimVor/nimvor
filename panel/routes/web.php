@@ -452,7 +452,7 @@ return static function (Router $r): void {
     $r->post('/server/graphical', [SystemController::class, 'graphical'], ['name' => 'server.graphical', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/reboot', [SystemController::class, 'reboot'], ['name' => 'server.reboot', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/reboot/cancel', [SystemController::class, 'cancelReboot'], ['name' => 'server.reboot_cancel', 'permission' => P::SERVER_MANAGE]);
-    // Top bar: load, restart every service, WhaCP updates.
+    // Top bar: load, restart every service, NimVor updates.
     $r->get('/topbar/status', [\WhaCP\Http\Controllers\TopbarController::class, 'status'], ['name' => 'topbar.status', 'permission' => P::MONITORING_VIEW]);
     $r->post('/services/restart-all', [\WhaCP\Http\Controllers\TopbarController::class, 'restartAll'], ['name' => 'services.restart_all', 'permission' => P::SERVICES_MANAGE]);
     $r->get('/whacp/update', [\WhaCP\Http\Controllers\TopbarController::class, 'update'], ['name' => 'whacp.update', 'permission' => P::SERVER_MANAGE]);

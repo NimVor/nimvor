@@ -74,9 +74,9 @@
         if (op === 'stop' && !window.confirm('Stop ' + unit + '? Websites or mail that use it stop working until it is started again.')) { return; }
         busyUnit = unit;
         btn.disabled = true;
-        WhaCP.fetchJson(url, { method: 'POST', body: JSON.stringify({ unit: unit, op: op }) })
-            .then(function (res) { WhaCP.toast(res.message || (op + ' of ' + unit + ' completed.'), 'success'); })
-            .catch(function (err) { WhaCP.toast(err.message, 'danger'); })
+        NimVor.fetchJson(url, { method: 'POST', body: JSON.stringify({ unit: unit, op: op }) })
+            .then(function (res) { NimVor.toast(res.message || (op + ' of ' + unit + ' completed.'), 'success'); })
+            .catch(function (err) { NimVor.toast(err.message, 'danger'); })
             .then(function () { busyUnit = null; tick(); });
     }
 
@@ -150,7 +150,7 @@
         if (m.load) {
             setMetric('load', m.load.load1.toFixed(2), m.load.load5.toFixed(2) + ' · ' + m.load.load15.toFixed(2) + ' (5/15 min)', null);
             // The top bar shows the same values.
-            if (window.WhaCP && WhaCP.setTopbarLoad) { WhaCP.setTopbarLoad([m.load.load1, m.load.load5, m.load.load15]); }
+            if (window.NimVor && NimVor.setTopbarLoad) { NimVor.setTopbarLoad([m.load.load1, m.load.load5, m.load.load15]); }
         }
         var up = document.querySelector('[data-uptime]');
         if (up && m.uptime_seconds) { up.textContent = fmtDuration(m.uptime_seconds); }
@@ -181,7 +181,7 @@
 
     function tick() {
         if (document.hidden) { schedule(); return; }
-        WhaCP.fetchJson(url).then(function (data) {
+        NimVor.fetchJson(url).then(function (data) {
             failures = 0;
             render(data);
             if (statusEl) { statusEl.textContent = 'Live · updated ' + new Date().toLocaleTimeString(); }

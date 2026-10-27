@@ -38,7 +38,7 @@
         <div class="card mt-3" id="sessions">
             <div class="card-header"><i class="bi bi-laptop me-1"></i>Sessions</div>
             <div class="card-body">
-                <p class="small text-body-secondary mb-2">Sign out of WhaCP on every other browser and device, for example after using a shared computer. This browser stays signed in. Changing your password does the same.</p>
+                <p class="small text-body-secondary mb-2">Sign out of NimVor on every other browser and device, for example after using a shared computer. This browser stays signed in. Changing your password does the same.</p>
                 <form method="post" action="<?= e($this->url('profile.sessions.revoke')) ?>" data-wcp-busy data-wcp-confirm="Sign out everywhere else?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Sign out other sessions</button></form>
             </div>
         </div>

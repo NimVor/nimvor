@@ -72,7 +72,7 @@ final class WebsitesController extends Controller
         }
         $list['ssl'] = self::sslByDomain($inventory['data']);
         $list['nginxVersion'] = isset($inventory['data']['websites']['nginx_version']) ? (string) $inventory['data']['websites']['nginx_version'] : null;
-        // Sites created by WhaCP are listed as managed, not as discovered.
+        // Sites created by NimVor are listed as managed, not as discovered.
         $sites = array_values(array_filter(
             DiscoveryService::websites($inventory['data']),
             static function (array $s): bool {

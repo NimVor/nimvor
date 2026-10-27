@@ -26,7 +26,7 @@ $ssh = isset($trust['host_key']);
                         <dt class="col-sm-3">Certificate</dt><dd class="col-sm-9"><code><?= e($trust['tls_subject'] ?? '') ?></code></dd>
                         <dt class="col-sm-3">Public key pin</dt><dd class="col-sm-9"><code id="trust-fp"><?= e($trust['tls_pin'] ?? '') ?></code></dd>
                     </dl>
-                    <p class="small text-body-secondary">The certificate is not signed by a trusted authority (for example it is self-signed), so WhaCP pins its public key: backups stop if the server ever presents a different key.</p>
+                    <p class="small text-body-secondary">The certificate is not signed by a trusted authority (for example it is self-signed), so NimVor pins its public key: backups stop if the server ever presents a different key.</p>
                 <?php endif; ?>
                 <form method="post" action="<?= e($this->url('backups.storages.trust')) ?>" class="d-flex gap-2" data-wcp-busy>
                     <?= $this->csrfField() ?>

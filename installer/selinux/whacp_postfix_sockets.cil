@@ -1,6 +1,6 @@
-; Managed by WhaCP (installer/install.sh).
+; Managed by NimVor (installer/install.sh).
 ;
-; WhaCP's greylisting and mail limits are Postfix policy services started
+; NimVor's greylisting and mail limits are Postfix policy services started
 ; by systemd socket units (whacp-greylist.socket, whacp-mailrate.socket).
 ; Their sockets live in Postfix's private folder, where smtpd reaches them:
 ; /var/spool/postfix/private (postfix_private_t).

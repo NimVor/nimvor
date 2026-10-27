@@ -122,7 +122,7 @@ final class SslCenterController extends Controller
             match ($source) {
                 'letsencrypt' => $this->agent->call('ssl.delete', ['cert_name' => $name], 60),
                 'whacp' => $this->agent->call('ssl.custom_delete', ['name' => $name], 60),
-                default => throw new UserFacingException('Only Let\'s Encrypt and WhaCP certificates can be deleted here.'),
+                default => throw new UserFacingException('Only Let\'s Encrypt and NimVor certificates can be deleted here.'),
             };
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/ssl/certificates', $e);

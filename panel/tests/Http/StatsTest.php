@@ -79,7 +79,7 @@ TXT;
         self::assertSame([], StatsService::parse("garbage\nBEGIN_DAY 1\nnot-a-date 1 2 3 4\nEND_DAY\n")['days']);
     }
 
-    /** Output of AWStats 7.9 itself (WhaCP's configuration, a combined-format log). */
+    /** Output of AWStats 7.9 itself (NimVor's configuration, a combined-format log). */
     public function testParsesRealAwstatsOutput(): void
     {
         $r = StatsService::parse((string) file_get_contents(dirname(__DIR__) . '/Fixtures/awstats-7.9-real.txt'));

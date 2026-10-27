@@ -7,7 +7,7 @@ namespace WhaCP\Agent;
 use WhaCP\Support\Logger;
 
 /**
- * Calls named actions on the WhaCP agent.
+ * Calls named actions on the NimVor agent.
  *
  * The panel never runs privileged commands itself; everything that touches
  * the host goes through an explicit agent action.
@@ -62,7 +62,7 @@ class AgentClient
         if (!is_array($json)) {
             $this->logger->error('agent returned invalid JSON', ['action' => $action, 'status' => $response->status]);
             throw new AgentException(
-                'The WhaCP agent returned an unexpected response.',
+                'The NimVor agent returned an unexpected response.',
                 'The response could not be decoded.',
                 'Make sure the panel and agent versions match.',
                 'agent_bad_response',
@@ -82,11 +82,11 @@ class AgentClient
             throw new AgentException($message, '', '', $code, $status, null, $details);
         }
         [$title, $remedy] = match ($code) {
-            'unauthorized' => ['The panel could not authenticate with the WhaCP agent.', 'Verify that the panel and agent use the same token file and that the panel user may read it.'],
+            'unauthorized' => ['The panel could not authenticate with the NimVor agent.', 'Verify that the panel and agent use the same token file and that the panel user may read it.'],
             'write_disabled' => ['This server is in read-only mode.', 'The agent runs in read-only mode; enable write mode (see docs/installation, "Enabling write mode") to manage websites, databases and services.'],
             'unknown_action' => ['The agent does not support this action.', 'Upgrade the agent so that it matches the panel version.'],
             'timeout' => ['The action took too long to complete.', 'Try again; if it keeps failing, check the agent log.'],
-            default => ['The WhaCP agent could not complete the request.', 'Check the agent log (journalctl -u whacp-agent) for request ' . ($json['request_id'] ?? '') . '.'],
+            default => ['The NimVor agent could not complete the request.', 'Check the agent log (journalctl -u whacp-agent) for request ' . ($json['request_id'] ?? '') . '.'],
         };
         throw new AgentException($title, $message, $remedy, $code, $status, null, $details);
     }
@@ -99,7 +99,7 @@ class AgentClient
         $raw = is_readable($this->tokenFile) ? @file_get_contents($this->tokenFile) : false;
         if ($raw === false || trim($raw) === '') {
             throw new AgentUnavailableException(
-                'The panel could not authenticate with the WhaCP agent.',
+                'The panel could not authenticate with the NimVor agent.',
                 'The agent token file is missing or not readable by the panel.',
                 'Run the installer again or check the permissions of the configured token file.',
                 'agent_token_missing',

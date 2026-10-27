@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Update WhaCP from its source checkout in one step:
+# Update NimVor from its source checkout in one step:
 #
 #   sudo ./installer/update.sh [install.sh options]
 #
@@ -30,7 +30,7 @@ main() {
 
     [[ $EUID -eq 0 ]] || die "run as root: sudo $0"
     [[ -d $src/.git ]] || die "$src is not a git checkout; for a release archive, download the new release and run its installer/upgrade.sh"
-    [[ -d /opt/whacp && -d /etc/whacp ]] || die "WhaCP is not installed here; run installer/install.sh"
+    [[ -d /opt/whacp && -d /etc/whacp ]] || die "NimVor is not installed here; run installer/install.sh"
     command -v git >/dev/null || die "git is not installed"
 
     owner=$(stat -c %U "$src")
@@ -38,7 +38,7 @@ main() {
         if [[ $owner == root ]]; then "$@"; else runuser -u "$owner" -- "$@"; fi
     }
 
-    log "Updating the WhaCP checkout in $src (owner: $owner)"
+    log "Updating the NimVor checkout in $src (owner: $owner)"
     if [[ $owner != root && -n $(find "$src" ! -user "$owner" -print -quit 2>/dev/null) ]]; then
         chown -R "$owner": "$src"
         ok "gave files left by root back to $owner"

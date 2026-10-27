@@ -6,7 +6,7 @@ namespace WhaCP\Tests\Http;
 
 use WhaCP\Tests\Support\HttpTestCase;
 
-/** WhaCP's own services on the Services page. */
+/** NimVor's own services on the Services page. */
 final class WhacpServicesTest extends HttpTestCase
 {
     protected function setUp(): void

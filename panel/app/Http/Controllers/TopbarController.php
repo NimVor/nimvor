@@ -19,7 +19,7 @@ use WhaCP\View\View;
 
 /**
  * The top bar's server tools for administrators: the load (refreshed while
- * a page is open), restarting every service at once, and updating WhaCP.
+ * a page is open), restarting every service at once, and updating NimVor.
  */
 final class TopbarController extends Controller
 {
@@ -54,7 +54,7 @@ final class TopbarController extends Controller
         return Response::json(['success' => true, 'load' => $st['load'] ?? null, 'update' => $this->updates->available()]);
     }
 
-    /** Restart every running service WhaCP manages, then the agent and the panel. */
+    /** Restart every running service NimVor manages, then the agent and the panel. */
     public function restartAll(Request $request): Response
     {
         $back = \WhaCP\Http\Middleware\Authenticate::safePath($request->header('Referer'));
@@ -73,11 +73,11 @@ final class TopbarController extends Controller
         return $this->redirectWithSuccess($back, 'Restarting ' . count((array) ($res['services'] ?? [])) . ' services; the panel restarts last, so this page may not answer for a few seconds.');
     }
 
-    /** The WhaCP update page: installed and newest version, the last update's output. */
+    /** The NimVor update page: installed and newest version, the last update's output. */
     public function update(Request $request): Response
     {
         if (!$this->admin($request)) {
-            return $this->render('errors/error', ['title' => 'Access denied', 'message' => 'Updating WhaCP is for server administrators.', 'status' => 403], 403);
+            return $this->render('errors/error', ['title' => 'Access denied', 'message' => 'Updating NimVor is for server administrators.', 'status' => 403], 403);
         }
         $status = null;
         $error = null;
@@ -96,17 +96,17 @@ final class TopbarController extends Controller
     public function updateCheck(Request $request): Response
     {
         if (!$this->admin($request)) {
-            return $this->redirectWithError('/whacp/update', 'Updating WhaCP is for server administrators.');
+            return $this->redirectWithError('/whacp/update', 'Updating NimVor is for server administrators.');
         }
         $c = $this->updates->check();
-        return !empty($c['available']) ? $this->redirectWithSuccess('/whacp/update', 'A newer version of WhaCP is available.')
-            : ($c['state'] === 'current' ? $this->redirectWithSuccess('/whacp/update', 'WhaCP is up to date.') : $this->redirectWithError('/whacp/update', 'The newest version could not be looked up. ' . (string) $c['reason']));
+        return !empty($c['available']) ? $this->redirectWithSuccess('/whacp/update', 'A newer version of NimVor is available.')
+            : ($c['state'] === 'current' ? $this->redirectWithSuccess('/whacp/update', 'NimVor is up to date.') : $this->redirectWithError('/whacp/update', 'The newest version could not be looked up. ' . (string) $c['reason']));
     }
 
     public function updateStart(Request $request): Response
     {
         if (!$this->admin($request)) {
-            return $this->redirectWithError('/whacp/update', 'Updating WhaCP is for server administrators.');
+            return $this->redirectWithError('/whacp/update', 'Updating NimVor is for server administrators.');
         }
         try {
             $this->agent->call('whacp.update', [], 30);

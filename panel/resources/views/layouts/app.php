@@ -1,7 +1,7 @@
 <?php
 /** @var \WhaCP\View\View $this */
 /** @var string $content */
-$pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('title'))) : ($panel_name ?? 'WhaCP');
+$pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('title'))) : ($panel_name ?? 'NimVor');
 // Hosting customers: no sidebar, the brand in the top bar leads to their websites.
 $simple = $this->simpleLayout();
 // Server administrators: the server's name, system, version and load in the top bar.
@@ -15,7 +15,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= e($this->csrfToken()) ?>">
-    <title><?= e($pageTitle) ?> · <?= e($panel_name ?? 'WhaCP') ?></title>
+    <title><?= e($pageTitle) ?> · <?= e($panel_name ?? 'NimVor') ?></title>
     <link rel="icon" href="<?= e($this->asset('assets/img/logo.svg')) ?>" type="image/svg+xml">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap-icons/bootstrap-icons.min.css')) ?>">
@@ -32,7 +32,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
             <div class="wcp-brandbar">
                 <a class="wcp-brand" href="<?= e($this->url('websites')) ?>">
                     <img src="<?= e($this->asset('assets/img/logo.svg')) ?>" alt="" width="26" height="26">
-                    <span><?= e($panel_name ?? 'WhaCP') ?></span>
+                    <span><?= e($panel_name ?? 'NimVor') ?></span>
                 </a>
                 <a class="wcp-brandbar-link<?= $this->isActive('/websites') || $this->isActive('/sites') ? ' active' : '' ?>" href="<?= e($this->url('websites')) ?>"><i class="bi bi-globe2 me-1"></i>Websites</a>
             </div>
@@ -53,7 +53,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
                 <dl class="wcp-topbar-server d-none d-xl-flex" aria-label="Server">
                     <div><dt>Hostname</dt><dd class="text-truncate" title="<?= e($topHost) ?>"><?= e($topHost !== '' ? $topHost : '—') ?></dd></div>
                     <div><dt>OS</dt><dd class="text-truncate"><?= e((string) ($topStatus['os']['pretty_name'] ?? '—')) ?></dd></div>
-                    <div><dt>WhaCP</dt><dd><?= e((string) ($app_version ?? '')) ?></dd></div>
+                    <div><dt>NimVor</dt><dd><?= e((string) ($app_version ?? '')) ?></dd></div>
                     <div><dt>Load averages</dt><dd>
                         <?php $loadText = count($load) === 3 ? implode(' ', array_map(static fn ($v): string => number_format((float) $v, 2), $load)) : '—'; ?>
                         <?php if ($this->can(\WhaCP\Security\Permissions::MONITORING_VIEW)): ?>
@@ -120,7 +120,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
             <?= $content ?>
         </main>
         <footer class="wcp-footer">
-            WhaCP <?= e($app_version ?? '') ?> · Open-source server control panel
+            NimVor <?= e($app_version ?? '') ?> · Open-source server control panel
         </footer>
     </div>
 </div>

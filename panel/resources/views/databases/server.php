@@ -103,7 +103,7 @@ $charset = (string) ($managed['character_set_server'] ?? $vars['character_set_se
                     <dt class="col-5 fw-normal wcp-muted">Error log</dt><dd class="col-7 mb-1 font-monospace text-break"><?= e((string) (($vars['log_error'] ?? '') !== '' ? $vars['log_error'] : 'system journal')) ?></dd>
                     <dt class="col-5 fw-normal wcp-muted">TLS</dt><dd class="col-7 mb-1"><?= e((string) ($vars['have_ssl'] ?? '')) ?></dd>
                 </dl>
-                <p class="mb-2 wcp-muted">Websites on this server connect to <code>localhost</code>. Where the server listens is set in the distribution's option files; WhaCP does not change it.</p>
+                <p class="mb-2 wcp-muted">Websites on this server connect to <code>localhost</code>. Where the server listens is set in the distribution's option files; NimVor does not change it.</p>
                 <div class="d-flex flex-wrap gap-2">
                     <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('databases')) ?>"><i class="bi bi-database me-1"></i>Databases and users</a>
                     <?php if ($this->hasRoute('logs')): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('logs')) ?>"><i class="bi bi-journal-text me-1"></i>Logs</a><?php endif; ?>

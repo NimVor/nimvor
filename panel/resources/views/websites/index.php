@@ -11,7 +11,7 @@ $canCreate = $this->can(P::WEBSITES_MANAGE);
 $showOwner = $this->can(P::USERS_VIEW);
 ?>
 <?php $this->start(); ?>Websites<?php $this->end('title'); ?>
-<?php $this->start(); ?><?= $this->simpleLayout() ? count($managed) . ' website' . (count($managed) === 1 ? '' : 's') : count($managed) . ' managed by WhaCP' ?><?= $discoveredAt !== null ? ' · ' . (int) $total . ' other website(s) found on this server' : '' ?><?php $this->end('subtitle'); ?>
+<?php $this->start(); ?><?= $this->simpleLayout() ? count($managed) . ' website' . (count($managed) === 1 ? '' : 's') : count($managed) . ' managed by NimVor' ?><?= $discoveredAt !== null ? ' · ' . (int) $total . ' other website(s) found on this server' : '' ?><?php $this->end('subtitle'); ?>
 
 <?php if (!empty($planUsage)): $shown = array_values(array_filter($planUsage['rows'], static fn (array $u): bool => $u['limit'] > 0 || in_array($u['key'], ['disk', 'bandwidth'], true))); ?>
     <details class="wcp-panel mb-3" id="plan-usage" open>
@@ -265,7 +265,7 @@ $showOwner = $this->can(P::USERS_VIEW);
                 </tr>
             <?php endforeach; ?>
             <tr class="<?= $sites === [] ? '' : 'd-none' ?>" data-wcp-dt-empty><td colspan="7" class="text-center py-4 wcp-muted">
-                <?= $sites === [] && $total === 0 ? ($managed !== [] ? 'No other websites were found in the Nginx configuration. Websites managed by WhaCP are listed above.' : 'No websites were found in the Nginx configuration.') : 'No websites match your filter.' ?>
+                <?= $sites === [] && $total === 0 ? ($managed !== [] ? 'No other websites were found in the Nginx configuration. Websites managed by NimVor are listed above.' : 'No websites were found in the Nginx configuration.') : 'No websites match your filter.' ?>
             </td></tr>
             </tbody>
         </table>

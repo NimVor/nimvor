@@ -245,7 +245,7 @@ final class Application
             try {
                 $view->share('panel_name', $this->container->get(SettingsService::class)->string('panel_name'));
             } catch (Throwable) {
-                $view->share('panel_name', 'WhaCP');
+                $view->share('panel_name', 'NimVor');
             }
 
             $pipeline = [

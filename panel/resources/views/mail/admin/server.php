@@ -21,7 +21,7 @@ $choices = ['smtpd_helo_required' => ['yes', 'no'], 'disable_vrfy_command' => ['
 <?php if ($status === null) { return; } ?>
 <?php $configured = ($status['configured'] ?? true) !== false; // older agents: assume set up
 if (!$configured): $canManage = false; ?>
-<div class="wcp-infobar mb-3"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>Email is not set up on this server yet, so these settings cannot be changed. Set it up on the <a href="<?= e($this->url('mail')) ?>">Email</a> page (<strong>Set up and start</strong>): WhaCP then writes the Postfix and Dovecot configuration, creates the DKIM service and starts the mail services at boot.</span></div>
+<div class="wcp-infobar mb-3"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>Email is not set up on this server yet, so these settings cannot be changed. Set it up on the <a href="<?= e($this->url('mail')) ?>">Email</a> page (<strong>Set up and start</strong>): NimVor then writes the Postfix and Dovecot configuration, creates the DKIM service and starts the mail services at boot.</span></div>
 <?php endif; ?>
 <div class="wcp-panel mb-3">
     <div class="wcp-dtable table-responsive">

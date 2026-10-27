@@ -7,7 +7,7 @@
 use WhaCP\Security\Permissions as P;
 
 $canManage = $this->can(P::SSL_MANAGE);
-$sources = ['letsencrypt' => "Let's Encrypt", 'whacp' => 'Installed in WhaCP', 'other' => 'Elsewhere (read only)'];
+$sources = ['letsencrypt' => "Let's Encrypt", 'whacp' => 'Installed in NimVor', 'other' => 'Elsewhere (read only)'];
 ?>
 <?= $this->partial('ssl/_tabs', get_defined_vars()) ?>
 

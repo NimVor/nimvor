@@ -40,7 +40,7 @@ final class BackupsController extends SiteController
     }
 
     /**
-     * A hosting account that is not allowed to see WhaCP's scheduled
+     * A hosting account that is not allowed to see NimVor's scheduled
      * (automatic) backups. Those are the backup copies with a schedule_id.
      *
      * @param array<string, mixed> $user
@@ -371,7 +371,7 @@ final class BackupsController extends SiteController
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/backups#storages', $e);
         }
-        return $this->redirectWithSuccess('/backups#storages', 'Google Drive connected. Backups go to the "WhaCP backups" folder.');
+        return $this->redirectWithSuccess('/backups#storages', 'Google Drive connected. Backups go to the "NimVor backups" folder.');
     }
 
     /** Find backups kept in a storage (recovery onto a new server). */

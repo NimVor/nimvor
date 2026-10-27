@@ -128,11 +128,11 @@ final class SecurityAndSystemTest extends HttpTestCase
         $this->agent->succeed('security.pending', ['pending' => null]);
         $this->agent->succeed('firewall.status', ['installed' => true, 'active' => false, 'rules' => [], 'ssh_port' => 22, 'ssh_allowed' => false, 'required' => [
             ['port' => '22', 'proto' => 'tcp', 'service' => 'SSH', 'critical' => true, 'open' => false],
-            ['port' => '8443', 'proto' => 'tcp', 'service' => 'WhaCP panel (HTTPS)', 'critical' => true, 'open' => false],
+            ['port' => '8443', 'proto' => 'tcp', 'service' => 'NimVor panel (HTTPS)', 'critical' => true, 'open' => false],
             ['port' => '443', 'proto' => 'tcp', 'service' => 'Websites and webmail (HTTPS)', 'critical' => false, 'open' => false],
         ]]);
         $page = $this->request('GET', '/security/firewall')->body();
-        foreach (['Ports WhaCP keeps open', 'WhaCP panel (HTTPS)', '8443', 'Opened when turned on', 'Turn on firewall', 'Always allow my address <code>192.0.2.10</code>', 'you have 2 minutes'] as $want) {
+        foreach (['Ports NimVor keeps open', 'NimVor panel (HTTPS)', '8443', 'Opened when turned on', 'Turn on firewall', 'Always allow my address <code>192.0.2.10</code>', 'you have 2 minutes'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
         $this->agent->succeed('firewall.set_enabled', ['changed' => true, 'pending' => ['id' => 'p1', 'summary' => 'firewall: enable', 'deadline' => gmdate('c', time() + 120)]]);

@@ -37,7 +37,7 @@ final class ImportTest extends HttpTestCase
     public function testPreviewShowsThePlan(): void
     {
         $body = $this->request('GET', '/websites/abc123')->body();
-        self::assertStringContainsString('Import into WhaCP', $body);
+        self::assertStringContainsString('Import into NimVor', $body);
         $body = $this->request('GET', '/websites/abc123/import')->body();
         self::assertStringContainsString('/etc/nginx/sites-enabled/old', $body);
         self::assertStringContainsString('olddb', $body);

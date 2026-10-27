@@ -1,4 +1,4 @@
-// WhaCP security keys (WebAuthn): add a key on the profile page and sign
+// NimVor security keys (WebAuthn): add a key on the profile page and sign
 // in with one. Binary fields travel base64url-encoded.
 (function () {
     'use strict';

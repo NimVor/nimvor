@@ -34,7 +34,7 @@ $duration = static function (int $s): string {
     <div><label class="form-label small mb-1" for="pk-sig">How</label>
         <select class="form-select form-select-sm" id="pk-sig" name="signal"><option value="TERM">Ask to stop (TERM)</option><option value="KILL">Kill at once (KILL)</option></select></div>
     <button class="btn btn-sm btn-outline-danger">End processes</button>
-    <span class="small wcp-muted ms-auto">root and WhaCP's own account are not listed.</span>
+    <span class="small wcp-muted ms-auto">root and NimVor's own account are not listed.</span>
 </form>
 <?php endif; ?>
 

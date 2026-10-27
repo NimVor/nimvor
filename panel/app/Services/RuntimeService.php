@@ -39,7 +39,7 @@ final class RuntimeService
     /**
      * The runtimes a worker (or a Node.js/Python site) may select, as
      * selection strings ("node:20.17.0", "python:3.12"). This includes the
-     * WhaCP-managed runtimes and the system's own Python interpreters (which
+     * NimVor-managed runtimes and the system's own Python interpreters (which
      * come from the distribution or Packages), since there is no managed
      * Python install path. The system Node is offered as "system" instead.
      *

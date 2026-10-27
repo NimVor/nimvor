@@ -265,7 +265,7 @@ final class WebAuthn
         if ($kty === 1 && $alg === -8 && ($k[-1] ?? null) === 6 && is_string($k[-2] ?? null) && strlen($k[-2]) === 32) {
             return 'ed25519:' . base64_encode($k[-2]);
         }
-        throw new WebAuthnException('This key uses an algorithm WhaCP does not support (ES256, RS256 and Ed25519 are).');
+        throw new WebAuthnException('This key uses an algorithm NimVor does not support (ES256, RS256 and Ed25519 are).');
     }
 
     public static function verifySignature(string $key, string $data, string $sig): bool

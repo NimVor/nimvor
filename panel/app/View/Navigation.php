@@ -69,7 +69,7 @@ final class Navigation
                     ['Processes', 'monitoring.processes', P::MONITORING_VIEW, [], ['/monitoring/processes']],
                 ]],
                 ['Notifications', 'bell', 'notifications', P::NOTIFICATIONS_VIEW, '/notifications', 'What happened and what failed'],
-                ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs', 'Web server, PHP, mail, security and WhaCP logs', [
+                ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs', 'Web server, PHP, mail, security and NimVor logs', [
                     ['All server logs', 'logs', P::LOGS_VIEW],
                     ['Web server', 'logs', P::LOGS_VIEW, ['view' => 'web']],
                     ['PHP-FPM', 'logs', P::LOGS_VIEW, ['view' => 'php']],
@@ -79,7 +79,7 @@ final class Navigation
                     ['SSL / Let\'s Encrypt', 'logs', P::LOGS_VIEW, ['view' => 'ssl']],
                     ['System', 'logs', P::LOGS_VIEW, ['view' => 'system']],
                     ['Services', 'logs', P::LOGS_VIEW, ['view' => 'services']],
-                    ['WhaCP', 'logs', P::LOGS_VIEW, ['view' => 'whacp']],
+                    ['NimVor', 'logs', P::LOGS_VIEW, ['view' => 'whacp']],
                     ['Audit log', 'audit', P::AUDIT_VIEW],
                     ['AutoSSL log', 'ssl.autossl', P::SSL_VIEW],
                     ['ModSecurity events', 'security.modsec', P::SECURITY_VIEW, ['tab' => 'events']],
@@ -262,7 +262,7 @@ final class Navigation
         $site = [
             '/' => 'Dashboard', '/sites' => 'Website pages (files, PHP, SSL, logs… of a website)',
             '/api' => 'API (the same actions with a token)', '/topbar' => 'Top bar server status',
-            '/whacp' => 'WhaCP update',
+            '/whacp' => 'NimVor update',
         ];
         $out = [];
         foreach ($router->routes() as $r) {

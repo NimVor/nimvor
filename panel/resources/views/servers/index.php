@@ -21,7 +21,7 @@
                         <td class="text-end text-nowrap">
                             <?php if ($s['kind'] === 'remote'): ?>
                                 <form class="d-inline" method="post" action="<?= e($this->url('servers.check', ['id' => (int) $s['id']])) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary">Check</button></form>
-                                <form class="d-inline" method="post" action="<?= e($this->url('servers.delete', ['id' => (int) $s['id']])) ?>" data-wcp-confirm="Remove <?= e($s['name']) ?> from WhaCP? Nothing is changed on the server itself."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>
+                                <form class="d-inline" method="post" action="<?= e($this->url('servers.delete', ['id' => (int) $s['id']])) ?>" data-wcp-confirm="Remove <?= e($s['name']) ?> from NimVor? Nothing is changed on the server itself."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -31,7 +31,7 @@
 </div>
 <?= $this->modalStart('server-connect', 'Connect a server', ($old ?? []) !== [], '') ?>
 <ol class="small ps-3">
-    <li>Install WhaCP's agent on the new server with <code>install.sh --agent-only --remote-access 0.0.0.0:8443 --allow-from <em>this server's IP</em></code>.</li>
+    <li>Install NimVor's agent on the new server with <code>install.sh --agent-only --remote-access 0.0.0.0:8443 --allow-from <em>this server's IP</em></code>.</li>
     <li>The installer prints the <strong>pin</strong> and <strong>token</strong>. Compare the pin over a trusted channel (e.g. your SSH session) — it proves you are talking to that machine.</li>
 </ol>
 <form method="post" action="<?= e($this->url('servers.store')) ?>" data-wcp-busy>

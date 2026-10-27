@@ -25,11 +25,11 @@ $ready = !empty($status['configured']) && !empty($status['running']);
             <p>The DNS server (BIND) is not installed on this server.</p>
             <?php if ($this->can(P::PACKAGES_MANAGE)): ?><form method="post" action="<?= e($this->url('dns.install')) ?>"><?= $this->csrfField() ?><button class="btn btn-primary"><i class="bi bi-download me-1"></i>Install BIND</button></form><?php endif; ?>
         <?php elseif ($this->can(P::SERVER_MANAGE)): ?>
-            <p><?= empty($status['configured']) ? 'BIND is installed but not set up for WhaCP yet.' : 'BIND is set up but not running.' ?></p>
+            <p><?= empty($status['configured']) ? 'BIND is installed but not set up for NimVor yet.' : 'BIND is set up but not running.' ?></p>
             <form method="post" action="<?= e($this->url('dns.setup')) ?>" data-wcp-busy>
                 <?= $this->csrfField() ?>
                 <?php if (empty($status['configured'])): ?>
-                    <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="dns-confirm" required><label class="form-check-label" for="dns-confirm">Add one <code>include</code> line for WhaCP's zones to <code><?= e((string) $status['config_file']) ?></code> (a backup is kept)</label></div>
+                    <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="dns-confirm" required><label class="form-check-label" for="dns-confirm">Add one <code>include</code> line for NimVor's zones to <code><?= e((string) $status['config_file']) ?></code> (a backup is kept)</label></div>
                 <?php endif; ?>
                 <button class="btn btn-primary"><i class="bi bi-play me-1"></i>Set up and start</button>
             </form>

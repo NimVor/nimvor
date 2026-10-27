@@ -194,7 +194,7 @@ final class MonitoringService
                 }
             }
         } catch (AgentException $e) {
-            $firing['agent'] = ['agent', '', 'critical', 'The WhaCP agent is not reachable: ' . $e->getMessage()];
+            $firing['agent'] = ['agent', '', 'critical', 'The NimVor agent is not reachable: ' . $e->getMessage()];
             // Nothing could be measured: keep agent-based alerts open instead
             // of reporting them as resolved.
             foreach ($this->db->fetchAll("SELECT * FROM alerts WHERE server_id = ? AND resolved_at IS NULL AND rule IN ('disk', 'memory', 'load', 'service', 'certificate', 'quota', 'bandwidth')", [$this->server->id()]) as $a) {
@@ -287,7 +287,7 @@ final class MonitoringService
             return;
         }
         try {
-            $this->mailer->send($to, "[WhaCP {$host}] " . mb_substr($text, 0, 120), $text . "\n\n-- \nWhaCP on {$host}. Change alert settings under Settings.");
+            $this->mailer->send($to, "[NimVor {$host}] " . mb_substr($text, 0, 120), $text . "\n\n-- \nWhaCP on {$host}. Change alert settings under Settings.");
         } catch (\WhaCP\Mail\MailException) {
             // Logged by the mailer; the alert itself is stored and shown.
         }
@@ -301,7 +301,7 @@ final class MonitoringService
         if ($url === '') {
             return;
         }
-        $body = (string) json_encode(['text' => "[WhaCP {$host}] " . $text], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $body = (string) json_encode(['text' => "[NimVor {$host}] " . $text], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($this->sender !== null) {
             ($this->sender)($url, $body);
             return;

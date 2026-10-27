@@ -1,6 +1,6 @@
 # Installation
 
-> By default WhaCP installs **read-only**: it inventories the server and
+> By default NimVor installs **read-only**: it inventories the server and
 > never changes it, so it is safe next to an existing panel. Write mode
 > (`--enable-writes`) lets it manage websites, databases, certificates,
 > the firewall and more.
@@ -21,7 +21,7 @@
 - On AlmaLinux, Rocky Linux and RHEL, installing dependencies enables EPEL and Remi
   (PHP versions for websites, and PHP 8.3 for the panel on 9), and installs
   `policycoreutils-python-utils` for SELinux labels. SELinux stays enforcing:
-  WhaCP labels what it creates (websites, mail storage, webmail data), sets
+  NimVor labels what it creates (websites, mail storage, webmail data), sets
   the booleans it needs (`httpd_can_network_connect` for proxies and
   webmail, `ftpd_full_access` for FTP) and labels a moved SSH port. firewalld
   is used for the firewall, and Rspamd comes from rspamd.com's repository.
@@ -44,7 +44,7 @@
 
 ### Hardware
 
-WhaCP's own processes are small: the agent is capped at 256 MiB (1 GiB in
+NimVor's own processes are small: the agent is capped at 256 MiB (1 GiB in
 write mode) by its systemd unit, and the panel is a PHP process with a
 SQLite database (tested with 100 websites, 500 domains and 10 000
 notifications, every page under 15 ms). What a server needs is set by
@@ -58,15 +58,15 @@ leave 512 MiB free and stop otherwise.
 
 | Port | Service | Opened by |
 |------|---------|-----------|
-| 22/tcp (or your SSH port) | SSH, SFTP accounts | you (WhaCP refuses firewall changes that would close it, and rolls back SSH/firewall changes you do not confirm) |
+| 22/tcp (or your SSH port) | SSH, SFTP accounts | you (NimVor refuses firewall changes that would close it, and rolls back SSH/firewall changes you do not confirm) |
 | 80/tcp, 443/tcp | websites, webmail, Let's Encrypt validation | you |
-| 25/tcp | incoming mail | WhaCP, when mail is set up |
-| 587/tcp | mail submission (STARTTLS, sign-in required) | WhaCP, with mail |
-| 993/tcp | IMAP over TLS (143 is not offered) | WhaCP, with mail |
-| 53/tcp, 53/udp | DNS (authoritative zones) | WhaCP, when DNS is turned on |
-| 21/tcp and 40110–40210/tcp | FTP(S) and its passive range (configurable) | WhaCP, when FTP is turned on |
+| 25/tcp | incoming mail | NimVor, when mail is set up |
+| 587/tcp | mail submission (STARTTLS, sign-in required) | NimVor, with mail |
+| 993/tcp | IMAP over TLS (143 is not offered) | NimVor, with mail |
+| 53/tcp, 53/udp | DNS (authoritative zones) | NimVor, when DNS is turned on |
+| 21/tcp and 40110–40210/tcp | FTP(S) and its passive range (configurable) | NimVor, when FTP is turned on |
 | 8443/tcp (your choice) | agent for a remote panel (`--remote-access`) | you, for the panel's address only |
-| 8443/tcp (with `--public-https`) | the panel over HTTPS, `https://SERVER-IP:8443/` | WhaCP (UFW or firewalld, when active) |
+| 8443/tcp (with `--public-https`) | the panel over HTTPS, `https://SERVER-IP:8443/` | NimVor (UFW or firewalld, when active) |
 | 127.0.0.1:8090 | the panel itself (reached through `--public-https` or an SSH tunnel) | never exposed |
 
 The agent's Unix socket, Rspamd, OpenDKIM, MariaDB and Redis listen
@@ -78,7 +78,7 @@ locally only.
   mail uses it as its name, and webmail can use it.
 - For mail: a reverse DNS (PTR) record for the server's IP matching that
   host name (set at your provider), outgoing port 25 not blocked by the
-  provider, and for each domain the MX, SPF, DKIM and DMARC records WhaCP
+  provider, and for each domain the MX, SPF, DKIM and DMARC records NimVor
   shows (it can add them to a zone hosted on the same panel).
 - For Let's Encrypt: each domain must point to the server and port 80 must
   be reachable from the internet.
@@ -110,7 +110,7 @@ sudo ./installer/install.sh --admin-user=admin --admin-email=you@example.com
 
 Use your **real** email for `--admin-email`: it becomes the Let's Encrypt
 contact for expiry notices. An `example.com` (or other reserved-domain)
-address is rejected by Let's Encrypt — WhaCP will still issue certificates,
+address is rejected by Let's Encrypt — NimVor will still issue certificates,
 but without a renewal-notice contact until you set a real address in your
 profile.
 
@@ -134,10 +134,10 @@ cannot be managed without it). It also creates `/home/whacp` (websites),
 To go back to read-only: remove the drop-in, set `allow_write_actions` to
 `false`, `systemctl daemon-reload && systemctl restart whacp-agent`.
 
-Even in write mode WhaCP only writes files it created, validates every
+Even in write mode NimVor only writes files it created, validates every
 configuration before reloading (e.g. `nginx -t`), keeps the previous version
 and rolls back on failure. Existing websites stay untouched until you
-**import** them (Websites → a discovered site → *Import into WhaCP*).
+**import** them (Websites → a discovered site → *Import into NimVor*).
 
 ### Server profile
 
@@ -189,7 +189,7 @@ server's name; default the system's full host name), `--php=8.2,8.3,8.4`
   finding SSH, the panel and the agent's listener allowed; otherwise it
   undoes the change at once and reports the step as failed.
 - **Consent.** Choosing a profile with email and DNS is the consent to
-  WhaCP editing Postfix's, Dovecot's and BIND's configuration (the same
+  NimVor editing Postfix's, Dovecot's and BIND's configuration (the same
   confirmation the Email and DNS pages ask for; backups are kept).
 - **Idempotent.** Each step leaves alone what is already in place: an
   existing mail, DNS or FTP setup, fail2ban jails, firewall protections, a
@@ -280,7 +280,7 @@ Then browse to `https://SERVER-IP:8443/`. The installer:
 
 - installs Nginx if needed (unless `--no-install-deps`);
 - creates a self-signed certificate for the server's addresses and host name;
-- adds WhaCP's own Nginx site (`whacp-panel.conf`) proxying to the panel,
+- adds NimVor's own Nginx site (`whacp-panel.conf`) proxying to the panel,
   checks it with `nginx -t` (it is removed again if Nginx rejects it) and
   reloads Nginx;
 - makes sign-in cookies HTTPS-only and trusts Nginx for the client address
@@ -329,7 +329,7 @@ Run the installer again. If an earlier run did not finish, it says what is
 missing and gives the command to complete it: the same options plus
 `--reinstall`. That keeps the existing configuration, agent token, panel
 key and database and creates only what is missing. Nothing outside
-WhaCP's own files is changed by the installer, so there is nothing else to
+NimVor's own files is changed by the installer, so there is nothing else to
 undo.
 
 ## Update (source checkout)
@@ -347,7 +347,7 @@ One command, with no options and no prompts:
 3. `install.sh --reinstall --yes` runs from the new version. It installs
    missing dependencies, rebuilds the agent and the panel's dependencies,
    migrates the database, loads the SELinux policy module and restarts
-   WhaCP's services. The configuration, agent token, database, write mode
+   NimVor's services. The configuration, agent token, database, write mode
    and the panel's ports (public HTTPS included) are kept.
 
 ## Upgrade (release archive)
@@ -369,7 +369,7 @@ program files, units, `/etc/whacp` and the panel database to
 integrity check, and checksums of the whole backup are recorded), swaps the
 files, migrates and restarts, then verifies the agent, the panel and
 `/healthz`. Any failure restores the previous version automatically.
-Websites keep running; only WhaCP's own services restart. Downgrades need
+Websites keep running; only NimVor's own services restart. Downgrades need
 `--allow-downgrade`.
 
 `--rollback` checks the backup against its checksums first and refuses a
@@ -392,7 +392,7 @@ sudo ./installer/uninstall.sh --purge  # also remove configuration, panel data a
 ```
 
 Uninstalling removes the panel, the agent and their services. It does
-**not** remove what WhaCP created for you: websites keep running (their
+**not** remove what NimVor created for you: websites keep running (their
 Nginx sites, PHP-FPM pools, accounts, files, databases, certificates, mail
 and DNS stay configured and served), because removing them would take
 sites offline. Without `--purge`, `/etc/whacp`, `/var/lib/whacp` and
@@ -410,7 +410,7 @@ Limits (per request or operation): agent request 4 MiB; command output
 kept 1 MiB; archive extraction 50 000 entries and 8 GiB; file manager
 listings 5000 entries, editor 2 MiB; log views 5000 lines; SQL results
 1000 rows or 16 MiB; DNS 2000 records per zone; application downloads
-200 MiB; messages sent through WhaCP's sendmail 64 MiB; 1000 notifications
+200 MiB; messages sent through NimVor's sendmail 64 MiB; 1000 notifications
 per website; 120 API requests per minute per token; backups and restores
 leave 512 MiB free.
 
@@ -426,5 +426,5 @@ Known limitations in 1.0.0:
   Let's Encrypt itself.
 - Recovering onto a new server finds only encrypted backups made by 1.0.0
   or later (see *Recovering on a new server* in the administration guide).
-- Rolling back an upgrade restores WhaCP's files and panel database; it
+- Rolling back an upgrade restores NimVor's files and panel database; it
   does not undo changes made on the server since (see *Upgrade*).

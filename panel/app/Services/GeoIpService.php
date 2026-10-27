@@ -139,7 +139,7 @@ final class GeoIpService
         $fetch ??= static function (string $url): ?string {
             $ch = curl_init($url);
             curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 120, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_FOLLOWLOCATION => false,
-                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'WhaCP brute force protection', CURLOPT_MAXFILESIZE => self::MAX_BYTES]);
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'NimVor brute force protection', CURLOPT_MAXFILESIZE => self::MAX_BYTES]);
             $body = curl_exec($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);

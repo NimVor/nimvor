@@ -16,7 +16,7 @@ $old ??= [];
 
 <div class="wcp-infobar">
     <i class="bi bi-diagram-2" aria-hidden="true"></i>
-    <span>A range your provider <em>routes</em> to this server (not the on-link prefix of its interface) becomes usable by websites: WhaCP adds a local route for it on the loopback interface and keeps it at boot (<code>whacp-ipv6-ranges.service</code>). Ranges that overlap an interface's prefix or contain the gateway are refused.</span>
+    <span>A range your provider <em>routes</em> to this server (not the on-link prefix of its interface) becomes usable by websites: NimVor adds a local route for it on the loopback interface and keeps it at boot (<code>whacp-ipv6-ranges.service</code>). Ranges that overlap an interface's prefix or contain the gateway are refused.</span>
 </div>
 
 <div class="row g-3">
@@ -55,7 +55,7 @@ $old ??= [];
         <input class="form-control form-control-sm font-monospace<?= isset($errors['prefix']) ? ' is-invalid' : '' ?>" id="rg-p" name="prefix" value="<?= e((string) ($old['prefix'] ?? '')) ?>" placeholder="2001:db8:100::/64" required>
         <?php if (isset($errors['prefix'])): ?><div class="invalid-feedback"><?= e($errors['prefix']) ?></div><?php endif; ?>
         <label class="form-label small mt-2" for="rg-n">Note</label><input class="form-control form-control-sm" id="rg-n" name="note" maxlength="300">
-        <div class="form-text">A range your provider routes to this server. WhaCP adds a local route for it and keeps it at boot.</div>
+        <div class="form-text">A range your provider routes to this server. NimVor adds a local route for it and keeps it at boot.</div>
         <div class="d-flex justify-content-end gap-2 mt-3"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Add range</button></div>
     </form>
 <?= $this->modalEnd() ?>

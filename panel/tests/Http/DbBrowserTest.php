@@ -86,7 +86,7 @@ final class DbBrowserTest extends HttpTestCase
         self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'database.browser_tables'"));
         self::assertSame(400, $this->api('/databases/' . $this->otherDb . '/browse/api', ['op' => 'drop_everything'])->status());
 
-        // Administrators can open databases WhaCP does not manage by name.
+        // Administrators can open databases NimVor does not manage by name.
         self::assertSame(200, $this->request('GET', '/databases/browse', query: ['name' => 'legacy_db'])->status());
         $this->api('/databases/browse/api?name=legacy_db', ['op' => 'tables']);
         self::assertSame('legacy_db', $this->lastCall('db.browse_tables')['database']);

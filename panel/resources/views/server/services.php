@@ -1,10 +1,10 @@
 <?php /** @var \WhaCP\View\View $this */ ?>
 <?php $this->start(); ?>Services<?php $this->end('title'); ?>
-<?php $this->start(); ?>systemd units monitored by WhaCP<?php $this->end('subtitle'); ?>
+<?php $this->start(); ?>systemd units monitored by NimVor<?php $this->end('subtitle'); ?>
 
 <?php if (!empty($whacp['services'])): ?>
 <div class="card mb-3" id="whacp-services">
-    <div class="card-header"><i class="bi bi-boxes me-1"></i>WhaCP</div>
+    <div class="card-header"><i class="bi bi-boxes me-1"></i>NimVor</div>
     <div class="table-responsive">
         <table class="table align-middle mb-0">
             <thead><tr><th>Service</th><th>State</th><th>Since</th><th></th></tr></thead>

@@ -138,7 +138,7 @@ final class ServerService
             throw new UserFacingException('Only remote servers can be removed.');
         }
         if ($this->db->scalar('SELECT COUNT(*) FROM websites WHERE server_id = ?', [$id]) > 0) {
-            throw new UserFacingException('This server still has websites in WhaCP.', '', 'Delete or move them first.');
+            throw new UserFacingException('This server still has websites in NimVor.', '', 'Delete or move them first.');
         }
         $this->db->transaction(function (Connection $db) use ($id): void {
             foreach (['cron_jobs', 'workers', 'databases', 'database_users', 'backups', 'backup_schedules', 'agent_jobs', 'discovery_snapshots', 'metric_samples', 'alerts'] as $t) {

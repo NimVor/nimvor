@@ -50,7 +50,7 @@ $showSite ??= false;
                                 <summary class="btn btn-sm btn-outline-secondary">Restore</summary>
                                 <form class="card card-body mt-1 small" method="post" action="<?= e($this->url('backups.server.restore', $params)) ?>">
                                     <?= $this->csrfField() ?>
-                                    <p class="mb-2">Each part replaces its folder as a whole. A safety backup is taken first; the configuration is validated and rolled back if a service does not accept it. Firewall, SSH, systemd units and WhaCP's own settings are never restored automatically.</p>
+                                    <p class="mb-2">Each part replaces its folder as a whole. A safety backup is taken first; the configuration is validated and rolled back if a service does not accept it. Firewall, SSH, systemd units and NimVor's own settings are never restored automatically.</p>
                                     <?php foreach (\WhaCP\Services\BackupService::SERVER_COMPONENTS as $k => $label): ?>
                                         <div class="form-check"><input class="form-check-input" type="checkbox" name="components[]" value="<?= e($k) ?>" id="sc-<?= (int) $b['id'] ?>-<?= e($k) ?>"><label class="form-check-label" for="sc-<?= (int) $b['id'] ?>-<?= e($k) ?>"><?= e($label) ?></label></div>
                                     <?php endforeach; ?>

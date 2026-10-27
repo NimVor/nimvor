@@ -1,20 +1,20 @@
-// WhaCP UI behaviours. No inline scripts are used anywhere (strict CSP).
+// NimVor UI behaviours. No inline scripts are used anywhere (strict CSP).
 (function () {
     'use strict';
 
-    var WhaCP = window.WhaCP = window.WhaCP || {};
+    var NimVor = window.NimVor = window.NimVor || {};
 
-    WhaCP.csrfToken = function () {
+    NimVor.csrfToken = function () {
         var m = document.querySelector('meta[name="csrf-token"]');
         return m ? m.getAttribute('content') : '';
     };
 
     // JSON fetch helper with CSRF header and uniform error handling.
-    WhaCP.fetchJson = function (url, options) {
+    NimVor.fetchJson = function (url, options) {
         options = options || {};
         var headers = Object.assign({ 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, options.headers || {});
         if (options.method && options.method !== 'GET') {
-            headers['X-CSRF-Token'] = WhaCP.csrfToken();
+            headers['X-CSRF-Token'] = NimVor.csrfToken();
             headers['Content-Type'] = 'application/json';
         }
         return fetch(url, Object.assign({}, options, { headers: headers, credentials: 'same-origin' }))
@@ -34,7 +34,7 @@
             });
     };
 
-    WhaCP.toast = function (message, variant) {
+    NimVor.toast = function (message, variant) {
         var container = document.getElementById('wcp-toasts');
         if (!container || !window.bootstrap) { return; }
         var el = document.createElement('div');
@@ -524,7 +524,7 @@
         if (!b) { return; }
         var src = document.querySelector(b.getAttribute('data-wcp-copy'));
         if (src && navigator.clipboard) {
-            navigator.clipboard.writeText((src.matches('input, textarea') ? src.value : src.textContent).trim()).then(function () { WhaCP.toast('Copied to the clipboard.', 'success'); });
+            navigator.clipboard.writeText((src.matches('input, textarea') ? src.value : src.textContent).trim()).then(function () { NimVor.toast('Copied to the clipboard.', 'success'); });
         }
     });
 
@@ -552,16 +552,16 @@
     });
 
     // Apply widths from data attributes (inline styles are blocked by CSP).
-    WhaCP.applyWidths = function (root) {
+    NimVor.applyWidths = function (root) {
         (root || document).querySelectorAll('[data-width]').forEach(function (el) {
             var w = parseFloat(el.getAttribute('data-width'));
             if (!isNaN(w)) { el.style.width = Math.max(0, Math.min(100, w)) + '%'; }
         });
     };
-    document.addEventListener('DOMContentLoaded', function () { WhaCP.applyWidths(); });
+    document.addEventListener('DOMContentLoaded', function () { NimVor.applyWidths(); });
 
     // Background job viewer: polls /jobs/<id> and streams the log.
-    WhaCP.showJob = function (jobId) {
+    NimVor.showJob = function (jobId) {
         var modalEl = document.getElementById('wcp-job');
         if (!modalEl || !/^[a-f0-9]{16}$/.test(jobId)) { return; }
         var logEl = modalEl.querySelector('[data-wcp-job-log]');
@@ -577,16 +577,16 @@
         var quiet = false;
         var done = false;
         // A newer job shown in the same window replaces this one.
-        var run = WhaCP.jobRun = (WhaCP.jobRun || 0) + 1;
+        var run = NimVor.jobRun = (NimVor.jobRun || 0) + 1;
         var classes = { queued: 'text-bg-secondary', running: 'text-bg-info', succeeded: 'text-bg-success', failed: 'text-bg-danger' };
         function setStatus(s) {
             statusEl.textContent = s;
             statusEl.className = 'badge ms-2 ' + (classes[s] || 'text-bg-secondary');
         }
         function poll() {
-            if (stopped || run !== WhaCP.jobRun) { return; }
-            WhaCP.fetchJson('/jobs/' + jobId + '?offset=' + offset).then(function (res) {
-                if (stopped || run !== WhaCP.jobRun) { return; }
+            if (stopped || run !== NimVor.jobRun) { return; }
+            NimVor.fetchJson('/jobs/' + jobId + '?offset=' + offset).then(function (res) {
+                if (stopped || run !== NimVor.jobRun) { return; }
                 if (res.log) {
                     logEl.textContent += res.log;
                     logEl.scrollTop = logEl.scrollHeight;
@@ -598,7 +598,7 @@
                     reloadBtn.classList.remove('d-none');
                     var ok = res.job.status === 'succeeded';
                     var msg = ok ? 'Task completed.' : 'Task failed. See the log for details.';
-                    WhaCP.toast(quiet ? msg + ' Reload the page to see the result.' : msg, ok ? 'success' : 'danger');
+                    NimVor.toast(quiet ? msg + ' Reload the page to see the result.' : msg, ok ? 'success' : 'danger');
                     return;
                 }
                 setTimeout(poll, 1000);
@@ -616,12 +616,12 @@
     };
     document.addEventListener('click', function (e) {
         var t = e.target.closest('[data-wcp-job-open]');
-        if (t) { e.preventDefault(); WhaCP.showJob(t.getAttribute('data-wcp-job-open')); }
+        if (t) { e.preventDefault(); NimVor.showJob(t.getAttribute('data-wcp-job-open')); }
         if (e.target.closest('[data-wcp-job-reload]')) { window.location.reload(); }
     });
     document.addEventListener('DOMContentLoaded', function () {
         var auto = document.querySelector('[data-wcp-autojob]');
-        if (auto) { WhaCP.showJob(auto.getAttribute('data-wcp-autojob')); }
+        if (auto) { NimVor.showJob(auto.getAttribute('data-wcp-autojob')); }
     });
 
     // Sidebar groups fold; which are folded is remembered in this browser.
@@ -650,9 +650,9 @@
 
     // Top bar: the server's load averages, every 5 seconds while the tab is
     // visible (passive: an idle session still times out), and the update
-    // button when a newer WhaCP was found. The dashboard sets the load from
-    // its own live data (WhaCP.setTopbarLoad), so both always agree.
-    WhaCP.setTopbarLoad = function (load) {
+    // button when a newer NimVor was found. The dashboard sets the load from
+    // its own live data (NimVor.setTopbarLoad), so both always agree.
+    NimVor.setTopbarLoad = function (load) {
         var span = document.querySelector('[data-wcp-topbar-load] span');
         if (span && load && load.length === 3) {
             span.textContent = load.map(function (v) { return Number(v).toFixed(2); }).join(' ');
@@ -664,32 +664,32 @@
         var upd = document.querySelector('[data-wcp-topbar-update]');
         var busy = false;
         // Pages swapped in place run this again: one timer only.
-        if (WhaCP.topbarTimer) { clearInterval(WhaCP.topbarTimer); }
-        WhaCP.topbarTimer = setInterval(function () {
+        if (NimVor.topbarTimer) { clearInterval(NimVor.topbarTimer); }
+        NimVor.topbarTimer = setInterval(function () {
             if (document.hidden || busy) { return; }
             busy = true;
-            WhaCP.fetchJson(link.getAttribute('data-wcp-topbar-load')).then(function (res) {
-                WhaCP.setTopbarLoad(res.load);
+            NimVor.fetchJson(link.getAttribute('data-wcp-topbar-load')).then(function (res) {
+                NimVor.setTopbarLoad(res.load);
                 if (upd) { upd.classList.toggle('d-none', !res.update); }
             }).catch(function () { /* keep the last values */ }).then(function () { busy = false; });
         }, 5000);
     });
 
-    // WhaCP update page: follow the update's output while it runs. The
+    // NimVor update page: follow the update's output while it runs. The
     // panel restarts during the update, so failed requests are retried.
     document.addEventListener('DOMContentLoaded', function () {
         var log = document.querySelector('[data-wcp-update-log]');
         if (!log || log.getAttribute('data-running') !== '1') { return; }
         var state = document.querySelector('[data-wcp-update-state]');
-        if (WhaCP.updateTimer) { clearInterval(WhaCP.updateTimer); }
-        var timer = WhaCP.updateTimer = setInterval(function () {
-            WhaCP.fetchJson(log.getAttribute('data-wcp-update-log')).then(function (res) {
+        if (NimVor.updateTimer) { clearInterval(NimVor.updateTimer); }
+        var timer = NimVor.updateTimer = setInterval(function () {
+            NimVor.fetchJson(log.getAttribute('data-wcp-update-log')).then(function (res) {
                 if (!res.success) { return; }
                 if (res.log) { log.textContent = res.log; log.scrollTop = log.scrollHeight; }
                 if (!res.running) {
                     clearInterval(timer);
                     if (state) { state.textContent = res.result === 'success' ? 'finished' : (res.result || 'stopped'); }
-                    WhaCP.toast(res.result === 'success' ? 'WhaCP was updated. Reload the page to use the new version.' : 'The update stopped: ' + (res.result || 'see the output'), res.result === 'success' ? 'success' : 'danger');
+                    NimVor.toast(res.result === 'success' ? 'NimVor was updated. Reload the page to use the new version.' : 'The update stopped: ' + (res.result || 'see the output'), res.result === 'success' ? 'success' : 'danger');
                 }
             }).catch(function () { /* the panel is restarting */ });
         }, 3000);
@@ -705,7 +705,7 @@
         var url = bell.getAttribute('data-wcp-bell-url');
         function refresh() {
             if (document.hidden) { return; }
-            WhaCP.fetchJson(url).then(function (res) {
+            NimVor.fetchJson(url).then(function (res) {
                 var n = res.unread || 0;
                 badge.textContent = n > 99 ? '99+' : String(n);
                 badge.classList.toggle('d-none', n === 0);
@@ -716,7 +716,7 @@
         // marking read (one or all) without leaving the page.
         var sevIcon = { critical: 'x-octagon-fill text-danger', error: 'x-circle-fill text-danger', warning: 'exclamation-triangle-fill text-warning', success: 'check-circle-fill text-success', info: 'info-circle-fill text-primary' };
         function markRead(body) {
-            return WhaCP.fetchJson(bell.getAttribute('data-wcp-bell-read'), { method: 'POST', body: JSON.stringify(body) }).then(function (res) {
+            return NimVor.fetchJson(bell.getAttribute('data-wcp-bell-read'), { method: 'POST', body: JSON.stringify(body) }).then(function (res) {
                 var n = res.unread || 0;
                 badge.textContent = n > 99 ? '99+' : String(n);
                 badge.classList.toggle('d-none', n === 0);
@@ -766,7 +766,7 @@
                     btn.appendChild(ci);
                     btn.addEventListener('click', function () {
                         btn.disabled = true;
-                        markRead({ ids: [n.id] }).then(function () { renderList(items.filter(function (x) { return x.id !== n.id; })); }).catch(function (err) { btn.disabled = false; WhaCP.toast(err.message, 'danger'); });
+                        markRead({ ids: [n.id] }).then(function () { renderList(items.filter(function (x) { return x.id !== n.id; })); }).catch(function (err) { btn.disabled = false; NimVor.toast(err.message, 'danger'); });
                     });
                     row.appendChild(btn);
                 }
@@ -774,7 +774,7 @@
             });
         }
         function load() {
-            WhaCP.fetchJson(bell.getAttribute('data-wcp-bell-url')).then(function (res) {
+            NimVor.fetchJson(bell.getAttribute('data-wcp-bell-url')).then(function (res) {
                 var n = res.unread || 0;
                 badge.textContent = n > 99 ? '99+' : String(n);
                 badge.classList.toggle('d-none', n === 0);
@@ -795,10 +795,10 @@
             var all = ev.target.closest && ev.target.closest('[data-wcp-bell-all]');
             if (!all) { return; }
             all.disabled = true;
-            markRead({ all: '1' }).then(load).catch(function (err) { WhaCP.toast(err.message, 'danger'); }).then(function () { all.disabled = false; });
+            markRead({ all: '1' }).then(load).catch(function (err) { NimVor.toast(err.message, 'danger'); }).then(function () { all.disabled = false; });
         });
-        if (WhaCP.bellTimer) { return; }
-        WhaCP.bellTimer = setInterval(function () {
+        if (NimVor.bellTimer) { return; }
+        NimVor.bellTimer = setInterval(function () {
             var b = document.querySelector('[data-wcp-bell]');
             if (b !== bell) { bell = b; if (!b) { return; } badge = b.querySelector('[data-wcp-bell-count]'); }
             refresh();
@@ -969,17 +969,17 @@
                 setRow(it);
                 if (it.counted === 'pending') { stat('pending', -1); stat('failed', 1); }
                 var why = phase(it);
-                WhaCP.toast(it.name + ' was not installed' + (why ? ': ' + why : '') + '. The details are in the queue window.', 'danger');
+                NimVor.toast(it.name + ' was not installed' + (why ? ': ' + why : '') + '. The details are in the queue window.', 'danger');
                 return;
             }
             stat('installed', 1);
             stat(it.counted, -1);
-            WhaCP.fetchJson(list.getAttribute('data-url')).then(function (res) {
+            NimVor.fetchJson(list.getAttribute('data-url')).then(function (res) {
                 var p = (res.packages || []).filter(function (x) { return x.name === it.name; })[0];
                 setRow(it, p && p.installed ? p.version : '');
                 render();
             }).catch(function () { setRow(it); render(); });
-            WhaCP.toast(it.name + ' installed.', 'success');
+            NimVor.toast(it.name + ' installed.', 'success');
             // Installed components leave the queue (failed ones stay, with
             // Retry); the output pane keeps showing the last one.
             setTimeout(function () {
@@ -996,7 +996,7 @@
             open.forEach(function (it) {
                 if (it.busy) { return; }
                 it.busy = true;
-                WhaCP.fetchJson('/jobs/' + it.job + '?offset=' + it.offset).then(function (res) {
+                NimVor.fetchJson('/jobs/' + it.job + '?offset=' + it.offset).then(function (res) {
                     it.busy = false;
                     if (res.log) { it.log += res.log; }
                     it.offset = res.offset || it.offset;
@@ -1014,7 +1014,7 @@
             if (!form || queue.some(function (it) { return it.name === name && pending(it); })) { return Promise.resolve(); }
             var button = form.querySelector('button');
             button.disabled = true;
-            return WhaCP.fetchJson(list.getAttribute('data-install-url'), { method: 'POST', body: JSON.stringify({ name: name }) }).then(function (res) {
+            return NimVor.fetchJson(list.getAttribute('data-install-url'), { method: 'POST', body: JSON.stringify({ name: name }) }).then(function (res) {
                 button.disabled = false;
                 // Which stat tile counts it now: "Failed / not usable" (an
                 // earlier failure, or present but not usable) or "Not installed".
@@ -1029,7 +1029,7 @@
                 poll();
             }).catch(function (err) {
                 button.disabled = false;
-                WhaCP.toast(name + ': ' + err.message, 'danger');
+                NimVor.toast(name + ': ' + err.message, 'danger');
             });
         }
         function show() { bootstrap.Modal.getOrCreateInstance(modalEl).show(); }
@@ -1117,7 +1117,7 @@
         var job = el.getAttribute('data-wcp-reload-when-done');
         var timer = setInterval(function () {
             if (!document.body.contains(el)) { clearInterval(timer); return; }
-            WhaCP.fetchJson('/jobs/' + encodeURIComponent(job) + '?offset=0').then(function (res) {
+            NimVor.fetchJson('/jobs/' + encodeURIComponent(job) + '?offset=0').then(function (res) {
                 if (res.done) { clearInterval(timer); window.location.reload(); }
             }).catch(function () {});
         }, 2000);
@@ -1509,7 +1509,7 @@
             var el = sel && document.querySelector(sel);
             if (el) { el.value = pw; el.type = 'text'; }
         });
-        WhaCP.toast('A strong password was generated. Copy it before creating the account.', 'success');
+        NimVor.toast('A strong password was generated. Copy it before creating the account.', 'success');
     });
 
     // SQL import: upload the chosen file in chunks into the website's tmp/
@@ -1556,7 +1556,7 @@
             fd.append('path', path);
             fd.append('offset', String(offset));
             fd.append('final', offset + CHUNK >= file.size ? '1' : '0');
-            fetch(url, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': WhaCP.csrfToken(), 'Accept': 'application/json' } })
+            fetch(url, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': NimVor.csrfToken(), 'Accept': 'application/json' } })
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
                     if (!res.success) { throw new Error((res.error && res.error.message) || 'Upload failed'); }
@@ -1605,7 +1605,7 @@
 
     // Replaces the page with a fetched document; false when it cannot be
     // swapped in place (different scripts), so the caller loads it fully.
-    WhaCP.swapPage = function (html, url, keepScroll) {
+    NimVor.swapPage = function (html, url, keepScroll) {
         var doc = new DOMParser().parseFromString(html, 'text/html');
         var shell = doc.querySelector('.wcp-shell');
         if (!shell || !sameAssets(doc) || doc.body.getAttribute('data-wcp-ajax') === 'off') { return false; }
@@ -1643,7 +1643,7 @@
             var r = alert.getBoundingClientRect();
             if (r.bottom < 0 || r.top > window.innerHeight) {
                 var variant = alert.classList.contains('alert-success') ? 'success' : (alert.classList.contains('alert-danger') ? 'danger' : 'secondary');
-                WhaCP.toast(alert.textContent.replace(/\s+/g, ' ').trim(), variant);
+                NimVor.toast(alert.textContent.replace(/\s+/g, ' ').trim(), variant);
             }
         }
         return true;
@@ -1656,7 +1656,7 @@
             return res.text().then(function (html) {
                 // fetch drops the #section of the address; keep the requested one.
                 var hash = new URL(url, window.location.href).hash;
-                if (!WhaCP.swapPage(html, final.split('#')[0] + hash, keepScroll)) { window.location.href = url; }
+                if (!NimVor.swapPage(html, final.split('#')[0] + hash, keepScroll)) { window.location.href = url; }
             });
         });
     }
@@ -1718,21 +1718,21 @@
                         return loadInto(to.href, true);
                     }
                     restore(form);
-                    WhaCP.toast((body && body.error && body.error.message) || (body && body.message) || (res.ok ? 'Done.' : 'The request failed.'), res.ok ? 'success' : 'danger');
+                    NimVor.toast((body && body.error && body.error.message) || (body && body.message) || (res.ok ? 'Done.' : 'The request failed.'), res.ok ? 'success' : 'danger');
                 });
             }
             if (type.indexOf('text/html') === 0) {
                 // A page rendered for the form (e.g. an error page).
                 return res.text().then(function (html) {
-                    if (!WhaCP.swapPage(html, null, false)) { document.open(); document.write(html); document.close(); }
+                    if (!NimVor.swapPage(html, null, false)) { document.open(); document.write(html); document.close(); }
                 });
             }
             restore(form);
             if (res.ok) { return download(res); }
-            WhaCP.toast('The request failed (HTTP ' + res.status + ').', 'danger');
+            NimVor.toast('The request failed (HTTP ' + res.status + ').', 'danger');
         }).catch(function () {
             restore(form);
-            WhaCP.toast('The panel could not be reached. Check the connection and try again.', 'danger');
+            NimVor.toast('The panel could not be reached. Check the connection and try again.', 'danger');
         });
     });
 
@@ -1804,11 +1804,11 @@
             var log = row.querySelector('[data-step-log]');
             var btn = row.querySelector('[data-step-job]');
             btn.hidden = false;
-            btn.onclick = function () { WhaCP.showJob(jobId); };
+            btn.onclick = function () { NimVor.showJob(jobId); };
             log.hidden = false;
             var offset = 0;
             function poll() {
-                return WhaCP.fetchJson('/jobs/' + jobId + '?offset=' + offset).then(function (res) {
+                return NimVor.fetchJson('/jobs/' + jobId + '?offset=' + offset).then(function (res) {
                     if (res.log) {
                         log.textContent = (log.textContent + res.log).split('\n').slice(-12).join('\n');
                     }
@@ -1821,7 +1821,7 @@
         }
         function runStep(params, row, afterJob, round) {
             var body = Object.assign({}, params, { step: row.getAttribute('data-step'), after_job: afterJob || '', round: round });
-            return WhaCP.fetchJson(form.getAttribute('data-step-url'), { method: 'POST', body: JSON.stringify(body) }).then(function (res) {
+            return NimVor.fetchJson(form.getAttribute('data-step-url'), { method: 'POST', body: JSON.stringify(body) }).then(function (res) {
                 var st = res.step;
                 if (st.status === 'running') {
                     setRow(row, 'running', st.detail);

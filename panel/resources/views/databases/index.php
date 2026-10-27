@@ -7,7 +7,7 @@
 <?php if (!empty($unmanaged)): ?>
     <div class="wcp-panel mt-3" id="other-databases" data-wcp-dt>
         <div class="wcp-actionbar">
-            <div class="fw-semibold"><i class="bi bi-binoculars me-1"></i>Other databases on this server <span class="wcp-muted fw-normal small">(not managed by WhaCP)</span></div>
+            <div class="fw-semibold"><i class="bi bi-binoculars me-1"></i>Other databases on this server <span class="wcp-muted fw-normal small">(not managed by NimVor)</span></div>
             <div class="wcp-actionbar-end"><div class="wcp-search"><input class="form-control form-control-sm" type="search" placeholder="Search" aria-label="Search other databases" data-wcp-dt-search><i class="bi bi-search" aria-hidden="true"></i></div></div>
         </div>
         <div class="wcp-dtable table-responsive">
@@ -27,7 +27,7 @@
             </table>
         </div>
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <div class="small wcp-muted pt-2">These are left untouched. Use Import to bring them under WhaCP management.</div>
+            <div class="small wcp-muted pt-2">These are left untouched. Use Import to bring them under NimVor management.</div>
             <div class="wcp-pager" data-wcp-dt-pager></div>
         </div>
     </div>

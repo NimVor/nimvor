@@ -1,5 +1,5 @@
 [Unit]
-Description=Run the WhaCP scheduler every 5 minutes
+Description=Run the NimVor scheduler every 5 minutes
 
 [Timer]
 # OnActiveSec starts the first run one minute after the timer is enabled: OnBootSec has

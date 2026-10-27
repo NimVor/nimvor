@@ -72,7 +72,7 @@ final class SettingsController extends Controller
     {
         $to = (string) ($this->user($request)['email'] ?? '');
         try {
-            $this->mailer->send([$to], 'WhaCP test message', "This is a test message from WhaCP.\n\nIf you can read it, outgoing email works.");
+            $this->mailer->send([$to], 'NimVor test message', "This is a test message from NimVor.\n\nIf you can read it, outgoing email works.");
         } catch (\WhaCP\Mail\MailException $e) {
             return $this->redirectWithFailure('/settings#email', $e);
         }

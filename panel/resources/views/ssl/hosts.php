@@ -50,7 +50,7 @@ foreach ($hosts as $h) {
                     <td class="small"><?php if (!$h['https']): ?><span class="wcp-muted">No</span><?php else: ?>Yes<?= !empty($h['redirects_to_https']) ? ' <span class="wcp-muted">· HTTP redirects</span>' : '' ?><?php endif; ?></td>
                     <td><?php if ($c !== null): ?><?= $this->partial('ssl/_cert', ['c' => $c, 'warnDays' => $warnDays]) ?><?= !$h['covered'] ? '<div class="small text-danger">Does not cover this name (browsers warn)</div>' : '' ?><?php else: ?><span class="wcp-muted small">—</span><?php endif; ?></td>
                     <td class="small font-monospace text-break"><?= e((string) $h['file']) ?></td>
-                    <td class="text-end text-nowrap"><?php if ($site !== null): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.ssl', ['id' => (int) $site['id']])) ?>"><?= $h['https'] ? 'Manage' : 'Enable HTTPS' ?></a><?php else: ?><span class="small wcp-muted"><?= !empty($h['whacp']) ? 'WhaCP service' : 'not managed' ?></span><?php endif; ?></td>
+                    <td class="text-end text-nowrap"><?php if ($site !== null): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.ssl', ['id' => (int) $site['id']])) ?>"><?= $h['https'] ? 'Manage' : 'Enable HTTPS' ?></a><?php else: ?><span class="small wcp-muted"><?= !empty($h['whacp']) ? 'NimVor service' : 'not managed' ?></span><?php endif; ?></td>
                 </tr>
             <?php endforeach; ?>
             <tr class="<?= $hosts === [] ? '' : 'd-none' ?>" data-wcp-dt-empty><td colspan="5" class="text-center py-4 wcp-muted">No host names found in Nginx.</td></tr>

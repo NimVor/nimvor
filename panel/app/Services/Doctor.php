@@ -39,7 +39,7 @@ final class Doctor
             $out[] = ['status' => $status, 'check' => $check, 'detail' => $detail];
         };
 
-        $add(PHP_VERSION_ID >= 80300 ? self::OK : self::FAIL, 'PHP version', PHP_VERSION . (PHP_VERSION_ID >= 80300 ? '' : ' — WhaCP needs PHP 8.3 or newer'));
+        $add(PHP_VERSION_ID >= 80300 ? self::OK : self::FAIL, 'PHP version', PHP_VERSION . (PHP_VERSION_ID >= 80300 ? '' : ' — NimVor needs PHP 8.3 or newer'));
         $missing = array_values(array_filter(['pdo_sqlite', 'sodium', 'curl', 'mbstring', 'json'], static fn (string $e): bool => !extension_loaded($e)));
         $add($missing === [] ? self::OK : self::FAIL, 'PHP extensions', $missing === [] ? 'all present' : 'missing: ' . implode(', ', $missing));
         $add($this->config->get('app.debug') ? self::WARN : self::OK, 'Debug mode', $this->config->get('app.debug') ? 'on — error pages show internals; turn it off' : 'off');

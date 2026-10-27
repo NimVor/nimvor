@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# Removes WhaCP's own files and services. It never touches the websites,
-# databases or services WhaCP was observing.
+# Removes NimVor's own files and services. It never touches the websites,
+# databases or services NimVor was observing.
 #
 #   sudo ./installer/uninstall.sh            remove program files and services, keep data
 #   sudo ./installer/uninstall.sh --purge    also remove /etc/whacp, /var/lib/whacp, /var/log/whacp and the whacp user
 #
-# Websites, databases, certificates and accounts created through WhaCP keep
+# Websites, databases, certificates and accounts created through NimVor keep
 # running; so do backups (/var/backups/whacp), the agent state with the
 # backup key (/var/lib/whacp-agent) and the launchers of background workers
 # (/var/lib/whacp-workers), which are only listed, never deleted.
@@ -17,7 +17,7 @@ PURGE=0
 [[ ${1:-} == --purge ]] && PURGE=1
 [[ $EUID -eq 0 ]] || { echo "run as root" >&2; exit 1; }
 
-read -r -p "Remove WhaCP from this server$([[ $PURGE -eq 1 ]] && echo ' including its data and configuration')? [y/N] " reply
+read -r -p "Remove NimVor from this server$([[ $PURGE -eq 1 ]] && echo ' including its data and configuration')? [y/N] " reply
 [[ $reply =~ ^[Yy]$ ]] || { echo "aborted"; exit 1; }
 
 systemctl disable --now whacp-scheduler.timer 2>/dev/null || true
@@ -38,13 +38,13 @@ if [[ -e /etc/systemd/system/whacp-greylist.service ]]; then
     systemctl disable --now whacp-greylist.service whacp-greylist.socket 2>/dev/null || true
     rm -f /etc/systemd/system/whacp-greylist.service /etc/systemd/system/whacp-greylist.socket
 fi
-# WhaCP's SELinux module (systemd sockets in Postfix's private folder).
+# NimVor's SELinux module (systemd sockets in Postfix's private folder).
 if command -v semodule >/dev/null && semodule -l 2>/dev/null | grep -q '^whacp_postfix_sockets\b'; then
     semodule -r whacp_postfix_sockets || true
 fi
-# WhaCP's nftables tables (firewall protections, SMTP restrictions,
+# NimVor's nftables tables (firewall protections, SMTP restrictions,
 # outgoing limits of website accounts, brute force blocks): unloaded with
-# their units, so nothing WhaCP added keeps dropping traffic.
+# their units, so nothing NimVor added keeps dropping traffic.
 for svc in whacp-flood whacp-smtp-restrict whacp-egress; do
     systemctl disable --now "$svc.service" 2>/dev/null || true
     rm -f "/etc/systemd/system/$svc.service"

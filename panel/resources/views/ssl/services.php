@@ -140,7 +140,7 @@ $serviceCard = function (string $key, string $title, string $icon, ?array $s, st
 <?php };
 ?>
 <div class="row g-3">
-    <div class="col-xl-6"><?php $serviceCard('panel', 'WhaCP panel (web services)', 'window', $svc['panel'] ?? null, 'The panel is not served over HTTPS by Nginx on this server (it was installed without --public-https; reach it through an SSH tunnel).', 'The panel\'s HTTPS uses the server-wide TLS configuration (protocols and ciphers on the TLS configuration tab) once a certificate is chosen here.'); ?></div>
+    <div class="col-xl-6"><?php $serviceCard('panel', 'NimVor panel (web services)', 'window', $svc['panel'] ?? null, 'The panel is not served over HTTPS by Nginx on this server (it was installed without --public-https; reach it through an SSH tunnel).', 'The panel\'s HTTPS uses the server-wide TLS configuration (protocols and ciphers on the TLS configuration tab) once a certificate is chosen here.'); ?></div>
     <div class="col-xl-6"><?php $serviceCard('mail', 'Mail server (SMTP, submission, IMAP)', 'envelope', $svc['mail'] ?? null, 'Email is not set up on this server yet (Email → Mail server).', 'Postfix and Dovecot use the same certificate. Mail programs check that it covers the server name they connect to (usually the mail host name).'); ?></div>
     <?php if (isset($svc['mail'])): ?>
     <div class="col-xl-6">
@@ -173,7 +173,7 @@ $serviceCard = function (string $key, string $title, string $icon, ?array $s, st
                     <tr><th class="fw-semibold w-40" scope="row">Web services (panel) SSL</th><td>The panel card on this page; its ciphers follow the TLS configuration tab.</td></tr>
                     <tr><th class="fw-semibold w-40" scope="row">Mail server SSL and ciphers</th><td>The mail cards on this page.</td></tr>
                     <tr><th class="fw-semibold w-40" scope="row">Host name SSL</th><td>The host name bar above; renewed automatically like every Let's Encrypt certificate.</td></tr>
-                    <tr><th class="fw-semibold w-40" scope="row">Web Disk SSL</th><td>WhaCP has no Web Disk (WebDAV) service; files are reached over SFTP, FTPS and the File Manager.</td></tr>
+                    <tr><th class="fw-semibold w-40" scope="row">Web Disk SSL</th><td>NimVor has no Web Disk (WebDAV) service; files are reached over SFTP, FTPS and the File Manager.</td></tr>
                 </tbody></table>
             </div>
         </div>

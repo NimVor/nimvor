@@ -9,7 +9,7 @@ use WhaCP\Agent\AgentException;
 use WhaCP\Support\UserFacingException;
 
 /**
- * HTTPS for WhaCP websites.
+ * HTTPS for NimVor websites.
  *
  * Flow: obtain/validate the certificate on the agent → switch the website
  * to HTTPS through WebsiteService (which regenerates the Nginx config and

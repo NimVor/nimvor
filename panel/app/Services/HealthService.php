@@ -12,7 +12,7 @@ use WhaCP\Database\Connection;
  * Server → Health: one page answering "is anything wrong?". It gathers the
  * checks that already exist elsewhere, each with a link to where it is
  * fixed:
- * - WhaCP itself (`bin/whacp doctor`);
+ * - NimVor itself (`bin/whacp doctor`);
  * - resources (memory, swap, load);
  * - components;
  * - the security audit;
@@ -31,7 +31,7 @@ final class HealthService
     public const UNKNOWN = 'unknown';
 
     public const SECTIONS = [
-        'whacp' => ['WhaCP and the server', 'heart-pulse', 'settings'],
+        'whacp' => ['NimVor and the server', 'heart-pulse', 'settings'],
         'resources' => ['Resources', 'speedometer', 'monitoring'],
         'components' => ['Components', 'puzzle', 'components'],
         'security' => ['Security', 'shield-check', 'security'],

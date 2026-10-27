@@ -234,7 +234,7 @@ final class NotificationService
         foreach ($to as $address) {
             // One message per recipient: addresses are not disclosed to each other.
             try {
-                $this->mailer->send([$address], '[WhaCP] ' . mb_substr((string) $n['title'], 0, 120), $text);
+                $this->mailer->send([$address], '[NimVor] ' . mb_substr((string) $n['title'], 0, 120), $text);
             } catch (MailException $e) {
                 $this->log->warning('notification email failed', ['notification' => $id]);
             }

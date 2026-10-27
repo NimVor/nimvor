@@ -46,7 +46,7 @@ final class LogsController extends Controller
         } catch (AgentException $e) {
             $error = $e;
         }
-        $sources[] = ['id' => 'panel', 'label' => 'WhaCP panel log', 'group' => 'WhaCP', 'kind' => 'file'];
+        $sources[] = ['id' => 'panel', 'label' => 'NimVor panel log', 'group' => 'NimVor', 'kind' => 'file'];
         // Logs → <kind> in the sidebar shows only that kind of log.
         $view = (string) $request->query('view', '');
         if (isset(self::CATEGORIES[$view])) {
@@ -58,7 +58,7 @@ final class LogsController extends Controller
     /** The kinds of server logs (Logs' sub-menu): view => title. */
     public const CATEGORIES = [
         'web' => 'Web server logs', 'php' => 'PHP-FPM logs', 'mail' => 'Mail server logs', 'database' => 'Database server logs',
-        'security' => 'Security logs', 'ssl' => 'SSL and Let\'s Encrypt logs', 'system' => 'System logs', 'services' => 'Service logs', 'whacp' => 'WhaCP logs',
+        'security' => 'Security logs', 'ssl' => 'SSL and Let\'s Encrypt logs', 'system' => 'System logs', 'services' => 'Service logs', 'whacp' => 'NimVor logs',
     ];
 
     /** Which kind a log source belongs to. */

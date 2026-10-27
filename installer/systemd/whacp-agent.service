@@ -1,5 +1,5 @@
 [Unit]
-Description=WhaCP server agent (privileged actions for the WhaCP panel)
+Description=NimVor server agent (privileged actions for the NimVor panel)
 Documentation=https://github.com/NimVor/nimvor/tree/main/docs/agent
 After=network.target
 # The agent must never take the host down with it.

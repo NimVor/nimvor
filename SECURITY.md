@@ -21,8 +21,8 @@ Only the latest release receives security fixes.
 ## Scope
 
 In scope: the panel, the agent, the installer, default configuration and
-systemd units. Out of scope: vulnerabilities in third-party software WhaCP
-observes (Nginx, PHP, MariaDB, …) unless WhaCP makes them exploitable.
+systemd units. Out of scope: vulnerabilities in third-party software NimVor
+observes (Nginx, PHP, MariaDB, …) unless NimVor makes them exploitable.
 
 ## Trust model
 

@@ -1,4 +1,4 @@
-// WhaCP database browser. Every request runs in the agent as the
+// NimVor database browser. Every request runs in the agent as the
 // database's own browser account (privileges on this database only).
 // Values are rendered as text, never HTML. A cell is null, a string, or
 // {hex|text, size, truncated} for binary data and shortened text.
@@ -14,9 +14,9 @@
     function el(tag, cls, text) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (text !== undefined && text !== null) { e.textContent = text; } return e; }
     function btn(label, icon, cls, fn) { var b = el('button', 'btn btn-sm ' + cls); b.type = 'button'; if (icon) { b.appendChild(el('i', 'bi ' + icon + (label ? ' me-1' : ''))); } if (label) { b.appendChild(document.createTextNode(label)); } if (fn) { b.addEventListener('click', fn); } return b; }
     function call(op, params) {
-        return WhaCP.fetchJson(api, { method: 'POST', body: JSON.stringify(Object.assign({ op: op }, params || {})) }).then(function (r) { return r.data; });
+        return NimVor.fetchJson(api, { method: 'POST', body: JSON.stringify(Object.assign({ op: op }, params || {})) }).then(function (r) { return r.data; });
     }
-    function fail(err) { var d = err.details || {}; WhaCP.toast((d.message || err.message) + (d.details ? ' — ' + d.details : ''), 'danger'); }
+    function fail(err) { var d = err.details || {}; NimVor.toast((d.message || err.message) + (d.details ? ' — ' + d.details : ''), 'danger'); }
     function ident(name) { return '`' + String(name).replace(/`/g, '``') + '`'; }
     function fmtBytes(n) { if (n < 1024) { return n + ' B'; } var u = ['KiB', 'MiB', 'GiB', 'TiB'], i = -1; do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1); return n.toFixed(n < 10 ? 1 : 0) + ' ' + u[i]; }
     function loading(target) { target.replaceChildren(el('div', 'p-4 text-body-secondary', 'Loading…')); }
@@ -214,7 +214,7 @@
         if (keys.length === 0) { return; }
         confirmDialog('Delete rows', 'Delete ' + keys.length + ' row(s) from ' + state.table + '? This cannot be undone.', 'Delete').then(function (ok) {
             if (!ok) { return; }
-            call('delete', { table: state.table, keys: keys }).then(function (r) { WhaCP.toast(r.deleted + ' row(s) deleted.', 'success'); browse(); }).catch(fail);
+            call('delete', { table: state.table, keys: keys }).then(function (r) { NimVor.toast(r.deleted + ' row(s) deleted.', 'success'); browse(); }).catch(fail);
         });
     }
 
@@ -297,12 +297,12 @@
                     out[f.c.name] = { hex: h.toLowerCase() };
                 } else { out[f.c.name] = f.input.value; }
             });
-            if (bad) { bad.input.classList.add('is-invalid'); bad.input.focus(); WhaCP.toast(bad.c.name + ': enter an even number of hexadecimal digits.', 'danger'); return; }
-            if (!insert && Object.keys(out).length === 0) { WhaCP.toast('Nothing changed.', 'secondary'); return; }
+            if (bad) { bad.input.classList.add('is-invalid'); bad.input.focus(); NimVor.toast(bad.c.name + ': enter an even number of hexadecimal digits.', 'danger'); return; }
+            if (!insert && Object.keys(out).length === 0) { NimVor.toast('Nothing changed.', 'secondary'); return; }
             if (insert && Object.keys(out).length === 0) { (st.columns || []).some(function (c) { out[c.name] = { default: true }; return true; }); }
             save.disabled = true;
             call('save', insert ? { table: state.table, insert: true, values: out } : { table: state.table, key: key, values: out }).then(function (r) {
-                WhaCP.toast(insert ? 'Row inserted' + (r.insert_id ? ' (id ' + r.insert_id + ')' : '') + '.' : (r.affected_rows ? 'Row saved.' : 'Saved; no values changed.'), 'success');
+                NimVor.toast(insert ? 'Row inserted' + (r.insert_id ? ' (id ' + r.insert_id + ')' : '') + '.' : (r.affected_rows ? 'Row saved.' : 'Saved; no values changed.'), 'success');
                 switchTab('browse');
             }).catch(function (err) { save.disabled = false; fail(err); });
         });
@@ -322,7 +322,7 @@
         formEl.querySelector('[data-db-form-body]').replaceChildren(body);
         ok.textContent = okLabel; ok.disabled = false; sqlOut.textContent = '';
         pv.classList.toggle('d-none', !preview);
-        var guard = function (fn) { try { return fn(); } catch (err) { WhaCP.toast(err.message, 'danger'); return null; } };
+        var guard = function (fn) { try { return fn(); } catch (err) { NimVor.toast(err.message, 'danger'); return null; } };
         pv.onclick = function () { var pr = guard(function () { return submit(true); }); if (pr) { pr.then(function (r) { sqlOut.textContent = r.sql || ''; }).catch(fail); } };
         form.onsubmit = function (e) {
             e.preventDefault();
@@ -366,8 +366,8 @@
             p.alter_op = p.op; delete p.op;
             return call('alter', p).then(function (r) {
                 if (!dry) {
-                    WhaCP.toast('Done: ' + (r.sql || '').split('\n')[0], 'success');
-                    if (r.result && r.result.rows) { WhaCP.toast(r.result.rows.map(function (row) { return row.map(cellText).join(' · '); }).join('\n'), 'info'); }
+                    NimVor.toast('Done: ' + (r.sql || '').split('\n')[0], 'success');
+                    if (r.result && r.result.rows) { NimVor.toast(r.result.rows.map(function (row) { return row.map(cellText).join(' · '); }).join('\n'), 'info'); }
                     delete state.structure[p.table];
                     return loadTables().then(function () { if (state.tab === 'structure' && state.table) { showStructure(); } });
                 }
@@ -466,7 +466,7 @@
             var p = { table: tname.value.trim(), alter_op: 'create_table', columns: cols, primary: [cols[0].name], engine: engine.value, dry_run: dry };
             return call('alter', p).then(function (r) {
                 if (dry) { return r; }
-                WhaCP.toast('Table ' + p.table + ' created.', 'success');
+                NimVor.toast('Table ' + p.table + ' created.', 'success');
                 return loadTables().then(function () { selectTable(p.table); });
             });
         }, true);
@@ -520,7 +520,7 @@
                 })) : el('p', 'text-body-secondary small', 'No foreign keys.'));
             }
 
-            var ch = h('CREATE statement', [btn('Copy', 'bi-clipboard', 'btn-sm btn-outline-secondary', function () { navigator.clipboard.writeText(st.create || '').then(function () { WhaCP.toast('Copied.', 'success'); }); })]);
+            var ch = h('CREATE statement', [btn('Copy', 'bi-clipboard', 'btn-sm btn-outline-secondary', function () { navigator.clipboard.writeText(st.create || '').then(function () { NimVor.toast('Copied.', 'success'); }); })]);
             body.append(ch, el('pre', 'wcp-db-create', st.create || ''));
 
             var ops = el('div', 'd-flex flex-wrap gap-2 mt-3');
@@ -561,10 +561,10 @@
         var p = state.page, params = { table: state.table };
         if (p.filter) { params.filter = p.filter; }
         if (p.search) { params.search = p.search; }
-        WhaCP.toast('Exporting ' + state.table + '…', 'info');
+        NimVor.toast('Exporting ' + state.table + '…', 'info');
         call('export_csv', params).then(function (r) {
             download(r.csv, state.table + '.csv', 'text/csv;charset=utf-8');
-            if (r.truncated) { WhaCP.toast('Only the first ' + Number(r.rows).toLocaleString() + ' rows were exported; use the database export for the whole table.', 'warning'); }
+            if (r.truncated) { NimVor.toast('Only the first ' + Number(r.rows).toLocaleString() + ' rows were exported; use the database export for the whole table.', 'warning'); }
         }).catch(fail);
     }
     function importCsv(st) {
@@ -588,14 +588,14 @@
         };
         file.addEventListener('change', function () {
             var f = file.files[0]; if (!f) { return; }
-            if (f.size > 16 * 1024 * 1024) { WhaCP.toast('The file is larger than 16 MB.', 'danger'); file.value = ''; return; }
+            if (f.size > 16 * 1024 * 1024) { NimVor.toast('The file is larger than 16 MB.', 'danger'); file.value = ''; return; }
             f.text().then(function (t) { text = t; if (/\.tsv$/i.test(f.name)) { delim.value = 'tab'; } else if (t.split('\n', 1)[0].split(';').length > t.split('\n', 1)[0].split(',').length) { delim.value = ';'; } parseHead(); });
         });
         delim.addEventListener('change', parseHead); header.box.addEventListener('change', parseHead); parseHead();
         formDialog('Import CSV into ' + state.table, wrap, 'Import', function () {
             if (!text) { throw new Error('Choose a CSV file.'); }
             return call('import_csv', { table: state.table, csv: text, delimiter: delim.value, header: header.box.checked, columns: maps.map(function (m) { return m.value; }), mode: mode.value }).then(function (r) {
-                WhaCP.toast(Number(r.rows).toLocaleString() + ' row(s) read, ' + Number(r.affected_rows).toLocaleString() + ' changed.', 'success');
+                NimVor.toast(Number(r.rows).toLocaleString() + ' row(s) read, ' + Number(r.affected_rows).toLocaleString() + ' changed.', 'success');
                 state.structure = {}; loadTables(); if (state.tab === 'browse') { browse(); }
             });
         }, false);

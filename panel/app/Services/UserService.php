@@ -148,7 +148,7 @@ final class UserService
             throw new UserFacingException('You cannot delete your own account.', 'Deleting the account you are signed in with would lock you out.', 'Ask another administrator to remove it.');
         }
         if ($existing['role_name'] === 'admin' && (int) $existing['is_active'] === 1 && $this->users->countActiveWithRole('admin') <= 1) {
-            throw new UserFacingException('The last administrator cannot be deleted.', 'WhaCP requires at least one active administrator.', 'Promote another user to Administrator first.');
+            throw new UserFacingException('The last administrator cannot be deleted.', 'NimVor requires at least one active administrator.', 'Promote another user to Administrator first.');
         }
         $this->users->delete($id);
         $this->audit->record('user.delete', 'user', (string) $id, AuditLogger::SUCCESS, ['username' => $existing['username']]);

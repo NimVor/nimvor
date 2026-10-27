@@ -40,7 +40,7 @@ final class UpdateCheckTest extends TestCase
     {
         self::assertSame('acme/whacp', UpdateCheckService::githubRepo('https://github.com/acme/whacp.git'));
         self::assertSame('acme/whacp', UpdateCheckService::githubRepo('git@github.com:acme/whacp.git'));
-        self::assertSame('acme/WhaCP', UpdateCheckService::githubRepo('https://github.com/acme/WhaCP'));
+        self::assertSame('acme/NimVor', UpdateCheckService::githubRepo('https://github.com/acme/NimVor'));
         self::assertNull(UpdateCheckService::githubRepo('https://gitlab.com/acme/whacp.git'));
         self::assertNull(UpdateCheckService::githubRepo('https://github.com/acme/whacp/../../x'));
     }

@@ -36,7 +36,7 @@ $tls = ($cfg['tls'] ?? 'required') === 'optional' ? 'optional' : 'required';
     <span class="wcp-muted small"><?= $tls === 'optional' ? 'TLS optional — plain FTP allowed' : 'TLS required (FTPS): choose “FTP over explicit TLS” in your client' ?> · passive ports <?= (int) ($cfg['passive_min'] ?? 0) ?>–<?= (int) ($cfg['passive_max'] ?? 0) ?></span>
 </div>
 <?php if ($others !== []): ?>
-    <div class="alert alert-warning small"><?= e(implode(', ', array_map('strval', $others))) ?> is running. Setting up WhaCP's FTP server stops and disables it (tick the confirmation in the settings); its own accounts are not carried over.</div>
+    <div class="alert alert-warning small"><?= e(implode(', ', array_map('strval', $others))) ?> is running. Setting up NimVor's FTP server stops and disables it (tick the confirmation in the settings); its own accounts are not carried over.</div>
 <?php endif; ?>
 
 <div class="wcp-panel" data-wcp-dt id="ftp-accounts">
@@ -85,7 +85,7 @@ $tls = ($cfg['tls'] ?? 'required') === 'optional' ? 'optional' : 'required';
                 <div class="small wcp-muted mb-2">Certificate: <?= e((string) $cert['subject']) ?> (self-signed, until <?= e(substr((string) $cert['not_after'], 0, 10)) ?>) · SHA-256 <code class="text-break"><?= e(implode(':', str_split((string) $cert['sha256'], 2))) ?></code></div>
             <?php endif; ?>
             <button class="btn btn-primary btn-sm"><?= empty($status['configured']) ? 'Set up and start' : 'Save and restart' ?></button>
-            <div class="form-text">WhaCP runs pure-ftpd from its own configuration (<code>/etc/whacp-ftp</code>); the distribution's configuration is not changed. If the firewall is on, port 21 and the passive range are opened.</div>
+            <div class="form-text">NimVor runs pure-ftpd from its own configuration (<code>/etc/whacp-ftp</code>); the distribution's configuration is not changed. If the firewall is on, port 21 and the passive range are opened.</div>
         </form>
     <?= $this->modalEnd() ?>
 

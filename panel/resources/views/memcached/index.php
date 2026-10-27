@@ -88,7 +88,7 @@ $uptime = (int) ($st['uptime'] ?? 0);
     <label class="form-label small mt-2" for="mc-listen">Listen addresses</label>
     <input class="form-control font-monospace" id="mc-listen" name="listen" value="<?= e(implode(', ', (array) ($cfg['listen'] ?? ['127.0.0.1']))) ?>">
     <div class="form-text">Loopback only (127.0.0.1, ::1): Memcached has no password, so it must never be reachable from the network.</div>
-    <div class="form-check mt-3"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="mc-confirm" required><label class="form-check-label small" for="mc-confirm">Allow WhaCP to edit <code><?= e($status['config_file'] ?? '') ?></code> (it belongs to the Memcached package; a backup is kept and it is restored if Memcached does not come back)</label></div>
+    <div class="form-check mt-3"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="mc-confirm" required><label class="form-check-label small" for="mc-confirm">Allow NimVor to edit <code><?= e($status['config_file'] ?? '') ?></code> (it belongs to the Memcached package; a backup is kept and it is restored if Memcached does not come back)</label></div>
     <div class="text-end mt-3"><button class="btn btn-primary">Save and restart</button></div>
 </form>
 <?= $this->modalEnd() ?>

@@ -1,7 +1,7 @@
-# WhaCP Agent
+# NimVor Agent
 
 The agent is a single static Go binary (`/usr/local/bin/whacp-agent`) run by
-systemd as `whacp-agent.service`. It is the only WhaCP component with
+systemd as `whacp-agent.service`. It is the only NimVor component with
 privileges.
 
 ## Configuration — `/etc/whacp/agent.json`
@@ -20,7 +20,7 @@ privileges.
 | `metrics_history` | `180` | samples kept in memory (15 min at 5 s) |
 | `action_timeout` | `30s` | per-action deadline |
 | `allow_write_actions` | `false` | gate for modifying actions |
-| `sites_root` | `/home/whacp` | where WhaCP websites live |
+| `sites_root` | `/home/whacp` | where NimVor websites live |
 | `state_dir` | `/var/lib/whacp-agent` | backups of changed files, jobs, pending security changes, import records |
 | `backup_dir` | `/var/backups/whacp` | local backup archives |
 | `web_user` | platform default (`www-data`) | Nginx worker account |
@@ -83,7 +83,7 @@ a system-call filter, `MemoryDenyWriteExecute`, `RestrictAddressFamilies`
 Write mode (`10-write-mode.conf`) lifts the filesystem sandbox because
 installing packages, creating accounts and managing the firewall touch most
 of the system. Safety then rests on the agent: the file writer only accepts
-an allowlist of WhaCP-owned paths (its configuration files, the sites root,
+an allowlist of NimVor-owned paths (its configuration files, the sites root,
 state and backup directories), every configuration change is validated
 before reload and rolled back on failure, and commands for a website run
 as that website's unprivileged account.
@@ -108,6 +108,6 @@ and `preview`. The platform also maps package names (`pkgs` installs with apt or
 dnf), and names PHP versions the Remi way on RHEL (`php83-php-fpm`, pools in
 `/etc/opt/remi/php83/php-fpm.d`). `fw` opens service ports in UFW or
 firewalld, and `selinux` keeps SELinux labels, booleans and ports
-consistent with what WhaCP sets up. Both do nothing where their subsystem
+consistent with what NimVor sets up. Both do nothing where their subsystem
 is absent. New distributions add a `Platform`
 implementation; no other package changes.

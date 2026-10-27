@@ -77,7 +77,7 @@ final class DnsController extends Controller
         $this->jobs->track((string) $res['job_id'], 'Install BIND', 'server', 'dns', $this->userId($request));
         $this->audit->record('packages.install', 'server', 'dns', AuditLogger::SUCCESS, ['name' => 'bind9']);
         $this->flashJob((string) $res['job_id']);
-        return $this->redirectWithSuccess('/dns', 'Installing BIND. Then set it up for WhaCP below.');
+        return $this->redirectWithSuccess('/dns', 'Installing BIND. Then set it up for NimVor below.');
     }
 
     public function setup(Request $request): Response

@@ -24,8 +24,8 @@ foreach ($permissions as $p) {
 <?php $this->start(); ?><?= $isNew ? 'Choose what members of the role may do' : e((string) $role['description']) ?><?php $this->end('subtitle'); ?>
 <?php if ($system && !$isAdminRole && $canManage): ?>
 <?php $this->start(); ?>
-    <form method="post" action="<?= e($this->url('roles.reset', ['id' => (int) $role['id']])) ?>" data-wcp-confirm="Give &quot;<?= e($role['label']) ?>&quot; WhaCP's default permissions again?">
-        <?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset to WhaCP defaults</button>
+    <form method="post" action="<?= e($this->url('roles.reset', ['id' => (int) $role['id']])) ?>" data-wcp-confirm="Give &quot;<?= e($role['label']) ?>&quot; NimVor's default permissions again?">
+        <?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset to NimVor defaults</button>
     </form>
 <?php $this->end('actions'); ?>
 <?php endif; ?>
@@ -33,9 +33,9 @@ foreach ($permissions as $p) {
 <?php if ($isAdminRole): ?>
     <div class="alert alert-info small"><i class="bi bi-lock me-1"></i>Administrator always has every permission, so the server can never be left without a full administrator. For narrower access, change Operator or create a custom role.</div>
 <?php elseif ($system): ?>
-    <div class="alert alert-secondary small"><i class="bi bi-info-circle me-1"></i>A built-in role. You can change its permissions; your choice is kept when WhaCP is updated. <?= !empty($role['customized']) ? '<strong>Changed from the defaults.</strong>' : 'It has WhaCP\'s defaults.' ?></div>
+    <div class="alert alert-secondary small"><i class="bi bi-info-circle me-1"></i>A built-in role. You can change its permissions; your choice is kept when NimVor is updated. <?= !empty($role['customized']) ? '<strong>Changed from the defaults.</strong>' : 'It has WhaCP\'s defaults.' ?></div>
     <?php if ($missingDefaults !== []): ?>
-        <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i>WhaCP's defaults for this role also include: <?= e(implode(', ', $missingDefaults)) ?>. Tick them below or reset the role if members need them.</div>
+        <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i>NimVor's defaults for this role also include: <?= e(implode(', ', $missingDefaults)) ?>. Tick them below or reset the role if members need them.</div>
     <?php endif; ?>
 <?php endif; ?>
 <?php if ($ownScope): ?>

@@ -11,8 +11,8 @@ use WhaCP\Support\ValidationException;
 
 /**
  * Roles. Built-in roles (operator, viewer, reseller, customer) come with
- * WhaCP's defaults; an administrator may change their permissions, after
- * which upgrades keep the change (until "Reset to WhaCP defaults").
+ * NimVor's defaults; an administrator may change their permissions, after
+ * which upgrades keep the change (until "Reset to NimVor defaults").
  * Administrator always has every permission, so nobody can weaken it or
  * lock everyone out. Nobody can grant a permission they do not hold, and
  * own-scope roles only take hosting permissions.
@@ -50,7 +50,7 @@ final class RoleService
         if ($system && (Permissions::defaultRoles()[$role['name']]['permissions'] ?? []) === ['*']) {
             throw new UserFacingException('The Administrator role cannot be changed.', 'It always has every permission, so the server can never be left without a full administrator.', 'Create a custom role, or change Operator, for narrower access.');
         }
-        // Built-in roles keep their name, label and description from WhaCP.
+        // Built-in roles keep their name, label and description from NimVor.
         if ($system) {
             $input['label'] = $role['label'];
             $input['description'] = $role['description'];
@@ -73,12 +73,12 @@ final class RoleService
         ]);
     }
 
-    /** A built-in role back to WhaCP's default permissions. */
+    /** A built-in role back to NimVor's default permissions. */
     public function resetDefaults(int $id): void
     {
         $role = $this->roles->find($id) ?? throw new UserFacingException('The role no longer exists.', status: 404);
         if ((int) $role['is_system'] !== 1) {
-            throw new UserFacingException('Only built-in roles have WhaCP defaults.');
+            throw new UserFacingException('Only built-in roles have NimVor defaults.');
         }
         $this->roles->setCustomized($id, false);
         $this->roles->syncDefaults();
@@ -144,7 +144,7 @@ final class RoleService
     {
         $role = $this->roles->find($id) ?? throw new UserFacingException('The role no longer exists.', status: 404);
         if ((int) $role['is_system'] === 1) {
-            throw new UserFacingException('Built-in roles cannot be changed.', 'They are defined by WhaCP and updated with it.', 'Create a custom role instead.');
+            throw new UserFacingException('Built-in roles cannot be changed.', 'They are defined by NimVor and updated with it.', 'Create a custom role instead.');
         }
         return $role;
     }

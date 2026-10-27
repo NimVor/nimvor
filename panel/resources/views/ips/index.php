@@ -17,7 +17,7 @@ $old ??= [];
 
 <div class="wcp-infobar">
     <i class="bi bi-info-circle" aria-hidden="true"></i>
-    <span>Websites listen on every address unless bound to one from this pool. WhaCP does not configure network interfaces: add an IPv4 address to the server first (your provider's panel or the system's network configuration), then to the pool. Routed IPv6 ranges are made usable under <a href="<?= e($this->url('ips.ranges')) ?>">IPv6 ranges</a>.</span>
+    <span>Websites listen on every address unless bound to one from this pool. NimVor does not configure network interfaces: add an IPv4 address to the server first (your provider's panel or the system's network configuration), then to the pool. Routed IPv6 ranges are made usable under <a href="<?= e($this->url('ips.ranges')) ?>">IPv6 ranges</a>.</span>
 </div>
 
 <?php if (is_array($rebuild) && $rebuild['missing'] !== []): ?>

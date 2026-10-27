@@ -69,7 +69,7 @@ final class SecurityChecksController extends Controller
             return $this->redirectWithError('/security/integrity', 'The baseline could not be recorded: ' . $e->getMessage());
         }
         $this->audit->record('security.integrity_baseline', 'server', 'integrity', AuditLogger::SUCCESS, ['files' => (int) ($res['baselined'] ?? 0)]);
-        return $this->redirectWithSuccess('/security/integrity', 'Integrity baseline recorded for ' . (int) ($res['baselined'] ?? 0) . ' WhaCP-owned file(s). Run the check after an update to refresh it.');
+        return $this->redirectWithSuccess('/security/integrity', 'Integrity baseline recorded for ' . (int) ($res['baselined'] ?? 0) . ' NimVor-owned file(s). Run the check after an update to refresh it.');
     }
 
     // ---- TLS configuration audit (items 70–71) ---------------------------

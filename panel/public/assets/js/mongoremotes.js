@@ -8,7 +8,7 @@
     'use strict';
     var tag = document.querySelector('script[data-mongo-remote-databases-url]');
     var modal = document.getElementById('mongo-getdb');
-    if (!tag || !modal || !window.WhaCP) { return; }
+    if (!tag || !modal || !window.NimVor) { return; }
     var url = tag.getAttribute('data-mongo-remote-databases-url');
 
     var idIn = modal.querySelector('[data-mongo-getdb-id]');
@@ -36,7 +36,7 @@
         if (okBtn) { okBtn.disabled = true; }
         select.replaceChildren(option('', 'Loading…'));
 
-        WhaCP.fetchJson(url, { method: 'POST', body: JSON.stringify({ id: id }) }).then(function (r) {
+        NimVor.fetchJson(url, { method: 'POST', body: JSON.stringify({ id: id }) }).then(function (r) {
             var dbs = (r.data && r.data.databases) || [];
             select.replaceChildren();
             if (!dbs.length) {

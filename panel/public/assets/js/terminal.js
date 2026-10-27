@@ -27,7 +27,7 @@
         return setAttribute.call(this, name, value);
     };
 
-    var WhaCP = window.WhaCP;
+    var NimVor = window.NimVor;
     var openUrl = root.getAttribute('data-open-url');
     var unlockForm = document.getElementById('wcp-term-unlock');
     // "linux": a website account, signed in with its Linux password, which
@@ -124,7 +124,7 @@
         ensureTerminal();
         connectBtn.disabled = true;
         setState('Connecting…', 'is-warn');
-        WhaCP.fetchJson(openUrl, { method: 'POST', body: JSON.stringify({ cols: term.cols, rows: term.rows }) })
+        NimVor.fetchJson(openUrl, { method: 'POST', body: JSON.stringify({ cols: term.cols, rows: term.rows }) })
             .then(function (res) {
                 var proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 var sock = new WebSocket(proto + '//' + window.location.host + '/terminal/ws');
@@ -213,7 +213,7 @@
         var btn = unlockForm.querySelector('button[type="submit"]');
         btn.disabled = true;
         var body = { password: unlockForm.password.value, code: unlockForm.code ? unlockForm.code.value : '' };
-        WhaCP.fetchJson(unlockForm.getAttribute('action'), { method: 'POST', body: JSON.stringify(body) })
+        NimVor.fetchJson(unlockForm.getAttribute('action'), { method: 'POST', body: JSON.stringify(body) })
             .then(function () {
                 unlockForm.reset();
                 unlockForm.hidden = true;

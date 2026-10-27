@@ -16,7 +16,7 @@ use WhaCP\View\View;
 
 /**
  * Database server (MariaDB / MySQL) manager for server administrators:
- * status, connections, WhaCP's managed settings, flush and a checked
+ * status, connections, NimVor's managed settings, flush and a checked
  * restart. Everything runs in the agent.
  */
 final class DbServerController extends Controller
@@ -98,7 +98,7 @@ final class DbServerController extends Controller
         }
         $in = array_map(static fn (mixed $v): string => is_scalar($v) ? trim((string) $v) : '', (array) $request->input('settings', []));
         $managed = array_map(static fn (mixed $v): string => is_scalar($v) ? (string) $v : '', (array) $request->input('managed', []));
-        // Send only what changed: a value that differs from WhaCP's file, or a field emptied that was set.
+        // Send only what changed: a value that differs from NimVor's file, or a field emptied that was set.
         $send = [];
         foreach ($in as $k => $v) {
             if ($v !== ($managed[$k] ?? '')) {

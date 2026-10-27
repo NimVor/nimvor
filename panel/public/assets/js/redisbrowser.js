@@ -1,4 +1,4 @@
-// WhaCP Redis key browser. Keys and values travel base64-encoded so binary
+// NimVor Redis key browser. Keys and values travel base64-encoded so binary
 // data round-trips exactly; everything is rendered as text, never HTML.
 (function () {
     'use strict';
@@ -19,9 +19,9 @@
     function call(action, params) {
         var body = Object.assign({ action: action, db: state.db }, params || {});
         if (!fixedPrefix) { body.prefix = state.prefix; }
-        return WhaCP.fetchJson(api, { method: 'POST', body: JSON.stringify(body) }).then(function (r) { return r.data; });
+        return NimVor.fetchJson(api, { method: 'POST', body: JSON.stringify(body) }).then(function (r) { return r.data; });
     }
-    function fail(err) { var d = err.details || {}; WhaCP.toast((d.message || err.message) + (d.details ? ' — ' + d.details : ''), 'danger'); }
+    function fail(err) { var d = err.details || {}; NimVor.toast((d.message || err.message) + (d.details ? ' — ' + d.details : ''), 'danger'); }
 
     // ---- dialog -------------------------------------------------------
     var dlg = document.getElementById('rb-dialog');
@@ -108,7 +108,7 @@
         }));
         tools.appendChild(btn('Delete', 'bi-trash', 'btn-outline-danger', function () {
             dialog('Delete key', function (b) { b.appendChild(el('p', '', 'Delete this key and its value?')); b.appendChild(el('code', 'text-break', show(kv.key))); return function () { return true; }; }, 'Delete', true)
-                .then(function (ok) { if (ok) { call('delete', { keys: [state.current] }).then(function () { WhaCP.toast('Deleted.', 'success'); state.current = null; detail.replaceChildren(el('div', 'p-4 text-body-secondary', 'Key deleted.')); scan(true); }).catch(fail); } });
+                .then(function (ok) { if (ok) { call('delete', { keys: [state.current] }).then(function () { NimVor.toast('Deleted.', 'success'); state.current = null; detail.replaceChildren(el('div', 'p-4 text-body-secondary', 'Key deleted.')); scan(true); }).catch(fail); } });
         }));
         head.appendChild(tools);
         detail.appendChild(head);
@@ -122,8 +122,8 @@
             body.appendChild(ta);
             if (!ta.readOnly) {
                 var bar = el('div', 'd-flex gap-2 mt-2');
-                bar.appendChild(btn('Save value', 'bi-save', 'btn-primary', function () { edit({ op: 'set', value: toB64(ta.value) }).then(function () { WhaCP.toast('Saved.', 'success'); }); }));
-                var pretty = btn('Format JSON', 'bi-braces', 'btn-outline-secondary', function () { try { ta.value = JSON.stringify(JSON.parse(ta.value), null, 2); } catch (e) { WhaCP.toast('Not valid JSON.', 'secondary'); } });
+                bar.appendChild(btn('Save value', 'bi-save', 'btn-primary', function () { edit({ op: 'set', value: toB64(ta.value) }).then(function () { NimVor.toast('Saved.', 'success'); }); }));
+                var pretty = btn('Format JSON', 'bi-braces', 'btn-outline-secondary', function () { try { ta.value = JSON.stringify(JSON.parse(ta.value), null, 2); } catch (e) { NimVor.toast('Not valid JSON.', 'secondary'); } });
                 bar.appendChild(pretty);
                 body.appendChild(bar);
             } else if (kv.value.binary) {
@@ -200,7 +200,7 @@
             var p = { op: 'create', key: toB64(x.name), type: x.type, value: toB64(x.value), ttl: x.ttl };
             if (x.type === 'hash') { p.field = toB64(x.field); }
             if (x.type === 'zset') { p.score = x.field || '0'; }
-            call('edit', p).then(function () { WhaCP.toast('Key created.', 'success'); scan(true).then(function () { open(p.key); }); }).catch(fail);
+            call('edit', p).then(function () { NimVor.toast('Key created.', 'success'); scan(true).then(function () { open(p.key); }); }).catch(fail);
         });
     });
     scan(true);

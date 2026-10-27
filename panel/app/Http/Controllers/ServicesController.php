@@ -44,11 +44,11 @@ final class ServicesController extends Controller
         return $json ? Response::json(['success' => true, 'message' => $message]) : $this->redirectWithSuccess($back, $message);
     }
 
-    /** Restart one of WhaCP's own services (agent and panel restart shortly after). */
+    /** Restart one of NimVor's own services (agent and panel restart shortly after). */
     public function restartWhacp(Request $request, string $key): Response
     {
         if (!\WhaCP\Hosting\Scope::isAll($this->user($request))) {
-            return $this->redirectWithError('/services', 'Only server administrators can restart WhaCP.');
+            return $this->redirectWithError('/services', 'Only server administrators can restart NimVor.');
         }
         try {
             $res = (array) $this->agent->call('whacp.restart', ['key' => $key]);

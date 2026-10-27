@@ -28,7 +28,7 @@ final class QrCodeTest extends TestCase
 
     public function testMatchesReferenceVersion1(): void
     {
-        $q = QrCode::encode('WhaCP', 3);
+        $q = QrCode::encode('NimVor', 3);
         self::assertSame(1, $q->version);
         self::assertSame([
             '111111101110001111111',
@@ -57,7 +57,7 @@ final class QrCodeTest extends TestCase
 
     public function testMatchesReferenceOtpauthUri(): void
     {
-        $q = QrCode::encode('otpauth://totp/WhaCP%3Aalice?secret=JBSWY3DPEHPK3PXP&issuer=WhaCP&algorithm=SHA1&digits=6&period=30', 5);
+        $q = QrCode::encode('otpauth://totp/NimVor%3Aalice?secret=JBSWY3DPEHPK3PXP&issuer=NimVor&algorithm=SHA1&digits=6&period=30', 5);
         self::assertSame(6, $q->version);
         self::assertSame([
             '11111110001100010011010000100110001111111',

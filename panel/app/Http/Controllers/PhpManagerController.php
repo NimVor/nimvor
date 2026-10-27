@@ -182,7 +182,7 @@ final class PhpManagerController extends Controller
         }
         $p = json_decode((string) file_get_contents((string) $up['tmp_name']), true);
         if (!is_array($p) || ($p['format'] ?? '') !== 'whacp-php-profile' || !is_array($p['versions'] ?? null) || !is_array($p['extensions'] ?? null)) {
-            return $this->redirectWithError('/php/manager', 'This is not a WhaCP PHP profile file.');
+            return $this->redirectWithError('/php/manager', 'This is not a NimVor PHP profile file.');
         }
         $profile = ['versions' => array_values(array_filter(array_map('strval', $p['versions']), static fn (string $v): bool => (bool) preg_match('/^[5-9]\.[0-9]{1,2}$/', $v))),
             'extensions' => array_values(array_filter(array_map('strval', $p['extensions']), static fn (string $e): bool => (bool) preg_match('/^[a-z][a-z0-9_]{1,30}$/', $e)))];

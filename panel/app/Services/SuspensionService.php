@@ -158,8 +158,8 @@ final class SuspensionService
             $fn();
         } catch (AgentException $e) {
             if (in_array($e->errorCode(), ['not_found', 'invalid_params'], true) && str_starts_with($what, 'SSH/FTP')) {
-                // Not a WhaCP website account (e.g. an imported website run by
-                // www-data): it has no WhaCP SSH/SFTP or FTP access to turn off,
+                // Not a NimVor website account (e.g. an imported website run by
+                // www-data): it has no NimVor SSH/SFTP or FTP access to turn off,
                 // and a shared system account must not be expired.
                 return;
             }

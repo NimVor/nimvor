@@ -63,7 +63,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="small wcp-muted p-3">Unticking an installed version removes it, unless websites or WhaCP's panel use it (those are kept). More versions: add the PHP repository on the <a href="<?= e($this->url('php')) ?>">PHP page</a>.</div>
+                <div class="small wcp-muted p-3">Unticking an installed version removes it, unless websites or NimVor's panel use it (those are kept). More versions: add the PHP repository on the <a href="<?= e($this->url('php')) ?>">PHP page</a>.</div>
             </div>
         </div>
         <div class="tab-pane fade" id="pm-extensions" role="tabpanel">
@@ -83,7 +83,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="small wcp-muted p-3">The ticked extensions are installed and switched on for every ticked version; unticked ones are removed (or switched off when they are part of PHP's base packages). Extensions WhaCP's panel needs are always kept.</div>
+                <div class="small wcp-muted p-3">The ticked extensions are installed and switched on for every ticked version; unticked ones are removed (or switched off when they are part of PHP's base packages). Extensions NimVor's panel needs are always kept.</div>
             </div>
         </div>
     </div>
@@ -96,7 +96,7 @@
 <?= $this->modalStart('php-import', 'Import a PHP profile', false, 'modal-md') ?>
 <form method="post" enctype="multipart/form-data" action="<?= e($this->url('php.manager.import')) ?>" data-wcp-noajax>
     <?= $this->csrfField() ?>
-    <p class="small wcp-muted">A profile exported from another WhaCP server (whacp-php-profile.json). You see the review first; nothing is applied until you confirm.</p>
+    <p class="small wcp-muted">A profile exported from another NimVor server (whacp-php-profile.json). You see the review first; nothing is applied until you confirm.</p>
     <input class="form-control form-control-sm mb-3" type="file" name="profile" accept=".json,application/json" required>
     <div class="d-flex justify-content-end gap-2">
         <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>

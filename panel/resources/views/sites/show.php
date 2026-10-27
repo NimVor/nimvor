@@ -113,7 +113,7 @@ foreach ([
         <div class="alert alert-secondary small d-flex flex-wrap align-items-center gap-2">
             <span class="me-auto"><i class="bi bi-box-arrow-in-down me-1"></i>Imported from <code><?= e($import['source']) ?></code> on <?= e(substr((string) $import['created_at'], 0, 10)) ?>. The original files and configuration are kept.</span>
             <?php if ($this->can(P::IMPORT_RUN)): ?>
-                <form method="post" action="<?= e($this->url('sites.import.undo', ['id' => $id])) ?>" data-wcp-confirm="Undo the import? The original configuration will serve <?= e($site['domain']) ?> again, and the WhaCP copy (files in <?= e($site['root']) ?>, its account and settings) will be deleted. Changes made since the import are lost.">
+                <form method="post" action="<?= e($this->url('sites.import.undo', ['id' => $id])) ?>" data-wcp-confirm="Undo the import? The original configuration will serve <?= e($site['domain']) ?> again, and the NimVor copy (files in <?= e($site['root']) ?>, its account and settings) will be deleted. Changes made since the import are lost.">
                     <?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Undo import</button>
                 </form>
             <?php endif; ?>

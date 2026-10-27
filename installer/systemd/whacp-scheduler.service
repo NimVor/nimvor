@@ -1,5 +1,5 @@
 [Unit]
-Description=WhaCP scheduler (metrics, alerts, scheduled backups and retention)
+Description=NimVor scheduler (metrics, alerts, scheduled backups and retention)
 Documentation=https://github.com/NimVor/nimvor/tree/main/docs
 After=whacp-agent.service
 

@@ -13,7 +13,7 @@ use WhaCP\Support\UserFacingException;
 use WhaCP\Support\ValidationException;
 
 /**
- * WhaCP-managed websites.
+ * NimVor-managed websites.
  *
  * The panel stores the desired state; the agent renders, validates and
  * applies it. If the agent rejects a change, the stored record is put back

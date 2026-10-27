@@ -532,7 +532,7 @@ final class ServerSetupService
         if (!str_contains($hostname, '.') || str_ends_with($hostname, '.localdomain') || str_ends_with($hostname, '.local')) {
             return ['fail', 'The server has no full host name (' . $hostname . '). Run again with --hostname=server.example.com, or set up email on the Email page.'];
         }
-        // Choosing a profile with email is the consent to WhaCP editing
+        // Choosing a profile with email is the consent to NimVor editing
         // Postfix's and Dovecot's configuration (backups are kept).
         $this->agent->call('mail.configure', ['hostname' => $hostname, 'confirm_edit_package_config' => true], 300);
         return ['ok', 'Postfix, Dovecot and OpenDKIM set up for ' . $hostname . '.'];
@@ -559,7 +559,7 @@ final class ServerSetupService
         if (!self::stepTodo($c, 'setup')) {
             return ['skip', 'DNS hosting is on already.'];
         }
-        // Authoritative only: WhaCP's configuration answers for the hosted zones, without recursion.
+        // Authoritative only: NimVor's configuration answers for the hosted zones, without recursion.
         $this->agent->call('dns.configure', ['confirm_edit_package_config' => true], 120);
         return ['ok', 'BIND answers for the zones hosted here (authoritative, no recursion).'];
     }

@@ -82,7 +82,7 @@ final class SecurityPolicyTest extends HttpTestCase
     {
         $this->login('admin');
         $page = $this->request('GET', '/security/policies')->body();
-        foreach (['Limit logins to verified IP addresses', 'Two-Factor Authentication: Google Authenticator', 'Password Strength', 'Password Age', 'WhaCP webmail'] as $want) {
+        foreach (['Limit logins to verified IP addresses', 'Two-Factor Authentication: Google Authenticator', 'Password Strength', 'Password Age', 'NimVor webmail'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
         $customer = (int) $this->db()->scalar("SELECT id FROM roles WHERE name = 'customer'");

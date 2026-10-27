@@ -50,7 +50,7 @@ $inSync = $members === $allowed && !empty($status['restricted']);
                     <?php if ($allowed !== []): ?><div class="font-monospace text-break mb-3"><?= e(implode(', ', array_slice($allowed, 0, 50))) ?><?= count($allowed) > 50 ? ' …' : '' ?></div><?php endif; ?>
                     <?php if ($canManage): ?><form method="post" action="<?= e($this->url('ffmpeg.apply')) ?>" data-wcp-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Apply now</button></form><?php endif; ?>
                 <?php endif; ?>
-                <p class="text-body-secondary mt-3 mb-0">This controls the FFmpeg installed on the server. A user could still upload a program of their own into their website folder; WhaCP does not prevent running uploaded programs.</p>
+                <p class="text-body-secondary mt-3 mb-0">This controls the FFmpeg installed on the server. A user could still upload a program of their own into their website folder; NimVor does not prevent running uploaded programs.</p>
             </div>
         </div>
     </div>

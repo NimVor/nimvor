@@ -38,7 +38,7 @@ $base = $this->url('mongo');
     <div class="card mb-3">
         <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-box-seam" aria-hidden="true"></i>Install MongoDB</div>
         <div class="card-body">
-            <p class="small text-body-secondary mb-3">MongoDB is not in the base operating-system repositories, so WhaCP installs it from MongoDB Inc.'s own signed repository. First add the repository, then install MongoDB — the server is enabled and started for you. Both steps run in the background.</p>
+            <p class="small text-body-secondary mb-3">MongoDB is not in the base operating-system repositories, so NimVor installs it from MongoDB Inc.'s own signed repository. First add the repository, then install MongoDB — the server is enabled and started for you. Both steps run in the background.</p>
             <ol class="list-unstyled mb-0">
                 <li class="d-flex align-items-start gap-3 py-2 border-top">
                     <i class="bi <?= $repoEnabled ? 'bi-check-circle-fill text-success' : 'bi-1-circle text-body-secondary' ?> fs-5" aria-hidden="true"></i>
@@ -438,10 +438,10 @@ $base = $this->url('mongo');
     <form method="post" action="<?= e($this->url('mongo.admin_password')) ?>" data-wcp-busy>
         <div class="p-3">
             <?= $this->csrfField() ?>
-            <p class="small text-body-secondary">Sets the password of WhaCP's MongoDB administrator (<code>whacpAdmin</code>, in the <code>admin</code> database). WhaCP uses this account to manage the server once authentication is on. Set it <strong>before</strong> enabling authentication.</p>
+            <p class="small text-body-secondary">Sets the password of NimVor's MongoDB administrator (<code>whacpAdmin</code>, in the <code>admin</code> database). NimVor uses this account to manage the server once authentication is on. Set it <strong>before</strong> enabling authentication.</p>
             <label class="form-label" for="madm-pw">New admin password</label>
             <input class="form-control font-monospace" id="madm-pw" name="password" type="text" minlength="8" maxlength="256" required autocomplete="off" spellcheck="false">
-            <div class="form-text">8 to 256 characters. Store it somewhere safe — WhaCP keeps only the server-side connection string, not a copy it shows you later.</div>
+            <div class="form-text">8 to 256 characters. Store it somewhere safe — NimVor keeps only the server-side connection string, not a copy it shows you later.</div>
             <button class="btn btn-primary btn-sm mt-3" type="submit">Save admin password</button>
         </div>
     </form>
@@ -478,7 +478,7 @@ $base = $this->url('mongo');
         <div class="p-3">
             <?= $this->csrfField() ?>
             <textarea class="form-control font-monospace small" name="content" rows="18" spellcheck="false" aria-label="MongoDB configuration file"><?= e((($config ?? [])['raw'] ?? '')) ?></textarea>
-            <div class="form-text">Editing the whole <code><?= e((($config ?? [])['path'] ?? '/etc/mongod.conf')) ?></code>. MongoDB has no offline check, so WhaCP restarts to apply it and restores the previous file if it will not start.</div>
+            <div class="form-text">Editing the whole <code><?= e((($config ?? [])['path'] ?? '/etc/mongod.conf')) ?></code>. MongoDB has no offline check, so NimVor restarts to apply it and restores the previous file if it will not start.</div>
             <button class="btn btn-outline-primary btn-sm mt-3" type="submit"><i class="bi bi-save me-1" aria-hidden="true"></i>Save &amp; restart</button>
         </div>
     </form>
@@ -490,7 +490,7 @@ $base = $this->url('mongo');
             <?= $this->csrfField() ?>
             <label class="form-label" for="mdb-name">Name</label>
             <input class="form-control" id="mdb-name" name="name" pattern="[A-Za-z0-9_][A-Za-z0-9_-]*" maxlength="63" required placeholder="shop">
-            <div class="form-text">Letters, digits, _ and -. The database exists once it has a collection; WhaCP adds an empty one.</div>
+            <div class="form-text">Letters, digits, _ and -. The database exists once it has a collection; NimVor adds an empty one.</div>
             <hr class="my-3">
             <div class="form-check form-switch mb-2">
                 <input class="form-check-input" type="checkbox" role="switch" id="mdb-withuser" data-mongo-dbuser-toggle>
@@ -540,7 +540,7 @@ $base = $this->url('mongo');
             <input type="hidden" name="name" id="mnote-db">
             <label class="form-label" for="mnote-text">Note for <code data-mongo-note-db></code></label>
             <textarea class="form-control" id="mnote-text" name="note" rows="3" maxlength="500" placeholder="A short reminder about this database (purpose, owner, …)"></textarea>
-            <div class="form-text">Stored in WhaCP, visible to administrators only. Leave empty to clear.</div>
+            <div class="form-text">Stored in NimVor, visible to administrators only. Leave empty to clear.</div>
             <button class="btn btn-primary btn-sm mt-3" type="submit">Save note</button>
         </div>
     </form>

@@ -38,7 +38,7 @@ final class TwoFactor
     }
 
     /** otpauth:// URI understood by authenticator apps. */
-    public static function uri(string $secret, string $account, string $issuer = 'WhaCP'): string
+    public static function uri(string $secret, string $account, string $issuer = 'NimVor'): string
     {
         return 'otpauth://totp/' . rawurlencode($issuer . ':' . $account)
             . '?secret=' . $secret . '&issuer=' . rawurlencode($issuer) . '&algorithm=SHA1&digits=6&period=' . self::PERIOD;

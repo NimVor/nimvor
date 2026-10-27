@@ -41,7 +41,7 @@ $events = array_reverse((array) ($usage['events'] ?? []));
                     <label class="form-label small" for="ml-per">Recipients per website account and hour</label>
                     <input class="form-control form-control-sm mb-1" style="max-width:12rem" type="number" min="0" max="<?= \WhaCP\Services\MailRateService::MAX ?>" id="ml-per" name="per_hour" value="<?= (int) ($c['per_hour'] ?? 0) ?>" required<?= $dis ?>>
                     <div class="form-text mb-3">0: no limit (the use is still counted). Each recipient counts; past the limit, the account's mail is refused temporarily until the next hour, and administrators and the website's owner are notified.</div>
-                    <div class="small wcp-muted mb-3">Covers mail a website sends with PHP's <code>mail()</code>, from cron jobs and deploy hooks, or over SMTP to this server without signing in. While the limits are on, website accounts cannot use Postfix's own <code>sendmail</code> directly (they use WhaCP's, which counts). Mailboxes sending with a password are not limited here.</div>
+                    <div class="small wcp-muted mb-3">Covers mail a website sends with PHP's <code>mail()</code>, from cron jobs and deploy hooks, or over SMTP to this server without signing in. While the limits are on, website accounts cannot use Postfix's own <code>sendmail</code> directly (they use NimVor's, which counts). Mailboxes sending with a password are not limited here.</div>
                     <?php if ($canManage): ?><button class="btn btn-primary btn-sm"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save settings</button><?php endif; ?>
                 </div>
             </div>

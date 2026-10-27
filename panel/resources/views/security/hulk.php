@@ -33,9 +33,9 @@ $retention = (int) $v['hulk_retention'];
     <div class="d-flex flex-wrap align-items-center gap-2">
         <span class="fw-medium">Status:</span>
         <?php if (empty($v['hulk_enabled'])): ?><span class="wcp-state is-off">Disabled</span>
-        <?php elseif ($status !== null && empty($status['available'])): ?><span class="wcp-state is-warn">Enabled (WhaCP sign-ins only: nftables is not installed)</span>
+        <?php elseif ($status !== null && empty($status['available'])): ?><span class="wcp-state is-warn">Enabled (NimVor sign-ins only: nftables is not installed)</span>
         <?php else: ?><span class="wcp-state is-ok">Enabled</span><?php endif; ?>
-        <span class="small text-body-secondary">Watches WhaCP, webmail, SSH, IMAP/POP3, SMTP AUTH and FTP logins. <?= count($blocks) ?> block<?= count($blocks) === 1 ? '' : 's' ?> in force.</span>
+        <span class="small text-body-secondary">Watches NimVor, webmail, SSH, IMAP/POP3, SMTP AUTH and FTP logins. <?= count($blocks) ?> block<?= count($blocks) === 1 ? '' : 's' ?> in force.</span>
     </div>
 </div>
 
@@ -55,7 +55,7 @@ $retention = (int) $v['hulk_retention'];
 
     <div class="wcp-panel mb-3">
         <div class="fw-semibold mb-2">Username-based Protection</div>
-        <?= $switch('hulk_user_enabled', 'Username-based Protection', 'Username-based protection tracks login attempts for user accounts. When disabled, cPHulk will not lock user accounts, but existing account locks will remain. Locked accounts cannot sign in to WhaCP until the lock ends.') ?>
+        <?= $switch('hulk_user_enabled', 'Username-based Protection', 'Username-based protection tracks login attempts for user accounts. When disabled, cPHulk will not lock user accounts, but existing account locks will remain. Locked accounts cannot sign in to NimVor until the lock ends.') ?>
         <div class="row g-3 mb-3">
             <?= $number('hulk_user_period', 'Brute Force Protection Period (in minutes)', 1, 1440) ?>
             <?= $number('hulk_user_max', 'Maximum Failures by Account', 1, 1000) ?>
@@ -65,7 +65,7 @@ $retention = (int) $v['hulk_retention'];
             <div class="form-check"><input class="form-check-input" type="radio" name="hulk_user_scope" id="h-scope-local" value="local"<?= $v['hulk_user_scope'] === 'local' ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="h-scope-local">Apply protection to local addresses only</label></div>
             <div class="form-check"><input class="form-check-input" type="radio" name="hulk_user_scope" id="h-scope-all" value="all"<?= $v['hulk_user_scope'] !== 'local' ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="h-scope-all">Apply protection to local and remote addresses</label></div>
         </div>
-        <?= $switch('hulk_user_lock_root', 'Allow username protection to lock the “root” user', 'Also applies to WhaCP administrator accounts. When off, failures for them count toward IP address blocks only.') ?>
+        <?= $switch('hulk_user_lock_root', 'Allow username protection to lock the “root” user', 'Also applies to NimVor administrator accounts. When off, failures for them count toward IP address blocks only.') ?>
     </div>
 
     <div class="wcp-panel mb-3">
@@ -80,7 +80,7 @@ $retention = (int) $v['hulk_retention'];
         <div class="wcp-infobar my-2"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i><span>Warning: The command must complete within 15 seconds to avoid a timeout. It runs as the panel's own account (not root); values are passed shell-quoted.</span></div>
         <div class="small mb-1">The following variables may be used in commands:</div>
         <?= $varList ?>
-        <div class="mt-3"><?= $switch('hulk_ip_firewall', 'Block IP addresses at the firewall level if they trigger brute force protection', 'At the firewall level the address cannot reach any service of the server (websites included). Otherwise it is blocked from WhaCP and the login services (SSH, FTP, IMAP/POP3, SMTP submission).') ?></div>
+        <div class="mt-3"><?= $switch('hulk_ip_firewall', 'Block IP addresses at the firewall level if they trigger brute force protection', 'At the firewall level the address cannot reach any service of the server (websites included). Otherwise it is blocked from NimVor and the login services (SSH, FTP, IMAP/POP3, SMTP submission).') ?></div>
     </div>
 
     <div class="wcp-panel mb-3">
@@ -120,7 +120,7 @@ $retention = (int) $v['hulk_retention'];
 
 <div class="tab-pane fade" id="countries" role="tabpanel">
     <div class="wcp-panel mb-3">
-        <p class="small mb-2">Whitelisted countries are never blocked. Blacklisted countries cannot sign in to WhaCP or reach the login services (SSH, FTP, IMAP/POP3, SMTP submission), or, if you choose so below, any service of the server.</p>
+        <p class="small mb-2">Whitelisted countries are never blocked. Blacklisted countries cannot sign in to NimVor or reach the login services (SSH, FTP, IMAP/POP3, SMTP submission), or, if you choose so below, any service of the server.</p>
         <?php if (!$geoLoaded): ?>
             <div class="wcp-infobar mb-2"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>The country database is not loaded yet. It is downloaded automatically each month from DB-IP (IP to Country Lite, CC BY 4.0) while brute force protection is on. If the server cannot reach download.db-ip.com, download the CSV there and upload it here, or run <code>sudo -u whacp -E php /opt/whacp/panel/bin/whacp hulk:geo-import FILE</code>.</span></div>
         <?php else: ?>
@@ -149,7 +149,7 @@ $retention = (int) $v['hulk_retention'];
             </div>
             <div class="px-3 py-2 border-bottom small">
                 <span class="fw-medium me-2">Block blacklisted countries on</span>
-                <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="scope" id="h-cc-login" value="login"<?= empty($v['hulk_countries_all']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="h-cc-login">WhaCP and the login services</label></div>
+                <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="scope" id="h-cc-login" value="login"<?= empty($v['hulk_countries_all']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="h-cc-login">NimVor and the login services</label></div>
                 <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="scope" id="h-cc-all" value="all"<?= !empty($v['hulk_countries_all']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="h-cc-all">every port, websites included (like CSF's CC_DENY)</label></div>
             </div>
             <div class="wcp-dtable table-responsive">

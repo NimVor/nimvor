@@ -1,6 +1,6 @@
 <?php
 
-// WhaCP panel configuration (merged over panel/config/app.php).
+// NimVor panel configuration (merged over panel/config/app.php).
 // Owned by root, readable by the whacp group only.
 
 return [

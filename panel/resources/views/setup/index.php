@@ -124,7 +124,7 @@ $left = count(array_filter($checklist, static fn (array $i): bool => !$i['done']
 
     <div class="form-check mb-3">
         <input class="form-check-input" type="checkbox" id="sp-confirm" required>
-        <label class="form-check-label small" for="sp-confirm">Set this server up with the chosen profile: packages are installed; the firewall is turned on (SSH, the panel and the agent stay reachable: a firewall change is kept only after checking that); with email and DNS, WhaCP edits Postfix's, Dovecot's and BIND's configuration (backups are kept). Settings already in place are left alone and nothing is removed.</label>
+        <label class="form-check-label small" for="sp-confirm">Set this server up with the chosen profile: packages are installed; the firewall is turned on (SSH, the panel and the agent stay reachable: a firewall change is kept only after checking that); with email and DNS, NimVor edits Postfix's, Dovecot's and BIND's configuration (backups are kept). Settings already in place are left alone and nothing is removed.</label>
     </div>
     <div class="d-flex flex-wrap align-items-center gap-2">
         <button class="btn btn-primary" data-setup-run><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $last === null ? 'Run the setup' : 'Run the setup again' ?></button>

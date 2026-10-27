@@ -34,7 +34,7 @@ final class CentralSettingsTest extends HttpTestCase
         $res = $this->post('/settings', ['tab' => 'dns', 'dns_hostmaster' => 'hostmaster@example.test']);
         self::assertSame('/settings#dns', $res->header('location'));
         self::assertSame('hostmaster@example.test', $this->app->container->get(SettingsService::class)->string('dns_hostmaster'));
-        self::assertSame('WhaCP', $this->app->container->get(SettingsService::class)->string('panel_name'), 'other settings unchanged');
+        self::assertSame('NimVor', $this->app->container->get(SettingsService::class)->string('panel_name'), 'other settings unchanged');
         $res = $this->post('/settings', ['tab' => '"><script>', 'panel_name' => 'Panel']);
         self::assertSame('/settings', $res->header('location'));
     }

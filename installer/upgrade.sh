@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# WhaCP upgrade and rollback.
+# NimVor upgrade and rollback.
 #
 #   sudo ./installer/upgrade.sh [--yes] [--allow-downgrade] [--wait=30m]   upgrade to this source tree
 #   sudo ./installer/upgrade.sh --rollback [--yes]            restore the version before the last upgrade
@@ -16,7 +16,7 @@
 #   3. swaps in the new files, runs database migrations and restarts;
 #   4. checks that the agent runs, the panel reaches it and answers /healthz.
 # If any step after the swap fails, the previous version is restored
-# automatically. Websites keep running throughout: only WhaCP's own
+# automatically. Websites keep running throughout: only NimVor's own
 # services restart. The last three backups are kept.
 
 set -Eeuo pipefail
@@ -89,8 +89,8 @@ if [[ $LIST -eq 1 ]]; then
 fi
 
 if ! [[ -d $PREFIX/panel && -x $BIN && -f $CONF_DIR/panel.php ]]; then
-    [[ -e $PREFIX || -e $CONF_DIR ]] && die "WhaCP's installation here is incomplete (an earlier install.sh did not finish); complete it with installer/install.sh --reinstall, then upgrade"
-    die "WhaCP is not installed here; use installer/install.sh"
+    [[ -e $PREFIX || -e $CONF_DIR ]] && die "NimVor's installation here is incomplete (an earlier install.sh did not finish); complete it with installer/install.sh --reinstall, then upgrade"
+    die "NimVor is not installed here; use installer/install.sh"
 fi
 
 # wait_jobs <agent binary>: wait until the running agent has no queued or
@@ -206,7 +206,7 @@ if [[ $ROLLBACK -eq 1 ]]; then
     verify_backup "$latest" || die "the backup $(basename "$latest") failed verification; nothing was changed"
     since=$(backup_time "$latest")
     changes=$("$PHP_BIN" -r '$p = new PDO("sqlite:" . $argv[1]); $s = $p->prepare("SELECT COUNT(*) FROM audit_logs WHERE created_at >= ?"); $s->execute([$argv[2]]); echo (int) $s->fetchColumn();' "$(db_path)" "$since" 2>/dev/null || echo "?")
-    warn "Rolling back restores WhaCP $(cat "$latest/version" 2>/dev/null) and the panel database as it was at $since."
+    warn "Rolling back restores NimVor $(cat "$latest/version" 2>/dev/null) and the panel database as it was at $since."
     warn "Everything changed in the panel since then is lost from the panel ($changes change(s) in the audit log since then)."
     warn "What was already done on the server stays there: e.g. a website created since then keeps running but no longer appears in the panel."
     confirm "Roll back to $(cat "$latest/version" 2>/dev/null) from $(basename "$latest")?" || die "aborted"
@@ -219,7 +219,7 @@ fi
 # ------------------------------------------------------------ preflight ----
 OLD=$(installed_version)
 NEW=$(cat "$SRC_DIR/VERSION")
-log "Upgrading WhaCP $OLD → $NEW"
+log "Upgrading NimVor $OLD → $NEW"
 # Pre-releases sort before their release (1.0.0-rc1 < 1.0.0): "-" becomes
 # "~", which version sort places before everything.
 newest=$(printf '%s\n%s\n' "${OLD/-/\~}" "${NEW/-/\~}" | sort -V | tail -1)
@@ -263,7 +263,7 @@ fi
 ok "new agent accepts the existing configuration"
 [[ -f $SRC_DIR/panel/vendor/autoload.php ]] || die "panel/vendor is missing (run 'composer install --no-dev' in panel/)"
 "$PHP_BIN" -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);' || die "the panel needs PHP >= 8.3 ($PHP_BIN)"
-confirm "Upgrade now? WhaCP's panel is unavailable for a few seconds; websites are not affected." || die "aborted"
+confirm "Upgrade now? NimVor's panel is unavailable for a few seconds; websites are not affected." || die "aborted"
 log "Waiting for running jobs"
 wait_jobs "$AGENT_SRC" || die "jobs are still running; nothing was changed. Try again later or pass --wait=<longer>"
 ok "no job is running"
@@ -313,8 +313,8 @@ ok "backup complete and verified"
 rollback_and_die() {
     trap - ERR
     warn "$1 — rolling back to $OLD"
-    restore "$B" || die "upgrade failed ($1) and the backup $B failed verification, so it was not restored: WhaCP is left as it is. Check the backup, then restore it by hand"
-    die "upgrade failed ($1); WhaCP $OLD was restored. Backup kept in $B"
+    restore "$B" || die "upgrade failed ($1) and the backup $B failed verification, so it was not restored: NimVor is left as it is. Check the backup, then restore it by hand"
+    die "upgrade failed ($1); NimVor $OLD was restored. Backup kept in $B"
 }
 trap 'rollback_and_die "unexpected error on line $LINENO"' ERR
 
@@ -340,7 +340,7 @@ install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.service" "$UNIT_DIR/
 install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.timer" "$UNIT_DIR/whacp-scheduler.timer"
 if command -v semodule >/dev/null && command -v getenforce >/dev/null && [[ $(getenforce) != Disabled && -f $SRC_DIR/installer/selinux/whacp_postfix_sockets.cil ]]; then
     # systemd's greylisting and mail limit sockets in Postfix's private folder.
-    semodule -i "$SRC_DIR/installer/selinux/whacp_postfix_sockets.cil" || warn "could not install WhaCP's SELinux policy module"
+    semodule -i "$SRC_DIR/installer/selinux/whacp_postfix_sockets.cil" || warn "could not install NimVor's SELinux policy module"
 fi
 # Refresh drop-ins that are already enabled (write mode, remote access).
 [[ -f $UNIT_DIR/whacp-agent.service.d/10-write-mode.conf ]] && install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent-write-mode.conf" "$UNIT_DIR/whacp-agent.service.d/10-write-mode.conf"
@@ -355,7 +355,7 @@ start_services || rollback_and_die "services did not start"
 log "Health checks"
 health || rollback_and_die "health checks failed"
 trap - ERR
-ok "WhaCP $NEW is running"
+ok "NimVor $NEW is running"
 # Cron schedules in the new agent's form (each job sandboxed).
 panel_cli cron:sync || warn "some cron schedules were not written again (see above)"
 
@@ -363,7 +363,7 @@ panel_cli cron:sync || warn "some cron schedules were not written again (see abo
 ls -1d "$BACKUP_ROOT"/*/ 2>/dev/null | sort | head -n -$KEEP | xargs -r rm -rf
 cat <<EOF
 
-WhaCP was upgraded from $OLD to $NEW.
+NimVor was upgraded from $OLD to $NEW.
 Backup of the previous version: $B
 To go back: sudo $SRC_DIR/installer/upgrade.sh --rollback
 EOF

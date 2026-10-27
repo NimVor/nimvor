@@ -26,7 +26,7 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
             <p>The mail server (Postfix, Dovecot and OpenDKIM) is not installed<?= $installed !== [] ? ' completely' : '' ?>.</p>
             <?php if ($this->can(P::PACKAGES_MANAGE)): ?><form method="post" action="<?= e($this->url('mail.install')) ?>"><?= $this->csrfField() ?><button class="btn btn-primary"><i class="bi bi-download me-1"></i>Install the mail server</button></form><?php endif; ?>
         <?php elseif ($this->can(P::SERVER_MANAGE)): ?>
-            <p><?= empty($status['configured']) ? 'The mail server is installed but not set up for WhaCP yet.' : 'Email is set up but Postfix is not running.' ?></p>
+            <p><?= empty($status['configured']) ? 'The mail server is installed but not set up for NimVor yet.' : 'Email is set up but Postfix is not running.' ?></p>
             <form method="post" action="<?= e($this->url('mail.setup')) ?>" class="wcp-narrow" data-wcp-busy>
                 <?= $this->csrfField() ?>
                 <?= $this->partial('partials/field', ['name' => 'hostname', 'label' => 'Mail server host name', 'value' => (string) ($old['hostname'] ?? $status['hostname'] ?? ''), 'attrs' => ['placeholder' => 'mail.example.com', 'required' => 'required'], 'help' => 'The name MX records point to. It must resolve to this server; its reverse DNS (PTR) should match. A Let\'s Encrypt certificate for it is used when present.']) ?>
@@ -88,7 +88,7 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
                             <div class="col-6"><label class="form-label small" for="spam-rej">Refuse from score</label><input class="form-control form-control-sm" id="spam-rej" type="number" step="0.5" min="2" max="100" name="reject" value="<?= e((string) ($spam['reject'] ?? 15) ?: '15') ?>"></div>
                         </div>
                         <?php if (isset($errors['add_header'])): ?><div class="text-danger mb-2"><?= e($errors['add_header']) ?></div><?php endif; ?>
-                        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm_replace" value="1" id="spam-replace"><label class="form-check-label" for="spam-replace">Replace existing Rspamd settings in local.d not made by WhaCP</label></div>
+                        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm_replace" value="1" id="spam-replace"><label class="form-check-label" for="spam-replace">Replace existing Rspamd settings in local.d not made by NimVor</label></div>
                         <button class="btn btn-sm btn-primary">Save</button>
                         <div class="form-text">Lower scores catch more spam but risk false positives. Refused mail bounces to its sender while connected, so nothing is lost silently.</div>
                     </form>

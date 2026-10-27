@@ -1,4 +1,4 @@
-// WhaCP file manager (full page). Paths are relative to the website root;
+// NimVor file manager (full page). Paths are relative to the website root;
 // the agent enforces confinement. Names are only ever set as text, never
 // as HTML.
 (function () {
@@ -46,12 +46,12 @@
         return 'bi-file-earmark';
     }
     function call(op, params) {
-        return WhaCP.fetchJson(api, { method: 'POST', body: JSON.stringify(Object.assign({ op: op }, params || {})) })
+        return NimVor.fetchJson(api, { method: 'POST', body: JSON.stringify(Object.assign({ op: op }, params || {})) })
             .then(function (res) { return res.data; });
     }
     function fail(err) {
         var d = err.details || {};
-        WhaCP.toast((d.message || err.message) + (d.reason ? ' — ' + d.reason : '') + (d.details ? ' — ' + d.details : ''), 'danger');
+        NimVor.toast((d.message || err.message) + (d.reason ? ' — ' + d.reason : '') + (d.details ? ' — ' + d.details : ''), 'danger');
     }
     function selectedEntries() { return state.entries.filter(function (e) { return state.selected.has(e.path); }); }
 
@@ -278,7 +278,7 @@
     function open(entry) {
         if (!entry) { return; }
         if (entry.type === 'dir') { go(entry.path); return; }
-        if (entry.type === 'link') { WhaCP.toast('Links are not followed by the file manager.', 'secondary'); return; }
+        if (entry.type === 'link') { NimVor.toast('Links are not followed by the file manager.', 'secondary'); return; }
         if (TEXT_HINT.test(entry.name) || entry.size < 512 * 1024) { window.location.href = editUrl + '?path=' + encodeURIComponent(entry.path); return; }
         window.location.href = downloadUrl + '?path=' + encodeURIComponent(entry.path);
     }
@@ -409,7 +409,7 @@
             var ids = Array.from(trashSel); if (!ids.length) { return; }
             call('trash_restore', { ids: ids }).then(function (r) {
                 var done = r.restored || [];
-                WhaCP.toast('Restored ' + done.length + ' item(s)' + (done.length === 1 ? ' to /' + done[0].path : '') + '.', 'success');
+                NimVor.toast('Restored ' + done.length + ' item(s)' + (done.length === 1 ? ' to /' + done[0].path : '') + '.', 'success');
                 refreshTreeAt(''); load(); openTrash();
             }).catch(function (e) { fail(e); openTrash(); });
         });
@@ -417,13 +417,13 @@
             var sel = selectedTrash(); if (!sel.length) { return; }
             trashConfirm('Delete permanently', 'These items will be deleted for good. This cannot be undone:', sel.map(function (it) { return it.path; }), 'Delete permanently', true).then(function (ok) {
                 if (!ok) { openTrash(); return; }
-                call('trash_delete', { ids: sel.map(function (it) { return it.id; }) }).then(function (r) { WhaCP.toast('Deleted ' + r.deleted + ' item(s) permanently.', 'success'); openTrash(); }).catch(function (e) { fail(e); openTrash(); });
+                call('trash_delete', { ids: sel.map(function (it) { return it.id; }) }).then(function (r) { NimVor.toast('Deleted ' + r.deleted + ' item(s) permanently.', 'success'); openTrash(); }).catch(function (e) { fail(e); openTrash(); });
             });
         });
         trashEl.querySelector('[data-fm-trash-empty]').addEventListener('click', function () {
             trashConfirm('Empty trash', 'All ' + trashItems.length + ' item(s) in the trash will be deleted for good. This cannot be undone.', [], 'Empty trash', true).then(function (ok) {
                 if (!ok) { openTrash(); return; }
-                call('trash_empty', {}).then(function (r) { WhaCP.toast('Deleted ' + r.deleted + ' item(s) permanently.', 'success'); openTrash(); }).catch(function (e) { fail(e); openTrash(); });
+                call('trash_empty', {}).then(function (r) { NimVor.toast('Deleted ' + r.deleted + ' item(s) permanently.', 'success'); openTrash(); }).catch(function (e) { fail(e); openTrash(); });
             });
         });
     }
@@ -468,7 +468,7 @@
             }, 'Delete', true).then(function (v) {
                 if (!v) { return; }
                 call('delete', { paths: sel.map(function (e) { return e.path; }), permanent: v.permanent }).then(function (r) {
-                    WhaCP.toast(r.trashed ? 'Moved ' + r.deleted + ' item(s) to the Trash.' : 'Deleted ' + r.deleted + ' item(s) permanently.', 'success'); refreshTreeAt(state.cwd); load();
+                    NimVor.toast(r.trashed ? 'Moved ' + r.deleted + ' item(s) to the Trash.' : 'Deleted ' + r.deleted + ' item(s) permanently.', 'success'); refreshTreeAt(state.cwd); load();
                 }).catch(fail);
             });
         },
@@ -505,7 +505,7 @@
                 return function () { return /^[0-7]{3}$/.test(octal.value) ? octal.value : (octal.classList.add('is-invalid'), false); };
             }, 'Change').then(function (mode) {
                 if (!mode) { return; }
-                sequential(sel, function (e) { return call('chmod', { path: e.path, mode: mode }); }).then(function () { WhaCP.toast('Permissions changed.', 'success'); load(true); }).catch(fail);
+                sequential(sel, function (e) { return call('chmod', { path: e.path, mode: mode }); }).then(function () { NimVor.toast('Permissions changed.', 'success'); load(true); }).catch(fail);
             });
         },
         compress: function () {
@@ -550,7 +550,7 @@
                 if (to === e.path) { return kind === 'copy' ? call('copy', { from: e.path, to: e.path + '-copy' }) : null; }
                 return call(kind === 'copy' ? 'copy' : 'rename', { from: e.path, to: to });
             }).then(function () {
-                WhaCP.toast(kind === 'copy' ? 'Copied.' : 'Moved.', 'success');
+                NimVor.toast(kind === 'copy' ? 'Copied.' : 'Moved.', 'success');
                 refreshTreeAt(state.cwd); refreshTreeAt(v.to); load();
             }).catch(function (err) { fail(err); load(); });
         });
@@ -558,10 +558,10 @@
     function watchJob(jobId, label) {
         status.textContent = label + '…';
         (function poll(offset) {
-            WhaCP.fetchJson('/jobs/' + jobId + '?offset=' + offset).then(function (res) {
+            NimVor.fetchJson('/jobs/' + jobId + '?offset=' + offset).then(function (res) {
                 if (!res.done) { setTimeout(function () { poll(res.offset || offset); }, 1000); return; }
-                if (res.job.status === 'succeeded') { WhaCP.toast(label + ' finished.', 'success'); }
-                else { WhaCP.toast(label + ' failed: ' + (res.job.error || 'see the log'), 'danger'); WhaCP.showJob(jobId); }
+                if (res.job.status === 'succeeded') { NimVor.toast(label + ' finished.', 'success'); }
+                else { NimVor.toast(label + ' failed: ' + (res.job.error || 'see the log'), 'danger'); NimVor.showJob(jobId); }
                 refreshTreeAt(state.cwd); load(true);
             }).catch(function () { setTimeout(function () { poll(offset); }, 3000); });
         })(0);
@@ -640,7 +640,7 @@
             var fd = new FormData();
             fd.append('chunk', blob, 'chunk'); fd.append('path', job.path); fd.append('offset', String(offset));
             fd.append('final', offset + CHUNK >= f.size ? '1' : '0');
-            return fetch(uploadUrl, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': WhaCP.csrfToken(), 'Accept': 'application/json' } })
+            return fetch(uploadUrl, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': NimVor.csrfToken(), 'Accept': 'application/json' } })
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
                     if (!res.success) { throw new Error((res.error && res.error.message) || 'Upload failed'); }

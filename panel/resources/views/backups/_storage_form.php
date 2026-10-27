@@ -69,14 +69,14 @@ $secret = $edit ? ['placeholder' => 'unchanged', 'autocomplete' => 'new-password
         <?php if (!$edit): ?>
         <div class="col-md-6"><?= $f('client_id', 'OAuth client ID', ['attrs' => ['required' => 'required', 'autocomplete' => 'off']]) ?></div>
         <div class="col-md-6"><?= $f('client_secret', 'OAuth client secret', ['type' => 'password', 'value' => '', 'attrs' => ['required' => 'required', 'autocomplete' => 'new-password']]) ?></div>
-        <div class="col-12 form-text mb-3">Create an OAuth client of type <em>Web application</em> in your Google Cloud project with the Drive API enabled, and add <code><?= e(rtrim((string) ($panelUrl ?? ''), '/') ?: 'https://your-panel') ?>/backups/storages/google/callback</code> as an authorised redirect URI. WhaCP only asks for access to the files it creates.</div>
+        <div class="col-12 form-text mb-3">Create an OAuth client of type <em>Web application</em> in your Google Cloud project with the Drive API enabled, and add <code><?= e(rtrim((string) ($panelUrl ?? ''), '/') ?: 'https://your-panel') ?>/backups/storages/google/callback</code> as an authorised redirect URI. NimVor only asks for access to the files it creates.</div>
         <?php elseif ($kind === 'gdrive'): ?>
         <div class="col-12 form-text mb-2">Google Drive's access comes from Google's consent page: here only the name and sub-folder change.</div>
         <?php endif; ?>
     </div>
     <div class="row g-2" data-wcp-kind="local"<?= $edit && $kind !== 'local' ? ' hidden' : '' ?>>
         <?php if (!$edit || $kind === 'local'): ?>
-        <div class="col-md-8"><?= $f('path', 'Folder', ['attrs' => ['required' => 'required', 'placeholder' => '/backups'], 'help' => '/backups (or /backup, /srv/backups, a folder in them) is created when missing, for root only. A folder of a mounted disk or NAS share under /mnt or /media must exist: WhaCP never creates it, so backups do not fill this server\'s disk while that disk is missing. A folder on this server\'s own disk is not off the server: for safety, use a separate disk, a NAS or a remote storage.']) ?></div>
+        <div class="col-md-8"><?= $f('path', 'Folder', ['attrs' => ['required' => 'required', 'placeholder' => '/backups'], 'help' => '/backups (or /backup, /srv/backups, a folder in them) is created when missing, for root only. A folder of a mounted disk or NAS share under /mnt or /media must exist: NimVor never creates it, so backups do not fill this server\'s disk while that disk is missing. A folder on this server\'s own disk is not off the server: for safety, use a separate disk, a NAS or a remote storage.']) ?></div>
         <?php endif; ?>
     </div>
     <div class="row g-2">

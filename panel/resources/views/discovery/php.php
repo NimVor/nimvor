@@ -54,7 +54,7 @@ $installable = array_values(array_diff($php_available ?? [], $installed));
             <p>Ubuntu offers one PHP version per release. Ondřej Surý's PPA, the usual source on Ubuntu, offers the others (such as 7.4, 8.1, 8.2, 8.4) and their updates.</p>
             <ul class="small">
                 <li>A third-party repository: its packages are signed by its maintainer, not by Ubuntu. Updates of PHP come from it from then on.</li>
-                <li>WhaCP pins its signing key (fingerprint <code class="text-break">14AA 40EC 0831 7567 56D7 F66C 4F4E A0AA E526 7A6C</code>) and trusts it for this repository only.</li>
+                <li>NimVor pins its signing key (fingerprint <code class="text-break">14AA 40EC 0831 7567 56D7 F66C 4F4E A0AA E526 7A6C</code>) and trusts it for this repository only.</li>
                 <li>If APT refuses the repository, it is removed again.</li>
             </ul>
         <?php else: ?>

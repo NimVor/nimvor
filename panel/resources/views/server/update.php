@@ -8,7 +8,7 @@
 $short = static fn (string $sha): string => $sha !== '' ? substr($sha, 0, 7) : '—';
 $running = !empty($status['running']);
 ?>
-<?php $this->start(); ?>WhaCP updates<?php $this->end('title'); ?>
+<?php $this->start(); ?>NimVor updates<?php $this->end('title'); ?>
 <?php $this->start(); ?>Installed version, the newest version and the last update<?php $this->end('subtitle'); ?>
 <?php if ($agentError !== null): ?><?= $this->partial('partials/agent_error', ['error' => $agentError]) ?><?php endif; ?>
 <div class="row g-3">
@@ -26,14 +26,14 @@ $running = !empty($status['running']);
                 <?php if ($check !== null && !empty($check['available'])): ?>
                     <div class="alert alert-info small py-2"><i class="bi bi-arrow-up-circle me-1"></i>A newer version is available.</div>
                 <?php elseif ($check !== null && ($check['state'] ?? '') === 'current'): ?>
-                    <div class="alert alert-success small py-2"><i class="bi bi-check-circle me-1"></i>WhaCP is up to date.</div>
+                    <div class="alert alert-success small py-2"><i class="bi bi-check-circle me-1"></i>NimVor is up to date.</div>
                 <?php elseif ($check !== null && ($check['reason'] ?? '') !== ''): ?>
                     <div class="alert alert-secondary small py-2"><?= e((string) $check['reason']) ?></div>
                 <?php endif; ?>
                 <div class="d-flex flex-wrap gap-2">
                     <form method="post" action="<?= e($this->url('whacp.update.check')) ?>" data-wcp-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Check now</button></form>
                     <?php if (!empty($status['updatable'])): ?>
-                        <form method="post" action="<?= e($this->url('whacp.update.start')) ?>" data-wcp-noajax data-wcp-confirm="Update WhaCP now? The installer runs from <?= e((string) $status['path']) ?>: it pulls the newest version, then installs it. The panel and the agent restart during it (about a minute); websites, mail and databases keep running.">
+                        <form method="post" action="<?= e($this->url('whacp.update.start')) ?>" data-wcp-noajax data-wcp-confirm="Update NimVor now? The installer runs from <?= e((string) $status['path']) ?>: it pulls the newest version, then installs it. The panel and the agent restart during it (about a minute); websites, mail and databases keep running.">
                             <?= $this->csrfField() ?><button class="btn btn-sm btn-primary"<?= $running ? ' disabled' : '' ?>><i class="bi bi-cloud-arrow-down me-1"></i>Update now</button>
                         </form>
                     <?php endif; ?>

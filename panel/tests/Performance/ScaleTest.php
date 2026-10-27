@@ -42,7 +42,7 @@ final class ScaleTest extends HttpTestCase
                 'document_root' => "/home/whacp/{$domain}/public_html", 'document_root_exists' => true, 'https' => true, 'https_redirect' => true,
                 'php' => ['version' => '8.3', 'pool' => 'whacp-' . $domain, 'listen' => '/run/php/x.sock', 'user' => "sc{$i}", 'resolved' => true],
                 'ssl' => ['cert_file' => "/etc/letsencrypt/live/{$domain}/fullchain.pem", 'names' => [$domain], 'issuer' => 'R3', 'not_after' => '2030-01-01T00:00:00Z', 'days_remaining' => 900, 'status' => 'valid', 'lets_encrypt' => true, 'covers_domain' => true],
-                'listen' => ['443 ssl'], 'config_files' => ["/etc/nginx/sites-available/whacp-{$domain}.conf"], 'access_logs' => [], 'error_logs' => [], 'managed_by' => 'WhaCP', 'proxy_pass' => ''];
+                'listen' => ['443 ssl'], 'config_files' => ["/etc/nginx/sites-available/whacp-{$domain}.conf"], 'access_logs' => [], 'error_logs' => [], 'managed_by' => 'NimVor', 'proxy_pass' => ''];
         }
         for ($i = 1; $i <= 1000; $i++) {
             $db->run("INSERT INTO audit_logs (user_id, username, action, target_type, target_id, result, ip, details, created_at) VALUES (?, 'admin', 'website.update', 'website', ?, 'success', '192.0.2.1', '{}', ?)", [$admin, (string) ($i % 100 + 1), $now]);

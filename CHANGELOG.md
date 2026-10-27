@@ -7,6 +7,12 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **The panel is now called NimVor.** The default panel name, page titles, sign-in page, emails, two-factor issuer,
+  installer messages and documentation say NimVor, and the logo is a new "N" mark. A panel name an administrator chose
+  is kept; one left at the old default switches to the new name. Program, service, user and path names on the server
+  (`whacp-agent`, `/opt/whacp`, `bin/whacp`, …) and the `X-WhaCP-*` API/AJAX headers are unchanged, as are the markers
+  the agent writes into host configuration files, so existing servers keep working. Agent messages may still say WhaCP.
+- **Repository moved to github.com/NimVor/nimvor.** The agent's Go module path is now `github.com/NimVor/nimvor/agent`.
 - **Project name and licence holder: NimVor.** The README introduces the project as "NimVor — A free, open-source
   server control panel" and the MIT licence names NimVor as the copyright holder. Program, service and path names on
   the server are unchanged.

@@ -25,6 +25,6 @@ final class TwoFactorTest extends TestCase
         $s = TwoFactor::newSecret();
         self::assertMatchesRegularExpression('/^[A-Z2-7]{32}$/', $s);
         self::assertNotSame($s, TwoFactor::newSecret());
-        self::assertStringStartsWith('otpauth://totp/WhaCP%3Aalice?secret=' . $s, TwoFactor::uri($s, 'alice'));
+        self::assertStringStartsWith('otpauth://totp/NimVor%3Aalice?secret=' . $s, TwoFactor::uri($s, 'alice'));
     }
 }

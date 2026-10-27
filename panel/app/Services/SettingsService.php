@@ -30,7 +30,7 @@ final class SettingsService
     {
         return [
             'panel_name' => [
-                'category' => 'general', 'type' => 'string', 'default' => 'WhaCP', 'max_length' => 60,
+                'category' => 'general', 'type' => 'string', 'default' => 'NimVor', 'max_length' => 60,
                 'label' => 'Panel name', 'help' => 'Shown in the header and browser title.',
             ],
             'panel_url' => [
@@ -309,7 +309,7 @@ final class SettingsService
             ],
             'hulk_countries_all' => [
                 'category' => 'hulk', 'type' => 'bool', 'default' => false,
-                'label' => 'Block blacklisted countries on every port', 'help' => 'Like CSF\'s CC_DENY: blacklisted countries cannot reach any service, websites included. Otherwise only WhaCP and the login services.',
+                'label' => 'Block blacklisted countries on every port', 'help' => 'Like CSF\'s CC_DENY: blacklisted countries cannot reach any service, websites included. Otherwise only NimVor and the login services.',
             ],
             'hulk_whitelist' => [
                 'category' => 'hulk', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 4000,
