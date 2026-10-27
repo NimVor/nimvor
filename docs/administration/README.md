@@ -1908,6 +1908,8 @@ Passes in this panel:
 - **Update check, trash, ModSecurity** — the newest WhaCP version is looked up every six hours (shown under
   Server → WhaCP updates), File Manager trash older than `trash_retention_days` is emptied daily after 03:00 and the
   ModSecurity audit log is kept small.
+- **Bandwidth** — each account's transfer this month is compared with its plan; over it, its websites answer
+  "509 Bandwidth limit exceeded" until the month ends, the plan allows more or the counter is reset.
 - **Scheduled backups** — website, server-configuration and all-websites schedules start in
   their slot (a new schedule waits for its first slot; a storage turned off since means "kept on
   this server only"; a failure notifies the owner), all-websites rounds back up two websites at

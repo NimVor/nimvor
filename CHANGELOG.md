@@ -66,6 +66,13 @@ All notable changes to WhaCP are documented here. The format follows
 - Inline scripts and styles moved to assets (`noinline_test.go` keeps them out).
 
 ### Fixed (Go differential audit, Wave 1)
+- **The plans' monthly bandwidth was measured but never enforced**: the websites could
+  already answer "509 Bandwidth limit exceeded", but nothing ever marked an account over its
+  limit. The scheduler now marks accounts (a reseller with its customers) for the month,
+  notifies them, lifts the mark when the month ends, the plan allows more or an
+  administrator resets the counter, and re-applies the websites whose state differs. A plan
+  change, limit override or counter reset also refreshes the limits, quotas and block at
+  once (the plan-change path had its own copy of the limits code; it uses the shared one).
 - **The update page could not tell whether a newer version exists** ("Check now" said so):
   it now asks GitHub for the installed branch's newest commit (kept six hours, refreshed by
   the scheduler) and shows newest version, last lookup and "newer version available" /

@@ -878,85 +878,21 @@ func (s *Server) usersChangePlan(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, edit, http.StatusSeeOther)
 }
 
-// reconcileLimitsNow applies any pending resource-limit changes by invoking
-// the agent (best effort) and returns a user-facing warning string on
-// failure, empty on success.
+// reconcileLimitsNow applies what a plan, limit or counter change affects right
+// away: the resource limits, the disk quotas and the monthly bandwidth block
+// (best effort; the scheduler repeats it). It returns a warning for the person
+// when the limits could not be applied.
 func (s *Server) reconcileLimitsNow(r *http.Request) string {
-	// Reuse the public path: we simply invoke limitsApply-like logic via a
-	// dedicated reconcile on the current server; for simplicity we call the
-	// agent's limits.set for every acct slice that differs. We mirror the
-	// post-plan-change reconciliation from AccountAdminController::changePlan
-	// via limitsApply's behaviour, but inline a minimal pass here to avoid
-	// double-auditing (we don't want to fire per-account limits.apply audits
-	// when a plan was just changed).
-	sid := s.currentServerID(r)
-	raw, err := s.agent.Call(r.Context(), "limits.status", nil, 30*time.Second)
-	applied := map[string]any{}
-	if err == nil {
-		var st map[string]any
-		if json.Unmarshal(raw, &st) == nil {
-			if a, ok := st["accounts"].(map[string]any); ok {
-				applied = a
-			}
-		}
+	actor := userFrom(r.Context())
+	var warn string
+	if _, err := s.reconcileLimits(r, actor); err != nil {
+		warn = "Its resource limits were not applied: " + err.Error() + ". The scheduler applies them again within minutes."
 	}
-	want, err := s.limitsDesired(r)
-	if err != nil {
-		return "The plan was changed, but its resource limits were not applied: " + err.Error() + ". The scheduler applies them again within minutes."
+	if _, err := s.reconcileQuotas(r.Context()); err != nil && !quietAgentError(err) {
+		s.log.Warn("disk quotas not applied", "error", err)
 	}
-	keys := map[string]bool{}
-	for k := range applied {
-		keys[k] = true
-	}
-	for k := range want {
-		keys[k] = true
-	}
-	for acct := range keys {
-		w, haveW := want[acct]
-		curI, haveC := applied[acct]
-		var wantLimits map[string]int
-		var wantUsers []string
-		if haveW {
-			wantLimits = w["limits"].(map[string]int)
-			wantUsers, _ = w["users"].([]string)
-		} else {
-			wantLimits = map[string]int{}
-			for _, f := range limitsFields {
-				wantLimits[f] = 0
-			}
-		}
-		curLimits := map[string]int{}
-		curUsers := []string{}
-		if haveC {
-			if cm, ok := curI.(map[string]any); ok {
-				if cu, ok := cm["users"].([]any); ok {
-					for _, u := range cu {
-						if us, ok := u.(string); ok {
-							curUsers = append(curUsers, us)
-						}
-					}
-				}
-				if cl, ok := cm["limits"].(map[string]any); ok {
-					for _, f := range limitsFields {
-						if n, ok := cl[f].(float64); ok {
-							curLimits[f] = int(n)
-						}
-					}
-				}
-			}
-		}
-		callUsers := unionStrings(wantUsers, curUsers)
-		if !haveW {
-			callUsers = curUsers
-		}
-		params := map[string]any{"account": acct, "users": callUsers}
-		for _, f := range limitsFields {
-			params[f] = wantLimits[f]
-		}
-		s.agent.Call(r.Context(), "limits.set", params, 60*time.Second) // best effort
-	}
-	_ = sid
-	return ""
+	s.reconcileBandwidth(r, actor)
+	return warn
 }
 
 // usersSaveLimits POST /users/{id}/limits — saves per-account plan-field
@@ -1045,6 +981,7 @@ func (s *Server) usersSaveLimits(w http.ResponseWriter, r *http.Request) {
 		Details: map[string]any{"username": target.Username, "before": before, "after": newOverrides},
 		UserID:  &uid, Username: actor.Username,
 	})
+	s.reconcileLimitsNow(r)
 	sess.Flash("success", "Limits saved. The plan itself is unchanged.")
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
@@ -1193,6 +1130,7 @@ func (s *Server) usersResetBandwidth(w http.ResponseWriter, r *http.Request) {
 		Details: map[string]any{"username": target.Username, "month": month, "mb_before": usedMB},
 		UserID:  &uid, Username: actor.Username,
 	})
+	s.reconcileBandwidth(r, actor) // the block ends with the counter
 	sess.Flash("success", "Bandwidth of "+target.Username+" reset for "+month+" ("+strconv.Itoa(usedMB)+" MB were counted).")
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }

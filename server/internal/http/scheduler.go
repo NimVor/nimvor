@@ -33,6 +33,9 @@ type schedulerPass struct {
 }
 
 var schedulerPasses = []schedulerPass{
+	{"bandwidth", func(ctx context.Context, s *Server, r *http.Request) []string {
+		return s.reconcileBandwidth(r.WithContext(ctx), schedulerUser)
+	}},
 	{"update check", func(ctx context.Context, s *Server, r *http.Request) []string {
 		u := hosting.NewUpdateCheckService(s.agent, s.settings)
 		if !u.Due(ctx) {
@@ -355,4 +358,17 @@ func (s *Server) trashCleanup(ctx context.Context, now time.Time) []string {
 		}
 	}
 	return log
+}
+
+// reconcileBandwidth enforces the plans' monthly bandwidth: marks accounts over
+// it, lifts the mark when they are not, and re-applies the websites that differ
+// (BandwidthLimitService::reconcile).
+func (s *Server) reconcileBandwidth(r *http.Request, user *identity.User) []string {
+	notes := notify.NewRepository(s.db)
+	svc := hosting.NewBandwidthLimitService(s.db, s.currentServerID(r), hosting.NewPlanLimits(s.db), hosting.NewWebsiteRepository(s.db),
+		s.websiteService(r, user), s.websiteAuditHook(r, user))
+	svc.Notify = func(ctx context.Context, owner int64, title, body, key string) {
+		_, _ = notes.StoreOwned(ctx, sql.NullInt64{}, sql.NullInt64{Int64: owner, Valid: true}, "bandwidth", "warning", title, body, "", key)
+	}
+	return svc.Reconcile(r.Context())
 }
