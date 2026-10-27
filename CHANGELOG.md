@@ -6,6 +6,13 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Customers can no longer enable or disable a website, and cannot delete a disabled one.** The enable/disable
+  controls are gone from the customer's website pages and list, and the endpoint (page and API) refuses them; only
+  administrators and resellers switch websites. When an administrator disables a website, its owner sees a message at
+  the top of the website's overview, the Delete option is hidden, and deleting is refused by the panel and the API
+  (also for a suspended account). Enabled websites can still be deleted by their owner, with the typed confirmation.
+
 ### Added
 - **Security headers and cache rules per website** (website → *Headers & cache*) — owners choose framing protection
   (X-Frame-Options and CSP `frame-ancestors`), a validated Content Security Policy with report-only mode,

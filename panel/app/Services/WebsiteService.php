@@ -314,6 +314,54 @@ final class WebsiteService
         return $res;
     }
 
+    /**
+     * Who may enable or disable a website: administrators and resellers. A
+     * hosting customer never may: an administrator decides (a website that is
+     * disabled stays disabled until an administrator enables it).
+     *
+     * @param array<string, mixed> $user
+     */
+    public static function mayToggle(array $user): bool
+    {
+        return \NimVor\Hosting\Scope::isAll($user) || ($user['role_name'] ?? '') === 'reseller';
+    }
+
+    /**
+     * Whether $user may delete $site. A customer may not delete a website that
+     * is disabled or whose account is suspended: only an administrator (or a
+     * reseller for their own customers) can remove those.
+     *
+     * @param array<string, mixed> $user
+     * @param array<string, mixed> $site
+     */
+    public static function mayDelete(array $user, array $site): bool
+    {
+        return self::mayToggle($user) || (!empty($site['enabled']) && empty($site['account_suspended']));
+    }
+
+    /**
+     * @param array<string, mixed> $user
+     * @throws UserFacingException
+     */
+    public static function assertMayToggle(array $user): void
+    {
+        if (!self::mayToggle($user)) {
+            throw new UserFacingException('Only an administrator can enable or disable a website.', '', 'Contact your hosting provider if this website needs to be switched.');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $user
+     * @param array<string, mixed> $site
+     * @throws UserFacingException
+     */
+    public static function assertMayDelete(array $user, array $site): void
+    {
+        if (!self::mayDelete($user, $site)) {
+            throw new UserFacingException('This website is disabled by the administrator, so it cannot be deleted from here.', '', 'Contact your hosting provider to have it enabled or removed.');
+        }
+    }
+
     /** @param array<string, mixed> $site */
     public function setEnabled(array $site, bool $enabled): void
     {

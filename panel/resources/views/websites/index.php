@@ -134,7 +134,7 @@ $showOwner = $this->can(P::USERS_VIEW);
                     </td>
                     <td class="text-center">
                         <?php $title = $m['status'] === 'error' ? 'Needs attention' : ($m['enabled'] ? 'Running' : 'Disabled'); ?>
-                        <?php if ($canCreate): ?>
+                        <?php if ($canCreate && $this->mayToggleSite()): ?>
                             <form method="post" action="<?= e($this->url('sites.toggle', ['id' => $id])) ?>"<?= $m['enabled'] ? ' data-nim-confirm="Disable ' . e($m['domain']) . '? Visitors get an error page until you enable it again; files and settings are kept."' : '' ?>>
                                 <?= $this->csrfField() ?><input type="hidden" name="return_to" value="websites">
                                 <button class="nim-toggle-op <?= $m['enabled'] ? 'is-on' : 'is-off' ?>" type="submit" title="<?= e($title) ?> — click to <?= $m['enabled'] ? 'disable' : 'enable' ?>" aria-label="<?= $m['enabled'] ? 'Disable' : 'Enable' ?> <?= e($m['domain']) ?>"><i class="bi bi-<?= $m['enabled'] ? 'play-circle-fill' : 'pause-circle' ?>"></i></button>

@@ -341,6 +341,7 @@ final class SitesController extends Controller
             default => '/sites/' . (int) $id . '/advanced',
         };
         try {
+            WebsiteService::assertMayToggle($this->user($request));
             $this->service->setEnabled($site, !$site['enabled']);
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure($back, $e);
@@ -425,6 +426,11 @@ final class SitesController extends Controller
         $site = $this->site($request, $id);
         if ($site === null) {
             return $this->notFound();
+        }
+        try {
+            WebsiteService::assertMayDelete($this->user($request), $site);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/sites/' . (int) $id, $e);
         }
         if ($request->string('confirm_domain') !== $site['domain']) {
             return $this->redirectWithError('/sites/' . (int) $id . '/advanced', 'Type the domain name to confirm deletion.');

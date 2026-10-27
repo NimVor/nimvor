@@ -189,6 +189,24 @@ final class View
     }
 
     /** Whether the viewer has a server-wide role (administrators). */
+    /** Whether the signed-in user may enable or disable websites (not hosting customers). */
+    public function mayToggleSite(): bool
+    {
+        $user = $this->shared['user'] ?? null;
+        return is_array($user) && \NimVor\Services\WebsiteService::mayToggle($user);
+    }
+
+    /**
+     * Whether the signed-in user may delete this website.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function mayDeleteSite(array $site): bool
+    {
+        $user = $this->shared['user'] ?? null;
+        return is_array($user) && \NimVor\Services\WebsiteService::mayDelete($user, $site);
+    }
+
     public function serverScope(): bool
     {
         $user = $this->shared['user'] ?? null;

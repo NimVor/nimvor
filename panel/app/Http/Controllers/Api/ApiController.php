@@ -173,7 +173,8 @@ final class ApiController
         if ($s === null) {
             return self::notFound();
         }
-        return $this->guard(function () use ($s, $enabled): Response {
+        return $this->guard(function () use ($r, $s, $enabled): Response {
+            WebsiteService::assertMayToggle($this->user($r));
             $this->websites->setEnabled($s, $enabled);
             return self::ok(self::website((array) $this->sites->find($this->server->id(), (int) $s['id'], null)));
         });
@@ -196,6 +197,7 @@ final class ApiController
             return self::notFound();
         }
         return $this->guard(function () use ($r, $s): Response {
+            WebsiteService::assertMayDelete($this->user($r), $s);
             $warnings = $this->websites->delete($s, $r->query('remove_files') === '1', $r->query('remove_user') === '1');
             return self::ok(['deleted' => (int) $s['id'], 'warnings' => $warnings]);
         });

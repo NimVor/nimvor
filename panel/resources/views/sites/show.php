@@ -97,6 +97,10 @@ foreach ([
 ?>
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'overview']) ?>
 
+<?php if (empty($site['enabled']) && !$this->mayToggleSite()): ?>
+    <div class="alert alert-warning" id="site-disabled" role="alert"><i class="bi bi-pause-circle me-1" aria-hidden="true"></i><strong>This website is disabled by the administrator.</strong> Visitors cannot reach it, and it cannot be enabled or deleted from your account. Your files, databases and settings are kept. Contact your hosting provider to have it enabled.</div>
+<?php endif; ?>
+
 <?php if ($site['status'] === 'error' && $site['last_error'] !== ''): ?>
     <div class="alert alert-danger small"><strong>The last change failed:</strong> <?= e($site['last_error']) ?><?php if ($u('advanced') !== null): ?> · <a href="<?= e($u('advanced', '#danger-zone')) ?>">Re-apply configuration</a><?php endif; ?></div>
 <?php endif; ?>
@@ -156,8 +160,10 @@ foreach ([
 <section aria-labelledby="manage-title">
     <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
         <h2 class="h5 mb-0 me-auto" id="manage-title">Site managing</h2>
-        <?php if ($canManage): ?>
+        <?php if ($canManage && $this->mayDeleteSite($site)): ?>
             <a class="btn btn-sm btn-outline-danger" href="<?= e($this->url('sites.advanced', ['id' => $id])) ?>#delete-website"><i class="bi bi-trash me-1"></i>Delete the website</a>
+        <?php endif; ?>
+        <?php if ($canManage && $this->mayToggleSite()): ?>
             <form method="post" action="<?= e($this->url('sites.toggle', ['id' => $id])) ?>" data-nim-busy<?= $site['enabled'] ? ' data-nim-confirm="Disable ' . e($site['domain']) . '? Visitors will no longer reach it. Files, databases and settings are kept."' : '' ?>>
                 <?= $this->csrfField() ?><input type="hidden" name="return_to" value="overview">
                 <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-power me-1"></i><?= $site['enabled'] ? 'Disable the website' : 'Enable the website' ?></button>

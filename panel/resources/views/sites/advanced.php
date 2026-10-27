@@ -101,6 +101,7 @@ $id = (int) $site['id'];
         <h2 class="nim-section-heading text-danger-emphasis"><i class="bi bi-exclamation-octagon me-1"></i>Danger Zone</h2>
         <div class="card mb-3 border-warning-subtle">
             <div class="card-body d-grid gap-3">
+                <?php if ($this->mayToggleSite()): ?>
                 <div class="nim-danger-row">
                     <div><div class="fw-medium"><?= $site['enabled'] ? 'Disable website' : 'Enable website' ?></div><div class="small text-body-secondary"><?= $site['enabled'] ? 'Visitors can no longer reach it. Files, databases and settings are kept.' : 'Serve the website to visitors again.' ?></div></div>
                     <form method="post" action="<?= e($this->url('sites.toggle', ['id' => $id])) ?>" data-nim-busy
@@ -109,6 +110,7 @@ $id = (int) $site['id'];
                         <button class="btn btn-sm btn-outline-<?= $site['enabled'] ? 'warning' : 'success' ?> text-nowrap" type="submit"><i class="bi bi-power me-1"></i><?= $site['enabled'] ? 'Disable' : 'Enable' ?></button>
                     </form>
                 </div>
+                <?php endif; ?>
                 <?php if ($site['kind'] === 'php' && $site['enabled']): ?>
                     <div class="nim-danger-row">
                         <div><div class="fw-medium">Reload PHP</div><div class="small text-body-secondary">Restart this website's PHP <?= e($site['php_version']) ?> processes, e.g. after changing files PHP caches.</div></div>
@@ -127,6 +129,7 @@ $id = (int) $site['id'];
                 </div>
             </div>
         </div>
+        <?php if ($this->mayDeleteSite($site)): ?>
         <div class="card border-danger nim-delete-card" id="delete-website">
             <div class="card-header text-danger"><i class="bi bi-trash me-1"></i>Delete website</div>
             <div class="card-body">
@@ -142,5 +145,8 @@ $id = (int) $site['id'];
                 </form>
             </div>
         </div>
+        <?php else: ?>
+        <div class="card mb-3" id="delete-website"><div class="card-body small text-body-secondary"><i class="bi bi-lock me-1" aria-hidden="true"></i>This website is disabled by the administrator, so it cannot be deleted from here. Contact your hosting provider.</div></div>
+        <?php endif; ?>
     </div>
 </div>
