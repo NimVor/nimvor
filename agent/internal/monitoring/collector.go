@@ -224,7 +224,7 @@ type NetworkIfce struct {
 // resolve /etc/timezone and /etc/localtime.
 func ReadSystemInfo(procDir, etcRoot string) SystemInfo {
 	si := SystemInfo{Interfaces: []NetworkIfce{}}
-	si.Hostname, _ = os.Hostname()
+	si.Hostname = currentHostname(etcRoot)
 	if b, err := readProc(procDir, "sys/kernel/osrelease"); err == nil {
 		si.Kernel = strings.TrimSpace(string(b))
 	}
@@ -268,4 +268,18 @@ func readTimezone(root string) string {
 		}
 	}
 	return "UTC"
+}
+
+// currentHostname is the machine's host name. The agent runs with
+// ProtectHostname=yes (its own UTS namespace), so os.Hostname() keeps the name
+// the machine had when the agent started and never shows a change made from
+// the panel; /etc/hostname, which the change writes, does.
+func currentHostname(etcRoot string) string {
+	if b, err := os.ReadFile(filepath.Join(etcRoot, "etc/hostname")); err == nil {
+		if name := strings.TrimSpace(string(b)); name != "" && !strings.ContainsAny(name, " \t\r\n") {
+			return name
+		}
+	}
+	name, _ := os.Hostname()
+	return name
 }

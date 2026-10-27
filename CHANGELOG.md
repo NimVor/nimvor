@@ -7,6 +7,10 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **The old host name kept showing in the header and the System tab after a change.** The agent runs in its own host-name
+  namespace (`ProtectHostname=yes`), so it kept reporting the name from when it started. It now reads `/etc/hostname`.
+
+### Fixed
 - **Setup wizard: the FTP server step failed** with "pure-ftpd.service is running and uses the FTP port". Installing the
   pure-ftpd package starts its own default service, which the step took for another FTP server. The setup now lets
   the agent replace that default service when it has no virtual accounts; any other running FTP server still needs
