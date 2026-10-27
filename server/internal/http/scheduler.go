@@ -117,6 +117,23 @@ var schedulerPasses = []schedulerPass{
 	{"auto SSL", func(ctx context.Context, s *Server, r *http.Request) []string {
 		return s.autoSslService(r, schedulerUser).Run(ctx)
 	}},
+	{"WordPress", func(ctx context.Context, s *Server, r *http.Request) []string {
+		w := s.wordpressScheduler(r)
+		harden, _ := s.settings.Bool(ctx, "wordpress_auto_harden", true)
+		return append(w.AutoHarden(ctx, harden), w.DailyVulnerabilityCheck(ctx)...)
+	}},
+}
+
+// wordpressScheduler builds the scheduled WordPress work (the vulnerability
+// check and the automatic hardening) acting as the scheduler.
+func (s *Server) wordpressScheduler(r *http.Request) *hosting.WordPressScheduler {
+	w := hosting.NewWordPressScheduler(s.db, s.currentServerID(r), hosting.NewWebsiteRepository(s.db),
+		s.wordpressService(r, schedulerUser), s.wpTools(r, schedulerUser))
+	notes := notify.NewRepository(s.db)
+	w.Notify = func(ctx context.Context, websiteID, ownerID sql.NullInt64, kind, severity, title, body, link, key string) {
+		_, _ = notes.StoreOwned(ctx, websiteID, ownerID, kind, severity, title, body, link, key)
+	}
+	return w
 }
 
 // autoSslService builds the AutoSSL service bound to the actor.

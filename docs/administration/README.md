@@ -1915,7 +1915,14 @@ Passes in this panel:
   this server only"; a failure notifies the owner), all-websites rounds back up two websites at
   a time, and the oldest completed backups beyond each schedule's retention are deleted.
 
-Not part of this panel yet (the PHP scheduler ran them): WordPress hardening and vulnerability checks, and greylisting ranges.
+- **WordPress** — once a day (an installation is checked again after 20 hours, at most 20 per
+  run) every installation with vulnerability protection is checked against the
+  wpvulnerability.net database; vulnerabilities not seen before notify the website's owner.
+  WordPress installed with the app installer gets the recommended security measures as soon
+  as its installation job has succeeded (setting "Harden new WordPress installations
+  automatically"); a failed installation is marked and not retried.
+
+Not part of this panel yet (the PHP scheduler ran it): greylisting ranges.
 
 Enable the timer on an existing installation with `systemctl enable --now whacp-scheduler.timer`
 (the installer and `upgrade.sh` do it).

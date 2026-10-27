@@ -143,7 +143,7 @@ All notable changes to WhaCP are documented here. The format follows
   spellings are accepted).
 
 ### Not yet ported (tracked)
-- The other scheduler passes (WordPress hardening and vulnerability checks, greylisting ranges), `/admin/plugins`, connecting remote servers (pinned TLS
+- The other scheduler passes (greylisting ranges), `/admin/plugins`, connecting remote servers (pinned TLS
   agent client).
 
 ### Fixed (Go differential audit, Wave 0)
