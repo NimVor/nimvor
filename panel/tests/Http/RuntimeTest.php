@@ -21,6 +21,44 @@ final class RuntimeTest extends HttpTestCase
             'python' => [],
             'system' => [['kind' => 'python', 'version' => '3.12', 'binary' => '/usr/bin/python3.12']],
         ]);
+        $this->agent->succeed('runtime.available', [
+            'node' => [
+                ['version' => '23.1.0', 'label' => 'Current', 'installed' => false],
+                ['version' => '22.9.0', 'label' => 'LTS Jod', 'installed' => false],
+                ['version' => '20.17.0', 'label' => 'LTS Iron', 'installed' => true],
+            ],
+            'python' => [
+                ['version' => '3.13.0', 'label' => 'Stable', 'installed' => false],
+                ['version' => '3.12.7', 'label' => 'Stable', 'installed' => false],
+            ],
+        ]);
+    }
+
+    public function testInstallModalsOfferStableVersionsAsCheckboxes(): void
+    {
+        $this->login('admin');
+        $page = $this->request('GET', '/runtimes')->body();
+        foreach (['name="versions[]" value="22.9.0"', 'value="23.1.0"', 'value="3.13.0"', 'value="3.12.7"', 'LTS Jod', 'Install Python'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        // An installed version is shown ticked and cannot be ticked again.
+        self::assertMatchesRegularExpression('/value="20\.17\.0"[^>]*disabled checked/', $page);
+        self::assertStringNotContainsString('placeholder="20.17.0"', $page);
+    }
+
+    public function testTickedVersionsAreInstalledOneJobEach(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('runtime.install', ['job_id' => 'abcdefabcdefabcd']);
+        $this->post('/runtimes/install', ['kind' => 'python', 'versions' => ['3.13.0', '3.12.7']]);
+        self::assertSame(2, $this->calls('runtime.install'));
+        self::assertSame(['kind' => 'python', 'version' => '3.12.7'], $this->lastCall('runtime.install'));
+
+        // Nothing ticked, a wrong-kind version or an unknown kind never reaches the agent.
+        $this->post('/runtimes/install', ['kind' => 'python', 'versions' => []]);
+        $this->post('/runtimes/install', ['kind' => 'python', 'versions' => ['20.17.0']]);
+        $this->post('/runtimes/install', ['kind' => 'ruby', 'versions' => ['3.3.0']]);
+        self::assertSame(2, $this->calls('runtime.install'));
     }
 
     public function testAdminSeesAndInstallsAndRemovesRuntimes(): void

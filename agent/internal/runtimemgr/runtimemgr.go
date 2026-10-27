@@ -32,14 +32,20 @@ import (
 	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
 )
 
-// Sources says where Node.js runtimes are downloaded from.
+// Sources says where runtimes are downloaded from.
 type Sources struct {
-	NodeBaseURL string // e.g. https://nodejs.org/dist
-	Client      *http.Client
+	NodeBaseURL      string // e.g. https://nodejs.org/dist
+	PythonReleaseURL string // the python-build-standalone release (JSON) to install from
+	Client           *http.Client
 }
 
-// DefaultSources are the official download locations.
-var DefaultSources = Sources{NodeBaseURL: "https://nodejs.org/dist", Client: &http.Client{Timeout: 15 * time.Minute}}
+// DefaultSources are the official download locations. Python comes from
+// the python-build-standalone project's prebuilt CPython releases.
+var DefaultSources = Sources{
+	NodeBaseURL:      "https://nodejs.org/dist",
+	PythonReleaseURL: "https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest",
+	Client:           &http.Client{Timeout: 15 * time.Minute},
+}
 
 const maxDownload = 120 << 20 // a Node tarball is ~30 MB; cap well above that
 
@@ -48,6 +54,8 @@ var (
 	versionRe = regexp.MustCompile(`^[0-9][0-9A-Za-z.]{0,31}$`)
 	// An exact Node.js release, e.g. 20.17.0.
 	nodeVersionRe = regexp.MustCompile(`^(0|[1-9][0-9]?)\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$`)
+	// An exact CPython release, e.g. 3.12.7.
+	pythonVersionRe = regexp.MustCompile(`^3\.(0|[1-9][0-9]?)\.(0|[1-9][0-9]{0,2})$`)
 	// System Python interpreters to look for.
 	pythonMinor = []string{"3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"}
 )
@@ -176,7 +184,10 @@ func RegisterWith(r *actions.Registry, env *host.Env, src Sources) {
 	r.Register(actions.Action{Name: "runtime.status", Description: "List the Node.js and Python runtimes available on the server (WhaCP-managed and the system's own).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return List(env), nil
 	}})
-	r.Register(actions.Action{Name: "runtime.install", Mutating: true, Description: "Install a Node.js runtime (an official nodejs.org release, verified) side by side under the runtimes directory (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "runtime.available", Description: "List the stable Node.js and Python versions that can be installed (from nodejs.org and python-build-standalone).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+		return Available(ctx, env, src), nil
+	}})
+	r.Register(actions.Action{Name: "runtime.install", Mutating: true, Description: "Install a Node.js (nodejs.org) or Python (python-build-standalone) runtime, verified against published checksums, side by side under the runtimes directory (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Kind    string `json:"kind"`
 			Version string `json:"version"`
@@ -184,21 +195,36 @@ func RegisterWith(r *actions.Registry, env *host.Env, src Sources) {
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
 		}
-		if in.Kind != "node" {
-			return nil, actions.InvalidParams("kind: only Node.js runtimes can be installed here; install Python versions under Server → Packages")
+		switch in.Kind {
+		case "node":
+			if !nodeVersionRe.MatchString(in.Version) {
+				return nil, actions.InvalidParams("version: an exact Node.js release, e.g. 20.17.0")
+			}
+			if nodeArch() == "" {
+				return nil, actions.Conflict("This server's CPU architecture has no Node.js build.")
+			}
+		case "python":
+			if !pythonVersionRe.MatchString(in.Version) {
+				return nil, actions.InvalidParams("version: an exact Python release, e.g. 3.12.7")
+			}
+			if pythonTriple() == "" {
+				return nil, actions.Conflict("This server's CPU architecture has no Python build.")
+			}
+		default:
+			return nil, actions.InvalidParams("kind: must be node or python")
 		}
-		if !nodeVersionRe.MatchString(in.Version) {
-			return nil, actions.InvalidParams("version: an exact Node.js release, e.g. 20.17.0")
-		}
-		if nodeArch() == "" {
-			return nil, actions.Conflict("This server's CPU architecture has no Node.js build.")
-		}
-		dest := filepath.Join(host.RuntimesDir, "node", in.Version)
+		dest := filepath.Join(host.RuntimesDir, in.Kind, in.Version)
 		if env.Root.Exists(dest) {
-			return nil, actions.Conflict("Node.js " + in.Version + " is already installed.")
+			return nil, actions.Conflict(runtimeLabel(in.Kind) + " " + in.Version + " is already installed.")
 		}
-		j := env.Jobs.Start("runtime.install", "node:"+in.Version, func(ctx context.Context, log io.Writer) (any, error) {
-			rt, err := installNode(ctx, env, src, in.Version, log)
+		j := env.Jobs.Start("runtime.install", in.Kind+":"+in.Version, func(ctx context.Context, log io.Writer) (any, error) {
+			var rt *Runtime
+			var err error
+			if in.Kind == "python" {
+				rt, err = installPython(ctx, env, src, in.Version, log)
+			} else {
+				rt, err = installNode(ctx, env, src, in.Version, log)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -300,7 +326,7 @@ func download(ctx context.Context, env *host.Env, client *http.Client, url strin
 	if err != nil {
 		return "", "", err
 	}
-	f, err := os.CreateTemp(real, "node-*.tar.gz")
+	f, err := os.CreateTemp(real, "runtime-*.tar.gz")
 	if err != nil {
 		return "", "", err
 	}
@@ -337,7 +363,7 @@ func fetchText(ctx context.Context, client *http.Client, url string) (string, er
 	if res.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("HTTP %d", res.StatusCode)
 	}
-	b, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	b, err := io.ReadAll(io.LimitReader(res.Body, 8<<20))
 	return string(b), err
 }
 

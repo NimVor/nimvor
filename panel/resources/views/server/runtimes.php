@@ -4,10 +4,12 @@
  *
  * @var \WhaCP\View\View $this
  * @var array{arch: string, node: list<array<string, mixed>>, python: list<array<string, mixed>>, system: list<array<string, mixed>>}|null $status
+ * @var array{node: list<array<string, mixed>>, python: list<array<string, mixed>>, node_error: string, python_error: string}|null $available
  */
 use WhaCP\Security\Permissions as P;
 
 $status ??= null;
+$available ??= null;
 $canManage = $this->can(P::SERVER_MANAGE);
 ?>
 <?php $this->start(); ?>Runtimes<?php $this->end('title'); ?>
@@ -15,6 +17,7 @@ $canManage = $this->can(P::SERVER_MANAGE);
 <?php $this->start(); ?>
     <?php if ($canManage && $status !== null): ?>
         <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#add-node"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Install Node.js</button>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#add-python"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Install Python</button>
     <?php endif; ?>
 <?php $this->end('actions'); ?>
 
@@ -53,7 +56,7 @@ $managed = array_merge($status['node'], $status['python']);
 <div class="card mb-3">
     <div class="card-header">Installed runtimes</div>
     <?php if ($managed === []): ?>
-        <div class="wcp-empty-state"><i class="bi bi-box-seam" aria-hidden="true"></i><div class="fw-medium">No managed runtimes yet</div><div class="small">Install a Node.js version to run Node apps and workers on it. Node.js downloads come from nodejs.org and are verified before use.</div></div>
+        <div class="wcp-empty-state"><i class="bi bi-box-seam" aria-hidden="true"></i><div class="fw-medium">No managed runtimes yet</div><div class="small">Install Node.js or Python versions to run apps and workers on them. Downloads are verified against published checksums before use.</div></div>
     <?php else: ?>
         <div class="wcp-dtable table-responsive">
             <table class="table align-middle mb-0">
@@ -75,20 +78,44 @@ $managed = array_merge($status['node'], $status['python']);
                 <tbody><?php foreach ($status['system'] as $rt) { echo $rtRow($rt, false); } ?></tbody>
             </table>
         </div>
-        <div class="card-footer small text-body-secondary">Install more Python versions (python3.x) under <a href="<?= e($this->url('packages')) ?>">Packages</a>. They are then available to workers that run <code>python3.x</code> directly.</div>
+        <div class="card-footer small text-body-secondary">Use <strong>Install Python</strong> to add stable Python versions alongside the system ones.</div>
     <?php endif; ?>
 </div>
 
-<?php if ($canManage): ?>
-<?= $this->modalStart('add-node', 'Install Node.js') ?>
+<?php
+$versionModal = function (string $id, string $kind, string $label, string $source) use ($available, $status): void {
+    $list = (array) ($available[$kind] ?? []);
+    $err = (string) ($available[$kind . '_error'] ?? '');
+    echo $this->modalStart($id, 'Install ' . $label);
+    ?>
     <form method="post" action="<?= e($this->url('runtimes.install')) ?>" data-wcp-busy>
         <div class="p-3">
             <?= $this->csrfField() ?>
-            <label class="form-label" for="rt-ver">Version</label>
-            <input class="form-control" id="rt-ver" name="version" placeholder="20.17.0" pattern="\d{1,2}\.\d{1,3}\.\d{1,3}" required>
-            <div class="form-text">An exact release from nodejs.org, e.g. 20.17.0 or 22.9.0. It is downloaded, verified against the release checksums and installed alongside any others<?= $status['arch'] !== '' ? ' (' . e($status['arch']) . ')' : '' ?>.</div>
-            <button class="btn btn-primary btn-sm mt-3" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Install</button>
+            <input type="hidden" name="kind" value="<?= e($kind) ?>">
+            <?php if ($available === null || $err !== '' || $list === []): ?>
+                <div class="alert alert-warning small">The list of <?= e($label) ?> versions could not be loaded<?= $err !== '' ? ': ' . e($err) : '' ?>. Check the server's internet access and reload the page.</div>
+            <?php else: ?>
+                <div class="fw-medium mb-2">Stable <?= e($label) ?> versions</div>
+                <?php foreach ($list as $i => $v): $ver = (string) ($v['version'] ?? ''); $done = !empty($v['installed']); ?>
+                    <div class="form-check mb-1">
+                        <input class="form-check-input" type="checkbox" name="versions[]" value="<?= e($ver) ?>" id="<?= e($id . '-' . $i) ?>"<?= $done ? ' disabled checked' : '' ?>>
+                        <label class="form-check-label" for="<?= e($id . '-' . $i) ?>">
+                            <span class="font-monospace"><?= e($ver) ?></span>
+                            <?php if ((string) ($v['label'] ?? '') !== ''): ?><span class="badge text-bg-secondary ms-1"><?= e((string) $v['label']) ?></span><?php endif; ?>
+                            <?php if ($done): ?><span class="text-body-secondary small ms-1">installed</span><?php endif; ?>
+                        </label>
+                    </div>
+                <?php endforeach; ?>
+                <div class="form-text mt-2">Tick the versions to install. Each is downloaded from <?= e($source) ?>, verified against its published checksum and installed alongside any others<?= $kind === 'node' && ($status['arch'] ?? '') !== '' ? ' (' . e((string) $status['arch']) . ')' : '' ?>.</div>
+                <button class="btn btn-primary btn-sm mt-3" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Install selected</button>
+            <?php endif; ?>
         </div>
     </form>
-<?= $this->modalEnd() ?>
+    <?php
+    echo $this->modalEnd();
+};
+?>
+<?php if ($canManage): ?>
+    <?php $versionModal('add-node', 'node', 'Node.js', 'nodejs.org'); ?>
+    <?php $versionModal('add-python', 'python', 'Python', 'the python-build-standalone project'); ?>
 <?php endif; ?>

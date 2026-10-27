@@ -6,6 +6,13 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Runtimes: pick versions from a list.** Server → Runtimes now lists the stable Node.js versions (the newest of each
+  recent LTS line, plus Current) and the stable Python versions as checkboxes; tick the ones to install instead of
+  typing an exact version. Python can now be installed here too, from python-build-standalone prebuilt CPython
+  releases. Every download is verified against its published SHA-256 before it is unpacked. New agent action
+  `runtime.available`; `runtime.install` accepts `kind: python`.
+
 ### Fixed
 - **The scheduler stopped at the WordPress vulnerability check** ("no such column: w.account_suspended"), so it never
   finished a run, never recorded that it had run, and the health page kept warning that it had never run. The query

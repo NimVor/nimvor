@@ -76,11 +76,35 @@ final class RuntimeService
         return $out;
     }
 
+    /**
+     * The stable Node.js and Python versions that can be installed, with
+     * whether each is already installed. A source that could not be reached
+     * is reported in node_error / python_error.
+     *
+     * @return array{node: list<array<string, mixed>>, python: list<array<string, mixed>>, node_error: string, python_error: string}
+     */
+    public function available(): array
+    {
+        $a = (array) $this->agent->call('runtime.available', [], 60);
+        return [
+            'node' => array_map(static fn ($r): array => (array) $r, (array) ($a['node'] ?? [])),
+            'python' => array_map(static fn ($r): array => (array) $r, (array) ($a['python'] ?? [])),
+            'node_error' => (string) ($a['node_error'] ?? ''),
+            'python_error' => (string) ($a['python_error'] ?? ''),
+        ];
+    }
+
     /** Start installing a Node.js version; returns the agent job id. */
     public function installNode(string $version, ?int $userId): string
     {
-        $res = (array) $this->agent->call('runtime.install', ['kind' => 'node', 'version' => $version], 600);
-        $this->audit->record('runtime.install', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['kind' => 'node', 'version' => $version], $userId);
+        return $this->install('node', $version, $userId);
+    }
+
+    /** Start installing a runtime version (node or python); returns the agent job id. */
+    public function install(string $kind, string $version, ?int $userId): string
+    {
+        $res = (array) $this->agent->call('runtime.install', ['kind' => $kind, 'version' => $version], 600);
+        $this->audit->record('runtime.install', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['kind' => $kind, 'version' => $version], $userId);
         return (string) ($res['job_id'] ?? '');
     }
 
