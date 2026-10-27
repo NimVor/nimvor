@@ -35,6 +35,11 @@ final class AppInstallerService
         'matomo' => ['title' => 'Matomo', 'description' => 'Privacy-friendly web analytics. Staged; finish in its web installer.', 'staged' => true],
         'mediawiki' => ['title' => 'MediaWiki', 'description' => 'The wiki engine behind Wikipedia. Staged; finish in its web installer.', 'staged' => true],
         'grav' => ['title' => 'Grav', 'description' => 'Flat-file CMS — no database. Staged; ready to use after install.', 'staged' => true],
+        'backdrop' => ['title' => 'Backdrop CMS', 'description' => 'Lightweight CMS for small business and nonprofit sites. Staged with a new database; finish in its web installer.', 'staged' => true],
+        'processwire' => ['title' => 'ProcessWire', 'description' => 'Flexible, API-first CMS. Staged with a new database; finish in its web installer.', 'staged' => true],
+        'bludit' => ['title' => 'Bludit', 'description' => 'Flat-file blogging CMS — no database. Staged; ready to use after install.', 'staged' => true],
+        'dolibarr' => ['title' => 'Dolibarr ERP & CRM', 'description' => 'ERP and CRM for small businesses. Staged with a new database; the website is served from <folder>/htdocs.', 'staged' => true],
+        'akaunting' => ['title' => 'Akaunting', 'description' => 'Free online accounting and invoicing. Staged with a new database; finish in its web installer.', 'staged' => true],
     ];
 
     /** Staged apps: where their web installer lives and the web root subfolder. */
@@ -51,6 +56,11 @@ final class AppInstallerService
         'matomo' => ['finish' => '/index.php', 'docroot' => ''],
         'mediawiki' => ['finish' => '/mw-config/index.php', 'docroot' => ''],
         'grav' => ['finish' => '/', 'docroot' => ''],
+        'backdrop' => ['finish' => '/core/install.php', 'docroot' => ''],
+        'processwire' => ['finish' => '/install.php', 'docroot' => ''],
+        'bludit' => ['finish' => '/', 'docroot' => ''],
+        'dolibarr' => ['finish' => '/install/', 'docroot' => 'htdocs'],
+        'akaunting' => ['finish' => '/', 'docroot' => ''],
     ];
 
     /** @param array<string, mixed> $site */

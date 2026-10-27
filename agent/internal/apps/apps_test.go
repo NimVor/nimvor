@@ -329,3 +329,19 @@ func TestLaravelInstall(t *testing.T) {
 		t.Error(".env script not run")
 	}
 }
+
+// Every staged app must be well-formed: a name, a download, a known
+// archive format, and a web installer path.
+func TestCatalogEntriesAreWellFormed(t *testing.T) {
+	for slug, d := range Catalog {
+		if d.Name == "" || d.Finish == "" || !strings.HasPrefix(d.Finish, "/") {
+			t.Errorf("%s: name/finish missing or malformed: %+v", slug, d)
+		}
+		if d.URL != "" && !strings.HasPrefix(d.URL, "https://") {
+			t.Errorf("%s: download must be https: %s", slug, d.URL)
+		}
+		if d.Format != "" && d.Format != "zip" && d.Format != "targz" && d.Format != "tarbz2" {
+			t.Errorf("%s: unknown format %q", slug, d.Format)
+		}
+	}
+}

@@ -21,6 +21,22 @@ final class AppManagerTest extends HttpTestCase
         $this->seedUser('cust', 'customer');
     }
 
+    public function testEveryInstallerAppIsInTheCatalogAndStagedConsistently(): void
+    {
+        $db = $this->app->container->get(Connection::class);
+        foreach (\NimVor\Services\AppInstallerService::APPS as $slug => $def) {
+            self::assertSame(1, (int) $db->scalar('SELECT COUNT(*) FROM app_catalog WHERE slug = ?', [$slug]), $slug . ' is not in the catalog');
+            if (!empty($def['staged'])) {
+                self::assertArrayHasKey($slug, \NimVor\Services\AppInstallerService::STAGED, $slug);
+            }
+        }
+        foreach (['backdrop', 'processwire', 'bludit', 'dolibarr', 'akaunting'] as $slug) {
+            self::assertArrayHasKey($slug, \NimVor\Services\AppInstallerService::APPS);
+        }
+        self::assertSame(0, (int) $db->scalar("SELECT needs_db FROM app_catalog WHERE slug = 'bludit'"));
+        self::assertSame(2, (int) $db->scalar("SELECT COUNT(*) FROM app_categories WHERE slug IN ('business','finance')"));
+    }
+
     public function testManagerTogglesCategoriesAppsAndInstaller(): void
     {
         $this->login('admin');

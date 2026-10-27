@@ -6,6 +6,11 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **More apps in the app installer** — Backdrop CMS, ProcessWire and Bludit (Blogs & CMS), Dolibarr ERP & CRM (new
+  *Business, CRM & ERP* category) and Akaunting (new *Finance & Invoicing* category). They install like the other
+  staged apps and can be hidden or disabled under Administration → Application Manager.
+
 ### Changed
 - **Email → Greylisting uses tabs** — Settings, Trusted hosts and Common mail providers — that switch in the page
   without reloading; saving returns to the tab you were on.

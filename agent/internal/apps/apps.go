@@ -96,6 +96,13 @@ var Catalog = map[string]AppDef{
 	"moodle":     {Name: "Moodle", URL: "https://download.moodle.org/download.php/direct/stable405/moodle-latest-405.tgz", Format: "targz", Strip: 1, Ext: []string{"pdo_mysql", "gd", "curl", "intl", "xml", "zip", "mbstring"}, Finish: "/install.php"},
 	"mediawiki":  {Name: "MediaWiki", URL: "https://releases.wikimedia.org/mediawiki/1.43/mediawiki-1.43.1.tar.gz", Format: "targz", Strip: 1, Ext: []string{"mysqli", "mbstring", "xml", "intl"}, Finish: "/mw-config/index.php"},
 	"grav":       {Name: "Grav", URL: "https://getgrav.org/download/core/grav/latest", Format: "zip", Strip: 1, NoDB: true, Ext: []string{"gd", "curl", "mbstring", "zip", "json"}, Finish: "/"},
+	// Blogs & CMS
+	"backdrop":    {Name: "Backdrop CMS", URL: "https://github.com/backdrop/backdrop/releases/latest/download/backdrop.zip", Format: "zip", Strip: 1, Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "json"}, Finish: "/core/install.php"},
+	"processwire": {Name: "ProcessWire", URL: "https://github.com/processwire/processwire/archive/refs/heads/master.zip", Format: "zip", Strip: 1, Ext: []string{"pdo_mysql", "gd", "mbstring", "json"}, Finish: "/install.php"},
+	"bludit":      {Name: "Bludit", URL: "https://www.bludit.com/releases/bludit-latest.zip", Format: "zip", Strip: 1, NoDB: true, Ext: []string{"gd", "mbstring", "json", "dom"}, Finish: "/"},
+	// Business, finance
+	"dolibarr":  {Name: "Dolibarr ERP & CRM", URL: "https://sourceforge.net/projects/dolibarr/files/latest/download", Format: "zip", Strip: 1, DocRoot: "htdocs", Ext: []string{"mysqli", "gd", "curl", "intl", "mbstring", "xml", "zip"}, Finish: "/install/"},
+	"akaunting": {Name: "Akaunting", URL: "https://akaunting.com/download.php?version=latest", Format: "zip", Strip: 0, Ext: []string{"pdo_mysql", "mbstring", "xml", "curl", "zip", "gd", "intl", "bcmath", "fileinfo", "dom"}, Finish: "/"},
 }
 
 // Request describes an installation.
