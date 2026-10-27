@@ -41,7 +41,7 @@ choice between the two routes below depends on it.
 2. Copy the old checkout somewhere the new code cannot overwrite it. The old
    uninstaller (the only tool that knows every old name) lives in it:
    ```bash
-   sudo cp -a ~/WhaCP /root/whacp-old-checkout
+   sudo cp -a ~/WhaCP /usr/local/src/whacp-old-checkout
    ```
 3. Archive the panel's own data:
    ```bash
@@ -62,7 +62,7 @@ it managed.
 
 | # | Do | Why / what you notice |
 |---|---|---|
-| 2 | `cd /root/whacp-old-checkout && sudo ./installer/uninstall.sh` (no `--purge`) | Removes the old services, `/opt/whacp`, the jailed shell. Accounts that used the jailed SSH shell get `nologin` until step 7. Sites keep serving. |
+| 2 | `cd /usr/local/src/whacp-old-checkout && sudo ./installer/uninstall.sh` (no `--purge`) | Removes the old services, `/opt/whacp`, the jailed shell. Accounts that used the jailed SSH shell get `nologin` until step 7. Sites keep serving. |
 | 3 | `sudo mkdir -p /root/whacp-premigration && sudo mv /etc/whacp /var/lib/whacp /root/whacp-premigration/` | The NimVor installer refuses to run while `/etc/whacp` exists. The data stays in the archive and here. `/var/backups/whacp`, `/var/lib/whacp-agent` and `/var/lib/whacp-workers` stay where they are, unused. |
 | 4 | Merge the PR, then `curl -fsSL https://nimvor.com/install \| sudo bash -s -- --public-https --enable-writes` (or install from the branch while testing: add `--branch <name>`). Pin with `--commit <sha>` if you want. | Fresh NimVor under the new names. A new administrator is created; the panel opens on `https://SERVER-IP:8443`. |
 | 5 | Run the setup wizard with the profile you used before, or skip it if the server is already configured | The wizard only fills in what is missing. |
@@ -72,7 +72,7 @@ it managed.
 | 9 | Clean up the orphans the old names left (listed by the inventory): old `whacp-*.conf` Nginx and PHP-FPM files that are no longer enabled, `whacp-acct*.slice`, `.whacp-quarantine` / `.whacp-trash` folders, `whacp-worker-*` units still running next to the new `nimvor-worker-*`, old `whacp_*` nftables tables. Remove them **one group at a time, testing the sites in between**. | |
 
 **Rollback of route A** (until step 9): restore the provider snapshot. Or, from
-`/root/whacp-old-checkout`, put `/root/whacp-premigration/etc/whacp` and
+`/usr/local/src/whacp-old-checkout`, put `/root/whacp-premigration/etc/whacp` and
 `var/lib/whacp` back, remove the NimVor install, and run
 `sudo ./installer/install.sh --reinstall` there.
 

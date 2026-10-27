@@ -139,9 +139,9 @@ jobs:
           systemctl is-active whacp-agent whacp-panel
       - name: Route A, steps 1-3 (backup, old uninstaller, move the data aside)
         run: |
-          sudo cp -a old /root/whacp-old-checkout
+          sudo cp -a old /usr/local/src/whacp-old-checkout
           sudo tar -C / -czpf /root/whacp-premigration.tgz etc/whacp var/lib/whacp var/lib/whacp-agent
-          cd /root/whacp-old-checkout
+          cd /usr/local/src/whacp-old-checkout
           yes | sudo ./installer/uninstall.sh
           ! systemctl list-unit-files 'whacp-agent.service' --no-legend | grep .
           sudo mkdir -p /root/whacp-premigration
