@@ -9,7 +9,7 @@ All notable changes to WhaCP are documented here. The format follows
 ### Changed
 - **Back to the PHP panel with the Go agent.** The repository is restored to the PHP 8.3 panel (`panel/`) plus the Go
   agent (`agent/`), as in the 1.0.0-rc1 backup. The experimental Go-only panel (`server/`) was removed from the tree;
-  it remains in the git history (commit `884c341`, tag `go-panel-final`).
+  it remains in the git history (last commit with it: `884c341`).
 
 ### Fixed
 - **MongoDB was unreachable from the customer panel.** A website's customer
