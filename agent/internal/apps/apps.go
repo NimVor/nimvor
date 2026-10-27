@@ -122,6 +122,9 @@ var Catalog = map[string]AppDef{
 	"craft":          {Name: "Craft CMS", Package: "craftcms/craft", DocRoot: "web", Ext: []string{"pdo_mysql", "gd", "intl", "mbstring", "xml", "curl", "zip", "bcmath", "dom"}, Finish: "/admin/install"},
 	"invoiceninja":   {Name: "Invoice Ninja", URL: "https://github.com/invoiceninja/invoiceninja/releases/latest/download/invoiceninja.zip", Format: "zip", Strip: 1, DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "bcmath", "intl", "fileinfo"}, Finish: "/setup"},
 	"facturascripts": {Name: "FacturaScripts", URL: "https://facturascripts.com/DownloadBuild/1/stable", Format: "zip", Strip: 1, Ext: []string{"mysqli", "gd", "mbstring", "xml", "curl", "zip", "openssl"}, Finish: "/"},
+	// Media, marketing
+	"piwigo": {Name: "Piwigo", URL: "https://piwigo.org/download/dlcounter.php?code=latest", Format: "zip", Strip: 1, Ext: []string{"mysqli", "gd", "mbstring", "exif", "json", "zip"}, Finish: "/install.php"},
+	"mautic": {Name: "Mautic", Package: "mautic/recommended-project", DocRoot: "docroot", Ext: []string{"pdo_mysql", "gd", "intl", "mbstring", "xml", "curl", "zip", "bcmath", "imap"}, Finish: "/installer"},
 }
 
 // Request describes an installation.
@@ -149,7 +152,16 @@ type Request struct {
 // WPPlugins are the wordpress.org plugins an install may add (WooCommerce is
 // "WordPress + WooCommerce" in the catalog), with their main plugin file.
 var WPPlugins = map[string]struct{ URL, Main string }{
-	"woocommerce": {"https://downloads.wordpress.org/plugin/woocommerce.latest-stable.zip", "woocommerce/woocommerce.php"},
+	"woocommerce":            {"https://downloads.wordpress.org/plugin/woocommerce.latest-stable.zip", "woocommerce/woocommerce.php"},
+	"tutor":                  {"https://downloads.wordpress.org/plugin/tutor.latest-stable.zip", "tutor/tutor.php"},
+	"learnpress":             {"https://downloads.wordpress.org/plugin/learnpress.latest-stable.zip", "learnpress/learnpress.php"},
+	"lifterlms":              {"https://downloads.wordpress.org/plugin/lifterlms.latest-stable.zip", "lifterlms/lifterlms.php"},
+	"bbpress":                {"https://downloads.wordpress.org/plugin/bbpress.latest-stable.zip", "bbpress/bbpress.php"},
+	"buddypress":             {"https://downloads.wordpress.org/plugin/buddypress.latest-stable.zip", "buddypress/bp-loader.php"},
+	"easy-digital-downloads": {"https://downloads.wordpress.org/plugin/easy-digital-downloads.latest-stable.zip", "easy-digital-downloads/easy-digital-downloads.php"},
+	"wp-statistics":          {"https://downloads.wordpress.org/plugin/wp-statistics.latest-stable.zip", "wp-statistics/wp-statistics.php"},
+	"koko-analytics":         {"https://downloads.wordpress.org/plugin/koko-analytics.latest-stable.zip", "koko-analytics/koko-analytics.php"},
+	"download-monitor":       {"https://downloads.wordpress.org/plugin/download-monitor.latest-stable.zip", "download-monitor/download-monitor.php"},
 }
 
 // wpActivate activates the plugin named by NIMVOR_PLUGIN from the command line.

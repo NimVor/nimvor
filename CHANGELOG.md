@@ -7,6 +7,9 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **WordPress-based apps and more** — Tutor LMS, LearnPress and LifterLMS (Education), bbPress (Forums), BuddyPress,
+  Easy Digital Downloads (E-Commerce), WP Statistics and Koko Analytics (Analytics), Download Monitor (Files), plus
+  Piwigo and Mautic. The plugin apps are WordPress plus an allowlisted wordpress.org plugin, like WooCommerce.
 - **Frameworks and more apps** — Symfony, CodeIgniter 4, Yii 2, CakePHP and Slim starters (Composer, no database created),
   Kirby and Craft CMS, Invoice Ninja and FacturaScripts.
 - **More apps in the app installer** — Backdrop CMS, ProcessWire and Bludit (Blogs & CMS), Dolibarr ERP & CRM (new

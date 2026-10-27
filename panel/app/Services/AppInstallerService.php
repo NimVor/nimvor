@@ -41,6 +41,17 @@ final class AppInstallerService
         'bludit' => ['title' => 'Bludit', 'description' => 'Flat-file blogging CMS — no database. Staged; ready to use after install.', 'staged' => true],
         'dolibarr' => ['title' => 'Dolibarr ERP & CRM', 'description' => 'ERP and CRM for small businesses. Staged with a new database; the website is served from <folder>/htdocs.', 'staged' => true],
         'akaunting' => ['title' => 'Akaunting', 'description' => 'Free online accounting and invoicing. Staged with a new database; finish in its web installer.', 'staged' => true],
+        'tutor' => ['title' => 'Tutor LMS', 'description' => 'WordPress with the Tutor LMS plugin installed and activated, with a new database and an administrator account.'],
+        'learnpress' => ['title' => 'LearnPress', 'description' => 'WordPress with the LearnPress plugin installed and activated, with a new database and an administrator account.'],
+        'lifterlms' => ['title' => 'LifterLMS', 'description' => 'WordPress with the LifterLMS plugin installed and activated, with a new database and an administrator account.'],
+        'bbpress' => ['title' => 'bbPress', 'description' => 'WordPress with the bbPress plugin installed and activated, with a new database and an administrator account.'],
+        'buddypress' => ['title' => 'BuddyPress', 'description' => 'WordPress with the BuddyPress plugin installed and activated, with a new database and an administrator account.'],
+        'easy-digital-downloads' => ['title' => 'Easy Digital Downloads', 'description' => 'WordPress with the Easy Digital Downloads plugin installed and activated, with a new database and an administrator account.'],
+        'wp-statistics' => ['title' => 'WP Statistics', 'description' => 'WordPress with the WP Statistics plugin installed and activated, with a new database and an administrator account.'],
+        'koko-analytics' => ['title' => 'Koko Analytics', 'description' => 'WordPress with the Koko Analytics plugin installed and activated, with a new database and an administrator account.'],
+        'download-monitor' => ['title' => 'Download Monitor', 'description' => 'WordPress with the Download Monitor plugin installed and activated, with a new database and an administrator account.'],
+        'piwigo' => ['title' => 'Piwigo', 'description' => 'Photo gallery. Staged with a new database; finish in its web installer.', 'staged' => true],
+        'mautic' => ['title' => 'Mautic', 'description' => 'Marketing automation, installed with Composer. The website is served from <folder>/docroot.', 'staged' => true],
         'symfony' => ['title' => 'Symfony', 'description' => 'PHP framework skeleton via Composer; no database is created. Served from <folder>/public.', 'staged' => true],
         'codeigniter' => ['title' => 'CodeIgniter 4', 'description' => 'Lightweight PHP framework starter via Composer; no database is created. Served from <folder>/public.', 'staged' => true],
         'yii' => ['title' => 'Yii 2', 'description' => 'PHP framework starter via Composer; no database is created. Served from <folder>/web.', 'staged' => true],
@@ -60,6 +71,15 @@ final class AppInstallerService
     /** Apps that are WordPress plus plugins: the slug => the plugins installed and activated. */
     public const WORDPRESS_BASED = [
         'woocommerce' => ['woocommerce'],
+        'tutor' => ['tutor'],
+        'learnpress' => ['learnpress'],
+        'lifterlms' => ['lifterlms'],
+        'bbpress' => ['bbpress'],
+        'buddypress' => ['buddypress'],
+        'easy-digital-downloads' => ['easy-digital-downloads'],
+        'wp-statistics' => ['wp-statistics'],
+        'koko-analytics' => ['koko-analytics'],
+        'download-monitor' => ['download-monitor'],
     ];
 
     /** Staged apps: where their web installer lives and the web root subfolder. */
@@ -81,6 +101,8 @@ final class AppInstallerService
         'bludit' => ['finish' => '/', 'docroot' => ''],
         'dolibarr' => ['finish' => '/install/', 'docroot' => 'htdocs'],
         'akaunting' => ['finish' => '/', 'docroot' => ''],
+        'piwigo' => ['finish' => '/install.php', 'docroot' => ''],
+        'mautic' => ['finish' => '/installer', 'docroot' => 'docroot'],
         'symfony' => ['finish' => '/', 'docroot' => 'public'],
         'codeigniter' => ['finish' => '/', 'docroot' => 'public'],
         'yii' => ['finish' => '/', 'docroot' => 'web'],
