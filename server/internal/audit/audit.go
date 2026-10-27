@@ -51,6 +51,10 @@ func (l *Logger) Record(ctx context.Context, e Entry) {
 	if e.Result == "" {
 		e.Result = Success
 	}
+	// The scheduler and the command line act as a system user with no users row.
+	if e.UserID != nil && *e.UserID <= 0 {
+		e.UserID = nil
+	}
 	if len(e.Username) > 190 {
 		e.Username = e.Username[:190]
 	}

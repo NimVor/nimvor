@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{.CSRF}}">
 <title>Setup wizard · WhaCP</title>
 <link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
 <link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
@@ -12,17 +13,72 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>Setup wizard</h1>
-  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
-  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  <p class="text-muted">Server-provisioning steps (package installs, service configuration, default plan creation) are performed by the WhaCP installer. Live component and memory data from the agent are shown below.</p>
-  <p>Server memory: {{.MemoryMB}} MB</p>
-  <h3>Components</h3>
-  <pre class="font-monospace small">{{.Components}}</pre>
-  <form method="post" action="/setup/dismiss">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <button type="submit" class="btn btn-secondary">Dismiss wizard</button>
+  {{if .Success}}<div class="alert alert-success" role="status">{{.Success}}</div>{{end}}
+  {{if .Error}}<div class="alert alert-danger" role="alert">{{.Error}}</div>{{end}}
+  {{if .AgentError}}<div class="alert alert-warning">{{.AgentError}}</div>{{end}}
+  <div class="d-flex align-items-center mb-3"><p class="text-body-secondary mb-0">Server profile, what is done and what is left</p>
+    {{if not .Done}}<form class="ms-auto" method="post" action="/setup/dismiss" data-wcp-noajax><input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Close the wizard</button></form>{{end}}</div>
+
+  <div class="wcp-panel mb-4" id="setup-checklist">
+    <div class="d-flex flex-wrap align-items-center gap-3 px-3 py-2">
+      <span class="fw-medium">This server</span>
+      <span>{{if eq .Left 0}}<span class="badge text-bg-success">Everything recommended is done</span>{{else}}<span class="badge text-bg-warning">{{.Left}} of {{len .Checklist}} left</span>{{end}}</span>
+      {{if .HasLast}}<span class="small text-body-secondary">Last setup: {{.LastSummary}}</span>{{end}}
+    </div>
+    <ul class="list-unstyled mb-0">
+      {{range .Checklist}}<li class="d-flex align-items-start gap-2 px-3 py-2 border-top" data-check="{{.ID}}" data-done="{{if .Done}}1{{else}}0{{end}}">
+        <i class="bi {{if .Done}}bi-check-circle-fill text-success{{else}}bi-circle text-body-secondary{{end}} mt-1" aria-hidden="true"></i>
+        <div class="flex-grow-1"><div class="fw-medium">{{.Label}}<span class="visually-hidden">{{if .Done}} (done){{else}} (to do){{end}}</span></div><div class="small text-body-secondary">{{.Detail}}</div></div>
+        {{if .CanOpen}}<a class="btn btn-sm btn-outline-primary text-nowrap" href="{{.Route}}">Open</a>{{end}}
+      </li>{{end}}
+    </ul>
+  </div>
+
+  {{if not .MayRun}}
+  <div class="alert alert-info"><i class="bi bi-info-circle-fill me-1" aria-hidden="true"></i>Running the setup needs an administrator: it installs packages and changes the firewall, email, DNS, plans and backups.</div>
+  {{else}}
+  <form class="wcp-panel p-3" data-wcp-setup data-step-url="/setup/step" data-wcp-noajax>
+    <h2 class="h6 mb-3">1. Server profile</h2>
+    <div class="row g-3 mb-3">
+      {{range .Profiles}}<div class="col-md-4"><label class="wcp-panel d-block p-3 h-100" for="sp-{{.ID}}">
+        <div class="d-flex align-items-center gap-2 mb-1"><input class="form-check-input mt-0" type="radio" name="profile" value="{{.ID}}" id="sp-{{.ID}}"{{if .Checked}} checked{{end}}><span class="fw-semibold">{{.Name}}</span>{{if .Recommended}}<span class="badge text-bg-primary ms-auto">Recommended</span>{{end}}</div>
+        <div class="small text-body-secondary">{{.Description}}</div><div class="small mt-1">For servers with {{.For}}.</div>
+      </label></div>{{end}}
+    </div>
+    {{if .HasMemory}}<p class="small text-body-secondary">This server has {{.MemoryGB}} GB of memory. Every profile also creates the plans Starter, Business, Pro and Email only with their feature lists, and weekly backups of every website.</p>{{end}}
+
+    <h2 class="h6 mb-3">2. Options</h2>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6"><label class="form-label small" for="sp-hostname">Server host name (for email)</label>
+        <input class="form-control form-control-sm" id="sp-hostname" name="hostname" value="{{.Hostname}}" placeholder="server.example.com" maxlength="253" pattern="[a-z0-9.\-]+\.[a-z]{2,63}">
+        <div class="form-text">Its address record should point to this server and the server's reverse DNS (PTR) name should match it. Empty: the system's host name.</div></div>
+      <div class="col-md-6"><span class="form-label small d-block">PHP versions</span>
+        {{range .PHPChoices}}<div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="php" value="{{.V}}" id="sp-php-{{.ID}}"{{if .Checked}} checked{{end}}><label class="form-check-label small" for="sp-php-{{.ID}}">PHP {{.V}}</label></div>{{end}}
+        <div class="form-text">Installed versions are always kept. More later in the PHP Manager.</div></div>
+      <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" name="third_party_repos" value="1" id="sp-repos"{{if .ThirdParty}} checked{{end}}>
+        <label class="form-check-label small" for="sp-repos">Add the third-party PHP repository when the system lacks a chosen version (Ondřej Surý's PPA on Ubuntu, with its signing key pinned; Remi's repository on AlmaLinux, Rocky Linux and RHEL). Its packages are then trusted like the system's.</label></div></div>
+    </div>
+
+    <h2 class="h6 mb-3">3. Steps</h2>
+    {{range .Profiles}}<ol class="list-unstyled wcp-panel mb-3" data-setup-steps="{{.ID}}"{{if not .Checked}} hidden{{end}}>
+      {{range .Steps}}<li class="d-flex align-items-start gap-2 px-3 py-2 border-top" data-step="{{.ID}}" data-status="{{.Status}}">
+        <i class="bi {{if eq .Status "ok"}}bi-check-circle-fill text-success{{else if eq .Status "skip"}}bi-check-circle text-success{{else if eq .Status "fail"}}bi-x-circle-fill text-danger{{else}}bi-circle text-body-secondary{{end}} mt-1" data-step-icon aria-hidden="true"></i>
+        <div class="flex-grow-1"><div><span class="fw-medium">{{.Label}}</span> <span class="small text-body-secondary" data-step-state>{{if eq .Status "ok"}}Done{{else if eq .Status "skip"}}Already in place{{else if eq .Status "fail"}}Failed{{else}}Not run{{end}}</span></div>
+          <div class="small text-body-secondary text-break" data-step-detail>{{.Detail}}</div>
+          <pre class="small bg-body-tertiary p-2 mt-1 mb-0 wcp-setup-log" data-step-log hidden></pre></div>
+        <button type="button" class="btn btn-link btn-sm p-0 text-nowrap" data-step-job hidden>Job log</button>
+      </li>{{end}}
+    </ol>{{end}}
+
+    <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="sp-confirm" required>
+      <label class="form-check-label small" for="sp-confirm">Set this server up with the chosen profile: packages are installed; the firewall is turned on (SSH, the panel and the agent stay reachable: a firewall change is kept only after checking that); with email and DNS, WhaCP edits Postfix's, Dovecot's and BIND's configuration (backups are kept). Settings already in place are left alone and nothing is removed.</label></div>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <button class="btn btn-primary" data-setup-run><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>{{if .HasLast}}Run the setup again{{else}}Run the setup{{end}}</button>
+      <span class="small text-body-secondary" data-setup-summary role="status" aria-live="polite">Steps already in place are skipped. Keep this page open while it runs; installing packages takes a few minutes.</span>
+      <a class="btn btn-outline-secondary ms-auto" href="/setup" data-setup-reload hidden>Show what is left</a>
+    </div>
   </form>
+  {{end}}
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}

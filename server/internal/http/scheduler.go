@@ -95,3 +95,22 @@ func (s *Server) monitoringRun(ctx context.Context) []string {
 	m.Email = mailer.Send
 	return m.Run(ctx)
 }
+
+// RunSetup runs the server setup for a profile from the command line
+// (`whacp setup:apply`): each step in turn, jobs waited for, progress to out.
+func (s *Server) RunSetup(ctx context.Context, profile string, opts hosting.SetupOptions, only []string, out func(string)) ([]hosting.SetupResult, error) {
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
+	if err != nil {
+		return nil, err
+	}
+	return s.serverSetup(r, schedulerUser).Run(ctx, profile, opts, only, out)
+}
+
+// SetupStatus is the last server setup run (nil when there was none).
+func (s *Server) SetupStatus(ctx context.Context) *hosting.SetupState {
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
+	if err != nil {
+		return nil
+	}
+	return s.serverSetup(r, schedulerUser).Last(ctx)
+}

@@ -1914,3 +1914,28 @@ a zone with the A, www, SPF, DMARC and CAA records the account's options ask for
 record in the account's own parent zone; with email hosted here, the domain's email with its
 DKIM key and MX record. It then queues the website for automatic SSL. A failure is reported in
 the audit log and never undoes the website.
+
+## The setup wizard
+
+**Server → Setup wizard** (also `whacp setup:apply --profile=full|web|minimal [--hostname=server.example.com]
+[--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]`, and `whacp setup:status` for the last run)
+sets a server up for a profile:
+
+| Profile | For | Components |
+|---|---|---|
+| Full hosting server | 4 GB+ | web server, PHP, MariaDB, email, DNS, FTP, Redis, Memcached, ClamAV, firewall, Fail2ban, certbot |
+| Web hosting only | 2 GB+ | the same without email, DNS and ClamAV |
+| Minimal | under 2 GB | web server, PHP, MariaDB, certbot, firewall, Fail2ban |
+
+Steps: install the components, PHP repository, PHP versions and extensions, email, DNS, FTP, the Redis
+memory limit, start the services, firewall, open the components' ports, firewall protections, Fail2ban,
+hardening, automatic security updates, the plans and feature lists, weekly backups, and the profile
+(what Server → Components expects). Each step skips what is already in place and never removes anything; a
+failed step is reported and the next ones still run, so the setup can be run again after fixing the cause.
+
+Firewall changes are guarded by the agent (undone after two minutes unless kept). The setup keeps them
+itself, but only after reading the firewall again and finding SSH, the panel and the agent's listener open;
+otherwise it lets the change be undone and says which port was closed.
+
+Running the wizard needs the permissions of everything it touches (server, packages, PHP, services,
+security, email, DNS, FTP, plans, backups and settings): in practice an administrator.

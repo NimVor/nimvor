@@ -39,6 +39,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/authz"
 	"github.com/mchkhawarshahzad/whacp/server/internal/config"
 	"github.com/mchkhawarshahzad/whacp/server/internal/database"
+	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	whttp "github.com/mchkhawarshahzad/whacp/server/internal/http"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 )
@@ -90,10 +91,14 @@ func main() {
 		os.Exit(runDoctor(log))
 	case "schedule:run":
 		os.Exit(runSchedule(log))
+	case "setup:apply":
+		os.Exit(runSetupApply(log))
+	case "setup:status":
+		os.Exit(runSetupStatus(log))
 	case "serve", "":
 		os.Exit(runServe(log))
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command %q (use: serve | schedule:run | bootstrap-admin | set-admin-password | user:2fa-reset | doctor | has-admin | version)\n", cmd)
+		fmt.Fprintf(os.Stderr, "unknown command %q (use: serve | schedule:run | setup:apply | setup:status | bootstrap-admin | set-admin-password | user:2fa-reset | doctor | has-admin | version)\n", cmd)
 		os.Exit(2)
 	}
 }
@@ -687,6 +692,115 @@ func runSchedule(log *slog.Logger) int {
 	defer cancel()
 	for _, line := range panel.RunScheduler(ctx) {
 		fmt.Println(line)
+	}
+	return 0
+}
+
+// openPanel opens the database and builds the panel for the command-line
+// commands that use its services.
+func openPanel(log *slog.Logger) (*whttp.Server, func(), error) {
+	cfg := config.Load()
+	db, err := database.Open(cfg.DBPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	whttp.PanelVersion = version
+	panel, err := whttp.New(cfg, db, log)
+	if err != nil {
+		db.Close()
+		return nil, nil, err
+	}
+	return panel, func() { db.Close() }, nil
+}
+
+// runSetupApply sets this server up for a profile (idempotent; exit code 1
+// when a step failed): whacp setup:apply --profile=full|web|minimal
+// [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos]
+// [--only=step,step].
+func runSetupApply(log *slog.Logger) int {
+	fs := flag.NewFlagSet("setup:apply", flag.ContinueOnError)
+	profile := fs.String("profile", "", "full, web or minimal")
+	hostname := fs.String("hostname", "", "the server's full host name (for email)")
+	php := fs.String("php", "", "PHP versions, e.g. 8.3,8.4")
+	noThird := fs.Bool("no-third-party-repos", false, "do not add third-party PHP repositories")
+	only := fs.String("only", "", "run only these steps")
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		return 2
+	}
+	if _, ok := hosting.SetupProfiles[*profile]; !ok {
+		fmt.Fprintln(os.Stderr, "usage: whacp setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]")
+		return 2
+	}
+	opts := hosting.SetupOptions{Hostname: *hostname, ThirdPartyRepos: !*noThird}
+	if *php != "" {
+		for _, v := range strings.Split(*php, ",") {
+			if v = strings.TrimSpace(v); v != "" {
+				opts.PHP = append(opts.PHP, v)
+			}
+		}
+	}
+	var steps []string
+	for _, id := range strings.Split(*only, ",") {
+		if id = strings.TrimSpace(id); id != "" && hosting.SetupStepLabel(id) != "" {
+			steps = append(steps, id)
+		}
+	}
+	panel, closeDB, err := openPanel(log)
+	if err != nil {
+		log.Error("start", "error", err)
+		return 1
+	}
+	defer closeDB()
+	fmt.Println("Setting up this server: " + hosting.SetupProfileNames[*profile] + ".")
+	results, err := panel.RunSetup(context.Background(), *profile, opts, steps, func(l string) { fmt.Println(l) })
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error: "+err.Error())
+		return 1
+	}
+	fmt.Println()
+	fmt.Println("Summary:")
+	failed := 0
+	for _, r := range results {
+		tag := map[string]string{"ok": "DONE", "skip": " OK ", "fail": "FAIL"}[r.Status]
+		if r.Status == "fail" {
+			failed++
+		}
+		fmt.Printf("  [%s] %s\n", tag, r.Label)
+	}
+	if failed > 0 {
+		fmt.Printf("\n%d step(s) failed (see above). Fix the cause and run the same command again: finished steps are skipped. The setup wizard in the panel shows the same steps.\n", failed)
+		return 1
+	}
+	return 0
+}
+
+// runSetupStatus prints the last server setup and each step's result.
+func runSetupStatus(log *slog.Logger) int {
+	panel, closeDB, err := openPanel(log)
+	if err != nil {
+		log.Error("start", "error", err)
+		return 1
+	}
+	defer closeDB()
+	last := panel.SetupStatus(context.Background())
+	if last == nil {
+		fmt.Println("The server setup has not run yet.")
+		return 0
+	}
+	fin := ", not finished"
+	if last.FinishedAt != nil {
+		fin = ", finished " + *last.FinishedAt
+	}
+	name := hosting.SetupProfileNames[last.Profile]
+	if name == "" {
+		name = last.Profile
+	}
+	fmt.Printf("Profile: %s, started %s%s\n", name, last.StartedAt, fin)
+	for _, s := range hosting.SetupSteps {
+		if st, ok := last.Steps[s.ID]; ok {
+			tag := map[string]string{"ok": "DONE", "skip": " OK ", "fail": "FAIL"}[st.Status]
+			fmt.Printf("  [%s] %-34s %s\n", tag, s.Label, st.Detail)
+		}
 	}
 	return 0
 }

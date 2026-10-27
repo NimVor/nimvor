@@ -2,9 +2,11 @@ package http
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -1001,4 +1003,79 @@ func TestUserEditPageShowsAccountCards(t *testing.T) {
 	if strings.Contains(staff, "Override limits") || strings.Contains(staff, "Hosting options") {
 		t.Error("a staff account shows hosting cards")
 	}
+}
+
+func TestSetupWizardPageAndSteps(t *testing.T) {
+	s, db, sa := rolesEnvServerAgent(t, true)
+	h := s.Handler()
+	admin := loginAsUser(t, h, "admin")
+	rec := get(t, h, "/setup", admin)
+	b := rec.Body.String()
+	for _, want := range []string{`data-wcp-setup`, `data-step-url="/setup/step"`, "Full hosting server", "Web hosting only", "Minimal", `name="csrf-token"`,
+		`data-setup-steps="full"`, "Install the components", "PHP versions and extensions", "Weekly backups", "Set up the server", "First hosting account"} {
+		if !strings.Contains(b, want) {
+			t.Errorf("wizard lacks %q", want)
+		}
+	}
+	// The wizard posts JSON with the token in a header.
+	m := csrfRe.FindStringSubmatch(b)
+	var token string
+	if m != nil {
+		token = m[1]
+	} else if mm := regexp.MustCompile(`name="csrf-token" content="([^"]+)"`).FindStringSubmatch(b); mm != nil {
+		token = mm[1]
+	}
+	if token == "" {
+		t.Fatal("no CSRF token on the wizard")
+	}
+	cookie := refreshCookie(admin, rec)
+	step := func(body string) (int, map[string]any) {
+		req := httptest.NewRequest("POST", "/setup/step", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-CSRF-Token", token)
+		req.AddCookie(cookie)
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		var out map[string]any
+		_ = json.Unmarshal(rr.Body.Bytes(), &out)
+		return rr.Code, out
+	}
+	code, out := step(`{"profile":"web","php":["8.3","8.4"],"hostname":"","third_party_repos":true,"step":"plans","after_job":"","round":0}`)
+	st, _ := out["step"].(map[string]any)
+	if code != 200 || st["status"] != "ok" || st["id"] != "plans" {
+		t.Fatalf("plans step = %d %v", code, out)
+	}
+	var n int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM plans WHERE name IN ('Starter','Business','Pro','Email only')`).Scan(&n)
+	if n != 4 {
+		t.Errorf("plans created: %d", n)
+	}
+	var remembered string
+	_ = db.QueryRow(`SELECT value FROM settings WHERE key = 'server_setup'`).Scan(&remembered)
+	if !strings.Contains(remembered, `\"plans\"`) && !strings.Contains(remembered, `"plans"`) {
+		t.Errorf("the result is not remembered: %s", remembered)
+	}
+	// Bad input is refused with a message, not run.
+	for body, want := range map[string]string{
+		`{"profile":"nope","step":"plans"}`:                           "Choose full, web or minimal.",
+		`{"profile":"web","php":["7.0"],"step":"plans"}`:              "Choose PHP versions from the list.",
+		`{"profile":"web","step":"mail"}`:                             "not part of the profile",
+		`{"profile":"web","step":"plans","after_job":"zz","round":1}`: "Unknown job",
+	} {
+		code, out := step(body)
+		msg, _ := out["error"].(map[string]any)["message"].(string)
+		if code < 400 || !strings.Contains(msg, want) {
+			t.Errorf("%s -> %d %q, want %q", body, code, msg, want)
+		}
+	}
+	// Without the token nothing runs.
+	req := httptest.NewRequest("POST", "/setup/step", strings.NewReader(`{"profile":"web","step":"plans"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(cookie)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("no token = %d", rr.Code)
+	}
+	_ = sa
 }

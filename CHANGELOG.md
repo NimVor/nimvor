@@ -7,6 +7,14 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Changed (Go differential audit, Wave 1: pages and forms)
+- **The setup wizard works** (Server → Setup wizard, `whacp setup:apply`, `whacp setup:status`):
+  choose Full, Web only or Minimal and run its steps from the browser or the command line —
+  components' packages, PHP repository and versions, email, DNS, FTP, Redis limit, services,
+  firewall (a firewall change is kept only after checking SSH, the panel and the agent stay
+  reachable, otherwise it is undone), protections, Fail2ban, hardening, automatic security
+  updates, the Starter/Business/Pro/Email-only plans with their feature lists and weekly
+  backups. Every step is idempotent, a failed step does not stop the next ones, and a step
+  that starts a job is followed in its log. The checklist shows what is done and what is left.
 - **Automatic SSL works**: new `whacp schedule:run` command and `whacp-scheduler.timer`
   (every 5 minutes, installed by the installer and `upgrade.sh`). Websites wait until their
   domain points here, then get a Let's Encrypt certificate (retries back off, giving up after
@@ -98,7 +106,7 @@ All notable changes to WhaCP are documented here. The format follows
   spellings are accepted).
 
 ### Not yet ported (tracked)
-- Setup wizard steps, the other scheduler passes (antivirus, brute-force protection, quota reconciliation), `/admin/plugins`, connecting remote servers (pinned TLS
+- The other scheduler passes (antivirus, brute-force protection, quota reconciliation), `/admin/plugins`, connecting remote servers (pinned TLS
   agent client).
 
 ### Fixed (Go differential audit, Wave 0)

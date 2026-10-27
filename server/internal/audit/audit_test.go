@@ -75,3 +75,25 @@ func TestRecordDefaultsResultAndEmptyDetails(t *testing.T) {
 		t.Fatalf("defaults wrong: result=%q details=%q", result, details)
 	}
 }
+
+// The scheduler and the command line act as a system user with id 0 and no
+// users row: the entry is written without a user instead of failing the
+// foreign key.
+func TestRecordSystemActorHasNoUserRow(t *testing.T) {
+	db, err := database.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := database.Migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	l := New(db, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	zero := int64(0)
+	l.Record(context.Background(), Entry{UserID: &zero, Username: "scheduler", Action: "backup.scheduled", TargetType: "backup_schedule", TargetID: "1"})
+	var n int
+	var uid *int64
+	if err := db.QueryRow(`SELECT COUNT(*), MAX(user_id) FROM audit_logs WHERE username = 'scheduler'`).Scan(&n, &uid); err != nil || n != 1 || uid != nil {
+		t.Fatalf("rows %d user %v err %v", n, uid, err)
+	}
+}
