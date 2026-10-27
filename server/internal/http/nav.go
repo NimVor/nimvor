@@ -68,6 +68,20 @@ func (s *Server) buildNav(ctx context.Context, u *identity.User) *web.Nav {
 			nav.Groups = append(nav.Groups, grp)
 		}
 	}
+	// Enabled plugins' entries, for users holding their permission.
+	var plugGroup web.NavGroup
+	for _, pl := range s.pluginManager().Active(ctx) {
+		for _, n := range pl.Manifest.Nav {
+			if can(n.Permission, "") {
+				plugGroup.Items = append(plugGroup.Items, web.NavItem{Label: n.Label, Icon: n.Icon,
+					URL: "/plugins/" + pl.Name + strings.TrimRight(n.Path, "/"), Prefix: "/plugins/" + pl.Name})
+			}
+		}
+	}
+	if len(plugGroup.Items) > 0 {
+		plugGroup.Name, plugGroup.ID = "Plugins", "wcp-nav-plugins"
+		nav.Groups = append(nav.Groups, plugGroup)
+	}
 	for _, q := range []struct{ label, icon, url, perm, desc string }{
 		{"Create website", "plus-circle", "/websites/new", "websites.manage", "New website with PHP, SSL and DNS"},
 		{"Create hosting account", "person-plus", "/accounts/new", "users.manage", "Customer with plan, website and email"},

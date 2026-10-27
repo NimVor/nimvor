@@ -142,9 +142,6 @@ All notable changes to WhaCP are documented here. The format follows
 - PHP Manager forms post `versions[]` / `extensions[]` like the PHP panel (both
   spellings are accepted).
 
-### Not yet ported (tracked)
-- `/admin/plugins`.
-
 ### Fixed (Go differential audit, Wave 0)
 - **Two-factor sign-in stopped working ~90 s after the panel started**: the TOTP
   clock was frozen at process start. It now reads the real clock.

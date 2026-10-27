@@ -92,9 +92,14 @@ func (s *Server) onWebsiteCreated(ws *hosting.WebsiteService, r *http.Request, u
 		prov.Provision(ctx, site)
 		hosting.NewAutoSslService(s.db, serverID, s.settings, s.agent, nil, nil, nil, nil).Mark(ctx, site)
 		limits(ctx)
+		s.pluginEvents("website.created", pluginSitePayload(site))
 	})
-	ws.Listen("website.deleted", func(ctx context.Context, _ *hosting.Website) { limits(ctx) })
+	ws.Listen("website.deleted", func(ctx context.Context, site *hosting.Website) {
+		limits(ctx)
+		s.pluginEvents("website.deleted", pluginSitePayload(site))
+	})
 	ws.Listen("website.deleting", func(ctx context.Context, site *hosting.Website) {
+		s.pluginEvents("website.deleting", pluginSitePayload(site))
 		if err := s.cronService(r, user).RemoveFromServer(ctx, site); err != nil {
 			s.log.Warn("cron cleanup failed", "domain", site.Domain, "error", err)
 		}
@@ -103,6 +108,7 @@ func (s *Server) onWebsiteCreated(ws *hosting.WebsiteService, r *http.Request, u
 		}
 	})
 	ws.Listen("website.updated", func(ctx context.Context, site *hosting.Website) {
+		s.pluginEvents("website.updated", pluginSitePayload(site))
 		workers := hosting.NewWorkerService(s.db, s.agent, hosting.NewPlanLimits(s.db), s.websiteAuditHook(r, user), serverID)
 		list, err := workers.ForSite(ctx, site.ID)
 		if err != nil {
@@ -682,4 +688,13 @@ func (s *Server) scopedSite(w http.ResponseWriter, r *http.Request, user *identi
 		return nil, false
 	}
 	return site, true
+}
+
+// pluginSitePayload is what plugins hear about a website.
+func pluginSitePayload(site *hosting.Website) map[string]any {
+	owner := int64(0)
+	if site.OwnerID.Valid {
+		owner = site.OwnerID.Int64
+	}
+	return map[string]any{"id": site.ID, "domain": site.Domain, "owner_id": owner, "kind": site.Kind}
 }

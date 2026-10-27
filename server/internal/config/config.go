@@ -16,6 +16,7 @@ type Config struct {
 	LogFile        string // the panel's log file (the "panel" log source)
 	Production     bool   // true behind TLS: adds HSTS, Secure cookies
 	TrustedProxies string // WHACP_TRUSTED_PROXIES: reverse proxies whose X-Forwarded-For is trusted
+	PluginsDir     string // WHACP_PLUGINS_DIR: where plugins are installed
 }
 
 // Load reads configuration from the environment, applying defaults.
@@ -30,6 +31,7 @@ func Load() Config {
 		LogFile:        env("WHACP_LOG_FILE", "/var/log/whacp/panel.log"),
 		Production:     os.Getenv("WHACP_PRODUCTION") == "1",
 		TrustedProxies: env("WHACP_TRUSTED_PROXIES", "127.0.0.1,::1"),
+		PluginsDir:     env("WHACP_PLUGINS_DIR", "/opt/whacp/plugins"),
 	}
 }
 

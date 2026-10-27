@@ -888,6 +888,10 @@ func (s *Server) routes() {
 	// Plugins (administrators; plugin runtime is a stub in Go).
 	s.mux.HandleFunc("GET /admin/plugins", s.guard("plugins", "plugins.manage", s.pluginsIndex))
 	s.mux.HandleFunc("POST /admin/plugins/{name}/toggle", s.guard("plugins.toggle", "plugins.manage", s.pluginsToggle))
+	s.mux.HandleFunc("GET /plugins/{name}", s.guard("", "", s.pluginDispatch))
+	s.mux.HandleFunc("POST /plugins/{name}", s.guard("", "", s.pluginDispatch))
+	s.mux.HandleFunc("GET /plugins/{name}/{path...}", s.guard("", "", s.pluginDispatch))
+	s.mux.HandleFunc("POST /plugins/{name}/{path...}", s.guard("", "", s.pluginDispatch))
 
 	// Components (server status + fix actions).
 	s.mux.HandleFunc("GET /components", s.guard("components", "server.view", s.componentsIndex))

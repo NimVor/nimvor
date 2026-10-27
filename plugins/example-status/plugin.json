@@ -1,12 +1,21 @@
 {
   "name": "example-status",
   "title": "Example: status page",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Shows the server's uptime and load and keeps a note. A starting point for writing plugins.",
   "author": "WhaCP contributors",
   "license": "MIT",
   "permissions": {
     "plugin.example-status.view": "View the example status page",
     "plugin.example-status.edit": "Edit the example status note"
-  }
+  },
+  "socket": "/run/whacp/plugins/example-status.sock",
+  "routes": [
+    {"method": "GET", "path": "/", "permission": "plugin.example-status.view"},
+    {"method": "POST", "path": "/note", "permission": "plugin.example-status.edit"}
+  ],
+  "nav": [
+    {"label": "Status note", "icon": "sticky", "path": "/", "permission": "plugin.example-status.view"}
+  ],
+  "events": ["website.created"]
 }
