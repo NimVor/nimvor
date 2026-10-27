@@ -35,7 +35,7 @@
     };
 
     NimVor.toast = function (message, variant) {
-        var container = document.getElementById('wcp-toasts');
+        var container = document.getElementById('nim-toasts');
         if (!container || !window.bootstrap) { return; }
         var el = document.createElement('div');
         el.className = 'toast align-items-center border-0 text-bg-' + (variant || 'secondary');
@@ -63,21 +63,21 @@
     // Sidebar toggle: phones slide it in; on wider screens it is hidden or
     // shown, and that is remembered in this browser.
     function desktop() { return window.matchMedia('(min-width: 992px)').matches; }
-    try { if (localStorage.getItem('wcp-sidebar-hidden') === '1') { document.documentElement.classList.add('wcp-sidebar-collapsed'); } } catch (e) { /* not remembered */ }
+    try { if (localStorage.getItem('nim-sidebar-hidden') === '1') { document.documentElement.classList.add('nim-sidebar-collapsed'); } } catch (e) { /* not remembered */ }
     document.addEventListener('click', function (e) {
-        var t = e.target.closest('[data-wcp-toggle="sidebar"]');
+        var t = e.target.closest('[data-nim-toggle="sidebar"]');
         if (!t) { return; }
-        if (desktop() && t.classList.contains('wcp-sidebar-toggle')) {
-            var hidden = document.documentElement.classList.toggle('wcp-sidebar-collapsed');
-            try { localStorage.setItem('wcp-sidebar-hidden', hidden ? '1' : '0'); } catch (err) { /* not remembered */ }
+        if (desktop() && t.classList.contains('nim-sidebar-toggle')) {
+            var hidden = document.documentElement.classList.toggle('nim-sidebar-collapsed');
+            try { localStorage.setItem('nim-sidebar-hidden', hidden ? '1' : '0'); } catch (err) { /* not remembered */ }
             return;
         }
-        document.getElementById('wcp-sidebar').classList.toggle('is-open');
+        document.getElementById('nim-sidebar').classList.toggle('is-open');
     });
     // Entries with sub-pages (Security, SSL, …) open them in place; the
     // entry's own page is the sub-menu's first item.
     document.addEventListener('click', function (e) {
-        var a = e.target.closest('[data-wcp-subnav-toggle]');
+        var a = e.target.closest('[data-nim-subnav-toggle]');
         if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) { return; }
         var sub = document.getElementById(a.getAttribute('aria-controls'));
         if (!sub) { return; }
@@ -89,11 +89,11 @@
 
     // Theme toggle.
     document.addEventListener('click', function (e) {
-        if (!e.target.closest('[data-wcp-theme-toggle]')) { return; }
+        if (!e.target.closest('[data-nim-theme-toggle]')) { return; }
         var root = document.documentElement;
         var next = root.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
         root.setAttribute('data-bs-theme', next);
-        try { localStorage.setItem('wcp-theme', next); } catch (err) { /* ignore */ }
+        try { localStorage.setItem('nim-theme', next); } catch (err) { /* ignore */ }
     });
 
     // App installer (Website → Apps): the category buttons switch which
@@ -116,7 +116,7 @@
         var sel = e.target.closest('#f-php-profile');
         if (!sel) { return; }
         var wrap = sel.closest('.mt-3');
-        var box = wrap ? wrap.querySelector('[data-wcp-php-custom]') : null;
+        var box = wrap ? wrap.querySelector('[data-nim-php-custom]') : null;
         if (box) { box.classList.toggle('d-none', sel.value !== 'custom'); }
     });
 
@@ -158,10 +158,10 @@
         }
     });
 
-    // Loading state on submit for forms marked data-wcp-busy.
+    // Loading state on submit for forms marked data-nim-busy.
     document.addEventListener('submit', function (e) {
         var form = e.target;
-        if (!form.matches('[data-wcp-busy]') || e.defaultPrevented) { return; }
+        if (!form.matches('[data-nim-busy]') || e.defaultPrevented) { return; }
         var btn = form.querySelector('button[type="submit"], button:not([type])');
         if (btn) {
             btn.disabled = true;
@@ -170,28 +170,28 @@
         }
     });
 
-    // Confirmation modal for destructive forms: data-wcp-confirm="message",
-    // optional data-wcp-confirm-word="text the user must type".
-    // A button may ask on its own: data-wcp-confirm-submit="message".
+    // Confirmation modal for destructive forms: data-nim-confirm="message",
+    // optional data-nim-confirm-word="text the user must type".
+    // A button may ask on its own: data-nim-confirm-submit="message".
     var pendingForm = null;
     var pendingSubmitter = null;
     document.addEventListener('submit', function (e) {
         var form = e.target;
-        var btn = e.submitter && e.submitter.matches('[data-wcp-confirm-submit]') ? e.submitter : null;
-        if ((!btn && !form.matches('[data-wcp-confirm]')) || form.dataset.wcpConfirmed === '1') { return; }
+        var btn = e.submitter && e.submitter.matches('[data-nim-confirm-submit]') ? e.submitter : null;
+        if ((!btn && !form.matches('[data-nim-confirm]')) || form.dataset.nimConfirmed === '1') { return; }
         e.preventDefault();
         pendingForm = form;
         pendingSubmitter = e.submitter || null;
-        var modalEl = document.getElementById('wcp-confirm');
-        modalEl.querySelector('[data-wcp-confirm-message]').textContent = btn ? btn.getAttribute('data-wcp-confirm-submit') : form.getAttribute('data-wcp-confirm');
-        var word = btn ? btn.getAttribute('data-wcp-confirm-word') : form.getAttribute('data-wcp-confirm-word');
-        var typed = modalEl.querySelector('[data-wcp-confirm-typed]');
-        var input = modalEl.querySelector('#wcp-confirm-input');
-        var ok = modalEl.querySelector('[data-wcp-confirm-ok]');
+        var modalEl = document.getElementById('nim-confirm');
+        modalEl.querySelector('[data-nim-confirm-message]').textContent = btn ? btn.getAttribute('data-nim-confirm-submit') : form.getAttribute('data-nim-confirm');
+        var word = btn ? btn.getAttribute('data-nim-confirm-word') : form.getAttribute('data-nim-confirm-word');
+        var typed = modalEl.querySelector('[data-nim-confirm-typed]');
+        var input = modalEl.querySelector('#nim-confirm-input');
+        var ok = modalEl.querySelector('[data-nim-confirm-ok]');
         input.value = '';
         if (word) {
             typed.classList.remove('d-none');
-            modalEl.querySelector('[data-wcp-confirm-word]').textContent = word;
+            modalEl.querySelector('[data-nim-confirm-word]').textContent = word;
             ok.disabled = true;
         } else {
             typed.classList.add('d-none');
@@ -201,35 +201,35 @@
     }, true);
 
     document.addEventListener('input', function (e) {
-        if (e.target.id !== 'wcp-confirm-input' || !pendingForm) { return; }
-        var word = pendingForm.getAttribute('data-wcp-confirm-word') || '';
-        document.querySelector('[data-wcp-confirm-ok]').disabled = e.target.value !== word;
+        if (e.target.id !== 'nim-confirm-input' || !pendingForm) { return; }
+        var word = pendingForm.getAttribute('data-nim-confirm-word') || '';
+        document.querySelector('[data-nim-confirm-ok]').disabled = e.target.value !== word;
     });
 
     document.addEventListener('click', function (e) {
-        if (!e.target.closest('[data-wcp-confirm-ok]') || !pendingForm) { return; }
+        if (!e.target.closest('[data-nim-confirm-ok]') || !pendingForm) { return; }
         var form = pendingForm;
         var submitter = pendingSubmitter;
         pendingForm = null;
         pendingSubmitter = null;
-        form.dataset.wcpConfirmed = '1';
-        bootstrap.Modal.getInstance(document.getElementById('wcp-confirm')).hide();
+        form.dataset.nimConfirmed = '1';
+        bootstrap.Modal.getInstance(document.getElementById('nim-confirm')).hide();
         if (form.requestSubmit) { form.requestSubmit(submitter && submitter.form === form ? submitter : undefined); } else { form.submit(); }
     });
 
     // Mail queue: headers of a message, loaded into a modal.
     document.addEventListener('click', function (e) {
-        var btn = e.target.closest('[data-wcp-mail-headers]');
+        var btn = e.target.closest('[data-nim-mail-headers]');
         if (!btn) { return; }
-        var modalEl = document.getElementById('wcp-headers');
-        var body = modalEl.querySelector('[data-wcp-headers-body]');
+        var modalEl = document.getElementById('nim-headers');
+        var body = modalEl.querySelector('[data-nim-headers-body]');
         body.replaceChildren();
         var loading = document.createElement('dd');
-        loading.className = 'col-12 wcp-muted';
+        loading.className = 'col-12 nim-muted';
         loading.textContent = 'Loading…';
         body.appendChild(loading);
         bootstrap.Modal.getOrCreateInstance(modalEl).show();
-        fetch(btn.getAttribute('data-wcp-mail-headers'), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        fetch(btn.getAttribute('data-nim-mail-headers'), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 body.replaceChildren();
@@ -256,14 +256,14 @@
     // updates the address so a reload or a saved form comes back to it.
     // (Runs again when a saved form brings the page back.)
     function openSettingsTab() {
-        var root = document.querySelector('[data-wcp-settings-tabs]');
+        var root = document.querySelector('[data-nim-settings-tabs]');
         if (!root || !window.bootstrap) { return; }
         var id = (location.hash || '').replace(/[^a-z]/g, '');
         var link = id && root.querySelector('#tab-' + id);
         if (link && !root.querySelector('.tab-pane.show [aria-invalid="true"], .tab-pane.show .is-invalid')) { bootstrap.Tab.getOrCreateInstance(link).show(); }
     }
     document.addEventListener('DOMContentLoaded', function () {
-        var root = document.querySelector('[data-wcp-settings-tabs]');
+        var root = document.querySelector('[data-nim-settings-tabs]');
         if (!root) { return; }
         root.addEventListener('shown.bs.tab', function (e) { history.replaceState(history.state, '', e.target.getAttribute('href')); });
         openSettingsTab();
@@ -273,9 +273,9 @@
     // Live statistics (Monitoring → Live): polled every 3 seconds while the
     // page is visible; every value is set as text.
     (function () {
-        var root = document.querySelector('[data-wcp-live]');
+        var root = document.querySelector('[data-nim-live]');
         if (!root) { return; }
-        var url = root.getAttribute('data-wcp-live');
+        var url = root.getAttribute('data-nim-live');
         var paused = false, timer = null, busy = false;
         var q = function (sel) { return root.querySelector(sel); };
         var set = function (k, v) { var x = q('[data-live="' + k + '"]'); if (x) { x.textContent = v; } };
@@ -316,7 +316,7 @@
             var disks = q('[data-live-disks]'); disks.replaceChildren();
             (d.disks || []).forEach(function (k) {
                 var tr = row([[k.mount_point || k.mountpoint || '', 'font-monospace'], [k.device || '', 'small text-body-secondary'], [bytes(k.used_bytes), 'text-end'], [bytes(k.free_bytes), 'text-end'], [bytes(k.total_bytes), 'text-end']]);
-                var td = el('td'); var pr = el('progress', 'wcp-du-bar'); pr.max = 100; pr.value = k.used_percent; pr.setAttribute('aria-label', pct(k.used_percent)); td.append(pr, el('span', 'small text-body-secondary', ' ' + pct(k.used_percent))); tr.appendChild(td);
+                var td = el('td'); var pr = el('progress', 'nim-du-bar'); pr.max = 100; pr.value = k.used_percent; pr.setAttribute('aria-label', pct(k.used_percent)); td.append(pr, el('span', 'small text-body-secondary', ' ' + pct(k.used_percent))); tr.appendChild(td);
                 disks.appendChild(tr);
             });
             set('status', '');
@@ -333,7 +333,7 @@
                 .finally(function () { busy = false; timer = setTimeout(poll, 3000); });
         };
         document.addEventListener('visibilitychange', function () { if (!document.hidden) { poll(); } });
-        var tog = document.querySelector('[data-wcp-live-toggle]');
+        var tog = document.querySelector('[data-nim-live-toggle]');
         if (tog) {
             tog.addEventListener('click', function () {
                 paused = !paused;
@@ -348,17 +348,17 @@
 
     // Website file permissions (Advanced page): check, then offer repair.
     document.addEventListener('click', function (e) {
-        var btn = e.target.closest('[data-wcp-perm-check]');
+        var btn = e.target.closest('[data-nim-perm-check]');
         if (!btn) { return; }
-        var box = document.querySelector('[data-wcp-perm-results]');
-        var repair = document.querySelector('[data-wcp-perm-repair]');
+        var box = document.querySelector('[data-nim-perm-results]');
+        var repair = document.querySelector('[data-nim-perm-repair]');
         var el = function (tag, cls, text) { var x = document.createElement(tag); if (cls) { x.className = cls; } if (text !== undefined) { x.textContent = text; } return x; };
         var names = { owner: 'another owner', group: 'another account\'s group', world_write: 'writable by anyone', setid: 'set-ID bit', unreadable: 'owner cannot read' };
         btn.disabled = true;
         box.hidden = false;
         repair.hidden = true;
-        box.replaceChildren(el('span', 'wcp-muted', 'Checking the files…'));
-        fetch(btn.getAttribute('data-wcp-perm-check'), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        box.replaceChildren(el('span', 'nim-muted', 'Checking the files…'));
+        fetch(btn.getAttribute('data-nim-perm-check'), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 box.replaceChildren();
@@ -369,14 +369,14 @@
                 }
                 var parts = Object.keys(d.counts).map(function (k) { return d.counts[k] + ' × ' + (names[k] || k); });
                 box.appendChild(el('div', 'fw-medium', d.issues + ' of ' + d.checked + ' files and folders need repair: ' + parts.join(', ') + '.'));
-                var ul = el('ul', 'mb-0 mt-1 ps-3 wcp-scroll-400');
+                var ul = el('ul', 'mb-0 mt-1 ps-3 nim-scroll-400');
                 (d.sample || []).forEach(function (s) {
                     var li = el('li', 'text-break');
                     li.append(el('code', '', s.path), document.createTextNode(' ' + s.mode + ' — ' + s.problems.map(function (p) { return names[p] || p; }).join(', ')));
                     ul.appendChild(li);
                 });
                 box.appendChild(ul);
-                if (d.skipped_count) { box.appendChild(el('div', 'wcp-muted mt-1', d.skipped_count + ' link(s) or special file(s) are never changed.')); }
+                if (d.skipped_count) { box.appendChild(el('div', 'nim-muted mt-1', d.skipped_count + ' link(s) or special file(s) are never changed.')); }
                 repair.hidden = false;
             })
             .catch(function () { box.replaceChildren(el('span', 'text-danger-emphasis', 'The check failed.')); })
@@ -385,16 +385,16 @@
 
     // Email authentication checker (mail domain page): results as a list.
     document.addEventListener('click', function (e) {
-        var btn = e.target.closest('[data-wcp-dns-check]');
+        var btn = e.target.closest('[data-nim-dns-check]');
         if (!btn) { return; }
-        var box = document.querySelector('[data-wcp-dns-results]');
+        var box = document.querySelector('[data-nim-dns-results]');
         var el = function (tag, cls, text) { var x = document.createElement(tag); if (cls) { x.className = cls; } if (text !== undefined) { x.textContent = text; } return x; };
         var labels = { pass: 'Pass', warning: 'Warning', fail: 'Fail', missing: 'Missing', info: 'Note' };
         var states = { pass: 'is-ok', warning: 'is-warn', fail: 'is-error', missing: 'is-error', info: '' };
         btn.disabled = true;
         box.hidden = false;
-        box.replaceChildren(el('div', 'wcp-muted small', 'Checking the public DNS…'));
-        fetch(btn.getAttribute('data-wcp-dns-check'), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        box.replaceChildren(el('div', 'nim-muted small', 'Checking the public DNS…'));
+        fetch(btn.getAttribute('data-nim-dns-check'), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 box.replaceChildren();
@@ -403,12 +403,12 @@
                     return;
                 }
                 if (d.simulated) {
-                    box.appendChild(el('div', 'wcp-muted small', 'Not checked: the agent simulates commands (development mode).'));
+                    box.appendChild(el('div', 'nim-muted small', 'Not checked: the agent simulates commands (development mode).'));
                 }
                 d.checks.forEach(function (c) {
                     var row = el('div', 'border rounded p-2 mb-2 small');
                     var head = el('div', 'd-flex flex-wrap align-items-center gap-2');
-                    head.append(el('span', 'fw-semibold', c.label), el('span', 'wcp-state ' + (states[c.status] || ''), labels[c.status] || c.status));
+                    head.append(el('span', 'fw-semibold', c.label), el('span', 'nim-state ' + (states[c.status] || ''), labels[c.status] || c.status));
                     row.appendChild(head);
                     row.appendChild(el('div', 'mt-1', c.detail));
                     if (c.found) { var f = el('div', 'text-body-secondary text-break mt-1', 'Found: '); f.appendChild(el('code', '', c.found)); row.appendChild(f); }
@@ -421,7 +421,7 @@
     });
 
     // Show only the fields that belong to the selected type (website kind,
-    // storage type…). data-wcp-kind may list several kinds; inputs in
+    // storage type…). data-nim-kind may list several kinds; inputs in
     // hidden groups are disabled so they are neither validated nor sent.
     function applyKind(select) {
         // Radio cards call this for every option on load; act only on the
@@ -429,17 +429,17 @@
         if (select.type === 'radio' && !select.checked) { return; }
         var kind = select.value;
         var scope = select.form || document;
-        scope.querySelectorAll('[data-wcp-kind]').forEach(function (el) {
-            var on = el.getAttribute('data-wcp-kind').split(/\s+/).indexOf(kind) >= 0;
+        scope.querySelectorAll('[data-nim-kind]').forEach(function (el) {
+            var on = el.getAttribute('data-nim-kind').split(/\s+/).indexOf(kind) >= 0;
             el.classList.toggle('d-none', !on);
             el.querySelectorAll('input, select, textarea').forEach(function (i) { i.disabled = !on; });
         });
     }
     document.addEventListener('change', function (e) {
-        if (e.target.matches('[data-wcp-toggle-kind]')) { applyKind(e.target); }
+        if (e.target.matches('[data-nim-toggle-kind]')) { applyKind(e.target); }
     });
     document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('[data-wcp-toggle-kind]').forEach(applyKind);
+        document.querySelectorAll('[data-nim-toggle-kind]').forEach(applyKind);
     });
 
     // DNS record modal: one form for adding and editing (buttons carry the
@@ -474,26 +474,26 @@
         var sel = form.querySelector('[name="type"]');
         applyKind(sel);
         var h = dnsHints[sel.value] || ['Value', ''];
-        var label = form.querySelector('[data-wcp-dns-value-label]'), hint = form.querySelector('[data-wcp-dns-hint]');
+        var label = form.querySelector('[data-nim-dns-value-label]'), hint = form.querySelector('[data-nim-dns-hint]');
         if (label) { label.textContent = h[0]; }
         if (hint) { hint.textContent = h[1]; }
     }
     function dnsOpen(action, rec, title) {
         var modalEl = document.getElementById('dns-record');
         if (!modalEl || !window.bootstrap) { return; }
-        var form = modalEl.querySelector('[data-wcp-dns-form]');
+        var form = modalEl.querySelector('[data-nim-dns-form]');
         form.setAttribute('action', action || form.getAttribute('data-store'));
         if (rec) { dnsFill(form, rec); }
         modalEl.querySelector('.modal-title').textContent = title;
-        modalEl.querySelector('[data-wcp-dns-shortcuts]').classList.toggle('d-none', title !== 'Add record');
+        modalEl.querySelector('[data-nim-dns-shortcuts]').classList.toggle('d-none', title !== 'Add record');
         window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
     document.addEventListener('click', function (e) {
-        var b = e.target.closest && e.target.closest('[data-wcp-dns-edit], [data-wcp-dns-new], [data-wcp-dns-preset]');
+        var b = e.target.closest && e.target.closest('[data-nim-dns-edit], [data-nim-dns-new], [data-nim-dns-preset]');
         if (!b) { return; }
         var rec;
-        try { rec = JSON.parse(b.getAttribute('data-wcp-dns-edit') || b.getAttribute('data-wcp-dns-preset') || '{}'); } catch (x) { rec = {}; }
-        if (b.hasAttribute('data-wcp-dns-preset')) {
+        try { rec = JSON.parse(b.getAttribute('data-nim-dns-edit') || b.getAttribute('data-nim-dns-preset') || '{}'); } catch (x) { rec = {}; }
+        if (b.hasAttribute('data-nim-dns-preset')) {
             var form = b.closest('form');
             rec.id = 0;
             dnsFill(form, rec);
@@ -501,38 +501,38 @@
             if (first) { first.focus(); }
             return;
         }
-        if (b.hasAttribute('data-wcp-dns-new')) { rec = {type: 'A', name: '@', ttl: 0, id: 0}; }
-        dnsOpen(b.getAttribute('data-wcp-dns-action'), rec, b.hasAttribute('data-wcp-dns-new') ? 'Add record' : 'Edit record');
+        if (b.hasAttribute('data-nim-dns-new')) { rec = {type: 'A', name: '@', ttl: 0, id: 0}; }
+        dnsOpen(b.getAttribute('data-nim-dns-action'), rec, b.hasAttribute('data-nim-dns-new') ? 'Add record' : 'Edit record');
     });
     document.addEventListener('change', function (e) {
-        if (e.target.matches('[data-wcp-dns-form] [name="type"]')) { dnsType(e.target.form); }
+        if (e.target.matches('[data-nim-dns-form] [name="type"]')) { dnsType(e.target.form); }
     });
     document.addEventListener('DOMContentLoaded', function () {
         var modalEl = document.getElementById('dns-record');
         if (!modalEl) { return; }
-        dnsType(modalEl.querySelector('[data-wcp-dns-form]'));
+        dnsType(modalEl.querySelector('[data-nim-dns-form]'));
         // After a refused save the form opens again with what was typed.
-        if (modalEl.hasAttribute('data-wcp-dns-reopen')) {
+        if (modalEl.hasAttribute('data-nim-dns-reopen')) {
             var editing = modalEl.querySelector('[name="_record"]').value !== '0';
-            dnsOpen(modalEl.getAttribute('data-wcp-dns-reopen'), null, editing ? 'Edit record' : 'Add record');
+            dnsOpen(modalEl.getAttribute('data-nim-dns-reopen'), null, editing ? 'Edit record' : 'Add record');
         }
     });
 
-    // Copy-to-clipboard buttons: data-wcp-copy="<selector>".
+    // Copy-to-clipboard buttons: data-nim-copy="<selector>".
     document.addEventListener('click', function (e) {
-        var b = e.target.closest('[data-wcp-copy]');
+        var b = e.target.closest('[data-nim-copy]');
         if (!b) { return; }
-        var src = document.querySelector(b.getAttribute('data-wcp-copy'));
+        var src = document.querySelector(b.getAttribute('data-nim-copy'));
         if (src && navigator.clipboard) {
             navigator.clipboard.writeText((src.matches('input, textarea') ? src.value : src.textContent).trim()).then(function () { NimVor.toast('Copied to the clipboard.', 'success'); });
         }
     });
 
-    // Countdowns to an ISO deadline: data-wcp-countdown="2026-01-01T00:00:00Z".
+    // Countdowns to an ISO deadline: data-nim-countdown="2026-01-01T00:00:00Z".
     // The page reloads when the deadline passes (e.g. a change was undone).
     document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('[data-wcp-countdown]').forEach(function (el) {
-            var end = Date.parse(el.getAttribute('data-wcp-countdown'));
+        document.querySelectorAll('[data-nim-countdown]').forEach(function (el) {
+            var end = Date.parse(el.getAttribute('data-nim-countdown'));
             if (isNaN(end)) { return; }
             var tick = function () {
                 // Stops once its page was swapped away.
@@ -548,7 +548,7 @@
 
     // Auto-submit selects.
     document.addEventListener('change', function (e) {
-        if (e.target.matches('[data-wcp-autosubmit]')) { var f = e.target.form; if (f.requestSubmit) { f.requestSubmit(); } else { f.submit(); } }
+        if (e.target.matches('[data-nim-autosubmit]')) { var f = e.target.form; if (f.requestSubmit) { f.requestSubmit(); } else { f.submit(); } }
     });
 
     // Apply widths from data attributes (inline styles are blocked by CSP).
@@ -562,11 +562,11 @@
 
     // Background job viewer: polls /jobs/<id> and streams the log.
     NimVor.showJob = function (jobId) {
-        var modalEl = document.getElementById('wcp-job');
+        var modalEl = document.getElementById('nim-job');
         if (!modalEl || !/^[a-f0-9]{16}$/.test(jobId)) { return; }
-        var logEl = modalEl.querySelector('[data-wcp-job-log]');
-        var statusEl = modalEl.querySelector('[data-wcp-job-status]');
-        var reloadBtn = modalEl.querySelector('[data-wcp-job-reload]');
+        var logEl = modalEl.querySelector('[data-nim-job-log]');
+        var statusEl = modalEl.querySelector('[data-nim-job-status]');
+        var reloadBtn = modalEl.querySelector('[data-nim-job-reload]');
         logEl.textContent = '';
         reloadBtn.classList.add('d-none');
         var offset = 0;
@@ -615,19 +615,19 @@
         poll();
     };
     document.addEventListener('click', function (e) {
-        var t = e.target.closest('[data-wcp-job-open]');
-        if (t) { e.preventDefault(); NimVor.showJob(t.getAttribute('data-wcp-job-open')); }
-        if (e.target.closest('[data-wcp-job-reload]')) { window.location.reload(); }
+        var t = e.target.closest('[data-nim-job-open]');
+        if (t) { e.preventDefault(); NimVor.showJob(t.getAttribute('data-nim-job-open')); }
+        if (e.target.closest('[data-nim-job-reload]')) { window.location.reload(); }
     });
     document.addEventListener('DOMContentLoaded', function () {
-        var auto = document.querySelector('[data-wcp-autojob]');
-        if (auto) { NimVor.showJob(auto.getAttribute('data-wcp-autojob')); }
+        var auto = document.querySelector('[data-nim-autojob]');
+        if (auto) { NimVor.showJob(auto.getAttribute('data-nim-autojob')); }
     });
 
     // Sidebar groups fold; which are folded is remembered in this browser.
     // The group holding the current page is always open.
     document.addEventListener('DOMContentLoaded', function () {
-        var key = 'wcp-nav-folded';
+        var key = 'nim-nav-folded';
         var folded = [];
         try { folded = JSON.parse(localStorage.getItem(key) || '[]') || []; } catch (e) { folded = []; }
         function set(btn, open) {
@@ -635,9 +635,9 @@
             var sec = document.getElementById(btn.getAttribute('aria-controls'));
             if (sec) { sec.hidden = !open; }
         }
-        document.querySelectorAll('[data-wcp-nav-toggle]').forEach(function (btn) {
-            var name = btn.getAttribute('data-wcp-nav-toggle');
-            if (folded.indexOf(name) !== -1 && !btn.hasAttribute('data-wcp-nav-current')) { set(btn, false); }
+        document.querySelectorAll('[data-nim-nav-toggle]').forEach(function (btn) {
+            var name = btn.getAttribute('data-nim-nav-toggle');
+            if (folded.indexOf(name) !== -1 && !btn.hasAttribute('data-nim-nav-current')) { set(btn, false); }
             btn.addEventListener('click', function () {
                 var open = btn.getAttribute('aria-expanded') !== 'true';
                 set(btn, open);
@@ -653,22 +653,22 @@
     // button when a newer NimVor was found. The dashboard sets the load from
     // its own live data (NimVor.setTopbarLoad), so both always agree.
     NimVor.setTopbarLoad = function (load) {
-        var span = document.querySelector('[data-wcp-topbar-load] span');
+        var span = document.querySelector('[data-nim-topbar-load] span');
         if (span && load && load.length === 3) {
             span.textContent = load.map(function (v) { return Number(v).toFixed(2); }).join(' ');
         }
     };
     document.addEventListener('DOMContentLoaded', function () {
-        var link = document.querySelector('[data-wcp-topbar-load]');
+        var link = document.querySelector('[data-nim-topbar-load]');
         if (!link) { return; }
-        var upd = document.querySelector('[data-wcp-topbar-update]');
+        var upd = document.querySelector('[data-nim-topbar-update]');
         var busy = false;
         // Pages swapped in place run this again: one timer only.
         if (NimVor.topbarTimer) { clearInterval(NimVor.topbarTimer); }
         NimVor.topbarTimer = setInterval(function () {
             if (document.hidden || busy) { return; }
             busy = true;
-            NimVor.fetchJson(link.getAttribute('data-wcp-topbar-load')).then(function (res) {
+            NimVor.fetchJson(link.getAttribute('data-nim-topbar-load')).then(function (res) {
                 NimVor.setTopbarLoad(res.load);
                 if (upd) { upd.classList.toggle('d-none', !res.update); }
             }).catch(function () { /* keep the last values */ }).then(function () { busy = false; });
@@ -678,12 +678,12 @@
     // NimVor update page: follow the update's output while it runs. The
     // panel restarts during the update, so failed requests are retried.
     document.addEventListener('DOMContentLoaded', function () {
-        var log = document.querySelector('[data-wcp-update-log]');
+        var log = document.querySelector('[data-nim-update-log]');
         if (!log || log.getAttribute('data-running') !== '1') { return; }
-        var state = document.querySelector('[data-wcp-update-state]');
+        var state = document.querySelector('[data-nim-update-state]');
         if (NimVor.updateTimer) { clearInterval(NimVor.updateTimer); }
         var timer = NimVor.updateTimer = setInterval(function () {
-            NimVor.fetchJson(log.getAttribute('data-wcp-update-log')).then(function (res) {
+            NimVor.fetchJson(log.getAttribute('data-nim-update-log')).then(function (res) {
                 if (!res.success) { return; }
                 if (res.log) { log.textContent = res.log; log.scrollTop = log.scrollHeight; }
                 if (!res.running) {
@@ -699,10 +699,10 @@
     // tab is visible. The request does not count as activity, so an idle
     // session still times out.
     document.addEventListener('DOMContentLoaded', function () {
-        var bell = document.querySelector('[data-wcp-bell]');
+        var bell = document.querySelector('[data-nim-bell]');
         if (!bell) { return; }
-        var badge = bell.querySelector('[data-wcp-bell-count]');
-        var url = bell.getAttribute('data-wcp-bell-url');
+        var badge = bell.querySelector('[data-nim-bell-count]');
+        var url = bell.getAttribute('data-nim-bell-url');
         function refresh() {
             if (document.hidden) { return; }
             NimVor.fetchJson(url).then(function (res) {
@@ -716,7 +716,7 @@
         // marking read (one or all) without leaving the page.
         var sevIcon = { critical: 'x-octagon-fill text-danger', error: 'x-circle-fill text-danger', warning: 'exclamation-triangle-fill text-warning', success: 'check-circle-fill text-success', info: 'info-circle-fill text-primary' };
         function markRead(body) {
-            return NimVor.fetchJson(bell.getAttribute('data-wcp-bell-read'), { method: 'POST', body: JSON.stringify(body) }).then(function (res) {
+            return NimVor.fetchJson(bell.getAttribute('data-nim-bell-read'), { method: 'POST', body: JSON.stringify(body) }).then(function (res) {
                 var n = res.unread || 0;
                 badge.textContent = n > 99 ? '99+' : String(n);
                 badge.classList.toggle('d-none', n === 0);
@@ -724,7 +724,7 @@
             });
         }
         function renderList(items) {
-            var list = document.querySelector('[data-wcp-bell-list]');
+            var list = document.querySelector('[data-nim-bell-list]');
             if (!list) { return; }
             list.replaceChildren();
             if (!items || items.length === 0) {
@@ -736,7 +736,7 @@
             }
             items.forEach(function (n) {
                 var row = document.createElement('div');
-                row.className = 'wcp-bell-item d-flex gap-2 px-3 py-2' + (n.read ? '' : ' is-unread');
+                row.className = 'nim-bell-item d-flex gap-2 px-3 py-2' + (n.read ? '' : ' is-unread');
                 var icon = document.createElement('i');
                 icon.className = 'bi bi-' + (sevIcon[n.severity] || sevIcon.info) + ' mt-1';
                 icon.setAttribute('aria-hidden', 'true');
@@ -774,33 +774,33 @@
             });
         }
         function load() {
-            NimVor.fetchJson(bell.getAttribute('data-wcp-bell-url')).then(function (res) {
+            NimVor.fetchJson(bell.getAttribute('data-nim-bell-url')).then(function (res) {
                 var n = res.unread || 0;
                 badge.textContent = n > 99 ? '99+' : String(n);
                 badge.classList.toggle('d-none', n === 0);
                 renderList(res.items || []);
             }).catch(function (err) {
-                var list = document.querySelector('[data-wcp-bell-list]');
+                var list = document.querySelector('[data-nim-bell-list]');
                 if (list) { list.textContent = err.message; }
             });
         }
         document.addEventListener('show.bs.dropdown', function (ev) {
-            if (ev.target && ev.target.hasAttribute && ev.target.hasAttribute('data-wcp-bell')) {
+            if (ev.target && ev.target.hasAttribute && ev.target.hasAttribute('data-nim-bell')) {
                 bell = ev.target;
-                badge = bell.querySelector('[data-wcp-bell-count]');
+                badge = bell.querySelector('[data-nim-bell-count]');
                 load();
             }
         });
         document.addEventListener('click', function (ev) {
-            var all = ev.target.closest && ev.target.closest('[data-wcp-bell-all]');
+            var all = ev.target.closest && ev.target.closest('[data-nim-bell-all]');
             if (!all) { return; }
             all.disabled = true;
             markRead({ all: '1' }).then(load).catch(function (err) { NimVor.toast(err.message, 'danger'); }).then(function () { all.disabled = false; });
         });
         if (NimVor.bellTimer) { return; }
         NimVor.bellTimer = setInterval(function () {
-            var b = document.querySelector('[data-wcp-bell]');
-            if (b !== bell) { bell = b; if (!b) { return; } badge = b.querySelector('[data-wcp-bell-count]'); }
+            var b = document.querySelector('[data-nim-bell]');
+            if (b !== bell) { bell = b; if (!b) { return; } badge = b.querySelector('[data-nim-bell-count]'); }
             refresh();
         }, 60000);
         document.addEventListener('visibilitychange', refresh);
@@ -813,18 +813,18 @@
     // selected (by default the one installing). Each row on the page turns
     // into "Installed" when its component is done.
     document.addEventListener('DOMContentLoaded', function () {
-        var list = document.querySelector('[data-wcp-pkg-list]');
-        var modalEl = document.getElementById('wcp-pkg-queue');
+        var list = document.querySelector('[data-nim-pkg-list]');
+        var modalEl = document.getElementById('nim-pkg-queue');
         if (!list || !modalEl) { return; }
-        var itemsEl = modalEl.querySelector('[data-wcp-pkg-items]');
-        var emptyEl = modalEl.querySelector('[data-wcp-pkg-empty]');
-        var logEl = modalEl.querySelector('[data-wcp-pkg-log]');
-        var logNameEl = modalEl.querySelector('[data-wcp-pkg-logname]');
-        var addEl = modalEl.querySelector('[data-wcp-pkg-add]');
-        var addNone = modalEl.querySelector('[data-wcp-pkg-add-none]');
-        var addBtn = modalEl.querySelector('[data-wcp-pkg-add-btn]');
-        var showBtns = document.querySelectorAll('[data-wcp-pkg-show]');
-        var countEl = document.querySelector('[data-wcp-pkg-count]');
+        var itemsEl = modalEl.querySelector('[data-nim-pkg-items]');
+        var emptyEl = modalEl.querySelector('[data-nim-pkg-empty]');
+        var logEl = modalEl.querySelector('[data-nim-pkg-log]');
+        var logNameEl = modalEl.querySelector('[data-nim-pkg-logname]');
+        var addEl = modalEl.querySelector('[data-nim-pkg-add]');
+        var addNone = modalEl.querySelector('[data-nim-pkg-add-none]');
+        var addBtn = modalEl.querySelector('[data-nim-pkg-add-btn]');
+        var showBtns = document.querySelectorAll('[data-nim-pkg-show]');
+        var countEl = document.querySelector('[data-nim-pkg-count]');
         var queue = [];
         var selected = null;
         var lastDone = null; // its output stays shown after it left the list
@@ -840,18 +840,18 @@
         }
         function row(name) {
             var found = null;
-            list.querySelectorAll('[data-wcp-pkg]').forEach(function (r) { if (r.getAttribute('data-wcp-pkg') === name) { found = r; } });
+            list.querySelectorAll('[data-nim-pkg]').forEach(function (r) { if (r.getAttribute('data-nim-pkg') === name) { found = r; } });
             return found;
         }
         function stat(key, delta) {
-            var e = document.querySelector('[data-wcp-pkg-stat="' + key + '"]');
+            var e = document.querySelector('[data-nim-pkg-stat="' + key + '"]');
             if (e) { e.textContent = String(Math.max(0, parseInt(e.textContent, 10) + delta)); }
         }
         function pending(it) { return it.status === 'queued' || it.status === 'running'; }
         function setRow(it, version) {
             var r = row(it.name);
             if (!r) { return; }
-            var state = r.querySelector('[data-wcp-pkg-state]');
+            var state = r.querySelector('[data-nim-pkg-state]');
             state.textContent = '';
             if (it.status === 'failed') {
                 state.appendChild(el('span', 'badge text-bg-danger me-2', 'Failed'));
@@ -893,9 +893,9 @@
         // and not already waiting in the queue.
         function addable() {
             var names = [];
-            list.querySelectorAll('[data-wcp-pkg]').forEach(function (r) {
-                var n = r.getAttribute('data-wcp-pkg');
-                if (r.querySelector('[data-wcp-pkg-install]') && !queue.some(function (it) { return it.name === n && pending(it); })) { names.push(n); }
+            list.querySelectorAll('[data-nim-pkg]').forEach(function (r) {
+                var n = r.getAttribute('data-nim-pkg');
+                if (r.querySelector('[data-nim-pkg-install]') && !queue.some(function (it) { return it.name === n && pending(it); })) { names.push(n); }
             });
             return names;
         }
@@ -925,7 +925,7 @@
             var auto = null;
             queue.forEach(function (it) {
                 var li = el('li', 'list-group-item d-flex align-items-center gap-2' + (it.status === 'running' ? ' is-running' : ''));
-                li.setAttribute('data-wcp-pkg-item', it.name);
+                li.setAttribute('data-nim-pkg-item', it.name);
                 li.setAttribute('tabindex', '0');
                 li.setAttribute('role', 'button');
                 li.setAttribute('aria-label', it.name + ': ' + labels[it.status] + ' (show output)');
@@ -942,7 +942,7 @@
                 if (it.status === 'running' || (!auto && it.log)) { auto = it; }
             });
             var shown = queue.filter(function (it) { return it.name === selected; })[0] || auto || lastDone;
-            itemsEl.querySelectorAll('[data-wcp-pkg-item]').forEach(function (li) { li.classList.toggle('is-selected', !!shown && li.getAttribute('data-wcp-pkg-item') === shown.name); });
+            itemsEl.querySelectorAll('[data-nim-pkg-item]').forEach(function (li) { li.classList.toggle('is-selected', !!shown && li.getAttribute('data-nim-pkg-item') === shown.name); });
             if (shown) {
                 logNameEl.textContent = 'Output: ' + shown.name + ' (' + labels[shown.status].replace('…', '') + ')';
                 var atEnd = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 8;
@@ -960,7 +960,7 @@
             emptyEl.hidden = queue.length > 0;
             var waiting = queue.filter(pending).length;
             countEl.textContent = String(waiting);
-            var q = document.querySelector('[data-wcp-pkg-stat="queue"]');
+            var q = document.querySelector('[data-nim-pkg-stat="queue"]');
             if (q) { q.textContent = String(waiting); }
             renderAdd();
         }
@@ -1010,7 +1010,7 @@
         // Queue one component; resolves when the server has accepted it.
         function enqueue(name) {
             var r = row(name);
-            var form = r ? r.querySelector('[data-wcp-pkg-install]') : null;
+            var form = r ? r.querySelector('[data-nim-pkg-install]') : null;
             if (!form || queue.some(function (it) { return it.name === name && pending(it); })) { return Promise.resolve(); }
             var button = form.querySelector('button');
             button.disabled = true;
@@ -1019,7 +1019,7 @@
                 // Which stat tile counts it now: "Failed / not usable" (an
                 // earlier failure, or present but not usable) or "Not installed".
                 var prev = queue.filter(function (x) { return x.name === name; })[0];
-                var failedBefore = (prev && prev.status === 'failed') || /not usable/.test(r.querySelector('[data-wcp-pkg-state]').textContent);
+                var failedBefore = (prev && prev.status === 'failed') || /not usable/.test(r.querySelector('[data-nim-pkg-state]').textContent);
                 var it = { name: name, job: res.job_id, status: 'queued', offset: 0, log: '', form: form, counted: failedBefore ? 'failed' : 'pending' };
                 queue = queue.filter(function (x) { return x.name !== name; });
                 queue.push(it);
@@ -1035,14 +1035,14 @@
         function show() { bootstrap.Modal.getOrCreateInstance(modalEl).show(); }
         showBtns.forEach(function (b) { b.addEventListener('click', function () { render(); show(); }); });
         itemsEl.addEventListener('click', function (e) {
-            var li = e.target.closest('[data-wcp-pkg-item]');
-            if (li) { selected = li.getAttribute('data-wcp-pkg-item'); logEl.scrollTop = 0; render(); logEl.scrollTop = logEl.scrollHeight; }
+            var li = e.target.closest('[data-nim-pkg-item]');
+            if (li) { selected = li.getAttribute('data-nim-pkg-item'); logEl.scrollTop = 0; render(); logEl.scrollTop = logEl.scrollHeight; }
         });
         itemsEl.addEventListener('keydown', function (e) {
-            if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-wcp-pkg-item]')) { e.preventDefault(); e.target.click(); }
+            if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-nim-pkg-item]')) { e.preventDefault(); e.target.click(); }
         });
         addEl.addEventListener('change', syncAddBtn);
-        modalEl.addEventListener('click', function (e) { if (e.target.closest('[data-wcp-check-all]')) { setTimeout(syncAddBtn, 0); } });
+        modalEl.addEventListener('click', function (e) { if (e.target.closest('[data-nim-check-all]')) { setTimeout(syncAddBtn, 0); } });
         // Several at once: the server is asked one after the other, so the
         // queue keeps the order they were ticked in the list.
         addBtn.addEventListener('click', function () {
@@ -1051,27 +1051,27 @@
             names.reduce(function (p, n) { return p.then(function () { return enqueue(n); }); }, Promise.resolve()).then(render);
         });
         list.addEventListener('submit', function (e) {
-            var form = e.target.closest('[data-wcp-pkg-install]');
+            var form = e.target.closest('[data-nim-pkg-install]');
             if (!form) { return; }
             e.preventDefault();
             enqueue(form.querySelector('input[name=name]').value).then(show);
         });
         render();
     });
-    // Backups → Account backups: upload a .whacp-account file in parts of
+    // Backups → Account backups: upload a .nimvor-account file in parts of
     // 4 MiB (the agent appends each at its offset), then open its restore page.
     document.addEventListener('DOMContentLoaded', function () {
-        var box = document.querySelector('[data-wcp-account-upload]');
+        var box = document.querySelector('[data-nim-account-upload]');
         if (!box) { return; }
-        var input = box.querySelector('[data-wcp-account-file]');
-        var start = box.querySelector('[data-wcp-account-start]');
-        var bar = box.querySelector('[data-wcp-account-progress]');
-        var status = box.querySelector('[data-wcp-account-status]');
+        var input = box.querySelector('[data-nim-account-file]');
+        var start = box.querySelector('[data-nim-account-start]');
+        var bar = box.querySelector('[data-nim-account-progress]');
+        var status = box.querySelector('[data-nim-account-status]');
         var CHUNK = 4 * 1024 * 1024;
         input.addEventListener('change', function () {
             var f = input.files[0];
-            start.disabled = !f || !/\.whacp-account$/.test(f.name);
-            status.textContent = f && start.disabled ? 'Choose a file ending in .whacp-account.' : '';
+            start.disabled = !f || !/\.nimvor-account$/.test(f.name);
+            status.textContent = f && start.disabled ? 'Choose a file ending in .nimvor-account.' : '';
         });
         start.addEventListener('click', function () {
             var f = input.files[0];
@@ -1109,12 +1109,12 @@
             });
         });
     });
-    // <span data-wcp-reload-when-done="JOB">: reload the page once that agent
+    // <span data-nim-reload-when-done="JOB">: reload the page once that agent
     // job has finished (e.g. an account backup being imported).
     document.addEventListener('DOMContentLoaded', function () {
-        var el = document.querySelector('[data-wcp-reload-when-done]');
+        var el = document.querySelector('[data-nim-reload-when-done]');
         if (!el) { return; }
-        var job = el.getAttribute('data-wcp-reload-when-done');
+        var job = el.getAttribute('data-nim-reload-when-done');
         var timer = setInterval(function () {
             if (!document.body.contains(el)) { clearInterval(timer); return; }
             NimVor.fetchJson('/jobs/' + encodeURIComponent(job) + '?offset=0').then(function (res) {
@@ -1125,12 +1125,12 @@
     // Website dashboard: "Search features…" filters the action list as a
     // combobox (arrows move, Enter opens, Escape closes).
     document.addEventListener('DOMContentLoaded', function () {
-        var box = document.querySelector('[data-wcp-feature-search]');
+        var box = document.querySelector('[data-nim-feature-search]');
         if (!box) { return; }
-        var input = box.querySelector('[data-wcp-feature-input]');
-        var list = box.querySelector('[data-wcp-feature-results]');
-        var none = list.querySelector('[data-wcp-feature-none]');
-        var items = Array.prototype.slice.call(list.querySelectorAll('[data-wcp-feature]'));
+        var input = box.querySelector('[data-nim-feature-input]');
+        var list = box.querySelector('[data-nim-feature-results]');
+        var none = list.querySelector('[data-nim-feature-none]');
+        var items = Array.prototype.slice.call(list.querySelectorAll('[data-nim-feature]'));
         var shown = [];
         var focus = -1;
         function setFocus(i) {
@@ -1142,8 +1142,8 @@
             var words = input.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
             var ranked = [];
             items.forEach(function (el) {
-                var hay = el.getAttribute('data-wcp-feature');
-                var label = el.getAttribute('data-wcp-feature-label');
+                var hay = el.getAttribute('data-nim-feature');
+                var label = el.getAttribute('data-nim-feature-label');
                 var on = words.length > 0 && words.every(function (w) { return hay.indexOf(w) >= 0; });
                 el.classList.toggle('d-none', !on);
                 if (on) {
@@ -1211,53 +1211,53 @@
     // Focus the first field when a form panel or window is opened.
     ['shown.bs.collapse', 'shown.bs.modal'].forEach(function (ev) {
         document.addEventListener(ev, function (e) {
-            if (!e.target.matches('[data-wcp-form-panel]')) { return; }
+            if (!e.target.matches('[data-nim-form-panel]')) { return; }
             var f = e.target.querySelector('input:not([type=hidden]):not([disabled]):not([readonly]), select, textarea');
             if (f) { f.focus(); }
         });
     });
-    // A form window marked data-wcp-modal-open (a refused save, shown again
+    // A form window marked data-nim-modal-open (a refused save, shown again
     // with its errors) opens with the page.
     document.addEventListener('DOMContentLoaded', function () {
-        var m = document.querySelector('.modal[data-wcp-modal-open]');
+        var m = document.querySelector('.modal[data-nim-modal-open]');
         if (m && window.bootstrap) { bootstrap.Modal.getOrCreateInstance(m).show(); }
     });
 
-    // Check-list helpers: <button data-wcp-check-all="#box"> / data-wcp-check-none
+    // Check-list helpers: <button data-nim-check-all="#box"> / data-nim-check-none
     // tick or untick every enabled checkbox inside #box.
     document.addEventListener('click', function (e) {
-        var b = e.target.closest && e.target.closest('[data-wcp-check-all], [data-wcp-check-none]');
+        var b = e.target.closest && e.target.closest('[data-nim-check-all], [data-nim-check-none]');
         if (!b) { return; }
-        var all = b.hasAttribute('data-wcp-check-all');
-        var box = document.querySelector(b.getAttribute(all ? 'data-wcp-check-all' : 'data-wcp-check-none'));
+        var all = b.hasAttribute('data-nim-check-all');
+        var box = document.querySelector(b.getAttribute(all ? 'data-nim-check-all' : 'data-nim-check-none'));
         if (!box) { return; }
         box.querySelectorAll('input[type=checkbox]:not([disabled])').forEach(function (c) { c.checked = all; });
     });
-    // Select all: <input type=checkbox data-wcp-select-all="name[]"> in a table
+    // Select all: <input type=checkbox data-nim-select-all="name[]"> in a table
     // header ticks or unticks the enabled, currently visible (not filtered
     // out or paged away) checkboxes of that name in the same table.
     document.addEventListener('change', function (e) {
-        var master = e.target.closest && e.target.closest('[data-wcp-select-all]');
+        var master = e.target.closest && e.target.closest('[data-nim-select-all]');
         if (!master) { return; }
         var table = master.closest('table');
         if (!table) { return; }
-        var name = master.getAttribute('data-wcp-select-all');
+        var name = master.getAttribute('data-nim-select-all');
         table.querySelectorAll('tbody tr:not(.d-none) input[type=checkbox]').forEach(function (c) {
             if (c.getAttribute('name') === name && !c.disabled) { c.checked = master.checked; }
         });
     });
-    // List filter: <input data-wcp-filter-list="#list"> hides [data-wcp-filter-item]
-    // entries without every typed word, and [data-wcp-filter-group]s left empty.
+    // List filter: <input data-nim-filter-list="#list"> hides [data-nim-filter-item]
+    // entries without every typed word, and [data-nim-filter-group]s left empty.
     document.addEventListener('input', function (e) {
-        var sel = e.target.getAttribute && e.target.getAttribute('data-wcp-filter-list');
+        var sel = e.target.getAttribute && e.target.getAttribute('data-nim-filter-list');
         if (!sel) { return; }
         var list = document.querySelector(sel);
         if (!list) { return; }
         var words = e.target.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
         var shown = 0;
-        list.querySelectorAll('[data-wcp-filter-group]').forEach(function (g) {
+        list.querySelectorAll('[data-nim-filter-group]').forEach(function (g) {
             var n = 0;
-            g.querySelectorAll('[data-wcp-filter-item]').forEach(function (it) {
+            g.querySelectorAll('[data-nim-filter-item]').forEach(function (it) {
                 var t = it.textContent.toLowerCase();
                 var ok = words.every(function (w) { return t.indexOf(w) !== -1; });
                 it.hidden = !ok;
@@ -1266,35 +1266,35 @@
             g.hidden = n === 0;
             shown += n;
         });
-        var empty = list.querySelector('[data-wcp-filter-empty]');
+        var empty = list.querySelector('[data-nim-filter-empty]');
         if (empty) { empty.hidden = shown !== 0; }
     });
 
-    // Table filter: <input data-wcp-filter="#table-id"> hides rows whose
+    // Table filter: <input data-nim-filter="#table-id"> hides rows whose
     // text does not contain every typed word.
     document.addEventListener('input', function (e) {
-        var sel = e.target.getAttribute && e.target.getAttribute('data-wcp-filter');
+        var sel = e.target.getAttribute && e.target.getAttribute('data-nim-filter');
         if (!sel) { return; }
         var table = document.querySelector(sel);
         if (!table) { return; }
         var words = e.target.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
         var visible = 0;
-        table.querySelectorAll('tbody tr:not([data-wcp-filter-empty])').forEach(function (tr) {
+        table.querySelectorAll('tbody tr:not([data-nim-filter-empty])').forEach(function (tr) {
             var on = words.every(function (w) { return tr.textContent.toLowerCase().indexOf(w) >= 0; });
             tr.classList.toggle('d-none', !on);
             if (on) { visible++; }
         });
-        var empty = table.querySelector('[data-wcp-filter-empty]');
+        var empty = table.querySelector('[data-nim-filter-empty]');
         if (empty) { empty.classList.toggle('d-none', visible > 0); }
     });
-    // Shortcut buttons fill a form: data-wcp-fill='{"#field-id":"value"}'.
+    // Shortcut buttons fill a form: data-nim-fill='{"#field-id":"value"}'.
     // Fields not named keep their value; the last filled field gets focus
     // unless the value field is still empty.
     document.addEventListener('click', function (e) {
-        var btn = e.target.closest('[data-wcp-fill]');
+        var btn = e.target.closest('[data-nim-fill]');
         if (!btn) { return; }
         var map;
-        try { map = JSON.parse(btn.getAttribute('data-wcp-fill')); } catch (err) { return; }
+        try { map = JSON.parse(btn.getAttribute('data-nim-fill')); } catch (err) { return; }
         var last = null;
         Object.keys(map).forEach(function (sel) {
             var el = document.querySelector(sel);
@@ -1309,13 +1309,13 @@
     });
     // Website cards (or rows): search, sort and status filter on the page.
     function applyCards(container) {
-        var box = document.querySelector('[data-wcp-cards-toolbar]');
+        var box = document.querySelector('[data-nim-cards-toolbar]');
         if (!container || !box) { return; }
-        var q = (box.querySelector('[data-wcp-cards-search]') || {}).value || '';
-        var sort = (box.querySelector('[data-wcp-cards-sort]') || {}).value || 'created';
-        var status = (box.querySelector('[data-wcp-cards-status]') || {}).value || '';
+        var q = (box.querySelector('[data-nim-cards-search]') || {}).value || '';
+        var sort = (box.querySelector('[data-nim-cards-sort]') || {}).value || 'created';
+        var status = (box.querySelector('[data-nim-cards-status]') || {}).value || '';
         var words = q.toLowerCase().trim().split(/\s+/).filter(Boolean);
-        var cards = Array.prototype.slice.call(container.querySelectorAll('[data-wcp-card]'));
+        var cards = Array.prototype.slice.call(container.querySelectorAll('[data-nim-card]'));
         var shown = 0;
         cards.sort(function (a, b) {
             if (sort === 'name') { return a.dataset.name.localeCompare(b.dataset.name); }
@@ -1327,50 +1327,50 @@
             if (on) { shown++; }
             c.parentNode.appendChild(c);
         });
-        var empty = container.querySelector('[data-wcp-cards-empty]');
+        var empty = container.querySelector('[data-nim-cards-empty]');
         if (empty) { empty.classList.toggle('d-none', shown > 0); empty.parentNode.appendChild(empty); }
     }
     ['input', 'change'].forEach(function (ev) {
         document.addEventListener(ev, function (e) {
             var t = e.target;
-            var sel = t.getAttribute && (t.getAttribute('data-wcp-cards-search') || t.getAttribute('data-wcp-cards-sort') || t.getAttribute('data-wcp-cards-status'));
+            var sel = t.getAttribute && (t.getAttribute('data-nim-cards-search') || t.getAttribute('data-nim-cards-sort') || t.getAttribute('data-nim-cards-status'));
             if (sel) { applyCards(document.querySelector(sel)); }
         });
     });
     document.addEventListener('DOMContentLoaded', function () {
-        var c = document.querySelector('[data-wcp-cards]');
+        var c = document.querySelector('[data-nim-cards]');
         if (c) { applyCards(c); }
     });
     // A switch that submits its form (through the confirmation, if any);
     // cancelling the confirmation puts the switch back.
     document.addEventListener('change', function (e) {
         var sw = e.target;
-        if (!sw.matches || !sw.matches('[data-wcp-switch-submit]')) { return; }
+        if (!sw.matches || !sw.matches('[data-nim-switch-submit]')) { return; }
         var form = sw.form;
         if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
     });
     document.addEventListener('hidden.bs.modal', function (e) {
-        if (e.target.id !== 'wcp-confirm') { return; }
-        document.querySelectorAll('[data-wcp-switch-submit]').forEach(function (sw) {
-            if (sw.form && sw.form.dataset.wcpConfirmed !== '1') { sw.checked = sw.defaultChecked; }
+        if (e.target.id !== 'nim-confirm') { return; }
+        document.querySelectorAll('[data-nim-switch-submit]').forEach(function (sw) {
+            if (sw.form && sw.form.dataset.nimConfirmed !== '1') { sw.checked = sw.defaultChecked; }
         });
     });
 
     // Row menus (<details> "⋮", popovers): one open at a time, closed by a
     // click elsewhere or Escape.
     document.addEventListener('click', function (e) {
-        document.querySelectorAll('details[data-wcp-menu][open]').forEach(function (d) {
+        document.querySelectorAll('details[data-nim-menu][open]').forEach(function (d) {
             if (!d.contains(e.target)) { d.open = false; }
         });
     });
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') { return; }
-        document.querySelectorAll('details[data-wcp-menu][open]').forEach(function (d) { d.open = false; });
+        document.querySelectorAll('details[data-nim-menu][open]').forEach(function (d) { d.open = false; });
     });
     // Open menus are placed against the window, so a table's scroll box
     // does not cut them off; they close when the page scrolls.
     function placeMenu(d) {
-        var menu = d.querySelector('.wcp-dropmenu, .wcp-popover');
+        var menu = d.querySelector('.nim-dropmenu, .nim-popover');
         var sum = d.querySelector('summary');
         if (!menu || !sum) { return null; }
         var r = sum.getBoundingClientRect();
@@ -1385,59 +1385,59 @@
     }
     document.addEventListener('toggle', function (e) {
         var d = e.target;
-        if (!d.matches || !d.matches('details[data-wcp-menu]') || !d.open) { return; }
+        if (!d.matches || !d.matches('details[data-nim-menu]') || !d.open) { return; }
         var menu = placeMenu(d);
         var f = menu && menu.querySelector('input:not([type=hidden]):not([type=file]), select');
         if (f) { f.focus({ preventScroll: true }); }
     }, true);
     // Menus close when the page scrolls; forms (popovers) follow it.
     window.addEventListener('scroll', function () {
-        document.querySelectorAll('details[data-wcp-menu][open]').forEach(function (d) {
-            if (d.querySelector('.wcp-popover')) { placeMenu(d); } else { d.open = false; }
+        document.querySelectorAll('details[data-nim-menu][open]').forEach(function (d) {
+            if (d.querySelector('.nim-popover')) { placeMenu(d); } else { d.open = false; }
         });
     }, true);
 
-    // Data tables: <div data-wcp-dt data-page-size="10"> with a search box
-    // [data-wcp-dt-search], filter buttons [data-wcp-dt-seg] (data-key,
-    // data-value; rows carry data-dt-KEY), selects [data-wcp-dt-select=KEY],
-    // rows tr[data-wcp-row], an empty row [data-wcp-dt-empty] and a pager
-    // [data-wcp-dt-pager]. Everything stays in the page (no requests).
+    // Data tables: <div data-nim-dt data-page-size="10"> with a search box
+    // [data-nim-dt-search], filter buttons [data-nim-dt-seg] (data-key,
+    // data-value; rows carry data-dt-KEY), selects [data-nim-dt-select=KEY],
+    // rows tr[data-nim-row], an empty row [data-nim-dt-empty] and a pager
+    // [data-nim-dt-pager]. Everything stays in the page (no requests).
     function DataTable(box) {
         var self = this;
         this.box = box;
-        this.rows = Array.prototype.slice.call(box.querySelectorAll('tr[data-wcp-row]'));
+        this.rows = Array.prototype.slice.call(box.querySelectorAll('tr[data-nim-row]'));
         this.page = 1;
-        this.key = 'wcp-dt-size:' + window.location.pathname + ':' + (box.id || '');
+        this.key = 'nim-dt-size:' + window.location.pathname + ':' + (box.id || '');
         this.size = parseInt(box.getAttribute('data-page-size') || '10', 10);
         try { var saved = parseInt(localStorage.getItem(this.key) || '', 10); if (saved > 0) { this.size = saved; } } catch (err) { /* no storage */ }
         this.filters = {};
-        box.querySelectorAll('[data-wcp-dt-seg].active').forEach(function (b) { self.filters[b.getAttribute('data-key')] = b.getAttribute('data-value'); });
-        box.querySelectorAll('[data-wcp-dt-select]').forEach(function (sel) { self.filters[sel.getAttribute('data-wcp-dt-select')] = sel.value; });
-        box.addEventListener('input', function (e) { if (e.target.matches('[data-wcp-dt-search]')) { self.page = 1; self.render(); } });
+        box.querySelectorAll('[data-nim-dt-seg].active').forEach(function (b) { self.filters[b.getAttribute('data-key')] = b.getAttribute('data-value'); });
+        box.querySelectorAll('[data-nim-dt-select]').forEach(function (sel) { self.filters[sel.getAttribute('data-nim-dt-select')] = sel.value; });
+        box.addEventListener('input', function (e) { if (e.target.matches('[data-nim-dt-search]')) { self.page = 1; self.render(); } });
         box.addEventListener('change', function (e) {
-            if (e.target.matches('[data-wcp-dt-select]')) { self.filters[e.target.getAttribute('data-wcp-dt-select')] = e.target.value; self.page = 1; self.render(); }
-            if (e.target.matches('[data-wcp-dt-size]')) {
+            if (e.target.matches('[data-nim-dt-select]')) { self.filters[e.target.getAttribute('data-nim-dt-select')] = e.target.value; self.page = 1; self.render(); }
+            if (e.target.matches('[data-nim-dt-size]')) {
                 self.size = parseInt(e.target.value, 10); self.page = 1;
                 try { localStorage.setItem(self.key, String(self.size)); } catch (err) { /* no storage */ }
                 self.render();
             }
-            if (e.target.matches('[data-wcp-dt-goto]')) { self.page = parseInt(e.target.value, 10) || 1; self.render(); }
+            if (e.target.matches('[data-nim-dt-goto]')) { self.page = parseInt(e.target.value, 10) || 1; self.render(); }
         });
         box.addEventListener('click', function (e) {
-            var seg = e.target.closest('[data-wcp-dt-seg]');
+            var seg = e.target.closest('[data-nim-dt-seg]');
             if (seg) {
-                seg.parentNode.querySelectorAll('[data-wcp-dt-seg]').forEach(function (b) { b.classList.toggle('active', b === seg); b.setAttribute('aria-pressed', b === seg ? 'true' : 'false'); });
+                seg.parentNode.querySelectorAll('[data-nim-dt-seg]').forEach(function (b) { b.classList.toggle('active', b === seg); b.setAttribute('aria-pressed', b === seg ? 'true' : 'false'); });
                 self.filters[seg.getAttribute('data-key')] = seg.getAttribute('data-value');
                 self.page = 1; self.render();
             }
-            var pg = e.target.closest('[data-wcp-dt-page]');
-            if (pg) { self.page = parseInt(pg.getAttribute('data-wcp-dt-page'), 10); self.render(); }
+            var pg = e.target.closest('[data-nim-dt-page]');
+            if (pg) { self.page = parseInt(pg.getAttribute('data-nim-dt-page'), 10); self.render(); }
         });
         this.render();
     }
     DataTable.prototype.render = function () {
         var self = this;
-        var search = this.box.querySelector('[data-wcp-dt-search]') || (this.box.id ? document.querySelector('[data-wcp-dt-search-for~="#' + this.box.id + '"]') : null);
+        var search = this.box.querySelector('[data-nim-dt-search]') || (this.box.id ? document.querySelector('[data-nim-dt-search-for~="#' + this.box.id + '"]') : null);
         var words = search ? search.value.toLowerCase().trim().split(/\s+/).filter(Boolean) : [];
         var match = this.rows.filter(function (tr) {
             var hay = (tr.getAttribute('data-search') || tr.textContent).toLowerCase();
@@ -1452,16 +1452,16 @@
         var from = (this.page - 1) * this.size, to = from + this.size;
         this.rows.forEach(function (tr) { tr.classList.add('d-none'); });
         match.forEach(function (tr, i) { tr.classList.toggle('d-none', i < from || i >= to); });
-        var empty = this.box.querySelector('[data-wcp-dt-empty]');
+        var empty = this.box.querySelector('[data-nim-dt-empty]');
         if (empty) { empty.classList.toggle('d-none', match.length > 0); }
-        var pager = this.box.querySelector('[data-wcp-dt-pager]');
+        var pager = this.box.querySelector('[data-nim-dt-pager]');
         if (!pager) { return; }
         pager.textContent = '';
         var el = function (tag, cls, text) { var x = document.createElement(tag); if (cls) { x.className = cls; } if (text !== undefined) { x.textContent = text; } return x; };
         var btn = function (label, page, disabled, active, aria) {
             var b = el('button', 'btn btn-sm btn-outline-secondary' + (active ? ' active' : ''), label);
             b.type = 'button'; b.disabled = disabled;
-            b.setAttribute('data-wcp-dt-page', String(page));
+            b.setAttribute('data-nim-dt-page', String(page));
             if (aria) { b.setAttribute('aria-label', aria); }
             if (active) { b.setAttribute('aria-current', 'page'); }
             return b;
@@ -1471,41 +1471,41 @@
         for (var p = start; p <= end; p++) { pager.appendChild(btn(String(p), p, false, p === this.page, 'Page ' + p)); }
         pager.appendChild(btn('\u203a', this.page + 1, this.page === pages, false, 'Next page'));
         var sel = el('select', 'form-select form-select-sm');
-        sel.setAttribute('data-wcp-dt-size', ''); sel.setAttribute('aria-label', 'Rows per page');
+        sel.setAttribute('data-nim-dt-size', ''); sel.setAttribute('aria-label', 'Rows per page');
         [10, 20, 50, 100].forEach(function (n) { var o = el('option', '', n + ' / page'); o.value = String(n); o.selected = n === self.size; sel.appendChild(o); });
         pager.appendChild(sel);
         var gl = el('label', 'd-inline-flex align-items-center gap-1', 'Goto');
         var gi = el('input', 'form-control form-control-sm');
         gi.type = 'number'; gi.min = '1'; gi.max = String(pages); gi.value = String(this.page);
-        gi.setAttribute('data-wcp-dt-goto', '');
+        gi.setAttribute('data-nim-dt-goto', '');
         gl.appendChild(gi);
         pager.appendChild(gl);
-        pager.appendChild(el('span', 'wcp-pager-total', 'Total ' + match.length));
+        pager.appendChild(el('span', 'nim-pager-total', 'Total ' + match.length));
     };
     document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('[data-wcp-dt]').forEach(function (box) { box.wcpTable = new DataTable(box); });
+        document.querySelectorAll('[data-nim-dt]').forEach(function (box) { box.nimTable = new DataTable(box); });
     });
-    // A search box outside the tables it filters: data-wcp-dt-search-for="#a #b".
+    // A search box outside the tables it filters: data-nim-dt-search-for="#a #b".
     document.addEventListener('input', function (e) {
-        var ids = e.target.getAttribute && e.target.getAttribute('data-wcp-dt-search-for');
+        var ids = e.target.getAttribute && e.target.getAttribute('data-nim-dt-search-for');
         if (!ids) { return; }
         ids.split(/\s+/).forEach(function (id) {
             var box = id && document.querySelector(id);
-            if (box && box.wcpTable) { box.wcpTable.page = 1; box.wcpTable.render(); }
+            if (box && box.nimTable) { box.nimTable.page = 1; box.nimTable.render(); }
         });
     });
 
     // "Generate" fills a password field (and its confirmation) with a
     // strong random password and shows it so it can be copied.
     document.addEventListener('click', function (e) {
-        var btn = e.target.closest('[data-wcp-genpass]');
+        var btn = e.target.closest('[data-nim-genpass]');
         if (!btn) { return; }
         var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_.!@#%';
         var bytes = new Uint32Array(20);
         window.crypto.getRandomValues(bytes);
         var pw = '';
         bytes.forEach(function (b) { pw += chars[b % chars.length]; });
-        [btn.getAttribute('data-wcp-genpass'), btn.getAttribute('data-wcp-genpass-confirm')].forEach(function (sel) {
+        [btn.getAttribute('data-nim-genpass'), btn.getAttribute('data-nim-genpass-confirm')].forEach(function (sel) {
             var el = sel && document.querySelector(sel);
             if (el) { el.value = pw; el.type = 'text'; }
         });
@@ -1517,12 +1517,12 @@
     // or import a file already in the website.
     document.addEventListener('submit', function (e) {
         var form = e.target;
-        if (!form.matches('[data-wcp-sql-import]') || form.dataset.wcpReady === '1') { return; }
+        if (!form.matches('[data-nim-sql-import]') || form.dataset.nimReady === '1') { return; }
         e.preventDefault();
-        var err = form.querySelector('[data-wcp-import-error]');
+        var err = form.querySelector('[data-nim-import-error]');
         var fail = function (msg) { err.textContent = msg; err.classList.remove('d-none'); btn.disabled = false; };
         var btn = form.querySelector('button[type=submit]');
-        var input = form.querySelector('[data-wcp-import-file]');
+        var input = form.querySelector('[data-nim-import-file]');
         var file = input && input.files && input.files[0];
         var existing = form.querySelector('[name=existing]').value.trim();
         err.classList.add('d-none');
@@ -1530,7 +1530,7 @@
         var go = function (path, uploaded) {
             form.querySelector('[name=path]').value = path;
             form.querySelector('[name=uploaded]').value = uploaded ? '1' : '0';
-            form.dataset.wcpReady = '1';
+            form.dataset.nimReady = '1';
             form.submit();
         };
         if (!file) {
@@ -1544,9 +1544,9 @@
         var bytes = new Uint8Array(16);
         window.crypto.getRandomValues(bytes);
         bytes.forEach(function (b) { rand += chars[b % chars.length]; });
-        var path = 'tmp/whacp-import-' + rand + ext;
+        var path = 'tmp/nimvor-import-' + rand + ext;
         var CHUNK = 1024 * 1024;
-        var bar = form.querySelector('[data-wcp-import-progress]');
+        var bar = form.querySelector('[data-nim-import-progress]');
         bar.classList.remove('d-none');
         var fill = bar.querySelector('.progress-bar');
         var url = form.getAttribute('data-upload-url');
@@ -1574,9 +1574,9 @@
     // showing the result as a notification. Validation, CSRF and
     // authorization are the server's, exactly as for a normal submit.
     // Applies to forms in the page and its header actions. Left alone:
-    // forms with a target, data-wcp-noajax (on the form or a parent), GET
+    // forms with a target, data-nim-noajax (on the form or a parent), GET
     // forms, and pages that load their own scripts
-    // (<body data-wcp-ajax="off">). Anything unexpected falls back to a
+    // (<body data-nim-ajax="off">). Anything unexpected falls back to a
     // normal page load.
     // The form's address. Not form.action: a field named "action" (such as
     // a firewall rule's Allow/Deny) shadows that property, and the form
@@ -1587,9 +1587,9 @@
 
     function ajaxEligible(form) {
         if (!window.fetch || !window.DOMParser || !window.history.pushState) { return false; }
-        if (document.body.getAttribute('data-wcp-ajax') === 'off') { return false; }
+        if (document.body.getAttribute('data-nim-ajax') === 'off') { return false; }
         if ((form.getAttribute('method') || 'get').toLowerCase() !== 'post' || form.hasAttribute('target')) { return false; }
-        if (form.closest('[data-wcp-noajax]') || !form.closest('.wcp-content, .wcp-topbar-actions')) { return false; }
+        if (form.closest('[data-nim-noajax]') || !form.closest('.nim-content, .nim-topbar-actions')) { return false; }
         var action = new URL(formUrl(form));
         return action.origin === window.location.origin;
     }
@@ -1607,14 +1607,14 @@
     // swapped in place (different scripts), so the caller loads it fully.
     NimVor.swapPage = function (html, url, keepScroll) {
         var doc = new DOMParser().parseFromString(html, 'text/html');
-        var shell = doc.querySelector('.wcp-shell');
-        if (!shell || !sameAssets(doc) || doc.body.getAttribute('data-wcp-ajax') === 'off') { return false; }
+        var shell = doc.querySelector('.nim-shell');
+        if (!shell || !sameAssets(doc) || doc.body.getAttribute('data-nim-ajax') === 'off') { return false; }
         var y = window.scrollY;
         // Windows of the old page go at once (a hide transition would finish
         // after the swap and undo the new page's window state). The shared
         // windows outside the page (confirmation, job log) close by themselves.
         var closed = false;
-        document.querySelectorAll('.wcp-shell .modal').forEach(function (m) {
+        document.querySelectorAll('.nim-shell .modal').forEach(function (m) {
             var inst = window.bootstrap && bootstrap.Modal.getInstance(m);
             if (inst) { inst.dispose(); closed = true; }
         });
@@ -1624,7 +1624,7 @@
             document.body.style.removeProperty('overflow');
             document.body.style.removeProperty('padding-right');
         }
-        document.querySelector('.wcp-shell').replaceWith(document.adoptNode(shell));
+        document.querySelector('.nim-shell').replaceWith(document.adoptNode(shell));
         document.body.className = doc.body.className;
         document.title = doc.title;
         var meta = doc.querySelector('meta[name="csrf-token"]');
@@ -1632,13 +1632,13 @@
         if (url) {
             var next = new URL(url, window.location.href);
             // A history step, as a normal form post makes one.
-            window.history.pushState({ wcp: 1 }, '', next.href);
+            window.history.pushState({ nim: 1 }, '', next.href);
         }
         // Page behaviours run again for the new content.
         document.dispatchEvent(new Event('DOMContentLoaded'));
         if (keepScroll && !window.location.hash) { window.scrollTo(0, y); }
         // The result (flash message) as a notification when it is not in view.
-        var alert = document.querySelector('.wcp-content > .alert');
+        var alert = document.querySelector('.nim-content > .alert');
         if (alert) {
             var r = alert.getBoundingClientRect();
             if (r.bottom < 0 || r.top > window.innerHeight) {
@@ -1676,7 +1676,7 @@
 
     function restore(form) {
         form.removeAttribute('aria-busy');
-        delete form.dataset.wcpConfirmed;
+        delete form.dataset.nimConfirmed;
         form.querySelectorAll('button[type="submit"], button:not([type])').forEach(function (b) {
             b.disabled = false;
             var spin = b.querySelector('.spinner-border');
@@ -1707,7 +1707,7 @@
         }
         fetch(actionUrl, {
             method: 'POST', body: data, credentials: 'same-origin',
-            headers: { 'X-WhaCP-Ajax': '1', 'Accept': 'text/html' }, // as a normal form post
+            headers: { 'X-NimVor-Ajax': '1', 'Accept': 'text/html' }, // as a normal form post
         }).then(function (res) {
             var type = res.headers.get('Content-Type') || '';
             if (type.indexOf('application/json') === 0) {
@@ -1738,52 +1738,52 @@
 
     // Back and forward after background submits: load the address fully.
     window.addEventListener('popstate', function (e) {
-        if (e.state && e.state.wcp) { window.location.reload(); }
+        if (e.state && e.state.nim) { window.location.reload(); }
     });
 
     // Global search (Ctrl+K): filter the tools list; Enter opens the first.
     function paletteFilter(input) {
-        var box = input.closest('[data-wcp-palette]');
+        var box = input.closest('[data-nim-palette]');
         var q = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
         var shown = 0;
-        box.querySelectorAll('[data-wcp-palette-item]').forEach(function (a) {
+        box.querySelectorAll('[data-nim-palette-item]').forEach(function (a) {
             var text = a.getAttribute('data-search') || '';
             var ok = q.every(function (w) { return text.indexOf(w) !== -1; });
             a.classList.toggle('d-none', !ok);
             a.classList.remove('is-first');
             if (ok) { shown++; }
         });
-        box.querySelectorAll('[data-wcp-palette-group]').forEach(function (g) {
+        box.querySelectorAll('[data-nim-palette-group]').forEach(function (g) {
             var n = g.nextElementSibling, any = false;
-            while (n && n.hasAttribute('data-wcp-palette-item')) { if (!n.classList.contains('d-none')) { any = true; } n = n.nextElementSibling; }
+            while (n && n.hasAttribute('data-nim-palette-item')) { if (!n.classList.contains('d-none')) { any = true; } n = n.nextElementSibling; }
             g.classList.toggle('d-none', !any);
         });
-        var first = box.querySelector('[data-wcp-palette-item]:not(.d-none)');
+        var first = box.querySelector('[data-nim-palette-item]:not(.d-none)');
         if (first && q.length) { first.classList.add('is-first'); }
-        box.querySelector('[data-wcp-palette-empty]').classList.toggle('d-none', shown > 0);
+        box.querySelector('[data-nim-palette-empty]').classList.toggle('d-none', shown > 0);
     }
     document.addEventListener('input', function (e) {
-        if (e.target.matches('[data-wcp-palette-input]')) { paletteFilter(e.target); }
+        if (e.target.matches('[data-nim-palette-input]')) { paletteFilter(e.target); }
     });
     document.addEventListener('keydown', function (e) {
         if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
-            var el = document.getElementById('wcp-palette');
+            var el = document.getElementById('nim-palette');
             if (el && window.bootstrap) { e.preventDefault(); bootstrap.Modal.getOrCreateInstance(el).show(); }
         }
-        if (e.key === 'Enter' && e.target.matches('[data-wcp-palette-input]')) {
-            var first = e.target.closest('[data-wcp-palette]').querySelector('[data-wcp-palette-item]:not(.d-none)');
+        if (e.key === 'Enter' && e.target.matches('[data-nim-palette-input]')) {
+            var first = e.target.closest('[data-nim-palette]').querySelector('[data-nim-palette-item]:not(.d-none)');
             if (first) { e.preventDefault(); window.location.href = first.href; }
         }
     });
     document.addEventListener('shown.bs.modal', function (e) {
-        var input = e.target.querySelector && e.target.querySelector('[data-wcp-palette-input]');
+        var input = e.target.querySelector && e.target.querySelector('[data-nim-palette-input]');
         if (input) { input.value = ''; paletteFilter(input); input.focus(); }
     });
     // Setup wizard: the profile's steps run one after another from here.
     // A step that starts a job returns its id; its log is shown and the step
     // is called again (after_job) when the job ends.
     document.addEventListener('DOMContentLoaded', function () {
-        var form = document.querySelector('[data-wcp-setup]');
+        var form = document.querySelector('[data-nim-setup]');
         if (!form) { return; }
         var icons = { ok: 'bi-check-circle-fill text-success', skip: 'bi-check-circle text-success', fail: 'bi-x-circle-fill text-danger', running: 'bi-hourglass-split text-primary', '': 'bi-circle text-body-secondary' };
         var states = { ok: 'Done', skip: 'Already in place', fail: 'Failed', running: 'Running…', '': 'Not run' };
@@ -1883,17 +1883,17 @@
     });
     // Tweak Settings: search every tab at once, or only the changed settings.
     document.addEventListener('DOMContentLoaded', function () {
-        var root = document.querySelector('[data-wcp-tweak]');
+        var root = document.querySelector('[data-nim-tweak]');
         if (!root) { return; }
-        var search = root.querySelector('[data-wcp-tweak-search]');
-        var changedOnly = root.querySelector('[data-wcp-tweak-changed]');
-        var count = root.querySelector('[data-wcp-tweak-count]');
+        var search = root.querySelector('[data-nim-tweak-search]');
+        var changedOnly = root.querySelector('[data-nim-tweak-changed]');
+        var count = root.querySelector('[data-nim-tweak-count]');
         function apply() {
             var words = search.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
             var filtering = words.length > 0 || changedOnly.checked;
-            root.classList.toggle('wcp-tweak-filtering', filtering);
+            root.classList.toggle('nim-tweak-filtering', filtering);
             var total = 0;
-            root.querySelectorAll('[data-wcp-tweak-pane]').forEach(function (pane) {
+            root.querySelectorAll('[data-nim-tweak-pane]').forEach(function (pane) {
                 var n = 0;
                 pane.querySelectorAll('[data-setting]').forEach(function (row) {
                     var hay = row.getAttribute('data-search');
@@ -1901,12 +1901,12 @@
                     row.classList.toggle('d-none', !ok);
                     if (ok) { n++; }
                 });
-                pane.classList.toggle('wcp-tweak-nomatch', n === 0);
-                var tab = root.querySelector('[data-bs-target="#' + pane.id + '"] [data-wcp-tweak-tabcount]');
+                pane.classList.toggle('nim-tweak-nomatch', n === 0);
+                var tab = root.querySelector('[data-bs-target="#' + pane.id + '"] [data-nim-tweak-tabcount]');
                 if (tab) { tab.textContent = n; }
                 total += n;
             });
-            root.querySelector('[data-wcp-tweak-empty]').classList.toggle('d-none', !filtering || total > 0);
+            root.querySelector('[data-nim-tweak-empty]').classList.toggle('d-none', !filtering || total > 0);
             count.textContent = filtering ? total + ' setting(s) match' : '';
         }
         search.addEventListener('input', apply);

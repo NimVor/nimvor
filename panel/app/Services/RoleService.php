@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Repositories\RoleRepository;
-use WhaCP\Security\Permissions;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Repositories\RoleRepository;
+use NimVor\Security\Permissions;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * Roles. Built-in roles (operator, viewer, reseller, customer) come with

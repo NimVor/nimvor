@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\NotificationService;
-use WhaCP\View\View;
+use NimVor\Database\Connection;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\NotificationService;
+use NimVor\View\View;
 
 /**
  * The notifications page, the top bar's unread count and read state.
@@ -33,7 +33,7 @@ final class NotificationsController extends Controller
         $filter = $this->filter($request);
         $page = max(1, (int) $request->query('page', 1));
         $total = $this->notifications->count($user, $filter);
-        [$cond, $params] = \WhaCP\Hosting\Scope::condition($user);
+        [$cond, $params] = \NimVor\Hosting\Scope::condition($user);
         return $this->render('notifications/index', [
             'rows' => $this->notifications->list($user, $filter, self::PER_PAGE, ($page - 1) * self::PER_PAGE),
             'total' => $total,

@@ -42,8 +42,8 @@ func TestIniSet(t *testing.T) {
 		name, osRelease string
 		files           []string
 	}{
-		{"ubuntu", "", []string{"etc/php/8.3/fpm/conf.d/99-whacp.ini", "etc/php/8.3/cli/conf.d/99-whacp.ini"}},
-		{"rhel", "ID=\"almalinux\"\nVERSION_ID=\"9.6\"\n", []string{"etc/opt/remi/php83/php.d/99-whacp.ini"}},
+		{"ubuntu", "", []string{"etc/php/8.3/fpm/conf.d/99-nimvor.ini", "etc/php/8.3/cli/conf.d/99-nimvor.ini"}},
+		{"rhel", "ID=\"almalinux\"\nVERSION_ID=\"9.6\"\n", []string{"etc/opt/remi/php83/php.d/99-nimvor.ini"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			h := testhost.New(t)
@@ -61,7 +61,7 @@ func TestIniSet(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, f := range c.files {
-				if got := h.Read(f); !strings.HasPrefix(got, "; Managed by WhaCP") || !strings.HasSuffix(got, "\nupload_max_filesize = 128M\nmax_input_vars = 5000\n") {
+				if got := h.Read(f); !strings.HasPrefix(got, "; Managed by NimVor") || !strings.HasSuffix(got, "\nupload_max_filesize = 128M\nmax_input_vars = 5000\n") {
 					t.Errorf("%s:\n%s", f, got)
 				}
 			}

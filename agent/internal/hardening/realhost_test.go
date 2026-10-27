@@ -42,27 +42,27 @@ func TestRealHostCompilerAccess(t *testing.T) {
 	if _, err := exec.LookPath("gcc"); os.Geteuid() != 0 || err != nil {
 		t.Skip("needs root and gcc")
 	}
-	exec.Command("useradd", "-M", "-U", "-s", "/bin/sh", "-u", "1791", "whacpcc").Run()
-	exec.Command("useradd", "-M", "-U", "-s", "/bin/sh", "-u", "1792", "whacpnocc").Run()
+	exec.Command("useradd", "-M", "-U", "-s", "/bin/sh", "-u", "1791", "nimvorcc").Run()
+	exec.Command("useradd", "-M", "-U", "-s", "/bin/sh", "-u", "1792", "nimvornocc").Run()
 	t.Cleanup(func() {
-		exec.Command("userdel", "whacpcc").Run()
-		exec.Command("userdel", "whacpnocc").Run()
+		exec.Command("userdel", "nimvorcc").Run()
+		exec.Command("userdel", "nimvornocc").Run()
 	})
 	env := realEnv(t)
 	ctx := context.Background()
 	t.Cleanup(func() { SetCompilers(ctx, env, false, nil); exec.Command("groupdel", CompilerGroup).Run() })
-	src := "/tmp/whacp-cc-test.c"
+	src := "/tmp/nimvor-cc-test.c"
 	os.WriteFile(src, []byte("int main(void){return 0;}\n"), 0o644)
 	defer os.Remove(src)
 
-	if err := SetCompilers(ctx, env, true, []string{"whacpcc"}); err != nil {
+	if err := SetCompilers(ctx, env, true, []string{"nimvorcc"}); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := as("whacpcc", "gcc", "-o", "/tmp/whacp-cc-ok", src); err != nil {
+	if out, err := as("nimvorcc", "gcc", "-o", "/tmp/nimvor-cc-ok", src); err != nil {
 		t.Fatalf("allowed account cannot compile: %v %s", err, out)
 	}
-	os.Remove("/tmp/whacp-cc-ok")
-	if out, err := as("whacpnocc", "gcc", "-o", "/tmp/whacp-cc-no", src); err == nil {
+	os.Remove("/tmp/nimvor-cc-ok")
+	if out, err := as("nimvornocc", "gcc", "-o", "/tmp/nimvor-cc-no", src); err == nil {
 		t.Fatalf("restricted account compiled: %s", out)
 	}
 	st := CompilerStatus(env)
@@ -72,10 +72,10 @@ func TestRealHostCompilerAccess(t *testing.T) {
 	if err := SetCompilers(ctx, env, false, nil); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := as("whacpnocc", "gcc", "-o", "/tmp/whacp-cc-no", src); err != nil {
+	if out, err := as("nimvornocc", "gcc", "-o", "/tmp/nimvor-cc-no", src); err != nil {
 		t.Fatalf("not opened again: %v %s", err, out)
 	}
-	os.Remove("/tmp/whacp-cc-no")
+	os.Remove("/tmp/nimvor-cc-no")
 }
 
 // Requires root and nft. Loads the generated table: an account gets a
@@ -97,7 +97,7 @@ func TestRealHostSMTPRules(t *testing.T) {
 	if out, err := exec.Command("nft", "-f", f).CombinedOutput(); err != nil {
 		t.Fatalf("load: %s", out)
 	}
-	t.Cleanup(func() { exec.Command("nft", "delete", "table", "inet", "whacp_smtp").Run() })
+	t.Cleanup(func() { exec.Command("nft", "delete", "table", "inet", "nimvor_smtp").Run() })
 	// Loading twice replaces the table (the boot unit and a restart).
 	if out, err := exec.Command("nft", "-f", f).CombinedOutput(); err != nil {
 		t.Fatalf("reload: %s", out)
@@ -105,7 +105,7 @@ func TestRealHostSMTPRules(t *testing.T) {
 	// The container may refuse outside connections itself, so the rule's
 	// counter tells whether the table rejected the attempt.
 	counter := func() string {
-		out, _ := exec.Command("nft", "list", "chain", "inet", "whacp_smtp", "output").CombinedOutput()
+		out, _ := exec.Command("nft", "list", "chain", "inet", "nimvor_smtp", "output").CombinedOutput()
 		for _, l := range strings.Split(string(out), "\n") {
 			if strings.Contains(l, "reject") {
 				return strings.TrimSpace(l)

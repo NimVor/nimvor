@@ -57,15 +57,15 @@ func TestRealHostDatabaseAccountChecks(t *testing.T) {
 		}
 	}
 	t.Cleanup(func() {
-		exec.Command("mysql", "-NBe", "DROP USER IF EXISTS 'wcpa_remote'@'203.0.113.5', 'wcpa_empty'@'localhost', 'wcpa_global'@'localhost', 'wcpa_grant'@'localhost'; DROP DATABASE IF EXISTS wcpa_db; DROP DATABASE IF EXISTS test;").Run()
+		exec.Command("mysql", "-NBe", "DROP USER IF EXISTS 'nima_remote'@'203.0.113.5', 'nima_empty'@'localhost', 'nima_global'@'localhost', 'nima_grant'@'localhost'; DROP DATABASE IF EXISTS nima_db; DROP DATABASE IF EXISTS test;").Run()
 	})
-	run("CREATE USER 'wcpa_remote'@'203.0.113.5' IDENTIFIED BY 'x-Remote-1'; GRANT ALL ON *.* TO 'wcpa_remote'@'203.0.113.5' WITH GRANT OPTION;")
-	run("CREATE USER 'wcpa_empty'@'localhost';")
-	run("CREATE USER 'wcpa_global'@'localhost' IDENTIFIED BY 'x-Global-1'; GRANT SELECT ON *.* TO 'wcpa_global'@'localhost';")
-	run("CREATE DATABASE wcpa_db; CREATE USER 'wcpa_grant'@'localhost' IDENTIFIED BY 'x-Grant-1'; GRANT ALL ON wcpa_db.* TO 'wcpa_grant'@'localhost' WITH GRANT OPTION;")
+	run("CREATE USER 'nima_remote'@'203.0.113.5' IDENTIFIED BY 'x-Remote-1'; GRANT ALL ON *.* TO 'nima_remote'@'203.0.113.5' WITH GRANT OPTION;")
+	run("CREATE USER 'nima_empty'@'localhost';")
+	run("CREATE USER 'nima_global'@'localhost' IDENTIFIED BY 'x-Global-1'; GRANT SELECT ON *.* TO 'nima_global'@'localhost';")
+	run("CREATE DATABASE nima_db; CREATE USER 'nima_grant'@'localhost' IDENTIFIED BY 'x-Grant-1'; GRANT ALL ON nima_db.* TO 'nima_grant'@'localhost' WITH GRANT OPTION;")
 	run("CREATE DATABASE test;")
 	after := byID()
-	for id, who := range map[string]string{"database_remote_admin": "wcpa_remote@203.0.113.5", "database_empty_password": "wcpa_empty@localhost", "database_global_privileges": "wcpa_global@localhost", "database_grant_option": "wcpa_grant@localhost"} {
+	for id, who := range map[string]string{"database_remote_admin": "nima_remote@203.0.113.5", "database_empty_password": "nima_empty@localhost", "database_global_privileges": "nima_global@localhost", "database_grant_option": "nima_grant@localhost"} {
 		if ch := after[id]; ch.Status == "pass" || !strings.Contains(ch.Detail, who) {
 			t.Errorf("%s: %+v", id, ch)
 		}

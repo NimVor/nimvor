@@ -1,4 +1,4 @@
-# AGENTS.md — Permanent instructions for AI agents working on WhaCP
+# AGENTS.md — Permanent instructions for AI agents working on NimVor
 
 This file is for any AI agent (or developer) picking up work on this
 repository. It captures the durable facts, conventions and commands that do
@@ -12,9 +12,9 @@ Authoritative sources, in order of precedence when they disagree:
 
 ---
 
-## 1. What WhaCP is
+## 1. What NimVor is
 
-WhaCP ("WHA Control Panel") is a free, MIT-licensed Linux server & hosting
+NimVor is a free, MIT-licensed Linux server & hosting
 control panel for VPS/dedicated servers (a cPanel/Plesk-class product). Core
 rule: **a control panel has root-level consequences, so every privileged
 operation must be explicit, validated, audited and reversible.**
@@ -55,7 +55,7 @@ Run from the repo root unless noted. `make` targets mirror CI:
 ```bash
 make lint          # gofmt check + go vet + PHP -l sweep + shell -n (CI gate)
 make test          # test-agent + test-panel
-make build         # builds dist/whacp-agent
+make build         # builds dist/nimvor-agent
 make smoke         # tests/integration/smoke.sh
 scripts/dev.sh     # run agent (against fixture) + panel on http://127.0.0.1:8090
 ```
@@ -115,7 +115,7 @@ matrix (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9, …).
 - **No inline `<script>` or `<style>`.** The panel sends a strict
   Content-Security-Policy (`script-src 'self'`,
   `app/Http/Middleware/SecurityHeaders.php`); inline scripts are blocked by the
-  browser. Put page behaviour in `panel/public/assets/js/whacp.js` (global,
+  browser. Put page behaviour in `panel/public/assets/js/nimvor.js` (global,
   delegated handlers keyed off `data-*` attributes) or a page-specific asset
   loaded via `$this->asset(...)`. A regression guard,
   `tests/Unit/ViewTest.php::testNoViewUsesInlineScripts`, fails the build on any
@@ -137,7 +137,7 @@ matrix (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9, …).
 | Plan limits & enforcement | `panel/app/Services/PlanLimits.php` |
 | Website create/child/apply | `panel/app/Services/WebsiteService.php` |
 | App installer | `panel/app/Services/AppInstallerService.php`, `app/Http/Controllers/AppsController.php`, `resources/views/sites/apps.php` |
-| Global panel JS | `panel/public/assets/js/whacp.js` |
+| Global panel JS | `panel/public/assets/js/nimvor.js` |
 | CSP / security headers | `panel/app/Http/Middleware/SecurityHeaders.php` |
 | Agent actions registry | `agent/internal/actions/`, per-domain `agent/internal/<domain>/` |
 | Release/audit docs | `docs/release/` |

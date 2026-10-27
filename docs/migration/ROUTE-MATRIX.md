@@ -1,4 +1,4 @@
-# WhaCP Route Matrix
+# NimVor Route Matrix
 
 _Generated from `panel/routes/web.php` at baseline. One row per registered route._
 
@@ -382,7 +382,7 @@ Total routes: 551
 | POST | `/servers` | ServersController::store | servers.store | servers.manage | yes | yes | ☐ |
 | POST | `/services/control` | ServicesController::control | services.control | services.manage | yes | yes | ☐ |
 | POST | `/services/restart-all` | TopbarController::restartAll | services.restart_all | services.manage | yes | yes | ☐ |
-| POST | `/services/whacp/{key}/restart` | ServicesController::restartWhacp | services.whacp.restart | services.manage | yes | yes | ☐ |
+| POST | `/services/nimvor/{key}/restart` | ServicesController::restartNimvor | services.nimvor.restart | services.manage | yes | yes | ☐ |
 | GET | `/services` | ServerController::services | services | services.view | yes | yes | ☐ |
 | GET | `/settings/basic` | WebHostSettingsController::basic | settings.basic | settings.view | yes | yes | ☐ |
 | POST | `/settings/basic` | WebHostSettingsController::saveBasic | settings.basic.save | settings.manage | yes | yes | ☐ |
@@ -551,9 +551,9 @@ Total routes: 551
 | POST | `/websites/{id}/import` | ImportController::run | websites.import.run | import.run | yes | yes | ☐ |
 | GET | `/websites/{id}` | WebsitesController::show | websites.show | websites.view | yes | yes | ☑ |
 | GET | `/websites` | WebsitesController::index | websites | websites.view | yes | yes | ☑ |
-| POST | `/whacp/update/check` | TopbarController::updateCheck | whacp.update.check | server.manage | yes | yes | ☐ |
-| GET | `/whacp/update` | TopbarController::update | whacp.update | server.manage | yes | yes | ☐ |
-| POST | `/whacp/update` | TopbarController::updateStart | whacp.update.start | server.manage | yes | yes | ☐ |
+| POST | `/nimvor/update/check` | TopbarController::updateCheck | nimvor.update.check | server.manage | yes | yes | ☐ |
+| GET | `/nimvor/update` | TopbarController::update | nimvor.update | server.manage | yes | yes | ☐ |
+| POST | `/nimvor/update` | TopbarController::updateStart | nimvor.update.start | server.manage | yes | yes | ☐ |
 | POST | `/wordpress/scan` | WordPressController::scanAll | wordpress.scan | websites.manage | yes | yes | ☐ |
 | GET | `/wordpress` | WordPressController::index | wordpress | websites.view | yes | yes | ☐ |
 | GET | `/workers` | WorkersController::index | workers | workers.manage | yes | yes | ☐ |

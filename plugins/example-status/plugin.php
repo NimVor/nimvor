@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Plugins\PluginContext;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Plugins\PluginContext;
 
 /*
- * Example WhaCP plugin. plugin.php returns a function that receives the
+ * Example NimVor plugin. plugin.php returns a function that receives the
  * plugin context; everything the plugin adds goes through it.
  */
 return function (PluginContext $ctx): void {
@@ -15,7 +15,7 @@ return function (PluginContext $ctx): void {
         $info = null;
         try {
             $info = $ctx->agent()->call('system.info');
-        } catch (\WhaCP\Agent\AgentException) {
+        } catch (\NimVor\Agent\AgentException) {
             // The page still renders without live data.
         }
         return $ctx->render('index', [

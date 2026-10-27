@@ -32,11 +32,11 @@ import (
 // ProcGroup (polkit's account, monitoring tools an administrator adds)
 // still see every process.
 
-// SysctlFile holds the kernel settings WhaCP applied.
+// SysctlFile holds the kernel settings NimVor applied.
 const SysctlFile = execx.SysctlFile
 
 // ProcGroup may see every process while hidepid is on.
-const ProcGroup = "whacp-proc"
+const ProcGroup = "nimvor-proc"
 
 // sysctlCaps are the capabilities writing the audited settings needs:
 // kernel.* and fs.* (CAP_SYS_ADMIN), Yama (CAP_SYS_PTRACE), net.*
@@ -44,7 +44,7 @@ const ProcGroup = "whacp-proc"
 var sysctlCaps = []string{"CAP_SYS_ADMIN", "CAP_SYS_PTRACE", "CAP_NET_ADMIN"}
 
 type fixState struct {
-	// Kernel values before WhaCP changed them (key -> value).
+	// Kernel values before NimVor changed them (key -> value).
 	KernelBefore map[string]string `json:"kernel_before"`
 }
 
@@ -118,7 +118,7 @@ func FixKernel(ctx context.Context, env *host.Env) ([]string, error) {
 	}
 	sort.Strings(keys)
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP (Security → Overview → Kernel security settings).\n# Undo it there; editing this file by hand is overwritten.\n")
+	b.WriteString("# Managed by NimVor (Security → Overview → Kernel security settings).\n# Undo it there; editing this file by hand is overwritten.\n")
 	for _, k := range keys {
 		fmt.Fprintf(&b, "%s = %s\n", k, want[k])
 	}
@@ -180,12 +180,12 @@ func UndoKernel(ctx context.Context, env *host.Env) error {
 	return nil
 }
 
-// KernelFixed reports whether WhaCP's kernel settings are in place.
+// KernelFixed reports whether NimVor's kernel settings are in place.
 func KernelFixed(env *host.Env) bool { return env.Root.Exists(SysctlFile) }
 
 // Process visibility.
 
-const fstabMark = "# WhaCP: process visibility (Security → Overview)"
+const fstabMark = "# NimVor: process visibility (Security → Overview)"
 
 func groupID(env *host.Env, name string) (int, bool) {
 	b, err := env.Root.ReadFile("/etc/group")
@@ -203,7 +203,7 @@ func groupID(env *host.Env, name string) (int, bool) {
 	return 0, false
 }
 
-// procFstab returns fstab without WhaCP's /proc line, and whether another
+// procFstab returns fstab without NimVor's /proc line, and whether another
 // /proc entry (someone else's) is there.
 func procFstab(b []byte) (rest []string, foreign bool) {
 	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
@@ -277,7 +277,7 @@ func HideProcesses(ctx context.Context, env *host.Env, on bool) error {
 	return nil
 }
 
-// ProcHidden reports whether WhaCP's /proc entry is in /etc/fstab.
+// ProcHidden reports whether NimVor's /proc entry is in /etc/fstab.
 func ProcHidden(env *host.Env) bool {
 	b, _ := env.Root.ReadFile("/etc/fstab")
 	return strings.Contains(string(b), fstabMark)
@@ -287,24 +287,24 @@ func ProcHidden(env *host.Env) bool {
 //
 // Debian/Ubuntu: unattended-upgrades (installs only the security archive
 // by default), turned on in 20auto-upgrades. RHEL: dnf-automatic's install
-// timer, with WhaCP's own configuration (security updates only, no
+// timer, with NimVor's own configuration (security updates only, no
 // reboot) through a drop-in, so the package's automatic.conf stays as it
 // is.
 
 const (
 	aptAutoFile   = "/etc/apt/apt.conf.d/20auto-upgrades"
-	dnfAutoConf   = "/etc/whacp/dnf-automatic.conf"
+	dnfAutoConf   = "/etc/nimvor/dnf-automatic.conf"
 	dnfAutoUnit   = "dnf-automatic-install.service"
 	dnfAutoTimer  = "dnf-automatic-install.timer"
-	dnfAutoDropIn = "/etc/systemd/system/" + dnfAutoUnit + ".d/whacp.conf"
-	autoMark      = "Managed by WhaCP (Security → Overview → Automatic security updates)"
+	dnfAutoDropIn = "/etc/systemd/system/" + dnfAutoUnit + ".d/nimvor.conf"
+	autoMark      = "Managed by NimVor (Security → Overview → Automatic security updates)"
 )
 
 func fixPaths() []string {
 	return []string{SysctlFile, filepath.Dir(SysctlFile), aptAutoFile, dnfAutoConf, filepath.Dir(dnfAutoConf), filepath.Dir(dnfAutoDropIn), dnfAutoDropIn}
 }
 
-// AutoUpdatesManaged reports whether WhaCP turned automatic updates on.
+// AutoUpdatesManaged reports whether NimVor turned automatic updates on.
 func AutoUpdatesManaged(env *host.Env) bool {
 	f := aptAutoFile
 	if env.Platform.PackageManager() == "dnf" {

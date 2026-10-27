@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
 use Closure;
-use WhaCP\Database\Connection;
-use WhaCP\Security\Crypto;
-use WhaCP\Support\UserFacingException;
+use NimVor\Database\Connection;
+use NimVor\Security\Crypto;
+use NimVor\Support\UserFacingException;
 
 /**
  * Per-website Cloudflare for the customer portal. A customer connects their

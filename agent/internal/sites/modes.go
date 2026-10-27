@@ -8,17 +8,17 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
-// ConfigMode is the mode of WhaCP's Nginx sites and PHP-FPM pools: read by
+// ConfigMode is the mode of NimVor's Nginx sites and PHP-FPM pools: read by
 // the daemons' root masters, not by website accounts (a pool or site file
 // shows another website's paths and settings).
 const ConfigMode = 0o640
 
-// TightenConfigModes removes the "other" permissions from WhaCP's existing
+// TightenConfigModes removes the "other" permissions from NimVor's existing
 // site and pool files (written 0644 before 1.0.1). Only regular root-owned
 // files are changed, through a descriptor that does not follow links.
 func TightenConfigModes(e *host.Env) int {
-	patterns := []string{filepath.Join(e.M.NginxAvailable, "whacp-*.conf"), filepath.Join(FPMRoot, "*", "php-fpm.conf"), filepath.Join(FPMRoot, "*", "pool.d", "whacp-*.conf")}
-	patterns = append(patterns, filepath.Join(e.M.PoolDir("*"), "whacp-*.conf"))
+	patterns := []string{filepath.Join(e.M.NginxAvailable, "nimvor-*.conf"), filepath.Join(FPMRoot, "*", "php-fpm.conf"), filepath.Join(FPMRoot, "*", "pool.d", "nimvor-*.conf")}
+	patterns = append(patterns, filepath.Join(e.M.PoolDir("*"), "nimvor-*.conf"))
 	n := 0
 	for _, p := range patterns {
 		files, _ := e.Root.Glob(p)

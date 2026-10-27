@@ -139,8 +139,8 @@ func rules(s State, sshPorts []int, now int64) string {
 	sort.Slice(pl, func(i, j int) bool { a, _ := strconv.Atoi(pl[i]); b, _ := strconv.Atoi(pl[j]); return a < b })
 	dport := "tcp dport { " + strings.Join(pl, ", ") + " }"
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP: brute force protection (Security → cPHulk Brute Force Protection).\n")
-	b.WriteString("table inet whacp_hulk\ndelete table inet whacp_hulk\ntable inet whacp_hulk {\n")
+	b.WriteString("# Managed by NimVor: brute force protection (Security → cPHulk Brute Force Protection).\n")
+	b.WriteString("table inet nimvor_hulk\ndelete table inet nimvor_hulk\ntable inet nimvor_hulk {\n")
 	b.WriteString(set("allow4", "ipv4_addr", "interval", wl4))
 	b.WriteString(set("allow6", "ipv6_addr", "interval", wl6))
 	b.WriteString(set("block4", "ipv4_addr", "timeout", all4))
@@ -169,7 +169,7 @@ func stateHash(s State) string {
 }
 
 func loaded(ctx context.Context, env *host.Env) bool {
-	_, err := env.Runner.Run(ctx, "nft", "list", "table", "inet", "whacp_hulk")
+	_, err := env.Runner.Run(ctx, "nft", "list", "table", "inet", "nimvor_hulk")
 	return err == nil
 }
 
@@ -215,7 +215,7 @@ func Sync(ctx context.Context, env *host.Env, s State, now time.Time) (bool, err
 	}
 	if !s.Enabled {
 		if isLoaded {
-			if out, err := env.Runner.Run(ctx, "nft", "delete", "table", "inet", "whacp_hulk"); err != nil {
+			if out, err := env.Runner.Run(ctx, "nft", "delete", "table", "inet", "nimvor_hulk"); err != nil {
 				return false, fmt.Errorf("the table could not be removed: %s", host.Output(out))
 			}
 		}

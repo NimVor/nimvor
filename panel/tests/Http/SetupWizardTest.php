@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Services\ServerSetupService;
-use WhaCP\Services\SettingsService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Services\ServerSetupService;
+use NimVor\Services\SettingsService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** The setup wizard: first visit, checklist, steps run one by one from the browser. */
 final class SetupWizardTest extends HttpTestCase

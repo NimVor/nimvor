@@ -1,7 +1,7 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed>|null $status */
-$canManage = $this->can(\WhaCP\Security\Permissions::SECURITY_MANAGE) && ($user['role_name'] ?? '') === 'admin';
+$canManage = $this->can(\NimVor\Security\Permissions::SECURITY_MANAGE) && ($user['role_name'] ?? '') === 'admin';
 ?>
 <?= $this->partial('security/_header', get_defined_vars()) ?>
 <?php if ($status === null) { return; } ?>
@@ -14,20 +14,20 @@ $udp = implode(', ', array_map('strval', (array) ($s['udp_ports'] ?? [])));
 $limited = $meta || $private || $tcp !== '' || $udp !== '';
 ?>
 
-<div class="wcp-panel mb-3">
+<div class="nim-panel mb-3">
     <p class="mb-2">Limits the connections that websites' code (PHP, cron jobs, commands run as the website account) can open to other machines. Root, the mail server and the system's services are not affected, and connections to this server itself always work.</p>
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <span class="fw-medium">Status:</span>
-        <?php if ($limited && !empty($s['active'])): ?><span class="wcp-state is-ok">Active</span>
-        <?php elseif ($limited): ?><span class="wcp-state is-warn">Saved, rules not loaded</span>
-        <?php else: ?><span class="wcp-state is-off">No limits</span><?php endif; ?>
+        <?php if ($limited && !empty($s['active'])): ?><span class="nim-state is-ok">Active</span>
+        <?php elseif ($limited): ?><span class="nim-state is-warn">Saved, rules not loaded</span>
+        <?php else: ?><span class="nim-state is-off">No limits</span><?php endif; ?>
         <span class="small text-body-secondary"><?= (int) ($s['accounts'] ?? 0) ?> website account(s)</span>
     </div>
     <?php if (empty($s['available'])): ?>
-        <div class="wcp-infobar mt-2"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i><span>nftables is not installed on this server; install the <code>nftables</code> package to limit outgoing connections.</span></div>
+        <div class="nim-infobar mt-2"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i><span>nftables is not installed on this server; install the <code>nftables</code> package to limit outgoing connections.</span></div>
     <?php endif; ?>
 </div>
-<form class="wcp-panel" method="post" action="<?= e($this->url('security.egress.save')) ?>" data-wcp-busy>
+<form class="nim-panel" method="post" action="<?= e($this->url('security.egress.save')) ?>" data-nim-busy>
     <?= $this->csrfField() ?>
     <fieldset<?= $canManage ? '' : ' disabled' ?>>
     <div class="form-check mb-2">

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** ModSecurity: administrators manage the rules; owners switch their website's mode only. */
 final class ModSecurityTest extends HttpTestCase
@@ -23,7 +23,7 @@ final class ModSecurityTest extends HttpTestCase
         $other = $this->seedUser('other', 'customer');
         $db = $this->app->container->get(Connection::class);
         foreach ([['shop.test', $cust], ['blog.test', $other]] as [$d, $o]) {
-            $db->run("INSERT INTO websites (server_id, domain, kind, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, ?, 'static', ?, ?, ?, ?, 'active', 'x', 'x')", [$d, '/home/whacp/' . $d, '/home/whacp/' . $d . '/public_html', explode('.', $d)[0], $o]);
+            $db->run("INSERT INTO websites (server_id, domain, kind, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, ?, 'static', ?, ?, ?, ?, 'active', 'x', 'x')", [$d, '/home/nimvor/' . $d, '/home/nimvor/' . $d . '/public_html', explode('.', $d)[0], $o]);
         }
         $this->siteId = (int) $db->scalar("SELECT id FROM websites WHERE domain = 'shop.test'");
         $this->otherSite = (int) $db->scalar("SELECT id FROM websites WHERE domain = 'blog.test'");
@@ -147,12 +147,12 @@ final class ModSecurityTest extends HttpTestCase
         $this->agent->succeed('modsec.crs_install', ['job_id' => 'bbbbbbbbbbbbbbbb']);
         $this->agent->succeed('modsec.rollback', ['job_id' => 'cccccccccccccccc']);
         $this->agent->succeed('modsec.installs', ['installs' => [
-            ['id' => '20260929T051322Z-000002-84871d', 'status' => 'committed', 'started_at' => '2026-09-29T05:13:22Z', 'method' => 'source', 'nginx_version' => '1.24.0', 'os' => 'ubuntu 24.04', 'sources' => [['name' => 'ModSecurity-nginx', 'version' => '1.0.4', 'origin' => 'https://github.com/…']], 'module' => '/usr/local/lib/whacp/nginx-modules/ngx_http_modsecurity_module-1.24.0-2-84871d.so', 'can_roll_back' => true, 'folder' => '/var/lib/whacp-agent/transactions/modsec/x'],
-            ['id' => '20260929T050000Z-000001-aaaaaa', 'status' => 'rollback_failed', 'started_at' => '2026-09-29T05:00:00Z', 'method' => 'source', 'error' => 'make failed', 'can_roll_back' => false, 'folder' => '/var/lib/whacp-agent/transactions/modsec/y'],
+            ['id' => '20260929T051322Z-000002-84871d', 'status' => 'committed', 'started_at' => '2026-09-29T05:13:22Z', 'method' => 'source', 'nginx_version' => '1.24.0', 'os' => 'ubuntu 24.04', 'sources' => [['name' => 'ModSecurity-nginx', 'version' => '1.0.4', 'origin' => 'https://github.com/…']], 'module' => '/usr/local/lib/nimvor/nginx-modules/ngx_http_modsecurity_module-1.24.0-2-84871d.so', 'can_roll_back' => true, 'folder' => '/var/lib/nimvor-agent/transactions/modsec/x'],
+            ['id' => '20260929T050000Z-000001-aaaaaa', 'status' => 'rollback_failed', 'started_at' => '2026-09-29T05:00:00Z', 'method' => 'source', 'error' => 'make failed', 'can_roll_back' => false, 'folder' => '/var/lib/nimvor-agent/transactions/modsec/y'],
         ]]);
         $this->login('admin');
         $page = $this->request('GET', '/security/modsec')->body();
-        foreach (['id="installs"', 'ModSecurity-nginx 1.0.4', 'in effect', 'Roll back', 'Rollback incomplete', '/var/lib/whacp-agent/transactions/modsec/y/snapshot', 'make failed'] as $want) {
+        foreach (['id="installs"', 'ModSecurity-nginx 1.0.4', 'in effect', 'Roll back', 'Rollback incomplete', '/var/lib/nimvor-agent/transactions/modsec/y/snapshot', 'make failed'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
         self::assertSame(1, substr_count($page, '/security/modsec/rollback/'), 'only the installation in effect can be rolled back');

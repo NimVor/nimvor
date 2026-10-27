@@ -3,7 +3,7 @@
 # Runs inside an Ubuntu test VM (22.04, 24.04, 26.04): installs what the
 # real-host tests use, the way an administrator would, and starts the
 # services. Writes the PHP version websites are tested with to
-# /etc/whacp-ci-php.
+# /etc/nimvor-ci-php.
 #   22.04 ships PHP 8.1: PHP 8.3 comes from the ondrej/php PPA (as the
 #         installation guide says for the panel).
 #   Newer releases: the distribution's own PHP.
@@ -26,10 +26,10 @@ else
     apt-get install -y -q --no-install-recommends php-cli
     php=$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')
 fi
-echo "$php" > /etc/whacp-ci-php
+echo "$php" > /etc/nimvor-ci-php
 
 echo "postfix postfix/main_mailer_type select Internet Site" | debconf-set-selections
-echo "postfix postfix/mailname string ci.whacp.test" | debconf-set-selections
+echo "postfix postfix/mailname string ci.nimvor.test" | debconf-set-selections
 echo "roundcube-core roundcube/dbconfig-install boolean false" | debconf-set-selections
 apt-get install -y -q --no-install-recommends \
     nginx mariadb-server mariadb-client redis-server memcached pure-ftpd bind9 bind9-utils \

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
 use Closure;
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
 
 /**
  * Is a newer NimVor available? The agent reports the installed checkout
@@ -72,7 +72,7 @@ final class UpdateCheckService
     {
         $res = ['checked_at' => time(), 'available' => false, 'state' => 'unknown', 'current' => '', 'latest' => '', 'branch' => '', 'updatable' => false, 'reason' => '', 'command' => ''];
         try {
-            $src = (array) json_decode((string) json_encode($this->agent->call('whacp.update_status')), true);
+            $src = (array) json_decode((string) json_encode($this->agent->call('nimvor.update_status')), true);
         } catch (AgentException $e) {
             $res['reason'] = 'The agent could not report the installed version: ' . $e->getMessage();
             return $this->save($res);

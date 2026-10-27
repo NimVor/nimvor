@@ -34,7 +34,7 @@ func SSHEffective(ctx context.Context, env *host.Env) (map[string]string, error)
 	return cfg, nil
 }
 
-// SSHSettings are the options WhaCP manages.
+// SSHSettings are the options NimVor manages.
 type SSHSettings struct {
 	Port                   int    `json:"port"`
 	PermitRootLogin        string `json:"permit_root_login"` // yes, prohibit-password, no
@@ -53,7 +53,7 @@ func yesNo(b bool) string {
 // Render produces the drop-in file.
 func (s SSHSettings) Render() string {
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP (Security → SSH). Do not edit: changes are overwritten.\n")
+	b.WriteString("# Managed by NimVor (Security → SSH). Do not edit: changes are overwritten.\n")
 	b.WriteString("# sshd uses the first value it reads, so this file is named 00-… to take precedence.\n")
 	fmt.Fprintf(&b, "Port %d\nPermitRootLogin %s\nPasswordAuthentication %s\n", s.Port, s.PermitRootLogin, yesNo(s.PasswordAuthentication))
 	if !s.PasswordAuthentication {
@@ -163,7 +163,7 @@ func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, e
 			}
 			pending.Commands = append(pending.Commands, firewalldCmds(true, addOrRemove(item, false))...)
 		} else if err == nil && fw.Active {
-			args := []string{"limit", "proto", "tcp", "from", "any", "to", "any", "port", strconv.Itoa(in.Port), "comment", "whacp: SSH"}
+			args := []string{"limit", "proto", "tcp", "from", "any", "to", "any", "port", strconv.Itoa(in.Port), "comment", "nimvor: SSH"}
 			if err := s.ufw(ctx, args...); err != nil {
 				return nil, err
 			}

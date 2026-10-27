@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Support\UserFacingException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Support\UserFacingException;
 
 /**
  * Outgoing mail limits: recipients per website account and hour, counted

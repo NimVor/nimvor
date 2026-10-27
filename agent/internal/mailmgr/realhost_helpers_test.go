@@ -10,14 +10,14 @@ import (
 	"testing"
 )
 
-// verifyErrors: the lines of systemd-analyze verify about WhaCP's own
+// verifyErrors: the lines of systemd-analyze verify about NimVor's own
 // units. It also reports other units of the host (e.g. snapd's on Ubuntu,
 // xfs_scrub's on newer systemd), which are not this test's concern.
 // Offline verify cannot resolve the socket's postfix user.
 func verifyErrors(out []byte) []string {
 	var bad []string
 	for _, l := range strings.Split(string(out), "\n") {
-		if strings.Contains(l, "whacp-") && !strings.Contains(l, "postfix") && !strings.Contains(l, "Failed to prepare filename") && !strings.Contains(l, "kernel does not support IPv6") {
+		if strings.Contains(l, "nimvor-") && !strings.Contains(l, "postfix") && !strings.Contains(l, "Failed to prepare filename") && !strings.Contains(l, "kernel does not support IPv6") {
 			bad = append(bad, l)
 		}
 	}
@@ -36,7 +36,7 @@ func selinuxSockets(t *testing.T) {
 	if !selinuxEnabled() {
 		return
 	}
-	module := "../../../installer/selinux/whacp_postfix_sockets.cil"
+	module := "../../../installer/selinux/nimvor_postfix_sockets.cil"
 	if _, err := os.Stat(module); err != nil {
 		t.Fatalf("SELinux module: %v", err)
 	}

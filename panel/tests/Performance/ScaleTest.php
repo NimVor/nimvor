@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Performance;
+namespace NimVor\Tests\Performance;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Request;
-use WhaCP\Services\ApiTokenService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Request;
+use NimVor\Services\ApiTokenService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * Measured limits for the release notes: with 100 websites, 500 domains,
@@ -29,7 +29,7 @@ final class ScaleTest extends HttpTestCase
         for ($i = 1; $i <= 100; $i++) {
             $domain = "site{$i}.scale.test";
             $db->run("INSERT INTO websites (server_id, owner_id, domain, system_user, root, document_root, kind, php_version, created_at, updated_at) VALUES (1, ?, ?, ?, ?, ?, 'php', '8.3', ?, ?)",
-                [$i % 4 === 0 ? $cust : $admin, $domain, "sc{$i}", "/home/whacp/{$domain}", "/home/whacp/{$domain}/public_html", $now, $now]);
+                [$i % 4 === 0 ? $cust : $admin, $domain, "sc{$i}", "/home/nimvor/{$domain}", "/home/nimvor/{$domain}/public_html", $now, $now]);
             $site = (int) $db->pdo()->lastInsertId();
             foreach (['', 'www.', 'shop.', 'api.', 'cdn.'] as $j => $prefix) {
                 $db->run('INSERT INTO domains (server_id, website_id, name, is_primary) VALUES (1, ?, ?, ?)', [$site, $prefix . $domain, $j === 0 ? 1 : 0]);
@@ -39,10 +39,10 @@ final class ScaleTest extends HttpTestCase
             $db->run("INSERT INTO workers (server_id, website_id, slug, name, command, created_at, updated_at) VALUES (1, ?, ?, 'queue', 'php artisan queue:work', ?, ?)", [$site, "w{$i}", $now, $now]);
             $db->run("INSERT INTO backups (server_id, website_id, kind, domain, backup_id, size, encrypted, status, created_at, finished_at) VALUES (1, ?, 'site', ?, ?, 1048576, 1, 'completed', ?, ?)", [$site, $domain, sprintf('20260101T000000Z-%06d', $i), $now, $now]);
             $inventory[] = ['id' => md5($domain), 'domain' => $domain, 'aliases' => ['www.' . $domain, 'shop.' . $domain, 'api.' . $domain, 'cdn.' . $domain], 'enabled' => true, 'kind' => 'php',
-                'document_root' => "/home/whacp/{$domain}/public_html", 'document_root_exists' => true, 'https' => true, 'https_redirect' => true,
-                'php' => ['version' => '8.3', 'pool' => 'whacp-' . $domain, 'listen' => '/run/php/x.sock', 'user' => "sc{$i}", 'resolved' => true],
+                'document_root' => "/home/nimvor/{$domain}/public_html", 'document_root_exists' => true, 'https' => true, 'https_redirect' => true,
+                'php' => ['version' => '8.3', 'pool' => 'nimvor-' . $domain, 'listen' => '/run/php/x.sock', 'user' => "sc{$i}", 'resolved' => true],
                 'ssl' => ['cert_file' => "/etc/letsencrypt/live/{$domain}/fullchain.pem", 'names' => [$domain], 'issuer' => 'R3', 'not_after' => '2030-01-01T00:00:00Z', 'days_remaining' => 900, 'status' => 'valid', 'lets_encrypt' => true, 'covers_domain' => true],
-                'listen' => ['443 ssl'], 'config_files' => ["/etc/nginx/sites-available/whacp-{$domain}.conf"], 'access_logs' => [], 'error_logs' => [], 'managed_by' => 'NimVor', 'proxy_pass' => ''];
+                'listen' => ['443 ssl'], 'config_files' => ["/etc/nginx/sites-available/nimvor-{$domain}.conf"], 'access_logs' => [], 'error_logs' => [], 'managed_by' => 'NimVor', 'proxy_pass' => ''];
         }
         for ($i = 1; $i <= 1000; $i++) {
             $db->run("INSERT INTO audit_logs (user_id, username, action, target_type, target_id, result, ip, details, created_at) VALUES (?, 'admin', 'website.update', 'website', ?, 'success', '192.0.2.1', '{}', ?)", [$admin, (string) ($i % 100 + 1), $now]);
@@ -81,7 +81,7 @@ final class ScaleTest extends HttpTestCase
         $measure('GET /notifications?show=all', fn (): int => $this->request('GET', '/notifications', [], [], '', ['show' => 'all'])->status());
         $token = $this->app->container->get(ApiTokenService::class)->create($admin, ['name' => 'perf', 'ability' => 'read', 'expires_days' => 1]);
         $measure('API GET /api/v1/websites', fn (): int => $this->app->handle(new Request('GET', '/api/v1/websites', [], [], ['REMOTE_ADDR' => '192.0.2.9'], ['authorization' => 'Bearer ' . $token], ''))->status());
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('cust');
         $measure('GET /websites (customer, 25 own)', fn (): int => $this->request('GET', '/websites')->status());

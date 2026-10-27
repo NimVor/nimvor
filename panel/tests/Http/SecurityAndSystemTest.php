@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Services\MonitoringService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Services\MonitoringService;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class SecurityAndSystemTest extends HttpTestCase
 {
@@ -60,7 +60,7 @@ final class SecurityAndSystemTest extends HttpTestCase
         $this->agent->succeed('security.pending', ['pending' => $pending]);
         $page = $this->request('GET', '/security/firewall')->body();
         self::assertStringContainsString('Unconfirmed change', $page);
-        self::assertStringContainsString('data-wcp-countdown', $page);
+        self::assertStringContainsString('data-nim-countdown', $page);
 
         $this->agent->succeed('security.confirm', ['confirmed' => 'abc123abc123']);
         $res = $this->post('/security/confirm', ['id' => 'abc123abc123', 'return_to' => '/security/firewall']);
@@ -139,7 +139,7 @@ final class SecurityAndSystemTest extends HttpTestCase
         $this->agent->succeed('hulk.sync', ['changed' => true]);
         $this->post('/security/firewall/toggle', ['enabled' => '1', 'allow_services' => '1', 'allow_me' => '1']);
         self::assertSame(['enabled' => true, 'allow_services' => true, 'allow_from' => '192.0.2.10'], $this->lastCall('firewall.set_enabled'));
-        self::assertStringContainsString('192.0.2.10', $this->app->container->get(\WhaCP\Services\SettingsService::class)->string('hulk_whitelist'), 'also whitelisted in cPHulk');
+        self::assertStringContainsString('192.0.2.10', $this->app->container->get(\NimVor\Services\SettingsService::class)->string('hulk_whitelist'), 'also whitelisted in cPHulk');
         // Without the options: only SSH and the panel (the agent always opens those).
         $this->post('/security/firewall/toggle', ['enabled' => '1', 'allow_services' => '0']);
         self::assertSame(['enabled' => true, 'allow_services' => false, 'allow_from' => ''], $this->lastCall('firewall.set_enabled'));
@@ -152,7 +152,7 @@ final class SecurityAndSystemTest extends HttpTestCase
     public function testOnlyAdministratorsManageSshKeys(): void
     {
         $this->seedUser('op', 'operator');
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('op');
         $this->agent->succeed('ssh.key_add', ['user' => 'root', 'key' => ['fingerprint' => 'x']]);
@@ -164,7 +164,7 @@ final class SecurityAndSystemTest extends HttpTestCase
     /** The dashboard's service widget controls services over JSON. */
     public function testServiceControlAsJson(): void
     {
-        $json = ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\WhaCP\Security\Csrf::class)->token()];
+        $json = ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\NimVor\Security\Csrf::class)->token()];
         $this->agent->succeed('services.control', ['ok' => true]);
         $res = $this->request('POST', '/services/control', [], $json, '{"unit":"nginx.service","op":"restart"}');
         self::assertSame(200, $res->status());
@@ -174,7 +174,7 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertSame(422, $res->status());
         self::assertSame(1, $this->calls('services.control'));
         $this->agent->fail('services.control', 409, 'conflict', 'Unit not allowed');
-        $res = $this->request('POST', '/services/control', [], $json, '{"unit":"whacp-agent.service","op":"stop"}');
+        $res = $this->request('POST', '/services/control', [], $json, '{"unit":"nimvor-agent.service","op":"stop"}');
         self::assertSame(502, $res->status());
         self::assertStringContainsString('Unit not allowed', $res->body());
         // The widget has the controls only for users who may manage services.
@@ -184,7 +184,7 @@ final class SecurityAndSystemTest extends HttpTestCase
     public function testSshAndFail2ban(): void
     {
         $this->agent->succeed('security.pending', ['pending' => null]);
-        $this->agent->succeed('ssh.status', ['effective' => ['port' => '22', 'permitrootlogin' => 'without-password', 'passwordauthentication' => 'yes', 'maxauthtries' => '6'], 'root_has_keys' => false, 'admins_with_keys' => [], 'managed_file' => '/etc/ssh/sshd_config.d/00-whacp.conf']);
+        $this->agent->succeed('ssh.status', ['effective' => ['port' => '22', 'permitrootlogin' => 'without-password', 'passwordauthentication' => 'yes', 'maxauthtries' => '6'], 'root_has_keys' => false, 'admins_with_keys' => [], 'managed_file' => '/etc/ssh/sshd_config.d/00-nimvor.conf']);
         self::assertStringContainsString('add a key before turning off passwords', $this->request('GET', '/security/ssh')->body());
         $this->agent->succeed('ssh.configure', ['changed' => true, 'pending' => ['id' => 'x']]);
         $this->post('/security/ssh', ['port' => '2222', 'permit_root_login' => 'no', 'password_authentication' => '0', 'max_auth_tries' => '3']);
@@ -209,7 +209,7 @@ final class SecurityAndSystemTest extends HttpTestCase
         $this->agent->succeed('ssh.key_remove', ['removed' => 'SHA256:abc']);
         $this->post('/security/ssh/keys/remove', ['user' => 'ops', 'fingerprint' => 'SHA256:abc']);
         self::assertSame(['user' => 'ops', 'fingerprint' => 'SHA256:abc'], $this->lastCall('ssh.key_remove'));
-        $db = $this->app->container->get(\WhaCP\Database\Connection::class);
+        $db = $this->app->container->get(\NimVor\Database\Connection::class);
         foreach (['ssh.key_add', 'ssh.key_remove'] as $a) {
             self::assertNotNull($db->scalar('SELECT id FROM audit_logs WHERE action = ?', [$a]), $a . ' audited');
         }
@@ -306,7 +306,7 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertSame('1111111111111111', $this->flash('job'));
 
         // The installation queue: JSON, no redirect; the component list as JSON.
-        $json = ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\WhaCP\Security\Csrf::class)->token()];
+        $json = ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\NimVor\Security\Csrf::class)->token()];
         $this->agent->succeed('packages.install', ['job_id' => '2222222222222222']);
         $res = $this->request('POST', '/packages/install', [], $json, '{"name":"fail2ban"}');
         self::assertSame(200, $res->status());
@@ -326,14 +326,14 @@ final class SecurityAndSystemTest extends HttpTestCase
 
         // Customers cannot reach server administration.
         $this->seedUser('cust', 'customer');
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('cust');
         foreach (['/packages', '/security', '/monitoring'] as $p) {
             self::assertSame(403, $this->request('GET', $p)->status(), $p);
         }
         $before = $this->calls('packages.install');
-        self::assertSame(403, $this->request('POST', '/packages/install', [], ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\WhaCP\Security\Csrf::class)->token()], '{"name":"fail2ban"}')->status());
+        self::assertSame(403, $this->request('POST', '/packages/install', [], ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\NimVor\Security\Csrf::class)->token()], '{"name":"fail2ban"}')->status());
         self::assertSame($before, $this->calls('packages.install'));
         self::assertSame(403, $this->post('/server/reboot', ['confirm' => 'web1'])->status());
     }
@@ -346,8 +346,8 @@ final class SecurityAndSystemTest extends HttpTestCase
         $this->agent->succeed('services.status', [['unit' => 'nginx.service', 'active_state' => 'failed', 'unit_file_state' => 'enabled'], ['unit' => 'redis-server.service', 'active_state' => 'inactive', 'unit_file_state' => 'disabled']]);
         $this->agent->succeed('discovery.certificates', [['name' => 'shop.test', 'certificate' => ['days_remaining' => 5]]]);
         $this->post('/settings', ['alert_webhook_url' => 'https://hooks.example.com/abc']);
-        $mailer = new \WhaCP\Tests\Support\ArrayMailer();
-        $this->app->container->instance(\WhaCP\Mail\Mailer::class, $mailer);
+        $mailer = new \NimVor\Tests\Support\ArrayMailer();
+        $this->app->container->instance(\NimVor\Mail\Mailer::class, $mailer);
         $this->post('/settings/mail', ['host' => 'smtp.example.com', 'port' => '465', 'encryption' => 'tls', 'from' => 'panel@example.com', 'alert_to' => 'ops@example.com']);
         self::assertStringContainsString('saved', (string) $this->flash('success'));
         $mon = $this->app->container->get(MonitoringService::class);
@@ -399,6 +399,6 @@ final class SecurityAndSystemTest extends HttpTestCase
         }
         $this->post('/settings', ['panel_url' => 'https://panel.example.com/']);
         $this->post('/settings', ['alert_webhook_url' => '']);
-        self::assertSame('https://panel.example.com', $this->app->container->get(\WhaCP\Services\SettingsService::class)->string('panel_url'));
+        self::assertSame('https://panel.example.com', $this->app->container->get(\NimVor\Services\SettingsService::class)->string('panel_url'));
     }
 }

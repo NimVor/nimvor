@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\WorkerService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\ServerContext;
+use NimVor\Services\WorkerService;
+use NimVor\Support\UserFacingException;
+use NimVor\View\View;
 
 final class WorkersController extends SiteController
 {
@@ -21,7 +21,7 @@ final class WorkersController extends SiteController
         WebsiteRepository $sites,
         ServerContext $server,
         private readonly WorkerService $workers,
-        private readonly \WhaCP\Services\RuntimeService $runtimes,
+        private readonly \NimVor\Services\RuntimeService $runtimes,
     ) {
         parent::__construct($view, $session, $sites, $server);
     }

@@ -1,12 +1,12 @@
 <?php
 /**
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var list<array<string, mixed>> $keys
  * @var list<string> $keyTypes
  * @var array<string, mixed>|null $key
  * @var list<array<string, mixed>> $websites
  */
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 $canManage = $this->can(P::SSL_MANAGE);
 $typeLabels = ['ecdsa256' => 'ECDSA P-256 (recommended)', 'ecdsa384' => 'ECDSA P-384', 'rsa2048' => 'RSA 2048', 'rsa3072' => 'RSA 3072', 'rsa4096' => 'RSA 4096'];
@@ -27,19 +27,19 @@ $fits = static function (array $w) use ($key): bool {
     <div class="card-header d-flex flex-wrap align-items-center gap-2"><span><i class="bi bi-key me-1"></i>Key <span class="font-monospace"><?= e((string) $key['id']) ?></span></span><a class="ms-auto small" href="<?= e($this->url('ssl.keys')) ?>">Close</a></div>
     <div class="card-body">
         <dl class="row small mb-3">
-            <dt class="col-sm-3 fw-normal wcp-muted">Names</dt><dd class="col-sm-9 font-monospace"><?= e(implode(', ', (array) $key['names'])) ?></dd>
-            <dt class="col-sm-3 fw-normal wcp-muted">Subject</dt><dd class="col-sm-9 font-monospace text-break"><?= e((string) $key['subject']) ?></dd>
-            <dt class="col-sm-3 fw-normal wcp-muted">Key</dt><dd class="col-sm-9"><?= e($typeLabels[$key['key_type']] ?? (string) $key['key_type']) ?> · public key SHA-256 <span class="font-monospace text-break"><?= e((string) $key['public_key_sha256']) ?></span></dd>
-            <dt class="col-sm-3 fw-normal wcp-muted">Private key</dt><dd class="col-sm-9">Stored on this server only (root, mode 0600). It is not shown or downloaded.</dd>
+            <dt class="col-sm-3 fw-normal nim-muted">Names</dt><dd class="col-sm-9 font-monospace"><?= e(implode(', ', (array) $key['names'])) ?></dd>
+            <dt class="col-sm-3 fw-normal nim-muted">Subject</dt><dd class="col-sm-9 font-monospace text-break"><?= e((string) $key['subject']) ?></dd>
+            <dt class="col-sm-3 fw-normal nim-muted">Key</dt><dd class="col-sm-9"><?= e($typeLabels[$key['key_type']] ?? (string) $key['key_type']) ?> · public key SHA-256 <span class="font-monospace text-break"><?= e((string) $key['public_key_sha256']) ?></span></dd>
+            <dt class="col-sm-3 fw-normal nim-muted">Private key</dt><dd class="col-sm-9">Stored on this server only (root, mode 0600). It is not shown or downloaded.</dd>
         </dl>
         <?php if (!empty($key['csr'])): ?>
             <div class="d-flex align-items-center gap-2 mb-1"><span class="fw-semibold small">Certificate signing request</span>
-                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-wcp-copy="#csr-pem"><i class="bi bi-clipboard me-1"></i>Copy</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-nim-copy="#csr-pem"><i class="bi bi-clipboard me-1"></i>Copy</button>
                 <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('ssl.keys.csr', [], ['id' => (string) $key['id']])) ?>"><i class="bi bi-download me-1"></i>Download</a></div>
             <textarea class="form-control form-control-sm font-monospace mb-3" id="csr-pem" rows="8" readonly aria-label="CSR"><?= e((string) $key['csr']) ?></textarea>
         <?php endif; ?>
         <?php if ($canManage): ?>
-        <form method="post" action="<?= e($this->url('ssl.keys.install')) ?>" data-wcp-busy>
+        <form method="post" action="<?= e($this->url('ssl.keys.install')) ?>" data-nim-busy>
             <?= $this->csrfField() ?><input type="hidden" name="key_id" value="<?= e((string) $key['id']) ?>">
             <h2 class="h6">Install on a website</h2>
             <div class="row g-2">
@@ -64,9 +64,9 @@ $fits = static function (array $w) use ($key): bool {
 
 <div class="row g-3">
     <div class="<?= $canManage ? 'col-xl-7' : 'col-12' ?>">
-        <div class="wcp-panel h-100 mb-0">
-            <div class="wcp-actionbar"><div class="fw-semibold"><i class="bi bi-key me-1"></i>Keys made on this server <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($keys) ?></span></div></div>
-            <div class="wcp-dtable table-responsive">
+        <div class="nim-panel h-100 mb-0">
+            <div class="nim-actionbar"><div class="fw-semibold"><i class="bi bi-key me-1"></i>Keys made on this server <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($keys) ?></span></div></div>
+            <div class="nim-dtable table-responsive">
                 <table class="table align-middle small">
                     <thead><tr><th>Names</th><th>Key</th><th>Created</th><th>Has</th><th class="text-end">Operate</th></tr></thead>
                     <tbody>
@@ -77,10 +77,10 @@ $fits = static function (array $w) use ($key): bool {
                             <td class="text-nowrap"><?= e(substr((string) $k['created'], 0, 10)) ?></td>
                             <td><?= !empty($k['has_csr']) ? 'CSR' : '' ?><?= !empty($k['self_signed']) ? ' · self-signed' : '' ?></td>
                             <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('ssl.keys', [], ['id' => (string) $k['id']])) ?>#key">Open</a>
-                                <?php if ($canManage): ?><form class="d-inline" method="post" action="<?= e($this->url('ssl.keys.delete')) ?>" data-wcp-confirm="Delete this private key and its CSR? A certificate issued for it can then no longer be installed from here. Certificates already installed keep working."><?= $this->csrfField() ?><input type="hidden" name="id" value="<?= e((string) $k['id']) ?>"><button class="btn btn-sm btn-outline-danger">Delete</button></form><?php endif; ?></td>
+                                <?php if ($canManage): ?><form class="d-inline" method="post" action="<?= e($this->url('ssl.keys.delete')) ?>" data-nim-confirm="Delete this private key and its CSR? A certificate issued for it can then no longer be installed from here. Certificates already installed keep working."><?= $this->csrfField() ?><input type="hidden" name="id" value="<?= e((string) $k['id']) ?>"><button class="btn btn-sm btn-outline-danger">Delete</button></form><?php endif; ?></td>
                         </tr>
                     <?php endforeach; ?>
-                    <?php if ($keys === []): ?><tr><td colspan="5" class="text-center py-4 wcp-muted">No keys yet. Create one to request a certificate from a certificate authority.</td></tr><?php endif; ?>
+                    <?php if ($keys === []): ?><tr><td colspan="5" class="text-center py-4 nim-muted">No keys yet. Create one to request a certificate from a certificate authority.</td></tr><?php endif; ?>
                     </tbody>
                 </table>
             </div>
@@ -88,7 +88,7 @@ $fits = static function (array $w) use ($key): bool {
     </div>
     <?php if ($canManage): ?>
     <div class="col-xl-5">
-        <form class="card h-100" method="post" action="<?= e($this->url('ssl.keys.create')) ?>" data-wcp-busy>
+        <form class="card h-100" method="post" action="<?= e($this->url('ssl.keys.create')) ?>" data-nim-busy>
             <?= $this->csrfField() ?>
             <div class="card-header"><i class="bi bi-plus-lg me-1"></i>New key and CSR</div>
             <div class="card-body">

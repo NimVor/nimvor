@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\SettingsService;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Services\SettingsService;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 /**
  * PHP Manager (in the manner of cPanel's EasyApache): choose the PHP
@@ -169,8 +169,8 @@ final class PhpManagerController extends Controller
     public function export(Request $request): Response
     {
         $p = $this->saved();
-        $body = (string) json_encode(['format' => 'whacp-php-profile', 'version' => 1, 'versions' => $p['versions'], 'extensions' => $p['extensions']], JSON_PRETTY_PRINT);
-        return new Response($body . "\n", 200, ['Content-Type' => 'application/json', 'Content-Disposition' => 'attachment; filename="whacp-php-profile.json"', 'Cache-Control' => 'no-store']);
+        $body = (string) json_encode(['format' => 'nimvor-php-profile', 'version' => 1, 'versions' => $p['versions'], 'extensions' => $p['extensions']], JSON_PRETTY_PRINT);
+        return new Response($body . "\n", 200, ['Content-Type' => 'application/json', 'Content-Disposition' => 'attachment; filename="nimvor-php-profile.json"', 'Cache-Control' => 'no-store']);
     }
 
     /** Reviews a profile file from another server (nothing is applied yet). */
@@ -178,10 +178,10 @@ final class PhpManagerController extends Controller
     {
         $up = $_FILES['profile'] ?? null;
         if (!is_array($up) || ($up['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $up['tmp_name']) || (int) $up['size'] > 65536) {
-            return $this->redirectWithError('/php/manager', 'Choose a PHP profile file (whacp-php-profile.json).');
+            return $this->redirectWithError('/php/manager', 'Choose a PHP profile file (nimvor-php-profile.json).');
         }
         $p = json_decode((string) file_get_contents((string) $up['tmp_name']), true);
-        if (!is_array($p) || ($p['format'] ?? '') !== 'whacp-php-profile' || !is_array($p['versions'] ?? null) || !is_array($p['extensions'] ?? null)) {
+        if (!is_array($p) || ($p['format'] ?? '') !== 'nimvor-php-profile' || !is_array($p['versions'] ?? null) || !is_array($p['extensions'] ?? null)) {
             return $this->redirectWithError('/php/manager', 'This is not a NimVor PHP profile file.');
         }
         $profile = ['versions' => array_values(array_filter(array_map('strval', $p['versions']), static fn (string $v): bool => (bool) preg_match('/^[5-9]\.[0-9]{1,2}$/', $v))),

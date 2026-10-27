@@ -3,7 +3,7 @@
 // AWStats never runs as root here: each website's statistics are updated
 // every six hours by a cron line running as the website's own account,
 // reading its access log and keeping its data in <root>/.awstats. The
-// configuration (/etc/awstats/awstats.whacp-<domain>.conf) is written by
+// configuration (/etc/awstats/awstats.nimvor-<domain>.conf) is written by
 // the agent and owned by root. The panel reads the data files (plain
 // text, confined to the website) and draws its own report: AWStats' HTML
 // output, which the website's account could alter, is never shown.
@@ -43,7 +43,7 @@ const maxData = 16 << 20
 // awstatsPaths are where the distributions install awstats.pl.
 var awstatsPaths = []string{"/usr/lib/cgi-bin/awstats.pl", "/usr/share/awstats/wwwroot/cgi-bin/awstats.pl"}
 
-var monthRe = regexp.MustCompile(`^awstats(0[1-9]|1[0-2])([0-9]{4})\.whacp-[a-z0-9.-]+\.txt$`)
+var monthRe = regexp.MustCompile(`^awstats(0[1-9]|1[0-2])([0-9]{4})\.nimvor-[a-z0-9.-]+\.txt$`)
 
 // Site identifies a website.
 type Site struct {
@@ -68,14 +68,14 @@ func (s *Site) check(env *host.Env) error {
 	return validate.Within("root", env.Cfg.SitesRoot, s.Root)
 }
 
-func configName(domain string) string { return "whacp-" + domain }
+func configName(domain string) string { return "nimvor-" + domain }
 
 func configPath(domain string) string {
 	return filepath.Join(ConfigDir, "awstats."+configName(domain)+".conf")
 }
 
 func cronPath(env *host.Env, domain string) string {
-	return filepath.Join(env.M.CronDir, "whacp-awstats-"+strings.ReplaceAll(domain, ".", "_"))
+	return filepath.Join(env.M.CronDir, "nimvor-awstats-"+strings.ReplaceAll(domain, ".", "_"))
 }
 
 // program is awstats.pl on this server, or "".
@@ -92,7 +92,7 @@ func program(env *host.Env) string {
 func Config(s Site) string {
 	hosts := append([]string{s.Domain}, s.Aliases...)
 	return strings.Join([]string{
-		"# Managed by WhaCP (website statistics). Do not edit: changes are overwritten.",
+		"# Managed by NimVor (website statistics). Do not edit: changes are overwritten.",
 		`LogFile="` + filepath.Join(s.Root, "logs", "access.log") + `"`,
 		"LogType=W",
 		"LogFormat=1",
@@ -114,7 +114,7 @@ func Config(s Site) string {
 // minute is spread by domain).
 func CronLine(s Site, prog string) string {
 	m := crc32.ChecksumIEEE([]byte(s.Domain)) % 60
-	return fmt.Sprintf("# Managed by WhaCP (website statistics of %s).\n%d */6 * * * %s /usr/bin/perl %s -config=%s -update >/dev/null 2>&1\n", s.Domain, m, s.User, prog, configName(s.Domain))
+	return fmt.Sprintf("# Managed by NimVor (website statistics of %s).\n%d */6 * * * %s /usr/bin/perl %s -config=%s -update >/dev/null 2>&1\n", s.Domain, m, s.User, prog, configName(s.Domain))
 }
 
 // siteRoot opens the website folder (not through a symlink).

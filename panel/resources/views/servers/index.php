@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var list<array<string, mixed>> $servers */
 ?>
 <?php $this->start(); ?>Servers<?php $this->end('title'); ?>
@@ -21,7 +21,7 @@
                         <td class="text-end text-nowrap">
                             <?php if ($s['kind'] === 'remote'): ?>
                                 <form class="d-inline" method="post" action="<?= e($this->url('servers.check', ['id' => (int) $s['id']])) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary">Check</button></form>
-                                <form class="d-inline" method="post" action="<?= e($this->url('servers.delete', ['id' => (int) $s['id']])) ?>" data-wcp-confirm="Remove <?= e($s['name']) ?> from NimVor? Nothing is changed on the server itself."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>
+                                <form class="d-inline" method="post" action="<?= e($this->url('servers.delete', ['id' => (int) $s['id']])) ?>" data-nim-confirm="Remove <?= e($s['name']) ?> from NimVor? Nothing is changed on the server itself."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -34,7 +34,7 @@
     <li>Install NimVor's agent on the new server with <code>install.sh --agent-only --remote-access 0.0.0.0:8443 --allow-from <em>this server's IP</em></code>.</li>
     <li>The installer prints the <strong>pin</strong> and <strong>token</strong>. Compare the pin over a trusted channel (e.g. your SSH session) — it proves you are talking to that machine.</li>
 </ol>
-<form method="post" action="<?= e($this->url('servers.store')) ?>" data-wcp-busy>
+<form method="post" action="<?= e($this->url('servers.store')) ?>" data-nim-busy>
     <?= $this->csrfField() ?>
     <?= $this->partial('partials/field', ['name' => 'name', 'label' => 'Name', 'value' => (string) ($old['name'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'web2']]) ?>
     <?= $this->partial('partials/field', ['name' => 'url', 'label' => 'Agent address', 'value' => (string) ($old['url'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'https://203.0.113.10:8443']]) ?>

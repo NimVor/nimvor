@@ -210,7 +210,7 @@ type iniLine struct {
 	admin      bool
 }
 
-// poolINI merges WhaCP's settings of a website's pool with the website's
+// poolINI merges NimVor's settings of a website's pool with the website's
 // own directives (which replace a default of the same name; disable_*
 // lists are joined) and renders them in a stable order.
 func poolINI(defaults []iniLine, ini map[string]string) string {
@@ -236,7 +236,7 @@ func poolINI(defaults []iniLine, ini map[string]string) string {
 		}
 		l := iniLine{key: k, value: v, admin: d.admin}
 		if i, ok := byKey[k]; ok {
-			// Defaults WhaCP sets as admin values stay admin values.
+			// Defaults NimVor sets as admin values stay admin values.
 			l.admin = l.admin || lines[i].admin
 			lines[i] = l
 			continue

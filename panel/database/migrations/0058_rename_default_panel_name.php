@@ -7,5 +7,5 @@ declare(strict_types=1);
 // administrator chose themselves is kept.
 
 return [
-    "DELETE FROM settings WHERE key = 'panel_name' AND value = 'WhaCP'",
+    "DELETE FROM settings WHERE key = 'panel_name' AND value = 'NimVor'",
 ];

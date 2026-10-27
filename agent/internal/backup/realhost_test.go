@@ -26,11 +26,11 @@ func TestRealHostBackupRestore(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("needs root")
 	}
-	sites, _ := os.MkdirTemp("/tmp", "whacp-sites-")
+	sites, _ := os.MkdirTemp("/tmp", "nimvor-sites-")
 	t.Cleanup(func() { os.RemoveAll(sites) })
 	os.Chmod(sites, 0o755)
-	exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", "-u", "1777", "whacprtbk").Run()
-	t.Cleanup(func() { exec.Command("userdel", "whacprtbk").Run() })
+	exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", "-u", "1777", "nimvorrtbk").Run()
+	t.Cleanup(func() { exec.Command("userdel", "nimvorrtbk").Run() })
 	root := filepath.Join(sites, "rt.test")
 	os.MkdirAll(filepath.Join(root, "public_html/sub"), 0o750)
 	os.MkdirAll(filepath.Join(root, "logs"), 0o750)
@@ -38,7 +38,7 @@ func TestRealHostBackupRestore(t *testing.T) {
 	os.WriteFile(filepath.Join(root, "logs/access.log"), []byte("log"), 0o640)
 	os.Symlink("public_html", filepath.Join(root, "current"))
 	os.WriteFile(filepath.Join(root, "public_html/tool"), []byte("#!/bin/sh\n"), 0o755)
-	exec.Command("chown", "-R", "whacprtbk:whacprtbk", root).Run()
+	exec.Command("chown", "-R", "nimvorrtbk:nimvorrtbk", root).Run()
 	// A setuid/setgid file in the archive (set after chown, which clears it).
 	os.Chmod(filepath.Join(root, "public_html/tool"), 0o755|os.ModeSetuid|os.ModeSetgid)
 
@@ -51,7 +51,7 @@ func TestRealHostBackupRestore(t *testing.T) {
 	fsroot := filesystem.Host()
 	env := host.New(cfg, fsroot, platform.Detect(fsroot), execx.NewSystemRunner(30*time.Second), jm, log)
 	s := Service{Env: env}
-	cred, _, err := env.Credential("whacprtbk")
+	cred, _, err := env.Credential("nimvorrtbk")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,20 +60,20 @@ func TestRealHostBackupRestore(t *testing.T) {
 			t.Fatalf("%s: %s", sql, out)
 		}
 	}
-	mysql("CREATE DATABASE IF NOT EXISTS whacp_bk; CREATE TABLE IF NOT EXISTS whacp_bk.t (v TEXT); DELETE FROM whacp_bk.t; INSERT INTO whacp_bk.t VALUES ('héllo');")
+	mysql("CREATE DATABASE IF NOT EXISTS nimvor_bk; CREATE TABLE IF NOT EXISTS nimvor_bk.t (v TEXT); DELETE FROM nimvor_bk.t; INSERT INTO nimvor_bk.t VALUES ('héllo');")
 	t.Cleanup(func() {
-		exec.Command("mysql", "-e", "DROP DATABASE IF EXISTS whacp_bk; DROP DATABASE IF EXISTS whacp_bk2").Run()
+		exec.Command("mysql", "-e", "DROP DATABASE IF EXISTS nimvor_bk; DROP DATABASE IF EXISTS nimvor_bk2").Run()
 	})
 
 	var buf bytes.Buffer
-	m, err := s.CreateSite(context.Background(), SiteRequest{Domain: "rt.test", User: "whacprtbk", Root: root, Files: true, Databases: []string{"whacp_bk"}, Encrypt: true}, cred, &buf)
+	m, err := s.CreateSite(context.Background(), SiteRequest{Domain: "rt.test", User: "nimvorrtbk", Root: root, Files: true, Databases: []string{"nimvor_bk"}, Encrypt: true}, cred, &buf)
 	if err != nil {
 		t.Fatalf("%v\n%s", err, buf.String())
 	}
 	// Change things, then restore.
 	os.Remove(filepath.Join(root, "public_html/index.php"))
-	mysql("CREATE DATABASE whacp_bk2")
-	if _, err := s.Restore(context.Background(), RestoreRequest{Domain: "rt.test", User: "whacprtbk", Root: root, ID: m.ID, Files: true, Databases: map[string]string{"whacp_bk": "whacp_bk2"}, Safety: true}, cred, &buf); err != nil {
+	mysql("CREATE DATABASE nimvor_bk2")
+	if _, err := s.Restore(context.Background(), RestoreRequest{Domain: "rt.test", User: "nimvorrtbk", Root: root, ID: m.ID, Files: true, Databases: map[string]string{"nimvor_bk": "nimvor_bk2"}, Safety: true}, cred, &buf); err != nil {
 		t.Fatalf("%v\n%s", err, buf.String())
 	}
 	b, err := os.ReadFile(filepath.Join(root, "public_html/index.php"))
@@ -88,7 +88,7 @@ func TestRealHostBackupRestore(t *testing.T) {
 	if l, _ := os.Readlink(filepath.Join(root, "current")); l != "public_html" {
 		t.Errorf("symlink = %q", l)
 	}
-	out, _ := exec.Command("mysql", "-N", "-e", "SELECT v FROM whacp_bk2.t").Output()
+	out, _ := exec.Command("mysql", "-N", "-e", "SELECT v FROM nimvor_bk2.t").Output()
 	if string(bytes.TrimSpace(out)) != "héllo" {
 		t.Fatalf("db restore = %q", out)
 	}

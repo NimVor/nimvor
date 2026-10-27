@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class ImportTest extends HttpTestCase
 {
@@ -15,7 +15,7 @@ final class ImportTest extends HttpTestCase
         'domain' => 'old.test', 'source' => '/var/www/old', 'target' => '/home/old/old.test/public_html', 'user' => 'old',
         'steps' => [['file' => '/etc/nginx/sites-available/old', 'action' => 'unlink', 'path' => '/etc/nginx/sites-enabled/old', 'names' => ['old.test']]],
         'files' => 12, 'bytes' => 4096, 'skipped_links' => [], 'database' => 'olddb', 'database_source' => 'wp-config.php',
-        'new_config' => 'server { # whacp }', 'old_config' => 'server { root /var/www/old; }', 'blockers' => [], 'warnings' => [],
+        'new_config' => 'server { # nimvor }', 'old_config' => 'server { root /var/www/old; }', 'blockers' => [], 'warnings' => [],
     ];
 
     protected function setUp(): void
@@ -41,7 +41,7 @@ final class ImportTest extends HttpTestCase
         $body = $this->request('GET', '/websites/abc123/import')->body();
         self::assertStringContainsString('/etc/nginx/sites-enabled/old', $body);
         self::assertStringContainsString('olddb', $body);
-        self::assertStringContainsString('server { # whacp }', $body);
+        self::assertStringContainsString('server { # nimvor }', $body);
         $call = $this->lastCall('adopt.preview');
         self::assertSame('/var/www/old', $call['source']);
         self::assertSame('old.test', $call['spec']['domain']);

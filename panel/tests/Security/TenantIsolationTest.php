@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Security;
+namespace NimVor\Tests\Security;
 
-use WhaCP\Database\Connection;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * Release gate: a hosting customer sees and changes only their own
@@ -18,7 +18,7 @@ final class TenantIsolationTest extends HttpTestCase
     private int $theirs;
 
     /** Markers that must never reach another tenant. */
-    private const SECRETS = ['victim.test', 'S3cretDumpPass', '/home/whacp/victim.test'];
+    private const SECRETS = ['victim.test', 'S3cretDumpPass', '/home/nimvor/victim.test'];
 
     protected function setUp(): void
     {
@@ -29,21 +29,21 @@ final class TenantIsolationTest extends HttpTestCase
         $now = gmdate('c');
         foreach ([[$alice, 'alice.test'], [$bob, 'victim.test']] as [$owner, $domain]) {
             $this->db->run("INSERT INTO websites (server_id, owner_id, domain, system_user, root, document_root, kind, php_version, created_at, updated_at) VALUES (1, ?, ?, ?, ?, ?, 'php', '8.3', ?, ?)",
-                [$owner, $domain, substr(str_replace('.', '', $domain), 0, 8), '/home/whacp/' . $domain, '/home/whacp/' . $domain . '/public_html', $now, $now]);
+                [$owner, $domain, substr(str_replace('.', '', $domain), 0, 8), '/home/nimvor/' . $domain, '/home/nimvor/' . $domain . '/public_html', $now, $now]);
         }
         $this->mine = (int) $this->db->scalar("SELECT id FROM websites WHERE domain = 'alice.test'");
         $this->theirs = (int) $this->db->scalar("SELECT id FROM websites WHERE domain = 'victim.test'");
         $site = static fn (string $d): array => [
             'id' => md5($d), 'domain' => $d, 'aliases' => ['www.' . $d], 'enabled' => true, 'kind' => 'php',
-            'document_root' => '/home/whacp/' . $d . '/public_html', 'document_root_exists' => true, 'https' => true, 'https_redirect' => false,
-            'php' => ['version' => '8.3', 'pool' => 'whacp-' . $d, 'listen' => 'unix:/run/php/whacp-' . $d . '.sock', 'user' => 'x', 'resolved' => true],
+            'document_root' => '/home/nimvor/' . $d . '/public_html', 'document_root_exists' => true, 'https' => true, 'https_redirect' => false,
+            'php' => ['version' => '8.3', 'pool' => 'nimvor-' . $d, 'listen' => 'unix:/run/php/nimvor-' . $d . '.sock', 'user' => 'x', 'resolved' => true],
             'ssl' => ['cert_file' => '/etc/letsencrypt/live/' . $d . '/fullchain.pem', 'names' => [$d], 'issuer' => 'R3', 'not_after' => '2030-01-01T00:00:00Z', 'days_remaining' => 900, 'status' => 'valid', 'lets_encrypt' => true, 'covers_domain' => true],
-            'listen' => ['443 ssl'], 'config_files' => ['/etc/nginx/sites-available/whacp-' . $d . '.conf'], 'access_logs' => [], 'error_logs' => [], 'managed_by' => 'NimVor', 'proxy_pass' => '',
+            'listen' => ['443 ssl'], 'config_files' => ['/etc/nginx/sites-available/nimvor-' . $d . '.conf'], 'access_logs' => [], 'error_logs' => [], 'managed_by' => 'NimVor', 'proxy_pass' => '',
         ];
         $this->agent->succeed('discovery.inventory', [
             'websites' => ['websites' => [$site('alice.test'), $site('victim.test')], 'catch_all_vhosts' => 0, 'warnings' => []],
             'php' => ['versions' => [['version' => '8.3', 'is_default' => true, 'pool_count' => 2, 'cli_binary' => '/usr/bin/php8.3', 'fpm_binary' => '/usr/sbin/php-fpm8.3']],
-                'pools' => [['name' => 'whacp-victim.test', 'version' => '8.3', 'file' => '/etc/php/8.3/fpm/pool.d/whacp-victim.test.conf', 'listen' => '/run/php/x.sock', 'user' => 'victim']], 'warnings' => []],
+                'pools' => [['name' => 'nimvor-victim.test', 'version' => '8.3', 'file' => '/etc/php/8.3/fpm/pool.d/nimvor-victim.test.conf', 'listen' => '/run/php/x.sock', 'user' => 'victim']], 'warnings' => []],
             'databases' => ['installed' => true, 'schemas' => [['name' => 'victim_test_db']], 'warnings' => []],
             'redis' => ['installed' => false, 'warnings' => []],
             'certificates' => [['name' => 'victim.test', 'domains' => ['victim.test'], 'certificate' => ['days_remaining' => 80]]],

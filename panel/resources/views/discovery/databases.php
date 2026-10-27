@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 $schemas = $db['schemas'] ?? [];
 ?>
 <?php $this->start(); ?>Databases<?php $this->end('title'); ?>
@@ -15,7 +15,7 @@ $schemas = $db['schemas'] ?? [];
                 <?php if (empty($db['installed'])): ?>
                     <p class="text-body-secondary mb-0">MySQL or MariaDB was not detected.</p>
                 <?php else: ?>
-                    <dl class="wcp-dl">
+                    <dl class="nim-dl">
                         <dt>Engine</dt><dd><?= e($db['engine'] === 'mariadb' ? 'MariaDB' : 'MySQL') ?> <?= e($db['version'] ?? '') ?></dd>
                         <dt>Listen</dt><dd><?= e(($db['bind_address'] ?? '') !== '' ? $db['bind_address'] : 'default') ?>:<?= (int) ($db['port'] ?? 3306) ?></dd>
                         <?php if (!empty($db['socket'])): ?><dt>Socket</dt><dd><code class="small"><?= e($db['socket']) ?></code></dd><?php endif; ?>
@@ -33,7 +33,7 @@ $schemas = $db['schemas'] ?? [];
                 <?php if (empty($redis['installed'])): ?>
                     <p class="text-body-secondary mb-0">Redis was not detected.</p>
                 <?php else: ?>
-                    <dl class="wcp-dl">
+                    <dl class="nim-dl">
                         <dt>Version</dt><dd><?= e(($redis['version'] ?? '') !== '' ? $redis['version'] : 'unknown') ?></dd>
                         <dt>Bind</dt><dd><?= e($redis['bind'] ?? 'default') ?><?= !empty($redis['port']) ? ' : ' . e($redis['port']) : '' ?></dd>
                         <?php if (!empty($redis['unix_socket'])): ?><dt>Socket</dt><dd><code class="small"><?= e($redis['unix_socket']) ?></code></dd><?php endif; ?>
@@ -52,7 +52,7 @@ $schemas = $db['schemas'] ?? [];
                 <div class="card-body text-body-secondary small">No user databases were found in the data directory.</div>
             <?php else: ?>
                 <div class="table-responsive">
-                    <table class="table table-hover mb-0 wcp-table">
+                    <table class="table table-hover mb-0 nim-table">
                         <thead><tr><th>Name</th><th class="text-end">Tables</th><th class="text-end">Size on disk</th></tr></thead>
                         <tbody>
                         <?php foreach ($schemas as $s): ?>

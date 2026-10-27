@@ -27,20 +27,20 @@ func TestLimitedAccountGetsOwnFPMMaster(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := AccountFPM{User: "newsite", Version: "8.3"}
-	if h.Exists("etc/php/8.3/fpm/pool.d/whacp-new.test.conf") {
+	if h.Exists("etc/php/8.3/fpm/pool.d/nimvor-new.test.conf") {
 		t.Fatal("pool still in the shared master")
 	}
-	pool := h.Read(strings.TrimPrefix(filepath.Join(a.PoolDir(), "whacp-new.test.conf"), "/"))
-	if !strings.Contains(pool, "listen = /run/php/whacp-new.test.sock") {
+	pool := h.Read(strings.TrimPrefix(filepath.Join(a.PoolDir(), "nimvor-new.test.conf"), "/"))
+	if !strings.Contains(pool, "listen = /run/php/nimvor-new.test.sock") {
 		t.Fatalf("pool:\n%s", pool)
 	}
 	unit := h.Read(strings.TrimPrefix(filepath.Join(h.Env.M.UnitDir, a.Unit()), "/"))
-	for _, want := range []string{"Slice=whacp-acct3.slice", "--fpm-config /etc/whacp-fpm/newsite-8.3/php-fpm.conf", "--nodaemonize"} {
+	for _, want := range []string{"Slice=nimvor-acct3.slice", "--fpm-config /etc/nimvor-fpm/newsite-8.3/php-fpm.conf", "--nodaemonize"} {
 		if !strings.Contains(unit, want) {
 			t.Errorf("unit lacks %q:\n%s", want, unit)
 		}
 	}
-	for _, c := range []string{"php-fpm8.3 -t -y /etc/whacp-fpm/newsite-8.3/php-fpm.conf", "systemctl reload -- php8.3-fpm.service", "systemctl enable -- " + a.Unit()} {
+	for _, c := range []string{"php-fpm8.3 -t -y /etc/nimvor-fpm/newsite-8.3/php-fpm.conf", "systemctl reload -- php8.3-fpm.service", "systemctl enable -- " + a.Unit()} {
 		if !h.Runner.Called(c) {
 			t.Errorf("expected %q; calls=%v", c, h.Runner.Calls)
 		}
@@ -50,7 +50,7 @@ func TestLimitedAccountGetsOwnFPMMaster(t *testing.T) {
 	if _, err := m.Apply(ctx, spec()); err != nil {
 		t.Fatal(err)
 	}
-	if !h.Exists("etc/php/8.3/fpm/pool.d/whacp-new.test.conf") || h.Exists(strings.TrimPrefix(filepath.Join(h.Env.M.UnitDir, a.Unit()), "/")) {
+	if !h.Exists("etc/php/8.3/fpm/pool.d/nimvor-new.test.conf") || h.Exists(strings.TrimPrefix(filepath.Join(h.Env.M.UnitDir, a.Unit()), "/")) {
 		t.Fatal("not moved back")
 	}
 	if !h.Runner.Called("systemctl disable -- " + a.Unit()) {

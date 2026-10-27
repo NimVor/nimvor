@@ -1,4 +1,4 @@
-// Package capability detects whether a functionality WhaCP depends on is
+// Package capability detects whether a functionality NimVor depends on is
 // available, whatever put it there: a distribution package, an rpm, a
 // module compiled from source or a dynamic module copied by hand. It looks
 // at the functionality itself (the Nginx module file, the libraries it
@@ -50,7 +50,7 @@ type NginxModule struct {
 	Libraries []string
 	// Static matches a --add-module= path of a module built into nginx.
 	Static *regexp.Regexp
-	// Package is WhaCP's (Debian) name of the package that provides it.
+	// Package is NimVor's (Debian) name of the package that provides it.
 	Package string
 }
 
@@ -203,7 +203,7 @@ func Inspect(ctx context.Context, e *host.Env) (Nginx, bool) {
 }
 
 // ModuleDirs are where dynamic modules are looked for: the path compiled
-// into nginx, the distributions' usual places and WhaCP's own.
+// into nginx, the distributions' usual places and NimVor's own.
 func ModuleDirs(n Nginx) []string {
 	dirs := []string{}
 	if n.ModulesPath != "" {
@@ -211,7 +211,7 @@ func ModuleDirs(n Nginx) []string {
 	}
 	dirs = append(dirs, path.Join(n.Prefix, "modules"),
 		"/usr/lib/nginx/modules", "/usr/lib64/nginx/modules", "/usr/share/nginx/modules",
-		"/etc/nginx/modules", "/usr/local/nginx/modules", "/usr/local/lib/whacp/nginx-modules")
+		"/etc/nginx/modules", "/usr/local/nginx/modules", "/usr/local/lib/nimvor/nginx-modules")
 	seen := map[string]bool{}
 	out := []string{}
 	for _, d := range dirs {

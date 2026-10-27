@@ -24,8 +24,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
     };
     await signIn();
     await page.goto(BASE + '/profile#security-keys');
-    await page.fill('[data-wcp-key-add] input[name=name]', 'Virtual key');
-    await Promise.all([page.waitForNavigation(), page.click('[data-wcp-key-add] button')]);
+    await page.fill('[data-nim-key-add] input[name=name]', 'Virtual key');
+    await Promise.all([page.waitForNavigation(), page.click('[data-nim-key-add] button')]);
     await page.waitForSelector('#security-keys :text("Virtual key")');
     step('key added');
 
@@ -36,7 +36,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.waitForURL(/\/login/);
     await signIn();
     if (!page.url().includes('/login/two-factor')) { throw new Error('no second factor asked: ' + page.url()); }
-    await Promise.all([page.waitForNavigation(), page.click('[data-wcp-key-login]')]);
+    await Promise.all([page.waitForNavigation(), page.click('[data-nim-key-login]')]);
     if (new URL(page.url()).pathname !== '/') { throw new Error('not signed in: ' + page.url() + ' ' + await page.textContent('body')); }
     step('signed in with the key');
 

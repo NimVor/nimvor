@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
 
 /**
  * Cached (per request) answer to "can this agent modify the server?".

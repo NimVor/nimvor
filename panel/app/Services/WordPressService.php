@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Database\Connection;
-use WhaCP\Hosting\Scope;
-use WhaCP\Support\UserFacingException;
+use NimVor\Agent\AgentClient;
+use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
+use NimVor\Support\UserFacingException;
 
 /**
  * WordPress toolkit. The agent finds installations in websites (reading
@@ -389,7 +389,7 @@ final class WordPressService
         }
         $res = self::arr($this->agent->call('wordpress.login', self::target($site, $install) + ['admin_id' => $adminId], 90));
         $file = (string) ($res['file'] ?? '');
-        if (!preg_match('/^whacp-login-[a-f0-9]{32}\.php$/', $file)) {
+        if (!preg_match('/^nimvor-login-[a-f0-9]{32}\.php$/', $file)) {
             throw new UserFacingException('The sign-in link could not be created.');
         }
         $this->audit->record('wordpress.login', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'path' => $install['path'], 'admin_id' => $adminId], (int) $actor['id']);

@@ -3,7 +3,7 @@
 // clamscan runs as the website's own account: it reads only what that
 // account can read, and a crafted file that attacks the scanner gains
 // nothing beyond the website. Quarantine moves infected files into the
-// website's .whacp-quarantine folder (mode 0000), confined to the website
+// website's .nimvor-quarantine folder (mode 0000), confined to the website
 // folder: a path reported by the scan is never followed out of it.
 package avmgr
 
@@ -32,7 +32,7 @@ import (
 )
 
 // QuarantineDir is the folder, inside the website, infected files are moved to.
-const QuarantineDir = ".whacp-quarantine"
+const QuarantineDir = ".nimvor-quarantine"
 
 // FreshclamUnits update the signatures (Debian, RHEL).
 var FreshclamUnits = []string{"clamav-freshclam.service", "clamav-freshclam"}

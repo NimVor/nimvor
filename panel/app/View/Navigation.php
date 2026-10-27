@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\View;
+namespace NimVor\View;
 
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 /**
  * The panel's areas for administrators and resellers: the sidebar, the
@@ -79,7 +79,7 @@ final class Navigation
                     ['SSL / Let\'s Encrypt', 'logs', P::LOGS_VIEW, ['view' => 'ssl']],
                     ['System', 'logs', P::LOGS_VIEW, ['view' => 'system']],
                     ['Services', 'logs', P::LOGS_VIEW, ['view' => 'services']],
-                    ['NimVor', 'logs', P::LOGS_VIEW, ['view' => 'whacp']],
+                    ['NimVor', 'logs', P::LOGS_VIEW, ['view' => 'nimvor']],
                     ['Audit log', 'audit', P::AUDIT_VIEW],
                     ['AutoSSL log', 'ssl.autossl', P::SSL_VIEW],
                     ['ModSecurity events', 'security.modsec', P::SECURITY_VIEW, ['tab' => 'events']],
@@ -231,7 +231,7 @@ final class Navigation
      *
      * @return array<string, list<string>> permission => page labels
      */
-    public static function coverage(\WhaCP\Http\Router $router): array
+    public static function coverage(\NimVor\Http\Router $router): array
     {
         $entries = [];
         $top = [];
@@ -262,7 +262,7 @@ final class Navigation
         $site = [
             '/' => 'Dashboard', '/sites' => 'Website pages (files, PHP, SSL, logs… of a website)',
             '/api' => 'API (the same actions with a token)', '/topbar' => 'Top bar server status',
-            '/whacp' => 'NimVor update',
+            '/nimvor' => 'NimVor update',
         ];
         $out = [];
         foreach ($router->routes() as $r) {

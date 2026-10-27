@@ -94,9 +94,9 @@ func databaseChecks(ctx context.Context, env *host.Env) []Check {
 	switch {
 	case st == "warn" && distroPackageRe.MatchString(version):
 		c1.Severity = "low"
-		c1.Remedy = "Keep it updated under Server → Packages (the operating system's security fixes arrive there). A newer series (MariaDB 10.11 or later) needs MariaDB's own repository and a dump and restore of every database; WhaCP does not do that move."
+		c1.Remedy = "Keep it updated under Server → Packages (the operating system's security fixes arrive there). A newer series (MariaDB 10.11 or later) needs MariaDB's own repository and a dump and restore of every database; NimVor does not do that move."
 	case st != "pass" && st != "info":
-		c1.Remedy = "Upgrade the database server to a long-term supported release (a dump and restore of every database; WhaCP does not do that move)."
+		c1.Remedy = "Upgrade the database server to a long-term supported release (a dump and restore of every database; NimVor does not do that move)."
 	}
 	out = append(out, c1)
 	if n, _ := strconv.Atoi(rows[1][0]); n > 0 {
@@ -173,7 +173,7 @@ func databaseAccountChecks(ctx context.Context, c dbmgr.Client, listening []List
 	}
 
 	// Global privileges: an account with them reaches every website's
-	// database. WhaCP gives website accounts privileges on their own
+	// database. NimVor gives website accounts privileges on their own
 	// databases only.
 	if rows, err := c.Query(ctx, "SELECT User, Host FROM mysql.user WHERE User NOT IN ("+dbSystemUsers+") AND User <> '' AND Host <> '' AND (Select_priv = 'Y' OR Insert_priv = 'Y' OR Update_priv = 'Y' OR Delete_priv = 'Y' OR Create_priv = 'Y' OR Drop_priv = 'Y' OR Alter_priv = 'Y' OR File_priv = 'Y' OR Super_priv = 'Y' OR Grant_priv = 'Y' OR Process_priv = 'Y' OR Reload_priv = 'Y' OR Shutdown_priv = 'Y') ORDER BY User, Host;"); err == nil {
 		ch := Check{ID: "database_global_privileges", Title: "Database accounts with access to every database", Severity: "high", Status: "pass", Detail: "No account besides the server's own has privileges on all databases."}
@@ -189,7 +189,7 @@ func databaseAccountChecks(ctx context.Context, c dbmgr.Client, listening []List
 		ch := Check{ID: "database_grant_option", Title: "Database accounts that can grant access", Severity: "medium", Status: "pass", Detail: "No website database account can pass its privileges on."}
 		if len(rows) > 0 {
 			ch.Status, ch.Detail = "warn", "These accounts hold WITH GRANT OPTION on a database: "+names(rows)+"."
-			ch.Remedy = "Revoke it (REVOKE GRANT OPTION ON db.* FROM ...); WhaCP never grants it."
+			ch.Remedy = "Revoke it (REVOKE GRANT OPTION ON db.* FROM ...); NimVor never grants it."
 		}
 		out = append(out, ch)
 	}

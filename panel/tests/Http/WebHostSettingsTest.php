@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Mail\MailConfig;
-use WhaCP\Services\SettingsService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Mail\MailConfig;
+use NimVor\Services\SettingsService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Basic WebHost Settings and Tweak Settings. */
 final class WebHostSettingsTest extends HttpTestCase

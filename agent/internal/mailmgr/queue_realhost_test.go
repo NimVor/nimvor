@@ -55,7 +55,7 @@ func TestRealHostMailQueue(t *testing.T) {
 		exec.Command("postconf", "-e", "defer_transports="+strings.TrimSpace(string(prevDefer))).Run()
 		exec.Command("postfix", "reload").Run()
 	})
-	rcpt := fmt.Sprintf("n%d@whacp-queue-test.invalid", time.Now().UnixNano())
+	rcpt := fmt.Sprintf("n%d@nimvor-queue-test.invalid", time.Now().UnixNano())
 	msg := "From: Tester <tester@example.com>\nTo: " + rcpt + "\nSubject: =?UTF-8?B?UXVldWUgdGVzdCDinJM=?=\n\nhello\n"
 	cmd := exec.Command("sendmail", "-f", "tester@example.com", rcpt)
 	cmd.Stdin = strings.NewReader(msg)

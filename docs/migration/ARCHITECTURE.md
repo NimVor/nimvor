@@ -1,4 +1,4 @@
-# WhaCP PHP → Go — Target Architecture & Compatibility Decisions
+# NimVor PHP → Go — Target Architecture & Compatibility Decisions
 
 The Go control panel replaces `panel/` (PHP). It keeps the **existing Go agent**
 (`agent/`, its own module, unix-socket protocol), the **existing SQLite DB and
@@ -6,14 +6,14 @@ its 57 migrations**, the **Bootstrap 5 frontend + the 12 JS files unchanged**,
 and the **authorization / tenant-isolation / feature-gating / audit** model.
 
 ## Module layout
-New Go module `github.com/mchkhawarshahzad/whacp/server` under `server/`.
+New Go module `github.com/NimVor/nimvor/server` under `server/`.
 It does NOT import the agent's `internal/` packages (unimportable); it speaks the
 agent's wire protocol through its own small client.
 
 ```
 server/
-  cmd/whacp/            main HTTP server
-  cmd/whacp-migrate/    run/inspect DB migrations
+  cmd/nimvor/            main HTTP server
+  cmd/nimvor-migrate/    run/inspect DB migrations
   internal/config/      paths, env, secrets locations
   internal/database/    sqlite open (same PRAGMAs) + migrator (name-compatible)
   internal/identity/    password verify (argon2id + bcrypt), users
@@ -50,7 +50,7 @@ server/
    test that verifies a hash produced by PHP `password_hash`.
 4. **Sessions:** PHP used native file sessions (not DB). Go uses authenticated-
    encryption cookies via `nacl/secretbox` keyed from the existing
-   `/etc/whacp/panel.key` (libsodium secretbox == nacl secretbox, wire
+   `/etc/nimvor/panel.key` (libsodium secretbox == nacl secretbox, wire
    compatible). `session_epoch` on the user still invalidates all sessions.
    Cutover invalidates in-flight PHP sessions (users re-login) — documented.
 5. **CSRF:** per-session token in the session cookie, required on state-changing

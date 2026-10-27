@@ -42,7 +42,7 @@ func Register(r *actions.Registry, env *host.Env) {
 	r.Register(actions.Action{Name: "firewall.protection", Description: "Firewall protections in the manner of CSF (SYN flood, connection limits, port flood, invalid packets, ping rate): the applied configuration, whether its nftables table is loaded, and what each protection dropped.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return ProtectionStatus(ctx, env), nil
 	}})
-	r.Register(actions.Action{Name: "firewall.protection_set", Mutating: true, Description: "Apply the firewall protections (nftables table inet whacp_flood, next to UFW or firewalld; it only drops or rejects). Undone automatically unless confirmed.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "firewall.protection_set", Mutating: true, Description: "Apply the firewall protections (nftables table inet nimvor_flood, next to UFW or firewalld; it only drops or rejects). Undone automatically unless confirmed.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in Protection
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
@@ -54,10 +54,10 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return guarded(pending, err)
 	}})
-	r.Register(actions.Action{Name: "security.integrity", Description: "File integrity check: package-owned files verified with dpkg/rpm and WhaCP-owned files compared against a baseline, classified and graded (read-only).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "security.integrity", Description: "File integrity check: package-owned files verified with dpkg/rpm and NimVor-owned files compared against a baseline, classified and graded (read-only).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return CheckIntegrity(ctx, env, time.Now()), nil
 	}})
-	r.Register(actions.Action{Name: "security.integrity_baseline", Mutating: true, Description: "Record the current state of the WhaCP-owned files (agent binary, agent configuration) as the integrity baseline. Run after an install or upgrade.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "security.integrity_baseline", Mutating: true, Description: "Record the current state of the NimVor-owned files (agent binary, agent configuration) as the integrity baseline. Run after an install or upgrade.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		n, err := WriteIntegrityBaseline(env)
 		if err != nil {
 			return nil, actions.Failed("The integrity baseline could not be written.", err.Error())
@@ -259,7 +259,7 @@ func Register(r *actions.Registry, env *host.Env) {
 	r.Register(actions.Action{Name: "fail2ban.status", Description: "fail2ban jails and banned addresses.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return Fail2ban(ctx, env), nil
 	}})
-	r.Register(actions.Action{Name: "fail2ban.configure", Mutating: true, Description: "Write the WhaCP jail file, test it and reload fail2ban.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "fail2ban.configure", Mutating: true, Description: "Write the NimVor jail file, test it and reload fail2ban.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in Fail2banSettings
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err

@@ -23,8 +23,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
   };
   const search = async (text) => {
     await page.keyboard.press('Control+k');
-    await page.waitForSelector('#wcp-palette.show');
-    await page.waitForFunction(() => document.activeElement && document.activeElement.matches('[data-wcp-palette-input]'));
+    await page.waitForSelector('#nim-palette.show');
+    await page.waitForFunction(() => document.activeElement && document.activeElement.matches('[data-nim-palette-input]'));
     await page.keyboard.type(text);
   };
   try {
@@ -37,12 +37,12 @@ const OUT = process.env.E2E_OUT || '/tmp';
     step('dashboard: welcome strip, quick actions, tools grid');
 
     await search('backup');
-    const first = (await page.textContent('[data-wcp-palette-item].is-first')).trim();
+    const first = (await page.textContent('[data-nim-palette-item].is-first')).trim();
     if (!first.startsWith('Backups')) { throw new Error('first match: ' + first); }
     await Promise.all([page.waitForNavigation(), page.keyboard.press('Enter')]);
     if (!page.url().endsWith('/backups')) { throw new Error('Enter opened ' + page.url()); }
     await search('zzzz-nothing');
-    if (!(await page.isVisible('[data-wcp-palette-empty]'))) { throw new Error('no "Nothing matches"'); }
+    if (!(await page.isVisible('[data-nim-palette-empty]'))) { throw new Error('no "Nothing matches"'); }
     await page.keyboard.press('Escape');
     step('Ctrl+K search filters and Enter opens the first match');
 
@@ -64,7 +64,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
       if (rmain.includes(s)) { throw new Error('reseller sees server detail ' + s); }
     }
     await search('packages');
-    if (await page.$('[data-wcp-palette-item]:not(.d-none):has-text("Packages")')) { throw new Error('server tools offered to a reseller'); }
+    if (await page.$('[data-nim-palette-item]:not(.d-none):has-text("Packages")')) { throw new Error('server tools offered to a reseller'); }
     await page.keyboard.press('Escape');
     await page.screenshot({ path: path.join(OUT, 'nav-reseller.png'), fullPage: true });
     step('reseller dashboard without server details or tools');

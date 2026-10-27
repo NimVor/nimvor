@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
 final class PasswordHasher
 {

@@ -2,7 +2,7 @@
 /**
  * PHP Manager: the review of a profile before applying it.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array{versions: list<string>, extensions: list<string>} $profile
  * @var array{items: list<array<string, mixed>>, changes: bool, removals: bool} $plan
  * @var array<string, string> $eol
@@ -27,21 +27,21 @@ $what = static fn (array $it): string => 'PHP ' . $it['version'] . (($it['extens
 
 <div class="row g-3 mb-3">
     <?php foreach ($groups as $k => [$label, $icon]): if (empty($by[$k])) { continue; } ?>
-        <div class="col-6 col-md-4 col-xl"><div class="wcp-panel p-3 h-100" data-group="<?= e($k) ?>"><div class="small wcp-muted"><i class="bi <?= e($icon) ?> me-1" aria-hidden="true"></i><?= e($label) ?></div><div class="fs-4 fw-semibold"><?= count($by[$k]) ?></div></div></div>
+        <div class="col-6 col-md-4 col-xl"><div class="nim-panel p-3 h-100" data-group="<?= e($k) ?>"><div class="small nim-muted"><i class="bi <?= e($icon) ?> me-1" aria-hidden="true"></i><?= e($label) ?></div><div class="fs-4 fw-semibold"><?= count($by[$k]) ?></div></div></div>
     <?php endforeach; ?>
 </div>
 
 <?php foreach ($groups as $k => [$label, $icon]): if (empty($by[$k])) { continue; } ?>
-    <details class="wcp-panel mb-3"<?= $k === 'unchanged' ? '' : ' open' ?> data-review="<?= e($k) ?>">
+    <details class="nim-panel mb-3"<?= $k === 'unchanged' ? '' : ' open' ?> data-review="<?= e($k) ?>">
         <summary class="p-3 fw-semibold"><i class="bi <?= e($icon) ?> me-1" aria-hidden="true"></i><?= e($label) ?> (<?= count($by[$k]) ?>)</summary>
-        <div class="wcp-dtable table-responsive">
+        <div class="nim-dtable table-responsive">
             <table class="table table-sm align-middle mb-0">
                 <tbody>
                 <?php foreach ($by[$k] as $it): ?>
                     <tr>
                         <td class="fw-medium text-nowrap"><?= e($what($it)) ?></td>
                         <td class="small"><?= e((string) ($it['detail'] ?? '')) ?></td>
-                        <td class="small font-monospace wcp-muted text-break"><?= e(implode(' ', (array) ($it['packages'] ?? []))) ?></td>
+                        <td class="small font-monospace nim-muted text-break"><?= e(implode(' ', (array) ($it['packages'] ?? []))) ?></td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -51,10 +51,10 @@ $what = static fn (array $it): string => 'PHP ' . $it['version'] . (($it['extens
 <?php endforeach; ?>
 
 <?php if (empty($plan['changes'])): ?>
-    <div class="wcp-infobar mb-3"><i class="bi bi-check-circle-fill" aria-hidden="true"></i><span>The server already matches this profile: nothing to apply.</span></div>
+    <div class="nim-infobar mb-3"><i class="bi bi-check-circle-fill" aria-hidden="true"></i><span>The server already matches this profile: nothing to apply.</span></div>
     <a class="btn btn-outline-secondary" href="<?= e($this->url('php.manager')) ?>">Back</a>
 <?php else: ?>
-    <form method="post" action="<?= e($this->url('php.manager.apply')) ?>" class="wcp-panel p-3" data-wcp-busy>
+    <form method="post" action="<?= e($this->url('php.manager.apply')) ?>" class="nim-panel p-3" data-nim-busy>
         <?= $this->csrfField() ?>
         <?php foreach ($profile['versions'] as $v): ?><input type="hidden" name="versions[]" value="<?= e($v) ?>"><?php endforeach; ?>
         <?php foreach ($profile['extensions'] as $x): ?><input type="hidden" name="extensions[]" value="<?= e($x) ?>"><?php endforeach; ?>
@@ -67,7 +67,7 @@ $what = static fn (array $it): string => 'PHP ' . $it['version'] . (($it['extens
         <div class="d-flex flex-wrap align-items-center gap-2">
             <button class="btn btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Apply</button>
             <a class="btn btn-outline-secondary" href="<?= e($this->url('php.manager')) ?>">Change the selection</a>
-            <span class="small wcp-muted">Runs as one job (see its log). The plan is checked again when it starts; each version is tested and started at boot afterwards. The profile is kept for next time and can be exported.</span>
+            <span class="small nim-muted">Runs as one job (see its log). The plan is checked again when it starts; each version is tested and started at boot afterwards. The profile is kept for next time and can be exported.</span>
         </div>
     </form>
 <?php endif; ?>

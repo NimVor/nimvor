@@ -34,9 +34,9 @@ const DEV_ROOT = process.env.E2E_DEV_ROOT || path.join(__dirname, '../../.dev/ro
   const stamp = Date.now().toString(36).slice(-5);
   // The job log window opens after a job starts: close it.
   const closeJob = async () => {
-    if (await page.waitForSelector('#wcp-job.show', { timeout: 2000 }).catch(() => null)) {
-      await page.click('#wcp-job .btn-close');
-      await page.waitForSelector('#wcp-job', { state: 'hidden' });
+    if (await page.waitForSelector('#nim-job.show', { timeout: 2000 }).catch(() => null)) {
+      await page.click('#nim-job .btn-close');
+      await page.waitForSelector('#nim-job', { state: 'hidden' });
     }
   };
   try {
@@ -50,14 +50,14 @@ const DEV_ROOT = process.env.E2E_DEV_ROOT || path.join(__dirname, '../../.dev/ro
     await page.goto(BASE + '/accounts/new');
     await page.fill('#a-domain', domain);
     await page.fill('#a-username', user);
-    await page.click('[data-wcp-genpass="#a-password"]');
+    await page.click('[data-nim-genpass="#a-password"]');
     await page.fill('#a-email', user + '@example.test');
     await nav(() => page.click('main form button[type=submit]:has-text("Create account")'));
     if (!/\/users\/\d+\/edit$/.test(page.url())) { throw new Error('account not created: ' + (await main()).slice(0, 300)); }
     step('account ' + user + ' with ' + domain);
 
     await page.goto(BASE + '/backups');
-    const tabs = await page.$$eval('.wcp-subtabs [role=tab]', b => b.map(x => x.textContent.replace(/\s+[\d/]+\s*$/, '').trim()));
+    const tabs = await page.$$eval('.nim-subtabs [role=tab]', b => b.map(x => x.textContent.replace(/\s+[\d/]+\s*$/, '').trim()));
     if (JSON.stringify(tabs) !== JSON.stringify(['Website backups', 'Server configuration', 'Remote storage', 'Account backups'])) { throw new Error('tabs: ' + JSON.stringify(tabs)); }
     step('tabs in order');
 
@@ -104,11 +104,11 @@ const DEV_ROOT = process.env.E2E_DEV_ROOT || path.join(__dirname, '../../.dev/ro
     await page.fill('#kd-cur', 'dev-password-change-me');
     const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#key-download button.btn-primary')]);
     const keyFile = JSON.parse(fs.readFileSync(await dl.path(), 'utf8'));
-    if (keyFile.format !== 'whacp-backup-key' || !keyFile.ciphertext || keyFile.kdf !== 'pbkdf2-sha256' || !/^whacp-backup-key-[0-9a-f]+\.json$/.test(dl.suggestedFilename())) { throw new Error('key file: ' + JSON.stringify(keyFile)); }
+    if (keyFile.format !== 'nimvor-backup-key' || !keyFile.ciphertext || keyFile.kdf !== 'pbkdf2-sha256' || !/^nimvor-backup-key-[0-9a-f]+\.json$/.test(dl.suggestedFilename())) { throw new Error('key file: ' + JSON.stringify(keyFile)); }
     step('backup key downloaded, encrypted with the passphrase');
 
     // Remote storage: a local folder, tested, off/on, edited.
-    fs.mkdirSync(path.join(DEV_ROOT, 'mnt/whacp-e2e-' + stamp), { recursive: true });
+    fs.mkdirSync(path.join(DEV_ROOT, 'mnt/nimvor-e2e-' + stamp), { recursive: true });
     await page.goto(BASE + '/backups');
     await tab('storages');
     await page.click('button[data-bs-target="#storage-add"]');
@@ -116,7 +116,7 @@ const DEV_ROOT = process.env.E2E_DEV_ROOT || path.join(__dirname, '../../.dev/ro
     await page.selectOption('#sa-type', 'local');
     const sname = 'Disk ' + stamp;
     await page.fill('#storage-add input[name=name]', sname);
-    await page.fill('#storage-add input[name=path]', '/mnt/whacp-e2e-' + stamp);
+    await page.fill('#storage-add input[name=path]', '/mnt/nimvor-e2e-' + stamp);
     await nav(() => page.click('#storage-add button:has-text("Test and add")'));
     await tab('storages');
     const row = `tr[data-storage="${sname}"]`;
@@ -150,7 +150,7 @@ const DEV_ROOT = process.env.E2E_DEV_ROOT || path.join(__dirname, '../../.dev/ro
     await closeJob();
     if (!(await page.textContent(fileRow)).includes(domain)) { throw new Error('the file does not list the website: ' + await page.textContent(fileRow)); }
     const [adl] = await Promise.all([page.waitForEvent('download'), page.click(`${fileRow} a[title="Download"]`)]);
-    if (!adl.suggestedFilename().endsWith('.whacp-account') || fs.statSync(await adl.path()).size < 1024) { throw new Error('account file download'); }
+    if (!adl.suggestedFilename().endsWith('.nimvor-account') || fs.statSync(await adl.path()).size < 1024) { throw new Error('account file download'); }
     step('account backed up to one file; downloaded');
 
     // Terminate the account.
@@ -176,15 +176,15 @@ const DEV_ROOT = process.env.E2E_DEV_ROOT || path.join(__dirname, '../../.dev/ro
     await closeJob();
     page.once('dialog', d => d.accept());
     await page.click('main button:has-text("Recreate the account")');
-    const ok = await page.waitForSelector('#wcp-confirm.show [data-wcp-confirm-ok]', { timeout: 3000 }).catch(() => null);
+    const ok = await page.waitForSelector('#nim-confirm.show [data-nim-confirm-ok]', { timeout: 3000 }).catch(() => null);
     if (ok) { await nav(() => ok.click()); }
-    await page.waitForSelector('.wcp-restore-report', { timeout: 60000 });
+    await page.waitForSelector('.nim-restore-report', { timeout: 60000 });
     await closeJob();
     const report = await main();
     if (!report.includes('Account ' + user + ' created') || !report.includes('Website ' + domain + ' created') || !report.includes('Restoring the files')) { throw new Error('report: ' + report.slice(0, 900)); }
-    if (!(await page.$('[data-wcp-secret]'))) { throw new Error('the new password is not shown'); }
+    if (!(await page.$('[data-nim-secret]'))) { throw new Error('the new password is not shown'); }
     await page.reload();
-    if (await page.$('[data-wcp-secret]')) { throw new Error('the new password is shown twice'); }
+    if (await page.$('[data-nim-secret]')) { throw new Error('the new password is shown twice'); }
     await page.goto(BASE + '/websites');
     if (!(await main()).includes(domain)) { throw new Error('website not back'); }
     step('account restored from the file after termination: account, website, files');

@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $site */
 $ssl = $site['ssl'] ?? null;
 $php = $site['php'] ?? null;
@@ -10,7 +10,7 @@ $php = $site['php'] ?? null;
 <?php if (!empty($site['enabled'])): ?>
     <a class="btn btn-sm btn-outline-primary" href="<?= e((!empty($site['https']) ? 'https://' : 'http://') . $site['domain']) ?>" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i> Open</a>
 <?php endif; ?>
-<?php if ($this->can(\WhaCP\Security\Permissions::IMPORT_RUN) && empty($site['managed_by'])): ?>
+<?php if ($this->can(\NimVor\Security\Permissions::IMPORT_RUN) && empty($site['managed_by'])): ?>
     <a class="btn btn-sm btn-primary" href="<?= e($this->url('websites.import', ['id' => $site['id']])) ?>"><i class="bi bi-box-arrow-in-down"></i> Import into NimVor</a>
 <?php endif; ?>
 <?php $this->end('actions'); ?>
@@ -26,7 +26,7 @@ $php = $site['php'] ?? null;
         <div class="card h-100">
             <div class="card-header"><i class="bi bi-globe2 me-1"></i>General</div>
             <div class="card-body">
-                <dl class="wcp-dl">
+                <dl class="nim-dl">
                     <dt>Domain</dt><dd><?= e($site['domain']) ?></dd>
                     <dt>Aliases</dt><dd><?= $site['aliases'] === [] ? '<span class="text-body-secondary">none</span>' : e(implode(', ', $site['aliases'])) ?></dd>
                     <dt>Status</dt><dd><?= !empty($site['enabled']) ? $this->statusBadge('enabled') : $this->statusBadge('disabled') ?></dd>
@@ -55,7 +55,7 @@ $php = $site['php'] ?? null;
                 <?php if ($php === null): ?>
                     <p class="text-body-secondary mb-0">This website does not pass requests to PHP-FPM.</p>
                 <?php else: ?>
-                    <dl class="wcp-dl">
+                    <dl class="nim-dl">
                         <dt>Version</dt><dd><?= e($php['version'] !== '' ? $php['version'] : 'unknown') ?></dd>
                         <dt>FPM pool</dt><dd><?= e(($php['pool'] ?? '') !== '' ? $php['pool'] : '—') ?></dd>
                         <dt>Pool user</dt><dd><?= e(($php['user'] ?? '') !== '' ? $php['user'] : '—') ?></dd>
@@ -74,7 +74,7 @@ $php = $site['php'] ?? null;
                     <p class="mb-0 text-body-secondary"><?= !empty($site['https']) ? 'HTTPS is configured, but no certificate file was referenced.' : 'No HTTPS server block was found.' ?></p>
                 <?php else: ?>
                     <?php $st = (int) $ssl['days_remaining'] <= $warnDays && $ssl['status'] === 'valid' ? 'expiring' : (string) $ssl['status']; ?>
-                    <dl class="wcp-dl">
+                    <dl class="nim-dl">
                         <dt>Status</dt><dd><?= $this->statusBadge($st) ?></dd>
                         <?php if (empty($ssl['error'])): ?>
                             <dt>Expires</dt><dd><?= e(gmdate('Y-m-d', (int) strtotime((string) $ssl['not_after']))) ?> (<?= (int) $ssl['days_remaining'] ?> days)</dd>
@@ -124,7 +124,7 @@ $php = $site['php'] ?? null;
                 <div class="card-body text-body-secondary small">No cron jobs reference this website's directory or domain.</div>
             <?php else: ?>
                 <div class="table-responsive">
-                    <table class="table table-sm mb-0 wcp-table">
+                    <table class="table table-sm mb-0 nim-table">
                         <thead><tr><th>Schedule</th><th>User</th><th>Command</th></tr></thead>
                         <tbody>
                         <?php foreach ($cron as $job): ?>

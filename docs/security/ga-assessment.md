@@ -1,4 +1,4 @@
-# WhaCP 1.0 — Security GA Assessment
+# NimVor 1.0 — Security GA Assessment
 
 - **Version:** 1.0.0-rc1
 - **Branch:** `claude/sleepy-ptolemy-bdv6ib`

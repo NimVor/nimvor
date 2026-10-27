@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Middleware;
+namespace NimVor\Http\Middleware;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
 
 /**
  * Adds a strict Content-Security-Policy and related headers. The UI uses no

@@ -53,15 +53,15 @@ func TestIssueUsesWebrootAndStoresNothingItself(t *testing.T) {
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
 	a, _ := r.Lookup("ssl.issue")
-	_, err := a.Handler(context.Background(), json.RawMessage(`{"cert_name":"new.test","names":["new.test","www.new.test"],"email":"ops@whacp.io"}`))
+	_, err := a.Handler(context.Background(), json.RawMessage(`{"cert_name":"new.test","names":["new.test","www.new.test"],"email":"ops@nimvor.com"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "certbot certonly --webroot --webroot-path /var/www/whacp-acme --cert-name new.test --non-interactive --agree-tos --keep-until-expiring --expand --no-eff-email --email ops@whacp.io -d new.test -d www.new.test"
+	want := "certbot certonly --webroot --webroot-path /var/www/nimvor-acme --cert-name new.test --non-interactive --agree-tos --keep-until-expiring --expand --no-eff-email --email ops@nimvor.com -d new.test -d www.new.test"
 	if !h.Runner.Called(want) {
 		t.Fatalf("calls: %v", h.Runner.Calls)
 	}
-	if !h.Exists("etc/letsencrypt/renewal-hooks/deploy/whacp-reload-nginx.sh") || !h.Exists("var/www/whacp-acme") {
+	if !h.Exists("etc/letsencrypt/renewal-hooks/deploy/nimvor-reload-nginx.sh") || !h.Exists("var/www/nimvor-acme") {
 		t.Error("deploy hook or ACME root missing")
 	}
 	for _, bad := range []string{`{"cert_name":"x.test","names":["x.test"],"email":"a@b.c --staging"}`, `{"cert_name":"x.test","names":["*.x.test"]}`, `{"cert_name":"x.test","names":[]}`} {
@@ -92,10 +92,10 @@ func TestIssueDropsReservedContactEmail(t *testing.T) {
 			t.Errorf("forbidden contact passed to certbot: %s", c)
 		}
 	}
-	if !h.Runner.Called("certbot certonly --webroot --webroot-path /var/www/whacp-acme --cert-name shop.test --non-interactive --agree-tos --keep-until-expiring --expand --no-eff-email --register-unsafely-without-email -d shop.test") {
+	if !h.Runner.Called("certbot certonly --webroot --webroot-path /var/www/nimvor-acme --cert-name shop.test --non-interactive --agree-tos --keep-until-expiring --expand --no-eff-email --register-unsafely-without-email -d shop.test") {
 		t.Fatalf("did not register without a contact: %v", h.Runner.Calls)
 	}
-	for _, ok := range []string{"ops@example.company", "admin@whacp.io", "ops@mail.realdomain.net"} {
+	for _, ok := range []string{"ops@example.company", "admin@nimvor.com", "ops@mail.realdomain.net"} {
 		if reservedEmailDomain(ok) {
 			t.Errorf("%s wrongly treated as reserved", ok)
 		}

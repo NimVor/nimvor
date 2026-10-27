@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Agent;
+namespace NimVor\Agent;
 
-use WhaCP\Support\Logger;
+use NimVor\Support\Logger;
 
 /**
  * Calls named actions on the NimVor agent.
@@ -86,7 +86,7 @@ class AgentClient
             'write_disabled' => ['This server is in read-only mode.', 'The agent runs in read-only mode; enable write mode (see docs/installation, "Enabling write mode") to manage websites, databases and services.'],
             'unknown_action' => ['The agent does not support this action.', 'Upgrade the agent so that it matches the panel version.'],
             'timeout' => ['The action took too long to complete.', 'Try again; if it keeps failing, check the agent log.'],
-            default => ['The NimVor agent could not complete the request.', 'Check the agent log (journalctl -u whacp-agent) for request ' . ($json['request_id'] ?? '') . '.'],
+            default => ['The NimVor agent could not complete the request.', 'Check the agent log (journalctl -u nimvor-agent) for request ' . ($json['request_id'] ?? '') . '.'],
         };
         throw new AgentException($title, $message, $remedy, $code, $status, null, $details);
     }

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Hosting\Scope;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * Email domains, mailboxes and aliases. The agent configures the mail
@@ -29,7 +29,7 @@ final class MailService
         private readonly WebsiteRepository $sites,
         private readonly DnsService $dns,
         private readonly ?PlanLimits $limits = null,
-        private readonly ?\WhaCP\Security\PasswordPolicy $policy = null,
+        private readonly ?\NimVor\Security\PasswordPolicy $policy = null,
     ) {
     }
 

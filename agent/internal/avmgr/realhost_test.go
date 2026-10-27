@@ -33,17 +33,17 @@ func TestRealHostScan(t *testing.T) {
 	if _, err := exec.LookPath("clamscan"); os.Geteuid() != 0 || err != nil {
 		t.Skip("needs root and ClamAV")
 	}
-	sitesRoot, _ := os.MkdirTemp("/tmp", "whacp-av-")
+	sitesRoot, _ := os.MkdirTemp("/tmp", "nimvor-av-")
 	os.Chmod(sitesRoot, 0o755)
 	t.Cleanup(func() { os.RemoveAll(sitesRoot) })
-	exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", "-u", "1782", "whacpav").Run()
-	t.Cleanup(func() { exec.Command("userdel", "whacpav").Run() })
+	exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", "-u", "1782", "nimvorav").Run()
+	t.Cleanup(func() { exec.Command("userdel", "nimvorav").Run() })
 	root := filepath.Join(sitesRoot, "av.test")
 	os.MkdirAll(filepath.Join(root, "public_html/up"), 0o755)
-	bad := []byte("<?php /* whacp test malware */ eval($_POST['x']);\n")
+	bad := []byte("<?php /* nimvor test malware */ eval($_POST['x']);\n")
 	os.WriteFile(filepath.Join(root, "public_html/up/shell.php"), bad, 0o644)
 	os.WriteFile(filepath.Join(root, "public_html/index.php"), []byte("<?php echo 'hi';\n"), 0o644)
-	exec.Command("chown", "-R", "whacpav:whacpav", root).Run()
+	exec.Command("chown", "-R", "nimvorav:nimvorav", root).Run()
 	// Not readable by the account: counted as an error, the scan goes on.
 	os.MkdirAll(filepath.Join(root, "logs"), 0o755)
 	os.WriteFile(filepath.Join(root, "logs/secret.log"), []byte("root only\n"), 0o600)
@@ -59,7 +59,7 @@ func TestRealHostScan(t *testing.T) {
 	Register(r, env)
 	scan := func(quarantine bool) (jobs.Job, string) {
 		a, _ := r.Lookup("av.scan")
-		res, err := a.Handler(context.Background(), json.RawMessage(fmt.Sprintf(`{"domain":"av.test","user":"whacpav","root":%q,"quarantine":%v}`, root, quarantine)))
+		res, err := a.Handler(context.Background(), json.RawMessage(fmt.Sprintf(`{"domain":"av.test","user":"nimvorav","root":%q,"quarantine":%v}`, root, quarantine)))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,8 +77,8 @@ func TestRealHostScan(t *testing.T) {
 		}
 	}
 	sum := md5.Sum(bad)
-	sig := "/var/lib/clamav/whacp-realhost-test.hdb"
-	if err := os.WriteFile(sig, []byte(fmt.Sprintf("%s:%d:WhaCP.Test.Webshell\n", hex.EncodeToString(sum[:]), len(bad))), 0o644); err != nil {
+	sig := "/var/lib/clamav/nimvor-realhost-test.hdb"
+	if err := os.WriteFile(sig, []byte(fmt.Sprintf("%s:%d:NimVor.Test.Webshell\n", hex.EncodeToString(sum[:]), len(bad))), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.Remove(sig) })
@@ -103,7 +103,7 @@ func TestRealHostScan(t *testing.T) {
 	}
 	b, _ = json.Marshal(j.Result)
 	json.Unmarshal(b, &res)
-	if len(res.Infected) != 1 || res.Infected[0].Path != "public_html/up/shell.php" || !strings.HasPrefix(res.Infected[0].Signature, "WhaCP.Test.Webshell") || !res.Infected[0].Quarantined {
+	if len(res.Infected) != 1 || res.Infected[0].Path != "public_html/up/shell.php" || !strings.HasPrefix(res.Infected[0].Signature, "NimVor.Test.Webshell") || !res.Infected[0].Quarantined {
 		t.Fatalf("infected: %+v\n%s", res, out)
 	}
 	if _, err := os.Lstat(filepath.Join(root, "public_html/up/shell.php")); !os.IsNotExist(err) {

@@ -18,19 +18,19 @@ import (
 
 // Firewall protections in the manner of CSF/LFD (SYNFLOOD, CONNLIMIT,
 // PORTFLOOD, PACKET_FILTER, ICMP_IN_RATE), kept next to the firewall
-// (UFW or firewalld), which stays in charge: the table inet whacp_flood
+// (UFW or firewalld), which stays in charge: the table inet nimvor_flood
 // only drops or rejects, so it never opens what the firewall closes. Its
 // chain runs before the firewall's; an exempt address skips this table
 // only, the firewall still applies to it. Changes are guarded like
 // firewall rules: undone unless confirmed.
 
 const (
-	floodTable    = "whacp_flood"
-	FloodUnit     = "whacp-flood.service"
+	floodTable    = "nimvor_flood"
+	FloodUnit     = "nimvor-flood.service"
 	floodUnitPath = "/etc/systemd/system/" + FloodUnit
 	// FloodConfigFile is the applied configuration (restored with the
 	// rules when a change is undone).
-	FloodConfigFile = "/etc/whacp/flood.json"
+	FloodConfigFile = "/etc/nimvor/flood.json"
 )
 
 // PortLimit limits one port per address: Max connections at once
@@ -159,7 +159,7 @@ func floodSet(name, typ, flags, extra string, elems []string) string {
 // Each rule's comment names the protection, for the counters.
 func FloodRules(p Protection) string {
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP: firewall protections (Security → Firewall → Protection).\n")
+	b.WriteString("# Managed by NimVor: firewall protections (Security → Firewall → Protection).\n")
 	b.WriteString("table inet " + floodTable + "\ndelete table inet " + floodTable + "\n")
 	if !p.Enabled {
 		return b.String()
@@ -228,7 +228,7 @@ func FloodRules(p Protection) string {
 
 func floodUnit() string {
 	nft := "/usr/sbin/nft"
-	return "# Managed by WhaCP: firewall protections.\n[Unit]\nDescription=WhaCP firewall protections (nftables)\nAfter=network-pre.target\nBefore=network.target\n\n" +
+	return "# Managed by NimVor: firewall protections.\n[Unit]\nDescription=NimVor firewall protections (nftables)\nAfter=network-pre.target\nBefore=network.target\n\n" +
 		"[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=" + nft + " -f " + execx.NftFloodFile + "\nExecReload=" + nft + " -f " + execx.NftFloodFile +
 		"\nExecStop=-" + nft + " delete table inet " + floodTable + "\n\n[Install]\nWantedBy=multi-user.target\n"
 }

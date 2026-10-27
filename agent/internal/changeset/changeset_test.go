@@ -14,10 +14,10 @@ func setup(t *testing.T) (agentfs.Writer, string) {
 	base := t.TempDir()
 	os.MkdirAll(filepath.Join(base, "etc/nginx/sites-available"), 0o755)
 	os.MkdirAll(filepath.Join(base, "etc/nginx/sites-enabled"), 0o755)
-	os.MkdirAll(filepath.Join(base, "var/lib/whacp-agent"), 0o755)
+	os.MkdirAll(filepath.Join(base, "var/lib/nimvor-agent"), 0o755)
 	root, _ := filesystem.NewRoot(base)
 	return agentfs.Writer{Root: root, Policy: agentfs.Policy{Patterns: []string{
-		"/etc/nginx/sites-available/whacp-*", "/etc/nginx/sites-enabled/whacp-*", "/var/lib/whacp-agent/**",
+		"/etc/nginx/sites-available/nimvor-*", "/etc/nginx/sites-enabled/nimvor-*", "/var/lib/nimvor-agent/**",
 	}}, Owners: agentfs.SelfOwners()}, base
 }
 
@@ -31,15 +31,15 @@ func read(t *testing.T, base, p string) string {
 
 func TestCommitRollsBackOnValidationFailure(t *testing.T) {
 	w, base := setup(t)
-	os.WriteFile(filepath.Join(base, "etc/nginx/sites-available/whacp-a.conf"), []byte("working"), 0o644)
+	os.WriteFile(filepath.Join(base, "etc/nginx/sites-available/nimvor-a.conf"), []byte("working"), 0o644)
 
-	s := New(w, "/var/lib/whacp-agent/config-backups", "a")
-	s.Write("/etc/nginx/sites-available/whacp-a.conf", []byte("broken"), 0o644, agentfs.Keep)
-	s.Write("/etc/nginx/sites-available/whacp-b.conf", []byte("new"), 0o644, agentfs.Keep)
-	s.Link("../sites-available/whacp-b.conf", "/etc/nginx/sites-enabled/whacp-b.conf")
+	s := New(w, "/var/lib/nimvor-agent/config-backups", "a")
+	s.Write("/etc/nginx/sites-available/nimvor-a.conf", []byte("broken"), 0o644, agentfs.Keep)
+	s.Write("/etc/nginx/sites-available/nimvor-b.conf", []byte("new"), 0o644, agentfs.Keep)
+	s.Link("../sites-available/nimvor-b.conf", "/etc/nginx/sites-enabled/nimvor-b.conf")
 
 	_, err := s.Commit(func() error {
-		if read(t, base, "etc/nginx/sites-available/whacp-a.conf") != "broken" {
+		if read(t, base, "etc/nginx/sites-available/nimvor-a.conf") != "broken" {
 			t.Error("validation must see the new files")
 		}
 		return &ValidationError{Step: "nginx -t", Output: "emerg", Err: errors.New("exit 1")}
@@ -48,23 +48,23 @@ func TestCommitRollsBackOnValidationFailure(t *testing.T) {
 	if !errors.As(err, &ve) {
 		t.Fatalf("err = %v", err)
 	}
-	if got := read(t, base, "etc/nginx/sites-available/whacp-a.conf"); got != "working" {
+	if got := read(t, base, "etc/nginx/sites-available/nimvor-a.conf"); got != "working" {
 		t.Errorf("previous config not restored: %q", got)
 	}
-	if got := read(t, base, "etc/nginx/sites-available/whacp-b.conf"); got != "<missing>" {
+	if got := read(t, base, "etc/nginx/sites-available/nimvor-b.conf"); got != "<missing>" {
 		t.Errorf("new file not removed: %q", got)
 	}
-	if _, err := os.Lstat(filepath.Join(base, "etc/nginx/sites-enabled/whacp-b.conf")); err == nil {
+	if _, err := os.Lstat(filepath.Join(base, "etc/nginx/sites-enabled/nimvor-b.conf")); err == nil {
 		t.Error("symlink not removed")
 	}
 }
 
 func TestCommitSuccessKeepsBackupAndIsIdempotent(t *testing.T) {
 	w, base := setup(t)
-	os.WriteFile(filepath.Join(base, "etc/nginx/sites-available/whacp-a.conf"), []byte("v1"), 0o644)
+	os.WriteFile(filepath.Join(base, "etc/nginx/sites-available/nimvor-a.conf"), []byte("v1"), 0o644)
 	mk := func() *Set {
-		s := New(w, "/var/lib/whacp-agent/config-backups", "a")
-		s.Write("/etc/nginx/sites-available/whacp-a.conf", []byte("v2"), 0o644, agentfs.Keep)
+		s := New(w, "/var/lib/nimvor-agent/config-backups", "a")
+		s.Write("/etc/nginx/sites-available/nimvor-a.conf", []byte("v2"), 0o644, agentfs.Keep)
 		return s
 	}
 	calls := 0
@@ -85,12 +85,12 @@ func TestCommitSuccessKeepsBackupAndIsIdempotent(t *testing.T) {
 func TestApplyRollsBackOnMidwayError(t *testing.T) {
 	w, base := setup(t)
 	s := New(w, "", "x")
-	s.Write("/etc/nginx/sites-available/whacp-ok.conf", []byte("x"), 0o644, agentfs.Keep)
+	s.Write("/etc/nginx/sites-available/nimvor-ok.conf", []byte("x"), 0o644, agentfs.Keep)
 	s.Write("/etc/passwd", []byte("pwned"), 0o644, agentfs.Keep)
 	if _, err := s.Apply(); err == nil {
 		t.Fatal("expected policy error")
 	}
-	if read(t, base, "etc/nginx/sites-available/whacp-ok.conf") != "<missing>" {
+	if read(t, base, "etc/nginx/sites-available/nimvor-ok.conf") != "<missing>" {
 		t.Error("earlier op not rolled back")
 	}
 }

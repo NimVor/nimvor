@@ -21,7 +21,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
-// Certificates and TLS of WhaCP's own services (SSL/TLS → Services): the
+// Certificates and TLS of NimVor's own services (SSL/TLS → Services): the
 // panel's HTTPS site (written by the installer), the mail server (Postfix
 // SMTP and submission, Dovecot IMAP) and a Let's Encrypt certificate for
 // the server's host name. Websites and webmail have their own pages.
@@ -34,14 +34,14 @@ var (
 	panelProtoRe = regexp.MustCompile(`(?m)^\s*ssl_protocols\s+[^;\n]+;\n`)
 )
 
-func panelSite(env *host.Env) string { return filepath.Join(env.M.NginxAvailable, "whacp-panel.conf") }
+func panelSite(env *host.Env) string { return filepath.Join(env.M.NginxAvailable, "nimvor-panel.conf") }
 
 func hostnameSite(env *host.Env) string {
-	return filepath.Join(env.M.NginxAvailable, "whacp-hostname.conf")
+	return filepath.Join(env.M.NginxAvailable, "nimvor-hostname.conf")
 }
 
 func hostnameLink(env *host.Env) string {
-	return filepath.Join(env.M.NginxEnabled, "whacp-hostname.conf")
+	return filepath.Join(env.M.NginxEnabled, "nimvor-hostname.conf")
 }
 
 func serverHostname(env *host.Env) string {
@@ -83,7 +83,7 @@ func mailCert(ctx context.Context, env *host.Env) (cert, key string) {
 	return get("smtpd_tls_cert_file"), get("smtpd_tls_key_file")
 }
 
-// mailConfigured: WhaCP set up the mail server (its Dovecot drop-in exists).
+// mailConfigured: NimVor set up the mail server (its Dovecot drop-in exists).
 func mailConfigured(env *host.Env) bool { return env.Root.Exists(env.M.DovecotDropIn) }
 
 // lineage is a certbot certificate by name.
@@ -100,7 +100,7 @@ func lineage(env *host.Env, name string) (cert, key string, err error) {
 }
 
 func registerServices(r *actions.Registry, env *host.Env) {
-	r.Register(actions.Action{Name: "ssl.services", Description: "Certificates and TLS of WhaCP's own services: the panel's HTTPS site and the mail server (Postfix and Dovecot), the server's host name and the Let's Encrypt certificates that could be used.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "ssl.services", Description: "Certificates and TLS of NimVor's own services: the panel's HTTPS site and the mail server (Postfix and Dovecot), the server's host name and the Let's Encrypt certificates that could be used.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		now := env.Now()
 		out := map[string]any{"hostname": serverHostname(env), "mail_tls": tlsprofile.LoadMail(env)}
 		if c, k, conf, ok := panelCert(env); ok {
@@ -256,7 +256,7 @@ func registerServices(r *actions.Registry, env *host.Env) {
 var hostnameRe = regexp.MustCompile(`^(?i)[a-z0-9]([a-z0-9-]{0,62}\.?)+[a-z0-9]$`)
 
 // ensureHostnameSite makes Nginx answer the ACME challenge for the host
-// name on port 80, unless a website already serves it (WhaCP's websites
+// name on port 80, unless a website already serves it (NimVor's websites
 // all answer the challenge).
 func ensureHostnameSite(ctx context.Context, env *host.Env, name string) error {
 	// A website that already serves this name answers the challenge itself.
@@ -274,7 +274,7 @@ func ensureHostnameSite(ctx context.Context, env *host.Env, name string) error {
 	if env.IPv6() {
 		listen += "    listen [::]:80;\n"
 	}
-	conf := "# Managed by WhaCP (SSL/TLS → Services): Let's Encrypt for the server's host name.\nserver {\n" + listen +
+	conf := "# Managed by NimVor (SSL/TLS → Services): Let's Encrypt for the server's host name.\nserver {\n" + listen +
 		"    server_name " + name + ";\n" +
 		"    location ^~ /.well-known/acme-challenge/ {\n        root " + env.M.ACMERoot + ";\n        default_type \"text/plain\";\n        try_files $uri =404;\n    }\n" +
 		"    location / {\n        return 404;\n    }\n}\n"
@@ -369,11 +369,11 @@ func installMailCert(ctx context.Context, env *host.Env, certs map[string]tlspro
 func applyMail(ctx context.Context, env *host.Env, state func(*changeset.Set) error, m tlsprofile.Mail, cert, key string) (any, error) {
 	b, err := env.Root.ReadFile(env.M.DovecotDropIn)
 	if err != nil {
-		return nil, actions.Failed("WhaCP's Dovecot configuration could not be read.", err.Error())
+		return nil, actions.Failed("NimVor's Dovecot configuration could not be read.", err.Error())
 	}
 	conf, err := tlsprofile.ReplaceDovecotLines(string(b), m)
 	if err != nil {
-		return nil, actions.Failed("WhaCP's Dovecot configuration has an unexpected form; set up email again first.", err.Error())
+		return nil, actions.Failed("NimVor's Dovecot configuration has an unexpected form; set up email again first.", err.Error())
 	}
 	if cert != "" {
 		conf = replaceDovecotCert(conf, cert, key)

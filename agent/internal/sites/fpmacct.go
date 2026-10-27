@@ -22,7 +22,7 @@ import (
 // php.ini are the same as with the shared master.
 
 // FPMRoot holds the per-account masters' configuration.
-const FPMRoot = "/etc/whacp-fpm"
+const FPMRoot = "/etc/nimvor-fpm"
 
 // AccountFPM identifies one per-account master.
 type AccountFPM struct {
@@ -44,7 +44,7 @@ func (a AccountFPM) Conf() string { return filepath.Join(a.Dir(), "php-fpm.conf"
 
 // Unit is its service.
 func (a AccountFPM) Unit() string {
-	return "whacp-fpm-" + a.User + "-" + strings.ReplaceAll(a.Version, ".", "") + ".service"
+	return "nimvor-fpm-" + a.User + "-" + strings.ReplaceAll(a.Version, ".", "") + ".service"
 }
 
 var accountPoolRe = regexp.MustCompile(`^` + regexp.QuoteMeta(FPMRoot) + `/([a-z][a-z0-9_-]{1,30})-([5-9]\.[0-9]{1,2})/pool\.d/`)
@@ -71,14 +71,14 @@ func fpmBinary(e *host.Env, v string) string {
 
 // RenderAccountFPMConf is the master's configuration.
 func RenderAccountFPMConf(a AccountFPM) string {
-	return fmt.Sprintf("; %s\n; PHP %s FastCGI master of %s (an account with resource limits).\n\n[global]\nerror_log = syslog\nsyslog.ident = whacp-fpm-%s\ndaemonize = no\ninclude = %s/*.conf\n", header, a.Version, a.User, a.Name(), a.PoolDir())
+	return fmt.Sprintf("; %s\n; PHP %s FastCGI master of %s (an account with resource limits).\n\n[global]\nerror_log = syslog\nsyslog.ident = nimvor-fpm-%s\ndaemonize = no\ninclude = %s/*.conf\n", header, a.Version, a.User, a.Name(), a.PoolDir())
 }
 
 // RenderAccountFPMUnit is the master's service, in the account's slice.
 func RenderAccountFPMUnit(a AccountFPM, bin, slice, socketDir string) string {
 	return fmt.Sprintf(`# %s
 [Unit]
-Description=WhaCP PHP %s FastCGI for %s (resource-limited account)
+Description=NimVor PHP %s FastCGI for %s (resource-limited account)
 After=network.target
 
 [Service]

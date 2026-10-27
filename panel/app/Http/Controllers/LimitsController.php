@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\ResourceLimitService;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\ResourceLimitService;
+use NimVor\View\View;
 
 /**
  * Resource limits (cgroups) of hosting accounts: what each account's plan
@@ -22,10 +22,10 @@ final class LimitsController extends Controller
         View $view,
         SessionInterface $session,
         private readonly ResourceLimitService $limits,
-        private readonly \WhaCP\Database\Connection $db,
-        private readonly \WhaCP\Services\DiskQuotaService $quotas,
-        private readonly \WhaCP\Services\JobTracker $jobs,
-        private readonly \WhaCP\Services\ServerContext $server,
+        private readonly \NimVor\Database\Connection $db,
+        private readonly \NimVor\Services\DiskQuotaService $quotas,
+        private readonly \NimVor\Services\JobTracker $jobs,
+        private readonly \NimVor\Services\ServerContext $server,
     ) {
         parent::__construct($view, $session);
     }

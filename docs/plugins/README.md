@@ -1,10 +1,10 @@
-# Writing WhaCP plugins
+# Writing NimVor plugins
 
 A plugin adds pages, sidebar entries and event listeners to the panel. It
 is PHP code that runs **inside the panel process**, so:
 
 - plugins are installed on disk by an administrator (as root), in
-  `/opt/whacp/plugins/<name>/` — they cannot be uploaded through the web
+  `/opt/nimvor/plugins/<name>/` — they cannot be uploaded through the web
   interface;
 - they run only after an administrator enables them under
   **Administration → Plugins**;
@@ -21,7 +21,7 @@ whose code you have reviewed.
 ## Layout
 
 ```
-/opt/whacp/plugins/my-plugin/
+/opt/nimvor/plugins/my-plugin/
 ├── plugin.json      manifest
 ├── plugin.php       returns function (PluginContext $ctx): void
 └── views/*.php      templates rendered inside the panel layout
@@ -51,7 +51,7 @@ enabled.
 ## The context
 
 ```php
-return function (WhaCP\Plugins\PluginContext $ctx): void {
+return function (NimVor\Plugins\PluginContext $ctx): void {
     // A page at /plugins/my-plugin (GET or POST). Every route needs a
     // permission (the plugin's own or a core one) and gets the same
     // authentication and CSRF protection as core pages.

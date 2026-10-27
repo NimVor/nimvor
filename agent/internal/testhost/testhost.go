@@ -65,7 +65,7 @@ func New(t *testing.T) *Host {
 	}
 	passwd := fmt.Sprintf("root:x:0:0:root:/root:/bin/bash\nwww-data:x:%d:%d:www-data:/var/www:/usr/sbin/nologin\nexample:x:%d:%d::/var/www/example.com:/usr/sbin/nologin\n", webUID, webGID, h.UID, h.GID)
 	os.WriteFile(filepath.Join(base, "etc/passwd"), []byte(passwd), 0o644)
-	for _, d := range []string{"run/php", "var/lib/whacp-agent", "home/whacp", "var/backups/whacp", "etc/cron.d", "etc/systemd/system", "etc/ssh/sshd_config.d", "etc/fail2ban/jail.d", "etc/letsencrypt/renewal-hooks/deploy", "var/www"} {
+	for _, d := range []string{"run/php", "var/lib/nimvor-agent", "home/nimvor", "var/backups/nimvor", "etc/cron.d", "etc/systemd/system", "etc/ssh/sshd_config.d", "etc/fail2ban/jail.d", "etc/letsencrypt/renewal-hooks/deploy", "var/www"} {
 		os.MkdirAll(filepath.Join(base, d), 0o755)
 	}
 	h.Runner = &execx.FakeRunner{Handler: h.handle, Unavailable: map[string]bool{}}
@@ -113,7 +113,7 @@ func (h *Host) handle(id string, o execx.Opts, args []string) (string, error) {
 		return "active", nil
 	case id == "useradd":
 		name := args[len(args)-1]
-		home := "/home/whacp"
+		home := "/home/nimvor"
 		for i, a := range args {
 			if a == "--home-dir" && i+1 < len(args) {
 				home = args[i+1]
@@ -182,9 +182,9 @@ func copyTree(src, dst string) error {
 }
 
 // PHPVersion is the PHP version the real-host tests create websites with:
-// WHACP_TEST_PHP (set by CI to what the system provides), default 8.3.
+// NIMVOR_TEST_PHP (set by CI to what the system provides), default 8.3.
 func PHPVersion() string {
-	if v := os.Getenv("WHACP_TEST_PHP"); v != "" {
+	if v := os.Getenv("NIMVOR_TEST_PHP"); v != "" {
 		return v
 	}
 	return "8.3"

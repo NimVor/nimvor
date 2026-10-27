@@ -33,7 +33,7 @@ func TestDeployRunsGitAsUserWithSafeConfig(t *testing.T) {
 				t.Error("git must run as the site user")
 			}
 			env := strings.Join(o.Env, " ")
-			if !strings.Contains(env, "GIT_ALLOW_PROTOCOL=https:ssh") || !strings.Contains(env, "whacp_deploy_ed25519") {
+			if !strings.Contains(env, "GIT_ALLOW_PROTOCOL=https:ssh") || !strings.Contains(env, "nimvor_deploy_ed25519") {
 				t.Errorf("git env = %s", env)
 			}
 		}

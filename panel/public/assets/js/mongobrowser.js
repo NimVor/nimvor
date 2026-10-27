@@ -1,6 +1,6 @@
 /* MongoDB database browser (Server → MongoDB → Browser).
  *
- * Drives the full-page three-pane #wcp-mongo tool: a databases/collections
+ * Drives the full-page three-pane #nim-mongo tool: a databases/collections
  * sidebar, a centre pane with the query bar, view tabs and a documents table
  * (or JSON view) with paging, and a right rail showing the selected document,
  * the collection's indexes, its statistics and quick actions. Loaded from
@@ -9,7 +9,7 @@
  * on POST. */
 (function () {
     'use strict';
-    var root = document.getElementById('wcp-mongo');
+    var root = document.getElementById('nim-mongo');
     if (!root || !window.NimVor) { return; }
 
     var api = root.getAttribute('data-api');
@@ -64,7 +64,7 @@
         NimVor.toast((d.message || (err && err.message) || 'Request failed') + (d.details ? ' — ' + d.details : ''), 'danger');
     }
     function emptyState(target, icon, title, hint) {
-        var box = el('div', 'wcp-db-empty');
+        var box = el('div', 'nim-db-empty');
         box.appendChild(el('i', 'bi bi-' + icon));
         box.appendChild(el('div', 'fw-semibold', title));
         if (hint) { box.appendChild(el('div', 'small text-body-secondary', hint)); }
@@ -249,7 +249,7 @@
             ['Indexes', fmtInt(s.nindexes)],
             ['Index size', fmtBytes(s.totalIndexSize)],
         ];
-        var dl = el('dl', 'wcp-mongo-stat mb-0');
+        var dl = el('dl', 'nim-mongo-stat mb-0');
         rows.forEach(function (r) {
             dl.appendChild(el('dt', null, r[0]));
             dl.appendChild(el('dd', null, r[1]));
@@ -341,7 +341,7 @@
             meta.appendChild(el('span', 'badge text-bg-light border', 'Level: ' + (s.validationLevel || 'strict')));
             meta.appendChild(el('span', 'badge text-bg-light border', 'Action: ' + (s.validationAction || 'error')));
             wrap.appendChild(meta);
-            var pre = el('pre', 'wcp-mongo-json mb-0 p-3 border rounded');
+            var pre = el('pre', 'nim-mongo-json mb-0 p-3 border rounded');
             pre.textContent = JSON.stringify(s.validator, null, 2);
             wrap.appendChild(pre);
             pane.replaceChildren(wrap);
@@ -364,8 +364,8 @@
             var grid = el('div', 'row g-3');
             rows.forEach(function (r) {
                 var col = el('div', 'col-sm-6 col-xl-4');
-                var card = el('div', 'wcp-panel h-100 mb-0');
-                card.appendChild(el('div', 'small wcp-muted', r[0]));
+                var card = el('div', 'nim-panel h-100 mb-0');
+                card.appendChild(el('div', 'small nim-muted', r[0]));
                 card.appendChild(el('div', 'fs-5 fw-semibold text-break', String(r[1])));
                 col.appendChild(card);
                 grid.appendChild(col);
@@ -460,7 +460,7 @@
                 docs.forEach(function (doc, i) {
                     var card = el('article', 'card mb-2');
                     card.appendChild(el('div', 'card-header py-1 px-2 small', '#' + (i + 1)));
-                    var body = el('pre', 'card-body mb-0 small wcp-mongo-json');
+                    var body = el('pre', 'card-body mb-0 small nim-mongo-json');
                     body.textContent = JSON.stringify(doc, null, 2);
                     card.appendChild(body);
                     results.appendChild(card);
@@ -478,7 +478,7 @@
                 status.textContent = 'Query plan (the pipeline was not run).';
                 var card = el('article', 'card');
                 card.appendChild(el('div', 'card-header py-1 px-2 small', 'explain'));
-                var body = el('pre', 'card-body mb-0 small wcp-mongo-json');
+                var body = el('pre', 'card-body mb-0 small nim-mongo-json');
                 body.textContent = JSON.stringify(d.explain, null, 2);
                 card.appendChild(body);
                 results.replaceChildren(card);
@@ -639,7 +639,7 @@
     }
 
     function cellText(v) {
-        if (v === null) { return { text: 'null', cls: 'wcp-db-null' }; }
+        if (v === null) { return { text: 'null', cls: 'nim-db-null' }; }
         if (typeof v === 'undefined') { return { text: '', cls: '' }; }
         if (typeof v === 'object') {
             if (typeof v.$oid === 'string') { return { text: v.$oid, cls: '' }; }
@@ -667,11 +667,11 @@
 
     function renderTableView(docs) {
         var cols = columnsFor(docs);
-        var wrap = el('div', 'wcp-mongo-tablewrap');
-        var table = el('table', 'table table-hover align-middle mb-0 wcp-mongo-table');
+        var wrap = el('div', 'nim-mongo-tablewrap');
+        var table = el('table', 'table table-hover align-middle mb-0 nim-mongo-table');
         var thead = el('thead');
         var hr = el('tr');
-        cols.forEach(function (c) { hr.appendChild(el('th', c === '_id' ? 'wcp-mongo-idcol' : null, c)); });
+        cols.forEach(function (c) { hr.appendChild(el('th', c === '_id' ? 'nim-mongo-idcol' : null, c)); });
         if (canDelete) { hr.appendChild(el('th', 'text-end', '')); }
         thead.appendChild(hr);
         table.appendChild(thead);
@@ -682,7 +682,7 @@
             tr.addEventListener('click', function () { selectDoc(i); });
             cols.forEach(function (c) {
                 if (c === '_id') {
-                    var td = el('td', 'wcp-mongo-idcol');
+                    var td = el('td', 'nim-mongo-idcol');
                     var a = el('button', 'btn btn-link p-0 font-monospace small text-truncate', (doc && typeof doc._id !== 'undefined') ? idLabel(doc._id) : '(no _id)');
                     a.type = 'button';
                     a.addEventListener('click', function (e) { e.stopPropagation(); selectDoc(i); });
@@ -715,7 +715,7 @@
     }
 
     function renderJsonView(docs) {
-        var wrap = el('div', 'wcp-mongo-docs p-2');
+        var wrap = el('div', 'nim-mongo-docs p-2');
         docs.forEach(function (doc, i) {
             var card = el('article', 'card mb-2');
             var head = el('div', 'card-header d-flex align-items-center gap-2 py-1 px-2');
@@ -739,7 +739,7 @@
                 head.appendChild(del);
             }
             card.appendChild(head);
-            var body = el('pre', 'card-body mb-0 small wcp-mongo-json');
+            var body = el('pre', 'card-body mb-0 small nim-mongo-json');
             body.textContent = JSON.stringify(doc, null, 2);
             card.appendChild(body);
             wrap.appendChild(card);

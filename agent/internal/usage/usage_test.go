@@ -14,7 +14,7 @@ import (
 
 func TestUsage(t *testing.T) {
 	h := testhost.New(t)
-	root := filepath.Join(h.Base, "home/whacp/shop.test")
+	root := filepath.Join(h.Base, "home/nimvor/shop.test")
 	os.MkdirAll(filepath.Join(root, "public_html/a"), 0o755)
 	os.WriteFile(filepath.Join(root, "public_html/index.php"), make([]byte, 1000), 0o644)
 	os.WriteFile(filepath.Join(root, "public_html/a/b.txt"), make([]byte, 24), 0o644)
@@ -69,11 +69,11 @@ func TestBandwidthFromAccessLogs(t *testing.T) {
 		}
 		return res.([]Traffic)
 	}
-	logs := filepath.Join(h.Base, "home/whacp/a.test/logs")
+	logs := filepath.Join(h.Base, "home/nimvor/a.test/logs")
 	os.MkdirAll(logs, 0o755)
 	log := filepath.Join(logs, "access.log")
 	os.WriteFile(log, []byte(line("31/Aug/2026:23:59:59", "100")+line("01/Sep/2026:00:00:01", "1000")+line("02/Sep/2026:00:00:01", "24")+"partial line without end"), 0o644)
-	got := call(`{"sites":[{"domain":"a.test","root":"/home/whacp/a.test"}]}`)
+	got := call(`{"sites":[{"domain":"a.test","root":"/home/nimvor/a.test"}]}`)
 	if len(got) != 1 || got[0].Months["2026-08"] != 100 || got[0].Months["2026-09"] != 1024 {
 		t.Fatalf("first read: %+v", got)
 	}
@@ -81,7 +81,7 @@ func TestBandwidthFromAccessLogs(t *testing.T) {
 	f, _ := os.OpenFile(log, os.O_APPEND|os.O_WRONLY, 0)
 	f.WriteString("\n" + line("03/Sep/2026:00:00:01", "5"))
 	f.Close()
-	pos, _ := json.Marshal(map[string]any{"sites": []Position{{Domain: "a.test", Root: "/home/whacp/a.test", Inode: got[0].Inode, Offset: got[0].Offset}}})
+	pos, _ := json.Marshal(map[string]any{"sites": []Position{{Domain: "a.test", Root: "/home/nimvor/a.test", Inode: got[0].Inode, Offset: got[0].Offset}}})
 	got2 := call(string(pos))
 	if got2[0].Months["2026-09"] != 5 || got2[0].Months["2026-08"] != 0 {
 		t.Fatalf("second read: %+v", got2)
@@ -89,7 +89,7 @@ func TestBandwidthFromAccessLogs(t *testing.T) {
 	// A rotated log (new file) is read from the start.
 	os.Remove(log)
 	os.WriteFile(log, []byte(line("04/Sep/2026:00:00:01", "7")), 0o644)
-	pos, _ = json.Marshal(map[string]any{"sites": []Position{{Domain: "a.test", Root: "/home/whacp/a.test", Inode: got2[0].Inode, Offset: got2[0].Offset}}})
+	pos, _ = json.Marshal(map[string]any{"sites": []Position{{Domain: "a.test", Root: "/home/nimvor/a.test", Inode: got2[0].Inode, Offset: got2[0].Offset}}})
 	if got3 := call(string(pos)); got3[0].Months["2026-09"] != 7 {
 		t.Fatalf("after rotation: %+v", got3)
 	}
@@ -97,7 +97,7 @@ func TestBandwidthFromAccessLogs(t *testing.T) {
 	os.Remove(log)
 	os.WriteFile(filepath.Join(h.Base, "etc/secret.log"), []byte(line("04/Sep/2026:00:00:01", "999")), 0o600)
 	os.Symlink(filepath.Join(h.Base, "etc/secret.log"), log)
-	if got4 := call(`{"sites":[{"domain":"a.test","root":"/home/whacp/a.test"}]}`); !got4[0].NotFound {
+	if got4 := call(`{"sites":[{"domain":"a.test","root":"/home/nimvor/a.test"}]}`); !got4[0].NotFound {
 		t.Fatalf("followed a symlink: %+v", got4)
 	}
 	for _, bad := range []string{`{"sites":[{"domain":"a.test","root":"/etc"}]}`, `{"sites":[{"domain":"../x","root":""}]}`} {

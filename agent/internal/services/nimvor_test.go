@@ -12,7 +12,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
-func TestWhacpServices(t *testing.T) {
+func TestNimvorServices(t *testing.T) {
 	h := testhost.New(t)
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
@@ -27,7 +27,7 @@ func TestWhacpServices(t *testing.T) {
 		mu.Unlock()
 		switch args[0] {
 		case "show":
-			return "Id=whacp-agent.service\nLoadState=loaded\nActiveState=active\nSubState=running\n\nId=whacp-panel.service\nLoadState=loaded\nActiveState=active\nSubState=running\n\nId=whacp-ftpd.service\nLoadState=not-found\nActiveState=inactive\n", nil, true
+			return "Id=nimvor-agent.service\nLoadState=loaded\nActiveState=active\nSubState=running\n\nId=nimvor-panel.service\nLoadState=loaded\nActiveState=active\nSubState=running\n\nId=nimvor-ftpd.service\nLoadState=not-found\nActiveState=inactive\n", nil, true
 		case "is-active":
 			return "active\n", nil, true
 		}
@@ -48,7 +48,7 @@ func TestWhacpServices(t *testing.T) {
 		json.Unmarshal(out, &m)
 		return m, nil
 	}
-	st, err := call("whacp.services", nil)
+	st, err := call("nimvor.services", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,30 +56,30 @@ func TestWhacpServices(t *testing.T) {
 		t.Fatalf("services (units not found are left out): %v", st)
 	}
 	restartDelay = 10 * time.Millisecond
-	res, err := call("whacp.restart", map[string]string{"key": "agent"})
+	res, err := call("nimvor.restart", map[string]string{"key": "agent"})
 	if err != nil || res["scheduled"] != true {
 		t.Fatalf("agent: %v %v", res, err)
 	}
 	time.Sleep(100 * time.Millisecond)
-	if _, err := call("whacp.restart", map[string]string{"key": "scheduler"}); err != nil {
+	if _, err := call("nimvor.restart", map[string]string{"key": "scheduler"}); err != nil {
 		t.Fatal(err)
 	}
 	mu.Lock()
 	joined := strings.Join(calls, "\n")
 	mu.Unlock()
-	if !strings.Contains(joined, "restart --no-block -- whacp-agent.service") || !strings.Contains(joined, "restart -- whacp-scheduler.timer") {
+	if !strings.Contains(joined, "restart --no-block -- nimvor-agent.service") || !strings.Contains(joined, "restart -- nimvor-scheduler.timer") {
 		t.Fatalf("calls:\n%s", joined)
 	}
-	if _, err := call("whacp.restart", map[string]string{"key": "nginx"}); err == nil {
+	if _, err := call("nimvor.restart", map[string]string{"key": "nginx"}); err == nil {
 		t.Fatal("unknown key accepted")
 	}
-	if _, err := call("services.control", map[string]string{"unit": "whacp-panel.service", "op": "stop"}); err == nil {
+	if _, err := call("services.control", map[string]string{"unit": "nimvor-panel.service", "op": "stop"}); err == nil {
 		t.Fatal("the panel could be stopped")
 	}
 }
 
 func TestRestartPlanOrder(t *testing.T) {
-	got := RestartPlan([]string{"sshd.service", "nginx.service", "postfix.service", "php8.3-fpm.service", "mariadb.service", "whacp-panel.service", "chronyd.service", "redis.service"})
+	got := RestartPlan([]string{"sshd.service", "nginx.service", "postfix.service", "php8.3-fpm.service", "mariadb.service", "nimvor-panel.service", "chronyd.service", "redis.service"})
 	want := "mariadb.service redis.service php8.3-fpm.service postfix.service nginx.service"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("plan = %v", got)

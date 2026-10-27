@@ -23,7 +23,7 @@ import (
 
 // File integrity monitoring against the real package database: a change to a
 // package-owned configuration file is reported by dpkg --verify / rpm -Va,
-// and a change to a WhaCP-owned file is reported against the baseline.
+// and a change to a NimVor-owned file is reported against the baseline.
 // Requires root.
 func TestRealHostIntegrity(t *testing.T) {
 	if os.Geteuid() != 0 {
@@ -37,14 +37,14 @@ func TestRealHostIntegrity(t *testing.T) {
 	env := host.New(cfg, fsroot, platform.Detect(fsroot), execx.NewSystemRunner(time.Minute), jm, log)
 	ctx := context.Background()
 
-	// 1. WhaCP-owned baseline drift, under a temporary /etc/whacp we clean up.
-	confDir := "/etc/whacp"
+	// 1. NimVor-owned baseline drift, under a temporary /etc/nimvor we clean up.
+	confDir := "/etc/nimvor"
 	madeDir := false
 	if _, err := os.Stat(confDir); err != nil {
 		os.MkdirAll(confDir, 0o755)
 		madeDir = true
 	}
-	probe := filepath.Join(confDir, "whacp-integrity-probe.conf")
+	probe := filepath.Join(confDir, "nimvor-integrity-probe.conf")
 	os.WriteFile(probe, []byte("baseline\n"), 0o640)
 	t.Cleanup(func() {
 		os.Remove(probe)
@@ -57,8 +57,8 @@ func TestRealHostIntegrity(t *testing.T) {
 	}
 	os.WriteFile(probe, []byte("tampered\n"), 0o640)
 	r := CheckIntegrity(ctx, env, time.Now())
-	if f := findPath(r, probe); f == nil || f.Class != "whacp" || f.Issue != "modified" {
-		t.Errorf("WhaCP drift not detected: %+v", f)
+	if f := findPath(r, probe); f == nil || f.Class != "nimvor" || f.Issue != "modified" {
+		t.Errorf("NimVor drift not detected: %+v", f)
 	}
 
 	// 2. Package-owned verification: modify a package config file and check
@@ -79,7 +79,7 @@ func TestRealHostIntegrity(t *testing.T) {
 			t.Skipf("%s is not dpkg-owned here", target)
 		}
 	}
-	os.WriteFile(target, append(append([]byte{}, orig...), []byte("\n# whacp integrity probe\n")...), 0o644)
+	os.WriteFile(target, append(append([]byte{}, orig...), []byte("\n# nimvor integrity probe\n")...), 0o644)
 	t.Cleanup(func() { os.WriteFile(target, orig, 0o644) })
 	r = CheckIntegrity(ctx, env, time.Now())
 	if f := findPath(r, target); f == nil || f.Class != "package" || f.Issue != "modified" {

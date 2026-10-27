@@ -33,7 +33,7 @@ type machine struct {
 	simRemovesNG bool // the package dry run would remove nginx
 	failInstall  map[string]bool
 	failMake     bool
-	badConfig    bool // nginx -t fails once WhaCP's load file exists
+	badConfig    bool // nginx -t fails once NimVor's load file exists
 	failReload   bool
 	loadErr      string
 	nginxOwner   string
@@ -58,7 +58,7 @@ func newMachine(t *testing.T) *machine {
 	w("etc/ld.so.conf", "include /etc/ld.so.conf.d/*.conf\n")
 	w("etc/ld.so.conf.d/x86_64-linux-gnu.conf", "/usr/lib/x86_64-linux-gnu\n")
 	w("etc/apt/sources.list.d/ubuntu.sources", "Types: deb\nURIs: http://archive.ubuntu.com/ubuntu/\nSuites: noble noble-updates\nComponents: main universe\nSigned-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n")
-	os.MkdirAll(filepath.Join(m.Base, "usr/local/lib/whacp"), 0o755)
+	os.MkdirAll(filepath.Join(m.Base, "usr/local/lib/nimvor"), 0o755)
 	os.MkdirAll(filepath.Join(m.Base, "usr/lib/nginx/modules"), 0o755)
 	os.MkdirAll(filepath.Join(m.Base, "usr/share/nginx"), 0o755)
 	os.Symlink("../../lib/nginx/modules", filepath.Join(m.Base, "usr/share/nginx/modules")) // as on Debian
@@ -256,7 +256,7 @@ func (m *machine) respond(id string, args []string) (string, error, bool) {
 		return fail("src/ngx_http_modsecurity_module.c:42: error: unknown type")
 	case id == "make" && contains(args, "modules"):
 		// The module lands in objs/ of the nginx tree (found via tar above).
-		dirs, _ := filepath.Glob(m.path("/var/lib/whacp-build/*/nginx-1.24.0"))
+		dirs, _ := filepath.Glob(m.path("/var/lib/nimvor-build/*/nginx-1.24.0"))
 		for _, d := range dirs {
 			os.MkdirAll(filepath.Join(d, "objs"), 0o755)
 			content := "ELF"
@@ -268,7 +268,7 @@ func (m *machine) respond(id string, args []string) (string, error, bool) {
 		return "", nil, true
 	case id == "make" && contains(args, "install"):
 		stage := arg(args, "DESTDIR=")
-		libs, _ := filepath.Glob(filepath.Join(stage, "usr/local/lib/whacp/modsecurity/*"))
+		libs, _ := filepath.Glob(filepath.Join(stage, "usr/local/lib/nimvor/modsecurity/*"))
 		if len(libs) == 0 {
 			// the prefix was given to configure; find it
 			return "", nil, true
@@ -276,14 +276,14 @@ func (m *machine) respond(id string, args []string) (string, error, bool) {
 		return "", nil, true
 	case id == "sh" && contains(args, "./configure"):
 		if ld := arg(args, "--with-ld-opt=-Wl,-rpath,"); ld != "" {
-			dirs, _ := filepath.Glob(m.path("/var/lib/whacp-build/*/nginx-1.24.0"))
+			dirs, _ := filepath.Glob(m.path("/var/lib/nimvor-build/*/nginx-1.24.0"))
 			for _, d := range dirs {
 				os.WriteFile(filepath.Join(d, "rpath"), []byte(ld), 0o644)
 			}
 		}
 		if prefix := arg(args, "--prefix="); prefix != "" {
 			// libmodsecurity: "make install DESTDIR=" puts it in the stage.
-			stages, _ := filepath.Glob(m.path("/var/lib/whacp-build/*"))
+			stages, _ := filepath.Glob(m.path("/var/lib/nimvor-build/*"))
 			for _, s := range stages {
 				lib := filepath.Join(s, "stage", strings.TrimPrefix(prefix, "/"), "lib")
 				os.MkdirAll(lib, 0o755)
@@ -309,7 +309,7 @@ func (m *machine) install(opt InstallOptions) (map[string]any, error) {
 // state is what must come back after a failed installation.
 func (m *machine) state() string {
 	var b strings.Builder
-	for _, root := range []string{"etc/nginx", "usr/local/lib/whacp", "usr/lib/nginx/modules"} {
+	for _, root := range []string{"etc/nginx", "usr/local/lib/nimvor", "usr/lib/nginx/modules"} {
 		filepath.Walk(filepath.Join(m.Base, root), func(p string, info os.FileInfo, err error) error {
 			if err != nil {
 				return nil
@@ -702,7 +702,7 @@ func TestDebSrc(t *testing.T) {
 	}
 }
 
-// The build account is only WhaCP's own, and what it built is read without
+// The build account is only NimVor's own, and what it built is read without
 // following links out of the build folder.
 func TestBuildAccountAndOutputsAreNotTrusted(t *testing.T) {
 	m := newMachine(t)
@@ -712,10 +712,10 @@ func TestBuildAccountAndOutputsAreNotTrusted(t *testing.T) {
 		f.WriteString(line)
 		f.Close()
 	}
-	// An account of that name that is not WhaCP's (e.g. a website's).
-	appendPasswd(fmt.Sprintf("%s:x:1700:1700:WhaCP website evil.test:/home/whacp/evil.test:/usr/sbin/nologin\n", BuildAccount))
+	// An account of that name that is not NimVor's (e.g. a website's).
+	appendPasswd(fmt.Sprintf("%s:x:1700:1700:NimVor website evil.test:/home/nimvor/evil.test:/usr/sbin/nologin\n", BuildAccount))
 	before := m.state()
-	if _, err := m.install(InstallOptions{}); err == nil || !strings.Contains(err.Error(), "WhaCP did not create") {
+	if _, err := m.install(InstallOptions{}); err == nil || !strings.Contains(err.Error(), "NimVor did not create") {
 		t.Fatalf("%v", err)
 	}
 	if m.state() != before {

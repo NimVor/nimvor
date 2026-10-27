@@ -19,15 +19,15 @@ in CI have not run for this work:
 
 | # | Feature | Notes |
 | --- | --- | --- |
-| 1 | Resource limits (cgroups) | `whacp-acct<ID>.slice` with CPU, memory, tasks and IO limits. Each limited account gets its own PHP-FPM master in its slice. Cron jobs, workers and account commands run in the slice. |
+| 1 | Resource limits (cgroups) | `nimvor-acct<ID>.slice` with CPU, memory, tasks and IO limits. Each limited account gets its own PHP-FPM master in its slice. Cron jobs, workers and account commands run in the slice. |
 | 2 | Email filters, autoresponders, routers | Sieve per mailbox; Postfix transport maps. |
 | 3.1–3.3 | Disk usage by folder, index protection, permission repair | Background measurement; nginx `autoindex` switch; repair never follows links. |
 | 4.1 | Central settings | One page by category over `SettingsService`. |
-| 4.2 | AJAX operations | Page and header forms submit in the background (`AjaxForms` middleware plus `whacp.js`). Server-side checks are unchanged. |
+| 4.2 | AJAX operations | Page and header forms submit in the background (`AjaxForms` middleware plus `nimvor.js`). Server-side checks are unchanged. |
 | 4.3 | Bootstrap modals | Create and edit forms on 11 pages use windows. A refused save reopens its window with the errors. |
 | 4.4 | Confirmation | Every form that deletes, removes, drops, terminates, uninstalls, purges, revokes, resets or restores asks first (checked across all views). High-risk ones require typing a word. |
 | 5 | FFmpeg | Install/uninstall and version; per plan through a group. |
-| 6.1–6.4 | Hostname, root password, reboot, WhaCP service restart | |
+| 6.1–6.4 | Hostname, root password, reboot, NimVor service restart | |
 | 7.1–7.3 | Top statistics, CPU information, bandwidth | Live page with processes, per-core CPU and per-interface rates. |
 | 8 | Quota override | Per-account limit overrides (see 12 for disk). |
 | 9 | Account suspension | Websites, mail, databases, SSH/SFTP/FTP, cron, workers; resellers cascade to their customers. |
@@ -51,14 +51,14 @@ in CI have not run for this work:
 
 - **Network bandwidth per account:** the plans' monthly bandwidth is enforced (websites of an account over it answer 509 until the month ends, the limit is raised or the counter is reset). Network speed is not shaped per account: cgroup v2 has no network controller.
 - **Disk quota:** enforced with Linux user quotas once an administrator turns them on (ext4 live; XFS after a reboot). Commands needing `CAP_SYS_ADMIN` run in a capability-limited helper unit (owner-approved trade-off). Not yet verified on a real quota-capable kernel (this build machine's kernel has no quota support; CI is not running).
-- **FFmpeg on AlmaLinux 9:** EPEL's build only. **ModSecurity on AlmaLinux 9:** no connector package exists; WhaCP now builds the official connector for the installed Nginx from its signed source package (transactional, rolled back on failure). Verified by a real source build on Ubuntu 24.04 here; the AlmaLinux (dnf source package) route is unit-tested only until CI runs.
+- **FFmpeg on AlmaLinux 9:** EPEL's build only. **ModSecurity on AlmaLinux 9:** no connector package exists; NimVor now builds the official connector for the installed Nginx from its signed source package (transactional, rolled back on failure). Verified by a real source build on Ubuntu 24.04 here; the AlmaLinux (dnf source package) route is unit-tested only until CI runs.
 - **Web terminal for key-only SSH accounts:** the browser terminal signs in with the Linux password only.
 
 ## 3. Remaining (blocked by external dependencies)
 
 - **32 Softaculous integration:** needs a commercial licence and the vendor's installer.
 - **29.5 Purchase SSL:** needs a certificate authority or reseller account and its API.
-- **rDNS changes:** set at the IP provider; WhaCP can only check them (done in 15).
+- **rDNS changes:** set at the IP provider; NimVor can only check them (done in 15).
 
 ## 4. Database migrations
 
@@ -77,7 +77,7 @@ was not run (see 11).
 
 - **REST API (`/api/v1`):** unchanged.
 - **Panel:** new JSON contract for background form submits. The
-  `X-WhaCP-Ajax: 1` header turns the final redirect into
+  `X-NimVor-Ajax: 1` header turns the final redirect into
   `{"success": true, "redirect": …}`. Normal form posts are unchanged.
 - **Agent:** `agent/api/openapi.yaml` is regenerated; see 6.
 
@@ -94,7 +94,7 @@ Actions: 167 before the audit, 238 now (71 new). By area:
 | WordPress | 4 |
 | Terminal | 3 |
 | FFmpeg | 3 |
-| WhaCP services | 2 |
+| NimVor services | 2 |
 | Sites (disk usage, permissions) | 2 |
 | Shell | 2 |
 | Network | 2 |
@@ -117,7 +117,7 @@ Services:
   termination, Feature Manager, addon conversion.
 - **Mail:** mail administration, greylisting, email authentication checks.
 - **Server:** resource limits, shell access, terminal, live monitoring,
-  WhaCP services, root password.
+  NimVor services, root password.
 - **Security and SSL:** ModSecurity, SSL center.
 - **Hosting:** IP management, database server, WordPress.
 
@@ -149,7 +149,7 @@ Per website: `/sites/{id}/terminal`, `/sites/{id}/firewall`,
 - **Panel HTTP tests (25 new files):**
   - accounts: AccountAdmin, Suspension, FeatureManager, ResourceLimit,
     AddonConversion;
-  - server: CentralSettings, WhacpServices, RootPassword, MonitoringLive,
+  - server: CentralSettings, NimvorServices, RootPassword, MonitoringLive,
     Ffmpeg, Ip, DbServer, SslCenter;
   - mail: MailAdmin, MailDnsCheck, MailFilters, Greylisting;
   - security and websites: ModSecurity, ShellAccess, Terminal, WordPress,

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Core\Config;
-use WhaCP\Database\Connection;
+use NimVor\Core\Config;
+use NimVor\Database\Connection;
 
 /**
  * Keeps history tables bounded (run by the scheduler):

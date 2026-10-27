@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\DeployService;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\SettingsService;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\DeployService;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Services\SettingsService;
+use NimVor\View\View;
 
 final class DeployController extends SiteController
 {

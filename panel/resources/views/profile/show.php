@@ -1,4 +1,4 @@
-<?php /** @var \WhaCP\View\View $this */ ?>
+<?php /** @var \NimVor\View\View $this */ ?>
 <?php $this->start(); ?>Your profile<?php $this->end('title'); ?>
 
 <div class="row g-3">
@@ -6,7 +6,7 @@
         <div class="card mb-3">
             <div class="card-header"><i class="bi bi-person me-1"></i>Account</div>
             <div class="card-body">
-                <dl class="wcp-dl">
+                <dl class="nim-dl">
                     <dt>Username</dt><dd><?= e($profile['username']) ?></dd>
                     <dt>Email</dt><dd><?= e($profile['email']) ?></dd>
                     <dt>Role</dt><dd><?= e($profile['role_label']) ?></dd>
@@ -26,7 +26,7 @@
         <div class="card" id="password">
             <div class="card-header"><i class="bi bi-shield-lock me-1"></i>Change password</div>
             <div class="card-body">
-                <form method="post" action="<?= e($this->url('profile.password')) ?>" data-wcp-busy novalidate>
+                <form method="post" action="<?= e($this->url('profile.password')) ?>" data-nim-busy novalidate>
                     <?= $this->csrfField() ?>
                     <?= $this->partial('partials/field', ['name' => 'current_password', 'label' => 'Current password', 'type' => 'password', 'value' => '', 'attrs' => ['autocomplete' => 'current-password', 'required' => 'required']]) ?>
                     <?= $this->partial('partials/field', ['name' => 'password', 'label' => 'New password', 'type' => 'password', 'value' => '', 'help' => isset($password_rules) && is_callable($password_rules) ? $password_rules() : 'At least 12 characters.', 'attrs' => ['autocomplete' => 'new-password', 'required' => 'required']]) ?>
@@ -39,7 +39,7 @@
             <div class="card-header"><i class="bi bi-laptop me-1"></i>Sessions</div>
             <div class="card-body">
                 <p class="small text-body-secondary mb-2">Sign out of NimVor on every other browser and device, for example after using a shared computer. This browser stays signed in. Changing your password does the same.</p>
-                <form method="post" action="<?= e($this->url('profile.sessions.revoke')) ?>" data-wcp-busy data-wcp-confirm="Sign out everywhere else?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Sign out other sessions</button></form>
+                <form method="post" action="<?= e($this->url('profile.sessions.revoke')) ?>" data-nim-busy data-nim-confirm="Sign out everywhere else?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Sign out other sessions</button></form>
             </div>
         </div>
         <div class="card mt-3" id="two-factor">
@@ -49,13 +49,13 @@
                     <div class="alert alert-warning">
                         <div class="fw-semibold mb-1">Save these recovery codes now — they are not shown again.</div>
                         <p class="small mb-2">Each code signs you in once if you lose your phone.</p>
-                        <pre class="mb-2 user-select-all" data-wcp-recovery><?= e(implode("\n", (array) $recoveryCodes)) ?></pre>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-copy="[data-wcp-recovery]"><i class="bi bi-clipboard"></i> Copy</button>
+                        <pre class="mb-2 user-select-all" data-nim-recovery><?= e(implode("\n", (array) $recoveryCodes)) ?></pre>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-nim-copy="[data-nim-recovery]"><i class="bi bi-clipboard"></i> Copy</button>
                     </div>
                 <?php endif; ?>
                 <?php if (!empty($twoFactor)): ?>
                     <p class="small"><?= $this->statusBadge('valid', 'on') ?> since <?= e(substr((string) $twoFactor['enabled_at'], 0, 10)) ?> · <?= (int) $twoFactor['recovery_left'] ?> recovery codes left.</p>
-                    <form method="post" class="row g-2 align-items-end" data-wcp-busy>
+                    <form method="post" class="row g-2 align-items-end" data-nim-busy>
                         <?= $this->csrfField() ?>
                         <div class="col-sm-6"><label class="form-label small" for="tf-pass">Current password</label><input class="form-control form-control-sm" id="tf-pass" type="password" name="current_password" autocomplete="current-password" required></div>
                         <div class="col-sm-6 d-flex gap-2">
@@ -64,17 +64,17 @@
                         </div>
                     </form>
                 <?php elseif (is_string($setupSecret ?? null)): ?>
-                    <?php $uri = \WhaCP\Security\TwoFactor::uri($setupSecret, (string) $profile['username']); ?>
+                    <?php $uri = \NimVor\Security\TwoFactor::uri($setupSecret, (string) $profile['username']); ?>
                     <ol class="small ps-3">
                         <li>Scan this code with your authenticator app (e.g. Aegis, Google Authenticator, 1Password):
-                            <div class="my-2 wcp-qr"><?= $setupQr /* generated SVG, no user markup */ ?></div>
+                            <div class="my-2 nim-qr"><?= $setupQr /* generated SVG, no user markup */ ?></div>
                             or add an account with this key, or open the link on your phone:
-                            <div class="my-2"><code class="fs-6 user-select-all" data-wcp-2fa-key><?= e(trim(chunk_split($setupSecret, 4, ' '))) ?></code>
-                                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-wcp-copy="[data-wcp-2fa-key]"><i class="bi bi-clipboard"></i></button></div>
+                            <div class="my-2"><code class="fs-6 user-select-all" data-nim-2fa-key><?= e(trim(chunk_split($setupSecret, 4, ' '))) ?></code>
+                                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-nim-copy="[data-nim-2fa-key]"><i class="bi bi-clipboard"></i></button></div>
                             <a class="small" href="<?= e($uri) ?>">Open in authenticator app</a> · time-based, 6 digits, 30 seconds</li>
                         <li>Enter the code it shows and your password.</li>
                     </ol>
-                    <form method="post" action="<?= e($this->url('profile.2fa.enable')) ?>" class="row g-2 align-items-end" data-wcp-busy>
+                    <form method="post" action="<?= e($this->url('profile.2fa.enable')) ?>" class="row g-2 align-items-end" data-nim-busy>
                         <?= $this->csrfField() ?>
                         <div class="col-sm-4"><label class="form-label small" for="tf-code">Code</label><input class="form-control form-control-sm font-monospace" id="tf-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required></div>
                         <div class="col-sm-5"><label class="form-label small" for="tf-pass">Current password</label><input class="form-control form-control-sm" id="tf-pass" type="password" name="current_password" autocomplete="current-password" required></div>
@@ -88,7 +88,7 @@
         </div>
         <div class="card mt-3" id="security-keys">
             <div class="card-header"><i class="bi bi-usb-drive me-1"></i>Security keys and passkeys</div>
-            <div class="card-body" id="wcp-keys" data-options="<?= e($this->url('profile.2fa.key.options')) ?>" data-add="<?= e($this->url('profile.2fa.key.add')) ?>">
+            <div class="card-body" id="nim-keys" data-options="<?= e($this->url('profile.2fa.key.options')) ?>" data-add="<?= e($this->url('profile.2fa.key.add')) ?>">
                 <p class="small text-body-secondary">Sign in with a hardware key (YubiKey, Titan…) or a passkey on this device instead of a code. A key counts as two-factor sign-in. Keep a second key or an authenticator app in case you lose it.</p>
                 <?php foreach ((array) ($securityKeys ?? []) as $k): ?>
                     <div class="d-flex align-items-center border-bottom py-2 small">
@@ -104,28 +104,28 @@
                         </details>
                     </div>
                 <?php endforeach; ?>
-                <form class="d-flex gap-2 mt-3" data-wcp-key-add>
+                <form class="d-flex gap-2 mt-3" data-nim-key-add>
                     <input class="form-control form-control-sm" name="name" maxlength="60" placeholder="Name, e.g. YubiKey 5C" required aria-label="Key name">
                     <button class="btn btn-sm btn-primary text-nowrap" type="submit"><i class="bi bi-plus-lg me-1"></i>Add key</button>
                 </form>
-                <div class="small text-danger mt-2 d-none" data-wcp-key-error role="alert"></div>
+                <div class="small text-danger mt-2 d-none" data-nim-key-error role="alert"></div>
             </div>
         </div>
     </div>
 </div>
 
-<?php if ($this->can(\WhaCP\Security\Permissions::API_TOKENS)): ?>
+<?php if ($this->can(\NimVor\Security\Permissions::API_TOKENS)): ?>
 <div class="card mt-3">
     <div class="card-header"><i class="bi bi-braces me-1"></i>API tokens</div>
     <div class="card-body">
         <?php if (!empty($newToken)): ?>
             <div class="alert alert-warning">
                 <div class="fw-semibold mb-1">Copy your new token now — it is not shown again:</div>
-                <div class="d-flex gap-2 align-items-center"><code class="user-select-all text-break" data-wcp-new-token><?= e($newToken) ?></code>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-copy="[data-wcp-new-token]"><i class="bi bi-clipboard"></i></button></div>
+                <div class="d-flex gap-2 align-items-center"><code class="user-select-all text-break" data-nim-new-token><?= e($newToken) ?></code>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-nim-copy="[data-nim-new-token]"><i class="bi bi-clipboard"></i></button></div>
             </div>
         <?php endif; ?>
-        <p class="small text-body-secondary">Tokens act with your permissions. Send them as <code>Authorization: Bearer whacp_…</code> to <code>/api/v1/…</code>; the reference is at <a href="<?= e($this->url('api.openapi')) ?>">/api/v1/openapi.yaml</a>.</p>
+        <p class="small text-body-secondary">Tokens act with your permissions. Send them as <code>Authorization: Bearer nimvor_…</code> to <code>/api/v1/…</code>; the reference is at <a href="<?= e($this->url('api.openapi')) ?>">/api/v1/openapi.yaml</a>.</p>
         <?php if ($tokens !== []): ?>
             <div class="table-responsive"><table class="table table-sm align-middle">
                 <thead><tr><th>Name</th><th>Access</th><th>Expires</th><th>Last used</th><th></th></tr></thead>
@@ -136,7 +136,7 @@
                         <td><?= $t['ability'] === 'write' ? 'read & write' : 'read-only' ?></td>
                         <td class="small"><?= $t['expires_at'] === null ? 'never' : e(substr((string) $t['expires_at'], 0, 10)) ?></td>
                         <td class="small"><?= $t['last_used_at'] === null ? 'never' : e(time_ago($t['last_used_at'])) . ' from ' . e((string) $t['last_used_ip']) ?></td>
-                        <td class="text-end"><form method="post" action="<?= e($this->url('tokens.revoke', ['id' => (int) $t['id']])) ?>" data-wcp-confirm="Revoke the token <?= e($t['name']) ?>? Tools using it stop working."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Revoke</button></form></td>
+                        <td class="text-end"><form method="post" action="<?= e($this->url('tokens.revoke', ['id' => (int) $t['id']])) ?>" data-nim-confirm="Revoke the token <?= e($t['name']) ?>? Tools using it stop working."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Revoke</button></form></td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>

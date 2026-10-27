@@ -1,13 +1,13 @@
-// Package adopt imports an existing (non-WhaCP) website into WhaCP.
+// Package adopt imports an existing (non-NimVor) website into NimVor.
 //
-// WhaCP never edits configuration it did not create, so an import is a
+// NimVor never edits configuration it did not create, so an import is a
 // migration into a new managed website:
 //
 //  1. preview (read-only): which Nginx files serve the site and how each
 //     would be disabled, what would block the import, the files to copy,
-//     the database the application uses and the exact configuration WhaCP
+//     the database the application uses and the exact configuration NimVor
 //     would generate;
-//  2. run (job): create the WhaCP website (disabled), copy the files in as
+//  2. run (job): create the NimVor website (disabled), copy the files in as
 //     the new account, then switch: disable the old vhost (remove its
 //     sites-enabled link, or move a file out of an include directory into
 //     the state directory), enable the new site and validate with nginx -t.
@@ -106,7 +106,7 @@ func (s Service) Plan(ctx context.Context, r Request) (*Preview, error) {
 	ng := e.Discovery.Nginx(ctx)
 	files := map[string][]nginx.VHost{}
 	for _, v := range ng.VHosts {
-		if strings.HasPrefix(filepath.Base(v.File), "whacp-") {
+		if strings.HasPrefix(filepath.Base(v.File), "nimvor-") {
 			continue
 		}
 		for _, n := range v.ServerNames {
@@ -182,7 +182,7 @@ func (s Service) Plan(ctx context.Context, r Request) (*Preview, error) {
 	}
 	p.Database, p.DBSource = detectDatabase(e, p.Source)
 
-	l := sites.Layout{NginxFile: filepath.Join(e.M.NginxAvailable, "whacp-"+spec.Domain+".conf"), Socket: filepath.Join(e.M.PHPSocketDir, "whacp-"+spec.Domain+".sock"), LogDir: filepath.Join(spec.Root, "logs"), TmpDir: filepath.Join(spec.Root, "tmp"), ACMERoot: e.M.ACMERoot, WebUser: e.M.WebUser, IPv6: e.IPv6()}
+	l := sites.Layout{NginxFile: filepath.Join(e.M.NginxAvailable, "nimvor-"+spec.Domain+".conf"), Socket: filepath.Join(e.M.PHPSocketDir, "nimvor-"+spec.Domain+".sock"), LogDir: filepath.Join(spec.Root, "logs"), TmpDir: filepath.Join(spec.Root, "tmp"), ACMERoot: e.M.ACMERoot, WebUser: e.M.WebUser, IPv6: e.IPv6()}
 	p.NewConfig = sites.RenderNginx(spec, l)
 	if len(p.Skipped) > 0 {
 		p.Warnings = append(p.Warnings, fmt.Sprintf("%d symbolic link(s) point outside the website and will not be copied.", len(p.Skipped)))
@@ -191,7 +191,7 @@ func (s Service) Plan(ctx context.Context, r Request) (*Preview, error) {
 		for _, vs := range files {
 			for _, v := range vs {
 				if v.SSL {
-					p.Warnings = append(p.Warnings, "The site uses HTTPS today but its certificate is not reusable; it will be served over HTTP until you issue a certificate in WhaCP.")
+					p.Warnings = append(p.Warnings, "The site uses HTTPS today but its certificate is not reusable; it will be served over HTTP until you issue a certificate in NimVor.")
 				}
 			}
 		}
@@ -225,7 +225,7 @@ func (s Service) disableStep(file string, enabled bool) (Step, error) {
 		stored := filepath.Join(e.Cfg.StateDir, "imports", "disabled", strings.ReplaceAll(strings.TrimPrefix(file, "/"), "/", "__"))
 		return Step{File: file, Action: "move", Path: file, Stored: stored}, nil
 	}
-	return Step{}, fmt.Errorf("%s is not a separate site file WhaCP can disable (e.g. it is part of nginx.conf); move that server block to its own file first", file)
+	return Step{}, fmt.Errorf("%s is not a separate site file NimVor can disable (e.g. it is part of nginx.conf); move that server block to its own file first", file)
 }
 
 // writerFor returns a writer allowed to touch only these steps' paths.
@@ -299,7 +299,7 @@ func (s Service) Run(ctx context.Context, r Request, log io.Writer) (map[string]
 	spec.CreateUser = true
 	wantEnabled := spec.Enabled
 
-	fmt.Fprintf(log, "Creating the WhaCP website %s (disabled while files are copied)…\n", spec.Domain)
+	fmt.Fprintf(log, "Creating the NimVor website %s (disabled while files are copied)…\n", spec.Domain)
 	spec.Enabled = false
 	// The web configuration lock covers the two configuration steps, not the
 	// copy between them (which can take long).
@@ -320,7 +320,7 @@ func (s Service) Run(ctx context.Context, r Request, log io.Writer) (map[string]
 	src, _ := e.Root.Path(p.Source)
 	dst, _ := e.Root.Path(p.Target)
 	fmt.Fprintf(log, "Copying %d files (%d bytes) from %s…\n", p.Files, p.Bytes, p.Source)
-	_ = os.Remove(filepath.Join(dst, "index.html")) // WhaCP's placeholder
+	_ = os.Remove(filepath.Join(dst, "index.html")) // NimVor's placeholder
 	n, skipped, err := copyTree(ctx, src, dst, u.UID, web.GID)
 	if err != nil {
 		return nil, fmt.Errorf("copying files failed after %d files: %v (the old website is still live and unchanged)", n, err)
@@ -348,7 +348,7 @@ func (s Service) Run(ctx context.Context, r Request, log io.Writer) (map[string]
 	return map[string]any{"domain": spec.Domain, "files": n, "skipped": skipped, "database": p.Database}, nil
 }
 
-// Undo re-enables the old configuration and disables the WhaCP site.
+// Undo re-enables the old configuration and disables the NimVor site.
 func (s Service) Undo(ctx context.Context, spec sites.Spec) error {
 	e := s.Env
 	b, err := e.Root.ReadFile(s.recordPath(spec.Domain))
@@ -365,7 +365,7 @@ func (s Service) Undo(ctx context.Context, spec sites.Spec) error {
 	}
 	spec.Enabled = false
 	if _, err := s.Sites.ApplyIgnoring(ctx, spec, ignore); err != nil {
-		return actions.Failed("The WhaCP website could not be disabled.", err.Error())
+		return actions.Failed("The NimVor website could not be disabled.", err.Error())
 	}
 	if err := s.enable(rec.Steps); err != nil {
 		return actions.Failed("The old configuration could not be restored.", err.Error())
@@ -545,14 +545,14 @@ func Register(r *actions.Registry, env *host.Env) {
 		err := host.Decode(p, &in)
 		return in, err
 	}
-	r.Register(actions.Action{Name: "adopt.preview", Timeout: 2 * time.Minute, Description: "Plan the import of an existing website into WhaCP (read-only).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "adopt.preview", Timeout: 2 * time.Minute, Description: "Plan the import of an existing website into NimVor (read-only).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		in, err := decode(p)
 		if err != nil {
 			return nil, err
 		}
 		return s.Plan(ctx, in)
 	}})
-	r.Register(actions.Action{Name: "adopt.run", Mutating: true, Description: "Import an existing website into WhaCP (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "adopt.run", Mutating: true, Description: "Import an existing website into NimVor (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		in, err := decode(p)
 		if err != nil {
 			return nil, err
@@ -569,7 +569,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})
-	r.Register(actions.Action{Name: "adopt.undo", Mutating: true, Description: "Undo an import: re-enable the old configuration and disable the WhaCP website.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "adopt.undo", Mutating: true, Description: "Undo an import: re-enable the old configuration and disable the NimVor website.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		in, err := decode(p)
 		if err != nil {
 			return nil, err

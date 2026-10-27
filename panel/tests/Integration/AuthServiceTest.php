@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Integration;
+namespace NimVor\Tests\Integration;
 
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Repositories\LoginAttemptRepository;
-use WhaCP\Security\AuthService;
-use WhaCP\Security\LoginThrottle;
-use WhaCP\Tests\Support\DatabaseTestCase;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Repositories\LoginAttemptRepository;
+use NimVor\Security\AuthService;
+use NimVor\Security\LoginThrottle;
+use NimVor\Tests\Support\DatabaseTestCase;
 
 final class AuthServiceTest extends DatabaseTestCase
 {

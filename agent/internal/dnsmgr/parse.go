@@ -8,7 +8,7 @@ import (
 )
 
 // Importing a zone file (BIND format, as exported by most DNS hosts): the
-// records WhaCP supports come back as panel records; SOA and anything
+// records NimVor supports come back as panel records; SOA and anything
 // unsupported is reported as skipped. $ORIGIN and $TTL are honoured;
 // $INCLUDE and $GENERATE are not.
 
@@ -216,7 +216,7 @@ func ParseZoneFile(text, zone string) ParseResult {
 		atoi := func(s string) int { v, _ := strconv.Atoi(s); return v }
 		switch typ {
 		case "SOA":
-			continue // WhaCP writes its own
+			continue // NimVor writes its own
 		case "A", "AAAA":
 			r.Value = data[0]
 		case "CNAME", "NS", "PTR":

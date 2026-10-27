@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Plugins;
+namespace NimVor\Plugins;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Core\Container;
-use WhaCP\Database\Connection;
-use WhaCP\Http\Controllers\PluginDispatchController;
-use WhaCP\Http\Response;
-use WhaCP\Http\Router;
-use WhaCP\Repositories\SettingRepository;
-use WhaCP\Security\Permissions;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Support\Events;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Core\Container;
+use NimVor\Database\Connection;
+use NimVor\Http\Controllers\PluginDispatchController;
+use NimVor\Http\Response;
+use NimVor\Http\Router;
+use NimVor\Repositories\SettingRepository;
+use NimVor\Security\Permissions;
+use NimVor\Services\AuditLogger;
+use NimVor\Support\Events;
+use NimVor\View\View;
 
 /**
  * What a plugin can do. Passed to the function returned by plugin.php:
  *
- *     return function (WhaCP\Plugins\PluginContext $ctx): void {
+ *     return function (NimVor\Plugins\PluginContext $ctx): void {
  *         $ctx->route('GET', '/', fn ($request) => $ctx->render('index', []), 'plugin.hello.view');
  *         $ctx->nav('Hello', 'emoji-smile', '/', 'plugin.hello.view');
  *     };
@@ -92,7 +92,7 @@ final class PluginContext
             try {
                 $listener($payload);
             } catch (\Throwable $e) {
-                $this->container->get(\WhaCP\Support\Logger::class)->error('plugin listener failed', ['plugin' => $this->name, 'event' => $event, 'error' => $e->getMessage()]);
+                $this->container->get(\NimVor\Support\Logger::class)->error('plugin listener failed', ['plugin' => $this->name, 'event' => $event, 'error' => $e->getMessage()]);
             }
         };
         $this->container->get(Events::class)->on($event, $safe);

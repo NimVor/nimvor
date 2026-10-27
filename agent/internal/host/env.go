@@ -55,31 +55,31 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.WebUser = cfg.WebUser
 	}
 	patterns := []string{
-		filepath.Join(m.NginxAvailable, "whacp-*.conf"),
-		filepath.Join(m.NginxEnabled, "whacp-*.conf"),
-		filepath.Join(m.PoolDir("*"), "whacp-*.conf"),
-		filepath.Join(m.CronDir, "whacp-*"),
-		filepath.Join(m.UnitDir, "whacp-worker-*.service"),
-		filepath.Join(m.UnitDir, "whacp-fpm-*.service"),
+		filepath.Join(m.NginxAvailable, "nimvor-*.conf"),
+		filepath.Join(m.NginxEnabled, "nimvor-*.conf"),
+		filepath.Join(m.PoolDir("*"), "nimvor-*.conf"),
+		filepath.Join(m.CronDir, "nimvor-*"),
+		filepath.Join(m.UnitDir, "nimvor-worker-*.service"),
+		filepath.Join(m.UnitDir, "nimvor-fpm-*.service"),
 		// The sandbox drop-in of the PHP-FPM services (EnsureFPMSandbox).
 		filepath.Join(m.UnitDir, fmt.Sprintf(m.PHPFPMUnit, "*")+".d"),
 		filepath.Join(m.UnitDir, fmt.Sprintf(m.PHPFPMUnit, "*")+".d", FPMSandboxFile),
-		"/etc/whacp-fpm/**",
-		"/etc/whacp-cron/**",
+		"/etc/nimvor-fpm/**",
+		"/etc/nimvor-cron/**",
 		// MongoDB admin connection string (mongomgr): root-only, holds the
-		// credentials WhaCP uses to reach MongoDB once authentication is on.
-		"/etc/whacp",
-		"/etc/whacp/mongo-admin.uri",
+		// credentials NimVor uses to reach MongoDB once authentication is on.
+		"/etc/nimvor",
+		"/etc/nimvor/mongo-admin.uri",
 		m.SSHDropIn,
 		m.SFTPDropIn,
 		m.SFTPKeysDir + "/**",
 		// Jailed shells: the sandboxing login shell and, where AppArmor
 		// restricts user namespaces, the group-only bubblewrap copy.
-		"/usr/local/sbin/whacp-jailsh",
-		"/usr/local/lib/whacp/bwrap",
+		"/usr/local/sbin/nimvor-jailsh",
+		"/usr/local/lib/nimvor/bwrap",
 		// WordPress toolkit: the pinned, checksum-verified WP-CLI.
-		"/usr/local/lib/whacp",
-		"/usr/local/lib/whacp/wp-cli.phar",
+		"/usr/local/lib/nimvor",
+		"/usr/local/lib/nimvor/wp-cli.phar",
 		// Disk quotas: only the quota options of the websites' file system entry.
 		"/etc/fstab",
 		m.FTPDir + "/**",
@@ -91,31 +91,31 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.PostfixDir + "/master.cf",
 		m.DovecotAuthConf,
 		m.DovecotDropIn,
-		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-whacp-sieve.conf"),
-		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-whacp-tuning.conf"),
+		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-nimvor-sieve.conf"),
+		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-nimvor-tuning.conf"),
 		"/etc/rspamd/local.d/*",
 		// MongoDB's main configuration file (port, bindIp, authorization).
 		"/etc/mongod.conf",
-		// MariaDB/MySQL server settings WhaCP manages (its own drop-in only).
-		"/etc/mysql/mariadb.conf.d/zz-whacp.cnf",
-		"/etc/mysql/mysql.conf.d/zz-whacp.cnf",
-		"/etc/my.cnf.d/zz-whacp.cnf",
+		// MariaDB/MySQL server settings NimVor manages (its own drop-in only).
+		"/etc/mysql/mariadb.conf.d/zz-nimvor.cnf",
+		"/etc/mysql/mysql.conf.d/zz-nimvor.cnf",
+		"/etc/my.cnf.d/zz-nimvor.cnf",
 		m.WebmailDir + "/**",
-		"/etc/tmpfiles.d/whacp-*.conf",
+		"/etc/tmpfiles.d/nimvor-*.conf",
 		// The PHP-FPM pools' socket folder, created when missing
 		// (EnsurePHPSocketDir; only the folder, not what is in it).
 		m.PHPSocketDir,
 		m.NginxAvailable,
-		filepath.Join(filepath.Dir(m.NginxAvailable), "whacp-tls.conf"),
-		// WhaCP's managed Nginx tuning drop-in (http context), nothing else in conf.d.
-		filepath.Join(filepath.Dir(m.NginxAvailable), "conf.d", "zz-whacp-tuning.conf"),
+		filepath.Join(filepath.Dir(m.NginxAvailable), "nimvor-tls.conf"),
+		// NimVor's managed Nginx tuning drop-in (http context), nothing else in conf.d.
+		filepath.Join(filepath.Dir(m.NginxAvailable), "conf.d", "zz-nimvor-tuning.conf"),
 		m.WebmailData + "/**",
-		filepath.Join(m.UnitDir, "whacp-opendkim.service"),
-		filepath.Join(m.UnitDir, "whacp-ftpd.service"),
-		filepath.Join(m.UnitDir, "whacp-greylist.service"),
-		filepath.Join(m.UnitDir, "whacp-greylist.socket"),
-		filepath.Join(m.UnitDir, "whacp-mailrate.service"),
-		filepath.Join(m.UnitDir, "whacp-mailrate.socket"),
+		filepath.Join(m.UnitDir, "nimvor-opendkim.service"),
+		filepath.Join(m.UnitDir, "nimvor-ftpd.service"),
+		filepath.Join(m.UnitDir, "nimvor-greylist.service"),
+		filepath.Join(m.UnitDir, "nimvor-greylist.socket"),
+		filepath.Join(m.UnitDir, "nimvor-mailrate.service"),
+		filepath.Join(m.UnitDir, "nimvor-mailrate.socket"),
 		m.Fail2banJail,
 		m.ACMERoot + "/**",
 		cfg.SitesRoot + "/**",
@@ -129,23 +129,23 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		// host name so the machine resolves its own name to its real
 		// address (not Debian's 127.0.1.1 placeholder).
 		"/etc/hosts",
-		// RHEL: switching a PHP extension edits its php.d file; WhaCP's
-		// php.ini settings are php.d/99-whacp.ini there.
+		// RHEL: switching a PHP extension edits its php.d file; NimVor's
+		// php.ini settings are php.d/99-nimvor.ini there.
 		"/etc/opt/remi/php*/php.d/*.ini",
-		"/etc/php/*/fpm/conf.d/99-whacp.ini",
-		"/etc/php/*/cli/conf.d/99-whacp.ini",
-		// Website statistics: WhaCP's own AWStats configurations.
-		"/etc/awstats/awstats.whacp-*.conf",
-		// More PHP versions on Ubuntu: WhaCP's source of the ondrej/php PPA
+		"/etc/php/*/fpm/conf.d/99-nimvor.ini",
+		"/etc/php/*/cli/conf.d/99-nimvor.ini",
+		// Website statistics: NimVor's own AWStats configurations.
+		"/etc/awstats/awstats.nimvor-*.conf",
+		// More PHP versions on Ubuntu: NimVor's source of the ondrej/php PPA
 		// and its pinned key (phpmgr), nothing else under /etc/apt.
 		"/etc/apt/keyrings",
-		"/etc/apt/keyrings/whacp-ondrej-php.asc",
-		"/etc/apt/sources.list.d/whacp-ondrej-php.sources",
-		// MongoDB's repository (mongomgr): WhaCP's key, APT source and DNF
+		"/etc/apt/keyrings/nimvor-ondrej-php.asc",
+		"/etc/apt/sources.list.d/nimvor-ondrej-php.sources",
+		// MongoDB's repository (mongomgr): NimVor's key, APT source and DNF
 		// repo file, nothing else under /etc/apt or /etc/yum.repos.d.
-		"/etc/apt/keyrings/whacp-mongodb-*.asc",
-		"/etc/apt/sources.list.d/whacp-mongodb-*.sources",
-		"/etc/yum.repos.d/whacp-mongodb-*.repo",
+		"/etc/apt/keyrings/nimvor-mongodb-*.asc",
+		"/etc/apt/sources.list.d/nimvor-mongodb-*.sources",
+		"/etc/yum.repos.d/nimvor-mongodb-*.repo",
 	}
 	return &Env{
 		Cfg: cfg, Root: root, Platform: p, M: m, Runner: r, Jobs: j, Log: log,
@@ -160,7 +160,7 @@ func (e *Env) Changes(label string) *changeset.Set {
 	return changeset.New(e.Writer, filepath.Join(e.Cfg.StateDir, "config-backups"), label)
 }
 
-// EnsurePHPSocketDir adds to set the folder WhaCP's PHP-FPM pools (website
+// EnsurePHPSocketDir adds to set the folder NimVor's PHP-FPM pools (website
 // and webmail pools) create their sockets in, and its tmpfiles.d entry that
 // recreates it at every boot (it is on a tmpfs). On RHEL no PHP package
 // creates it for Remi's parallel versions: without it a pool cannot bind
@@ -169,7 +169,7 @@ func (e *Env) EnsurePHPSocketDir(set *changeset.Set) {
 	if e.M.PHPSocketTmpfiles == "" {
 		return
 	}
-	set.Write(e.M.PHPSocketTmpfiles, []byte("# Managed by WhaCP: PHP-FPM sockets of websites.\nd "+e.M.PHPSocketDir+" 0755 root root -\n"), 0o644, agentfs.RootOwner)
+	set.Write(e.M.PHPSocketTmpfiles, []byte("# Managed by NimVor: PHP-FPM sockets of websites.\nd "+e.M.PHPSocketDir+" 0755 root root -\n"), 0o644, agentfs.RootOwner)
 	if !e.Root.Exists(e.M.PHPSocketDir) {
 		set.Mkdir(e.M.PHPSocketDir, 0o755, agentfs.RootOwner)
 	}
@@ -219,12 +219,12 @@ func (e *Env) IPv6() bool {
 	return err == nil && len(bytes.TrimSpace(b)) > 0
 }
 
-// PrecheckNginx verifies the current configuration before WhaCP changes it,
+// PrecheckNginx verifies the current configuration before NimVor changes it,
 // so a pre-existing problem is not blamed on (or hidden by) the change.
 func (e *Env) PrecheckNginx(ctx context.Context) error {
 	out, err := e.Runner.Run(ctx, "nginx", "-t")
 	if err != nil {
-		return actions.Failed("The current Nginx configuration is already invalid, before any change by WhaCP. Fix it first (run nginx -t on the server); WhaCP did not change anything.", Output(out))
+		return actions.Failed("The current Nginx configuration is already invalid, before any change by NimVor. Fix it first (run nginx -t on the server); NimVor did not change anything.", Output(out))
 	}
 	return nil
 }
@@ -310,7 +310,7 @@ func (e *Env) JournalTail(ctx context.Context, unit string, lines int) string {
 }
 
 // Describe lists each path's mode, owner and SELinux label (for error
-// details when a service cannot read what WhaCP wrote).
+// details when a service cannot read what NimVor wrote).
 func (e *Env) Describe(paths ...string) string {
 	var b strings.Builder
 	for _, hp := range paths {
@@ -411,10 +411,10 @@ func (e *Env) Credential(name string) (*execx.Credential, users.User, error) {
 		return nil, u, err
 	}
 	if u.UID < 1000 || u.UID >= 60000 {
-		return nil, u, fmt.Errorf("user %s is a system account; WhaCP only runs commands as regular accounts", name)
+		return nil, u, fmt.Errorf("user %s is a system account; NimVor only runs commands as regular accounts", name)
 	}
 	if why := e.PrivilegedAccount(name, u.GID); why != "" {
-		return nil, u, fmt.Errorf("user %s has administrator rights (%s); WhaCP never runs commands as such an account", name, why)
+		return nil, u, fmt.Errorf("user %s has administrator rights (%s); NimVor never runs commands as such an account", name, why)
 	}
 	return &execx.Credential{UID: uint32(u.UID), GID: uint32(u.GID), Home: u.Home, Slice: e.AccountSlice(name)}, u, nil
 }
@@ -438,7 +438,7 @@ func (e *Env) AccountSlice(user string) string {
 	for acct, a := range st.Accounts {
 		for _, u := range a.Users {
 			if u == user {
-				return "whacp-" + acct + ".slice"
+				return "nimvor-" + acct + ".slice"
 			}
 		}
 	}
@@ -488,18 +488,18 @@ func (e *Env) StripSetID(ctx context.Context, cred *execx.Credential, dir string
 // (0700), so the launchers are kept here: the directory is 0711 root (no
 // listing) and each launcher is 0640 root:<account's group>, readable by
 // its own account only (it carries the worker's environment variables).
-const WorkersDir = "/var/lib/whacp-workers"
+const WorkersDir = "/var/lib/nimvor-workers"
 
-// RuntimesDir holds extra language runtimes (Node.js, Python) that WhaCP
+// RuntimesDir holds extra language runtimes (Node.js, Python) that NimVor
 // installs side by side, each under <kind>/<version>, so a website's
 // workers can run on a chosen version without touching the system packages.
-const RuntimesDir = "/opt/whacp/runtimes"
+const RuntimesDir = "/opt/nimvor/runtimes"
 
-// TrashDir is the name of the trash folder WhaCP keeps inside the folder
+// TrashDir is the name of the trash folder NimVor keeps inside the folder
 // that holds the data it removes (the websites root, the mail root).
-const TrashDir = ".whacp-trash"
+const TrashDir = ".nimvor-trash"
 
-// MoveToTrash moves path into <parent>/.whacp-trash/<name>-<time>, a root-only
+// MoveToTrash moves path into <parent>/.nimvor-trash/<name>-<time>, a root-only
 // folder on the same filesystem as the data, so the move is a rename (the
 // websites or mail may be on their own disk) and keeps owners, modes and
 // security labels. It returns the new location.

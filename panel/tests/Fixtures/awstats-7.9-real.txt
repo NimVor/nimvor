@@ -1,6 +1,6 @@
 AWSTATS DATA FILE 7.9 (build 20230108)
 # If you remove this file, all statistics for date 202609 will be lost/reset.
-# Last config file used to build this data file was /etc/awstats/awstats.whacp-real.test.conf.
+# Last config file used to build this data file was /etc/awstats/awstats.nimvor-real.test.conf.
 
 # Position (offset in bytes) in this file for beginning of each section for
 # direct I/O access. If you made changes somewhere in this file, you should

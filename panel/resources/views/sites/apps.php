@@ -3,14 +3,14 @@
  * Website → Apps: a Softaculous-style installer — categories on the left, the
  * selected category's applications on the right, each with an install modal.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed> $site
  * @var list<array<string, mixed>> $installs
  * @var list<array<string, mixed>> $catalog   categories, each with 'apps'
  * @var bool $installerEnabled
  * @var list<array{id: int, domain: string, docroot: string, is_php: bool}> $targets
  */
-use WhaCP\Services\AppInstallerService as A;
+use NimVor\Services\AppInstallerService as A;
 
 $id = (int) $site['id'];
 $isPhp = $site['kind'] === 'php';
@@ -22,14 +22,14 @@ $targets ??= [['id' => $id, 'domain' => (string) $site['domain'], 'docroot' => $
 <?= $this->partial('partials/secret', ['secret' => $secret]) ?>
 
 <?php if (!$installerEnabled): ?>
-    <div class="card"><div class="wcp-empty-state"><i class="bi bi-box" aria-hidden="true"></i><div class="fw-medium">The application installer is turned off</div><div class="small">Ask your hosting provider to enable it.</div></div></div>
+    <div class="card"><div class="nim-empty-state"><i class="bi bi-box" aria-hidden="true"></i><div class="fw-medium">The application installer is turned off</div><div class="small">Ask your hosting provider to enable it.</div></div></div>
     <?php return; ?>
 <?php endif; ?>
 <?php if (!$isPhp): ?>
     <div class="alert alert-info small">Applications need a PHP website. Change the type under <a href="<?= e($this->url('sites.edit', ['id' => $id])) ?>">Settings</a>.</div>
 <?php endif; ?>
 <?php if ($catalog === []): ?>
-    <div class="card"><div class="wcp-empty-state"><i class="bi bi-box" aria-hidden="true"></i><div class="fw-medium">No applications are available</div></div></div>
+    <div class="card"><div class="nim-empty-state"><i class="bi bi-box" aria-hidden="true"></i><div class="fw-medium">No applications are available</div></div></div>
     <?php return; ?>
 <?php endif; ?>
 
@@ -78,7 +78,7 @@ foreach ($catalog as $cat):
         $action = $this->url('sites.apps.install', ['id' => $id, 'app' => $slug]);
         ?>
         <?= $this->modalStart('app-' . $slug, 'Install ' . (string) $app['name']) ?>
-            <form method="post" action="<?= e($action) ?>" data-wcp-busy>
+            <form method="post" action="<?= e($action) ?>" data-nim-busy>
                 <div class="p-3">
                     <?= $this->csrfField() ?>
                     <p class="small text-body-secondary"><?= e((string) $app['description']) ?></p>
@@ -128,7 +128,7 @@ foreach ($catalog as $cat):
                     <td><code><?= e($i['path']) ?></code></td>
                     <td class="small"><?= e((string) ($i['database_name'] ?? '—')) ?></td>
                     <td><?= $this->statusBadge($i['status'] === 'running' ? 'activating' : (string) $i['status'], (string) $i['status']) ?><?php if ($i['error'] !== ''): ?><div class="small text-danger"><?= e($i['error']) ?></div><?php endif; ?></td>
-                    <td class="text-end"><?php if ($i['job_id'] !== ''): ?><button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-job-open="<?= e($i['job_id']) ?>" title="Log"><i class="bi bi-terminal"></i></button><?php endif; ?>
+                    <td class="text-end"><?php if ($i['job_id'] !== ''): ?><button type="button" class="btn btn-sm btn-outline-secondary" data-nim-job-open="<?= e($i['job_id']) ?>" title="Log"><i class="bi bi-terminal"></i></button><?php endif; ?>
                         <?php if ($i['status'] === 'succeeded' && $i['app'] === 'wordpress'): ?><a class="btn btn-sm btn-outline-primary" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/wp-admin/" target="_blank" rel="noopener noreferrer">Log in</a><?php endif; ?>
                         <?php if ($i['status'] === 'succeeded' && ($f = A::finishUrl($site, (string) $i['app'])) !== ''): ?><a class="btn btn-sm btn-primary" href="<?= e($f) ?>" target="_blank" rel="noopener noreferrer">Finish setup</a><?php endif; ?></td>
                 </tr>

@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\BackupScheduler;
-use WhaCP\Services\BackupService;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\SettingsService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\BackupScheduler;
+use NimVor\Services\BackupService;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Services\SettingsService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 final class BackupsController extends SiteController
 {
@@ -30,11 +30,11 @@ final class BackupsController extends SiteController
         private readonly BackupScheduler $scheduler,
         private readonly JobTracker $jobs,
         private readonly SettingsService $settings,
-        private readonly \WhaCP\Repositories\UserRepository $users,
-        private readonly \WhaCP\Security\PasswordHasher $hasher,
-        private readonly \WhaCP\Services\AuditLogger $audit,
-        private readonly \WhaCP\Services\AccountBackupService $accountBackups,
-        private readonly \WhaCP\Services\FeatureService $features,
+        private readonly \NimVor\Repositories\UserRepository $users,
+        private readonly \NimVor\Security\PasswordHasher $hasher,
+        private readonly \NimVor\Services\AuditLogger $audit,
+        private readonly \NimVor\Services\AccountBackupService $accountBackups,
+        private readonly \NimVor\Services\FeatureService $features,
     ) {
         parent::__construct($view, $session, $sites, $server);
     }
@@ -446,7 +446,7 @@ final class BackupsController extends SiteController
         }
         $hash = $this->users->passwordHash((int) $user['id']);
         if ($hash === null || !$this->hasher->verify((string) $request->input('current_password', ''), $hash)) {
-            $this->audit->record('backup.key_export', 'server', (string) $this->server->id(), \WhaCP\Services\AuditLogger::DENIED, ['reason' => 'wrong panel password']);
+            $this->audit->record('backup.key_export', 'server', (string) $this->server->id(), \NimVor\Services\AuditLogger::DENIED, ['reason' => 'wrong panel password']);
             return $this->redirectWithError('/backups#key-download', 'Your panel password is not correct.');
         }
         $pass = (string) $request->input('passphrase', '');
@@ -461,7 +461,7 @@ final class BackupsController extends SiteController
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/backups#server', $e);
         }
-        $name = 'whacp-backup-key-' . preg_replace('/[^a-f0-9]/', '', $res['key_id']) . '.json';
+        $name = 'nimvor-backup-key-' . preg_replace('/[^a-f0-9]/', '', $res['key_id']) . '.json';
         return new Response($res['file'], 200, [
             'Content-Type' => 'application/json',
             'Content-Disposition' => 'attachment; filename="' . $name . '"',
@@ -479,7 +479,7 @@ final class BackupsController extends SiteController
         }
         $file = $_FILES['key_file'] ?? null;
         if (!is_array($file) || ($file['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name']) || (int) $file['size'] > 4096) {
-            return $this->redirectWithError('/backups#key-import', 'Choose the key file (whacp-backup-key-….json).');
+            return $this->redirectWithError('/backups#key-import', 'Choose the key file (nimvor-backup-key-….json).');
         }
         try {
             $res = $this->backups->importKey((string) file_get_contents((string) $file['tmp_name']), (string) $request->input('passphrase', ''));

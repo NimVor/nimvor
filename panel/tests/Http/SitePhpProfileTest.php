@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\SettingsService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\SettingsService;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** PHP security profiles for websites (items 33–35). */
 final class SitePhpProfileTest extends HttpTestCase
@@ -53,7 +53,7 @@ final class SitePhpProfileTest extends HttpTestCase
 
     public function testInvalidProfileIsRejected(): void
     {
-        $this->expectException(\WhaCP\Support\ValidationException::class);
+        $this->expectException(\NimVor\Support\ValidationException::class);
         $this->create(['domain' => 'bad.test', 'kind' => 'php', 'php_version' => '8.3', 'php_profile' => 'wide-open']);
     }
 }

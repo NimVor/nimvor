@@ -12,11 +12,11 @@ set -Eeuo pipefail
 PORT=${PORT:-8090}
 P="http://127.0.0.1:${PORT}"
 RUN=$(date +%s | tail -c 6)
-DOMAIN=${E2E_DOMAIN:-e2e$RUN.whacp.test}
+DOMAIN=${E2E_DOMAIN:-e2e$RUN.nimvor.test}
 DBNAME=e2e$RUN
 J=$(mktemp -d)
-CLI=(runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp)
-fail() { echo "FAIL: $*" >&2; tail -30 /var/log/whacp/panel.log 2>/dev/null >&2 || true; exit 1; }
+CLI=(runuser -u nimvor -- env NIMVOR_CONFIG=/etc/nimvor/panel.php php /opt/nimvor/panel/bin/nimvor)
+fail() { echo "FAIL: $*" >&2; tail -30 /var/log/nimvor/panel.log 2>/dev/null >&2 || true; exit 1; }
 pass() { echo "  ok  $*"; }
 remove_site() { # remove_site ID (through the panel)
     CSRF_FROM=/sites/$1/settings post "/sites/$1/delete" "confirm_domain=$DOMAIN" remove_files=1 remove_user=1 >/dev/null || true
@@ -38,7 +38,7 @@ post() {
     for kv in "$@"; do args+=(--data-urlencode "$kv"); done
     curl --noproxy '*' -sS -b "$J/c" -c "$J/c" -o "$J/post" -w '%{redirect_url}' "${args[@]}" "$P$path"
 }
-flash() { get "$1" >/dev/null; grep -o 'wcp-flash[^>]*>[^<]*\|alert-[a-z]*[^>]*>[^<]*' "$J/page" | head -3 || true; }
+flash() { get "$1" >/dev/null; grep -o 'nim-flash[^>]*>[^<]*\|alert-[a-z]*[^>]*>[^<]*' "$J/page" | head -3 || true; }
 waitfor() { # waitfor SECONDS description command...
     local t=$1 what=$2; shift 2
     for _ in $(seq 1 "$t"); do "$@" && return 0; sleep 1; done
@@ -60,15 +60,15 @@ unset CSRF_FROM
 pass "signed in as the administrator"
 
 # A leftover from an interrupted run is removed first.
-old=$(php -r '$d = new PDO("sqlite:/var/lib/whacp/whacp.sqlite"); $s = $d->prepare("SELECT id FROM websites WHERE domain = ?"); $s->execute([$argv[1]]); echo (string) $s->fetchColumn();' "$DOMAIN" 2>/dev/null || true)
+old=$(php -r '$d = new PDO("sqlite:/var/lib/nimvor/nimvor.sqlite"); $s = $d->prepare("SELECT id FROM websites WHERE domain = ?"); $s->execute([$argv[1]]); echo (string) $s->fetchColumn();' "$DOMAIN" 2>/dev/null || true)
 if [[ -n $old ]]; then remove_site "$old"; fi
 
 # Website (the system's PHP version, set by CI; default 8.3; new account).
-PHPV=${WHACP_TEST_PHP:-$(cat /etc/whacp-ci-php 2>/dev/null || echo 8.3)}
+PHPV=${NIMVOR_TEST_PHP:-$(cat /etc/nimvor-ci-php 2>/dev/null || echo 8.3)}
 loc=$(post /websites/new "domain=$DOMAIN" kind=php php_version=$PHPV aliases= redirects= client_max_body_mb=64)
 [[ $loc =~ /sites/([0-9]+) ]] || fail "website not created: $(flash /websites/new)"
 SITE=${BASH_REMATCH[1]}
-ROOT=/home/whacp/$DOMAIN
+ROOT=/home/nimvor/$DOMAIN
 waitfor 30 "website files" test -d "$ROOT/public_html"
 OWNER=$(stat -c %U "$ROOT/public_html")
 echo '<?php echo "e2e-ok-" . PHP_VERSION;' > "$ROOT/public_html/index.php"
@@ -103,7 +103,7 @@ for _ in $(seq 1 90); do
     sleep 1
 done
 if [[ -z $BACKUP ]]; then
-    php -r '$d = new PDO("sqlite:/var/lib/whacp/whacp.sqlite"); foreach ($d->query("SELECT id, status, error, job_id FROM backups ORDER BY id DESC LIMIT 3") as $r) { echo json_encode($r), "\n"; }' >&2 || true
+    php -r '$d = new PDO("sqlite:/var/lib/nimvor/nimvor.sqlite"); foreach ($d->query("SELECT id, status, error, job_id FROM backups ORDER BY id DESC LIMIT 3") as $r) { echo json_encode($r), "\n"; }' >&2 || true
     fail "backup not listed"
 fi
 pass "encrypted backup #$BACKUP created"
@@ -119,21 +119,21 @@ pass "restore brought back the file and the database row; the site is served"
 # Cron "run now": the command runs as the website's account, with no
 # capabilities, and cannot write outside what that account may write.
 CSRF_FROM=/sites/$SITE/cron
-post "/sites/$SITE/cron" "schedule=0 0 1 1 *" "command=cd $ROOT && { id -u; grep ^CapEff /proc/self/status; sendmail -bp 2>&1 | head -1; } > cron-ran.txt; touch /etc/whacp-cron-escape 2>/dev/null; true" description=e2e enabled=1 >/dev/null
-JOB=$(php -r '$d = new PDO("sqlite:/var/lib/whacp/whacp.sqlite"); $s = $d->prepare("SELECT MAX(id) FROM cron_jobs WHERE website_id = ?"); $s->execute([$argv[1]]); echo (string) $s->fetchColumn();' "$SITE")
+post "/sites/$SITE/cron" "schedule=0 0 1 1 *" "command=cd $ROOT && { id -u; grep ^CapEff /proc/self/status; sendmail -bp 2>&1 | head -1; } > cron-ran.txt; touch /etc/nimvor-cron-escape 2>/dev/null; true" description=e2e enabled=1 >/dev/null
+JOB=$(php -r '$d = new PDO("sqlite:/var/lib/nimvor/nimvor.sqlite"); $s = $d->prepare("SELECT MAX(id) FROM cron_jobs WHERE website_id = ?"); $s->execute([$argv[1]]); echo (string) $s->fetchColumn();' "$SITE")
 [[ -n $JOB ]] || fail "cron job not created: $(flash /sites/$SITE/cron)"
 post "/sites/$SITE/cron/$JOB/run" >/dev/null
 waitfor 60 "cron job ran" test -s "$ROOT/cron-ran.txt"
 [[ $(head -1 "$ROOT/cron-ran.txt") == "$(id -u "$OWNER")" ]] || fail "cron ran as uid $(head -1 "$ROOT/cron-ran.txt"), not $OWNER"
 [[ $(stat -c %U "$ROOT/cron-ran.txt") == "$OWNER" ]] || fail "cron output owned by $(stat -c %U "$ROOT/cron-ran.txt")"
 grep -q 'CapEff:[[:space:]]*0000000000000000' "$ROOT/cron-ran.txt" || fail "cron command had capabilities: $(cat "$ROOT/cron-ran.txt")"
-[[ ! -e /etc/whacp-cron-escape ]] || { rm -f /etc/whacp-cron-escape; fail "cron command wrote to /etc"; }
+[[ ! -e /etc/nimvor-cron-escape ]] || { rm -f /etc/nimvor-cron-escape; fail "cron command wrote to /etc"; }
 pass "cron \"run now\" ran as $OWNER without capabilities and could not write to /etc"
-# Inside that unit sendmail is WhaCP's (the installed agent binary, which
+# Inside that unit sendmail is NimVor's (the installed agent binary, which
 # submits over SMTP); Postfix's would hang there (F-25).
 if [[ -e /usr/sbin/sendmail ]]; then
-    grep -q 'sendmail (WhaCP)' "$ROOT/cron-ran.txt" || fail "sendmail in the cron unit is not WhaCP's: $(tail -1 "$ROOT/cron-ran.txt")"
-    pass "sendmail inside the account's unit is WhaCP's SMTP sendmail"
+    grep -q 'sendmail (NimVor)' "$ROOT/cron-ran.txt" || fail "sendmail in the cron unit is not NimVor's: $(tail -1 "$ROOT/cron-ran.txt")"
+    pass "sendmail inside the account's unit is NimVor's SMTP sendmail"
 fi
 
 # A component installed through the panel and the installed agent: the
@@ -159,8 +159,8 @@ if [[ -d /run/systemd/system ]]; then
         sleep 1
     done
     if [[ $st != succeeded ]]; then
-        cat "/var/lib/whacp-agent/jobs/$PJOB.log" >&2 2>/dev/null || true
-        journalctl --no-pager -o cat -n 40 -u 'whacp-pkg-*' >&2 || true
+        cat "/var/lib/nimvor-agent/jobs/$PJOB.log" >&2 2>/dev/null || true
+        journalctl --no-pager -o cat -n 40 -u 'nimvor-pkg-*' >&2 || true
         fail "memcached through the agent: job $st"
     fi
     id "$MC_USER" >/dev/null 2>&1 || fail "the package's script did not create $MC_USER"
@@ -177,17 +177,17 @@ runuser -u nobody -- test -e /proc/1/cmdline && fail "hide processes: nobody sti
 grep -q 'Show all processes again' "$J/page" || { grep -o 'Process visibility.\{0,400\}' "$J/page" >&2; fail "the overview does not show processes as hidden"; }
 post /security/fix check=proc_hidepid op=undo >/dev/null
 runuser -u nobody -- test -e /proc/1/cmdline || fail "processes still hidden after the undo"
-grep -q 'whacp-proc\|hidepid' /etc/fstab && fail "fstab keeps the /proc entry after the undo"
+grep -q 'nimvor-proc\|hidepid' /etc/fstab && fail "fstab keeps the /proc entry after the undo"
 pass "security overview: hiding processes is applied, reported and undone through the agent"
 
 # Process manager through the installed agent: the privileged scan reads
 # another account's program (a copy of sleep in /var/tmp, run as nobody, is
 # flagged), and Kill reaches it after the start time is checked.
-cp /bin/sleep /var/tmp/whacp-e2e-sleep && chmod 0755 /var/tmp/whacp-e2e-sleep
-runuser -u nobody -- /var/tmp/whacp-e2e-sleep 600 &
+cp /bin/sleep /var/tmp/nimvor-e2e-sleep && chmod 0755 /var/tmp/nimvor-e2e-sleep
+runuser -u nobody -- /var/tmp/nimvor-e2e-sleep 600 &
 SPID=$!
 sleep 1
-SPID=$(pgrep -u nobody -f whacp-e2e-sleep | head -1)
+SPID=$(pgrep -u nobody -f nimvor-e2e-sleep | head -1)
 [[ -n $SPID ]] || fail "test process did not start"
 [[ $(get /monitoring/processes) == 200 ]] || fail "process manager page"
 grep -q 'could not be read' "$J/page" && { grep -o 'could not be read.\{0,400\}' "$J/page" >&2; fail "the privileged process scan failed"; }
@@ -198,7 +198,7 @@ post /monitoring/processes/signal "pid=$SPID" "start=$((START + 1))" signal=KILL
 kill -0 "$SPID" 2>/dev/null || fail "a signal with the wrong start time was sent"
 post /monitoring/processes/signal "pid=$SPID" "start=$START" signal=KILL >/dev/null
 waitfor 10 "the process was not killed" sh -c "! kill -0 $SPID 2>/dev/null"
-rm -f /var/tmp/whacp-e2e-sleep
+rm -f /var/tmp/nimvor-e2e-sleep
 pass "process manager: privileged scan flags /var/tmp programs; kill checks the start time"
 [[ $(get "/monitoring/processes/trace?pid=1&start=$(awk '{print $22}' /proc/1/stat)") == 200 ]] || fail "trace of PID 1"
 grep -q 'lib/systemd/systemd' "$J/page" || fail "the trace of PID 1 does not show its program (privileged detail)"
@@ -210,16 +210,16 @@ grep -q 'Load averages' "$J/page" || fail "top bar without load averages"
 grep -q "$(hostname -s)" "$J/page" || fail "top bar without the host name"
 [[ $(get /ssl/services) == 200 ]] || fail "SSL services page"
 grep -q 'Mail server (SMTP, submission, IMAP)' "$J/page" || fail "SSL services page content"
-[[ $(get /whacp/update) == 200 ]] || fail "update page"
+[[ $(get /nimvor/update) == 200 ]] || fail "update page"
 grep -q 'Source folder' "$J/page" || fail "update page content"
-[[ -s /etc/whacp/source.json ]] || fail "the installer did not record its source folder"
+[[ -s /etc/nimvor/source.json ]] || fail "the installer did not record its source folder"
 pass "top bar, SSL services and update pages"
 
 # Clean up through the panel.
 CSRF_FROM=/sites/$SITE/settings
 post "/sites/$SITE/delete" "confirm_domain=$DOMAIN" remove_files=1 remove_user=1 >/dev/null
 DELETED=1
-waitfor 30 "website removed" sh -c "! test -e /etc/nginx/sites-enabled/whacp-$DOMAIN.conf"
+waitfor 30 "website removed" sh -c "! test -e /etc/nginx/sites-enabled/nimvor-$DOMAIN.conf"
 mysql -e "DROP DATABASE IF EXISTS \`$DB\`" || true
 nginx -t 2>/dev/null || fail "nginx -t after deleting the website"
 pass "website deleted; nginx -t passes"
@@ -232,19 +232,19 @@ pass "website deleted; nginx -t passes"
 INSTALLER=$(cd "$(dirname "$0")/../.." && pwd)/installer/install.sh
 out=$("$INSTALLER" --yes 2>&1) && fail "a second install.sh succeeded"
 grep -q "upgrade.sh" <<<"$out" || fail "second install did not point to upgrade.sh: $out"
-TOKEN=$(sha256sum < /etc/whacp/agent.token)
-KEY=$(sha256sum < /etc/whacp/panel.key)
+TOKEN=$(sha256sum < /etc/nimvor/agent.token)
+KEY=$(sha256sum < /etc/nimvor/panel.key)
 USERS=$("${CLI[@]}" users:count)
-mv /etc/whacp/panel.php "$J/panel.php.orig"
-mv /etc/systemd/system/whacp-panel.service "$J/whacp-panel.service.orig"
+mv /etc/nimvor/panel.php "$J/panel.php.orig"
+mv /etc/systemd/system/nimvor-panel.service "$J/nimvor-panel.service.orig"
 out=$("$INSTALLER" --yes 2>&1) && fail "install.sh over an incomplete installation succeeded"
-grep -q "did not finish" <<<"$out" && grep -q -- "--reinstall" <<<"$out" && grep -q "panel.php" <<<"$out" && grep -q "whacp-panel.service" <<<"$out" \
+grep -q "did not finish" <<<"$out" && grep -q -- "--reinstall" <<<"$out" && grep -q "panel.php" <<<"$out" && grep -q "nimvor-panel.service" <<<"$out" \
     || fail "incomplete installation not explained: $out"
 "$INSTALLER" --reinstall --yes >"$J/reinstall.log" 2>&1 || { cat "$J/reinstall.log"; fail "install.sh --reinstall did not complete the installation"; }
-[[ -s /etc/whacp/panel.php && -f /etc/systemd/system/whacp-panel.service ]] || fail "--reinstall did not recreate panel.php and the unit"
-[[ $(sha256sum < /etc/whacp/agent.token) == "$TOKEN" && $(sha256sum < /etc/whacp/panel.key) == "$KEY" ]] || fail "--reinstall replaced the token or the panel key"
+[[ -s /etc/nimvor/panel.php && -f /etc/systemd/system/nimvor-panel.service ]] || fail "--reinstall did not recreate panel.php and the unit"
+[[ $(sha256sum < /etc/nimvor/agent.token) == "$TOKEN" && $(sha256sum < /etc/nimvor/panel.key) == "$KEY" ]] || fail "--reinstall replaced the token or the panel key"
 [[ $("${CLI[@]}" users:count) == "$USERS" ]] || fail "--reinstall changed the users"
-grep -q '"allow_write_actions": true' /etc/whacp/agent.json || fail "--reinstall turned write mode off"
+grep -q '"allow_write_actions": true' /etc/nimvor/agent.json || fail "--reinstall turned write mode off"
 "${CLI[@]}" agent:check >/dev/null || fail "panel cannot reach the agent after --reinstall"
 waitfor 30 "panel answering after --reinstall" curl -fsS "$P/healthz"
 pass "installer: refuses a second run, explains an interrupted one, --reinstall completes it and keeps token, key, users and write mode"

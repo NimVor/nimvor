@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var string $version */
 /** @var string $tab */
 /** @var list<array<string, mixed>> $extensions */
@@ -17,7 +17,7 @@ $fpmSettings = (array) ($fpm['settings'] ?? []);
 
 <?php if ($agentError !== null): ?><?= $this->partial('partials/agent_error', ['error' => $agentError]) ?><?php endif; ?>
 
-<ul class="nav nav-tabs wcp-tabs mb-3">
+<ul class="nav nav-tabs nim-tabs mb-3">
     <?php foreach (['extensions' => ['Extensions', 'puzzle'], 'ini' => ['php.ini', 'sliders'], 'fpm' => ['PHP-FPM', 'cpu']] as $key => [$label, $icon]): ?>
         <li class="nav-item"><a class="nav-link<?= $tab === $key ? ' active' : '' ?>" href="<?= e($base . '?tab=' . $key) ?>"><i class="bi bi-<?= e($icon) ?> me-1"></i><?= e($label) ?></a></li>
     <?php endforeach; ?>
@@ -27,11 +27,11 @@ $fpmSettings = (array) ($fpm['settings'] ?? []);
     <div class="card">
         <div class="card-body small text-body-secondary border-bottom">Install and remove use the server's package manager (only the extension's own package is removed, never others that need it). Switching on or off applies to PHP-FPM and the command line; PHP-FPM is checked and reloaded, and a change it rejects is undone.</div>
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 wcp-table" data-wcp-php-extensions>
+            <table class="table table-hover align-middle mb-0 nim-table" data-nim-php-extensions>
                 <thead><tr><th>Extension</th><th class="d-none d-md-table-cell">Package</th><th>State</th><th class="text-end">Actions</th></tr></thead>
                 <tbody>
                 <?php foreach ($extensions as $x): ?>
-                    <tr data-wcp-ext="<?= e($x['name']) ?>">
+                    <tr data-nim-ext="<?= e($x['name']) ?>">
                         <td><strong><?= e($x['name']) ?></strong><div class="small text-body-secondary"><?= e($x['description']) ?></div></td>
                         <td class="d-none d-md-table-cell small"><?= $x['package'] !== '' ? '<code>' . e($x['package']) . '</code>' : '<span class="text-body-secondary">part of PHP ' . e($version) . '</span>' ?><?php if (!empty($x['version'])): ?><div class="text-body-secondary"><?= e($x['version']) ?></div><?php endif; ?></td>
                         <td>
@@ -42,13 +42,13 @@ $fpmSettings = (array) ($fpm['settings'] ?? []);
                         </td>
                         <td class="text-end text-nowrap">
                             <?php if (!$x['installed'] && $x['package'] !== ''): ?>
-                                <form class="d-inline" method="post" action="<?= e($base . '/extensions/install') ?>" data-wcp-busy><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($x['name']) ?>"><button class="btn btn-sm btn-outline-primary">Install</button></form>
+                                <form class="d-inline" method="post" action="<?= e($base . '/extensions/install') ?>" data-nim-busy><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($x['name']) ?>"><button class="btn btn-sm btn-outline-primary">Install</button></form>
                             <?php elseif ($x['installed']): ?>
                                 <?php if (empty($x['protected']) || !$x['enabled']): ?>
-                                    <form class="d-inline" method="post" action="<?= e($base . '/extensions/toggle') ?>" data-wcp-busy><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($x['name']) ?>"><input type="hidden" name="enabled" value="<?= $x['enabled'] ? '0' : '1' ?>"><button class="btn btn-sm btn-outline-<?= $x['enabled'] ? 'warning' : 'success' ?>"><?= $x['enabled'] ? 'Switch off' : 'Switch on' ?></button></form>
+                                    <form class="d-inline" method="post" action="<?= e($base . '/extensions/toggle') ?>" data-nim-busy><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($x['name']) ?>"><input type="hidden" name="enabled" value="<?= $x['enabled'] ? '0' : '1' ?>"><button class="btn btn-sm btn-outline-<?= $x['enabled'] ? 'warning' : 'success' ?>"><?= $x['enabled'] ? 'Switch off' : 'Switch on' ?></button></form>
                                 <?php endif; ?>
                                 <?php if ($x['package'] !== '' && empty($x['protected'])): ?>
-                                    <form class="d-inline" method="post" action="<?= e($base . '/extensions/remove') ?>" data-wcp-busy data-wcp-confirm="Remove <?= e($x['name']) ?> from PHP <?= e($version) ?>? Websites using it will fail."><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($x['name']) ?>"><button class="btn btn-sm btn-outline-danger">Remove</button></form>
+                                    <form class="d-inline" method="post" action="<?= e($base . '/extensions/remove') ?>" data-nim-busy data-nim-confirm="Remove <?= e($x['name']) ?> from PHP <?= e($version) ?>? Websites using it will fail."><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($x['name']) ?>"><button class="btn btn-sm btn-outline-danger">Remove</button></form>
                                 <?php endif; ?>
                             <?php endif; ?>
                         </td>
@@ -67,13 +67,13 @@ $fpmSettings = (array) ($fpm['settings'] ?? []);
     </div>
     <div class="row g-3">
         <div class="col-xl-7">
-            <form class="card" method="post" action="<?= e($base . '/ini') ?>" data-wcp-busy>
+            <form class="card" method="post" action="<?= e($base . '/ini') ?>" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <input type="hidden" name="mode" value="form">
                 <div class="card-header"><i class="bi bi-sliders me-1"></i>Settings</div>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
-                        <thead><tr><th>Setting</th><th class="wcp-minw-11">Value</th><th class="d-none d-md-table-cell">PHP-FPM now</th></tr></thead>
+                        <thead><tr><th>Setting</th><th class="nim-minw-11">Value</th><th class="d-none d-md-table-cell">PHP-FPM now</th></tr></thead>
                         <tbody>
                         <?php foreach ($directives as $dir): ?>
                             <?php $key = (string) $dir['key']; $cur = trim((string) ($iniValues[$key] ?? ''), '"'); ?>
@@ -102,7 +102,7 @@ $fpmSettings = (array) ($fpm['settings'] ?? []);
             </form>
         </div>
         <div class="col-xl-5">
-            <form class="card" method="post" action="<?= e($base . '/ini') ?>" data-wcp-busy>
+            <form class="card" method="post" action="<?= e($base . '/ini') ?>" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <input type="hidden" name="mode" value="text">
                 <div class="card-header"><i class="bi bi-code me-1"></i>Text editor</div>
@@ -118,7 +118,7 @@ $fpmSettings = (array) ($fpm['settings'] ?? []);
 <?php else: ?>
     <div class="row g-3">
         <div class="col-xl-7">
-            <form class="card" method="post" action="<?= e($base . '/fpm') ?>" data-wcp-busy>
+            <form class="card" method="post" action="<?= e($base . '/fpm') ?>" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <div class="card-header"><i class="bi bi-cpu me-1"></i>Server-wide PHP-FPM settings of PHP <?= e($version) ?></div>
                 <div class="card-body">

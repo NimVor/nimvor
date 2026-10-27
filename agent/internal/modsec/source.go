@@ -97,17 +97,17 @@ func (in *installer) installRecorded(ctx context.Context, names []string) error 
 // buildAccount makes sure the unprivileged build account exists.
 func (in *installer) buildAccount(ctx context.Context) (*execx.Credential, error) {
 	if u, err := in.e.LookupUser(BuildAccount); err == nil {
-		// Only WhaCP's own (left by an interrupted build); never an
+		// Only NimVor's own (left by an interrupted build); never an
 		// account something else uses, which could change the source
 		// while it is built.
-		if u.Home != BuildHome || !strings.Contains(u.Comment, "WhaCP build account") {
-			return nil, actions.Conflict("An account named " + BuildAccount + " exists that WhaCP did not create; the build does not use it. Remove or rename it first.")
+		if u.Home != BuildHome || !strings.Contains(u.Comment, "NimVor build account") {
+			return nil, actions.Conflict("An account named " + BuildAccount + " exists that NimVor did not create; the build does not use it. Remove or rename it first.")
 		}
 	} else {
 		if err := in.tx.Account(BuildAccount); err != nil {
 			return nil, err
 		}
-		if out, err := in.e.Runner.Run(ctx, "useradd", "--create-home", "--home-dir", BuildHome, "--shell", "/usr/sbin/nologin", "--comment", "WhaCP build account", "--user-group", BuildAccount); err != nil {
+		if out, err := in.e.Runner.Run(ctx, "useradd", "--create-home", "--home-dir", BuildHome, "--shell", "/usr/sbin/nologin", "--comment", "NimVor build account", "--user-group", BuildAccount); err != nil {
 			return nil, fmt.Errorf("the build account could not be created: %s", host.Output(out))
 		}
 		in.createdAccount = true

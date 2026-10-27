@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, array<string, mixed>> $plugins */
 ?>
 <?php $this->start(); ?>Plugins<?php $this->end('title'); ?>
@@ -21,7 +21,7 @@
                         <?php foreach ($p['problems'] as $pr): ?><div class="small text-danger"><i class="bi bi-x-circle me-1"></i><?= e($pr) ?></div><?php endforeach; ?>
                         <?php if ($p['error'] !== null): ?><div class="small text-danger"><i class="bi bi-bug me-1"></i><?= e($p['error']) ?></div><?php endif; ?>
                     </div>
-                    <form method="post" action="<?= e($this->url('plugins.toggle', ['name' => $p['name']])) ?>"<?= $p['enabled'] ? '' : ' data-wcp-confirm="Enable ' . e($m['title'] ?? $p['name']) . '? It will run as part of the panel."' ?>>
+                    <form method="post" action="<?= e($this->url('plugins.toggle', ['name' => $p['name']])) ?>"<?= $p['enabled'] ? '' : ' data-nim-confirm="Enable ' . e($m['title'] ?? $p['name']) . '? It will run as part of the panel."' ?>>
                         <?= $this->csrfField() ?><input type="hidden" name="enabled" value="<?= $p['enabled'] ? '0' : '1' ?>">
                         <button class="btn btn-sm <?= $p['enabled'] ? 'btn-outline-secondary' : 'btn-primary' ?>"<?= !$p['enabled'] && $p['problems'] !== [] ? ' disabled' : '' ?>><?= $p['enabled'] ? 'Disable' : 'Enable' ?></button>
                     </form>

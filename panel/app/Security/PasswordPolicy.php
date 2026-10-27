@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
-use WhaCP\Services\SettingsService;
+use NimVor\Services\SettingsService;
 
 /**
  * The server's password policy (Security → Password Strength

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\CloudflareSiteService;
-use WhaCP\Services\ServerContext;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\CloudflareSiteService;
+use NimVor\Services\ServerContext;
+use NimVor\View\View;
 
 /**
  * Site → Cloudflare: a customer connects their own Cloudflare token and

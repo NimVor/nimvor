@@ -2,8 +2,6 @@
 
 **NimVor — A free, open-source server control panel**
 
-*(formerly NimVor; the program, service and path names on the server are still `whacp`.)*
-
 NimVor is a free, MIT-licensed control panel for VPS and dedicated servers. It is
 built around one rule: **a control panel has root-level consequences, so every
 privileged operation must be explicit, validated, audited and reversible.**
@@ -40,7 +38,7 @@ privileged operation must be explicit, validated, audited and reversible.**
 | Server | packages and updates, hostname, timezone, reboot |
 | Hosting | multiple servers, plans and quotas, resellers and customers |
 | Integration | REST API with personal tokens (OpenAPI), plugins, one-click WordPress and Laravel |
-| Operations | installer, upgrades with automatic rollback, `bin/whacp doctor` self-checks |
+| Operations | installer, upgrades with automatic rollback, `bin/nimvor doctor` self-checks |
 
 ## Architecture in one picture
 
@@ -50,7 +48,7 @@ privileged operation must be explicit, validated, audited and reversible.**
                                    │  POST /v1/actions/<name>  (bearer token)
                     ┌──────────────┴──────────────────────────┐
                     ▼                                         ▼
-   /run/whacp/agent.sock (0660 root:whacp,        remote servers: TLS 1.3, pinned
+   /run/nimvor/agent.sock (0660 root:nimvor,        remote servers: TLS 1.3, pinned
    SO_PEERCRED check)                             public key, client IP allowlist
                     │                                         │
                     ▼                                         ▼

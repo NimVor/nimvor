@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Repositories;
+namespace NimVor\Repositories;
 
-use WhaCP\Database\Connection;
-use WhaCP\Hosting\Scope;
+use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
 
 final class DatabaseRepository
 {

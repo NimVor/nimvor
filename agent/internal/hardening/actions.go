@@ -46,7 +46,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return egress.Status(ctx, env), nil
 	}})
-	r.Register(actions.Action{Name: "hardening.compilers", Mutating: true, Description: "Restrict the C/C++ compilers and the assembler to root and the whacp-compiler group (mode 0750), with these members; or open them again (earlier owner and mode restored).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "hardening.compilers", Mutating: true, Description: "Restrict the C/C++ compilers and the assembler to root and the nimvor-compiler group (mode 0750), with these members; or open them again (earlier owner and mode restored).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Restricted bool     `json:"restricted"`
 			Users      []string `json:"users"`

@@ -1,12 +1,12 @@
 <?php
 /**
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed> $site
  * @var array<string, mixed>|null $status
  * @var array<string, mixed>|null $sftp
  * @var string $host
  */
-use WhaCP\Http\Controllers\FtpController;
+use NimVor\Http\Controllers\FtpController;
 
 $id = (int) $site['id'];
 $accounts = (array) ($status['accounts'] ?? []);
@@ -26,15 +26,15 @@ $sftpKeys = array_map(static fn ($k): string => (string) ((array) $k)['key'], (a
     <div class="col-xl-7">
         <div class="card mb-3">
             <?php $canAdd = $ftpReady && count($accounts) < FtpController::MAX_ACCOUNTS; $openAdd = $canAdd && ($errors !== [] || $accounts === []); ?>
-            <div class="card-header wcp-toolbar">
-                <h2 class="wcp-toolbar-title"><i class="bi bi-hdd-network me-1"></i>FTP accounts <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($accounts) ?> of <?= FtpController::MAX_ACCOUNTS ?></span></h2>
+            <div class="card-header nim-toolbar">
+                <h2 class="nim-toolbar-title"><i class="bi bi-hdd-network me-1"></i>FTP accounts <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($accounts) ?> of <?= FtpController::MAX_ACCOUNTS ?></span></h2>
                 <?php if ($canAdd): ?><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-ftp"><i class="bi bi-plus-lg me-1"></i>Add FTP account</button><?php endif; ?>
             </div>
             <?php if (!$ftpReady): ?>
-                <div class="card-body"><div class="alert alert-info small mb-0">The FTP server is not running on this server<?= $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE) ? '. Set it up under <a href="' . e($this->url('ftp')) . '">Server → FTP server</a>' : '; ask the administrator to set it up' ?>. SFTP (on the right) works without it.</div></div>
+                <div class="card-body"><div class="alert alert-info small mb-0">The FTP server is not running on this server<?= $this->can(\NimVor\Security\Permissions::SERVER_MANAGE) ? '. Set it up under <a href="' . e($this->url('ftp')) . '">Server → FTP server</a>' : '; ask the administrator to set it up' ?>. SFTP (on the right) works without it.</div></div>
             <?php endif; ?>
             <div class="table-responsive">
-                <table class="table mb-0 wcp-table align-middle">
+                <table class="table mb-0 nim-table align-middle">
                     <thead><tr><th>Login</th><th>Folder</th><th class="text-end">Quota</th><th></th></tr></thead>
                     <tbody>
                     <?php foreach ($accounts as $a): $a = (array) $a; $rel = ltrim(substr((string) $a['dir'], strlen($root)), '/'); ?>
@@ -45,7 +45,7 @@ $sftpKeys = array_map(static fn ($k): string => (string) ((array) $k)['key'], (a
                             <td class="text-end text-nowrap">
                                 <details class="d-inline-block text-start">
                                     <summary class="btn btn-sm btn-outline-secondary" title="Change"><i class="bi bi-pencil"></i></summary>
-                                    <form class="wcp-popover-form card card-body mt-1 position-absolute end-0 shadow-sm" method="post" action="<?= e($this->url('sites.ftp.save', ['id' => $id])) ?>">
+                                    <form class="nim-popover-form card card-body mt-1 position-absolute end-0 shadow-sm" method="post" action="<?= e($this->url('sites.ftp.save', ['id' => $id])) ?>">
                                         <?= $this->csrfField() ?>
                                         <input type="hidden" name="existing" value="1"><input type="hidden" name="name" value="<?= e((string) $a['name']) ?>">
                                         <label class="form-label small mb-1">Folder</label><input class="form-control form-control-sm mb-2 font-monospace" name="dir" value="<?= e($rel) ?>">
@@ -55,17 +55,17 @@ $sftpKeys = array_map(static fn ($k): string => (string) ((array) $k)['key'], (a
                                         <button class="btn btn-sm btn-primary">Save</button>
                                     </form>
                                 </details>
-                                <form class="d-inline" method="post" action="<?= e($this->url('sites.ftp.delete', ['id' => $id])) ?>" data-wcp-confirm="Delete the FTP account <?= e((string) $a['name']) ?>? Files are kept."><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e((string) $a['name']) ?>"><button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button></form>
+                                <form class="d-inline" method="post" action="<?= e($this->url('sites.ftp.delete', ['id' => $id])) ?>" data-nim-confirm="Delete the FTP account <?= e((string) $a['name']) ?>? Files are kept."><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e((string) $a['name']) ?>"><button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button></form>
                             </td>
                         </tr>
                     <?php endforeach; ?>
-                    <?php if ($accounts === []): ?><tr><td colspan="4"><div class="wcp-empty-state py-3"><i class="bi bi-hdd-network" aria-hidden="true"></i><div class="fw-medium">No FTP accounts yet</div><div class="small">Give a designer or an FTP client (e.g. FileZilla) access to this website's files, or use SFTP on the right.</div></div></td></tr><?php endif; ?>
+                    <?php if ($accounts === []): ?><tr><td colspan="4"><div class="nim-empty-state py-3"><i class="bi bi-hdd-network" aria-hidden="true"></i><div class="fw-medium">No FTP accounts yet</div><div class="small">Give a designer or an FTP client (e.g. FileZilla) access to this website's files, or use SFTP on the right.</div></div></td></tr><?php endif; ?>
                     </tbody>
                 </table>
             </div>
             <?php if ($canAdd): ?>
             <?= $this->modalStart('new-ftp', 'Add FTP account', $openAdd) ?>
-                <form class="p-3" method="post" action="<?= e($this->url('sites.ftp.save', ['id' => $id])) ?>" data-wcp-busy>
+                <form class="p-3" method="post" action="<?= e($this->url('sites.ftp.save', ['id' => $id])) ?>" data-nim-busy>
                     <?= $this->csrfField() ?>
                     <div class="row g-2 align-items-start">
                         <div class="col-md-6">
@@ -102,7 +102,7 @@ $sftpKeys = array_map(static fn ($k): string => (string) ((array) $k)['key'], (a
                 <?php else: ?>
                     <p class="small text-body-secondary">Log in as the website's own user over SSH (port 22), for file transfer only. The login starts in the website folder and cannot reach anything outside the websites folder; there is no shell<?= $this->serverScope() ? ' (administrators can allow one under Security → Shell access)' : '' ?>.</p>
                 <?php endif; ?>
-                <form method="post" action="<?= e($this->url('sites.sftp', ['id' => $id])) ?>" data-wcp-busy>
+                <form method="post" action="<?= e($this->url('sites.sftp', ['id' => $id])) ?>" data-nim-busy>
                     <?= $this->csrfField() ?>
                     <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="sftp-on"<?= $sftp !== null ? ' checked' : '' ?>><label class="form-check-label" for="sftp-on">Allow SFTP for <code><?= e((string) $site['system_user']) ?></code></label></div>
                     <label class="form-label" for="sftp-keys">Public keys (one per line)</label>

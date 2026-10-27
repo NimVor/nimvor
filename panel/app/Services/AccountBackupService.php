@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\DatabaseRepository;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Repositories\DatabaseRepository;
+use NimVor\Repositories\UserRepository;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * Account backups: one file per hosting account holding every website

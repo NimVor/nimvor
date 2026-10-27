@@ -1,7 +1,7 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed>|null $info */
-use WhaCP\Services\RedisService;
+use NimVor\Services\RedisService;
 
 $i = (array) ($info['info'] ?? []);
 $server = (array) ($i['server'] ?? []);
@@ -23,7 +23,7 @@ $misses = (int) ($stats['keyspace_misses'] ?? 0);
     <?= $this->partial('partials/agent_error', ['error' => $agentError]) ?>
     <p class="text-body-secondary small">Install Redis (<code>redis-server</code> on Ubuntu, <code>redis</code> on RHEL 9, <code>valkey</code> on RHEL 10)<?php if ($this->hasRoute('packages')): ?> from <a href="<?= e($this->url('packages')) ?>">Packages</a><?php endif; ?> to use it with your websites.</p>
 <?php else: ?>
-<ul class="nav nav-tabs wcp-tabs mb-3" role="tablist">
+<ul class="nav nav-tabs nim-tabs mb-3" role="tablist">
     <li class="nav-item" role="presentation"><button class="nav-link active" id="tab-overview" data-bs-toggle="tab" data-bs-target="#pane-overview" type="button" role="tab" aria-controls="pane-overview" aria-selected="true"><i class="bi bi-lightning me-1" aria-hidden="true"></i>Overview</button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" id="tab-users" data-bs-toggle="tab" data-bs-target="#pane-users" type="button" role="tab" aria-controls="pane-users" aria-selected="false"><i class="bi bi-people me-1" aria-hidden="true"></i>Website users<?php if ($users !== []): ?> <span class="badge rounded-pill text-bg-light border ms-1"><?= count($users) ?></span><?php endif; ?></button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" id="tab-security" data-bs-toggle="tab" data-bs-target="#pane-security" type="button" role="tab" aria-controls="pane-security" aria-selected="false"><i class="bi bi-key me-1" aria-hidden="true"></i>Security</button></li>
@@ -36,7 +36,7 @@ $misses = (int) ($stats['keyspace_misses'] ?? 0);
                 <button class="btn btn-sm btn-outline-primary ms-auto" type="button" data-bs-toggle="modal" data-bs-target="#redis-config"><i class="bi bi-sliders me-1" aria-hidden="true"></i>Memory &amp; eviction</button>
             </div>
             <div class="card-body">
-                <dl class="wcp-dl mb-0">
+                <dl class="nim-dl mb-0">
                     <dt>Version</dt><dd><?= e($server['redis_version'] ?? '') ?></dd>
                     <dt>Uptime</dt><dd><?= e(number_format(((int) ($server['uptime_in_seconds'] ?? 0)) / 86400, 1)) ?> days</dd>
                     <dt>Memory used</dt><dd><?= e($mem['used_memory_human'] ?? '') ?><?= $maxmem > 0 ? ' of ' . e(format_bytes($maxmem)) : ' (no limit)' ?></dd>
@@ -58,7 +58,7 @@ $misses = (int) ($stats['keyspace_misses'] ?? 0);
             <div class="card-body">
                 <p class="small text-body-secondary">A website user can only read and write keys that start with its prefix, and cannot run administrative commands. Use it to keep websites apart on a shared Redis.</p>
                 <?php if ($users !== []): ?>
-                    <input type="search" class="form-control form-control-sm mb-2" placeholder="Filter users…" aria-label="Filter users" data-wcp-filter="#redis-users-table">
+                    <input type="search" class="form-control form-control-sm mb-2" placeholder="Filter users…" aria-label="Filter users" data-nim-filter="#redis-users-table">
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0" id="redis-users-table">
                             <thead><tr><th>User</th><th>Allowed keys</th><th class="text-end">Actions</th></tr></thead>
@@ -68,11 +68,11 @@ $misses = (int) ($stats['keyspace_misses'] ?? 0);
                                         <td><code><?= e($u) ?></code></td>
                                         <td class="small text-body-secondary"><?= e($u) ?>:*</td>
                                         <td class="text-end">
-                                            <form method="post" action="<?= e($this->url('redis.users.delete')) ?>" data-wcp-confirm="Remove Redis user <?= e($u) ?>? Applications using it lose access."><?= $this->csrfField() ?><input type="hidden" name="user" value="<?= e($u) ?>"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>
+                                            <form method="post" action="<?= e($this->url('redis.users.delete')) ?>" data-nim-confirm="Remove Redis user <?= e($u) ?>? Applications using it lose access."><?= $this->csrfField() ?><input type="hidden" name="user" value="<?= e($u) ?>"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
-                                <tr data-wcp-filter-empty hidden><td colspan="3" class="text-center text-body-secondary small py-3">No users match.</td></tr>
+                                <tr data-nim-filter-empty hidden><td colspan="3" class="text-center text-body-secondary small py-3">No users match.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -88,8 +88,8 @@ $misses = (int) ($stats['keyspace_misses'] ?? 0);
             <div class="card-body">
                 <p class="small text-body-secondary">Redis only listens locally, but a password on the default user is recommended. Applications that connect without a user name must be updated when it changes.</p>
                 <div class="d-flex flex-wrap gap-2">
-                    <form method="post" action="<?= e($this->url('redis.password')) ?>" data-wcp-confirm="Set a new random password for the default Redis user? Applications that connect without a user name must be updated."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-primary">Generate new password</button></form>
-                    <form method="post" action="<?= e($this->url('redis.password')) ?>" data-wcp-confirm="Remove the password of the default Redis user?"><?= $this->csrfField() ?><input type="hidden" name="clear" value="1"><button class="btn btn-sm btn-outline-secondary">Remove password</button></form>
+                    <form method="post" action="<?= e($this->url('redis.password')) ?>" data-nim-confirm="Set a new random password for the default Redis user? Applications that connect without a user name must be updated."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-primary">Generate new password</button></form>
+                    <form method="post" action="<?= e($this->url('redis.password')) ?>" data-nim-confirm="Remove the password of the default Redis user?"><?= $this->csrfField() ?><input type="hidden" name="clear" value="1"><button class="btn btn-sm btn-outline-secondary">Remove password</button></form>
                 </div>
             </div>
         </div>
@@ -111,7 +111,7 @@ $misses = (int) ($stats['keyspace_misses'] ?? 0);
 </div>
 
 <?= $this->modalStart('redis-config', 'Memory &amp; eviction') ?>
-<form method="post" action="<?= e($this->url('redis.configure')) ?>" data-wcp-busy>
+<form method="post" action="<?= e($this->url('redis.configure')) ?>" data-nim-busy>
     <?= $this->csrfField() ?>
     <?= $this->partial('partials/field', ['name' => 'maxmemory_mb', 'label' => 'Memory limit (MB, 0 = no limit)', 'type' => 'number', 'value' => (string) intdiv($maxmem, 1048576), 'attrs' => ['min' => '0']]) ?>
     <label class="form-label" for="r-policy">When the limit is reached</label>

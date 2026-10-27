@@ -45,9 +45,9 @@
     }
 
     // ---- profile: add a key -----------------------------------------------
-    var keys = document.getElementById('wcp-keys');
+    var keys = document.getElementById('nim-keys');
     if (keys) {
-        var form = keys.querySelector('[data-wcp-key-add]'), err = keys.querySelector('[data-wcp-key-error]');
+        var form = keys.querySelector('[data-nim-key-add]'), err = keys.querySelector('[data-nim-key-error]');
         form.addEventListener('submit', function (ev) {
             ev.preventDefault();
             showError(err, '');
@@ -69,9 +69,9 @@
     }
 
     // ---- sign-in with a key ---------------------------------------------------
-    var login = document.getElementById('wcp-key-login');
+    var login = document.getElementById('nim-key-login');
     if (login) {
-        var lbtn = login.querySelector('[data-wcp-key-login]'), lerr = login.querySelector('[data-wcp-key-error]');
+        var lbtn = login.querySelector('[data-nim-key-login]'), lerr = login.querySelector('[data-nim-key-error]');
         var run = function () {
             showError(lerr, '');
             if (!supported(lerr)) { return; }

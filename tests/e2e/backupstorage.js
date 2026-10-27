@@ -38,7 +38,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await expect('local', 'path,prefix');
 
     await page.fill('#storage-add input[name=name]', 'E2E disk');
-    await page.fill('#storage-add input[name=path]', '/etc/whacp');
+    await page.fill('#storage-add input[name=path]', '/etc/nimvor');
     await Promise.all([page.waitForNavigation(), page.click('#storage-add button:has-text("Test and add")')]);
     await page.waitForSelector('#storage-add.show .invalid-feedback');
     if (await page.inputValue('#sa-type') !== 'local') { throw new Error('type not kept after validation error'); }

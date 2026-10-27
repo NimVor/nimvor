@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Support\Logger;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Support\Logger;
 
 /**
  * Stores a metrics sample on every scheduler pass (kept 30 days),
@@ -31,8 +31,8 @@ final class MonitoringService
         private readonly ServerContext $server,
         private readonly Logger $log,
         private readonly ?PlanLimits $limits = null,
-        private readonly ?\WhaCP\Mail\Mailer $mailer = null,
-        private readonly ?\WhaCP\Mail\MailConfig $mailConfig = null,
+        private readonly ?\NimVor\Mail\Mailer $mailer = null,
+        private readonly ?\NimVor\Mail\MailConfig $mailConfig = null,
         private readonly ?NotificationService $notifications = null,
     ) {
     }
@@ -287,8 +287,8 @@ final class MonitoringService
             return;
         }
         try {
-            $this->mailer->send($to, "[NimVor {$host}] " . mb_substr($text, 0, 120), $text . "\n\n-- \nWhaCP on {$host}. Change alert settings under Settings.");
-        } catch (\WhaCP\Mail\MailException) {
+            $this->mailer->send($to, "[NimVor {$host}] " . mb_substr($text, 0, 120), $text . "\n\n-- \nNimVor on {$host}. Change alert settings under Settings.");
+        } catch (\NimVor\Mail\MailException) {
             // Logged by the mailer; the alert itself is stored and shown.
         }
     }
@@ -307,7 +307,7 @@ final class MonitoringService
             return;
         }
         $ctx = stream_context_create(['http' => [
-            'method' => 'POST', 'header' => "Content-Type: application/json\r\nUser-Agent: WhaCP\r\n", 'content' => $body,
+            'method' => 'POST', 'header' => "Content-Type: application/json\r\nUser-Agent: NimVor\r\n", 'content' => $body,
             'timeout' => 5, 'ignore_errors' => true, 'follow_location' => 0,
         ]]);
         if (@file_get_contents($url, false, $ctx) === false) {

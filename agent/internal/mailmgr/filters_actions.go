@@ -16,11 +16,11 @@ import (
 // sieveDropIn turns on personal Sieve scripts (~/.dovecot.sieve in the
 // mailbox folder) for Dovecot 2.3 and 2.4.
 func (e env) sieveDropIn() string {
-	return filepath.Join(filepath.Dir(e.M.DovecotDropIn), "99-whacp-sieve.conf")
+	return filepath.Join(filepath.Dir(e.M.DovecotDropIn), "99-nimvor-sieve.conf")
 }
 
 func renderSieveDropIn(v24 bool) string {
-	head := "# Managed by WhaCP (email filters and autoresponders). Do not edit: changes are overwritten.\n"
+	head := "# Managed by NimVor (email filters and autoresponders). Do not edit: changes are overwritten.\n"
 	if v24 {
 		return head + "sieve_script personal {\n  type = personal\n  path = ~/sieve\n  active_path = ~/.dovecot.sieve\n}\n"
 	}

@@ -16,9 +16,9 @@ import (
 
 func setup(t *testing.T) *testhost.Host {
 	h := testhost.New(t)
-	h.Env.Writer.Policy.Patterns = append(h.Env.Writer.Policy.Patterns, "/etc/demo/**", "/usr/local/lib/whacp/**")
+	h.Env.Writer.Policy.Patterns = append(h.Env.Writer.Policy.Patterns, "/etc/demo/**", "/usr/local/lib/nimvor/**")
 	os.MkdirAll(filepath.Join(h.Base, "etc/demo/sub"), 0o755)
-	os.MkdirAll(filepath.Join(h.Base, "usr/local/lib/whacp"), 0o755)
+	os.MkdirAll(filepath.Join(h.Base, "usr/local/lib/nimvor"), 0o755)
 	os.WriteFile(filepath.Join(h.Base, "etc/demo/a.conf"), []byte("old a\n"), 0o640)
 	os.Symlink("a.conf", filepath.Join(h.Base, "etc/demo/link.conf"))
 	return h
@@ -44,15 +44,15 @@ func TestRollbackUndoesEverything(t *testing.T) {
 	}
 	must(tx.WriteFile("/etc/demo/a.conf", []byte("new a\n"), 0o644, agentfs.RootOwner))
 	must(tx.WriteFile("/etc/demo/sub/b.conf", []byte("b\n"), 0o644, agentfs.RootOwner))
-	must(tx.MkdirAll("/usr/local/lib/whacp/mods/v1", 0o755, agentfs.RootOwner))
+	must(tx.MkdirAll("/usr/local/lib/nimvor/mods/v1", 0o755, agentfs.RootOwner))
 	src := filepath.Join(t.TempDir(), "mod.so")
 	os.WriteFile(src, []byte("ELF…"), 0o644)
-	must(tx.InstallFile("/usr/local/lib/whacp/mods/v1/mod.so", src, 0o644, agentfs.RootOwner))
+	must(tx.InstallFile("/usr/local/lib/nimvor/mods/v1/mod.so", src, 0o644, agentfs.RootOwner))
 	if err := tx.InstallFile("/etc/demo/a.conf", src, 0o644, agentfs.RootOwner); err == nil {
 		t.Fatal("InstallFile replaced an existing file")
 	}
 	must(tx.Package("libdemo-dev"))
-	must(tx.Account("whacp-build"))
+	must(tx.Account("nimvor-build"))
 
 	// The journal lists every change before the rollback.
 	loaded, err := Load(h.Env, "demo", tx.ID)
@@ -76,15 +76,15 @@ func TestRollbackUndoesEverything(t *testing.T) {
 	if info, _ := os.Stat(filepath.Join(h.Base, "etc/demo/a.conf")); info.Mode().Perm() != 0o640 {
 		t.Fatalf("mode %v", info.Mode())
 	}
-	for _, gone := range []string{"etc/demo/sub/b.conf", "usr/local/lib/whacp/mods/v1/mod.so", "usr/local/lib/whacp/mods"} {
+	for _, gone := range []string{"etc/demo/sub/b.conf", "usr/local/lib/nimvor/mods/v1/mod.so", "usr/local/lib/nimvor/mods"} {
 		if _, err := os.Lstat(filepath.Join(h.Base, gone)); !os.IsNotExist(err) {
 			t.Errorf("%s left", gone)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(h.Base, "usr/local/lib/whacp")); err != nil {
+	if _, err := os.Stat(filepath.Join(h.Base, "usr/local/lib/nimvor")); err != nil {
 		t.Error("a folder that existed before was removed")
 	}
-	if strings.Join(removedPkgs, ",") != "libdemo-dev" || removedAcct != "whacp-build" || after != 1 {
+	if strings.Join(removedPkgs, ",") != "libdemo-dev" || removedAcct != "nimvor-build" || after != 1 {
 		t.Fatalf("hooks: %v %q %d", removedPkgs, removedAcct, after)
 	}
 	done, _ := Load(h.Env, "demo", tx.ID)
@@ -201,13 +201,13 @@ func TestInstallFileRefusesLinks(t *testing.T) {
 	os.WriteFile(secret, []byte("root:$6$secret"), 0o600)
 	link := filepath.Join(dir, "module.so")
 	os.Symlink(secret, link)
-	if err := tx.InstallFile("/usr/local/lib/whacp/mod.so", link, 0o644, agentfs.RootOwner); err == nil {
+	if err := tx.InstallFile("/usr/local/lib/nimvor/mod.so", link, 0o644, agentfs.RootOwner); err == nil {
 		t.Fatal("followed a link")
 	}
-	if err := tx.InstallFile("/usr/local/lib/whacp/mod.so", dir, 0o644, agentfs.RootOwner); err == nil {
+	if err := tx.InstallFile("/usr/local/lib/nimvor/mod.so", dir, 0o644, agentfs.RootOwner); err == nil {
 		t.Fatal("installed a folder")
 	}
-	if _, err := os.Stat(filepath.Join(h.Base, "usr/local/lib/whacp/mod.so")); err == nil {
+	if _, err := os.Stat(filepath.Join(h.Base, "usr/local/lib/nimvor/mod.so")); err == nil {
 		t.Fatal("something was installed")
 	}
 }

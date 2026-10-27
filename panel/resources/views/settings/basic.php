@@ -3,7 +3,7 @@
  * Basic WebHost Settings: contact, basic configuration, name servers and
  * defaults for new accounts.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed> $values
  * @var array<string, mixed> $mail
  * @var string $hostname
@@ -32,14 +32,14 @@ $switch = function (string $k) use ($definitions, $val, $dis): string {
     <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('settings.tweak')) ?>"><i class="bi bi-sliders2 me-1" aria-hidden="true"></i>Tweak Settings</a>
 <?php $this->end('actions'); ?>
 
-<div class="wcp-subtabs mb-3" role="tablist">
+<div class="nim-subtabs mb-3" role="tablist">
     <?php foreach (['contact' => 'Contact information', 'basic' => 'Basic configuration', 'nameservers' => 'Name servers', 'accounts' => 'New accounts'] as $id => $label): ?>
         <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#<?= e($id) ?>" aria-controls="<?= e($id) ?>" aria-selected="<?= $id === 'contact' ? 'true' : 'false' ?>"<?= $id === 'contact' ? ' class="active"' : '' ?>><?= e($label) ?></button>
     <?php endforeach; ?>
 </div>
 <div class="tab-content">
     <div class="tab-pane fade show active" id="contact" role="tabpanel">
-        <form class="wcp-panel p-3" method="post" action="<?= e($this->url('settings.basic.save')) ?>" data-wcp-busy>
+        <form class="nim-panel p-3" method="post" action="<?= e($this->url('settings.basic.save')) ?>" data-nim-busy>
             <?= $this->csrfField() ?><input type="hidden" name="tab" value="contact">
             <label class="form-label" for="b-alert_to">Server contact email</label>
             <input class="form-control<?= $cls('alert_to') ?>" id="b-alert_to" name="alert_to" value="<?= e((string) ($old['alert_to'] ?? $mail['alert_to'])) ?>" maxlength="1000" placeholder="admin@example.com"<?= $dis ?>>
@@ -49,11 +49,11 @@ $switch = function (string $k) use ($definitions, $val, $dis): string {
         </form>
     </div>
     <div class="tab-pane fade" id="basic" role="tabpanel">
-        <form class="wcp-panel p-3" method="post" action="<?= e($this->url('settings.basic.save')) ?>" data-wcp-busy>
+        <form class="nim-panel p-3" method="post" action="<?= e($this->url('settings.basic.save')) ?>" data-nim-busy>
             <?= $this->csrfField() ?><input type="hidden" name="tab" value="basic">
             <div class="mb-3">
                 <span class="form-label d-block">Server host name</span>
-                <span class="font-monospace"><?= $hostname !== '' ? e($hostname) : '<span class="wcp-muted">unknown</span>' ?></span>
+                <span class="font-monospace"><?= $hostname !== '' ? e($hostname) : '<span class="nim-muted">unknown</span>' ?></span>
                 <?php if ($this->hasRoute('server') && $this->routeAllowed('server')): ?> · <a href="<?= e($this->url('server')) ?>">change on the Server page</a><?php endif; ?>
                 <div class="form-text">A full name (server.example.com) whose address record points to this server: email and the hostname certificate use it.</div>
             </div>
@@ -80,9 +80,9 @@ $switch = function (string $k) use ($definitions, $val, $dis): string {
         </form>
     </div>
     <div class="tab-pane fade" id="nameservers" role="tabpanel">
-        <form class="wcp-panel p-3" method="post" action="<?= e($this->url('settings.basic.save')) ?>" data-wcp-busy>
+        <form class="nim-panel p-3" method="post" action="<?= e($this->url('settings.basic.save')) ?>" data-nim-busy>
             <?= $this->csrfField() ?><input type="hidden" name="tab" value="nameservers">
-            <p class="small wcp-muted">New DNS zones get NS records for these servers. Register them (glue records) at your domain registrar, pointing to this server's address, when this server is the name server.</p>
+            <p class="small nim-muted">New DNS zones get NS records for these servers. Register them (glue records) at your domain registrar, pointing to this server's address, when this server is the name server.</p>
             <?php foreach ($ns as $i => $n): $f = 'ns' . ($i + 1); ?>
                 <div class="mb-3 row g-2 align-items-center">
                     <label class="col-sm-3 col-form-label" for="b-<?= e($f) ?>">Name server <?= $i + 1 ?></label>
@@ -96,9 +96,9 @@ $switch = function (string $k) use ($definitions, $val, $dis): string {
         </form>
     </div>
     <div class="tab-pane fade" id="accounts" role="tabpanel">
-        <form class="wcp-panel p-3" method="post" action="<?= e($this->url('settings.basic.save')) ?>" data-wcp-busy>
+        <form class="nim-panel p-3" method="post" action="<?= e($this->url('settings.basic.save')) ?>" data-nim-busy>
             <?= $this->csrfField() ?><input type="hidden" name="tab" value="accounts">
-            <p class="small wcp-muted">What the form for a new account or website starts with; each can still be changed there.</p>
+            <p class="small nim-muted">What the form for a new account or website starts with; each can still be changed there.</p>
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
                     <label class="form-label" for="b-default_plan_id"><?= e((string) $definitions['default_plan_id']['label']) ?></label>

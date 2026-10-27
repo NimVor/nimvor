@@ -38,7 +38,7 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     const link = await page.$(`tr:has-text("${domain}") a[href^="/sites/"]`) || await page.$(`a[href^="/sites/"]:has-text("${domain}")`);
     const site = (await link.getAttribute('href')).replace(/\/$/, '');
     // WordPress files in the website (the simulated scan looks for them).
-    const doc = path.join(DEV_ROOT, 'home/whacp', domain, 'public_html');
+    const doc = path.join(DEV_ROOT, 'home/nimvor', domain, 'public_html');
     fs.mkdirSync(path.join(doc, 'wp-includes'), { recursive: true });
     fs.writeFileSync(path.join(doc, 'wp-settings.php'), '<?php');
     fs.writeFileSync(path.join(doc, 'wp-includes/version.php'), "<?php $wp_version = '6.8.1';");
@@ -54,7 +54,7 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
       'Password protection', 'Take over wp-cron.php', 'Hotlink protection', 'Vulnerability protection', 'Akismet Anti-spam']) {
       if (!main.includes(s)) { throw new Error('page misses ' + s); }
     }
-    const fm = await page.getAttribute('.wcp-wp-tool:has-text("File Manager")', 'href');
+    const fm = await page.getAttribute('.nim-wp-tool:has-text("File Manager")', 'href');
     if (!fm.endsWith('/files?path=public_html')) { throw new Error('file manager link ' + fm); }
     await page.screenshot({ path: path.join(OUT, 'wordpress-dashboard.png'), fullPage: true });
     step('scan opened the installation: header, tools, dashboard');
@@ -71,8 +71,8 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
 
     // Search engine indexing off (with confirmation).
     await page.click('#wp-sw-indexing');
-    await page.waitForSelector('#wcp-confirm.show');
-    await submit('[data-wcp-confirm-ok]');
+    await page.waitForSelector('#nim-confirm.show');
+    await submit('[data-nim-confirm-ok]');
     if (!(await flash()).includes('done')) { throw new Error('indexing: ' + (await flash())); }
     // Debugging window.
     await page.click('a[href="#wp-debug"]');
@@ -86,8 +86,8 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     await page.fill('#pp-user', 'boss'); await page.fill('#pp-pass', 'Protect-pass-1');
     await submit('#wp-protect button.btn-primary');
     if (!(await flash()).includes('must sign in as boss')) { throw new Error('protect: ' + (await flash())); }
-    const conf = fs.readFileSync(path.join(DEV_ROOT, 'etc/nginx/whacp-protect', domain + '.conf'), 'utf8');
-    if (!conf.includes('auth_basic $whacp_auth;')) { throw new Error('protection file: ' + conf); }
+    const conf = fs.readFileSync(path.join(DEV_ROOT, 'etc/nginx/nimvor-protect', domain + '.conf'), 'utf8');
+    if (!conf.includes('auth_basic $nimvor_auth;')) { throw new Error('protection file: ' + conf); }
     if (!(await page.textContent('main')).includes('Visitors sign in as boss')) { throw new Error('protection state not shown'); }
     // Hotlink protection on with the switch.
     await submit('#wp-sw-hotlink');
@@ -100,10 +100,10 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     await page.waitForSelector('#security.show');
     if (!(await page.textContent('#security')).includes('Block access to xmlrpc.php')) { throw new Error('measures not listed'); }
     await page.click('#security form button:has-text("Secure (recommended)")');
-    await page.waitForSelector('#wcp-confirm.show');
-    await submit('[data-wcp-confirm-ok]');
+    await page.waitForSelector('#nim-confirm.show');
+    await submit('[data-nim-confirm-ok]');
     if (!(await flash()).includes('Security measures applied')) { throw new Error('harden: ' + (await flash())); }
-    const conf2 = fs.readFileSync(path.join(DEV_ROOT, 'etc/nginx/whacp-protect', domain + '.conf'), 'utf8');
+    const conf2 = fs.readFileSync(path.join(DEV_ROOT, 'etc/nginx/nimvor-protect', domain + '.conf'), 'utf8');
     if (!conf2.includes('wp-content/uploads') || conf2.includes('xmlrpc.php {')) { throw new Error('recommended rules: ' + conf2); }
     await page.goto(BASE + wpUrl + '#security');
     await page.waitForSelector('#security.show');

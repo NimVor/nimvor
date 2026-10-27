@@ -46,8 +46,8 @@ func TestSuspicious(t *testing.T) {
 		{Process{Name: "node", Command: "node app.js", UID: 1500, Listens: []string{"tcp 3000"}}, Links{Exe: "/home/x/.nvm/versions/node/bin/node"}},
 		{Process{Name: "php-fpm", Command: "php-fpm: pool example", UID: 1500}, Links{Exe: "/usr/sbin/php-fpm8.3"}},
 		{Process{Name: "bash", Command: "/bin/bash -c cd /srv && cat > /tmp/notes.txt"}, Links{Exe: "/usr/bin/bash"}},
-		// Updated in place (WhaCP's own services after an update, packages).
-		{Process{Name: "whacp-agent", Command: "/usr/local/bin/whacp-agent greylist-policy", UID: 62198}, Links{Exe: "/usr/local/bin/whacp-agent", Deleted: true, Replaced: true}},
+		// Updated in place (NimVor's own services after an update, packages).
+		{Process{Name: "nimvor-agent", Command: "/usr/local/bin/nimvor-agent greylist-policy", UID: 62198}, Links{Exe: "/usr/local/bin/nimvor-agent", Deleted: true, Replaced: true}},
 	} {
 		if got := Suspicious(c.p, c.l, true); len(got) > 0 {
 			t.Errorf("%s flagged: %v", c.p.Command, got)
@@ -102,7 +102,7 @@ func TestListUsesPrivilegedScan(t *testing.T) {
 	h.Env.Cfg.ProcDir = "/proc"
 	self := strconv.Itoa(os.Getpid())
 	h.Respond = func(id string, args []string) (string, error, bool) {
-		if id == "whacp-agent" && len(args) == 1 && args[0] == ScanFlag {
+		if id == "nimvor-agent" && len(args) == 1 && args[0] == ScanFlag {
 			return `{"` + self + `":{"exe":"/dev/shm/x","cwd":"/","fds":3}}`, nil, true
 		}
 		return "", nil, false
@@ -120,7 +120,7 @@ func TestListUsesPrivilegedScan(t *testing.T) {
 	if !found || snap.Suspicious == 0 {
 		t.Fatal("the scan's executable was not used")
 	}
-	if !h.Runner.Called("whacp-agent -proc-scan") {
+	if !h.Runner.Called("nimvor-agent -proc-scan") {
 		t.Fatalf("calls: %v", h.Runner.Calls)
 	}
 }
@@ -128,10 +128,10 @@ func TestListUsesPrivilegedScan(t *testing.T) {
 func TestUnitOf(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(dir+"/42", 0o755)
-	os.WriteFile(dir+"/42/cgroup", []byte("0::/system.slice/whacp-greylist.service\n"), 0o644)
+	os.WriteFile(dir+"/42/cgroup", []byte("0::/system.slice/nimvor-greylist.service\n"), 0o644)
 	os.MkdirAll(dir+"/43", 0o755)
 	os.WriteFile(dir+"/43/cgroup", []byte("0::/user.slice/user-0.slice/session-3.scope\n"), 0o644)
-	if u := unitOf(dir, 42); u != "whacp-greylist.service" {
+	if u := unitOf(dir, 42); u != "nimvor-greylist.service" {
 		t.Fatalf("unit = %q", u)
 	}
 	if u := unitOf(dir, 43); u != "session-3.scope" {

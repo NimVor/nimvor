@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Agent;
+namespace NimVor\Agent;
 
 /**
  * HTTPS to a remote agent. The agent's self-signed certificate is not
@@ -69,13 +69,13 @@ final class RemoteTransport implements AgentTransport
             throw new AgentUnavailableException(
                 $pinFail ? 'The remote server presented a different certificate.' : ($timeout ? 'The remote agent did not respond in time.' : 'The remote agent is not reachable.'),
                 $pinFail ? 'Its TLS key does not match the pin recorded for it. Nothing was sent.' : 'The connection failed (curl error ' . $errno . ').',
-                $pinFail ? 'If the agent was reinstalled, verify the new pin (whacp-agent -pin on that server) and update it.' : 'Check that the agent listens on this address, the firewall allows the panel, and allowed_clients includes this server.',
+                $pinFail ? 'If the agent was reinstalled, verify the new pin (nimvor-agent -pin on that server) and update it.' : 'Check that the agent listens on this address, the firewall allows the panel, and allowed_clients includes this server.',
                 $pinFail ? 'agent_pin_mismatch' : ($timeout ? 'agent_timeout' : 'agent_unavailable'),
             );
         }
         $code = (string) (((array) json_decode($received, true))['error']['code'] ?? '');
         if ($status === 403 && $code === 'forbidden') {
-            throw new AgentUnavailableException('The remote agent refused this panel.', 'The panel\'s address is not in allowed_clients, or it is locked out after failed logins.', 'Add this server\'s address to allowed_clients in /etc/whacp/agent.json on the remote server.', 'agent_forbidden');
+            throw new AgentUnavailableException('The remote agent refused this panel.', 'The panel\'s address is not in allowed_clients, or it is locked out after failed logins.', 'Add this server\'s address to allowed_clients in /etc/nimvor/agent.json on the remote server.', 'agent_forbidden');
         }
         return new AgentHttpResponse($status, $received);
     }

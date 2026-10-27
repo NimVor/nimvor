@@ -1,8 +1,8 @@
-<?php /** @var \WhaCP\View\View $this */ ?>
+<?php /** @var \NimVor\View\View $this */ ?>
 <?php $this->start(); ?><?= e($title ?? 'Error') ?><?php $this->end('title'); ?>
-<div class="card wcp-error-card">
+<div class="card nim-error-card">
     <div class="card-body">
-        <div class="wcp-error-code"><?= e($status ?? 500) ?></div>
+        <div class="nim-error-code"><?= e($status ?? 500) ?></div>
         <h2 class="h5"><?= e($title ?? 'Error') ?></h2>
         <p class="mb-2"><?= e($message ?? '') ?></p>
         <?php if (!empty($reason)): ?>

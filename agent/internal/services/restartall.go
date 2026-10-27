@@ -14,9 +14,9 @@ import (
 )
 
 // Restarting every service at once (the top bar's restart button): the
-// running services WhaCP may control, in an order that keeps websites
+// running services NimVor may control, in an order that keeps websites
 // answering as long as possible (databases and caches first, then PHP,
-// mail and the rest, Nginx last), then WhaCP's own agent and panel. SSH is
+// mail and the rest, Nginx last), then NimVor's own agent and panel. SSH is
 // left alone (nothing gains from it, a failed start would lock the
 // administrator out). Nginx and SSH-like checks apply as for one service.
 
@@ -66,7 +66,7 @@ func activeServices(ctx context.Context, env *host.Env) ([]string, error) {
 }
 
 func registerRestartAll(r *actions.Registry, env *host.Env) {
-	r.Register(actions.Action{Name: "services.restart_all", Mutating: true, Description: "Restart every running service WhaCP manages (databases and caches, PHP-FPM, mail, DNS, FTP, Nginx last; never SSH), then WhaCP's agent and panel. Runs as a job.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "services.restart_all", Mutating: true, Description: "Restart every running service NimVor manages (databases and caches, PHP-FPM, mail, DNS, FTP, Nginx last; never SSH), then NimVor's agent and panel. Runs as a job.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		if err := host.Decode(raw, &struct{}{}); err != nil {
 			return nil, err
 		}
@@ -85,8 +85,8 @@ func registerRestartAll(r *actions.Registry, env *host.Env) {
 				}
 				fmt.Fprintf(log, "✓ %s restarted\n", u)
 			}
-			// WhaCP's own units that are not in the list above.
-			for _, w := range WhacpUnits {
+			// NimVor's own units that are not in the list above.
+			for _, w := range NimvorUnits {
 				if w.Delayed || !w.Restartable || Allowed(w.Unit) || !env.UnitActive(ctx, w.Unit) {
 					continue
 				}
@@ -100,7 +100,7 @@ func registerRestartAll(r *actions.Registry, env *host.Env) {
 			fmt.Fprintln(log, "The panel and the agent restart in a few seconds.")
 			go func() {
 				time.Sleep(restartDelay)
-				for _, u := range []string{"whacp-panel.service", "whacp-agent.service"} {
+				for _, u := range []string{"nimvor-panel.service", "nimvor-agent.service"} {
 					if out, err := env.Runner.Run(context.Background(), "systemctl", "restart", "--no-block", "--", u); err != nil {
 						env.Log.Error("restart", "unit", u, "err", err, "out", host.Output(out))
 					}

@@ -15,7 +15,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
   page.on('pageerror', e => errors.push('pageerror: ' + e.message + ' (' + page.url() + ')'));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text() + ' (' + page.url() + ')'); });
   const step = s => console.log('STEP', s);
-  const tabs = async () => page.$$eval('.wcp-subtabs [role=tab]', b => b.map(x => x.textContent.replace(/\s+\d+\s*$/, '').replace(/\s+/g, ' ').trim()));
+  const tabs = async () => page.$$eval('.nim-subtabs [role=tab]', b => b.map(x => x.textContent.replace(/\s+\d+\s*$/, '').replace(/\s+/g, ' ').trim()));
   const openModal = async (target, check) => {
     await page.click(`button[data-bs-target="${target}"]`);
     await page.waitForSelector(`${target}.show`);
@@ -47,7 +47,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
 
     await page.goto(BASE + '/limits');
     if (JSON.stringify((await tabs()).map(t => t.replace(/ (on|off)$/, ''))) !== JSON.stringify(['Limited accounts', 'Disk quotas'])) { throw new Error('limits tabs: ' + JSON.stringify(await tabs())); }
-    if (!(await page.$('.wcp-page-actions button:has-text("Apply the plans now")'))) { throw new Error('Apply the plans not at the top right'); }
+    if (!(await page.$('.nim-page-actions button:has-text("Apply the plans now")'))) { throw new Error('Apply the plans not at the top right'); }
     await page.goto(BASE + '/limits#disk-quotas');
     await page.waitForSelector('#disk-quotas.active');
     step('Resource limits: tabs, Apply the plans at the top right, #disk-quotas opens its tab');

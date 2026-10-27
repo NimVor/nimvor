@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Support\UserFacingException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Support\UserFacingException;
 
 /**
  * Malware scans with ClamAV. The agent scans a website as the website's
  * own account (a job) and, when quarantine is on, moves infected files into
- * the website's .whacp-quarantine folder; the panel records each scan and
+ * the website's .nimvor-quarantine folder; the panel records each scan and
  * notifies the website's owner of what was found.
  */
 final class AvService

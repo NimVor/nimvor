@@ -69,14 +69,14 @@ func TestAllowlistHasPlatformTools(t *testing.T) {
 // Commands as another account are started by PID 1, confined, and their
 // arguments reach the program unchanged (F-16).
 func TestTransientArgs(t *testing.T) {
-	a := TransientArgs("whacp-run-x.service", "/bin/sh", "/usr/bin/php", "/home/whacp/a.test", []string{"HOME=/home/whacp/a.test"},
-		Credential{UID: 1001, GID: 1002}, 90*time.Second, "", "/run/whacp-run/r/out", "/run/whacp-run/r/err", []string{"/usr/local/bin/whacp-agent:/usr/sbin/sendmail.postfix"}, []string{"-r", "echo $HOME, 100%;"})
+	a := TransientArgs("nimvor-run-x.service", "/bin/sh", "/usr/bin/php", "/home/nimvor/a.test", []string{"HOME=/home/nimvor/a.test"},
+		Credential{UID: 1001, GID: 1002}, 90*time.Second, "", "/run/nimvor-run/r/out", "/run/nimvor-run/r/err", []string{"/usr/local/bin/nimvor-agent:/usr/sbin/sendmail.postfix"}, []string{"-r", "echo $HOME, 100%;"})
 	s := strings.Join(a, "\n")
 	for _, want := range []string{"--uid=1001", "--gid=1002", "--wait", "--property=StandardInput=null",
-		"--working-directory=/home/whacp/a.test",
+		"--working-directory=/home/nimvor/a.test",
 		"--property=NoNewPrivileges=yes", "--property=CapabilityBoundingSet=",
-		"--property=RuntimeMaxSec=100", "--setenv=HOME=/home/whacp/a.test",
-		"--property=BindReadOnlyPaths=/usr/local/bin/whacp-agent:/usr/sbin/sendmail.postfix"} {
+		"--property=RuntimeMaxSec=100", "--setenv=HOME=/home/nimvor/a.test",
+		"--property=BindReadOnlyPaths=/usr/local/bin/nimvor-agent:/usr/sbin/sendmail.postfix"} {
 		if !strings.Contains(s, want+"\n") && !strings.HasSuffix(s, want) {
 			t.Errorf("missing %s in\n%s", want, s)
 		}
@@ -86,7 +86,7 @@ func TestTransientArgs(t *testing.T) {
 		t.Errorf("PID 1 would open the output pipes:\n%s", s)
 	}
 	n := len(a)
-	want := []string{"--", "/bin/sh", "-c", strings.ReplaceAll(pipeWrapper, "$", "$$"), "whacp-run", "/dev/null", "/run/whacp-run/r/out", "/run/whacp-run/r/err", "/usr/bin/php", "-r", "echo $$HOME, 100%;"}
+	want := []string{"--", "/bin/sh", "-c", strings.ReplaceAll(pipeWrapper, "$", "$$"), "nimvor-run", "/dev/null", "/run/nimvor-run/r/out", "/run/nimvor-run/r/err", "/usr/bin/php", "-r", "echo $$HOME, 100%;"}
 	if strings.Join(a[n-len(want):], "\x00") != strings.Join(want, "\x00") {
 		t.Errorf("command part: %q", a[n-len(want):])
 	}
@@ -96,7 +96,7 @@ func TestTransientArgs(t *testing.T) {
 // exactly those, without the account sandbox's mount namespace; only the
 // quota commands may, only with the allowed capabilities.
 func TestPrivilegedCommands(t *testing.T) {
-	a := TransientArgs("whacp-run-x.service", "/bin/sh", "/usr/sbin/setquota", "/", nil,
+	a := TransientArgs("nimvor-run-x.service", "/bin/sh", "/usr/sbin/setquota", "/", nil,
 		Credential{Home: "/root", Capabilities: []string{"CAP_SYS_ADMIN"}}, time.Minute, "", "/o", "/e", []string{"/x:/y"}, []string{"-u", "web1", "0", "1024", "0", "0", "/"})
 	s := strings.Join(a, "\n") + "\n"
 	for _, want := range []string{"--uid=0\n", "--property=NoNewPrivileges=yes\n", "--property=CapabilityBoundingSet=CAP_SYS_ADMIN\n"} {
@@ -138,12 +138,12 @@ func TestProcessManagerPrivilegedArgs(t *testing.T) {
 		args []string
 		ok   bool
 	}{
-		{"whacp-agent", []string{"-proc-scan"}, true},
-		{"whacp-agent", []string{"-proc-detail", "4242"}, true},
-		{"whacp-agent", []string{"-proc-detail", "0"}, false},
-		{"whacp-agent", []string{"-proc-detail", "1;id"}, false},
-		{"whacp-agent", []string{"-config", "/tmp/x.json"}, false},
-		{"whacp-agent", nil, false},
+		{"nimvor-agent", []string{"-proc-scan"}, true},
+		{"nimvor-agent", []string{"-proc-detail", "4242"}, true},
+		{"nimvor-agent", []string{"-proc-detail", "0"}, false},
+		{"nimvor-agent", []string{"-proc-detail", "1;id"}, false},
+		{"nimvor-agent", []string{"-config", "/tmp/x.json"}, false},
+		{"nimvor-agent", nil, false},
 		{"strace", []string{"-f", "-tt", "-qq", "-s", "200", "-p", "4242"}, true},
 		{"strace", []string{"-f", "-tt", "-qq", "-s", "200", "-o", "/etc/passwd", "-p", "4242"}, false},
 		{"strace", []string{"-f", "-tt", "-qq", "-s", "200", "-p", "4242", "sh"}, false},

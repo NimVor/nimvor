@@ -1,9 +1,9 @@
-// Package greylist is WhaCP's triplet greylisting: a Postfix policy
+// Package greylist is NimVor's triplet greylisting: a Postfix policy
 // service that defers the first message of each (sender IP, from, to)
 // triplet and accepts a retry after the initial deferral period.
 //
 // It runs as its own unprivileged, socket-activated systemd service
-// ("whacp-agent greylist-policy", DynamicUser) and never as the agent.
+// ("nimvor-agent greylist-policy", DynamicUser) and never as the agent.
 // The agent writes its configuration and reads reports over a control
 // socket that only root and the service user can open.
 package greylist
@@ -27,7 +27,7 @@ type Config struct {
 	Expire   int `json:"expire"`   // how long an accepted triplet is remembered
 	// Senders whose SPF record passes for the client address are not deferred.
 	SPFBypass bool `json:"spf_bypass"`
-	// New providers in WhaCP's list are trusted when they first appear.
+	// New providers in NimVor's list are trusted when they first appear.
 	AutoTrustNew bool                      `json:"auto_trust_new"`
 	Trusted      []TrustedHost             `json:"trusted"`
 	Providers    map[string]*ProviderState `json:"providers"`
@@ -57,7 +57,7 @@ type Provider struct {
 	SPF  []string `json:"spf"`
 }
 
-// Providers is WhaCP's list of common mail providers.
+// Providers is NimVor's list of common mail providers.
 var Providers = []Provider{
 	{"google", "Google (Gmail, Workspace)", []string{"_spf.google.com"}},
 	{"microsoft", "Microsoft (Outlook.com, Microsoft 365)", []string{"spf.protection.outlook.com"}},

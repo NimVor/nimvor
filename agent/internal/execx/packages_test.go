@@ -53,8 +53,8 @@ func TestPackageTransaction(t *testing.T) {
 // packages.go), no bind mounts and is named for the waiting logic.
 func TestPackageTransientArgs(t *testing.T) {
 	a := strings.Join(TransientArgs(PackageUnitPrefix+"x.service", "/bin/sh", "/usr/bin/apt-get", "/", []string{"HOME=/root", "DEBIAN_FRONTEND=noninteractive"},
-		Credential{Home: "/root", Package: true}, 0, "", "/run/whacp-run/o", "/run/whacp-run/e", []string{"/a:/b"}, []string{"update", "-q"}), "\n")
-	for _, want := range []string{"--unit=" + PackageUnitPrefix + "x.service", "--uid=0", "--gid=0", "--description=WhaCP package transaction", "--setenv=DEBIAN_FRONTEND=noninteractive", "/usr/bin/apt-get\nupdate\n-q"} {
+		Credential{Home: "/root", Package: true}, 0, "", "/run/nimvor-run/o", "/run/nimvor-run/e", []string{"/a:/b"}, []string{"update", "-q"}), "\n")
+	for _, want := range []string{"--unit=" + PackageUnitPrefix + "x.service", "--uid=0", "--gid=0", "--description=NimVor package transaction", "--setenv=DEBIAN_FRONTEND=noninteractive", "/usr/bin/apt-get\nupdate\n-q"} {
 		if !strings.Contains(a, want) {
 			t.Errorf("lacks %q:\n%s", want, a)
 		}

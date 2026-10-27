@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\SettingsService;
-use WhaCP\Services\SslService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\ServerContext;
+use NimVor\Services\SettingsService;
+use NimVor\Services\SslService;
+use NimVor\Support\UserFacingException;
+use NimVor\View\View;
 
 /**
  * SSL/TLS for server administrators: SSL hosts, the certificate store,
@@ -34,8 +34,8 @@ final class SslCenterController extends Controller
         private readonly ServerContext $server,
         private readonly SslService $ssl,
         private readonly SettingsService $settings,
-        private readonly \WhaCP\Services\AutoSslService $autoSsl,
-        private readonly \WhaCP\Services\JobTracker $jobs,
+        private readonly \NimVor\Services\AutoSslService $autoSsl,
+        private readonly \NimVor\Services\JobTracker $jobs,
     ) {
         parent::__construct($view, $session);
     }
@@ -121,7 +121,7 @@ final class SslCenterController extends Controller
         try {
             match ($source) {
                 'letsencrypt' => $this->agent->call('ssl.delete', ['cert_name' => $name], 60),
-                'whacp' => $this->agent->call('ssl.custom_delete', ['name' => $name], 60),
+                'nimvor' => $this->agent->call('ssl.custom_delete', ['name' => $name], 60),
                 default => throw new UserFacingException('Only Let\'s Encrypt and NimVor certificates can be deleted here.'),
             };
         } catch (UserFacingException $e) {

@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
-use WhaCP\Database\Connection;
-use WhaCP\Mail\Mailer;
-use WhaCP\Mail\MailException;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\SettingsService;
-use WhaCP\Support\Logger;
-use WhaCP\Support\ValidationException;
+use NimVor\Database\Connection;
+use NimVor\Mail\Mailer;
+use NimVor\Mail\MailException;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\SettingsService;
+use NimVor\Support\Logger;
+use NimVor\Support\ValidationException;
 
 /**
  * "Forgot password" by email.
@@ -66,7 +66,7 @@ final class PasswordReset
             $this->audit->record('auth.password_reset_request', 'user', $identifier, AuditLogger::DENIED, ['reason' => 'throttled_ip'], null, $identifier);
             return;
         }
-        if (!\WhaCP\Repositories\UserRepository::canAct($row)) {
+        if (!\NimVor\Repositories\UserRepository::canAct($row)) {
             $this->audit->record('auth.password_reset_request', 'user', $identifier, AuditLogger::FAILURE, ['reason' => $row === null ? 'unknown_user' : 'inactive'], null, $identifier);
             return;
         }
@@ -110,7 +110,7 @@ final class PasswordReset
             return null;
         }
         $user = $this->users->find((int) $row['user_id']);
-        return \WhaCP\Repositories\UserRepository::canAct($user) ? $user : null;
+        return \NimVor\Repositories\UserRepository::canAct($user) ? $user : null;
     }
 
     public function reset(string $token, string $password, string $confirmation): void

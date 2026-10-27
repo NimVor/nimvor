@@ -20,7 +20,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.goto(BASE + '/security/modsec');
     const main = (await page.textContent('main')).replace(/\s+/g, ' ');
     if (!/Nginx connector (working|not installed)|Connector installed, not usable/.test(main)) { throw new Error('no connector state: ' + main.slice(0, 400)); }
-    const tabs = await page.$$eval('.wcp-subtabs [role=tab]', b => b.map(x => x.textContent.replace(/\s*\d+\s*$/, '').trim()));
+    const tabs = await page.$$eval('.nim-subtabs [role=tab]', b => b.map(x => x.textContent.replace(/\s*\d+\s*$/, '').trim()));
     if (JSON.stringify(tabs) !== JSON.stringify(['Websites', 'Recent events', 'Vendors', 'Custom rules', 'Installation'])) { throw new Error('tabs: ' + JSON.stringify(tabs)); }
     // Server-wide settings in a window.
     await page.click('button[data-bs-target="#ms-settings"]');
@@ -45,7 +45,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.waitForSelector('#custom.active td:has-text("(edited)")', { timeout: 15000 });
     page.once('dialog', d => d.accept());
     await page.click('#custom tr:has-text("10077") button:has-text("Delete")');
-    const confirmBtn = await page.waitForSelector('.modal.show [data-wcp-confirm-ok], .modal.show .btn-danger', { timeout: 5000 }).catch(() => null);
+    const confirmBtn = await page.waitForSelector('.modal.show [data-nim-confirm-ok], .modal.show .btn-danger', { timeout: 5000 }).catch(() => null);
     if (confirmBtn) { await Promise.all([page.waitForLoadState('networkidle'), confirmBtn.click()]); }
     await page.waitForFunction(() => !document.querySelector('#custom td') || !document.querySelector('#custom').textContent.includes('10077'), null, { timeout: 15000 });
     step('custom rule added in a window, edited and deleted');

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
+use NimVor\Agent\AgentClient;
 
 /**
  * MongoDB server management: databases and users, through the agent (mongosh).

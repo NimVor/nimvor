@@ -2,7 +2,7 @@
 // journal cursors, so only new lines are transferred).
 (function () {
     'use strict';
-    var root = document.getElementById('wcp-logs');
+    var root = document.getElementById('nim-logs');
     if (!root) { return; }
     var out = root.querySelector('[data-log-output]');
     var status = root.querySelector('[data-log-status]');

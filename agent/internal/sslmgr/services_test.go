@@ -17,13 +17,13 @@ import (
 // the file already existed.
 func TestHostnameSiteRewrittenAfterRename(t *testing.T) {
 	h := testhost.New(t)
-	site := filepath.Join(h.Base, "etc/nginx/sites-available/whacp-hostname.conf")
+	site := filepath.Join(h.Base, "etc/nginx/sites-available/nimvor-hostname.conf")
 	os.WriteFile(site, []byte("server {\n    listen 80;\n    server_name vmi3612939.contaboserver.net;\n}\n"), 0o644)
 
 	if err := ensureHostnameSite(context.Background(), h.Env, "vc100.oursvrs.com"); err != nil {
 		t.Fatalf("ensureHostnameSite: %v", err)
 	}
-	got := h.Read("etc/nginx/sites-available/whacp-hostname.conf")
+	got := h.Read("etc/nginx/sites-available/nimvor-hostname.conf")
 	if !strings.Contains(got, "server_name vc100.oursvrs.com;") {
 		t.Errorf("challenge site not updated to the new host name:\n%s", got)
 	}
@@ -39,12 +39,12 @@ func TestHostnameSiteRewrittenAfterRename(t *testing.T) {
 	}
 }
 
-const panelConf = `# Managed by WhaCP (install.sh --public-https): the panel over HTTPS.
+const panelConf = `# Managed by NimVor (install.sh --public-https): the panel over HTTPS.
 server {
     listen 8443 ssl;
     server_name _;
-    ssl_certificate     /etc/ssl/certs/whacp-panel.crt;
-    ssl_certificate_key /etc/ssl/private/whacp-panel.key;
+    ssl_certificate     /etc/ssl/certs/nimvor-panel.crt;
+    ssl_certificate_key /etc/ssl/private/nimvor-panel.key;
     ssl_protocols TLSv1.2 TLSv1.3;
     location / {
         proxy_pass http://127.0.0.1:8090;
@@ -54,7 +54,7 @@ server {
 
 func TestPanelCertificate(t *testing.T) {
 	h := testhost.New(t)
-	os.WriteFile(filepath.Join(h.Base, "etc/nginx/sites-available/whacp-panel.conf"), []byte(panelConf), 0o644)
+	os.WriteFile(filepath.Join(h.Base, "etc/nginx/sites-available/nimvor-panel.conf"), []byte(panelConf), 0o644)
 	os.WriteFile(filepath.Join(h.Base, "etc/letsencrypt/live/example.com/privkey.pem"), []byte("key"), 0o600)
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
@@ -64,20 +64,20 @@ func TestPanelCertificate(t *testing.T) {
 	if _, err := call(t, r, "ssl.service_cert", `{"service":"panel","cert_name":"example.com"}`); err != nil {
 		t.Fatal(err)
 	}
-	got := h.Read("etc/nginx/sites-available/whacp-panel.conf")
-	for _, want := range []string{"ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;", "ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;", "include /etc/nginx/whacp-tls.conf;", "proxy_pass http://127.0.0.1:8090;"} {
+	got := h.Read("etc/nginx/sites-available/nimvor-panel.conf")
+	for _, want := range []string{"ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;", "ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;", "include /etc/nginx/nimvor-tls.conf;", "proxy_pass http://127.0.0.1:8090;"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("%q missing:\n%s", want, got)
 		}
 	}
-	if strings.Contains(got, "ssl_protocols") || !h.Exists("etc/nginx/whacp-tls.conf") {
+	if strings.Contains(got, "ssl_protocols") || !h.Exists("etc/nginx/nimvor-tls.conf") {
 		t.Fatalf("TLS lines not moved to the snippet:\n%s", got)
 	}
 	// Back to the installer's certificate.
 	if _, err := call(t, r, "ssl.service_cert", `{"service":"panel","cert_name":""}`); err != nil {
 		t.Fatal(err)
 	}
-	if got := h.Read("etc/nginx/sites-available/whacp-panel.conf"); !strings.Contains(got, "ssl_certificate     /etc/ssl/certs/whacp-panel.crt;") {
+	if got := h.Read("etc/nginx/sites-available/nimvor-panel.conf"); !strings.Contains(got, "ssl_certificate     /etc/ssl/certs/nimvor-panel.crt;") {
 		t.Fatalf("not restored:\n%s", got)
 	}
 	if _, err := call(t, r, "ssl.service_cert", `{"service":"ftp","cert_name":"example.com"}`); err == nil {
@@ -87,7 +87,7 @@ func TestPanelCertificate(t *testing.T) {
 
 func TestMailTLS(t *testing.T) {
 	h := testhost.New(t)
-	drop := "# Managed by WhaCP (email).\nssl = required\nssl_cert = </etc/whacp-mail/tls.crt\nssl_key = </etc/whacp-mail/tls.key\nssl_min_protocol = TLSv1.2\n\npassdb {\n}\n"
+	drop := "# Managed by NimVor (email).\nssl = required\nssl_cert = </etc/nimvor-mail/tls.crt\nssl_key = </etc/nimvor-mail/tls.key\nssl_min_protocol = TLSv1.2\n\npassdb {\n}\n"
 	os.MkdirAll(filepath.Join(h.Base, "etc/dovecot/conf.d"), 0o755)
 	os.WriteFile(filepath.Join(h.Base, h.Env.M.DovecotDropIn), []byte(drop), 0o644)
 	os.MkdirAll(filepath.Join(h.Base, "etc/postfix"), 0o755)

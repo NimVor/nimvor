@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Services\SettingsService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Services\SettingsService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** PHP Manager: versions and extensions, review, apply, saved profile. */
 final class PhpManagerTest extends HttpTestCase
@@ -57,7 +57,7 @@ final class PhpManagerTest extends HttpTestCase
         // The saved profile is now the selection, and can be exported.
         self::assertMatchesRegularExpression('#id="pv-8.4" aria-label="PHP 8.4" checked#', $this->request('GET', '/php/manager')->body());
         $export = $this->request('GET', '/php/manager/export');
-        self::assertSame(['format' => 'whacp-php-profile', 'version' => 1, 'versions' => ['8.3', '8.4'], 'extensions' => ['curl']], json_decode($export->body(), true));
+        self::assertSame(['format' => 'nimvor-php-profile', 'version' => 1, 'versions' => ['8.3', '8.4'], 'extensions' => ['curl']], json_decode($export->body(), true));
         self::assertStringContainsString('attachment', (string) $export->header('Content-Disposition'));
     }
 
@@ -79,6 +79,6 @@ final class PhpManagerTest extends HttpTestCase
 
     private function csrf(): string
     {
-        return $this->app->container->get(\WhaCP\Security\Csrf::class)->token();
+        return $this->app->container->get(\NimVor\Security\Csrf::class)->token();
     }
 }

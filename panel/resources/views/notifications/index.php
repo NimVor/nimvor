@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 $icons = ['error' => 'x-octagon-fill text-danger', 'warning' => 'exclamation-triangle-fill text-warning', 'success' => 'check-circle-fill text-success', 'info' => 'info-circle-fill text-info'];
 $labels = ['error' => 'Failures', 'warning' => 'Warnings', 'success' => 'Finished', 'info' => 'Information'];
 $showAll = empty($filter['unread']);
@@ -10,7 +10,7 @@ $base = array_filter([
 ]);
 ?>
 <?php $this->start(); ?>Notifications<?php $this->end('title'); ?>
-<?php $this->start(); ?><?= (int) $unread ?> unread · results of background jobs and alerts, kept <?= \WhaCP\Services\NotificationService::RETENTION_DAYS ?> days<?php $this->end('subtitle'); ?>
+<?php $this->start(); ?><?= (int) $unread ?> unread · results of background jobs and alerts, kept <?= \NimVor\Services\NotificationService::RETENTION_DAYS ?> days<?php $this->end('subtitle'); ?>
 <?php $this->start(); ?>
 <?php if ($unread > 0): ?>
     <form method="post" action="<?= e($this->url('notifications.read')) ?>">
@@ -30,14 +30,14 @@ $base = array_filter([
         </ul>
         <form class="d-flex flex-wrap gap-2" method="get" action="<?= e($this->url('notifications')) ?>">
             <?php if ($showAll): ?><input type="hidden" name="show" value="all"><?php endif; ?>
-            <select class="form-select form-select-sm w-auto" name="severity" aria-label="Kind" data-wcp-autosubmit>
+            <select class="form-select form-select-sm w-auto" name="severity" aria-label="Kind" data-nim-autosubmit>
                 <option value="">Any kind</option>
                 <?php foreach ($labels as $sev => $label): ?>
                     <option value="<?= e($sev) ?>"<?= ($filter['severity'] ?? '') === $sev ? ' selected' : '' ?>><?= e($label) ?></option>
                 <?php endforeach; ?>
             </select>
             <?php if ($websites !== []): ?>
-                <select class="form-select form-select-sm w-auto" name="website" aria-label="Website" data-wcp-autosubmit>
+                <select class="form-select form-select-sm w-auto" name="website" aria-label="Website" data-nim-autosubmit>
                     <option value="">All websites</option>
                     <?php foreach ($websites as $w): ?>
                         <option value="<?= (int) $w['id'] ?>"<?= (int) ($filter['website_id'] ?? 0) === (int) $w['id'] ? ' selected' : '' ?>><?= e($w['domain']) ?></option>
@@ -48,18 +48,18 @@ $base = array_filter([
         </form>
     </div>
     <?php if ($rows === []): ?>
-        <div class="card-body text-center py-5 text-body-secondary wcp-empty">
+        <div class="card-body text-center py-5 text-body-secondary nim-empty">
             <i class="bi bi-bell display-6"></i>
             <p class="mt-3 mb-0"><?= $showAll ? 'No notifications match.' : 'You are all caught up.' ?></p>
         </div>
     <?php else: ?>
-        <ul class="list-group list-group-flush" data-wcp-notifications>
+        <ul class="list-group list-group-flush" data-nim-notifications>
             <?php foreach ($rows as $n): ?>
-                <li class="list-group-item d-flex gap-3 align-items-start<?= $n['is_read'] ? '' : ' wcp-unread' ?>">
+                <li class="list-group-item d-flex gap-3 align-items-start<?= $n['is_read'] ? '' : ' nim-unread' ?>">
                     <i class="bi bi-<?= e($icons[$n['severity']] ?? $icons['info']) ?> fs-5 mt-1" aria-label="<?= e($labels[$n['severity']] ?? 'Information') ?>"></i>
                     <div class="flex-grow-1 min-w-0">
                         <div class="d-flex flex-wrap gap-2 align-items-baseline">
-                            <strong class="wcp-wrap"><?= e($n['title']) ?></strong>
+                            <strong class="nim-wrap"><?= e($n['title']) ?></strong>
                             <?php if (!$n['is_read']): ?><span class="badge text-bg-primary">new</span><?php endif; ?>
                         </div>
                         <div class="small text-body-secondary">
@@ -68,12 +68,12 @@ $base = array_filter([
                             <?php if (($n['server_name'] ?? '') !== '' && (int) $n['server_id'] !== 1): ?> · <?= e($n['server_name']) ?><?php endif; ?>
                         </div>
                         <?php if ($n['body'] !== ''): ?>
-                            <div class="small mt-1 wcp-wrap"><?= nl2br(e($n['body'])) ?></div>
+                            <div class="small mt-1 nim-wrap"><?= nl2br(e($n['body'])) ?></div>
                         <?php endif; ?>
                     </div>
                     <div class="d-flex flex-wrap gap-1 justify-content-end">
                         <?php if ($n['job_id'] !== ''): ?>
-                            <button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-job-open="<?= e($n['job_id']) ?>"><i class="bi bi-terminal me-1"></i>Log</button>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-nim-job-open="<?= e($n['job_id']) ?>"><i class="bi bi-terminal me-1"></i>Log</button>
                         <?php endif; ?>
                         <?php if (str_starts_with((string) $n['link'], '/') && !str_starts_with((string) $n['link'], '//')): ?>
                             <a class="btn btn-sm btn-outline-secondary" href="<?= e($n['link']) ?>">Open</a>

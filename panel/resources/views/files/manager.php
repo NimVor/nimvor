@@ -1,10 +1,10 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $site */
 /** @var int $retention days deleted files stay in the trash (0 = until emptied) */
 $id = (int) $site['id'];
 $btn = static fn (string $cmd, string $icon, string $label, string $extra = ''): string =>
-    '<button type="button" class="btn btn-sm btn-light wcp-fm-tool" data-fm-cmd="' . $cmd . '"' . $extra . '><i class="bi ' . $icon . '"></i><span>' . $label . '</span></button>';
+    '<button type="button" class="btn btn-sm btn-light nim-fm-tool" data-fm-cmd="' . $cmd . '"' . $extra . '><i class="bi ' . $icon . '"></i><span>' . $label . '</span></button>';
 ?>
 <?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.show', ['id' => $id])) ?>"><i class="bi bi-arrow-left"></i> <?= e($site['domain']) ?></a><?php $this->end('back'); ?>
 <?php $this->start(); ?><i class="bi bi-folder2-open me-1"></i>File manager<?php $this->end('title'); ?>
@@ -15,14 +15,14 @@ $btn = static fn (string $cmd, string $icon, string $label, string $extra = ''):
 </div>
 <?php $this->end('actions'); ?>
 
-<div class="wcp-fm" id="wcp-fm"
+<div class="nim-fm" id="nim-fm"
      data-api="<?= e($this->url('sites.files.api', ['id' => $id])) ?>"
      data-upload="<?= e($this->url('sites.files.upload', ['id' => $id])) ?>"
      data-download="<?= e($this->url('sites.files.download', ['id' => $id])) ?>"
      data-edit="<?= e($this->url('sites.files.edit', ['id' => $id])) ?>"
      data-start="<?= e($start) ?>" data-site="<?= e($site['domain']) ?>">
 
-    <div class="wcp-fm-toolbar" role="toolbar" aria-label="File actions">
+    <div class="nim-fm-toolbar" role="toolbar" aria-label="File actions">
         <?= $btn('newfile', 'bi-file-earmark-plus', 'File') ?>
         <?= $btn('newfolder', 'bi-folder-plus', 'Folder') ?>
         <?= $btn('copy', 'bi-files', 'Copy', ' data-fm-needs="1+"') ?>
@@ -36,7 +36,7 @@ $btn = static fn (string $cmd, string $icon, string $label, string $extra = ''):
         <?= $btn('extract', 'bi-box-arrow-up', 'Extract', ' data-fm-needs="archive"') ?>
         <?= $btn('compress', 'bi-file-zip', 'Compress', ' data-fm-needs="1+"') ?>
         <?= $btn('trash', 'bi-recycle', 'Trash') ?>
-        <div class="wcp-fm-search ms-auto">
+        <div class="nim-fm-search ms-auto">
             <form class="input-group input-group-sm" data-fm-search-form role="search">
                 <input class="form-control" type="search" placeholder="Search names…" data-fm-search aria-label="Search file names">
                 <button class="btn btn-outline-secondary" type="submit" aria-label="Search"><i class="bi bi-search"></i></button>
@@ -45,17 +45,17 @@ $btn = static fn (string $cmd, string $icon, string $label, string $extra = ''):
         <input type="file" multiple hidden data-fm-upload-input>
     </div>
 
-    <div class="wcp-fm-body">
-        <aside class="wcp-fm-tree" aria-label="Folders">
-            <div class="wcp-fm-tree-head">
+    <div class="nim-fm-body">
+        <aside class="nim-fm-tree" aria-label="Folders">
+            <div class="nim-fm-tree-head">
                 <button type="button" class="btn btn-sm btn-link p-0" data-fm-cmd="home"><i class="bi bi-house"></i> <?= e($site['domain']) ?></button>
                 <button type="button" class="btn btn-sm btn-link p-0 ms-auto" data-fm-cmd="collapse" title="Collapse all" aria-label="Collapse all"><i class="bi bi-arrows-collapse"></i></button>
             </div>
-            <ul class="wcp-fm-tree-list" role="tree" data-fm-tree></ul>
+            <ul class="nim-fm-tree-list" role="tree" data-fm-tree></ul>
         </aside>
 
-        <section class="wcp-fm-pane" aria-label="Folder contents">
-            <div class="wcp-fm-nav">
+        <section class="nim-fm-pane" aria-label="Folder contents">
+            <div class="nim-fm-nav">
                 <div class="btn-group btn-group-sm">
                     <button type="button" class="btn btn-outline-secondary" data-fm-cmd="back" title="Back" aria-label="Back"><i class="bi bi-arrow-left"></i></button>
                     <button type="button" class="btn btn-outline-secondary" data-fm-cmd="forward" title="Forward" aria-label="Forward"><i class="bi bi-arrow-right"></i></button>
@@ -72,31 +72,31 @@ $btn = static fn (string $cmd, string $icon, string $label, string $extra = ''):
                     <button type="button" class="btn btn-outline-secondary" data-fm-cmd="selectnone">Unselect</button>
                 </div>
             </div>
-            <div class="wcp-fm-banner d-none" data-fm-banner></div>
-            <div class="wcp-fm-list" data-fm-drop tabindex="0">
-                <table class="table table-sm table-hover align-middle mb-0 wcp-fm-table">
+            <div class="nim-fm-banner d-none" data-fm-banner></div>
+            <div class="nim-fm-list" data-fm-drop tabindex="0">
+                <table class="table table-sm table-hover align-middle mb-0 nim-fm-table">
                     <thead>
                     <tr>
-                        <th class="wcp-fm-check"><input class="form-check-input" type="checkbox" data-fm-all aria-label="Select all"></th>
+                        <th class="nim-fm-check"><input class="form-check-input" type="checkbox" data-fm-all aria-label="Select all"></th>
                         <th data-fm-sort="name" class="w-50">Name</th>
                         <th data-fm-sort="size" class="text-end">Size</th>
-                        <th data-fm-sort="mtime" class="wcp-fm-optional">Last modified</th>
-                        <th data-fm-sort="type" class="wcp-fm-optional">Type</th>
-                        <th data-fm-sort="mode" class="wcp-fm-optional">Permissions</th>
+                        <th data-fm-sort="mtime" class="nim-fm-optional">Last modified</th>
+                        <th data-fm-sort="type" class="nim-fm-optional">Type</th>
+                        <th data-fm-sort="mode" class="nim-fm-optional">Permissions</th>
                     </tr>
                     </thead>
                     <tbody data-fm-rows><tr><td colspan="6" class="text-body-secondary p-3">Loading…</td></tr></tbody>
                 </table>
-                <div class="wcp-fm-dropzone" aria-hidden="true"><i class="bi bi-cloud-arrow-up"></i><div>Drop files or folders to upload here</div></div>
+                <div class="nim-fm-dropzone" aria-hidden="true"><i class="bi bi-cloud-arrow-up"></i><div>Drop files or folders to upload here</div></div>
             </div>
-            <div class="wcp-fm-uploads d-none" data-fm-uploads>
+            <div class="nim-fm-uploads d-none" data-fm-uploads>
                 <div class="d-flex align-items-center mb-1"><strong class="small me-auto">Uploads</strong><button type="button" class="btn btn-sm btn-link p-0" data-fm-cmd="clearuploads">Clear finished</button></div>
                 <ul class="list-unstyled mb-0 small" data-fm-upload-list></ul>
             </div>
-            <footer class="wcp-fm-status small" data-fm-status aria-live="polite"></footer>
+            <footer class="nim-fm-status small" data-fm-status aria-live="polite"></footer>
         </section>
     </div>
-    <ul class="dropdown-menu wcp-fm-menu" data-fm-menu role="menu"></ul>
+    <ul class="dropdown-menu nim-fm-menu" data-fm-menu role="menu"></ul>
 </div>
 
 <div class="modal fade" id="fm-dialog" tabindex="-1" aria-labelledby="fm-dialog-title" aria-hidden="true">
@@ -116,7 +116,7 @@ $btn = static fn (string $cmd, string $icon, string $label, string $extra = ''):
                 <p class="small text-body-secondary px-3 pt-3 mb-2">Deleted files and folders stay here until you delete them permanently or empty the trash<?= $retention > 0 ? '; after ' . (int) $retention . ' days they are deleted automatically' : '' ?>. They still count towards the disk space.</p>
                 <div class="table-responsive">
                     <table class="table table-sm table-hover align-middle mb-0">
-                        <thead><tr><th class="wcp-fm-check"><input class="form-check-input" type="checkbox" data-fm-trash-all aria-label="Select all"></th><th>Name</th><th>Was in</th><th class="text-end">Size</th><th>Deleted</th></tr></thead>
+                        <thead><tr><th class="nim-fm-check"><input class="form-check-input" type="checkbox" data-fm-trash-all aria-label="Select all"></th><th>Name</th><th>Was in</th><th class="text-end">Size</th><th>Deleted</th></tr></thead>
                         <tbody data-fm-trash-rows></tbody>
                     </table>
                 </div>

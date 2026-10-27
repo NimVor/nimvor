@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Security\Countries;
-use WhaCP\Services\GeoIpService;
-use WhaCP\Services\HulkService;
-use WhaCP\Services\SecurityService;
-use WhaCP\Services\SettingsService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Security\Countries;
+use NimVor\Services\GeoIpService;
+use NimVor\Services\HulkService;
+use NimVor\Services\SecurityService;
+use NimVor\Services\SettingsService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 /** Security → cPHulk Brute Force Protection (administrators). */
 final class HulkController extends Controller
@@ -33,8 +33,8 @@ final class HulkController extends Controller
         private readonly GeoIpService $geo,
         private readonly SettingsService $settings,
         private readonly SecurityService $security,
-        private readonly \WhaCP\Agent\AgentClient $agent,
-        private readonly \WhaCP\Core\Config $config,
+        private readonly \NimVor\Agent\AgentClient $agent,
+        private readonly \NimVor\Core\Config $config,
     ) {
         parent::__construct($view, $session);
     }

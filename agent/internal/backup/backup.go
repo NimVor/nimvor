@@ -261,7 +261,7 @@ func (s Service) CreateSite(ctx context.Context, r SiteRequest, cred *execx.Cred
 	if r.Files {
 		fmt.Fprintf(log, "Archiving website files of %s…\n", r.Domain)
 		root, _ := s.real(r.Root)
-		args := []string{"-C", root, "--exclude=./backups", "--exclude=./tmp", "--exclude=./.whacp-upload-*", "--exclude=./.whacp-trash"}
+		args := []string{"-C", root, "--exclude=./backups", "--exclude=./tmp", "--exclude=./.nimvor-upload-*", "--exclude=./.nimvor-trash"}
 		if !r.IncludeLogs {
 			args = append(args, "--exclude=./logs")
 		}
@@ -707,7 +707,7 @@ func (s Service) serverPaths() []string {
 	c := s.Env.M.ServerConfig
 	return []string{
 		c["nginx"], c["php"], c["mysql"], c["redis"], c["letsencrypt"],
-		"/etc/whacp", c["fail2ban"], c["firewall"], "/etc/ssh/sshd_config.d",
+		"/etc/nimvor", c["fail2ban"], c["firewall"], "/etc/ssh/sshd_config.d",
 		c["cron"], "/etc/systemd/system",
 	}
 }

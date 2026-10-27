@@ -36,7 +36,7 @@ func TestFPMGlobal(t *testing.T) {
 	if _, err := call(t, r, "php.fpm_set", params); err != nil {
 		t.Fatal(err)
 	}
-	if got := h.Read("etc/php/8.3/fpm/pool.d/whacp-global.conf"); !strings.Contains(got, "[global]\nemergency_restart_threshold = 10\nemergency_restart_interval = 60s\nlog_level = warning\n") {
+	if got := h.Read("etc/php/8.3/fpm/pool.d/nimvor-global.conf"); !strings.Contains(got, "[global]\nemergency_restart_threshold = 10\nemergency_restart_interval = 60s\nlog_level = warning\n") {
 		t.Fatalf("file:\n%s", got)
 	}
 	h.Fail["php-fpm8.3 -t"] = "ERROR: failed"
@@ -45,10 +45,10 @@ func TestFPMGlobal(t *testing.T) {
 		t.Fatal("rejected settings accepted")
 	}
 	delete(h.Fail, "php-fpm8.3 -t")
-	if !strings.Contains(h.Read("etc/php/8.3/fpm/pool.d/whacp-global.conf"), "log_level = warning") {
+	if !strings.Contains(h.Read("etc/php/8.3/fpm/pool.d/nimvor-global.conf"), "log_level = warning") {
 		t.Error("previous settings not restored")
 	}
-	if _, err := call(t, r, "php.fpm_set", map[string]any{"version": "8.3"}); err != nil || h.Exists("etc/php/8.3/fpm/pool.d/whacp-global.conf") {
+	if _, err := call(t, r, "php.fpm_set", map[string]any{"version": "8.3"}); err != nil || h.Exists("etc/php/8.3/fpm/pool.d/nimvor-global.conf") {
 		t.Errorf("clearing: %v", err)
 	}
 }

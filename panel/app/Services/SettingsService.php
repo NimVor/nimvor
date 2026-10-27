@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Repositories\SettingRepository;
-use WhaCP\Support\ValidationException;
+use NimVor\Repositories\SettingRepository;
+use NimVor\Support\ValidationException;
 
 /**
  * Typed, validated panel settings stored in SQLite.
@@ -96,7 +96,7 @@ final class SettingsService
             ],
             'av_quarantine' => [
                 'category' => 'security', 'type' => 'bool', 'default' => false,
-                'label' => 'Quarantine infected files', 'help' => 'Move files a malware scan finds into the website\'s .whacp-quarantine folder (unreadable) instead of only reporting them.',
+                'label' => 'Quarantine infected files', 'help' => 'Move files a malware scan finds into the website\'s .nimvor-quarantine folder (unreadable) instead of only reporting them.',
             ],
             'av_scan_on_upload' => [
                 'category' => 'security', 'type' => 'bool', 'default' => true,

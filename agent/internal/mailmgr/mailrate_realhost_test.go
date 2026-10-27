@@ -22,7 +22,7 @@ import (
 )
 
 // Outgoing mail limits against a real Postfix: a website account sends
-// through WhaCP's sendmail; the policy service finds the account from the
+// through NimVor's sendmail; the policy service finds the account from the
 // socket table, lets the first two recipients through and defers the
 // third; Postfix's own sendmail refuses the account; root is not limited.
 func TestRealHostMailRate(t *testing.T) {
@@ -34,21 +34,21 @@ func TestRealHostMailRate(t *testing.T) {
 	}
 	dir := t.TempDir()
 	os.Chmod(dir, 0o755)
-	bin := filepath.Join(dir, "whacp-agent")
+	bin := filepath.Join(dir, "nimvor-agent")
 	if _, err := exec.LookPath("go"); err != nil {
-		if out, err := exec.Command("cp", "../../../dist/whacp-agent", bin).CombinedOutput(); err != nil {
+		if out, err := exec.Command("cp", "../../../dist/nimvor-agent", bin).CombinedOutput(); err != nil {
 			t.Fatalf("copy: %s", out)
 		}
-	} else if out, err := exec.Command("go", "build", "-o", bin, "../../cmd/whacp-agent").CombinedOutput(); err != nil {
+	} else if out, err := exec.Command("go", "build", "-o", bin, "../../cmd/nimvor-agent").CombinedOutput(); err != nil {
 		t.Fatalf("build: %s", out)
 	}
 	// Executable and readable by the account (the test folder is not).
-	sysBin := "/usr/local/bin/whacp-agent-mailrate-test"
+	sysBin := "/usr/local/bin/nimvor-agent-mailrate-test"
 	if out, err := exec.Command("install", "-m", "0755", bin, sysBin).CombinedOutput(); err != nil {
 		t.Fatalf("install: %s", out)
 	}
 	bin = sysBin
-	pub := "/etc/whacp-mailrate-test"
+	pub := "/etc/nimvor-mailrate-test"
 	os.MkdirAll(pub, 0o755)
 	t.Cleanup(func() { os.Remove(sysBin); os.RemoveAll(pub) })
 
@@ -74,7 +74,7 @@ func TestRealHostMailRate(t *testing.T) {
 	}
 
 	// A website account.
-	name := fmt.Sprintf("wcpmr%d", os.Getpid()%100000)
+	name := fmt.Sprintf("nimmr%d", os.Getpid()%100000)
 	if out, err := exec.Command("useradd", "-M", "-s", "/usr/sbin/nologin", "-K", "UID_MIN=2000", name).CombinedOutput(); err != nil {
 		t.Skipf("useradd: %s", out)
 	}
@@ -93,15 +93,15 @@ func TestRealHostMailRate(t *testing.T) {
 	state, run := filepath.Join(dir, "state"), filepath.Join(dir, "run")
 	os.Mkdir(state, 0o700)
 	os.Mkdir(run, 0o700)
-	sock := "/var/spool/postfix/private/whacp-mailrate"
+	sock := "/var/spool/postfix/private/nimvor-mailrate"
 	args := []string{bin, "mailrate-policy", "-config", filepath.Join(dir, "mailrate.json"), "-state", state, "-run", run, "-listen", sock}
 	if selinuxEnabled() {
 		// As in production: a service started by systemd (its SELinux
 		// domain, which the installer's module lets smtpd reach), not a
 		// child of this test (unconfined_t).
 		selinuxSockets(t)
-		args = append([]string{"systemd-run", "--quiet", "--collect", "--wait", "--unit=whacp-mailrate-test", "--property=Type=exec"}, args...)
-		t.Cleanup(func() { exec.Command("systemctl", "stop", "whacp-mailrate-test").Run() })
+		args = append([]string{"systemd-run", "--quiet", "--collect", "--wait", "--unit=nimvor-mailrate-test", "--property=Type=exec"}, args...)
+		t.Cleanup(func() { exec.Command("systemctl", "stop", "nimvor-mailrate-test").Run() })
 	}
 	svc := exec.Command(args[0], args[1:]...)
 	svc.Stderr = os.Stderr
@@ -138,7 +138,7 @@ func TestRealHostMailRate(t *testing.T) {
 	if _, err := os.Stat("/run/systemd/journal/socket"); err != nil {
 		set("maillog_file", "/var/log/postfix.log")
 	}
-	sender := name + "@whacp-mailrate.invalid"
+	sender := name + "@nimvor-mailrate.invalid"
 	t.Cleanup(func() {
 		// Our test messages only.
 		if out, err := exec.Command("postqueue", "-j").Output(); err == nil {
@@ -147,7 +147,7 @@ func TestRealHostMailRate(t *testing.T) {
 					ID     string `json:"queue_id"`
 					Sender string `json:"sender"`
 				}
-				if json.Unmarshal([]byte(line), &q) == nil && strings.HasSuffix(q.Sender, "@whacp-mailrate.invalid") {
+				if json.Unmarshal([]byte(line), &q) == nil && strings.HasSuffix(q.Sender, "@nimvor-mailrate.invalid") {
 					exec.Command("postsuper", "-d", q.ID).Run()
 				}
 			}
@@ -200,7 +200,7 @@ func TestRealHostMailRate(t *testing.T) {
 		}
 	}
 	if code, out := send(bin, bridge, true); code != 75 || !strings.Contains(out, "4.7.1") {
-		t.Fatalf("third message: want deferral (75, 4.7.1), got %d %s\n%s", code, out, mailDiagnosis("whacp-mailrate"))
+		t.Fatalf("third message: want deferral (75, 4.7.1), got %d %s\n%s", code, out, mailDiagnosis("nimvor-mailrate"))
 	}
 	// Root (a system account) is not limited.
 	if code, out := send(bin, bridge, false); code != 0 {

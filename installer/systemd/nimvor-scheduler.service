@@ -1,21 +1,21 @@
 [Unit]
 Description=NimVor scheduler (metrics, alerts, scheduled backups and retention)
 Documentation=https://github.com/NimVor/nimvor/tree/main/docs
-After=whacp-agent.service
+After=nimvor-agent.service
 
 [Service]
 Type=oneshot
-User=whacp
-Group=whacp
-Environment=WHACP_CONFIG=/etc/whacp/panel.php
-ExecStart=/usr/bin/php -d display_errors=stderr /opt/whacp/panel/bin/whacp schedule:run
+User=nimvor
+Group=nimvor
+Environment=NIMVOR_CONFIG=/etc/nimvor/panel.php
+ExecStart=/usr/bin/php -d display_errors=stderr /opt/nimvor/panel/bin/nimvor schedule:run
 TimeoutStartSec=15min
 
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/var/lib/whacp /var/log/whacp
+ReadWritePaths=/var/lib/nimvor /var/log/nimvor
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectKernelTunables=yes

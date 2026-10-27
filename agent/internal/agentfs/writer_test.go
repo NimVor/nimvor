@@ -14,19 +14,19 @@ func newWriter(t *testing.T) (Writer, string) {
 	t.Helper()
 	base := t.TempDir()
 	os.MkdirAll(filepath.Join(base, "etc/nginx/sites-available"), 0o755)
-	os.MkdirAll(filepath.Join(base, "home/whacp"), 0o755)
+	os.MkdirAll(filepath.Join(base, "home/nimvor"), 0o755)
 	root, _ := filesystem.NewRoot(base)
-	return Writer{Root: root, Policy: Policy{Patterns: []string{"/etc/nginx/sites-available/whacp-*.conf", "/home/whacp/**"}}}, base
+	return Writer{Root: root, Policy: Policy{Patterns: []string{"/etc/nginx/sites-available/nimvor-*.conf", "/home/nimvor/**"}}}, base
 }
 
 func TestPolicy(t *testing.T) {
-	p := Policy{Patterns: []string{"/etc/nginx/sites-available/whacp-*.conf", "/home/whacp/**"}}
-	for _, ok := range []string{"/etc/nginx/sites-available/whacp-a.com.conf", "/home/whacp", "/home/whacp/a.com/public_html/x"} {
+	p := Policy{Patterns: []string{"/etc/nginx/sites-available/nimvor-*.conf", "/home/nimvor/**"}}
+	for _, ok := range []string{"/etc/nginx/sites-available/nimvor-a.com.conf", "/home/nimvor", "/home/nimvor/a.com/public_html/x"} {
 		if !p.Allows(ok) {
 			t.Errorf("%s refused", ok)
 		}
 	}
-	for _, bad := range []string{"/etc/nginx/sites-available/default", "/etc/nginx/sites-available/whacp-a/../../passwd", "/home/whacpx/a", "/etc/passwd", "relative/whacp-x.conf", "/etc/nginx/sites-available/sub/whacp-a.conf"} {
+	for _, bad := range []string{"/etc/nginx/sites-available/default", "/etc/nginx/sites-available/nimvor-a/../../passwd", "/home/nimvorx/a", "/etc/passwd", "relative/nimvor-x.conf", "/etc/nginx/sites-available/sub/nimvor-a.conf"} {
 		if p.Allows(bad) {
 			t.Errorf("%s allowed", bad)
 		}
@@ -35,7 +35,7 @@ func TestPolicy(t *testing.T) {
 
 func TestWriteFileAtomicAndIdempotent(t *testing.T) {
 	w, base := newWriter(t)
-	p := "/etc/nginx/sites-available/whacp-a.com.conf"
+	p := "/etc/nginx/sites-available/nimvor-a.com.conf"
 	changed, err := w.WriteFile(p, []byte("one"), 0o644, Keep)
 	if err != nil || !changed {
 		t.Fatalf("first write: %v %v", changed, err)
@@ -55,20 +55,20 @@ func TestWriteFileAtomicAndIdempotent(t *testing.T) {
 
 func TestSymlinkInsideUserSubtreeIsRefused(t *testing.T) {
 	w, base := newWriter(t)
-	os.MkdirAll(filepath.Join(base, "home/whacp/a.com"), 0o755)
-	os.Symlink("/etc", filepath.Join(base, "home/whacp/a.com/evil"))
-	if _, err := w.WriteFile("/home/whacp/a.com/evil/passwd", []byte("x"), 0o644, Keep); !errors.Is(err, ErrNotPermitted) {
+	os.MkdirAll(filepath.Join(base, "home/nimvor/a.com"), 0o755)
+	os.Symlink("/etc", filepath.Join(base, "home/nimvor/a.com/evil"))
+	if _, err := w.WriteFile("/home/nimvor/a.com/evil/passwd", []byte("x"), 0o644, Keep); !errors.Is(err, ErrNotPermitted) {
 		t.Fatalf("write through symlink: %v", err)
 	}
-	os.Symlink(filepath.Join(base, "etc/hostname"), filepath.Join(base, "home/whacp/a.com/link"))
-	if _, err := w.WriteFile("/home/whacp/a.com/link", []byte("x"), 0o644, Keep); !errors.Is(err, ErrNotPermitted) {
+	os.Symlink(filepath.Join(base, "etc/hostname"), filepath.Join(base, "home/nimvor/a.com/link"))
+	if _, err := w.WriteFile("/home/nimvor/a.com/link", []byte("x"), 0o644, Keep); !errors.Is(err, ErrNotPermitted) {
 		t.Fatalf("write onto symlink: %v", err)
 	}
 }
 
 func TestSnapshotRestore(t *testing.T) {
 	w, _ := newWriter(t)
-	p := "/etc/nginx/sites-available/whacp-b.conf"
+	p := "/etc/nginx/sites-available/nimvor-b.conf"
 	w.WriteFile(p, []byte("old"), 0o640, Keep)
 	st, _ := w.Snapshot(p)
 	w.WriteFile(p, []byte("new"), 0o644, Keep)
@@ -94,11 +94,11 @@ func TestKeepPreservesOwnerOnReplace(t *testing.T) {
 		t.Skip("needs root to own files as another account")
 	}
 	w, base := newWriter(t)
-	p := filepath.Join(base, "home/whacp/named.conf")
+	p := filepath.Join(base, "home/nimvor/named.conf")
 	os.MkdirAll(filepath.Dir(p), 0o755)
 	os.WriteFile(p, []byte("old"), 0o640)
 	os.Chown(p, 0, 4242)
-	if _, err := w.WriteFile("/home/whacp/named.conf", []byte("new"), 0o640, Keep); err != nil {
+	if _, err := w.WriteFile("/home/nimvor/named.conf", []byte("new"), 0o640, Keep); err != nil {
 		t.Fatal(err)
 	}
 	fi, _ := os.Stat(p)

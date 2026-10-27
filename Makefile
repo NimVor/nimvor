@@ -1,4 +1,4 @@
-# WhaCP developer tasks.
+# NimVor developer tasks.
 
 GO      ?= go
 PHP     ?= php
@@ -8,10 +8,10 @@ VERSION ?= $(shell cat VERSION 2>/dev/null || echo dev)
 
 all: lint test
 
-build: dist/whacp-agent
+build: dist/nimvor-agent
 
-dist/whacp-agent: $(shell find agent -name '*.go')
-	cd agent && CGO_ENABLED=0 $(GO) build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o ../dist/whacp-agent ./cmd/whacp-agent
+dist/nimvor-agent: $(shell find agent -name '*.go')
+	cd agent && CGO_ENABLED=0 $(GO) build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o ../dist/nimvor-agent ./cmd/nimvor-agent
 
 test: test-agent test-panel
 

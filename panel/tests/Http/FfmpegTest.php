@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Services\FfmpegService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Services\FfmpegService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** FFmpeg per hosting plan: who may run it, applied through the agent. */
 final class FfmpegTest extends HttpTestCase
@@ -40,7 +40,7 @@ final class FfmpegTest extends HttpTestCase
         $this->db->run('UPDATE users SET suspended_at = ? WHERE id = ?', [$now, $e]);
         $site = function (string $domain, string $user, int $owner, string $php = '8.3') use ($now): void {
             $this->db->run("INSERT INTO websites (server_id, domain, kind, root, document_root, system_user, owner_id, php_version, status, created_at, updated_at) VALUES (1, ?, 'php', ?, ?, ?, ?, ?, 'active', ?, ?)",
-                [$domain, '/home/whacp/' . $domain, '/home/whacp/' . $domain . '/public_html', $user, $owner, $php, $now, $now]);
+                [$domain, '/home/nimvor/' . $domain, '/home/nimvor/' . $domain . '/public_html', $user, $owner, $php, $now, $now]);
         };
         $site('admin.test', 'adminsite', $admin);
         $site('a.test', 'usera', $a);
@@ -79,7 +79,7 @@ final class FfmpegTest extends HttpTestCase
 
     public function testPlanFormAndAdminPage(): void
     {
-        $this->agent->succeed('ffmpeg.status', ['installed' => true, 'version' => 'ffmpeg version 6.1.1', 'package' => 'ffmpeg', 'restricted' => false, 'members' => [], 'group' => 'whacp-ffmpeg', 'binaries' => [['path' => '/usr/bin/ffmpeg', 'present' => true, 'mode' => '0755 0:0', 'restricted' => false]]]);
+        $this->agent->succeed('ffmpeg.status', ['installed' => true, 'version' => 'ffmpeg version 6.1.1', 'package' => 'ffmpeg', 'restricted' => false, 'members' => [], 'group' => 'nimvor-ffmpeg', 'binaries' => [['path' => '/usr/bin/ffmpeg', 'present' => true, 'mode' => '0755 0:0', 'restricted' => false]]]);
         $this->agent->succeed('ffmpeg.access', ['added' => ['adminsite', 'userc'], 'removed' => []]);
         $this->login('admin');
         $page = $this->request('GET', '/ffmpeg')->body();

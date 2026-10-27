@@ -1,23 +1,23 @@
 <?php
 /**
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed> $site
  * @var array<string, mixed>|null $status
  * @var list<string> $nameservers
  * @var bool $ready
  */
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 $errors ??= [];
 ?>
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'dns']) ?>
 <div class="card" id="dns-setup">
-    <div class="card-body wcp-empty-state">
+    <div class="card-body nim-empty-state">
         <i class="bi bi-signpost" aria-hidden="true"></i>
         <div class="fw-medium fs-5 mb-1">DNS for <?= e($site['domain']) ?> is not hosted here</div>
         <?php if ($ready && $nameservers !== []): ?>
             <p class="small mb-3">Host the domain's DNS on this server to manage its records here.</p>
-            <form method="post" action="<?= e($this->url('dns.store')) ?>" class="d-inline-block text-start" data-wcp-busy>
+            <form method="post" action="<?= e($this->url('dns.store')) ?>" class="d-inline-block text-start" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <input type="hidden" name="website_id" value="<?= (int) $site['id'] ?>">
                 <input type="hidden" name="return_to" value="/sites/<?= (int) $site['id'] ?>/dns">

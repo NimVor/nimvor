@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\MailService;
-use WhaCP\Services\MonitoringService;
-use WhaCP\Services\PlanService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\MailService;
+use NimVor\Services\MonitoringService;
+use NimVor\Services\PlanService;
+use NimVor\Services\WebsiteService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * Plan resources: subdomains, addon and parked domains, email accounts
@@ -81,7 +81,7 @@ final class PlanResourcesTest extends HttpTestCase
         // Four rows (primary + two subdomains + one addon); the website count
         // enforced by the plan is two (primary + addon).
         self::assertSame(4, (int) $this->db->scalar('SELECT COUNT(*) FROM websites'));
-        self::assertSame(2, $this->app->container->get(\WhaCP\Services\PlanLimits::class)->count('websites', [$this->cust]));
+        self::assertSame(2, $this->app->container->get(\NimVor\Services\PlanLimits::class)->count('websites', [$this->cust]));
         // A new top-level site is refused by the website cap.
         $this->expectException(UserFacingException::class);
         $sites->create(['domain' => 'second.test', 'kind' => 'static'], $cust);

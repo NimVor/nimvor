@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Greylisting: settings, trusted hosts, providers, report and cleanup. */
 final class GreylistingTest extends HttpTestCase

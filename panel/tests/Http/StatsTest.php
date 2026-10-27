@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\StatsService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\StatsService;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Website statistics (AWStats): turning on, the report, who may see it. */
 final class StatsTest extends HttpTestCase
@@ -105,7 +105,7 @@ TXT;
         $this->agent->succeed('stats.update', ['job_id' => 'eeeeeeeeeeeeeeee']);
         $this->post($base . '/enable', ['enabled' => '1']);
         $call = $this->lastCall('stats.enable');
-        self::assertSame(['shop.test', true, '/home/whacp/shop.test'], [$call['domain'], $call['enabled'], $call['root']]);
+        self::assertSame(['shop.test', true, '/home/nimvor/shop.test'], [$call['domain'], $call['enabled'], $call['root']]);
         self::assertSame($call['user'], $this->lastCall('stats.update')['user'], 'updated as the website account');
 
         $this->agent->succeed('stats.status', ['installed' => true, 'enabled' => true, 'months' => ['202609', '202608'], 'updated_at' => gmdate('c')]);
@@ -120,7 +120,7 @@ TXT;
         $this->request('GET', $base, [], [], '', ['month' => '../../etc']);
         self::assertSame('202609', $this->lastCall('stats.data')['month'], 'only months the agent listed');
 
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('mallory');
         self::assertSame(404, $this->request('GET', $base)->status());

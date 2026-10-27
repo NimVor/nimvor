@@ -2,17 +2,17 @@ package wordpress
 
 // The PHP programs the agent runs as the website account. They come from
 // the agent (standard input), never from the website, and print one line
-// "WHACP-JSON {…}" that the agent reads; anything else a website prints is
+// "NIMVOR-JSON {…}" that the agent reads; anything else a website prints is
 // ignored. Neither prints database passwords.
 
 // marker starts the result line.
-const marker = "WHACP-JSON "
+const marker = "NIMVOR-JSON "
 
 // scanScript finds WordPress under a website folder without loading
 // WordPress: version.php and wp-config.php are only read, as text.
 const scanScript = `<?php
 error_reporting(0);
-$root = rtrim((string) getenv('WHACP_ROOT'), '/');
+$root = rtrim((string) getenv('NIMVOR_ROOT'), '/');
 $top = ['logs' => 1, 'tmp' => 1, 'backups' => 1, '.ssh' => 1, '.composer' => 1];
 $skip = ['node_modules' => 1, 'vendor' => 1, '.git' => 1, 'wp-content' => 1, 'wp-includes' => 1, 'wp-admin' => 1, 'cgi-bin' => 1];
 $found = [];
@@ -39,7 +39,7 @@ $walk = function (string $dir, int $depth) use (&$walk, &$found, &$visited, $top
     closedir($h);
 };
 $walk($root, 0);
-function whacp_const(string $c, string $name) {
+function nimvor_const(string $c, string $name) {
     if (!preg_match('/define\s*\(\s*[\'"]' . $name . '[\'"]\s*,\s*(?:[\'"]([^\'"]*)[\'"]|(true|false|[0-9]+))/i', $c, $m)) {
         return null;
     }
@@ -48,7 +48,7 @@ function whacp_const(string $c, string $name) {
 $out = [];
 foreach ($found as $dir) {
     // One-time sign-in files left unused.
-    foreach (glob($dir . '/whacp-login-*.php') ?: [] as $f) {
+    foreach (glob($dir . '/nimvor-login-*.php') ?: [] as $f) {
         if (filemtime($f) < time() - 300) {
             unlink($f);
         }
@@ -65,24 +65,24 @@ foreach ($found as $dir) {
     $prefix = preg_match('/\$table_prefix\s*=\s*[\'"]([A-Za-z0-9_]*)[\'"]/', $c, $m) ? $m[1] : '';
     $out[] = [
         'dir' => $dir, 'version' => $v, 'configured' => $c !== '',
-        'db_name' => (string) whacp_const($c, 'DB_NAME'), 'db_host' => (string) whacp_const($c, 'DB_HOST'), 'table_prefix' => $prefix,
-        'debug' => whacp_const($c, 'WP_DEBUG') === 'true', 'file_edit_disabled' => whacp_const($c, 'DISALLOW_FILE_EDIT') === 'true',
+        'db_name' => (string) nimvor_const($c, 'DB_NAME'), 'db_host' => (string) nimvor_const($c, 'DB_HOST'), 'table_prefix' => $prefix,
+        'debug' => nimvor_const($c, 'WP_DEBUG') === 'true', 'file_edit_disabled' => nimvor_const($c, 'DISALLOW_FILE_EDIT') === 'true',
         'config_mode' => $c !== '' ? sprintf('%04o', fileperms($cfg) & 0777) : '',
         'maintenance' => is_file($dir . '/.maintenance'),
     ];
 }
-echo "\nWHACP-JSON " . json_encode(['installs' => $out, 'truncated' => $visited > 5000], JSON_INVALID_UTF8_SUBSTITUTE) . "\n";
+echo "\nNIMVOR-JSON " . json_encode(['installs' => $out, 'truncated' => $visited > 5000], JSON_INVALID_UTF8_SUBSTITUTE) . "\n";
 `
 
 // infoScript gathers an installation's overview inside WordPress (run with
-// "wp eval-file -", plugins and themes not loaded). WHACP_FORCE=1 asks
+// "wp eval-file -", plugins and themes not loaded). NIMVOR_FORCE=1 asks
 // WordPress.org for updates now instead of using its 12-hour cache.
 const infoScript = `<?php
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
 require_once ABSPATH . 'wp-admin/includes/update.php';
 require_once ABSPATH . 'wp-admin/includes/theme.php';
 global $wpdb, $wp_version;
-if (getenv('WHACP_FORCE') === '1') {
+if (getenv('NIMVOR_FORCE') === '1') {
     delete_site_transient('update_core');
     delete_site_transient('update_plugins');
     delete_site_transient('update_themes');
@@ -133,7 +133,7 @@ foreach (get_users(['role' => 'administrator', 'number' => 20, 'orderby' => 'ID'
 $size = $wpdb->get_row($wpdb->prepare('SELECT COUNT(*) AS n, COALESCE(SUM(data_length + index_length), 0) AS bytes FROM information_schema.TABLES WHERE table_schema = %s AND table_name LIKE %s', DB_NAME, $wpdb->esc_like($wpdb->base_prefix) . '%'));
 $cfg = is_file(ABSPATH . 'wp-config.php') ? ABSPATH . 'wp-config.php' : dirname(ABSPATH) . '/wp-config.php';
 $const = fn ($c) => defined($c) ? constant($c) : null;
-echo "\nWHACP-JSON " . json_encode([
+echo "\nNIMVOR-JSON " . json_encode([
     'version' => (string) $wp_version, 'php' => PHP_VERSION, 'mysql' => (string) $wpdb->db_version(), 'multisite' => is_multisite(),
     'siteurl' => (string) get_option('siteurl'), 'home' => (string) get_option('home'), 'title' => (string) get_option('blogname'),
     'search_engines' => (string) get_option('blog_public') === '1',
@@ -152,7 +152,7 @@ echo "\nWHACP-JSON " . json_encode([
 // first requested, works for a minute and only over HTTPS, and signs in
 // only the chosen administrator. %d are the expiry (Unix time) and the user ID.
 const loginScript = `<?php
-// WhaCP one-time sign-in link: deleted on first use, valid until %d.
+// NimVor one-time sign-in link: deleted on first use, valid until %d.
 @unlink(__FILE__);
 // Only over HTTPS (nginx sets HTTPS=on for TLS requests), so the session
 // cookie is never sent in clear.

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\DatabaseRepository;
-use WhaCP\Security\Crypto;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Repositories\DatabaseRepository;
+use NimVor\Security\Crypto;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * One-click applications. The panel creates the database and its user,
@@ -68,7 +68,7 @@ final class AppInstallerService
         private readonly DatabaseService $databases,
         private readonly DatabaseRepository $dbRepo,
         private readonly WebsiteService $websites,
-        private readonly \WhaCP\Repositories\WebsiteRepository $sites,
+        private readonly \NimVor\Repositories\WebsiteRepository $sites,
         private readonly AuditLogger $audit,
         private readonly ServerContext $server,
         private readonly AppCatalogService $catalog,

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\AuditLogger;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\AuditLogger;
 
 /**
  * Security keys and passkeys (WebAuthn) as a second sign-in factor.
@@ -105,7 +105,7 @@ final class WebAuthn
         return [
             'challenge' => $this->challenge('register', (int) $user['id']),
             'rp' => ['id' => $rpId, 'name' => $rpName],
-            'user' => ['id' => self::b64u(hash('sha256', 'whacp-user|' . $user['id'], true)), 'name' => (string) $user['username'], 'displayName' => (string) ($user['name'] ?? $user['username'])],
+            'user' => ['id' => self::b64u(hash('sha256', 'nimvor-user|' . $user['id'], true)), 'name' => (string) $user['username'], 'displayName' => (string) ($user['name'] ?? $user['username'])],
             'pubKeyCredParams' => [['type' => 'public-key', 'alg' => -7], ['type' => 'public-key', 'alg' => -8], ['type' => 'public-key', 'alg' => -257]],
             'timeout' => 120000,
             'attestation' => 'none',

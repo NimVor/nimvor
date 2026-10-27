@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class FilesTest extends HttpTestCase
 {
@@ -24,10 +24,10 @@ final class FilesTest extends HttpTestCase
     public function testManagerAndEditorArePages(): void
     {
         $body = $this->request('GET', '/sites/' . $this->siteId . '/files')->body();
-        self::assertStringContainsString('id="wcp-fm"', $body);
+        self::assertStringContainsString('id="nim-fm"', $body);
         self::assertStringContainsString('data-start="public_html"', $body);
         self::assertStringContainsString('filemanager.js', $body);
-        self::assertStringNotContainsString('wcp-sidebar', $body, 'full-screen layout without the sidebar');
+        self::assertStringNotContainsString('nim-sidebar', $body, 'full-screen layout without the sidebar');
 
         $edit = $this->request('GET', '/sites/' . $this->siteId . '/files/edit', query: ['path' => 'public_html/index.php']);
         self::assertSame(200, $edit->status());

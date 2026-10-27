@@ -20,7 +20,7 @@ import (
 // More PHP versions than the distribution's one come from a third-party
 // repository: Ondřej Surý's PPA on Ubuntu, Remi's repository on the RHEL
 // family. Both are signed. Adding one is the administrator's choice (a
-// button with a confirmation in the panel); WhaCP never adds it on its own.
+// button with a confirmation in the panel); NimVor never adds it on its own.
 //
 // The PPA's signing key is pinned here (it is not fetched): fingerprint
 // 14AA 40EC 0831 7567 56D7  F66C 4F4E A0AA E526 7A6C, "Launchpad PPA for
@@ -33,8 +33,8 @@ var ondrejKey []byte
 const (
 	// OndrejFingerprint identifies the pinned key.
 	OndrejFingerprint = "14AA40EC0831756756D7F66C4F4EA0AAE5267A6C"
-	ondrejKeyring     = "/etc/apt/keyrings/whacp-ondrej-php.asc"
-	ondrejSources     = "/etc/apt/sources.list.d/whacp-ondrej-php.sources"
+	ondrejKeyring     = "/etc/apt/keyrings/nimvor-ondrej-php.asc"
+	ondrejSources     = "/etc/apt/sources.list.d/nimvor-ondrej-php.sources"
 	ondrejURI         = "https://ppa.launchpadcontent.net/ondrej/php/ubuntu"
 )
 
@@ -52,7 +52,7 @@ type Repository struct {
 
 // OndrejSources is the deb822 source of the PPA for an Ubuntu codename.
 func OndrejSources(codename string) string {
-	return "# Added by WhaCP (PHP page): more PHP versions from Ondřej Surý's PPA.\n" +
+	return "# Added by NimVor (PHP page): more PHP versions from Ondřej Surý's PPA.\n" +
 		"Types: deb\n" +
 		"URIs: " + ondrejURI + "\n" +
 		"Suites: " + codename + "\n" +
@@ -61,7 +61,7 @@ func OndrejSources(codename string) string {
 }
 
 // ondrejConfigured reports whether a source of the PPA exists (added by
-// WhaCP, by the installer or by add-apt-repository).
+// NimVor, by the installer or by add-apt-repository).
 func ondrejConfigured(env *host.Env) bool {
 	files := []string{"/etc/apt/sources.list"}
 	if entries, err := env.Root.ReadDir("/etc/apt/sources.list.d"); err == nil {

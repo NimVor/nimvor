@@ -26,7 +26,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"events": evs, "journal": available}, nil
 	}})
-	r.Register(actions.Action{Name: "hulk.sync", Mutating: true, Description: "Brute force protection: enforce the blocked addresses (login services only, or every port), blacklisted countries' address ranges (login services) and the whitelist with the nftables table inet whacp_hulk; or remove the table.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "hulk.sync", Mutating: true, Description: "Brute force protection: enforce the blocked addresses (login services only, or every port), blacklisted countries' address ranges (login services) and the whitelist with the nftables table inet nimvor_hulk; or remove the table.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in State
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err

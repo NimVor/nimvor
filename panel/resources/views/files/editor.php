@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $site */
 $id = (int) $site['id'];
 $back = $this->url('sites.files', ['id' => $id], ['path' => $folder]);
@@ -13,15 +13,15 @@ $back = $this->url('sites.files', ['id' => $id], ['path' => $folder]);
 <button type="button" class="btn btn-sm btn-outline-primary" data-fe-saveclose disabled>Save &amp; close</button>
 <?php $this->end('actions'); ?>
 
-<div class="wcp-fe" id="wcp-fe"
+<div class="nim-fe" id="nim-fe"
      data-api="<?= e($this->url('sites.files.api', ['id' => $id])) ?>"
      data-path="<?= e($path) ?>" data-back="<?= e($back) ?>"
      data-download="<?= e($this->url('sites.files.download', ['id' => $id], ['path' => $path])) ?>">
-    <div class="wcp-fe-body">
-        <pre class="wcp-fe-gutter" aria-hidden="true" data-fe-gutter>1</pre>
-        <textarea class="wcp-fe-text" spellcheck="false" wrap="off" data-fe-text aria-label="File content" disabled>Loading…</textarea>
+    <div class="nim-fe-body">
+        <pre class="nim-fe-gutter" aria-hidden="true" data-fe-gutter>1</pre>
+        <textarea class="nim-fe-text" spellcheck="false" wrap="off" data-fe-text aria-label="File content" disabled>Loading…</textarea>
     </div>
-    <footer class="wcp-fe-status small">
+    <footer class="nim-fe-status small">
         <span data-fe-pos>Ln 1, Col 1</span>
         <span data-fe-state class="ms-3"></span>
         <label class="form-check form-switch ms-auto mb-0"><input class="form-check-input" type="checkbox" data-fe-wrap> <span class="form-check-label">Wrap lines</span></label>

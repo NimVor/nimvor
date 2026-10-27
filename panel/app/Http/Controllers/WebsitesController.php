@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\DiscoveryService;
-use WhaCP\Services\SettingsService;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\DiscoveryService;
+use NimVor\Services\SettingsService;
+use NimVor\View\View;
 
 /**
  * Existing websites, discovered read-only from the server.
@@ -22,11 +22,11 @@ final class WebsitesController extends Controller
         SessionInterface $session,
         private readonly DiscoveryService $discovery,
         private readonly SettingsService $settings,
-        private readonly \WhaCP\Repositories\WebsiteRepository $managed,
-        private readonly \WhaCP\Services\ServerContext $server,
-        private readonly \WhaCP\Database\Connection $db,
-        private readonly \WhaCP\Services\PlanLimits $limits,
-        private readonly \WhaCP\Services\FtpUsage $ftp,
+        private readonly \NimVor\Repositories\WebsiteRepository $managed,
+        private readonly \NimVor\Services\ServerContext $server,
+        private readonly \NimVor\Database\Connection $db,
+        private readonly \NimVor\Services\PlanLimits $limits,
+        private readonly \NimVor\Services\FtpUsage $ftp,
     ) {
         parent::__construct($view, $session);
     }
@@ -53,7 +53,7 @@ final class WebsitesController extends Controller
             $list['planUsage'] = ['name' => (string) $plan['name'], 'rows' => $this->limits->usage((int) $user['id'], $external)];
         }
         // Hosting customers only see their own (managed) websites.
-        if (!\WhaCP\Hosting\Scope::isAll($user)) {
+        if (!\NimVor\Hosting\Scope::isAll($user)) {
             if (!$this->view->simpleLayout()) {
                 // Resellers: certificate details of their own websites only.
                 try {
@@ -77,7 +77,7 @@ final class WebsitesController extends Controller
             DiscoveryService::websites($inventory['data']),
             static function (array $s): bool {
                 foreach ((array) ($s['config_files'] ?? []) as $f) {
-                    if (str_starts_with(basename((string) $f), 'whacp-')) {
+                    if (str_starts_with(basename((string) $f), 'nimvor-')) {
                         return false;
                     }
                 }

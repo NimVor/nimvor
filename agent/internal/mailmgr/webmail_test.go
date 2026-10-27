@@ -63,7 +63,7 @@ func TestWebmail(t *testing.T) {
 	if _, err := call(t, r, "mail.webmail_configure", on); code(err) != "failed" {
 		t.Fatalf("invalid config accepted: %v", err)
 	}
-	for _, p := range []string{"etc/nginx/sites-available/whacp-webmail.conf", "etc/nginx/sites-enabled/whacp-webmail.conf", "etc/php/8.3/fpm/pool.d/whacp-webmail.conf", "etc/whacp-webmail/webmail.json"} {
+	for _, p := range []string{"etc/nginx/sites-available/nimvor-webmail.conf", "etc/nginx/sites-enabled/nimvor-webmail.conf", "etc/php/8.3/fpm/pool.d/nimvor-webmail.conf", "etc/nimvor-webmail/webmail.json"} {
 		if h.Exists(p) {
 			t.Errorf("%s left after a failed change", p)
 		}
@@ -77,29 +77,29 @@ func TestWebmail(t *testing.T) {
 	if res["url"] != "https://webmail.example.net/" || res["php"] != "8.3" || probed != "webmail.example.net" {
 		t.Fatalf("result = %v (probed %q)", res, probed)
 	}
-	pool := h.Read("etc/php/8.3/fpm/pool.d/whacp-webmail.conf")
-	for _, want := range []string{"[whacp-webmail]", "user = whacp-webmail", "listen = /run/php/whacp-webmail.sock", "env[ROUNDCUBE_CONFIG_DIR] = /etc/whacp-webmail", "open_basedir] = /var/lib/roundcube/:/usr/share/roundcube/:/etc/roundcube/:/etc/whacp-webmail/:/var/lib/whacp-webmail/", "disable_functions"} {
+	pool := h.Read("etc/php/8.3/fpm/pool.d/nimvor-webmail.conf")
+	for _, want := range []string{"[nimvor-webmail]", "user = nimvor-webmail", "listen = /run/php/nimvor-webmail.sock", "env[ROUNDCUBE_CONFIG_DIR] = /etc/nimvor-webmail", "open_basedir] = /var/lib/roundcube/:/usr/share/roundcube/:/etc/roundcube/:/etc/nimvor-webmail/:/var/lib/nimvor-webmail/", "disable_functions"} {
 		if !strings.Contains(pool, want) {
 			t.Errorf("pool lacks %q:\n%s", want, pool)
 		}
 	}
-	vhost := h.Read("etc/nginx/sites-available/whacp-webmail.conf")
-	for _, want := range []string{"server_name webmail.example.net;", "return 301 https://", "listen 443 ssl http2;", "ssl_certificate /etc/whacp-webmail/tls.crt;", "root /var/lib/roundcube/public_html;", "location = /index.php {", "fastcgi_pass unix:/run/php/whacp-webmail.sock;", "\\.(inc|sql|sh|dist|lock|log|md|txt|php)$ {\n        deny all;", "acme-challenge"} {
+	vhost := h.Read("etc/nginx/sites-available/nimvor-webmail.conf")
+	for _, want := range []string{"server_name webmail.example.net;", "return 301 https://", "listen 443 ssl http2;", "ssl_certificate /etc/nimvor-webmail/tls.crt;", "root /var/lib/roundcube/public_html;", "location = /index.php {", "fastcgi_pass unix:/run/php/nimvor-webmail.sock;", "\\.(inc|sql|sh|dist|lock|log|md|txt|php)$ {\n        deny all;", "acme-challenge"} {
 		if !strings.Contains(vhost, want) {
 			t.Errorf("vhost lacks %q:\n%s", want, vhost)
 		}
 	}
-	if target, _ := os.Readlink(filepath.Join(h.Base, "etc/nginx/sites-enabled/whacp-webmail.conf")); target != "/etc/nginx/sites-available/whacp-webmail.conf" {
+	if target, _ := os.Readlink(filepath.Join(h.Base, "etc/nginx/sites-enabled/nimvor-webmail.conf")); target != "/etc/nginx/sites-available/nimvor-webmail.conf" {
 		t.Errorf("link = %q", target)
 	}
-	conf := h.Read("etc/whacp-webmail/config.inc.php")
+	conf := h.Read("etc/nimvor-webmail/config.inc.php")
 	m := desKeyRe.FindStringSubmatch(conf)
-	for _, want := range []string{"sqlite:////var/lib/whacp-webmail/roundcube.db", "ssl://127.0.0.1:993", "tls://127.0.0.1:587", "$config['smtp_user'] = '%u';"} {
+	for _, want := range []string{"sqlite:////var/lib/nimvor-webmail/roundcube.db", "ssl://127.0.0.1:993", "tls://127.0.0.1:587", "$config['smtp_user'] = '%u';"} {
 		if !strings.Contains(conf, want) || m == nil {
 			t.Errorf("config lacks %q:\n%s", want, conf)
 		}
 	}
-	if !strings.Contains(h.Read("etc/whacp-webmail/defaults.inc.php"), "include '/etc/roundcube/defaults.inc.php';") {
+	if !strings.Contains(h.Read("etc/nimvor-webmail/defaults.inc.php"), "include '/etc/roundcube/defaults.inc.php';") {
 		t.Error("defaults wrapper")
 	}
 	if h.Read("etc/roundcube/defaults.inc.php") != "<?php\n" {
@@ -117,7 +117,7 @@ func TestWebmail(t *testing.T) {
 	if _, err := call(t, r, "mail.webmail_configure", on); err != nil {
 		t.Fatal(err)
 	}
-	if m2 := desKeyRe.FindStringSubmatch(h.Read("etc/whacp-webmail/config.inc.php")); m2 == nil || m2[1] != m[1] {
+	if m2 := desKeyRe.FindStringSubmatch(h.Read("etc/nimvor-webmail/config.inc.php")); m2 == nil || m2[1] != m[1] {
 		t.Error("encryption key changed")
 	}
 
@@ -127,7 +127,7 @@ func TestWebmail(t *testing.T) {
 	if _, err := call(t, r, "mail.webmail_configure", map[string]any{"enabled": true, "hostname": "mail2.example.net"}); code(err) != "failed" {
 		t.Fatalf("database failure: %v", err)
 	}
-	if !strings.Contains(h.Read("etc/nginx/sites-available/whacp-webmail.conf"), "server_name webmail.example.net;") {
+	if !strings.Contains(h.Read("etc/nginx/sites-available/nimvor-webmail.conf"), "server_name webmail.example.net;") {
 		t.Error("previous site not restored")
 	}
 	h.Fail["php8.3 -d"] = "PHP Fatal error:  Cannot redeclare function array_first() in /usr/share/roundcube/program/lib/Roundcube/bootstrap.php"
@@ -142,27 +142,27 @@ func TestWebmail(t *testing.T) {
 	if _, err := call(t, r, "mail.webmail_configure", map[string]any{"enabled": true, "hostname": "newmail.example.net"}); err != nil {
 		t.Fatal(err)
 	}
-	if c := ssl.Inspect(h.Env.Root, "/etc/whacp-webmail/tls.crt", "/etc/whacp-webmail/tls.key", time.Now()); !c.Covers("newmail.example.net") || c.Covers("webmail.example.net") {
+	if c := ssl.Inspect(h.Env.Root, "/etc/nimvor-webmail/tls.crt", "/etc/nimvor-webmail/tls.key", time.Now()); !c.Covers("newmail.example.net") || c.Covers("webmail.example.net") {
 		t.Errorf("self-signed webmail cert not regenerated for the new host name (covers %v)", c.DNSNames)
 	}
 
 	if _, err := call(t, r, "mail.webmail_configure", map[string]any{"enabled": false}); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{"etc/nginx/sites-available/whacp-webmail.conf", "etc/nginx/sites-enabled/whacp-webmail.conf", "etc/php/8.3/fpm/pool.d/whacp-webmail.conf"} {
+	for _, p := range []string{"etc/nginx/sites-available/nimvor-webmail.conf", "etc/nginx/sites-enabled/nimvor-webmail.conf", "etc/php/8.3/fpm/pool.d/nimvor-webmail.conf"} {
 		if h.Exists(p) {
 			t.Errorf("%s left after turning off", p)
 		}
 	}
-	if !h.Exists("etc/whacp-webmail/config.inc.php") {
+	if !h.Exists("etc/nimvor-webmail/config.inc.php") {
 		t.Error("configuration removed when turning off")
 	}
 
-	// WhaCP's own host-name challenge site (ACME on port 80) must not count
+	// NimVor's own host-name challenge site (ACME on port 80) must not count
 	// as a website owning the name — webmail can still use it on 443.
-	os.WriteFile(filepath.Join(h.Base, "etc/nginx/sites-available/whacp-hostname.conf"),
-		[]byte("server {\n    listen 80;\n    server_name hn.example.net;\n    location /.well-known/acme-challenge/ { root /var/www/whacp-acme; }\n    location / { return 404; }\n}\n"), 0o644)
-	os.Symlink("/etc/nginx/sites-available/whacp-hostname.conf", filepath.Join(h.Base, "etc/nginx/sites-enabled/whacp-hostname.conf"))
+	os.WriteFile(filepath.Join(h.Base, "etc/nginx/sites-available/nimvor-hostname.conf"),
+		[]byte("server {\n    listen 80;\n    server_name hn.example.net;\n    location /.well-known/acme-challenge/ { root /var/www/nimvor-acme; }\n    location / { return 404; }\n}\n"), 0o644)
+	os.Symlink("/etc/nginx/sites-available/nimvor-hostname.conf", filepath.Join(h.Base, "etc/nginx/sites-enabled/nimvor-hostname.conf"))
 	if _, err := call(t, r, "mail.webmail_configure", map[string]any{"enabled": true, "hostname": "hn.example.net"}); err != nil && strings.Contains(err.Error(), "already answers") {
 		t.Fatalf("host-name challenge site wrongly blocked webmail: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestWebmail(t *testing.T) {
 	if _, err := call(t, r, "mail.webmail_configure", map[string]any{"enabled": true, "hostname": "wm.example.net"}); err != nil {
 		t.Fatalf("webmail with auto-issue: %v", err)
 	}
-	if vh := h.Read("etc/nginx/sites-available/whacp-webmail.conf"); !strings.Contains(vh, "ssl_certificate /etc/letsencrypt/live/wm.example.net/fullchain.pem;") {
+	if vh := h.Read("etc/nginx/sites-available/nimvor-webmail.conf"); !strings.Contains(vh, "ssl_certificate /etc/letsencrypt/live/wm.example.net/fullchain.pem;") {
 		t.Errorf("webmail did not switch to the issued Let's Encrypt certificate:\n%s", vh)
 	}
 }
@@ -221,7 +221,7 @@ func TestWebmailOnPHP85(t *testing.T) {
 	if _, err := call(t, r, "mail.webmail_configure", map[string]any{"enabled": true, "hostname": "webmail.example.net", "php_version": "8.5"}); err != nil {
 		t.Fatal(err)
 	}
-	if pool := h.Read("etc/php/8.5/fpm/pool.d/whacp-webmail.conf"); !strings.Contains(pool, "php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec,array_first\n") {
+	if pool := h.Read("etc/php/8.5/fpm/pool.d/nimvor-webmail.conf"); !strings.Contains(pool, "php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec,array_first\n") {
 		t.Errorf("PHP 8.5 pool:\n%s", pool)
 	}
 	if !h.Runner.Called("php8.5 -d disable_functions=array_first -d error_reporting=E_ALL & ~E_DEPRECATED /usr/share/roundcube/bin/updatedb.sh --package=roundcube --dir=/usr/share/roundcube/SQL") {
@@ -246,9 +246,9 @@ func TestEnsurePHPSocketDir(t *testing.T) {
 	h, _ := setup(t)
 	// (The test host is Ubuntu-shaped: its socket folder, RHEL's entry.)
 	dir := h.Env.M.PHPSocketDir
-	h.Env.M.PHPSocketTmpfiles = "/etc/tmpfiles.d/whacp-php-fpm.conf"
+	h.Env.M.PHPSocketTmpfiles = "/etc/tmpfiles.d/nimvor-php-fpm.conf"
 	os.MkdirAll(filepath.Join(h.Base, "etc/tmpfiles.d"), 0o755) // always there on a real system
-	// Missing, as on the RHEL server that showed the bug: WhaCP creates it.
+	// Missing, as on the RHEL server that showed the bug: NimVor creates it.
 	os.RemoveAll(filepath.Join(h.Base, dir))
 	set := h.Env.Changes("socket-dir")
 	h.Env.EnsurePHPSocketDir(set)
@@ -258,7 +258,7 @@ func TestEnsurePHPSocketDir(t *testing.T) {
 	if fi, err := os.Stat(filepath.Join(h.Base, dir)); err != nil || !fi.IsDir() {
 		t.Fatalf("socket folder: %v", err)
 	}
-	b, _ := os.ReadFile(filepath.Join(h.Base, "etc/tmpfiles.d/whacp-php-fpm.conf"))
+	b, _ := os.ReadFile(filepath.Join(h.Base, "etc/tmpfiles.d/nimvor-php-fpm.conf"))
 	if !strings.Contains(string(b), "d "+dir+" 0755 root root -") {
 		t.Fatalf("tmpfiles entry: %q", b)
 	}

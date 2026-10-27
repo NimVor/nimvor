@@ -63,7 +63,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
   step('uploaded');
 
   // Rename via F2
-  await page.click('[data-fm-rows] tr[data-path="public_html/up.css"] td.wcp-fm-name');
+  await page.click('[data-fm-rows] tr[data-path="public_html/up.css"] td.nim-fm-name');
   await page.focus('[data-fm-drop]');
   await page.keyboard.press('F2');
   await page.fill('#fm-dialog input', 'style.css');
@@ -72,7 +72,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
   step('renamed');
 
   // Permissions
-  await page.click('[data-fm-rows] tr[data-path="public_html/style.css"] td.wcp-fm-name');
+  await page.click('[data-fm-rows] tr[data-path="public_html/style.css"] td.nim-fm-name');
   await page.click('[data-fm-cmd="perms"]');
   await page.fill('#fm-dialog input.font-monospace', '600');
   await page.click('[data-fm-dialog-ok]');
@@ -80,8 +80,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
   step('chmod 600');
 
   // Multi-select with ctrl and compress
-  await page.click('[data-fm-rows] tr[data-path="public_html/hello.txt"] td.wcp-fm-name');
-  await page.click('[data-fm-rows] tr[data-path="public_html/style.css"] td.wcp-fm-name', { modifiers: ['Control'] });
+  await page.click('[data-fm-rows] tr[data-path="public_html/hello.txt"] td.nim-fm-name');
+  await page.click('[data-fm-rows] tr[data-path="public_html/style.css"] td.nim-fm-name', { modifiers: ['Control'] });
   step('status: ' + await page.textContent('[data-fm-status]'));
   await page.click('[data-fm-cmd="compress"]');
   await page.fill('#fm-dialog input', 'pack.zip');
@@ -90,12 +90,12 @@ const OUT = process.env.E2E_OUT || '/tmp';
   step('compressed');
 
   // Extract into assets via context menu
-  await page.click('[data-fm-rows] tr[data-path="public_html/pack.zip"] td.wcp-fm-name', { button: 'right' });
+  await page.click('[data-fm-rows] tr[data-path="public_html/pack.zip"] td.nim-fm-name', { button: 'right' });
   await page.click('[data-fm-menu] [data-fm-cmd="extract"]');
   await page.fill('#fm-dialog input.font-monospace', 'public_html/assets');
   await page.click('[data-fm-dialog-ok]');
   await page.waitForTimeout(2500);
-  await page.dblclick('[data-fm-rows] tr[data-path="public_html/assets"] td.wcp-fm-name');
+  await page.dblclick('[data-fm-rows] tr[data-path="public_html/assets"] td.nim-fm-name');
   await page.waitForSelector('[data-fm-rows] tr[data-path="public_html/assets/hello.txt"]', { timeout: 15000 });
   step('extracted into assets');
   await page.screenshot({ path: OUT + '/fm-2.png' });
@@ -110,7 +110,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
   await page.waitForSelector('[data-fm-banner].d-none', { state: 'attached' });
 
   // Delete via keyboard
-  await page.click('[data-fm-rows] tr[data-path="public_html/pack.zip"] td.wcp-fm-name');
+  await page.click('[data-fm-rows] tr[data-path="public_html/pack.zip"] td.nim-fm-name');
   await page.focus('[data-fm-drop]');
   await page.keyboard.press('Delete');
   await page.click('[data-fm-dialog-ok]');
@@ -132,7 +132,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
   await page.waitForSelector('#fm-trash', { state: 'hidden' });
 
   // Permanent delete skips the trash
-  await page.click('[data-fm-rows] tr[data-path="public_html/pack.zip"] td.wcp-fm-name');
+  await page.click('[data-fm-rows] tr[data-path="public_html/pack.zip"] td.nim-fm-name');
   await page.click('[data-fm-cmd="delete"]');
   await page.check('#fm-dialog .form-check-input');
   await page.click('[data-fm-dialog-ok]');
@@ -144,7 +144,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
   await page.waitForSelector('#fm-trash', { state: 'hidden' });
 
   // Empty trash asks first, then the trash window comes back empty
-  await page.click('[data-fm-rows] tr[data-path="public_html/assets"] td.wcp-fm-name');
+  await page.click('[data-fm-rows] tr[data-path="public_html/assets"] td.nim-fm-name');
   await page.click('[data-fm-cmd="delete"]');
   await page.click('[data-fm-dialog-ok]');
   await page.waitForSelector('[data-fm-rows] tr[data-path="public_html/assets"]', { state: 'detached' });

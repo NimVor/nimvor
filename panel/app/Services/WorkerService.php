@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Support\ValidationException;
 
 /**
  * Long-running processes (queue workers, Node.js/Python apps) run by
- * systemd as the website account: whacp-worker-<slug>.service.
+ * systemd as the website account: nimvor-worker-<slug>.service.
  */
 final class WorkerService
 {
@@ -55,7 +55,7 @@ final class WorkerService
         $r['env'] = is_array($env) ? $env : [];
         $r['enabled'] = (int) $r['enabled'] === 1;
         $r['procs'] = max(1, (int) ($r['procs'] ?? 1));
-        $r['unit'] = 'whacp-worker-' . $r['slug'] . '.service';
+        $r['unit'] = 'nimvor-worker-' . $r['slug'] . '.service';
         return $r;
     }
 
@@ -246,7 +246,7 @@ final class WorkerService
     public function restart(array $site, array $worker): void
     {
         if (!empty($site['account_suspended'])) {
-            throw new \WhaCP\Support\UserFacingException('The account is suspended; its workers are stopped.');
+            throw new \NimVor\Support\UserFacingException('The account is suspended; its workers are stopped.');
         }
         $this->agent->call('workers.restart', ['slug' => $worker['slug']], 120);
         $this->audit->record('worker.restart', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'worker' => $worker['name']]);

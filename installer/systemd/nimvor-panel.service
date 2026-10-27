@@ -1,18 +1,18 @@
 [Unit]
 Description=NimVor panel (loopback web interface)
 Documentation=https://github.com/NimVor/nimvor/tree/main/docs/installation
-After=network.target whacp-agent.service
-Wants=whacp-agent.service
+After=network.target nimvor-agent.service
+Wants=nimvor-agent.service
 
 [Service]
 Type=simple
-User=whacp
-Group=whacp
-Environment=WHACP_CONFIG=/etc/whacp/panel.php
+User=nimvor
+Group=nimvor
+Environment=NIMVOR_CONFIG=/etc/nimvor/panel.php
 Environment=PHP_CLI_SERVER_WORKERS=4
 # Bound to loopback only. Reach it through an SSH tunnel, or put a TLS
 # reverse proxy in front (see docs/installation/README.md).
-ExecStart=/usr/bin/php -d display_errors=0 -d expose_php=0 -S 127.0.0.1:8090 -t /opt/whacp/panel/public /opt/whacp/panel/public/router.php
+ExecStart=/usr/bin/php -d display_errors=0 -d expose_php=0 -S 127.0.0.1:8090 -t /opt/nimvor/panel/public /opt/nimvor/panel/public/router.php
 Restart=on-failure
 RestartSec=3s
 
@@ -20,7 +20,7 @@ NoNewPrivileges=yes
 CapabilityBoundingSet=
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/var/lib/whacp /var/log/whacp
+ReadWritePaths=/var/lib/nimvor /var/log/nimvor
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectKernelTunables=yes

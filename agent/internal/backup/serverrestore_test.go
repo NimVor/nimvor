@@ -43,10 +43,10 @@ func TestServerRestoreRoundTrip(t *testing.T) {
 	if res["safety_backup"] == "" || res["safety_backup"] == nil {
 		t.Error("no safety backup")
 	}
-	if m, _ := filepath.Glob(filepath.Join(base, "etc/nginx.whacp-old-*")); len(m) != 0 {
+	if m, _ := filepath.Glob(filepath.Join(base, "etc/nginx.nimvor-old-*")); len(m) != 0 {
 		t.Errorf("previous copy left behind: %v", m)
 	}
-	if m, _ := filepath.Glob(filepath.Join(base, "var/lib/whacp-agent/restore/*")); len(m) != 0 {
+	if m, _ := filepath.Glob(filepath.Join(base, "var/lib/nimvor-agent/restore/*")); len(m) != 0 {
 		t.Errorf("staging left behind: %v", m)
 	}
 	// The safety backup holds the hand-made state and can itself be restored.
@@ -71,7 +71,7 @@ func TestServerRestoreRollsBackInvalidConfig(t *testing.T) {
 	if read("etc/nginx/nginx.conf") != "# current\n" {
 		t.Error("rollback did not restore the current configuration")
 	}
-	if m, _ := filepath.Glob(filepath.Join(base, "etc/*.whacp-old-*")); len(m) != 0 {
+	if m, _ := filepath.Glob(filepath.Join(base, "etc/*.nimvor-old-*")); len(m) != 0 {
 		t.Errorf("leftovers: %v", m)
 	}
 }

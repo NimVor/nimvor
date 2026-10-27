@@ -57,7 +57,7 @@ func TestStagedInstallVerifiesAndUnpacks(t *testing.T) {
 	h, _ := setup(t)
 	req := request()
 	req.App = "testapp"
-	req.Root = "/home/whacp/shop.test"
+	req.Root = "/home/nimvor/shop.test"
 	src := Sources{Client: srv.Client(), CatalogBase: srv.URL}
 	cred, _, _ := h.Env.Credential("example")
 	var log strings.Builder
@@ -68,13 +68,13 @@ func TestStagedInstallVerifiesAndUnpacks(t *testing.T) {
 	if res["staged"] != true || res["finish_url"] != "https://shop.test/install/" || res["document_root"] != "public_html" {
 		t.Fatalf("res = %+v", res)
 	}
-	root := filepath.Join(h.Base, "home/whacp/shop.test/public_html")
+	root := filepath.Join(h.Base, "home/nimvor/shop.test/public_html")
 	for _, f := range []string{"index.php", "sub/app.php"} {
 		if _, err := os.Stat(filepath.Join(root, f)); err != nil {
 			t.Errorf("missing extracted file %s: %v", f, err)
 		}
 	}
-	// WhaCP's placeholder page was replaced.
+	// NimVor's placeholder page was replaced.
 	if b, _ := os.ReadFile(filepath.Join(root, "index.html")); sites.PlaceholderIndex(b, "shop.test") {
 		t.Error("placeholder page left behind")
 	}
@@ -98,7 +98,7 @@ func TestStagedChecksumMismatchStops(t *testing.T) {
 	h, _ := setup(t)
 	req := request()
 	req.App = "testapp"
-	req.Root = "/home/whacp/shop.test"
+	req.Root = "/home/nimvor/shop.test"
 	cred, _, _ := h.Env.Credential("example")
 	if _, err := Install(context.Background(), h.Env, Sources{Client: srv.Client(), CatalogBase: srv.URL}, req, cred, io.Discard); err == nil || !strings.Contains(err.Error(), "checksum") {
 		t.Fatalf("a checksum mismatch must stop the install: %v", err)
@@ -115,7 +115,7 @@ func TestStagedNoDBAppNeedsNoDatabase(t *testing.T) {
 	h, _ := setup(t)
 	req := request()
 	req.App = "flatapp"
-	req.Root = "/home/whacp/shop.test"
+	req.Root = "/home/nimvor/shop.test"
 	req.DB = DB{} // no database supplied
 	cred, _, _ := h.Env.Credential("example")
 	if _, err := Install(context.Background(), h.Env, Sources{Client: srv.Client(), CatalogBase: srv.URL}, req, cred, io.Discard); err != nil {
@@ -173,7 +173,7 @@ func request() Request {
 
 func setup(t *testing.T) (*testhost.Host, *actions.Registry) {
 	h := testhost.New(t)
-	docroot := filepath.Join(h.Base, "home/whacp/shop.test/public_html")
+	docroot := filepath.Join(h.Base, "home/nimvor/shop.test/public_html")
 	os.MkdirAll(docroot, 0o755)
 	os.WriteFile(filepath.Join(docroot, "index.html"), []byte(sites.DefaultIndex("shop.test")), 0o644)
 	r := actions.NewRegistry(true)
@@ -187,7 +187,7 @@ func TestWordPressInstall(t *testing.T) {
 	src := serve(t, body, hex.EncodeToString(sum[:]))
 	h, _ := setup(t)
 	req := request()
-	req.Root = "/home/whacp/shop.test"
+	req.Root = "/home/nimvor/shop.test"
 	cred, _, _ := h.Env.Credential("example")
 	var log strings.Builder
 	res, err := Install(context.Background(), h.Env, src, req, cred, &log)
@@ -219,7 +219,7 @@ func TestWordPressInstall(t *testing.T) {
 	if !strings.Contains(joined, "fake tarball") || !strings.Contains(joined, `define('DB_PASSWORD', 'db-Pa$$\'word');`) || !strings.Contains(joined, "wp_install(") {
 		t.Fatalf("stdins = %q", joined)
 	}
-	if !strings.Contains(strings.Join(h.Runner.Opts[phpCall].Env, " "), "WHACP_ADMIN_PASSWORD=a-long-admin-password-1") {
+	if !strings.Contains(strings.Join(h.Runner.Opts[phpCall].Env, " "), "NIMVOR_ADMIN_PASSWORD=a-long-admin-password-1") {
 		t.Error("admin password not passed through the environment")
 	}
 }
@@ -228,7 +228,7 @@ func TestChecksumMismatchStopsBeforeExtracting(t *testing.T) {
 	src := serve(t, []byte("tampered"), strings.Repeat("0", 40))
 	h, _ := setup(t)
 	req := request()
-	req.Root = "/home/whacp/shop.test"
+	req.Root = "/home/nimvor/shop.test"
 	cred, _, _ := h.Env.Credential("example")
 	if _, err := Install(context.Background(), h.Env, src, req, cred, io.Discard); err == nil || !strings.Contains(err.Error(), "checksum") {
 		t.Fatalf("err = %v", err)
@@ -269,7 +269,7 @@ func TestActionValidation(t *testing.T) {
 	if err := call(func(*Request) {}); err != nil {
 		t.Fatalf("placeholder-only folder refused: %v", err)
 	}
-	os.WriteFile(filepath.Join(h.Base, "home/whacp/shop.test/public_html/app.php"), []byte("<?php"), 0o644)
+	os.WriteFile(filepath.Join(h.Base, "home/nimvor/shop.test/public_html/app.php"), []byte("<?php"), 0o644)
 	if err := call(func(*Request) {}); err == nil || !strings.Contains(err.Error(), "not empty") {
 		t.Fatalf("non-empty folder: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestMissingPHPExtensionStopsEarly(t *testing.T) {
 	h, _ := setup(t)
 	h.Fail["php8.3 -r"] = "mysqli"
 	req := request()
-	req.Root = "/home/whacp/shop.test"
+	req.Root = "/home/nimvor/shop.test"
 	cred, _, _ := h.Env.Credential("example")
 	_, err := Install(context.Background(), h.Env, src, req, cred, io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "missing extensions: mysqli") {
@@ -298,7 +298,7 @@ func TestLaravelInstall(t *testing.T) {
 	os.WriteFile(filepath.Join(h.Base, "usr/local/bin/composer"), []byte("#!/usr/bin/env php"), 0o755)
 	req := request()
 	req.App, req.Path, req.Migrate = "laravel", "app", true
-	req.Root = "/home/whacp/shop.test"
+	req.Root = "/home/nimvor/shop.test"
 	cred, _, _ := h.Env.Credential("example")
 	res, err := Install(context.Background(), h.Env, src, req, cred, io.Discard)
 	if err != nil {

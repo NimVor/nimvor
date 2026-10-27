@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Database\Connection;
+use NimVor\Database\Connection;
 
 /**
  * The admin-managed application catalog: categories and the applications in
@@ -101,7 +101,7 @@ final class AppCatalogService
         if ($cat !== null && (int) $cat['enabled'] !== 1) {
             return false;
         }
-        if (\WhaCP\Hosting\Scope::isAll($actor)) {
+        if (\NimVor\Hosting\Scope::isAll($actor)) {
             return true; // administrators/resellers see everything
         }
         return (int) $app['customer_visible'] === 1;

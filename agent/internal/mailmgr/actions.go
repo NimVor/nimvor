@@ -90,7 +90,7 @@ var startTLS = func(ctx context.Context, addr string) error {
 			}
 		}
 	}
-	for _, step := range []struct{ send, want string }{{"", "220"}, {"EHLO whacp.local\r\n", "250"}, {"STARTTLS\r\n", "220"}} {
+	for _, step := range []struct{ send, want string }{{"", "220"}, {"EHLO nimvor.local\r\n", "250"}, {"STARTTLS\r\n", "220"}} {
 		if step.send != "" {
 			if _, err := c.Write([]byte(step.send)); err != nil {
 				return err
@@ -318,7 +318,7 @@ func Register(r *actions.Registry, he *host.Env) {
 		}, nil
 	}})
 
-	r.Register(actions.Action{Name: "mail.configure", Mutating: true, Description: "Set up Postfix, Dovecot and OpenDKIM for WhaCP's mail domains (changes Postfix's main.cf/master.cf with postconf and disables Dovecot's system-account login; requires confirm_edit_package_config). Validated, restarted, checked on ports 25, 587 and 993, rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "mail.configure", Mutating: true, Description: "Set up Postfix, Dovecot and OpenDKIM for NimVor's mail domains (changes Postfix's main.cf/master.cf with postconf and disables Dovecot's system-account login; requires confirm_edit_package_config). Validated, restarted, checked on ports 25, 587 and 993, rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			Hostname string `json:"hostname"`
 			Confirm  bool   `json:"confirm_edit_package_config"`
@@ -341,12 +341,12 @@ func Register(r *actions.Registry, he *host.Env) {
 		if out, err := e.Runner.Run(ctx, "dovecot", "--version"); err == nil {
 			ver := strings.TrimSpace(string(out))
 			if !strings.HasPrefix(ver, "2.3.") && !strings.HasPrefix(ver, "2.4.") && !he.Cfg.SimulateCommands {
-				return nil, actions.Conflict("WhaCP supports Dovecot 2.3 and 2.4; this server has " + ver + ".")
+				return nil, actions.Conflict("NimVor supports Dovecot 2.3 and 2.4; this server has " + ver + ".")
 			}
 			v24 = dovecotV24(ver)
 		}
 		if !e.configured() && !in.Confirm {
-			return nil, actions.Conflict("WhaCP changes Postfix's main.cf and master.cf (with postconf) and turns off Dovecot's login for system accounts in " + he.M.DovecotAuthConf + ". Confirm to continue; backups are kept.")
+			return nil, actions.Conflict("NimVor changes Postfix's main.cf and master.cf (with postconf) and turns off Dovecot's login for system accounts in " + he.M.DovecotAuthConf + ". Confirm to continue; backups are kept.")
 		}
 		d, err := e.load()
 		if err != nil {
@@ -356,7 +356,7 @@ func Register(r *actions.Registry, he *host.Env) {
 		d.Dovecot24 = v24
 		// vmail owns all mailboxes.
 		if _, err := he.LookupUser("vmail"); err != nil {
-			if err := e.run(ctx, "useradd", "--system", "--home-dir", e.M.VmailDir, "--no-create-home", "--shell", "/usr/sbin/nologin", "--user-group", "--comment", "WhaCP mailboxes", "--", "vmail"); err != nil {
+			if err := e.run(ctx, "useradd", "--system", "--home-dir", e.M.VmailDir, "--no-create-home", "--shell", "/usr/sbin/nologin", "--user-group", "--comment", "NimVor mailboxes", "--", "vmail"); err != nil {
 				return nil, actions.Failed("Could not create the vmail account.", err.Error())
 			}
 		}
@@ -561,7 +561,7 @@ func Register(r *actions.Registry, he *host.Env) {
 		if err != nil {
 			return nil, actions.Failed("Could not create the DKIM key.", err.Error())
 		}
-		sel := "whacp" + e.Now().Format("200601")
+		sel := "nimvor" + e.Now().Format("200601")
 		d.Domains[in.Domain] = Domain{Selector: sel, DKIMPublic: txt}
 		if err := e.saveData(ctx, d, func(set *changeset.Set) {
 			set.Write(dir+"/dkim/"+in.Domain+".private", priv, 0o600, e.owner("opendkim"))
@@ -692,7 +692,7 @@ func Register(r *actions.Registry, he *host.Env) {
 		return map[string]any{"address": addr, "created": !exists, "quota_mb": m.QuotaMB}, nil
 	}})
 
-	r.Register(actions.Action{Name: "mail.mailbox_delete", Mutating: true, Description: "Delete a mailbox (confirm = address); its mail is moved to .whacp-trash in the mail folder, or kept in place with keep_mail.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "mail.mailbox_delete", Mutating: true, Description: "Delete a mailbox (confirm = address); its mail is moved to .nimvor-trash in the mail folder, or kept in place with keep_mail.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			Address  string `json:"address"`
 			Confirm  string `json:"confirm"`

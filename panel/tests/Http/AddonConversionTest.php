@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Subdomains & addons → "Convert to account". */
 final class AddonConversionTest extends HttpTestCase
@@ -25,7 +25,7 @@ final class AddonConversionTest extends HttpTestCase
         $db = $this->db();
         $add = static function (string $domain, ?int $parent) use ($db): int {
             $db->run("INSERT INTO websites (server_id, domain, kind, php_version, root, document_root, system_user, owner_id, parent_id, status, created_at, updated_at) VALUES (1, ?, 'php', '8.3', ?, ?, 'shop', ?, ?, 'active', 'x', 'x')",
-                [$domain, '/home/whacp/' . $domain, '/home/whacp/' . $domain . '/public_html', (int) $db->scalar("SELECT id FROM users WHERE username = 'cust'"), $parent]);
+                [$domain, '/home/nimvor/' . $domain, '/home/nimvor/' . $domain . '/public_html', (int) $db->scalar("SELECT id FROM users WHERE username = 'cust'"), $parent]);
             return (int) $db->lastInsertId();
         };
         $this->shop = $add('shop.test', null);

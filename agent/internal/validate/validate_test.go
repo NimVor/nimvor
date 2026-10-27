@@ -16,11 +16,11 @@ func TestDomain(t *testing.T) {
 }
 
 func TestWithin(t *testing.T) {
-	if err := Within("p", "/home/whacp", "/home/whacp/a.com/public_html"); err != nil {
+	if err := Within("p", "/home/nimvor", "/home/nimvor/a.com/public_html"); err != nil {
 		t.Error(err)
 	}
-	for _, bad := range []string{"/home/whacpx/a", "/home/whacp/../etc", "/etc", "relative", "/home/whacp/a;b", "/home/whacp/a\"b"} {
-		if Within("p", "/home/whacp", bad) == nil {
+	for _, bad := range []string{"/home/nimvorx/a", "/home/nimvor/../etc", "/etc", "relative", "/home/nimvor/a;b", "/home/nimvor/a\"b"} {
+		if Within("p", "/home/nimvor", bad) == nil {
 			t.Errorf("%q accepted", bad)
 		}
 	}
@@ -71,8 +71,8 @@ func TestGit(t *testing.T) {
 }
 
 func TestBuildAccountNameIsReserved(t *testing.T) {
-	if Username("user", "whacp-build") == nil {
-		t.Fatal("whacp-build accepted as a website account")
+	if Username("user", "nimvor-build") == nil {
+		t.Fatal("nimvor-build accepted as a website account")
 	}
 }
 
@@ -137,12 +137,12 @@ func TestAdversarialInputs(t *testing.T) {
 
 	// Paths. Within and RelPath keep a path inside its base; they do not
 	// reject every unusual character, because ordinary Linux file names may
-	// contain spaces, Unicode and even shell glob characters, and WhaCP
+	// contain spaces, Unicode and even shell glob characters, and NimVor
 	// passes paths as argv (no shell) — so "a|id" is an inert file name, not
 	// a command. What they MUST reject is traversal, escaping the base, and
-	// the characters that could break the configuration files WhaCP
+	// the characters that could break the configuration files NimVor
 	// generates or a command line: NUL, CR, LF, and ; { } " ' $ ` \.
-	base := "/home/whacp/site.example.com"
+	base := "/home/nimvor/site.example.com"
 	dangerous := "\x00\n\r;{}\"'$`\\"
 	for _, v := range vectors {
 		mustReject := hasDotDot(v) || containsAny(v, dangerous)

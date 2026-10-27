@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Repositories\DiscoverySnapshotRepository;
+use NimVor\Agent\AgentClient;
+use NimVor\Repositories\DiscoverySnapshotRepository;
 
 /**
  * Read-only server inventory.
@@ -21,7 +21,7 @@ final class DiscoveryService
         private readonly DiscoverySnapshotRepository $snapshots,
         private readonly SettingsService $settings,
         private readonly AuditLogger $audit,
-        private readonly \WhaCP\Repositories\SettingRepository $state,
+        private readonly \NimVor\Repositories\SettingRepository $state,
         private readonly ?ServerContext $server = null,
     ) {
     }

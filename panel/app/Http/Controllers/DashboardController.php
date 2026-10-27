@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\AuditLogRepository;
-use WhaCP\Security\Permissions;
-use WhaCP\Services\DiscoveryService;
-use WhaCP\Services\SettingsService;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\AuditLogRepository;
+use NimVor\Security\Permissions;
+use NimVor\Services\DiscoveryService;
+use NimVor\Services\SettingsService;
+use NimVor\View\View;
 
 final class DashboardController extends Controller
 {
@@ -24,12 +24,12 @@ final class DashboardController extends Controller
         private readonly DiscoveryService $discovery,
         private readonly SettingsService $settings,
         private readonly AuditLogRepository $audit,
-        private readonly \WhaCP\Services\MonitoringService $monitoring,
-        private readonly \WhaCP\Services\NotificationService $notifications,
-        private readonly ?\WhaCP\Repositories\UserRepository $users = null,
-        private readonly ?\WhaCP\Repositories\WebsiteRepository $websites = null,
-        private readonly ?\WhaCP\Services\PlanLimits $plans = null,
-        private readonly ?\WhaCP\Services\ServerContext $server = null,
+        private readonly \NimVor\Services\MonitoringService $monitoring,
+        private readonly \NimVor\Services\NotificationService $notifications,
+        private readonly ?\NimVor\Repositories\UserRepository $users = null,
+        private readonly ?\NimVor\Repositories\WebsiteRepository $websites = null,
+        private readonly ?\NimVor\Services\PlanLimits $plans = null,
+        private readonly ?\NimVor\Services\ServerContext $server = null,
     ) {
         parent::__construct($view, $session);
     }

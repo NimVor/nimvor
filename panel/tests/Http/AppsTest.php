@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class AppsTest extends HttpTestCase
 {
@@ -99,7 +99,7 @@ final class AppsTest extends HttpTestCase
         self::assertTrue($this->lastCall('apps.install')['migrate']);
         $this->agent->succeed('jobs.get', ['id' => 'bbbbbbbbbbbbbbbb', 'status' => 'succeeded', 'result' => ['document_root' => 'app/public']]);
         $this->request('GET', $base);
-        self::assertSame('/home/whacp/shop.test/app/public', $this->db->scalar('SELECT document_root FROM websites WHERE id = ?', [$this->siteId]));
+        self::assertSame('/home/nimvor/shop.test/app/public', $this->db->scalar('SELECT document_root FROM websites WHERE id = ?', [$this->siteId]));
         self::assertSame('succeeded', $this->db->scalar('SELECT status FROM app_installs'));
     }
 
@@ -108,7 +108,7 @@ final class AppsTest extends HttpTestCase
         // A subdomain of the website: the Apps page offers it as an install
         // target, and the install runs against the subdomain's own root.
         $sub = $this->app->container->get(WebsiteService::class)->createChild(
-            $this->app->container->get(\WhaCP\Repositories\WebsiteRepository::class)->find(1, $this->siteId, null),
+            $this->app->container->get(\NimVor\Repositories\WebsiteRepository::class)->find(1, $this->siteId, null),
             'subdomain',
             ['subdomain' => 'blog'],
             (array) $this->app->container->get(UserRepository::class)->find($this->adminId)

@@ -35,7 +35,7 @@ func TestBackupListRestoreDelete(t *testing.T) {
 		t.Fatalf("backup file name: %q", file)
 	}
 	h.Env.Jobs.Drain()
-	if !h.Runner.Called("mongodump --db=shop --archive=" + filepath.Join("/var/backups/whacp/mongo", file) + " --gzip") {
+	if !h.Runner.Called("mongodump --db=shop --archive=" + filepath.Join("/var/backups/nimvor/mongo", file) + " --gzip") {
 		t.Errorf("mongodump was not called as expected; calls: %v", h.Runner.Calls)
 	}
 

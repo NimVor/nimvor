@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * Sets up a server for a profile (Full, Web only, Minimal): the components'
@@ -715,7 +715,7 @@ final class ServerSetupService
             return ['fail', 'fail2ban is not installed (see the first step).'];
         }
         if (!empty($st['managed_config'])) {
-            return ['skip', 'WhaCP\'s fail2ban jails are configured (left as they are).'];
+            return ['skip', 'NimVor\'s fail2ban jails are configured (left as they are).'];
         }
         $jails = SecurityDefaultsService::JAILS;
         $this->agent->call('fail2ban.configure', ['jails' => $jails, 'ban_minutes' => 60, 'find_minutes' => 10, 'max_retry' => 5, 'ignore' => []], 120);

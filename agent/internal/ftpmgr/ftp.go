@@ -1,7 +1,7 @@
 // Package ftpmgr manages FTP(S) and SFTP access to websites.
 //
-// FTP runs pure-ftpd from its own systemd unit (whacp-ftpd.service) with a
-// configuration WhaCP owns (in FTPDir); the distribution's pure-ftpd
+// FTP runs pure-ftpd from its own systemd unit (nimvor-ftpd.service) with a
+// configuration NimVor owns (in FTPDir); the distribution's pure-ftpd
 // configuration is never edited. Accounts are pure-ftpd virtual users: each
 // maps to a website's system user and is chrooted to the website folder or
 // a sub-folder of it. TLS is required unless explicitly relaxed.
@@ -37,15 +37,15 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/users"
 )
 
-// Unit is WhaCP's FTP service.
-const Unit = "whacp-ftpd.service"
+// Unit is NimVor's FTP service.
+const Unit = "nimvor-ftpd.service"
 
 // Other FTP servers that would hold port 21.
 var otherFTPUnits = []string{"pure-ftpd.service", "vsftpd.service", "proftpd.service"}
 
 var mu sync.Mutex
 
-// Settings are the server options WhaCP manages.
+// Settings are the server options NimVor manages.
 type Settings struct {
 	PassiveMin int    `json:"passive_min"`
 	PassiveMax int    `json:"passive_max"`
@@ -83,7 +83,7 @@ func (s *Settings) validate() error {
 	return nil
 }
 
-// paths of WhaCP's FTP files.
+// paths of NimVor's FTP files.
 type paths struct{ dir, conf, passwd, pdb, cert, unit string }
 
 func ftpPaths(env *host.Env) paths {
@@ -98,7 +98,7 @@ func (s Settings) Render(p paths) string {
 		tls = "1"
 	}
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP (FTP). Do not edit: changes are overwritten.\n")
+	b.WriteString("# Managed by NimVor (FTP). Do not edit: changes are overwritten.\n")
 	for _, kv := range [][2]string{
 		{"ChrootEveryone", "yes"}, {"Daemonize", "no"}, {"NoAnonymous", "yes"}, {"AnonymousOnly", "no"},
 		{"PAMAuthentication", "no"}, {"UnixAuthentication", "no"}, {"PureDB", p.pdb},
@@ -148,7 +148,7 @@ func Parse(data string) Settings {
 }
 
 func renderUnit(p paths) string {
-	return "# Managed by WhaCP (FTP).\n[Unit]\nDescription=WhaCP FTP server (pure-ftpd)\nAfter=network.target\n\n" +
+	return "# Managed by NimVor (FTP).\n[Unit]\nDescription=NimVor FTP server (pure-ftpd)\nAfter=network.target\n\n" +
 		"[Service]\nType=simple\nExecStart=/usr/sbin/pure-ftpd " + p.conf + "\nRestart=on-failure\nRestartSec=3\n\n" +
 		"[Install]\nWantedBy=multi-user.target\n"
 }
@@ -163,7 +163,7 @@ func selfSigned(hostname string) ([]byte, error) {
 	}
 	serial, _ := rand.Int(rand.Reader, big.NewInt(1<<62))
 	tmpl := &x509.Certificate{
-		SerialNumber: serial, Subject: pkix.Name{CommonName: hostname, Organization: []string{"WhaCP FTP"}},
+		SerialNumber: serial, Subject: pkix.Name{CommonName: hostname, Organization: []string{"NimVor FTP"}},
 		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().AddDate(10, 0, 0),
 		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		DNSNames: []string{hostname},
@@ -250,7 +250,7 @@ func siteUser(env *host.Env, name string) (users.User, error) {
 			// SSH/SFTP keys, passwords and shells are never given to an
 			// account with administrator rights.
 			if why := env.PrivilegedAccount(u.Name, u.GID); why != "" {
-				return users.User{}, actions.InvalidParams(name + " has administrator rights (" + why + "); WhaCP never grants it access")
+				return users.User{}, actions.InvalidParams(name + " has administrator rights (" + why + "); NimVor never grants it access")
 			}
 			return u, nil
 		}
@@ -319,7 +319,7 @@ var probe = func(ctx context.Context, addr string) error {
 	return last
 }
 
-// Configured reports whether WhaCP's FTP server was set up.
+// Configured reports whether NimVor's FTP server was set up.
 func Configured(env *host.Env) bool { return env.Root.Exists(ftpPaths(env).conf) }
 
 // PassiveRange is the configured passive port range ("30000:30049"; "" when

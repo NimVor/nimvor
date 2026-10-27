@@ -70,7 +70,7 @@ func TestRealHostDNS(t *testing.T) {
 		return m
 	}
 	must("dns.configure", map[string]any{"confirm_edit_package_config": true})
-	z := Zone{Name: "whacp-rt.test", SOA: SOA{PrimaryNS: "ns1.whacp-rt.test.", Hostmaster: "hostmaster@whacp-rt.test"}, Records: []Record{
+	z := Zone{Name: "nimvor-rt.test", SOA: SOA{PrimaryNS: "ns1.nimvor-rt.test.", Hostmaster: "hostmaster@nimvor-rt.test"}, Records: []Record{
 		{Name: "@", Type: "NS", Value: "ns1"},
 		{Name: "ns1", Type: "A", Value: "127.0.0.1"},
 		{Name: "@", Type: "A", Value: "203.0.113.10"},
@@ -82,7 +82,7 @@ func TestRealHostDNS(t *testing.T) {
 		t.Fatalf("apply = %v", res)
 	}
 	serial := uint32(res["serial"].(float64))
-	got, err := querySOA(context.Background(), "127.0.0.1:53", "whacp-rt.test")
+	got, err := querySOA(context.Background(), "127.0.0.1:53", "nimvor-rt.test")
 	if err != nil || got != serial {
 		t.Fatalf("served serial = %d, %v; want %d", got, err, serial)
 	}
@@ -92,20 +92,20 @@ func TestRealHostDNS(t *testing.T) {
 	if s2 := uint32(res["serial"].(float64)); s2 <= serial {
 		t.Fatalf("serial did not increase: %d → %d", serial, s2)
 	}
-	if out, _ := exec.Command("named-checkzone", "whacp-rt.test", p.zoneFile("whacp-rt.test")).CombinedOutput(); !strings.Contains(string(out), "OK") {
+	if out, _ := exec.Command("named-checkzone", "nimvor-rt.test", p.zoneFile("nimvor-rt.test")).CombinedOutput(); !strings.Contains(string(out), "OK") {
 		t.Fatalf("zone file: %s", out)
 	}
-	// A zone that is valid for WhaCP but conflicts in BIND (defined twice)
+	// A zone that is valid for NimVor but conflicts in BIND (defined twice)
 	// is refused and nothing is left behind.
-	if _, err := call("dns.zone_apply", Zone{Name: "localhost", SOA: z.SOA, Records: []Record{{Name: "@", Type: "NS", Value: "ns1.whacp-rt.test."}}}); err == nil {
+	if _, err := call("dns.zone_apply", Zone{Name: "localhost", SOA: z.SOA, Records: []Record{{Name: "@", Type: "NS", Value: "ns1.nimvor-rt.test."}}}); err == nil {
 		t.Fatal("zone already defined by the distribution accepted")
 	}
 	if _, err := os.Stat(p.zoneFile("localhost")); err == nil {
 		t.Fatal("rejected zone file left behind")
 	}
-	must("dns.zone_delete", map[string]any{"zone": "whacp-rt.test", "confirm": "whacp-rt.test"})
+	must("dns.zone_delete", map[string]any{"zone": "nimvor-rt.test", "confirm": "nimvor-rt.test"})
 	time.Sleep(300 * time.Millisecond)
-	if _, err := querySOA(context.Background(), "127.0.0.1:53", "whacp-rt.test"); err == nil {
+	if _, err := querySOA(context.Background(), "127.0.0.1:53", "nimvor-rt.test"); err == nil {
 		t.Fatal("deleted zone still served")
 	}
 }

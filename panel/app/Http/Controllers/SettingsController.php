@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Core\Config;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\SettingsService;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Core\Config;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\SettingsService;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 final class SettingsController extends Controller
 {
@@ -19,8 +19,8 @@ final class SettingsController extends Controller
         SessionInterface $session,
         private readonly SettingsService $settings,
         private readonly Config $config,
-        private readonly \WhaCP\Mail\MailConfig $mail,
-        private readonly \WhaCP\Mail\Mailer $mailer,
+        private readonly \NimVor\Mail\MailConfig $mail,
+        private readonly \NimVor\Mail\Mailer $mailer,
     ) {
         parent::__construct($view, $session);
     }
@@ -73,7 +73,7 @@ final class SettingsController extends Controller
         $to = (string) ($this->user($request)['email'] ?? '');
         try {
             $this->mailer->send([$to], 'NimVor test message', "This is a test message from NimVor.\n\nIf you can read it, outgoing email works.");
-        } catch (\WhaCP\Mail\MailException $e) {
+        } catch (\NimVor\Mail\MailException $e) {
             return $this->redirectWithFailure('/settings#email', $e);
         }
         return $this->redirectWithSuccess('/settings#email', 'Test message sent to ' . $to . '.');

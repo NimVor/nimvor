@@ -1,23 +1,23 @@
 openapi: 3.1.0
 info:
-  title: WhaCP Agent API
+  title: NimVor Agent API
   version: 1.0.0-rc1
-  summary: Local, authenticated API of the privileged WhaCP agent.
+  summary: Local, authenticated API of the privileged NimVor agent.
   description: |
-    The agent listens on a Unix socket (default `/run/whacp/agent.sock`,
-    mode 0660, group `whacp`). Every request must carry the shared bearer
-    token from `/etc/whacp/agent.token`, and the connecting process must be
+    The agent listens on a Unix socket (default `/run/nimvor/agent.sock`,
+    mode 0660, group `nimvor`). Every request must carry the shared bearer
+    token from `/etc/nimvor/agent.token`, and the connecting process must be
     root or the panel user (checked with SO_PEERCRED).
 
     The agent exposes **named actions only**. There is no endpoint that runs
     commands or reads arbitrary files. Actions that modify the server
-    (`mutating: true` in `x-whacp-actions`) are refused with
+    (`mutating: true` in `x-nimvor-actions`) are refused with
     `write_disabled` unless `allow_write_actions` is enabled. Long-running
     actions return `{job_id}`; follow them with `jobs.get` and `jobs.log`.
 
     With `listen_tcp` set, the same API is served over TLS 1.3 to the
     addresses in `allowed_clients`; clients pin the certificate's public key
-    (`whacp-agent -pin`).
+    (`nimvor-agent -pin`).
 
     All responses use the same envelope. Error messages are safe to show to
     users; internal details are written to the agent log only.
@@ -25,7 +25,7 @@ info:
     name: MIT
 servers:
   - url: http://agent
-    description: Unix socket (use curl --unix-socket /run/whacp/agent.sock)
+    description: Unix socket (use curl --unix-socket /run/nimvor/agent.sock)
 security:
   - bearer: []
 paths:
@@ -295,6 +295,10 @@ paths:
               - nginx.status
               - nginx.test
               - nginx.tuning_apply
+              - nimvor.restart
+              - nimvor.services
+              - nimvor.update
+              - nimvor.update_status
               - packages.advisories
               - packages.health
               - packages.install
@@ -419,10 +423,6 @@ paths:
               - terminal.open
               - terminal.status
               - tls.audit
-              - whacp.restart
-              - whacp.services
-              - whacp.update
-              - whacp.update_status
               - wordpress.copy
               - wordpress.info
               - wordpress.login
@@ -541,13 +541,13 @@ components:
         config_files: { type: array, items: { type: string } }
         access_logs: { type: array, items: { type: string } }
         error_logs: { type: array, items: { type: string } }
-        managed_by: { type: string, description: 'Heuristic hint (aaPanel, FASTPANEL, HestiaCP, CyberPanel, WhaCP).' }
-x-whacp-actions:
+        managed_by: { type: string, description: 'Heuristic hint (aaPanel, FASTPANEL, HestiaCP, CyberPanel, NimVor).' }
+x-nimvor-actions:
   # BEGIN generated catalog (do not edit; see internal/modules/openapi_test.go)
   account.suspend: { mutating: true, description: "Suspend or resume a website's system account: SSH/SFTP logins are refused (the account expires) and its FTP accounts are locked. Files are kept." }
-  adopt.preview: { mutating: false, description: "Plan the import of an existing website into WhaCP (read-only)." }
-  adopt.run: { mutating: true, description: "Import an existing website into WhaCP (job)." }
-  adopt.undo: { mutating: true, description: "Undo an import: re-enable the old configuration and disable the WhaCP website." }
+  adopt.preview: { mutating: false, description: "Plan the import of an existing website into NimVor (read-only)." }
+  adopt.run: { mutating: true, description: "Import an existing website into NimVor (job)." }
+  adopt.undo: { mutating: true, description: "Undo an import: re-enable the old configuration and disable the NimVor website." }
   agent.actions: { mutating: false, description: "List the actions this agent supports." }
   agent.status: { mutating: false, description: "Agent version, write mode and managed layout." }
   apps.install: { mutating: true, description: "Install an application (WordPress, Laravel, or a staged app like Joomla, Drupal, phpBB, SMF, PrestaShop, OpenCart, AbanteCart) into a website (job)." }
@@ -574,7 +574,7 @@ x-whacp-actions:
   backup.remote_import: { mutating: true, description: "Find the backups in a remote storage and make those encrypted with this server's backup key (with an authenticated manifest) restorable here; used to recover onto a new server." }
   backup.remote_test: { mutating: true, description: "Check that remote storage settings work. Returns an SFTP server's host key (to pin), creates the Google Drive folder when none is set, and creates a missing local folder under /backup(s) or /srv/backup(s) (never under /mnt or /media)." }
   backup.restore: { mutating: true, description: "Restore website files and/or databases from a backup (job)." }
-  backup.server: { mutating: true, description: "Archive the server configuration (nginx, PHP, MySQL, Redis, certificates, WhaCP) (job)." }
+  backup.server: { mutating: true, description: "Archive the server configuration (nginx, PHP, MySQL, Redis, certificates, NimVor) (job)." }
   backup.server_restore: { mutating: true, description: "Restore components (nginx, php, mysql, redis, letsencrypt, fail2ban, cron) of a server backup after a safety backup, validating and rolling back on failure; or extract it for manual review (job)." }
   components.status: { mutating: false, description: "Each part of the server (web, PHP, database, email, DNS, FTP, caches, security) with its steps: installed, set up, running, started at boot, ports open in the firewall (read-only)." }
   cron.apply: { mutating: true, description: "Write the complete cron schedule of a website." }
@@ -602,8 +602,8 @@ x-whacp-actions:
   db.query: { mutating: true, description: "Database browser: run SQL (one or more statements) as the database's browser account, which can reach this database only." }
   db.server_flush: { mutating: true, description: "Database server: FLUSH PRIVILEGES, LOGS (reopen log files) or HOSTS (unblock hosts blocked after connection errors)." }
   db.server_restart: { mutating: true, description: "Database server: check the configuration, restart the service and wait until it answers again. Refused when the configuration is invalid." }
-  db.server_settings: { mutating: true, description: "Database server: set WhaCP's managed options (\"\" removes one, leaving the distribution's value). Values are validated, the option files are checked by the server program, dynamic options are applied at once; others (or all, with restart) take effect after a checked restart. Anything that fails is rolled back." }
-  db.server_status: { mutating: false, description: "Database server: version, uptime, status counters, connection details, managed settings (effective and WhaCP's) and whether the configuration is valid." }
+  db.server_settings: { mutating: true, description: "Database server: set NimVor's managed options (\"\" removes one, leaving the distribution's value). Values are validated, the option files are checked by the server program, dynamic options are applied at once; others (or all, with restart) take effect after a checked restart. Anything that fails is rolled back." }
+  db.server_status: { mutating: false, description: "Database server: version, uptime, status counters, connection details, managed settings (effective and NimVor's) and whether the configuration is valid." }
   db.user_create: { mutating: true, description: "Create a database user." }
   db.user_drop: { mutating: true, description: "Drop a database user." }
   db.user_lock: { mutating: true, description: "Lock or unlock a database user (account suspension): a locked user cannot connect; its data and grants are kept." }
@@ -620,17 +620,17 @@ x-whacp-actions:
   discovery.redis: { mutating: false, description: "Redis installation and configuration summary." }
   discovery.users: { mutating: false, description: "Local system accounts." }
   discovery.websites: { mutating: false, description: "Existing websites correlated from Nginx, PHP-FPM and certificates." }
-  dns.configure: { mutating: true, description: "Set up BIND for WhaCP's zones: adds one include line to BIND's configuration (requires confirm_edit_package_config), validates with named-checkconf, starts or reconfigures named and opens port 53 when the firewall is active." }
-  dns.status: { mutating: false, description: "Whether BIND is installed, set up for WhaCP and running, and the zones WhaCP serves (with serials)." }
+  dns.configure: { mutating: true, description: "Set up BIND for NimVor's zones: adds one include line to BIND's configuration (requires confirm_edit_package_config), validates with named-checkconf, starts or reconfigures named and opens port 53 when the firewall is active." }
+  dns.status: { mutating: false, description: "Whether BIND is installed, set up for NimVor and running, and the zones NimVor serves (with serials)." }
   dns.zone_apply: { mutating: true, description: "Write a complete zone (SOA, records, optional secondaries) with a new serial, validate it with named-checkzone and named-checkconf, load it and verify BIND serves the new serial; rolls back on failure." }
   dns.zone_delete: { mutating: true, description: "Stop serving a zone and remove its file (confirm = zone name)." }
   dns.zone_parse: { mutating: false, description: "Read a zone file (BIND format) for import: the supported records, relative to the zone, and the lines skipped with reasons. Nothing is changed." }
   dns.zone_render: { mutating: false, description: "Validate a zone and return its zone file (BIND format) without writing it, e.g. for export." }
-  fail2ban.configure: { mutating: true, description: "Write the WhaCP jail file, test it and reload fail2ban." }
+  fail2ban.configure: { mutating: true, description: "Write the NimVor jail file, test it and reload fail2ban." }
   fail2ban.status: { mutating: false, description: "fail2ban jails and banned addresses." }
   fail2ban.unban: { mutating: true, description: "Unban an IP address from a jail." }
-  ffmpeg.access: { mutating: true, description: "Set the accounts that may run FFmpeg (the whacp-ffmpeg group's members, exactly these) and limit FFmpeg's programs to that group." }
-  ffmpeg.status: { mutating: false, description: "FFmpeg: installed, version, package, whether its programs are limited to the whacp-ffmpeg group, and the group's members." }
+  ffmpeg.access: { mutating: true, description: "Set the accounts that may run FFmpeg (the nimvor-ffmpeg group's members, exactly these) and limit FFmpeg's programs to that group." }
+  ffmpeg.status: { mutating: false, description: "FFmpeg: installed, version, package, whether its programs are limited to the nimvor-ffmpeg group, and the group's members." }
   ffmpeg.uninstall: { mutating: true, description: "Remove the FFmpeg package (job); refused when other packages need it. The group and, on Debian/Ubuntu, the mode override stay, so a later install is limited at once." }
   files.chmod: { mutating: true, description: "Change permissions of a file or folder." }
   files.compress: { mutating: true, description: "Create a .zip or .tar.gz of files and folders of a website (job)." }
@@ -651,18 +651,18 @@ x-whacp-actions:
   files.write: { mutating: true, description: "Save a text file." }
   firewall.allow_ports: { mutating: true, description: "Allow several ports from anywhere in one change (a component's ports), auto-reverted unless confirmed; ports already allowed are skipped." }
   firewall.protection: { mutating: false, description: "Firewall protections in the manner of CSF (SYN flood, connection limits, port flood, invalid packets, ping rate): the applied configuration, whether its nftables table is loaded, and what each protection dropped." }
-  firewall.protection_set: { mutating: true, description: "Apply the firewall protections (nftables table inet whacp_flood, next to UFW or firewalld; it only drops or rejects). Undone automatically unless confirmed." }
+  firewall.protection_set: { mutating: true, description: "Apply the firewall protections (nftables table inet nimvor_flood, next to UFW or firewalld; it only drops or rejects). Undone automatically unless confirmed." }
   firewall.rule_add: { mutating: true, description: "Add a UFW rule (auto-reverted unless confirmed)." }
   firewall.rule_delete: { mutating: true, description: "Delete a UFW rule (auto-reverted unless confirmed)." }
   firewall.set_enabled: { mutating: true, description: "Enable or disable the firewall (auto-reverted unless confirmed). Enabling first opens SSH, the panel and the agent's remote listener, optionally the ports of listening services (allow_services) and every port for one address (allow_from); undoing removes them again." }
   firewall.status: { mutating: false, description: "UFW state, defaults and rules." }
   ftp.account_delete: { mutating: true, description: "Delete an FTP account (files are kept)." }
   ftp.account_save: { mutating: true, description: "Create or change an FTP account of a website: chrooted to the website folder (or a sub-folder), files owned by the website's user. The password is stored as a SHA-512 crypt hash." }
-  ftp.configure: { mutating: true, description: "Set up or change WhaCP's FTP server (its own pure-ftpd unit and configuration; TLS required by default). Stopping another running FTP server needs confirm_replace_service. Restarts, verifies and rolls back on failure." }
-  ftp.disable: { mutating: true, description: "Stop and disable WhaCP's FTP service (accounts are kept)." }
+  ftp.configure: { mutating: true, description: "Set up or change NimVor's FTP server (its own pure-ftpd unit and configuration; TLS required by default). Stopping another running FTP server needs confirm_replace_service. Restarts, verifies and rolls back on failure." }
+  ftp.disable: { mutating: true, description: "Stop and disable NimVor's FTP service (accounts are kept)." }
   ftp.move_site: { mutating: true, description: "Give a website's FTP accounts (those inside its folder) to the website's current account, keeping their passwords (after the website moved to another account)." }
   ftp.status: { mutating: false, description: "FTP server state, settings, certificate and accounts (optionally of one website user); SFTP-enabled website users." }
-  hardening.compilers: { mutating: true, description: "Restrict the C/C++ compilers and the assembler to root and the whacp-compiler group (mode 0750), with these members; or open them again (earlier owner and mode restored)." }
+  hardening.compilers: { mutating: true, description: "Restrict the C/C++ compilers and the assembler to root and the nimvor-compiler group (mode 0750), with these members; or open them again (earlier owner and mode restored)." }
   hardening.egress: { mutating: true, description: "Website accounts' outgoing connections (nftables table loaded at boot): metadata_blocked (cloud metadata services, on by default), block_private (private and link-local networks), tcp_ports/udp_ports (when set, the only remote ports allowed), loopback_isolation (stop website accounts reaching the shared cache ports on loopback — Redis, Memcached — off by default), loopback_ports (the guarded ports), loopback_allow (account name → ports it may still reach)." }
   hardening.forkbomb: { mutating: true, description: "Shell fork bomb protection: cap the processes of accounts (UID 1000 and up) in their sessions with pam_limits, or remove the cap." }
   hardening.reapply: { mutating: true, description: "Apply compiler and traceroute restrictions again (after package updates reset modes)." }
@@ -671,11 +671,11 @@ x-whacp-actions:
   hardening.traceroute: { mutating: true, description: "Enable traceroute for everyone (earlier modes restored) or limit it to root (mode 0700)." }
   hulk.failures: { mutating: false, description: "Brute force protection: login attempts since a Unix time (at most a day back) from the SSH server, Dovecot, Postfix SMTP AUTH, pure-ftpd (journal) and webmail (Roundcube log). Failures, plus successful SSH logins (for root login notifications)." }
   hulk.status: { mutating: false, description: "Brute force protection: whether nftables is available and the table is loaded." }
-  hulk.sync: { mutating: true, description: "Brute force protection: enforce the blocked addresses (login services only, or every port), blacklisted countries' address ranges (login services) and the whitelist with the nftables table inet whacp_hulk; or remove the table." }
+  hulk.sync: { mutating: true, description: "Brute force protection: enforce the blocked addresses (login services only, or every port), blacklisted countries' address ranges (login services) and the whitelist with the nftables table inet nimvor_hulk; or remove the table." }
   jobs.get: { mutating: false, description: "Status of a background job." }
   jobs.list: { mutating: false, description: "Recent background jobs, optionally for one target." }
   jobs.log: { mutating: false, description: "Log output of a background job from an offset." }
-  limits.set: { mutating: true, description: "Set a hosting account's resource limits (CPU %, memory, processes, disk read/write MB/s; 0 = no limit) for its slice whacp-acct<ID>.slice and its system users' logins; all zero removes them. Applied at once and at every boot. Websites, workers and cron jobs follow when they are applied again." }
+  limits.set: { mutating: true, description: "Set a hosting account's resource limits (CPU %, memory, processes, disk read/write MB/s; 0 = no limit) for its slice nimvor-acct<ID>.slice and its system users' logins; all zero removes them. Applied at once and at every boot. Websites, workers and cron jobs follow when they are applied again." }
   limits.status: { mutating: false, description: "Resource use of hosting accounts' slices (memory, CPU time and throttling, processes, memory pressure and out-of-memory kills) and their limits." }
   logs.download: { mutating: false, description: "Read a chunk of a log file (base64)." }
   logs.sources: { mutating: false, description: "Available log sources (server-wide or for one website)." }
@@ -683,7 +683,7 @@ x-whacp-actions:
   mail.alias_delete: { mutating: true, description: "Delete an alias." }
   mail.alias_save: { mutating: true, description: "Create or change an alias (forwarder): source address, or @domain for a catch-all, to up to 50 destinations." }
   mail.auth_check: { mutating: false, description: "Check a mail domain's public DNS: host name, MX, SPF (evaluated for this server), DKIM (compared with the signing key), DMARC and reverse DNS of the server's addresses." }
-  mail.configure: { mutating: true, description: "Set up Postfix, Dovecot and OpenDKIM for WhaCP's mail domains (changes Postfix's main.cf/master.cf with postconf and disables Dovecot's system-account login; requires confirm_edit_package_config). Validated, restarted, checked on ports 25, 587 and 993, rolled back on failure." }
+  mail.configure: { mutating: true, description: "Set up Postfix, Dovecot and OpenDKIM for NimVor's mail domains (changes Postfix's main.cf/master.cf with postconf and disables Dovecot's system-account login; requires confirm_edit_package_config). Validated, restarted, checked on ports 25, 587 and 993, rolled back on failure." }
   mail.domain_add: { mutating: true, description: "Host email for a domain and create its DKIM key; returns the DNS records to publish." }
   mail.domain_remove: { mutating: true, description: "Stop hosting email for a domain (confirm = domain; its mailboxes and aliases must be removed first)." }
   mail.filters_get: { mutating: false, description: "Email filters and autoresponder of a mailbox." }
@@ -694,7 +694,7 @@ x-whacp-actions:
   mail.greylist_set: { mutating: true, description: "Change greylisting: on/off, deferral, resend acceptance and record expiration (minutes), SPF bypass, trusted hosts, trusted mail providers." }
   mail.greylist_update_providers: { mutating: true, description: "Refresh the address ranges of trusted mail providers from their SPF records (all trusted ones with all=true, else those updated automatically and older than 20 hours)." }
   mail.log_tail: { mutating: false, description: "The latest mail log lines (Postfix, Dovecot, OpenDKIM), newest last." }
-  mail.mailbox_delete: { mutating: true, description: "Delete a mailbox (confirm = address); its mail is moved to .whacp-trash in the mail folder, or kept in place with keep_mail." }
+  mail.mailbox_delete: { mutating: true, description: "Delete a mailbox (confirm = address); its mail is moved to .nimvor-trash in the mail folder, or kept in place with keep_mail." }
   mail.mailbox_save: { mutating: true, description: "Create a mailbox or change its password or quota (the password is stored as a SHA-512 crypt hash)." }
   mail.queue: { mutating: false, description: "Postfix's mail queue: messages with queue, sender, recipients, size, age and the reason delivery was deferred (postqueue -j)." }
   mail.queue_action: { mutating: true, description: "Act on queued messages: delete, retry (deliver now), hold, release; or flush (retry every deferred message). IDs go to postsuper on stdin." }
@@ -707,12 +707,12 @@ x-whacp-actions:
   mail.routing_set: { mutating: true, description: "Route a mail domain: local (mailboxes here), backup (queue its mail for the primary MX) or remote (another server receives it; mail for it from this server goes there)." }
   mail.server_status: { mutating: false, description: "Mail services (Postfix, Dovecot, OpenDKIM, Rspamd): running, enabled, version; configuration checks; the managed Postfix and Dovecot settings." }
   mail.settings_set: { mutating: true, description: "Change managed Postfix settings (postconf, postfix check, reload) and Dovecot settings (drop-in, doveconf -n, reload); the previous values come back on failure." }
-  mail.spam_configure: { mutating: true, description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only WhaCP's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure." }
+  mail.spam_configure: { mutating: true, description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only NimVor's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure." }
   mail.status: { mutating: false, description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases." }
   mail.suspend: { mutating: true, description: "Suspend or resume logins for a mail domain's mailboxes (account suspension); incoming mail is still delivered." }
   mail.trace: { mutating: false, description: "Mail troubleshooter: how mail to an address is routed (mailbox, forwarders, catch-all, routing, external MX or smart host)." }
-  mail.webmail_configure: { mutating: true, description: "Turn webmail (Roundcube) on for a host name, or off. WhaCP writes Roundcube's configuration in its own folder, runs it in its own PHP-FPM pool and account, creates or upgrades its SQLite database and serves it with its own Nginx site over HTTPS (Let's Encrypt certificate for the host name when present, otherwise self-signed). Validated with nginx -t and php-fpm -t, checked by loading the sign-in page, rolled back on failure." }
-  mail.webmail_install: { mutating: true, description: "Install Roundcube webmail from the distribution's packages (with PHP-FPM and SQLite support; the package's own database setup is skipped because WhaCP keeps Roundcube's data itself). Runs as a job." }
+  mail.webmail_configure: { mutating: true, description: "Turn webmail (Roundcube) on for a host name, or off. NimVor writes Roundcube's configuration in its own folder, runs it in its own PHP-FPM pool and account, creates or upgrades its SQLite database and serves it with its own Nginx site over HTTPS (Let's Encrypt certificate for the host name when present, otherwise self-signed). Validated with nginx -t and php-fpm -t, checked by loading the sign-in page, rolled back on failure." }
+  mail.webmail_install: { mutating: true, description: "Install Roundcube webmail from the distribution's packages (with PHP-FPM and SQLite support; the package's own database setup is skipped because NimVor keeps Roundcube's data itself). Runs as a job." }
   memcached.configure: { mutating: true, description: "Set Memcached's memory, connection limit and (loopback) listen addresses in its package configuration file after explicit confirmation; restarts and verifies, rolls back on failure." }
   memcached.flush: { mutating: true, description: "Remove every item from Memcached (requires confirm)." }
   memcached.status: { mutating: false, description: "Whether Memcached is installed and running, its settings and statistics." }
@@ -728,7 +728,7 @@ x-whacp-actions:
   modsec.status: { mutating: false, description: "ModSecurity: the Nginx connector as a capability (missing, installed but not loaded or usable, functional; from a package or not), the OWASP Core Rule Set found, the server-wide configuration, rule vendors, websites' modes and the audit log size." }
   modsec.trim: { mutating: true, description: "Keep the ModSecurity audit log small: above 50 MiB its last 5 MiB are kept." }
   modsec.update: { mutating: true, description: "Update the rule packages (OWASP CRS and the connector) with the package manager as a background job, then check with nginx -t and reload. If the new rules break the configuration, the Core Rule Set is turned off and the rest restored." }
-  mongo.admin_password: { mutating: true, description: "Create or reset the WhaCP MongoDB admin user and store its connection string." }
+  mongo.admin_password: { mutating: true, description: "Create or reset the NimVor MongoDB admin user and store its connection string." }
   mongo.aggregate: { mutating: false, description: "Run an aggregation pipeline (EJSON array), bounded and timed." }
   mongo.auth_set: { mutating: true, description: "Enable or disable MongoDB authentication, then restart (rolls back on failure)." }
   mongo.backup: { mutating: true, description: "Back up one database to a gzip mongodump archive (async job)." }
@@ -770,12 +770,16 @@ x-whacp-actions:
   mongo.user_create: { mutating: true, description: "Create a MongoDB user scoped to one database with a role." }
   mongo.user_drop: { mutating: true, description: "Drop a MongoDB user." }
   mongo.user_password: { mutating: true, description: "Change a MongoDB user's password." }
-  net.addresses: { mutating: false, description: "The server's IP addresses (per interface), default gateways and the routed IPv6 ranges WhaCP makes local." }
-  net.ipv6_ranges: { mutating: true, description: "Set the routed IPv6 ranges (exactly these) whose addresses websites may use: each becomes a local route on lo, kept at boot by whacp-ipv6-ranges.service. Ranges overlapping an interface's on-link prefix or containing a gateway are refused." }
+  net.addresses: { mutating: false, description: "The server's IP addresses (per interface), default gateways and the routed IPv6 ranges NimVor makes local." }
+  net.ipv6_ranges: { mutating: true, description: "Set the routed IPv6 ranges (exactly these) whose addresses websites may use: each becomes a local route on lo, kept at boot by nimvor-ipv6-ranges.service. Ranges overlapping an interface's on-link prefix or containing a gateway are refused." }
   nginx.reload: { mutating: true, description: "Reload Nginx (after validating the configuration)." }
   nginx.status: { mutating: false, description: "Nginx: installed, running and whether the current configuration is valid." }
   nginx.test: { mutating: false, description: "Validate the Nginx configuration (nginx -t)." }
-  nginx.tuning_apply: { mutating: true, description: "Apply WhaCP's server-wide Nginx tuning (a managed conf.d drop-in), validated with nginx -t and rolled back if invalid." }
+  nginx.tuning_apply: { mutating: true, description: "Apply NimVor's server-wide Nginx tuning (a managed conf.d drop-in), validated with nginx -t and rolled back if invalid." }
+  nimvor.restart: { mutating: true, description: "Restart one of NimVor's services (key: agent, panel, scheduler, greylist, dkim, ftpd). The agent and the panel restart two seconds after answering." }
+  nimvor.services: { mutating: false, description: "State of NimVor's own services (agent, panel, scheduler, greylisting, DKIM, FTP)." }
+  nimvor.update: { mutating: true, description: "Update NimVor: runs installer/update.sh of the root-owned source checkout in its own unit (output in /var/log/nimvor-update.log). The agent and the panel restart during it." }
+  nimvor.update_status: { mutating: false, description: "NimVor's source checkout (commit, branch, remote), whether the panel may update it, and the last update's output." }
   packages.advisories: { mutating: false, description: "Pending updates with the vulnerability information the OS provides: advisory id, severity and CVEs on RHEL (dnf updateinfo), security vs normal from the security pocket on Debian/Ubuntu. No automatic upgrades." }
   packages.health: { mutating: false, description: "Broken package state: install scripts that failed, missing dependencies, duplicates." }
   packages.install: { mutating: true, description: "Install allowlisted components: name, or names for several at once (job)." }
@@ -785,15 +789,15 @@ x-whacp-actions:
   packages.updates: { mutating: false, description: "Pending package updates (from the last package index refresh)." }
   packages.upgrade: { mutating: true, description: "Install all pending updates, keeping existing configuration files (job)." }
   php.available: { mutating: false, description: "PHP versions offered by the configured package repositories." }
-  php.catalog: { mutating: false, description: "The PHP extensions WhaCP manages (name, description) and those a new version gets by default." }
+  php.catalog: { mutating: false, description: "The PHP extensions NimVor manages (name, description) and those a new version gets by default." }
   php.extension_install: { mutating: true, description: "Install a PHP extension's package for a version (job); PHP-FPM is reloaded." }
   php.extension_remove: { mutating: true, description: "Remove a PHP extension's package for a version (job), only if nothing else would be removed with it; PHP-FPM is reloaded." }
   php.extension_set: { mutating: true, description: "Switch a PHP extension on or off for a version (Debian: phpenmod/phpdismod; RHEL: its php.d line); PHP-FPM is checked and reloaded, and the change undone on failure." }
-  php.extensions: { mutating: false, description: "The PHP extensions WhaCP manages for a version: installed, enabled, protected." }
-  php.fpm_get: { mutating: false, description: "Server-wide PHP-FPM settings WhaCP set for a PHP version (zero: PHP-FPM's default)." }
+  php.extensions: { mutating: false, description: "The PHP extensions NimVor manages for a version: installed, enabled, protected." }
+  php.fpm_get: { mutating: false, description: "Server-wide PHP-FPM settings NimVor set for a PHP version (zero: PHP-FPM's default)." }
   php.fpm_set: { mutating: true, description: "Write server-wide PHP-FPM settings for a PHP version (emergency restart, process control timeout, process.max, log level), checked with php-fpm -t and applied with a reload; rolled back on failure." }
-  php.ini_get: { mutating: false, description: "WhaCP's php.ini settings for a PHP version, the settings that may be changed and the values PHP-FPM uses now." }
-  php.ini_set: { mutating: true, description: "Write WhaCP's php.ini settings for a PHP version (allowed directives only; empty removes them), checked with php-fpm -t (warnings count as errors) and applied with a reload; rolled back on failure." }
+  php.ini_get: { mutating: false, description: "NimVor's php.ini settings for a PHP version, the settings that may be changed and the values PHP-FPM uses now." }
+  php.ini_set: { mutating: true, description: "Write NimVor's php.ini settings for a PHP version (allowed directives only; empty removes them), checked with php-fpm -t (warnings count as errors) and applied with a reload; rolled back on failure." }
   php.install: { mutating: true, description: "Install a PHP version (FPM, CLI and common extensions) with the package manager." }
   php.modules: { mutating: false, description: "Loaded modules of a PHP version." }
   php.profile_apply: { mutating: true, description: "Apply a PHP profile (job): the plan is computed again; removals need confirm_removals. Versions used by websites or by the panel are never removed." }
@@ -801,7 +805,7 @@ x-whacp-actions:
   php.repository: { mutating: false, description: "The third-party repository with more PHP versions for this system, and whether it is enabled." }
   php.repository.enable: { mutating: true, description: "Add the repository with more PHP versions (Ubuntu: Ondřej Surý's PPA, pinned key; RHEL family: Remi) and refresh the package index." }
   php.set_enabled: { mutating: true, description: "Start and enable, or stop and disable, the FPM service of a PHP version." }
-  processes.kill_user: { mutating: true, description: "Send a signal (TERM or KILL) to every process of one account (never root or WhaCP's own account)." }
+  processes.kill_user: { mutating: true, description: "Send a signal (TERM or KILL) to every process of one account (never root or NimVor's own account)." }
   processes.list: { mutating: false, description: "Every process: owner, priority, CPU and memory use, command line, executable and listening ports, and why a process looks suspicious (miners, deleted or temporary programs, fake kernel threads, shells listening on a port)." }
   processes.signal: { mutating: true, description: "Send a signal (TERM, KILL, HUP, STOP, CONT) to one process; start (from processes.list) makes sure it is still the same process." }
   processes.trace: { mutating: false, description: "One process in detail: executable, folders, open files, status, and (when strace is installed) its system calls for five seconds." }
@@ -824,21 +828,21 @@ x-whacp-actions:
   redis.password: { mutating: true, description: "Set or clear the default user's password." }
   runtime.available: { mutating: false, description: "List the stable Node.js and Python versions that can be installed (from nodejs.org and python-build-standalone)." }
   runtime.install: { mutating: true, description: "Install a Node.js (nodejs.org) or Python (python-build-standalone) runtime, verified against published checksums, side by side under the runtimes directory (job)." }
-  runtime.remove: { mutating: true, description: "Remove a WhaCP-managed runtime." }
-  runtime.status: { mutating: false, description: "List the Node.js and Python runtimes available on the server (WhaCP-managed and the system's own)." }
+  runtime.remove: { mutating: true, description: "Remove a NimVor-managed runtime." }
+  runtime.status: { mutating: false, description: "List the Node.js and Python runtimes available on the server (NimVor-managed and the system's own)." }
   security.audit: { mutating: false, description: "Security checks with findings and remedies (read-only)." }
   security.auto_updates: { mutating: true, description: "Turn automatic security updates on (unattended-upgrades, or dnf-automatic with security updates only and no reboot; installed when missing) or off (job)." }
   security.confirm: { mutating: true, description: "Keep a firewall/SSH change (otherwise it is rolled back automatically)." }
-  security.fix_kernel: { mutating: true, description: "Apply the recommended kernel security settings (kept in /etc/sysctl.d/90-whacp-hardening.conf; send_redirects is left alone on a router), or undo them (the earlier values are put back)." }
-  security.hide_processes: { mutating: true, description: "Mount /proc with hidepid=2 (each account sees only its own processes; members of whacp-proc see all), kept in /etc/fstab; or turn it off." }
+  security.fix_kernel: { mutating: true, description: "Apply the recommended kernel security settings (kept in /etc/sysctl.d/90-nimvor-hardening.conf; send_redirects is left alone on a router), or undo them (the earlier values are put back)." }
+  security.hide_processes: { mutating: true, description: "Mount /proc with hidepid=2 (each account sees only its own processes; members of nimvor-proc see all), kept in /etc/fstab; or turn it off." }
   security.host_known: { mutating: true, description: "Mark the scheduled tasks and services the latest host scan lists as known (pinned by content: a changed file is reported again), or forget the marks." }
-  security.integrity: { mutating: false, description: "File integrity check: package-owned files verified with dpkg/rpm and WhaCP-owned files compared against a baseline, classified and graded (read-only)." }
-  security.integrity_baseline: { mutating: true, description: "Record the current state of the WhaCP-owned files (agent binary, agent configuration) as the integrity baseline. Run after an install or upgrade." }
+  security.integrity: { mutating: false, description: "File integrity check: package-owned files verified with dpkg/rpm and NimVor-owned files compared against a baseline, classified and graded (read-only)." }
+  security.integrity_baseline: { mutating: true, description: "Record the current state of the NimVor-owned files (agent binary, agent configuration) as the integrity baseline. Run after an install or upgrade." }
   security.pending: { mutating: false, description: "The security change awaiting confirmation, if any." }
   security.undo: { mutating: true, description: "Roll back the pending firewall/SSH change now." }
   server.graphical: { mutating: false, description: "Whether the graphical login screen (GDM, LightDM, SDDM) runs, and the default boot target." }
   server.graphical_set: { mutating: true, description: "Turn the graphical login screen off (boot to the text console, stop the display manager) or on again." }
-  server.hostname_references: { mutating: false, description: "Find where a previous host name still appears in the server's managed configuration: /etc/hosts, WhaCP's Nginx sites, the mail server (Postfix myhostname) and the hosted DNS zones. Read-only." }
+  server.hostname_references: { mutating: false, description: "Find where a previous host name still appears in the server's managed configuration: /etc/hosts, NimVor's Nginx sites, the mail server (Postfix myhostname) and the hosted DNS zones. Read-only." }
   server.reboot: { mutating: true, description: "Schedule a restart (requires the host name as confirmation)." }
   server.reboot_cancel: { mutating: true, description: "Cancel a scheduled restart." }
   server.root_password: { mutating: true, description: "Set the root password. It is hashed (SHA-512 crypt) in the agent and handed to chpasswd -e as a hash on standard input; it is never logged or returned." }
@@ -847,17 +851,17 @@ x-whacp-actions:
   server.settings: { mutating: false, description: "Host name, time zone, clock synchronisation and restart state." }
   server.timezones: { mutating: false, description: "Available time zones." }
   services.control: { mutating: true, description: "Start, stop, restart, reload, enable or disable an allowlisted service." }
-  services.restart_all: { mutating: true, description: "Restart every running service WhaCP manages (databases and caches, PHP-FPM, mail, DNS, FTP, Nginx last; never SSH), then WhaCP's agent and panel. Runs as a job." }
+  services.restart_all: { mutating: true, description: "Restart every running service NimVor manages (databases and caches, PHP-FPM, mail, DNS, FTP, Nginx last; never SSH), then NimVor's agent and panel. Runs as a job." }
   services.status: { mutating: false, description: "Status of core services and PHP-FPM units." }
   sftp.configure: { mutating: true, description: "Turn SFTP access on or off for a website's system user: confined to the websites root (starting in its folder), SFTP only, with keys and/or a password. Validated with sshd -t, verified with sshd -T, rolled back on failure." }
   shell.set: { mutating: true, description: "Set the shell access of website accounts: disabled (SFTP only), jailed (a bubblewrap sandbox with only the account's website folder writable) or normal (/bin/bash). Applies while an account's SSH/SFTP login is on. Validated with sshd -t, verified with sshd -T, rolled back on failure." }
   shell.status: { mutating: false, description: "Shell access of the website accounts (disabled, jailed or normal; in effect while their SSH/SFTP login is on) and whether jailed shells can work here." }
-  sites.apply: { mutating: true, description: "Create or update a WhaCP website (Nginx, PHP-FPM pool, directories, system user)." }
+  sites.apply: { mutating: true, description: "Create or update a NimVor website (Nginx, PHP-FPM pool, directories, system user)." }
   sites.bandwidth: { mutating: false, description: "Bytes sent by websites per month, read from their access logs from where the last read stopped (read-only)." }
-  sites.delete: { mutating: true, description: "Remove a WhaCP website's configuration; optionally move its files to the trash." }
+  sites.delete: { mutating: true, description: "Remove a NimVor website's configuration; optionally move its files to the trash." }
   sites.disk_usage: { mutating: false, description: "Start a background job measuring the folders of a website folder (or a folder below it; the top level also counts the domain's mailboxes). Read-only." }
-  sites.inspect: { mutating: false, description: "State of a WhaCP website on disk." }
-  sites.list: { mutating: false, description: "WhaCP-managed websites present on this server." }
+  sites.inspect: { mutating: false, description: "State of a NimVor website on disk." }
+  sites.list: { mutating: false, description: "NimVor-managed websites present on this server." }
   sites.permissions: { mutating: true, description: "Check (dry_run) or repair the ownership and permissions of a website's files: the account's owner, its or the web server's group, no world-writable files, no set-ID files, readable by the owner. Links are never followed." }
   sites.usage: { mutating: false, description: "Disk use of website directories (read-only)." }
   ssh.configure: { mutating: true, description: "Harden the SSH server (validated with sshd -t, auto-reverted unless confirmed)." }
@@ -871,7 +875,7 @@ x-whacp-actions:
   ssl.csr_create: { mutating: true, description: "Generate a private key (kept on the server, never returned) and a certificate signing request for it; optionally a self-signed certificate from the same key." }
   ssl.custom: { mutating: true, description: "Install an uploaded certificate and private key after validating them." }
   ssl.custom_delete: { mutating: true, description: "Delete an uploaded (or installed from a server-made key) certificate and its key copy that no Nginx configuration uses." }
-  ssl.delete: { mutating: true, description: "Delete a certbot certificate that no WhaCP site uses any more." }
+  ssl.delete: { mutating: true, description: "Delete a certbot certificate that no NimVor site uses any more." }
   ssl.hostname_issue: { mutating: true, description: "Obtain a Let's Encrypt certificate for the server's host name as a job (certbot's output in the job log). An Nginx site answers the challenge on port 80 when no website uses the name. Use it for the panel or the mail server afterwards." }
   ssl.inspect: { mutating: false, description: "Details of a certificate file used by a site." }
   ssl.issue: { mutating: true, description: "Issue or expand a Let's Encrypt certificate (webroot)." }
@@ -884,10 +888,10 @@ x-whacp-actions:
   ssl.renewal_log: { mutating: false, description: "What certbot did in its recent runs (renewals, certificates not yet due, failures), from /var/log/letsencrypt." }
   ssl.renewal_status: { mutating: false, description: "Whether automatic certificate renewal is active." }
   ssl.service_cert: { mutating: true, description: "Use a Let's Encrypt certificate for the panel's HTTPS site or the mail server (Postfix and Dovecot), or go back to the previous one (cert_name empty). Checked (nginx -t, postfix check, doveconf), reloaded, rolled back on failure." }
-  ssl.services: { mutating: false, description: "Certificates and TLS of WhaCP's own services: the panel's HTTPS site and the mail server (Postfix and Dovecot), the server's host name and the Let's Encrypt certificates that could be used." }
+  ssl.services: { mutating: false, description: "Certificates and TLS of NimVor's own services: the panel's HTTPS site and the mail server (Postfix and Dovecot), the server's host name and the Let's Encrypt certificates that could be used." }
   ssl.store: { mutating: false, description: "Every certificate on the server (Let's Encrypt, uploaded or made here, and others Nginx uses) with where it is used, and every host name Nginx serves with the certificate that answers for it. No private keys." }
-  ssl.tls_get: { mutating: false, description: "The server-wide TLS configuration WhaCP websites and webmail use, the snippet, and how many WhaCP virtual hosts still carry their own TLS lines." }
-  ssl.tls_set: { mutating: true, description: "Set the server-wide TLS configuration: writes the snippet every WhaCP virtual host includes (moving vhosts that carry their own TLS lines to the include), checks with nginx -t and reloads; restores everything if the check or reload fails." }
+  ssl.tls_get: { mutating: false, description: "The server-wide TLS configuration NimVor websites and webmail use, the snippet, and how many NimVor virtual hosts still carry their own TLS lines." }
+  ssl.tls_set: { mutating: true, description: "Set the server-wide TLS configuration: writes the snippet every NimVor virtual host includes (moving vhosts that carry their own TLS lines to the include), checks with nginx -t and reloads; restores everything if the check or reload fails." }
   stats.data: { mutating: false, description: "One month (YYYYMM) of a website's AWStats data (text), read confined to the website." }
   stats.enable: { mutating: true, description: "Turn website statistics on (AWStats configuration, data folder, update every 6 hours as the website's account) or off (the data is kept)." }
   stats.status: { mutating: false, description: "Website statistics: AWStats installed, turned on for the website, months with data and the last update." }
@@ -900,10 +904,6 @@ x-whacp-actions:
   terminal.open: { mutating: true, description: "Prepare a web terminal session for a website account (its shell access must be jailed or normal) or, when terminal_root is on, a root shell. Returns a single-use ticket valid for a minute, which the browser sends over the WebSocket together with the account's Linux password (checked by the agent with PAM's unix_chkpwd; the panel never sees it). Accounts in privileged groups are refused." }
   terminal.status: { mutating: false, description: "Web terminal: whether it is enabled, whether root shells are allowed (terminal_root), and the open sessions." }
   tls.audit: { mutating: false, description: "Probe this server's own TLS endpoints and report weak protocols (TLS 1.0/1.1 accepted), weak cipher suites, and certificate problems (SHA-1, expired, untrusted chain, host-name mismatch). Read-only; it never changes any configuration. The panel passes the website and mail endpoints to check; each is dialed on this server (loopback), with the given name used for SNI and host-name verification." }
-  whacp.restart: { mutating: true, description: "Restart one of WhaCP's services (key: agent, panel, scheduler, greylist, dkim, ftpd). The agent and the panel restart two seconds after answering." }
-  whacp.services: { mutating: false, description: "State of WhaCP's own services (agent, panel, scheduler, greylisting, DKIM, FTP)." }
-  whacp.update: { mutating: true, description: "Update WhaCP: runs installer/update.sh of the root-owned source checkout in its own unit (output in /var/log/whacp-update.log). The agent and the panel restart during it." }
-  whacp.update_status: { mutating: false, description: "WhaCP's source checkout (commit, branch, remote), whether the panel may update it, and the last update's output." }
   wordpress.copy: { mutating: true, description: "Staging and cloning (job): clone an installation to another folder with its own database, sync files and/or the database from one installation to another, or put back a restore point. Files are copied by tar as the source and target accounts; a restore point of the target is saved before anything is replaced." }
   wordpress.info: { mutating: true, description: "Overview of a WordPress installation: versions, updates, plugins, themes, settings (WP-CLI as the website account)." }
   wordpress.login: { mutating: true, description: "One-time sign-in link for a WordPress administrator (a file that deletes itself on first use and expires after a minute)." }

@@ -37,7 +37,7 @@ type FirewallStatus struct {
 	SSHPort   int        `json:"ssh_port"`
 	SSHOpen   bool       `json:"ssh_allowed"`
 	Listening []Listener `json:"listening"`
-	// Required: the ports WhaCP and its services need (firewall.status).
+	// Required: the ports NimVor and its services need (firewall.status).
 	Required []RequiredPort `json:"required,omitempty"`
 }
 
@@ -244,9 +244,9 @@ func (in RuleInput) Args() ([]string, error) {
 		args = append(args, "proto", in.Proto)
 	}
 	args = append(args, "from", from, "to", "any", "port", in.Port)
-	comment := "whacp"
+	comment := "nimvor"
 	if in.Comment != "" {
-		comment = "whacp: " + in.Comment
+		comment = "nimvor: " + in.Comment
 	}
 	return append(args, "comment", comment), nil
 }
@@ -404,7 +404,7 @@ func (o EnableOptions) validate() error {
 
 // adminRule is the ufw rule letting one address reach every port.
 func adminRule(from string) []string {
-	return []string{"allow", "from", from, "comment", "whacp: administrator"}
+	return []string{"allow", "from", from, "comment", "nimvor: administrator"}
 }
 
 // SetEnabled turns UFW on or off under the guard. Turning it on opens the

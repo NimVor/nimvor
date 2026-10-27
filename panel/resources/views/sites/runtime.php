@@ -2,7 +2,7 @@
 /**
  * Site → Runtime: the runtime version and app for a Node.js/Python website.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed> $site
  * @var string $appType
  * @var array<string, mixed>|null $app
@@ -13,7 +13,7 @@ $current = (string) ($site['app_runtime'] ?? '');
 $prefix = $appType === 'python' ? 'python' : 'node';
 $label = $appType === 'python' ? 'Python' : 'Node.js';
 $route = $appType === 'python' ? 'sites.python.update' : 'sites.nodejs.update';
-$workersUrl = \WhaCP\View\SiteMenu::url($this, $site, 'workers');
+$workersUrl = \NimVor\View\SiteMenu::url($this, $site, 'workers');
 $port = preg_match('/:(\d+)/', (string) ($site['proxy_pass'] ?? ''), $m) ? $m[1] : '';
 ?>
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => $appType === 'python' ? 'python' : 'nodejs']) ?>
@@ -23,7 +23,7 @@ $port = preg_match('/:(\d+)/', (string) ($site['proxy_pass'] ?? ''), $m) ? $m[1]
     <div class="col-lg-6">
         <div class="card h-100">
             <div class="card-header"><i class="bi bi-<?= $appType === 'python' ? 'filetype-py' : 'hexagon' ?> me-1" aria-hidden="true"></i><?= e($label) ?> version</div>
-            <form class="card-body" method="post" action="<?= e($this->url($route, ['id' => $id])) ?>" data-wcp-busy>
+            <form class="card-body" method="post" action="<?= e($this->url($route, ['id' => $id])) ?>" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <label class="form-label small" for="rt-ver">Runtime</label>
                 <div class="input-group">
@@ -45,7 +45,7 @@ $port = preg_match('/:(\d+)/', (string) ($site['proxy_pass'] ?? ''), $m) ? $m[1]
                     <dl class="row small mb-2">
                         <dt class="col-4">Command</dt><dd class="col-8 font-monospace text-truncate"><?= e((string) ($app['command'] ?? '')) ?></dd>
                         <dt class="col-4">Runtime</dt><dd class="col-8"><?= e((string) ($app['runtime'] ?? 'system')) ?></dd>
-                        <dt class="col-4">State</dt><dd class="col-8"><?= !empty($app['enabled']) ? '<span class="wcp-state is-ok">enabled</span>' : '<span class="wcp-state is-off">disabled</span>' ?></dd>
+                        <dt class="col-4">State</dt><dd class="col-8"><?= !empty($app['enabled']) ? '<span class="nim-state is-ok">enabled</span>' : '<span class="nim-state is-off">disabled</span>' ?></dd>
                     </dl>
                     <?php if ($workersUrl !== null): ?><a class="btn btn-sm btn-outline-primary" href="<?= e($workersUrl) ?>">Edit command, env &amp; restart</a><?php endif; ?>
                 <?php else: ?>

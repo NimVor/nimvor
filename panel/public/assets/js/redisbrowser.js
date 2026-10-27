@@ -2,7 +2,7 @@
 // data round-trips exactly; everything is rendered as text, never HTML.
 (function () {
     'use strict';
-    var root = document.getElementById('wcp-rb');
+    var root = document.getElementById('nim-rb');
     if (!root) { return; }
     var api = root.dataset.api, fixedPrefix = root.dataset.fixed === '1';
     var $ = function (s) { return root.querySelector(s); };
@@ -56,7 +56,7 @@
 
     // ---- key list -----------------------------------------------------
     function renderKey(k) {
-        var li = el('li', 'list-group-item list-group-item-action wcp-rb-key');
+        var li = el('li', 'list-group-item list-group-item-action nim-rb-key');
         li.setAttribute('role', 'option'); li.tabIndex = 0; li.dataset.key = k.key.b64;
         if (state.current && state.current === k.key.b64) { li.classList.add('active'); }
         li.appendChild(el('span', 'badge ' + (TYPE_CLASS[k.type] || 'text-bg-light') + ' me-2', k.type));
@@ -79,21 +79,21 @@
     function edit(params) { return call('edit', Object.assign({ key: state.current }, params)).then(function () { open(state.current); }).catch(fail); }
     function btn(label, icon, cls, fn) { var b = el('button', 'btn btn-sm ' + cls); b.type = 'button'; if (icon) { var i = el('i', 'bi ' + icon + (label ? ' me-1' : '')); b.appendChild(i); } if (label) { b.appendChild(document.createTextNode(label)); } b.addEventListener('click', fn); return b; }
     function table(headers, rowsData) {
-        var wrap = el('div', 'table-responsive'), t = el('table', 'table table-sm table-hover align-middle mb-0 wcp-rb-table');
+        var wrap = el('div', 'table-responsive'), t = el('table', 'table table-sm table-hover align-middle mb-0 nim-rb-table');
         var thead = el('thead'), tr = el('tr'); headers.forEach(function (h) { tr.appendChild(el('th', 'small', h)); }); thead.appendChild(tr); t.appendChild(thead);
         var tb = el('tbody'); rowsData.forEach(function (r) { tb.appendChild(r); }); t.appendChild(tb); wrap.appendChild(t); return wrap;
     }
-    function cellText(bin) { var td = el('td', 'font-monospace small wcp-rb-cell'); td.textContent = show(bin); if (bin.binary) { td.classList.add('text-body-secondary'); } return td; }
+    function cellText(bin) { var td = el('td', 'font-monospace small nim-rb-cell'); td.textContent = show(bin); if (bin.binary) { td.classList.add('text-body-secondary'); } return td; }
 
     function open(keyB64) {
         state.current = keyB64;
-        list.querySelectorAll('.wcp-rb-key').forEach(function (li) { li.classList.toggle('active', li.dataset.key === keyB64); });
+        list.querySelectorAll('.nim-rb-key').forEach(function (li) { li.classList.toggle('active', li.dataset.key === keyB64); });
         detail.replaceChildren(el('div', 'p-4 text-body-secondary', 'Loading…'));
         return call('get', { key: keyB64 }).then(renderDetail).catch(function (err) { detail.replaceChildren(el('div', 'p-4 text-danger', (err.details && err.details.message) || err.message)); });
     }
     function renderDetail(kv) {
         detail.replaceChildren();
-        var head = el('div', 'wcp-rb-head');
+        var head = el('div', 'nim-rb-head');
         head.appendChild(el('span', 'badge ' + (TYPE_CLASS[kv.type] || 'text-bg-light'), kv.type));
         head.appendChild(el('h2', 'h6 mb-0 font-monospace text-break flex-grow-1', show(kv.key)));
         head.appendChild(el('span', 'small text-body-secondary', (kv.type === 'string' ? kv.length + ' bytes' : kv.length + ' elements') + ' · ' + ttlText(kv.ttl)));
@@ -113,11 +113,11 @@
         head.appendChild(tools);
         detail.appendChild(head);
         if (kv.truncated) { detail.appendChild(el('div', 'alert alert-info small m-2 py-1', kv.type === 'string' ? 'Only the first 1 MiB is shown; editing is disabled.' : 'Only the first elements are shown.')); }
-        var body = el('div', 'wcp-rb-content');
+        var body = el('div', 'nim-rb-content');
         detail.appendChild(body);
 
         if (kv.type === 'string') {
-            var ta = el('textarea', 'form-control font-monospace wcp-rb-text'); ta.spellcheck = false; ta.value = show(kv.value);
+            var ta = el('textarea', 'form-control font-monospace nim-rb-text'); ta.spellcheck = false; ta.value = show(kv.value);
             ta.readOnly = kv.value.binary || kv.truncated; ta.setAttribute('aria-label', 'Value');
             body.appendChild(ta);
             if (!ta.readOnly) {

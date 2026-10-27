@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Security\TwoFactor;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Security\TwoFactor;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class TwoFactorTest extends HttpTestCase
 {
@@ -17,7 +17,7 @@ final class TwoFactorTest extends HttpTestCase
         parent::setUp();
         // A fixed clock, so codes never cross a 30-second boundary mid-test.
         $c = $this->app->container;
-        $c->instance(TwoFactor::class, new TwoFactor($c->get(Connection::class), $c->get(\WhaCP\Security\Crypto::class), static fn (): int => self::T));
+        $c->instance(TwoFactor::class, new TwoFactor($c->get(Connection::class), $c->get(\NimVor\Security\Crypto::class), static fn (): int => self::T));
     }
 
     private function now(string $secret, int $offset = 0): string
@@ -43,9 +43,9 @@ final class TwoFactorTest extends HttpTestCase
         $this->post('/profile/two-factor/enable', ['code' => $this->now($secret, -1), 'current_password' => 'a-long-test-password']);
         $this->flash('success');
         $body = $this->request('GET', '/profile')->body();
-        self::assertSame(1, preg_match('#data-wcp-recovery>([^<]*)</pre>#', $body, $pre));
+        self::assertSame(1, preg_match('#data-nim-recovery>([^<]*)</pre>#', $body, $pre));
         self::assertSame(10, preg_match_all('/^[a-z2-7]{5}-[a-z2-7]{5}$/m', $pre[1], $codes));
-        self::assertStringNotContainsString('data-wcp-recovery', $this->request('GET', '/profile')->body(), 'shown once');
+        self::assertStringNotContainsString('data-nim-recovery', $this->request('GET', '/profile')->body(), 'shown once');
         self::assertStringNotContainsString($secret, (string) json_encode($this->app->container->get(Connection::class)->fetchAll('SELECT * FROM user_two_factor')), 'the secret is stored encrypted');
         return [$secret, $codes[0]];
     }
@@ -132,7 +132,7 @@ final class TwoFactorTest extends HttpTestCase
         $this->seedUser('alice', 'admin');
         $this->seedUser('carol', 'customer');
         $this->login('alice');
-        $roleId = (int) $this->app->container->get(\WhaCP\Repositories\RoleRepository::class)->findByName('customer')['id'];
+        $roleId = (int) $this->app->container->get(\NimVor\Repositories\RoleRepository::class)->findByName('customer')['id'];
         self::assertStringContainsString('Require two-factor sign-in', $this->request('GET', '/roles/' . $roleId . '/edit')->body());
         $this->post('/roles/' . $roleId . '/two-factor', ['require_two_factor' => '1']);
         $this->post('/logout');

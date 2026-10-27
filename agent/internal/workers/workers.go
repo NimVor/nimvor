@@ -1,7 +1,7 @@
 // Package workers runs long-lived application processes (queue workers,
 // Node.js or Python apps) as systemd services.
 //
-// A worker is whacp-worker-<slug>.service running as the website account.
+// A worker is nimvor-worker-<slug>.service running as the website account.
 // The command is stored in a root-owned launcher script, readable by the
 // website account only, so the unit file itself contains no user text, and
 // the service is sandboxed (NoNewPrivileges, PrivateTmp, read-only system
@@ -41,7 +41,7 @@ type Spec struct {
 	// queue workers). 1 (or 0) keeps a single service; more add sibling
 	// services. The memory limit applies to each copy.
 	Procs int `json:"procs"`
-	// Runtime selects a WhaCP-managed language runtime for the command, e.g.
+	// Runtime selects a NimVor-managed language runtime for the command, e.g.
 	// "node:20.17.0" or "python:3.12"; "" or "system" uses the system's own.
 	Runtime string `json:"runtime"`
 	Enabled bool   `json:"enabled"`
@@ -59,7 +59,7 @@ var envKey = regexp.MustCompile(`^[A-Z_][A-Z0-9_]{0,63}$`)
 const MaxProcs = 20
 
 // Unit returns the systemd unit name for a slug (the first/only copy).
-func Unit(slug string) string { return "whacp-worker-" + slug + ".service" }
+func Unit(slug string) string { return "nimvor-worker-" + slug + ".service" }
 
 // unitN returns the unit name for the n-th copy (n starts at 1). The first
 // copy keeps the plain name, so a single-process worker is byte-for-byte
@@ -68,7 +68,7 @@ func unitN(slug string, n int) string {
 	if n <= 1 {
 		return Unit(slug)
 	}
-	return fmt.Sprintf("whacp-worker-%s-%d.service", slug, n)
+	return fmt.Sprintf("nimvor-worker-%s-%d.service", slug, n)
 }
 
 // procUnits returns the unit names for a worker running procs copies.
@@ -150,7 +150,7 @@ func shQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) 
 
 func (s Spec) script() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "#!/bin/sh\n# Managed by WhaCP: worker %q of %s. Do not edit.\n", s.Name, s.Domain)
+	fmt.Fprintf(&b, "#!/bin/sh\n# Managed by NimVor: worker %q of %s. Do not edit.\n", s.Name, s.Domain)
 	if s.runtimeBin != "" {
 		fmt.Fprintf(&b, "export PATH=%s:$PATH\n", shQuote(s.runtimeBin))
 	}
@@ -172,8 +172,8 @@ func (s Spec) unit(script string, instance int) string {
 	if instance > 1 {
 		label = fmt.Sprintf("%s (copy %d)", s.Slug, instance)
 	}
-	fmt.Fprintf(&b, "# Managed by WhaCP. Do not edit.\n[Unit]\nDescription=WhaCP worker %s (%s)\nAfter=network.target\nStartLimitIntervalSec=60\nStartLimitBurst=10\n\n", label, s.Domain)
-	fmt.Fprintf(&b, "[Service]\nType=simple\nUser=%s\nGroup=%s\nEnvironment=WHACP_WORKER_INSTANCE=%d\nExecStart=/bin/sh %s\nRestart=%s\nRestartSec=5s\n", s.User, s.User, instance, script, s.Restart)
+	fmt.Fprintf(&b, "# Managed by NimVor. Do not edit.\n[Unit]\nDescription=NimVor worker %s (%s)\nAfter=network.target\nStartLimitIntervalSec=60\nStartLimitBurst=10\n\n", label, s.Domain)
+	fmt.Fprintf(&b, "[Service]\nType=simple\nUser=%s\nGroup=%s\nEnvironment=NIMVOR_WORKER_INSTANCE=%d\nExecStart=/bin/sh %s\nRestart=%s\nRestartSec=5s\n", s.User, s.User, instance, script, s.Restart)
 	// RestrictSUIDSGID is not set, as for the other commands run as the
 	// account (see execx.transientHardening): its seccomp filter answers
 	// openat2() with ENOSYS, which tar 1.35 on Ubuntu 26.04 does not fall

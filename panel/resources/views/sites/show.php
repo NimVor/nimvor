@@ -1,11 +1,11 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $site */
 /** @var array<string, mixed> $summary */
 /** @var string|null $serverIp */
 /** @var int|null $dbBytes */
-use WhaCP\Security\Permissions as P;
-use WhaCP\View\SiteMenu;
+use NimVor\Security\Permissions as P;
+use NimVor\View\SiteMenu;
 
 $id = (int) $site['id'];
 $u = fn (string $key, string $hash = ''): ?string => ($url = SiteMenu::url($this, $site, $key)) === null ? null : $url . $hash;
@@ -113,7 +113,7 @@ foreach ([
         <div class="alert alert-secondary small d-flex flex-wrap align-items-center gap-2">
             <span class="me-auto"><i class="bi bi-box-arrow-in-down me-1"></i>Imported from <code><?= e($import['source']) ?></code> on <?= e(substr((string) $import['created_at'], 0, 10)) ?>. The original files and configuration are kept.</span>
             <?php if ($this->can(P::IMPORT_RUN)): ?>
-                <form method="post" action="<?= e($this->url('sites.import.undo', ['id' => $id])) ?>" data-wcp-confirm="Undo the import? The original configuration will serve <?= e($site['domain']) ?> again, and the NimVor copy (files in <?= e($site['root']) ?>, its account and settings) will be deleted. Changes made since the import are lost.">
+                <form method="post" action="<?= e($this->url('sites.import.undo', ['id' => $id])) ?>" data-nim-confirm="Undo the import? The original configuration will serve <?= e($site['domain']) ?> again, and the NimVor copy (files in <?= e($site['root']) ?>, its account and settings) will be deleted. Changes made since the import are lost.">
                     <?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Undo import</button>
                 </form>
             <?php endif; ?>
@@ -121,21 +121,21 @@ foreach ([
     <?php endif; ?>
 <?php endif; ?>
 
-<section class="card wcp-site-hero mb-4" aria-label="Website details" data-wcp-site-summary>
+<section class="card nim-site-hero mb-4" aria-label="Website details" data-nim-site-summary>
     <div class="card-body">
         <div class="row g-4 align-items-center">
             <div class="col-md-5 col-lg-4 d-none d-md-block">
-                <a class="wcp-site-thumb wcp-site-thumb-lg wcp-tint-<?= (int) $tint ?><?= $site['enabled'] ? '' : ' is-off' ?>" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer" aria-label="Visit <?= e($site['domain']) ?>">
-                    <span class="wcp-site-initial" aria-hidden="true"><?= e(strtoupper(substr((string) $site['domain'], 0, 1))) ?></span>
-                    <span class="wcp-site-badges">
-                        <span class="wcp-site-badge <?= $site['https'] ? 'is-ok' : 'is-muted' ?>"><i class="bi bi-<?= $site['https'] ? 'lock-fill' : 'unlock' ?>" aria-hidden="true"></i> <?= $site['https'] ? 'HTTPS' : 'HTTP' ?></span>
+                <a class="nim-site-thumb nim-site-thumb-lg nim-tint-<?= (int) $tint ?><?= $site['enabled'] ? '' : ' is-off' ?>" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer" aria-label="Visit <?= e($site['domain']) ?>">
+                    <span class="nim-site-initial" aria-hidden="true"><?= e(strtoupper(substr((string) $site['domain'], 0, 1))) ?></span>
+                    <span class="nim-site-badges">
+                        <span class="nim-site-badge <?= $site['https'] ? 'is-ok' : 'is-muted' ?>"><i class="bi bi-<?= $site['https'] ? 'lock-fill' : 'unlock' ?>" aria-hidden="true"></i> <?= $site['https'] ? 'HTTPS' : 'HTTP' ?></span>
                     </span>
-                    <?php if (!$site['enabled']): ?><span class="wcp-site-ribbon">Disabled</span><?php endif; ?>
-                    <span class="wcp-site-visit"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i><?= e($site['domain']) ?></span>
+                    <?php if (!$site['enabled']): ?><span class="nim-site-ribbon">Disabled</span><?php endif; ?>
+                    <span class="nim-site-visit"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i><?= e($site['domain']) ?></span>
                 </a>
             </div>
             <div class="col-md-7 col-lg-8">
-                <dl class="wcp-site-facts mb-0">
+                <dl class="nim-site-facts mb-0">
                     <div><dt><i class="bi bi-person" aria-hidden="true"></i>Site user</dt><dd><code><?= e($site['system_user']) ?></code></dd></div>
                     <div><dt><i class="bi bi-folder2" aria-hidden="true"></i>Root directory</dt><dd class="text-break"><code><?= e($site['document_root']) ?></code></dd></div>
                     <div><dt><i class="bi bi-geo-alt" aria-hidden="true"></i>IPv4</dt><dd><?= $serverIp !== null ? e($serverIp) : '<span class="text-body-secondary">—</span>' ?></dd></div>
@@ -155,36 +155,36 @@ foreach ([
         <h2 class="h5 mb-0 me-auto" id="manage-title">Site managing</h2>
         <?php if ($canManage): ?>
             <a class="btn btn-sm btn-outline-danger" href="<?= e($this->url('sites.advanced', ['id' => $id])) ?>#delete-website"><i class="bi bi-trash me-1"></i>Delete the website</a>
-            <form method="post" action="<?= e($this->url('sites.toggle', ['id' => $id])) ?>" data-wcp-busy<?= $site['enabled'] ? ' data-wcp-confirm="Disable ' . e($site['domain']) . '? Visitors will no longer reach it. Files, databases and settings are kept."' : '' ?>>
+            <form method="post" action="<?= e($this->url('sites.toggle', ['id' => $id])) ?>" data-nim-busy<?= $site['enabled'] ? ' data-nim-confirm="Disable ' . e($site['domain']) . '? Visitors will no longer reach it. Files, databases and settings are kept."' : '' ?>>
                 <?= $this->csrfField() ?><input type="hidden" name="return_to" value="overview">
                 <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-power me-1"></i><?= $site['enabled'] ? 'Disable the website' : 'Enable the website' ?></button>
             </form>
         <?php endif; ?>
     </div>
 
-    <div class="wcp-feature-search mb-3" data-wcp-feature-search>
-        <label class="visually-hidden" for="wcp-fs">Search features</label>
+    <div class="nim-feature-search mb-3" data-nim-feature-search>
+        <label class="visually-hidden" for="nim-fs">Search features</label>
         <div class="input-group">
             <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-            <input class="form-control" id="wcp-fs" type="search" placeholder="Search… e.g. create database, add email, DNS records" autocomplete="off"
-                   role="combobox" aria-expanded="false" aria-controls="wcp-fs-results" aria-autocomplete="list" data-wcp-feature-input>
+            <input class="form-control" id="nim-fs" type="search" placeholder="Search… e.g. create database, add email, DNS records" autocomplete="off"
+                   role="combobox" aria-expanded="false" aria-controls="nim-fs-results" aria-autocomplete="list" data-nim-feature-input>
         </div>
-        <div class="list-group wcp-feature-results d-none" id="wcp-fs-results" role="listbox" data-wcp-feature-results>
+        <div class="list-group nim-feature-results d-none" id="nim-fs-results" role="listbox" data-nim-feature-results>
             <?php foreach ($search as $i => [$label, $url, $icon, $words]): ?>
-                <a class="list-group-item list-group-item-action d-none" id="wcp-fs-<?= (int) $i ?>" role="option" href="<?= e($url) ?>" data-wcp-feature="<?= e(strtolower($label . ' ' . $words)) ?>" data-wcp-feature-label="<?= e(strtolower($label)) ?>">
+                <a class="list-group-item list-group-item-action d-none" id="nim-fs-<?= (int) $i ?>" role="option" href="<?= e($url) ?>" data-nim-feature="<?= e(strtolower($label . ' ' . $words)) ?>" data-nim-feature-label="<?= e(strtolower($label)) ?>">
                     <i class="bi bi-<?= e($icon) ?> me-2 text-body-secondary" aria-hidden="true"></i><span class="fw-medium"><?= e($label) ?></span>
                 </a>
             <?php endforeach; ?>
-            <div class="list-group-item small text-body-secondary d-none" data-wcp-feature-none>Nothing found. Try “database”, “email” or “backup”.</div>
+            <div class="list-group-item small text-body-secondary d-none" data-nim-feature-none>Nothing found. Try “database”, “email” or “backup”.</div>
         </div>
     </div>
 
-    <div class="wcp-tiles" data-wcp-tiles>
+    <div class="nim-tiles" data-nim-tiles>
         <?php foreach ($tiles as [$label, $icon, $url, $note]): ?>
-            <a class="wcp-tile" href="<?= e($url) ?>" data-wcp-tile="<?= e(strtolower($label)) ?>">
-                <span class="wcp-tile-icon" aria-hidden="true"><i class="bi bi-<?= e($icon) ?>"></i></span>
-                <span class="wcp-tile-label"><?= e($label) ?></span>
-                <?php if ($note !== null && $note !== ''): ?><span class="wcp-tile-note"><?= e($note) ?></span><?php endif; ?>
+            <a class="nim-tile" href="<?= e($url) ?>" data-nim-tile="<?= e(strtolower($label)) ?>">
+                <span class="nim-tile-icon" aria-hidden="true"><i class="bi bi-<?= e($icon) ?>"></i></span>
+                <span class="nim-tile-label"><?= e($label) ?></span>
+                <?php if ($note !== null && $note !== ''): ?><span class="nim-tile-note"><?= e($note) ?></span><?php endif; ?>
             </a>
         <?php endforeach; ?>
     </div>

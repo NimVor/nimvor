@@ -48,25 +48,25 @@ func TestRealHostServerRestoreDrill(t *testing.T) {
 	orig, _ := os.ReadFile("/etc/nginx/nginx.conf")
 	t.Cleanup(func() {
 		os.WriteFile("/etc/nginx/nginx.conf", orig, 0o644)
-		os.Remove("/etc/nginx/conf.d/zz-whacp-drill.conf")
+		os.Remove("/etc/nginx/conf.d/zz-nimvor-drill.conf")
 	})
 	good, err := s.CreateServer(ctx, true, "drill good", nil, true, &out)
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.WriteFile("/etc/nginx/conf.d/zz-whacp-drill.conf", []byte("this is not nginx syntax;\n"), 0o644)
+	os.WriteFile("/etc/nginx/conf.d/zz-nimvor-drill.conf", []byte("this is not nginx syntax;\n"), 0o644)
 	bad, err := s.CreateServer(ctx, true, "drill bad", nil, true, &out)
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.Remove("/etc/nginx/conf.d/zz-whacp-drill.conf")
+	os.Remove("/etc/nginx/conf.d/zz-nimvor-drill.conf")
 
 	// 1. The broken backup is refused and nothing changes.
 	_, err = s.RestoreServer(ctx, ServerRestoreRequest{ID: bad.ID, Components: []string{"nginx"}, Confirm: true}, &out)
 	if err == nil || !strings.Contains(err.Error(), "put back") {
 		t.Fatalf("restore of an invalid config: %v\n%s", err, out.String())
 	}
-	if _, err := os.Stat("/etc/nginx/conf.d/zz-whacp-drill.conf"); err == nil {
+	if _, err := os.Stat("/etc/nginx/conf.d/zz-nimvor-drill.conf"); err == nil {
 		t.Fatal("the invalid file was left in place")
 	}
 	if o, err := exec.Command("nginx", "-t").CombinedOutput(); err != nil {
@@ -91,7 +91,7 @@ func TestRealHostServerRestoreDrill(t *testing.T) {
 	}
 	if m, _ := os.ReadDir("/etc"); m != nil {
 		for _, e := range m {
-			if strings.Contains(e.Name(), ".whacp-old-") {
+			if strings.Contains(e.Name(), ".nimvor-old-") {
 				t.Errorf("leftover /etc/%s", e.Name())
 			}
 		}

@@ -6,11 +6,11 @@
 //
 //	go test -tags realhost ./internal/sites -run RealHostCrossSitePHPIsolation -v
 //
-// It creates two websites owned by two unprivileged accounts (whacp-a and
-// whacp-b), puts private files, a configuration file, logs and a backup in
-// website B, starts B's real PHP-FPM master (so a worker runs as whacp-b and
+// It creates two websites owned by two unprivileged accounts (nimvor-a and
+// nimvor-b), puts private files, a configuration file, logs and a backup in
+// website B, starts B's real PHP-FPM master (so a worker runs as nimvor-b and
 // B's socket exists), and then runs an attacker PHP script *as the real
-// whacp-a account* that tries every cross-site operation against B. Every
+// nimvor-a account* that tries every cross-site operation against B. Every
 // unauthorized operation must be denied by the operating system — the test
 // deliberately removes PHP's own open_basedir so that what is proven is the
 // kernel's user/permission isolation, not a PHP setting an attacker could
@@ -70,7 +70,7 @@ func TestRealHostCrossSitePHPIsolation(t *testing.T) {
 
 	root := filesystem.Host()
 	cfg := config.Default()
-	cfg.SitesRoot = "/home/whacp-xsite"
+	cfg.SitesRoot = "/home/nimvor-xsite"
 	cfg.StateDir = t.TempDir()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	jm, _ := jobs.NewManager(t.TempDir(), 1, time.Minute, log)
@@ -80,10 +80,10 @@ func TestRealHostCrossSitePHPIsolation(t *testing.T) {
 	m := &Manager{Env: env}
 	ctx := context.Background()
 
-	a := Spec{Domain: "a.xsite.test", User: "whacp-a", CreateUser: true, Kind: "php", PHPVersion: v, Enabled: true, PHP: PHPSettings{Harden: true}}
-	// B runs a static pool (one worker) so a whacp-b process exists in /proc
+	a := Spec{Domain: "a.xsite.test", User: "nimvor-a", CreateUser: true, Kind: "php", PHPVersion: v, Enabled: true, PHP: PHPSettings{Harden: true}}
+	// B runs a static pool (one worker) so a nimvor-b process exists in /proc
 	// as soon as the master starts.
-	b := Spec{Domain: "b.xsite.test", User: "whacp-b", CreateUser: true, Kind: "php", PHPVersion: v, Enabled: true,
+	b := Spec{Domain: "b.xsite.test", User: "nimvor-b", CreateUser: true, Kind: "php", PHPVersion: v, Enabled: true,
 		PHP: PHPSettings{Harden: true, PM: "static", MaxChildren: 1}}
 	t.Cleanup(func() {
 		for _, s := range []Spec{a, b} {
@@ -99,7 +99,7 @@ func TestRealHostCrossSitePHPIsolation(t *testing.T) {
 
 	aRoot := filepath.Join(cfg.SitesRoot, a.Domain)
 	bRoot := filepath.Join(cfg.SitesRoot, b.Domain)
-	// B's private material, owned by whacp-b with realistic modes.
+	// B's private material, owned by nimvor-b with realistic modes.
 	bSecret := filepath.Join(bRoot, "public_html", "secret.txt")
 	bConfig := filepath.Join(bRoot, "config.php")
 	bLog := filepath.Join(bRoot, "logs", "private.log")
@@ -108,7 +108,7 @@ func TestRealHostCrossSitePHPIsolation(t *testing.T) {
 		if err := os.WriteFile(p, []byte(content), mode); err != nil {
 			t.Fatalf("seed %s: %v", p, err)
 		}
-		if out, err := exec.Command("chown", "whacp-b:whacp-b", p).CombinedOutput(); err != nil {
+		if out, err := exec.Command("chown", "nimvor-b:nimvor-b", p).CombinedOutput(); err != nil {
 			t.Fatalf("chown %s: %s", p, out)
 		}
 		os.Chmod(p, mode)
@@ -123,19 +123,19 @@ func TestRealHostCrossSitePHPIsolation(t *testing.T) {
 	if err := os.WriteFile(aSecret, []byte("A-own-data"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	exec.Command("chown", "whacp-a:whacp-a", aSecret).Run()
+	exec.Command("chown", "nimvor-a:nimvor-a", aSecret).Run()
 
 	// Start B's PHP-FPM master directly (no systemd needed): it reads B's
-	// pool and listens on B's socket; its worker runs as whacp-b.
+	// pool and listens on B's socket; its worker runs as nimvor-b.
 	bLayout := m.layout(b)
 	bPool, err := env.Root.Path(bLayout.PoolFile)
 	if err != nil {
 		t.Fatalf("resolve B pool: %v", err)
 	}
 	// A world-traversable scratch directory: the attacker script and the
-	// FPM configuration live here so that whacp-a can read the script (a
+	// FPM configuration live here so that nimvor-a can read the script (a
 	// t.TempDir() is mode 0700 and root-owned).
-	work, err := os.MkdirTemp("/tmp", "whacp-xsite-")
+	work, err := os.MkdirTemp("/tmp", "nimvor-xsite-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,8 +170,8 @@ func TestRealHostCrossSitePHPIsolation(t *testing.T) {
 		if _, err := os.Stat(bLayout.Socket); err != nil {
 			continue
 		}
-		// A worker owned by whacp-b (the master is root).
-		out, _ := exec.Command("pgrep", "-u", "whacp-b", "-f", "php-fpm").Output()
+		// A worker owned by nimvor-b (the master is root).
+		out, _ := exec.Command("pgrep", "-u", "nimvor-b", "-f", "php-fpm").Output()
 		if f := strings.Fields(string(out)); len(f) > 0 {
 			bWorker = f[0]
 			break
@@ -182,14 +182,14 @@ func TestRealHostCrossSitePHPIsolation(t *testing.T) {
 		t.Fatalf("B's socket never appeared: %v\n%s", err, lb)
 	}
 	if bWorker == "" {
-		t.Log("no whacp-b worker found; /proc worker checks will target the master instead")
+		t.Log("no nimvor-b worker found; /proc worker checks will target the master instead")
 		out, _ := exec.Command("pgrep", "-f", "php-fpm.*"+filepath.Base(masterConf)).Output()
 		if f := strings.Fields(string(out)); len(f) > 0 {
 			bWorker = f[0]
 		}
 	}
 
-	// The attacker PHP, run as whacp-a with no open_basedir, so only the OS
+	// The attacker PHP, run as nimvor-a with no open_basedir, so only the OS
 	// stands between it and B. It prints one "OP <name> <ALLOWED|DENIED>"
 	// line per attempt.
 	targets := map[string]string{
@@ -197,7 +197,7 @@ func TestRealHostCrossSitePHPIsolation(t *testing.T) {
 		"b_docroot": filepath.Join(bRoot, "public_html"), "b_root": bRoot,
 		"b_pool_conf": bPool, "b_socket": bLayout.Socket,
 		"a_root": aRoot, "a_secret": aSecret,
-		"shadow": "/etc/shadow", "panel_cfg": "/etc/whacp/panel.php",
+		"shadow": "/etc/shadow", "panel_cfg": "/etc/nimvor/panel.php",
 		"b_worker_environ": "/proc/" + bWorker + "/environ",
 		"b_worker_cmdline": "/proc/" + bWorker + "/cmdline",
 	}
@@ -205,11 +205,11 @@ func TestRealHostCrossSitePHPIsolation(t *testing.T) {
 	script := filepath.Join(work, "attack.php")
 	os.WriteFile(script, []byte(crossSiteAttacker), 0o644)
 
-	cmd := exec.CommandContext(ctx, "runuser", "-u", "whacp-a", "--",
+	cmd := exec.CommandContext(ctx, "runuser", "-u", "nimvor-a", "--",
 		cli, "-d", "open_basedir=", "-d", "disable_functions=", script, string(tj))
 	outb, err := cmd.CombinedOutput()
 	out := string(outb)
-	t.Logf("attacker output (uid should be whacp-a):\n%s", out)
+	t.Logf("attacker output (uid should be nimvor-a):\n%s", out)
 	if err != nil && !strings.Contains(out, "OP ") {
 		t.Fatalf("attacker did not run: %v\n%s", err, out)
 	}
@@ -220,9 +220,9 @@ func TestRealHostCrossSitePHPIsolation(t *testing.T) {
 			results[f[1]] = f[2]
 		}
 	}
-	// Prove the script really ran as whacp-a, not root.
-	if !strings.Contains(out, "WHOAMI whacp-a") {
-		t.Fatalf("attacker did not run as whacp-a:\n%s", out)
+	// Prove the script really ran as nimvor-a, not root.
+	if !strings.Contains(out, "WHOAMI nimvor-a") {
+		t.Fatalf("attacker did not run as nimvor-a:\n%s", out)
 	}
 	if strings.Contains(out, "SECRET-OF-B") {
 		t.Errorf("attacker leaked B's data:\n%s", out)
@@ -255,7 +255,7 @@ func TestRealHostCrossSitePHPIsolation(t *testing.T) {
 	}
 }
 
-// crossSiteAttacker is the PHP run as whacp-a. argv[1] is a JSON object of
+// crossSiteAttacker is the PHP run as nimvor-a. argv[1] is a JSON object of
 // named paths. It reports DENIED unless an operation actually succeeded.
 const crossSiteAttacker = `<?php
 $t = json_decode($argv[1], true);

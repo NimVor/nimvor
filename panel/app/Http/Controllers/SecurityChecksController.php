@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Security\Permissions as P;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\MailService;
-use WhaCP\Services\ServerContext;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Security\Permissions as P;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\MailService;
+use NimVor\Services\ServerContext;
+use NimVor\View\View;
 
 /**
  * On-demand security checks that are too slow to run on every page load:

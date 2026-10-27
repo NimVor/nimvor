@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Core\Config;
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\ServerContext;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Core\Config;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\ServerContext;
+use NimVor\View\View;
 
 /**
  * Centralized log viewer. Website logs are visible to anyone with access to
@@ -28,7 +28,7 @@ final class LogsController extends Controller
         private readonly WebsiteRepository $sites,
         private readonly ServerContext $server,
         private readonly Config $config,
-        private readonly \WhaCP\Database\Connection $db,
+        private readonly \NimVor\Database\Connection $db,
     ) {
         parent::__construct($view, $session);
     }
@@ -58,7 +58,7 @@ final class LogsController extends Controller
     /** The kinds of server logs (Logs' sub-menu): view => title. */
     public const CATEGORIES = [
         'web' => 'Web server logs', 'php' => 'PHP-FPM logs', 'mail' => 'Mail server logs', 'database' => 'Database server logs',
-        'security' => 'Security logs', 'ssl' => 'SSL and Let\'s Encrypt logs', 'system' => 'System logs', 'services' => 'Service logs', 'whacp' => 'NimVor logs',
+        'security' => 'Security logs', 'ssl' => 'SSL and Let\'s Encrypt logs', 'system' => 'System logs', 'services' => 'Service logs', 'nimvor' => 'NimVor logs',
     ];
 
     /** Which kind a log source belongs to. */
@@ -68,12 +68,12 @@ final class LogsController extends Controller
         return match (true) {
             str_starts_with($id, 'nginx:') || $unit === 'nginx.service' => 'web',
             str_starts_with($id, 'php:') || (bool) preg_match('/^php.*fpm/', $unit) => 'php',
-            $id === 'system:mail' || (bool) preg_match('/^(postfix|dovecot|rspamd|whacp-opendkim|whacp-greylist|whacp-mailrate)/', $unit) => 'mail',
+            $id === 'system:mail' || (bool) preg_match('/^(postfix|dovecot|rspamd|nimvor-opendkim|nimvor-greylist|nimvor-mailrate)/', $unit) => 'mail',
             $id === 'system:mysql' || (bool) preg_match('/^(mariadb|mysql)/', $unit) => 'database',
             in_array($id, ['system:auth', 'system:fail2ban', 'system:ufw'], true) || (bool) preg_match('/^(fail2ban|sshd?|ssh)\./', $unit) => 'security',
             $id === 'system:letsencrypt' || $unit === 'certbot.service' => 'ssl',
             $id === 'system:syslog' => 'system',
-            $id === 'panel' || $unit === 'whacp-agent.service' || str_starts_with($unit, 'whacp-panel') => 'whacp',
+            $id === 'panel' || $unit === 'nimvor-agent.service' || str_starts_with($unit, 'nimvor-panel') => 'nimvor',
             default => 'services',
         };
     }
@@ -92,7 +92,7 @@ final class LogsController extends Controller
             $error = $e;
         }
         foreach ($this->db->fetchAll('SELECT name, slug FROM workers WHERE website_id = ? ORDER BY id', [(int) $site['id']]) as $w) {
-            $sources[] = ['id' => 'journal:whacp-worker-' . $w['slug'] . '.service', 'label' => 'Worker: ' . $w['name'], 'group' => 'Workers', 'kind' => 'journal'];
+            $sources[] = ['id' => 'journal:nimvor-worker-' . $w['slug'] . '.service', 'label' => 'Worker: ' . $w['name'], 'group' => 'Workers', 'kind' => 'journal'];
         }
         return $this->render('logs/site', ['sources' => $sources, 'agentError' => $error, 'site' => $site, 'tab' => 'logs', 'initialSource' => (string) $request->query('source', '')]);
     }
@@ -107,7 +107,7 @@ final class LogsController extends Controller
             $site = $this->sites->findByDomain($this->server->id(), $m[1]);
             return $site !== null && $this->sites->find($this->server->id(), (int) $site['id'], $user) !== null;
         }
-        if (preg_match('/^journal:whacp-worker-([a-z0-9-]+)\.service$/', $source, $m)) {
+        if (preg_match('/^journal:nimvor-worker-([a-z0-9-]+)\.service$/', $source, $m)) {
             if (Scope::isAll($user)) {
                 return true;
             }

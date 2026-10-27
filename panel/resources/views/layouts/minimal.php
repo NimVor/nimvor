@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var string $content */
 ?>
 <!doctype html>
@@ -12,17 +12,17 @@
     <link rel="icon" href="<?= e($this->asset('assets/img/logo.svg')) ?>" type="image/svg+xml">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap-icons/bootstrap-icons.min.css')) ?>">
-    <link rel="stylesheet" href="<?= e($this->asset('assets/css/whacp.css')) ?>">
+    <link rel="stylesheet" href="<?= e($this->asset('assets/css/nimvor.css')) ?>">
     <script src="<?= e($this->asset('assets/js/theme.js')) ?>"></script>
 </head>
-<body class="wcp-auth-body">
-<main class="wcp-auth">
-    <div class="wcp-auth-brand">
+<body class="nim-auth-body">
+<main class="nim-auth">
+    <div class="nim-auth-brand">
         <img src="<?= e($this->asset('assets/img/logo.svg')) ?>" alt="" width="40" height="40">
         <span><?= e($panel_name ?? 'NimVor') ?></span>
     </div>
     <?= $content ?>
-    <p class="wcp-auth-foot">NimVor <?= e($app_version ?? '') ?></p>
+    <p class="nim-auth-foot">NimVor <?= e($app_version ?? '') ?></p>
 </main>
 </body>
 </html>

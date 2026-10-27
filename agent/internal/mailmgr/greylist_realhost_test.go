@@ -30,12 +30,12 @@ func TestRealHostGreylisting(t *testing.T) {
 	}
 	dir := t.TempDir()
 	// The CI virtual machines have the built agent but no Go.
-	bin := filepath.Join(dir, "whacp-agent")
+	bin := filepath.Join(dir, "nimvor-agent")
 	if _, err := exec.LookPath("go"); err != nil {
-		if out, err := exec.Command("cp", "../../../dist/whacp-agent", bin).CombinedOutput(); err != nil {
+		if out, err := exec.Command("cp", "../../../dist/nimvor-agent", bin).CombinedOutput(); err != nil {
 			t.Fatalf("copy: %s", out)
 		}
-	} else if out, err := exec.Command("go", "build", "-o", bin, "../../cmd/whacp-agent").CombinedOutput(); err != nil {
+	} else if out, err := exec.Command("go", "build", "-o", bin, "../../cmd/nimvor-agent").CombinedOutput(); err != nil {
 		t.Fatalf("build: %s", out)
 	}
 	// With systemd the real units run it (dynamic user, credential, socket
@@ -76,7 +76,7 @@ func TestRealHostGreylisting(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, "greylist.json"), b, 0o600)
 	}
 	writeCfg()
-	sock := "/var/spool/postfix/private/whacp-greylist"
+	sock := "/var/spool/postfix/private/nimvor-greylist"
 	state, run := filepath.Join(dir, "state"), filepath.Join(dir, "run")
 	control := filepath.Join(run, "control")
 	os.Mkdir(state, 0o700)
@@ -85,8 +85,8 @@ func TestRealHostGreylisting(t *testing.T) {
 	var start, stop func()
 	if withSystemd {
 		// Outside /tmp (the unit has PrivateTmp) and executable by the dynamic user.
-		sysBin := "/usr/local/bin/whacp-agent-greylist-test"
-		conf := "/etc/whacp-greylist-test.json"
+		sysBin := "/usr/local/bin/nimvor-agent-greylist-test"
+		conf := "/etc/nimvor-greylist-test.json"
 		exec.Command("install", "-m", "0755", bin, sysBin).Run()
 		os.WriteFile("/etc/systemd/system/"+GreylistSocket, []byte(renderGreylistSocket("/var/spool/postfix")), 0o644)
 		os.WriteFile("/etc/systemd/system/"+GreylistService, []byte(renderGreylistService(sysBin, conf)), 0o644)
@@ -229,7 +229,7 @@ func TestRealHostGreylisting(t *testing.T) {
 	}
 	err := rcpt()
 	if err == nil || !strings.Contains(err.Error(), "450") || !strings.Contains(err.Error(), "Greylisted") {
-		t.Fatalf("first attempt not greylisted: %v\n%s", err, mailDiagnosis("whacp-greylist"))
+		t.Fatalf("first attempt not greylisted: %v\n%s", err, mailDiagnosis("nimvor-greylist"))
 	}
 	var rep struct {
 		Total int                  `json:"total"`

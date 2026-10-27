@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Mail\Mailer;
-use WhaCP\Tests\Support\ArrayMailer;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Mail\Mailer;
+use NimVor\Tests\Support\ArrayMailer;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class PasswordResetTest extends HttpTestCase
 {

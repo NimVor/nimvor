@@ -52,7 +52,7 @@ func (r *runner) deleteConstant(ctx context.Context, dir, name string) error {
 }
 
 // evalResult runs a program inside WordPress (plugins and themes not
-// loaded) and reads its WHACP-JSON line.
+// loaded) and reads its NIMVOR-JSON line.
 func (r *runner) evalResult(ctx context.Context, dir, code string, v any) error {
 	stdout := &limited{n: 4 << 20}
 	errOut, err := r.wp(ctx, dir, execx.Opts{Stdin: strings.NewReader(code), Stdout: stdout, Timeout: 2 * time.Minute}, "eval-file", "-")
@@ -83,14 +83,14 @@ func CronCommand(env *host.Env, t Target) string {
 const adminPasswordScript = `<?php
 $u = get_user_by('id', %d);
 if (!$u || !user_can($u, 'manage_options')) {
-    echo "\nWHACP-JSON " . json_encode(['ok' => false, 'error' => 'That user is not an administrator of this WordPress.']) . "\n";
+    echo "\nNIMVOR-JSON " . json_encode(['ok' => false, 'error' => 'That user is not an administrator of this WordPress.']) . "\n";
     return;
 }
 wp_set_password(%s, $u->ID);
 if (class_exists('WP_Session_Tokens')) {
     WP_Session_Tokens::get_instance($u->ID)->destroy_all();
 }
-echo "\nWHACP-JSON " . json_encode(['ok' => true, 'login' => $u->user_login]) . "\n";
+echo "\nNIMVOR-JSON " . json_encode(['ok' => true, 'login' => $u->user_login]) . "\n";
 `
 
 // dbPasswordScript changes the database password as the database user
@@ -99,7 +99,7 @@ echo "\nWHACP-JSON " . json_encode(['ok' => true, 'login' => $u->user_login]) . 
 const dbPasswordScript = `<?php
 global $wpdb;
 $new = %s;
-$fail = function (string $m) { echo "\nWHACP-JSON " . json_encode(['ok' => false, 'error' => $m]) . "\n"; };
+$fail = function (string $m) { echo "\nNIMVOR-JSON " . json_encode(['ok' => false, 'error' => $m]) . "\n"; };
 $cfg = is_file(ABSPATH . 'wp-config.php') ? ABSPATH . 'wp-config.php' : dirname(ABSPATH) . '/wp-config.php';
 $src = (string) @file_get_contents($cfg);
 $re = '/define\s*\(\s*([\'"])DB_PASSWORD\1\s*,\s*(\'(?:\\\\.|[^\'\\\\])*\'|"(?:\\\\.|[^"\\\\])*")\s*\)\s*;/';
@@ -119,7 +119,7 @@ if (!$set($new)) {
     $fail('The database server refused the password change.');
     return;
 }
-$tmp = $cfg . '.whacp-' . bin2hex(random_bytes(6));
+$tmp = $cfg . '.nimvor-' . bin2hex(random_bytes(6));
 $ok = @file_put_contents($tmp, $out) === strlen($out) && @chmod($tmp, fileperms($cfg) & 0777) && @rename($tmp, $cfg);
 if (!$ok) {
     @unlink($tmp);
@@ -127,13 +127,13 @@ if (!$ok) {
     $fail('wp-config.php could not be written; the database password was not changed.');
     return;
 }
-echo "\nWHACP-JSON " . json_encode(['ok' => true, 'user' => DB_USER]) . "\n";
+echo "\nNIMVOR-JSON " . json_encode(['ok' => true, 'user' => DB_USER]) . "\n";
 `
 
 // debugLogScript returns the end of WordPress's debug log (inside the
 // website only).
 const debugLogScript = `<?php
-$root = rtrim((string) getenv('WHACP_ROOT'), '/') . '/';
+$root = rtrim((string) getenv('NIMVOR_ROOT'), '/') . '/';
 $p = defined('WP_DEBUG_LOG') && is_string(WP_DEBUG_LOG) && WP_DEBUG_LOG !== '' && !in_array(strtolower(WP_DEBUG_LOG), ['1', 'true'], true) ? WP_DEBUG_LOG : WP_CONTENT_DIR . '/debug.log';
 $real = realpath($p);
 $out = ['path' => $p, 'exists' => false, 'lines' => [], 'size' => 0];
@@ -149,7 +149,7 @@ if ($real !== false && strpos($real, $root) === 0 && is_file($real) && !is_link(
     }
     $out = ['path' => $p, 'exists' => true, 'lines' => array_slice($lines, -500), 'size' => $size];
 }
-echo "\nWHACP-JSON " . json_encode($out, JSON_INVALID_UTF8_SUBSTITUTE) . "\n";
+echo "\nNIMVOR-JSON " . json_encode($out, JSON_INVALID_UTF8_SUBSTITUTE) . "\n";
 `
 
 // settings handles the operations of this file; ok=false for others.
@@ -211,7 +211,7 @@ func settings(ctx context.Context, env *host.Env, r *runner, dir string, o Opera
 			Size   int64    `json:"size"`
 		}
 		stdout := &limited{n: 4 << 20}
-		errOut, err := r.wp(ctx, dir, execx.Opts{Stdin: strings.NewReader(debugLogScript), Stdout: stdout, Env: []string{"WHACP_ROOT=" + r.root}}, "eval-file", "-")
+		errOut, err := r.wp(ctx, dir, execx.Opts{Stdin: strings.NewReader(debugLogScript), Stdout: stdout, Env: []string{"NIMVOR_ROOT=" + r.root}}, "eval-file", "-")
 		if rerr := result(stdout.Bytes(), &res); rerr != nil {
 			return nil, true, actions.Failed("The debug log could not be read: "+host.Why(errOut, err), "")
 		}

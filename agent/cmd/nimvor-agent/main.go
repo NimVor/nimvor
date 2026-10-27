@@ -1,7 +1,7 @@
-// Command whacp-agent is the privileged WhaCP server agent.
+// Command nimvor-agent is the privileged NimVor server agent.
 //
 // It listens on a local Unix socket and executes a fixed set of named
-// actions on behalf of the WhaCP panel.
+// actions on behalf of the NimVor panel.
 package main
 
 import (
@@ -45,7 +45,7 @@ import (
 )
 
 // shutdownGrace bounds how long a stopping agent waits for running jobs
-// (whacp-agent.service allows it with TimeoutStopSec).
+// (nimvor-agent.service allows it with TimeoutStopSec).
 const shutdownGrace = 5 * time.Minute
 
 // version is set at build time with -ldflags "-X main.version=...".
@@ -58,7 +58,7 @@ func main() {
 	if strings.HasPrefix(filepath.Base(os.Args[0]), "sendmail") {
 		os.Exit(sendmail.Main(os.Args[1:], os.Stdin, os.Stderr))
 	}
-	// The same, run by path (PHP's sendmail_path): whacp-agent sendmail ...
+	// The same, run by path (PHP's sendmail_path): nimvor-agent sendmail ...
 	if len(os.Args) > 1 && os.Args[1] == "sendmail" {
 		os.Exit(sendmail.Main(os.Args[2:], os.Stdin, os.Stderr))
 	}
@@ -93,7 +93,7 @@ func run() int {
 		return 0
 	}
 	if *showVersion {
-		fmt.Println("whacp-agent", version)
+		fmt.Println("nimvor-agent", version)
 		return 0
 	}
 
@@ -134,11 +134,11 @@ func run() int {
 	}
 	plat := platform.Detect(root)
 	info := plat.Info()
-	log.Info("starting whacp-agent", "version", version, "os", info.PrettyName, "family", info.Family, "supported", info.Supported, "preview", info.Preview, "write_actions", cfg.AllowWriteActions)
+	log.Info("starting nimvor-agent", "version", version, "os", info.PrettyName, "family", info.Family, "supported", info.Supported, "preview", info.Preview, "write_actions", cfg.AllowWriteActions)
 	if !info.Supported {
 		log.Warn("this operating system is not officially supported; discovery runs in best-effort mode")
 	} else if info.Preview {
-		log.Warn("this operating system is a preview for WhaCP: tested, but not yet recommended for production servers")
+		log.Warn("this operating system is a preview for NimVor: tested, but not yet recommended for production servers")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -163,7 +163,7 @@ func run() int {
 			return 1
 		}
 	} else {
-		// Read-only mode: the filesystem is read-only except /run/whacp.
+		// Read-only mode: the filesystem is read-only except /run/nimvor.
 		jobDir = filepath.Join(filepath.Dir(cfg.SocketPath), "jobs")
 	}
 	jobManager, err := jobs.NewManager(jobDir, cfg.MaxJobs, 2*time.Hour, log)
@@ -247,7 +247,7 @@ func run() int {
 	go func() { errCh <- httpSrv.Serve(ln) }()
 	log.Info("listening", "socket", cfg.SocketPath)
 
-	// Optional remote access for a WhaCP panel on another server: TLS 1.3
+	// Optional remote access for a NimVor panel on another server: TLS 1.3
 	// with a pinned self-signed certificate, an address allowlist and a
 	// lockout after repeated bad tokens, in addition to the bearer token.
 	var tcpSrv *http.Server

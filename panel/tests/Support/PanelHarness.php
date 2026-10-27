@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Support;
+namespace NimVor\Tests\Support;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Database\Migrator;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Repositories\DiscoverySnapshotRepository;
-use WhaCP\Repositories\SettingRepository;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Security\Crypto;
-use WhaCP\Services\DiscoveryService;
-use WhaCP\Services\PlanLimits;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\SettingsService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Support\Events;
-use WhaCP\Support\Logger;
+use NimVor\Agent\AgentClient;
+use NimVor\Database\Migrator;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Repositories\DiscoverySnapshotRepository;
+use NimVor\Repositories\SettingRepository;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Security\Crypto;
+use NimVor\Services\DiscoveryService;
+use NimVor\Services\PlanLimits;
+use NimVor\Services\ServerContext;
+use NimVor\Services\SettingsService;
+use NimVor\Services\WebsiteService;
+use NimVor\Support\Events;
+use NimVor\Support\Logger;
 
 /**
  * Database-backed harness with a fake agent for service tests.
@@ -42,7 +42,7 @@ abstract class PanelHarness extends DatabaseTestCase
         $this->roles->syncDefaults();
         $this->agent = new FakeTransport();
         $this->agent->succeed('discovery.php', ['versions' => [['version' => '8.3', 'fpm_binary' => '/usr/sbin/php-fpm8.3']]]);
-        $this->agent->succeed('agent.status', ['sites_root' => '/home/whacp', 'write_enabled' => true]);
+        $this->agent->succeed('agent.status', ['sites_root' => '/home/nimvor', 'write_enabled' => true]);
         $this->agent->succeed('sites.apply', ['changed' => []]);
         $token = tempnam(sys_get_temp_dir(), 't');
         file_put_contents($token, 'tok');
@@ -50,7 +50,7 @@ abstract class PanelHarness extends DatabaseTestCase
         $this->websites = new WebsiteRepository($this->db);
         $this->server = new ServerContext(new ArraySession());
         $this->events = new Events();
-        $this->crypto = new Crypto(sys_get_temp_dir() . '/whacp-test-' . bin2hex(random_bytes(4)) . '.key');
+        $this->crypto = new Crypto(sys_get_temp_dir() . '/nimvor-test-' . bin2hex(random_bytes(4)) . '.key');
         $settings = new SettingsService(new SettingRepository($this->db), $this->audit);
         $this->discovery = new DiscoveryService($this->client, new DiscoverySnapshotRepository($this->db), $settings, $this->audit, new SettingRepository($this->db));
         $this->websiteService = new WebsiteService($this->websites, $this->client, $this->audit, $this->server, $this->events, new PlanLimits($this->db), $this->discovery);

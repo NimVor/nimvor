@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\View;
+namespace NimVor\View;
 
 use RuntimeException;
-use WhaCP\Http\Router;
-use WhaCP\Security\Csrf;
+use NimVor\Http\Router;
+use NimVor\Security\Csrf;
 
 /**
  * Plain-PHP template renderer.
@@ -123,7 +123,7 @@ final class View
      */
     public function modalStart(string $id, string $title, bool $open = false, string $size = 'modal-lg'): string
     {
-        return '<div class="modal fade" id="' . e($id) . '" tabindex="-1" aria-labelledby="' . e($id) . '-title" aria-hidden="true" data-wcp-form-panel' . ($open ? ' data-wcp-modal-open' : '') . '>'
+        return '<div class="modal fade" id="' . e($id) . '" tabindex="-1" aria-labelledby="' . e($id) . '-title" aria-hidden="true" data-nim-form-panel' . ($open ? ' data-nim-modal-open' : '') . '>'
             . '<div class="modal-dialog ' . e($size) . ' modal-dialog-scrollable"><div class="modal-content">'
             . '<div class="modal-header"><h2 class="modal-title fs-5" id="' . e($id) . '-title">' . e($title) . '</h2>'
             . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
@@ -178,7 +178,7 @@ final class View
     {
         $user = $this->shared['user'] ?? null;
         return is_array($user) && ($user['role_scope'] ?? 'all') === 'own'
-            && !$this->can(\WhaCP\Security\Permissions::USERS_VIEW);
+            && !$this->can(\NimVor\Security\Permissions::USERS_VIEW);
     }
 
     /** Whether the viewer's hosting plan includes the feature a route belongs to. */
@@ -192,7 +192,7 @@ final class View
     public function serverScope(): bool
     {
         $user = $this->shared['user'] ?? null;
-        return is_array($user) && \WhaCP\Hosting\Scope::isAll($user);
+        return is_array($user) && \NimVor\Hosting\Scope::isAll($user);
     }
 
     public function isActive(string $prefix): bool

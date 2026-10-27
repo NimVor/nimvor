@@ -3,7 +3,7 @@
   "title": "Example: status page",
   "version": "1.0.0",
   "description": "Shows the server's uptime and load and keeps a note. A starting point for writing plugins.",
-  "author": "WhaCP contributors",
+  "author": "NimVor contributors",
   "license": "MIT",
   "permissions": {
     "plugin.example-status.view": "View the example status page",

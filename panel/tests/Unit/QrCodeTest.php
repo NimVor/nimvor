@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Unit;
+namespace NimVor\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use WhaCP\Security\QrCode;
+use NimVor\Security\QrCode;
 
 /**
  * Fixtures were produced by an independent encoder (python-qrcode, level M,

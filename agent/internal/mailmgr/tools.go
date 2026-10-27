@@ -32,7 +32,7 @@ type TraceStep struct {
 
 type mxLookup func(ctx context.Context, domain string) ([]*net.MX, error)
 
-// Trace follows an address through WhaCP's mail configuration.
+// Trace follows an address through NimVor's mail configuration.
 func Trace(ctx context.Context, d Data, addr, relayhost string, mx mxLookup) []TraceStep {
 	var steps []TraceStep
 	seen := map[string]bool{}

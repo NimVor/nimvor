@@ -12,7 +12,7 @@ func phpSpec(p PHPSettings) Spec {
 // The defaults render the pool existing websites have, line for line.
 func TestPoolDefaultsUnchanged(t *testing.T) {
 	s := phpSpec(PHPSettings{})
-	if err := s.Normalize("/home/whacp", "/var/lib/whacp-agent"); err != nil {
+	if err := s.Normalize("/home/nimvor", "/var/lib/nimvor-agent"); err != nil {
 		t.Fatal(err)
 	}
 	got := RenderPool(s, Layout{Socket: "/run/php/a.sock", LogDir: "/l", TmpDir: "/t", WebUser: "www-data"})
@@ -24,7 +24,7 @@ func TestPoolDefaultsUnchanged(t *testing.T) {
 
 func TestPoolProcessManager(t *testing.T) {
 	s := phpSpec(PHPSettings{PM: "dynamic", MaxChildren: 20, RequestTimeoutSec: 120, SlowlogSec: 5, MaxRequests: 1000})
-	if err := s.Normalize("/home/whacp", "/var/lib/whacp-agent"); err != nil {
+	if err := s.Normalize("/home/nimvor", "/var/lib/nimvor-agent"); err != nil {
 		t.Fatal(err)
 	}
 	got := RenderPool(s, Layout{LogDir: "/l"})
@@ -37,7 +37,7 @@ func TestPoolProcessManager(t *testing.T) {
 		t.Error("idle timeout on a dynamic pool")
 	}
 	s = phpSpec(PHPSettings{PM: "static", MaxChildren: 8, StartServers: 4})
-	if err := s.Normalize("/home/whacp", "/var/lib/whacp-agent"); err != nil {
+	if err := s.Normalize("/home/nimvor", "/var/lib/nimvor-agent"); err != nil {
 		t.Fatal(err)
 	}
 	if got := RenderPool(s, Layout{LogDir: "/l"}); !strings.Contains(got, "pm = static\npm.max_children = 8\npm.max_requests = 500\n") || strings.Contains(got, "start_servers") {
@@ -50,7 +50,7 @@ func TestPoolProcessManager(t *testing.T) {
 		{RequestTimeoutSec: -1}, {MaxRequests: 200000}, {IdleTimeoutSec: 4000}, {SlowlogSec: 9999},
 	} {
 		s := phpSpec(bad)
-		if err := s.Normalize("/home/whacp", "/var/lib/whacp-agent"); err == nil {
+		if err := s.Normalize("/home/nimvor", "/var/lib/nimvor-agent"); err == nil {
 			t.Errorf("accepted %+v", bad)
 		}
 	}

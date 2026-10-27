@@ -24,9 +24,9 @@ func setup(t *testing.T) *fixture {
 	h := testhost.New(t)
 	// A website account: home is <sites_root>/<domain>.
 	f, _ := os.OpenFile(filepath.Join(h.Base, "etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
-	fmt.Fprintf(f, "shop:x:%d:%d::/home/whacp/shop.test:/usr/sbin/nologin\n", h.UID, h.GID)
+	fmt.Fprintf(f, "shop:x:%d:%d::/home/nimvor/shop.test:/usr/sbin/nologin\n", h.UID, h.GID)
 	f.Close()
-	for _, d := range []string{"home/whacp/shop.test/public_html/uploads", "home/whacp/blog.test/public_html", "usr/sbin"} {
+	for _, d := range []string{"home/nimvor/shop.test/public_html/uploads", "home/nimvor/blog.test/public_html", "usr/sbin"} {
 		os.MkdirAll(filepath.Join(h.Base, d), 0o755)
 	}
 	os.WriteFile(filepath.Join(h.Base, "usr/sbin/pure-ftpd"), []byte("#!/bin/true\n"), 0o755)
@@ -86,24 +86,24 @@ func TestConfigureNeedsConfirmationToReplaceAnotherServer(t *testing.T) {
 	if _, err := f.call(t, "ftp.configure", map[string]any{}); code(err) != "conflict" {
 		t.Fatalf("err = %v", err)
 	}
-	if f.h.Exists("etc/whacp-ftp/pure-ftpd.conf") {
+	if f.h.Exists("etc/nimvor-ftp/pure-ftpd.conf") {
 		t.Fatal("configuration written without confirmation")
 	}
 	res := f.must(t, "ftp.configure", map[string]any{"confirm_replace_service": true, "passive_min": 50000, "passive_max": 50100})
-	conf := f.h.Read("etc/whacp-ftp/pure-ftpd.conf")
-	for _, want := range []string{"ChrootEveryone         yes", "TLS                    2", "PassivePortRange       50000 50100", "PureDB                 /etc/whacp-ftp/accounts.pdb", "NoAnonymous            yes"} {
+	conf := f.h.Read("etc/nimvor-ftp/pure-ftpd.conf")
+	for _, want := range []string{"ChrootEveryone         yes", "TLS                    2", "PassivePortRange       50000 50100", "PureDB                 /etc/nimvor-ftp/accounts.pdb", "NoAnonymous            yes"} {
 		if !strings.Contains(conf, want) {
 			t.Errorf("config lacks %q:\n%s", want, conf)
 		}
 	}
-	if !strings.Contains(f.h.Read("etc/systemd/system/whacp-ftpd.service"), "ExecStart=/usr/sbin/pure-ftpd /etc/whacp-ftp/pure-ftpd.conf") {
+	if !strings.Contains(f.h.Read("etc/systemd/system/nimvor-ftpd.service"), "ExecStart=/usr/sbin/pure-ftpd /etc/nimvor-ftp/pure-ftpd.conf") {
 		t.Fatal("unit not written")
 	}
-	info, err := os.Stat(filepath.Join(f.h.Base, "etc/whacp-ftp/pure-ftpd.pem"))
-	if err != nil || info.Mode().Perm() != 0o600 || !strings.Contains(f.h.Read("etc/whacp-ftp/pure-ftpd.pem"), "BEGIN CERTIFICATE") {
+	info, err := os.Stat(filepath.Join(f.h.Base, "etc/nimvor-ftp/pure-ftpd.pem"))
+	if err != nil || info.Mode().Perm() != 0o600 || !strings.Contains(f.h.Read("etc/nimvor-ftp/pure-ftpd.pem"), "BEGIN CERTIFICATE") {
 		t.Fatalf("certificate: %v %v", info, err)
 	}
-	for _, c := range []string{"pure-pw mkdb /etc/whacp-ftp/accounts.pdb -f /etc/whacp-ftp/accounts.passwd", "systemctl stop -- pure-ftpd.service", "systemctl disable -- vsftpd.service", "systemctl enable -- whacp-ftpd.service", "systemctl restart -- whacp-ftpd.service"} {
+	for _, c := range []string{"pure-pw mkdb /etc/nimvor-ftp/accounts.pdb -f /etc/nimvor-ftp/accounts.passwd", "systemctl stop -- pure-ftpd.service", "systemctl disable -- vsftpd.service", "systemctl enable -- nimvor-ftpd.service", "systemctl restart -- nimvor-ftpd.service"} {
 		if !called(f, c) {
 			t.Errorf("missing call %q in %v", c, f.h.Runner.Calls)
 		}
@@ -112,9 +112,9 @@ func TestConfigureNeedsConfirmationToReplaceAnotherServer(t *testing.T) {
 		t.Fatalf("result = %+v", res)
 	}
 	// The certificate is kept on later changes.
-	cert := f.h.Read("etc/whacp-ftp/pure-ftpd.pem")
+	cert := f.h.Read("etc/nimvor-ftp/pure-ftpd.pem")
 	f.must(t, "ftp.configure", map[string]any{"confirm_replace_service": true, "tls": "optional"})
-	if f.h.Read("etc/whacp-ftp/pure-ftpd.pem") != cert || !strings.Contains(f.h.Read("etc/whacp-ftp/pure-ftpd.conf"), "TLS                    1") {
+	if f.h.Read("etc/nimvor-ftp/pure-ftpd.pem") != cert || !strings.Contains(f.h.Read("etc/nimvor-ftp/pure-ftpd.conf"), "TLS                    1") {
 		t.Fatal("certificate replaced or TLS not changed")
 	}
 	for _, bad := range []map[string]any{{"passive_min": 80, "passive_max": 90}, {"tls": "none"}, {"passive_ip": "not-an-ip"}, {"max_clients": 0}} {
@@ -129,7 +129,7 @@ func TestConfigureRollsBackWhenTheServerDoesNotAnswer(t *testing.T) {
 	f := setup(t)
 	probe = func(context.Context, string) error { return errors.New("connection refused") }
 	_, err := f.call(t, "ftp.configure", map[string]any{"confirm_replace_service": true})
-	if code(err) != "failed" || f.h.Exists("etc/whacp-ftp/pure-ftpd.conf") || f.h.Exists("etc/systemd/system/whacp-ftpd.service") {
+	if code(err) != "failed" || f.h.Exists("etc/nimvor-ftp/pure-ftpd.conf") || f.h.Exists("etc/systemd/system/nimvor-ftpd.service") {
 		t.Fatalf("err = %v; files kept", err)
 	}
 	if !called(f, "systemctl start -- pure-ftpd.service") {
@@ -144,9 +144,9 @@ func TestAccounts(t *testing.T) {
 	}
 	f.must(t, "ftp.configure", map[string]any{"confirm_replace_service": true})
 	f.must(t, "ftp.account_save", map[string]any{"name": "Dev@Shop.test", "user": "shop", "dir": "public_html", "password": "long-enough-pw", "quota_mb": 500})
-	line := strings.TrimSpace(f.h.Read("etc/whacp-ftp/accounts.passwd"))
+	line := strings.TrimSpace(f.h.Read("etc/nimvor-ftp/accounts.passwd"))
 	fields := strings.Split(line, ":")
-	if len(fields) != 18 || fields[0] != "dev@shop.test" || !strings.HasPrefix(fields[1], "$6$rounds=100000$") || fields[5] != "/home/whacp/shop.test/public_html/./" || fields[12] != "524288000" {
+	if len(fields) != 18 || fields[0] != "dev@shop.test" || !strings.HasPrefix(fields[1], "$6$rounds=100000$") || fields[5] != "/home/nimvor/shop.test/public_html/./" || fields[12] != "524288000" {
 		t.Fatalf("passwd line = %q", line)
 	}
 	if strings.Contains(line, "long-enough-pw") {
@@ -155,11 +155,11 @@ func TestAccounts(t *testing.T) {
 	hash := fields[1]
 	// Update without a password keeps the hash.
 	f.must(t, "ftp.account_save", map[string]any{"name": "dev@shop.test", "user": "shop", "dir": "public_html/uploads"})
-	fields = strings.Split(strings.TrimSpace(f.h.Read("etc/whacp-ftp/accounts.passwd")), ":")
-	if fields[1] != hash || fields[5] != "/home/whacp/shop.test/public_html/uploads/./" || fields[12] != "" {
+	fields = strings.Split(strings.TrimSpace(f.h.Read("etc/nimvor-ftp/accounts.passwd")), ":")
+	if fields[1] != hash || fields[5] != "/home/nimvor/shop.test/public_html/uploads/./" || fields[12] != "" {
 		t.Fatalf("update = %v", fields)
 	}
-	os.Symlink("/etc", filepath.Join(f.h.Base, "home/whacp/shop.test/etc"))
+	os.Symlink("/etc", filepath.Join(f.h.Base, "home/nimvor/shop.test/etc"))
 	for _, bad := range []map[string]any{
 		{"name": "new", "user": "shop"},                                                    // no password
 		{"name": "x y", "user": "shop", "password": "long-enough-pw"},                      // bad name
@@ -174,7 +174,7 @@ func TestAccounts(t *testing.T) {
 		}
 	}
 	st := f.must(t, "ftp.status", map[string]any{"user": "shop"})
-	if accts := st["accounts"].([]any); len(accts) != 1 || accts[0].(map[string]any)["dir"] != "/home/whacp/shop.test/public_html/uploads" {
+	if accts := st["accounts"].([]any); len(accts) != 1 || accts[0].(map[string]any)["dir"] != "/home/nimvor/shop.test/public_html/uploads" {
 		t.Fatalf("status accounts = %+v", st["accounts"])
 	}
 	if strings.Contains(fmt.Sprint(st), "$6$") {
@@ -187,11 +187,11 @@ func TestAccounts(t *testing.T) {
 	}
 	// A failing database rebuild restores the previous list.
 	f.h.Fail["pure-pw mkdb"] = "cannot write"
-	before := f.h.Read("etc/whacp-ftp/accounts.passwd")
+	before := f.h.Read("etc/nimvor-ftp/accounts.passwd")
 	if _, err := f.call(t, "ftp.account_save", map[string]any{"name": "third", "user": "shop", "password": "long-enough-pw"}); err == nil {
 		t.Fatal("expected failure")
 	}
-	if f.h.Read("etc/whacp-ftp/accounts.passwd") != before {
+	if f.h.Read("etc/nimvor-ftp/accounts.passwd") != before {
 		t.Fatal("accounts not restored")
 	}
 	delete(f.h.Fail, "pure-pw mkdb")
@@ -199,8 +199,8 @@ func TestAccounts(t *testing.T) {
 	if err := RemoveSite(context.Background(), f.h.Env, "shop.test"); err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(f.h.Read("etc/whacp-ftp/accounts.passwd")) != "" {
-		t.Fatalf("accounts left: %q", f.h.Read("etc/whacp-ftp/accounts.passwd"))
+	if strings.TrimSpace(f.h.Read("etc/nimvor-ftp/accounts.passwd")) != "" {
+		t.Fatalf("accounts left: %q", f.h.Read("etc/nimvor-ftp/accounts.passwd"))
 	}
 }
 
@@ -226,7 +226,7 @@ func sshd(f *fixture, rootAfter map[string]string) {
 			}
 			return b.String(), nil, true
 		}
-		return "chrootdirectory /home/whacp\nforcecommand internal-sftp -d /shop.test -u 0027\n", nil, true
+		return "chrootdirectory /home/nimvor\nforcecommand internal-sftp -d /shop.test -u 0027\n", nil, true
 	}
 }
 
@@ -249,14 +249,14 @@ func TestSFTP(t *testing.T) {
 	if res["start_dir"] != "/shop.test" || res["keys"].(float64) != 1 {
 		t.Fatalf("result = %+v", res)
 	}
-	drop := f.h.Read("etc/ssh/sshd_config.d/50-whacp-sftp.conf")
-	for _, want := range []string{"Match User shop\n", "ChrootDirectory /home/whacp\n", "ForceCommand internal-sftp -d /shop.test -u 0027\n", "AuthorizedKeysFile /etc/ssh/whacp-keys/%u\n", "PasswordAuthentication no\n", "AllowTcpForwarding no\n", "PermitTTY no\n"} {
+	drop := f.h.Read("etc/ssh/sshd_config.d/50-nimvor-sftp.conf")
+	for _, want := range []string{"Match User shop\n", "ChrootDirectory /home/nimvor\n", "ForceCommand internal-sftp -d /shop.test -u 0027\n", "AuthorizedKeysFile /etc/ssh/nimvor-keys/%u\n", "PasswordAuthentication no\n", "AllowTcpForwarding no\n", "PermitTTY no\n"} {
 		if !strings.Contains(drop, want) {
 			t.Errorf("drop-in lacks %q:\n%s", want, drop)
 		}
 	}
-	if strings.TrimSpace(f.h.Read("etc/ssh/whacp-keys/shop")) != testKey {
-		t.Fatalf("keys = %q", f.h.Read("etc/ssh/whacp-keys/shop"))
+	if strings.TrimSpace(f.h.Read("etc/ssh/nimvor-keys/shop")) != testKey {
+		t.Fatalf("keys = %q", f.h.Read("etc/ssh/nimvor-keys/shop"))
 	}
 	if !called(f, "sshd -t") || !called(f, "systemctl reload -- ssh") || !called(f, "usermod --lock -- shop") {
 		t.Fatalf("calls = %v", f.h.Runner.Calls)
@@ -267,12 +267,12 @@ func TestSFTP(t *testing.T) {
 	}
 	// A password is set hashed through chpasswd.
 	f.must(t, "sftp.configure", map[string]any{"user": "shop", "enabled": true, "password_login": true, "password": "another-long-pw"})
-	if !called(f, "chpasswd -e") || !strings.Contains(f.h.Read("etc/ssh/sshd_config.d/50-whacp-sftp.conf"), "PasswordAuthentication yes") {
+	if !called(f, "chpasswd -e") || !strings.Contains(f.h.Read("etc/ssh/sshd_config.d/50-nimvor-sftp.conf"), "PasswordAuthentication yes") {
 		t.Fatal("password login not enabled")
 	}
 	// Disabling removes the block and the key file.
 	f.must(t, "sftp.configure", map[string]any{"user": "shop", "enabled": false})
-	if strings.Contains(f.h.Read("etc/ssh/sshd_config.d/50-whacp-sftp.conf"), "Match") || f.h.Exists("etc/ssh/whacp-keys/shop") {
+	if strings.Contains(f.h.Read("etc/ssh/sshd_config.d/50-nimvor-sftp.conf"), "Match") || f.h.Exists("etc/ssh/nimvor-keys/shop") {
 		t.Fatal("SFTP not removed")
 	}
 }
@@ -285,7 +285,7 @@ func TestSFTPRollsBackWhenOtherUsersWouldBeAffected(t *testing.T) {
 	if !errors.As(err, &ae) || !strings.Contains(ae.Message+ae.Details, "x11forwarding") {
 		t.Fatalf("err = %+v", err)
 	}
-	if f.h.Exists("etc/ssh/sshd_config.d/50-whacp-sftp.conf") || f.h.Exists("etc/ssh/whacp-keys/shop") || f.h.Exists("var/lib/whacp-agent/sftp.json") {
+	if f.h.Exists("etc/ssh/sshd_config.d/50-nimvor-sftp.conf") || f.h.Exists("etc/ssh/nimvor-keys/shop") || f.h.Exists("var/lib/nimvor-agent/sftp.json") {
 		t.Fatal("changes not rolled back")
 	}
 	if called(f, "systemctl reload") {
@@ -295,11 +295,11 @@ func TestSFTPRollsBackWhenOtherUsersWouldBeAffected(t *testing.T) {
 
 func TestAccountSuspension(t *testing.T) {
 	f := setup(t)
-	os.MkdirAll(filepath.Join(f.h.Base, "etc/whacp-ftp"), 0o755)
-	os.WriteFile(filepath.Join(f.h.Base, "etc/whacp-ftp/accounts.passwd"), nil, 0o600)
+	os.MkdirAll(filepath.Join(f.h.Base, "etc/nimvor-ftp"), 0o755)
+	os.WriteFile(filepath.Join(f.h.Base, "etc/nimvor-ftp/accounts.passwd"), nil, 0o600)
 	f.must(t, "ftp.account_save", map[string]any{"name": "shopftp", "user": "shop", "password": "long-ftp-password"})
 	hash := func() string {
-		line := strings.TrimSpace(f.h.Read("etc/whacp-ftp/accounts.passwd"))
+		line := strings.TrimSpace(f.h.Read("etc/nimvor-ftp/accounts.passwd"))
 		return strings.Split(line, ":")[1]
 	}
 	if strings.HasPrefix(hash(), "!") {
@@ -335,12 +335,12 @@ func TestShellModes(t *testing.T) {
 		if strings.Contains(args[2], "user=root,") {
 			return "chrootdirectory none\nforcecommand none\nx11forwarding no\npasswordauthentication no\n", nil, true
 		}
-		drop := f.h.Read("etc/ssh/sshd_config.d/50-whacp-sftp.conf")
+		drop := f.h.Read("etc/ssh/sshd_config.d/50-nimvor-sftp.conf")
 		switch {
 		case strings.Contains(drop, "ForceCommand "+JailShell):
 			return "chrootdirectory none\nforcecommand " + JailShell + "\n", nil, true
 		case strings.Contains(drop, "ChrootDirectory"):
-			return "chrootdirectory /home/whacp\nforcecommand internal-sftp -d /shop.test -u 0027\n", nil, true
+			return "chrootdirectory /home/nimvor\nforcecommand internal-sftp -d /shop.test -u 0027\n", nil, true
 		}
 		return "chrootdirectory none\nforcecommand none\n", nil, true
 	}
@@ -356,8 +356,8 @@ func TestShellModes(t *testing.T) {
 	if !called(f, "usermod --shell /bin/bash -- shop") {
 		t.Fatalf("normal shell not given with SSH login: %v", f.h.Runner.Calls)
 	}
-	drop := f.h.Read("etc/ssh/sshd_config.d/50-whacp-sftp.conf")
-	if strings.Contains(drop, "ChrootDirectory") || !strings.Contains(drop, "PermitTTY yes") || !strings.Contains(drop, "AuthorizedKeysFile /etc/ssh/whacp-keys/%u") || !strings.Contains(drop, "AllowTcpForwarding no") {
+	drop := f.h.Read("etc/ssh/sshd_config.d/50-nimvor-sftp.conf")
+	if strings.Contains(drop, "ChrootDirectory") || !strings.Contains(drop, "PermitTTY yes") || !strings.Contains(drop, "AuthorizedKeysFile /etc/ssh/nimvor-keys/%u") || !strings.Contains(drop, "AllowTcpForwarding no") {
 		t.Fatalf("normal drop-in:\n%s", drop)
 	}
 
@@ -367,12 +367,12 @@ func TestShellModes(t *testing.T) {
 	}
 	os.WriteFile(filepath.Join(f.h.Base, "usr/bin/bwrap"), []byte("ELF"), 0o755)
 	f.must(t, "shell.set", map[string]any{"users": []string{"shop"}, "mode": "jailed"})
-	drop = f.h.Read("etc/ssh/sshd_config.d/50-whacp-sftp.conf")
+	drop = f.h.Read("etc/ssh/sshd_config.d/50-nimvor-sftp.conf")
 	if !strings.Contains(drop, "ForceCommand "+JailShell+"\n") || strings.Contains(drop, "ChrootDirectory") || !strings.Contains(drop, "PermitUserRC no") {
 		t.Fatalf("jailed drop-in:\n%s", drop)
 	}
-	script := f.h.Read("usr/local/sbin/whacp-jailsh")
-	for _, want := range []string{"SITES_ROOT='/home/whacp'", "--unshare-all", "--ro-bind /usr /usr", `--bind "$home" "$home"`, "--clearenv", "--ro-bind-try /etc/php /etc/php"} {
+	script := f.h.Read("usr/local/sbin/nimvor-jailsh")
+	for _, want := range []string{"SITES_ROOT='/home/nimvor'", "--unshare-all", "--ro-bind /usr /usr", `--bind "$home" "$home"`, "--clearenv", "--ro-bind-try /etc/php /etc/php"} {
 		if !strings.Contains(script, want) {
 			t.Errorf("jail script lacks %q", want)
 		}
@@ -387,7 +387,7 @@ func TestShellModes(t *testing.T) {
 	// Turning SFTP off takes the shell away first. (The fake usermod does
 	// not edit passwd; write what the real one would have.)
 	pw := f.h.Read("etc/passwd")
-	os.WriteFile(filepath.Join(f.h.Base, "etc/passwd"), []byte(strings.Replace(pw, "/home/whacp/shop.test:/usr/sbin/nologin", "/home/whacp/shop.test:"+JailShell, 1)), 0o644)
+	os.WriteFile(filepath.Join(f.h.Base, "etc/passwd"), []byte(strings.Replace(pw, "/home/nimvor/shop.test:/usr/sbin/nologin", "/home/nimvor/shop.test:"+JailShell, 1)), 0o644)
 	f.h.Runner.Calls = nil
 	f.must(t, "sftp.configure", map[string]any{"user": "shop", "enabled": false})
 	if !called(f, "usermod --shell /usr/sbin/nologin -- shop") {
@@ -405,15 +405,15 @@ func TestShellModes(t *testing.T) {
 func TestMoveSiteKeepsPasswords(t *testing.T) {
 	f := setup(t)
 	fp, _ := os.OpenFile(filepath.Join(f.h.Base, "etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
-	fmt.Fprintf(fp, "blog:x:%d:%d::/home/whacp/blog.test:/usr/sbin/nologin\n", f.h.UID+1, f.h.GID+1)
-	fmt.Fprintf(fp, "newshop:x:%d:%d::/home/whacp/shop.test:/usr/sbin/nologin\n", f.h.UID+2, f.h.GID+2)
+	fmt.Fprintf(fp, "blog:x:%d:%d::/home/nimvor/blog.test:/usr/sbin/nologin\n", f.h.UID+1, f.h.GID+1)
+	fmt.Fprintf(fp, "newshop:x:%d:%d::/home/nimvor/shop.test:/usr/sbin/nologin\n", f.h.UID+2, f.h.GID+2)
 	fp.Close()
 	f.must(t, "ftp.configure", map[string]any{"confirm_replace_service": true})
 	f.must(t, "ftp.account_save", map[string]any{"name": "shopdev", "user": "shop", "dir": "public_html", "password": "long-enough-pw"})
 	f.must(t, "ftp.account_save", map[string]any{"name": "blogdev", "user": "blog", "password": "long-enough-pw"})
 	lines := func() map[string][]string {
 		m := map[string][]string{}
-		for _, l := range strings.Split(strings.TrimSpace(f.h.Read("etc/whacp-ftp/accounts.passwd")), "\n") {
+		for _, l := range strings.Split(strings.TrimSpace(f.h.Read("etc/nimvor-ftp/accounts.passwd")), "\n") {
 			fs := strings.Split(l, ":")
 			m[fs[0]] = fs
 		}
@@ -424,7 +424,7 @@ func TestMoveSiteKeepsPasswords(t *testing.T) {
 	if _, err := f.call(t, "ftp.move_site", map[string]any{"domain": "shop.test", "user": "newshop"}); err == nil {
 		t.Fatal("moved before the folder belongs to the new account")
 	}
-	if err := os.Chown(filepath.Join(f.h.Base, "home/whacp/shop.test"), f.h.UID+2, f.h.GID+2); err != nil { // what sites.apply does
+	if err := os.Chown(filepath.Join(f.h.Base, "home/nimvor/shop.test"), f.h.UID+2, f.h.GID+2); err != nil { // what sites.apply does
 		t.Skip("handing a folder to another account needs root")
 	}
 	if _, err := f.call(t, "ftp.move_site", map[string]any{"domain": "shop.test", "user": "blog"}); err == nil {
@@ -443,7 +443,7 @@ func TestMoveSiteKeepsPasswords(t *testing.T) {
 }
 
 // A website account that has (or was given) administrator rights never gets
-// SSH/SFTP keys, a password or a shell through WhaCP.
+// SSH/SFTP keys, a password or a shell through NimVor.
 func TestAdministratorAccountsGetNoAccess(t *testing.T) {
 	f := setup(t)
 	g, _ := os.OpenFile(filepath.Join(f.h.Base, "etc/group"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)

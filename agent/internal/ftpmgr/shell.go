@@ -34,18 +34,18 @@ const (
 	ShellJailed   = "jailed"
 	ShellNormal   = "normal"
 
-	JailShell   = "/usr/local/sbin/whacp-jailsh"
+	JailShell   = "/usr/local/sbin/nimvor-jailsh"
 	NormalShell = "/bin/bash"
 	NoLogin     = "/usr/sbin/nologin"
 
 	// Where AppArmor restricts unprivileged user namespaces (Ubuntu 23.10
 	// and later), the sandbox runs from this copy of bubblewrap, which only
 	// members of JailGroup can execute and which the installer's AppArmor
-	// profile (whacp-bwrap) allows to create user namespaces. Other
+	// profile (nimvor-bwrap) allows to create user namespaces. Other
 	// accounts keep the restriction.
-	JailBwrap   = "/usr/local/lib/whacp/bwrap"
-	JailGroup   = "whacp-jail"
-	jailProfile = "whacp-bwrap"
+	JailBwrap   = "/usr/local/lib/nimvor/bwrap"
+	JailGroup   = "nimvor-jail"
+	jailProfile = "nimvor-bwrap"
 	systemBwrap = "/usr/bin/bwrap"
 )
 
@@ -88,7 +88,7 @@ func jailProblem(env *host.Env) string {
 		return "Bubblewrap is not installed. Install it under Packages (bubblewrap), then try again."
 	}
 	if usernsRestricted(env) && !profileLoaded(env) {
-		return "AppArmor restricts user namespaces on this server and the whacp-bwrap profile is not loaded. Run the installer again (install.sh --reinstall), which installs it."
+		return "AppArmor restricts user namespaces on this server and the nimvor-bwrap profile is not loaded. Run the installer again (install.sh --reinstall), which installs it."
 	}
 	return ""
 }
@@ -131,7 +131,7 @@ func prepareJail(ctx context.Context, env *host.Env, set *changeset.Set) error {
 		if err != nil {
 			return actions.Failed("Bubblewrap could not be read.", err.Error())
 		}
-		set.Mkdir("/usr/local/lib/whacp", 0o755, agentfs.RootOwner)
+		set.Mkdir("/usr/local/lib/nimvor", 0o755, agentfs.RootOwner)
 		set.Write(JailBwrap, bin, 0o750, agentfs.Owner{UID: 0, GID: gid})
 	}
 	return nil
@@ -165,7 +165,7 @@ func init() {
 }
 
 var jailScript = `#!/bin/sh
-# Managed by WhaCP: the login shell of website accounts with a jailed shell.
+# Managed by NimVor: the login shell of website accounts with a jailed shell.
 # Every session and command (SFTP too) runs in a bubblewrap sandbox: /usr
 # and a few files from /etc read-only, only the account's own website
 # folder writable, private /tmp, processes, IPC and hostname, no other
@@ -190,23 +190,23 @@ if [ "$#" -ge 2 ] && [ "$1" = "-c" ]; then
         [ -n "$cmd" ] || mode=login
     fi
 elif [ "$#" -ne 0 ]; then
-    echo "whacp-jailsh: unsupported arguments" >&2
+    echo "nimvor-jailsh: unsupported arguments" >&2
     exit 1
 fi
 
 uid=$(id -u) && gid=$(id -g) && user=$(id -un) && group=$(id -gn) || exit 1
 if [ "$uid" -lt 1000 ]; then
-    echo "whacp-jailsh: not for system accounts" >&2
+    echo "nimvor-jailsh: not for system accounts" >&2
     exit 1
 fi
 home=$(getent passwd "$user" | cut -d: -f6)
 name=${home#"$SITES_ROOT"/}
 case $name in
     "$home"|''|.|..|*/*|*[!A-Za-z0-9._-]*)
-        echo "whacp-jailsh: the account has no website folder" >&2
+        echo "nimvor-jailsh: the account has no website folder" >&2
         exit 1 ;;
 esac
-[ -d "$home" ] || { echo "whacp-jailsh: $home does not exist" >&2; exit 1; }
+[ -d "$home" ] || { echo "nimvor-jailsh: $home does not exist" >&2; exit 1; }
 
 # SFTP runs the server inside the sandbox, whatever sshd's Subsystem is.
 case $cmd in
@@ -216,7 +216,7 @@ case $cmd in
         for s in /usr/lib/openssh/sftp-server /usr/libexec/openssh/sftp-server /usr/lib/ssh/sftp-server; do
             if [ -x "$s" ]; then sftp=$s; break; fi
         done
-        [ -n "$sftp" ] || { echo "whacp-jailsh: no sftp-server" >&2; exit 1; } ;;
+        [ -n "$sftp" ] || { echo "nimvor-jailsh: no sftp-server" >&2; exit 1; } ;;
 esac
 
 bwrap=@COPY@

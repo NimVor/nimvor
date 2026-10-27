@@ -25,7 +25,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
-const termSites = "/srv/whacp-termtest"
+const termSites = "/srv/nimvor-termtest"
 
 // realAccounts creates two website accounts, terma and termb, each with a
 // private file, and an agent with the SFTP/shell, limits and terminal
@@ -103,7 +103,7 @@ func must(t *testing.T, r *actions.Registry, name string, params any) {
 	}
 }
 
-// The terminal's password is the Linux account's: the one WhaCP sets for
+// The terminal's password is the Linux account's: the one NimVor sets for
 // SSH/SFTP (in /etc/shadow). Changing it changes what the terminal
 // accepts; a locked or suspended account is refused. Checked with the real
 // unix_chkpwd; no systemd needed.
@@ -127,7 +127,7 @@ func TestRealHostLinuxPassword(t *testing.T) {
 	if check("terma", "First-Linux-Pass-1") == nil || check("terma", "Second-Linux-Pass-2") != nil {
 		t.Fatal("the password change did not take effect")
 	}
-	// A password set outside WhaCP (passwd/chpasswd, yescrypt on Ubuntu) works too.
+	// A password set outside NimVor (passwd/chpasswd, yescrypt on Ubuntu) works too.
 	if out, err := exec.Command("sh", "-c", "echo 'terma:Set-By-Chpasswd-3' | chpasswd").CombinedOutput(); err != nil {
 		t.Fatalf("chpasswd: %s", out)
 	}
@@ -226,7 +226,7 @@ func TestRealHostTerminalSession(t *testing.T) {
 	homeB := filepath.Join(termSites, "termb.test")
 	out := run(a, `echo user=$(id -un) uid=$(id -u); echo "IDLINE $(id)"; echo "GROUPSLINE $(groups)"; grep -E '^(NoNewPrivs|Cap(Inh|Prm|Eff|Bnd|Amb))' /proc/self/status; cat /proc/self/cgroup; g=$(cut -d: -f3 /proc/self/cgroup); echo pids=$(cat /sys/fs/cgroup$g/pids.max) slicemem=$(cat /sys/fs/cgroup${g%/*}/memory.max); sudo -n id -u 2>&1; echo sudo-rc=$?; su -c 'id -u' root </dev/null 2>&1; echo su-rc=$?; cat `+homeB+`/private.txt 2>&1; cat /etc/shadow 2>&1 | head -1`)
 	t.Logf("terma session:\n%s", out)
-	for _, want := range []string{"user=terma uid=2891", UnitName(idA), "whacp-acct991.slice", "pids=512", "slicemem=268435456", "Permission denied"} {
+	for _, want := range []string{"user=terma uid=2891", UnitName(idA), "nimvor-acct991.slice", "pids=512", "slicemem=268435456", "Permission denied"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("terma session lacks %q", want)
 		}
@@ -286,14 +286,14 @@ func TestRealHostTerminalSession(t *testing.T) {
 
 	// Jailed: only the account's website and the read-only system.
 	if b, _ := os.ReadFile("/proc/sys/kernel/apparmor_restrict_unprivileged_userns"); strings.TrimSpace(string(b)) == "1" {
-		profile := "abi <abi/4.0>,\ninclude <tunables/global>\nprofile whacp-bwrap " + ftpmgr.JailBwrap + " flags=(unconfined) {\n  userns,\n}\n"
-		os.WriteFile("/etc/apparmor.d/whacp-bwrap", []byte(profile), 0o644)
-		if out, err := exec.Command("apparmor_parser", "-r", "/etc/apparmor.d/whacp-bwrap").CombinedOutput(); err != nil {
+		profile := "abi <abi/4.0>,\ninclude <tunables/global>\nprofile nimvor-bwrap " + ftpmgr.JailBwrap + " flags=(unconfined) {\n  userns,\n}\n"
+		os.WriteFile("/etc/apparmor.d/nimvor-bwrap", []byte(profile), 0o644)
+		if out, err := exec.Command("apparmor_parser", "-r", "/etc/apparmor.d/nimvor-bwrap").CombinedOutput(); err != nil {
 			t.Fatalf("apparmor_parser: %s", out)
 		}
 		t.Cleanup(func() {
-			exec.Command("apparmor_parser", "-R", "/etc/apparmor.d/whacp-bwrap").Run()
-			os.Remove("/etc/apparmor.d/whacp-bwrap")
+			exec.Command("apparmor_parser", "-R", "/etc/apparmor.d/nimvor-bwrap").Run()
+			os.Remove("/etc/apparmor.d/nimvor-bwrap")
 			os.Remove(ftpmgr.JailBwrap)
 		})
 	}
@@ -320,7 +320,7 @@ func TestRealHostTerminalSession(t *testing.T) {
 	if regexp.MustCompile(`(?m)^termb\.test\r?$`).MatchString(out) || !strings.Contains(out, "termb.test/private.txt: No such file or directory") {
 		t.Error("the jailed session sees the other website")
 	}
-	for _, bad := range []string{"SECRET-OF-termb", "systemd", "whacp-agent", "sshd"} {
+	for _, bad := range []string{"SECRET-OF-termb", "systemd", "nimvor-agent", "sshd"} {
 		if strings.Contains(out, bad) {
 			t.Errorf("jailed session sees %q", bad)
 		}

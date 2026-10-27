@@ -1,13 +1,13 @@
 <?php
 /**
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed>|null $status
  * @var list<array<string, mixed>> $domains
  * @var list<array<string, mixed>> $websites
  * @var bool $admin
  * @var int $preselect
  */
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 $errors ??= [];
 $old ??= [];
@@ -27,7 +27,7 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
             <?php if ($this->can(P::PACKAGES_MANAGE)): ?><form method="post" action="<?= e($this->url('mail.install')) ?>"><?= $this->csrfField() ?><button class="btn btn-primary"><i class="bi bi-download me-1"></i>Install the mail server</button></form><?php endif; ?>
         <?php elseif ($this->can(P::SERVER_MANAGE)): ?>
             <p><?= empty($status['configured']) ? 'The mail server is installed but not set up for NimVor yet.' : 'Email is set up but Postfix is not running.' ?></p>
-            <form method="post" action="<?= e($this->url('mail.setup')) ?>" class="wcp-narrow" data-wcp-busy>
+            <form method="post" action="<?= e($this->url('mail.setup')) ?>" class="nim-narrow" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <?= $this->partial('partials/field', ['name' => 'hostname', 'label' => 'Mail server host name', 'value' => (string) ($old['hostname'] ?? $status['hostname'] ?? ''), 'attrs' => ['placeholder' => 'mail.example.com', 'required' => 'required'], 'help' => 'The name MX records point to. It must resolve to this server; its reverse DNS (PTR) should match. A Let\'s Encrypt certificate for it is used when present.']) ?>
                 <?php if (empty($status['configured'])): ?>
@@ -41,11 +41,11 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
     </div></div>
 <?php endif; ?>
 <?php $spam = (array) ($status['spam'] ?? []); $wm = (array) ($status['webmail'] ?? []); $srvManage = $ready && $this->can(P::SERVER_MANAGE); ?>
-<div class="wcp-panel mb-3">
-    <div class="wcp-actionbar">
+<div class="nim-panel mb-3">
+    <div class="nim-actionbar">
         <div class="fw-semibold"><i class="bi bi-envelope me-1" aria-hidden="true"></i>Mail domains <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($domains) ?></span>
             <?php if ($ready): ?><span class="small text-body-secondary fw-normal ms-2">IMAP <code><?= e((string) $status['hostname']) ?>:993</code> · SMTP <code><?= e((string) $status['hostname']) ?>:587</code> (STARTTLS)</span><?php endif; ?></div>
-        <div class="wcp-actionbar-end">
+        <div class="nim-actionbar-end">
             <?php if ($srvManage): ?>
                 <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#spam-filter"><i class="bi bi-shield-exclamation me-1" aria-hidden="true"></i>Spam filter <?= !empty($spam['enabled']) ? $this->statusBadge(!empty($status['spam_running']) ? 'active' : 'failed', !empty($status['spam_running']) ? 'on' : 'not running') : $this->statusBadge('inactive', 'off') ?></button>
                 <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#webmail"><i class="bi bi-envelope-open me-1" aria-hidden="true"></i>Webmail <?= !empty($wm['enabled']) ? $this->statusBadge(!empty($wm['running']) ? 'active' : 'failed', !empty($wm['running']) ? 'on' : 'not running') : $this->statusBadge('inactive', 'off') ?></button>
@@ -53,9 +53,9 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
             <?php if ($ready): ?><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#mail-add"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Host email for a domain</button><?php endif; ?>
         </div>
     </div>
-    <div class="wcp-dtable">
+    <div class="nim-dtable">
 <div class="table-responsive">
-                <table class="table mb-0 wcp-table align-middle">
+                <table class="table mb-0 nim-table align-middle">
                     <thead><tr><th>Domain</th><th>Website</th><th class="text-end">Mailboxes</th><th class="text-end">Aliases</th></tr></thead>
                     <tbody>
                     <?php foreach ($domains as $d): ?>
@@ -80,7 +80,7 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
                     <p class="text-body-secondary">Rspamd checks incoming mail; spam is filed into each mailbox's Junk folder or refused.</p>
                     <?php if ($this->can(P::PACKAGES_MANAGE)): ?><form method="post" action="<?= e($this->url('mail.spam.install')) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-primary">Install Rspamd</button></form><?php endif; ?>
                 <?php else: ?>
-                    <form method="post" action="<?= e($this->url('mail.spam')) ?>" data-wcp-busy>
+                    <form method="post" action="<?= e($this->url('mail.spam')) ?>" data-nim-busy>
                         <?= $this->csrfField() ?>
                         <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="spam-on"<?= !empty($spam['enabled']) ? ' checked' : '' ?>><label class="form-check-label" for="spam-on">Filter incoming mail</label></div>
                         <div class="row g-2 mb-2">
@@ -104,7 +104,7 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
                     <?php if (!empty($wm['enabled']) && !empty($wm['hostname'])): ?>
                         <p class="mb-2"><a href="https://<?= e((string) $wm['hostname']) ?>/" target="_blank" rel="noopener">https://<?= e((string) $wm['hostname']) ?>/</a><?php if (!empty($wm['php'])): ?> <span class="text-body-secondary">(PHP <?= e((string) $wm['php']) ?>)</span><?php endif; ?></p>
                     <?php endif; ?>
-                    <form method="post" action="<?= e($this->url('mail.webmail')) ?>" data-wcp-busy>
+                    <form method="post" action="<?= e($this->url('mail.webmail')) ?>" data-nim-busy>
                         <?= $this->csrfField() ?>
                         <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="webmail-on"<?= !empty($wm['enabled']) ? ' checked' : '' ?>><label class="form-check-label" for="webmail-on">Webmail on</label></div>
                         <label class="form-label small" for="webmail-host">Host name</label>
@@ -119,7 +119,7 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
 <?php endif; ?>
 <?php if ($ready): ?>
     <?= $this->modalStart('mail-add', 'Host email for a domain', isset($errors['website_id']) || isset($errors['domain']), 'modal-md') ?>
-                <form method="post" action="<?= e($this->url('mail.store')) ?>" data-wcp-busy>
+                <form method="post" action="<?= e($this->url('mail.store')) ?>" data-nim-busy>
                     <?= $this->csrfField() ?>
                     <div class="mb-3">
                         <label class="form-label" for="mail-site">Website</label>

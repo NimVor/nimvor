@@ -21,12 +21,12 @@ import (
 )
 
 // TuningFile is the managed drop-in's name under conf.d.
-const TuningFile = "zz-whacp-tuning.conf"
+const TuningFile = "zz-nimvor-tuning.conf"
 
 // Units are the Nginx service names.
 var Units = []string{"nginx.service", "nginx"}
 
-// Tuning holds the http-context directives WhaCP manages. All are safe in a
+// Tuning holds the http-context directives NimVor manages. All are safe in a
 // conf.d drop-in and bounded to sensible ranges.
 type Tuning struct {
 	ClientMaxBodyMB   int  `json:"client_max_body_mb"`  // client_max_body_size (MB)
@@ -54,7 +54,7 @@ func (t Tuning) validate() error {
 
 func (t Tuning) conf() string {
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP (Server → Nginx). Do not edit.\n")
+	b.WriteString("# Managed by NimVor (Server → Nginx). Do not edit.\n")
 	fmt.Fprintf(&b, "client_max_body_size %dm;\n", t.ClientMaxBodyMB)
 	fmt.Fprintf(&b, "keepalive_timeout %ds;\n", t.KeepaliveTimeout)
 	fmt.Fprintf(&b, "client_body_timeout %ds;\n", t.ClientBodyTimeout)
@@ -120,7 +120,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"reloaded": true}, nil
 	}})
 
-	r.Register(actions.Action{Name: "nginx.tuning_apply", Mutating: true, Description: "Apply WhaCP's server-wide Nginx tuning (a managed conf.d drop-in), validated with nginx -t and rolled back if invalid.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "nginx.tuning_apply", Mutating: true, Description: "Apply NimVor's server-wide Nginx tuning (a managed conf.d drop-in), validated with nginx -t and rolled back if invalid.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var t Tuning
 		if err := host.Decode(p, &t); err != nil {
 			return nil, err

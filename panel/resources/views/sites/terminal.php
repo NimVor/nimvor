@@ -1,11 +1,11 @@
 <?php
 /**
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed> $site
  * @var array<string, mixed>|null $status
  * @var string|null $mode the account's shell access in effect
  */
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 $enabled = (bool) ($status['enabled'] ?? false);
 ?>
@@ -13,7 +13,7 @@ $enabled = (bool) ($status['enabled'] ?? false);
 <?php if ($agentError !== null): ?><?= $this->partial('partials/agent_error', ['error' => $agentError]) ?><?php return; endif; ?>
 
 <?php if (!$enabled): ?>
-    <div class="card"><div class="wcp-empty-state">
+    <div class="card"><div class="nim-empty-state">
         <i class="bi bi-terminal" aria-hidden="true"></i>
         <div class="fw-medium">The web terminal is not enabled on this server</div>
         <div class="small">It needs the panel served over HTTPS by Nginx (<code>install.sh --public-https</code>), which turns it on.<?php if ($this->can(P::SERVER_MANAGE)): ?> Until then, use SSH with the account's key or password (FTP / SFTP page).<?php endif; ?></div>
@@ -22,7 +22,7 @@ $enabled = (bool) ($status['enabled'] ?? false);
 <?php endif; ?>
 
 <?php if ($mode !== 'jailed' && $mode !== 'normal'): ?>
-    <div class="card"><div class="wcp-empty-state">
+    <div class="card"><div class="nim-empty-state">
         <i class="bi bi-terminal-x" aria-hidden="true"></i>
         <div class="fw-medium">Shell access is off for this website</div>
         <?php if ($this->can(P::SECURITY_MANAGE) && $this->hasRoute('security.shell')): ?>
@@ -35,7 +35,7 @@ $enabled = (bool) ($status['enabled'] ?? false);
     <?php return; ?>
 <?php endif; ?>
 
-<div class="wcp-infobar">
+<div class="nim-infobar">
     <i class="bi bi-info-circle" aria-hidden="true"></i>
     <span>A shell as <code><?= e($site['system_user']) ?></code><?= $mode === 'jailed' ? ', in a sandbox that shows only this account\'s website folder' : ' on the server' ?>. Sign in with the account's Linux password (the same as for SSH and SFTP). The session closes after <?= (int) ($idle ?? 15) ?> minutes without input, when you sign out of the panel and when the account's password or shell access changes; it is logged.</span>
 </div>

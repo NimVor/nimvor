@@ -28,37 +28,37 @@ const DEV = path.resolve(__dirname, '../../.dev');
     await page.goto(BASE + '/websites/new');
     await page.fill('#f-domain', domain);
     await Promise.all([page.waitForNavigation(), page.click('main form[action="/websites/new"] button[type=submit]')]);
-    const siteId = execFileSync('sqlite3', [path.join(DEV, 'whacp.sqlite'), `SELECT id FROM websites WHERE domain = '${domain}'`]).toString().trim();
+    const siteId = execFileSync('sqlite3', [path.join(DEV, 'nimvor.sqlite'), `SELECT id FROM websites WHERE domain = '${domain}'`]).toString().trim();
     const dbName = 'imp_' + stamp.slice(-6);
-    execFileSync('sqlite3', [path.join(DEV, 'whacp.sqlite'), `INSERT INTO databases (server_id, website_id, owner_id, name, created_at) VALUES (1, ${siteId}, NULL, '${dbName}', '2026-01-01')`]);
+    execFileSync('sqlite3', [path.join(DEV, 'nimvor.sqlite'), `INSERT INTO databases (server_id, website_id, owner_id, name, created_at) VALUES (1, ${siteId}, NULL, '${dbName}', '2026-01-01')`]);
     step('website ' + domain + ' with database ' + dbName);
 
     await page.goto(BASE + '/sites/' + siteId + '/databases');
     const row = `#db-table tr:has-text("${dbName}")`;
-    await page.click(`${row} [data-wcp-import] summary`);
+    await page.click(`${row} [data-nim-import] summary`);
     // A wrong file type is refused before anything is uploaded.
     const bad = path.join(OUT, 'notes.txt');
     fs.writeFileSync(bad, 'hello');
-    await page.setInputFiles(`${row} [data-wcp-import-file]`, bad);
-    await page.click(`${row} [data-wcp-import] button[type=submit]`);
-    await page.waitForSelector(`${row} [data-wcp-import-error]:not(.d-none)`);
+    await page.setInputFiles(`${row} [data-nim-import-file]`, bad);
+    await page.click(`${row} [data-nim-import] button[type=submit]`);
+    await page.waitForSelector(`${row} [data-nim-import-error]:not(.d-none)`);
     step('a .txt file is refused in the browser');
 
     // A 2.5 MB dump: three chunks.
     const dump = path.join(OUT, 'shop-dump.sql');
     fs.writeFileSync(dump, 'CREATE TABLE t (a INT);\n' + ('INSERT INTO t VALUES (1);\n'.repeat(100000)));
-    await page.setInputFiles(`${row} [data-wcp-import-file]`, dump);
-    await Promise.all([page.waitForNavigation({ timeout: 60000 }), page.click(`${row} [data-wcp-import] button[type=submit]`)]);
+    await page.setInputFiles(`${row} [data-nim-import-file]`, dump);
+    await Promise.all([page.waitForNavigation({ timeout: 60000 }), page.click(`${row} [data-nim-import] button[type=submit]`)]);
     const flash = (await page.textContent('.alert-success, .alert-danger') || '').trim();
     if (!flash.includes('Import into ' + dbName + ' started')) { throw new Error('flash: ' + flash); }
     step('uploaded in chunks; the import job started');
 
     // The job ends (the simulated client fails it) and the upload is removed.
-    const tmp = path.join(DEV, 'root/home/whacp', domain, 'tmp');
+    const tmp = path.join(DEV, 'root/home/nimvor', domain, 'tmp');
     const deadline = Date.now() + 20000;
     let left = null;
     while (Date.now() < deadline) {
-      left = fs.readdirSync(tmp).filter(f => f.startsWith('whacp-import-'));
+      left = fs.readdirSync(tmp).filter(f => f.startsWith('nimvor-import-'));
       if (left.length === 0) { break; }
       await page.waitForTimeout(500);
     }

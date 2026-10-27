@@ -1,15 +1,15 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 ?>
 <?php $this->start(); ?>Status note<?php $this->end('title'); ?>
 <?php $this->start(); ?>Example plugin<?php $this->end('subtitle'); ?>
 <div class="row g-3">
     <div class="col-lg-6">
         <div class="card"><div class="card-body">
-            <dl class="wcp-dl mb-0">
+            <dl class="nim-dl mb-0">
                 <dt>Host</dt><dd><?= e($info['system']['hostname'] ?? 'agent unavailable') ?></dd>
                 <dt>Uptime</dt><dd><?= isset($info['system']['uptime_seconds']) ? e(format_duration((float) $info['system']['uptime_seconds'])) : '—' ?></dd>
-                <dt>Websites in WhaCP</dt><dd><?= (int) $websites ?></dd>
+                <dt>Websites in NimVor</dt><dd><?= (int) $websites ?></dd>
             </dl>
         </div></div>
     </div>

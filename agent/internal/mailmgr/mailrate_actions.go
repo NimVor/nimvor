@@ -20,23 +20,23 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/mailrate"
 )
 
-// Outgoing mail limits: WhaCP's policy service (see package mailrate)
+// Outgoing mail limits: NimVor's policy service (see package mailrate)
 // counts the recipients of mail each website account submits over SMTP
 // from this machine. Website accounts may then not use Postfix's own
 // sendmail (authorized_submit_users), which would bypass the count; PHP
-// and the commands WhaCP runs as an account use WhaCP's sendmail. Should
+// and the commands NimVor runs as an account use NimVor's sendmail. Should
 // the service fail, Postfix accepts the mail (default_action=DUNNO).
 
 const (
-	MailRateService = "whacp-mailrate.service"
-	MailRateSocket  = "whacp-mailrate.socket"
-	mailRateClause  = "check_policy_service { unix:private/whacp-mailrate, default_action=DUNNO }"
+	MailRateService = "nimvor-mailrate.service"
+	MailRateSocket  = "nimvor-mailrate.socket"
+	mailRateClause  = "check_policy_service { unix:private/nimvor-mailrate, default_action=DUNNO }"
 	submitAll       = "!nobody, static:anyone"
 )
 
 // Replaced in tests.
 var (
-	mailRateControl = "/run/whacp-mailrate/control"
+	mailRateControl = "/run/nimvor-mailrate/control"
 	mailRateCheck   = mailRateSelfTest
 )
 
@@ -103,8 +103,8 @@ func (e env) mailRateView(c *mailrate.Config) mailRateSettings {
 }
 
 func renderMailRateSocket(queueDir string) string {
-	return "# Managed by WhaCP (outgoing mail limits). Do not edit: changes are overwritten.\n[Unit]\nDescription=WhaCP outgoing mail limit policy socket (Postfix)\n\n" +
-		"[Socket]\nListenStream=" + queueDir + "/private/whacp-mailrate\nSocketUser=postfix\nSocketGroup=postfix\nSocketMode=0600\n\n" +
+	return "# Managed by NimVor (outgoing mail limits). Do not edit: changes are overwritten.\n[Unit]\nDescription=NimVor outgoing mail limit policy socket (Postfix)\n\n" +
+		"[Socket]\nListenStream=" + queueDir + "/private/nimvor-mailrate\nSocketUser=postfix\nSocketGroup=postfix\nSocketMode=0600\n\n" +
 		"[Install]\nWantedBy=sockets.target\n"
 }
 
@@ -113,10 +113,10 @@ func renderMailRateSocket(queueDir string) string {
 // (/proc/self/net), so it keeps the host's user and network namespaces
 // (no PrivateUsers or PrivateNetwork: owners must be the real UIDs).
 func renderMailRateService(bin, configPath string) string {
-	return "# Managed by WhaCP (outgoing mail limits). Do not edit: changes are overwritten.\n[Unit]\nDescription=WhaCP outgoing mail limit policy service (Postfix)\nRequires=" + MailRateSocket + "\nAfter=network.target\n\n" +
+	return "# Managed by NimVor (outgoing mail limits). Do not edit: changes are overwritten.\n[Unit]\nDescription=NimVor outgoing mail limit policy service (Postfix)\nRequires=" + MailRateSocket + "\nAfter=network.target\n\n" +
 		"[Service]\nType=simple\nExecStart=" + bin + " mailrate-policy\n" +
 		"LoadCredential=config:" + configPath + "\n" +
-		"DynamicUser=yes\nStateDirectory=whacp-mailrate\nStateDirectoryMode=0700\nRuntimeDirectory=whacp-mailrate\nRuntimeDirectoryMode=0700\n" +
+		"DynamicUser=yes\nStateDirectory=nimvor-mailrate\nStateDirectoryMode=0700\nRuntimeDirectory=nimvor-mailrate\nRuntimeDirectoryMode=0700\n" +
 		"Restart=on-failure\nRestartSec=2\nTimeoutStopSec=20\n" +
 		"NoNewPrivileges=yes\nCapabilityBoundingSet=\nAmbientCapabilities=\n" +
 		"ProtectSystem=strict\nProtectHome=yes\nPrivateTmp=yes\nPrivateDevices=yes\n" +
@@ -132,7 +132,7 @@ func renderMailRateService(bin, configPath string) string {
 // any permit_mynetworks), or removes it.
 func withMailRate(current string, on bool) string {
 	cur := strings.TrimSpace(strings.ReplaceAll(current, "\n", " "))
-	if idx := strings.Index(cur, "check_policy_service { unix:private/whacp-mailrate"); idx >= 0 {
+	if idx := strings.Index(cur, "check_policy_service { unix:private/nimvor-mailrate"); idx >= 0 {
 		rest := ""
 		if end := strings.Index(cur[idx:], "}"); end >= 0 {
 			rest = cur[idx+end+1:]
@@ -192,7 +192,7 @@ func registerMailRate(r *actions.Registry, e env) {
 		out := map[string]any{
 			"config":     e.mailRateView(c),
 			"accounts":   limits.WebsiteAccounts(e.Env),
-			"service":    map[string]bool{"active": e.UnitActive(ctx, MailRateService), "postfix": strings.Contains(e.postconfValue(ctx, "smtpd_recipient_restrictions"), "unix:private/whacp-mailrate")},
+			"service":    map[string]bool{"active": e.UnitActive(ctx, MailRateService), "postfix": strings.Contains(e.postconfValue(ctx, "smtpd_recipient_restrictions"), "unix:private/nimvor-mailrate")},
 			"configured": e.configured(),
 		}
 		if c.Enabled && !e.Cfg.SimulateCommands {
@@ -266,7 +266,7 @@ func registerMailRate(r *actions.Registry, e env) {
 				return fail("The mail limit service did not start.", err)
 			}
 			if !e.Cfg.SimulateCommands {
-				if err := mailRateCheck(ctx, filepath.Join(e.queueDir(ctx), "private", "whacp-mailrate")); err != nil {
+				if err := mailRateCheck(ctx, filepath.Join(e.queueDir(ctx), "private", "nimvor-mailrate")); err != nil {
 					return fail("The mail limit service does not answer.", err)
 				}
 			}

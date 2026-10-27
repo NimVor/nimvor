@@ -92,7 +92,7 @@ func TestCSRKeyStaysOnServerAndInstallsAgainstCASignedCert(t *testing.T) {
 	st, _ := call(t, r, "ssl.store", `{}`)
 	found := false
 	for _, c := range st["certificates"].([]any) {
-		if cm := c.(map[string]any); cm["source"] == "whacp" && cm["name"] == "shop.test" {
+		if cm := c.(map[string]any); cm["source"] == "nimvor" && cm["name"] == "shop.test" {
 			found = cm["deletable"] == true
 		}
 	}
@@ -146,7 +146,7 @@ func TestTLSProfileMigratesVhostsAndRollsBack(t *testing.T) {
 	h := testhost.New(t)
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
-	vh := filepath.Join(h.Base, h.Env.M.NginxAvailable, "whacp-shop.test.conf")
+	vh := filepath.Join(h.Base, h.Env.M.NginxAvailable, "nimvor-shop.test.conf")
 	os.MkdirAll(filepath.Dir(vh), 0o755)
 	os.WriteFile(vh, []byte("server {\n    listen 443 ssl;\n"+tlsprofile.LegacyBlock+"}\n"), 0o644)
 	g, _ := call(t, r, "ssl.tls_get", `{}`)

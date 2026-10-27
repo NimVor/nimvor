@@ -11,13 +11,13 @@ import (
 )
 
 // The PHP-FPM services run every website's PHP code. Their master runs as
-// root and switches each pool to the website's account; WhaCP confines the
+// root and switches each pool to the website's account; NimVor confines the
 // whole service with a systemd drop-in (and the same settings in the
 // services of resource-limited accounts' own masters):
 //
 //   - NoNewPrivileges: PHP code (and what it starts) cannot gain privileges
 //     through setuid or file-capability binaries (su, sudo, pkexec, …).
-//     PHP's mail goes through WhaCP's sendmail, which needs none.
+//     PHP's mail goes through NimVor's sendmail, which needs none.
 //   - The capabilities the master needs and no others: switching to the
 //     pool accounts, socket ownership, rlimits and priorities of pools,
 //     ptrace for the slow log. No CAP_SYS_ADMIN, CAP_NET_ADMIN,
@@ -27,14 +27,14 @@ import (
 //     clock and control groups protected, IP and local sockets only.
 //
 // /tmp stays as the distribution set it (private on RHEL, the host's on
-// Debian): the commands WhaCP runs as an account and cron jobs share it.
+// Debian): the commands NimVor runs as an account and cron jobs share it.
 // RestrictSUIDSGID is not set, as for those commands (see
 // execx.transientHardening); NoNewPrivileges makes setuid files grant
 // nothing. MemoryDenyWriteExecute is not set: PCRE's and OPcache's JIT
 // need writable executable memory.
 
 // FPMSandboxFile is the drop-in's file name.
-const FPMSandboxFile = "whacp-sandbox.conf"
+const FPMSandboxFile = "nimvor-sandbox.conf"
 
 // fpmCapabilities are those the FPM master keeps.
 var fpmCapabilities = []string{
@@ -73,7 +73,7 @@ func (e *Env) FPMSandboxPath(v string) string {
 // be restarted for it to take effect (a reload keeps the old process).
 func (e *Env) EnsureFPMSandbox(ctx context.Context, v string) (bool, error) {
 	path := e.FPMSandboxPath(v)
-	want := "# Managed by WhaCP: the sandbox of the PHP-FPM service (websites' PHP code).\n[Service]\n" + FPMSandbox()
+	want := "# Managed by NimVor: the sandbox of the PHP-FPM service (websites' PHP code).\n[Service]\n" + FPMSandbox()
 	if b, err := e.Root.ReadFile(path); err == nil && string(b) == want {
 		return false, nil
 	}

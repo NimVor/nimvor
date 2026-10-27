@@ -218,7 +218,7 @@ func (m *Manager) spec(p OpenParams) (Spec, error) {
 	}
 	if p.Root {
 		if !e.Cfg.TerminalRoot {
-			return s, actions.Conflict("Root shells are turned off in the web terminal. Only the server's root user can turn them on (terminal_root in /etc/whacp/agent.json).")
+			return s, actions.Conflict("Root shells are turned off in the web terminal. Only the server's root user can turn them on (terminal_root in /etc/nimvor/agent.json).")
 		}
 		s.User, s.Mode, s.Program, s.Args, s.Home = "root", ModeRoot, "/bin/bash", []string{"-l"}, "/root"
 		return s, nil
@@ -261,7 +261,7 @@ func (m *Manager) spec(p OpenParams) (Spec, error) {
 // Open validates a request and returns a ticket.
 func (m *Manager) Open(p OpenParams) (map[string]any, error) {
 	if !m.Enabled {
-		return nil, actions.Conflict("The web terminal is not enabled on this server. It needs the panel served by Nginx (install.sh --public-https), which sets terminal_listen in /etc/whacp/agent.json.")
+		return nil, actions.Conflict("The web terminal is not enabled on this server. It needs the panel served by Nginx (install.sh --public-https), which sets terminal_listen in /etc/nimvor/agent.json.")
 	}
 	if p.Root == (p.User != "") {
 		return nil, actions.InvalidParams("give either user or root")
@@ -658,7 +658,7 @@ func (m *Manager) run(ws *wsConn, t *ticket, ip string) {
 const ttyWrapper = `t=$1; shift; exec "$@" <"$t" >"$t" 2>&1`
 
 // UnitName is a session's unit.
-func UnitName(id string) string { return "whacp-term-" + id + ".service" }
+func UnitName(id string) string { return "nimvor-term-" + id + ".service" }
 
 // SystemdArgs are the systemd-run arguments of a session.
 func SystemdArgs(s Spec) []string {
@@ -692,7 +692,7 @@ func SystemdArgs(s Spec) []string {
 			a = append(a, "--slice="+s.Slice)
 		}
 	}
-	tail := append([]string{"/bin/sh", "-c", ttyWrapper, "whacp-term", s.TTY, s.Program}, s.Args...)
+	tail := append([]string{"/bin/sh", "-c", ttyWrapper, "nimvor-term", s.TTY, s.Program}, s.Args...)
 	for i := range tail {
 		// systemd expands $VAR in command lines; "$$" is a literal "$".
 		tail[i] = strings.ReplaceAll(tail[i], "$", "$$")

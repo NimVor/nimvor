@@ -38,7 +38,7 @@ func remoteEnv(t *testing.T) (*host.Env, *actions.Registry, Service) {
 	cfg := config.Default()
 	cfg.StateDir = t.TempDir()
 	cfg.BackupDir = t.TempDir()
-	cfg.SitesRoot, _ = os.MkdirTemp("/tmp", "whacp-rsites-")
+	cfg.SitesRoot, _ = os.MkdirTemp("/tmp", "nimvor-rsites-")
 	os.Chmod(cfg.SitesRoot, 0o755)
 	t.Cleanup(func() { os.RemoveAll(cfg.SitesRoot) })
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -71,23 +71,23 @@ func backupCycle(t *testing.T, r *actions.Registry, s Service, remote Remote, ch
 		t.Fatalf("remote_test with the pinned key: %+v", err)
 	}
 
-	if out, err := exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", "-u", "1779", "whacprmt").CombinedOutput(); err != nil && !strings.Contains(string(out), "already exists") {
+	if out, err := exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", "-u", "1779", "nimvorrmt").CombinedOutput(); err != nil && !strings.Contains(string(out), "already exists") {
 		ids, _ := exec.Command("getent", "passwd", "1779").CombinedOutput()
-		gids, _ := exec.Command("getent", "group", "1779", "whacprmt").CombinedOutput()
-		t.Fatalf("useradd whacprmt: %v %s\nuid 1779: %s\ngroup: %s", err, out, ids, gids)
+		gids, _ := exec.Command("getent", "group", "1779", "nimvorrmt").CombinedOutput()
+		t.Fatalf("useradd nimvorrmt: %v %s\nuid 1779: %s\ngroup: %s", err, out, ids, gids)
 	}
-	t.Cleanup(func() { exec.Command("userdel", "whacprmt").Run() })
+	t.Cleanup(func() { exec.Command("userdel", "nimvorrmt").Run() })
 	root := filepath.Join(s.Env.Cfg.SitesRoot, "rmt.test")
 	os.MkdirAll(filepath.Join(root, "public_html"), 0o750)
 	os.WriteFile(filepath.Join(root, "public_html/index.html"), []byte("remote backup"), 0o640)
-	exec.Command("chown", "-R", "whacprmt:whacprmt", root).Run()
-	cred, _, err := s.Env.Credential("whacprmt")
+	exec.Command("chown", "-R", "nimvorrmt:nimvorrmt", root).Run()
+	cred, _, err := s.Env.Credential("nimvorrmt")
 	if err != nil {
 		t.Fatal(err)
 	}
 	keep := false
 	var log strings.Builder
-	m, err := s.CreateSite(context.Background(), SiteRequest{Domain: "rmt.test", User: "whacprmt", Root: root, Files: true, Encrypt: true, Remote: &remote, KeepLocal: &keep}, cred, &log)
+	m, err := s.CreateSite(context.Background(), SiteRequest{Domain: "rmt.test", User: "nimvorrmt", Root: root, Files: true, Encrypt: true, Remote: &remote, KeepLocal: &keep}, cred, &log)
 	if err != nil {
 		t.Fatalf("backup: %v\n%s", err, log.String())
 	}
@@ -109,7 +109,7 @@ func backupCycle(t *testing.T, r *actions.Registry, s Service, remote Remote, ch
 	if !imported {
 		t.Fatalf("backup not found in the storage: %+v", found)
 	}
-	if _, err := s.Restore(context.Background(), RestoreRequest{Domain: "rmt.test", User: "whacprmt", Root: root, ID: m.ID, Files: true, Remote: &remote}, cred, &log); err != nil {
+	if _, err := s.Restore(context.Background(), RestoreRequest{Domain: "rmt.test", User: "nimvorrmt", Root: root, ID: m.ID, Files: true, Remote: &remote}, cred, &log); err != nil {
 		t.Fatalf("restore: %v\n%s", err, log.String())
 	}
 	if b, _ := os.ReadFile(filepath.Join(root, "public_html/index.html")); string(b) != "remote backup" {
@@ -133,20 +133,20 @@ func TestRealHostSFTPBackup(t *testing.T) {
 	} else {
 		c.Close()
 	}
-	exec.Command("useradd", "-m", "-s", "/bin/sh", "whacpsftp").Run()
-	t.Cleanup(func() { exec.Command("userdel", "-r", "whacpsftp").Run() })
+	exec.Command("useradd", "-m", "-s", "/bin/sh", "nimvorsftp").Run()
+	t.Cleanup(func() { exec.Command("userdel", "-r", "nimvorsftp").Run() })
 	dir := t.TempDir()
 	if out, err := exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", filepath.Join(dir, "k")).CombinedOutput(); err != nil {
 		t.Fatalf("%s", out)
 	}
 	pub, _ := os.ReadFile(filepath.Join(dir, "k.pub"))
 	priv, _ := os.ReadFile(filepath.Join(dir, "k"))
-	os.MkdirAll("/home/whacpsftp/.ssh", 0o700)
-	os.WriteFile("/home/whacpsftp/.ssh/authorized_keys", pub, 0o600)
-	exec.Command("chown", "-R", "whacpsftp:whacpsftp", "/home/whacpsftp").Run()
+	os.MkdirAll("/home/nimvorsftp/.ssh", 0o700)
+	os.WriteFile("/home/nimvorsftp/.ssh/authorized_keys", pub, 0o600)
+	exec.Command("chown", "-R", "nimvorsftp:nimvorsftp", "/home/nimvorsftp").Run()
 
 	_, r, s := remoteEnv(t)
-	remote := Remote{Type: "sftp", Host: "127.0.0.1", Username: "whacpsftp", PrivateKey: string(priv), Prefix: "whacp"}
+	remote := Remote{Type: "sftp", Host: "127.0.0.1", Username: "nimvorsftp", PrivateKey: string(priv), Prefix: "nimvor"}
 	backupCycle(t, r, s, remote, func(res map[string]any) Remote {
 		if !strings.HasPrefix(res["fingerprint"].(string), "SHA256:") {
 			t.Fatalf("result = %v", res)
@@ -174,15 +174,15 @@ func TestRealHostFTPSBackup(t *testing.T) {
 	dir := t.TempDir()
 	os.Chmod(dir, 0o755)
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "ftp.whacp.test"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}}
+	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "ftp.nimvor.test"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}}
 	der, _ := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	kder, _ := x509.MarshalECPrivateKey(key)
 	pemData := append(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: kder}), pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})...)
 	os.WriteFile(filepath.Join(dir, "ftp.pem"), pemData, 0o600)
 
-	exec.Command("useradd", "-m", "-u", "2892", "-s", "/usr/sbin/nologin", "whacpftp").Run()
-	t.Cleanup(func() { exec.Command("userdel", "-r", "whacpftp").Run() })
-	line := fmt.Sprintf("whacpftp:%s:2892:2892::/home/whacpftp/./::::::::::::\n", shacrypt.HashPassword("Ftp-Pa55word-123"))
+	exec.Command("useradd", "-m", "-u", "2892", "-s", "/usr/sbin/nologin", "nimvorftp").Run()
+	t.Cleanup(func() { exec.Command("userdel", "-r", "nimvorftp").Run() })
+	line := fmt.Sprintf("nimvorftp:%s:2892:2892::/home/nimvorftp/./::::::::::::\n", shacrypt.HashPassword("Ftp-Pa55word-123"))
 	os.WriteFile(filepath.Join(dir, "users.passwd"), []byte(line), 0o600)
 	if out, err := exec.Command("pure-pw", "mkdb", filepath.Join(dir, "users.pdb"), "-f", filepath.Join(dir, "users.passwd")).CombinedOutput(); err != nil {
 		t.Fatalf("pure-pw: %s", out)
@@ -213,9 +213,9 @@ CertFile %s/ftp.pem
 	}
 
 	_, r, s := remoteEnv(t)
-	remote := Remote{Type: "ftp", Host: "127.0.0.1", Port: 2121, Username: "whacpftp", Password: "Ftp-Pa55word-123", Prefix: "whacp"}
+	remote := Remote{Type: "ftp", Host: "127.0.0.1", Port: 2121, Username: "nimvorftp", Password: "Ftp-Pa55word-123", Prefix: "nimvor"}
 	backupCycle(t, r, s, remote, func(res map[string]any) Remote {
-		if !strings.HasPrefix(res["tls_pin"].(string), "sha256//") || !strings.Contains(fmt.Sprint(res["tls_subject"]), "ftp.whacp.test") {
+		if !strings.HasPrefix(res["tls_pin"].(string), "sha256//") || !strings.Contains(fmt.Sprint(res["tls_subject"]), "ftp.nimvor.test") {
 			t.Fatalf("result = %v", res)
 		}
 		remote.TLSPin = res["tls_pin"].(string)

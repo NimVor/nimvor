@@ -86,7 +86,7 @@ func NormalizeKey(line string) (string, error) {
 // renderDropIn produces the Match blocks for every enabled user.
 func renderDropIn(env *host.Env, st sftpState) string {
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP (website SFTP access). Do not edit: changes are overwritten.\n")
+	b.WriteString("# Managed by NimVor (website SFTP access). Do not edit: changes are overwritten.\n")
 	names := make([]string, 0, len(st.Users))
 	for n := range st.Users {
 		names = append(names, n)

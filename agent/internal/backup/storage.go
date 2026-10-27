@@ -141,7 +141,7 @@ func (r *Remote) validateDrive() error {
 var localRoots = []string{"/mnt/", "/media/", "/backup/", "/backups/", "/srv/backup/", "/srv/backups/"}
 
 // creatableRoots are local backup folders on this server's own disk:
-// WhaCP may use them as they are and creates them when missing. Under
+// NimVor may use them as they are and creates them when missing. Under
 // /mnt and /media a missing folder means the disk is not mounted, so
 // those are never created (backups would fill the system disk instead).
 var creatableRoots = []string{"/backup", "/backups", "/srv/backup", "/srv/backups"}
@@ -189,7 +189,7 @@ func (l *localDir) base() (string, error) {
 		if creatable(l.R.Path) {
 			return "", fmt.Errorf("%s does not exist or is not a folder", l.R.Path)
 		}
-		return "", fmt.Errorf("%s does not exist or is not a folder: is the disk mounted? (WhaCP does not create folders under /mnt or /media, so that backups never fill the system disk while a disk is missing)", l.R.Path)
+		return "", fmt.Errorf("%s does not exist or is not a folder: is the disk mounted? (NimVor does not create folders under /mnt or /media, so that backups never fill the system disk while a disk is missing)", l.R.Path)
 	}
 	if st, ok := info.Sys().(*syscall.Stat_t); ok && (st.Uid != 0 && os.Geteuid() == 0 || info.Mode().Perm()&0o002 != 0) {
 		return "", fmt.Errorf("%s must belong to root and not be writable by others", l.R.Path)

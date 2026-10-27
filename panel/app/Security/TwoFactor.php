@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
-use WhaCP\Database\Connection;
+use NimVor\Database\Connection;
 
 /**
  * Time-based one-time passwords (RFC 6238: SHA-1, 6 digits, 30 seconds),

@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $site */
 /** @var list<array<string, mixed>> $addons */
 /** @var array<int, array<string, mixed>> $moves */
@@ -9,18 +9,18 @@ $errors ??= [];
 $old ??= [];
 $open = ($old['convert'] ?? '') === '' && $errors !== [];
 $addonError = $open ? ($errors['domain'] ?? $errors['system_user'] ?? null) : null;
-$canConvert = $this->can(\WhaCP\Security\Permissions::USERS_MANAGE) && $this->hasRoute('sites.convert');
+$canConvert = $this->can(\NimVor\Security\Permissions::USERS_MANAGE) && $this->hasRoute('sites.convert');
 ?>
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'addons']) ?>
 <p class="small text-body-secondary">An addon domain is a separate website for another domain you own, running under this website's account <code><?= e($site['system_user']) ?></code> (its own folder, PHP, SSL, databases…). Point the domain's DNS to this server. Manage each one like any website; delete it from its own Advanced page.</p>
 
 <div class="card" id="addons">
-    <div class="card-header wcp-toolbar">
-        <h2 class="wcp-toolbar-title"><i class="bi bi-plus-square me-1"></i>Addon domains <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($addons) ?></span></h2>
+    <div class="card-header nim-toolbar">
+        <h2 class="nim-toolbar-title"><i class="bi bi-plus-square me-1"></i>Addon domains <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($addons) ?></span></h2>
         <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-addon"><i class="bi bi-plus-lg me-1"></i>Add addon domain</button>
     </div>
     <?= $this->modalStart('new-addon', 'Add addon domain', $open) ?>
-        <form class="p-3" method="post" action="<?= e($this->url('sites.addons.store', ['id' => $id])) ?>" data-wcp-busy>
+        <form class="p-3" method="post" action="<?= e($this->url('sites.addons.store', ['id' => $id])) ?>" data-nim-busy>
             <?= $this->csrfField() ?><input type="hidden" name="type" value="addon">
             <div class="row g-2 align-items-end">
                 <div class="col-md-6">
@@ -35,17 +35,17 @@ $canConvert = $this->can(\WhaCP\Security\Permissions::USERS_MANAGE) && $this->ha
         </form>
     <?= $this->modalEnd() ?>
     <?php if ($addons === []): ?>
-        <div class="wcp-empty-state"><i class="bi bi-plus-square" aria-hidden="true"></i><div class="small">No addon domains yet.</div></div>
+        <div class="nim-empty-state"><i class="bi bi-plus-square" aria-hidden="true"></i><div class="small">No addon domains yet.</div></div>
     <?php else: ?>
         <div class="table-responsive">
-            <table class="table align-middle mb-0 wcp-table">
+            <table class="table align-middle mb-0 nim-table">
                 <thead><tr><th>Domain</th><th>Folder</th><th>Status</th><th>HTTPS</th><th class="text-end">Actions</th></tr></thead>
                 <tbody>
                 <?php foreach ($addons as $c): ?>
                     <tr>
                         <td class="fw-semibold"><?= e($c['domain']) ?></td>
                         <td class="small"><code><?= e($c['document_root']) ?></code></td>
-                        <td class="small"><?= $c['enabled'] ? '<span class="wcp-state is-ok">Active</span>' : '<span class="wcp-state is-off">Disabled</span>' ?></td>
+                        <td class="small"><?= $c['enabled'] ? '<span class="nim-state is-ok">Active</span>' : '<span class="nim-state is-off">Disabled</span>' ?></td>
                         <td class="small"><?= $c['https'] ? '<i class="bi bi-lock-fill text-success"></i> On' : '<span class="text-body-secondary">Off</span>' ?></td>
                         <td class="text-end text-nowrap">
                             <?php if ($c['enabled']): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e(($c['https'] ? 'https://' : 'http://') . $c['domain']) ?>/" target="_blank" rel="noopener noreferrer" title="Visit" aria-label="Visit <?= e($c['domain']) ?>"><i class="bi bi-box-arrow-up-right"></i></a><?php endif; ?>
@@ -64,7 +64,7 @@ $canConvert = $this->can(\WhaCP\Security\Permissions::USERS_MANAGE) && $this->ha
     $fe = fn (string $k): string => $mine && isset($errors[$k]) ? '<div class="invalid-feedback d-block">' . e((string) $errors[$k]) . '</div>' : '';
     $suggest = substr(preg_replace('/[^a-z0-9]/', '', explode('.', (string) $c['domain'])[0]) ?: 'site', 0, 16); ?>
     <?= $this->modalStart('convert-' . $cid, 'Convert ' . $c['domain'] . ' to an account', $mine) ?>
-        <form method="post" action="<?= e($this->url('sites.convert', ['id' => $cid])) ?>" data-wcp-busy data-wcp-confirm="Move <?= e($c['domain']) ?> to the new account? Its files are re-owned in place; it no longer runs as <?= e($site['system_user']) ?>." data-wcp-confirm-word="<?= e($c['domain']) ?>">
+        <form method="post" action="<?= e($this->url('sites.convert', ['id' => $cid])) ?>" data-nim-busy data-nim-confirm="Move <?= e($c['domain']) ?> to the new account? Its files are re-owned in place; it no longer runs as <?= e($site['system_user']) ?>." data-nim-confirm-word="<?= e($c['domain']) ?>">
             <?= $this->csrfField() ?>
             <p class="small mb-2"><?= e($c['domain']) ?> becomes a hosting account of its own, with a new login and a new system account. Nothing is copied: its folder is re-owned in place.</p>
             <?php if ($mv !== null): ?>

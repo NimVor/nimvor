@@ -91,7 +91,7 @@ func HasOption(opts, key string) bool {
 	return false
 }
 
-// Options WhaCP turns quotas on with.
+// Options NimVor turns quotas on with.
 var (
 	Ext4Options = []string{"usrjquota=aquota.user", "jqfmt=vfsv1"}
 	XFSOptions  = []string{"uquota"}

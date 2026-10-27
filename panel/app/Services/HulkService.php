@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Security\Countries;
-use WhaCP\Support\Logger;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Security\Countries;
+use NimVor\Support\Logger;
 
 /**
  * Brute force protection (Security → cPHulk Brute Force Protection).
@@ -209,7 +209,7 @@ final class HulkService
         if (!$this->enabled()) {
             return;
         }
-        $ev = ['id' => 'p:' . bin2hex(random_bytes(8)), 'time' => $this->now(), 'service' => 'whacp', 'authservice' => 'whacpd', 'user' => mb_substr($username, 0, 190), 'ip' => $ip, 'ok' => false];
+        $ev = ['id' => 'p:' . bin2hex(random_bytes(8)), 'time' => $this->now(), 'service' => 'nimvor', 'authservice' => 'nimvord', 'user' => mb_substr($username, 0, 190), 'ip' => $ip, 'ok' => false];
         $this->store([$ev]);
         if ($this->evaluate([$ev]) > 0) {
             $this->syncQuietly();

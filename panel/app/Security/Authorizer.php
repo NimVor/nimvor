@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
-use WhaCP\Repositories\RoleRepository;
+use NimVor\Repositories\RoleRepository;
 
 /**
  * Role-based access control checks.
@@ -16,14 +16,14 @@ final class Authorizer
 
     public function __construct(
         private readonly RoleRepository $roles,
-        private readonly ?\WhaCP\Services\FeatureService $features = null,
+        private readonly ?\NimVor\Services\FeatureService $features = null,
     ) {
     }
 
     /** @param array<string, mixed>|null $user */
     public function can(?array $user, string $permission): bool
     {
-        if (!\WhaCP\Repositories\UserRepository::canAct($user)) {
+        if (!\NimVor\Repositories\UserRepository::canAct($user)) {
             return false;
         }
         if (!in_array($permission, $this->permissions((int) $user['role_id']), true)) {

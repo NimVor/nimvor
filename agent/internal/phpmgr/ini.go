@@ -16,7 +16,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
-// php.ini settings are changed in WhaCP's own file, loaded after the
+// php.ini settings are changed in NimVor's own file, loaded after the
 // distribution's php.ini, never in php.ini itself. Only the directives
 // below are accepted, each with its own check: others (extension=,
 // auto_prepend_file, open_basedir, session.save_path, sendmail_path, …)
@@ -35,7 +35,7 @@ const (
 	iniErrorLevel
 )
 
-// IniDirective is a php.ini setting WhaCP lets administrators change.
+// IniDirective is a php.ini setting NimVor lets administrators change.
 type IniDirective struct {
 	Key         string   `json:"key"`
 	Kind        string   `json:"kind"`
@@ -43,7 +43,7 @@ type IniDirective struct {
 	Choices     []string `json:"choices,omitempty"`
 	Min         int64    `json:"min,omitempty"`
 	Max         int64    `json:"max,omitempty"`
-	// PerWebsite: WhaCP websites set it in their own pool, so this value
+	// PerWebsite: NimVor websites set it in their own pool, so this value
 	// applies to other pools and to the command line.
 	PerWebsite bool `json:"per_website,omitempty"`
 	kind       iniKind
@@ -160,7 +160,7 @@ func (x IniDirective) check(v string, tz func(string) bool) (string, error) {
 	return "", fmt.Errorf("%s cannot be set", x.Key)
 }
 
-// ParseIni checks the text of WhaCP's php.ini file: comments (;) and
+// ParseIni checks the text of NimVor's php.ini file: comments (;) and
 // "directive = value" lines of allowed directives, each once.
 func ParseIni(content string, tz func(string) bool) (map[string]string, error) {
 	out := map[string]string{}
@@ -198,7 +198,7 @@ func RenderIni(v string, values map[string]string) string {
 		return ""
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "; Managed by WhaCP (PHP → %s → php.ini). Do not edit: changes are overwritten.\n", v)
+	fmt.Fprintf(&b, "; Managed by NimVor (PHP → %s → php.ini). Do not edit: changes are overwritten.\n", v)
 	b.WriteString("; Loaded after the distribution's php.ini; websites' own settings (their pools) still win.\n")
 	for _, x := range IniDirectives {
 		if val, ok := values[x.Key]; ok {
@@ -208,13 +208,13 @@ func RenderIni(v string, values map[string]string) string {
 	return b.String()
 }
 
-// IniFiles are WhaCP's php.ini files for version v: PHP-FPM and the command
+// IniFiles are NimVor's php.ini files for version v: PHP-FPM and the command
 // line on Debian (cron jobs use the same values), php.d on RHEL.
 func IniFiles(env *host.Env, v string) []string {
 	if rhel(env) {
-		return []string{IniDir(env, v) + "/99-whacp.ini"}
+		return []string{IniDir(env, v) + "/99-nimvor.ini"}
 	}
-	return []string{"/etc/php/" + v + "/fpm/conf.d/99-whacp.ini", "/etc/php/" + v + "/cli/conf.d/99-whacp.ini"}
+	return []string{"/etc/php/" + v + "/fpm/conf.d/99-nimvor.ini", "/etc/php/" + v + "/cli/conf.d/99-nimvor.ini"}
 }
 
 // fpmWarnings turns warnings in php-fpm -t output into an error: PHP-FPM
@@ -258,7 +258,7 @@ func registerIni(r *actions.Registry, env *host.Env) {
 		Version string `json:"version"`
 		Content string `json:"content"`
 	}
-	r.Register(actions.Action{Name: "php.ini_get", Description: "WhaCP's php.ini settings for a PHP version, the settings that may be changed and the values PHP-FPM uses now.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "php.ini_get", Description: "NimVor's php.ini settings for a PHP version, the settings that may be changed and the values PHP-FPM uses now.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in req
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
@@ -271,7 +271,7 @@ func registerIni(r *actions.Registry, env *host.Env) {
 		values, _ := ParseIni(string(b), tz)
 		return map[string]any{"file": files[0], "content": string(b), "values": values, "directives": IniDirectives, "effective": fpmInfo(ctx, env, in.Version)}, nil
 	}})
-	r.Register(actions.Action{Name: "php.ini_set", Mutating: true, Description: "Write WhaCP's php.ini settings for a PHP version (allowed directives only; empty removes them), checked with php-fpm -t (warnings count as errors) and applied with a reload; rolled back on failure.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "php.ini_set", Mutating: true, Description: "Write NimVor's php.ini settings for a PHP version (allowed directives only; empty removes them), checked with php-fpm -t (warnings count as errors) and applied with a reload; rolled back on failure.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in req
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\DiscoveryService;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\DiscoveryService;
+use NimVor\View\View;
 
 /**
  * Every hostname served by the server (primary names and aliases), with
@@ -21,8 +21,8 @@ final class DomainsController extends Controller
         View $view,
         SessionInterface $session,
         private readonly DiscoveryService $discovery,
-        private readonly \WhaCP\Services\ServerContext $server,
-        private readonly \WhaCP\Repositories\WebsiteRepository $websites,
+        private readonly \NimVor\Services\ServerContext $server,
+        private readonly \NimVor\Repositories\WebsiteRepository $websites,
     ) {
         parent::__construct($view, $session);
     }
@@ -74,7 +74,7 @@ final class DomainsController extends Controller
     private function scoped(Request $request, array $inventory): array
     {
         $user = $this->user($request);
-        if (\WhaCP\Hosting\Scope::isAll($user)) {
+        if (\NimVor\Hosting\Scope::isAll($user)) {
             return $inventory;
         }
         $domains = array_map(static fn (array $w): string => (string) $w['domain'], $this->websites->all($this->server->id(), $user));

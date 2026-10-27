@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Unit;
+namespace NimVor\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Security\Csrf;
-use WhaCP\Security\PasswordHasher;
-use WhaCP\Support\Redactor;
+use NimVor\Http\Response;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Security\Csrf;
+use NimVor\Security\PasswordHasher;
+use NimVor\Support\Redactor;
 
 final class SecurityPrimitivesTest extends TestCase
 {

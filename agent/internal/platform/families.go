@@ -55,7 +55,7 @@ func (d debianFamily) Paths() Paths {
 }
 
 func (d debianFamily) CoreServices() []string {
-	return []string{"nginx.service", "mariadb.service", "mysql.service", "redis-server.service", "cron.service", "ssh.service", "fail2ban.service", "ufw.service", "whacp-agent.service", "whacp-panel.service"}
+	return []string{"nginx.service", "mariadb.service", "mysql.service", "redis-server.service", "cron.service", "ssh.service", "fail2ban.service", "ufw.service", "nimvor-agent.service", "nimvor-panel.service"}
 }
 
 func (d debianFamily) PHPFPMUnitPatterns() []string {
@@ -74,30 +74,30 @@ func (d debianFamily) Managed() Managed {
 		NginxUnit:       "nginx.service",
 		CronDir:         "/etc/cron.d",
 		UnitDir:         "/etc/systemd/system",
-		ACMERoot:        "/var/www/whacp-acme",
-		SSHDropIn:       "/etc/ssh/sshd_config.d/00-whacp.conf",
-		Fail2banJail:    "/etc/fail2ban/jail.d/whacp.local",
+		ACMERoot:        "/var/www/nimvor-acme",
+		SSHDropIn:       "/etc/ssh/sshd_config.d/00-nimvor.conf",
+		Fail2banJail:    "/etc/fail2ban/jail.d/nimvor.local",
 		MySQLUnit:       []string{"mariadb.service", "mysql.service"},
 		RedisUnit:       "redis-server.service",
 		RedisConfig:     "/etc/redis/redis.conf",
 		MemcachedConfig: "/etc/memcached.conf",
 		MemcachedUnit:   "memcached.service",
-		FTPDir:          "/etc/whacp-ftp",
-		SFTPDropIn:      "/etc/ssh/sshd_config.d/50-whacp-sftp.conf",
-		SFTPKeysDir:     "/etc/ssh/whacp-keys",
+		FTPDir:          "/etc/nimvor-ftp",
+		SFTPDropIn:      "/etc/ssh/sshd_config.d/50-nimvor-sftp.conf",
+		SFTPKeysDir:     "/etc/ssh/nimvor-keys",
 		DNSConfFile:     "/etc/bind/named.conf.local",
-		DNSZoneDir:      "/etc/bind/whacp",
+		DNSZoneDir:      "/etc/bind/nimvor",
 		DNSUser:         "bind",
 		DNSUnit:         "named.service",
-		MailDir:         "/etc/whacp-mail",
+		MailDir:         "/etc/nimvor-mail",
 		VmailDir:        "/var/vmail",
 		PostfixDir:      "/etc/postfix",
 		DovecotAuthConf: "/etc/dovecot/conf.d/10-auth.conf",
-		DovecotDropIn:   "/etc/dovecot/conf.d/99-whacp.conf",
+		DovecotDropIn:   "/etc/dovecot/conf.d/99-nimvor.conf",
 		ServerConfig: map[string]string{"nginx": "/etc/nginx", "php": "/etc/php", "mysql": "/etc/mysql", "redis": "/etc/redis",
 			"letsencrypt": "/etc/letsencrypt", "fail2ban": "/etc/fail2ban", "cron": "/etc/cron.d", "firewall": "/etc/ufw"},
-		WebmailDir:        "/etc/whacp-webmail",
-		WebmailData:       "/var/lib/whacp-webmail",
+		WebmailDir:        "/etc/nimvor-webmail",
+		WebmailData:       "/var/lib/nimvor-webmail",
 		RoundcubeDir:      "/usr/share/roundcube",
 		RoundcubePublic:   "/var/lib/roundcube/public_html",
 		RoundcubeDefaults: "/etc/roundcube/defaults.inc.php",
@@ -106,11 +106,11 @@ func (d debianFamily) Managed() Managed {
 
 func (d debianFamily) PackageManager() string { return "apt" }
 
-// debianPackages maps WhaCP's component names to Debian/Ubuntu package
+// debianPackages maps NimVor's component names to Debian/Ubuntu package
 // names where they differ.
 var debianPackages = map[string]string{
 	// Debian's Brotli module is split in two packages; the filter (on the
-	// fly compression) is the one WhaCP checks and uses.
+	// fly compression) is the one NimVor checks and uses.
 	"libnginx-mod-brotli": "libnginx-mod-http-brotli-filter",
 }
 
@@ -195,7 +195,7 @@ func (r rhelFamily) redisConfig() string {
 }
 
 func (r rhelFamily) CoreServices() []string {
-	return []string{"nginx.service", "mariadb.service", "mysqld.service", r.redisUnit(), "crond.service", "sshd.service", "fail2ban.service", "firewalld.service", "php-fpm.service", "whacp-agent.service", "whacp-panel.service"}
+	return []string{"nginx.service", "mariadb.service", "mysqld.service", r.redisUnit(), "crond.service", "sshd.service", "fail2ban.service", "firewalld.service", "php-fpm.service", "nimvor-agent.service", "nimvor-panel.service"}
 }
 
 func (r rhelFamily) PHPFPMUnitPatterns() []string {
@@ -205,44 +205,44 @@ func (r rhelFamily) PHPFPMUnitPatterns() []string {
 // Managed for RHEL: Nginx from the distribution, PHP versions from Remi.
 func (r rhelFamily) Managed() Managed {
 	return Managed{
-		NginxAvailable: "/etc/nginx/whacp-available",
+		NginxAvailable: "/etc/nginx/nimvor-available",
 		NginxEnabled:   "/etc/nginx/conf.d",
 		PHPPoolDir:     "/etc/opt/remi/php%s/php-fpm.d",
 		PHPCompact:     true,
 		PHPSocketDir:   "/run/php-fpm",
 		// Only RHEL's own php-fpm package creates /run/php-fpm; Remi's
 		// parallel versions do not.
-		PHPSocketTmpfiles: "/etc/tmpfiles.d/whacp-php-fpm.conf",
+		PHPSocketTmpfiles: "/etc/tmpfiles.d/nimvor-php-fpm.conf",
 		PHPFPMUnit:        "php%s-php-fpm.service",
 		PHPFPMBinary:      "php-fpm%s",
 		WebUser:           "nginx",
 		NginxUnit:         "nginx.service",
 		CronDir:           "/etc/cron.d",
 		UnitDir:           "/etc/systemd/system",
-		ACMERoot:          "/var/www/whacp-acme",
-		SSHDropIn:         "/etc/ssh/sshd_config.d/00-whacp.conf",
-		Fail2banJail:      "/etc/fail2ban/jail.d/whacp.local",
+		ACMERoot:          "/var/www/nimvor-acme",
+		SSHDropIn:         "/etc/ssh/sshd_config.d/00-nimvor.conf",
+		Fail2banJail:      "/etc/fail2ban/jail.d/nimvor.local",
 		MySQLUnit:         []string{"mariadb.service", "mysqld.service"},
 		RedisUnit:         r.redisUnit(),
 		RedisConfig:       r.redisConfig(),
 		MemcachedConfig:   "/etc/sysconfig/memcached",
 		MemcachedUnit:     "memcached.service",
-		FTPDir:            "/etc/whacp-ftp",
-		SFTPDropIn:        "/etc/ssh/sshd_config.d/50-whacp-sftp.conf",
-		SFTPKeysDir:       "/etc/ssh/whacp-keys",
+		FTPDir:            "/etc/nimvor-ftp",
+		SFTPDropIn:        "/etc/ssh/sshd_config.d/50-nimvor-sftp.conf",
+		SFTPKeysDir:       "/etc/ssh/nimvor-keys",
 		DNSConfFile:       "/etc/named.conf",
-		DNSZoneDir:        "/var/named/whacp",
+		DNSZoneDir:        "/var/named/nimvor",
 		DNSUser:           "named",
 		DNSUnit:           "named.service",
-		MailDir:           "/etc/whacp-mail",
+		MailDir:           "/etc/nimvor-mail",
 		VmailDir:          "/var/vmail",
 		PostfixDir:        "/etc/postfix",
 		DovecotAuthConf:   "/etc/dovecot/conf.d/10-auth.conf",
-		DovecotDropIn:     "/etc/dovecot/conf.d/99-whacp.conf",
+		DovecotDropIn:     "/etc/dovecot/conf.d/99-nimvor.conf",
 		ServerConfig: map[string]string{"nginx": "/etc/nginx", "php": "/etc/opt/remi", "mysql": "/etc/my.cnf.d", "redis": r.redisDir(),
 			"letsencrypt": "/etc/letsencrypt", "fail2ban": "/etc/fail2ban", "cron": "/etc/cron.d", "firewall": "/etc/firewalld"},
-		WebmailDir:        "/etc/whacp-webmail",
-		WebmailData:       "/var/lib/whacp-webmail",
+		WebmailDir:        "/etc/nimvor-webmail",
+		WebmailData:       "/var/lib/nimvor-webmail",
 		RoundcubeDir:      "/usr/share/roundcubemail",
 		RoundcubePublic:   "/usr/share/roundcubemail/public_html",
 		RoundcubeDefaults: "/etc/roundcubemail/defaults.inc.php",
@@ -269,7 +269,7 @@ var rhelPackages = map[string]string{
 	"libnginx-mod-brotli": "",
 	// No Nginx ModSecurity connector in BaseOS, AppStream or EPEL: an
 	// administrator may install one from a third-party repository, which
-	// WhaCP then detects.
+	// NimVor then detects.
 	"libnginx-mod-http-modsecurity": "",
 	"modsecurity-crs":               "",
 	"roundcube-core":                "roundcubemail",

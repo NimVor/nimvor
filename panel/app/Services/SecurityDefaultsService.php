@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Support\UserFacingException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Support\UserFacingException;
 
 /**
  * The recommended security settings, as switches: malware scans, fail2ban
@@ -26,7 +26,7 @@ final class SecurityDefaultsService
     public const ITEMS = [
         'malware' => ['Malware scans', 'Scan every website weekly and quarantine infected files.'],
         'fail2ban' => ['Brute-force protection (fail2ban)', 'Ban addresses that fail SSH logins, scan for exploits or exceed Nginx rate limits (60 min ban, 5 attempts in 10 min, repeat offenders for a week).'],
-        'compilers' => ['Compiler access', 'Only root (and WhaCP\'s build account) may run compilers.'],
+        'compilers' => ['Compiler access', 'Only root (and NimVor\'s build account) may run compilers.'],
         'smtp' => ['SMTP restrictions', 'Only the mail server may open outgoing SMTP connections.'],
         'egress' => ['Outgoing connections', 'Block website accounts from reaching cloud metadata services.'],
         'hulk' => ['cPHulk Brute Force Protection', 'Block addresses and accounts with repeated failed logins to the panel, SSH, mail and FTP, using the recommended limits.'],

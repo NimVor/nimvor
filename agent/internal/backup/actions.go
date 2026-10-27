@@ -68,7 +68,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})
-	r.Register(actions.Action{Name: "backup.server", Mutating: true, Description: "Archive the server configuration (nginx, PHP, MySQL, Redis, certificates, WhaCP) (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "backup.server", Mutating: true, Description: "Archive the server configuration (nginx, PHP, MySQL, Redis, certificates, NimVor) (job).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Encrypt   *bool   `json:"encrypt"`
 			Label     string  `json:"label"`
@@ -286,7 +286,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			out["tls_pin"] = in.Remote.TLSPin
 		case "gdrive":
 			if in.Remote.FolderID == "" {
-				id, err := NewDrive(in.Remote).CreateFolder(ctx, "WhaCP backups")
+				id, err := NewDrive(in.Remote).CreateFolder(ctx, "NimVor backups")
 				if err != nil {
 					return fail(err)
 				}
@@ -306,12 +306,12 @@ func Register(r *actions.Registry, env *host.Env) {
 			return fail(err)
 		}
 		// Prove we can write and delete, not only read.
-		probe := in.Remote.Key(".whacp-probe")
-		tmp, err := os.CreateTemp("", "whacp-probe-")
+		probe := in.Remote.Key(".nimvor-probe")
+		tmp, err := os.CreateTemp("", "nimvor-probe-")
 		if err != nil {
 			return nil, err
 		}
-		tmp.WriteString("WhaCP storage test\n")
+		tmp.WriteString("NimVor storage test\n")
 		tmp.Close()
 		defer os.Remove(tmp.Name())
 		if err := st.Put(ctx, probe, tmp.Name()); err != nil {

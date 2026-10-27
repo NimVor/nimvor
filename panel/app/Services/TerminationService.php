@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Database\Connection;
-use WhaCP\Hosting\Scope;
-use WhaCP\Repositories\DatabaseRepository;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
+use NimVor\Repositories\DatabaseRepository;
+use NimVor\Repositories\UserRepository;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * Terminating hosting accounts (administrators, several at a time): each

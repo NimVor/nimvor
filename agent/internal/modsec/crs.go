@@ -36,8 +36,8 @@ import (
 const (
 	CRSVersion = "4.18.0"
 	crsSHA256  = "08b37e6616bba1573da3c568e67a2b09ca287797dfcbf08ec7b82d98505b2ad1"
-	// CRSRoot holds releases WhaCP installed (one folder per version).
-	CRSRoot    = "/usr/local/lib/whacp/coreruleset"
+	// CRSRoot holds releases NimVor installed (one folder per version).
+	CRSRoot    = "/usr/local/lib/nimvor/coreruleset"
 	maxCRSFile = 8 << 20
 )
 
@@ -55,8 +55,8 @@ var DefaultCRSSource = CRSSource{
 	Client: DefaultSources.Client,
 }
 
-// whacpCRS finds a release WhaCP installed (the newest).
-func whacpCRS(e *host.Env) CRS {
+// nimvorCRS finds a release NimVor installed (the newest).
+func nimvorCRS(e *host.Env) CRS {
 	dirs, _ := e.Root.Glob(filepath.Join(CRSRoot, "*", "rules"))
 	sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
 	for _, rules := range dirs {

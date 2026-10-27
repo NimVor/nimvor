@@ -68,7 +68,7 @@ func TestServerSettingsAndValidation(t *testing.T) {
 	if _, err := call(t, r, "server.reboot", `{"confirm":"web2","minutes":5}`); err == nil {
 		t.Error("reboot confirmed with the wrong host name")
 	}
-	if _, err := call(t, r, "server.reboot", `{"confirm":"web1","minutes":5}`); err != nil || !h.Runner.Called("shutdown -r +5 Restart requested from WhaCP") {
+	if _, err := call(t, r, "server.reboot", `{"confirm":"web1","minutes":5}`); err != nil || !h.Runner.Called("shutdown -r +5 Restart requested from NimVor") {
 		t.Fatalf("reboot: %v %v", err, h.Runner.Calls)
 	}
 	if _, err := call(t, r, "packages.install", `{"name":"netcat-traditional"}`); err == nil {

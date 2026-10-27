@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Support;
+namespace NimVor\Support;
 
 /**
  * Minimal synchronous event dispatcher (hooks for services and plugins).

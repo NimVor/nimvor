@@ -37,9 +37,9 @@ func TestRealHostWorker(t *testing.T) {
 	if _, err := os.Stat("/run/systemd/system"); err != nil {
 		t.Fatal("systemd is not running: workers are systemd services")
 	}
-	const sites, name, domain, slug = "/srv/whacp-rt-workers", "rtworker", "rt-worker.test", "9-rt"
+	const sites, name, domain, slug = "/srv/nimvor-rt-workers", "rtworker", "rt-worker.test", "9-rt"
 	home := filepath.Join(sites, domain)
-	state := "/var/lib/whacp-rt-agent"
+	state := "/var/lib/nimvor-rt-agent"
 	_, hadDir := os.Stat(host.WorkersDir)
 	removeUser := func() {
 		exec.Command("systemctl", "stop", Unit(slug)).Run()

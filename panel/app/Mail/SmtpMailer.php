@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Mail;
+namespace NimVor\Mail;
 
-use WhaCP\Support\Logger;
+use NimVor\Support\Logger;
 
 /**
  * Minimal SMTP client (RFC 5321): implicit TLS or STARTTLS with certificate

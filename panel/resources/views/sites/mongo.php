@@ -2,7 +2,7 @@
 /**
  * Site → MongoDB: a customer's own prefixed databases and users.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed> $site
  * @var array{installed: bool, running: bool, version: string}|null $status
  * @var array{databases: list<array<string, mixed>>, users: list<array<string, mixed>>} $overview
@@ -24,7 +24,7 @@ $base = $this->url('sites.mongo', ['id' => $id]);
 <?php endif; ?>
 
 <?php if (!$status['installed']): ?>
-    <div class="card"><div class="wcp-empty-state">
+    <div class="card"><div class="nim-empty-state">
         <i class="bi bi-database" aria-hidden="true"></i>
         <div class="fw-medium">MongoDB is not available on this server</div>
         <div class="small">Ask your hosting provider to enable MongoDB if your application needs it.</div>
@@ -39,7 +39,7 @@ $base = $this->url('sites.mongo', ['id' => $id]);
     <?php return; ?>
 <?php endif; ?>
 
-<ul class="nav nav-tabs wcp-tabs mb-3">
+<ul class="nav nav-tabs nim-tabs mb-3">
     <?php foreach ([
         'databases' => ['Databases', 'hdd-stack', count($overview['databases'])],
         'users' => ['Users', 'people', count($overview['users'])],
@@ -53,7 +53,7 @@ $base = $this->url('sites.mongo', ['id' => $id]);
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <div class="input-group input-group-sm" style="max-width:22rem">
             <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-            <input class="form-control" type="search" placeholder="Filter databases" aria-label="Filter databases" data-wcp-filter="#site-mongo-dbs">
+            <input class="form-control" type="search" placeholder="Filter databases" aria-label="Filter databases" data-nim-filter="#site-mongo-dbs">
         </div>
         <span class="me-auto"></span>
         <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-db"><i class="bi bi-plus-lg me-1"></i>Add database</button>
@@ -62,7 +62,7 @@ $base = $this->url('sites.mongo', ['id' => $id]);
         <?php if ($overview['databases'] === []): ?>
             <div class="card-body small text-body-secondary">No databases yet.</div>
         <?php else: ?>
-            <div class="wcp-dtable table-responsive"><table class="table align-middle mb-0" id="site-mongo-dbs">
+            <div class="nim-dtable table-responsive"><table class="table align-middle mb-0" id="site-mongo-dbs">
                 <thead><tr><th>Name</th><th>Size</th><th class="text-end">Action</th></tr></thead>
                 <tbody>
                 <?php foreach ($overview['databases'] as $d): $dn = (string) ($d['name'] ?? ''); ?>
@@ -71,14 +71,14 @@ $base = $this->url('sites.mongo', ['id' => $id]);
                         <td class="small text-body-secondary"><?= e(format_bytes((int) ($d['size'] ?? 0))) ?></td>
                         <td class="text-end text-nowrap">
                             <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.mongo.browser', ['id' => $id])) ?>?db=<?= e(rawurlencode($dn)) ?>" title="Browse collections and documents"><i class="bi bi-table me-1"></i>Browse</a>
-                            <form class="d-inline" method="post" action="<?= e($this->url('sites.mongo.database_drop', ['id' => $id])) ?>" data-wcp-confirm="Drop the database “<?= e($dn) ?>” and everything in it?">
+                            <form class="d-inline" method="post" action="<?= e($this->url('sites.mongo.database_drop', ['id' => $id])) ?>" data-nim-confirm="Drop the database “<?= e($dn) ?>” and everything in it?">
                                 <?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($dn) ?>">
                                 <button class="btn btn-sm btn-outline-danger" title="Drop"><i class="bi bi-trash"></i></button>
                             </form>
                         </td>
                     </tr>
                 <?php endforeach; ?>
-                <tr data-wcp-filter-empty class="d-none"><td colspan="3" class="small text-body-secondary">No databases match the filter.</td></tr>
+                <tr data-nim-filter-empty class="d-none"><td colspan="3" class="small text-body-secondary">No databases match the filter.</td></tr>
                 </tbody>
             </table></div>
         <?php endif; ?>
@@ -89,7 +89,7 @@ $base = $this->url('sites.mongo', ['id' => $id]);
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <div class="input-group input-group-sm" style="max-width:22rem">
             <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-            <input class="form-control" type="search" placeholder="Filter users" aria-label="Filter users" data-wcp-filter="#site-mongo-users">
+            <input class="form-control" type="search" placeholder="Filter users" aria-label="Filter users" data-nim-filter="#site-mongo-users">
         </div>
         <span class="me-auto"></span>
         <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-user"><i class="bi bi-person-plus me-1"></i>Add user</button>
@@ -98,7 +98,7 @@ $base = $this->url('sites.mongo', ['id' => $id]);
         <?php if ($overview['users'] === []): ?>
             <div class="card-body small text-body-secondary">No users yet.</div>
         <?php else: ?>
-            <div class="wcp-dtable table-responsive"><table class="table align-middle mb-0" id="site-mongo-users">
+            <div class="nim-dtable table-responsive"><table class="table align-middle mb-0" id="site-mongo-users">
                 <thead><tr><th>User</th><th>Database</th><th>Roles</th><th class="text-end">Action</th></tr></thead>
                 <tbody>
                 <?php foreach ($overview['users'] as $u): ?>
@@ -108,14 +108,14 @@ $base = $this->url('sites.mongo', ['id' => $id]);
                         <td class="small text-body-secondary"><?= e(implode(', ', array_map('strval', (array) ($u['roles'] ?? [])))) ?></td>
                         <td class="text-end text-nowrap">
                             <button class="btn btn-sm btn-outline-secondary" title="Change password" data-bs-toggle="modal" data-bs-target="#mongo-pw" data-user="<?= e((string) ($u['user'] ?? '')) ?>" data-db="<?= e((string) ($u['db'] ?? '')) ?>"><i class="bi bi-key"></i></button>
-                            <form class="d-inline" method="post" action="<?= e($this->url('sites.mongo.user_drop', ['id' => $id])) ?>" data-wcp-confirm="Drop the user “<?= e((string) ($u['user'] ?? '')) ?>”?">
+                            <form class="d-inline" method="post" action="<?= e($this->url('sites.mongo.user_drop', ['id' => $id])) ?>" data-nim-confirm="Drop the user “<?= e((string) ($u['user'] ?? '')) ?>”?">
                                 <?= $this->csrfField() ?><input type="hidden" name="user" value="<?= e((string) ($u['user'] ?? '')) ?>"><input type="hidden" name="db" value="<?= e((string) ($u['db'] ?? '')) ?>">
                                 <button class="btn btn-sm btn-outline-danger" title="Drop"><i class="bi bi-trash"></i></button>
                             </form>
                         </td>
                     </tr>
                 <?php endforeach; ?>
-                <tr data-wcp-filter-empty class="d-none"><td colspan="4" class="small text-body-secondary">No users match the filter.</td></tr>
+                <tr data-nim-filter-empty class="d-none"><td colspan="4" class="small text-body-secondary">No users match the filter.</td></tr>
                 </tbody>
             </table></div>
         <?php endif; ?>
@@ -126,11 +126,11 @@ $base = $this->url('sites.mongo', ['id' => $id]);
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <div class="input-group input-group-sm" style="max-width:22rem">
             <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-            <input class="form-control" type="search" placeholder="Filter backups" aria-label="Filter backups" data-wcp-filter="#site-mongo-backups">
+            <input class="form-control" type="search" placeholder="Filter backups" aria-label="Filter backups" data-nim-filter="#site-mongo-backups">
         </div>
         <span class="me-auto"></span>
         <?php if ($overview['databases'] !== []): ?>
-        <form method="post" action="<?= e($this->url('sites.mongo.backup', ['id' => $id])) ?>" class="d-flex gap-2" data-wcp-busy>
+        <form method="post" action="<?= e($this->url('sites.mongo.backup', ['id' => $id])) ?>" class="d-flex gap-2" data-nim-busy>
             <?= $this->csrfField() ?>
             <select class="form-select form-select-sm" name="db" required aria-label="Database to back up" style="max-width:16rem">
                 <?php foreach ($overview['databases'] as $d): $dn = (string) ($d['name'] ?? ''); ?><option value="<?= e($dn) ?>"><?= e($dn) ?></option><?php endforeach; ?>
@@ -143,7 +143,7 @@ $base = $this->url('sites.mongo', ['id' => $id]);
         <?php if ($backups === []): ?>
             <div class="card-body small text-body-secondary">No backups yet. A backup is a copy of a database kept on this server; large ones run in the background.</div>
         <?php else: ?>
-            <div class="wcp-dtable table-responsive"><table class="table align-middle mb-0" id="site-mongo-backups">
+            <div class="nim-dtable table-responsive"><table class="table align-middle mb-0" id="site-mongo-backups">
                 <thead><tr><th>Database</th><th>Size</th><th>Created (UTC)</th><th class="text-end">Action</th></tr></thead>
                 <tbody>
                 <?php foreach ($backups as $b): $bf = (string) $b['file']; $bdb = (string) $b['db']; ?>
@@ -152,18 +152,18 @@ $base = $this->url('sites.mongo', ['id' => $id]);
                         <td class="small text-body-secondary"><?= e(format_bytes((int) $b['size'])) ?></td>
                         <td class="small text-body-secondary"><?= e(((string) $b['created']) !== '' ? str_replace(['T', 'Z'], [' ', ''], substr((string) $b['created'], 0, 19)) : '—') ?></td>
                         <td class="text-end text-nowrap">
-                            <form class="d-inline" method="post" action="<?= e($this->url('sites.mongo.restore', ['id' => $id])) ?>" data-wcp-busy data-wcp-confirm="Restore “<?= e($bdb) ?>” from this backup? Documents sharing an _id with the archive are overwritten.">
+                            <form class="d-inline" method="post" action="<?= e($this->url('sites.mongo.restore', ['id' => $id])) ?>" data-nim-busy data-nim-confirm="Restore “<?= e($bdb) ?>” from this backup? Documents sharing an _id with the archive are overwritten.">
                                 <?= $this->csrfField() ?><input type="hidden" name="file" value="<?= e($bf) ?>"><input type="hidden" name="drop" value="0">
                                 <button class="btn btn-sm btn-outline-secondary" title="Restore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
                             </form>
-                            <form class="d-inline" method="post" action="<?= e($this->url('sites.mongo.backup_delete', ['id' => $id])) ?>" data-wcp-confirm="Delete this backup?">
+                            <form class="d-inline" method="post" action="<?= e($this->url('sites.mongo.backup_delete', ['id' => $id])) ?>" data-nim-confirm="Delete this backup?">
                                 <?= $this->csrfField() ?><input type="hidden" name="file" value="<?= e($bf) ?>">
                                 <button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
                             </form>
                         </td>
                     </tr>
                 <?php endforeach; ?>
-                <tr data-wcp-filter-empty class="d-none"><td colspan="4" class="small text-body-secondary">No backups match the filter.</td></tr>
+                <tr data-nim-filter-empty class="d-none"><td colspan="4" class="small text-body-secondary">No backups match the filter.</td></tr>
                 </tbody>
             </table></div>
         <?php endif; ?>
@@ -171,7 +171,7 @@ $base = $this->url('sites.mongo', ['id' => $id]);
 <?php endif; ?>
 
 <?= $this->modalStart('mongo-db', 'Add database') ?>
-    <form method="post" action="<?= e($this->url('sites.mongo.database_create', ['id' => $id])) ?>" data-wcp-busy>
+    <form method="post" action="<?= e($this->url('sites.mongo.database_create', ['id' => $id])) ?>" data-nim-busy>
         <div class="p-3"><?= $this->csrfField() ?>
             <label class="form-label" for="mdb-name">Name</label>
             <div class="input-group"><span class="input-group-text font-monospace"><?= e($prefix) ?></span><input class="form-control" id="mdb-name" name="name" pattern="[A-Za-z0-9_][A-Za-z0-9_-]*" maxlength="48" required placeholder="shop"></div>
@@ -182,7 +182,7 @@ $base = $this->url('sites.mongo', ['id' => $id]);
 <?= $this->modalEnd() ?>
 
 <?= $this->modalStart('mongo-user', 'Add user') ?>
-    <form method="post" action="<?= e($this->url('sites.mongo.user_create', ['id' => $id])) ?>" data-wcp-busy>
+    <form method="post" action="<?= e($this->url('sites.mongo.user_create', ['id' => $id])) ?>" data-nim-busy>
         <div class="p-3"><?= $this->csrfField() ?>
             <div class="row g-2">
                 <div class="col-6"><label class="form-label" for="mu-user">User</label><div class="input-group"><span class="input-group-text font-monospace"><?= e($prefix) ?></span><input class="form-control" id="mu-user" name="user" maxlength="48" required></div></div>
@@ -203,7 +203,7 @@ $base = $this->url('sites.mongo', ['id' => $id]);
 <?= $this->modalEnd() ?>
 
 <?= $this->modalStart('mongo-pw', 'Change password') ?>
-    <form method="post" action="<?= e($this->url('sites.mongo.user_password', ['id' => $id])) ?>" data-wcp-busy>
+    <form method="post" action="<?= e($this->url('sites.mongo.user_password', ['id' => $id])) ?>" data-nim-busy>
         <div class="p-3"><?= $this->csrfField() ?>
             <input type="hidden" name="user" id="mpw-user"><input type="hidden" name="db" id="mpw-db">
             <label class="form-label" for="mpw-pw">New password</label>

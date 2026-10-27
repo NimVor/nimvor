@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
 /**
  * Minimal CBOR decoder (RFC 8949) for WebAuthn: integers, byte and text

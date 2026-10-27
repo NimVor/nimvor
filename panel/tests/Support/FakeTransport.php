@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Support;
+namespace NimVor\Tests\Support;
 
-use WhaCP\Agent\AgentHttpResponse;
-use WhaCP\Agent\AgentTransport;
-use WhaCP\Agent\AgentUnavailableException;
+use NimVor\Agent\AgentHttpResponse;
+use NimVor\Agent\AgentTransport;
+use NimVor\Agent\AgentUnavailableException;
 
 /**
  * Agent transport returning canned responses keyed by path.

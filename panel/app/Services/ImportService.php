@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Support\UserFacingException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Support\UserFacingException;
 
 /**
- * Imports a discovered (non-WhaCP) website into NimVor management.
+ * Imports a discovered (non-NimVor) website into NimVor management.
  *
  * The agent previews the plan, copies the files into a new NimVor website
  * and switches Nginx over, restoring the old configuration on any error.

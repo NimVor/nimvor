@@ -20,21 +20,21 @@ import (
 )
 
 // The file manager's trash: deleting moves entries into the website's
-// .whacp-trash folder (a rename on the same file system, so it is instant
+// .nimvor-trash folder (a rename on the same file system, so it is instant
 // and keeps owners and modes), from where they can be restored until they
 // are deleted permanently or the trash is emptied.
 //
-// Each deleted entry gets a folder .whacp-trash/<id>/ holding "item" (the
+// Each deleted entry gets a folder .nimvor-trash/<id>/ holding "item" (the
 // entry itself) and "meta.json" (where it came from). Everything belongs
 // to the website's account, like the rest of its folder: its files still
 // count towards its disk quota, and the account's own backups and
 // permission repair keep working. The file manager never lists or accepts
-// names starting with .whacp-, and the website folder is not served (only
+// names starting with .nimvor-, and the website folder is not served (only
 // its document root is). Nothing read back from the trash is trusted: ids
 // and the recorded path are validated again before a restore.
 
 // TrashDir is the trash folder inside a website folder.
-const TrashDir = ".whacp-trash"
+const TrashDir = ".nimvor-trash"
 
 var trashIDRe = regexp.MustCompile(`^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$`)
 

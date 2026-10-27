@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 // Per-website Cloudflare: a customer connects their OWN Cloudflare API token
-// (scoped to their zone), stored encrypted, and WhaCP records which zone of
+// (scoped to their zone), stored encrypted, and NimVor records which zone of
 // that token matches the website's domain. Separate from the server-wide
 // cloudflare_accounts table.
 

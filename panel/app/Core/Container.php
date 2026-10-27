@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Core;
+namespace NimVor\Core;
 
 use Closure;
 use ReflectionClass;

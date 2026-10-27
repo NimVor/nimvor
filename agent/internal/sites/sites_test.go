@@ -26,14 +26,14 @@ func TestApplyCreatesSiteAndIsIdempotent(t *testing.T) {
 	if !res.Created || res.User.Name != "newsite" {
 		t.Errorf("user not created: %+v", res)
 	}
-	conf := h.Read("etc/nginx/sites-available/whacp-new.test.conf")
-	for _, want := range []string{"server_name new.test www.new.test;", "root /home/whacp/new.test/public_html;", "disable_symlinks if_not_owner from=$document_root;", "fastcgi_pass unix:/run/php/whacp-new.test.sock;", "Managed by WhaCP"} {
+	conf := h.Read("etc/nginx/sites-available/nimvor-new.test.conf")
+	for _, want := range []string{"server_name new.test www.new.test;", "root /home/nimvor/new.test/public_html;", "disable_symlinks if_not_owner from=$document_root;", "fastcgi_pass unix:/run/php/nimvor-new.test.sock;", "Managed by NimVor"} {
 		if !strings.Contains(conf, want) {
 			t.Errorf("nginx config lacks %q:\n%s", want, conf)
 		}
 	}
-	pool := h.Read("etc/php/8.3/fpm/pool.d/whacp-new.test.conf")
-	if !strings.Contains(pool, "user = newsite") || !strings.Contains(pool, "open_basedir] = /home/whacp/new.test/") {
+	pool := h.Read("etc/php/8.3/fpm/pool.d/nimvor-new.test.conf")
+	if !strings.Contains(pool, "user = newsite") || !strings.Contains(pool, "open_basedir] = /home/nimvor/new.test/") {
 		t.Errorf("pool:\n%s", pool)
 	}
 	// Its scheduled tasks are the panel's: no personal crontab or at jobs.
@@ -42,7 +42,7 @@ func TestApplyCreatesSiteAndIsIdempotent(t *testing.T) {
 			t.Errorf("%s:\n%s", f, h.Read(f))
 		}
 	}
-	if !h.Exists("etc/nginx/sites-enabled/whacp-new.test.conf") || !h.Exists("home/whacp/new.test/public_html/index.html") {
+	if !h.Exists("etc/nginx/sites-enabled/nimvor-new.test.conf") || !h.Exists("home/nimvor/new.test/public_html/index.html") {
 		t.Error("link or index missing")
 	}
 	// The first time, PHP-FPM is restarted into its sandbox (drop-in).
@@ -51,7 +51,7 @@ func TestApplyCreatesSiteAndIsIdempotent(t *testing.T) {
 			t.Errorf("expected call %q; calls=%v", c, h.Runner.Calls)
 		}
 	}
-	if d := h.Read("etc/systemd/system/php8.3-fpm.service.d/whacp-sandbox.conf"); !strings.Contains(d, "[Service]\nNoNewPrivileges=yes\n") || !strings.Contains(d, "ProtectSystem=full\n") || strings.Contains(d, "CAP_SYS_ADMIN") {
+	if d := h.Read("etc/systemd/system/php8.3-fpm.service.d/nimvor-sandbox.conf"); !strings.Contains(d, "[Service]\nNoNewPrivileges=yes\n") || !strings.Contains(d, "ProtectSystem=full\n") || strings.Contains(d, "CAP_SYS_ADMIN") {
 		t.Errorf("sandbox drop-in:\n%s", d)
 	}
 	calls := len(h.Runner.Calls)
@@ -84,7 +84,7 @@ func TestFailedValidationRestoresPreviousConfig(t *testing.T) {
 	if _, err := m.Apply(context.Background(), spec()); err != nil {
 		t.Fatal(err)
 	}
-	before := h.Read("etc/nginx/sites-available/whacp-new.test.conf")
+	before := h.Read("etc/nginx/sites-available/nimvor-new.test.conf")
 	s := spec()
 	s.Aliases = []string{"www.new.test", "shop.new.test"}
 	h.Fail["nginx -t"] = "nginx: [emerg] something is wrong"
@@ -94,7 +94,7 @@ func TestFailedValidationRestoresPreviousConfig(t *testing.T) {
 	if !errors.As(err, &ae) || ae.Code != "failed" || !strings.Contains(ae.Details, "emerg") {
 		t.Fatalf("err = %v", err)
 	}
-	if after := h.Read("etc/nginx/sites-available/whacp-new.test.conf"); after != before {
+	if after := h.Read("etc/nginx/sites-available/nimvor-new.test.conf"); after != before {
 		t.Errorf("configuration not restored:\n%s", after)
 	}
 }
@@ -106,7 +106,7 @@ func TestPrecheckReportsPreexistingBreakage(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "already invalid") {
 		t.Fatalf("err = %v", err)
 	}
-	if strings.Contains(h.Read("etc/passwd"), "newsite:") || h.Exists("etc/nginx/sites-available/whacp-new.test.conf") {
+	if strings.Contains(h.Read("etc/passwd"), "newsite:") || h.Exists("etc/nginx/sites-available/nimvor-new.test.conf") {
 		t.Error("nothing may be changed when the existing config is broken")
 	}
 }
@@ -121,7 +121,7 @@ func TestNewSiteRollbackRemovesUser(t *testing.T) {
 	if strings.Contains(h.Read("etc/passwd"), "newsite:") {
 		t.Error("created user was not removed after failure")
 	}
-	if h.Exists("etc/nginx/sites-available/whacp-new.test.conf") || h.Exists("home/whacp/new.test/public_html/index.html") {
+	if h.Exists("etc/nginx/sites-available/nimvor-new.test.conf") || h.Exists("home/nimvor/new.test/public_html/index.html") {
 		t.Error("files left after failed creation")
 	}
 }
@@ -150,22 +150,22 @@ func TestDisableSwitchVersionAndDelete(t *testing.T) {
 	if _, err := m.Apply(context.Background(), s); err != nil {
 		t.Fatal(err)
 	}
-	if h.Exists("etc/php/8.3/fpm/pool.d/whacp-new.test.conf") || !h.Exists("etc/php/8.4/fpm/pool.d/whacp-new.test.conf") {
+	if h.Exists("etc/php/8.3/fpm/pool.d/nimvor-new.test.conf") || !h.Exists("etc/php/8.4/fpm/pool.d/nimvor-new.test.conf") {
 		t.Error("pool not moved to the new PHP version")
 	}
 	s.Enabled = false
 	m.Apply(context.Background(), s)
-	if h.Exists("etc/nginx/sites-enabled/whacp-new.test.conf") || h.Exists("etc/php/8.4/fpm/pool.d/whacp-new.test.conf") {
+	if h.Exists("etc/nginx/sites-enabled/nimvor-new.test.conf") || h.Exists("etc/php/8.4/fpm/pool.d/nimvor-new.test.conf") {
 		t.Error("disabled site still enabled")
 	}
 	if _, err := m.handleDelete(context.Background(), []byte(`{"domain":"new.test","user":"newsite","remove_files":true,"remove_user":true}`)); err != nil {
 		t.Fatal(err)
 	}
-	if h.Exists("etc/nginx/sites-available/whacp-new.test.conf") || h.Exists("home/whacp/new.test") || strings.Contains(h.Read("etc/passwd"), "newsite:") {
+	if h.Exists("etc/nginx/sites-available/nimvor-new.test.conf") || h.Exists("home/nimvor/new.test") || strings.Contains(h.Read("etc/passwd"), "newsite:") {
 		t.Error("delete incomplete")
 	}
 	// The trash is next to the websites (same filesystem: a rename).
-	if m, _ := filepath.Glob(filepath.Join(h.Base, "home/whacp/.whacp-trash/new.test-*")); len(m) != 1 {
+	if m, _ := filepath.Glob(filepath.Join(h.Base, "home/nimvor/.nimvor-trash/new.test-*")); len(m) != 1 {
 		t.Error("files should be in the trash")
 	}
 }
@@ -174,7 +174,7 @@ func TestSpecValidation(t *testing.T) {
 	bad := []func(*Spec){
 		func(s *Spec) { s.Domain = "bad domain" },
 		func(s *Spec) { s.Root = "/etc" },
-		func(s *Spec) { s.DocumentRoot = "/home/whacp/other/public" },
+		func(s *Spec) { s.DocumentRoot = "/home/nimvor/other/public" },
 		func(s *Spec) { s.Kind = "proxy"; s.ProxyPass = "http://evil.example:80" },
 		func(s *Spec) { s.Redirects = []Redirect{{From: "/a;", To: "/b"}} },
 		func(s *Spec) { s.Redirects = []Redirect{{From: "/a", To: "https://x/$1 ;"}} },
@@ -185,14 +185,14 @@ func TestSpecValidation(t *testing.T) {
 	for i, mut := range bad {
 		s := spec()
 		mut(&s)
-		if err := s.Normalize("/home/whacp", "/var/lib/whacp-agent"); err == nil {
+		if err := s.Normalize("/home/nimvor", "/var/lib/nimvor-agent"); err == nil {
 			t.Errorf("case %d accepted: %+v", i, s)
 		}
 	}
 	s := spec()
 	s.HTTPS, s.ForceHTTPS = true, true
 	s.CertFile, s.KeyFile = "/etc/letsencrypt/live/new.test/fullchain.pem", "/etc/letsencrypt/live/new.test/privkey.pem"
-	if err := s.Normalize("/home/whacp", "/var/lib/whacp-agent"); err != nil {
+	if err := s.Normalize("/home/nimvor", "/var/lib/nimvor-agent"); err != nil {
 		t.Fatal(err)
 	}
 	conf := RenderNginx(s, Layout{Socket: "/run/php/x.sock", LogDir: "/l", ACMERoot: "/a"})
@@ -217,7 +217,7 @@ func TestSpecValidation(t *testing.T) {
 func TestRenderBandwidthExceeded(t *testing.T) {
 	s := spec()
 	s.Redirects = []Redirect{{From: "/old", To: "/new", Code: 301}}
-	if err := s.Normalize("/home/whacp", "/var/lib/whacp-agent"); err != nil {
+	if err := s.Normalize("/home/nimvor", "/var/lib/nimvor-agent"); err != nil {
 		t.Fatal(err)
 	}
 	s.BandwidthExceeded = true
@@ -250,7 +250,7 @@ func TestNewUserRefusesExistingAccounts(t *testing.T) {
 	if !errors.As(err, &ae) || ae.Code != "conflict" || !strings.Contains(ae.Message, "already exists") {
 		t.Fatalf("err = %v", err)
 	}
-	if h.Exists("etc/nginx/sites-available/whacp-new.test.conf") {
+	if h.Exists("etc/nginx/sites-available/nimvor-new.test.conf") {
 		t.Error("website configured for an existing account")
 	}
 	s.NewUser = false // administrators may attach an existing account
@@ -292,7 +292,7 @@ func TestPrivilegedAccountsNeverRunWebsites(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), "administrator rights") {
 				t.Fatalf("err = %v", err)
 			}
-			if h.Exists("etc/nginx/sites-available/whacp-new.test.conf") {
+			if h.Exists("etc/nginx/sites-available/nimvor-new.test.conf") {
 				t.Error("website configured for a privileged account")
 			}
 			if _, _, err := h.Env.Credential("example"); err == nil || !strings.Contains(err.Error(), "administrator rights") {
@@ -339,7 +339,7 @@ func TestDefaultIndexIsAComingSoonPage(t *testing.T) {
 
 func TestRenderSecurityHeaders(t *testing.T) {
 	s := spec()
-	if err := s.Normalize("/home/whacp", "/var/lib/whacp-agent"); err != nil {
+	if err := s.Normalize("/home/nimvor", "/var/lib/nimvor-agent"); err != nil {
 		t.Fatal(err)
 	}
 	l := Layout{Socket: "/run/php/x.sock", LogDir: "/l", ACMERoot: "/a"}
@@ -364,14 +364,14 @@ func TestConfigFilesUnreadableToOtherAccounts(t *testing.T) {
 	if _, err := m.Apply(context.Background(), spec()); err != nil {
 		t.Fatal(err)
 	}
-	for _, f := range []string{"etc/nginx/sites-available/whacp-new.test.conf", "etc/php/8.3/fpm/pool.d/whacp-new.test.conf"} {
+	for _, f := range []string{"etc/nginx/sites-available/nimvor-new.test.conf", "etc/php/8.3/fpm/pool.d/nimvor-new.test.conf"} {
 		st, err := os.Stat(filepath.Join(h.Base, f))
 		if err != nil || st.Mode().Perm() != 0o640 {
 			t.Errorf("%s: %v %v", f, st.Mode(), err)
 		}
 	}
 	// Files written by earlier versions are tightened (root-owned only).
-	old := filepath.Join(h.Base, "etc/nginx/sites-available/whacp-old.test.conf")
+	old := filepath.Join(h.Base, "etc/nginx/sites-available/nimvor-old.test.conf")
 	os.WriteFile(old, []byte("server {}\n"), 0o644)
 	other := filepath.Join(h.Base, "etc/nginx/sites-available/other.conf")
 	os.WriteFile(other, []byte("server {}\n"), 0o644)
@@ -383,13 +383,13 @@ func TestConfigFilesUnreadableToOtherAccounts(t *testing.T) {
 			t.Errorf("old: %v", st.Mode())
 		}
 		if st, _ := os.Stat(other); st.Mode().Perm() != 0o644 {
-			t.Errorf("not WhaCP's file changed: %v", st.Mode())
+			t.Errorf("not NimVor's file changed: %v", st.Mode())
 		}
 	}
 }
 
 // With outgoing mail limits on, a new website account may not use
-// Postfix's own sendmail (it sends through WhaCP's, where the limit
+// Postfix's own sendmail (it sends through NimVor's, where the limit
 // applies); without them, nothing is written.
 func TestNewAccountDeniedLocalSubmitWithMailLimits(t *testing.T) {
 	h := testhost.New(t)
@@ -402,7 +402,7 @@ func TestNewAccountDeniedLocalSubmitWithMailLimits(t *testing.T) {
 		t.Fatal("nosubmit written without mail limits")
 	}
 	os.MkdirAll(filepath.Join(h.Base, filepath.Dir(nosubmit)), 0o755)
-	os.WriteFile(filepath.Join(h.Base, nosubmit), []byte("# Managed by WhaCP (outgoing mail limits). Do not edit.\n"), 0o644)
+	os.WriteFile(filepath.Join(h.Base, nosubmit), []byte("# Managed by NimVor (outgoing mail limits). Do not edit.\n"), 0o644)
 	s := spec()
 	s.Domain, s.Aliases, s.User = "other.test", nil, "othersite"
 	if _, err := m.Apply(context.Background(), s); err != nil {

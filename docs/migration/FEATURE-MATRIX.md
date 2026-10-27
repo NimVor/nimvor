@@ -1,4 +1,4 @@
-# WhaCP Feature Matrix (plan-gated features)
+# NimVor Feature Matrix (plan-gated features)
 
 _From app/Services/FeatureService::FEATURES._
 

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Services\HealthService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Services\HealthService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Server → Health: every check in one place. */
 final class HealthTest extends HttpTestCase

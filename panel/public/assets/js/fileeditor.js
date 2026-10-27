@@ -2,7 +2,7 @@
 // changed since it was opened (optimistic concurrency).
 (function () {
     'use strict';
-    var root = document.getElementById('wcp-fe');
+    var root = document.getElementById('nim-fe');
     if (!root) { return; }
     var api = root.dataset.api, path = root.dataset.path;
     var text = root.querySelector('[data-fe-text]'), gutter = root.querySelector('[data-fe-gutter]');

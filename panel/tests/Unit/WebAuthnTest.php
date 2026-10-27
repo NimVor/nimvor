@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Unit;
+namespace NimVor\Tests\Unit;
 
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Security\Cbor;
-use WhaCP\Security\WebAuthn;
-use WhaCP\Security\WebAuthnException;
-use WhaCP\Tests\Support\DatabaseTestCase;
-use WhaCP\Tests\Support\SoftAuthenticator;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Security\Cbor;
+use NimVor\Security\WebAuthn;
+use NimVor\Security\WebAuthnException;
+use NimVor\Tests\Support\DatabaseTestCase;
+use NimVor\Tests\Support\SoftAuthenticator;
 
 require_once __DIR__ . '/../Support/SoftAuthenticator.php';
 

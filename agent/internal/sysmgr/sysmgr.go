@@ -29,7 +29,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/shacrypt"
 )
 
-// Components are the packages WhaCP offers to install (PHP versions are
+// Components are the packages NimVor offers to install (PHP versions are
 // handled by phpmgr). Anything else is installed by the administrator.
 var Components = map[string]string{
 	"nginx":               "Web server",
@@ -84,7 +84,7 @@ type Package struct {
 	// without it (built from source, copied by hand).
 	Installed bool   `json:"installed"`
 	Version   string `json:"version,omitempty"`
-	// State of the functionality itself, for components WhaCP can check:
+	// State of the functionality itself, for components NimVor can check:
 	// missing, installed (present but not loaded or usable) or functional.
 	State  string `json:"state,omitempty"`
 	Reason string `json:"reason,omitempty"`
@@ -224,10 +224,10 @@ func primaryIPv4() string {
 	return ""
 }
 
-// hostsManagedBegin/End delimit the one line WhaCP owns in /etc/hosts.
+// hostsManagedBegin/End delimit the one line NimVor owns in /etc/hosts.
 const (
-	hostsManagedBegin = "# BEGIN WhaCP host name"
-	hostsManagedEnd   = "# END WhaCP host name"
+	hostsManagedBegin = "# BEGIN NimVor host name"
+	hostsManagedEnd   = "# END NimVor host name"
 )
 
 // applyEtcHosts keeps /etc/hosts in step with the server's host name: the
@@ -246,7 +246,7 @@ func applyEtcHosts(env *host.Env, fqdn, ip string) (bool, error) {
 		short = fqdn[:i]
 	}
 
-	// The mapping WhaCP owns. With a real address, map it there; otherwise
+	// The mapping NimVor owns. With a real address, map it there; otherwise
 	// fall back to Debian's 127.0.1.1 so the name at least resolves locally.
 	target := ip
 	if target == "" {
@@ -577,7 +577,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		if in.Minutes < 1 || in.Minutes > 1440 {
 			return nil, actions.InvalidParams("minutes: 1–1440")
 		}
-		if err := run(ctx, env, "Scheduling the restart", "shutdown", "-r", "+"+strconv.Itoa(in.Minutes), "Restart requested from WhaCP"); err != nil {
+		if err := run(ctx, env, "Scheduling the restart", "shutdown", "-r", "+"+strconv.Itoa(in.Minutes), "Restart requested from NimVor"); err != nil {
 			return nil, err
 		}
 		return map[string]any{"in_minutes": in.Minutes}, nil
@@ -587,10 +587,10 @@ func Register(r *actions.Registry, env *host.Env) {
 	}})
 }
 
-// restrictAgain applies WhaCP's limits on installed programs again after a
+// restrictAgain applies NimVor's limits on installed programs again after a
 // package job (package updates reset file modes on RHEL).
 // RepairAtStart checks the installed packages when the agent starts (after
-// an installation or update of WhaCP) and, when an earlier package
+// an installation or update of NimVor) and, when an earlier package
 // transaction left something to repair without asking, starts the repair
 // as a job the Packages page lists. The same problems start it once.
 func RepairAtStart(ctx context.Context, env *host.Env) {

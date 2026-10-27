@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Database\Connection;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
- * Backup schedules and retention. `bin/whacp schedule:run` (a systemd
+ * Backup schedules and retention. `bin/nimvor schedule:run` (a systemd
  * timer, every 5 minutes) starts due backups, records finished ones and
  * deletes the oldest completed backups beyond each schedule's retention.
  */

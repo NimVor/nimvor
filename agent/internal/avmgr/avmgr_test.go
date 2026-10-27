@@ -16,8 +16,8 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	out := `/home/whacp/a.test/public_html/shell.php: Php.Webshell.Generic FOUND
-/home/whacp/a.test/public_html/x y.js: Js.Trojan.Agent-1 FOUND
+	out := `/home/nimvor/a.test/public_html/shell.php: Php.Webshell.Generic FOUND
+/home/nimvor/a.test/public_html/x y.js: Js.Trojan.Agent-1 FOUND
 /etc/passwd: Fake.Sig FOUND
 
 ----------- SCAN SUMMARY -----------
@@ -26,7 +26,7 @@ Scanned files: 42
 Infected files: 2
 Total errors: 1
 `
-	res := Parse(strings.NewReader(out), "/home/whacp/a.test")
+	res := Parse(strings.NewReader(out), "/home/nimvor/a.test")
 	if res.Scanned != 42 || res.Errors != 1 || len(res.Infected) != 2 {
 		t.Fatalf("parse: %+v", res)
 	}
@@ -43,8 +43,8 @@ func TestScanRunsAsTheWebsiteAndQuarantinesInside(t *testing.T) {
 		a, _ := r.Lookup("av.scan")
 		return a.Handler(context.Background(), json.RawMessage(params))
 	}
-	site := `"domain":"a.test","user":"example","root":"/home/whacp/a.test"`
-	root := filepath.Join(h.Base, "home/whacp/a.test")
+	site := `"domain":"a.test","user":"example","root":"/home/nimvor/a.test"`
+	root := filepath.Join(h.Base, "home/nimvor/a.test")
 	os.MkdirAll(filepath.Join(root, "public_html/sub"), 0o755)
 	h.Runner.Unavailable["clamscan"] = true
 	if _, err := call(`{` + site + `}`); err == nil || !strings.Contains(err.Error(), "not installed") {
@@ -155,7 +155,7 @@ func TestScanRunsAsTheWebsiteAndQuarantinesInside(t *testing.T) {
 		t.Errorf("quarantined outside the website: %v", entries)
 	}
 
-	for _, bad := range []string{`{"domain":"a.test","user":"root","root":"/home/whacp/a.test"}`, `{"domain":"a.test","user":"example","root":"/etc"}`} {
+	for _, bad := range []string{`{"domain":"a.test","user":"root","root":"/home/nimvor/a.test"}`, `{"domain":"a.test","user":"example","root":"/etc"}`} {
 		if _, err := call(bad); err == nil {
 			t.Errorf("accepted %s", bad)
 		}
@@ -210,8 +210,8 @@ func TestQuarantineListAndRelease(t *testing.T) {
 		a, _ := r.Lookup(name)
 		return a.Handler(context.Background(), json.RawMessage(params))
 	}
-	site := `"domain":"a.test","user":"example","root":"/home/whacp/a.test"`
-	root := filepath.Join(h.Base, "home/whacp/a.test")
+	site := `"domain":"a.test","user":"example","root":"/home/nimvor/a.test"`
+	root := filepath.Join(h.Base, "home/nimvor/a.test")
 	os.MkdirAll(filepath.Join(root, "public_html"), 0o755)
 	list := func() []QuarantineEntry {
 		lst, err := call("av.quarantine_list", `{`+site+`}`)
@@ -293,7 +293,7 @@ func TestQuarantineListAndRelease(t *testing.T) {
 	}
 
 	// Traversal, absolute and quarantine-targeting release paths are refused.
-	for _, bad := range []string{"../etc/secret", "20260101-000000/../../etc/x", "20260101-000000/.whacp-quarantine/x", ".", ""} {
+	for _, bad := range []string{"../etc/secret", "20260101-000000/../../etc/x", "20260101-000000/.nimvor-quarantine/x", ".", ""} {
 		if _, err := call("av.release", `{`+site+`,"path":`+strconv.Quote(bad)+`}`); err == nil {
 			t.Errorf("accepted a bad release path: %q", bad)
 		}

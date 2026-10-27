@@ -1,4 +1,4 @@
-# WhaCP PHP Panel — Inventory (migration baseline)
+# NimVor PHP Panel — Inventory (migration baseline)
 
 Baseline commit: `46313561f179204e8a20a1a8717a9950c108d511`  
 Branch: `claude/sleepy-ptolemy-bdv6ib`  
@@ -287,4 +287,4 @@ Date: 2026-10-20
 - public/assets/js/terminal.js
 - public/assets/js/theme.js
 - public/assets/js/webauthn.js
-- public/assets/js/whacp.js
+- public/assets/js/nimvor.js

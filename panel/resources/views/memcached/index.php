@@ -1,7 +1,7 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed>|null $status */
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 $st = (array) ($status['stats'] ?? []);
 $rt = (array) ($status['runtime'] ?? []);
@@ -26,7 +26,7 @@ $uptime = (int) ($st['uptime'] ?? 0);
         <?php endif; ?>
     </div></div>
 <?php else: ?>
-<ul class="nav nav-tabs wcp-tabs mb-3" role="tablist">
+<ul class="nav nav-tabs nim-tabs mb-3" role="tablist">
     <li class="nav-item" role="presentation"><button class="nav-link active" id="tab-overview" data-bs-toggle="tab" data-bs-target="#pane-overview" type="button" role="tab" aria-controls="pane-overview" aria-selected="true"><i class="bi bi-memory me-1" aria-hidden="true"></i>Overview</button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" id="tab-danger" data-bs-toggle="tab" data-bs-target="#pane-danger" type="button" role="tab" aria-controls="pane-danger" aria-selected="false"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Danger zone</button></li>
 </ul>
@@ -49,7 +49,7 @@ $uptime = (int) ($st['uptime'] ?? 0);
                     <div class="d-flex small mb-1"><span>Memory</span><span class="ms-auto"><?= e(format_bytes($used)) ?> of <?= e(format_bytes($limit)) ?></span></div>
                     <div class="progress" role="progressbar" aria-label="Memory used" aria-valuenow="<?= (int) $pct ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar<?= $pct > 90 ? ' bg-warning' : '' ?>" data-width="<?= (int) $pct ?>"></div></div>
                 </div>
-                <dl class="wcp-dl mb-0">
+                <dl class="nim-dl mb-0">
                     <dt>Version</dt><dd><?= e($st['version'] ?? '') ?></dd>
                     <dt>Uptime</dt><dd><?= e(intdiv($uptime, 86400) . 'd ' . gmdate('H:i', $uptime % 86400)) ?></dd>
                     <dt>Items</dt><dd><?= e(number_format((int) ($st['curr_items'] ?? 0))) ?></dd>
@@ -79,7 +79,7 @@ $uptime = (int) ($st['uptime'] ?? 0);
 
 <?php if ($this->can(P::SERVICES_MANAGE)): ?>
 <?= $this->modalStart('mc-settings', 'Memcached settings') ?>
-<form method="post" action="<?= e($this->url('memcached.configure')) ?>" data-wcp-busy>
+<form method="post" action="<?= e($this->url('memcached.configure')) ?>" data-nim-busy>
     <?= $this->csrfField() ?>
     <div class="row g-2">
         <div class="col-sm-6"><label class="form-label small" for="mc-mem">Memory (MB)</label><input class="form-control" id="mc-mem" type="number" name="memory_mb" min="16" max="262144" value="<?= (int) ($cfg['memory_mb'] ?? 64) ?>"></div>

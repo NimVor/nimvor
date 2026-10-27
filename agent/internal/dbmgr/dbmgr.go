@@ -2,7 +2,7 @@
 //
 // The agent connects as the database root account over the local socket
 // (unix_socket / auth_socket authentication, the Ubuntu default), or with
-// /etc/whacp/mysql-admin.cnf when present. SQL is sent on stdin, never on
+// /etc/nimvor/mysql-admin.cnf when present. SQL is sent on stdin, never on
 // the command line, so passwords do not appear in the process list.
 // Identifiers are restricted to [A-Za-z0-9_] and always backtick-quoted.
 package dbmgr
@@ -26,7 +26,7 @@ import (
 )
 
 // AdminDefaults is an optional client config with admin credentials.
-const AdminDefaults = "/etc/whacp/mysql-admin.cnf"
+const AdminDefaults = "/etc/nimvor/mysql-admin.cnf"
 
 var hostRe = regexp.MustCompile(`^(localhost|%|[0-9A-Fa-f.:%/]{1,60}|[A-Za-z0-9.-]{1,60})$`)
 
@@ -80,7 +80,7 @@ func (c Client) clientGuard(ctx context.Context) string {
 	return g
 }
 
-// Query runs SQL and returns tab-separated rows. The SQL is WhaCP's own
+// Query runs SQL and returns tab-separated rows. The SQL is NimVor's own
 // (identifiers validated, values quoted); the client's commands are still
 // turned off where the client supports it.
 func (c Client) Query(ctx context.Context, sql string) ([][]string, error) {
@@ -441,7 +441,7 @@ GROUP BY s.schema_name ORDER BY s.schema_name;`)
 		n, _ := strconv.Atoi(r[2])
 		dbs = append(dbs, Database{Name: r[0], Bytes: b, Tables: n})
 	}
-	urows, err := c.Query(ctx, `SELECT user, host FROM mysql.user WHERE user NOT IN ('root','mysql','mariadb.sys','debian-sys-maint','mysql.sys','mysql.session','mysql.infoschema','') AND user NOT LIKE 'whacp\\_b\\_%' ORDER BY user, host;`)
+	urows, err := c.Query(ctx, `SELECT user, host FROM mysql.user WHERE user NOT IN ('root','mysql','mariadb.sys','debian-sys-maint','mysql.sys','mysql.session','mysql.infoschema','') AND user NOT LIKE 'nimvor\\_b\\_%' ORDER BY user, host;`)
 	if err != nil {
 		return nil, actions.Failed("Could not list database users.", err.Error())
 	}

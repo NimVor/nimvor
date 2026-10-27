@@ -29,13 +29,13 @@ const OUT = process.env.E2E_OUT || '/tmp';
     if (!/To install \(\d+\)/.test(review) || !review.includes('redis')) { throw new Error('review: ' + review.slice(0, 300)); }
     await nav(() => page.click('form button:has-text("Apply")'));
     if (!(await page.textContent('main')).includes('Applying the PHP profile')) { throw new Error('not applied'); }
-    if (await page.waitForSelector('#wcp-job.show', { timeout: 3000 }).catch(() => null)) {
-      await page.click('#wcp-job .btn-close');
-      await page.waitForSelector('#wcp-job', { state: 'hidden' });
+    if (await page.waitForSelector('#nim-job.show', { timeout: 3000 }).catch(() => null)) {
+      await page.click('#nim-job .btn-close');
+      await page.waitForSelector('#nim-job', { state: 'hidden' });
     }
     const [dl] = await Promise.all([page.waitForEvent('download'), page.click('a:has-text("Export profile")')]);
     const prof = JSON.parse(fs.readFileSync(await dl.path(), 'utf8'));
-    if (prof.format !== 'whacp-php-profile' || !prof.extensions.includes('redis')) { throw new Error('export: ' + JSON.stringify(prof)); }
+    if (prof.format !== 'nimvor-php-profile' || !prof.extensions.includes('redis')) { throw new Error('export: ' + JSON.stringify(prof)); }
     await page.setViewportSize({ width: 390, height: 844 });
     const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     if (over > 1) { throw new Error('horizontal scroll on a phone: ' + over + 'px'); }

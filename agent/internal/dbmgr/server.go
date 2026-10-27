@@ -21,15 +21,15 @@ import (
 )
 
 // The MariaDB/MySQL server manager: status, connections, a fixed list of
-// settings in WhaCP's own drop-in (zz-whacp.cnf, read after the
+// settings in NimVor's own drop-in (zz-nimvor.cnf, read after the
 // distribution's files), configuration validation and a restart that
 // checks the configuration first and waits for the server to answer.
 // Of networking, the listening address can only be narrowed to this
 // server (bind_address 127.0.0.1) or left to the distribution; the port is
 // shown, not changed.
 
-// DropInName is WhaCP's option file in the server's include directory.
-const DropInName = "zz-whacp.cnf"
+// DropInName is NimVor's option file in the server's include directory.
+const DropInName = "zz-nimvor.cnf"
 
 var dropInDirs = []string{"/etc/mysql/mariadb.conf.d", "/etc/mysql/mysql.conf.d", "/etc/my.cnf.d"}
 
@@ -57,7 +57,7 @@ type ServerSetting struct {
 
 const gib = 1 << 30
 
-// ServerSettings are the options WhaCP manages.
+// ServerSettings are the options NimVor manages.
 var ServerSettings = []ServerSetting{
 	{Key: "max_connections", Label: "Maximum connections", Help: "Connections the server accepts at once (one more is kept for administrators).", Kind: kindInt, Min: 10, Max: 100000, Dynamic: true, Group: "Connections"},
 	{Key: "wait_timeout", Label: "Idle connection timeout (s)", Help: "Seconds before an idle connection from an application is closed.", Kind: kindInt, Min: 10, Max: 31536000, Dynamic: true, Group: "Connections"},
@@ -181,7 +181,7 @@ func human(n int64) string {
 // RenderDropIn writes the managed settings.
 func RenderDropIn(values map[string]string) string {
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP (Databases → Database server). Changes here are overwritten.\n[mysqld]\n")
+	b.WriteString("# Managed by NimVor (Databases → Database server). Changes here are overwritten.\n[mysqld]\n")
 	for _, s := range ServerSettings { // fixed order
 		if v, ok := values[s.Key]; ok {
 			fmt.Fprintf(&b, "%s = %s\n", s.Key, v)
@@ -190,7 +190,7 @@ func RenderDropIn(values map[string]string) string {
 	return b.String()
 }
 
-// ParseDropIn reads WhaCP's drop-in back (only known keys).
+// ParseDropIn reads NimVor's drop-in back (only known keys).
 func ParseDropIn(text string) map[string]string {
 	out := map[string]string{}
 	sc := bufio.NewScanner(strings.NewReader(text))
@@ -324,7 +324,7 @@ var statusNames = []string{"Uptime", "Threads_connected", "Threads_running", "Ma
 var infoVariables = []string{"version", "version_comment", "datadir", "socket", "port", "bind_address", "skip_networking", "log_error", "slow_query_log_file", "innodb_page_size", "have_ssl"}
 
 func registerServer(r *actions.Registry, c Client) {
-	r.Register(actions.Action{Name: "db.server_status", Description: "Database server: version, uptime, status counters, connection details, managed settings (effective and WhaCP's) and whether the configuration is valid.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "db.server_status", Description: "Database server: version, uptime, status counters, connection details, managed settings (effective and NimVor's) and whether the configuration is valid.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		out := map[string]any{"running": false, "unit": c.unit(ctx), "settings": ServerSettings}
 		path, ok := c.dropInPath()
 		out["drop_in"] = path
@@ -456,7 +456,7 @@ func registerServer(r *actions.Registry, c Client) {
 		return map[string]any{"restarted": true, "seconds": int(time.Since(start).Seconds())}, nil
 	}})
 
-	r.Register(actions.Action{Name: "db.server_settings", Mutating: true, Timeout: 3 * time.Minute, Description: "Database server: set WhaCP's managed options (\"\" removes one, leaving the distribution's value). Values are validated, the option files are checked by the server program, dynamic options are applied at once; others (or all, with restart) take effect after a checked restart. Anything that fails is rolled back.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "db.server_settings", Mutating: true, Timeout: 3 * time.Minute, Description: "Database server: set NimVor's managed options (\"\" removes one, leaving the distribution's value). Values are validated, the option files are checked by the server program, dynamic options are applied at once; others (or all, with restart) take effect after a checked restart. Anything that fails is rolled back.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			Settings map[string]string `json:"settings"`
 			Restart  bool              `json:"restart"`
@@ -481,7 +481,7 @@ func registerServer(r *actions.Registry, c Client) {
 		for k, v := range in.Settings {
 			s, known := settingByKey(k)
 			if !known {
-				return nil, actions.InvalidParams(k + " is not a setting WhaCP manages")
+				return nil, actions.InvalidParams(k + " is not a setting NimVor manages")
 			}
 			if strings.TrimSpace(v) == "" {
 				if _, had := next[k]; had {

@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\RuntimeService;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Services\WorkerService;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\RuntimeService;
+use NimVor\Services\ServerContext;
+use NimVor\Services\WebsiteService;
+use NimVor\Services\WorkerService;
+use NimVor\View\View;
 
 /**
  * Site → Runtime: the runtime version and app for a Node.js/Python website.

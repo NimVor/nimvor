@@ -1,4 +1,4 @@
-# WhaCP Security Controls — must be preserved and re-tested in Go
+# NimVor Security Controls — must be preserved and re-tested in Go
 
 Each control is ported and gets negative tests (unauthorized / cross-tenant /
 CSRF / invalid session / manipulated id) before its area is marked done.
@@ -22,5 +22,5 @@ CSRF / invalid session / manipulated id) before its area is marked done.
 | 15 | Path confinement (no traversal) — mostly agent-side | agent filesystem.Root | agent (unchanged) | traversal rejected | ☑ (agent) |
 
 Rule carried over verbatim: **never trust a user-supplied tenant id, resource id
-or `X-WhaCP-Server` header**; derive access from the authenticated principal and
+or `X-NimVor-Server` header**; derive access from the authenticated principal and
 server-side state.

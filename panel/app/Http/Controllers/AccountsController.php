@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\AccountOptions;
-use WhaCP\Services\AccountService;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\DnsService;
-use WhaCP\Services\PlanService;
-use WhaCP\Services\SettingsService;
-use WhaCP\Services\UserService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\AccountOptions;
+use NimVor\Services\AccountService;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\DnsService;
+use NimVor\Services\PlanService;
+use NimVor\Services\SettingsService;
+use NimVor\Services\UserService;
+use NimVor\Services\WebsiteService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 /** Create a New Account (hosting account in one step) and its options. */
 final class AccountsController extends Controller
@@ -35,8 +35,8 @@ final class AccountsController extends Controller
         private readonly DnsService $dns,
         private readonly UserRepository $users,
         private readonly AuditLogger $audit,
-        private readonly \WhaCP\Services\MailService $mail,
-        private readonly \WhaCP\Services\SuspensionService $suspension,
+        private readonly \NimVor\Services\MailService $mail,
+        private readonly \NimVor\Services\SuspensionService $suspension,
     ) {
         parent::__construct($view, $session);
     }
@@ -71,7 +71,7 @@ final class AccountsController extends Controller
             return $this->backWithErrors('/accounts/new', $e, array_diff_key($input, ['password' => 1, 'password_confirmation' => 1]));
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/accounts/new', $e);
-        } catch (\WhaCP\Agent\AgentException $e) {
+        } catch (\NimVor\Agent\AgentException $e) {
             return $this->redirectWithError('/accounts/new', 'The account was not created: ' . $e->getMessage());
         }
         $name = (string) ($this->users->find($res['id'])['username'] ?? '');

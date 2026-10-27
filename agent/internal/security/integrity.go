@@ -28,19 +28,19 @@ import (
 //     against the checksums the package manager recorded at install time,
 //     which are refreshed on every upgrade, so a normal package update is
 //     not reported as a change.
-//   - WhaCP-owned files (the agent binary and the agent configuration under
-//     /etc/whacp) are compared against a baseline manifest that WhaCP writes
+//   - NimVor-owned files (the agent binary and the agent configuration under
+//     /etc/nimvor) are compared against a baseline manifest that NimVor writes
 //     itself, so a change to the agent binary or its configuration is caught
 //     even though no package owns them.
 //
-// Findings are classified (package-owned vs WhaCP-owned) and graded, so the
+// Findings are classified (package-owned vs NimVor-owned) and graded, so the
 // agent binary being modified is CRITICAL, a security component changing is
-// HIGH, and configuration changing outside WhaCP is MEDIUM.
+// HIGH, and configuration changing outside NimVor is MEDIUM.
 
 // IntegrityFinding is one file that differs from its expected state.
 type IntegrityFinding struct {
 	Path     string `json:"path"`
-	Class    string `json:"class"`             // "whacp" or "package"
+	Class    string `json:"class"`             // "nimvor" or "package"
 	Issue    string `json:"issue"`             // modified, deleted, permissions, ownership, new
 	Severity string `json:"severity"`          // critical, high, medium, low
 	Package  string `json:"package,omitempty"` // the owning package, when known
@@ -68,12 +68,12 @@ func integrityManifestPath(env *host.Env) string {
 	return filepath.Join(env.Cfg.StateDir, "integrity-baseline.json")
 }
 
-// whacpOwnedTargets lists the WhaCP-owned files worth baselining: the agent
+// nimvorOwnedTargets lists the NimVor-owned files worth baselining: the agent
 // binary (no package owns it) and the agent configuration tree. Website and
 // service configuration is generated and changes with every customer
 // action, so it is not baselined here; package verification covers the
 // server software itself.
-func whacpOwnedTargets(env *host.Env) []string {
+func nimvorOwnedTargets(env *host.Env) []string {
 	var out []string
 	if exe, err := os.Executable(); err == nil {
 		if real, err := filepath.EvalSymlinks(exe); err == nil {
@@ -83,7 +83,7 @@ func whacpOwnedTargets(env *host.Env) []string {
 		}
 	}
 	// The agent configuration directory.
-	confDir := "/etc/whacp"
+	confDir := "/etc/nimvor"
 	real, err := env.Root.Path(confDir)
 	if err == nil {
 		filepath.WalkDir(real, func(p string, d fs.DirEntry, err error) error {
@@ -128,12 +128,12 @@ func stateOf(path string) (fileState, bool, error) {
 	return s, true, nil
 }
 
-// WriteIntegrityBaseline records the current state of the WhaCP-owned files
+// WriteIntegrityBaseline records the current state of the NimVor-owned files
 // as the baseline. It is called after an install or upgrade, when the files
 // are known good.
 func WriteIntegrityBaseline(env *host.Env) (int, error) {
 	manifest := map[string]fileState{}
-	for _, p := range whacpOwnedTargets(env) {
+	for _, p := range nimvorOwnedTargets(env) {
 		s, ok, err := stateOf(p)
 		if err != nil || !ok {
 			continue
@@ -179,17 +179,17 @@ func agentBinaryPath() string {
 	return exe
 }
 
-// CheckIntegrity scans WhaCP-owned files against the baseline and
+// CheckIntegrity scans NimVor-owned files against the baseline and
 // package-owned files with the OS verification tool.
 func CheckIntegrity(ctx context.Context, env *host.Env, now time.Time) IntegrityReport {
 	r := IntegrityReport{CheckedAt: now}
 	binary := agentBinaryPath()
 
-	// WhaCP-owned files vs the baseline.
+	// NimVor-owned files vs the baseline.
 	if base, err := loadIntegrityBaseline(env); err == nil {
 		r.HasBaseline = true
 		current := map[string]bool{}
-		for _, p := range whacpOwnedTargets(env) {
+		for _, p := range nimvorOwnedTargets(env) {
 			current[p] = true
 		}
 		sev := func(p string) string {
@@ -208,19 +208,19 @@ func CheckIntegrity(ctx context.Context, env *host.Env, now time.Time) Integrity
 			got, ok, _ := stateOf(p)
 			switch {
 			case !ok:
-				r.Findings = append(r.Findings, IntegrityFinding{Path: p, Class: "whacp", Issue: "deleted", Severity: sev(p), Detail: "a WhaCP-owned file is missing"})
+				r.Findings = append(r.Findings, IntegrityFinding{Path: p, Class: "nimvor", Issue: "deleted", Severity: sev(p), Detail: "a NimVor-owned file is missing"})
 			case got.SHA256 != want.SHA256:
-				r.Findings = append(r.Findings, IntegrityFinding{Path: p, Class: "whacp", Issue: "modified", Severity: sev(p), Detail: "checksum changed"})
+				r.Findings = append(r.Findings, IntegrityFinding{Path: p, Class: "nimvor", Issue: "modified", Severity: sev(p), Detail: "checksum changed"})
 			case got.Mode != want.Mode:
-				r.Findings = append(r.Findings, IntegrityFinding{Path: p, Class: "whacp", Issue: "permissions", Severity: "high", Detail: fmt.Sprintf("mode %o → %o", want.Mode, got.Mode)})
+				r.Findings = append(r.Findings, IntegrityFinding{Path: p, Class: "nimvor", Issue: "permissions", Severity: "high", Detail: fmt.Sprintf("mode %o → %o", want.Mode, got.Mode)})
 			case got.UID != want.UID || got.GID != want.GID:
-				r.Findings = append(r.Findings, IntegrityFinding{Path: p, Class: "whacp", Issue: "ownership", Severity: "high", Detail: fmt.Sprintf("owner %d:%d → %d:%d", want.UID, want.GID, got.UID, got.GID)})
+				r.Findings = append(r.Findings, IntegrityFinding{Path: p, Class: "nimvor", Issue: "ownership", Severity: "high", Detail: fmt.Sprintf("owner %d:%d → %d:%d", want.UID, want.GID, got.UID, got.GID)})
 			}
 		}
-		// New WhaCP-owned files that appeared after the baseline.
+		// New NimVor-owned files that appeared after the baseline.
 		for p := range current {
 			if _, known := base[p]; !known {
-				r.Findings = append(r.Findings, IntegrityFinding{Path: p, Class: "whacp", Issue: "new", Severity: "medium", Detail: "a WhaCP-owned file not present at baseline"})
+				r.Findings = append(r.Findings, IntegrityFinding{Path: p, Class: "nimvor", Issue: "new", Severity: "medium", Detail: "a NimVor-owned file not present at baseline"})
 			}
 		}
 	}

@@ -1,7 +1,7 @@
-// Package sites manages WhaCP-owned websites: Nginx server blocks, per-site
+// Package sites manages NimVor-owned websites: Nginx server blocks, per-site
 // PHP-FPM pools, site directories and site system users.
 //
-// WhaCP only ever writes files named whacp-<domain>.conf; configuration
+// NimVor only ever writes files named nimvor-<domain>.conf; configuration
 // created by hand or by another panel is never modified. A site cannot be
 // created for a hostname that an unmanaged configuration already serves.
 package sites
@@ -249,7 +249,7 @@ func (s *Spec) Normalize(sitesRoot, stateDir string) error {
 				}
 			}
 			if !ok {
-				return fail(field, "must be a certificate managed by certbot or WhaCP")
+				return fail(field, "must be a certificate managed by certbot or NimVor")
 			}
 		}
 	} else {

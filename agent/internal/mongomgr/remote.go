@@ -18,7 +18,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
-// Remote MongoDB servers: WhaCP can connect to another MongoDB server (for
+// Remote MongoDB servers: NimVor can connect to another MongoDB server (for
 // example to migrate a database onto this one). The panel stores the
 // credentials encrypted and passes them per call; the agent never writes them
 // to disk except, for mongodump, a short-lived root-only password file that is

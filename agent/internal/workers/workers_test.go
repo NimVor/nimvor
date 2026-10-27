@@ -18,14 +18,14 @@ func TestApplyWritesSandboxedUnitAndScript(t *testing.T) {
 	Register(r, h.Env)
 	a, _ := r.Lookup("workers.apply")
 	// A launcher left in the state directory by an earlier version.
-	os.MkdirAll(filepath.Join(h.Base, "var/lib/whacp-agent/workers"), 0o755)
-	os.WriteFile(filepath.Join(h.Base, "var/lib/whacp-agent/workers/7-queue.sh"), []byte("#!/bin/sh\n"), 0o755)
+	os.MkdirAll(filepath.Join(h.Base, "var/lib/nimvor-agent/workers"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "var/lib/nimvor-agent/workers/7-queue.sh"), []byte("#!/bin/sh\n"), 0o755)
 	_, err := a.Handler(context.Background(), json.RawMessage(`{"slug":"7-queue","name":"Queue","domain":"a.test","user":"example","directory":"public_html","command":"php artisan queue:work --sleep=3","env":{"APP_ENV":"production","QUOTE":"it's"},"memory_mb":256,"enabled":true}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	unit := h.Read("etc/systemd/system/whacp-worker-7-queue.service")
-	for _, want := range []string{"User=example", "ExecStart=/bin/sh /var/lib/whacp-workers/7-queue.sh", "NoNewPrivileges=yes", "MemoryMax=256M", "Restart=always"} {
+	unit := h.Read("etc/systemd/system/nimvor-worker-7-queue.service")
+	for _, want := range []string{"User=example", "ExecStart=/bin/sh /var/lib/nimvor-workers/7-queue.sh", "NoNewPrivileges=yes", "MemoryMax=256M", "Restart=always"} {
 		if !strings.Contains(unit, want) {
 			t.Errorf("unit lacks %q:\n%s", want, unit)
 		}
@@ -33,22 +33,22 @@ func TestApplyWritesSandboxedUnitAndScript(t *testing.T) {
 	if strings.Contains(unit, "artisan") {
 		t.Error("user command must not appear in the unit file")
 	}
-	script := h.Read("var/lib/whacp-workers/7-queue.sh")
+	script := h.Read("var/lib/nimvor-workers/7-queue.sh")
 	// The account reads its launcher (group), nobody else can (it holds the
 	// worker's environment); the folder cannot be listed.
-	if fi, _ := os.Stat(filepath.Join(h.Base, "var/lib/whacp-workers/7-queue.sh")); fi == nil || fi.Mode().Perm() != 0o640 {
+	if fi, _ := os.Stat(filepath.Join(h.Base, "var/lib/nimvor-workers/7-queue.sh")); fi == nil || fi.Mode().Perm() != 0o640 {
 		t.Errorf("launcher mode: %v", fi)
 	}
-	if fi, _ := os.Stat(filepath.Join(h.Base, "var/lib/whacp-workers")); fi == nil || fi.Mode().Perm() != 0o711 {
+	if fi, _ := os.Stat(filepath.Join(h.Base, "var/lib/nimvor-workers")); fi == nil || fi.Mode().Perm() != 0o711 {
 		t.Errorf("launcher folder mode: %v", fi)
 	}
-	if h.Exists("var/lib/whacp-agent/workers/7-queue.sh") {
+	if h.Exists("var/lib/nimvor-agent/workers/7-queue.sh") {
 		t.Error("the old launcher was not removed")
 	}
 	if !strings.Contains(script, `export QUOTE='it'\''s'`) || !strings.Contains(script, "exec php artisan queue:work") {
 		t.Errorf("script:\n%s", script)
 	}
-	for _, c := range []string{"systemctl daemon-reload", "systemctl enable -- whacp-worker-7-queue.service", "systemctl restart -- whacp-worker-7-queue.service"} {
+	for _, c := range []string{"systemctl daemon-reload", "systemctl enable -- nimvor-worker-7-queue.service", "systemctl restart -- nimvor-worker-7-queue.service"} {
 		if !h.Runner.Called(c) {
 			t.Errorf("missing %q in %v", c, h.Runner.Calls)
 		}
@@ -68,7 +68,7 @@ func TestApplyWritesSandboxedUnitAndScript(t *testing.T) {
 	if _, err := rm.Handler(context.Background(), json.RawMessage(`{"slug":"7-queue"}`)); err != nil {
 		t.Fatal(err)
 	}
-	if h.Exists("etc/systemd/system/whacp-worker-7-queue.service") || h.Exists("var/lib/whacp-workers/7-queue.sh") {
+	if h.Exists("etc/systemd/system/nimvor-worker-7-queue.service") || h.Exists("var/lib/nimvor-workers/7-queue.sh") {
 		t.Error("unit or launcher not removed")
 	}
 }
@@ -90,16 +90,16 @@ func TestApplyRunsSeveralCopies(t *testing.T) {
 	if _, err := apply.Handler(context.Background(), json.RawMessage(`{`+base+`,"procs":3}`)); err != nil {
 		t.Fatal(err)
 	}
-	for n, name := range []string{"whacp-worker-q.service", "whacp-worker-q-2.service", "whacp-worker-q-3.service"} {
+	for n, name := range []string{"nimvor-worker-q.service", "nimvor-worker-q-2.service", "nimvor-worker-q-3.service"} {
 		path := "etc/systemd/system/" + name
 		if !h.Exists(path) {
 			t.Fatalf("copy %d unit missing: %s", n+1, name)
 		}
 		u := h.Read(path)
-		if !strings.Contains(u, "ExecStart=/bin/sh /var/lib/whacp-workers/q.sh") {
+		if !strings.Contains(u, "ExecStart=/bin/sh /var/lib/nimvor-workers/q.sh") {
 			t.Errorf("%s does not run the shared launcher:\n%s", name, u)
 		}
-		wantInstance := "WHACP_WORKER_INSTANCE=" + itoa(n+1)
+		wantInstance := "NIMVOR_WORKER_INSTANCE=" + itoa(n+1)
 		if !strings.Contains(u, wantInstance) {
 			t.Errorf("%s lacks %q", name, wantInstance)
 		}
@@ -109,7 +109,7 @@ func TestApplyRunsSeveralCopies(t *testing.T) {
 			}
 		}
 	}
-	if !strings.Contains(h.Read("etc/systemd/system/whacp-worker-q-2.service"), "copy 2") {
+	if !strings.Contains(h.Read("etc/systemd/system/nimvor-worker-q-2.service"), "copy 2") {
 		t.Error("extra copy is not labelled")
 	}
 
@@ -120,7 +120,7 @@ func TestApplyRunsSeveralCopies(t *testing.T) {
 			return "", nil, false
 		}
 		var b strings.Builder
-		for _, u := range []string{"whacp-worker-q.service", "whacp-worker-q-2.service", "whacp-worker-q-3.service"} {
+		for _, u := range []string{"nimvor-worker-q.service", "nimvor-worker-q-2.service", "nimvor-worker-q-3.service"} {
 			b.WriteString("Id=" + u + "\nLoadState=loaded\nActiveState=active\nSubState=running\nMainPID=10\nMemoryCurrent=10485760\nActiveEnterTimestamp=Tue 2026-09-22 10:11:12 UTC\n\n")
 		}
 		return b.String(), nil, true
@@ -135,7 +135,7 @@ func TestApplyRunsSeveralCopies(t *testing.T) {
 		t.Fatalf("status rows: %+v", rows)
 	}
 	row := rows[0]
-	if row["unit"] != "whacp-worker-q.service" || row["procs_total"].(int) != 3 || row["procs_running"].(int) != 3 || row["running"] != true {
+	if row["unit"] != "nimvor-worker-q.service" || row["procs_total"].(int) != 3 || row["procs_running"].(int) != 3 || row["running"] != true {
 		t.Fatalf("aggregated status: %+v", row)
 	}
 	if m, ok := row["memory_bytes"].(uint64); !ok || m != 3*10485760 {
@@ -149,7 +149,7 @@ func TestApplyRunsSeveralCopies(t *testing.T) {
 	if _, err := apply.Handler(context.Background(), json.RawMessage(`{`+base+`,"procs":1}`)); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"whacp-worker-q-2.service", "whacp-worker-q-3.service"} {
+	for _, name := range []string{"nimvor-worker-q-2.service", "nimvor-worker-q-3.service"} {
 		if h.Exists("etc/systemd/system/" + name) {
 			t.Errorf("%s was not removed when scaling down", name)
 		}
@@ -157,7 +157,7 @@ func TestApplyRunsSeveralCopies(t *testing.T) {
 			t.Errorf("%s not stopped/disabled when scaling down", name)
 		}
 	}
-	if !h.Exists("etc/systemd/system/whacp-worker-q.service") {
+	if !h.Exists("etc/systemd/system/nimvor-worker-q.service") {
 		t.Error("the primary copy was removed when scaling down")
 	}
 
@@ -169,12 +169,12 @@ func TestApplyRunsSeveralCopies(t *testing.T) {
 	if _, err := rm.Handler(context.Background(), json.RawMessage(`{"slug":"q"}`)); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"whacp-worker-q.service", "whacp-worker-q-2.service", "whacp-worker-q-3.service"} {
+	for _, name := range []string{"nimvor-worker-q.service", "nimvor-worker-q-2.service", "nimvor-worker-q-3.service"} {
 		if h.Exists("etc/systemd/system/" + name) {
 			t.Errorf("%s not removed", name)
 		}
 	}
-	if h.Exists("var/lib/whacp-workers/q.sh") {
+	if h.Exists("var/lib/nimvor-workers/q.sh") {
 		t.Error("launcher not removed")
 	}
 }
@@ -195,14 +195,14 @@ func TestWorkerUsesSelectedRuntime(t *testing.T) {
 
 	// Install a managed Node runtime (just its bin/node), then the launcher
 	// must put its bin folder on PATH.
-	bin := filepath.Join(h.Base, "opt/whacp/runtimes/node/20.17.0/bin")
+	bin := filepath.Join(h.Base, "opt/nimvor/runtimes/node/20.17.0/bin")
 	os.MkdirAll(bin, 0o755)
 	os.WriteFile(filepath.Join(bin, "node"), []byte("#!node\n"), 0o755)
 	if _, err := apply.Handler(context.Background(), json.RawMessage(`{`+base+`,"runtime":"node:20.17.0"}`)); err != nil {
 		t.Fatal(err)
 	}
-	script := h.Read("var/lib/whacp-workers/app.sh")
-	if !strings.Contains(script, "export PATH='/opt/whacp/runtimes/node/20.17.0/bin':$PATH") {
+	script := h.Read("var/lib/nimvor-workers/app.sh")
+	if !strings.Contains(script, "export PATH='/opt/nimvor/runtimes/node/20.17.0/bin':$PATH") {
 		t.Errorf("launcher does not use the runtime:\n%s", script)
 	}
 
@@ -210,7 +210,7 @@ func TestWorkerUsesSelectedRuntime(t *testing.T) {
 	if _, err := apply.Handler(context.Background(), json.RawMessage(`{`+base+`,"runtime":"system"}`)); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(h.Read("var/lib/whacp-workers/app.sh"), "runtimes/node") {
+	if strings.Contains(h.Read("var/lib/nimvor-workers/app.sh"), "runtimes/node") {
 		t.Error("the system runtime should not change PATH")
 	}
 }

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** The email authentication checker on the mail domain page. */
 final class MailDnsCheckTest extends HttpTestCase
@@ -21,7 +21,7 @@ final class MailDnsCheckTest extends HttpTestCase
         $db = $this->app->container->get(Connection::class);
         $db->run("INSERT INTO mail_domains (server_id, domain, owner_id, dkim_selector, dkim_txt, routing, created_at) VALUES (1, 'shop.test', ?, 'mail', 'v=DKIM1; p=KEY', 'remote', 'x')", [$cust]);
         $this->domain = (int) $db->lastInsertId();
-        $this->app->container->get(\WhaCP\Services\SettingsService::class)->update(['dns_default_ipv4' => '203.0.113.5'], null);
+        $this->app->container->get(\NimVor\Services\SettingsService::class)->update(['dns_default_ipv4' => '203.0.113.5'], null);
         $this->agent->succeed('mail.status', ['hostname' => 'mx.host.test', 'mailboxes' => []]);
         $this->agent->succeed('mail.auth_check', ['checks' => [
             ['id' => 'spf', 'label' => 'SPF', 'status' => 'fail', 'found' => 'v=spf1 -all', 'detail' => 'The record rejects mail <b>'],
@@ -32,7 +32,7 @@ final class MailDnsCheckTest extends HttpTestCase
     {
         $this->login('cust');
         $page = $this->request('GET', '/mail/domains/' . $this->domain)->body();
-        self::assertStringContainsString('data-wcp-dns-check="/mail/domains/' . $this->domain . '/dns-check"', $page);
+        self::assertStringContainsString('data-nim-dns-check="/mail/domains/' . $this->domain . '/dns-check"', $page);
         $res = $this->request('GET', '/mail/domains/' . $this->domain . '/dns-check', [], ['accept' => 'application/json']);
         self::assertSame(200, $res->status());
         $json = json_decode($res->body(), true);

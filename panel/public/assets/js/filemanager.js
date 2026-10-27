@@ -3,7 +3,7 @@
 // as HTML.
 (function () {
     'use strict';
-    var root = document.getElementById('wcp-fm');
+    var root = document.getElementById('nim-fm');
     if (!root) { return; }
     var api = root.dataset.api, uploadUrl = root.dataset.upload, downloadUrl = root.dataset.download, editUrl = root.dataset.edit;
     var CHUNK = 1024 * 1024;
@@ -14,7 +14,7 @@
         cwd: root.dataset.start || '', entries: [], selected: new Set(), anchor: null,
         sort: { key: 'name', dir: 1 }, hidden: false, back: [], forward: [], search: null
     };
-    try { state.hidden = localStorage.getItem('wcp-fm-hidden') === '1'; } catch (e) { /* storage unavailable */ }
+    try { state.hidden = localStorage.getItem('nim-fm-hidden') === '1'; } catch (e) { /* storage unavailable */ }
 
     var $ = function (sel) { return root.querySelector(sel); };
     var rows = $('[data-fm-rows]'), tree = $('[data-fm-tree]'), pathInput = $('[data-fm-path]'), status = $('[data-fm-status]');
@@ -99,7 +99,7 @@
         return i;
     }
     function nameList(body, names) {
-        var ul = el('ul', 'small font-monospace mb-2 wcp-fm-namelist');
+        var ul = el('ul', 'small font-monospace mb-2 nim-fm-namelist');
         names.slice(0, 12).forEach(function (n) { ul.appendChild(el('li', '', n)); });
         if (names.length > 12) { ul.appendChild(el('li', 'text-body-secondary', '… and ' + (names.length - 12) + ' more')); }
         body.appendChild(ul);
@@ -108,13 +108,13 @@
 
     // ---- tree ---------------------------------------------------------
     function treeNode(path, name) {
-        var li = el('li', 'wcp-fm-node'); li.setAttribute('role', 'treeitem'); li.dataset.path = path; li.setAttribute('aria-expanded', 'false');
-        var row = el('div', 'wcp-fm-node-row');
-        var tog = el('button', 'btn btn-link p-0 wcp-fm-toggle'); tog.type = 'button'; tog.setAttribute('aria-label', 'Expand ' + name); tog.appendChild(icon('bi-caret-right-fill'));
-        var link = el('button', 'btn btn-link p-0 wcp-fm-node-link'); link.type = 'button'; link.dataset.go = path;
+        var li = el('li', 'nim-fm-node'); li.setAttribute('role', 'treeitem'); li.dataset.path = path; li.setAttribute('aria-expanded', 'false');
+        var row = el('div', 'nim-fm-node-row');
+        var tog = el('button', 'btn btn-link p-0 nim-fm-toggle'); tog.type = 'button'; tog.setAttribute('aria-label', 'Expand ' + name); tog.appendChild(icon('bi-caret-right-fill'));
+        var link = el('button', 'btn btn-link p-0 nim-fm-node-link'); link.type = 'button'; link.dataset.go = path;
         link.appendChild(icon('bi-folder-fill text-warning')); link.appendChild(document.createTextNode(' ' + name));
         row.appendChild(tog); row.appendChild(link); li.appendChild(row);
-        var ul = el('ul', 'wcp-fm-tree-list'); ul.setAttribute('role', 'group'); li.appendChild(ul);
+        var ul = el('ul', 'nim-fm-tree-list'); ul.setAttribute('role', 'group'); li.appendChild(ul);
         return li;
     }
     function expand(li, open) {
@@ -127,13 +127,13 @@
             ul.replaceChildren();
             entries.filter(function (e) { return e.type === 'dir' && (state.hidden || e.name[0] !== '.'); })
                 .forEach(function (e) { ul.appendChild(treeNode(join(li.dataset.path, e.name), e.name)); });
-            if (!ul.children.length) { li.classList.add('wcp-fm-leaf'); }
+            if (!ul.children.length) { li.classList.add('nim-fm-leaf'); }
         });
     }
     function buildTree() {
         tree.replaceChildren();
         var rootNode = treeNode('', '/');
-        rootNode.classList.add('wcp-fm-root');
+        rootNode.classList.add('nim-fm-root');
         tree.appendChild(rootNode);
         return syncTree();
     }
@@ -151,14 +151,14 @@
             });
         });
         return chain.then(function () {
-            tree.querySelectorAll('.wcp-fm-node-row.active').forEach(function (r) { r.classList.remove('active'); });
-            var cur = tree.querySelector('li[data-path="' + CSS.escape(state.cwd) + '"] > .wcp-fm-node-row');
+            tree.querySelectorAll('.nim-fm-node-row.active').forEach(function (r) { r.classList.remove('active'); });
+            var cur = tree.querySelector('li[data-path="' + CSS.escape(state.cwd) + '"] > .nim-fm-node-row');
             if (cur) { cur.classList.add('active'); cur.scrollIntoView({ block: 'nearest' }); }
         }).catch(function () { /* folder vanished; the listing reports it */ });
     }
     function refreshTreeAt(path) {
         var li = tree.querySelector('li[data-path="' + CSS.escape(path) + '"]');
-        if (li) { delete li.dataset.loaded; li.classList.remove('wcp-fm-leaf'); if (li.getAttribute('aria-expanded') === 'true') { expand(li, true); } }
+        if (li) { delete li.dataset.loaded; li.classList.remove('nim-fm-leaf'); if (li.getAttribute('aria-expanded') === 'true') { expand(li, true); } }
     }
 
     // ---- listing ------------------------------------------------------
@@ -175,7 +175,7 @@
         rows.replaceChildren();
         var shown = sortEntries(state.entries.filter(function (e) { return state.hidden || e.name[0] !== '.' || state.search; }));
         if (!state.search && state.cwd) {
-            var up = el('tr', 'wcp-fm-row'); up.dataset.up = '1';
+            var up = el('tr', 'nim-fm-row'); up.dataset.up = '1';
             up.appendChild(el('td'));
             var td = el('td', '', ''); td.colSpan = 5; td.appendChild(icon('bi-arrow-90deg-up me-2')); td.appendChild(document.createTextNode('Up one level'));
             up.appendChild(td); rows.appendChild(up);
@@ -184,20 +184,20 @@
             var tr = el('tr'); var t = el('td', 'text-body-secondary p-3', state.search ? 'Nothing matches.' : 'This folder is empty. Drop files here to upload them.'); t.colSpan = 6; tr.appendChild(t); rows.appendChild(tr);
         }
         shown.forEach(function (e) {
-            var tr = el('tr', 'wcp-fm-row'); tr.dataset.path = e.path; tr.draggable = false;
+            var tr = el('tr', 'nim-fm-row'); tr.dataset.path = e.path; tr.draggable = false;
             if (state.selected.has(e.path)) { tr.classList.add('table-active'); }
-            var c = el('td', 'wcp-fm-check'); var cb = el('input', 'form-check-input'); cb.type = 'checkbox'; cb.checked = state.selected.has(e.path); cb.setAttribute('aria-label', 'Select ' + e.name); cb.dataset.fmSelect = '1';
+            var c = el('td', 'nim-fm-check'); var cb = el('input', 'form-check-input'); cb.type = 'checkbox'; cb.checked = state.selected.has(e.path); cb.setAttribute('aria-label', 'Select ' + e.name); cb.dataset.fmSelect = '1';
             c.appendChild(cb); tr.appendChild(c);
-            var n = el('td', 'wcp-fm-name'); n.appendChild(icon(iconFor(e) + ' me-2'));
+            var n = el('td', 'nim-fm-name'); n.appendChild(icon(iconFor(e) + ' me-2'));
             n.appendChild(document.createTextNode(state.search ? e.path : e.name)); tr.appendChild(n);
             tr.appendChild(el('td', 'text-end small text-nowrap', e.type === 'dir' ? '' : fmtSize(e.size)));
-            tr.appendChild(el('td', 'small text-nowrap text-body-secondary wcp-fm-optional', e.mtime ? new Date(e.mtime).toLocaleString() : ''));
-            tr.appendChild(el('td', 'small text-nowrap wcp-fm-optional', typeOf(e)));
-            tr.appendChild(el('td', 'small font-monospace wcp-fm-optional', e.mode || ''));
+            tr.appendChild(el('td', 'small text-nowrap text-body-secondary nim-fm-optional', e.mtime ? new Date(e.mtime).toLocaleString() : ''));
+            tr.appendChild(el('td', 'small text-nowrap nim-fm-optional', typeOf(e)));
+            tr.appendChild(el('td', 'small font-monospace nim-fm-optional', e.mode || ''));
             rows.appendChild(tr);
         });
         root.querySelectorAll('[data-fm-sort]').forEach(function (th) {
-            th.classList.toggle('wcp-fm-sorted', th.dataset.fmSort === state.sort.key);
+            th.classList.toggle('nim-fm-sorted', th.dataset.fmSort === state.sort.key);
             th.setAttribute('aria-sort', th.dataset.fmSort === state.sort.key ? (state.sort.dir > 0 ? 'ascending' : 'descending') : 'none');
         });
         updateStatus();
@@ -366,7 +366,7 @@
         }
         trashItems.forEach(function (it) {
             var tr = el('tr'); tr.dataset.id = it.id;
-            var c = el('td', 'wcp-fm-check'); var cb = el('input', 'form-check-input'); cb.type = 'checkbox'; cb.checked = trashSel.has(it.id); cb.setAttribute('aria-label', 'Select ' + base(it.path));
+            var c = el('td', 'nim-fm-check'); var cb = el('input', 'form-check-input'); cb.type = 'checkbox'; cb.checked = trashSel.has(it.id); cb.setAttribute('aria-label', 'Select ' + base(it.path));
             cb.addEventListener('change', function () { if (cb.checked) { trashSel.add(it.id); } else { trashSel.delete(it.id); } trashButtons(); });
             c.appendChild(cb); tr.appendChild(c);
             var n = el('td', 'text-break'); n.appendChild(icon(it.type === 'dir' ? 'bi-folder-fill text-warning me-1' : 'bi-file-earmark me-1')); n.appendChild(document.createTextNode(base(it.path))); tr.appendChild(n);
@@ -478,7 +478,7 @@
             var start = sel[0].mode ? sel[0].mode.slice(-3) : '644';
             dialog('Permissions', function (b) {
                 if (sel.length > 1) { nameList(b, names(sel)); }
-                var grid = el('table', 'table table-sm text-center mb-2 wcp-fm-perms');
+                var grid = el('table', 'table table-sm text-center mb-2 nim-fm-perms');
                 var head = el('tr'); ['', 'Read', 'Write', 'Execute'].forEach(function (h) { head.appendChild(el('th', 'small', h)); }); grid.appendChild(head);
                 var boxes = [];
                 ['Owner', 'Group', 'Everyone'].forEach(function (who, r) {
@@ -570,7 +570,7 @@
     root.addEventListener('click', function (e) {
         var go2 = e.target.closest('[data-go]');
         if (go2) { go(go2.dataset.go); return; }
-        var tog = e.target.closest('.wcp-fm-toggle');
+        var tog = e.target.closest('.nim-fm-toggle');
         if (tog) { var li = tog.closest('li'); expand(li, li.getAttribute('aria-expanded') !== 'true'); return; }
         var c = e.target.closest('[data-fm-cmd]');
         if (c && !c.disabled && commands[c.dataset.fmCmd]) { hideMenu(); commands[c.dataset.fmCmd](); }
@@ -595,7 +595,7 @@
     if (hiddenToggle) {
         hiddenToggle.addEventListener('change', function () {
             state.hidden = hiddenToggle.checked;
-            try { localStorage.setItem('wcp-fm-hidden', state.hidden ? '1' : '0'); } catch (e) { /* ignore */ }
+            try { localStorage.setItem('nim-fm-hidden', state.hidden ? '1' : '0'); } catch (e) { /* ignore */ }
             buildTree(); render();
         });
     }
@@ -620,7 +620,7 @@
     // ---- uploads ------------------------------------------------------
     var queue = [], busy = false;
     function enqueue(file, relPath) {
-        var li = el('li', 'wcp-fm-upload');
+        var li = el('li', 'nim-fm-upload');
         var name = el('span', 'font-monospace text-truncate', relPath);
         var bar = el('div', 'progress flex-grow-1'); var fill = el('div', 'progress-bar'); bar.appendChild(fill);
         var pct = el('span', 'text-body-secondary', 'waiting');
@@ -705,10 +705,10 @@
         });
     }
     ['dragenter', 'dragover'].forEach(function (t) {
-        list.addEventListener(t, function (e) { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) { e.preventDefault(); list.classList.add('wcp-fm-dragging'); } });
+        list.addEventListener(t, function (e) { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) { e.preventDefault(); list.classList.add('nim-fm-dragging'); } });
     });
     ['dragleave', 'drop'].forEach(function (t) {
-        list.addEventListener(t, function (e) { if (t === 'dragleave' && list.contains(e.relatedTarget)) { return; } list.classList.remove('wcp-fm-dragging'); });
+        list.addEventListener(t, function (e) { if (t === 'dragleave' && list.contains(e.relatedTarget)) { return; } list.classList.remove('nim-fm-dragging'); });
     });
     list.addEventListener('drop', function (e) {
         e.preventDefault();

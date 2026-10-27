@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
+use NimVor\Agent\AgentClient;
 
 /**
  * Nginx service and server-wide tuning, through the agent. Tuning is a

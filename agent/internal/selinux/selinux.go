@@ -1,5 +1,5 @@
 // Package selinux keeps SELinux (enforcing by default on AlmaLinux, Rocky
-// Linux and RHEL) consistent with what WhaCP sets up: file labels for
+// Linux and RHEL) consistent with what NimVor sets up: file labels for
 // folders services must write (recorded with semanage so a relabel keeps
 // them), booleans for what services may do, and port labels for ports
 // moved from their defaults. On systems without SELinux, or with it
@@ -33,7 +33,7 @@ func Enabled(ctx context.Context, env *host.Env) bool {
 var (
 	typeRe = regexp.MustCompile(`^[a-z0-9_]+_t$`)
 	boolRe = regexp.MustCompile(`^[a-z0-9_]+$`)
-	// Paths WhaCP labels are plain absolute paths.
+	// Paths NimVor labels are plain absolute paths.
 	pathRe = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 )
 

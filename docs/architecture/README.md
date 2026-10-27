@@ -1,19 +1,19 @@
 # Architecture
 
-WhaCP has two components with a hard trust boundary between them.
+NimVor has two components with a hard trust boundary between them.
 
 ```text
 ┌──────────────────────────── unprivileged ────────────────────────────┐
-│  WhaCP Panel  (PHP 8.3+, user "whacp", 127.0.0.1:8090)               │
+│  NimVor Panel  (PHP 8.3+, user "nimvor", 127.0.0.1:8090)               │
 │   Http/ middleware: SecurityHeaders → VerifyCsrfToken → Authenticate │
-│   Controllers → Services → Repositories → SQLite (/var/lib/whacp)    │
+│   Controllers → Services → Repositories → SQLite (/var/lib/nimvor)    │
 │   AgentClient ── the only way to touch the host                      │
 └──────────────────────────────┬───────────────────────────────────────┘
                                │ HTTP over Unix socket
                                │ Authorization: Bearer <token>
                                │ POST /v1/actions/<name>  {params}
 ┌──────────────────────────────▼──────────── privileged (sandboxed) ───┐
-│  WhaCP Agent  (Go, root with CAP_DAC_READ_SEARCH + CAP_CHOWN only)   │
+│  NimVor Agent  (Go, root with CAP_DAC_READ_SEARCH + CAP_CHOWN only)   │
 │   server/   peer UID check, token check, body limits, timeouts       │
 │   actions/  fixed registry; Mutating actions behind a write gate     │
 │   platform/ OS abstraction (paths, service names per distribution)   │

@@ -31,7 +31,7 @@ func TestRealHostCommandsAsAccount(t *testing.T) {
 	if !r.transient() {
 		t.Fatal("systemd-run is not used: commands as other accounts would switch credentials inside the agent")
 	}
-	name := "whacprt" + strconv.Itoa(os.Getpid()%100000)
+	name := "nimvorrt" + strconv.Itoa(os.Getpid()%100000)
 	home := "/home/" + name
 	if out, err := exec.Command("useradd", "-m", "-d", home, "-s", "/usr/sbin/nologin", name).CombinedOutput(); err != nil {
 		t.Fatalf("useradd: %v %s", err, out)
@@ -61,18 +61,18 @@ func TestRealHostCommandsAsAccount(t *testing.T) {
 			t.Errorf("missing %q in\n%s", want, out)
 		}
 	}
-	if out, err := sh("touch /etc/whacp-escape-test", Opts{}); err == nil {
-		os.Remove("/etc/whacp-escape-test")
+	if out, err := sh("touch /etc/nimvor-escape-test", Opts{}); err == nil {
+		os.Remove("/etc/nimvor-escape-test")
 		t.Errorf("the account wrote to /etc: %s", out)
 	}
-	if _, err := os.Stat(filepath.Join("/etc", "whacp-escape-test")); err == nil {
-		t.Error("/etc/whacp-escape-test exists")
+	if _, err := os.Stat(filepath.Join("/etc", "nimvor-escape-test")); err == nil {
+		t.Error("/etc/nimvor-escape-test exists")
 	}
 
 	// Arguments and environment reach the program unchanged: $, %, quotes,
 	// several lines.
-	script := "printf '%s|' \"$WHACP_T\" '$HOME' '100%' \"a\\$b\"\necho\necho line2"
-	out, err = sh(script, Opts{Env: []string{"WHACP_T=v$1%n"}})
+	script := "printf '%s|' \"$NIMVOR_T\" '$HOME' '100%' \"a\\$b\"\necho\necho line2"
+	out, err = sh(script, Opts{Env: []string{"NIMVOR_T=v$1%n"}})
 	if err != nil || out != "v$1%n|$HOME|100%|a$b|\nline2\n" {
 		t.Errorf("arguments changed: %v %q", err, out)
 	}

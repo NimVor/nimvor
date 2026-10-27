@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * Changing the server host name passes the server's address to the agent
@@ -66,8 +66,8 @@ final class HostnameChangeTest extends HttpTestCase
             'old' => 'vmi123.contaboserver.net', 'current' => 'vc100.oursvrs.com',
             'mail_hostname' => 'vmi123.contaboserver.net', 'mail_stale' => true, 'count' => 2,
             'findings' => [
-                ['category' => 'dns', 'path' => '/etc/bind/whacp/db.shop.test', 'sample' => '@ IN MX 10 vmi123.contaboserver.net.'],
-                ['category' => 'nginx', 'path' => '/etc/nginx/sites-available/whacp-hostname.conf', 'sample' => 'server_name vmi123.contaboserver.net;'],
+                ['category' => 'dns', 'path' => '/etc/bind/nimvor/db.shop.test', 'sample' => '@ IN MX 10 vmi123.contaboserver.net.'],
+                ['category' => 'nginx', 'path' => '/etc/nginx/sites-available/nimvor-hostname.conf', 'sample' => 'server_name vmi123.contaboserver.net;'],
             ],
         ]);
 

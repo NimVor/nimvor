@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Unit;
+namespace NimVor\Tests\Unit;
 
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
-use WhaCP\Http\Router;
+use NimVor\Http\Router;
 
 final class RouterTest extends TestCase
 {

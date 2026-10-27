@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** WordPress toolkit: scans, overview and checks, operations, sign-in links, who may do what. */
 final class WordPressTest extends HttpTestCase
@@ -27,9 +27,9 @@ final class WordPressTest extends HttpTestCase
             $db->run("INSERT INTO websites (server_id, domain, kind, php_version, https, root, document_root, system_user, owner_id, parent_id, status, created_at, updated_at) VALUES (1, ?, 'php', '8.3', 1, ?, ?, ?, ?, ?, 'active', 'x', 'x')", [$domain, $root, $doc, $user, $owner, $parent]);
             return (int) $db->lastInsertId();
         };
-        $this->siteId = $add('shop.test', '/home/whacp/shop.test', '/home/whacp/shop.test/public_html', 'shop', $this->custId);
-        $this->subId = $add('blog.shop.test', '/home/whacp/shop.test/blog.shop.test', '/home/whacp/shop.test/blog.shop.test', 'shop', $this->custId, $this->siteId);
-        $this->blogId = $add('other.test', '/home/whacp/other.test', '/home/whacp/other.test/public_html', 'other', $other);
+        $this->siteId = $add('shop.test', '/home/nimvor/shop.test', '/home/nimvor/shop.test/public_html', 'shop', $this->custId);
+        $this->subId = $add('blog.shop.test', '/home/nimvor/shop.test/blog.shop.test', '/home/nimvor/shop.test/blog.shop.test', 'shop', $this->custId, $this->siteId);
+        $this->blogId = $add('other.test', '/home/nimvor/other.test', '/home/nimvor/other.test/public_html', 'other', $other);
         $this->agent->succeed('wordpress.scan', ['latest' => '6.9', 'wp_cli' => true, 'errors' => [], 'installs' => [
             ['domain' => 'shop.test', 'path' => 'public_html', 'version' => '6.8', 'db_name' => 'shop_wp', 'db_host' => 'localhost', 'table_prefix' => 'wp_', 'debug' => true, 'file_edit_disabled' => false, 'config_mode' => '0644', 'maintenance' => false, 'configured' => true],
             ['domain' => 'shop.test', 'path' => 'blog.shop.test', 'version' => '6.9', 'db_name' => 'blog_wp', 'db_host' => 'localhost', 'table_prefix' => 'wp_', 'debug' => false, 'file_edit_disabled' => true, 'config_mode' => '0600', 'maintenance' => false, 'configured' => true],
@@ -45,7 +45,7 @@ final class WordPressTest extends HttpTestCase
             'maintenance' => false, 'db' => ['name' => 'shop_wp', 'host' => 'localhost', 'prefix' => 'wp_', 'tables' => 12, 'bytes' => 2097152], 'config_mode' => '0644',
         ]);
         $this->agent->succeed('wordpress.manage', ['op' => 'plugin_activate']);
-        $this->agent->succeed('wordpress.login', ['file' => 'whacp-login-' . str_repeat('ab', 16) . '.php', 'expires_at' => '2026-09-28T12:01:00Z']);
+        $this->agent->succeed('wordpress.login', ['file' => 'nimvor-login-' . str_repeat('ab', 16) . '.php', 'expires_at' => '2026-09-28T12:01:00Z']);
     }
 
     private function switchTo(string $who): void
@@ -65,7 +65,7 @@ final class WordPressTest extends HttpTestCase
         $this->login('cust');
         $this->post('/sites/' . $this->siteId . '/wordpress/scan');
         $sent = $this->lastCall('wordpress.scan')['sites'];
-        self::assertSame([['domain' => 'shop.test', 'user' => 'shop', 'root' => '/home/whacp/shop.test', 'php_version' => '8.3']], $sent, 'own folder once (the subdomain is inside it); never other accounts');
+        self::assertSame([['domain' => 'shop.test', 'user' => 'shop', 'root' => '/home/nimvor/shop.test', 'php_version' => '8.3']], $sent, 'own folder once (the subdomain is inside it); never other accounts');
         $db = $this->app->container->get(Connection::class);
         self::assertSame(0, (int) $db->scalar('SELECT COUNT(*) FROM wordpress_installs WHERE website_id = ?', [$this->blogId]), 'another account\'s website is never recorded from this scan');
         $main = $this->installId('public_html', $this->siteId);
@@ -87,7 +87,7 @@ final class WordPressTest extends HttpTestCase
         self::assertGreaterThanOrEqual(5, (int) $row['issues']);
 
         $this->post('/sites/' . $this->siteId . '/wordpress/' . $main . '/manage', ['op' => 'plugin_activate', 'items' => ['akismet', '--require=/tmp/x.php']]);
-        self::assertSame(['domain' => 'shop.test', 'user' => 'shop', 'root' => '/home/whacp/shop.test', 'php_version' => '8.3', 'path' => 'public_html', 'op' => 'plugin_activate', 'items' => ['akismet']], $this->lastCall('wordpress.manage'));
+        self::assertSame(['domain' => 'shop.test', 'user' => 'shop', 'root' => '/home/nimvor/shop.test', 'php_version' => '8.3', 'path' => 'public_html', 'op' => 'plugin_activate', 'items' => ['akismet']], $this->lastCall('wordpress.manage'));
         $this->post('/sites/' . $this->siteId . '/wordpress/' . $main . '/manage', ['op' => 'eval', 'items' => ['phpinfo()']]);
         $this->post('/sites/' . $this->siteId . '/wordpress/' . $main . '/manage', ['op' => 'core_auto_update', 'value' => 'always']);
         self::assertSame(1, $this->calls('wordpress.manage'), 'unknown operations and values never reach the agent');
@@ -99,7 +99,7 @@ final class WordPressTest extends HttpTestCase
         // One-time sign-in: built from the website's own domain, audited
         // without the secret file name.
         $res = $this->post('/sites/' . $this->siteId . '/wordpress/' . $main . '/login', ['admin_id' => '4']);
-        self::assertSame('https://shop.test/whacp-login-' . str_repeat('ab', 16) . '.php', $res->header('Location'));
+        self::assertSame('https://shop.test/nimvor-login-' . str_repeat('ab', 16) . '.php', $res->header('Location'));
         self::assertSame(4, $this->lastCall('wordpress.login')['admin_id']);
         $audit = (string) json_encode($db->fetchAll("SELECT * FROM audit_logs WHERE action LIKE 'wordpress.%'"));
         self::assertStringContainsString('wordpress.login', $audit);
@@ -149,7 +149,7 @@ final class WordPressTest extends HttpTestCase
         $db->run('UPDATE users SET suspended_at = NULL WHERE id = ?', [$this->custId]);
 
         // A plan without the toolkit: no page, no actions, no menu entry.
-        $list = $this->app->container->get(\WhaCP\Services\FeatureService::class)->save(null, ['name' => 'No WP', 'features' => array_values(array_diff(array_keys(\WhaCP\Services\FeatureService::FEATURES), ['wordpress']))], 1);
+        $list = $this->app->container->get(\NimVor\Services\FeatureService::class)->save(null, ['name' => 'No WP', 'features' => array_values(array_diff(array_keys(\NimVor\Services\FeatureService::FEATURES), ['wordpress']))], 1);
         $db->run("INSERT INTO plans (name, feature_list_id, created_at, updated_at) VALUES ('Basic', ?, 'x', 'x')", [$list]);
         $db->run('UPDATE users SET plan_id = ? WHERE id = ?', [(int) $db->lastInsertId(), $this->custId]);
         $this->switchTo('cust');

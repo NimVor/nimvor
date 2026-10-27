@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\UpdateCheckService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Services\UpdateCheckService;
+use NimVor\Support\UserFacingException;
+use NimVor\View\View;
 
 /**
  * The top bar's server tools for administrators: the load (refreshed while
@@ -57,7 +57,7 @@ final class TopbarController extends Controller
     /** Restart every running service NimVor manages, then the agent and the panel. */
     public function restartAll(Request $request): Response
     {
-        $back = \WhaCP\Http\Middleware\Authenticate::safePath($request->header('Referer'));
+        $back = \NimVor\Http\Middleware\Authenticate::safePath($request->header('Referer'));
         if (!$this->admin($request)) {
             return $this->redirectWithError($back, 'Only server administrators can restart every service.');
         }
@@ -82,7 +82,7 @@ final class TopbarController extends Controller
         $status = null;
         $error = null;
         try {
-            $status = (array) json_decode((string) json_encode($this->agent->call('whacp.update_status')), true);
+            $status = (array) json_decode((string) json_encode($this->agent->call('nimvor.update_status')), true);
         } catch (AgentException $e) {
             $error = $e;
         }
@@ -96,25 +96,25 @@ final class TopbarController extends Controller
     public function updateCheck(Request $request): Response
     {
         if (!$this->admin($request)) {
-            return $this->redirectWithError('/whacp/update', 'Updating NimVor is for server administrators.');
+            return $this->redirectWithError('/nimvor/update', 'Updating NimVor is for server administrators.');
         }
         $c = $this->updates->check();
-        return !empty($c['available']) ? $this->redirectWithSuccess('/whacp/update', 'A newer version of NimVor is available.')
-            : ($c['state'] === 'current' ? $this->redirectWithSuccess('/whacp/update', 'NimVor is up to date.') : $this->redirectWithError('/whacp/update', 'The newest version could not be looked up. ' . (string) $c['reason']));
+        return !empty($c['available']) ? $this->redirectWithSuccess('/nimvor/update', 'A newer version of NimVor is available.')
+            : ($c['state'] === 'current' ? $this->redirectWithSuccess('/nimvor/update', 'NimVor is up to date.') : $this->redirectWithError('/nimvor/update', 'The newest version could not be looked up. ' . (string) $c['reason']));
     }
 
     public function updateStart(Request $request): Response
     {
         if (!$this->admin($request)) {
-            return $this->redirectWithError('/whacp/update', 'Updating NimVor is for server administrators.');
+            return $this->redirectWithError('/nimvor/update', 'Updating NimVor is for server administrators.');
         }
         try {
-            $this->agent->call('whacp.update', [], 30);
+            $this->agent->call('nimvor.update', [], 30);
         } catch (UserFacingException $e) {
-            $this->audit->record('whacp.update', 'server', (string) $this->server->id(), AuditLogger::FAILURE, ['error' => $e->getMessage()]);
-            return $this->redirectWithFailure('/whacp/update', $e);
+            $this->audit->record('nimvor.update', 'server', (string) $this->server->id(), AuditLogger::FAILURE, ['error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/nimvor/update', $e);
         }
-        $this->audit->record('whacp.update', 'server', (string) $this->server->id());
-        return $this->redirectWithSuccess('/whacp/update', 'The update is running. The panel restarts during it; this page follows its progress.');
+        $this->audit->record('nimvor.update', 'server', (string) $this->server->id());
+        return $this->redirectWithSuccess('/nimvor/update', 'The update is running. The panel restarts during it; this page follows its progress.');
     }
 }

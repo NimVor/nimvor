@@ -1,5 +1,5 @@
 // Package ffmpegmgr controls who may run the server's FFmpeg: its programs
-// belong to root and the group whacp-ffmpeg with mode 0750, and the panel
+// belong to root and the group nimvor-ffmpeg with mode 0750, and the panel
 // decides the group's members (the accounts whose hosting plan includes
 // FFmpeg). Package updates reset the modes on RHEL, so they are applied
 // again after every package job and by the panel's scheduler; on Debian
@@ -28,7 +28,7 @@ import (
 )
 
 // Group may run FFmpeg.
-const Group = "whacp-ffmpeg"
+const Group = "nimvor-ffmpeg"
 
 // Binaries are FFmpeg's programs (from the ffmpeg package on Debian and
 // Ubuntu, ffmpeg-free from EPEL on RHEL).
@@ -147,7 +147,7 @@ func ensureGroup(ctx context.Context, env *host.Env) (int, error) {
 	return gid, nil
 }
 
-// Reapply restricts the programs again when WhaCP manages them (after
+// Reapply restricts the programs again when NimVor manages them (after
 // package installs and updates).
 func Reapply(ctx context.Context, env *host.Env) error {
 	b, err := env.Root.ReadFile(statePath(env))
@@ -190,7 +190,7 @@ func status(ctx context.Context, env *host.Env) map[string]any {
 
 // Register adds ffmpeg.status and ffmpeg.access.
 func Register(r *actions.Registry, env *host.Env) {
-	r.Register(actions.Action{Name: "ffmpeg.status", Description: "FFmpeg: installed, version, package, whether its programs are limited to the whacp-ffmpeg group, and the group's members.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "ffmpeg.status", Description: "FFmpeg: installed, version, package, whether its programs are limited to the nimvor-ffmpeg group, and the group's members.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return status(ctx, env), nil
 	}})
 
@@ -205,7 +205,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"job_id": j.ID}, nil
 	}})
 
-	r.Register(actions.Action{Name: "ffmpeg.access", Mutating: true, Description: "Set the accounts that may run FFmpeg (the whacp-ffmpeg group's members, exactly these) and limit FFmpeg's programs to that group.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "ffmpeg.access", Mutating: true, Description: "Set the accounts that may run FFmpeg (the nimvor-ffmpeg group's members, exactly these) and limit FFmpeg's programs to that group.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			Users []string `json:"users"`
 		}

@@ -4,7 +4,7 @@
 // zone file with a higher serial, validates it with named-checkzone and
 // the server configuration with named-checkconf, loads it with rndc and
 // verifies that BIND now serves the new serial, restoring the previous
-// files otherwise. WhaCP's zones and their list live in their own folder;
+// files otherwise. NimVor's zones and their list live in their own folder;
 // BIND's configuration gets a single include line, added only after the
 // administrator confirms.
 package dnsmgr
@@ -255,7 +255,7 @@ func NextSerial(old uint32, now time.Time) uint32 {
 // Render produces the zone file.
 func (z Zone) Render(serial uint32) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "; Managed by WhaCP (DNS). Do not edit: changes are overwritten.\n; serial %d\n", serial)
+	fmt.Fprintf(&b, "; Managed by NimVor (DNS). Do not edit: changes are overwritten.\n; serial %d\n", serial)
 	fmt.Fprintf(&b, "$ORIGIN %s.\n$TTL %d\n", z.Name, z.TTL)
 	s := z.SOA
 	fmt.Fprintf(&b, "@\tIN\tSOA\t%s %s (\n\t\t%d ; serial\n\t\t%d ; refresh\n\t\t%d ; retry\n\t\t%d ; expire\n\t\t%d ; minimum\n\t)\n",
@@ -299,7 +299,7 @@ func (z Zone) Render(serial uint32) string {
 
 var serialRe = regexp.MustCompile(`(?m)^; serial (\d{1,10})$`)
 
-// FileSerial reads the serial from a zone file WhaCP rendered.
+// FileSerial reads the serial from a zone file NimVor rendered.
 func FileSerial(data string) uint32 {
 	m := serialRe.FindStringSubmatch(data)
 	if m == nil {

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\View;
+namespace NimVor\View;
 
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 /**
  * The website menu: one list for the sidebar, the section header and the
@@ -56,7 +56,7 @@ final class SiteMenu
     public static function items(View $view, array $site): array
     {
         // The Node.js/Python "Runtime" entry only applies to that app type.
-        $appType = \WhaCP\Services\WebsiteService::appType($site);
+        $appType = \NimVor\Services\WebsiteService::appType($site);
         $out = [];
         foreach (self::ITEMS as [$key, $label, $icon, $route, $perm]) {
             if (($key === 'nodejs' || $key === 'python') && $key !== $appType) {

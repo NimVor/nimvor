@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Support;
+namespace NimVor\Tests\Support;
 
-use WhaCP\Mail\Mailer;
+use NimVor\Mail\Mailer;
 
 final class ArrayMailer implements Mailer
 {

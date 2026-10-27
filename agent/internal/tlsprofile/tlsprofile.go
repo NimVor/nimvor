@@ -1,5 +1,5 @@
-// Package tlsprofile holds the TLS settings every WhaCP virtual host
-// includes: one Nginx snippet (whacp-tls.conf next to the site folders),
+// Package tlsprofile holds the TLS settings every NimVor virtual host
+// includes: one Nginx snippet (nimvor-tls.conf next to the site folders),
 // so a server-wide change is one file, checked with nginx -t.
 package tlsprofile
 
@@ -29,7 +29,7 @@ type Profile struct {
 // intermediate ciphers (forward secrecy and AEAD only).
 var Default = Profile{Protocols: "tls12", Ciphers: "intermediate", SessionTickets: true}
 
-// Legacy is what WhaCP wrote before the default changed: a server whose
+// Legacy is what NimVor wrote before the default changed: a server whose
 // snippet exists without a saved profile keeps it until the administrator
 // changes the TLS configuration.
 var Legacy = Profile{Protocols: "tls12", Ciphers: "default", SessionTickets: true}
@@ -38,7 +38,7 @@ var Legacy = Profile{Protocols: "tls12", Ciphers: "default", SessionTickets: tru
 const intermediateCiphers = "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305"
 
 // LegacyBlock is what vhosts carried before the include (replaced on migration).
-const LegacyBlock = "    ssl_protocols TLSv1.2 TLSv1.3;\n    ssl_prefer_server_ciphers off;\n    ssl_session_cache shared:WhaCPSSL:10m;\n    ssl_session_timeout 1d;\n"
+const LegacyBlock = "    ssl_protocols TLSv1.2 TLSv1.3;\n    ssl_prefer_server_ciphers off;\n    ssl_session_cache shared:NimVorSSL:10m;\n    ssl_session_timeout 1d;\n"
 
 // Validate checks a profile.
 func (p Profile) Validate() error {
@@ -54,7 +54,7 @@ func (p Profile) Validate() error {
 // Render is the snippet's content (server context).
 func Render(p Profile) string {
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP (SSL/TLS → TLS configuration). Included by every WhaCP website; changes here are overwritten.\n")
+	b.WriteString("# Managed by NimVor (SSL/TLS → TLS configuration). Included by every NimVor website; changes here are overwritten.\n")
 	if p.Protocols == "tls13" {
 		b.WriteString("ssl_protocols TLSv1.3;\n")
 	} else {
@@ -63,7 +63,7 @@ func Render(p Profile) string {
 	if p.Ciphers == "intermediate" && p.Protocols != "tls13" {
 		b.WriteString("ssl_ciphers " + intermediateCiphers + ";\n")
 	}
-	b.WriteString("ssl_prefer_server_ciphers off;\nssl_session_cache shared:WhaCPSSL:10m;\nssl_session_timeout 1d;\n")
+	b.WriteString("ssl_prefer_server_ciphers off;\nssl_session_cache shared:NimVorSSL:10m;\nssl_session_timeout 1d;\n")
 	if !p.SessionTickets {
 		b.WriteString("ssl_session_tickets off;\n")
 	}
@@ -72,7 +72,7 @@ func Render(p Profile) string {
 
 // Path is the snippet's location.
 func Path(e *host.Env) string {
-	return filepath.Join(filepath.Dir(e.M.NginxAvailable), "whacp-tls.conf")
+	return filepath.Join(filepath.Dir(e.M.NginxAvailable), "nimvor-tls.conf")
 }
 
 // Include is the vhost line.

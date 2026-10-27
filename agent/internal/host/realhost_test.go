@@ -22,7 +22,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
-// The PHP-FPM service runs in WhaCP's sandbox: its master and its pools'
+// The PHP-FPM service runs in NimVor's sandbox: its master and its pools'
 // workers cannot gain privileges (NoNewPrivileges) and have no capabilities
 // beyond those the master needs. The drop-in stays: the tests after this
 // one (webmail, WordPress) serve their PHP from the sandboxed service.

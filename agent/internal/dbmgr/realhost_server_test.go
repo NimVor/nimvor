@@ -105,9 +105,9 @@ func TestRealHostDatabaseServerManager(t *testing.T) {
 	}
 	// A file the server rejects is rolled back: simulate with an unknown
 	// option in another file, then try to save.
-	bogus := strings.TrimSuffix(path, DropInName) + "zz-whacp-test-bogus.cnf"
-	os.WriteFile(bogus, []byte("[mysqld]\nwhacp_no_such_option = 1\n"), 0o644)
-	if _, err := call("db.server_settings", `{"settings":{"max_connections":"223"}}`); err == nil || !strings.Contains(err.Error()+detailsOf(err), "whacp_no_such_option") {
+	bogus := strings.TrimSuffix(path, DropInName) + "zz-nimvor-test-bogus.cnf"
+	os.WriteFile(bogus, []byte("[mysqld]\nnimvor_no_such_option = 1\n"), 0o644)
+	if _, err := call("db.server_settings", `{"settings":{"max_connections":"223"}}`); err == nil || !strings.Contains(err.Error()+detailsOf(err), "nimvor_no_such_option") {
 		os.Remove(bogus)
 		t.Fatalf("invalid configuration accepted: %v", err)
 	}

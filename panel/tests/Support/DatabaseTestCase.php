@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Support;
+namespace NimVor\Tests\Support;
 
 use PHPUnit\Framework\TestCase;
-use WhaCP\Database\Connection;
-use WhaCP\Database\Migrator;
-use WhaCP\Repositories\AuditLogRepository;
-use WhaCP\Repositories\RoleRepository;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Security\PasswordHasher;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Support\Logger;
+use NimVor\Database\Connection;
+use NimVor\Database\Migrator;
+use NimVor\Repositories\AuditLogRepository;
+use NimVor\Repositories\RoleRepository;
+use NimVor\Repositories\UserRepository;
+use NimVor\Security\PasswordHasher;
+use NimVor\Services\AuditLogger;
+use NimVor\Support\Logger;
 
 /**
  * Provides a migrated in-memory SQLite database.

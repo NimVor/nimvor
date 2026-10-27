@@ -20,7 +20,7 @@ import (
 // Mail server manager: service state and versions, configuration checks,
 // the latest log lines, and a short list of structured Postfix and
 // Dovecot settings (no free-form configuration editing). Settings are
-// kept in WhaCP's mail data so setting up email again keeps them.
+// kept in NimVor's mail data so setting up email again keeps them.
 
 // Tuning holds the structured settings.
 type Tuning struct {
@@ -78,7 +78,7 @@ func relayhost(v string) (string, error) {
 
 var greetingRe = regexp.MustCompile(`^[A-Za-z0-9 ._-]{1,60}$`)
 
-// PostfixSettings are the Postfix parameters WhaCP manages (values as the
+// PostfixSettings are the Postfix parameters NimVor manages (values as the
 // panel shows them; messageSize in MB, lifetimes in days).
 var PostfixSettings = map[string]setting{
 	"message_size_limit": {"Largest message (MB)", func(v string) (string, error) {
@@ -102,7 +102,7 @@ var PostfixSettings = map[string]setting{
 	"authorized_submit_users":            {"Local accounts that may send mail with sendmail", oneOf("!nobody, static:anyone", "static:anyone")},
 }
 
-// DovecotSettings are the Dovecot settings WhaCP manages.
+// DovecotSettings are the Dovecot settings NimVor manages.
 var DovecotSettings = map[string]setting{
 	"mail_max_userip_connections": {"IMAP connections per user and address", intRange(1, 500, "")},
 	"auth_failure_delay":          {"Delay after a failed login (seconds)", intRange(0, 30, "s")},
@@ -126,13 +126,13 @@ func sortedSettingKeys(m map[string]setting) []string {
 }
 
 func (e env) tuningDropIn() string {
-	return filepath.Join(filepath.Dir(e.M.DovecotDropIn), "99-whacp-tuning.conf")
+	return filepath.Join(filepath.Dir(e.M.DovecotDropIn), "99-nimvor-tuning.conf")
 }
 
 // renderDovecotTuning writes the Dovecot settings (same syntax in 2.3 and 2.4).
 func renderDovecotTuning(t map[string]string) string {
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP (mail server settings). Do not edit: changes are overwritten.\n")
+	b.WriteString("# Managed by NimVor (mail server settings). Do not edit: changes are overwritten.\n")
 	for _, k := range []string{"auth_failure_delay", "ssl_min_protocol", "login_greeting"} {
 		if v, ok := t[k]; ok {
 			fmt.Fprintf(&b, "%s = %s\n", k, v)
@@ -213,7 +213,7 @@ func registerManager(r *actions.Registry, e env) {
 			if out, err := e.Runner.Run(ctx, "systemctl", "is-enabled", "--", s.unit); err == nil {
 				enabled = strings.TrimSpace(string(out)) == "enabled"
 			}
-			// Not installed (Rspamd) or not set up yet (WhaCP's OpenDKIM unit
+			// Not installed (Rspamd) or not set up yet (NimVor's OpenDKIM unit
 			// is written when email is set up): nothing to start.
 			installed := true
 			if st, err := (systemd.Client{Runner: e.Runner}).Status(ctx, []string{s.unit}); err == nil && (len(st) == 0 || st[0].LoadState == "not-found") {

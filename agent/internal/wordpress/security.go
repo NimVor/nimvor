@@ -113,7 +113,7 @@ foreach (['AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY'] as $k) {
         $keys = false;
     }
 }
-echo "\nWHACP-JSON " . json_encode([
+echo "\nNIMVOR-JSON " . json_encode([
     'constants' => $const,
     'options' => ['default_ping_status' => (string) get_option('default_ping_status'), 'default_pingback_flag' => (string) get_option('default_pingback_flag')],
     'config_mode' => is_file($cfg) ? sprintf('%04o', fileperms($cfg) & 0777) : '',
@@ -393,7 +393,7 @@ func (r *runner) chmodConfig(ctx context.Context, cur current, mode string) erro
 	if !filepath.IsAbs(p) || filepath.Base(p) != "wp-config.php" || !strings.HasPrefix(p, r.root+"/") {
 		return fmt.Errorf("wp-config.php was not found inside the website")
 	}
-	if _, _, err := r.script(ctx, `<?php exit(!is_link(getenv('WHACP_FILE')) && chmod(getenv('WHACP_FILE'), octdec(getenv('WHACP_MODE'))) ? 0 : 1);`, []string{"WHACP_FILE=" + p, "WHACP_MODE=" + mode}, time.Minute); err != nil {
+	if _, _, err := r.script(ctx, `<?php exit(!is_link(getenv('NIMVOR_FILE')) && chmod(getenv('NIMVOR_FILE'), octdec(getenv('NIMVOR_MODE'))) ? 0 : 1);`, []string{"NIMVOR_FILE=" + p, "NIMVOR_MODE=" + mode}, time.Minute); err != nil {
 		return fmt.Errorf("the permissions of wp-config.php could not be changed")
 	}
 	return nil

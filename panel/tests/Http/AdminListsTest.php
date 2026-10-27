@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * The administrators' and resellers' list pages: websites (status switch,
@@ -36,15 +36,15 @@ final class AdminListsTest extends HttpTestCase
             $this->db->run("INSERT INTO backups (website_id, kind, status, created_at) VALUES (?, 'website', 'completed', ?)", [$this->shopId, '2026-09-0' . $n]);
         }
         $this->agent->succeed('discovery.inventory', ['websites' => ['nginx_version' => '1.24.0', 'catch_all_vhosts' => 0, 'warnings' => [], 'websites' => [
-            ['id' => 'a1', 'domain' => 'shop.test', 'enabled' => true, 'https' => true, 'kind' => 'php', 'config_files' => ['/etc/nginx/sites-available/whacp-shop.test.conf'], 'ssl' => ['days_remaining' => 50, 'status' => 'valid']],
-            ['id' => 'a2', 'domain' => 'other.test', 'enabled' => true, 'https' => true, 'kind' => 'static', 'config_files' => ['/etc/nginx/sites-available/whacp-other.test.conf'], 'ssl' => ['days_remaining' => 7, 'status' => 'valid']],
+            ['id' => 'a1', 'domain' => 'shop.test', 'enabled' => true, 'https' => true, 'kind' => 'php', 'config_files' => ['/etc/nginx/sites-available/nimvor-shop.test.conf'], 'ssl' => ['days_remaining' => 50, 'status' => 'valid']],
+            ['id' => 'a2', 'domain' => 'other.test', 'enabled' => true, 'https' => true, 'kind' => 'static', 'config_files' => ['/etc/nginx/sites-available/nimvor-other.test.conf'], 'ssl' => ['days_remaining' => 7, 'status' => 'valid']],
         ]]]);
         $this->agent->succeed('security.pending', ['pending' => null]);
     }
 
     private function switchTo(string $user): void
     {
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login($user);
     }
@@ -54,9 +54,9 @@ final class AdminListsTest extends HttpTestCase
         $this->login('admin');
         $page = $this->request('GET', '/websites')->body();
         self::assertStringContainsString('Nginx 1.24.0', $page);
-        self::assertMatchesRegularExpression('#/sites/' . $this->shopId . '/backups"><span class="wcp-good fw-semibold">2</span>#', $page, 'completed backups counted');
+        self::assertMatchesRegularExpression('#/sites/' . $this->shopId . '/backups"><span class="nim-good fw-semibold">2</span>#', $page, 'completed backups counted');
         self::assertStringContainsString('>50 Days<', $page);
-        self::assertMatchesRegularExpression('#class="wcp-warn" href="/sites/' . $this->otherId . '/ssl">7 Days<#', $page, 'expiring soon is marked');
+        self::assertMatchesRegularExpression('#class="nim-warn" href="/sites/' . $this->otherId . '/ssl">7 Days<#', $page, 'expiring soon is marked');
         self::assertStringContainsString('#delete-website', $page);
 
         // The status switch disables the website and comes back to the list.
@@ -101,7 +101,7 @@ final class AdminListsTest extends HttpTestCase
         self::assertMatchesRegularExpression('#data-dt-kind="ip" data-dt-dir="in" title="deny from 198.51.100.0/24">.*?>All<.*?Deny#s', $page);
         self::assertMatchesRegularExpression('#data-dt-dir="out" title="deny out 25">.*?Outbound#s', $page);
         self::assertStringContainsString('name="spec" value="deny out 25"', $page, 'rules are deleted by their spec');
-        self::assertStringContainsString('data-wcp-switch-submit checked', $page);
+        self::assertStringContainsString('data-nim-switch-submit checked', $page);
     }
 
     public function testSecurityOverview(): void
@@ -124,7 +124,7 @@ final class AdminListsTest extends HttpTestCase
         // / (3 + 3 + 2 + 2 + 3) = 46; info does not count.
         self::assertStringContainsString('46 / 100', $page);
         self::assertStringContainsString('Insecure', $page);
-        self::assertMatchesRegularExpression('#wcp-stat-num">2<.*?wcp-stat-num">17<#s', $page);
+        self::assertMatchesRegularExpression('#nim-stat-num">2<.*?nim-stat-num">17<#s', $page);
         self::assertStringContainsString('203.0.113.10', $page);
         self::assertStringContainsString('oracle from 198.51.100.8', $page);
         self::assertStringContainsString('admin from 198.51.100.20', $page, 'last failed panel login');
@@ -141,9 +141,9 @@ final class AdminListsTest extends HttpTestCase
     public function testFtpPageShowsTheAddress(): void
     {
         $this->login('admin');
-        $this->app->container->get(\WhaCP\Services\SettingsService::class)->update(['dns_default_ipv4' => '203.0.113.50'], null);
+        $this->app->container->get(\NimVor\Services\SettingsService::class)->update(['dns_default_ipv4' => '203.0.113.50'], null);
         $this->agent->succeed('ftp.status', ['installed' => true, 'configured' => true, 'active' => true, 'settings' => ['tls' => 'required', 'passive_min' => 40110, 'passive_max' => 40210], 'accounts' => [
-            ['name' => 'designer@shop.test', 'user' => (string) $this->db->scalar('SELECT system_user FROM websites WHERE id = ?', [$this->shopId]), 'dir' => '/home/whacp/shop.test/public', 'quota_mb' => 0],
+            ['name' => 'designer@shop.test', 'user' => (string) $this->db->scalar('SELECT system_user FROM websites WHERE id = ?', [$this->shopId]), 'dir' => '/home/nimvor/shop.test/public', 'quota_mb' => 0],
         ], 'other_ftp_servers' => []]);
         $page = $this->request('GET', '/ftp')->body();
         self::assertStringContainsString('ftp://203.0.113.50:21', $page);

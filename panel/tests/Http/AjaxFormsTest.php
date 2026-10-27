@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Security\Csrf;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Security\Csrf;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Forms submitted in the background get their redirect as JSON; nothing else changes. */
 final class AjaxFormsTest extends HttpTestCase
 {
-    private function ajaxPost(string $path, array $body, bool $withToken = true): \WhaCP\Http\Response
+    private function ajaxPost(string $path, array $body, bool $withToken = true): \NimVor\Http\Response
     {
         if ($withToken) {
             $body['_token'] = $this->app->container->get(Csrf::class)->token();
         }
-        return $this->request('POST', $path, $body, ['x-whacp-ajax' => '1', 'accept' => 'text/html']);
+        return $this->request('POST', $path, $body, ['x-nimvor-ajax' => '1', 'accept' => 'text/html']);
     }
 
     public function testRedirectBecomesJsonWithTheSameEffect(): void
@@ -43,14 +43,14 @@ final class AjaxFormsTest extends HttpTestCase
         self::assertGreaterThanOrEqual(400, $res->status());
         self::assertStringNotContainsString('Nope', $this->request('GET', '/settings')->body());
         // Not permitted: the same refusal.
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('cust');
         $res = $this->ajaxPost('/settings', ['panel_name' => 'Nope']);
         self::assertNotSame(200, $res->status());
         // Signed out: the redirect to the sign-in page is reported, and the
         // page loads it in full.
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $res = $this->ajaxPost('/settings', ['panel_name' => 'Nope']);
         self::assertSame('/login', json_decode($res->body(), true)['redirect'] ?? null);

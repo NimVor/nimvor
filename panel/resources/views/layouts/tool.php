@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var string $content */
 $pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('title'))) : ($panel_name ?? 'NimVor');
 ?>
@@ -13,27 +13,27 @@ $pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('ti
     <link rel="icon" href="<?= e($this->asset('assets/img/logo.svg')) ?>" type="image/svg+xml">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap-icons/bootstrap-icons.min.css')) ?>">
-    <link rel="stylesheet" href="<?= e($this->asset('assets/css/whacp.css')) ?>">
+    <link rel="stylesheet" href="<?= e($this->asset('assets/css/nimvor.css')) ?>">
     <script src="<?= e($this->asset('assets/js/theme.js')) ?>"></script>
 </head>
-<body class="wcp-tool">
-<header class="wcp-tool-bar">
+<body class="nim-tool">
+<header class="nim-tool-bar">
     <?= $this->section('back') ?>
-    <div class="wcp-tool-title"><?= $this->section('title') ?></div>
+    <div class="nim-tool-title"><?= $this->section('title') ?></div>
     <div class="ms-auto d-flex align-items-center gap-2">
         <?= $this->section('actions') ?>
-        <button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-theme-toggle aria-label="Toggle dark mode"><i class="bi bi-circle-half"></i></button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-nim-theme-toggle aria-label="Toggle dark mode"><i class="bi bi-circle-half"></i></button>
     </div>
 </header>
-<main class="wcp-tool-main">
+<main class="nim-tool-main">
     <?= $this->partial('partials/flash') ?>
     <?= $content ?>
 </main>
 <?= $this->partial('partials/confirm_modal') ?>
 <?= $this->partial('partials/job_modal') ?>
-<div class="toast-container position-fixed bottom-0 end-0 p-3" id="wcp-toasts"></div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="nim-toasts"></div>
 <script src="<?= e($this->asset('assets/vendor/bootstrap/js/bootstrap.bundle.min.js')) ?>"></script>
-<script src="<?= e($this->asset('assets/js/whacp.js')) ?>"></script>
+<script src="<?= e($this->asset('assets/js/nimvor.js')) ?>"></script>
 <?= $this->section('scripts') ?>
 </body>
 </html>

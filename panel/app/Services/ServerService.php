@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Agent\RemoteTransport;
-use WhaCP\Database\Connection;
-use WhaCP\Security\Crypto;
-use WhaCP\Support\Logger;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Agent\RemoteTransport;
+use NimVor\Database\Connection;
+use NimVor\Security\Crypto;
+use NimVor\Support\Logger;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * Servers managed by this panel: the local server (id 1) and remote
@@ -25,7 +25,7 @@ final class ServerService
         private readonly AuditLogger $audit,
         private readonly ServerContext $context,
         private readonly Logger $log,
-        private readonly \WhaCP\Core\Config $config,
+        private readonly \NimVor\Core\Config $config,
     ) {
     }
 
@@ -61,7 +61,7 @@ final class ServerService
     private function probe(string $url, string $pin, string $token): array
     {
         $t = new RemoteTransport($url, $pin);
-        $tokenFile = tempnam(sys_get_temp_dir(), 'whacp-probe');
+        $tokenFile = tempnam(sys_get_temp_dir(), 'nimvor-probe');
         file_put_contents($tokenFile, $token);
         try {
             $client = new AgentClient($t, $tokenFile, $this->log, 15);
@@ -89,11 +89,11 @@ final class ServerService
         }
         $pin = trim((string) ($input['pin'] ?? ''));
         if (!RemoteTransport::validPin($pin)) {
-            $errors['pin'] = 'Paste the pin printed by "whacp-agent -pin" on that server (sha256//…).';
+            $errors['pin'] = 'Paste the pin printed by "nimvor-agent -pin" on that server (sha256//…).';
         }
         $token = trim((string) ($input['token'] ?? ''));
         if (strlen($token) < 32 || preg_match('/\s/', $token)) {
-            $errors['token'] = 'Paste the agent token (/etc/whacp/agent.token on that server).';
+            $errors['token'] = 'Paste the agent token (/etc/nimvor/agent.token on that server).';
         }
         if ($errors !== []) {
             throw new ValidationException($errors);
@@ -162,10 +162,10 @@ final class ServerService
      */
     public function visibleTo(array $user): array
     {
-        if (\WhaCP\Hosting\Scope::isAll($user)) {
+        if (\NimVor\Hosting\Scope::isAll($user)) {
             return array_map(static fn (array $r): array => ['id' => (int) $r['id'], 'name' => (string) $r['name']], $this->db->fetchAll('SELECT id, name FROM servers ORDER BY id'));
         }
-        [$cond, $params] = \WhaCP\Hosting\Scope::condition($user);
+        [$cond, $params] = \NimVor\Hosting\Scope::condition($user);
         return array_map(
             static fn (array $r): array => ['id' => (int) $r['id'], 'name' => (string) $r['name']],
             $this->db->fetchAll("SELECT id, name FROM servers WHERE id = 1 OR id IN (SELECT server_id FROM websites WHERE {$cond}) ORDER BY id", $params)

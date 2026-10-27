@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Security;
+namespace NimVor\Tests\Security;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Services\ApiTokenService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Services\ApiTokenService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * Release gate for /api/v1: every write route refuses read-only tokens,
@@ -58,7 +58,7 @@ final class ApiIsolationTest extends HttpTestCase
         $bob = $this->seedUser('bob', 'customer');
         $db = $this->app->container->get(Connection::class);
         $now = gmdate('c');
-        $db->run("INSERT INTO websites (server_id, owner_id, domain, system_user, root, document_root, kind, created_at, updated_at) VALUES (1, ?, 'victim.test', 'victim', '/home/whacp/victim.test', '/home/whacp/victim.test/public_html', 'static', ?, ?)", [$bob, $now, $now]);
+        $db->run("INSERT INTO websites (server_id, owner_id, domain, system_user, root, document_root, kind, created_at, updated_at) VALUES (1, ?, 'victim.test', 'victim', '/home/nimvor/victim.test', '/home/nimvor/victim.test/public_html', 'static', ?, ?)", [$bob, $now, $now]);
         $victim = (int) $db->scalar("SELECT id FROM websites WHERE domain = 'victim.test'");
         $token = $this->app->container->get(ApiTokenService::class)->create($alice, ['name' => 'rw', 'ability' => 'write', 'expires_days' => 1]);
         foreach (self::apiRoutes() as [$method, $path]) {
@@ -83,7 +83,7 @@ final class ApiIsolationTest extends HttpTestCase
         self::assertSame(200, $this->api('GET', '/api/v1/me', $t)->status());
         $this->app->container->get(Connection::class)->run('DELETE FROM api_tokens');
         self::assertSame(401, $this->api('GET', '/api/v1/me', $t)->status(), 'a deleted token stops working');
-        foreach (['', 'Bearer', 'whacp_', 'whacp_' . str_repeat('z', 200), "whacp_\x00abc", substr($t, 0, -1)] as $bad) {
+        foreach (['', 'Bearer', 'nimvor_', 'nimvor_' . str_repeat('z', 200), "nimvor_\x00abc", substr($t, 0, -1)] as $bad) {
             self::assertSame(401, $this->api('GET', '/api/v1/me', $bad)->status(), 'token ' . json_encode($bad));
         }
     }

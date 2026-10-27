@@ -1,4 +1,4 @@
-# WhaCP PHP → Go Migration — Status (machine-readable-ish)
+# NimVor PHP → Go Migration — Status (machine-readable-ish)
 
 Baseline commit: 46313561 (branch claude/sleepy-ptolemy-bdv6ib)
 PHP app: 230 files / 38,926 lines · 84 controllers · 76 services · 8 repos
@@ -31,12 +31,12 @@ Agent: Go, unchanged, full suite GREEN at baseline.
 - ☑ internal/web: html/template engine with embedded, CSP-safe login + dashboard templates (no inline script/style; reuse /assets)
 - ☑ internal/http: per-request session middleware (load→resolve user→save cookie before write), `requireAuth`, and the login/logout/dashboard handlers with CSRF verification (`_token`/X-CSRF-Token) and token rotation on sign-in
 - ☑ VERIFIED: `go test ./...` green; live binary signs in end-to-end against a real SQLite DB using a PHP-generated argon2id hash (GET /login→CSRF, POST→303 /, dashboard shows the user), and rejects bad CSRF / wrong password / anonymous dashboard access; logout clears the session
-- ☑ internal/authz: role/permission bootstrap seeding (`SyncDefaults`) — the 46-permission catalogue + 5 system roles ported from Security\Permissions, byte-identical to the PHP definitions (diffed), idempotent, keeps plugin.* perms and administrator-customised roles; wired into cmd/whacp startup after migrate (verified seeding a fresh DB)
+- ☑ internal/authz: role/permission bootstrap seeding (`SyncDefaults`) — the 46-permission catalogue + 5 system roles ported from Security\Permissions, byte-identical to the PHP definitions (diffed), idempotent, keeps plugin.* perms and administrator-customised roles; wired into cmd/nimvor startup after migrate (verified seeding a fresh DB)
 - ☐ NOT YET PORTED (known follow-ups, tracked honestly): the 2FA/WebAuthn/IP-verification/HULK sign-in flows (currently refused, not bypassed); step-up password confirmation; password-age and role-requires-2FA enforcement; trusted-proxy client IP; the permission+feature route middleware wired across ported routes; and the full per-feature view/handler port (websites, databases, mongo, …)
 - ◐ static asset serving ☑ (reused assets dir) · html/template layout pending
 - ◐ stdlib mux + request logging ☑ · auth/permission/feature middleware pending
 - ◐ /healthz ☑ (parity: {"status":"ok"}/503) · login/logout/dashboard pending
-- ☑ cmd/whacp (serves, graceful shutdown, migrate-on-start) + cmd/whacp-migrate (status/up) — binaries build and run; verified /healthz and a 57-migration fresh DB
+- ☑ cmd/nimvor (serves, graceful shutdown, migrate-on-start) + cmd/nimvor-migrate (status/up) — binaries build and run; verified /healthz and a 57-migration fresh DB
 
 ## Phase 2+ — Feature areas (one batch each; see ROUTE-MATRIX "Ported" column)
 Order by risk/leverage: identity+RBAC+feature-gating → dashboard → websites →
@@ -49,7 +49,7 @@ databases(MySQL) → mongo → redis/memcached → files → dns → ssl → mai
 - This is a multi-month effort; each session continues from the next ☐ here.
 
 ## Next exact step
-Implement internal/config + internal/crypto (nacl secretbox reading /etc/whacp/panel.key),
+Implement internal/config + internal/crypto (nacl secretbox reading /etc/nimvor/panel.key),
 then internal/session + CSRF + security-headers middleware, then internal/views
 (html/template + embed of the existing login layout) and the login/logout/dashboard
 handlers with httptest tests (valid/invalid/CSRF/locked).

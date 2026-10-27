@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** PHP → version → Settings: extensions, php.ini and PHP-FPM. */
 final class PhpSettingsTest extends HttpTestCase
@@ -17,10 +17,10 @@ final class PhpSettingsTest extends HttpTestCase
         $this->agent->succeed('php.extensions', [
             ['name' => 'redis', 'description' => 'Redis client', 'package' => 'php8.3-redis', 'installed' => false, 'enabled' => false],
             ['name' => 'intl', 'description' => 'Internationalisation', 'package' => 'php8.3-intl', 'installed' => true, 'version' => '8.3.6', 'enabled' => true],
-            ['name' => 'mbstring', 'description' => 'Multibyte strings', 'package' => 'php8.3-mbstring', 'installed' => true, 'enabled' => true, 'protected' => 'WhaCP\'s panel runs on PHP 8.3 and needs mbstring.'],
+            ['name' => 'mbstring', 'description' => 'Multibyte strings', 'package' => 'php8.3-mbstring', 'installed' => true, 'enabled' => true, 'protected' => 'NimVor\'s panel runs on PHP 8.3 and needs mbstring.'],
         ]);
         $this->agent->succeed('php.ini_get', [
-            'file' => '/etc/php/8.3/fpm/conf.d/99-whacp.ini', 'values' => ['memory_limit' => '512M', 'display_errors' => 'Off'],
+            'file' => '/etc/php/8.3/fpm/conf.d/99-nimvor.ini', 'values' => ['memory_limit' => '512M', 'display_errors' => 'Off'],
             'effective' => ['memory_limit' => '512M', 'max_input_vars' => '1000'],
             'directives' => [
                 ['key' => 'memory_limit', 'kind' => 'size', 'description' => 'Memory', 'per_website' => true],
@@ -30,7 +30,7 @@ final class PhpSettingsTest extends HttpTestCase
                 ['key' => 'max_execution_time', 'kind' => 'int', 'description' => 'Seconds', 'max' => 86400],
             ],
         ]);
-        $this->agent->succeed('php.fpm_get', ['file' => '/etc/php/8.3/fpm/pool.d/whacp-global.conf', 'settings' => ['process_max' => 64, 'log_level' => 'warning'], 'log_levels' => ['alert', 'error', 'warning', 'notice', 'debug']]);
+        $this->agent->succeed('php.fpm_get', ['file' => '/etc/php/8.3/fpm/pool.d/nimvor-global.conf', 'settings' => ['process_max' => 64, 'log_level' => 'warning'], 'log_levels' => ['alert', 'error', 'warning', 'notice', 'debug']]);
     }
 
     public function testTabsShowTheAgentsState(): void
@@ -39,7 +39,7 @@ final class PhpSettingsTest extends HttpTestCase
         self::assertStringContainsString('php8.3-redis', $page);
         self::assertStringContainsString('/php/8.3/extensions/install', $page);
         self::assertStringContainsString('Switch off', $page, 'intl can be switched off');
-        self::assertStringNotContainsString('action="/php/8.3/extensions/remove" data-wcp-busy data-wcp-confirm="Remove mbstring', $page, 'protected: no Remove');
+        self::assertStringNotContainsString('action="/php/8.3/extensions/remove" data-nim-busy data-nim-confirm="Remove mbstring', $page, 'protected: no Remove');
 
         $ini = $this->request('GET', '/php/8.3', [], [], '', ['tab' => 'ini'])->body();
         self::assertStringContainsString('name="ini[memory_limit]" value="512M"', $ini);
@@ -100,7 +100,7 @@ final class PhpSettingsTest extends HttpTestCase
     public function testCustomersCannotChangePhp(): void
     {
         $this->seedUser('cust', 'customer');
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('cust');
         self::assertSame(403, $this->request('GET', '/php/8.3')->status());

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Support\Events;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Support\Events;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * NimVor-managed websites.
@@ -461,7 +461,7 @@ final class WebsiteService
     private function checkSystemUser(string $user, ?int $ownerId, array $actor): bool
     {
         $usedBy = $this->sites->usingSystemUser($this->server->id(), $user);
-        if (\WhaCP\Hosting\Scope::isAll($actor)) {
+        if (\NimVor\Hosting\Scope::isAll($actor)) {
             return false;
         }
         if ($usedBy === []) {
@@ -719,7 +719,7 @@ final class WebsiteService
             if ($user === '') {
                 $user = self::suggestUser($domain);
             }
-            if (!preg_match('/^[a-z][a-z0-9_-]{1,30}$/', $user) || in_array($user, ['root', 'www-data', 'nobody', 'mysql', 'whacp', 'admin'], true)) {
+            if (!preg_match('/^[a-z][a-z0-9_-]{1,30}$/', $user) || in_array($user, ['root', 'www-data', 'nobody', 'mysql', 'nimvor', 'admin'], true)) {
                 $errors['system_user'] = 'Use 2–31 lowercase letters, digits, - or _, starting with a letter.';
             }
         }
@@ -846,9 +846,9 @@ final class WebsiteService
     {
         try {
             $s = (array) $this->agent->call('agent.status');
-            return (string) ($s['sites_root'] ?? '/home/whacp');
+            return (string) ($s['sites_root'] ?? '/home/nimvor');
         } catch (AgentException) {
-            return '/home/whacp';
+            return '/home/nimvor';
         }
     }
 

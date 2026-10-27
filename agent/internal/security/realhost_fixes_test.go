@@ -103,14 +103,14 @@ func TestRealHostSecurityFixes(t *testing.T) {
 }
 
 // Automatic security updates: the package is installed when missing and
-// the updates are switched on (RHEL: the timer runs with WhaCP's security
+// the updates are switched on (RHEL: the timer runs with NimVor's security
 // configuration), then off again.
 func TestRealHostAutoUpdates(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("needs root")
 	}
-	if os.Getenv("WHACP_NETWORK") == "" {
-		t.Skip("installs a package: set WHACP_NETWORK=1")
+	if os.Getenv("NIMVOR_NETWORK") == "" {
+		t.Skip("installs a package: set NIMVOR_NETWORK=1")
 	}
 	env := fixEnv(t)
 	ctx := context.Background()
@@ -128,7 +128,7 @@ func TestRealHostAutoUpdates(t *testing.T) {
 		}
 		out, _ := exec.Command("systemctl", "cat", dnfAutoUnit).CombinedOutput()
 		if !strings.Contains(string(out), dnfAutoConf) {
-			t.Fatalf("the service does not use WhaCP's configuration:\n%s", out)
+			t.Fatalf("the service does not use NimVor's configuration:\n%s", out)
 		}
 		// The configuration is one dnf-automatic accepts.
 		if out, err := exec.Command("dnf-automatic", dnfAutoConf, "--help").CombinedOutput(); err != nil {

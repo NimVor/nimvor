@@ -1,7 +1,7 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed>|null $state */
-$canManage = $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE);
+$canManage = $this->can(\NimVor\Security\Permissions::SERVER_MANAGE);
 $dis = $canManage ? '' : ' disabled';
 $ago = static function (int $t): string {
     if ($t <= 0) {
@@ -15,7 +15,7 @@ $trustModal = function (?int $n, ?array $t) use ($dis): string {
     ob_start(); ?>
     <div class="modal fade" id="trusted-<?= e($key) ?>" tabindex="-1" aria-labelledby="trusted-title-<?= e($key) ?>" aria-hidden="true">
         <div class="modal-dialog">
-            <form class="modal-content" method="post" action="<?= e($this->url('mail.greylist.trusted')) ?>" data-wcp-busy>
+            <form class="modal-content" method="post" action="<?= e($this->url('mail.greylist.trusted')) ?>" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <?php if ($n !== null): ?><input type="hidden" name="index" value="<?= $n ?>"><?php endif; ?>
                 <div class="modal-header"><h2 class="modal-title fs-5" id="trusted-title-<?= e($key) ?>"><?= $t === null ? 'Add trusted host' : 'Edit trusted host' ?></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
@@ -43,18 +43,18 @@ $trusted = (array) ($c['trusted'] ?? []);
 <?php if (empty($state['configured'])): ?>
     <div class="alert alert-info">Set up email first (Email → Set up email); greylisting then protects its mailboxes.</div>
 <?php endif; ?>
-<div class="wcp-panel mb-3">
-    <div class="wcp-statusbar">
-        <span class="small"><span class="wcp-muted">Greylisting</span> <?= !empty($c['enabled']) ? '<span class="wcp-state is-ok">On</span>' : '<span class="wcp-state is-off">Off</span>' ?></span>
-        <span class="small"><span class="wcp-muted">Policy service</span> <?= !empty($svc['active']) ? '<span class="wcp-state is-ok">Running</span>' : '<span class="wcp-state is-off">Stopped</span>' ?></span>
-        <span class="small"><span class="wcp-muted">Postfix check</span> <?= !empty($svc['postfix']) ? '<span class="wcp-state is-ok">Active</span>' : '<span class="wcp-state is-off">Not active</span>' ?></span>
+<div class="nim-panel mb-3">
+    <div class="nim-statusbar">
+        <span class="small"><span class="nim-muted">Greylisting</span> <?= !empty($c['enabled']) ? '<span class="nim-state is-ok">On</span>' : '<span class="nim-state is-off">Off</span>' ?></span>
+        <span class="small"><span class="nim-muted">Policy service</span> <?= !empty($svc['active']) ? '<span class="nim-state is-ok">Running</span>' : '<span class="nim-state is-off">Stopped</span>' ?></span>
+        <span class="small"><span class="nim-muted">Postfix check</span> <?= !empty($svc['postfix']) ? '<span class="nim-state is-ok">Active</span>' : '<span class="nim-state is-off">Not active</span>' ?></span>
         <?php if (!empty($c['enabled']) && (empty($svc['active']) || empty($svc['postfix']))): ?><span class="small text-warning-emphasis"><i class="bi bi-exclamation-triangle me-1"></i>On but not in effect: save the settings again to restart it.</span><?php endif; ?>
     </div>
 </div>
 
 <div class="row g-3">
     <div class="col-xl-5">
-        <form class="card h-100" method="post" action="<?= e($this->url('mail.greylist.save')) ?>" data-wcp-busy>
+        <form class="card h-100" method="post" action="<?= e($this->url('mail.greylist.save')) ?>" data-nim-busy>
             <?= $this->csrfField() ?>
             <div class="card-header"><i class="bi bi-hourglass-split me-1"></i>Settings</div>
             <div class="card-body">
@@ -73,14 +73,14 @@ $trusted = (array) ($c['trusted'] ?? []);
     </div>
     <div class="col-xl-7">
         <div class="card h-100" id="trusted">
-            <div class="card-header wcp-toolbar">
-                <h2 class="wcp-toolbar-title"><i class="bi bi-shield-check me-1"></i>Trusted hosts <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($trusted) ?></span></h2>
+            <div class="card-header nim-toolbar">
+                <h2 class="nim-toolbar-title"><i class="bi bi-shield-check me-1"></i>Trusted hosts <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($trusted) ?></span></h2>
                 <?php if ($canManage): ?><button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#trusted-new"><i class="bi bi-plus-lg me-1"></i>Add</button><?php endif; ?>
             </div>
             <?php if ($trusted === []): ?>
-                <div class="wcp-empty-state"><i class="bi bi-shield-check" aria-hidden="true"></i><div class="fw-medium">No trusted hosts</div><div class="small">Add servers or ranges whose mail must never be deferred.</div></div>
+                <div class="nim-empty-state"><i class="bi bi-shield-check" aria-hidden="true"></i><div class="fw-medium">No trusted hosts</div><div class="small">Add servers or ranges whose mail must never be deferred.</div></div>
             <?php else: ?>
-                <div class="wcp-dtable table-responsive">
+                <div class="nim-dtable table-responsive">
                     <table class="table align-middle mb-0">
                         <thead><tr><th>Address or range</th><th>Comment</th><th></th></tr></thead>
                         <tbody>
@@ -91,7 +91,7 @@ $trusted = (array) ($c['trusted'] ?? []);
                                 <td class="text-end text-nowrap">
                                     <?php if ($canManage): ?>
                                         <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#trusted-<?= (int) $n ?>" aria-label="Edit <?= e((string) $t['range']) ?>"><i class="bi bi-pencil"></i></button>
-                                        <form class="d-inline" method="post" action="<?= e($this->url('mail.greylist.trusted.delete', ['n' => (int) $n])) ?>" data-wcp-confirm="Remove the trusted host <?= e((string) $t['range']) ?>? Its mail is greylisted again."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" aria-label="Delete <?= e((string) $t['range']) ?>"><i class="bi bi-trash"></i></button></form>
+                                        <form class="d-inline" method="post" action="<?= e($this->url('mail.greylist.trusted.delete', ['n' => (int) $n])) ?>" data-nim-confirm="Remove the trusted host <?= e((string) $t['range']) ?>? Its mail is greylisted again."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" aria-label="Delete <?= e((string) $t['range']) ?>"><i class="bi bi-trash"></i></button></form>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -104,13 +104,13 @@ $trusted = (array) ($c['trusted'] ?? []);
     </div>
 </div>
 
-<form class="card mt-3" id="providers" method="post" action="<?= e($this->url('mail.greylist.providers')) ?>" data-wcp-busy>
+<form class="card mt-3" id="providers" method="post" action="<?= e($this->url('mail.greylist.providers')) ?>" data-nim-busy>
     <?= $this->csrfField() ?>
-    <div class="card-header wcp-toolbar">
-        <h2 class="wcp-toolbar-title"><i class="bi bi-buildings me-1"></i>Common mail providers</h2>
+    <div class="card-header nim-toolbar">
+        <h2 class="nim-toolbar-title"><i class="bi bi-buildings me-1"></i>Common mail providers</h2>
         <?php if ($canManage): ?><button class="btn btn-sm btn-outline-secondary" type="submit" formaction="<?= e($this->url('mail.greylist.providers.update')) ?>" title="Read the address ranges of trusted providers from their SPF records now"><i class="bi bi-arrow-repeat me-1"></i>Update ranges now</button><?php endif; ?>
     </div>
-    <div class="wcp-dtable table-responsive">
+    <div class="nim-dtable table-responsive">
         <table class="table align-middle mb-0">
             <thead><tr><th>Provider</th><th>SPF record</th><th>Address ranges</th><th class="text-center">Trust</th><th class="text-center">Auto update</th></tr></thead>
             <tbody>
@@ -118,7 +118,7 @@ $trusted = (array) ($c['trusted'] ?? []);
                 <tr>
                     <td class="fw-medium"><?= e((string) $p['name']) ?></td>
                     <td class="small font-monospace"><?= e(implode(', ', (array) $p['spf'])) ?></td>
-                    <td class="small"><?= $n > 0 ? $n . ' · updated ' . e($ago((int) ($st['updated'] ?? 0))) : '<span class="wcp-muted">not read yet</span>' ?><?php if (($st['error'] ?? '') !== ''): ?><div class="text-danger-emphasis text-break"><?= e(mb_strimwidth((string) $st['error'], 0, 160, '…')) ?></div><?php endif; ?></td>
+                    <td class="small"><?= $n > 0 ? $n . ' · updated ' . e($ago((int) ($st['updated'] ?? 0))) : '<span class="nim-muted">not read yet</span>' ?><?php if (($st['error'] ?? '') !== ''): ?><div class="text-danger-emphasis text-break"><?= e(mb_strimwidth((string) $st['error'], 0, 160, '…')) ?></div><?php endif; ?></td>
                     <td class="text-center"><input class="form-check-input" type="checkbox" name="trust[]" value="<?= e((string) $p['id']) ?>" aria-label="Trust <?= e((string) $p['name']) ?>"<?= !empty($st['trust']) ? ' checked' : '' ?><?= $dis ?>></td>
                     <td class="text-center"><input class="form-check-input" type="checkbox" name="auto_update[]" value="<?= e((string) $p['id']) ?>" aria-label="Update the ranges of <?= e((string) $p['name']) ?> automatically"<?= !empty($st['auto_update']) ? ' checked' : '' ?><?= $dis ?>></td>
                 </tr>

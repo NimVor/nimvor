@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class FtpTest extends HttpTestCase
 {
@@ -25,7 +25,7 @@ final class FtpTest extends HttpTestCase
         $this->siteId = $sites->create(['domain' => 'Shop.test', 'kind' => 'static', 'system_user' => 'shopuser'], (array) $users->find($cust));
         $this->otherId = $sites->create(['domain' => 'other.test', 'kind' => 'static', 'system_user' => 'otheruser'], (array) $users->find($admin));
         $this->db = $this->app->container->get(Connection::class);
-        $this->agent->succeed('ftp.status', ['installed' => true, 'configured' => true, 'active' => true, 'settings' => ['tls' => 'required', 'passive_min' => 40110, 'passive_max' => 40210], 'certificate' => ['subject' => 'CN=host', 'sha256' => 'AB12', 'not_after' => '2036-01-01T00:00:00Z'], 'accounts' => [], 'sftp' => [], 'sftp_root' => '/home/whacp', 'other_ftp_servers' => []]);
+        $this->agent->succeed('ftp.status', ['installed' => true, 'configured' => true, 'active' => true, 'settings' => ['tls' => 'required', 'passive_min' => 40110, 'passive_max' => 40210], 'certificate' => ['subject' => 'CN=host', 'sha256' => 'AB12', 'not_after' => '2036-01-01T00:00:00Z'], 'accounts' => [], 'sftp' => [], 'sftp_root' => '/home/nimvor', 'other_ftp_servers' => []]);
         $this->agent->succeed('ftp.account_save', ['created' => true]);
         $this->agent->succeed('ftp.account_delete', ['deleted' => 'x']);
         $this->agent->succeed('sftp.configure', ['enabled' => true]);
@@ -94,7 +94,7 @@ final class FtpTest extends HttpTestCase
     public function testAdministratorSetsUpTheServer(): void
     {
         $this->login('admin');
-        self::assertStringContainsString('whacp-ftpd.service', $this->request('GET', '/ftp')->body());
+        self::assertStringContainsString('nimvor-ftpd.service', $this->request('GET', '/ftp')->body());
         $this->agent->succeed('ftp.configure', ['notes' => ['Firewall: opened 21/tcp and 40110:40210/tcp.'], 'stopped' => []]);
         $this->post('/ftp/configure', ['passive_min' => '40000', 'passive_max' => '40100', 'max_clients' => '50', 'max_per_ip' => '5', 'tls' => 'required', 'confirm_replace' => '1']);
         $call = $this->lastCall('ftp.configure');

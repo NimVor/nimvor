@@ -9,8 +9,8 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
 )
 
-// DKIMUnit runs OpenDKIM with WhaCP's configuration.
-const DKIMUnit = "whacp-opendkim.service"
+// DKIMUnit runs OpenDKIM with NimVor's configuration.
+const DKIMUnit = "nimvor-opendkim.service"
 
 // dkimPort is where OpenDKIM listens for Postfix (loopback only).
 const dkimPort = 8891
@@ -18,7 +18,7 @@ const dkimPort = 8891
 // tls names the certificate files Postfix and Dovecot use.
 type tls struct{ cert, key string }
 
-// dovecotParams are the values WhaCP's Dovecot drop-in needs.
+// dovecotParams are the values NimVor's Dovecot drop-in needs.
 type dovecotParams struct {
 	Dir, Vmail, Hostname string
 	VmailUID             int
@@ -69,7 +69,7 @@ func renderDovecot(p dovecotParams) string {
 	if p.V24 {
 		return renderDovecot24(p, listen)
 	}
-	return fmt.Sprintf(`# Managed by WhaCP (email). Do not edit: changes are overwritten.
+	return fmt.Sprintf(`# Managed by NimVor (email). Do not edit: changes are overwritten.
 protocols = imap lmtp
 listen = %[7]s
 mail_location = maildir:~/Maildir
@@ -111,7 +111,7 @@ plugin {
 }
 
 func renderDovecot24(p dovecotParams, listen string) string {
-	return fmt.Sprintf(`# Managed by WhaCP (email). Do not edit: changes are overwritten.
+	return fmt.Sprintf(`# Managed by NimVor (email). Do not edit: changes are overwritten.
 protocols = imap lmtp
 listen = %[6]s
 mail_driver = maildir
@@ -156,7 +156,7 @@ protocol lmtp {
 quota "User quota" {
   driver = count
 }
-sieve_script whacp-spam {
+sieve_script nimvor-spam {
   type = before
   path = %[1]s/sieve/spam.sieve
 }
@@ -281,7 +281,7 @@ var submission = [][2]string{
 }
 
 func renderDKIMConf(dir string) string {
-	return fmt.Sprintf(`# Managed by WhaCP (email). Do not edit: changes are overwritten.
+	return fmt.Sprintf(`# Managed by NimVor (email). Do not edit: changes are overwritten.
 Syslog                  yes
 Canonicalization        relaxed/simple
 OversignHeaders         From
@@ -297,7 +297,7 @@ ExternalIgnoreList      refile:%[2]s/dkim/TrustedHosts
 }
 
 func renderDKIMUnit(dir string) string {
-	return "# Managed by WhaCP (email).\n[Unit]\nDescription=WhaCP DKIM signing (OpenDKIM)\nAfter=network.target\nBefore=postfix.service\n\n" +
+	return "# Managed by NimVor (email).\n[Unit]\nDescription=NimVor DKIM signing (OpenDKIM)\nAfter=network.target\nBefore=postfix.service\n\n" +
 		"[Service]\nType=simple\nExecStart=/usr/sbin/opendkim -f -x " + dir + "/opendkim.conf\nExecReload=/bin/kill -USR1 $MAINPID\nRestart=on-failure\nRestartSec=3\n\n" +
 		"[Install]\nWantedBy=multi-user.target\n"
 }
@@ -305,15 +305,15 @@ func renderDKIMUnit(dir string) string {
 var systemAuthRe = regexp.MustCompile(`(?m)^(\s*)!include auth-system\.conf\.ext\s*$`)
 
 // disableSystemAuth comments out Dovecot's system-account login (PAM), so
-// only WhaCP's mailboxes can sign in to IMAP.
+// only NimVor's mailboxes can sign in to IMAP.
 func disableSystemAuth(conf string) (string, bool) {
 	if !systemAuthRe.MatchString(conf) {
 		return conf, false
 	}
-	return systemAuthRe.ReplaceAllString(conf, "${1}# Disabled by WhaCP: only WhaCP mailboxes may sign in.\n${1}#!include auth-system.conf.ext"), true
+	return systemAuthRe.ReplaceAllString(conf, "${1}# Disabled by NimVor: only NimVor mailboxes may sign in.\n${1}#!include auth-system.conf.ext"), true
 }
 
-// configured reports whether Postfix points at WhaCP's tables.
+// configured reports whether Postfix points at NimVor's tables.
 func configuredFrom(postconfN, dir string) bool {
 	return strings.Contains(postconfN, "texthash:"+dir+"/domains")
 }

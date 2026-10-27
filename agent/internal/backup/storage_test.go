@@ -80,7 +80,7 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 		size, _ := strconv.ParseInt(r.Header.Get("X-Upload-Content-Length"), 10, 64)
 		f.next++
 		sid := fmt.Sprintf("s%d", f.next)
-		f.sessions[sid] = &fakeFile{ID: fmt.Sprintf("file%d", f.next), Name: m.Name, Parent: m.Parents[0], Key: m.Props["whacp_key"], Size: size}
+		f.sessions[sid] = &fakeFile{ID: fmt.Sprintf("file%d", f.next), Name: m.Name, Parent: m.Parents[0], Key: m.Props["nimvor_key"], Size: size}
 		w.Header().Set("Location", "http://"+r.Host+"/session/"+sid)
 	case r.Method == "PUT" && strings.HasPrefix(r.URL.Path, "/session/"):
 		s := f.sessions[strings.TrimPrefix(r.URL.Path, "/session/")]
@@ -104,7 +104,7 @@ func (f *fakeDrive) serve(w http.ResponseWriter, r *http.Request) {
 			if strings.Contains(q, "value='") && !strings.Contains(q, "value='"+x.Key+"'") {
 				continue
 			}
-			out = append(out, map[string]any{"id": x.ID, "name": x.Name, "appProperties": map[string]string{"whacp_key": x.Key}})
+			out = append(out, map[string]any{"id": x.ID, "name": x.Name, "appProperties": map[string]string{"nimvor_key": x.Key}})
 		}
 		json.NewEncoder(w).Encode(map[string]any{"files": out})
 	case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/drive/v3/files/"):
@@ -129,7 +129,7 @@ func TestDriveRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := NewDrive(r)
-	id, err := d.CreateFolder(context.Background(), "WhaCP backups")
+	id, err := d.CreateFolder(context.Background(), "NimVor backups")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func TestRemoteValidationByType(t *testing.T) {
 		{Type: "ftp", Host: "ftp.example.com", Username: "bk", Password: "p"},
 		{Type: "ftp", Host: "ftp.example.com", Username: "bk", Password: "p", TLS: "implicit", TLSPin: "sha256//" + strings.Repeat("A", 43) + "="},
 		{Type: "gdrive", ClientID: "c", ClientSecret: "s", RefreshToken: "r"},
-		{Type: "local", Path: "/mnt/nas/whacp"},
+		{Type: "local", Path: "/mnt/nas/nimvor"},
 	}
 	for _, r := range good {
 		if err := r.Validate(); err != nil {
@@ -196,7 +196,7 @@ func TestRemoteValidationByType(t *testing.T) {
 		{Type: "ftp", Host: "h", Username: "bk", Password: "p", TLS: "maybe"},
 		{Type: "ftp", Host: "h", Username: "bk"},
 		{Type: "gdrive", ClientID: "c"},
-		{Type: "local", Path: "/etc/whacp"},
+		{Type: "local", Path: "/etc/nimvor"},
 		{Type: "local", Path: "/mnt"},
 		{Type: "local", Path: "/mnt/../etc"},
 		{Type: "sftp", Host: "h", Username: "bk", Password: "p", Prefix: "../x"},

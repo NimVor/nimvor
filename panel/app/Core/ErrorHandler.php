@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Core;
+namespace NimVor\Core;
 
 use Throwable;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Support\Logger;
-use WhaCP\Support\UserFacingException;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Support\Logger;
+use NimVor\Support\UserFacingException;
+use NimVor\View\View;
 
 /**
  * Converts exceptions into safe responses.

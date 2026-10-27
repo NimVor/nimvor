@@ -34,7 +34,7 @@ func dnsPaths(env *host.Env) paths {
 func (p paths) zoneFile(zone string) string { return p.dir + "/db." + zone }
 
 func (p paths) includeLine() string {
-	return fmt.Sprintf("include \"%s\"; // WhaCP DNS zones (added by WhaCP)", p.list)
+	return fmt.Sprintf("include \"%s\"; // NimVor DNS zones (added by NimVor)", p.list)
 }
 
 func configured(env *host.Env, p paths) bool {
@@ -77,7 +77,7 @@ func listZones(env *host.Env, p paths) []zoneInfo {
 // renderList produces zones.conf for the given zones.
 func renderList(p paths, zones []zoneInfo) string {
 	var b strings.Builder
-	b.WriteString("// Managed by WhaCP (DNS). Do not edit: changes are overwritten.\n")
+	b.WriteString("// Managed by NimVor (DNS). Do not edit: changes are overwritten.\n")
 	for _, z := range zones {
 		transfer := "none;"
 		notify := "no"
@@ -159,14 +159,14 @@ func verify(ctx context.Context, env *host.Env, zone string, serial uint32) erro
 func Register(r *actions.Registry, env *host.Env) {
 	p := dnsPaths(env)
 
-	r.Register(actions.Action{Name: "dns.status", Description: "Whether BIND is installed, set up for WhaCP and running, and the zones WhaCP serves (with serials).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "dns.status", Description: "Whether BIND is installed, set up for NimVor and running, and the zones NimVor serves (with serials).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return map[string]any{
 			"installed": installed(env), "configured": configured(env, p), "running": installed(env) && running(ctx, env),
 			"config_file": p.conf, "zones": listZones(env, p),
 		}, nil
 	}})
 
-	r.Register(actions.Action{Name: "dns.configure", Mutating: true, Description: "Set up BIND for WhaCP's zones: adds one include line to BIND's configuration (requires confirm_edit_package_config), validates with named-checkconf, starts or reconfigures named and opens port 53 when the firewall is active.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "dns.configure", Mutating: true, Description: "Set up BIND for NimVor's zones: adds one include line to BIND's configuration (requires confirm_edit_package_config), validates with named-checkconf, starts or reconfigures named and opens port 53 when the firewall is active.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			Confirm bool `json:"confirm_edit_package_config"`
 		}
@@ -180,7 +180,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		already := configured(env, p)
 		if !already && !in.Confirm {
-			msg := "WhaCP adds one include line to " + p.conf + " (a file of the BIND package)"
+			msg := "NimVor adds one include line to " + p.conf + " (a file of the BIND package)"
 			if b, err := env.Root.ReadFile(p.conf); err == nil && localOnly(string(b)) {
 				msg += " and makes BIND listen on all addresses instead of only this machine"
 			}
@@ -359,7 +359,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		defer mu.Unlock()
 		file := p.zoneFile(z.Name)
 		if !env.Root.Exists(file) {
-			return nil, actions.NotFound("WhaCP does not serve the zone " + z.Name)
+			return nil, actions.NotFound("NimVor does not serve the zone " + z.Name)
 		}
 		var keep []zoneInfo
 		for _, zi := range listZones(env, p) {
@@ -385,5 +385,5 @@ func Register(r *actions.Registry, env *host.Env) {
 	}})
 }
 
-// Configured reports whether named loads WhaCP's zone list.
+// Configured reports whether named loads NimVor's zone list.
 func Configured(env *host.Env) bool { return configured(env, dnsPaths(env)) }

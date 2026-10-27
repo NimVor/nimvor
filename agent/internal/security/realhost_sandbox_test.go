@@ -6,8 +6,8 @@
 //
 //	go test -tags realhost ./internal/security -run RealHostSandboxEscape -v
 //
-// It makes two throwaway accounts (whacp-esc-a and whacp-esc-b), then runs a
-// probe script as the real whacp-esc-a account that attempts the escape and
+// It makes two throwaway accounts (nimvor-esc-a and nimvor-esc-b), then runs a
+// probe script as the real nimvor-esc-a account that attempts the escape and
 // discovery surfaces from the GA brief — shared /tmp and /var/tmp, another
 // account's files, /etc/shadow, /proc of a root process, /sys and /dev
 // writes, SUID/SGID discovery and use, and privilege gain via sudo/su — and
@@ -34,14 +34,14 @@ func TestRealHostSandboxEscape(t *testing.T) {
 	if _, err := exec.LookPath("runuser"); err != nil {
 		t.Skip("no runuser")
 	}
-	for _, u := range []string{"whacp-esc-a", "whacp-esc-b"} {
+	for _, u := range []string{"nimvor-esc-a", "nimvor-esc-b"} {
 		exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", u).Run()
 		name := u
 		t.Cleanup(func() { exec.Command("userdel", name).Run() })
 	}
 
 	// Account B's private file (0600, owned by B).
-	bHome, err := os.MkdirTemp("/home", "whacp-esc-b-")
+	bHome, err := os.MkdirTemp("/home", "nimvor-esc-b-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,18 +49,18 @@ func TestRealHostSandboxEscape(t *testing.T) {
 	os.Chmod(bHome, 0o711)
 	bSecret := filepath.Join(bHome, "secret.txt")
 	os.WriteFile(bSecret, []byte("SECRET-OF-B"), 0o600)
-	exec.Command("chown", "-R", "whacp-esc-b:whacp-esc-b", bHome).Run()
+	exec.Command("chown", "-R", "nimvor-esc-b:nimvor-esc-b", bHome).Run()
 
 	// A root-only file in shared /tmp and /var/tmp.
-	tmpSecret := filepath.Join("/tmp", "whacp-esc-root-secret")
-	varTmpSecret := filepath.Join("/var/tmp", "whacp-esc-root-secret")
+	tmpSecret := filepath.Join("/tmp", "nimvor-esc-root-secret")
+	varTmpSecret := filepath.Join("/var/tmp", "nimvor-esc-root-secret")
 	for _, p := range []string{tmpSecret, varTmpSecret} {
 		os.WriteFile(p, []byte("SECRET-ROOT-TMP"), 0o600) // owned by root, 0600
 		pp := p
 		t.Cleanup(func() { os.Remove(pp) })
 	}
 
-	// The probe runs as whacp-esc-a. Each attempt prints
+	// The probe runs as nimvor-esc-a. Each attempt prints
 	// "OP <name> <ALLOWED|DENIED>"; ALLOWED means the escape worked (bad).
 	probe := `
 emit() { echo "OP $1 $2"; }
@@ -100,12 +100,12 @@ for b in $(find /usr/bin /bin /usr/sbin /sbin -xdev -perm -4000 -user root -type
 done
 emit suid_read_shadow $([ "$leaked" = yes ] && echo ALLOWED || echo DENIED)
 `
-	out, _ := exec.Command("runuser", "-u", "whacp-esc-a", "--", "sh", "-c", probe).CombinedOutput()
+	out, _ := exec.Command("runuser", "-u", "nimvor-esc-a", "--", "sh", "-c", probe).CombinedOutput()
 	s := string(out)
-	t.Logf("sandbox-escape probe (as whacp-esc-a):\n%s", s)
+	t.Logf("sandbox-escape probe (as nimvor-esc-a):\n%s", s)
 
-	if !strings.Contains(s, "WHOAMI whacp-esc-a") {
-		t.Fatalf("probe did not run as whacp-esc-a:\n%s", s)
+	if !strings.Contains(s, "WHOAMI nimvor-esc-a") {
+		t.Fatalf("probe did not run as nimvor-esc-a:\n%s", s)
 	}
 	if strings.Contains(s, "SECRET-OF-B") || strings.Contains(s, "SECRET-ROOT-TMP") || strings.Contains(s, "root:x:0:0") {
 		t.Errorf("the probe leaked protected content:\n%s", s)

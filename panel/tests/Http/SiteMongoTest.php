@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\FeatureService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\FeatureService;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Site → MongoDB: a customer's own prefixed databases and users. */
 final class SiteMongoTest extends HttpTestCase
@@ -77,7 +77,7 @@ final class SiteMongoTest extends HttpTestCase
         // full-page tool and lists only the account's own database.
         self::assertStringContainsString('/mongo/browser?db=' . rawurlencode($this->prefix . 'shop'), $this->request('GET', $base)->body());
         $tool = $this->request('GET', $base . '/browser')->body();
-        self::assertStringContainsString('id="wcp-mongo"', $tool);
+        self::assertStringContainsString('id="nim-mongo"', $tool);
         self::assertStringContainsString($this->prefix . 'shop', $tool);
         self::assertStringNotContainsString('otheracct_secret', $tool, "another account's database is not offered");
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Support;
+namespace NimVor\Support;
 
 /** Public DNS answers, through the system resolver (replaceable in tests). */
 class DnsLookup

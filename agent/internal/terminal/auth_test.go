@@ -203,7 +203,7 @@ func TestPrivilegedGroupsAreRefused(t *testing.T) {
 			t.Errorf("%s: %v", g, err)
 		}
 	}
-	// whacp-jail (the jailed shell's group) is fine.
+	// nimvor-jail (the jailed shell's group) is fine.
 	_, m := fixture(t, "normal")
 	if _, err := m.Open(OpenParams{User: "shop"}); err != nil {
 		t.Fatal(err)

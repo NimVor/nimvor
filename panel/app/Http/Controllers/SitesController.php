@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\UserRepository;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Services\WebsiteService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 /**
  * NimVor-managed websites (create, settings, enable/disable, delete).
@@ -31,17 +31,17 @@ final class SitesController extends Controller
         private readonly ServerContext $server,
         private readonly AgentClient $agent,
         private readonly UserRepository $users,
-        private readonly \WhaCP\Services\ImportService $imports,
+        private readonly \NimVor\Services\ImportService $imports,
         private readonly JobTracker $jobs,
-        private readonly \WhaCP\Services\SiteOverview $overview,
-        private readonly \WhaCP\Services\DnsService $dns,
-        private readonly \WhaCP\Services\IpService $ips,
-        private readonly \WhaCP\Services\PlanService $plans,
-        private readonly \WhaCP\Services\AddonConversionService $conversion,
-        private readonly \WhaCP\Services\FeatureService $features,
-        private readonly \WhaCP\Services\SiteHealthService $health,
-        private readonly \WhaCP\Services\RuntimeService $runtimes,
-        private readonly \WhaCP\Services\WorkerService $workers,
+        private readonly \NimVor\Services\SiteOverview $overview,
+        private readonly \NimVor\Services\DnsService $dns,
+        private readonly \NimVor\Services\IpService $ips,
+        private readonly \NimVor\Services\PlanService $plans,
+        private readonly \NimVor\Services\AddonConversionService $conversion,
+        private readonly \NimVor\Services\FeatureService $features,
+        private readonly \NimVor\Services\SiteHealthService $health,
+        private readonly \NimVor\Services\RuntimeService $runtimes,
+        private readonly \NimVor\Services\WorkerService $workers,
     ) {
         parent::__construct($view, $session);
     }
@@ -72,7 +72,7 @@ final class SitesController extends Controller
             'defaultPhp' => $this->service->defaultPhpVersion($php),
             'hardenDefault' => $this->service->hardenNewSites(),
             'profileDefault' => $this->service->defaultPhpProfile(),
-            'owners' => \WhaCP\Hosting\Scope::isAll($user) ? $this->users->all() : [],
+            'owners' => \NimVor\Hosting\Scope::isAll($user) ? $this->users->all() : [],
             'allowedTypes' => $allowedTypes,
             'runtimes' => $this->runtimes->selectable(),
         ]);
@@ -270,7 +270,7 @@ final class SitesController extends Controller
             'jobs' => $this->jobs->recentFor('website', (string) $site['id']),
             'tab' => 'advanced',
             // Addresses the website may be bound to (administrators).
-            'ipPool' => \WhaCP\Hosting\Scope::isAll($this->user($request)) ? array_values(array_filter($this->ips->pool(), static fn (array $a): bool => (int) $a['reserved'] === 0
+            'ipPool' => \NimVor\Hosting\Scope::isAll($this->user($request)) ? array_values(array_filter($this->ips->pool(), static fn (array $a): bool => (int) $a['reserved'] === 0
                 && ($a['kind'] !== 'dedicated' || $a['sites'] === [] || (int) $a['sites'][0]['id'] === (int) $site['id']))) : null,
         ]);
     }

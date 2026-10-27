@@ -6,36 +6,36 @@ declare(strict_types=1);
 /**
  * NimVor panel command-line tool.
  *
- *   bin/whacp migrate                     Apply database migrations and sync roles
- *   bin/whacp user:create <username> <email> [--role=admin]
+ *   bin/nimvor migrate                     Apply database migrations and sync roles
+ *   bin/nimvor user:create <username> <email> [--role=admin]
  *                                         Create a user (password read from stdin or prompted)
- *   bin/whacp user:password <username>    Reset a user's password
- *   bin/whacp users:count                 Print the number of panel users
- *   bin/whacp agent:check                 Check connectivity with the agent
- *   bin/whacp discovery:run               Run read-only discovery and store a snapshot
- *   bin/whacp cron:sync                   Write every website's cron schedule on this server again
- *   bin/whacp schedule:run                Record metrics and alerts, start due backups, apply retention
- *   bin/whacp user:2fa-reset <username>   Turn off two-factor sign-in for a user (lost phone)
- *   bin/whacp user:verify-ip <username> <ip>   Let a user sign in from an address without an emailed code
- *   bin/whacp hulk:unblock <ip|user|all>   Remove brute force protection blocks
- *   bin/whacp hulk:geo-import <file>   Load the DB-IP country database (brute force protection countries)
- *   bin/whacp doctor                      Check the installation (exit code 1 on failures)
- *   bin/whacp setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]
+ *   bin/nimvor user:password <username>    Reset a user's password
+ *   bin/nimvor users:count                 Print the number of panel users
+ *   bin/nimvor agent:check                 Check connectivity with the agent
+ *   bin/nimvor discovery:run               Run read-only discovery and store a snapshot
+ *   bin/nimvor cron:sync                   Write every website's cron schedule on this server again
+ *   bin/nimvor schedule:run                Record metrics and alerts, start due backups, apply retention
+ *   bin/nimvor user:2fa-reset <username>   Turn off two-factor sign-in for a user (lost phone)
+ *   bin/nimvor user:verify-ip <username> <ip>   Let a user sign in from an address without an emailed code
+ *   bin/nimvor hulk:unblock <ip|user|all>   Remove brute force protection blocks
+ *   bin/nimvor hulk:geo-import <file>   Load the DB-IP country database (brute force protection countries)
+ *   bin/nimvor doctor                      Check the installation (exit code 1 on failures)
+ *   bin/nimvor setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]
  *                                         Set up the server for a profile (idempotent; exit code 1 when a step failed)
- *   bin/whacp setup:status                The last server setup and each step's result
+ *   bin/nimvor setup:status                The last server setup and each step's result
  */
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Core\Application;
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\RoleRepository;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Security\PasswordHasher;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\DiscoveryService;
-use WhaCP\Services\UserService;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Core\Application;
+use NimVor\Database\Connection;
+use NimVor\Repositories\RoleRepository;
+use NimVor\Repositories\UserRepository;
+use NimVor\Security\PasswordHasher;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\DiscoveryService;
+use NimVor\Services\UserService;
+use NimVor\Support\ValidationException;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -101,7 +101,7 @@ switch ($command) {
     case 'user:create':
         [$username, $email] = $positional + [null, null];
         if ($username === null || $email === null) {
-            fail('usage: bin/whacp user:create <username> <email> [--role=admin|operator|viewer]');
+            fail('usage: bin/nimvor user:create <username> <email> [--role=admin|operator|viewer]');
         }
         $app->migrate();
         $role = $c->get(RoleRepository::class)->findByName($options['role'] ?? 'admin') ?? fail('unknown role');
@@ -126,11 +126,11 @@ switch ($command) {
         break;
 
     case 'user:password':
-        $username = $positional[0] ?? fail('usage: bin/whacp user:password <username>');
+        $username = $positional[0] ?? fail('usage: bin/nimvor user:password <username>');
         $user = $c->get(UserRepository::class)->findForAuth($username) ?? fail('user not found');
         $hasher = $c->get(PasswordHasher::class);
         $password = readPassword('New password: ');
-        if (($weak = $c->get(\WhaCP\Security\PasswordPolicy::class)->check($password, $username)) !== null) {
+        if (($weak = $c->get(\NimVor\Security\PasswordPolicy::class)->check($password, $username)) !== null) {
             fail($weak);
         }
         if (stream_isatty(STDIN) && readPassword('Confirm password: ') !== $password) {
@@ -142,42 +142,42 @@ switch ($command) {
         break;
 
     case 'user:2fa-reset':
-        $username = $positional[0] ?? fail('usage: bin/whacp user:2fa-reset <username>');
+        $username = $positional[0] ?? fail('usage: bin/nimvor user:2fa-reset <username>');
         $user = $c->get(UserRepository::class)->findForAuth($username) ?? fail('user not found');
-        $c->get(\WhaCP\Security\TwoFactor::class)->disable((int) $user['id']);
+        $c->get(\NimVor\Security\TwoFactor::class)->disable((int) $user['id']);
         $audit->record('user.two_factor_reset', 'user', (string) $user['id'], AuditLogger::SUCCESS, ['via' => 'cli']);
         out('Two-factor sign-in is off for ' . $user['username'] . '.');
         break;
 
     case 'user:verify-ip':
-        $username = $positional[0] ?? fail('usage: bin/whacp user:verify-ip <username> <ip>');
-        $ip = $positional[1] ?? fail('usage: bin/whacp user:verify-ip <username> <ip>');
+        $username = $positional[0] ?? fail('usage: bin/nimvor user:verify-ip <username> <ip>');
+        $ip = $positional[1] ?? fail('usage: bin/nimvor user:verify-ip <username> <ip>');
         filter_var($ip, FILTER_VALIDATE_IP) !== false || fail('not an IP address');
         $user = $c->get(UserRepository::class)->findForAuth($username) ?? fail('user not found');
-        $c->get(\WhaCP\Security\LoginIpVerifier::class)->remember((int) $user['id'], $ip);
+        $c->get(\NimVor\Security\LoginIpVerifier::class)->remember((int) $user['id'], $ip);
         $audit->record('user.verify_ip', 'user', (string) $user['id'], AuditLogger::SUCCESS, ['via' => 'cli', 'ip' => $ip]);
         out($user['username'] . ' can sign in from ' . $ip . ' without an emailed code.');
         break;
 
     case 'hulk:unblock':
-        $what = $positional[0] ?? fail('usage: bin/whacp hulk:unblock <ip|user|all>');
-        $db = $c->get(\WhaCP\Database\Connection::class);
+        $what = $positional[0] ?? fail('usage: bin/nimvor hulk:unblock <ip|user|all>');
+        $db = $c->get(\NimVor\Database\Connection::class);
         $n = $what === 'all' ? $db->run('DELETE FROM hulk_blocks')->rowCount() : $db->run('DELETE FROM hulk_blocks WHERE ip = ? OR user = ?', [$what, $what])->rowCount();
         $audit->record('hulk.unblock', 'server', 'hulk', AuditLogger::SUCCESS, ['via' => 'cli', 'what' => $what]);
         try {
-            $c->get(\WhaCP\Services\HulkService::class)->sync();
-        } catch (\WhaCP\Agent\AgentException $e) {
+            $c->get(\NimVor\Services\HulkService::class)->sync();
+        } catch (\NimVor\Agent\AgentException $e) {
             out('The server rules were not updated yet (the scheduler retries): ' . $e->getMessage());
         }
         out("Removed {$n} block(s).");
         break;
 
     case 'hulk:geo-import':
-        $file = $positional[0] ?? fail('usage: bin/whacp hulk:geo-import <dbip-country-lite.csv[.gz]>');
+        $file = $positional[0] ?? fail('usage: bin/nimvor hulk:geo-import <dbip-country-lite.csv[.gz]>');
         is_file($file) || fail('no such file');
         try {
-            $n = $c->get(\WhaCP\Services\GeoIpService::class)->import($file);
-        } catch (\WhaCP\Support\UserFacingException $e) {
+            $n = $c->get(\NimVor\Services\GeoIpService::class)->import($file);
+        } catch (\NimVor\Support\UserFacingException $e) {
             fail($e->getMessage());
         }
         out("Country database loaded ({$n} address ranges).");
@@ -185,8 +185,8 @@ switch ($command) {
 
     case 'doctor':
         $failed = false;
-        foreach ($c->get(\WhaCP\Services\Doctor::class)->run() as $r) {
-            $failed = $failed || $r['status'] === \WhaCP\Services\Doctor::FAIL;
+        foreach ($c->get(\NimVor\Services\Doctor::class)->run() as $r) {
+            $failed = $failed || $r['status'] === \NimVor\Services\Doctor::FAIL;
             $label = ['ok' => 'PASS', 'warn' => 'WARN', 'fail' => 'FAIL'][$r['status']] ?? strtoupper($r['status']);
             out(sprintf('[%s] %-24s %s', $label, $r['check'], $r['detail']));
         }
@@ -194,8 +194,8 @@ switch ($command) {
 
     case 'setup:apply':
         $profile = (string) ($options['profile'] ?? '');
-        isset(\WhaCP\Services\ServerSetupService::PROFILES[$profile]) || fail('usage: bin/whacp setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]');
-        $c->get(\WhaCP\Services\ServerContext::class)->force(1);
+        isset(\NimVor\Services\ServerSetupService::PROFILES[$profile]) || fail('usage: bin/nimvor setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]');
+        $c->get(\NimVor\Services\ServerContext::class)->force(1);
         $setupOpts = [
             'hostname' => is_string($options['hostname'] ?? null) ? $options['hostname'] : '',
             'third_party_repos' => !isset($options['no-third-party-repos']),
@@ -204,11 +204,11 @@ switch ($command) {
             $setupOpts['php'] = array_values(array_filter(array_map('trim', explode(',', $options['php']))));
         }
         if (is_string($options['only'] ?? null)) {
-            $setupOpts['only'] = array_values(array_intersect(array_map('trim', explode(',', $options['only'])), array_keys(\WhaCP\Services\ServerSetupService::STEPS)));
+            $setupOpts['only'] = array_values(array_intersect(array_map('trim', explode(',', $options['only'])), array_keys(\NimVor\Services\ServerSetupService::STEPS)));
         }
-        out('Setting up this server: ' . \WhaCP\Services\ServerSetupService::PROFILE_NAMES[$profile] . '.');
+        out('Setting up this server: ' . \NimVor\Services\ServerSetupService::PROFILE_NAMES[$profile] . '.');
         try {
-            $results = $c->get(\WhaCP\Services\ServerSetupService::class)->run($profile, $setupOpts, static fn (string $l) => out($l));
+            $results = $c->get(\NimVor\Services\ServerSetupService::class)->run($profile, $setupOpts, static fn (string $l) => out($l));
         } catch (ValidationException $e) {
             fail(implode(' ', $e->errors()));
         } catch (AgentException $e) {
@@ -229,14 +229,14 @@ switch ($command) {
         break;
 
     case 'setup:status':
-        $last = $c->get(\WhaCP\Services\ServerSetupService::class)->last();
+        $last = $c->get(\NimVor\Services\ServerSetupService::class)->last();
         if ($last === null) {
             out('The server setup has not run yet.');
             break;
         }
-        out('Profile: ' . (\WhaCP\Services\ServerSetupService::PROFILE_NAMES[$last['profile']] ?? $last['profile']) . ', started ' . $last['started_at'] . ($last['finished_at'] ? ', finished ' . $last['finished_at'] : ', not finished'));
+        out('Profile: ' . (\NimVor\Services\ServerSetupService::PROFILE_NAMES[$last['profile']] ?? $last['profile']) . ', started ' . $last['started_at'] . ($last['finished_at'] ? ', finished ' . $last['finished_at'] : ', not finished'));
         foreach ((array) $last['steps'] as $id => $st) {
-            out(sprintf('  [%s] %-34s %s', ['ok' => 'DONE', 'skip' => ' OK ', 'fail' => 'FAIL'][$st['status']] ?? $st['status'], \WhaCP\Services\ServerSetupService::STEPS[$id] ?? $id, $st['detail']));
+            out(sprintf('  [%s] %-34s %s', ['ok' => 'DONE', 'skip' => ' OK ', 'fail' => 'FAIL'][$st['status']] ?? $st['status'], \NimVor\Services\ServerSetupService::STEPS[$id] ?? $id, $st['detail']));
         }
         break;
 
@@ -265,10 +265,10 @@ switch ($command) {
     case 'cron:sync':
         // After an update of the agent: every schedule is written again in
         // the agent's current form (e.g. each job in its sandbox).
-        $context = $c->get(\WhaCP\Services\ServerContext::class);
+        $context = $c->get(\NimVor\Services\ServerContext::class);
         $context->force(1);
-        $sites = $c->get(\WhaCP\Repositories\WebsiteRepository::class);
-        $cron = $c->get(\WhaCP\Services\CronService::class);
+        $sites = $c->get(\NimVor\Repositories\WebsiteRepository::class);
+        $cron = $c->get(\NimVor\Services\CronService::class);
         $done = 0;
         $failed = 0;
         foreach ($c->get(Connection::class)->fetchAll('SELECT DISTINCT j.website_id FROM cron_jobs j JOIN websites w ON w.id = j.website_id WHERE w.server_id = 1 ORDER BY j.website_id') as $row) {
@@ -294,7 +294,7 @@ switch ($command) {
     case 'modsec:installs':
         // ModSecurity connector and rule installations (transactions).
         try {
-            foreach ($c->get(\WhaCP\Services\ModSecurityService::class)->installs() as $i) {
+            foreach ($c->get(\NimVor\Services\ModSecurityService::class)->installs() as $i) {
                 out(sprintf('%s  %-16s %-22s%s%s', $i['id'], $i['status'], $i['method'] ?? '', !empty($i['can_roll_back']) ? '  [in effect: can be rolled back]' : '', !empty($i['error']) ? '  ' . $i['error'] : ''));
                 if (($i['status'] ?? '') === 'rollback_failed') {
                     out('    backup for manual recovery: ' . $i['folder'] . '/snapshot');
@@ -309,14 +309,14 @@ switch ($command) {
         // Manual rollback of the ModSecurity installation in effect.
         $id = (string) ($positional[0] ?? '');
         if ($id === '') {
-            fail('Usage: whacp modsec:rollback <installation id>   (see: whacp modsec:installs)');
+            fail('Usage: nimvor modsec:rollback <installation id>   (see: nimvor modsec:installs)');
         }
         try {
-            $job = $c->get(\WhaCP\Services\ModSecurityService::class)->rollback($id, null);
+            $job = $c->get(\NimVor\Services\ModSecurityService::class)->rollback($id, null);
             $offset = 0;
             do {
                 sleep(1);
-                $res = $c->get(\WhaCP\Services\JobTracker::class)->poll($job, $offset);
+                $res = $c->get(\NimVor\Services\JobTracker::class)->poll($job, $offset);
                 fwrite(STDOUT, (string) ($res['log'] ?? ''));
                 $offset = (int) ($res['offset'] ?? $offset);
             } while (empty($res['done']));
@@ -330,50 +330,50 @@ switch ($command) {
         break;
 
     case 'schedule:run':
-        // Run by whacp-scheduler.timer; one pass at a time.
-        $lock = fopen(sys_get_temp_dir() . '/whacp-schedule.lock', 'c');
+        // Run by nimvor-scheduler.timer; one pass at a time.
+        $lock = fopen(sys_get_temp_dir() . '/nimvor-schedule.lock', 'c');
         if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
             out('Another scheduler pass is running.');
             break;
         }
         // One pass per server; each server's agent is reached through the
         // routing transport selected by the forced server context.
-        $context = $c->get(\WhaCP\Services\ServerContext::class);
-        foreach ($c->get(\WhaCP\Services\ServerService::class)->all() as $srv) {
+        $context = $c->get(\NimVor\Services\ServerContext::class);
+        foreach ($c->get(\NimVor\Services\ServerService::class)->all() as $srv) {
             $context->force((int) $srv['id']);
             if ((int) $srv['id'] !== 1) {
-                $c->get(\WhaCP\Services\ServerService::class)->check((int) $srv['id'], $c->get(AgentClient::class));
+                $c->get(\NimVor\Services\ServerService::class)->check((int) $srv['id'], $c->get(AgentClient::class));
             }
-            foreach ($c->get(\WhaCP\Services\MonitoringService::class)->run() as $line) {
+            foreach ($c->get(\NimVor\Services\MonitoringService::class)->run() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }
-            foreach ($c->get(\WhaCP\Services\BackupScheduler::class)->run() as $line) {
+            foreach ($c->get(\NimVor\Services\BackupScheduler::class)->run() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }
-            foreach ($c->get(\WhaCP\Services\AutoSslService::class)->run() as $line) {
+            foreach ($c->get(\NimVor\Services\AutoSslService::class)->run() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }
-            foreach ($c->get(\WhaCP\Services\AvService::class)->run() as $line) {
+            foreach ($c->get(\NimVor\Services\AvService::class)->run() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }
             try {
-                foreach ($c->get(\WhaCP\Services\ShellService::class)->reconcile() as $line) {
+                foreach ($c->get(\NimVor\Services\ShellService::class)->reconcile() as $line) {
                     out('[' . $srv['name'] . '] ' . $line);
                 }
-            } catch (\WhaCP\Agent\AgentException $e) {
+            } catch (\NimVor\Agent\AgentException $e) {
                 out('[' . $srv['name'] . '] shell access not checked: ' . $e->getMessage());
             }
             // File Manager trash: items older than the retention are deleted,
             // once a day (the first passes after 03:00).
-            $keep = $c->get(\WhaCP\Services\SettingsService::class)->int('trash_retention_days');
+            $keep = $c->get(\NimVor\Services\SettingsService::class)->int('trash_retention_days');
             if ($keep > 0 && (int) date('G') === 3 && (int) date('i') < 10) {
-                foreach ($c->get(\WhaCP\Database\Connection::class)->fetchAll('SELECT domain FROM websites WHERE server_id = ?', [(int) $srv['id']]) as $w) {
+                foreach ($c->get(\NimVor\Database\Connection::class)->fetchAll('SELECT domain FROM websites WHERE server_id = ?', [(int) $srv['id']]) as $w) {
                     try {
                         $n = (int) (((array) $c->get(AgentClient::class)->call('files.trash_empty', ['domain' => $w['domain'], 'older_than_days' => $keep], 300))['deleted'] ?? 0);
                         if ($n > 0) {
                             out('[' . $srv['name'] . '] ' . $w['domain'] . ': ' . $n . ' item(s) older than ' . $keep . ' days deleted from the trash');
                         }
-                    } catch (\WhaCP\Agent\AgentException $e) {
+                    } catch (\NimVor\Agent\AgentException $e) {
                         if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled', 'not_found'], true)) {
                             out('[' . $srv['name'] . '] ' . $w['domain'] . ': trash not emptied: ' . $e->getMessage());
                         }
@@ -381,53 +381,53 @@ switch ($command) {
                 }
             }
             // New WordPress installations: hardened once installed.
-            foreach ($c->get(\WhaCP\Services\WordPressToolsService::class)->autoHarden($c->get(\WhaCP\Services\SettingsService::class)->bool('wordpress_auto_harden')) as $line) {
+            foreach ($c->get(\NimVor\Services\WordPressToolsService::class)->autoHarden($c->get(\NimVor\Services\SettingsService::class)->bool('wordpress_auto_harden')) as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }
             // WordPress vulnerability protection: a daily check.
-            foreach ($c->get(\WhaCP\Services\WordPressToolsService::class)->dailyVulnerabilityCheck() as $line) {
+            foreach ($c->get(\NimVor\Services\WordPressToolsService::class)->dailyVulnerabilityCheck() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }
             // Monthly bandwidth (measured by the monitoring pass above).
-            foreach ($c->get(\WhaCP\Services\BandwidthLimitService::class)->reconcile() as $line) {
+            foreach ($c->get(\NimVor\Services\BandwidthLimitService::class)->reconcile() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }
             // Disk quotas (where turned on) follow the plans and the use.
             try {
-                foreach ($c->get(\WhaCP\Services\DiskQuotaService::class)->reconcile() as $line) {
+                foreach ($c->get(\NimVor\Services\DiskQuotaService::class)->reconcile() as $line) {
                     out('[' . $srv['name'] . '] ' . $line);
                 }
-            } catch (\WhaCP\Agent\AgentException $e) {
+            } catch (\NimVor\Agent\AgentException $e) {
                 if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
                     out('[' . $srv['name'] . '] disk quotas not checked: ' . $e->getMessage());
                 }
             }
             // Resource limits (cgroups) follow the plans.
             try {
-                foreach ($c->get(\WhaCP\Services\ResourceLimitService::class)->reconcile() as $line) {
+                foreach ($c->get(\NimVor\Services\ResourceLimitService::class)->reconcile() as $line) {
                     out('[' . $srv['name'] . '] ' . $line);
                 }
-            } catch (\WhaCP\Agent\AgentException $e) {
+            } catch (\NimVor\Agent\AgentException $e) {
                 if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
                     out('[' . $srv['name'] . '] resource limits not checked: ' . $e->getMessage());
                 }
             }
             // ModSecurity: keep the audit log small.
             try {
-                foreach ($c->get(\WhaCP\Services\ModSecurityService::class)->trim() as $line) {
+                foreach ($c->get(\NimVor\Services\ModSecurityService::class)->trim() as $line) {
                     out('[' . $srv['name'] . '] ' . $line);
                 }
-            } catch (\WhaCP\Agent\AgentException $e) {
+            } catch (\NimVor\Agent\AgentException $e) {
                 if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
                     out('[' . $srv['name'] . '] ModSecurity audit log not checked: ' . $e->getMessage());
                 }
             }
             // FFmpeg: the accounts that may run it follow the plans.
             try {
-                foreach ($c->get(\WhaCP\Services\FfmpegService::class)->reconcile() as $line) {
+                foreach ($c->get(\NimVor\Services\FfmpegService::class)->reconcile() as $line) {
                     out('[' . $srv['name'] . '] ' . $line);
                 }
-            } catch (\WhaCP\Agent\AgentException $e) {
+            } catch (\NimVor\Agent\AgentException $e) {
                 if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
                     out('[' . $srv['name'] . '] FFmpeg access not checked: ' . $e->getMessage());
                 }
@@ -435,10 +435,10 @@ switch ($command) {
             // Brute force protection: failed logins from the services' logs,
             // blocks, and the rules at the server.
             try {
-                foreach ($c->get(\WhaCP\Services\HulkService::class)->run() as $line) {
+                foreach ($c->get(\NimVor\Services\HulkService::class)->run() as $line) {
                     out('[' . $srv['name'] . '] ' . $line);
                 }
-            } catch (\WhaCP\Agent\AgentException $e) {
+            } catch (\NimVor\Agent\AgentException $e) {
                 if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
                     out('[' . $srv['name'] . '] brute force protection not checked: ' . $e->getMessage());
                 }
@@ -447,8 +447,8 @@ switch ($command) {
             // reset the programs' modes. Once an hour.
             if ((int) date('i') < 10) {
                 try {
-                    $c->get(\WhaCP\Services\HardeningService::class)->reapply();
-                } catch (\WhaCP\Agent\AgentException $e) {
+                    $c->get(\NimVor\Services\HardeningService::class)->reapply();
+                } catch (\NimVor\Agent\AgentException $e) {
                     if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
                         out('[' . $srv['name'] . '] hardening not reapplied: ' . $e->getMessage());
                     }
@@ -456,7 +456,7 @@ switch ($command) {
             }
             // A newer NimVor for this server (the top bar's update button).
             if ((int) $srv['id'] === 1) {
-                $updates = $c->get(\WhaCP\Services\UpdateCheckService::class);
+                $updates = $c->get(\NimVor\Services\UpdateCheckService::class);
                 if ($updates->due()) {
                     $u = $updates->check();
                     if (!empty($u['available'])) {
@@ -470,7 +470,7 @@ switch ($command) {
             if ((int) date('G') % 6 === 0 && (int) date('i') < 10) {
                 try {
                     $c->get(AgentClient::class)->call('mail.greylist_update_providers', ['all' => false], 300);
-                } catch (\WhaCP\Agent\AgentException $e) {
+                } catch (\NimVor\Agent\AgentException $e) {
                     if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
                         out('[' . $srv['name'] . '] greylisting providers not updated: ' . $e->getMessage());
                     }
@@ -478,35 +478,35 @@ switch ($command) {
             }
             // Outgoing mail limits: accounts that reached theirs.
             try {
-                foreach ($c->get(\WhaCP\Services\MailRateService::class)->alerts() as $line) {
+                foreach ($c->get(\NimVor\Services\MailRateService::class)->alerts() as $line) {
                     out('[' . $srv['name'] . '] ' . $line);
                 }
-            } catch (\WhaCP\Agent\AgentException $e) {
+            } catch (\NimVor\Agent\AgentException $e) {
                 if (!in_array($e->errorCode(), ['unknown_action', 'write_disabled'], true)) {
                     out('[' . $srv['name'] . '] mail sending limits not checked: ' . $e->getMessage());
                 }
             }
             // Results of background jobs nobody watched (notifications).
             try {
-                $c->get(\WhaCP\Services\BackupService::class)->refresh();
-                $c->get(\WhaCP\Services\DeployService::class)->refreshRunning();
-                foreach ($c->get(\WhaCP\Services\JobTracker::class)->settlePending() as $line) {
+                $c->get(\NimVor\Services\BackupService::class)->refresh();
+                $c->get(\NimVor\Services\DeployService::class)->refreshRunning();
+                foreach ($c->get(\NimVor\Services\JobTracker::class)->settlePending() as $line) {
                     out('[' . $srv['name'] . '] ' . $line);
                 }
-            } catch (\WhaCP\Agent\AgentException $e) {
+            } catch (\NimVor\Agent\AgentException $e) {
                 out('[' . $srv['name'] . '] jobs not checked: ' . $e->getMessage());
             }
         }
         $context->force(null);
-        $pruned = $c->get(\WhaCP\Services\NotificationService::class)->prune();
+        $pruned = $c->get(\NimVor\Services\NotificationService::class)->prune();
         if ($pruned > 0) {
             out("Removed {$pruned} old notification(s).");
         }
-        $removed = $c->get(\WhaCP\Services\RetentionService::class)->prune();
+        $removed = $c->get(\NimVor\Services\RetentionService::class)->prune();
         if (array_sum($removed) > 0) {
             out("Removed old history: {$removed['jobs']} job(s), {$removed['deployments']} deployment(s), {$removed['audit']} audit record(s).");
         }
-        $c->get(\WhaCP\Repositories\SettingRepository::class)->set(\WhaCP\Services\Doctor::SCHEDULER_KEY, gmdate('c'), null);
+        $c->get(\NimVor\Repositories\SettingRepository::class)->set(\NimVor\Services\Doctor::SCHEDULER_KEY, gmdate('c'), null);
         flock($lock, LOCK_UN);
         break;
 

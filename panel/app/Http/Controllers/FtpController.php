@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 /**
  * FTP (pure-ftpd virtual accounts, TLS required by default) and SFTP
@@ -35,9 +35,9 @@ final class FtpController extends SiteController
         private readonly AgentClient $agent,
         private readonly AuditLogger $audit,
         private readonly JobTracker $jobs,
-        private readonly \WhaCP\Services\SiteOverview $overview,
-        private readonly \WhaCP\Services\PlanLimits $limits,
-        private readonly \WhaCP\Services\FtpUsage $ftpUsage,
+        private readonly \NimVor\Services\SiteOverview $overview,
+        private readonly \NimVor\Services\PlanLimits $limits,
+        private readonly \NimVor\Services\FtpUsage $ftpUsage,
     ) {
         parent::__construct($view, $session, $sites, $server);
     }

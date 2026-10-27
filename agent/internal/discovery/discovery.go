@@ -144,7 +144,7 @@ func (s Service) Users() ([]users.User, error) {
 // Firewall returns firewall state.
 func (s Service) Firewall() firewall.Status { return firewall.Detect(s.Root, s.Platform.Paths()) }
 
-// ServiceUnits returns the units WhaCP reports on: core services plus
+// ServiceUnits returns the units NimVor reports on: core services plus
 // every PHP-FPM unit present on the host.
 func (s Service) ServiceUnits() []string {
 	paths := s.Platform.Paths()
@@ -389,10 +389,10 @@ func managedBy(w *Website) string {
 		return "HestiaCP"
 	case strings.Contains(joined, "/usr/local/lsws") || strings.Contains(joined, "cyberpanel"):
 		return "CyberPanel"
-	case strings.Contains(joined, "whacp-webmail"):
-		return "WhaCP (webmail)"
-	case strings.Contains(joined, "whacp-"):
-		return "WhaCP"
+	case strings.Contains(joined, "nimvor-webmail"):
+		return "NimVor (webmail)"
+	case strings.Contains(joined, "nimvor-"):
+		return "NimVor"
 	}
 	return ""
 }

@@ -22,10 +22,10 @@ func TestHostnameReferences(t *testing.T) {
 	}
 	write("etc/hostname", "vc100.oursvrs.com\n")
 	write("etc/hosts", "127.0.0.1 localhost\n194.146.12.157 "+old+" "+old+"\n")
-	write("etc/nginx/sites-available/whacp-hostname.conf", "server {\n  server_name "+old+";\n}\n")
+	write("etc/nginx/sites-available/nimvor-hostname.conf", "server {\n  server_name "+old+";\n}\n")
 	write("etc/postfix/main.cf", "myhostname = "+old+"\nmydestination = localhost\n")
-	write("etc/bind/whacp/db.shop.test", "@ IN MX 10 "+old+".\nmail IN A 194.146.12.157\n")
-	write("etc/whacp-mail/aliases", "postmaster: root\n")
+	write("etc/bind/nimvor/db.shop.test", "@ IN MX 10 "+old+".\nmail IN A 194.146.12.157\n")
+	write("etc/nimvor-mail/aliases", "postmaster: root\n")
 
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)

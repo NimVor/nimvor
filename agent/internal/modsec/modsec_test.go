@@ -62,7 +62,7 @@ func TestRenderSite(t *testing.T) {
 			t.Errorf("%+v accepted", bad)
 		}
 	}
-	if !strings.HasSuffix(SiteInclude(testhost.New(t).Env, "shop.test"), "whacp-modsec/sites/shop.test.con[f];\n") {
+	if !strings.HasSuffix(SiteInclude(testhost.New(t).Env, "shop.test"), "nimvor-modsec/sites/shop.test.con[f];\n") {
 		t.Fatal("include glob")
 	}
 }
@@ -105,8 +105,8 @@ func newFixture(t *testing.T) fixture {
 	w("etc/modsecurity/crs/crs-setup.conf", "SecAction \\\n  \"id:900990,phase:1,pass,t:none,nolog,\\\n  setvar:tx.crs_setup_version=335\"\n")
 	w("etc/modsecurity/crs/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf", "")
 	vhost := "server {\n    listen 80;\n    server_name shop.test;\n    add_header X-Content-Type-Options \"nosniff\" always;\n}\n"
-	w("etc/nginx/sites-available/whacp-shop.test.conf", vhost)
-	w("etc/nginx/sites-available/whacp-blog.test.conf", strings.ReplaceAll(vhost, "shop", "blog"))
+	w("etc/nginx/sites-available/nimvor-shop.test.conf", vhost)
+	w("etc/nginx/sites-available/nimvor-blog.test.conf", strings.ReplaceAll(vhost, "shop", "blog"))
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
 	return fixture{h, r}
@@ -142,12 +142,12 @@ func TestConfigureSitesAndRollback(t *testing.T) {
 	if _, err := f.call(t, "modsec.configure", `{"enabled":true,"crs":{"enabled":true,"paranoia":2,"inbound_threshold":7,"outbound_threshold":4},"custom":{"enabled":true}}`); err != nil {
 		t.Fatal(err)
 	}
-	httpConf := h.Read("etc/nginx/sites-enabled/whacp-00-modsecurity.conf")
-	if !strings.Contains(httpConf, "modsecurity off;") || !strings.Contains(httpConf, "modsecurity_rules_file /etc/nginx/whacp-modsec/main.conf;") {
+	httpConf := h.Read("etc/nginx/sites-enabled/nimvor-00-modsecurity.conf")
+	if !strings.Contains(httpConf, "modsecurity off;") || !strings.Contains(httpConf, "modsecurity_rules_file /etc/nginx/nimvor-modsec/main.conf;") {
 		t.Fatalf("http:\n%s", httpConf)
 	}
-	main := h.Read("etc/nginx/whacp-modsec/main.conf")
-	for _, want := range []string{"SecAuditLog /var/log/nginx/whacp-modsec-audit.json", "SecAuditLogParts ABHZ", "Include /etc/nginx/whacp-modsec/crs.conf"} {
+	main := h.Read("etc/nginx/nimvor-modsec/main.conf")
+	for _, want := range []string{"SecAuditLog /var/log/nginx/nimvor-modsec-audit.json", "SecAuditLogParts ABHZ", "Include /etc/nginx/nimvor-modsec/crs.conf"} {
 		if !strings.Contains(main, want) {
 			t.Errorf("main.conf: %q missing\n%s", want, main)
 		}
@@ -155,22 +155,22 @@ func TestConfigureSitesAndRollback(t *testing.T) {
 	if strings.Contains(main, "custom.conf") {
 		t.Error("custom rules included before any exist")
 	}
-	crs := h.Read("etc/nginx/whacp-modsec/crs.conf")
+	crs := h.Read("etc/nginx/nimvor-modsec/crs.conf")
 	for _, want := range []string{"Include /etc/modsecurity/crs/crs-setup.conf", "tx.paranoia_level=2", "inbound_anomaly_score_threshold=7", "Include /etc/modsecurity/crs/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf", "Include /usr/share/modsecurity-crs/rules/*.conf"} {
 		if !strings.Contains(crs, want) {
 			t.Errorf("crs.conf: %q missing\n%s", want, crs)
 		}
 	}
 	// Existing websites got the include line (once).
-	vh := h.Read("etc/nginx/sites-available/whacp-shop.test.conf")
-	if strings.Count(vh, "include /etc/nginx/whacp-modsec/sites/shop.test.con[f];") != 1 {
+	vh := h.Read("etc/nginx/sites-available/nimvor-shop.test.conf")
+	if strings.Count(vh, "include /etc/nginx/nimvor-modsec/sites/shop.test.con[f];") != 1 {
 		t.Fatalf("vhost:\n%s", vh)
 	}
 
 	if _, err := f.call(t, "modsec.site", `{"domain":"shop.test","mode":"detect","exclude":["custom"],"disabled_rules":[942100]}`); err != nil {
 		t.Fatal(err)
 	}
-	site := h.Read("etc/nginx/whacp-modsec/sites/shop.test.conf")
+	site := h.Read("etc/nginx/nimvor-modsec/sites/shop.test.conf")
 	for _, want := range []string{"modsecurity on;", "SecRuleEngine DetectionOnly", "SecRuleRemoveById 10000-99999", "SecRuleRemoveById 942100"} {
 		if !strings.Contains(site, want) {
 			t.Errorf("site: %q missing\n%s", want, site)
@@ -187,7 +187,7 @@ func TestConfigureSitesAndRollback(t *testing.T) {
 	if _, err := f.call(t, "modsec.custom_set", `{"rules":"SecRule ARGS:probe \"@streq yes\" \"id:10001,phase:2,deny,status:403\"\n"}`); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(h.Read("etc/nginx/whacp-modsec/main.conf"), "Include /etc/nginx/whacp-modsec/custom.conf") {
+	if !strings.Contains(h.Read("etc/nginx/nimvor-modsec/main.conf"), "Include /etc/nginx/nimvor-modsec/custom.conf") {
 		t.Fatal("custom rules not included")
 	}
 	got, _ := f.call(t, "modsec.custom_get", `{}`)
@@ -196,13 +196,13 @@ func TestConfigureSitesAndRollback(t *testing.T) {
 	}
 
 	// nginx -t refusing the change restores everything.
-	before := h.Read("etc/nginx/whacp-modsec/sites/shop.test.conf")
+	before := h.Read("etc/nginx/nimvor-modsec/sites/shop.test.conf")
 	h.Fail["nginx -t"] = "nginx: [emerg] bad"
 	h.FailFrom["nginx -t"] = 2 // the precheck passes, the check after writing fails
 	if _, err := f.call(t, "modsec.site", `{"domain":"shop.test","mode":"on"}`); err == nil || !strings.Contains(err.Error(), "restored") && !strings.Contains(err.Error(), "rejected") {
 		t.Fatalf("nginx -t failure: %v", err)
 	}
-	if h.Read("etc/nginx/whacp-modsec/sites/shop.test.conf") != before || Load(h.Env).Sites["shop.test"].Mode != ModeDetect {
+	if h.Read("etc/nginx/nimvor-modsec/sites/shop.test.conf") != before || Load(h.Env).Sites["shop.test"].Mode != ModeDetect {
 		t.Fatal("not rolled back")
 	}
 	delete(h.Fail, "nginx -t")
@@ -212,14 +212,14 @@ func TestConfigureSitesAndRollback(t *testing.T) {
 	if _, err := f.call(t, "modsec.site", `{"domain":"shop.test","mode":"off"}`); err != nil {
 		t.Fatal(err)
 	}
-	if h.Exists("etc/nginx/whacp-modsec/sites/shop.test.conf") {
+	if h.Exists("etc/nginx/nimvor-modsec/sites/shop.test.conf") {
 		t.Fatal("site file left")
 	}
 	f.call(t, "modsec.site", `{"domain":"blog.test","mode":"on"}`)
 	if _, err := f.call(t, "modsec.configure", `{"enabled":false,"crs":{"enabled":true}}`); err != nil {
 		t.Fatal(err)
 	}
-	if h.Exists("etc/nginx/sites-enabled/whacp-00-modsecurity.conf") || h.Exists("etc/nginx/whacp-modsec/sites/blog.test.conf") {
+	if h.Exists("etc/nginx/sites-enabled/nimvor-00-modsecurity.conf") || h.Exists("etc/nginx/nimvor-modsec/sites/blog.test.conf") {
 		t.Fatal("files left while off")
 	}
 	if Load(h.Env).Sites["blog.test"].Mode != ModeOn {

@@ -80,11 +80,11 @@ func clean(p string) (string, error) {
 		return ".", nil
 	}
 	c := path.Clean(p)
-	// WhaCP's own folders (trash, quarantine, temporary files) and anything
+	// NimVor's own folders (trash, quarantine, temporary files) and anything
 	// inside them are not the file manager's.
 	for _, part := range strings.Split(c, "/") {
-		if strings.HasPrefix(part, ".whacp-") {
-			return "", actions.InvalidParams("path: names starting with .whacp- are reserved")
+		if strings.HasPrefix(part, ".nimvor-") {
+			return "", actions.InvalidParams("path: names starting with .nimvor- are reserved")
 		}
 	}
 	return c, nil
@@ -150,7 +150,7 @@ func (s *Site) List(p string) ([]Entry, error) {
 	}
 	out := make([]Entry, 0, len(items))
 	for _, it := range items {
-		if strings.HasPrefix(it.Name(), ".whacp-") {
+		if strings.HasPrefix(it.Name(), ".nimvor-") {
 			continue
 		}
 		info, err := it.Info()
@@ -251,7 +251,7 @@ func (s *Site) Write(p, content string, expected time.Time) (*ReadResult, error)
 }
 
 func (s *Site) atomicWrite(p string, r io.Reader, mode fs.FileMode) error {
-	tmp := path.Join(path.Dir(p), fmt.Sprintf(".whacp-tmp-%d", time.Now().UnixNano()))
+	tmp := path.Join(path.Dir(p), fmt.Sprintf(".nimvor-tmp-%d", time.Now().UnixNano()))
 	f, err := s.root.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
@@ -556,7 +556,7 @@ func (s *Site) Upload(p string, offset int64, data []byte, final bool) (int64, e
 	if len(data) > maxChunk {
 		return 0, actions.InvalidParams("chunk is too large")
 	}
-	tmp := path.Join(path.Dir(p), ".whacp-upload-"+path.Base(p))
+	tmp := path.Join(path.Dir(p), ".nimvor-upload-"+path.Base(p))
 	flags := os.O_WRONLY | os.O_CREATE
 	if offset == 0 {
 		flags |= os.O_TRUNC

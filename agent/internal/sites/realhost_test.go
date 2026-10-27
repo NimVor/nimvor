@@ -5,7 +5,7 @@
 //
 //	go test -tags realhost ./internal/sites -run RealHost -v
 //
-// It writes real files under /etc/nginx, /etc/php and /home/whacp-test and
+// It writes real files under /etc/nginx, /etc/php and /home/nimvor-test and
 // runs the real nginx -t, php-fpm8.3 -t, useradd and userdel. systemctl is
 // simulated because containers usually lack systemd.
 package sites
@@ -67,7 +67,7 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 	}
 	root := filesystem.Host()
 	cfg := config.Default()
-	cfg.SitesRoot = "/home/whacp-test"
+	cfg.SitesRoot = "/home/nimvor-test"
 	cfg.StateDir = t.TempDir()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	jm, _ := jobs.NewManager(t.TempDir(), 1, time.Minute, log)
@@ -78,12 +78,12 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 	ctx := context.Background()
 
 	specs := []Spec{
-		{Domain: "php.whacp.test", Aliases: []string{"www.php.whacp.test"}, User: "whacptest1", CreateUser: true, Kind: "php", PHPVersion: testhost.PHPVersion(), Enabled: true,
-			Redirects: []Redirect{{From: "/old", To: "https://php.whacp.test/new", Code: 301}}, PHP: PHPSettings{Harden: true}},
-		{Domain: "static.whacp.test", User: "whacptest1", Kind: "static", Enabled: true},
-		{Domain: "proxy.whacp.test", User: "whacptest2", CreateUser: true, Kind: "proxy", ProxyPass: "http://127.0.0.1:3000", Enabled: true},
+		{Domain: "php.nimvor.test", Aliases: []string{"www.php.nimvor.test"}, User: "nimvortest1", CreateUser: true, Kind: "php", PHPVersion: testhost.PHPVersion(), Enabled: true,
+			Redirects: []Redirect{{From: "/old", To: "https://php.nimvor.test/new", Code: 301}}, PHP: PHPSettings{Harden: true}},
+		{Domain: "static.nimvor.test", User: "nimvortest1", Kind: "static", Enabled: true},
+		{Domain: "proxy.nimvor.test", User: "nimvortest2", CreateUser: true, Kind: "proxy", ProxyPass: "http://127.0.0.1:3000", Enabled: true},
 	}
-	const live = "/etc/letsencrypt/live/php.whacp.test"
+	const live = "/etc/letsencrypt/live/php.nimvor.test"
 	t.Cleanup(func() {
 		// Delete the sites before their certificate: once it is gone the
 		// configuration no longer passes nginx -t and deletion is refused.
@@ -93,7 +93,7 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 			}
 		}
 		os.RemoveAll(live)
-		os.RemoveAll("/home/whacp-test")
+		os.RemoveAll("/home/nimvor-test")
 	})
 	for _, s := range specs {
 		if _, err := m.Apply(ctx, s); err != nil {
@@ -112,18 +112,18 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 	}
 	// Invalid configuration is rejected by the real nginx and rolled back.
 	bad := specs[0]
-	bad.HTTPS, bad.CertFile, bad.KeyFile = true, "/etc/letsencrypt/live/php.whacp.test/fullchain.pem", "/etc/letsencrypt/live/php.whacp.test/privkey.pem"
+	bad.HTTPS, bad.CertFile, bad.KeyFile = true, "/etc/letsencrypt/live/php.nimvor.test/fullchain.pem", "/etc/letsencrypt/live/php.nimvor.test/privkey.pem"
 	if _, err := m.Apply(ctx, bad); err == nil {
 		t.Fatal("HTTPS without certificate files must fail")
 	}
-	b, _ := os.ReadFile("/etc/nginx/sites-available/whacp-php.whacp.test.conf")
+	b, _ := os.ReadFile("/etc/nginx/sites-available/nimvor-php.nimvor.test.conf")
 	if strings.Contains(string(b), "ssl_certificate") {
 		t.Fatal("failed change was not rolled back")
 	}
 	// With real certificate files the HTTPS configuration passes nginx -t.
 	os.MkdirAll(live, 0o755)
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "php.whacp.test"}, DNSNames: []string{"php.whacp.test"}, NotBefore: time.Now(), NotAfter: time.Now().Add(24 * time.Hour)}
+	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "php.nimvor.test"}, DNSNames: []string{"php.nimvor.test"}, NotBefore: time.Now(), NotAfter: time.Now().Add(24 * time.Hour)}
 	der, _ := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	kb, _ := x509.MarshalECPrivateKey(key)
 	os.WriteFile(live+"/fullchain.pem", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0o644)
@@ -175,10 +175,10 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 	}
 
 	// TLS settings come from the server-wide snippet.
-	if b, _ := os.ReadFile(m.layout(good).NginxFile); !strings.Contains(string(b), "include /etc/nginx/whacp-tls.conf;") || strings.Contains(string(b), "ssl_protocols") {
+	if b, _ := os.ReadFile(m.layout(good).NginxFile); !strings.Contains(string(b), "include /etc/nginx/nimvor-tls.conf;") || strings.Contains(string(b), "ssl_protocols") {
 		t.Fatalf("vhost does not use the TLS snippet:\n%s", b)
 	}
-	if b, err := os.ReadFile("/etc/nginx/whacp-tls.conf"); err != nil || !strings.Contains(string(b), "ssl_protocols TLSv1.2 TLSv1.3;") {
+	if b, err := os.ReadFile("/etc/nginx/nimvor-tls.conf"); err != nil || !strings.Contains(string(b), "ssl_protocols TLSv1.2 TLSv1.3;") {
 		t.Fatalf("TLS snippet: %v %s", err, b)
 	}
 
@@ -189,8 +189,8 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 
 	// Directory listing: off by default (403), on lists the files; served
 	// by the real nginx.
-	os.MkdirAll("/home/whacp-test/static.whacp.test/public_html/files", 0o755)
-	os.WriteFile("/home/whacp-test/static.whacp.test/public_html/files/report.txt", []byte("x"), 0o644)
+	os.MkdirAll("/home/nimvor-test/static.nimvor.test/public_html/files", 0o755)
+	os.WriteFile("/home/nimvor-test/static.nimvor.test/public_html/files/report.txt", []byte("x"), 0o644)
 	serve := func() {
 		if out, err := r.real.Run(ctx, "nginx", "-t"); err != nil {
 			t.Fatalf("nginx -t: %s", out)
@@ -205,7 +205,7 @@ func TestRealHostSiteLifecycle(t *testing.T) {
 	}
 	get := func() (int, string) {
 		req, _ := http.NewRequest("GET", "http://127.0.0.1/files/", nil)
-		req.Host = "static.whacp.test"
+		req.Host = "static.nimvor.test"
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatalf("GET: %v", err)
@@ -245,7 +245,7 @@ func TestRealHostSymlinksAcrossWebsites(t *testing.T) {
 	}
 	root := filesystem.Host()
 	cfg := config.Default()
-	cfg.SitesRoot = "/home/whacp-test"
+	cfg.SitesRoot = "/home/nimvor-test"
 	cfg.StateDir = t.TempDir()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	jm, _ := jobs.NewManager(t.TempDir(), 1, time.Minute, log)
@@ -254,20 +254,20 @@ func TestRealHostSymlinksAcrossWebsites(t *testing.T) {
 	env.Writer.Policy.Patterns = append(env.Writer.Policy.Patterns, cfg.StateDir+"/**")
 	m := &Manager{Env: env}
 	ctx := context.Background()
-	victim := Spec{Domain: "victim.whacp.test", User: "whacptest3", CreateUser: true, Kind: "static", Enabled: true}
-	attacker := Spec{Domain: "attacker.whacp.test", User: "whacptest4", CreateUser: true, Kind: "static", Enabled: true}
+	victim := Spec{Domain: "victim.nimvor.test", User: "nimvortest3", CreateUser: true, Kind: "static", Enabled: true}
+	attacker := Spec{Domain: "attacker.nimvor.test", User: "nimvortest4", CreateUser: true, Kind: "static", Enabled: true}
 	t.Cleanup(func() {
 		for _, s := range []Spec{victim, attacker} {
 			m.handleDelete(ctx, []byte(`{"domain":"`+s.Domain+`","user":"`+s.User+`","remove_files":true,"remove_user":true}`))
 		}
-		os.RemoveAll("/home/whacp-test")
+		os.RemoveAll("/home/nimvor-test")
 	})
 	for _, s := range []Spec{victim, attacker} {
 		if _, err := m.Apply(ctx, s); err != nil {
 			t.Fatalf("%s: %v", s.Domain, err)
 		}
 	}
-	vroot, aroot := "/home/whacp-test/victim.whacp.test", "/home/whacp-test/attacker.whacp.test"
+	vroot, aroot := "/home/nimvor-test/victim.nimvor.test", "/home/nimvor-test/attacker.nimvor.test"
 	// Group as the website folders give it (setgid, the web server's).
 	own := func(p, user string) {
 		if out, err := exec.Command("chown", "-h", user+":"+env.M.WebUser, p).CombinedOutput(); err != nil {
@@ -275,13 +275,13 @@ func TestRealHostSymlinksAcrossWebsites(t *testing.T) {
 		}
 	}
 	os.WriteFile(vroot+"/public_html/secret.txt", []byte("victim-secret"), 0o640)
-	own(vroot+"/public_html/secret.txt", "whacptest3")
+	own(vroot+"/public_html/secret.txt", "nimvortest3")
 	os.WriteFile(aroot+"/public_html/mine.txt", []byte("attacker-own"), 0o644)
-	own(aroot+"/public_html/mine.txt", "whacptest4")
+	own(aroot+"/public_html/mine.txt", "nimvortest4")
 	os.Symlink(vroot+"/public_html/secret.txt", aroot+"/public_html/steal.txt")
-	own(aroot+"/public_html/steal.txt", "whacptest4")
+	own(aroot+"/public_html/steal.txt", "nimvortest4")
 	os.Symlink("mine.txt", aroot+"/public_html/alias.txt")
-	own(aroot+"/public_html/alias.txt", "whacptest4")
+	own(aroot+"/public_html/alias.txt", "nimvortest4")
 
 	if out, err := r.real.Run(ctx, "nginx", "-t"); err != nil {
 		t.Fatalf("nginx -t: %s", out)
@@ -305,14 +305,14 @@ func TestRealHostSymlinksAcrossWebsites(t *testing.T) {
 		return res.StatusCode, string(b)
 	}
 	// nginx can read the victim's file (so the link would leak it)...
-	if code, body := get("victim.whacp.test", "/secret.txt"); code != 200 || body != "victim-secret" {
+	if code, body := get("victim.nimvor.test", "/secret.txt"); code != 200 || body != "victim-secret" {
 		t.Fatalf("victim's own file: %d %q", code, body)
 	}
 	// ...but not through the attacker's link.
-	if code, body := get("attacker.whacp.test", "/steal.txt"); code == http.StatusOK || strings.Contains(body, "victim-secret") {
+	if code, body := get("attacker.nimvor.test", "/steal.txt"); code == http.StatusOK || strings.Contains(body, "victim-secret") {
 		t.Fatalf("link to another website: %d %q", code, body)
 	}
-	if code, body := get("attacker.whacp.test", "/alias.txt"); code != 200 || body != "attacker-own" {
+	if code, body := get("attacker.nimvor.test", "/alias.txt"); code != 200 || body != "attacker-own" {
 		t.Fatalf("link within the website: %d %q", code, body)
 	}
 }

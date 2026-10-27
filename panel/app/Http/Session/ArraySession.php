@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Session;
+namespace NimVor\Http\Session;
 
 /**
  * In-memory session used by tests and the CLI.

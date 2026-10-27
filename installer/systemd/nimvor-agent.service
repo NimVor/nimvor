@@ -8,8 +8,8 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/whacp-agent -config /etc/whacp/agent.json
-ExecStartPre=/usr/local/bin/whacp-agent -config /etc/whacp/agent.json -check-config
+ExecStart=/usr/local/bin/nimvor-agent -config /etc/nimvor/agent.json
+ExecStartPre=/usr/local/bin/nimvor-agent -config /etc/nimvor/agent.json -check-config
 Restart=on-failure
 RestartSec=3s
 # On stop the agent finishes running jobs (at most 5 minutes) before it
@@ -21,11 +21,11 @@ TimeoutStopSec=6min
 # The agent runs as root so it can read configuration owned by other
 # services, but with a tightly limited capability set.
 User=root
-Group=whacp
+Group=nimvor
 CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_CHOWN
 AmbientCapabilities=
 NoNewPrivileges=yes
-RuntimeDirectory=whacp
+RuntimeDirectory=nimvor
 RuntimeDirectoryMode=0750
 
 # Read-only discovery release: the whole filesystem is read-only for the
@@ -33,7 +33,7 @@ RuntimeDirectoryMode=0750
 # will widen ReadWritePaths explicitly, one path at a time.
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/run/whacp
+ReadWritePaths=/run/nimvor
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectKernelTunables=yes

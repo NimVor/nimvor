@@ -26,11 +26,11 @@ cat > "$WORK/panel.php" <<PHP
 'session'=>['path'=>'$WORK/sessions','secure_cookie'=>false],'agent'=>['socket'=>'$WORK/agent.sock','token_file'=>'$WORK/token'],
 'security'=>['key_file'=>'$WORK/panel.key']];
 PHP
-export WHACP_CONFIG="$WORK/panel.php"
+export NIMVOR_CONFIG="$WORK/panel.php"
 
 echo "Building agent"
-(cd "$ROOT/agent" && go build -o "$WORK/whacp-agent" ./cmd/whacp-agent)
-"$WORK/whacp-agent" -config "$WORK/agent.json" > "$WORK/agent.log" 2>&1 & PIDS+=($!)
+(cd "$ROOT/agent" && go build -o "$WORK/nimvor-agent" ./cmd/nimvor-agent)
+"$WORK/nimvor-agent" -config "$WORK/agent.json" > "$WORK/agent.log" 2>&1 & PIDS+=($!)
 for _ in $(seq 1 50); do [[ -S $WORK/agent.sock ]] && break; sleep 0.1; done
 [[ -S $WORK/agent.sock ]] || fail "agent socket not created"
 pass "agent listening"
@@ -43,10 +43,10 @@ code=$(curl -s -o /dev/null -w '%{http_code}' --unix-socket "$WORK/agent.sock" -
 [[ $code == 404 ]] || fail "unknown action returned $code"
 pass "agent rejects unknown actions"
 
-php "$ROOT/panel/bin/whacp" migrate >/dev/null
-echo "correct-horse-staple-42" | php "$ROOT/panel/bin/whacp" user:create smoke smoke@example.test >/dev/null
-php "$ROOT/panel/bin/whacp" agent:check >/dev/null || fail "panel cannot reach agent"
-doctor=$(php "$ROOT/panel/bin/whacp" doctor) || fail "doctor reports failures: $doctor"
+php "$ROOT/panel/bin/nimvor" migrate >/dev/null
+echo "correct-horse-staple-42" | php "$ROOT/panel/bin/nimvor" user:create smoke smoke@example.test >/dev/null
+php "$ROOT/panel/bin/nimvor" agent:check >/dev/null || fail "panel cannot reach agent"
+doctor=$(php "$ROOT/panel/bin/nimvor" doctor) || fail "doctor reports failures: $doctor"
 grep -q '^\[PASS\] Agent ' <<<"$doctor" || fail "doctor: agent check: $doctor"
 pass "doctor self-checks"
 pass "panel CLI reaches agent"
@@ -89,28 +89,28 @@ cat > "$WORK/agent2.json" <<JSON
 {"socket_path":"$WORK/agent2.sock","socket_group":"","token_file":"$WORK/token2","root_dir":"$FIXTURE","metrics_interval":"1s",
  "listen_tcp":"127.0.0.1:$RPORT","allowed_clients":["127.0.0.1"],"tls_cert":"$WORK/agent2.crt","tls_key":"$WORK/agent2.key"}
 JSON
-PIN=$("$WORK/whacp-agent" -config "$WORK/agent2.json" -pin)
+PIN=$("$WORK/nimvor-agent" -config "$WORK/agent2.json" -pin)
 [[ $PIN == sha256//* ]] || fail "no pin printed: $PIN"
-"$WORK/whacp-agent" -config "$WORK/agent2.json" > "$WORK/agent2.log" 2>&1 & PIDS+=($!)
+"$WORK/nimvor-agent" -config "$WORK/agent2.json" > "$WORK/agent2.log" 2>&1 & PIDS+=($!)
 for _ in $(seq 1 50); do curl -sk -o /dev/null "https://127.0.0.1:$RPORT/v1/health" && break; sleep 0.1; done
 cat > "$WORK/remote.php" <<'PHP'
 <?php
 require $argv[1] . '/panel/vendor/autoload.php';
-$app = WhaCP\Core\Application::fromEnvironment();
+$app = NimVor\Core\Application::fromEnvironment();
 $c = $app->container;
-$c->get(WhaCP\Services\AuditLogger::class)->setActor(null, 'smoke');
-$svc = $c->get(WhaCP\Services\ServerService::class);
+$c->get(NimVor\Services\AuditLogger::class)->setActor(null, 'smoke');
+$svc = $c->get(NimVor\Services\ServerService::class);
 try {
     $svc->add(['name' => 'bad-pin', 'url' => $argv[2], 'pin' => 'sha256//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', 'token' => $argv[4]]);
     fwrite(STDERR, "wrong pin accepted\n");
     exit(1);
-} catch (WhaCP\Agent\AgentException $e) {
+} catch (NimVor\Agent\AgentException $e) {
     if ($e->errorCode() !== 'agent_pin_mismatch') { fwrite(STDERR, 'unexpected: ' . $e->errorCode() . "\n"); exit(1); }
 }
 $id = $svc->add(['name' => 'remote', 'url' => $argv[2], 'pin' => $argv[3], 'token' => $argv[4]]);
-$ctx = $c->get(WhaCP\Services\ServerContext::class);
+$ctx = $c->get(NimVor\Services\ServerContext::class);
 $ctx->force($id);
-$info = $c->get(WhaCP\Agent\AgentClient::class)->call('system.info');
+$info = $c->get(NimVor\Agent\AgentClient::class)->call('system.info');
 $ctx->force(1);
 echo $id, ' ', $info['agent_version'] ?? '?', "\n";
 PHP

@@ -207,7 +207,7 @@ func TestS3MultipartRoundTrip(t *testing.T) {
 
 func siteHost(t *testing.T) (*testhost.Host, Service) {
 	h := testhost.New(t)
-	os.MkdirAll(filepath.Join(h.Base, "home/whacp/example.com/public_html"), 0o755)
+	os.MkdirAll(filepath.Join(h.Base, "home/nimvor/example.com/public_html"), 0o755)
 	return h, Service{Env: h.Env}
 }
 
@@ -222,7 +222,7 @@ func TestSiteBackupEncryptedRemoteRestore(t *testing.T) {
 	}
 	keep := false
 	var log bytes.Buffer
-	m, err := s.CreateSite(context.Background(), SiteRequest{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", Files: true, Databases: []string{"shop"}, Encrypt: true, Remote: remote, KeepLocal: &keep, Meta: json.RawMessage(`{"php":"8.3"}`)}, cred, &log)
+	m, err := s.CreateSite(context.Background(), SiteRequest{Domain: "example.com", User: "example", Root: "/home/nimvor/example.com", Files: true, Databases: []string{"shop"}, Encrypt: true, Remote: remote, KeepLocal: &keep, Meta: json.RawMessage(`{"php":"8.3"}`)}, cred, &log)
 	if err != nil {
 		t.Fatalf("create: %v\n%s", err, log.String())
 	}
@@ -249,7 +249,7 @@ func TestSiteBackupEncryptedRemoteRestore(t *testing.T) {
 	if bytes.Contains(f.objects["srv1/sites/example.com/"+m.ID+"/db-shop.sql.gz.enc"], []byte("dump of")) {
 		t.Fatal("remote copy is not encrypted")
 	}
-	dir := filepath.Join(h.Base, "var/backups/whacp/sites/example.com", m.ID)
+	dir := filepath.Join(h.Base, "var/backups/nimvor/sites/example.com", m.ID)
 	if _, err := os.Stat(filepath.Join(dir, "files.tar.gz.enc")); err == nil {
 		t.Error("local copy should have been removed")
 	}
@@ -260,7 +260,7 @@ func TestSiteBackupEncryptedRemoteRestore(t *testing.T) {
 
 	// Restore both parts; they are downloaded, verified and decrypted.
 	h.Runner.Stdins = nil
-	res, err := s.Restore(context.Background(), RestoreRequest{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", ID: m.ID, Files: true, Databases: map[string]string{"shop": "shop_copy"}, Remote: remote}, cred, &log)
+	res, err := s.Restore(context.Background(), RestoreRequest{Domain: "example.com", User: "example", Root: "/home/nimvor/example.com", ID: m.ID, Files: true, Databases: map[string]string{"shop": "shop_copy"}, Remote: remote}, cred, &log)
 	if err != nil {
 		t.Fatalf("restore: %v\n%s", err, log.String())
 	}
@@ -268,7 +268,7 @@ func TestSiteBackupEncryptedRemoteRestore(t *testing.T) {
 	if !strings.Contains(joined, "TAR-DATA:") || !strings.Contains(joined, "-- dump of shop") {
 		t.Fatalf("restored streams = %q", joined)
 	}
-	if !h.Runner.Called("tar -C " + filepath.Join(h.Base, "home/whacp/example.com") + " --no-same-owner -xf -") {
+	if !h.Runner.Called("tar -C " + filepath.Join(h.Base, "home/nimvor/example.com") + " --no-same-owner -xf -") {
 		t.Errorf("calls: %v", h.Runner.Calls)
 	}
 	if res["databases"].([]string)[0] != "shop_copy" {
@@ -281,7 +281,7 @@ func TestSiteBackupEncryptedRemoteRestore(t *testing.T) {
 	// A damaged remote copy is detected before anything is restored.
 	f.objects["srv1/sites/example.com/"+m.ID+"/db-shop.sql.gz.enc"][20] ^= 1
 	calls := len(h.Runner.Calls)
-	if _, err := s.Restore(context.Background(), RestoreRequest{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", ID: m.ID, Files: true, Databases: map[string]string{"shop": "shop"}, Remote: remote}, cred, &log); err == nil || !strings.Contains(err.Error(), "checksum") {
+	if _, err := s.Restore(context.Background(), RestoreRequest{Domain: "example.com", User: "example", Root: "/home/nimvor/example.com", ID: m.ID, Files: true, Databases: map[string]string{"shop": "shop"}, Remote: remote}, cred, &log); err == nil || !strings.Contains(err.Error(), "checksum") {
 		t.Fatalf("expected checksum failure, got %v", err)
 	}
 	if len(h.Runner.Calls) != calls {
@@ -307,7 +307,7 @@ func TestServerBackupSkipsSpecialFilesAndLinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir := filepath.Join(h.Base, "var/backups/whacp/server", m.ID)
+	dir := filepath.Join(h.Base, "var/backups/nimvor/server", m.ID)
 	info, _ := os.Stat(dir)
 	if info.Mode().Perm() != 0o700 {
 		t.Errorf("backup dir mode = %v", info.Mode())
@@ -377,7 +377,7 @@ func TestChunkOnlyServesManifestFiles(t *testing.T) {
 	if !strings.HasPrefix(string(plain), "TAR-DATA:") {
 		t.Errorf("content = %q", plain)
 	}
-	os.WriteFile(filepath.Join(h.Base, "var/backups/whacp/sites/example.com", m.ID, "db-other.sql.gz"), []byte("x"), 0o600)
+	os.WriteFile(filepath.Join(h.Base, "var/backups/nimvor/sites/example.com", m.ID, "db-other.sql.gz"), []byte("x"), 0o600)
 	if _, _, err := s.Chunk("example.com", m.ID, "db-other.sql.gz", 0); err == nil {
 		t.Error("served a file that is not in the manifest")
 	}

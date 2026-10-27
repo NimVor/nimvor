@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * PHP settings of hosting customers and resellers: the process limits,
@@ -38,7 +38,7 @@ final class PhpForCustomersTest extends HttpTestCase
 
     private function switchTo(string $user): void
     {
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login($user);
     }
@@ -79,7 +79,7 @@ final class PhpForCustomersTest extends HttpTestCase
         $harden = fn (int $id): bool => (bool) json_decode((string) $this->db->scalar('SELECT php_settings FROM websites WHERE id = ?', [$id]), true)['harden'];
         self::assertFalse($harden($sites->create(['domain' => 'off.test', 'kind' => 'php', 'php_version' => '8.3'], $admin)));
 
-        $this->app->container->get(\WhaCP\Services\SettingsService::class)->update(['php_harden_new_sites' => '1'], 1);
+        $this->app->container->get(\NimVor\Services\SettingsService::class)->update(['php_harden_new_sites' => '1'], 1);
         $this->login('admin');
         // The new-website form offers the PHP security profile, defaulting to
         // Recommended (the hardening control is now the profile selector).
@@ -108,7 +108,7 @@ final class PhpForCustomersTest extends HttpTestCase
 
         // Refused, and nothing is changed.
         $calls = $this->calls('sites.apply');
-        foreach ([['open_basedir' => '/'], ['allow_url_include' => 'On'], ['session.save_path' => '/home/whacp/other.test/tmp'], ['error_log' => $root . '/../x'], ['date.timezone' => "UTC\nphp_admin_value[open_basedir]=/"], ['display_errors' => 'maybe']] as $bad) {
+        foreach ([['open_basedir' => '/'], ['allow_url_include' => 'On'], ['session.save_path' => '/home/nimvor/other.test/tmp'], ['error_log' => $root . '/../x'], ['date.timezone' => "UTC\nphp_admin_value[open_basedir]=/"], ['display_errors' => 'maybe']] as $bad) {
             $this->post('/sites/' . $this->siteId . '/settings', $base + ['ini' => $bad]);
         }
         self::assertSame($calls, $this->calls('sites.apply'));
@@ -127,7 +127,7 @@ final class PhpForCustomersTest extends HttpTestCase
         preg_match_all('/^\t"([a-z_.]+)":\s+\{kind/m', (string) file_get_contents(__DIR__ . '/../../../agent/internal/sites/phpini.go'), $m);
         $agent = $m[1];
         sort($agent);
-        $panel = array_keys(\WhaCP\Services\PhpDirectives::ALL);
+        $panel = array_keys(\NimVor\Services\PhpDirectives::ALL);
         sort($panel);
         self::assertNotEmpty($agent);
         self::assertSame($agent, $panel);

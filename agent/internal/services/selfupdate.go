@@ -15,7 +15,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
-// Updating WhaCP from the panel. The installer records where it was run
+// Updating NimVor from the panel. The installer records where it was run
 // from (SourceFile). The panel looks up the newest version itself (the
 // agent has no network access); the agent reports what is installed and
 // runs installer/update.sh in its own transient unit (UpdateUnit), so the
@@ -27,12 +27,12 @@ import (
 // others. Otherwise the panel shows the command to run over SSH instead.
 
 // SourceFile is written by install.sh.
-const SourceFile = "/etc/whacp/source.json"
+const SourceFile = "/etc/nimvor/source.json"
 
 // UpdateUnit runs installer/update.sh; UpdateLog keeps its output.
 const (
-	UpdateUnit = "whacp-update.service"
-	UpdateLog  = "/var/log/whacp-update.log"
+	UpdateUnit = "nimvor-update.service"
+	UpdateLog  = "/var/log/nimvor-update.log"
 )
 
 // Source is what update status reports.
@@ -187,13 +187,13 @@ func registerSelfUpdate(r *actions.Registry, env *host.Env) {
 		}
 		return s, nil
 	}
-	r.Register(actions.Action{Name: "whacp.update_status", Description: "WhaCP's source checkout (commit, branch, remote), whether the panel may update it, and the last update's output.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "nimvor.update_status", Description: "NimVor's source checkout (commit, branch, remote), whether the panel may update it, and the last update's output.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		if err := host.Decode(raw, &struct{}{}); err != nil {
 			return nil, err
 		}
 		return status(ctx)
 	}})
-	r.Register(actions.Action{Name: "whacp.update", Mutating: true, Description: "Update WhaCP: runs installer/update.sh of the root-owned source checkout in its own unit (output in " + UpdateLog + "). The agent and the panel restart during it.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "nimvor.update", Mutating: true, Description: "Update NimVor: runs installer/update.sh of the root-owned source checkout in its own unit (output in " + UpdateLog + "). The agent and the panel restart during it.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		if err := host.Decode(raw, &struct{}{}); err != nil {
 			return nil, err
 		}
@@ -209,7 +209,7 @@ func registerSelfUpdate(r *actions.Registry, env *host.Env) {
 		}
 		env.Runner.Run(ctx, "systemctl", "reset-failed", "--", UpdateUnit)
 		script := filepath.Join(s.Path, "installer/update.sh")
-		out, err := env.Runner.Run(ctx, "systemd-run", "--unit="+UpdateUnit, "--description=WhaCP update",
+		out, err := env.Runner.Run(ctx, "systemd-run", "--unit="+UpdateUnit, "--description=NimVor update",
 			"--property=StandardOutput=truncate:"+UpdateLog, "--property=StandardError=append:"+UpdateLog,
 			"--property=TimeoutStopSec=30min", "--property=KillMode=control-group",
 			"--", "/bin/bash", script)

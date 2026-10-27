@@ -65,7 +65,7 @@ func firewalldStatus(ctx context.Context, env *host.Env) (FirewallStatus, error)
 		}
 		tool = "firewall-offline-cmd"
 	} else {
-		// The permanent configuration is what survives; WhaCP keeps both equal.
+		// The permanent configuration is what survives; NimVor keeps both equal.
 		perm = []string{"--permanent"}
 	}
 	list := func(what string) ([]string, error) {

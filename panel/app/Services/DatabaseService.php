@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Repositories\DatabaseRepository;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Security\Crypto;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Repositories\DatabaseRepository;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Security\Crypto;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * MySQL/MariaDB databases and users.
@@ -260,7 +260,7 @@ final class DatabaseService
     /**
      * Import a .sql or .sql.gz file of the database's website (a path in
      * its folder) as a job. Only an upload the panel itself named
-     * (tmp/whacp-import-….sql) is removed afterwards.
+     * (tmp/nimvor-import-….sql) is removed afterwards.
      *
      * @param array<string, mixed> $database
      * @param array<string, mixed> $site
@@ -272,7 +272,7 @@ final class DatabaseService
         if (!preg_match('/\.sql(\.gz)?$/', $path) || str_contains($path, '..') || strlen($path) > 255) {
             throw new ValidationException(['path' => 'Choose a .sql or .sql.gz file inside the website folder.']);
         }
-        $remove = $uploaded && preg_match('#^tmp/whacp-import-[a-z0-9]{16}\.sql(\.gz)?$#', $path) === 1;
+        $remove = $uploaded && preg_match('#^tmp/nimvor-import-[a-z0-9]{16}\.sql(\.gz)?$#', $path) === 1;
         $res = (array) $this->agent->call('db.import_site', ['name' => $database['name'], 'domain' => $site['domain'], 'path' => $path, 'remove_after' => $remove]);
         $this->audit->record('database.import', 'database', (string) $database['name'], AuditLogger::SUCCESS, ['website' => $site['domain'], 'file' => $path]);
         return (string) $res['job_id'];

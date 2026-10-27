@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\SecurityService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\SecurityService;
+use NimVor\Support\UserFacingException;
+use NimVor\View\View;
 
 final class SecurityController extends Controller
 {
@@ -20,13 +20,13 @@ final class SecurityController extends Controller
         SessionInterface $session,
         private readonly AgentClient $agent,
         private readonly SecurityService $security,
-        private readonly \WhaCP\Database\Connection $db,
-        private readonly \WhaCP\Services\SettingsService $settings,
-        private readonly \WhaCP\Services\AuditLogger $audit,
-        private readonly \WhaCP\Core\Config $config,
-        private readonly \WhaCP\Services\JobTracker $jobs,
-        private readonly \WhaCP\Services\ServerContext $server,
-        private readonly \WhaCP\Services\SecurityDefaultsService $defaults,
+        private readonly \NimVor\Database\Connection $db,
+        private readonly \NimVor\Services\SettingsService $settings,
+        private readonly \NimVor\Services\AuditLogger $audit,
+        private readonly \NimVor\Core\Config $config,
+        private readonly \NimVor\Services\JobTracker $jobs,
+        private readonly \NimVor\Services\ServerContext $server,
+        private readonly \NimVor\Services\SecurityDefaultsService $defaults,
     ) {
         parent::__construct($view, $session);
     }
@@ -82,11 +82,11 @@ final class SecurityController extends Controller
     {
         $out = [];
         $min = $this->settings->int('password_min_strength');
-        $strong = $this->settings->bool('policy_password_strength') && $min >= \WhaCP\Security\PasswordPolicy::STRONG;
+        $strong = $this->settings->bool('policy_password_strength') && $min >= \NimVor\Security\PasswordPolicy::STRONG;
         $out[] = ['id' => 'password_strength', 'title' => 'Password strength requirements', 'severity' => 'medium', 'link' => 'security.password_strength',
             'status' => $strong ? 'pass' : 'warn',
             'detail' => $strong ? sprintf('Password strength requirements are strong (minimum strength %d).', $min) : ($this->settings->bool('policy_password_strength') ? sprintf('The minimum password strength is %d.', $min) : 'Password strength requirements are off.'),
-            'remedy' => $strong ? '' : sprintf('Require a password strength of %d or more under Password Strength Configuration.', \WhaCP\Security\PasswordPolicy::STRONG)];
+            'remedy' => $strong ? '' : sprintf('Require a password strength of %d or more under Password Strength Configuration.', \NimVor\Security\PasswordPolicy::STRONG)];
         $hulk = $this->settings->bool('hulk_enabled');
         $out[] = ['id' => 'hulk', 'title' => 'cPHulk Brute Force Protection', 'severity' => 'high', 'link' => 'security.hulk', 'status' => $hulk ? 'pass' : 'fail',
             'detail' => $hulk ? 'cPHulk Brute Force Protection is enabled.' : 'cPHulk Brute Force Protection is disabled.', 'remedy' => $hulk ? '' : 'Enable it under cPHulk Brute Force Protection (add your own IP address to its whitelist first).'];
@@ -136,7 +136,7 @@ final class SecurityController extends Controller
             'undo' => ['Undo kernel settings', 'Put the earlier kernel settings back?'],
         ],
         'proc_hidepid' => [
-            'apply' => ['Hide other accounts\' processes', 'Mount /proc so that each account sees only its own processes? Root and the group whacp-proc still see all. Monitoring tools running as another account must be added to whacp-proc. Test that SSH logins and service management still work.'],
+            'apply' => ['Hide other accounts\' processes', 'Mount /proc so that each account sees only its own processes? Root and the group nimvor-proc still see all. Monitoring tools running as another account must be added to nimvor-proc. Test that SSH logins and service management still work.'],
             'undo' => ['Show all processes again', 'Let every account see all processes again?'],
         ],
         'auto_updates' => [
@@ -180,7 +180,7 @@ final class SecurityController extends Controller
                 throw new UserFacingException('Unknown fix.');
             }
             $undo = $op === 'undo';
-            $record = fn (array $details = []) => $this->audit->record('security.fix', 'server', $check, \WhaCP\Services\AuditLogger::SUCCESS, ['check' => $check, 'op' => $op] + $details);
+            $record = fn (array $details = []) => $this->audit->record('security.fix', 'server', $check, \NimVor\Services\AuditLogger::SUCCESS, ['check' => $check, 'op' => $op] + $details);
             switch ($check) {
                 case 'kernel_settings':
                     $res = (array) $this->agent->call('security.fix_kernel', ['undo' => $undo], 60);
@@ -219,7 +219,7 @@ final class SecurityController extends Controller
         return $this->act('/security', function (): string {
             $res = (array) $this->agent->call('db.drop_anonymous_users', [], 60);
             $removed = array_map('strval', (array) ($res['removed'] ?? []));
-            $this->audit->record('db.drop_anonymous_users', 'server', 'mysql', \WhaCP\Services\AuditLogger::SUCCESS, ['hosts' => $removed]);
+            $this->audit->record('db.drop_anonymous_users', 'server', 'mysql', \NimVor\Services\AuditLogger::SUCCESS, ['hosts' => $removed]);
             return $removed === [] ? 'There were no anonymous users.' : 'Removed the anonymous MySQL users (' . implode(', ', $removed) . ').';
         });
     }

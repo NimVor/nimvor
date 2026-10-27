@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Middleware;
+namespace NimVor\Http\Middleware;
 
-use WhaCP\Core\Config;
-use WhaCP\Database\Connection;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Route;
-use WhaCP\Security\Authorizer;
-use WhaCP\Services\ApiTokenService;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\ServerContext;
+use NimVor\Core\Config;
+use NimVor\Database\Connection;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Route;
+use NimVor\Security\Authorizer;
+use NimVor\Services\ApiTokenService;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\ServerContext;
 
 /**
  * Authentication for /api/v1: bearer tokens only (no session, no cookies,
  * no CSRF). The token's user must hold the route's permission; read-only
- * tokens may only use GET. X-WhaCP-Server selects the server.
+ * tokens may only use GET. X-NimVor-Server selects the server.
  */
 final class ApiAuthenticate implements Middleware
 {
@@ -48,7 +48,7 @@ final class ApiAuthenticate implements Middleware
         $auth = strcasecmp($scheme, 'Bearer') === 0 ? $this->tokens->authenticate(trim($token), $ip) : null;
         if ($auth === null) {
             $this->audit->record('api.auth_failed', 'route', $request->path(), AuditLogger::DENIED, ['ip' => $ip]);
-            return self::error(401, 'unauthorized', 'A valid API token is required (Authorization: Bearer whacp_…).');
+            return self::error(401, 'unauthorized', 'A valid API token is required (Authorization: Bearer nimvor_…).');
         }
         $user = $auth['user'];
         $this->audit->setActor((int) $user['id'], (string) $user['username'] . ' (api)');
@@ -66,11 +66,11 @@ final class ApiAuthenticate implements Middleware
             $this->audit->record('security.access_denied', 'route', $request->path(), AuditLogger::DENIED, ['permission' => $route->permission, 'via' => 'api']);
             return self::error(403, 'forbidden', 'The token\'s user lacks the permission ' . $route->permission . '.');
         }
-        $serverHeader = $request->header('x-whacp-server');
+        $serverHeader = $request->header('x-nimvor-server');
         if ($serverHeader !== '') {
             $sid = filter_var($serverHeader, FILTER_VALIDATE_INT);
             if ($sid === false || $this->db->scalar('SELECT COUNT(*) FROM servers WHERE id = ?', [$sid]) === 0) {
-                return self::error(404, 'unknown_server', 'X-WhaCP-Server does not name a server.');
+                return self::error(404, 'unknown_server', 'X-NimVor-Server does not name a server.');
             }
             $this->server->force($sid);
         } else {

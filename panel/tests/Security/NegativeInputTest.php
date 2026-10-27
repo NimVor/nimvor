@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Security;
+namespace NimVor\Tests\Security;
 
-use WhaCP\Http\Router;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Http\Router;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * Phase 4 negative tests: a bad object reference, a malformed path parameter
@@ -15,7 +15,7 @@ use WhaCP\Tests\Support\HttpTestCase;
  */
 final class NegativeInputTest extends HttpTestCase
 {
-    /** @return list<\WhaCP\Http\Route> */
+    /** @return list<\NimVor\Http\Route> */
     private function routes(): array
     {
         $router = $this->app->container->get(Router::class);

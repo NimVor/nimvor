@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class SslCenterTest extends HttpTestCase
 {
@@ -23,13 +23,13 @@ final class SslCenterTest extends HttpTestCase
         $cert = ['file' => '/etc/letsencrypt/live/shop.test/fullchain.pem', 'common_name' => 'shop.test', 'dns_names' => ['shop.test'], 'issuer' => 'CN=R11,O=Let\'s Encrypt,C=US', 'not_after' => '2026-12-01T00:00:00Z', 'days_remaining' => 60, 'expired' => false, 'self_signed' => false];
         $this->agent->succeed('ssl.store', [
             'certificates' => [
-                ['source' => 'letsencrypt', 'name' => 'shop.test', 'certificate' => $cert, 'used_by' => ['whacp-shop.test.conf'], 'deletable' => false],
-                ['source' => 'whacp', 'name' => 'old.test', 'certificate' => ['common_name' => 'old.test', 'dns_names' => [], 'days_remaining' => -3, 'expired' => true], 'used_by' => [], 'deletable' => true],
+                ['source' => 'letsencrypt', 'name' => 'shop.test', 'certificate' => $cert, 'used_by' => ['nimvor-shop.test.conf'], 'deletable' => false],
+                ['source' => 'nimvor', 'name' => 'old.test', 'certificate' => ['common_name' => 'old.test', 'dns_names' => [], 'days_remaining' => -3, 'expired' => true], 'used_by' => [], 'deletable' => true],
             ],
             'hosts' => [
-                ['name' => 'shop.test', 'file' => 'whacp-shop.test.conf', 'enabled' => true, 'https' => true, 'redirects_to_https' => true, 'whacp' => true, 'covered' => true, 'certificate' => $cert],
-                ['name' => 'www.shop.test', 'file' => 'whacp-shop.test.conf', 'enabled' => true, 'https' => true, 'redirects_to_https' => true, 'whacp' => true, 'covered' => false, 'certificate' => $cert],
-                ['name' => 'legacy.test', 'file' => 'legacy.conf', 'enabled' => true, 'https' => false, 'whacp' => false, 'covered' => false],
+                ['name' => 'shop.test', 'file' => 'nimvor-shop.test.conf', 'enabled' => true, 'https' => true, 'redirects_to_https' => true, 'nimvor' => true, 'covered' => true, 'certificate' => $cert],
+                ['name' => 'www.shop.test', 'file' => 'nimvor-shop.test.conf', 'enabled' => true, 'https' => true, 'redirects_to_https' => true, 'nimvor' => true, 'covered' => false, 'certificate' => $cert],
+                ['name' => 'legacy.test', 'file' => 'legacy.conf', 'enabled' => true, 'https' => false, 'nimvor' => false, 'covered' => false],
             ],
         ]);
         $this->agent->succeed('ssl.renewal_status', ['certbot_installed' => true, 'timer_active' => true, 'method' => 'certbot.timer']);
@@ -48,7 +48,7 @@ final class SslCenterTest extends HttpTestCase
         self::assertStringContainsString('in use', $certs);
 
         $this->agent->succeed('ssl.custom_delete', ['deleted' => 'old.test']);
-        $this->post('/ssl/certificates/delete', ['source' => 'whacp', 'name' => 'old.test']);
+        $this->post('/ssl/certificates/delete', ['source' => 'nimvor', 'name' => 'old.test']);
         self::assertSame('old.test', $this->lastCall('ssl.custom_delete')['name']);
         $this->post('/ssl/certificates/delete', ['source' => 'other', 'name' => '/etc/ssl/x.pem']);
         self::assertNotEmpty($this->flash('error'));
@@ -72,7 +72,7 @@ final class SslCenterTest extends HttpTestCase
         $dl = $this->request('GET', '/ssl/keys/csr', query: ['id' => $key['id']]);
         self::assertStringContainsString('attachment', (string) $dl->header('Content-Disposition'));
 
-        $this->agent->succeed('ssl.custom', ['cert_file' => '/var/lib/whacp-agent/certs/shop.test/fullchain.pem', 'key_file' => '/var/lib/whacp-agent/certs/shop.test/privkey.pem', 'certificate' => []]);
+        $this->agent->succeed('ssl.custom', ['cert_file' => '/var/lib/nimvor-agent/certs/shop.test/fullchain.pem', 'key_file' => '/var/lib/nimvor-agent/certs/shop.test/privkey.pem', 'certificate' => []]);
         $this->agent->succeed('sites.apply', ['domain' => 'shop.test', 'changed' => [], 'user' => ['name' => 'shop', 'uid' => 1500, 'gid' => 1500]]);
         $this->post('/ssl/keys/install', ['key_id' => $key['id'], 'website_id' => (string) $this->siteId, 'self_signed' => '1']);
         $call = $this->lastCall('ssl.custom');
@@ -89,7 +89,7 @@ final class SslCenterTest extends HttpTestCase
     public function testTlsProfile(): void
     {
         $this->login('admin');
-        $this->agent->succeed('ssl.tls_get', ['profile' => ['protocols' => 'tls12', 'ciphers' => 'default', 'session_tickets' => true], 'snippet' => "ssl_protocols TLSv1.2 TLSv1.3;\n", 'path' => '/etc/nginx/whacp-tls.conf', 'vhosts' => 3, 'legacy_vhosts' => 2]);
+        $this->agent->succeed('ssl.tls_get', ['profile' => ['protocols' => 'tls12', 'ciphers' => 'default', 'session_tickets' => true], 'snippet' => "ssl_protocols TLSv1.2 TLSv1.3;\n", 'path' => '/etc/nginx/nimvor-tls.conf', 'vhosts' => 3, 'legacy_vhosts' => 2]);
         $page = $this->request('GET', '/ssl/tls')->body();
         self::assertStringContainsString('2 file(s)', $page);
         $this->agent->succeed('ssl.tls_set', ['migrated_vhosts' => 2, 'changed' => true]);
@@ -176,7 +176,7 @@ final class SslCenterTest extends HttpTestCase
         self::assertTrue($this->lastCall('sites.apply')['security_headers']);
         $this->post('/sites/' . $this->siteId . '/security-headers', ['security_headers' => '0']);
         self::assertFalse($this->lastCall('sites.apply')['security_headers']);
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('cust');
         $n = $this->calls('sites.apply');
