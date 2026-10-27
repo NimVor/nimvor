@@ -24,6 +24,14 @@
   {{if $nav}}<button class="btn btn-link wcp-sidebar-toggle" type="button" data-wcp-toggle="sidebar" aria-label="Show or hide the menu" aria-controls="wcp-sidebar"><i class="bi bi-list"></i></button>{{end}}
   <div class="wcp-topbar-title"><div class="h5 mb-0">{{with .Title}}{{.}}{{end}}</div></div>
   <div class="wcp-topbar-actions">
+    {{if and $nav $nav.Servers}}
+    <form method="post" action="/servers/switch" class="d-flex" data-wcp-noajax>
+      <input type="hidden" name="_token" value="{{$.CSRF}}">
+      <select class="form-select form-select-sm" name="server_id" data-wcp-autosubmit aria-label="Server">
+        {{range $nav.Servers}}<option value="{{.ID}}"{{if eq .ID $nav.ServerID}} selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+    </form>
+    {{end}}
     {{if and $nav (ge $nav.Unread 0)}}
     <div class="dropdown">
       <a class="btn btn-sm btn-outline-secondary position-relative" href="/notifications" role="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" data-wcp-bell data-wcp-bell-url="/notifications/summary" data-wcp-bell-read="/notifications/read" aria-label="Notifications">

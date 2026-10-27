@@ -110,6 +110,7 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 		wa:        wasvc,
 		mailer:    ml,
 	}
+	s.agent = newAgentRouter(s, s.agent.(*agent.Client))
 	s.routes()
 	s.installNav()
 	s.auth.WithBruteForce(hulkAuth{s})
@@ -1036,6 +1037,7 @@ type ctxKey int
 const (
 	ctxSession ctxKey = iota
 	ctxUser
+	ctxServer
 )
 
 func sessionFrom(ctx context.Context) *session.Session {

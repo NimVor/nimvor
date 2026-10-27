@@ -1969,3 +1969,28 @@ otherwise it lets the change be undone and says which port was closed.
 
 Running the wizard needs the permissions of everything it touches (server, packages, PHP, services,
 security, email, DNS, FTP, plans, backups and settings): in practice an administrator.
+
+## Several servers
+
+Servers → **Connect a server** adds another machine whose agent was installed with
+`install.sh --agent-only --remote-access 0.0.0.0:8443 --allow-from <this server's IP>`. The installer
+prints the **pin** (the SHA-256 of the agent's TLS public key) and the **token**; compare the pin over a
+trusted channel such as your SSH session, then enter the agent's address (`https://203.0.113.10:8443`),
+the pin and the token. WhaCP asks the agent for its health first and stores nothing if it does not answer
+or presents another key.
+
+- The connection is TLS 1.3. The agent's certificate is self-signed, so trust comes only from the pin,
+  which is checked during the handshake: a different key is refused before the token is sent
+  ("certificate mismatch"). If the agent was reinstalled, remove the server and connect it again with the
+  new pin.
+- The token is stored encrypted and is never shown again.
+- The selector at the top (shown when there is more than one server) switches the server all pages work
+  on. Administrators see every server; other users see this server and the ones hosting their (or their
+  customers') websites.
+- **Check** records the state: online, unreachable, timed out, authentication failed, certificate
+  mismatch, refused (the agent's `allowed_clients` does not include this panel) or version mismatch (the
+  agent and the panel are another release: upgrade both together).
+- A server that still has websites in WhaCP cannot be removed; removing one forgets its records in WhaCP
+  and changes nothing on the server itself.
+- The scheduler checks each remote server and runs its passes on every one that answers. The update
+  check, brute force protection and the trash clean-up stay with the local server.

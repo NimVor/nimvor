@@ -143,8 +143,7 @@ All notable changes to WhaCP are documented here. The format follows
   spellings are accepted).
 
 ### Not yet ported (tracked)
-- `/admin/plugins`, connecting remote servers (pinned TLS
-  agent client).
+- `/admin/plugins`.
 
 ### Fixed (Go differential audit, Wave 0)
 - **Two-factor sign-in stopped working ~90 s after the panel started**: the TOTP

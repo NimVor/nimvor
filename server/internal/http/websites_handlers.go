@@ -16,7 +16,12 @@ import (
 // currentServerID resolves the active server for the request. Multi-server
 // switching (session _server_id) is a later concern; for now the local server
 // (id 1) is used, matching ServerContext's default.
-func (s *Server) currentServerID(r *http.Request) int64 { return 1 }
+func (s *Server) currentServerID(r *http.Request) int64 {
+	if r == nil {
+		return 1
+	}
+	return serverIDFrom(r.Context())
+}
 
 // databasesPageData builds the databases-page data shared by GET /databases
 // and GET /sites/{id}/databases (DatabasesController::common + the _manage

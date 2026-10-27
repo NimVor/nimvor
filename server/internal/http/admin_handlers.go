@@ -197,7 +197,7 @@ type serverRow struct {
 	Name, Where, Agent, StatusLabel, StatusClass, Seen string
 	Websites                                           int
 	Remote                                             bool
-	Confirm                                            string
+	Confirm, Pin, LastError                            string
 }
 
 // serversIndex lists the managed servers (staff only). Mirrors
@@ -216,7 +216,7 @@ func (s *Server) serversIndex(w http.ResponseWriter, r *http.Request) {
 	rows := make([]serverRow, 0, len(servers))
 	for _, sv := range servers {
 		row := serverRow{ID: sv.ID, Name: sv.Name, Agent: sv.AgentVersion, Websites: sv.Websites, Remote: sv.Kind == "remote",
-			Confirm: "Remove " + sv.Name + " from WhaCP? Nothing is changed on the server itself."}
+			Pin: sv.Fingerprint, LastError: sv.LastError, Confirm: "Remove " + sv.Name + " from WhaCP? Nothing is changed on the server itself."}
 		if sv.Kind == "local" {
 			row.Where, row.StatusLabel, row.StatusClass = "this machine (Unix socket)", "local", "text-bg-success"
 		} else {

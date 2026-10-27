@@ -46,6 +46,11 @@ type Client struct {
 	tokenFile  string
 	http       *http.Client
 	timeout    time.Duration
+
+	// A remote agent: reached over TLS at base, with a fixed token.
+	base        string
+	staticToken string
+	remote      bool
 }
 
 // New returns a client dialling socketPath and authenticating with the token in
@@ -65,6 +70,9 @@ func New(socketPath, tokenFile string, timeout time.Duration) *Client {
 }
 
 func (c *Client) token() (string, error) {
+	if c.remote {
+		return c.staticToken, nil
+	}
 	b, err := os.ReadFile(c.tokenFile)
 	if err != nil {
 		return "", fmt.Errorf("agent token: %w", err)
@@ -123,7 +131,11 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, timeo
 		r = bytes.NewReader(body)
 	}
 	// The host part is ignored because the transport always dials the socket.
-	req, err := http.NewRequestWithContext(ctx, method, "http://agent"+path, r)
+	base := "http://agent"
+	if c.remote {
+		base = c.base
+	}
+	req, err := http.NewRequestWithContext(ctx, method, base+path, r)
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +145,9 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, timeo
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
+		if c.remote {
+			return nil, remoteFailure(err)
+		}
 		return nil, &Error{Code: "agent_unreachable", Message: "The WhaCP agent could not be reached.", Details: err.Error(), Status: 502}
 	}
 	defer resp.Body.Close()
@@ -147,6 +162,10 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, timeo
 	code, msg, det := "agent_error", "The agent reported an error.", ""
 	if env.Error != nil {
 		code, msg, det = env.Error.Code, env.Error.Message, env.Error.Details
+	}
+	if c.remote && resp.StatusCode == http.StatusForbidden && code == "forbidden" {
+		return nil, &Error{Code: "agent_forbidden", Message: "The remote agent refused this panel.",
+			Details: "The panel's address is not in allowed_clients, or it is locked out after failed logins. Add this server's address to allowed_clients in /etc/whacp/agent.json on the remote server.", Status: 403}
 	}
 	status := resp.StatusCode
 	if status < 400 {

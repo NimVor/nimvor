@@ -26,6 +26,10 @@ type User struct {
 	PasswordChangedAt sql.NullString
 	LastLoginAt       sql.NullString
 	LastLoginIP       sql.NullString
+
+	// ServerID is the server this request works on (set per request, not
+	// stored): the shell's server selector shows it.
+	ServerID int64
 }
 
 // suspended is the correlated sub-query from UserRepository::SUSPENDED: an

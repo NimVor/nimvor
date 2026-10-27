@@ -176,24 +176,52 @@ func (s *Server) autoSslService(r *http.Request, user *identity.User) *hosting.A
 		hosting.NewSiteOverview(s.db, s.agent, s.settings, s.databaseService(r, user)))
 }
 
-// RunScheduler runs one scheduler pass and records when it ran. Output lines
-// are prefixed with the pass; a pass that panics is reported and the rest run.
+// schedulerLocalOnly are the passes that keep their state for the local
+// server only (the update check, brute force protection, the trash).
+var schedulerLocalOnly = map[string]bool{"update check": true, "brute force protection": true, "trash": true}
+
+// RunScheduler runs one scheduler pass for every server and records when it
+// ran. Remote servers are checked first and skipped when their agent does not
+// answer. Output lines are prefixed with the server (when there are several)
+// and the pass; a pass that panics is reported and the rest run.
 func (s *Server) RunScheduler(ctx context.Context) []string {
-	r, err := http.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
-	if err != nil {
-		return []string{"scheduler: " + err.Error()}
+	servers, err := hosting.NewServerRepository(s.db).All(ctx)
+	if err != nil || len(servers) == 0 {
+		servers = []hosting.Server{{ID: 1, Name: "this server", Kind: "local"}}
 	}
 	var out []string
-	for _, p := range schedulerPasses {
-		func() {
-			defer func() {
-				if rec := recover(); rec != nil {
-					s.log.Error("scheduler pass panicked", "pass", p.name, "panic", rec)
-					out = append(out, p.name+": failed unexpectedly (see the panel log)")
+	for _, sv := range servers {
+		sctx := withServer(ctx, sv.ID)
+		prefix := ""
+		if len(servers) > 1 {
+			prefix = "[" + sv.Name + "] "
+		}
+		if sv.Kind == "remote" {
+			if state, note := s.checkServer(sctx, sv.ID); state != "online" && state != "version_mismatch" {
+				out = append(out, prefix+"not reachable: "+note)
+				continue
+			}
+		}
+		r, err := http.NewRequestWithContext(sctx, http.MethodGet, "/", nil)
+		if err != nil {
+			return append(out, "scheduler: "+err.Error())
+		}
+		for _, p := range schedulerPasses {
+			if sv.ID != 1 && schedulerLocalOnly[p.name] {
+				continue
+			}
+			func() {
+				defer func() {
+					if rec := recover(); rec != nil {
+						s.log.Error("scheduler pass panicked", "pass", p.name, "panic", rec)
+						out = append(out, prefix+p.name+": failed unexpectedly (see the panel log)")
+					}
+				}()
+				for _, line := range p.run(sctx, s, r) {
+					out = append(out, prefix+line)
 				}
 			}()
-			out = append(out, p.run(ctx, s, r)...)
-		}()
+		}
 	}
 	// Doctor and the AutoSSL page read when it last ran.
 	_ = s.settings.Set(ctx, hosting.SchedulerRunKey, time.Now().UTC().Format(time.RFC3339), 0)
@@ -217,7 +245,7 @@ func (s *Server) backupScheduleRun(ctx context.Context, r *http.Request) []strin
 // alerts (email to the alert recipients, webhook and notifications).
 func (s *Server) monitoringRun(ctx context.Context) []string {
 	notes := notify.NewRepository(s.db)
-	m := hosting.NewMonitoringService(s.db, 1, s.agent, s.settings, hosting.NewPlanLimits(s.db))
+	m := hosting.NewMonitoringService(s.db, serverIDFrom(ctx), s.agent, s.settings, hosting.NewPlanLimits(s.db))
 	m.Notify = func(ctx context.Context, websiteID, ownerID sql.NullInt64, kind, severity, title, link, key string) {
 		_, _ = notes.StoreOwned(ctx, websiteID, ownerID, kind, severity, title, "", link, key)
 	}

@@ -25,6 +25,10 @@ func (s *Server) sessionCtx(next http.HandlerFunc) http.HandlerFunc {
 		}}
 		ctx := context.WithValue(r.Context(), ctxSession, sess)
 		ctx = context.WithValue(ctx, ctxUser, user)
+		ctx = context.WithValue(ctx, ctxServer, s.activeServer(ctx, sess, user))
+		if user != nil {
+			user.ServerID = serverIDFrom(ctx)
+		}
 		next(fw, r.WithContext(ctx))
 		fw.ensureFlushed()
 	}

@@ -28,6 +28,16 @@ type Nav struct {
 	Quick  []NavItem
 	// Unread is the notification badge; -1 hides the bell.
 	Unread int64
+	// Servers are the servers the user may switch to (only when more than
+	// one); ServerID is the current one.
+	Servers  []NavServer
+	ServerID int64
+}
+
+// NavServer is one choice of the shell's server selector.
+type NavServer struct {
+	ID   int64
+	Name string
 }
 
 // NavProvider builds the navigation for a signed-in user (*identity.User).

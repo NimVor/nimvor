@@ -83,6 +83,12 @@ func (s *Server) buildNav(ctx context.Context, u *identity.User) *web.Nav {
 			nav.Unread = n
 		}
 	}
+	if list := s.visibleServers(ctx, u); len(list) > 1 {
+		nav.ServerID = u.ServerID
+		for _, sv := range list {
+			nav.Servers = append(nav.Servers, web.NavServer{ID: sv.ID, Name: sv.Name})
+		}
+	}
 	return nav
 }
 
