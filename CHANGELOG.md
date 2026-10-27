@@ -6,6 +6,11 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Project name and licence holder: NimVor.** The README introduces the project as "NimVor — A free, open-source
+  server control panel" and the MIT licence names NimVor as the copyright holder. Program, service and path names on
+  the server are unchanged.
+
 ### Added
 - **Recommended security settings are on after the server setup, and switchable from the Security overview.** A new
   setup step turns on (once) weekly malware scans with quarantine, all five fail2ban jails (now including

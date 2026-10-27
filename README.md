@@ -1,8 +1,10 @@
-# WhaCP
+# NimVor
 
-**WhaCP — Open-Source Linux Server & Hosting Control Panel** (WHA Control Panel)
+**NimVor — A free, open-source server control panel**
 
-WhaCP is a free, MIT-licensed control panel for VPS and dedicated servers. It is
+*(formerly WhaCP; the program, service and path names on the server are still `whacp`.)*
+
+NimVor is a free, MIT-licensed control panel for VPS and dedicated servers. It is
 built around one rule: **a control panel has root-level consequences, so every
 privileged operation must be explicit, validated, audited and reversible.**
 
@@ -145,4 +147,4 @@ terminology taken from other control panels.
 
 ## License
 
-[MIT](LICENSE)
+NimVor is free and open source, released under the [MIT license](LICENSE). Copyright (c) 2026 NimVor.
