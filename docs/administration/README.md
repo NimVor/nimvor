@@ -1922,7 +1922,13 @@ Passes in this panel:
   as its installation job has succeeded (setting "Harden new WordPress installations
   automatically"); a failed installation is marked and not retried.
 
-Not part of this panel yet (the PHP scheduler ran it): greylisting ranges.
+- **Greylisting** — in the first ten minutes of every sixth hour the agent is asked to refresh the
+  trusted providers' address ranges (it reads them at most once a day, and only while greylisting is on).
+- **Mail sending limits** — an account that reached its outgoing limit in the last day notifies the
+  administrators and the owner of a website using the account, once per event.
+- **Background jobs** — jobs nobody watched are followed up: the outcome is stored (a job the agent
+  forgot is "unknown", one unfinished after two days is given up on) and its owner notified, always
+  on failure and on success except for quick jobs (cron, compress, extract, malware scan).
 
 Enable the timer on an existing installation with `systemctl enable --now whacp-scheduler.timer`
 (the installer and `upgrade.sh` do it).

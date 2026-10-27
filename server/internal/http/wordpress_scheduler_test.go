@@ -3,8 +3,10 @@ package http
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 )
@@ -119,4 +121,78 @@ func schedulerRequest(t *testing.T) *http.Request {
 		t.Fatal(err)
 	}
 	return r
+}
+
+func TestSchedulerSettlesJobsAndNotifies(t *testing.T) {
+	s, db, sa := rolesEnvServerAgent(t, true)
+	wpSchedSeed(t, s)
+	for _, q := range []string{
+		`INSERT INTO agent_jobs (server_id, job_id, kind, target_type, target_id, user_id, created_at) VALUES
+		 (1, 'aaaaaaaaaaaaaaa1', 'Backup wp.example', 'website', '970', NULL, '2099-01-01T00:00:00Z'),
+		 (1, 'aaaaaaaaaaaaaaa2', 'Cron: nightly', 'website', '970', NULL, '2099-01-01T00:00:00Z'),
+		 (1, 'aaaaaaaaaaaaaaa3', 'Install x', 'server', '1', NULL, '2099-01-01T00:00:00Z'),
+		 (1, 'aaaaaaaaaaaaaaa4', 'Lost', 'server', '1', NULL, '2099-01-01T00:00:00Z'),
+		 (1, 'aaaaaaaaaaaaaaa5', 'Still running', 'server', '1', NULL, '2099-01-01T00:00:00Z')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sa.jobs["aaaaaaaaaaaaaaa1"] = `{"success":true,"data":{"status":"succeeded","error":""}}`
+	sa.jobs["aaaaaaaaaaaaaaa2"] = `{"success":true,"data":{"status":"succeeded","error":""}}`
+	sa.jobs["aaaaaaaaaaaaaaa3"] = `{"success":true,"data":{"status":"failed","error":"disk full"}}`
+	sa.jobs["aaaaaaaaaaaaaaa5"] = `{"success":true,"data":{"status":"running","error":""}}`
+
+	var lines []string
+	for _, p := range schedulerPasses {
+		if p.name == "jobs" {
+			lines = p.run(context.Background(), s, schedulerRequest(t))
+		}
+	}
+	if len(lines) != 3 {
+		t.Fatalf("lines = %q", lines)
+	}
+	rows := map[string]string{}
+	rs, _ := db.Query(`SELECT job_id, status || '/' || COALESCE(settled_at,'-') FROM agent_jobs`)
+	for rs.Next() {
+		var id, v string
+		_ = rs.Scan(&id, &v)
+		rows[id] = v
+	}
+	rs.Close()
+	if !strings.HasPrefix(rows["aaaaaaaaaaaaaaa1"], "succeeded/20") || !strings.HasPrefix(rows["aaaaaaaaaaaaaaa4"], "unknown/20") || !strings.HasSuffix(rows["aaaaaaaaaaaaaaa5"], "/-") {
+		t.Errorf("job rows = %v", rows)
+	}
+	var titles string
+	_ = db.QueryRow(`SELECT group_concat(title, '|') FROM (SELECT title FROM notifications WHERE kind = 'job' ORDER BY title)`).Scan(&titles)
+	// The quick cron job's success is quiet; the failure carries the error.
+	if titles != "Backup wp.example finished|Install x failed" {
+		t.Errorf("notifications = %q", titles)
+	}
+}
+
+func TestSchedulerMailLimitAlerts(t *testing.T) {
+	s, db, sa := rolesEnvServerAgent(t, true)
+	wpSchedSeed(t, s)
+	sa.rateData = `{"config":{"enabled":true,"per_hour":10,"accounts":{}},"accounts":["wpuser"],"service":{"active":true,"postfix":true},
+		"usage":{"hour":1,"accounts":[],"events":[{"uid":1001,"name":"wpuser","time":` + strconv.FormatInt(time.Now().Unix()-60, 10) + `,"limit":10},{"uid":1002,"name":"old","time":1000,"limit":10}]}}`
+	run := func() []string {
+		for _, p := range schedulerPasses {
+			if p.name == "mail limits" {
+				return p.run(context.Background(), s, schedulerRequest(t))
+			}
+		}
+		return nil
+	}
+	if out := run(); len(out) != 1 || out[0] != "Mail sending limit reached: wpuser" {
+		t.Fatalf("lines = %q", out)
+	}
+	if out := run(); len(out) != 0 {
+		t.Errorf("repeat = %q", out)
+	}
+	var n int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM notifications WHERE kind = 'mail.limit'`).Scan(&n)
+	if n != 2 {
+		t.Errorf("notifications = %d, want the administrators' and the owner's", n)
+	}
 }

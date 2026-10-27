@@ -117,6 +117,39 @@ var schedulerPasses = []schedulerPass{
 	{"auto SSL", func(ctx context.Context, s *Server, r *http.Request) []string {
 		return s.autoSslService(r, schedulerUser).Run(ctx)
 	}},
+	{"greylisting", func(ctx context.Context, s *Server, r *http.Request) []string {
+		// Trusted providers' address ranges: asked in the first ten minutes
+		// of every sixth hour; the agent reads them at most once a day and
+		// only while greylisting is on.
+		now := time.Now()
+		if now.Hour()%6 != 0 || now.Minute() >= 10 {
+			return nil
+		}
+		if _, err := s.agent.Call(ctx, "mail.greylist_update_providers", map[string]any{"all": false}, 300*time.Second); err != nil && !quietAgentError(err) {
+			return []string{"greylisting providers not updated: " + agentMessage(err)}
+		}
+		return nil
+	}},
+	{"mail limits", func(ctx context.Context, s *Server, r *http.Request) []string {
+		notes := notify.NewRepository(s.db)
+		lines, err := hosting.RateAlerts(ctx, s.agent, hosting.NewWebsiteRepository(s.db), s.currentServerID(r), time.Now(),
+			func(ctx context.Context, key string, websiteID, ownerID sql.NullInt64, title, body, link string) bool {
+				id, _ := notes.StoreOwned(ctx, websiteID, ownerID, "mail.limit", "warning", title, body, link, key)
+				return id > 0
+			})
+		if err != nil && !quietAgentError(err) {
+			lines = append(lines, "mail sending limits not checked: "+agentMessage(err))
+		}
+		return lines
+	}},
+	{"jobs", func(ctx context.Context, s *Server, r *http.Request) []string {
+		// Results of background jobs nobody watched.
+		notes := notify.NewRepository(s.db)
+		return hosting.NewJobTracker(s.db).SettlePending(ctx, s.agent, s.currentServerID(r), time.Now(),
+			func(ctx context.Context, key string, websiteID, ownerID sql.NullInt64, severity, title, body, link string) {
+				_, _ = notes.StoreOwned(ctx, websiteID, ownerID, "job", severity, title, body, link, key)
+			})
+	}},
 	{"WordPress", func(ctx context.Context, s *Server, r *http.Request) []string {
 		w := s.wordpressScheduler(r)
 		harden, _ := s.settings.Bool(ctx, "wordpress_auto_harden", true)
