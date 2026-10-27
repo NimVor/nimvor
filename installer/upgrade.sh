@@ -74,7 +74,7 @@ done
 
 # The panel's PHP (>= 8.3) as installed, which need not be the system's
 # default "php" (Ubuntu 22.04: PHP 8.3 next to the system's 8.1).
-PHP_BIN=$(grep -oE '^ExecStart=[^ ]+' /etc/systemd/system/nimvor-panel.service 2>/dev/null | head -1 | cut -d= -f2)
+PHP_BIN=$(grep -oE '^ExecStart=[^ ]+' "$UNIT_DIR/nimvor-panel.service" 2>/dev/null | head -1 | cut -d= -f2 || true)
 [[ -n $PHP_BIN && -x $PHP_BIN ]] || PHP_BIN=$(command -v php || echo /usr/bin/php)
 panel_cli() { runuser -u "$PANEL_USER" -- env NIMVOR_CONFIG="$CONF_DIR/panel.php" "$PHP_BIN" "$PREFIX/panel/bin/nimvor" "$@"; }
 db_path() { "$PHP_BIN" -r '$c = require $argv[1]; echo $c["database"]["path"] ?? "/var/lib/nimvor/nimvor.sqlite";' "$CONF_DIR/panel.php"; }
