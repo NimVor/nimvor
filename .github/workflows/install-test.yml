@@ -145,7 +145,8 @@ jobs:
           yes | sudo ./installer/uninstall.sh
           ! systemctl list-unit-files 'whacp-agent.service' --no-legend | grep .
           sudo mkdir -p /root/whacp-premigration
-          sudo mv /etc/whacp /var/lib/whacp /root/whacp-premigration/
+          sudo mv /etc/whacp /root/whacp-premigration/etc-whacp
+          sudo mv /var/lib/whacp /root/whacp-premigration/var-lib-whacp
           systemctl is-active nginx mariadb
       - name: Route A, steps 4-6 (install NimVor)
         run: |
