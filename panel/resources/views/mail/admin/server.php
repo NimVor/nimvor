@@ -23,6 +23,14 @@ $choices = ['smtpd_helo_required' => ['yes', 'no'], 'disable_vrfy_command' => ['
 if (!$configured): $canManage = false; ?>
 <div class="nim-infobar mb-3"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>Email is not set up on this server yet, so these settings cannot be changed. Set it up on the <a href="<?= e($this->url('mail')) ?>">Email</a> page (<strong>Set up and start</strong>): NimVor then writes the Postfix and Dovecot configuration, creates the DKIM service and starts the mail services at boot.</span></div>
 <?php endif; ?>
+<div class="nim-subtabs" role="tablist">
+    <button class="active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#mail-services" aria-controls="mail-services" aria-selected="true"><i class="bi bi-hdd-stack me-1"></i>Services</button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#mail-postfix" aria-controls="mail-postfix" aria-selected="false"><i class="bi bi-send me-1"></i>Postfix</button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#mail-dovecot" aria-controls="mail-dovecot" aria-selected="false"><i class="bi bi-inbox me-1"></i>Dovecot</button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#mail-log" aria-controls="mail-log" aria-selected="false"><i class="bi bi-journal-text me-1"></i>Mail log</button>
+</div>
+<div class="tab-content">
+<div class="tab-pane fade show active" id="mail-services" role="tabpanel">
 <div class="nim-panel mb-3">
     <div class="nim-dtable table-responsive">
         <table class="table align-middle">
@@ -46,24 +54,24 @@ if (!$configured): $canManage = false; ?>
         </table>
     </div>
 </div>
-
-<form method="post" action="<?= e($this->url('mail.admin.settings')) ?>" data-nim-busy>
+</div>
+<form id="mail-settings" method="post" action="<?= e($this->url('mail.admin.settings')) ?>" data-nim-busy>
     <?= $this->csrfField() ?>
-    <div class="row g-3 mb-3">
+</form>
         <?php foreach (['postfix' => 'Postfix (sending and receiving)', 'dovecot' => 'Dovecot (mailboxes and logins)'] as $svc => $title): ?>
-            <div class="col-xl-6">
-                <div class="card h-100">
+            <div class="tab-pane fade" id="mail-<?= e($svc) ?>" role="tabpanel">
+                <div class="card mb-3">
                     <div class="card-header"><?= e($title) ?></div>
                     <div class="card-body">
                         <?php foreach ($ordered((array) $status['labels'][$svc]) as $k => $label): $v = $svc === 'postfix' ? $shown($k, (string) ($status['values'][$svc][$k] ?? '')) : (string) ($status['values'][$svc][$k] ?? ''); ?>
                             <div class="row g-2 align-items-center mb-2">
                                 <label class="col-sm-7 col-form-label col-form-label-sm" for="ms-<?= e($svc . '-' . $k) ?>"><?= e($label) ?> <span class="nim-muted font-monospace small"><?= e($k) ?></span></label>
                                 <div class="col-sm-5">
-                                    <?php if ($svc === 'postfix'): ?><input type="hidden" name="current[<?= e($k) ?>]" value="<?= e($v) ?>"><?php endif; ?>
+                                    <?php if ($svc === 'postfix'): ?><input type="hidden" form="mail-settings" name="current[<?= e($k) ?>]" value="<?= e($v) ?>"><?php endif; ?>
                                     <?php if (isset($choices[$k])): ?>
-                                        <select class="form-select form-select-sm" id="ms-<?= e($svc . '-' . $k) ?>" name="<?= e($svc) ?>[<?= e($k) ?>]"<?= $canManage ? '' : ' disabled' ?>><?php foreach ($choices[$k] as $c): ?><option value="<?= e($c) ?>"<?= $v === $c ? ' selected' : '' ?>><?= e($c === '' ? 'default' : $c) ?></option><?php endforeach; ?></select>
+                                        <select class="form-select form-select-sm" form="mail-settings" id="ms-<?= e($svc . '-' . $k) ?>" name="<?= e($svc) ?>[<?= e($k) ?>]"<?= $canManage ? '' : ' disabled' ?>><?php foreach ($choices[$k] as $c): ?><option value="<?= e($c) ?>"<?= $v === $c ? ' selected' : '' ?>><?= e($c === '' ? 'default' : $c) ?></option><?php endforeach; ?></select>
                                     <?php else: ?>
-                                        <input class="form-control form-control-sm" id="ms-<?= e($svc . '-' . $k) ?>" name="<?= e($svc) ?>[<?= e($k) ?>]" value="<?= e($v) ?>"<?= $svc === 'dovecot' ? ' placeholder="default"' : '' ?><?= $canManage ? '' : ' disabled' ?>>
+                                        <input class="form-control form-control-sm" form="mail-settings" id="ms-<?= e($svc . '-' . $k) ?>" name="<?= e($svc) ?>[<?= e($k) ?>]" value="<?= e($v) ?>"<?= $svc === 'dovecot' ? ' placeholder="default"' : '' ?><?= $canManage ? '' : ' disabled' ?>>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -71,16 +79,16 @@ if (!$configured): $canManage = false; ?>
                         <?php if ($svc === 'postfix'): ?><div class="form-text">Smart host: all outgoing mail is sent through that server (leave empty to deliver directly).</div><?php else: ?><div class="form-text">Empty uses Dovecot's default.</div><?php endif; ?>
                     </div>
                 </div>
+                <?php if ($canManage): ?><button class="btn btn-primary mb-3" form="mail-settings"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Check and apply</button> <span class="small text-body-secondary">Postfix and Dovecot check the settings first; if either refuses them or does not reload, the previous settings come back.</span><?php endif; ?>
             </div>
         <?php endforeach; ?>
-    </div>
-    <?php if ($canManage): ?><button class="btn btn-primary mb-3"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Check and apply</button> <span class="small text-body-secondary">Postfix and Dovecot check the settings first; if either refuses them or does not reload, the previous settings come back.</span><?php endif; ?>
-</form>
-
+<div class="tab-pane fade" id="mail-log" role="tabpanel">
 <div class="card">
     <div class="card-header"><i class="bi bi-journal-text me-1"></i>Latest mail log<?php if (($log['source'] ?? '') !== ''): ?> <span class="small nim-muted fw-normal">(<?= e($log['source']) ?>)</span><?php endif; ?></div>
     <?php $lines = (array) ($log['lines'] ?? []); ?>
     <?php if ($lines === []): ?><div class="card-body small text-body-secondary">No mail log lines.</div><?php else: ?>
         <pre class="nim-pre nim-scroll-400 mb-0 small"><?php foreach ($lines as $l): ?><?= e(str_replace('T', ' ', substr((string) $l['time'], 0, 19)) . ' ' . $l['ident'] . ': ' . $l['message']) . "\n" ?><?php endforeach; ?></pre>
     <?php endif; ?>
+</div>
+</div>
 </div>

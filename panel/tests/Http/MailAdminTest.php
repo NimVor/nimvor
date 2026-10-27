@@ -74,6 +74,14 @@ final class MailAdminTest extends HttpTestCase
         foreach (['3.8.6', 'Stopped', '&lt;b&gt;broken&lt;/b&gt;', 'name="postfix[message_size_limit]"', 'value="50"', 'status=sent &lt;x&gt;', 'value="start"', 'value="/mail/admin/server"'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
+        // Services, Postfix, Dovecot and the log are tabs of one page (no reload);
+        // the settings controls belong to one form wherever their tab is.
+        foreach (['mail-services', 'mail-postfix', 'mail-dovecot', 'mail-log'] as $pane) {
+            self::assertStringContainsString('data-bs-target="#' . $pane . '"', $page, $pane);
+            self::assertStringContainsString('id="' . $pane . '" role="tabpanel"', $page, $pane);
+        }
+        self::assertStringContainsString('<form id="mail-settings"', $page);
+        self::assertMatchesRegularExpression('/<input[^>]*form="mail-settings"[^>]*name="postfix\[message_size_limit\]"/', $page);
         $this->post('/mail/admin/server', [
             'postfix' => ['message_size_limit' => '25', 'maximal_queue_lifetime' => '5', 'relayhost' => ''],
             'current' => ['message_size_limit' => '50', 'maximal_queue_lifetime' => '5', 'relayhost' => ''],

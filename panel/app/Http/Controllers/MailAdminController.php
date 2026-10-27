@@ -141,10 +141,10 @@ final class MailAdminController extends Controller
         try {
             $this->agent->call('mail.settings_set', ['postfix' => (object) $pf, 'dovecot' => (object) $dc], 120);
         } catch (UserFacingException $e) {
-            return $this->redirectWithFailure('/mail/admin/server', $e);
+            return $this->redirectWithFailure('/mail/admin/server#mail-postfix', $e);
         }
         $this->audit->record('mail.settings', 'server', 'mail', AuditLogger::SUCCESS, ['postfix' => $pf, 'dovecot' => $dc]);
-        return $this->redirectWithSuccess('/mail/admin/server', 'Mail server settings applied.');
+        return $this->redirectWithSuccess('/mail/admin/server#mail-postfix', 'Mail server settings applied.');
     }
 
     /** Mail troubleshooter and mailbox permission repair. */

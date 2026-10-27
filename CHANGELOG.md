@@ -7,6 +7,9 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **Resource limits is under Administration** (next to Bandwidth Limits) instead of Server.
+- **Email → Server settings (`/mail/admin/server`) uses tabs** — Services, Postfix, Dovecot and Mail log — that switch
+  in the page without reloading; "Check and apply" saves the Postfix and Dovecot settings together from either tab.
 - **WhaCP is now NimVor, everywhere.** The product, the licence holder (MIT, NimVor) and the repository
   (github.com/NimVor/nimvor; Go module `github.com/NimVor/nimvor/agent`) use the new name, and so does everything on
   the server: the `nimvor` system user and group, `/opt/nimvor`, `/etc/nimvor`, `/var/lib/nimvor`, `/var/log/nimvor`,

@@ -31,6 +31,14 @@ final class NavigationTest extends HttpTestCase
         self::assertStringNotContainsString('nim-sidebar-account', $page);
     }
 
+    public function testResourceLimitsAreUnderAdministration(): void
+    {
+        $groups = \NimVor\View\Navigation::groups();
+        $keys = static fn (string $g): array => array_map(static fn (array $i): string => (string) $i[2], $groups[$g]);
+        self::assertContains('limits', $keys('Administration'));
+        self::assertNotContains('limits', $keys('Server'));
+    }
+
     public function testResellersSeeTheirAccountNotTheServer(): void
     {
         $this->seedUser('admin', 'admin');
