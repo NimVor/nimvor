@@ -13,6 +13,8 @@ All notable changes to WhaCP are documented here. The format follows
   anything. It now installs these tools with the other dependencies.
 
 ### Changed
+- **Slow pages can be traced**: an agent call that takes 2 seconds or more is logged (`slow agent call`, with the
+  action and time) next to the request line that already shows the page's time.
 - **Customers no longer see the server's pool counts** on the PHP page: the version cards count only the
   PHP-FPM pools of their own websites.
 

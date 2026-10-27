@@ -102,8 +102,22 @@ func newAgentRouter(s *Server, local *agent.Client) *agentRouter {
 	return &agentRouter{s: s, local: local, remotes: map[int64]remoteEntry{}}
 }
 
-// Call implements hosting.AgentCaller.
+// slowAgentCall is how long an agent call may take before it is logged: the
+// panel's own pages are slow when the agent is.
+const slowAgentCall = 2 * time.Second
+
+// Call implements hosting.AgentCaller; calls slower than slowAgentCall are
+// logged with their action, so a slow page can be traced to what it waits for.
 func (a *agentRouter) Call(ctx context.Context, action string, params any, timeout ...time.Duration) (json.RawMessage, error) {
+	start := time.Now()
+	raw, err := a.call(ctx, action, params, timeout...)
+	if d := time.Since(start); d >= slowAgentCall && a.s.log != nil {
+		a.s.log.Warn("slow agent call", "action", action, "server", serverIDFrom(ctx), "ms", d.Milliseconds(), "failed", err != nil)
+	}
+	return raw, err
+}
+
+func (a *agentRouter) call(ctx context.Context, action string, params any, timeout ...time.Duration) (json.RawMessage, error) {
 	id := serverIDFrom(ctx)
 	if id == 1 {
 		return a.local.Call(ctx, action, params, timeout...)
