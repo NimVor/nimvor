@@ -88,7 +88,7 @@ final class AppInstallerService
         'drupal' => ['finish' => '/core/install.php', 'docroot' => ''],
         'phpbb' => ['finish' => '/install/', 'docroot' => ''],
         'smf' => ['finish' => '/install.php', 'docroot' => ''],
-        'prestashop' => ['finish' => '/install/', 'docroot' => ''],
+        'prestashop' => ['finish' => '/index.php', 'docroot' => ''],
         'opencart' => ['finish' => '/install/', 'docroot' => 'upload'],
         'abantecart' => ['finish' => '/install/', 'docroot' => 'public_html'],
         'nextcloud' => ['finish' => '/index.php', 'docroot' => ''],

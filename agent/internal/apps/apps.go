@@ -53,7 +53,11 @@ type Sources struct {
 // DefaultSources are the official download locations.
 var DefaultSources = Sources{WordPressURL: "https://wordpress.org/latest.tar.gz", Client: &http.Client{Timeout: 15 * time.Minute}}
 
-const maxDownload = 200 << 20
+const maxDownload = 512 << 20
+
+// userAgent identifies NimVor in a form download servers accept (some refuse
+// a bare product name).
+const userAgent = "Mozilla/5.0 (X11; Linux x86_64) NimVor/1.0 (+https://github.com/NimVor/nimvor)"
 
 // DB holds database credentials for the application.
 type DB struct {
@@ -78,6 +82,11 @@ type AppDef struct {
 	Ext     []string // required PHP extensions
 	Finish  string   // path under the site URL that runs the app's installer
 	NoDB    bool     // the app needs no database (flat-file, e.g. Grav)
+	// GitHub and AssetRe: the download is the release asset of this
+	// "owner/repo" whose name matches AssetRe, found through the latest
+	// release (for projects whose files carry the version in their name).
+	GitHub  string
+	AssetRe string
 	Package string   // Composer package: installed with create-project instead of a download
 	Touch   []string // files created (empty) under the install folder after unpacking, e.g. TYPO3's FIRST_INSTALL
 }
@@ -86,12 +95,12 @@ type AppDef struct {
 // stable" downloads; the per-app Strip/DocRoot/Ext are confirmed on a real
 // host. Verified against a published checksum where the vendor provides one.
 var Catalog = map[string]AppDef{
-	"joomla":     {Name: "Joomla", URL: "https://downloads.joomla.org/cms/joomla5/latest?format=tar.gz", Format: "targz", Strip: 0, Ext: []string{"mysqli", "json", "mbstring", "xml", "zip", "gd"}, Finish: "/installation/"},
+	"joomla":     {Name: "Joomla", GitHub: "joomla/joomla-cms", AssetRe: `Full_Package\.tar\.gz$`, Format: "targz", Strip: 0, Ext: []string{"mysqli", "json", "mbstring", "xml", "zip", "gd"}, Finish: "/installation/"},
 	"drupal":     {Name: "Drupal", URL: "https://www.drupal.org/download-latest/tar.gz", Format: "targz", Strip: 1, Ext: []string{"pdo_mysql", "gd", "xml", "mbstring"}, Finish: "/core/install.php"},
 	"phpbb":      {Name: "phpBB", URL: "https://download.phpbb.com/pub/release/3.3/latest/phpBB-latest.tar.bz2", Format: "tarbz2", Strip: 1, Ext: []string{"mysqli", "json", "gd"}, Finish: "/install/"},
 	"smf":        {Name: "SMF (Simple Machines Forum)", URL: "https://download.simplemachines.org/index.php?thanks;filename=smf_latest_install.tar.gz", Format: "targz", Strip: 0, Ext: []string{"mysqli", "gd"}, Finish: "/install.php"},
-	"prestashop": {Name: "PrestaShop", URL: "https://github.com/PrestaShop/PrestaShop/releases/latest/download/prestashop.zip", Format: "zip", Strip: 0, Ext: []string{"pdo_mysql", "gd", "intl", "zip", "curl"}, Finish: "/install/"},
-	"opencart":   {Name: "OpenCart", URL: "https://github.com/opencart/opencart/releases/latest/download/opencart.zip", Format: "zip", Strip: 0, DocRoot: "upload", Ext: []string{"mysqli", "gd", "curl", "zip"}, Finish: "/install/"},
+	"prestashop": {Name: "PrestaShop", GitHub: "PrestaShop/PrestaShop", AssetRe: `^prestashop_[0-9.]+\.zip$`, Format: "zip", Strip: 0, Ext: []string{"pdo_mysql", "gd", "intl", "zip", "curl"}, Finish: "/index.php"},
+	"opencart":   {Name: "OpenCart", GitHub: "opencart/opencart", AssetRe: `^opencart-[0-9.]+\.zip$`, Format: "zip", Strip: 0, DocRoot: "upload", Ext: []string{"mysqli", "gd", "curl", "zip"}, Finish: "/install/"},
 	"abantecart": {Name: "AbanteCart", URL: "https://github.com/abantecart/abantecart-src/archive/refs/heads/master.tar.gz", Format: "targz", Strip: 1, DocRoot: "public_html", Ext: []string{"mysqli", "gd", "curl", "zip"}, Finish: "/install/"},
 	"nextcloud":  {Name: "Nextcloud", URL: "https://download.nextcloud.com/server/releases/latest.tar.bz2", SumURL: "https://download.nextcloud.com/server/releases/latest.tar.bz2.sha256", SumAlgo: "sha256", Format: "tarbz2", Strip: 1, Ext: []string{"pdo_mysql", "gd", "curl", "zip", "mbstring", "xml"}, Finish: "/index.php"},
 	"matomo":     {Name: "Matomo", URL: "https://builds.matomo.org/matomo.zip", Format: "zip", Strip: 1, Ext: []string{"pdo_mysql", "gd", "curl", "mbstring"}, Finish: "/index.php"},
@@ -120,7 +129,7 @@ var Catalog = map[string]AppDef{
 	// More CMS, business, finance
 	"kirby":          {Name: "Kirby", Package: "getkirby/plainkit", NoDB: true, Ext: []string{"mbstring", "gd", "curl", "ctype", "dom", "json", "libxml"}, Finish: "/panel"},
 	"craft":          {Name: "Craft CMS", Package: "craftcms/craft", DocRoot: "web", Ext: []string{"pdo_mysql", "gd", "intl", "mbstring", "xml", "curl", "zip", "bcmath", "dom"}, Finish: "/admin/install"},
-	"invoiceninja":   {Name: "Invoice Ninja", URL: "https://github.com/invoiceninja/invoiceninja/releases/latest/download/invoiceninja.zip", Format: "zip", Strip: 1, DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "bcmath", "intl", "fileinfo"}, Finish: "/setup"},
+	"invoiceninja":   {Name: "Invoice Ninja", GitHub: "invoiceninja/invoiceninja", AssetRe: `^invoiceninja.*\.zip$`, Format: "zip", Strip: 1, DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "bcmath", "intl", "fileinfo"}, Finish: "/setup"},
 	"facturascripts": {Name: "FacturaScripts", URL: "https://facturascripts.com/DownloadBuild/1/stable", Format: "zip", Strip: 1, Ext: []string{"mysqli", "gd", "mbstring", "xml", "curl", "zip", "openssl"}, Finish: "/"},
 	// Media, marketing
 	"piwigo": {Name: "Piwigo", URL: "https://piwigo.org/download/dlcounter.php?code=latest", Format: "zip", Strip: 1, Ext: []string{"mysqli", "gd", "mbstring", "exif", "json", "zip"}, Finish: "/install.php"},
@@ -296,7 +305,7 @@ func downloadSum(ctx context.Context, env *host.Env, client *http.Client, url, a
 	}
 	defer f.Close()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	req.Header.Set("User-Agent", "NimVor")
+	req.Header.Set("User-Agent", userAgent)
 	res, err := client.Do(req)
 	if err != nil {
 		os.Remove(f.Name())
@@ -507,7 +516,7 @@ func safeSymlink(dest, target, link string, uid, gid int) error {
 
 func fetchText(ctx context.Context, client *http.Client, url string) (string, error) {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	req.Header.Set("User-Agent", "NimVor")
+	req.Header.Set("User-Agent", userAgent)
 	res, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -724,6 +733,51 @@ func composerCreate(ctx context.Context, env *host.Env, r Request, cred *execx.C
 	return nil
 }
 
+// githubAPI is the GitHub API; tests point it at a local server.
+var githubAPI = "https://api.github.com"
+
+// ResolveURL is where def's archive is downloaded from: its URL, or the asset
+// of the latest GitHub release that matches AssetRe.
+func ResolveURL(ctx context.Context, client *http.Client, def AppDef) (string, error) {
+	if def.GitHub == "" {
+		return def.URL, nil
+	}
+	re, err := regexp.Compile(def.AssetRe)
+	if err != nil {
+		return "", err
+	}
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, githubAPI+"/repos/"+def.GitHub+"/releases/latest", nil)
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	res, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("the latest %s release could not be looked up: %v", def.Name, err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("the latest %s release could not be looked up: HTTP %d", def.Name, res.StatusCode)
+	}
+	var rel struct {
+		Assets []struct {
+			Name string `json:"name"`
+			URL  string `json:"browser_download_url"`
+		} `json:"assets"`
+	}
+	if err := json.NewDecoder(io.LimitReader(res.Body, 4<<20)).Decode(&rel); err != nil {
+		return "", fmt.Errorf("the latest %s release could not be read: %v", def.Name, err)
+	}
+	var names []string
+	for _, a := range rel.Assets {
+		if len(names) < 20 {
+			names = append(names, a.Name)
+		}
+		if re.MatchString(a.Name) && strings.HasPrefix(a.URL, "https://github.com/"+def.GitHub+"/releases/download/") {
+			return a.URL, nil
+		}
+	}
+	return "", fmt.Errorf("the latest %s release has no download matching %s (assets: %s)", def.Name, def.AssetRe, strings.Join(names, ", "))
+}
+
 // installStaged downloads def's archive (verified against its checksum when
 // the vendor publishes one), unpacks it into target, and hands off to the
 // application's own web installer. The database has already been created by
@@ -736,6 +790,11 @@ func installStaged(ctx context.Context, env *host.Env, src Sources, r Request, d
 	if src.CatalogBase != "" {
 		// Tests point the whole catalog at a local server.
 		url = src.CatalogBase + "/" + r.App + "." + archiveExt(def.Format)
+	} else if def.GitHub != "" {
+		var err error
+		if url, err = ResolveURL(ctx, src.Client, def); err != nil {
+			return nil, err
+		}
 	}
 	algo := def.SumAlgo
 	if algo == "" {

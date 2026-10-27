@@ -7,6 +7,10 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **App installer downloads fixed** (found by the new CI download check): PrestaShop, OpenCart, Joomla and Invoice
+  Ninja are now fetched from the latest GitHub release asset (their file names carry the version, so a fixed
+  address returned 404/500); the download limit is 512 MB (Nextcloud is larger than the old 200 MB); downloads send
+  a browser-like User-Agent.
 - **Redirects are managed one by one** on a new *Redirects* page (a tile on the website overview and a menu entry):
   a table of the website's redirects, an *Add redirect* window (type permanent 301 or temporary 302, the address,
   where it goes) and *Delete* for each. Loops, duplicates and unsafe values are refused, and a change the agent

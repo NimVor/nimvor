@@ -339,6 +339,12 @@ func TestCatalogEntriesAreWellFormed(t *testing.T) {
 		if d.Name == "" || d.Finish == "" || !strings.HasPrefix(d.Finish, "/") {
 			t.Errorf("%s: name/finish missing or malformed: %+v", slug, d)
 		}
+		if d.URL == "" && d.GitHub == "" && d.Package == "" {
+			t.Errorf("%s: no download, GitHub release or Composer package", slug)
+		}
+		if d.GitHub != "" && d.AssetRe == "" {
+			t.Errorf("%s: GitHub release without an asset pattern", slug)
+		}
 		if d.URL != "" && !strings.HasPrefix(d.URL, "https://") {
 			t.Errorf("%s: download must be https: %s", slug, d.URL)
 		}
@@ -378,5 +384,40 @@ func TestWordPressPluginsAreAllowlisted(t *testing.T) {
 		if !strings.HasPrefix(p.URL, "https://downloads.wordpress.org/plugin/") || !strings.HasPrefix(p.Main, name+"/") {
 			t.Errorf("%s: %+v", name, p)
 		}
+	}
+}
+
+func TestResolveURLFindsTheLatestReleaseAsset(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/acme/app/releases/latest" {
+			http.NotFound(w, r)
+			return
+		}
+		io.WriteString(w, `{"assets":[
+			{"name":"app-1.2.3.tar.gz","browser_download_url":"https://github.com/acme/app/releases/download/v1.2.3/app-1.2.3.tar.gz"},
+			{"name":"app-1.2.3.zip","browser_download_url":"https://github.com/acme/app/releases/download/v1.2.3/app-1.2.3.zip"},
+			{"name":"evil.zip","browser_download_url":"https://evil.example/evil.zip"}]}`)
+	}))
+	t.Cleanup(srv.Close)
+	old := githubAPI
+	githubAPI = srv.URL
+	t.Cleanup(func() { githubAPI = old })
+	def := AppDef{Name: "App", GitHub: "acme/app", AssetRe: `^app-[0-9.]+\.zip$`}
+	got, err := ResolveURL(context.Background(), srv.Client(), def)
+	if err != nil || got != "https://github.com/acme/app/releases/download/v1.2.3/app-1.2.3.zip" {
+		t.Fatalf("%q, %v", got, err)
+	}
+	// A matching asset hosted elsewhere is never used.
+	def.AssetRe = `^evil\.zip$`
+	if _, err := ResolveURL(context.Background(), srv.Client(), def); err == nil || !strings.Contains(err.Error(), "app-1.2.3.zip") {
+		t.Errorf("a foreign host must not be accepted and the assets listed: %v", err)
+	}
+	def.GitHub = "acme/missing"
+	if _, err := ResolveURL(context.Background(), srv.Client(), def); err == nil || !strings.Contains(err.Error(), "HTTP 404") {
+		t.Errorf("%v", err)
+	}
+	// Without GitHub the plain URL is used.
+	if u, err := ResolveURL(context.Background(), srv.Client(), AppDef{URL: "https://example.com/a.zip"}); err != nil || u != "https://example.com/a.zip" {
+		t.Errorf("%q %v", u, err)
 	}
 }

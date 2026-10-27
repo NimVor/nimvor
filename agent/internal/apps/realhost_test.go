@@ -163,7 +163,7 @@ func TestRealHostCatalogDownloads(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Minute}
 	fetch := func(url string) (string, error) {
 		req, _ := http.NewRequest(http.MethodGet, url, nil)
-		req.Header.Set("User-Agent", "NimVor")
+		req.Header.Set("User-Agent", userAgent)
 		res, err := client.Do(req)
 		if err != nil {
 			return "", err
@@ -183,14 +183,19 @@ func TestRealHostCatalogDownloads(t *testing.T) {
 		return f.Name(), nil
 	}
 	for slug, def := range Catalog {
-		if def.URL == "" {
+		if def.URL == "" && def.GitHub == "" {
 			continue
 		}
 		slug, def := slug, def
 		t.Run(slug, func(t *testing.T) {
-			file, err := fetch(def.URL)
+			url, err := ResolveURL(context.Background(), client, def)
 			if err != nil {
-				t.Errorf("%s: download %s: %v", slug, def.URL, err)
+				t.Errorf("%s: %v", slug, err)
+				return
+			}
+			file, err := fetch(url)
+			if err != nil {
+				t.Errorf("%s: download %s: %v", slug, url, err)
 				return
 			}
 			dest := t.TempDir()
