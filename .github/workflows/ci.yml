@@ -242,4 +242,14 @@ jobs:
       - run: tests/integration/smoke.sh
       - run: tests/integration/upgrade.sh
       - name: Upgrade from the previous release (real code and data)
-        run: UPGRADE_FROM="$(git rev-list -1 HEAD -- VERSION)^" tests/integration/upgrade.sh
+        run: |
+          ref="$(git rev-list -1 HEAD -- VERSION)^"
+          # Releases before the rename to NimVor used other program, path and
+          # service names; there is no upgrade path from them (see
+          # docs/migration/WHACP-TO-NIMVOR.md), so this runs once a NimVor
+          # release is the previous one.
+          if git cat-file -e "$ref:agent/cmd/nimvor-agent" 2>/dev/null; then
+            UPGRADE_FROM="$ref" tests/integration/upgrade.sh
+          else
+            echo "the previous release predates the rename to NimVor: no upgrade path to test"
+          fi
