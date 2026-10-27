@@ -54,6 +54,9 @@ const OUT = process.env.E2E_OUT || '/tmp';
     const row = `#nim-sites tr:has-text("beta${stamp}")`;
     await page.click(`${row} summary.nim-op-more`);
     const menu = await page.$(`${row} .nim-dropmenu`);
+    // The page places an opened menu against the window on the toggle event,
+    // which can fire after the click returns.
+    await page.waitForFunction((el) => getComputedStyle(el).position === 'fixed', menu);
     const box = await menu.boundingBox();
     if (!box || box.height < 60) { throw new Error('menu not shown'); }
     const onTop = await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y).closest('.nim-dropmenu'), [box.x + box.width / 2, box.y + box.height - 8]);
