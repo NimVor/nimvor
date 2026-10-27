@@ -119,3 +119,55 @@ None in the panel. Intentional: example plugin SDK (PHP), PHP-FPM/Composer for h
 
 ## I. Decision: **NOT READY**
 Evidence: the committed migration did not build or start; after repair 38+ high-impact defects were found in areas the status document called done, including data-loss-adjacent ones (silent update no-ops) and availability ones (deadlocks); the UI has no navigation shell; 77 tests still fail including 2FA end-to-end; race/vuln scans and the browser suite have not run. Path to READY WITH LIMITATIONS: clear the failing tests (classify each as fixture or bug), port the layout/navigation shell, add request timeouts / pool change, run race + govulncheck + Playwright + a clean-OS install, then re-audit.
+
+---
+
+## J. Re-verification after the remediation waves (HEAD `da434f9` and later)
+
+Method as in the header: build, vet, the full test suite, the real `whacp` and `whacp-agent` binaries on a disposable database and the read-only fixture host, and a crawl as administrator and as customers. No production system, database or secret was touched. Everything below was run, not inferred.
+
+### J.1 Results
+
+| Check | Result |
+|---|---|
+| `gofmt -l`, `go vet ./...` (server) | clean |
+| `go test` of every server package except `internal/http` | all pass |
+| `internal/http` (sharded in four processes) | **0 failures, 0 panics** (was 77 at the audit, 64 at the start of the remediation) |
+| `go test -race` of every package except `internal/http` | all pass |
+| `go test -race ./internal/http` | see J.5 |
+| Live crawl of all 186 `GET` routes as administrator (agent running) | **0 server errors** except `/logs/tail` without a `source`, which answers 502 with the agent's "unknown log source" (a client mistake reported as a gateway error) |
+| Live tenant isolation (two customers, one unowned site, 18 sub-pages each) | **0 foreign pages served**; 27 administrator pages tried as a customer: three answer 200 (`/php`, `/ssl`, `/discovery`), see J.3 |
+| Live headers and sessions | CSP `default-src 'self'; script-src 'self'; style-src 'self'; …; frame-ancestors 'none'; form-action 'self'; base-uri 'none'`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `no-store`; session cookie `HttpOnly; SameSite=Lax` (`Secure` and HSTS only with `WHACP_PRODUCTION=1`); a POST without the CSRF token answers 400; return targets are allow-listed (`//evil`, `https://evil`, `javascript:` all end on the default page) |
+| `govulncheck` | **not run**: the vulnerability database (`vuln.go.dev`) is blocked from this environment |
+
+### J.2 What the remediation changed (against section H)
+
+- **The 77 failing tests are resolved.** Each was classified when it was fixed. Real defects in the product: blacklisting a country while brute force protection was on failed with a database error (`IN (?,?,)`); the import page never showed the messages other actions flashed to it; scanning disk usage of a website the user cannot see answered 404 instead of redirecting; the WordPress debug log said "newest first" but listed the oldest first; the security overview showed no SSH-protection note when fail2ban was installed but stopped; the service control and panel-restart actions passed `60` as the timeout (60 **nanoseconds**) and always failed with "context deadline exceeded" (found by the live crawl; a source-level test now forbids bare numbers as agent timeouts); and test runs wrote vulnerability-cache files into the source tree (an empty database path resolved to `./wpvulns`; the files had been committed). The other failures were wrong fixtures or assertions: addresses without a domain part are not valid emails, job ids are 16 hex digits, installation ids use the agent's format, the sidebar repeats page labels, two assertions counted agent calls made by the page itself, and a few expectations had never matched the PHP behaviour.
+- **PHP-parity gaps closed** (section B "NOT IMPLEMENTED / PARTIAL" and status-document gaps): the scheduler (`whacp schedule:run`, timer every five minutes) with automatic SSL, scheduled backups, monitoring samples and alerts, bandwidth, disk quotas, FFmpeg and shell access following the plans, WordPress vulnerability check and auto-hardening, greylisting provider ranges, mail-limit alerts, unattended-job follow-up with notifications, update check, trash and ModSecurity-log clean-up, scheduled malware scans; brute force protection enforcement (blocks, country marks and database, monthly download); the setup wizard and `setup:apply`; new-website provisioning (DNS, mail, DKIM, AutoSSL); full account termination and restore; the user edit cards; **multiple servers (F-10)**: remote agents over TLS 1.3 pinned to the agent's key, selection per session limited to the servers a user may see, per-server scheduler; and **plugins**, redesigned as separate programs behind the panel (section J.4).
+- **F-09 / F-11 / F-29 / F-31**: not re-examined in this pass except where the crawl touched them (the app shell and navigation render on every page of the crawl; no inline `<script>`/`<style>` was added).
+
+### J.3 Security review (findings of this pass)
+
+Checked: the agent boundary, server selection, SQL construction, redirects, secrets in logs, headers.
+
+1. **Shell execution in the panel (decision needed).** `internal/http/hulk_enforce.go` runs the administrator's "command to run when an address is blocked" with `/bin/sh -c`, as the panel's own account, 15-second limit, minimal environment, every substituted value shell-quoted. This is the PHP feature kept for parity, but it contradicts the rule that the panel never runs commands itself. It only runs if an administrator sets that command. The options are listed in section K.
+2. **Agent boundary.** `os/exec` appears in no other server file. All privileged work goes through named agent actions; remote agents are reached only over the pinned-TLS client, the token is stored encrypted, never shown again, and never logged (checked by `grep` of the log calls and by a test of the Servers page).
+3. **Server selection.** The selected server lives in the sealed session, is re-checked against what the user may see on every request, and there is no header or query parameter that selects a server (spoofing attempts changed nothing). Removing a server resets sessions that selected it.
+4. **SQL.** The only dynamic SQL is built from fixed fragments and `?` placeholders (`IN (?,?)` lists, a fixed column list for plans, a fixed table list for server removal); user input is always a bound parameter. The one construction error found (`IN (?,?,)`) was a correctness bug and is fixed.
+5. **Redirects and CSRF.** Return targets are allow-listed everywhere they exist; plugin redirects must start with a single `/`; every state-changing route checked answered 400 without a token.
+6. **Information shown to customers.** `/php` shows the installed PHP versions with the **server-wide** pool counts (a customer with one pool sees "Pools 3"), `/discovery` and `/ssl` are scoped but show server-wide totals/notes. This is how the PHP panel behaved; it reveals that other tenants exist, not who they are. Low risk, listed for a decision.
+7. **Agent errors as 502.** A malformed `source` to `/logs/tail` is a client error but is reported as a gateway error. Cosmetic.
+8. **Not covered:** `govulncheck` (blocked), dependency review, a clean-OS install of the installer, penetration testing of the agent's own HTTP surface (unchanged since the audit).
+
+### J.4 Decisions taken during the remediation
+
+- Plugins run **out of process** (Unix socket, manifest-declared routes, permission and CSRF enforced by the panel). The PHP plugin format (code inside the panel) is gone; `plugins/example-status` was rewritten in Python and the guide replaced.
+- Remote servers use a pin of the agent's public key instead of a CA, exactly as the PHP transport did.
+
+### J.5 Race detector
+
+The packages other than `internal/http` pass under `-race`. The `internal/http` package takes more than twenty minutes under the detector in one process; its result is recorded below when it finishes.
+
+### J.6 Decision
+
+**READY WITH LIMITATIONS** for a controlled release, no longer "NOT READY": the panel builds, starts, serves every route, isolates tenants, and its whole test suite passes. Limitations: items J.3-1 and J.3-6 need a decision, `govulncheck`/penetration testing/a clean-OS install were not run, the database pool is still a single connection (the systemic risk of section E is mitigated by tests and scanners, not removed), and the browser suite (Playwright) was not rerun.

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
@@ -51,7 +52,7 @@ func (s *Server) servicesControl(w http.ResponseWriter, r *http.Request) {
 	}
 	user := userFrom(r.Context())
 	uid := user.ID
-	if _, err := s.agent.Call(r.Context(), "services.control", map[string]any{"unit": unit, "op": op}, 60); err != nil {
+	if _, err := s.agent.Call(r.Context(), "services.control", map[string]any{"unit": unit, "op": op}, 60*time.Second); err != nil {
 		s.audit.Record(r.Context(), audit.Entry{
 			Action: "service." + op, TargetType: "service", TargetID: unit,
 			Result: audit.Failure, Details: map[string]any{"error": err.Error()},
@@ -94,7 +95,7 @@ func (s *Server) servicesRestartWhacp(w http.ResponseWriter, r *http.Request) {
 	}
 	key := r.PathValue("key")
 	uid := user.ID
-	resRaw, err := s.agent.Call(r.Context(), "whacp.restart", map[string]any{"key": key}, 60)
+	resRaw, err := s.agent.Call(r.Context(), "whacp.restart", map[string]any{"key": key}, 60*time.Second)
 	if err != nil {
 		s.audit.Record(r.Context(), audit.Entry{
 			Action: "whacp.restart", TargetType: "service", TargetID: key,
