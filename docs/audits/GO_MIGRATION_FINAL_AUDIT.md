@@ -134,7 +134,7 @@ Method as in the header: build, vet, the full test suite, the real `whacp` and `
 | `go test` of every server package except `internal/http` | all pass |
 | `internal/http` (sharded in four processes) | **0 failures, 0 panics** (was 77 at the audit, 64 at the start of the remediation) |
 | `go test -race` of every package except `internal/http` | all pass |
-| `go test -race ./internal/http` | see J.5 |
+| `go test -race ./internal/http` (race-built binary, four shards) | **pass, 0 data races** |
 | Live crawl of all 186 `GET` routes as administrator (agent running) | **0 server errors** except `/logs/tail` without a `source`, which answers 502 with the agent's "unknown log source" (a client mistake reported as a gateway error) |
 | Live tenant isolation (two customers, one unowned site, 18 sub-pages each) | **0 foreign pages served**; 27 administrator pages tried as a customer: three answer 200 (`/php`, `/ssl`, `/discovery`), see J.3 |
 | Live headers and sessions | CSP `default-src 'self'; script-src 'self'; style-src 'self'; …; frame-ancestors 'none'; form-action 'self'; base-uri 'none'`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `no-store`; session cookie `HttpOnly; SameSite=Lax` (`Secure` and HSTS only with `WHACP_PRODUCTION=1`); a POST without the CSRF token answers 400; return targets are allow-listed (`//evil`, `https://evil`, `javascript:` all end on the default page) |
@@ -165,8 +165,7 @@ Checked: the agent boundary, server selection, SQL construction, redirects, secr
 - Remote servers use a pin of the agent's public key instead of a CA, exactly as the PHP transport did.
 
 ### J.5 Race detector
-
-The packages other than `internal/http` pass under `-race`. The `internal/http` package takes more than twenty minutes under the detector in one process; its result is recorded below when it finishes.
+Every package passes under `-race` with no data race reported, `internal/http` included (run as a race-built test binary in four parallel shards, because one process takes longer than 25 minutes).
 
 ### J.6 Decision
 
