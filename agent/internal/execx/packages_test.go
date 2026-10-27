@@ -2,6 +2,7 @@ package execx
 
 import (
 	"context"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -117,6 +118,9 @@ func (f writerFunc) Write(p []byte) (int, error) { f(p); return len(p), nil }
 // RunWith itself takes the slot: a second transaction waits for the first.
 func TestRunWithWaitsForTheSlot(t *testing.T) {
 	r := &SystemRunner{paths: map[string]string{"apt-get": "/bin/true"}}
+	if r.transient() && os.Geteuid() != 0 {
+		t.Skip("on a systemd host the transaction runs in a transient unit, which needs root")
+	}
 	release, _ := acquirePackageSlot(context.Background(), nil)
 	done := make(chan error, 1)
 	var log strings.Builder

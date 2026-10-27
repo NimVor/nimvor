@@ -36,7 +36,13 @@ func TestLimitedBuffer(t *testing.T) {
 }
 
 func TestShellOnlyAsUnprivilegedUser(t *testing.T) {
-	r := &SystemRunner{paths: map[string]string{"sh": "/bin/sh", "tar": "/usr/bin/tar", "perl": "/usr/bin/perl", "clamscan": "/usr/bin/clamscan"}}
+	// Any executable file will do: the policy is checked before it is run,
+	// and the host need not have ClamAV, Perl or tar installed.
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &SystemRunner{paths: map[string]string{"sh": exe, "tar": exe, "perl": exe, "clamscan": exe}}
 	for _, id := range []string{"sh", "perl", "tar", "clamscan"} {
 		for _, o := range []Opts{{}, {As: &Credential{UID: 0, GID: 0}}, {As: &Credential{UID: 33, GID: 33}}} {
 			if _, err := r.RunWith(context.Background(), id, o, "--version"); !errors.Is(err, ErrNotAllowed) {

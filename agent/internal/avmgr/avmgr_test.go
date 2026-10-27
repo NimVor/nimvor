@@ -203,6 +203,11 @@ func TestScanRunsAsTheWebsiteAndQuarantinesInside(t *testing.T) {
 }
 
 func TestQuarantineListAndRelease(t *testing.T) {
+	// A quarantined file is mode 0: the agent (root) re-reads it to release
+	// it; an unprivileged test run could not.
+	if os.Geteuid() != 0 {
+		t.Skip("releasing a quarantined (mode 0) file needs root, as the agent has")
+	}
 	h := testhost.New(t)
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
