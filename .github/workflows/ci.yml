@@ -103,6 +103,9 @@ jobs:
             go test -tags realhost -run RealHost -count=1 -p 1 -v ./... 2>&1 | tee realhost.log
           test "${PIPESTATUS[0]}" -eq 0
           ! grep -q -- '--- SKIP' realhost.log || { grep -- '--- SKIP' -A1 realhost.log; exit 1; }
+      - name: Real-host failures (summary)
+        if: failure()
+        run: grep -n -- '--- FAIL\|_test.go:[0-9]*:' agent/realhost.log | cut -c1-300 | head -80 || true
       - name: Installer and post-install end-to-end (Ubuntu)
         run: |
           (cd panel && composer install --no-dev --no-interaction --no-progress --optimize-autoloader)
