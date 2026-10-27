@@ -7,6 +7,11 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **"Scheduler has never run" after installing.** The scheduler timer fired only 2 minutes after boot and then every 5
+  minutes after a previous run, so on a server that was already up it never started until the next reboot. It now also
+  starts one minute after the timer is enabled.
+
+### Fixed
 - **The old host name kept showing in the header and the System tab after a change.** The agent runs in its own host-name
   namespace (`ProtectHostname=yes`), so it kept reporting the name from when it started. It now reads `/etc/hostname`.
 
