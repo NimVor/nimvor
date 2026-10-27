@@ -104,7 +104,7 @@ func newAgentRouter(s *Server, local *agent.Client) *agentRouter {
 
 // slowAgentCall is how long an agent call may take before it is logged: the
 // panel's own pages are slow when the agent is.
-const slowAgentCall = 2 * time.Second
+const slowAgentCall = 300 * time.Millisecond
 
 // Call implements hosting.AgentCaller; calls slower than slowAgentCall are
 // logged with their action, so a slow page can be traced to what it waits for.

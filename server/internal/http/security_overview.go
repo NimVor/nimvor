@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/agent"
@@ -297,34 +298,30 @@ func (s *Server) securityIndex(w http.ResponseWriter, r *http.Request) {
 	var sshProtected string // "on", "off" or "" (unknown)
 	var h map[string]any
 	if agentMsg == "" {
-		if res, err := s.agent.Call(ctx, "ssh.logins", nil, 60*time.Second); err == nil {
-			var l secLogins
-			if json.Unmarshal(res, &l) == nil {
-				logins = &l
-			}
-		}
-		if res, err := s.agent.Call(ctx, "fail2ban.status", nil); err == nil {
-			var f2b struct {
-				Running bool `json:"running"`
-				Jails   []struct {
-					Name string `json:"name"`
-				} `json:"jails"`
-			}
-			if json.Unmarshal(res, &f2b) == nil && len(agentObject(res)) > 0 {
-				jail := false
-				for _, j := range f2b.Jails {
-					jail = j.Name == "sshd" || jail
-				}
-				if f2b.Running && jail {
-					sshProtected = "on"
-				} else {
-					sshProtected = "off"
+		// The three reads are independent: ask the agent for them at once
+		// instead of one after the other.
+		var wg sync.WaitGroup
+		wg.Add(3)
+		go func() {
+			defer wg.Done()
+			if res, err := s.agent.Call(ctx, "ssh.logins", nil, 60*time.Second); err == nil {
+				var l secLogins
+				if json.Unmarshal(res, &l) == nil {
+					logins = &l
 				}
 			}
-		}
-		if res, err := s.agent.Call(ctx, "hardening.status", nil); err == nil {
-			json.Unmarshal(res, &h)
-		}
+		}()
+		go func() {
+			defer wg.Done()
+			if res, err := s.agent.Call(ctx, "hardening.status", nil); err == nil {
+				json.Unmarshal(res, &h)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			s.sshProtection(ctx, &sshProtected)
+		}()
+		wg.Wait()
 	}
 
 	all := s.panelChecks(ctx, h)
@@ -455,4 +452,31 @@ func (s *Server) dropAnonymousUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	sess.Flash("success", msg)
 	http.Redirect(w, r, to, http.StatusSeeOther)
+}
+
+// sshProtection reads fail2ban's state: "on" when it runs with an sshd jail,
+// "off" when it does not, unchanged when the agent cannot say.
+func (s *Server) sshProtection(ctx context.Context, out *string) {
+	res, err := s.agent.Call(ctx, "fail2ban.status", nil)
+	if err != nil {
+		return
+	}
+	var f2b struct {
+		Running bool `json:"running"`
+		Jails   []struct {
+			Name string `json:"name"`
+		} `json:"jails"`
+	}
+	if json.Unmarshal(res, &f2b) != nil || len(agentObject(res)) == 0 {
+		return
+	}
+	jail := false
+	for _, j := range f2b.Jails {
+		jail = j.Name == "sshd" || jail
+	}
+	if f2b.Running && jail {
+		*out = "on"
+	} else {
+		*out = "off"
+	}
 }

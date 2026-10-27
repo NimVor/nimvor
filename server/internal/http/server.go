@@ -6,13 +6,17 @@ package http
 
 import (
 	"context"
+	"crypto/sha1"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/mchkhawarshahzad/whacp/server/internal/clientip"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/agent"
@@ -197,7 +201,7 @@ func (s *Server) routes() {
 		assetFS = http.FS(sub)
 	}
 	fileHandler := http.FileServer(assetFS)
-	s.mux.Handle("GET /assets/", http.StripPrefix("/assets/", fileHandler))
+	s.mux.Handle("GET /assets/", http.StripPrefix("/assets/", cachedAssets(fileHandler)))
 
 	// REST v1 API (ApiController). Registered before web routes so they take
 	// precedence. Permissions mirror panel/routes/web.php API group.
@@ -1085,4 +1089,40 @@ func sessionFrom(ctx context.Context) *session.Session {
 func userFrom(ctx context.Context) *identity.User {
 	u, _ := ctx.Value(ctxUser).(*identity.User)
 	return u
+}
+
+// cachedAssets lets browsers keep the CSS, scripts and fonts: the embedded
+// files carry no modification time, so without these headers every page load
+// downloaded all of them again (slow over a distant link). Each file gets an
+// ETag from its content (answered 304 when unchanged) and may be reused for an
+// hour without asking.
+func cachedAssets(next http.Handler) http.Handler {
+	var mu sync.Mutex
+	tags := map[string]string{}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		mu.Lock()
+		tag, ok := tags[path]
+		mu.Unlock()
+		if !ok {
+			rec := httptest.NewRecorder()
+			next.ServeHTTP(rec, r.Clone(r.Context()))
+			if rec.Code == http.StatusOK {
+				sum := sha1.Sum(rec.Body.Bytes())
+				tag = `"` + hex.EncodeToString(sum[:8]) + `"`
+				mu.Lock()
+				tags[path] = tag
+				mu.Unlock()
+			}
+		}
+		if tag != "" {
+			w.Header().Set("ETag", tag)
+			w.Header().Set("Cache-Control", "public, max-age=3600")
+			if r.Header.Get("If-None-Match") == tag {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }

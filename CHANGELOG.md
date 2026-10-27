@@ -16,6 +16,9 @@ All notable changes to WhaCP are documented here. The format follows
   anything. It now installs these tools with the other dependencies.
 
 ### Changed
+- **Faster page loads**: CSS, scripts and fonts are now cached by the browser (ETag, one hour) instead of being
+  downloaded again on every page; the Security overview asks the agent for its three extra reads at the same time.
+  Agent calls slower than 0.3 s are logged (`slow agent call`).
 - **Slow pages can be traced**: an agent call that takes 2 seconds or more is logged (`slow agent call`, with the
   action and time) next to the request line that already shows the page's time.
 - **Customers no longer see the server's pool counts** on the PHP page: the version cards count only the
