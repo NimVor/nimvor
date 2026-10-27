@@ -359,11 +359,18 @@ if [[ ($need_build_agent -eq 1 || $need_build_panel -eq 1) && -z $GO ]]; then
                 f="go${GO_FETCH}.linux-${arch}.tar.gz"
                 tmp=$(mktemp -d)
                 curl -fsSL --proto '=https' --tlsv1.2 --retry 3 -o "$tmp/$f" "https://go.dev/dl/$f" || die "could not download Go ($f)"
-                want=$(curl -fsSL --proto '=https' --tlsv1.2 --retry 3 "https://go.dev/dl/$f.sha256" 2>/dev/null \
-                    || curl -fsSL --proto '=https' --tlsv1.2 --retry 3 "https://dl.google.com/go/$f.sha256" 2>/dev/null \
-                    || curl -fsSL --proto '=https' --tlsv1.2 --retry 3 "https://go.dev/dl/?mode=json&include=all" 2>/dev/null \
-                        | awk -v f="$f" '$0 ~ "\"filename\": \""f"\"" {hit=1} hit && /"sha256"/ {gsub(/[^0-9a-f]/, "", $2); print $2; exit}' || true)
-                want=${want%%[[:space:]]*}
+                want=""
+                for u in "https://go.dev/dl/$f.sha256" "https://dl.google.com/go/$f.sha256"; do
+                    want=$(curl -fsSL --proto '=https' --tlsv1.2 --retry 2 "$u" 2>/dev/null || true); want=${want%%[[:space:]]*}
+                    [[ $want =~ ^[0-9a-f]{64}$ ]] && break
+                    warn "no SHA-256 at $u"; want=""
+                done
+                if [[ -z $want ]]; then
+                    # The release list (JSON) carries every file's checksum.
+                    want=$(curl -fsSL --proto '=https' --tlsv1.2 --retry 2 "https://go.dev/dl/?mode=json&include=all" 2>/dev/null \
+                        | tr -d ' \n' | grep -o "\"filename\":\"$f\"[^}]*" | grep -o '"sha256":"[0-9a-f]\{64\}"' | head -1 | cut -d'"' -f4 || true)
+                    [[ -n $want ]] || warn "no SHA-256 for $f in https://go.dev/dl/?mode=json"
+                fi
                 [[ $want =~ ^[0-9a-f]{64}$ ]] || die "could not fetch the SHA-256 of $f to verify it"
                 [[ $(sha256sum "$tmp/$f" | cut -d' ' -f1) == "$want" ]] || die "the downloaded Go archive does not match its SHA-256"
                 rm -rf "$GO_DIR.new" && mkdir -p "$GO_DIR.new" && tar -C "$GO_DIR.new" -xzf "$tmp/$f"
