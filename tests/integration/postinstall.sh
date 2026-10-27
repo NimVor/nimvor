@@ -56,6 +56,9 @@ CSRF_FROM=/login
 loc=$(post /login username=admin "password=$PASS")
 [[ $loc == */ ]] || fail "sign-in (redirected to '$loc')"
 unset CSRF_FROM
+# An administrator's first visit opens the setup wizard (and marks it seen);
+# after that the dashboard answers directly.
+[[ $(get /setup) == 200 ]] || fail "setup wizard on the first visit"
 [[ $(get /) == 200 ]] || fail "dashboard after sign-in"
 pass "signed in as the administrator"
 
