@@ -281,12 +281,55 @@ Administrators see the same cards through the cards/list switch on
 Opening a website shows its details (site user, root directory, IPv4,
 PHP handler and version, site and database size, SSL, last backup) and
 **Site managing**: tiles for FTP accounts, Files, Databases, Domains (DNS),
-SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Settings,
+SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Headers & cache, Settings,
 PHP settings, Applications, Git, Workers, Redis, Logs, Statistics,
 Subdomains, Addon domains and Manual settings (Advanced), plus
 **Search…** (press `/`). *Delete the website* leads to the typed
 confirmation under Advanced; *Disable the website* asks first.
 Administrators also have the website's menu in the sidebar.
+
+### Security headers and cache rules (per website)
+
+**Headers & cache** (website → *Headers & cache*, permission
+`websites.manage`; the owner of a website or an administrator) lets the owner
+choose, per website, which security headers browsers receive and how they may
+cache the website. It is the only place customers influence Nginx
+configuration, and they never write directives: every setting is a choice from
+a fixed list or a value checked against a strict grammar, rendered by NimVor's
+own template. The agent checks the same rules again, runs `nginx -t` and keeps
+the previous working file if anything fails; the panel keeps the previous
+choices too.
+
+Security headers: framing protection (`X-Frame-Options` together with CSP
+`frame-ancestors`: off, same origin, deny, or a list of https:// sites),
+Content Security Policy (validated directive and source grammar, optional
+report-only mode, no `frame-ancestors`, which the framing option owns),
+Referrer-Policy presets, Permissions-Policy presets or validated custom
+directives, and HSTS (lifetime, include subdomains, preload). HSTS is
+available only for a website with a certificate and plain HTTP redirected to
+HTTPS, and is dropped from the configuration if that stops being true.
+`X-Content-Type-Options: nosniff` is always sent by the server and is not a
+setting. Saving a headers policy replaces the older "recommended security
+headers" switch and HSTS flag of the SSL page, so no header is sent twice.
+
+Cache rules: a browser-cache lifetime for static assets (`expires`, 1 minute
+to 1 year), a policy for application-generated pages (leave to the
+application — the default —, always revalidate, never store, or a short public
+cache of 30 seconds to 1 hour) and extra paths that are never cached
+publicly. Whenever a cache rule applies, these always get
+`Cache-Control: private, no-store`, whatever the website chooses: sign-in and
+administration paths, accounts, carts and checkouts, API endpoints, requests
+with an `Authorization` header or a session/sign-in cookie, responses that set
+a cookie, and every request other than GET and HEAD. A `Cache-Control` the
+application sends itself is never doubled or overridden for ordinary pages.
+This is browser/HTTP cache policy; NimVor does not run a shared server-side
+page cache.
+
+*Restore defaults* removes the saved choices of a section. Server-level rules
+(sensitive-file blocking, PHP restrictions, request limits, ModSecurity, site
+passwords) are separate and are not affected. Implementation:
+`agent/internal/sites/webpolicy.go` (grammar and rendering),
+`panel/app/Services/WebPolicyService.php`, migration `0062_web_policy`.
 
 **Advanced** holds the server details (system user, folders, PHP-FPM
 limits, generated Nginx configuration, recent tasks) and the Danger

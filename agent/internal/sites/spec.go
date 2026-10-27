@@ -75,12 +75,17 @@ type Spec struct {
 	HSTS         bool        `json:"hsts"`
 	// SecurityHeaders adds Referrer-Policy, X-Frame-Options and
 	// Permissions-Policy (and upgrade-insecure-requests over HTTPS).
-	SecurityHeaders bool       `json:"security_headers,omitempty"`
-	CertFile        string     `json:"cert_file"`
-	KeyFile         string     `json:"key_file"`
-	Enabled         bool       `json:"enabled"`
-	Redirects       []Redirect `json:"redirects"`
-	ClientMaxBodyMB int        `json:"client_max_body_mb"`
+	SecurityHeaders bool `json:"security_headers,omitempty"`
+	// Headers, when set, are the customer's security headers and replace the
+	// SecurityHeaders bundle and the HSTS flag (see HeaderPolicy); Cache is
+	// the customer's browser-cache rules (see CachePolicy).
+	Headers         *HeaderPolicy `json:"headers,omitempty"`
+	Cache           *CachePolicy  `json:"cache,omitempty"`
+	CertFile        string        `json:"cert_file"`
+	KeyFile         string        `json:"key_file"`
+	Enabled         bool          `json:"enabled"`
+	Redirects       []Redirect    `json:"redirects"`
+	ClientMaxBodyMB int           `json:"client_max_body_mb"`
 	// Autoindex lists the files of folders without an index page (nginx
 	// autoindex); off by default.
 	Autoindex bool `json:"autoindex,omitempty"`
@@ -254,6 +259,16 @@ func (s *Spec) Normalize(sitesRoot, stateDir string) error {
 		}
 	} else {
 		s.ForceHTTPS, s.HSTS, s.CertFile, s.KeyFile = false, false, "", ""
+	}
+	if s.Headers != nil {
+		if err := s.Headers.normalize(s.HTTPS); err != nil {
+			return err
+		}
+	}
+	if s.Cache != nil {
+		if err := s.Cache.normalize(); err != nil {
+			return err
+		}
 	}
 	if len(s.Redirects) > 100 {
 		return fail("redirects", "at most 100 redirects are allowed")

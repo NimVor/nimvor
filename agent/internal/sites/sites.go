@@ -211,6 +211,9 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 	// 3. Configuration, validated before anything is reloaded.
 	cfg := e.Changes("site-" + s.Domain)
 	cfg.Write(filepath.Join(e.M.NginxEnabled, "nimvor-00-proxy-map.conf"), []byte(RenderProxyMap()), 0o644, agentfs.RootOwner)
+	if s.Cache != nil {
+		cfg.Write(filepath.Join(e.M.NginxEnabled, "nimvor-00-cache-flags.conf"), []byte(RenderCacheFlags()), 0o644, agentfs.RootOwner)
+	}
 	if s.HTTPS {
 		tlsprofile.Ensure(m.Env, cfg)
 	}

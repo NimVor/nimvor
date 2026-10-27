@@ -523,6 +523,10 @@ return static function (Router $r): void {
     $r->get('/sites/{id}/access', [\NimVor\Http\Controllers\SiteAccessController::class, 'show'], ['name' => 'sites.access', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/access', [\NimVor\Http\Controllers\SiteAccessController::class, 'protect'], ['name' => 'sites.access.protect', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/access/remove', [\NimVor\Http\Controllers\SiteAccessController::class, 'remove'], ['name' => 'sites.access.remove', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/web-policy', [\NimVor\Http\Controllers\WebPolicyController::class, 'show'], ['name' => 'sites.web_policy', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/web-policy/headers', [\NimVor\Http\Controllers\WebPolicyController::class, 'saveHeaders'], ['name' => 'sites.web_policy.headers', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/web-policy/cache', [\NimVor\Http\Controllers\WebPolicyController::class, 'saveCache'], ['name' => 'sites.web_policy.cache', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/web-policy/reset', [\NimVor\Http\Controllers\WebPolicyController::class, 'reset'], ['name' => 'sites.web_policy.reset', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/firewall', [\NimVor\Http\Controllers\ModSecurityController::class, 'saveSiteMode'], ['name' => 'sites.firewall.update', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/wordpress', [\NimVor\Http\Controllers\WordPressController::class, 'index'], ['name' => 'wordpress', 'permission' => P::WEBSITES_VIEW]);
     $r->post('/wordpress/scan', [\NimVor\Http\Controllers\WordPressController::class, 'scanAll'], ['name' => 'wordpress.scan', 'permission' => P::WEBSITES_MANAGE]);

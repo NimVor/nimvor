@@ -7,6 +7,14 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Security headers and cache rules per website** (website → *Headers & cache*) — owners choose framing protection
+  (X-Frame-Options and CSP `frame-ancestors`), a validated Content Security Policy with report-only mode,
+  Referrer-Policy, Permissions-Policy (presets or validated directives) and HSTS (only for websites with working
+  HTTPS), and browser-cache rules: static-asset lifetime, a policy for dynamic pages and extra never-cache paths.
+  Sign-in/administration paths, accounts, carts, API endpoints, authenticated requests, session cookies, responses that
+  set cookies and non-GET requests are never cached publicly, whatever is chosen. No Nginx directive is exposed; the
+  agent renders the configuration, validates it with `nginx -t` and keeps the last good file on failure. Includes
+  *Restore defaults*, a migration (`web_policy`), docs, panel and agent tests, and a real-nginx test.
 - **WordPress-based apps and more** — Tutor LMS, LearnPress and LifterLMS (Education), bbPress (Forums), BuddyPress,
   Easy Digital Downloads (E-Commerce), WP Statistics and Koko Analytics (Analytics), Download Monitor (Files), plus
   Piwigo and Mautic. The plugin apps are WordPress plus an allowlisted wordpress.org plugin, like WooCommerce.

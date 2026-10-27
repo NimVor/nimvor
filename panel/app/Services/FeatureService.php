@@ -56,6 +56,7 @@ final class FeatureService
         'firewall' => ['Web firewall (ModSecurity)', [], ['sites.firewall'], 'Security'],
         'site_security' => ['Site security overview', [], ['sites.security'], 'Security'],
         'site_access' => ['Site access (password-protect a website)', [], ['sites.access'], 'Security'],
+        'web_policy' => ['Security headers & cache rules', [], ['sites.web_policy'], 'Security'],
         'ssh' => ['SSH shell & web terminal', [], ['sites.terminal'], 'Files'],
         'wordpress' => ['WordPress Toolkit', [], ['sites.wordpress', 'wordpress'], 'Websites'],
         // Which site types a customer may create (type_php and type_static are

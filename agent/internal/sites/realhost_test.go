@@ -26,6 +26,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"strings"
@@ -314,5 +315,163 @@ func TestRealHostSymlinksAcrossWebsites(t *testing.T) {
 	}
 	if code, body := get("attacker.nimvor.test", "/alias.txt"); code != 200 || body != "attacker-own" {
 		t.Fatalf("link within the website: %d %q", code, body)
+	}
+}
+
+// Applies a website with customer security headers and cache rules through
+// the real Manager (real nginx -t), reloads the running nginx when there is
+// one, and checks the headers a real request receives: each header once,
+// static assets cached, signed-in and sensitive requests never cached publicly.
+func TestRealHostWebPolicy(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("needs root")
+	}
+	root := filesystem.Host()
+	cfg := config.Default()
+	cfg.SitesRoot = "/home/nimvor-test"
+	cfg.StateDir = t.TempDir()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	jm, _ := jobs.NewManager(t.TempDir(), 1, time.Minute, log)
+	r := &hybrid{real: execx.NewSystemRunner(30 * time.Second)}
+	env := host.New(cfg, root, platform.Detect(root), r, jm, log)
+	env.Writer.Policy.Patterns = append(env.Writer.Policy.Patterns, cfg.StateDir+"/**")
+	m := &Manager{Env: env}
+	ctx := context.Background()
+
+	s := Spec{Domain: "policy.nimvor.test", User: "nimvorpolicy", CreateUser: true, Kind: "static", Enabled: true,
+		Headers: &HeaderPolicy{Clickjacking: "deny", CSP: "default-src 'self'", CSPReportOnly: true, Referrer: "no-referrer", Permissions: "restrictive"},
+		Cache:   &CachePolicy{StaticTTL: 3600, DynamicMode: "public", DynamicTTL: 60, BypassPaths: []string{"/members"}}}
+	t.Cleanup(func() {
+		for _, d := range []string{"proxy-policy.nimvor.test", s.Domain} {
+			if _, err := m.handleDelete(ctx, []byte(`{"domain":"`+d+`","user":"`+s.User+`","remove_files":true,"remove_user":true}`)); err != nil && !strings.Contains(err.Error(), "not found") {
+				t.Errorf("cleanup of %s: %v", d, err)
+			}
+		}
+		os.RemoveAll("/home/nimvor-test")
+	})
+	if _, err := m.Apply(ctx, s); err != nil {
+		var ae *actions.Error
+		if errors.As(err, &ae) {
+			t.Fatalf("apply: %v\n%s", err, ae.Details)
+		}
+		t.Fatal(err)
+	}
+	if out, err := r.real.Run(ctx, "nginx", "-t"); err != nil {
+		t.Fatalf("real nginx -t failed with the policy applied: %s", out)
+	}
+	docroot := "/home/nimvor-test/policy.nimvor.test/public_html"
+	for dir, files := range map[string]map[string]string{"": {"index.html": "<p>home</p>", "app.css": "body{}"}, "members": {"index.html": "<p>members</p>"}, "admin": {"index.html": "<p>admin</p>"}} {
+		os.MkdirAll(docroot+"/"+dir, 0o755)
+		for f, body := range files {
+			os.WriteFile(docroot+"/"+dir+"/"+f, []byte(body), 0o644)
+		}
+	}
+	if out, err := exec.Command("nginx", "-s", "reload").CombinedOutput(); err != nil {
+		t.Logf("nginx is not running here (%s); the generated configuration passed nginx -t but no request was made", strings.TrimSpace(string(out)))
+		return
+	}
+	time.Sleep(time.Second)
+	get := func(path, cookie string) http.Header {
+		req, _ := http.NewRequest("GET", "http://127.0.0.1"+path, nil)
+		req.Host = "policy.nimvor.test"
+		if cookie != "" {
+			req.Header.Set("Cookie", cookie)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("GET %s: %v", path, err)
+		}
+		res.Body.Close()
+		if res.StatusCode != 200 {
+			t.Fatalf("GET %s: %d", path, res.StatusCode)
+		}
+		return res.Header
+	}
+	h := get("/app.css", "")
+	if cc := h.Values("Cache-Control"); len(cc) != 1 || cc[0] != "max-age=3600" || h.Get("Expires") == "" {
+		t.Errorf("static asset: Cache-Control %v Expires %q", cc, h.Get("Expires"))
+	}
+	for _, name := range []string{"X-Frame-Options", "Content-Security-Policy", "Content-Security-Policy-Report-Only", "Referrer-Policy", "Permissions-Policy", "X-Content-Type-Options"} {
+		if v := h.Values(name); len(v) != 1 {
+			t.Errorf("%s sent %d times: %v", name, len(v), v)
+		}
+	}
+	if v := h.Get("Content-Security-Policy"); v != "frame-ancestors 'none'" {
+		t.Errorf("enforced CSP: %q", v)
+	}
+	if cc := get("/index.html", "").Values("Cache-Control"); len(cc) != 1 || cc[0] != "public, max-age=60" {
+		t.Errorf("anonymous page: %v", cc)
+	}
+	for name, got := range map[string][]string{
+		"session cookie": get("/index.html", "PHPSESSID=abc").Values("Cache-Control"),
+		"sensitive path": get("/admin/index.html", "").Values("Cache-Control"),
+		"custom bypass":  get("/members/index.html", "").Values("Cache-Control"),
+		"logged-in (wp)": get("/index.html", "wordpress_logged_in_x=1").Values("Cache-Control"),
+	} {
+		if len(got) != 1 || got[0] != "private, no-store" {
+			t.Errorf("%s must never be cached publicly: %v", name, got)
+		}
+	}
+
+	// A proxied website: what the application sends back decides too.
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sets-cookie":
+			http.SetCookie(w, &http.Cookie{Name: "tracker", Value: "1"})
+		case "/own-cache":
+			w.Header().Set("Cache-Control", "max-age=5")
+		}
+		io.WriteString(w, "ok")
+	}))
+	defer backend.Close()
+	px := Spec{Domain: "proxy-policy.nimvor.test", User: "nimvorpolicy", Kind: "proxy", ProxyPass: backend.URL, Enabled: true,
+		Cache: &CachePolicy{DynamicMode: "public", DynamicTTL: 60}}
+	if _, err := m.Apply(ctx, px); err != nil {
+		t.Fatalf("apply proxy site: %v", err)
+	}
+	if out, err := exec.Command("nginx", "-s", "reload").CombinedOutput(); err != nil {
+		t.Fatalf("reload: %s", out)
+	}
+	time.Sleep(time.Second)
+	pget := func(path, cookie, auth string) []string {
+		req, _ := http.NewRequest("GET", "http://127.0.0.1"+path, nil)
+		req.Host = "proxy-policy.nimvor.test"
+		if cookie != "" {
+			req.Header.Set("Cookie", cookie)
+		}
+		if auth != "" {
+			req.Header.Set("Authorization", auth)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("GET %s: %v", path, err)
+		}
+		res.Body.Close()
+		return res.Header.Values("Cache-Control")
+	}
+	if cc := pget("/plain", "", ""); len(cc) != 1 || cc[0] != "public, max-age=60" {
+		t.Errorf("anonymous dynamic page: %v", cc)
+	}
+	for name, got := range map[string][]string{
+		"response sets a cookie": pget("/sets-cookie", "", ""),
+		"Authorization header":   pget("/plain", "", "Bearer abc"),
+		"session cookie":         pget("/plain", "sessionid=1", ""),
+		"sensitive path":         pget("/wp-admin/x", "", ""),
+	} {
+		if len(got) != 1 || got[0] != "private, no-store" {
+			t.Errorf("%s must never be cached publicly: %v", name, got)
+		}
+	}
+	if cc := pget("/own-cache", "", ""); len(cc) != 1 || cc[0] != "max-age=5" {
+		t.Errorf("the application's own Cache-Control must be left alone and not doubled: %v", cc)
+	}
+	if req, _ := http.NewRequest("POST", "http://127.0.0.1/plain", nil); req != nil {
+		req.Host = "proxy-policy.nimvor.test"
+		if res, err := http.DefaultClient.Do(req); err == nil {
+			res.Body.Close()
+			if cc := res.Header.Values("Cache-Control"); len(cc) != 1 || cc[0] != "private, no-store" {
+				t.Errorf("POST responses must never be cached: %v", cc)
+			}
+		}
 	}
 }

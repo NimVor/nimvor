@@ -42,6 +42,7 @@ func RenderNginx(s Spec, l Layout) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n# Website: %s\n\n", header, s.Domain)
 	names := strings.Join(s.Names(), " ")
+	b.WriteString(renderCacheMaps(s))
 
 	// Port 80: either the site itself or a redirect to HTTPS.
 	b.WriteString("server {\n")
@@ -72,7 +73,12 @@ func RenderNginx(s Spec, l Layout) string {
 		} else {
 			b.WriteString(tlsprofile.LegacyBlock)
 		}
-		if s.HSTS {
+		switch {
+		case s.Headers != nil:
+			if v := s.Headers.hstsValue(); v != "" {
+				fmt.Fprintf(&b, "    add_header Strict-Transport-Security %s always;\n", ngxString(v))
+			}
+		case s.HSTS:
 			b.WriteString("    add_header Strict-Transport-Security \"max-age=31536000\" always;\n")
 		}
 		body(&b, s, l)
@@ -124,12 +130,16 @@ func body(b *strings.Builder, s Spec, l Layout) {
 		b.WriteString("    autoindex on;\n")
 	}
 	b.WriteString("    add_header X-Content-Type-Options \"nosniff\" always;\n")
-	if s.SecurityHeaders {
+	if s.Headers != nil {
+		// The customer's choices replace the bundle: no header twice.
+		b.WriteString(s.Headers.headerLines())
+	} else if s.SecurityHeaders {
 		b.WriteString(SecurityHeaders)
 		if s.HTTPS {
 			b.WriteString("    add_header Content-Security-Policy \"upgrade-insecure-requests\" always;\n")
 		}
 	}
+	b.WriteString(cacheDirectives(s))
 	b.WriteString(l.ModSecInclude)
 	b.WriteString(l.ProtectInclude)
 	acme(b, l)
