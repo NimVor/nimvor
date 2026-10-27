@@ -147,7 +147,7 @@ func TestImportPreviewAndDetail(t *testing.T) {
 	}
 	body = rr.Body.String()
 	for _, want := range []string{
-		"Import old.test", "PHP 8.1", "/var/www/old",
+		"Import old.test", "PHP 8.3.1", "/var/www/old", // 8.1 is not installed: the newest installed one is planned
 		"/etc/nginx/sites-enabled/old", "oldddb", "wp-config.php",
 		"server { # whacp }", "server { root /var/www/old; }",
 		"No owner (administrators)", "bob", // the owner select (admin)
@@ -324,7 +324,8 @@ func TestImportRunRefreshSuccessAndUndo(t *testing.T) {
 		t.Fatalf("undo = %d loc %q", rr.Code, rr.Header().Get("Location"))
 	}
 	undo := -1
-	for j, a := range sa.called() {
+	// sa.param indexes the calls without the databases page's live reads.
+	for j, a := range sa.writes() {
 		if a == "adopt.undo" {
 			undo = j
 		}

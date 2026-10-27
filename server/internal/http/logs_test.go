@@ -342,8 +342,9 @@ func TestLogsPanelTail(t *testing.T) {
 	if !pageHas(rr.Body.String(), `"lines":["alpha","alpha line"]`) {
 		t.Fatalf("panel filter = %s", rr.Body.String())
 	}
+	// The line count is at least 10 (as in the PHP panel): nothing is cut here.
 	rr = get(t, h, "/logs/tail?source=panel&lines=2", admin)
-	if !pageHas(rr.Body.String(), `"lines":["beta","alpha line"]`) {
+	if !pageHas(rr.Body.String(), `"lines":["alpha","beta","alpha line"]`) {
 		t.Fatalf("panel lines=2 = %s", rr.Body.String())
 	}
 	// follow from 0: everything, and the new offset.

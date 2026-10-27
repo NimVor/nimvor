@@ -103,7 +103,7 @@ func TestDiscoveryIndex(t *testing.T) {
 		"Discovery", "read-only snapshot, nothing on the server was changed.",
 		"read-only view of the filesystem enforced by systemd",
 		"Websites", "PHP versions", "PHP-FPM pools", "Databases",
-		"Let&#39;s Encrypt certificates", "Cron jobs", "Services", "System accounts",
+		"Let's Encrypt certificates", "Cron jobs", "Services", "System accounts",
 		"one website has no listen directive", // the merged warnings
 		"Snapshot history", "abcdef012345",    // the checksum, truncated to 12
 	} {
@@ -174,7 +174,7 @@ func TestDiscoverySSLForCustomer(t *testing.T) {
 	for _, want := range []string{
 		"SSL certificates", "Website certificates", "bob.example",
 		"2026-11-05", "expiring", // 10 days, inside the 14-day warning window
-		"Let&#39;s Encrypt (certbot) lineages", "nginx",
+		"Let's Encrypt (certbot) lineages", "nginx",
 	} {
 		if !pageHas(body, want) {
 			t.Errorf("ssl page missing %q", want)

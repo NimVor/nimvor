@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -197,8 +198,11 @@ func (s *Server) diskUsageScan(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	site, ok := s.scopedSite(w, r, user)
-	if !ok {
+	var site *hosting.Website
+	if id, err := strconv.ParseInt(r.PathValue("id"), 10, 64); err == nil {
+		site, _ = hosting.NewWebsiteRepository(s.db).FindFull(r.Context(), s.currentServerID(r), id, user)
+	}
+	if site == nil {
 		// The PHP redirects to the website list with the error.
 		sess.Flash("error", "Website not found.")
 		http.Redirect(w, r, "/websites", http.StatusSeeOther)

@@ -185,6 +185,9 @@ func (s *Server) renderImportPage(w http.ResponseWriter, r *http.Request, user *
 		"KindLabel":  kindLabel,
 		"SystemUser": systemUser,
 		"PHPVersion": phpVersion,
+		// Messages from the action that sent the user back here.
+		"FlashSuccess": pullFlashKey(sessionFrom(r.Context()), "success"),
+		"FlashError":   pullFlashKey(sessionFrom(r.Context()), "error"),
 	}
 	s.render(w, "import", data)
 }

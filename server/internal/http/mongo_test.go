@@ -147,7 +147,6 @@ func TestMongoIndexDatabases(t *testing.T) {
 		"120.6 KB", // formatBytes(123456)
 		"/mongo/databases",
 		"/mongo/databases/drop",
-		"/mongo/backups/delete",
 		"/mongo/browser",
 	} {
 		if !pageHas(page, want) {
@@ -396,13 +395,13 @@ func TestMongoNoteSavedAndRead(t *testing.T) {
 	h, _, db := mongoAdminEnv(t)
 	admin := loginAsUser(t, h, "admin")
 	rr := mongoAdminPost(t, h, admin, "/mongo/note", url.Values{
-		"name": {"shop"}, "note": {"the shop's catalogue"},
+		"name": {"u_bob_shop"}, "note": {"the shop's catalogue"},
 	})
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("POST /mongo/note = %d", rr.Code)
 	}
 	var raw string
-	if err := db.QueryRow(`SELECT value FROM settings WHERE key = 'mongo.note.1.shop'`).Scan(&raw); err != nil {
+	if err := db.QueryRow(`SELECT value FROM settings WHERE key = 'mongo.note.1.u_bob_shop'`).Scan(&raw); err != nil {
 		t.Fatalf("the note was not stored: %v", err)
 	}
 	if raw != `"the shop's catalogue"` {

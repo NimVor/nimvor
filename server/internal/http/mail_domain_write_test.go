@@ -78,13 +78,20 @@ func TestMailMailboxCreateValidation(t *testing.T) {
 	body := rr.Body.String()
 	for _, want := range []string{
 		"Use letters, digits and . _ + - (not at the start or end).",
-		"Enter a password or generate one.",
 		"data-wcp-modal-open",
 		`value="bad name"`,
 	} {
 		if !pageHas(body, want) {
 			t.Fatalf("re-render missing %q", want)
 		}
+	}
+	// A valid address without a password: the password message (the checks
+	// stop at the first problem, as in the PHP panel).
+	rr = postForm(h, "/mail/domains/60/mailboxes", url.Values{
+		"_token": {token}, "local": {"newbox"}, "quota_mb": {"512"},
+	}, cookie)
+	if rr.Code != http.StatusOK || !pageHas(rr.Body.String(), "Enter a password or generate one.") {
+		t.Fatalf("missing password not caught: %d", rr.Code)
 	}
 	if n := rowCount(t, db, `SELECT COUNT(*) FROM mail_mailboxes`); n != 1 {
 		t.Fatalf("refused save stored a row: n=%d", n)

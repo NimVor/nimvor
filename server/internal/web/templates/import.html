@@ -17,6 +17,8 @@
   <h1>Import {{.Found.Domain}}</h1>
   <p class="text-muted">Move this website under WhaCP management</p>
 
+  {{if .FlashSuccess}}<div class="alert alert-success" role="status">{{.FlashSuccess}}</div>{{end}}
+  {{if .FlashError}}<div class="alert alert-danger" role="alert">{{.FlashError}}</div>{{end}}
   {{if .Job}}<p class="alert alert-info" role="status">Job <code>{{.Job}}</code> started in the background.</p>{{end}}
 
   <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>

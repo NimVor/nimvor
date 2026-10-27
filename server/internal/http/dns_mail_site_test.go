@@ -168,17 +168,19 @@ func TestDnsZoneCreateFromSite(t *testing.T) {
 		t.Fatalf("SPF = %q", spf)
 	}
 	acts := sa.called()
-	for _, want := range []string{"dns.zone_apply", "dns.zone_create"} {
-		if !containsAction(acts, want) {
-			t.Fatalf("agent actions %v missing %q", acts, want)
-		}
+	if !containsAction(acts, "dns.zone_apply") {
+		t.Fatalf("agent actions %v missing dns.zone_apply", acts)
+	}
+	// dns.zone_create is the audit record, not an agent action.
+	if n := rowCount(t, db, `SELECT COUNT(*) FROM audit_logs WHERE action = 'dns.zone_create'`); n != 1 {
+		t.Fatalf("dns.zone_create audits = %d", n)
 	}
 	p := agentParams(t, sa, "dns.zone_apply")
 	soa, _ := p["soa"].(map[string]any)
 	if soa["primary_ns"] != "ns1.example.com." || soa["hostmaster"] != "hostmaster@shop.bob.example" {
 		t.Fatalf("soa = %v", soa)
 	}
-	if recs, _ := p["records"].([]map[string]any); len(recs) != 6 {
+	if recs, _ := p["records"].([]any); len(recs) != 6 {
 		t.Fatalf("zone_apply records = %d, want 6", len(recs))
 	}
 }

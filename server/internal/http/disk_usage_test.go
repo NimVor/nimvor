@@ -308,7 +308,8 @@ func TestDiskUsagePrunesOldScans(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM disk_usage_scans WHERE website_id = 10 AND status = 'running'`).Scan(&running); err != nil {
 		t.Fatal(err)
 	}
-	if done != 5 || running != 1 {
-		t.Errorf("done = %d (want 5), running = %d (want 1)", done, running)
+	// The five latest scans of the folder are kept, the running one among them.
+	if done != 4 || running != 1 {
+		t.Errorf("done = %d (want 4), running = %d (want 1)", done, running)
 	}
 }
