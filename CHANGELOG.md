@@ -6,6 +6,15 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Customers no longer see the server's pool counts** on the PHP page: the version cards count only the
+  PHP-FPM pools of their own websites.
+
+### Removed
+- **The "command to run when an address is blocked"** settings of brute force protection. The panel
+  never runs commands itself; blocks are applied through the agent and are notified and audited as
+  before. A stored command is ignored.
+
 ### Changed (Go differential audit, Wave 1: pages and forms)
 - **The setup wizard works** (Server → Setup wizard, `whacp setup:apply`, `whacp setup:status`):
   choose Full, Web only or Minimal and run its steps from the browser or the command line —
@@ -1139,8 +1148,7 @@ All notable changes to WhaCP are documented here. The format follows
   IMAP/POP3, SMTP AUTH and FTP lock the account (WhaCP sign-ins) or block
   the address, for the protection period or one day; blocks apply to WhaCP
   and the login services, or at the firewall level (nftables, expiring on
-  their own). Commands with the cPHulk variables (run as the panel's
-  account, 15-second limit, shell-quoted values), root login and brute
+  their own). Root login and brute
   force notifications, an IP whitelist, whitelisted and blacklisted
   countries (DB-IP Lite, downloaded monthly or imported), a failed logins
   report, unblock and "Remove Blocks and clear report".

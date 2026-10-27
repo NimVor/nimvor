@@ -11,21 +11,6 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/settings"
 )
 
-// HulkVariables is HulkService::VARIABLES — the variables usable in the
-// cPHulk commands.
-var HulkVariables = []struct{ Name, Desc string }{
-	{"ip", "the blocked IP address"},
-	{"user", "the username (user blocks)"},
-	{"failures", "the number of failures"},
-	{"service", "the affected service (sshd, pure-ftpd, dovecot, …)"},
-	{"authservice", "the authentication service (sshd, pop3, imap, …)"},
-	{"reason", "the human-readable reason"},
-	{"firewall", "1 when the block is at firewall level, else 0"},
-	{"until", "the block expiry (Unix time)"},
-	{"server_ip", "the server IP address"},
-	{"server_hostname", "the server hostname"},
-}
-
 // ValidEntry is HulkService::validEntry — an IP address or network.
 func ValidEntry(s string) bool {
 	i := strings.IndexByte(s, '/')

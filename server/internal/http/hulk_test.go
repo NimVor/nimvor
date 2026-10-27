@@ -72,8 +72,8 @@ func hulkForm() url.Values {
 		"hulk_user_period": {"5"}, "hulk_user_max": {"5"},
 		"hulk_user_scope": {"all"}, "hulk_user_lock_root": {"0"},
 		"hulk_ip_enabled": {"1"}, "hulk_ip_period": {"15"}, "hulk_ip_max": {"15"},
-		"hulk_ip_command": {""}, "hulk_ip_firewall": {"0"},
-		"hulk_oneday_max": {"30"}, "hulk_oneday_command": {""}, "hulk_oneday_firewall": {"0"},
+		"hulk_ip_firewall": {"0"},
+		"hulk_oneday_max":  {"30"}, "hulk_oneday_firewall": {"0"},
 		"hulk_retention":   {"360"},
 		"hulk_notify_root": {"1"}, "hulk_notify_root_netblock": {"0"}, "hulk_notify_brute": {"1"},
 		"hulk_whitelist": {"203.0.113.10, 198.51.100.0/24"},
@@ -103,7 +103,6 @@ func TestHulkPageDisabled(t *testing.T) {
 		// The settings and the report empty states.
 		"Whitelisted IP addresses", "No failed logins in this period.",
 		// The variable list.
-		"<code>%ip</code> - the blocked IP address",
 	} {
 		if !pageHas(body, want) {
 			t.Errorf("page missing %q", want)
@@ -169,7 +168,6 @@ func TestHulkSave(t *testing.T) {
 	form := hulkForm()
 	form.Set("hulk_user_period", "10")
 	form.Set("hulk_user_lock_root", "1")
-	form.Set("hulk_ip_command", "echo %ip")
 	form.Set("_token", token)
 	rr := postForm(h, "/security/hulk", form, admin)
 	if rr.Code != http.StatusSeeOther {

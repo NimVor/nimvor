@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"os/exec"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
@@ -12,13 +11,9 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/security"
 )
 
-// hulkCommandTimeout bounds an administrator's block command.
-const hulkCommandTimeout = 15 * time.Second
-
 // hulkHooks connects brute force protection to the panel's notifications,
-// audit log and the administrator's "command to run when an address is
-// blocked" (run as the panel's own account, never root, 15 seconds at most,
-// every variable shell-quoted).
+// audit log. (The panel never runs commands itself: the PHP panel's
+// "command to run when an address is blocked" was dropped.)
 func (s *Server) hulkHooks() security.HulkHooks {
 	notes := notify.NewRepository(s.db)
 	return security.HulkHooks{
@@ -27,21 +22,6 @@ func (s *Server) hulkHooks() security.HulkHooks {
 		},
 		Audit: func(ctx context.Context, action, result string, details map[string]any) {
 			s.audit.Record(ctx, audit.Entry{Username: "system", Action: action, TargetType: "server", TargetID: "hulk", Result: result, Details: details})
-		},
-		RunCommand: func(ctx context.Context, command string, vars map[string]string) (int, error) {
-			ctx, cancel := context.WithTimeout(ctx, hulkCommandTimeout)
-			defer cancel()
-			cmd := exec.CommandContext(ctx, "/bin/sh", "-c", security.ExpandCommand(command, vars))
-			cmd.Env = []string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"}
-			cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil
-			err := cmd.Run()
-			if ctx.Err() != nil {
-				return -1, ctx.Err()
-			}
-			if ee, ok := err.(*exec.ExitError); ok {
-				return ee.ExitCode(), nil
-			}
-			return 0, err
 		},
 	}
 }

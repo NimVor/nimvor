@@ -51,3 +51,24 @@ func TestServicesControlReachesTheAgent(t *testing.T) {
 		t.Errorf("the call failed: %s", visibleText(flash))
 	}
 }
+
+// The panel never runs commands itself: every privileged or host operation is
+// a named agent action.
+func TestPanelNeverImportsOsExec(t *testing.T) {
+	err := filepath.Walk("../..", func(p string, fi os.FileInfo, err error) error {
+		if err != nil || fi.IsDir() || !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
+			return err
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(string(b), `"os/exec"`) {
+			t.Errorf("%s imports os/exec", p)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

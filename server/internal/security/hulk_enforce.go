@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -37,8 +36,6 @@ type HulkHooks struct {
 	Notify func(ctx context.Context, severity, title, body, link, key string)
 	// Audit records an audit entry on the server's brute force protection.
 	Audit func(ctx context.Context, action, result string, details map[string]any)
-	// RunCommand runs an administrator's command with the expanded text.
-	RunCommand func(ctx context.Context, command string, vars map[string]string) (exit int, err error)
 	// Now is the clock (tests).
 	Now func() time.Time
 }
@@ -207,11 +204,9 @@ func (h *Hulk) Evaluate(ctx context.Context, events []HulkEvent, hk HulkHooks) i
 			dayMax, ipMax := h.intSetting(ctx, "hulk_oneday_max"), h.intSetting(ctx, "hulk_ip_max")
 			switch {
 			case day >= dayMax && !h.active(ctx, hk, "oneday", "ip", e.IP):
-				cmd := h.strSetting(ctx, "hulk_oneday_command")
-				made += h.block(ctx, hk, "oneday", e.IP, "", e, day, dayMax, now+86400, h.boolSetting(ctx, "hulk_oneday_firewall"), "Too many failed logins in one day", cmd, true)
+				made += h.block(ctx, hk, "oneday", e.IP, "", e, day, dayMax, now+86400, h.boolSetting(ctx, "hulk_oneday_firewall"), "Too many failed logins in one day")
 			case count >= ipMax && !h.active(ctx, hk, "ip", "ip", e.IP) && !h.active(ctx, hk, "oneday", "ip", e.IP):
-				cmd := h.strSetting(ctx, "hulk_ip_command")
-				made += h.block(ctx, hk, "ip", e.IP, "", e, count, ipMax, now+period, h.boolSetting(ctx, "hulk_ip_firewall"), "Too many failed logins from the address", cmd, false)
+				made += h.block(ctx, hk, "ip", e.IP, "", e, count, ipMax, now+period, h.boolSetting(ctx, "hulk_ip_firewall"), "Too many failed logins from the address")
 			}
 		}
 		// Username-based protection.
@@ -224,14 +219,14 @@ func (h *Hulk) Evaluate(ctx context.Context, events []HulkEvent, hk HulkHooks) i
 			count := h.count(ctx, `SELECT COUNT(*) FROM hulk_events WHERE user = ? AND ok = 0 AND time > ?`, e.User, now-period)
 			max := h.intSetting(ctx, "hulk_user_max")
 			if count >= max && !h.active(ctx, hk, "user", "user", e.User) {
-				made += h.block(ctx, hk, "user", "", e.User, e, count, max, now+period, false, "Too many failed logins for the account", "", false)
+				made += h.block(ctx, hk, "user", "", e.User, e, count, max, now+period, false, "Too many failed logins for the account")
 			}
 		}
 	}
 	return made
 }
 
-func (h *Hulk) block(ctx context.Context, hk HulkHooks, kind, ip, user string, e HulkEvent, failures, max int, expires int64, firewall bool, reason, command string, excessive bool) int {
+func (h *Hulk) block(ctx context.Context, hk HulkHooks, kind, ip, user string, e HulkEvent, failures, max int, expires int64, firewall bool, reason string) int {
 	var ipV, userV any
 	if ip != "" {
 		ipV = ip
@@ -268,49 +263,8 @@ func (h *Hulk) block(ctx context.Context, hk HulkHooks, kind, ip, user string, e
 			fmt.Sprintf("%s: %d failed logins (%s). Blocked until %s UTC%s.", reason, failures, e.AuthService, until.Format("2006-01-02 15:04"), level),
 			"/security/hulk#report", fmt.Sprintf("hulk:%s:%s:%d", kind, what, expires))
 	}
-	if command != "" && ip != "" && hk.RunCommand != nil {
-		ver, exc := "4", "0"
-		if strings.Contains(ip, ":") {
-			ver = "6"
-		}
-		if excessive {
-			exc = "1"
-		}
-		vars := map[string]string{
-			"exptime": fmt.Sprint(expires), "max_allowed_failures": fmt.Sprint(max), "current_failures": fmt.Sprint(failures),
-			"excessive_failures": exc, "reason": reason, "remote_ip": ip, "authservice": e.AuthService, "user": e.User,
-			"logintime": fmt.Sprint(e.Time), "ip_version": ver,
-		}
-		exit, err := hk.RunCommand(ctx, command, vars)
-		if hk.Audit != nil {
-			res, d := "success", map[string]any{"exit": exit, "ip": ip}
-			if err != nil || exit != 0 {
-				res = "failure"
-				if err != nil {
-					d["error"] = err.Error()
-				}
-			}
-			hk.Audit(ctx, "hulk.command", res, d)
-		}
-	}
 	return 1
 }
-
-var varRe = regexp.MustCompile(`%([a-z_]+)%`)
-
-// ExpandCommand replaces %variable% in an administrator's command with the
-// shell-quoted value; unknown variables stay as they are (HulkService::expand).
-func ExpandCommand(command string, vars map[string]string) string {
-	return varRe.ReplaceAllStringFunc(command, func(m string) string {
-		if v, ok := vars[strings.Trim(m, "%")]; ok {
-			return ShellQuote(v)
-		}
-		return m
-	})
-}
-
-// ShellQuote quotes a value for /bin/sh (like PHP's escapeshellarg).
-func ShellQuote(v string) string { return "'" + strings.ReplaceAll(v, "'", `'\''`) + "'" }
 
 // rootLogin notifies about a root login from an address not on the whitelist.
 func (h *Hulk) rootLogin(ctx context.Context, ip string, at int64, service string, hk HulkHooks, whitelist []string) {

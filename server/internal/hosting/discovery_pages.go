@@ -268,6 +268,32 @@ func ForScope(data json.RawMessage, all bool, ownDomains []string) json.RawMessa
 		}
 	}
 	php["pools"] = keptPools
+	// The version cards count the owned pools only, not the server's.
+	perVersion := map[string]int{}
+	for _, raw := range keptPools {
+		if p, ok := raw.(map[string]any); ok {
+			if v, ok := p["version"].(string); ok {
+				perVersion[v]++
+			}
+		}
+	}
+	if versions, ok := php["versions"].([]any); ok {
+		scoped := make([]any, 0, len(versions))
+		for _, raw := range versions {
+			if v, ok := raw.(map[string]any); ok {
+				if ver, ok := v["version"].(string); ok {
+					c := make(map[string]any, len(v))
+					for k, val := range v {
+						c[k] = val
+					}
+					c["pool_count"] = perVersion[ver]
+					raw = c
+				}
+			}
+			scoped = append(scoped, raw)
+		}
+		php["versions"] = scoped
+	}
 	php["warnings"] = []any{}
 	inv["php"] = php
 

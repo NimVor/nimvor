@@ -2,6 +2,7 @@ package security
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -131,10 +132,10 @@ func TestHulkPanelFailuresAndDisabled(t *testing.T) {
 	}
 }
 
-func TestExpandCommandQuotesEveryVariable(t *testing.T) {
-	got := ExpandCommand("notify %remote_ip% %user% %nope%", map[string]string{"remote_ip": "1.2.3.4", "user": "a'b; rm -rf /"})
-	want := `notify '1.2.3.4' 'a'\''b; rm -rf /' %nope%`
-	if got != want {
-		t.Errorf("got %s", got)
+// The panel never runs a command when an address is blocked: there is no
+// hook for it.
+func TestBlockingRunsNoCommand(t *testing.T) {
+	if _, ok := reflect.TypeOf(HulkHooks{}).FieldByName("RunCommand"); ok {
+		t.Error("HulkHooks gained a way to run commands")
 	}
 }

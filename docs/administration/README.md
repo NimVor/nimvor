@@ -696,8 +696,10 @@ All under **Security** in the sidebar (administrators).
   WhaCP and the login ports (SSH, 21, 110, 143, 465, 587, 993, 995, 4190),
   or from every port with the firewall-level options. Blocks live in the
   nftables table `inet whacp_hulk` and expire by themselves; the scheduler
-  restores the table after a restart. Commands run as the panel's account
-  (not root) with a 15-second limit and shell-quoted variables. Countries
+  restores the table after a restart. The panel runs no command when an
+  address is blocked (the PHP panel's "command to run" setting was removed:
+  the panel never executes commands itself); blocks are notified and audited.
+  Countries
   use DB-IP's IP to Country Lite database (CC BY 4.0), downloaded monthly;
   blacklisted countries are blocked from WhaCP and the login ports, or
   from every port when you choose so on the Countries tab (CSF's CC_DENY);

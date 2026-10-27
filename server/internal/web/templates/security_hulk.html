@@ -113,14 +113,6 @@
         <div class="col-md-6 col-xl-4"><label class="form-label small fw-medium" for="h-hulk_ip_period">IP Address-based Brute Force Protection Period (in minutes)</label><input class="form-control form-control-sm" type="number" id="h-hulk_ip_period" name="hulk_ip_period" min="1" max="1440" value="{{.V.IPPeriod}}" required{{if not .CanManage}} disabled{{end}}></div>
         <div class="col-md-6 col-xl-4"><label class="form-label small fw-medium" for="h-hulk_ip_max">Maximum Failures per IP Address</label><input class="form-control form-control-sm" type="number" id="h-hulk_ip_max" name="hulk_ip_max" min="1" max="1000" value="{{.V.IPMax}}" required{{if not .CanManage}} disabled{{end}}></div>
       </div>
-      <label class="form-label small fw-medium" for="h-hulk_ip_command">Command to Run When an IP Address Triggers Brute Force Protection</label>
-      <input class="form-control form-control-sm font-monospace mb-1" id="h-hulk_ip_command" name="hulk_ip_command" maxlength="500" value="{{.V.IPCommand}}"{{if not .CanManage}} disabled{{end}}>
-      <div class="wcp-infobar my-2"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i><span>Warning: The command must complete within 15 seconds to avoid a timeout. It runs as the panel's own account (not root); values are passed shell-quoted.</span></div>
-      <div class="small mb-1">The following variables may be used in commands:</div>
-      <ul class="small mb-0 wcp-hulk-vars">
-        {{range .Variables}}<li><code>%{{.Name}}</code> - {{.Desc}}</li>
-        {{end}}
-      </ul>
       <div class="mt-3">
         <div class="form-check form-switch mb-1">
           <input type="hidden" name="hulk_ip_firewall" value="0">
@@ -136,13 +128,6 @@
       <div class="row g-3 mb-3">
         <div class="col-md-6 col-xl-4"><label class="form-label small fw-medium" for="h-hulk_oneday_max">Maximum Failures per IP Address before the IP Address is Blocked for One Day</label><input class="form-control form-control-sm" type="number" id="h-hulk_oneday_max" name="hulk_oneday_max" min="1" max="10000" value="{{.V.OnedayMax}}" required{{if not .CanManage}} disabled{{end}}></div>
       </div>
-      <label class="form-label small fw-medium" for="h-hulk_oneday_command">Command to Run When an IP Address Triggers a One-Day Block</label>
-      <input class="form-control form-control-sm font-monospace mb-2" id="h-hulk_oneday_command" name="hulk_oneday_command" maxlength="500" value="{{.V.OnedayCommand}}"{{if not .CanManage}} disabled{{end}}>
-      <div class="small mb-1">The following variables may be used in commands:</div>
-      <ul class="small mb-0 wcp-hulk-vars">
-        {{range .Variables}}<li><code>%{{.Name}}</code> - {{.Desc}}</li>
-        {{end}}
-      </ul>
       <div class="mt-3">
         <div class="form-check form-switch mb-1">
           <input type="hidden" name="hulk_oneday_firewall" value="0">

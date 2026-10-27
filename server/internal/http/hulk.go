@@ -122,10 +122,8 @@ func (s *Server) hulkIndex(w http.ResponseWriter, r *http.Request) {
 		IPEnabled:      hulkBool(s.settings, ctx, "hulk_ip_enabled", true),
 		IPPeriod:       hulkInt(s.settings, ctx, "hulk_ip_period", 15),
 		IPMax:          hulkInt(s.settings, ctx, "hulk_ip_max", 15),
-		IPCommand:      hulkStr(s.settings, ctx, "hulk_ip_command", ""),
 		IPFirewall:     hulkBool(s.settings, ctx, "hulk_ip_firewall", false),
 		OnedayMax:      hulkInt(s.settings, ctx, "hulk_oneday_max", 30),
-		OnedayCommand:  hulkStr(s.settings, ctx, "hulk_oneday_command", ""),
 		OnedayFirewall: hulkBool(s.settings, ctx, "hulk_oneday_firewall", false),
 		Retention:      hulkInt(s.settings, ctx, "hulk_retention", 360),
 		NotifyRoot:     hulkBool(s.settings, ctx, "hulk_notify_root", true),
@@ -186,7 +184,6 @@ func (s *Server) hulkIndex(w http.ResponseWriter, r *http.Request) {
 		"GeoLoaded":  geoLoaded,
 		"Report":     reportView,
 		"Blocks":     blocksView,
-		"Variables":  security.HulkVariables,
 		"Pending":    s.securityPending(ctx),
 	}
 	if agentMsg == "" {
@@ -245,10 +242,8 @@ type hulkValues struct {
 	IPEnabled      bool
 	IPPeriod       int
 	IPMax          int
-	IPCommand      string
 	IPFirewall     bool
 	OnedayMax      int
-	OnedayCommand  string
 	OnedayFirewall bool
 	Retention      int
 	NotifyRoot     bool
@@ -297,10 +292,8 @@ var hulkDefaults = map[string]any{
 	"hulk_ip_enabled":           true,
 	"hulk_ip_period":            15,
 	"hulk_ip_max":               15,
-	"hulk_ip_command":           "",
 	"hulk_ip_firewall":          false,
 	"hulk_oneday_max":           30,
-	"hulk_oneday_command":       "",
 	"hulk_oneday_firewall":      false,
 	"hulk_retention":            360,
 	"hulk_notify_root":          true,
@@ -396,8 +389,6 @@ func (s *Server) hulkSave(w http.ResponseWriter, r *http.Request) {
 		note = fmt.Sprintf(" Your address (%s) was added to the whitelist.", ip)
 	}
 	whitelist := strings.Join(entries, ", ")
-	ipCommand := strings.TrimSpace(r.FormValue("hulk_ip_command"))
-	onedayCommand := strings.TrimSpace(r.FormValue("hulk_oneday_command"))
 
 	// SettingsService::update (only the keys the form sends).
 	userPeriod, e1 := policyInt(r.FormValue("hulk_user_period"), 1, 1440)
@@ -406,13 +397,11 @@ func (s *Server) hulkSave(w http.ResponseWriter, r *http.Request) {
 	ipMax, e4 := policyInt(r.FormValue("hulk_ip_max"), 1, 1000)
 	onedayMax, e5 := policyInt(r.FormValue("hulk_oneday_max"), 1, 10000)
 	retention, e6 := policyInt(r.FormValue("hulk_retention"), 5, 10080)
-	e7 := hulkStringError(ipCommand, 500)
-	e8 := hulkStringError(onedayCommand, 500)
 	e9 := hulkStringError(whitelist, 4000)
 	// The SettingsService::update order (definition table): user period/max,
-	// ip period/max/command, oneday max/command, retention, whitelist.
+	// ip period/max, oneday max, retention, whitelist.
 	var errMsgs []string
-	for _, e := range []string{e1, e2, e3, e4, e7, e5, e8, e6, e9} {
+	for _, e := range []string{e1, e2, e3, e4, e5, e6, e9} {
 		if e != "" {
 			errMsgs = append(errMsgs, e)
 		}
@@ -431,10 +420,8 @@ func (s *Server) hulkSave(w http.ResponseWriter, r *http.Request) {
 		"hulk_ip_enabled":           formBool(r.FormValue("hulk_ip_enabled")),
 		"hulk_ip_period":            ipPeriod,
 		"hulk_ip_max":               ipMax,
-		"hulk_ip_command":           ipCommand,
 		"hulk_ip_firewall":          formBool(r.FormValue("hulk_ip_firewall")),
 		"hulk_oneday_max":           onedayMax,
-		"hulk_oneday_command":       onedayCommand,
 		"hulk_oneday_firewall":      formBool(r.FormValue("hulk_oneday_firewall")),
 		"hulk_retention":            retention,
 		"hulk_notify_root":          formBool(r.FormValue("hulk_notify_root")),
