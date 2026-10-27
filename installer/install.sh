@@ -130,6 +130,21 @@ confirm() {
     [[ $reply =~ ^[Yy]$ ]]
 }
 
+# ask VAR "question" [default]: asks on the terminal, never on standard input
+# (which is the script itself under `curl | sudo bash`, and would end the
+# installer silently at the first read). Without a terminal the default is
+# used, or, when there is none, the installer stops and names the option.
+ask() {
+    local var=$1 question=$2 default=${3:-} reply=""
+    if { exec 3</dev/tty; } 2>/dev/null; then
+        read -r -u 3 -p "$question" reply || true
+        exec 3<&-
+    fi
+    reply=${reply:-$default}
+    [[ -n $reply ]] || die "no terminal to ask on: $question Pass it as an option (--admin-user=NAME --admin-email=EMAIL)."
+    printf -v "$var" '%s' "$reply"
+}
+
 for arg in "$@"; do
     case "$arg" in
         --install-deps) INSTALL_DEPS=1 ;;   # the default; kept for older instructions
@@ -840,8 +855,8 @@ if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
     users=$(runuser -u nimvor -- env NIMVOR_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/nimvor" users:count 2>/dev/null || echo 0)
     if [[ $users == 0 ]]; then
         log "Creating the first administrator"
-        if [[ -z $ADMIN_USER ]]; then read -r -p "  Admin username [admin]: " ADMIN_USER; ADMIN_USER=${ADMIN_USER:-admin}; fi
-        if [[ -z $ADMIN_EMAIL ]]; then read -r -p "  Admin email: " ADMIN_EMAIL; fi
+        if [[ -z $ADMIN_USER ]]; then ask ADMIN_USER "  Admin username [admin]: " admin; fi
+        if [[ -z $ADMIN_EMAIL ]]; then ask ADMIN_EMAIL "  Admin email: "; fi
         ADMIN_PASS="$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20)"
         printf '%s\n' "$ADMIN_PASS" | runuser -u nimvor -- env NIMVOR_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/nimvor" user:create "$ADMIN_USER" "$ADMIN_EMAIL" --role=admin
         CREATED_PASS=$ADMIN_PASS
