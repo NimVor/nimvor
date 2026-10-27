@@ -20,7 +20,6 @@ $kind = (string) $v('kind', 'php');
 // Process limits, hardening and PHP-FPM tuning are the administrator's.
 $serverPhp = $this->serverScope();
 $aliases = $old['aliases'] ?? implode("\n", $site['aliases'] ?? []);
-$redirects = $old['redirects'] ?? \NimVor\Services\WebsiteService::redirectsText($site['redirects'] ?? []);
 $docSub = $site === null ? '' : ltrim(substr((string) $site['document_root'], strlen((string) $site['root'])), '/');
 $err = static fn (string $k): string => isset($errors[$k]) ? '<div class="invalid-feedback d-block">' . e($errors[$k]) . '</div>' : '';
 $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
@@ -87,6 +86,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         </div>
                         <?= $err('kind') ?>
                     </div>
+                    <?php if ($isNew): ?>
                     <div class="mb-3" data-nim-kind="php">
                         <label class="form-label" for="f-php">PHP version</label>
                         <select class="form-select<?= $cls('php_version') ?>" id="f-php" name="php_version">
@@ -97,6 +97,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         </select>
                         <?= $err('php_version') ?>
                     </div>
+                    <?php endif; ?>
                     <div class="mb-3" data-nim-kind="proxy">
                         <label class="form-label" for="f-proxy">Upstream address</label>
                         <input class="form-control<?= $cls('proxy_pass') ?>" id="f-proxy" name="proxy_pass" value="<?= e($v('proxy_pass')) ?>" placeholder="http://127.0.0.1:3000">
@@ -166,7 +167,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                 </div>
             </div>
             <?php endif; ?>
-            <?php if ($serverPhp || !$isNew): ?>
+            <?php if ($isNew && $serverPhp): ?>
             <div class="card mb-3" data-nim-kind="php" id="php">
                 <div class="card-header"><i class="bi bi-filetype-php me-1"></i>PHP settings</div>
                 <div class="card-body">
@@ -236,50 +237,13 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                 </div>
             </div>
             <?php endif; ?>
-            <?php if (!$isNew): $ini = (array) ($old['ini'] ?? ($site['php_settings']['ini'] ?? [])); $iniErr = array_filter($errors ?? [], static fn ($k) => str_starts_with((string) $k, 'ini'), ARRAY_FILTER_USE_KEY); ?>
-            <div class="card mb-3" data-nim-kind="php" id="php-ini">
-                <div class="card-header nim-toolbar">
-                    <span class="nim-toolbar-title"><i class="bi bi-sliders2 me-1"></i>Additional PHP directives <span class="badge rounded-pill text-bg-light border fw-normal"><?= count(array_filter($ini, static fn ($x) => $x !== '')) ?> set</span></span>
-                    <input class="form-control form-control-sm nim-filter" type="search" placeholder="Filter directives" aria-label="Filter directives" data-nim-filter="#php-ini-table">
-                </div>
-                <?php if (isset($iniErr['ini'])): ?><div class="text-danger small px-3 pt-2"><?= e((string) $iniErr['ini']) ?></div><?php endif; ?>
-                <div class="table-responsive nim-scroll-400">
-                    <table class="table table-sm align-middle mb-0 nim-table" id="php-ini-table">
-                        <tbody>
-                        <?php foreach (\NimVor\Services\PhpDirectives::groups() as $group => $keys): ?>
-                            <tr class="table-light"><th colspan="2" class="small"><?= e($group) ?></th></tr>
-                            <?php foreach ($keys as $k): [, $kind, $hint] = \NimVor\Services\PhpDirectives::ALL[$k]; $val = (string) ($ini[$k] ?? ''); $id = 'ini-' . str_replace('.', '-', $k); $bad = isset($iniErr['ini.' . $k]); ?>
-                                <tr>
-                                    <td class="w-50"><label class="font-monospace small" for="<?= e($id) ?>"><?= e($k) ?></label><?php if ($hint !== ''): ?><div class="small text-body-secondary"><?= e($hint) ?></div><?php endif; ?></td>
-                                    <td>
-                                        <?php if ($kind === 'bool' || str_starts_with($kind, 'enum:')): $opts = $kind === 'bool' ? ['On', 'Off'] : explode('|', substr($kind, 5)); ?>
-                                            <select class="form-select form-select-sm<?= $bad ? ' is-invalid' : '' ?>" id="<?= e($id) ?>" name="ini[<?= e($k) ?>]">
-                                                <option value="">Server default</option>
-                                                <?php foreach ($opts as $o): ?><option value="<?= e($o) ?>"<?= $val === $o ? ' selected' : '' ?>><?= e($o) ?></option><?php endforeach; ?>
-                                            </select>
-                                        <?php else: ?>
-                                            <input class="form-control form-control-sm font-monospace<?= $bad ? ' is-invalid' : '' ?>" id="<?= e($id) ?>" name="ini[<?= e($k) ?>]" value="<?= e($val) ?>" placeholder="Server default" autocomplete="off" spellcheck="false">
-                                        <?php endif; ?>
-                                        <?php if ($bad): ?><div class="invalid-feedback d-block"><?= e((string) $iniErr['ini.' . $k]) ?></div><?php endif; ?>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endforeach; ?>
-                        <tr class="d-none" data-nim-filter-empty><td colspan="2" class="small text-body-secondary">No directive matches.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <?php endif; ?>
             <div class="card mb-3" id="requests">
-                <div class="card-header"><i class="bi bi-signpost me-1"></i>Requests and redirects</div>
+                <div class="card-header"><i class="bi bi-signpost me-1"></i>Requests</div>
                 <div class="card-body">
                     <label class="form-label small" for="f-body">Max request body (MB)</label>
                     <input class="form-control form-control-sm mb-3<?= $cls('client_max_body_mb') ?>" type="number" id="f-body" name="client_max_body_mb" value="<?= e($v('client_max_body_mb', 64)) ?>">
                     <?= $err('client_max_body_mb') ?>
-                    <label class="form-label small" for="f-redirects">Redirects</label>
-                    <textarea class="form-control form-control-sm font-monospace<?= $cls('redirects') ?>" id="f-redirects" name="redirects" rows="3" placeholder="/old-page https://example.com/new-page 301"><?= e($redirects) ?></textarea>
-                    <?= $err('redirects') ?>
+                    <?php if (!$isNew): ?><div class="small text-body-secondary">Redirects are managed one by one on the <a href="<?= e($this->url('sites.redirects', ['id' => (int) $site['id']])) ?>">Redirects</a> page, and PHP version and php.ini settings on the <a href="<?= e($this->url('sites.php', ['id' => (int) $site['id']])) ?>">PHP settings</a> page.</div><?php endif; ?>
                 </div>
             </div>
         </div>

@@ -155,7 +155,7 @@ $showOwner = $this->can(P::USERS_VIEW);
                         <?php if ($this->can(P::DATABASES_VIEW)): ?><a class="nim-icon-op" href="<?= e($this->url('sites.databases', ['id' => $id])) ?>" title="Databases" aria-label="Databases of <?= e($m['domain']) ?>"><i class="bi bi-database"></i></a><?php endif; ?>
                         <?php if ($this->can(P::LOGS_VIEW)): ?><a class="nim-icon-op" href="<?= e($this->url('sites.stats', ['id' => $id])) ?>" title="Statistics" aria-label="Statistics of <?= e($m['domain']) ?>"><i class="bi bi-speedometer2"></i></a><?php endif; ?>
                         <?php if ($m['kind'] === 'php'): ?>
-                            <?php if ($canCreate): ?><a class="ms-1 small fw-semibold" href="<?= e($this->url('sites.edit', ['id' => $id])) ?>" title="PHP version">PHP <?= e($m['php_version']) ?></a><?php else: ?><span class="ms-1 small">PHP <?= e($m['php_version']) ?></span><?php endif; ?>
+                            <?php if ($canCreate): ?><a class="ms-1 small fw-semibold" href="<?= e($this->url('sites.php', ['id' => $id])) ?>" title="PHP version">PHP <?= e($m['php_version']) ?></a><?php else: ?><span class="ms-1 small">PHP <?= e($m['php_version']) ?></span><?php endif; ?>
                         <?php else: ?><span class="ms-1 small nim-muted"><?= $m['kind'] === 'proxy' ? 'Proxy' : 'Static' ?></span><?php endif; ?>
                     </td>
                     <td class="text-nowrap small">
@@ -178,7 +178,7 @@ $showOwner = $this->can(P::USERS_VIEW);
                                 <details data-nim-menu>
                                     <summary class="nim-op-more" title="More" aria-label="More actions for <?= e($m['domain']) ?>"><i class="bi bi-three-dots-vertical"></i></summary>
                                     <div class="nim-dropmenu">
-                                        <a href="<?= e($this->url('sites.edit', ['id' => $id])) ?>"><i class="bi bi-sliders"></i>PHP &amp; settings</a>
+                                        <a href="<?= e($this->url('sites.edit', ['id' => $id])) ?>"><i class="bi bi-sliders"></i>Settings</a>
                                         <?php if ($this->hasRoute('sites.subdomains')): ?><a href="<?= e($this->url('sites.subdomains', ['id' => $id])) ?>"><i class="bi bi-diagram-3"></i>Subdomains</a><?php endif; ?>
                                         <?php if ($this->hasRoute('sites.addons')): ?><a href="<?= e($this->url('sites.addons', ['id' => $id])) ?>"><i class="bi bi-plus-square"></i>Addon domains</a><?php endif; ?>
                                         <a href="<?= e($this->url('sites.advanced', ['id' => $id])) ?>"><i class="bi bi-tools"></i>Advanced</a>

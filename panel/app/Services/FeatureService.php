@@ -28,7 +28,8 @@ final class FeatureService
      * feature is on unless a list turns it off.
      */
     public const FEATURES = [
-        'php' => ['PHP & website settings', [], ['sites.edit', 'sites.update'], 'Websites'],
+        'php' => ['PHP & website settings', [], ['sites.edit', 'sites.update', 'sites.php'], 'Websites'],
+        'redirects' => ['Redirects', [], ['sites.redirects'], 'Websites'],
         'mysql' => ['MySQL / MariaDB databases', [P::DATABASES_VIEW, P::DATABASES_MANAGE], [], 'Databases'],
         'mongodb' => ['MongoDB databases', [], ['sites.mongo'], 'Databases'],
         'email' => ['Email', [P::MAIL_MANAGE], [], 'Email'],

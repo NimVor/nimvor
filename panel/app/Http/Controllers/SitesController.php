@@ -311,6 +311,48 @@ final class SitesController extends Controller
         return $this->render('sites/form', ['site' => $site, 'phpVersions' => $this->service->phpVersions(), 'owners' => [], 'tab' => 'settings', 'profileDefault' => $this->service->defaultPhpProfile()]);
     }
 
+    /** The website's PHP settings: version, limits and php.ini directives. */
+    public function php(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        if ($site['kind'] !== 'php') {
+            return $this->redirectWithError('/sites/' . (int) $id, 'PHP settings only apply to PHP websites.');
+        }
+        return $this->render('sites/php', ['site' => $site, 'phpVersions' => $this->service->phpVersions(), 'tab' => 'php', 'profileDefault' => $this->service->defaultPhpProfile()]);
+    }
+
+    public function phpUpdate(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        if ($site['kind'] !== 'php') {
+            return $this->redirectWithError('/sites/' . (int) $id, 'PHP settings only apply to PHP websites.');
+        }
+        $to = '/sites/' . (int) $id . '/php';
+        // Only PHP settings come from this page; everything else about the
+        // website stays as it is (the aliases are sent back unchanged because
+        // the settings check replaces them as a whole).
+        $input = array_intersect_key($request->all(), array_flip([
+            'php_version', 'memory_limit_mb', 'upload_max_mb', 'max_execution_seconds', 'max_children', 'php_profile', 'disable_functions',
+            'pm', 'start_servers', 'min_spare_servers', 'max_spare_servers', 'idle_timeout_seconds', 'max_requests', 'request_timeout_seconds',
+            'slowlog_seconds', 'harden', 'ini',
+        ]));
+        $input['aliases'] = implode("\n", $site['aliases']);
+        try {
+            $this->service->update($site, $input, $this->user($request));
+        } catch (ValidationException $e) {
+            return $this->backWithErrors($to, $e, $request->all());
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($to, $e);
+        }
+        return $this->redirectWithSuccess($to, 'PHP settings saved and applied.');
+    }
+
     public function update(Request $request, string $id): Response
     {
         $site = $this->site($request, $id);

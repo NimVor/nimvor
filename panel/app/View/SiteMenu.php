@@ -45,7 +45,9 @@ final class SiteMenu
         ['memcached', 'Memcached', 'hdd-stack', 'sites.memcached', P::WEBSITES_VIEW],
         ['nodejs', 'Runtime', 'hexagon', 'sites.nodejs', P::WEBSITES_MANAGE],
         ['python', 'Runtime', 'filetype-py', 'sites.python', P::WEBSITES_MANAGE],
-        ['settings', 'PHP & settings', 'sliders', 'sites.edit', P::WEBSITES_MANAGE],
+        ['php', 'PHP settings', 'filetype-php', 'sites.php', P::WEBSITES_MANAGE],
+        ['redirects', 'Redirects', 'signpost-split', 'sites.redirects', P::WEBSITES_MANAGE],
+        ['settings', 'Settings', 'sliders', 'sites.edit', P::WEBSITES_MANAGE],
         ['advanced', 'Advanced', 'tools', 'sites.advanced', P::WEBSITES_MANAGE],
     ];
 
@@ -62,6 +64,9 @@ final class SiteMenu
         $out = [];
         foreach (self::ITEMS as [$key, $label, $icon, $route, $perm]) {
             if (($key === 'nodejs' || $key === 'python') && $key !== $appType) {
+                continue;
+            }
+            if ($key === 'php' && ($site['kind'] ?? '') !== 'php') {
                 continue;
             }
             if ($view->hasRoute($route) && $view->can($perm) && $view->routeAllowed($route)) {

@@ -47,7 +47,7 @@ final class PhpForCustomersTest extends HttpTestCase
     {
         self::assertSame([7, true], [$this->settings()['max_children'], $this->settings()['harden']]);
         $this->login('cust');
-        $form = $this->request('GET', '/sites/' . $this->siteId . '/settings')->body();
+        $form = $this->request('GET', '/sites/' . $this->siteId . '/php')->body();
         self::assertStringContainsString('name="memory_limit_mb"', $form);
         foreach (['name="max_children"', 'name="harden"', 'Advanced PHP-FPM', 'name="pm"'] as $hidden) {
             self::assertStringNotContainsString($hidden, $form, $hidden);
@@ -58,7 +58,7 @@ final class PhpForCustomersTest extends HttpTestCase
 
         // Sent anyway: ignored; their own settings are applied.
         $this->agent->succeed('sites.apply', ['changed' => []]);
-        $this->post('/sites/' . $this->siteId . '/settings', ['kind' => 'php', 'php_version' => '8.3', 'memory_limit_mb' => '512', 'max_children' => '150', 'harden' => '0', 'pm' => 'static', 'max_requests' => '1']);
+        $this->post('/sites/' . $this->siteId . '/php', ['kind' => 'php', 'php_version' => '8.3', 'memory_limit_mb' => '512', 'max_children' => '150', 'harden' => '0', 'pm' => 'static', 'max_requests' => '1']);
         $s = $this->settings();
         self::assertSame(512, $s['memory_limit_mb']);
         self::assertSame([7, true, 'ondemand', 500], [$s['max_children'], $s['harden'], $s['pm'], $s['max_requests']]);
@@ -67,8 +67,8 @@ final class PhpForCustomersTest extends HttpTestCase
 
         // Administrators still set them.
         $this->switchTo('admin');
-        self::assertStringContainsString('name="max_children"', $this->request('GET', '/sites/' . $this->siteId . '/settings')->body());
-        $this->post('/sites/' . $this->siteId . '/settings', ['kind' => 'php', 'php_version' => '8.3', 'max_children' => '12', 'harden' => '0']);
+        self::assertStringContainsString('name="max_children"', $this->request('GET', '/sites/' . $this->siteId . '/php')->body());
+        $this->post('/sites/' . $this->siteId . '/php', ['kind' => 'php', 'php_version' => '8.3', 'max_children' => '12', 'harden' => '0']);
         self::assertSame([12, false], [$this->settings()['max_children'], $this->settings()['harden']]);
     }
 
@@ -96,28 +96,28 @@ final class PhpForCustomersTest extends HttpTestCase
     {
         $this->login('cust');
         $root = (string) $this->db->scalar('SELECT root FROM websites WHERE id = ?', [$this->siteId]);
-        $form = $this->request('GET', '/sites/' . $this->siteId . '/settings')->body();
+        $form = $this->request('GET', '/sites/' . $this->siteId . '/php')->body();
         self::assertStringContainsString('name="ini[date.timezone]"', $form);
         self::assertStringNotContainsString('ini[open_basedir]', $form);
         self::assertStringNotContainsString('ini[allow_url_include]', $form);
 
         $this->agent->succeed('sites.apply', ['changed' => []]);
         $base = ['kind' => 'php', 'php_version' => '8.3'];
-        $this->post('/sites/' . $this->siteId . '/settings', $base + ['ini' => ['date.timezone' => 'Asia/Karachi', 'display_errors' => 'On', 'post_max_size' => '128m', 'session.save_path' => $root . '/tmp/sessions', 'error_reporting' => '']]);
+        $this->post('/sites/' . $this->siteId . '/php', $base + ['ini' => ['date.timezone' => 'Asia/Karachi', 'display_errors' => 'On', 'post_max_size' => '128m', 'session.save_path' => $root . '/tmp/sessions', 'error_reporting' => '']]);
         self::assertSame(['date.timezone' => 'Asia/Karachi', 'display_errors' => 'On', 'post_max_size' => '128M', 'session.save_path' => $root . '/tmp/sessions'], $this->lastCall('sites.apply')['php']['ini']);
 
         // Refused, and nothing is changed.
         $calls = $this->calls('sites.apply');
         foreach ([['open_basedir' => '/'], ['allow_url_include' => 'On'], ['session.save_path' => '/home/nimvor/other.test/tmp'], ['error_log' => $root . '/../x'], ['date.timezone' => "UTC\nphp_admin_value[open_basedir]=/"], ['display_errors' => 'maybe']] as $bad) {
-            $this->post('/sites/' . $this->siteId . '/settings', $base + ['ini' => $bad]);
+            $this->post('/sites/' . $this->siteId . '/php', $base + ['ini' => $bad]);
         }
         self::assertSame($calls, $this->calls('sites.apply'));
         self::assertSame('Asia/Karachi', $this->settings()['ini']['date.timezone']);
-        $this->post('/sites/' . $this->siteId . '/settings', $base + ['ini' => ['display_errors' => 'maybe']]);
-        self::assertStringContainsString('Use On or Off.', $this->request('GET', '/sites/' . $this->siteId . '/settings')->body(), 'the error is shown by the field');
+        $this->post('/sites/' . $this->siteId . '/php', $base + ['ini' => ['display_errors' => 'maybe']]);
+        self::assertStringContainsString('Use On or Off.', $this->request('GET', '/sites/' . $this->siteId . '/php')->body(), 'the error is shown by the field');
 
         // Emptied: back to the server default.
-        $this->post('/sites/' . $this->siteId . '/settings', $base + ['ini' => ['date.timezone' => '', 'display_errors' => '', 'post_max_size' => '', 'session.save_path' => '']]);
+        $this->post('/sites/' . $this->siteId . '/php', $base + ['ini' => ['date.timezone' => '', 'display_errors' => '', 'post_max_size' => '', 'session.save_path' => '']]);
         self::assertSame([], $this->settings()['ini']);
         self::assertArrayNotHasKey('ini', $this->lastCall('sites.apply')['php']);
     }

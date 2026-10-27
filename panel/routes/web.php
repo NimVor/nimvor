@@ -85,6 +85,11 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/addons', [SitesController::class, 'storeAddon'], ['name' => 'sites.addons.store', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/convert', [\NimVor\Http\Controllers\AddonConversionController::class, 'convert'], ['name' => 'sites.convert', 'permission' => P::USERS_MANAGE]);
     $r->post('/sites/{id}/settings', [SitesController::class, 'update'], ['name' => 'sites.update', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/php', [SitesController::class, 'php'], ['name' => 'sites.php', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/php', [SitesController::class, 'phpUpdate'], ['name' => 'sites.php.update', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/redirects', [\NimVor\Http\Controllers\RedirectsController::class, 'show'], ['name' => 'sites.redirects', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/redirects', [\NimVor\Http\Controllers\RedirectsController::class, 'add'], ['name' => 'sites.redirects.add', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/redirects/delete', [\NimVor\Http\Controllers\RedirectsController::class, 'remove'], ['name' => 'sites.redirects.remove', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/toggle', [SitesController::class, 'toggle'], ['name' => 'sites.toggle', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/restart-php', [SitesController::class, 'restartPhp'], ['name' => 'sites.restart_php', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/reapply', [SitesController::class, 'reapply'], ['name' => 'sites.reapply', 'permission' => P::WEBSITES_MANAGE]);

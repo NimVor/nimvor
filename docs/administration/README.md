@@ -282,11 +282,21 @@ Opening a website shows its details (site user, root directory, IPv4,
 PHP handler and version, site and database size, SSL, last backup) and
 **Site managing**: tiles for FTP accounts, Files, Databases, Domains (DNS),
 SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Headers & cache, Settings,
-PHP settings, Applications, Git, Workers, Redis, Logs, Statistics,
+PHP settings, Redirects, Applications, Git, Workers, Redis, Logs, Statistics,
 Subdomains, Addon domains and Manual settings (Advanced), plus
 **Search…** (press `/`). *Delete the website* leads to the typed
 confirmation under Advanced; *Disable the website* asks first.
 Administrators also have the website's menu in the sidebar.
+
+**Redirects** (website → *Redirects*) lists the website's redirects, one record
+each, with *Add redirect* (a window asking for the type — permanent 301 or
+temporary 302 —, the address to redirect and where it goes) and *Delete*.
+A redirect matches that exact address; each is checked (no loops, no duplicates,
+at most 100) and applied with the website's configuration, which is undone if the
+agent refuses it. **PHP settings** holds everything PHP: the PHP version, the
+process limits and security profile, and the website's own `php.ini` directives.
+**Settings** keeps domains, application type, the document root and request
+limits.
 
 ### Security headers and cache rules (per website)
 

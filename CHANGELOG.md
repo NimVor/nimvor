@@ -7,6 +7,14 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **Redirects are managed one by one** on a new *Redirects* page (a tile on the website overview and a menu entry):
+  a table of the website's redirects, an *Add redirect* window (type permanent 301 or temporary 302, the address,
+  where it goes) and *Delete* for each. Loops, duplicates and unsafe values are refused, and a change the agent
+  refuses is undone. The redirects text area is gone from Settings.
+- **PHP settings has its own page** (*PHP settings* tile and menu entry): the PHP version, process limits and
+  security profile, and the website's own php.ini directives. The *PHP settings* and *Additional PHP directives*
+  sections and the PHP version are removed from the Settings page (a new website still chooses its PHP version when
+  it is created).
 - **Customers can no longer enable or disable a website, and cannot delete a disabled one.** The enable/disable
   controls are gone from the customer's website pages and list, and the endpoint (page and API) refuses them; only
   administrators and resellers switch websites. When an administrator disables a website, its owner sees a message at
