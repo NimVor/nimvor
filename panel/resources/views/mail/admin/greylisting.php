@@ -52,59 +52,63 @@ $trusted = (array) ($c['trusted'] ?? []);
     </div>
 </div>
 
-<div class="row g-3">
-    <div class="col-xl-5">
-        <form class="card h-100" method="post" action="<?= e($this->url('mail.greylist.save')) ?>" data-nim-busy>
-            <?= $this->csrfField() ?>
-            <div class="card-header"><i class="bi bi-hourglass-split me-1"></i>Settings</div>
-            <div class="card-body">
-                <div class="form-check form-switch mb-3"><input type="hidden" name="enabled" value="0"><input class="form-check-input" type="checkbox" role="switch" id="gl-on" name="enabled" value="1"<?= !empty($c['enabled']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label fw-medium" for="gl-on">Enable greylisting</label></div>
-                <div class="row g-2 mb-2 align-items-end">
-                    <div class="col-sm-4"><label class="form-label small" for="gl-deferral">Initial deferral period (minutes)</label><input class="form-control form-control-sm" type="number" min="1" max="1440" id="gl-deferral" name="deferral" value="<?= (int) $c['deferral'] ?>" required<?= $dis ?>></div>
-                    <div class="col-sm-4"><label class="form-label small" for="gl-resend">Resend acceptance period (minutes)</label><input class="form-control form-control-sm" type="number" min="1" max="10080" id="gl-resend" name="resend" value="<?= (int) $c['resend'] ?>" required<?= $dis ?>></div>
-                    <div class="col-sm-4"><label class="form-label small" for="gl-expire">Record expiration time (minutes)</label><input class="form-control form-control-sm" type="number" min="60" max="525600" id="gl-expire" name="expire" value="<?= (int) $c['expire'] ?>" required<?= $dis ?>></div>
-                </div>
-                <div class="form-text mb-3">The first message from a new sender address, recipient and sending server is refused temporarily; a retry after the deferral period and within the acceptance period is accepted, and the combination is then remembered for the record expiration time (renewed with each message).</div>
-                <div class="form-check mb-2"><input type="hidden" name="spf_bypass" value="0"><input class="form-check-input" type="checkbox" id="gl-spf" name="spf_bypass" value="1"<?= !empty($c['spf_bypass']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="gl-spf">Bypass greylisting for hosts with valid SPF records</label><div class="form-text mt-0">Mail from a server that the sender domain's SPF record authorizes (result “pass”) is not deferred.</div></div>
-                <div class="form-check mb-3"><input type="hidden" name="auto_trust_new" value="0"><input class="form-check-input" type="checkbox" id="gl-autotrust" name="auto_trust_new" value="1"<?= !empty($c['auto_trust_new']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="gl-autotrust">Automatically trust newly added mail providers</label><div class="form-text mt-0">Providers added to NimVor's list in an update start out trusted.</div></div>
-                <?php if ($canManage): ?><button class="btn btn-primary btn-sm"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save settings</button><?php endif; ?>
-            </div>
-        </form>
-    </div>
-    <div class="col-xl-7">
-        <div class="card h-100" id="trusted">
-            <div class="card-header nim-toolbar">
-                <h2 class="nim-toolbar-title"><i class="bi bi-shield-check me-1"></i>Trusted hosts <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($trusted) ?></span></h2>
-                <?php if ($canManage): ?><button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#trusted-new"><i class="bi bi-plus-lg me-1"></i>Add</button><?php endif; ?>
-            </div>
-            <?php if ($trusted === []): ?>
-                <div class="nim-empty-state"><i class="bi bi-shield-check" aria-hidden="true"></i><div class="fw-medium">No trusted hosts</div><div class="small">Add servers or ranges whose mail must never be deferred.</div></div>
-            <?php else: ?>
-                <div class="nim-dtable table-responsive">
-                    <table class="table align-middle mb-0">
-                        <thead><tr><th>Address or range</th><th>Comment</th><th></th></tr></thead>
-                        <tbody>
-                        <?php foreach ($trusted as $n => $t): ?>
-                            <tr>
-                                <td class="font-monospace"><?= e((string) $t['range']) ?></td>
-                                <td class="small"><?= e((string) ($t['comment'] ?? '')) ?></td>
-                                <td class="text-end text-nowrap">
-                                    <?php if ($canManage): ?>
-                                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#trusted-<?= (int) $n ?>" aria-label="Edit <?= e((string) $t['range']) ?>"><i class="bi bi-pencil"></i></button>
-                                        <form class="d-inline" method="post" action="<?= e($this->url('mail.greylist.trusted.delete', ['n' => (int) $n])) ?>" data-nim-confirm="Remove the trusted host <?= e((string) $t['range']) ?>? Its mail is greylisted again."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" aria-label="Delete <?= e((string) $t['range']) ?>"><i class="bi bi-trash"></i></button></form>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
-        </div>
-    </div>
+<div class="nim-subtabs" role="tablist">
+    <button class="active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#greylist-settings" aria-controls="greylist-settings" aria-selected="true"><i class="bi bi-hourglass-split me-1"></i>Settings</button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#trusted" aria-controls="trusted" aria-selected="false"><i class="bi bi-shield-check me-1"></i>Trusted hosts <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($trusted) ?></span></button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#providers" aria-controls="providers" aria-selected="false"><i class="bi bi-buildings me-1"></i>Common mail providers</button>
 </div>
-
-<form class="card mt-3" id="providers" method="post" action="<?= e($this->url('mail.greylist.providers')) ?>" data-nim-busy>
+<div class="tab-content">
+<div class="tab-pane fade show active" id="greylist-settings" role="tabpanel">
+<form class="card" method="post" action="<?= e($this->url('mail.greylist.save')) ?>" data-nim-busy>
+    <?= $this->csrfField() ?>
+    <div class="card-header"><i class="bi bi-hourglass-split me-1"></i>Settings</div>
+    <div class="card-body">
+        <div class="form-check form-switch mb-3"><input type="hidden" name="enabled" value="0"><input class="form-check-input" type="checkbox" role="switch" id="gl-on" name="enabled" value="1"<?= !empty($c['enabled']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label fw-medium" for="gl-on">Enable greylisting</label></div>
+        <div class="row g-2 mb-2 align-items-end">
+            <div class="col-sm-4"><label class="form-label small" for="gl-deferral">Initial deferral period (minutes)</label><input class="form-control form-control-sm" type="number" min="1" max="1440" id="gl-deferral" name="deferral" value="<?= (int) $c['deferral'] ?>" required<?= $dis ?>></div>
+            <div class="col-sm-4"><label class="form-label small" for="gl-resend">Resend acceptance period (minutes)</label><input class="form-control form-control-sm" type="number" min="1" max="10080" id="gl-resend" name="resend" value="<?= (int) $c['resend'] ?>" required<?= $dis ?>></div>
+            <div class="col-sm-4"><label class="form-label small" for="gl-expire">Record expiration time (minutes)</label><input class="form-control form-control-sm" type="number" min="60" max="525600" id="gl-expire" name="expire" value="<?= (int) $c['expire'] ?>" required<?= $dis ?>></div>
+        </div>
+        <div class="form-text mb-3">The first message from a new sender address, recipient and sending server is refused temporarily; a retry after the deferral period and within the acceptance period is accepted, and the combination is then remembered for the record expiration time (renewed with each message).</div>
+        <div class="form-check mb-2"><input type="hidden" name="spf_bypass" value="0"><input class="form-check-input" type="checkbox" id="gl-spf" name="spf_bypass" value="1"<?= !empty($c['spf_bypass']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="gl-spf">Bypass greylisting for hosts with valid SPF records</label><div class="form-text mt-0">Mail from a server that the sender domain's SPF record authorizes (result “pass”) is not deferred.</div></div>
+        <div class="form-check mb-3"><input type="hidden" name="auto_trust_new" value="0"><input class="form-check-input" type="checkbox" id="gl-autotrust" name="auto_trust_new" value="1"<?= !empty($c['auto_trust_new']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="gl-autotrust">Automatically trust newly added mail providers</label><div class="form-text mt-0">Providers added to NimVor's list in an update start out trusted.</div></div>
+        <?php if ($canManage): ?><button class="btn btn-primary btn-sm"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save settings</button><?php endif; ?>
+    </div>
+</form>
+</div>
+<div class="tab-pane fade" id="trusted" role="tabpanel">
+<div class="card">
+    <div class="card-header nim-toolbar">
+        <h2 class="nim-toolbar-title"><i class="bi bi-shield-check me-1"></i>Trusted hosts <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($trusted) ?></span></h2>
+        <?php if ($canManage): ?><button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#trusted-new"><i class="bi bi-plus-lg me-1"></i>Add</button><?php endif; ?>
+    </div>
+    <?php if ($trusted === []): ?>
+        <div class="nim-empty-state"><i class="bi bi-shield-check" aria-hidden="true"></i><div class="fw-medium">No trusted hosts</div><div class="small">Add servers or ranges whose mail must never be deferred.</div></div>
+    <?php else: ?>
+        <div class="nim-dtable table-responsive">
+            <table class="table align-middle mb-0">
+                <thead><tr><th>Address or range</th><th>Comment</th><th></th></tr></thead>
+                <tbody>
+                <?php foreach ($trusted as $n => $t): ?>
+                    <tr>
+                        <td class="font-monospace"><?= e((string) $t['range']) ?></td>
+                        <td class="small"><?= e((string) ($t['comment'] ?? '')) ?></td>
+                        <td class="text-end text-nowrap">
+                            <?php if ($canManage): ?>
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#trusted-<?= (int) $n ?>" aria-label="Edit <?= e((string) $t['range']) ?>"><i class="bi bi-pencil"></i></button>
+                                <form class="d-inline" method="post" action="<?= e($this->url('mail.greylist.trusted.delete', ['n' => (int) $n])) ?>" data-nim-confirm="Remove the trusted host <?= e((string) $t['range']) ?>? Its mail is greylisted again."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" aria-label="Delete <?= e((string) $t['range']) ?>"><i class="bi bi-trash"></i></button></form>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
+</div>
+<div class="tab-pane fade" id="providers" role="tabpanel">
+<form class="card" method="post" action="<?= e($this->url('mail.greylist.providers')) ?>" data-nim-busy>
     <?= $this->csrfField() ?>
     <div class="card-header nim-toolbar">
         <h2 class="nim-toolbar-title"><i class="bi bi-buildings me-1"></i>Common mail providers</h2>
@@ -131,6 +135,8 @@ $trusted = (array) ($c['trusted'] ?? []);
         <span class="small text-body-secondary ms-1">Mail from a trusted provider's addresses is never deferred. Ranges come from the provider's SPF record; with auto update they are read again once a day while greylisting is on.</span>
     </div>
 </form>
+</div>
+</div>
 <?php if ($canManage): ?>
     <?= $trustModal(null, null) ?>
     <?php foreach ($trusted as $n => $t): ?><?= $trustModal((int) $n, (array) $t) ?><?php endforeach; ?>

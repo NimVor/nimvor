@@ -70,8 +70,8 @@ final class ServerSetupService
 
     /** Feature lists: name => [description, features turned on]. */
     public const FEATURE_LISTS = [
-        'Hosting' => ['Websites without shell access.', ['php', 'mysql', 'email', 'dns', 'file_manager', 'ssl', 'subdomains', 'ftp', 'cron', 'backups', 'apps', 'git', 'workers', 'redis', 'logs', 'stats', 'malware', 'wordpress', 'addon_domains', 'cloudflare', 'firewall', 'memcached', 'mongodb', 'nodejs', 'python', 'site_health', 'site_security', 'type_php', 'type_static']],
-        'Hosting with SSH' => ['Every feature, the SSH shell included.', ['php', 'mysql', 'email', 'dns', 'file_manager', 'ssl', 'subdomains', 'ftp', 'cron', 'backups', 'apps', 'git', 'workers', 'redis', 'logs', 'stats', 'malware', 'wordpress', 'addon_domains', 'cloudflare', 'firewall', 'memcached', 'mongodb', 'nodejs', 'python', 'site_health', 'site_security', 'type_php', 'type_static', 'ssh']],
+        'Hosting' => ['Websites without shell access.', ['php', 'mysql', 'email', 'dns', 'file_manager', 'ssl', 'subdomains', 'ftp', 'cron', 'backups', 'apps', 'git', 'workers', 'redis', 'logs', 'stats', 'malware', 'wordpress', 'addon_domains', 'cloudflare', 'firewall', 'memcached', 'mongodb', 'nodejs', 'python', 'site_health', 'site_security', 'site_access', 'type_php', 'type_static']],
+        'Hosting with SSH' => ['Every feature, the SSH shell included.', ['php', 'mysql', 'email', 'dns', 'file_manager', 'ssl', 'subdomains', 'ftp', 'cron', 'backups', 'apps', 'git', 'workers', 'redis', 'logs', 'stats', 'malware', 'wordpress', 'addon_domains', 'cloudflare', 'firewall', 'memcached', 'mongodb', 'nodejs', 'python', 'site_health', 'site_security', 'site_access', 'type_php', 'type_static', 'ssh']],
         'Email only' => ['Email, DNS and certificates for a domain; no website tools.', ['email', 'dns', 'ssl', 'backups']],
     ];
 

@@ -7,6 +7,8 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **Email → Greylisting uses tabs** — Settings, Trusted hosts and Common mail providers — that switch in the page
+  without reloading; saving returns to the tab you were on.
 - **Resource limits is under Administration** (next to Bandwidth Limits) instead of Server.
 - **Email → Server settings (`/mail/admin/server`) uses tabs** — Services, Postfix, Dovecot and Mail log — that switch
   in the page without reloading; "Check and apply" saves the Postfix and Dovecot settings together from either tab.
@@ -40,6 +42,11 @@ All notable changes to NimVor are documented here. The format follows
   `runtime.available`; `runtime.install` accepts `kind: python`.
 
 ### Fixed
+- **The website dashboard's "Site access" tile did nothing useful** (it only jumped to the FTP page). It now opens a
+  Site access page: password-protect the whole website or a folder of it with HTTP basic authentication (a user name and
+  password that visitors enter in the browser's sign-in prompt). The agent writes the Nginx rule and keeps only a
+  SHA-512 crypt hash; protected addresses can be changed or turned off from the same page. New feature switch "Site
+  access" in the Feature Manager (on in the default "Hosting" lists).
 - **File integrity checks of package-owned files silently found nothing on a normal server.** `dpkg --verify` /
   `rpm -Va` read every file of every installed package, which takes minutes; the agent's default 15 second command
   timeout cut it off, and the check "never fails the scan", so Security → File integrity reported no drift. The
