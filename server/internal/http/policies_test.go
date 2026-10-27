@@ -879,3 +879,62 @@ func TestMonitoringLivePageHasItsPanels(t *testing.T) {
 		t.Error("the page dumps raw JSON")
 	}
 }
+
+// Terminating accounts removes their mail, databases, database users and DNS
+// zones on the server as well as the panel's rows, several accounts at once,
+// and reports each account.
+func TestTerminateAccountsRemovesWhatTheServerHolds(t *testing.T) {
+	s, db, sa := rolesEnvServerAgent(t, true)
+	h := s.Handler()
+	admin := loginAsUser(t, h, "admin")
+	exec := func(q string, a ...any) {
+		t.Helper()
+		if _, err := db.Exec(q, a...); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	exec(`INSERT INTO users (id,username,email,display_name,password_hash,role_id,is_active,password_changed_at,created_at,updated_at)
+		VALUES (10,'jane','j@x','Jane',?,(SELECT id FROM roles WHERE name='customer'),1,'2026-01-01T00:00:00Z','',''),
+		       (11,'joe','o@x','Joe',?,(SELECT id FROM roles WHERE name='customer'),1,'2026-01-01T00:00:00Z','','')`, loginHash, loginHash)
+	exec(`INSERT INTO mail_domains (id,server_id,domain,owner_id,created_at) VALUES (1,1,'jane.example',10,'')`)
+	exec(`INSERT INTO mail_mailboxes (domain_id,local,quota_mb,created_at) VALUES (1,'info',0,'')`)
+	exec(`INSERT INTO databases (id,server_id,owner_id,name,created_at) VALUES (1,1,10,'jane_db',''),(2,1,11,'joe_db','')`)
+	exec(`INSERT INTO database_users (id,server_id,owner_id,username,host,created_at) VALUES (1,1,10,'jane_u','localhost','')`)
+	exec(`INSERT INTO dns_zones (id,server_id,name,owner_id,primary_ns,hostmaster,created_at,updated_at) VALUES (1,1,'jane.example',10,'ns1.x.test','h@x','','')`)
+
+	// The Users page's bulk form posts ids[] to /accounts/terminate/confirm.
+	token, admin := siteFormToken(t, h, admin, "/users")
+	rr := postForm(h, "/accounts/terminate/confirm", url.Values{"_token": {token}, "ids[]": {"10", "11"}}, admin)
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "jane") || !strings.Contains(rr.Body.String(), "joe") {
+		t.Fatalf("preview = %d: %.300s", rr.Code, rr.Body.String())
+	}
+	// Without the word nothing is removed.
+	wrong := postForm(h, "/accounts/terminate", url.Values{"_token": {token}, "ids[]": {"10", "11"}, "count": {"2"}, "confirm": {"nope"}}, refreshCookie(admin, rr))
+	if wrong.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("a wrong confirmation = %d", wrong.Code)
+	}
+	var n int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM users WHERE id IN (10,11)`).Scan(&n)
+	if n != 2 {
+		t.Fatal("accounts were removed without confirmation")
+	}
+	done := postForm(h, "/accounts/terminate", url.Values{"_token": {token}, "ids[]": {"10", "11"}, "count": {"2"}, "confirm": {"TERMINATE"}}, refreshCookie(admin, wrong))
+	body := done.Body.String()
+	if done.Code != http.StatusOK || !strings.Contains(body, "Terminated: 0 website(s), 1 mailbox(es), 1 database(s), 1 DNS zone(s).") {
+		t.Fatalf("results = %d: %s", done.Code, body)
+	}
+	_ = db.QueryRow(`SELECT COUNT(*) FROM users WHERE id IN (10,11)`).Scan(&n)
+	if n != 0 {
+		t.Errorf("%d accounts left", n)
+	}
+	for _, want := range []string{"mail.mailbox_delete", "mail.domain_remove", "db.drop", "db.user_drop", "dns.zone_delete"} {
+		if !containsAction(sa.called(), want) {
+			t.Errorf("the server was not asked for %s: %v", want, sa.called())
+		}
+	}
+	var audits int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM audit_logs WHERE action = 'account.terminate' AND result = 'success'`).Scan(&audits)
+	if audits != 2 {
+		t.Errorf("termination audit rows = %d", audits)
+	}
+}

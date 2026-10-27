@@ -11,17 +11,39 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>Terminate {{.Username}}</h1>
-  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  <p class="alert alert-danger">This will permanently delete the hosting account <strong>{{.Username}}</strong>, its websites, mail domains, databases and DNS zones. This cannot be undone. Type <code class="font-monospace">{{.Word}}</code> in the box below to confirm.</p>
-  <form method="post" action="/accounts/terminate/confirm" novalidate>
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <div class="mb-3">
-      <input class="form-control font-monospace" name="confirm" autocomplete="off" autofocus required placeholder="{{.Word}}">
+  <p class="text-body-secondary">Remove hosting accounts with their websites, email, databases and DNS zones</p>
+  {{if .Error}}<div class="alert alert-danger" role="alert">{{.Error}}</div>{{end}}
+  {{if .Results}}
+  <div class="card" id="terminate-results">
+    <div class="card-header">Results</div>
+    <ul class="list-group list-group-flush">
+      {{range .Results}}<li class="list-group-item d-flex gap-2 align-items-start">
+        <i class="bi bi-{{if .OK}}check-circle-fill text-success{{else}}x-circle-fill text-danger{{end}} mt-1" aria-hidden="true"></i>
+        <div><span class="fw-semibold">{{.Username}}</span> — {{.Message}}</div></li>{{end}}
+    </ul>
+  </div>
+  {{else}}
+  <div class="alert alert-danger"><strong>This cannot be undone.</strong> For each account below, its websites (with their files and system accounts), mailboxes and the mail in them, databases and DNS zones are deleted, then the account itself. Backups stored elsewhere are not touched. Take a backup first if you may need anything.</div>
+  <form method="post" action="/accounts/terminate" data-wcp-busy id="terminate-confirm">
+    <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="count" value="{{.Count}}">
+    <div class="card mb-3"><div class="table-responsive"><table class="table align-middle mb-0">
+      <thead><tr><th>Account</th><th>Websites</th><th class="text-end">Mailboxes</th><th class="text-end">Databases</th><th class="text-end">DNS zones</th></tr></thead>
+      <tbody>
+      {{range .Accounts}}<tr>
+        <td><input type="hidden" name="ids[]" value="{{.ID}}"><span class="fw-semibold">{{.Username}}</span> <span class="small text-body-secondary">{{.Role}}</span>
+          {{if ne .Scope "own"}}<div class="small text-danger">Not a hosting account: it will be skipped.</div>{{end}}
+          {{if .CustomersLeft}}<div class="small text-danger">Has {{.CustomersLeft}} customer(s) not selected: it will be skipped.</div>{{end}}</td>
+        <td class="small">{{if .Websites}}{{join .Websites ", "}}{{else}}—{{end}}</td>
+        <td class="text-end">{{.Mailboxes}}</td><td class="text-end">{{.Databases}}</td><td class="text-end">{{.Zones}}</td>
+      </tr>{{end}}
+      </tbody></table></div></div>
+    <div class="row g-2 align-items-end">
+      <div class="col-md-5"><label class="form-label" for="t-confirm">Type <code>{{.Word}}</code> to terminate {{.Count}} account(s)</label>
+        <input class="form-control" id="t-confirm" name="confirm" autocomplete="off" spellcheck="false" required pattern="{{.Word}}"></div>
+      <div class="col-md-auto"><button class="btn btn-danger" type="submit">Terminate {{.Count}} account(s)</button> <a class="btn btn-outline-secondary" href="/users">Cancel</a></div>
     </div>
-    <button class="btn btn-danger" type="submit">Permanently terminate {{.Username}}</button>
-    <a class="btn btn-link" href="/users">Cancel</a>
   </form>
+  {{end}}
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}

@@ -32,6 +32,9 @@ type restoreLine struct {
 	Text  string `json:"text"`
 }
 
+// ProblemText renders why a step failed for a report.
+func ProblemText(err error) string { return problem(err) }
+
 // problem renders why a step failed for the report.
 func problem(err error) string {
 	var ve *ValidationError

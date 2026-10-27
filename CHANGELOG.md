@@ -58,6 +58,14 @@ All notable changes to WhaCP are documented here. The format follows
 - Inline scripts and styles moved to assets (`noinline_test.go` keeps them out).
 
 ### Fixed (Go differential audit, Wave 1)
+- **Terminating an account left its data on the server**: the mailboxes, mail domains, MySQL
+  databases and logins and DNS zones were removed from the panel's tables only, so mail kept
+  being accepted, zones kept being served and databases stayed. They now go through the same
+  steps as removing them one by one, and a failure stops that account (kept with what is
+  left) while the others continue.
+- **Bulk termination from the Users page did nothing**: the page posted `ids[]` to a
+  handler that wanted one account from the session. It now previews what would be removed,
+  asks for TERMINATE, and reports each account (customers before their reseller).
 - Account backups were created empty (`sites: []`, a bare user id) and unaudited. They
   now describe the account like the PHP panel (user, websites, databases and grants,
   DNS zones with their zone files, cron jobs) and back up each website.

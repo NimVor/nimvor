@@ -937,7 +937,6 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /accounts", s.guard("accounts.store", "users.manage", s.accountsStore))
 	s.mux.HandleFunc("GET /accounts/bandwidth", s.guard("accounts.bandwidth", "users.manage", s.accountsBandwidth))
 	s.mux.HandleFunc("POST /accounts/terminate", s.guard("accounts.terminate", "users.manage", s.accountsTerminate))
-	s.mux.HandleFunc("GET /accounts/terminate/confirm", s.guard("accounts.terminate", "users.manage", s.accountsTerminateConfirmGet))
 	s.mux.HandleFunc("POST /accounts/terminate/confirm", s.guard("accounts.terminate.confirm", "users.manage", s.accountsTerminateConfirm))
 
 	// Panel users CRUD (admin + reseller scoping). Users create/edit render
