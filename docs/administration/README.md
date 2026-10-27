@@ -1888,13 +1888,19 @@ Passes in this panel:
   domain or close to expiry are replaced (looked for every 6 hours). The AutoSSL page shows the
   queue and the log; "Run AutoSSL for all websites" queues everything now.
 
+- **Monitoring** — a metrics sample (CPU, memory, fullest disk, load, network; kept 30 days)
+  and the alert rules: disk, memory, load, a failed service, an unreachable agent, an expiring
+  certificate, a failed backup, and plan disk-quota and bandwidth limits (this pass also
+  measures each website's disk use hourly and reads its access log for bandwidth). Alerts open,
+  refresh and resolve on their own; each change is a notification, an email to the alert
+  recipients (Settings → Email) and a post to the alert webhook. Monitoring → History and
+  alerts shows the charts and the alerts.
 - **Scheduled backups** — website, server-configuration and all-websites schedules start in
   their slot (a new schedule waits for its first slot; a storage turned off since means "kept on
   this server only"; a failure notifies the owner), all-websites rounds back up two websites at
   a time, and the oldest completed backups beyond each schedule's retention are deleted.
 
-Not part of this panel yet (the PHP scheduler ran them): monitoring samples and alerts,
-antivirus, brute-force protection, bandwidth and quota
+Not part of this panel yet (the PHP scheduler ran them): antivirus, brute-force protection, bandwidth and quota
 reconciliation, trash clean-up and the update check.
 
 Enable the timer on an existing installation with `systemctl enable --now whacp-scheduler.timer`

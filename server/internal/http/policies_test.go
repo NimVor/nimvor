@@ -838,3 +838,29 @@ func TestSchedulerPassRecordsItsRun(t *testing.T) {
 		t.Fatalf("last run %v", last)
 	}
 }
+
+func TestMonitoringPageShowsAlertsAndCharts(t *testing.T) {
+	s, db, _ := rolesEnvServerAgent(t, true)
+	h := s.Handler()
+	admin := loginAsUser(t, h, "admin")
+	now := time.Now().Unix()
+	for i := 0; i < 6; i++ {
+		if _, err := db.Exec(`INSERT INTO metric_samples (server_id,taken_at,cpu,mem,disk,load1,rx_bps,tx_bps) VALUES (1,?,?,40,55,0.5,1000,500)`, now-int64(i)*300, 10+i*5); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.Exec(`INSERT INTO alerts (server_id,rule,subject,severity,message,first_seen,last_seen) VALUES (1,'disk','/','critical','Disk / is 99% full.',?,?)`,
+		time.Now().Add(-2*time.Hour).UTC().Format(time.RFC3339), time.Now().UTC().Format(time.RFC3339)); err != nil {
+		t.Fatal(err)
+	}
+	rec := get(t, h, "/monitoring", admin)
+	b := rec.Body.String()
+	for _, want := range []string{"Disk / is 99% full.", "2 h ago", "<polyline", "CPU and memory", "Network"} {
+		if !strings.Contains(b, want) {
+			t.Errorf("monitoring page lacks %q", want)
+		}
+	}
+	if strings.Contains(b, "Not enough data yet") {
+		t.Error("charts claim no data although samples exist")
+	}
+}

@@ -13,10 +13,15 @@ All notable changes to WhaCP are documented here. The format follows
   3 days or 6 refusals); expired, self-signed or soon-to-expire certificates are replaced.
   "Run AutoSSL for all websites" queues and starts them. Server health shows the scheduler's
   last run.
+- **Monitoring records and alerts**: the scheduler stores a metrics sample every pass and
+  evaluates the alert rules (disk, memory, load, services, agent, certificates, failed
+  backups, plan disk and bandwidth limits), with notifications, email and webhook delivery;
+  it also measures website disk use and bandwidth. The Monitoring page shows the active
+  alerts, the resolved ones and CPU/memory, load, disk and network charts for 24 h/7 d/30 d.
 - **Scheduled backups run**: backup schedules (website, server configuration, every website)
   start in their slot, all-websites rounds move along, and retention deletes the oldest
   completed backups. Server-configuration backups made by a schedule are now linked to it.
-  The other scheduler passes (monitoring, antivirus, …) are not ported yet.
+  The other scheduler passes (antivirus, …) are not ported yet.
 - **New websites get their DNS and email set up** (PHP's site provisioner): a zone with
   A/www/SPF/DMARC/CAA following the account's options, or an A record in the account's own
   parent zone, and email with DKIM when this server hosts email; then AutoSSL is queued. Before,
@@ -77,8 +82,7 @@ All notable changes to WhaCP are documented here. The format follows
   spellings are accepted).
 
 ### Not yet ported (tracked)
-- Setup wizard steps, the other scheduler passes (monitoring samples and alerts, scheduled
-  antivirus, brute-force protection, quota reconciliation), `/admin/plugins`, connecting remote servers (pinned TLS
+- Setup wizard steps, the other scheduler passes (antivirus, brute-force protection, quota reconciliation), `/admin/plugins`, connecting remote servers (pinned TLS
   agent client).
 
 ### Fixed (Go differential audit, Wave 0)

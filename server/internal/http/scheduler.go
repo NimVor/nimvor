@@ -8,6 +8,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
+	"github.com/mchkhawarshahzad/whacp/server/internal/mail"
 	"github.com/mchkhawarshahzad/whacp/server/internal/notify"
 )
 
@@ -27,6 +28,9 @@ type schedulerPass struct {
 }
 
 var schedulerPasses = []schedulerPass{
+	{"monitoring", func(ctx context.Context, s *Server, r *http.Request) []string {
+		return s.monitoringRun(ctx)
+	}},
 	{"backups", func(ctx context.Context, s *Server, r *http.Request) []string {
 		return s.backupScheduleRun(ctx, r)
 	}},
@@ -77,4 +81,17 @@ func (s *Server) backupScheduleRun(ctx context.Context, r *http.Request) []strin
 			_, _ = notes.Store(ctx, websiteID, "job", severity, title, body, link, key)
 		},
 	})
+}
+
+// monitoringRun records a metrics sample and opens, refreshes and resolves
+// alerts (email to the alert recipients, webhook and notifications).
+func (s *Server) monitoringRun(ctx context.Context) []string {
+	notes := notify.NewRepository(s.db)
+	m := hosting.NewMonitoringService(s.db, 1, s.agent, s.settings, hosting.NewPlanLimits(s.db))
+	m.Notify = func(ctx context.Context, websiteID, ownerID sql.NullInt64, kind, severity, title, link, key string) {
+		_, _ = notes.StoreOwned(ctx, websiteID, ownerID, kind, severity, title, "", link, key)
+	}
+	mailer := mail.New(s.settings, s.crypto, s.log)
+	m.Email = mailer.Send
+	return m.Run(ctx)
 }

@@ -201,6 +201,22 @@ func (r *Repository) Store(ctx context.Context, websiteID sql.NullInt64, kind, s
 	return res.LastInsertId()
 }
 
+// StoreOwned is Store for a notification shown to one account (a quota or
+// bandwidth alert): its owner sees it as well as administrators.
+func (r *Repository) StoreOwned(ctx context.Context, websiteID, ownerID sql.NullInt64, kind, severity, title, body, link, dedupeKey string) (int64, error) {
+	res, err := r.db.ExecContext(ctx,
+		`INSERT OR IGNORE INTO notifications (server_id, website_id, owner_id, kind, severity, title, body, link, dedupe_key, created_at)
+		 VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		websiteID, ownerID, kind, severity, title, body, link, dedupeKey, time.Now().UTC().Format(time.RFC3339))
+	if err != nil {
+		return 0, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return 0, nil
+	}
+	return res.LastInsertId()
+}
+
 // Filter narrows a notification list (NotificationService::filtered).
 type Filter struct {
 	Unread    bool

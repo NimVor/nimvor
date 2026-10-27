@@ -285,3 +285,19 @@ func (p *PlanLimits) BandwidthUsedMB(ctx context.Context, owners []int64) int {
 	_ = p.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(bw_bytes),0) FROM website_usage WHERE bw_month = ? AND website_id IN (SELECT id FROM websites WHERE owner_id IN (`+in+`))`, args...).Scan(&b)
 	return int(b / (1024 * 1024))
 }
+
+// DiskUsedMB is the disk use measured for the given owners' websites
+// (PlanLimits::count('disk_mb')).
+func (p *PlanLimits) DiskUsedMB(ctx context.Context, owners []int64) int {
+	if len(owners) == 0 {
+		return 0
+	}
+	in := strings.TrimSuffix(strings.Repeat("?,", len(owners)), ",")
+	args := make([]any, len(owners))
+	for i, o := range owners {
+		args[i] = o
+	}
+	var b int64
+	_ = p.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(bytes),0) FROM website_usage WHERE website_id IN (SELECT id FROM websites WHERE owner_id IN (`+in+`))`, args...).Scan(&b)
+	return int(b / (1024 * 1024))
+}
