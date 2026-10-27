@@ -1888,8 +1888,13 @@ Passes in this panel:
   domain or close to expiry are replaced (looked for every 6 hours). The AutoSSL page shows the
   queue and the log; "Run AutoSSL for all websites" queues everything now.
 
+- **Scheduled backups** — website, server-configuration and all-websites schedules start in
+  their slot (a new schedule waits for its first slot; a storage turned off since means "kept on
+  this server only"; a failure notifies the owner), all-websites rounds back up two websites at
+  a time, and the oldest completed backups beyond each schedule's retention are deleted.
+
 Not part of this panel yet (the PHP scheduler ran them): monitoring samples and alerts,
-scheduled backups and retention, antivirus, brute-force protection, bandwidth and quota
+antivirus, brute-force protection, bandwidth and quota
 reconciliation, trash clean-up and the update check.
 
 Enable the timer on an existing installation with `systemctl enable --now whacp-scheduler.timer`

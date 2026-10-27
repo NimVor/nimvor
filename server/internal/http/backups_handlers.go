@@ -49,7 +49,9 @@ func crandRead(p []byte) (int, error) { return crand.Read(p) }
 func auditEntry(action, targetType, targetID, result string, r *http.Request, user *identity.User, details map[string]any) audit.Entry {
 	e := audit.Entry{Action: action, TargetType: targetType, TargetID: targetID, Result: result, IP: clientIP(r), UserAgent: r.UserAgent(), Details: details}
 	if user != nil {
-		e.UserID = &user.ID
+		if user.ID > 0 { // the scheduler has no user row
+			e.UserID = &user.ID
+		}
 		e.Username = user.Username
 	}
 	return e

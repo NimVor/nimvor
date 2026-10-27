@@ -2,11 +2,13 @@ package http
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
+	"github.com/mchkhawarshahzad/whacp/server/internal/notify"
 )
 
 // The scheduler is one pass of background work, run every few minutes by
@@ -25,6 +27,9 @@ type schedulerPass struct {
 }
 
 var schedulerPasses = []schedulerPass{
+	{"backups", func(ctx context.Context, s *Server, r *http.Request) []string {
+		return s.backupScheduleRun(ctx, r)
+	}},
 	{"auto SSL", func(ctx context.Context, s *Server, r *http.Request) []string {
 		return s.autoSslService(r, schedulerUser).Run(ctx)
 	}},
@@ -59,4 +64,17 @@ func (s *Server) RunScheduler(ctx context.Context) []string {
 	// Doctor and the AutoSSL page read when it last ran.
 	_ = s.settings.Set(ctx, hosting.SchedulerRunKey, time.Now().UTC().Format(time.RFC3339), 0)
 	return out
+}
+
+// backupScheduleRun starts due scheduled backups and applies retention.
+func (s *Server) backupScheduleRun(ctx context.Context, r *http.Request) []string {
+	notes := notify.NewRepository(s.db)
+	return s.backupSched(r, schedulerUser).Run(ctx, hosting.ScheduleRunner{
+		Backups: s.backupsAdminService(r, schedulerUser),
+		Sites:   hosting.NewWebsiteRepository(s.db),
+		Jobs:    hosting.NewJobTracker(s.db),
+		Notify: func(ctx context.Context, websiteID sql.NullInt64, severity, title, body, link, key string) {
+			_, _ = notes.Store(ctx, websiteID, "job", severity, title, body, link, key)
+		},
+	})
 }

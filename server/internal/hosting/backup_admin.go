@@ -736,6 +736,8 @@ type ServerCreateOptions struct {
 	StorageID sql.NullInt64
 	KeepLocal bool
 	Label     string
+	// ScheduleID is set when the scheduler (not a person) starts the run.
+	ScheduleID sql.NullInt64
 }
 
 // CreateServer starts a server configuration backup (PHP createServer).
@@ -758,8 +760,8 @@ func (s *BackupService) CreateServer(ctx context.Context, opts ServerCreateOptio
 	}
 	if _, err := s.db.ExecContext(ctx,
 		`INSERT INTO backups (server_id, schedule_id, kind, label, encrypted, storage_id, status, job_id, user_id, created_at)
-		 VALUES (?, NULL, 'server', ?, 1, ?, 'running', ?, ?, ?)`,
-		s.serverID, label, nullOrZero(opts.StorageID), res.JobID, nullOrZero(actorID), backupNow()); err != nil {
+		 VALUES (?, ?, 'server', ?, 1, ?, 'running', ?, ?, ?)`,
+		s.serverID, nullOrZero(opts.ScheduleID), label, nullOrZero(opts.StorageID), res.JobID, nullOrZero(actorID), backupNow()); err != nil {
 		return "", err
 	}
 	s.audit(ctx, "backup.server", "server", fmt.Sprintf("%d", s.serverID), "success", map[string]any{"remote": opts.StorageID.Valid})
