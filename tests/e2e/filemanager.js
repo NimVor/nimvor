@@ -19,7 +19,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
 
   await page.goto(BASE + '/websites/new');
   const dom = 'fm' + Date.now() + '.test'; await page.fill('#f-domain', dom);
-  await page.selectOption('#f-kind', 'static');
+  await page.click('label[for^="f-kind-"]:has-text("Static site")');
   await Promise.all([page.waitForNavigation(), page.click('form button[type=submit].btn-primary')]);
   step('site created: ' + page.url());
   const m = page.url().match(/sites\/(\d+)/);

@@ -14,7 +14,9 @@ function seed() {
   execFileSync('php', ['-r', `
     $db = new PDO('sqlite:' . $argv[1]);
     $now = gmdate('c');
-    $db->exec("DELETE FROM notifications WHERE dedupe_key LIKE 'e2e:%'");
+    // Other tests of the run leave notifications behind: start from none.
+    $db->exec("DELETE FROM notification_reads");
+    $db->exec("DELETE FROM notifications");
     $s = $db->prepare("INSERT INTO notifications (server_id, kind, severity, title, body, link, dedupe_key, created_at) VALUES (1, 'job', ?, ?, ?, ?, ?, ?)");
     $s->execute(['error', 'Backup shop.test failed <img src=x onerror=alert(1)>', 'upload refused', '/backups', 'e2e:1', $now]);
     $s->execute(['success', 'Deploy shop.test finished', '', '', 'e2e:2', $now]);
@@ -71,7 +73,7 @@ function seed() {
     step('filter and mark one read');
 
     await page.goto(BASE + '/notifications');
-    await Promise.all([page.waitForNavigation(), page.click('button:has-text("Mark all read")')]);
+    await Promise.all([page.waitForNavigation(), page.click('button:has-text("Mark all read") >> visible=true')]);
     if (await count() !== '0') { throw new Error('count after all read: ' + await count()); }
     if (!(await page.textContent('body')).includes('all caught up')) { throw new Error('empty state'); }
     await Promise.all([page.waitForNavigation(), page.click('.card-header a.nav-link:has-text("All")')]);

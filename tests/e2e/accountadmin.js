@@ -118,7 +118,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
 
     // ---- Addon domain → account of its own
     const addon = 'addon' + stamp + '.example.test';
-    await page.goto(BASE + site + '/domains');
+    await page.goto(BASE + site + '/addons');
     await page.click('button[data-bs-target="#new-addon"]');
     await page.waitForSelector('#new-addon.show');
     await page.fill('#ad-name', addon);

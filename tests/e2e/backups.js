@@ -34,7 +34,7 @@ const DEV_ROOT = process.env.E2E_DEV_ROOT || path.join(__dirname, '../../.dev/ro
   const stamp = Date.now().toString(36).slice(-5);
   // The job log window opens after a job starts: close it.
   const closeJob = async () => {
-    if (await page.waitForSelector('#nim-job.show', { timeout: 2000 }).catch(() => null)) {
+    if (await page.waitForSelector('#nim-job.show', { timeout: 6000 }).catch(() => null)) {
       await page.click('#nim-job .btn-close');
       await page.waitForSelector('#nim-job', { state: 'hidden' });
     }
