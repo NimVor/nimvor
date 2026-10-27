@@ -1895,6 +1895,8 @@ Passes in this panel:
   refresh and resolve on their own; each change is a notification, an email to the alert
   recipients (Settings → Email) and a post to the alert webhook. Monitoring → History and
   alerts shows the charts and the alerts.
+- **Resource limits** — the plans' CPU, memory, task and I/O limits are compared with the server's and
+  applied where they differ (also when websites are created or deleted).
 - **Scheduled backups** — website, server-configuration and all-websites schedules start in
   their slot (a new schedule waits for its first slot; a storage turned off since means "kept on
   this server only"; a failure notifies the owner), all-websites rounds back up two websites at

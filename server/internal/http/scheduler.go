@@ -28,6 +28,13 @@ type schedulerPass struct {
 }
 
 var schedulerPasses = []schedulerPass{
+	{"resource limits", func(ctx context.Context, s *Server, r *http.Request) []string {
+		lines, err := s.reconcileLimits(r, schedulerUser)
+		if err != nil {
+			return []string{"resource limits not checked: " + err.Error()}
+		}
+		return lines
+	}},
 	{"monitoring", func(ctx context.Context, s *Server, r *http.Request) []string {
 		return s.monitoringRun(ctx)
 	}},

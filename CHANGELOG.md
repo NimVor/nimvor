@@ -66,6 +66,12 @@ All notable changes to WhaCP are documented here. The format follows
 - Inline scripts and styles moved to assets (`noinline_test.go` keeps them out).
 
 ### Fixed (Go differential audit, Wave 1)
+- **Deleting a website left its cron jobs and statistics set-up on the server**, and
+  creating, deleting or moving websites never refreshed the plans' resource limits (only the
+  Limits page button did). The website events PHP wires up now exist: deleting removes the
+  cron jobs and statistics first, creating/deleting re-checks the limits, and updating a
+  website re-applies its workers (stopped while it is disabled). The scheduler also re-checks
+  the limits each pass.
 - **Ticked switches read as off in about a hundred handlers** (`r.FormValue` returns the
   hidden 0 that comes first): every POST now keeps the checkbox's 1, as PHP's `$_POST`
   does. The hosting-options form of an account, among others, saved every switch off.

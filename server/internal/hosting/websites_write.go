@@ -96,10 +96,26 @@ type WebsiteService struct {
 	// "website.created" event: DNS/mail provisioning and AutoSSL). A failure
 	// there never undoes the website.
 	onCreated func(ctx context.Context, site *Website)
+	listeners map[string][]func(ctx context.Context, site *Website)
 }
 
 // OnCreated sets the callback run after each website is created.
 func (s *WebsiteService) OnCreated(f func(ctx context.Context, site *Website)) { s.onCreated = f }
+
+// Listen registers a listener for a website event: "website.updated",
+// "website.deleting" (before the server-side teardown) or "website.deleted".
+func (s *WebsiteService) Listen(event string, f func(ctx context.Context, site *Website)) {
+	if s.listeners == nil {
+		s.listeners = map[string][]func(ctx context.Context, site *Website){}
+	}
+	s.listeners[event] = append(s.listeners[event], f)
+}
+
+func (s *WebsiteService) dispatch(ctx context.Context, event string, site *Website) {
+	for _, f := range s.listeners[event] {
+		f(ctx, site)
+	}
+}
 
 // NewWebsiteService builds the service. serverID is the active server
 // (ServerContext::id() in the PHP panel; single-server in Go).
@@ -1197,6 +1213,7 @@ func (s *WebsiteService) Update(ctx context.Context, site *Website, in map[strin
 	s.recordAudit(ctx, "website.update", "website", strconv.FormatInt(site.ID, 10), "success", map[string]any{
 		"domain": site.Domain, "changes": websiteDiff(&previous, v.Row),
 	})
+	s.dispatch(ctx, "website.updated", updated)
 	return nil
 }
 
@@ -1260,6 +1277,7 @@ func (s *WebsiteService) patch(ctx context.Context, site *Website, fields map[st
 	s.recordAudit(ctx, action, "website", strconv.FormatInt(site.ID, 10), "success", map[string]any{
 		"domain": site.Domain, "changes": patchDiff(&previous, fields),
 	})
+	s.dispatch(ctx, "website.updated", updated)
 	return nil
 }
 
@@ -1342,6 +1360,7 @@ func (s *WebsiteService) Delete(ctx context.Context, site *Website, removeFiles,
 	if s.workers != nil {
 		s.workers.RemoveAll(ctx, site)
 	}
+	s.dispatch(ctx, "website.deleting", site)
 	raw, err := s.agent.Call(ctx, "sites.delete", map[string]any{
 		"domain": site.Domain, "user": site.SystemUser,
 		"remove_files": removeFiles, "remove_user": removeUser,
@@ -1364,6 +1383,7 @@ func (s *WebsiteService) Delete(ctx context.Context, site *Website, removeFiles,
 	s.recordAudit(ctx, "website.delete", "website", strconv.FormatInt(site.ID, 10), "success", map[string]any{
 		"domain": site.Domain, "files": files, "user_removed": removeUser,
 	})
+	s.dispatch(ctx, "website.deleted", site)
 	warnings := res.Warnings
 	if len(keptFor) > 0 {
 		warnings = append(warnings, "The system user "+site.SystemUser+" was kept because other websites use it.")

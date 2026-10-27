@@ -3,6 +3,8 @@ package http
 import (
 	"database/sql"
 	"encoding/json"
+	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1078,4 +1080,41 @@ func TestSetupWizardPageAndSteps(t *testing.T) {
 		t.Errorf("no token = %d", rr.Code)
 	}
 	_ = sa
+}
+
+// Deleting a website also removes its cron jobs and statistics set-up from the
+// server, and the limits are looked at again (the website.deleting/deleted
+// listeners).
+func TestWebsiteDeleteCleansUpCronAndStats(t *testing.T) {
+	s, db, sa := rolesEnvServerAgent(t, true)
+	if _, err := db.Exec(`INSERT INTO websites (id,server_id,owner_id,domain,system_user,root,document_root,kind,php_version,status,created_at,updated_at)
+		VALUES (9,1,1,'gone.example','u_gone','/home/whacp/gone','/home/whacp/gone/public_html','php','8.3.1','active','','')`); err != nil {
+		t.Fatal(err)
+	}
+	admin := &identity.User{ID: 1, Username: "admin", RoleScope: "all"}
+	req := httptest.NewRequest("POST", "/", nil)
+	site, err := hosting.NewWebsiteRepository(db).FindFull(t.Context(), 1, 9, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.websiteService(req, admin).Delete(t.Context(), site, true, true); err != nil {
+		t.Fatal(err)
+	}
+	acts := sa.called()
+	for _, want := range []string{"cron.apply", "stats.enable", "sites.delete", "limits.status"} {
+		if !containsAction(acts, want) {
+			t.Errorf("%s was not asked: %v", want, acts)
+		}
+	}
+	idx := func(a string) int {
+		for i, x := range acts {
+			if x == a {
+				return i
+			}
+		}
+		return -1
+	}
+	if idx("cron.apply") > idx("sites.delete") || idx("stats.enable") > idx("sites.delete") {
+		t.Errorf("cleanup must come before the teardown: %v", acts)
+	}
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
@@ -71,15 +72,44 @@ func (s *Server) websiteService(r *http.Request, user *identity.User) *hosting.W
 	return ws
 }
 
-// onWebsiteCreated is the "website.created" listener: DNS (and email) for the
-// new website, then AutoSSL (Application::registerListeners).
+// onWebsiteCreated wires the website events (Application::registerListeners):
+// created → DNS/email, AutoSSL and limits; deleting → the cron jobs and
+// statistics left on the server; deleted → limits; updated → the workers follow
+// the website (stopped while it is disabled).
 func (s *Server) onWebsiteCreated(ws *hosting.WebsiteService, r *http.Request, user *identity.User) {
 	serverID := s.currentServerID(r)
+	limits := func(ctx context.Context) {
+		if _, err := s.reconcileLimits(r.WithContext(ctx), user); err != nil {
+			s.log.Warn("resource limits not applied", "error", err)
+		}
+	}
 	ws.OnCreated(func(ctx context.Context, site *hosting.Website) {
 		prov := hosting.NewSiteProvisioner(s.db, serverID, s.siteDnsService(r, user), hosting.NewDnsRepository(s.db),
 			s.siteMailService(r, user), hosting.NewMailRepository(s.db), hosting.NewAccountOptionStore(s.db), s.settings, s.websiteAuditHook(r, user))
 		prov.Provision(ctx, site)
 		hosting.NewAutoSslService(s.db, serverID, s.settings, s.agent, nil, nil, nil, nil).Mark(ctx, site)
+		limits(ctx)
+	})
+	ws.Listen("website.deleted", func(ctx context.Context, _ *hosting.Website) { limits(ctx) })
+	ws.Listen("website.deleting", func(ctx context.Context, site *hosting.Website) {
+		if err := s.cronService(r, user).RemoveFromServer(ctx, site); err != nil {
+			s.log.Warn("cron cleanup failed", "domain", site.Domain, "error", err)
+		}
+		if _, err := s.agent.Call(ctx, "stats.enable", mergeMaps(statsTarget(site), map[string]any{"enabled": false}), 120*time.Second); err != nil {
+			s.log.Warn("statistics cleanup failed", "domain", site.Domain, "error", err)
+		}
+	})
+	ws.Listen("website.updated", func(ctx context.Context, site *hosting.Website) {
+		workers := hosting.NewWorkerService(s.db, s.agent, hosting.NewPlanLimits(s.db), s.websiteAuditHook(r, user), serverID)
+		list, err := workers.ForSite(ctx, site.ID)
+		if err != nil {
+			return
+		}
+		for _, w := range list {
+			if err := workers.Apply(ctx, site, w); err != nil {
+				s.log.Warn("worker re-apply failed", "worker", w.Slug, "error", err)
+			}
+		}
 	})
 }
 

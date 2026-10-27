@@ -12,6 +12,7 @@ import (
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"github.com/mchkhawarshahzad/whacp/server/internal/session"
 )
 
@@ -338,27 +339,11 @@ func (s *Server) limitsIndex(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "limits_index", data)
 }
 
-// limitsApply POST /limits/apply — reconciles the server's cgroup slices
-// with what every account's plan asks for by calling agent `limits.set`
-// for each account that differs from the currently applied set. Mirrors
-// ResourceLimitService::reconcile / LimitsController::apply
-// (limits.apply, server.manage).
-func (s *Server) limitsApply(w http.ResponseWriter, r *http.Request) {
-	sess := sessionFrom(r.Context())
-	user := userFrom(r.Context())
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "bad form", http.StatusBadRequest)
-		return
-	}
-	if !session.ValidateCSRF(sess, formToken(r)) {
-		http.Error(w, "Page expired", http.StatusBadRequest)
-		return
-	}
-	if !hosting.IsAll(user) {
-		sess.Flash("error", "Resource limits are managed by server administrators.")
-		http.Redirect(w, r, "/limits", http.StatusSeeOther)
-		return
-	}
+// reconcileLimits makes the server's cgroup limits match the plans
+// (ResourceLimitService::reconcile) and re-applies the websites, cron jobs and
+// workers of the accounts that moved in or out of a slice. It returns what it
+// did, one line per account.
+func (s *Server) reconcileLimits(r *http.Request, user *identity.User) ([]string, error) {
 	// Fetch currently-applied state (agent returns {accounts: {acctN: {limits, users}}}).
 	raw, err := s.agent.Call(r.Context(), "limits.status", nil, 30*time.Second)
 	applied := map[string]any{}
@@ -372,9 +357,7 @@ func (s *Server) limitsApply(w http.ResponseWriter, r *http.Request) {
 	}
 	want, err := s.limitsDesired(r)
 	if err != nil {
-		sess.Flash("error", err.Error())
-		http.Redirect(w, r, "/limits", http.StatusSeeOther)
-		return
+		return nil, err
 	}
 	// Union of keys present in either applied or desired.
 	keys := map[string]bool{}
@@ -391,7 +374,11 @@ func (s *Server) limitsApply(w http.ResponseWriter, r *http.Request) {
 	sort.Strings(sorted)
 
 	sid := s.currentServerID(r)
-	uid := user.ID
+	var uid *int64
+	if user.ID > 0 {
+		id := user.ID
+		uid = &id
+	}
 	sites := hosting.NewWebsiteRepository(s.db)
 	ws := s.websiteService(r, user)
 	cron := hosting.NewCronService(s.db, s.agent, hosting.NewPlanLimits(s.db), s.websiteAuditHook(r, user))
@@ -474,7 +461,7 @@ func (s *Server) limitsApply(w http.ResponseWriter, r *http.Request) {
 		s.audit.Record(r.Context(), audit.Entry{
 			Action: "limits.apply", TargetType: "server", TargetID: "limits",
 			Result: audit.Success, Details: map[string]any{"account": acct, "users": appliedUsers, "limits": callLimits},
-			UserID: &uid, Username: user.Username,
+			UserID: uid, Username: user.Username,
 		})
 		if !haveW {
 			lines = append(lines, acct+": limits removed")
@@ -518,6 +505,36 @@ func (s *Server) limitsApply(w http.ResponseWriter, r *http.Request) {
 			}
 			srows.Close()
 		}
+	}
+	return lines, nil
+}
+
+// limitsApply POST /limits/apply — reconciles the server's cgroup slices
+// with what every account's plan asks for by calling agent `limits.set`
+// for each account that differs from the currently applied set. Mirrors
+// ResourceLimitService::reconcile / LimitsController::apply
+// (limits.apply, server.manage).
+func (s *Server) limitsApply(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	user := userFrom(r.Context())
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	if !session.ValidateCSRF(sess, formToken(r)) {
+		http.Error(w, "Page expired", http.StatusBadRequest)
+		return
+	}
+	if !hosting.IsAll(user) {
+		sess.Flash("error", "Resource limits are managed by server administrators.")
+		http.Redirect(w, r, "/limits", http.StatusSeeOther)
+		return
+	}
+	lines, err := s.reconcileLimits(r, user)
+	if err != nil {
+		sess.Flash("error", err.Error())
+		http.Redirect(w, r, "/limits", http.StatusSeeOther)
+		return
 	}
 	if len(lines) == 0 {
 		sess.Flash("success", "Everything already matches the plans.")
