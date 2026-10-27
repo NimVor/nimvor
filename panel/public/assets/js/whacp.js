@@ -1233,6 +1233,19 @@
         if (!box) { return; }
         box.querySelectorAll('input[type=checkbox]:not([disabled])').forEach(function (c) { c.checked = all; });
     });
+    // Select all: <input type=checkbox data-wcp-select-all="name[]"> in a table
+    // header ticks or unticks the enabled, currently visible (not filtered
+    // out or paged away) checkboxes of that name in the same table.
+    document.addEventListener('change', function (e) {
+        var master = e.target.closest && e.target.closest('[data-wcp-select-all]');
+        if (!master) { return; }
+        var table = master.closest('table');
+        if (!table) { return; }
+        var name = master.getAttribute('data-wcp-select-all');
+        table.querySelectorAll('tbody tr:not(.d-none) input[type=checkbox]').forEach(function (c) {
+            if (c.getAttribute('name') === name && !c.disabled) { c.checked = master.checked; }
+        });
+    });
     // List filter: <input data-wcp-filter-list="#list"> hides [data-wcp-filter-item]
     // entries without every typed word, and [data-wcp-filter-group]s left empty.
     document.addEventListener('input', function (e) {

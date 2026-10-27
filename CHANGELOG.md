@@ -14,6 +14,10 @@ All notable changes to WhaCP are documented here. The format follows
   `runtime.available`; `runtime.install` accepts `kind: python`.
 
 ### Fixed
+- **Security → Hulk: the search boxes did nothing and the country list had no select-all.** Table rows were not
+  marked for the page's filter, so searching countries or failed logins never hid anything (and neither list was
+  paged). Rows are now searchable and paged, and the country table has a header checkbox that ticks or unticks the
+  visible countries.
 - **The scheduler stopped at the WordPress vulnerability check** ("no such column: w.account_suspended"), so it never
   finished a run, never recorded that it had run, and the health page kept warning that it had never run. The query
   now computes the suspension from the owner.

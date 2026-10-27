@@ -154,10 +154,10 @@ $retention = (int) $v['hulk_retention'];
             </div>
             <div class="wcp-dtable table-responsive">
                 <table class="table align-middle">
-                    <thead><tr><th class="wcp-col-check"><span class="visually-hidden">Select</span></th><th>Country</th><th>Code</th><?php foreach ($marks as $l): ?><th class="text-center"><?= e($l) ?></th><?php endforeach; ?></tr></thead>
+                    <thead><tr><th class="wcp-col-check"><input class="form-check-input" type="checkbox" aria-label="Select all visible countries" data-wcp-select-all="selected[]"<?= $dis ?>></th><th>Country</th><th>Code</th><?php foreach ($marks as $l): ?><th class="text-center"><?= e($l) ?></th><?php endforeach; ?></tr></thead>
                     <tbody>
                     <?php foreach (\WhaCP\Security\Countries::ALL as $code => $name): $cur = $countries[$code] ?? 'none'; ?>
-                        <tr>
+                        <tr data-wcp-row>
                             <td><input class="form-check-input" type="checkbox" name="selected[]" value="<?= e($code) ?>" aria-label="Select <?= e($name) ?>"<?= $dis ?>></td>
                             <td><?= e($name) ?></td>
                             <td class="font-monospace small"><?= e($code) ?></td>
@@ -166,9 +166,11 @@ $retention = (int) $v['hulk_retention'];
                             <?php endforeach; ?>
                         </tr>
                     <?php endforeach; ?>
+                    <tr class="d-none" data-wcp-dt-empty><td colspan="<?= 3 + count($marks) ?>" class="text-center py-4 wcp-muted">No country matches.</td></tr>
                     </tbody>
                 </table>
             </div>
+            <div class="wcp-pager" data-wcp-dt-pager></div>
         </div>
     </form>
 </div>
@@ -212,7 +214,7 @@ $retention = (int) $v['hulk_retention'];
                 <thead><tr><th>User</th><th>IP Address</th><th>Country</th><th>Service</th><th>Authentication Service</th><th>Login Time</th><th>Expiration Time</th><th>Minutes Remaining</th></tr></thead>
                 <tbody>
                 <?php foreach ($report as $r): ?>
-                    <tr>
+                    <tr data-wcp-row>
                         <td class="font-monospace small"><?= e((string) $r['user']) ?></td>
                         <td class="font-monospace small"><?= e((string) $r['ip']) ?></td>
                         <td class="small"><?= e((string) ($r['country_name'] ?: '—')) ?></td>
@@ -223,10 +225,11 @@ $retention = (int) $v['hulk_retention'];
                         <td><?= (int) $r['minutes_left'] ?></td>
                     </tr>
                 <?php endforeach; ?>
-                <?php if ($report === []): ?><tr><td colspan="8" class="text-center py-4 wcp-muted">No failed logins in this period.</td></tr><?php endif; ?>
+                <tr class="<?= $report === [] ? '' : 'd-none' ?>" data-wcp-dt-empty><td colspan="8" class="text-center py-4 wcp-muted"><?= $report === [] ? 'No failed logins in this period.' : 'No failed login matches.' ?></td></tr>
                 </tbody>
             </table>
         </div>
+        <div class="wcp-pager" data-wcp-dt-pager></div>
     </div>
 </div>
 </div>

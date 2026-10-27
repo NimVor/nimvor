@@ -75,6 +75,17 @@ final class HulkTest extends HttpTestCase
         self::assertStringContainsString('data-wcp-section-menu="security"', $page);
     }
 
+    public function testTablesAreSearchableAndCountriesHaveSelectAll(): void
+    {
+        $this->remoteIp = '192.0.2.10';
+        $this->login('admin');
+        $page = $this->request('GET', '/security/hulk')->body();
+        // The data-table search only filters rows marked data-wcp-row.
+        self::assertGreaterThan(200, substr_count($page, '<tr data-wcp-row>'));
+        self::assertStringContainsString('data-wcp-select-all="selected[]"', $page);
+        self::assertSame(2, substr_count($page, 'data-wcp-dt-pager'));
+    }
+
     public function testSettingsAreValidatedAndApplied(): void
     {
         $this->remoteIp = '192.0.2.10';
