@@ -1905,12 +1905,15 @@ Passes in this panel:
 - **Disk quotas, FFmpeg access, shell access, hardening** — plans' disk space is set as per-user quotas
   (once quotas are on), the FFmpeg group and SSH shell access follow the plans, and the compiler and
   traceroute restrictions are re-applied hourly.
+- **Update check, trash, ModSecurity** — the newest WhaCP version is looked up every six hours (shown under
+  Server → WhaCP updates), File Manager trash older than `trash_retention_days` is emptied daily after 03:00 and the
+  ModSecurity audit log is kept small.
 - **Scheduled backups** — website, server-configuration and all-websites schedules start in
   their slot (a new schedule waits for its first slot; a storage turned off since means "kept on
   this server only"; a failure notifies the owner), all-websites rounds back up two websites at
   a time, and the oldest completed backups beyond each schedule's retention are deleted.
 
-Not part of this panel yet (the PHP scheduler ran them): trash clean-up, WordPress checks, the ModSecurity log trim, greylisting ranges and the update check.
+Not part of this panel yet (the PHP scheduler ran them): WordPress hardening and vulnerability checks, and greylisting ranges.
 
 Enable the timer on an existing installation with `systemctl enable --now whacp-scheduler.timer`
 (the installer and `upgrade.sh` do it).

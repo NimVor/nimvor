@@ -21,9 +21,14 @@
       <div class="card-body">
         <dl class="row small mb-3">
           <dt class="col-5">Installed</dt><dd class="col-7 font-monospace">{{.Version}} <span class="text-body-secondary">({{.Commit}})</span></dd>
+          <dt class="col-5">Newest</dt><dd class="col-7 font-monospace">{{.Check.Newest}}</dd>
+          <dt class="col-5">Last looked up</dt><dd class="col-7">{{.Check.LastLooked}} {{if .Check.Known}}UTC{{end}}</dd>
           <dt class="col-5">Branch</dt><dd class="col-7 font-monospace">{{.Branch}}</dd>
           <dt class="col-5">Source folder</dt><dd class="col-7 font-monospace text-break">{{.Path}}</dd>
         </dl>
+        {{if .Check.Available}}<div class="alert alert-info small py-2"><i class="bi bi-arrow-up-circle me-1"></i>A newer version is available.</div>
+        {{else if .Check.Current}}<div class="alert alert-success small py-2"><i class="bi bi-check-circle me-1"></i>WhaCP is up to date.</div>
+        {{else if .Check.Reason}}<div class="alert alert-secondary small py-2">{{.Check.Reason}}</div>{{end}}
         <div class="d-flex flex-wrap gap-2">
           <form method="post" action="/whacp/update/check" data-wcp-busy><input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-sm btn-outline-secondary">Check now</button></form>
           {{if .Updatable}}<form method="post" action="/whacp/update" data-wcp-noajax data-wcp-confirm="Update WhaCP now? The installer runs from {{.Path}}: it pulls the newest version, then installs it. The panel and the agent restart during it (about a minute); websites, mail and databases keep running.">

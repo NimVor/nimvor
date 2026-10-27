@@ -8,6 +8,7 @@ package http
 // through so the admin UI works end-to-end when the agent supports them.
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -127,19 +128,39 @@ func (s *Server) topbarUpdate(w http.ResponseWriter, r *http.Request) {
 		"Commit": short(jstr(st, "commit")), "Branch": val("branch"), "Path": val("path"),
 		"Updatable": jbool(st, "updatable"), "Running": jbool(st, "running"), "Reason": jstr(st, "reason"),
 		"Command": jstr(st, "command"), "Log": jstr(st, "log"), "LastResult": jstr(st, "last_result"),
+		"Check": s.updateCheckView(r.Context()),
 	})
 }
 
-// topbarUpdateCheck POST /whacp/update/check — stub: refresh cached status.
+// topbarUpdateCheck POST /whacp/update/check — looks the newest version up now.
 func (s *Server) topbarUpdateCheck(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
 	if !hosting.IsAll(user) {
 		topbarFlashErr(w, r, "Updating WhaCP is for server administrators.", "/whacp/update")
 		return
 	}
-	sess := sessionFrom(r.Context())
-	sess.Flash("error", "Looking up the newest version is not available in this panel yet. The installed commit is shown on this page; compare it with the repository, or update over SSH.")
+	hosting.NewUpdateCheckService(s.agent, s.settings).Check(r.Context())
 	http.Redirect(w, r, "/whacp/update", http.StatusSeeOther)
+}
+
+// updateCheckView is the last version lookup as the update page shows it.
+func (s *Server) updateCheckView(ctx context.Context) map[string]any {
+	c := hosting.NewUpdateCheckService(s.agent, s.settings).Cached(ctx)
+	if c == nil {
+		return map[string]any{"Known": false, "LastLooked": "never", "Newest": "unknown"}
+	}
+	short := func(sha string) string {
+		if len(sha) >= 7 {
+			return sha[:7]
+		}
+		return "—"
+	}
+	newest := "unknown"
+	if c.Latest != "" {
+		newest = short(c.Latest)
+	}
+	return map[string]any{"Known": true, "Available": c.Available, "Current": c.State == "current", "Reason": c.Reason, "Newest": newest,
+		"LastLooked": time.Unix(c.CheckedAt, 0).UTC().Format("2006-01-02 15:04")}
 }
 
 // topbarUpdateStart POST /whacp/update — kick off self-update.

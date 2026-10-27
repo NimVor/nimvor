@@ -47,7 +47,7 @@ All notable changes to WhaCP are documented here. The format follows
   forms, the website form's PHP directive editor (61 directives validated) and the
   account Create form (PHP version, mail and DNS options with settings defaults).
 - Update, host-name references, runtimes, account-restore and process-trace pages
-  match the PHP layouts. Not ported: the newest-version lookup on the update page.
+  match the PHP layouts.
 - **Every page now has the panel shell**: sidebar built from the user's permissions,
   plan features and scope, topbar, notification bell, command palette, job and
   confirmation dialogs (`_shell.html`, `nav.go`).
@@ -66,6 +66,12 @@ All notable changes to WhaCP are documented here. The format follows
 - Inline scripts and styles moved to assets (`noinline_test.go` keeps them out).
 
 ### Fixed (Go differential audit, Wave 1)
+- **The update page could not tell whether a newer version exists** ("Check now" said so):
+  it now asks GitHub for the installed branch's newest commit (kept six hours, refreshed by
+  the scheduler) and shows newest version, last lookup and "newer version available" /
+  "up to date" — never "up to date" when GitHub could not be reached or the repository is
+  private. The scheduler also empties File Manager trash past `trash_retention_days` (daily
+  after 03:00) and keeps the ModSecurity audit log small.
 - **Plans' disk space was never enforced**: the quota reconcile now exists. Once quotas are
   on, each account's allowance is shared between its system users (re-divided every pass; a
   reseller's covers its customers) and set as a hard limit; it also runs when websites are
@@ -130,7 +136,7 @@ All notable changes to WhaCP are documented here. The format follows
   spellings are accepted).
 
 ### Not yet ported (tracked)
-- The other scheduler passes (trash clean-up, WordPress checks, ModSecurity log trim, the update check, greylisting ranges), `/admin/plugins`, connecting remote servers (pinned TLS
+- The other scheduler passes (WordPress hardening and vulnerability checks, greylisting ranges), `/admin/plugins`, connecting remote servers (pinned TLS
   agent client).
 
 ### Fixed (Go differential audit, Wave 0)

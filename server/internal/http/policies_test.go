@@ -1206,3 +1206,41 @@ func hulkEventsJSON() string {
 	}
 	return `{"events":[` + ev + `]}`
 }
+
+func TestTrashCleanupRunsOnceAtNightWhenRetentionIsSet(t *testing.T) {
+	s, db, sa := rolesEnvServerAgent(t, true)
+	if _, err := db.Exec(`INSERT INTO websites (id,server_id,owner_id,domain,system_user,root,document_root,kind,php_version,status,created_at,updated_at)
+		VALUES (5,1,1,'trash.example','u','/r','/r/p','php','8.3','active','','')`); err != nil {
+		t.Fatal(err)
+	}
+	ctx := t.Context()
+	at := func(h, m int) time.Time { return time.Date(2026, 3, 10, h, m, 0, 0, time.Local) }
+	_ = s.settings.Set(ctx, "trash_retention_days", 0, 0)
+	if s.trashCleanup(ctx, at(3, 5)); containsAction(sa.called(), "files.trash_empty") {
+		t.Fatal("retention 0 keeps the trash")
+	}
+	_ = s.settings.Set(ctx, "trash_retention_days", 14, 0)
+	if s.trashCleanup(ctx, at(14, 5)); containsAction(sa.called(), "files.trash_empty") {
+		t.Fatal("only the first pass after 03:00")
+	}
+	sa.setReply("files.trash_empty", `{"deleted":3}`)
+	log := s.trashCleanup(ctx, at(3, 5))
+	if len(log) != 1 || !strings.Contains(log[0], "trash.example: 3 item(s) older than 14 days") {
+		t.Fatalf("log %v", log)
+	}
+}
+
+func TestUpdatePageShowsTheNewestVersionLookup(t *testing.T) {
+	s, _, sa := rolesEnvServerAgent(t, true)
+	h := s.Handler()
+	admin := loginAsUser(t, h, "admin")
+	_ = sa
+	_ = s.settings.Set(t.Context(), hosting.UpdateCheckKey,
+		`{"checked_at":1773000000,"available":true,"state":"available","current":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","latest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}`, 0)
+	b := get(t, h, "/whacp/update", admin).Body.String()
+	for _, want := range []string{"bbbbbbb", "A newer version is available", "Last looked up", "2026-03-"} {
+		if !strings.Contains(b, want) {
+			t.Errorf("update page lacks %q", want)
+		}
+	}
+}

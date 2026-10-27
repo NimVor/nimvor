@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,6 +33,33 @@ type schedulerPass struct {
 }
 
 var schedulerPasses = []schedulerPass{
+	{"update check", func(ctx context.Context, s *Server, r *http.Request) []string {
+		u := hosting.NewUpdateCheckService(s.agent, s.settings)
+		if !u.Due(ctx) {
+			return nil
+		}
+		if c := u.Check(ctx); c.Available {
+			return []string{"a WhaCP update is available"}
+		}
+		return nil
+	}},
+	{"ModSecurity", func(ctx context.Context, s *Server, r *http.Request) []string {
+		// Keep the audit log small.
+		raw, err := s.agent.Call(ctx, "modsec.trim", map[string]any{}, 60*time.Second)
+		if err != nil {
+			if quietAgentError(err) {
+				return nil
+			}
+			return []string{"ModSecurity audit log not checked: " + agentMessage(err)}
+		}
+		if n := int64(jnum(agentObject(raw), "removed_bytes")); n > 0 {
+			return []string{"ModSecurity audit log trimmed by " + strconv.FormatInt(n, 10) + " bytes."}
+		}
+		return nil
+	}},
+	{"trash", func(ctx context.Context, s *Server, r *http.Request) []string {
+		return s.trashCleanup(ctx, time.Now())
+	}},
 	{"shell access", func(ctx context.Context, s *Server, r *http.Request) []string {
 		lines, err := s.shellReconcile(ctx)
 		if err != nil && !quietAgentError(err) {
@@ -288,4 +317,42 @@ func (s *Server) shellReconcile(ctx context.Context) ([]string, error) {
 	s.audit.Record(ctx, audit.Entry{Username: "system", Action: "shell.set", TargetType: "server", TargetID: "1", Result: audit.Success,
 		Details: map[string]any{"mode": "disabled", "users": revoke, "reason": "plan without SSH"}})
 	return []string{"Shell access removed (plan without SSH): " + strings.Join(revoke, ", ") + "."}, nil
+}
+
+// trashCleanup empties File Manager trash items older than trash_retention_days,
+// once a day (the first passes after 03:00).
+func (s *Server) trashCleanup(ctx context.Context, now time.Time) []string {
+	keep, _ := s.settings.Int(ctx, "trash_retention_days", 0)
+	if v, err := s.settings.Values(ctx); err == nil {
+		keep, _ = strconv.Atoi(strings.TrimSpace(v["trash_retention_days"]))
+	}
+	if keep <= 0 || now.Hour() != 3 || now.Minute() >= 10 {
+		return nil
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT domain FROM websites WHERE server_id = 1`)
+	if err != nil {
+		return nil
+	}
+	var domains []string
+	for rows.Next() {
+		var d string
+		if rows.Scan(&d) == nil {
+			domains = append(domains, d)
+		}
+	}
+	rows.Close()
+	var log []string
+	for _, d := range domains {
+		raw, err := s.agent.Call(ctx, "files.trash_empty", map[string]any{"domain": d, "older_than_days": keep}, 300*time.Second)
+		if err != nil {
+			if m := err.Error(); !strings.Contains(m, "unknown_action") && !strings.Contains(m, "write_disabled") && !strings.Contains(m, "not_found") {
+				log = append(log, d+": trash not emptied: "+agentMessage(err))
+			}
+			continue
+		}
+		if n := int(jnum(agentObject(raw), "deleted")); n > 0 {
+			log = append(log, fmt.Sprintf("%s: %d item(s) older than %d days deleted from the trash", d, n, keep))
+		}
+	}
+	return log
 }
