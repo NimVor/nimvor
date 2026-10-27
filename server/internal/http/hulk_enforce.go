@@ -74,15 +74,24 @@ func (s *Server) hulkRun(ctx context.Context) []string {
 		return nil
 	}
 	hk := s.hulkHooks()
+	var log []string
+	// The country database, once a month, while countries are marked or one is loaded.
+	geo := security.NewGeo(s.db)
+	if marks, _ := h.Countries(ctx); len(marks) > 0 || geoLoadedOK(ctx, geo) {
+		if n, err := geo.Refresh(ctx, s.settings, time.Now()); err != nil {
+			log = append(log, "brute force protection: the country database was not updated: "+err.Error())
+		} else if n > 0 {
+			log = append(log, "brute force protection: country database updated ("+itoa(n)+" ranges)")
+		}
+	}
 	raw, err := s.agent.Call(ctx, "hulk.failures", map[string]any{"since": h.FailureSince(ctx, 1, hk)}, 120*time.Second)
 	if err != nil {
-		return []string{"brute force protection not checked: " + agentMessage(err)}
+		return append(log, "brute force protection not checked: "+agentMessage(err))
 	}
 	var res struct {
 		Events []security.HulkEvent `json:"events"`
 	}
 	_ = json.Unmarshal(raw, &res)
-	var log []string
 	if n := h.Evaluate(ctx, h.Store(ctx, 1, res.Events), hk); n > 0 {
 		log = append(log, "brute force protection: "+itoa(n)+" new block(s)")
 	}
@@ -92,4 +101,9 @@ func (s *Server) hulkRun(ctx context.Context) []string {
 	}
 	_ = s.settings.Set(ctx, "hulk_synced", "on", 0)
 	return log
+}
+
+func geoLoadedOK(ctx context.Context, g *security.Geo) bool {
+	ok, _ := g.Loaded(ctx)
+	return ok
 }

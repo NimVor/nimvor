@@ -1924,6 +1924,9 @@ Passes in this panel:
 
 - **Greylisting** — in the first ten minutes of every sixth hour the agent is asked to refresh the
   trusted providers' address ranges (it reads them at most once a day, and only while greylisting is on).
+- **Brute force protection** — while it is on and countries are marked (or a database is loaded),
+  the DB-IP country database is downloaded once a month (one try a day if the download fails).
+  Uploading the file by hand still works.
 - **Mail sending limits** — an account that reached its outgoing limit in the last day notifies the
   administrators and the owner of a website using the account, once per event.
 - **Background jobs** — jobs nobody watched are followed up: the outcome is stored (a job the agent
