@@ -37,6 +37,10 @@ All notable changes to NimVor are documented here. The format follows
   `runtime.available`; `runtime.install` accepts `kind: python`.
 
 ### Fixed
+- **The default "Hosting" feature lists left newer features off.** The server setup's feature lists predate Addon
+  domains, Cloudflare, the site firewall, Memcached, MongoDB, Node.js, Python, site health, site security and the
+  "Create PHP / static sites" switches, so accounts on the default plans could not use them. They are now on in
+  "Hosting" and "Hosting with SSH" (SSH stays off in "Hosting").
 - **Security → Hulk: the search boxes did nothing and the country list had no select-all.** Table rows were not
   marked for the page's filter, so searching countries or failed logins never hid anything (and neither list was
   paged). Rows are now searchable and paged, and the country table has a header checkbox that ticks or unticks the
