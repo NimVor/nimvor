@@ -18,6 +18,7 @@ All notable changes to WhaCP are documented here. The format follows
   backups, plan disk and bandwidth limits), with notifications, email and webhook delivery;
   it also measures website disk use and bandwidth. The Monitoring page shows the active
   alerts, the resolved ones and CPU/memory, load, disk and network charts for 24 h/7 d/30 d.
+- The Monitoring → Live page shows CPU, memory, swap, load, per-core use, network, busiest processes and disks (it printed raw JSON).
 - **Scheduled backups run**: backup schedules (website, server configuration, every website)
   start in their slot, all-websites rounds move along, and retention deletes the oldest
   completed backups. Server-configuration backups made by a schedule are now linked to it.

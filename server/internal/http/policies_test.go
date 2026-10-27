@@ -864,3 +864,18 @@ func TestMonitoringPageShowsAlertsAndCharts(t *testing.T) {
 		t.Error("charts claim no data although samples exist")
 	}
 }
+
+func TestMonitoringLivePageHasItsPanels(t *testing.T) {
+	h, _ := rolesEnv(t)
+	admin := loginAsUser(t, h, "admin")
+	rec := get(t, h, "/monitoring/live", admin)
+	b := rec.Body.String()
+	for _, want := range []string{`data-wcp-live="/monitoring/live.json"`, "data-live-net", "data-live-topcpu", "data-live-disks", "data-wcp-live-toggle"} {
+		if !strings.Contains(b, want) {
+			t.Errorf("live page lacks %s", want)
+		}
+	}
+	if strings.Contains(b, "JSON.stringify") {
+		t.Error("the page dumps raw JSON")
+	}
+}
