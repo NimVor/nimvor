@@ -19,5 +19,6 @@ return [
         ('concrete', 'Concrete CMS', 'blogs-cms', 'CMS with in-context editing (via Composer).', 'bi-pencil', 1, 100),
         ('flarum', 'Flarum', 'forums', 'Modern, fast forum software (via Composer).', 'bi-chat-heart', 1, 30),
         ('bagisto', 'Bagisto', 'ecommerce', 'Laravel e-commerce platform (via Composer).', 'bi-shop', 1, 40),
+        ('woocommerce', 'WooCommerce', 'ecommerce', 'WordPress with the WooCommerce online store plugin.', 'bi-cart-check', 1, 5),
         ('shopware', 'Shopware Community Edition', 'ecommerce', 'Open e-commerce platform (via Composer).', 'bi-basket', 1, 50)",
 ];

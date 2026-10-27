@@ -10,7 +10,9 @@ All notable changes to NimVor are documented here. The format follows
 - **More apps in the app installer** — Backdrop CMS, ProcessWire and Bludit (Blogs & CMS), Dolibarr ERP & CRM (new
   *Business, CRM & ERP* category) and Akaunting (new *Finance & Invoicing* category), plus Flarum, TYPO3,
   Concrete CMS, Bagisto and Shopware Community Edition, which are installed with Composer (as the website's account,
-  with the website's PHP version) and served from `<folder>/public`. They install like the other
+  with the website's PHP version) and served from `<folder>/public`. WooCommerce is WordPress plus the WooCommerce
+  plugin (downloaded from wordpress.org, from an allowlist of plugins in the agent) and is recorded as a WordPress
+  install, so the WordPress tools apply to it. They install like the other
   staged apps and can be hidden or disabled under Administration → Application Manager.
 
 ### Changed

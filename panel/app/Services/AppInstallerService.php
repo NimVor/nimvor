@@ -34,6 +34,7 @@ final class AppInstallerService
         'moodle' => ['title' => 'Moodle', 'description' => 'Learning management system. Staged; finish in its web installer.', 'staged' => true],
         'matomo' => ['title' => 'Matomo', 'description' => 'Privacy-friendly web analytics. Staged; finish in its web installer.', 'staged' => true],
         'mediawiki' => ['title' => 'MediaWiki', 'description' => 'The wiki engine behind Wikipedia. Staged; finish in its web installer.', 'staged' => true],
+        'woocommerce' => ['title' => 'WooCommerce', 'description' => 'WordPress with the WooCommerce online store plugin installed and activated, with a new database and an administrator account.'],
         'grav' => ['title' => 'Grav', 'description' => 'Flat-file CMS — no database. Staged; ready to use after install.', 'staged' => true],
         'backdrop' => ['title' => 'Backdrop CMS', 'description' => 'Lightweight CMS for small business and nonprofit sites. Staged with a new database; finish in its web installer.', 'staged' => true],
         'processwire' => ['title' => 'ProcessWire', 'description' => 'Flexible, API-first CMS. Staged with a new database; finish in its web installer.', 'staged' => true],
@@ -45,6 +46,11 @@ final class AppInstallerService
         'concrete' => ['title' => 'Concrete CMS', 'description' => 'In-context editing CMS, installed with Composer. The website is served from <folder>/public.', 'staged' => true],
         'bagisto' => ['title' => 'Bagisto', 'description' => 'Laravel e-commerce platform, installed with Composer. The website is served from <folder>/public.', 'staged' => true],
         'shopware' => ['title' => 'Shopware Community Edition', 'description' => 'E-commerce platform, installed with Composer. The website is served from <folder>/public.', 'staged' => true],
+    ];
+
+    /** Apps that are WordPress plus plugins: the slug => the plugins installed and activated. */
+    public const WORDPRESS_BASED = [
+        'woocommerce' => ['woocommerce'],
     ];
 
     /** Staged apps: where their web installer lives and the web root subfolder. */
@@ -121,12 +127,16 @@ final class AppInstallerService
             throw new UserFacingException($appName . ' needs a PHP website.', '', 'Change the website type to PHP under Settings first.');
         }
         $errors = [];
+        $wpPlugins = self::WORDPRESS_BASED[$app] ?? null;
         $params = [
-            'app' => $app, 'domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root'],
+            'app' => $wpPlugins !== null ? 'wordpress' : $app, 'domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root'],
             'php_version' => $site['php_version'], 'url' => ($site['https'] ? 'https://' : 'http://') . $site['domain'],
         ];
         $adminPassword = null;
-        if ($app === 'wordpress') {
+        if ($app === 'wordpress' || $wpPlugins !== null) {
+            if ($wpPlugins !== null) {
+                $params['plugins'] = $wpPlugins;
+            }
             $params['path'] = self::relativeDocroot($site);
             $params['title'] = trim((string) ($input['title'] ?? '')) ?: $site['domain'];
             $params['admin_user'] = trim((string) ($input['admin_user'] ?? 'admin'));
@@ -163,7 +173,7 @@ final class AppInstallerService
         $created = null;
         $database = null;
         if ($needsDb) {
-            $base = substr(preg_replace('/[^a-z0-9]/', '', strtolower(explode('.', (string) $site['domain'])[0])) ?: 'site', 0, 10) . ($app === 'wordpress' ? '_wp' : '_app');
+            $base = substr(preg_replace('/[^a-z0-9]/', '', strtolower(explode('.', (string) $site['domain'])[0])) ?: 'site', 0, 10) . ($app === 'wordpress' || $wpPlugins !== null ? '_wp' : '_app');
             for ($i = 0; $i < 10 && $created === null; $i++) {
                 $name = $i === 0 ? $base : $base . $i;
                 try {
@@ -201,7 +211,7 @@ final class AppInstallerService
         $job = (string) $res['job_id'];
         $this->db->run(
             'INSERT INTO app_installs (website_id, app, path, database_id, admin_user, job_id, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [(int) $site['id'], $app, $params['path'], $database !== null ? (int) $database['id'] : null, $params['admin_user'] ?? '', $job, (int) $actor['id'], gmdate('c')]
+            [(int) $site['id'], $params['app'], $params['path'], $database !== null ? (int) $database['id'] : null, $params['admin_user'] ?? '', $job, (int) $actor['id'], gmdate('c')]
         );
         $this->audit->record('app.install', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'app' => $app, 'path' => $params['path'], 'database' => $database !== null ? $database['name'] : '']);
         $out = ['job' => $job];

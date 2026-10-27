@@ -94,7 +94,7 @@ foreach ($catalog as $cat):
                             <div class="form-text">Choose this website or one of its subdomains; the application installs into the chosen site's document root.</div>
                         </div>
                     <?php endif; ?>
-                    <?php if ($slug === 'wordpress'): ?>
+                    <?php if ($slug === 'wordpress' || isset(\NimVor\Services\AppInstallerService::WORDPRESS_BASED[$slug])): ?>
                         <?= $this->partial('partials/field', ['name' => 'title', 'label' => 'Site title', 'value' => (string) $site['domain']]) ?>
                         <div class="row g-2">
                             <div class="col-sm-5"><?= $this->partial('partials/field', ['name' => 'admin_user', 'label' => 'Admin user', 'value' => 'admin']) ?></div>

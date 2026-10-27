@@ -53,6 +53,20 @@ final class AppsTest extends HttpTestCase
         self::assertSame('shop_wp1', $this->lastCall('apps.install')['db']['name']);
     }
 
+    public function testWooCommerceIsWordPressWithThePlugin(): void
+    {
+        $this->agent->succeed('apps.install', ['job_id' => 'cccccccccccccccc']);
+        $base = '/sites/' . $this->siteId . '/apps';
+        self::assertStringContainsString('Install WooCommerce', $this->request('GET', $base)->body());
+        $this->post($base . '/woocommerce', ['title' => 'Shop', 'admin_user' => 'owner', 'admin_email' => 'owner@shop.test']);
+        $call = $this->lastCall('apps.install');
+        self::assertSame('wordpress', $call['app']);
+        self::assertSame(['woocommerce'], $call['plugins']);
+        self::assertSame('shop_wp', $call['db']['name']);
+        // Recorded as WordPress, so the WordPress tools and login link apply.
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM app_installs WHERE app = 'wordpress'"));
+    }
+
     public function testStagedInstallCreatesDatabaseAndOffersFinish(): void
     {
         $this->agent->succeed('apps.install', ['job_id' => 'bbbbbbbbbbbbbbbb']);

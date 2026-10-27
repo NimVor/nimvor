@@ -128,9 +128,27 @@ type Request struct {
 	AdminUser     string `json:"admin_user"`
 	AdminEmail    string `json:"admin_email"`
 	AdminPassword string `json:"admin_password"`
+	// WordPress: plugins from wordpress.org installed and activated after the
+	// site is set up (keys of WPPlugins).
+	Plugins []string `json:"plugins"`
 	// Laravel
 	Migrate bool `json:"migrate"`
 }
+
+// WPPlugins are the wordpress.org plugins an install may add (WooCommerce is
+// "WordPress + WooCommerce" in the catalog), with their main plugin file.
+var WPPlugins = map[string]struct{ URL, Main string }{
+	"woocommerce": {"https://downloads.wordpress.org/plugin/woocommerce.latest-stable.zip", "woocommerce/woocommerce.php"},
+}
+
+// wpActivate activates the plugin named by NIMVOR_PLUGIN from the command line.
+const wpActivate = `<?php
+define('WP_USE_THEMES', false);
+require 'wp-load.php';
+require_once ABSPATH . 'wp-admin/includes/plugin.php';
+$r = activate_plugin(getenv('NIMVOR_PLUGIN'));
+if (is_wp_error($r)) { fwrite(STDERR, $r->get_error_message()); exit(1); }
+`
 
 var (
 	wpUser = regexp.MustCompile(`^[A-Za-z0-9._@-]{3,60}$`)
@@ -187,6 +205,11 @@ func (r *Request) validate(env *host.Env) error {
 	}
 	if !urlRe.MatchString(r.URL) {
 		return &validate.Error{Field: "url", Message: "must be the website address, e.g. https://example.com"}
+	}
+	for _, p := range r.Plugins {
+		if _, ok := WPPlugins[p]; !ok || r.App != "wordpress" {
+			return &validate.Error{Field: "plugins", Message: "unknown plugin"}
+		}
 	}
 	if r.App == "wordpress" {
 		if len(r.Title) == 0 || len(r.Title) > 100 || strings.ContainsAny(r.Title, "\x00\n\r") {
@@ -603,6 +626,22 @@ func Install(ctx context.Context, env *host.Env, src Sources, r Request, cred *e
 		wpEnv := []string{"NIMVOR_URL=" + r.URL, "NIMVOR_TITLE=" + r.Title, "NIMVOR_ADMIN_USER=" + r.AdminUser, "NIMVOR_ADMIN_EMAIL=" + r.AdminEmail, "NIMVOR_ADMIN_PASSWORD=" + r.AdminPassword}
 		if out, err := env.Runner.RunWith(ctx, php, as(target, wpEnv, wpInstall), "-d", "display_errors=stderr"); err != nil {
 			return nil, fmt.Errorf("the WordPress installer failed: %s", host.Output(out))
+		}
+		for _, name := range r.Plugins {
+			pl := WPPlugins[name]
+			fmt.Fprintf(log, "Installing the %s plugin…\n", name)
+			pfile, _, err := downloadSum(ctx, env, src.Client, pl.URL, "sha256", log)
+			if err != nil {
+				return nil, fmt.Errorf("the %s plugin could not be downloaded: %v", name, err)
+			}
+			defer os.Remove(pfile)
+			plugins := filepath.Join(target, "wp-content", "plugins")
+			if err := extractArchive("zip", pfile, plugins, 0, int(cred.UID), int(cred.GID)); err != nil {
+				return nil, fmt.Errorf("unpacking the %s plugin failed: %v", name, err)
+			}
+			if out, err := env.Runner.RunWith(ctx, php, as(target, []string{"NIMVOR_PLUGIN=" + pl.Main}, wpActivate), "-d", "display_errors=stderr"); err != nil {
+				return nil, fmt.Errorf("activating the %s plugin failed: %s", name, host.Output(out))
+			}
 		}
 		return map[string]any{"app": "wordpress", "path": r.Path, "admin_user": r.AdminUser, "login_url": r.URL + "/wp-admin/"}, nil
 

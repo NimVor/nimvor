@@ -253,13 +253,15 @@ func TestActionValidation(t *testing.T) {
 		return err
 	}
 	for name, mut := range map[string]func(*Request){
-		"app":       func(r *Request) { r.App = "magento" },
-		"path":      func(r *Request) { r.Path = "../../etc" },
-		"logs":      func(r *Request) { r.Path = "logs" },
-		"db host":   func(r *Request) { r.DB.Host = "10.0.0.1" },
-		"url":       func(r *Request) { r.URL = "javascript:alert(1)" },
-		"weak pass": func(r *Request) { r.AdminPassword = "short" },
-		"root user": func(r *Request) { r.User = "root" },
+		"app":        func(r *Request) { r.App = "magento" },
+		"plugin":     func(r *Request) { r.Plugins = []string{"evil-plugin"} },
+		"plugin app": func(r *Request) { r.App = "laravel"; r.Plugins = []string{"woocommerce"} },
+		"path":       func(r *Request) { r.Path = "../../etc" },
+		"logs":       func(r *Request) { r.Path = "logs" },
+		"db host":    func(r *Request) { r.DB.Host = "10.0.0.1" },
+		"url":        func(r *Request) { r.URL = "javascript:alert(1)" },
+		"weak pass":  func(r *Request) { r.AdminPassword = "short" },
+		"root user":  func(r *Request) { r.User = "root" },
 	} {
 		if err := call(mut); err == nil {
 			t.Errorf("%s: accepted", name)
@@ -368,5 +370,13 @@ func TestComposerAppInstall(t *testing.T) {
 	}
 	if !composer || !touched {
 		t.Fatalf("calls: %v", h.Runner.Calls)
+	}
+}
+
+func TestWordPressPluginsAreAllowlisted(t *testing.T) {
+	for name, p := range WPPlugins {
+		if !strings.HasPrefix(p.URL, "https://downloads.wordpress.org/plugin/") || !strings.HasPrefix(p.Main, name+"/") {
+			t.Errorf("%s: %+v", name, p)
+		}
 	}
 }
