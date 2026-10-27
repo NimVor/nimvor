@@ -222,6 +222,30 @@ connector is built from the ModSecurity page). A later run leaves what you
 changed alone; every setting can be switched on or off from **Security →
 Overview → Security settings**.
 
+### The one-line installer (nimvor.com/install)
+
+`installer/bootstrap.sh` is the script served at `https://nimvor.com/install`.
+It installs `git` and `curl` when missing, fetches the source from
+`https://github.com/NimVor/nimvor` into `/usr/local/src/nimvor` (the newest
+`vX.Y.Z` tag, or `main` while there are no tags), shows the commit and runs
+`installer/install.sh` with the arguments it does not know itself. Running it
+again fast-forwards that checkout and re-runs the installer, which is also how
+`installer/update.sh` works.
+
+```bash
+curl -fsSL https://nimvor.com/install | sudo bash -s -- --version 1.0.0 --commit <sha> --yes
+```
+
+`--version`, `--branch`, `--commit` (refuse to install unless the checkout is
+exactly that commit), `--source URL` (a mirror, e.g. on your own server),
+`--dir` and `--fetch-only` are the script's own options (`--help` lists them).
+
+Hosting it: serve a copy of the script at `/install`, or make
+`https://nimvor.com/install` redirect to
+`https://raw.githubusercontent.com/NimVor/nimvor/main/installer/bootstrap.sh`
+(`curl -fsSL` follows the redirect). The script downloads nothing else of its
+own: the source comes from the git URL, so a mirror only needs the repository.
+
 ### Scheduler
 
 `whacp-scheduler.timer` runs `bin/whacp schedule:run` every minute:

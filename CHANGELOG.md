@@ -18,6 +18,10 @@ All notable changes to WhaCP are documented here. The format follows
   the server are unchanged.
 
 ### Added
+- **One-line installer: `curl -fsSL https://nimvor.com/install | sudo bash`.** `installer/bootstrap.sh` (the script
+  nimvor.com serves) fetches the source from github.com/NimVor/nimvor into `/usr/local/src/nimvor` and runs the
+  installer; `--version`, `--branch`, `--commit`, `--source` (mirror), `--dir` and `--fetch-only` choose what is
+  fetched, and it refuses to run on a checkout with local changes or the wrong commit.
 - **Recommended security settings are on after the server setup, and switchable from the Security overview.** A new
   setup step turns on (once) weekly malware scans with quarantine, all five fail2ban jails (now including
   `nginx-limit-req`), compiler access for root only, SMTP restrictions, the cloud-metadata block, cPHulk with its

@@ -86,6 +86,16 @@ Supported: Ubuntu 22.04 and 24.04 LTS, AlmaLinux 9, Rocky Linux 9 and RHEL 9
 Preview (tested, not yet recommended for production): Ubuntu 26.04 LTS and
 AlmaLinux, Rocky Linux and RHEL 10.
 
+One command (fetches the source from GitHub into `/usr/local/src/nimvor`, then
+runs the installer; options after `--` go to the installer):
+
+```bash
+curl -fsSL https://nimvor.com/install | sudo bash
+curl -fsSL https://nimvor.com/install | sudo bash -s -- --public-https
+```
+
+Or from a checkout:
+
 ```bash
 git clone https://github.com/NimVor/nimvor.git && cd nimvor
 sudo ./installer/install.sh --dry-run          # see exactly what will happen
