@@ -37,6 +37,10 @@ All notable changes to NimVor are documented here. The format follows
   `runtime.available`; `runtime.install` accepts `kind: python`.
 
 ### Fixed
+- **File integrity checks of package-owned files silently found nothing on a normal server.** `dpkg --verify` /
+  `rpm -Va` read every file of every installed package, which takes minutes; the agent's default 15 second command
+  timeout cut it off, and the check "never fails the scan", so Security → File integrity reported no drift. The
+  verification now has its own 15 minute limit. (Found by the real-host CI test.)
 - **The default "Hosting" feature lists left newer features off.** The server setup's feature lists predate Addon
   domains, Cloudflare, the site firewall, Memcached, MongoDB, Node.js, Python, site health, site security and the
   "Create PHP / static sites" switches, so accounts on the default plans could not use them. They are now on in

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NimVor/nimvor/agent/internal/execx"
 	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
@@ -127,4 +128,26 @@ func nimvorFinding(r IntegrityReport, path string) *IntegrityFinding {
 		}
 	}
 	return nil
+}
+
+// A package verification cut short by the runner's default timeout would
+// report no drift at all, so it runs with its own, longer one.
+func TestPackageVerifyHasItsOwnTimeout(t *testing.T) {
+	for _, tool := range []string{"dpkg", "rpm"} {
+		h := testhost.New(t)
+		var got time.Duration
+		h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+			if id == tool {
+				got = o.Timeout
+			}
+			return "??5??????   /etc/nginx/nginx.conf\n", nil
+		}
+		fs := packageVerify(context.Background(), h.Env, tool)
+		if got < 10*time.Minute {
+			t.Errorf("%s verification timeout = %v, want at least 10 minutes", tool, got)
+		}
+		if len(fs) != 1 || fs[0].Path != "/etc/nginx/nginx.conf" {
+			t.Errorf("%s findings: %+v", tool, fs)
+		}
+	}
 }

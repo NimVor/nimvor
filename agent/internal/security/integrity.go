@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/execx"
 	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
@@ -269,15 +270,22 @@ func underCriticalRoot(p string) bool {
 	return false
 }
 
+// packageVerifyTimeout bounds one dpkg --verify / rpm -Va run.
+const packageVerifyTimeout = 15 * time.Minute
+
 // packageVerify runs the OS verification tool and returns findings for
 // changed files under the critical roots. It never fails the scan: a
 // non-zero exit is normal (it means some file differs).
 func packageVerify(ctx context.Context, env *host.Env, tool string) []IntegrityFinding {
+	// Verifying every installed package reads every file they own: minutes on
+	// a server with a full package set, far beyond the runner's default
+	// timeout (a verification cut short would report nothing as drift).
 	var out []byte
+	opts := execx.Opts{Timeout: packageVerifyTimeout}
 	if tool == "rpm" {
-		out, _ = env.Runner.Run(ctx, "rpm", "-Va", "--nomtime", "--nordev")
+		out, _ = env.Runner.RunWith(ctx, "rpm", opts, "-Va", "--nomtime", "--nordev")
 	} else {
-		out, _ = env.Runner.Run(ctx, "dpkg", "--verify")
+		out, _ = env.Runner.RunWith(ctx, "dpkg", opts, "--verify")
 	}
 	var findings []IntegrityFinding
 	const cap = 200
