@@ -26,6 +26,7 @@ final class SecurityController extends Controller
         private readonly \WhaCP\Core\Config $config,
         private readonly \WhaCP\Services\JobTracker $jobs,
         private readonly \WhaCP\Services\ServerContext $server,
+        private readonly \WhaCP\Services\SecurityDefaultsService $defaults,
     ) {
         parent::__construct($view, $session);
     }
@@ -60,6 +61,7 @@ final class SecurityController extends Controller
         return $this->page('index', [
             'checks' => $err === null ? array_merge($this->panelChecks((array) $hardening), array_map(fn ($c): array => $this->link((array) $c), (array) $checks)) : [],
             'agentError' => $err,
+            'switches' => $err === null && ($this->user($request)['role_name'] ?? '') === 'admin' ? $this->defaults->state() : [],
             'logins' => $logins === null ? null : (array) $logins,
             'sshProtected' => $f2b === [] ? null : (!empty($f2b['running']) && $sshJail),
             'panelLogin' => [
@@ -151,6 +153,21 @@ final class SecurityController extends Controller
     ];
 
     /** Applies (or undoes) one of the FIXES. Administrators only. */
+    /** Turns one recommended security setting on or off (Security overview). */
+    public function setDefault(Request $request): Response
+    {
+        return $this->act('/security', function () use ($request): string {
+            if (($this->user($request)['role_name'] ?? '') !== 'admin') {
+                throw new UserFacingException('Only administrators change server-wide security settings.');
+            }
+            $op = $request->string('op');
+            if (!in_array($op, ['enable', 'disable'], true)) {
+                throw new UserFacingException('Unknown action.');
+            }
+            return $this->defaults->set($request->string('item'), $op === 'enable', $this->userId($request));
+        });
+    }
+
     public function fix(Request $request): Response
     {
         $check = $request->string('check');

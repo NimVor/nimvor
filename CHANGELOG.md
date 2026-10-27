@@ -7,6 +7,12 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Recommended security settings are on after the server setup, and switchable from the Security overview.** A new
+  setup step turns on (once) weekly malware scans with quarantine, all five fail2ban jails (now including
+  `nginx-limit-req`), compiler access for root only, SMTP restrictions, the cloud-metadata block, cPHulk with its
+  recommended limits, shell fork bomb protection and traceroute disabled for users. Security → Overview has a new
+  **Security settings** table with an Enable/Disable button for each of them, plus ModSecurity (with a link to install
+  it when its Nginx connector is missing).
 - **Runtimes: pick versions from a list.** Server → Runtimes now lists the stable Node.js versions (the newest of each
   recent LTS line, plus Current) and the stable Python versions as checkboxes; tick the ones to install instead of
   typing an exact version. Python can now be installed here too, from python-build-standalone prebuilt CPython

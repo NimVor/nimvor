@@ -55,6 +55,7 @@ final class ServerSetupService
         'protection' => 'Firewall protections',
         'fail2ban' => 'Fail2ban',
         'hardening' => 'Server hardening',
+        'security_defaults' => 'Recommended security settings',
         'auto_updates' => 'Automatic security updates',
         'plans' => 'Hosting plans and feature lists',
         'backups' => 'Weekly backups',
@@ -110,6 +111,9 @@ final class ServerSetupService
     /** The administrator running the setup (the wizard); null from the command line. */
     public ?int $actorId = null;
 
+    /** The wizard user's address (kept out of brute force blocks); null from the command line. */
+    public ?string $actorIp = null;
+
     /** Between two reads of a job's log (tests set 0). */
     public int $pollMicroseconds = 1_000_000;
 
@@ -123,6 +127,7 @@ final class ServerSetupService
         private readonly Connection $db,
         private readonly ServerContext $server,
         private readonly AuditLogger $audit,
+        private readonly SecurityDefaultsService $securityDefaults,
     ) {
         $this->out = static function (string $line): void {
         };
@@ -712,7 +717,7 @@ final class ServerSetupService
         if (!empty($st['managed_config'])) {
             return ['skip', 'WhaCP\'s fail2ban jails are configured (left as they are).'];
         }
-        $jails = ['sshd', 'recidive', 'nginx-http-auth', 'nginx-botsearch'];
+        $jails = SecurityDefaultsService::JAILS;
         $this->agent->call('fail2ban.configure', ['jails' => $jails, 'ban_minutes' => 60, 'find_minutes' => 10, 'max_retry' => 5, 'ignore' => []], 120);
         return ['ok', 'Jails ' . implode(', ', $jails) . ': 5 failures in 10 minutes ban for an hour.'];
     }
@@ -736,6 +741,29 @@ final class ServerSetupService
             }
         }
         return ['ok', ucfirst(implode('; ', $done)) . '.'];
+    }
+
+    /**
+     * The recommended security settings (malware scans, fail2ban jails,
+     * compilers, SMTP restrictions, metadata block, cPHulk, fork bomb
+     * protection, traceroute), turned on once: a later run leaves what an
+     * administrator changed alone. They stay switchable on the Security
+     * overview.
+     *
+     * @param array<string, mixed> $opts
+     * @return array{0: string, 1: string}
+     */
+    private function stepSecurityDefaults(string $profile, array $opts): array
+    {
+        if ($this->settings->bool('security_defaults_applied')) {
+            return ['skip', 'The recommended security settings were applied before (left as they are; change them on the Security overview).'];
+        }
+        $this->securityDefaults->adminIp = $this->actorIp;
+        [$status, $detail] = $this->securityDefaults->applyDefaults($this->actorId);
+        if ($status !== 'fail') {
+            $this->settings->update(['security_defaults_applied' => '1'], null);
+        }
+        return [$status, $detail];
     }
 
     /** @param array<string, mixed> $opts @return array{0: string, 1: string} */

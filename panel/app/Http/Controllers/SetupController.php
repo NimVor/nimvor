@@ -151,6 +151,7 @@ final class SetupController extends Controller
         // Package installs are jobs; email or the firewall can take a while.
         set_time_limit(600);
         $this->setup->actorId = $this->userId($request);
+        $this->setup->actorIp = $request->ip();
         $profile = $request->string('profile');
         $php = array_values(array_map('strval', (array) $request->input('php', [])));
         $options = ['hostname' => $request->string('hostname'), 'php' => $php, 'third_party_repos' => filter_var($request->input('third_party_repos', true), FILTER_VALIDATE_BOOL)];

@@ -59,8 +59,17 @@ final class ServerSetupTest extends HttpTestCase
         $this->agent->succeed('fail2ban.status', ['installed' => true, 'running' => true, 'jails' => []]);
         $this->agent->succeed('fail2ban.configure', ['ok' => true]);
         $this->agent->succeed('security.fix_kernel', ['changed' => ['net.ipv4.tcp_syncookies']]);
-        $this->agent->succeed('hardening.status', ['smtp' => ['enabled' => false]]);
+        $this->agent->succeed('hardening.status', [
+            'smtp' => ['enabled' => false, 'available' => true], 'compilers' => ['restricted' => false], 'egress' => ['metadata_blocked' => false, 'available' => true, 'tcp_ports' => [], 'udp_ports' => []],
+            'forkbomb' => ['enabled' => false], 'traceroute' => ['enabled' => true, 'programs' => [['path' => '/usr/bin/traceroute']]],
+        ]);
         $this->agent->succeed('hardening.smtp', ['enabled' => true]);
+        $this->agent->succeed('hardening.compilers', ['restricted' => true]);
+        $this->agent->succeed('hardening.egress', ['metadata_blocked' => true]);
+        $this->agent->succeed('hardening.forkbomb', ['enabled' => true]);
+        $this->agent->succeed('hardening.traceroute', ['enabled' => false]);
+        $this->agent->succeed('hulk.sync', ['ok' => true]);
+        $this->agent->succeed('modsec.status', ['module_loaded' => false, 'active' => false]);
         $this->agent->succeed('security.auto_updates', ['job_id' => self::JOB]);
     }
 
@@ -75,6 +84,12 @@ final class ServerSetupTest extends HttpTestCase
     private static function byStep(array $results): array
     {
         return array_column($results, 'status', 'id');
+    }
+
+    /** @param list<array<string, string>> $results */
+    private static function byStepDetail(array $results, string $id): string
+    {
+        return (string) array_column($results, 'detail', 'id')[$id];
     }
 
     private function bodies(string $action): array
@@ -120,7 +135,21 @@ final class ServerSetupTest extends HttpTestCase
         self::assertTrue($this->lastCall('firewall.protection_set')['invalid']);
         self::assertSame(['enabled' => true], $this->lastCall('hardening.smtp'));
         self::assertSame(['enabled' => true], $this->lastCall('security.auto_updates'));
-        self::assertSame(['sshd', 'recidive', 'nginx-http-auth', 'nginx-botsearch'], $this->lastCall('fail2ban.configure')['jails']);
+        self::assertSame(['sshd', 'recidive', 'nginx-http-auth', 'nginx-botsearch', 'nginx-limit-req'], $this->lastCall('fail2ban.configure')['jails']);
+
+        // The recommended security settings are on, once.
+        self::assertSame(['restricted' => true, 'users' => []], $this->lastCall('hardening.compilers'));
+        self::assertTrue($this->lastCall('hardening.egress')['metadata_blocked']);
+        self::assertSame(['enabled' => true], $this->lastCall('hardening.forkbomb'));
+        self::assertSame(['enabled' => false], $this->lastCall('hardening.traceroute'), 'traceroute is disabled for users');
+        self::assertSame(['60', '10', '5'], array_map('strval', [$this->lastCall('fail2ban.configure')['ban_minutes'], $this->lastCall('fail2ban.configure')['find_minutes'], $this->lastCall('fail2ban.configure')['max_retry']]));
+        $conf = $this->app->container->get(SettingsService::class);
+        self::assertSame(7, $conf->int('av_scan_days'));
+        self::assertTrue($conf->bool('av_quarantine'));
+        self::assertTrue($conf->bool('hulk_enabled'));
+        self::assertSame(5, $conf->int('hulk_user_max'));
+        self::assertTrue($conf->bool('security_defaults_applied'));
+        self::assertStringContainsString('ModSecurity (The Nginx connector is not installed yet)', self::byStepDetail($res, 'security_defaults'));
 
         $db = $this->app->container->get(Connection::class);
         self::assertSame(['Starter', 'Business', 'Pro', 'Email only'], array_column($db->fetchAll('SELECT name FROM plans ORDER BY id'), 'name'));
@@ -146,6 +175,7 @@ final class ServerSetupTest extends HttpTestCase
         $res = self::byStep($this->service()->run('full', ['hostname' => 'server.example.com']));
         self::assertSame('skip', $res['plans']);
         self::assertSame('skip', $res['backups']);
+        self::assertSame('skip', $res['security_defaults'], 'security settings an administrator changed are not set again');
         self::assertSame(4, (int) $db->scalar('SELECT COUNT(*) FROM plans'));
         self::assertSame(9, (int) $db->scalar("SELECT max_websites FROM plans WHERE name = 'Starter'"), 'an edited plan is left alone');
         self::assertSame(2, (int) $db->scalar('SELECT COUNT(*) FROM backup_schedules'));
@@ -189,7 +219,6 @@ final class ServerSetupTest extends HttpTestCase
             self::assertArrayNotHasKey($s, $res);
         }
         self::assertSame(0, $this->calls('packages.install'), 'mail, ClamAV and Memcached are not part of it');
-        self::assertSame(0, $this->calls('hardening.smtp'), 'websites keep sending through remote SMTP servers');
         self::assertSame(['ports' => [['port' => '80', 'proto' => 'tcp'], ['port' => '443', 'proto' => 'tcp']], 'comment' => 'Web'], $this->lastCall('firewall.allow_ports'));
     }
 

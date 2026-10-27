@@ -208,7 +208,19 @@ sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp s
 prints its path.) `--only=step,step` runs some steps only (`packages`,
 `php_repository`, `php`, `mail`, `dns`, `ftp`, `caches`, `services`,
 `firewall`, `ports`, `protection`, `fail2ban`, `hardening`,
-`auto_updates`, `plans`, `backups`, `profile`).
+`security_defaults`, `auto_updates`, `plans`, `backups`, `profile`).
+
+The `security_defaults` step turns on the recommended security settings
+once, for every profile: weekly malware scans of every website with
+quarantine, the five fail2ban jails (sshd, recidive, nginx-http-auth,
+nginx-botsearch, nginx-limit-req: 60 minute ban, 5 attempts in 10 minutes),
+compiler access for root only, SMTP restrictions, the cloud-metadata block
+for website accounts, cPHulk brute force protection with its recommended
+limits (your own address is whitelisted), shell fork bomb protection and
+traceroute disabled for users. ModSecurity is only reported (its Nginx
+connector is built from the ModSecurity page). A later run leaves what you
+changed alone; every setting can be switched on or off from **Security →
+Overview → Security settings**.
 
 ### Scheduler
 

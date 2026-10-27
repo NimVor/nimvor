@@ -461,6 +461,7 @@ return static function (Router $r): void {
 
     // Security
     $r->get('/security', [SecurityController::class, 'index'], ['name' => 'security', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/defaults', [SecurityController::class, 'setDefault'], ['name' => 'security.defaults', 'permission' => P::SERVER_MANAGE]);
     $r->post('/security/fix', [SecurityController::class, 'fix'], ['name' => 'security.fix', 'permission' => P::SERVER_MANAGE]);
     $r->post('/security/mysql-anonymous', [SecurityController::class, 'dropAnonymousUsers'], ['name' => 'security.mysql_anonymous', 'permission' => P::SERVER_MANAGE]);
     $r->get('/security/firewall', [SecurityController::class, 'firewall'], ['name' => 'security.firewall', 'permission' => P::SECURITY_VIEW]);

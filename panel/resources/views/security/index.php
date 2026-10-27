@@ -3,6 +3,7 @@
 /** @var list<array<string, mixed>> $checks */
 /** @var array<string, mixed>|null $logins */
 /** @var bool|null $sshProtected */
+/** @var list<array{id: string, title: string, help: string, on: bool, available: bool, detail: string}> $switches */
 /** @var array{success: array<string, mixed>|null, failure: array<string, mixed>|null} $panelLogin */
 use WhaCP\Security\Permissions as P;
 
@@ -106,6 +107,44 @@ $w5 = static fn (int $n): int => (int) (round($n / $max * 20) * 5);
         </div>
     </div>
 </div>
+
+<?php if (($switches ?? []) !== []):
+    $pages = ['malware' => 'security.malware', 'fail2ban' => 'security.fail2ban', 'compilers' => 'security.compilers', 'smtp' => 'security.smtp', 'egress' => 'security.egress', 'hulk' => 'security.hulk', 'forkbomb' => 'security.forkbomb', 'traceroute' => 'security.traceroute', 'modsec' => 'security.modsec'];
+    $canSet = $this->can(P::SERVER_MANAGE); ?>
+<div class="wcp-panel mb-3" id="switches">
+    <div class="fw-semibold mb-1">Security settings</div>
+    <div class="small wcp-muted mb-3">The recommended protections. The server setup turns them on; enable or disable any of them here.</div>
+    <div class="wcp-dtable table-responsive">
+        <table class="table align-middle mb-0">
+            <thead><tr><th>Setting</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            <?php foreach ($switches as $sw): $page = $pages[$sw['id']] ?? null; ?>
+                <tr>
+                    <td>
+                        <div class="fw-medium"><?= e($sw['title']) ?></div>
+                        <div class="small wcp-muted"><?= e($sw['help']) ?></div>
+                        <?php if ($sw['detail'] !== '' && !$sw['on']): ?><div class="small wcp-warn"><?= e($sw['detail']) ?></div><?php endif; ?>
+                    </td>
+                    <td><span class="wcp-state <?= $sw['on'] ? 'is-ok' : 'is-warn' ?>"><?= $sw['on'] ? 'Enabled' : 'Disabled' ?></span></td>
+                    <td class="text-end text-nowrap">
+                        <?php if ($canSet && ($sw['available'] || $sw['on'])): ?>
+                            <form class="d-inline" method="post" action="<?= e($this->url('security.defaults')) ?>" data-wcp-busy><?= $this->csrfField() ?>
+                                <input type="hidden" name="item" value="<?= e($sw['id']) ?>">
+                                <input type="hidden" name="op" value="<?= $sw['on'] ? 'disable' : 'enable' ?>">
+                                <button class="btn btn-sm <?= $sw['on'] ? 'btn-outline-secondary' : 'btn-primary' ?>"><?= $sw['on'] ? 'Disable' : 'Enable' ?></button>
+                            </form>
+                        <?php elseif ($page !== null && $this->hasRoute($page)): ?>
+                            <a class="btn btn-sm btn-primary" href="<?= e($this->url($page)) ?>">Set up</a>
+                        <?php endif; ?>
+                        <?php if ($page !== null && $this->hasRoute($page)): ?><a class="btn btn-sm btn-link" href="<?= e($this->url($page)) ?>">Settings</a><?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php if ($checks !== []): ?>
 <div class="wcp-panel">

@@ -295,6 +295,10 @@ final class SettingsService
                 'category' => 'server', 'type' => 'bool', 'default' => false,
                 'label' => 'Setup wizard closed', 'help' => 'The dashboard no longer offers the setup wizard.',
             ],
+            'security_defaults_applied' => [
+                'category' => 'server', 'type' => 'bool', 'default' => false,
+                'label' => 'Recommended security settings applied', 'help' => 'The server setup turned on the recommended security settings once; it does not change them again.',
+            ],
             'server_setup' => [
                 'category' => 'server', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 12000,
                 'label' => 'Server setup', 'help' => 'The last run of the server setup (profile, options, each step\'s result; JSON).',

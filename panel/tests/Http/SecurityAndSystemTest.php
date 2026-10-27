@@ -17,6 +17,32 @@ final class SecurityAndSystemTest extends HttpTestCase
         $this->login('admin');
     }
 
+    public function testOverviewListsTheSecuritySwitchesAndTogglesThem(): void
+    {
+        $this->agent->succeed('security.audit', []);
+        $this->agent->succeed('ssh.logins', ['available' => false]);
+        $this->agent->succeed('fail2ban.status', ['installed' => true, 'running' => true, 'jails' => [['name' => 'sshd']]]);
+        $this->agent->succeed('hardening.status', ['smtp' => ['enabled' => true, 'available' => true], 'compilers' => ['restricted' => false], 'egress' => ['metadata_blocked' => true, 'available' => true], 'forkbomb' => ['enabled' => false], 'traceroute' => ['enabled' => true, 'programs' => [['path' => '/usr/bin/traceroute']]]]);
+        $this->agent->succeed('modsec.status', ['module_loaded' => false, 'active' => false]);
+        $page = $this->request('GET', '/security')->body();
+        foreach (['Malware scans', 'Brute-force protection (fail2ban)', 'Compiler access', 'SMTP restrictions', 'Outgoing connections', 'cPHulk Brute Force Protection', 'Shell Fork Bomb Protection', 'Traceroute', 'ModSecurity', 'The Nginx connector is not installed yet.'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        self::assertStringContainsString('name="item" value="forkbomb"', $page);
+
+        $this->agent->succeed('hardening.forkbomb', ['enabled' => true]);
+        $this->post('/security/defaults', ['item' => 'forkbomb', 'op' => 'enable']);
+        self::assertSame(['enabled' => true], $this->lastCall('hardening.forkbomb'));
+        // "Traceroute on" means disabled for users.
+        $this->agent->succeed('hardening.traceroute', ['enabled' => false]);
+        $this->post('/security/defaults', ['item' => 'traceroute', 'op' => 'enable']);
+        self::assertSame(['enabled' => false], $this->lastCall('hardening.traceroute'));
+        // ModSecurity cannot be switched on before its connector exists.
+        $this->post('/security/defaults', ['item' => 'modsec', 'op' => 'enable']);
+        self::assertSame(0, $this->calls('modsec.configure'));
+        self::assertStringContainsString('not installed', (string) $this->flash('error'));
+    }
+
     public function testFirewallChangeMustBeConfirmed(): void
     {
         $pending = ['id' => 'abc123abc123', 'kind' => 'firewall', 'summary' => 'firewall: allow proto tcp port 8080', 'deadline' => gmdate('c', time() + 120)];
