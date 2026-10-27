@@ -4,6 +4,7 @@ package apps
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -148,5 +149,80 @@ func TestRealHostLaravel(t *testing.T) {
 	st, _ := exec.Command("stat", "-c", "%U", filepath.Join(root, "app/artisan")).Output()
 	if strings.TrimSpace(string(st)) != "nimvorlv" {
 		t.Fatalf("files owned by %s", st)
+	}
+}
+
+// Downloads every archive in the catalog the way the installer does, unpacks
+// it with the catalog's Strip, and checks the web root and the web installer
+// path exist, so a vendor moving a file or changing an archive layout is
+// found here instead of by a customer. Needs NIMVOR_NETWORK=1.
+func TestRealHostCatalogDownloads(t *testing.T) {
+	if os.Getenv("NIMVOR_NETWORK") != "1" {
+		t.Skip("needs NIMVOR_NETWORK=1")
+	}
+	client := &http.Client{Timeout: 10 * time.Minute}
+	fetch := func(url string) (string, error) {
+		req, _ := http.NewRequest(http.MethodGet, url, nil)
+		req.Header.Set("User-Agent", "NimVor")
+		res, err := client.Do(req)
+		if err != nil {
+			return "", err
+		}
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			return "", fmt.Errorf("HTTP %d", res.StatusCode)
+		}
+		f, err := os.CreateTemp(t.TempDir(), "dl-*")
+		if err != nil {
+			return "", err
+		}
+		defer f.Close()
+		if n, err := io.Copy(f, io.LimitReader(res.Body, maxDownload+1)); err != nil || n > maxDownload {
+			return "", fmt.Errorf("failed or larger than %d bytes", maxDownload)
+		}
+		return f.Name(), nil
+	}
+	for slug, def := range Catalog {
+		if def.URL == "" {
+			continue
+		}
+		slug, def := slug, def
+		t.Run(slug, func(t *testing.T) {
+			file, err := fetch(def.URL)
+			if err != nil {
+				t.Errorf("%s: download %s: %v", slug, def.URL, err)
+				return
+			}
+			dest := t.TempDir()
+			if err := extractArchive(def.Format, file, dest, def.Strip, os.Getuid(), os.Getgid()); err != nil {
+				t.Errorf("%s: unpack (strip %d): %v", slug, def.Strip, err)
+				return
+			}
+			docroot := filepath.Join(dest, def.DocRoot)
+			if entries, err := os.ReadDir(docroot); err != nil || len(entries) == 0 {
+				t.Errorf("%s: web root %q missing or empty after unpacking", slug, def.DocRoot)
+				return
+			}
+			if rel := strings.Trim(def.Finish, "/"); rel != "" && !strings.HasPrefix(rel, "index.php/") {
+				if _, err := os.Stat(filepath.Join(docroot, rel)); err != nil {
+					t.Errorf("%s: installer path %s not found in the web root", slug, def.Finish)
+				}
+			}
+		})
+	}
+	for name, p := range WPPlugins {
+		file, err := fetch(p.URL)
+		if err != nil {
+			t.Errorf("plugin %s: %v", name, err)
+			continue
+		}
+		dest := t.TempDir()
+		if err := extractArchive("zip", file, dest, 0, os.Getuid(), os.Getgid()); err != nil {
+			t.Errorf("plugin %s: %v", name, err)
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(dest, p.Main)); err != nil {
+			t.Errorf("plugin %s: %s missing from the archive", name, p.Main)
+		}
 	}
 }
