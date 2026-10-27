@@ -464,3 +464,31 @@ func TestAdministratorAccountsGetNoAccess(t *testing.T) {
 		t.Fatalf("account changed: %v", f.h.Runner.Calls)
 	}
 }
+
+// The server setup installs pure-ftpd, which starts the package's own service;
+// with no virtual accounts of its own that is not "another FTP server".
+func TestUnusedStockPureFTPdMayBeReplacedBySetup(t *testing.T) {
+	f := setup(t)
+	only := []string{"pure-ftpd.service"}
+	if !unusedStockOnly(f.h.Env, only) {
+		t.Error("a fresh stock service was treated as somebody's server")
+	}
+	// Accounts in it: somebody uses it.
+	os.MkdirAll(filepath.Join(f.h.Base, "etc/pure-ftpd"), 0o755)
+	os.WriteFile(filepath.Join(f.h.Base, "etc/pure-ftpd/pureftpd.passwd"), []byte("bob:$1$x:1000:1000::/home/bob/./::::::::::::\n"), 0o600)
+	if unusedStockOnly(f.h.Env, only) {
+		t.Error("a pure-ftpd with virtual accounts was replaced")
+	}
+	os.WriteFile(filepath.Join(f.h.Base, "etc/pure-ftpd/pureftpd.passwd"), nil, 0o600)
+	if !unusedStockOnly(f.h.Env, only) {
+		t.Error("an empty account file counted as in use")
+	}
+	// Another server running: never replaced without confirmation.
+	if unusedStockOnly(f.h.Env, []string{"pure-ftpd.service", "vsftpd.service"}) || unusedStockOnly(f.h.Env, []string{"vsftpd.service"}) {
+		t.Error("another FTP server was treated as replaceable")
+	}
+	// The test host reports every unit active, so the action still asks.
+	if _, err := f.call(t, "ftp.configure", map[string]any{"replace_unused_stock": true}); code(err) != "conflict" {
+		t.Fatalf("err = %v", err)
+	}
+}

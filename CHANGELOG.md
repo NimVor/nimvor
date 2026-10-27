@@ -6,6 +6,12 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Setup wizard: the FTP server step failed** with "pure-ftpd.service is running and uses the FTP port". Installing the
+  pure-ftpd package starts its own default service, which the step took for another FTP server. The setup now lets
+  the agent replace that default service when it has no virtual accounts; any other running FTP server still needs
+  confirmation.
+
 ### Changed
 - **Back to the PHP panel with the Go agent.** The repository is restored to the PHP 8.3 panel (`panel/`) plus the Go
   agent (`agent/`), as in the 1.0.0-rc1 backup. The experimental Go-only panel (`server/`) was removed from the tree;

@@ -570,8 +570,10 @@ final class ServerSetupService
             return ['skip', 'The FTP server is set up already.'];
         }
         // The defaults: TLS required, passive ports 30000-30049. Another
-        // running FTP server is never replaced here.
-        $this->agent->call('ftp.configure', [], 120);
+        // running FTP server is never replaced here, except the pure-ftpd
+        // package's own default service, which installing the package just
+        // started (the agent replaces it only while it has no accounts).
+        $this->agent->call('ftp.configure', ['replace_unused_stock' => true], 120);
         return ['ok', 'FTP server set up (TLS required; passive ports 30000-30049).'];
     }
 

@@ -28,6 +28,11 @@ import (
 type configureReq struct {
 	Settings
 	ConfirmReplaceService bool `json:"confirm_replace_service"`
+	// ReplaceUnusedStock lets the server setup replace the pure-ftpd
+	// package's own default service when it is the only other FTP server and
+	// has no virtual accounts: installing the package starts it, so it is not
+	// a server somebody configured.
+	ReplaceUnusedStock bool `json:"replace_unused_stock"`
 }
 
 type accountReq struct {
@@ -195,7 +200,7 @@ func Register(r *actions.Registry, env *host.Env) {
 				others = append(others, u)
 			}
 		}
-		if len(others) > 0 && !in.ConfirmReplaceService {
+		if len(others) > 0 && !in.ConfirmReplaceService && !(in.ReplaceUnusedStock && unusedStockOnly(env, others)) {
 			return nil, actions.Conflict(strings.Join(others, ", ") + " is running and uses the FTP port. Confirm to stop and disable it; WhaCP then runs its own FTP service. Accounts configured in it are not carried over.")
 		}
 		old := Defaults()
@@ -496,3 +501,15 @@ func fingerprint(key string) string {
 
 func base64Decode(s string) ([]byte, error) { return base64.StdEncoding.DecodeString(s) }
 func base64Encode(b []byte) string          { return base64.StdEncoding.EncodeToString(b) }
+
+// unusedStockOnly reports whether the running FTP servers are only the
+// pure-ftpd package's own service and it has no virtual accounts (no or an
+// empty /etc/pure-ftpd/pureftpd.passwd): the state right after the package is
+// installed, which nobody configured.
+func unusedStockOnly(env *host.Env, others []string) bool {
+	if len(others) != 1 || others[0] != "pure-ftpd.service" {
+		return false
+	}
+	b, err := env.Root.ReadFile("/etc/pure-ftpd/pureftpd.passwd")
+	return err != nil || strings.TrimSpace(string(b)) == ""
+}

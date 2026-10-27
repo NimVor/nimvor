@@ -108,6 +108,8 @@ final class ServerSetupTest extends HttpTestCase
         self::assertSame(['curl', 'mbstring', 'intl'], $php['extensions']);
         self::assertFalse($php['confirm_removals']);
         self::assertSame(['hostname' => 'server.example.com', 'confirm_edit_package_config' => true], $this->lastCall('mail.configure'));
+        // The package's own pure-ftpd service, started by the install, may be replaced while it has no accounts.
+        self::assertSame(['replace_unused_stock' => true], $this->lastCall('ftp.configure'));
         self::assertSame(['confirm_edit_package_config' => true], $this->lastCall('dns.configure'));
         self::assertSame(['maxmemory_mb' => 256, 'policy' => 'allkeys-lru'], $this->lastCall('redis.configure'));
         self::assertSame([['unit' => 'postfix.service', 'op' => 'start'], ['unit' => 'redis-server.service', 'op' => 'enable']], $this->bodies('services.control'));
