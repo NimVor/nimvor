@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	mongoTestBackupJob     = "0123456789m0a001"
-	mongoTestRestoreJob    = "0123456789m0a002"
+	mongoTestBackupJob     = "0123456789a0a001"
+	mongoTestRestoreJob    = "0123456789a0a002"
 	mongoTestShopBackup    = "20261020-093000_u_bob_shop.archive.gz"
 	mongoTestForeignBackup = "20261019-120000_other_app.archive.gz"
 )

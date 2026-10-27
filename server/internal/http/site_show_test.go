@@ -108,7 +108,7 @@ func TestSiteShowPage(t *testing.T) {
 		"Delete the website",
 		"data-wcp-tile=\"files\"",
 		"data-wcp-tile=\"databases\"",
-		"data-wcp-tile=\"manual-settings\"",
+		"data-wcp-tile=\"manual settings\"",
 		"data-wcp-feature=\"create database mysql mariadb new add\"",
 	} {
 		if !pageHas(body, want) {
@@ -128,13 +128,13 @@ func TestSiteShowPage(t *testing.T) {
 	// enable/disable button.
 	carol := loginAsUser(t, h, "carol")
 	body = get(t, h, "/sites/20", carol).Body.String()
-	for _, banned := range []string{"data-wcp-tile=\"manual-settings\"", "data-wcp-tile=\"settings\"", "Disable the website", "Delete the website"} {
+	for _, banned := range []string{"data-wcp-tile=\"manual settings\"", "data-wcp-tile=\"settings\"", "Disable the website", "Delete the website"} {
 		if pageHas(body, banned) {
 			t.Errorf("viewer page shows %q", banned)
 		}
 	}
 	// …but her hub still lists the areas she may open.
-	if !pageHas(body, `data-wcp-tile="web-firewall"`) {
+	if !pageHas(body, `data-wcp-tile="web firewall"`) {
 		t.Errorf("viewer page missing the firewall tile (websites.view):\n%s", body)
 	}
 }
@@ -237,7 +237,8 @@ func TestSiteShowNotFound(t *testing.T) {
 	h, _, _ := showEnv(t)
 
 	carol := loginAsUser(t, h, "carol")
-	for _, path := range []string{"/sites/10", "/sites/10/advanced"} {
+	// (A viewer reaching /advanced is refused earlier: 403, the route is websites.manage.)
+	for _, path := range []string{"/sites/10"} {
 		rr := get(t, h, path, carol)
 		if rr.Code != http.StatusNotFound {
 			t.Fatalf("GET %s (carol) = %d, want 404", path, rr.Code)

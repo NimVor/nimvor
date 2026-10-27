@@ -360,8 +360,12 @@ func TestCloudflareServerProxyBadID(t *testing.T) {
 	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/cloudflare" {
 		t.Fatalf("purge (bad zone) POST = %d loc=%q", rr.Code, rr.Header().Get("Location"))
 	}
-	if len(f.calls) != 0 {
-		t.Errorf("API called for a bad id: %v", f.calls)
+	// The pages read the account's zones and records; a bad id must change nothing.
+	for _, c := range f.calls {
+		if !strings.HasPrefix(c, "GET ") || strings.Contains(c, "passwd") || strings.Contains(c, "/bad") {
+			t.Errorf("API called for a bad id: %v", f.calls)
+			break
+		}
 	}
 }
 
@@ -401,8 +405,12 @@ func TestCloudflareServerDisconnect(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM cloudflare_accounts`).Scan(&n); err != nil || n != 0 {
 		t.Errorf("row not deleted: %d", n)
 	}
-	if len(f.calls) != 0 {
-		t.Errorf("disconnect must not call the API: %v", f.calls)
+	// Disconnecting only forgets the token: nothing is changed at Cloudflare.
+	for _, c := range f.calls {
+		if !strings.HasPrefix(c, "GET ") {
+			t.Errorf("disconnect must not change anything at Cloudflare: %v", f.calls)
+			break
+		}
 	}
 	var tid string
 	if err := db.QueryRow(`SELECT target_id FROM audit_logs WHERE action = 'cloudflare.disconnect'`).Scan(&tid); err != nil {

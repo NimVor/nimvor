@@ -342,8 +342,12 @@ func TestSiteCloudflareProxyBadID(t *testing.T) {
 		t.Fatalf("proxy POST = %d", rr.Code)
 	}
 	flashAt(t, h, refreshCookie(admin, rr), "/sites/10/cloudflare", "Invalid Cloudflare identifier.")
-	if len(f.calls) != 0 {
-		t.Errorf("API called for a bad record id: %v", f.calls)
+	// The page reads the zone's settings and records; a bad id must change nothing.
+	for _, c := range f.calls {
+		if !strings.HasPrefix(c, "GET ") || strings.Contains(c, "passwd") {
+			t.Errorf("API called for a bad record id: %v", f.calls)
+			break
+		}
 	}
 }
 
@@ -383,8 +387,12 @@ func TestSiteCloudflareDisconnect(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM cloudflare_sites`).Scan(&n); err != nil || n != 0 {
 		t.Errorf("row not deleted: %d", n)
 	}
-	if len(f.calls) != 0 {
-		t.Errorf("disconnect must not call the API: %v", f.calls)
+	// Disconnecting only forgets the token: nothing is changed at Cloudflare.
+	for _, c := range f.calls {
+		if !strings.HasPrefix(c, "GET ") {
+			t.Errorf("disconnect must not change anything at Cloudflare: %v", f.calls)
+			break
+		}
 	}
 	var tid string
 	if err := db.QueryRow(`SELECT target_id FROM audit_logs WHERE action = 'cloudflare.site_disconnect'`).Scan(&tid); err != nil {

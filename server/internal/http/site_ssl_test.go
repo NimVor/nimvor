@@ -51,7 +51,7 @@ func sslEnv(t *testing.T) (http.Handler, *sitesAgent, *sql.DB) {
 	exec(`INSERT INTO plans (id,name,max_websites,max_subdomains,max_addon_domains,max_parked_domains,created_at,updated_at)
 		VALUES (1,'Basic',5,3,5,10,'','')`)
 	exec(`INSERT INTO users (id,username,email,display_name,password_hash,role_id,is_active,password_changed_at,created_at,updated_at,plan_id)
-		VALUES (1,'admin','a@x','Admin',?,1,1,'2026-01-01T00:00:00Z','','',NULL),
+		VALUES (1,'admin','admin@example.test','Admin',?,1,1,'2026-01-01T00:00:00Z','','',NULL),
 		(2,'bob','b@x','Bob',?,2,1,'2026-01-01T00:00:00Z','','',1),
 		(3,'carol','c@x','Carol',?,5,1,'2026-01-01T00:00:00Z','','',NULL)`,
 		loginHash, loginHash, loginHash)

@@ -65,9 +65,9 @@ func dbEnv(t *testing.T, loginAs string) (http.Handler, *http.Cookie, *sql.DB) {
 func TestWebsiteShowScopedAndForeignIs404(t *testing.T) {
 	h, cookie, db := dbEnv(t, "custB")
 	// The hub (/sites/{id}) stays tenant-scoped: own site (11) is viewable
-	// and shows its database.
+	// and shows its database count (the databases themselves live on /databases).
 	own := get(t, h, "/sites/11", cookie)
-	if own.Code != http.StatusOK || !strings.Contains(own.Body.String(), "b.example") || !strings.Contains(own.Body.String(), "b_main") {
+	if own.Code != http.StatusOK || !strings.Contains(own.Body.String(), "b.example") || !pageHas(own.Body.String(), "(1 database)") {
 		t.Fatalf("custB own site = %d, body missing expected content:\n%s", own.Code, own.Body.String())
 	}
 	// Another tenant's site id must be 404 (not a leak, not a 403 oracle diff —

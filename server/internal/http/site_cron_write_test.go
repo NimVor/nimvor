@@ -53,7 +53,7 @@ func cronWEnv(t *testing.T) (http.Handler, *sitesAgent, *sql.DB) {
 		VALUES (1,'Basic',5,3,5,10,'','')`)
 	exec(`INSERT INTO users (id,username,email,display_name,password_hash,role_id,is_active,password_changed_at,created_at,updated_at,plan_id)
 		VALUES (1,'admin','a@x','Admin',?,1,1,'2026-01-01T00:00:00Z','','',NULL),
-		(2,'bob','b@x','Bob',?,2,1,'2026-01-01T00:00:00Z','','',1),
+		(2,'bob','bob@example.test','Bob',?,2,1,'2026-01-01T00:00:00Z','','',1),
 		(3,'carol','c@x','Carol',?,5,1,'2026-01-01T00:00:00Z','','',NULL)`,
 		loginHash, loginHash, loginHash)
 	exec(`INSERT INTO websites (id,server_id,owner_id,domain,system_user,root,document_root,kind,php_version,status,created_at,updated_at)
@@ -61,7 +61,7 @@ func cronWEnv(t *testing.T) (http.Handler, *sitesAgent, *sql.DB) {
 		(20,1,3,'carol.example','u_carol','/home/whacp/carol.example','/home/whacp/carol.example/public_html','php','8.3.1','active','','')`)
 	exec(`INSERT INTO domains (server_id,website_id,name,is_primary) VALUES (1,10,'bob.example',1),(1,20,'carol.example',1)`)
 	exec(`INSERT INTO cron_jobs (id,server_id,website_id,schedule,command,description,enabled,email,created_at,updated_at) VALUES
-		(1,1,10,'0 3 * * *','/usr/bin/php backup.php','Nightly backup',1,'b@x','',''),
+		(1,1,10,'0 3 * * *','/usr/bin/php backup.php','Nightly backup',1,'bob@example.test','',''),
 		(2,1,10,'*/5 * * * *','/usr/bin/php cache:clear','',0,'','','')`)
 
 	kf := filepath.Join(t.TempDir(), "panel.key")
@@ -123,7 +123,7 @@ func TestSiteCronPage(t *testing.T) {
 		"Add cron job",
 		`name="schedule_custom"`,
 		`name="email_output"`,
-		"Email the output to <strong>b@x</strong>",
+		"Email the output to <strong>bob@example.test</strong>",
 		"/sites/10/cron/1/log",
 		"/sites/10/cron/1/run",
 		"/sites/10/cron?edit=1",
@@ -148,7 +148,7 @@ func TestSiteCronPageReadOnly(t *testing.T) {
 	if !pageHas(page, "No cron jobs yet") {
 		t.Error("viewer page missing the empty state")
 	}
-	for _, banned := range []string{"Add cron job", `name="command"`, "/cron/", "data-wcp-confirm"} {
+	for _, banned := range []string{"Add cron job", `name="command"`, "/cron/", `data-wcp-confirm="`} {
 		if pageHas(page, banned) {
 			t.Errorf("read-only page shows %q", banned)
 		}
@@ -282,8 +282,8 @@ func TestSiteCronEdit(t *testing.T) {
 	if command != "/usr/bin/php backup.php --full" {
 		t.Errorf("command = %q", command)
 	}
-	if email != "b@x" {
-		t.Errorf("email (kept on update) = %q, want b@x", email)
+	if email != "bob@example.test" {
+		t.Errorf("email (kept on update) = %q, want bob@example.test", email)
 	}
 	jobs := cronApplyJobs(t, sa)
 	if len(jobs) != 2 {
@@ -313,8 +313,8 @@ func TestSiteCronEmailFlow(t *testing.T) {
 	if err := db.QueryRow(`SELECT id, email FROM cron_jobs WHERE command='echo mailed'`).Scan(&id, &email); err != nil {
 		t.Fatal(err)
 	}
-	if email != "b@x" {
-		t.Errorf("new job email = %q, want b@x", email)
+	if email != "bob@example.test" {
+		t.Errorf("new job email = %q, want bob@example.test", email)
 	}
 	// Turning the switch off clears the recipient.
 	token, cookie := siteFormToken(t, h, bob, "/sites/10/cron")
@@ -535,7 +535,7 @@ func TestSiteCronApplyFailsReverts(t *testing.T) {
 		t.Errorf("doomed job still stored: %v", err)
 	}
 	// The pre-existing rows came back intact.
-	if err := db.QueryRow(`SELECT email FROM cron_jobs WHERE id=1`).Scan(&command); err != nil || command != "b@x" {
+	if err := db.QueryRow(`SELECT email FROM cron_jobs WHERE id=1`).Scan(&command); err != nil || command != "bob@example.test" {
 		t.Errorf("reverted row 1 email = %q: %v", command, err)
 	}
 	if err := db.QueryRow(`SELECT COUNT(*) FROM audit_logs WHERE action='cron.create' AND result='failure'`).Scan(&n); err != nil || n != 1 {

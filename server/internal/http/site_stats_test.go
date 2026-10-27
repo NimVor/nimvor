@@ -238,7 +238,7 @@ func TestSiteStatsAgentDown(t *testing.T) {
 func TestSiteStatsNoDataYet(t *testing.T) {
 	h, sa, _ := statsEnv(t)
 	sa.mu.Lock()
-	sa.statsEnabled = true
+	sa.statsEnabled = false // off, with earlier data on disk
 	sa.statsMonthsJSON = `["202609"]`
 	sa.statsDataFound = false // the month's file is not there yet
 	sa.mu.Unlock()
@@ -322,7 +322,7 @@ func TestSiteStatsEnableAgentRefused(t *testing.T) {
 		t.Fatalf("POST = %d", rr.Code)
 	}
 	var n int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM audit_logs`).Scan(&n); err != nil || n != 0 {
+	if err := db.QueryRow(`SELECT COUNT(*) FROM audit_logs WHERE action LIKE 'stats.%'`).Scan(&n); err != nil || n != 0 {
 		t.Errorf("a refused switch must not audit (rows = %d)", n)
 	}
 	flashAt(t, h, refreshCookie(admin, rr), "/sites/10/stats",

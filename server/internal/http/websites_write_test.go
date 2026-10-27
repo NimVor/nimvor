@@ -222,7 +222,7 @@ const defaultDiscoveryInventory = `{
       {
         "id":"whacp123","domain":"managed.test","aliases":[],"kind":"static","enabled":true,
         "document_root":"/home/whacp/managed.test/public_html","document_root_exists":true,
-        "config_files":["/home/whacp/nginx/managed.test.conf"]
+        "config_files":["/home/whacp/nginx/whacp-managed.test.conf"]
       }
     ],
     "total":2,"catch_all_vhosts":1,"warnings":[]
@@ -438,7 +438,7 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 		case "sites.permissions":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"checked":120,"fixed":3,"skipped_count":2,"errors":[]}}`))
 		case "system.info":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"agent_version":"1.0.0","os":{"name":"Ubuntu"},"system":{"hostname":"srv","kernel":"6.8.0","architecture":"x86_64","cpu":{"model":"","cores":4},"uptime_seconds":100000,"boot_time":"2026-01-01T00:00:00Z","timezone":"UTC","interfaces":[{"name":"lo","mac":"","up":true,"addresses":["127.0.0.1/8","::1/128"]},{"name":"eth0","mac":"aa:bb:cc:dd:ee:ff","up":true,"addresses":["10.10.0.15/24","fe80::1/64"]}]}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"agent_version":"1.0.0","os":{"name":"Ubuntu"},"system":{"hostname":"srv","kernel":"6.8.0","architecture":"x86_64","cpu":{"model":"","cores":4},"uptime_seconds":100000,"boot_time":"2026-01-01T00:00:00Z","timezone":"UTC","interfaces":[{"name":"lo","mac":"","up":true,"addresses":["127.0.0.1/8","::1/128"]},{"name":"eth0","mac":"aa:bb:cc:dd:ee:ff","up":true,"addresses":["10.10.0.15/24","fe80::1/64"]}]}}}`))
 		case "sites.inspect":
 			if sa.sitesInspectJSON != "" {
 				_, _ = w.Write([]byte(`{"success":true,"data":` + sa.sitesInspectJSON + `}`))
@@ -1136,7 +1136,7 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		case "mongo.backup":
 			db, _ := p["db"].(string)
-			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789m0a001","file":"20261023-100000_` + db + `.archive.gz"}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789a0a001","file":"20261023-100000_` + db + `.archive.gz"}}`))
 		case "mongo.backups":
 			bs := sa.mongoBackups
 			if bs == "" {
@@ -1144,7 +1144,7 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 			}
 			_, _ = w.Write([]byte(`{"success":true,"data":` + bs + `}`))
 		case "mongo.restore":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789m0a002"}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789a0a002"}}`))
 		case "mongo.backup_delete":
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		case "mongo.collections":
@@ -1186,9 +1186,9 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 		case "mongo.repository":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"kind":"apt","name":"mongodb-org","url":"https://repo.mongodb.org/apt/ubuntu","version":"7.0","supported":true,"enabled":false,"note":""}}`))
 		case "mongo.repository.enable":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789m0a003"}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789a0a003"}}`))
 		case "mongo.install":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789m0a004"}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789a0a004"}}`))
 		case "mongo.admin_password", "mongo.auth_set", "mongo.config_set", "mongo.config_write":
 			_, _ = w.Write([]byte(`{"success":true,"data":{},"request_id":"t"}`))
 		case "mongo.config_get":
@@ -1200,7 +1200,7 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 		case "mongo.remote_databases":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"databases":[{"name":"shop","size":123456},{"name":"ledger","size":42}]}}`))
 		case "mongo.remote_pull":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789m0a005"}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"job_id":"0123456789a0a005"}}`))
 		case "wordpress.info":
 			res := sa.wpInfoReply
 			if res == "" {
