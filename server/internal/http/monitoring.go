@@ -426,7 +426,7 @@ func (s *Server) renderError(w http.ResponseWriter, code int, title, message str
 	_ = context.TODO()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)
-	_ = s.tpl.Render(w, "error", map[string]any{"Title": title, "Message": message})
+	_ = s.tpl.Render(w, "error", map[string]any{"Title": title, "Message": message, "Status": code})
 }
 
 // end of file

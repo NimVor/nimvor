@@ -86,6 +86,11 @@ func (s *Server) deny(w http.ResponseWriter, r *http.Request, message string) {
 
 // renderStatus renders a template with an explicit status code.
 func renderStatus(w http.ResponseWriter, s *Server, name string, data any, code int) {
+	if m, ok := data.(map[string]any); ok {
+		if _, has := m["Status"]; !has {
+			m["Status"] = code
+		}
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)
 	if err := s.tpl.Render(w, name, data); err != nil {

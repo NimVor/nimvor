@@ -1,29 +1,22 @@
-{{define "forgot"}}<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reset your password · WhaCP</title>
-<link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
-<link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
-<link rel="stylesheet" href="/assets/css/whacp.css">
-</head>
-<body class="whacp-login">
-<main class="login-wrap">
-  <h1>WhaCP</h1>
-  {{if .Error}}<p class="alert alert-danger" role="alert">{{.Error}}</p>{{end}}
-  {{if .Available}}
-  <p class="muted">Enter your username or email. We will send a link to the email address of the account.</p>
-  <form method="post" action="/password/forgot" autocomplete="off">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <label for="identifier">Username or email</label>
-    <input id="identifier" name="identifier" type="text" autocomplete="username" required autofocus maxlength="190">
-    <button type="submit">Send reset link</button>
-  </form>
-  {{else}}
-  <p class="muted">Password reset by email is not set up on this panel. Ask an administrator to reset your password, or run <code>bin/whacp user:password &lt;username&gt;</code> on the server.</p>
-  {{end}}
-  <p><a href="/login">Back to sign in</a></p>
-</main>
-</body>
-</html>{{end}}
+{{define "forgot"}}{{template "auth_open" "Reset your password"}}
+  <div class="card wcp-auth-card">
+    <div class="card-body p-4">
+      <h1 class="h5 mb-1">Reset your password</h1>
+      {{if .Error}}<div class="alert alert-danger mt-3" role="alert">{{.Error}}</div>{{end}}
+      {{if .Available}}
+      <p class="text-body-secondary small mb-4">Enter your username or email. We will send a link to the email address of the account.</p>
+      <form method="post" action="/password/forgot" data-wcp-busy novalidate>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <div class="mb-4">
+          <label class="form-label" for="identifier">Username or email</label>
+          <input class="form-control" id="identifier" name="identifier" type="text" autocomplete="username" required autofocus maxlength="190">
+        </div>
+        <button class="btn btn-primary w-100" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Send reset link</button>
+      </form>
+      {{else}}
+      <p class="small mt-3">Password reset by email is not set up on this panel. Ask an administrator to reset your password, or run <code>whacp set-admin-password</code> on the server.</p>
+      {{end}}
+      <div class="text-center mt-3"><a class="small" href="/login">Back to sign in</a></div>
+    </div>
+  </div>
+{{template "auth_close"}}{{end}}

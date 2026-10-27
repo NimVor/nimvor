@@ -428,7 +428,7 @@ func (s *Server) sshGenerateKey(w http.ResponseWriter, r *http.Request) {
 	if hostCleanRe.MatchString(host) {
 		serverName = host
 	}
-	file := "whacp-" + regexp.MustCompile(`[^A-Za-z0-9_-]`).ReplaceAllString(target, "") + "-" + regexp.MustCompile(`[^A-Za-z0-9_-]`).ReplaceAllString(serverName, "") + ".pem"
+	file := "whacp-" + regexp.MustCompile(`[^A-Za-z0-9_-]`).ReplaceAllString(target, "") + "-" + regexp.MustCompile(`[^A-Za-z0-9._-]`).ReplaceAllString(serverName, "") + ".pem"
 	portArg := ""
 	if port != "" && port != "22" {
 		portArg = " -p " + port

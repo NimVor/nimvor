@@ -1,31 +1,26 @@
-{{define "reset"}}<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Choose a new password · WhaCP</title>
-<link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
-<link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
-<link rel="stylesheet" href="/assets/css/whacp.css">
-</head>
-<body class="whacp-login">
-<main class="login-wrap">
-  <h1>WhaCP</h1>
-  {{if .Error}}<p class="alert alert-danger" role="alert">{{.Error}}</p>{{end}}
-  {{if .Valid}}
-  <p class="muted">At least 12 characters.</p>
-  <form method="post" action="/password/reset/{{.Token}}" autocomplete="off">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <label for="password">New password</label>
-    <input id="password" name="password" type="password" autocomplete="new-password" required autofocus>
-    <label for="password_confirmation">Confirm new password</label>
-    <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" required>
-    <button type="submit">Change password</button>
-  </form>
-  {{else}}
-  <p class="muted">This link has expired or was already used.</p>
-  <p><a href="/password/forgot">Ask for a new link</a></p>
-  {{end}}
-</main>
-</body>
-</html>{{end}}
+{{define "reset"}}{{template "auth_open" "Choose a new password"}}
+  <div class="card wcp-auth-card">
+    <div class="card-body p-4">
+      <h1 class="h5 mb-3">Choose a new password</h1>
+      {{if .Error}}<div class="alert alert-danger" role="alert">{{.Error}}</div>{{end}}
+      {{if .Valid}}
+      <form method="post" action="/password/reset/{{.Token}}" data-wcp-busy novalidate>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <div class="mb-3">
+          <label class="form-label" for="password">New password</label>
+          <input class="form-control" id="password" name="password" type="password" autocomplete="new-password" required autofocus>
+          <div class="form-text">At least 12 characters.</div>
+        </div>
+        <div class="mb-4">
+          <label class="form-label" for="password_confirmation">Confirm new password</label>
+          <input class="form-control" id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" required>
+        </div>
+        <button class="btn btn-primary w-100" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Change password</button>
+      </form>
+      {{else}}
+      <p class="small">This link has expired or was already used.</p>
+      <a class="btn btn-outline-primary w-100" href="/password/forgot">Ask for a new link</a>
+      {{end}}
+    </div>
+  </div>
+{{template "auth_close"}}{{end}}

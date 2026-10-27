@@ -1,25 +1,22 @@
-{{define "login"}}<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign in · WhaCP</title>
-<link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
-<link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
-<link rel="stylesheet" href="/assets/css/whacp.css">
-</head>
-<body class="whacp-login">
-<main class="login-wrap">
-  <h1>WhaCP</h1>
-  {{if .Error}}<p class="alert alert-danger" role="alert">{{.Error}}</p>{{end}}
-  <form method="post" action="/login" autocomplete="off">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <label for="username">Username or email</label>
-    <input id="username" name="username" type="text" value="{{.Username}}" required autofocus>
-    <label for="password">Password</label>
-    <input id="password" name="password" type="password" required>
-    <button type="submit">Sign in</button>
-  </form>
-</main>
-</body>
-</html>{{end}}
+{{define "login"}}{{template "auth_open" "Sign in"}}
+  <div class="card wcp-auth-card">
+    <div class="card-body p-4">
+      <h1 class="h5 mb-1">Sign in</h1>
+      <p class="text-body-secondary small mb-4">Server control panel</p>
+      {{if .Error}}<div class="alert alert-danger" role="alert">{{.Error}}</div>{{end}}
+      <form method="post" action="/login" data-wcp-busy novalidate>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <div class="mb-3">
+          <label class="form-label" for="username">Username or email</label>
+          <input class="form-control" id="username" name="username" type="text" value="{{.Username}}" autocomplete="username" required autofocus maxlength="190">
+        </div>
+        <div class="mb-4">
+          <label class="form-label" for="password">Password</label>
+          <input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-primary w-100" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Sign in</button>
+      </form>
+      <div class="text-center mt-3"><a class="small" href="/password/forgot">Forgot your password?</a></div>
+    </div>
+  </div>
+{{template "auth_close"}}{{end}}

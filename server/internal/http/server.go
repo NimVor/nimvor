@@ -119,7 +119,40 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 
 // Handler returns the fully wrapped http.Handler (middleware applied).
 func (s *Server) Handler() http.Handler {
-	return s.securityHeaders(s.requestLog(formSwitches(s.mux)))
+	return s.securityHeaders(s.requestLog(s.styledNotFound(formSwitches(s.mux))))
+}
+
+// styledNotFound shows the panel's own page for an address no route serves
+// (the router answers those with a bare "404 page not found").
+func (s *Server) styledNotFound(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(&notFoundWriter{ResponseWriter: w, s: s, r: r}, r)
+	})
+}
+
+type notFoundWriter struct {
+	http.ResponseWriter
+	s       *Server
+	r       *http.Request
+	swapped bool
+}
+
+func (w *notFoundWriter) WriteHeader(code int) {
+	if code == http.StatusNotFound && strings.HasPrefix(w.Header().Get("Content-Type"), "text/plain") {
+		w.swapped = true
+		w.Header().Del("Content-Type")
+		w.Header().Del("X-Content-Type-Options")
+		w.s.notFound(w.ResponseWriter, w.r)
+		return
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *notFoundWriter) Write(b []byte) (int, error) {
+	if w.swapped {
+		return len(b), nil
+	}
+	return w.ResponseWriter.Write(b)
 }
 
 // formSwitches makes a ticked switch read as on. A switch posts a hidden 0

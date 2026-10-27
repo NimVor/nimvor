@@ -1,18 +1,10 @@
-{{define "error"}}<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{.Title}} · WhaCP</title>
-<link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
-<link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
-<link rel="stylesheet" href="/assets/css/whacp.css">
-</head>
-<body class="whacp-error">
-<main class="container">
-  <h1>{{.Title}}</h1>
-  <p>{{.Message}}</p>
-  <p><a href="/">Back to the dashboard</a></p>
-</main>
-</body>
-</html>{{end}}
+{{define "error"}}{{template "auth_open" .Title}}
+  <div class="card wcp-error-card">
+    <div class="card-body">
+      {{if .Status}}<div class="wcp-error-code">{{.Status}}</div>{{end}}
+      <h2 class="h5">{{.Title}}</h2>
+      <p class="mb-2">{{.Message}}</p>
+      <a class="btn btn-outline-primary btn-sm mt-3" href="/"><i class="bi bi-house me-1"></i>Back to dashboard</a>
+    </div>
+  </div>
+{{template "auth_close"}}{{end}}

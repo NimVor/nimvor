@@ -7,6 +7,9 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **The sign-in, password-reset, two-factor, IP-verification, password-confirmation and error pages were unstyled**
+  (bare HTML: no card, no brand). They now use the PHP panel's sign-in layout. Unknown addresses show the panel's
+  404 page instead of a plain "404 page not found"; generated SSH key files keep the dots of the host name.
 - **The installer could not download Go** when the system Go was too old (Ubuntu 22.04): it asked go.dev for a
   file that does not exist (`go1.24`). It now downloads Go 1.24.7 and verifies its SHA-256.
 - **The installer stopped on a fresh server** with "bubblewrap is required" (or openssl/curl) before it installed

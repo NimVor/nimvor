@@ -1,26 +1,21 @@
-{{define "auth_verify_ip"}}<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Verify your sign-in · WhaCP</title>
-<link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.min.css">
-<link rel="stylesheet" href="/assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
-<link rel="stylesheet" href="/assets/css/whacp.css">
-</head>
-<body class="whacp-login">
-<main class="login-card">
-  <h1>Verify your sign-in</h1>
-  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  <p class="muted">A six-digit verification code was just emailed to the account's address. Enter it below to finish signing in.</p>
-  <form method="post" action="/login/verify-ip" autocomplete="off">
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <label for="code">Verification code</label>
-    <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="20" autofocus>
-    <button type="submit" class="btn btn-primary">Verify</button>
-    <button type="submit" name="cancel" value="1" class="btn btn-secondary">Cancel</button>
-  </form>
-  <p class="muted small"><a href="/login">Back to sign in</a></p>
-</main>
-</body>
-</html>{{end}}
+{{define "auth_verify_ip"}}{{template "auth_open" "Verify this IP address"}}
+  <div class="card wcp-auth-card">
+    <div class="card-body p-4">
+      <h1 class="h5 mb-1">Verify this IP address</h1>
+      {{if .Error}}<div class="alert alert-danger mt-3" role="alert">{{.Error}}</div>{{end}}
+      <p class="text-body-secondary small mb-4">You are signing in from an IP address that has not been verified for your account. We sent a 6-digit code to your email address; it is valid for 15 minutes.</p>
+      <form method="post" action="/login/verify-ip" data-wcp-busy novalidate>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <div class="mb-4">
+          <label class="form-label" for="code">Code</label>
+          <input class="form-control form-control-lg text-center font-monospace" id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" required autofocus maxlength="20" spellcheck="false">
+        </div>
+        <button class="btn btn-primary w-100" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Verify</button>
+      </form>
+      <form method="post" action="/login/verify-ip" class="text-center mt-3">
+        <input type="hidden" name="_token" value="{{.CSRF}}"><input type="hidden" name="cancel" value="1">
+        <button class="btn btn-link btn-sm text-body-secondary">Cancel and sign in again</button>
+      </form>
+    </div>
+  </div>
+{{template "auth_close"}}{{end}}

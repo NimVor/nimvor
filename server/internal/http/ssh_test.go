@@ -223,7 +223,7 @@ func TestSSHGenerateKey(t *testing.T) {
 	}
 	body := rr.Body.String()
 	for _, want := range []string{
-		"New SSH key", "Download the private key now.", "BEGIN ENCRYPTED PRIVATE KEY",
+		"New SSH key", "Download the private key now.", "BEGIN OPENSSH PRIVATE KEY",
 		"It is protected with the passphrase you chose.",
 		"whacp-root-example.com.pem", "ssh -i ~/.ssh/whacp-root-example.com.pem root@example.com",
 		"allowed for <strong>root</strong>",
@@ -248,7 +248,7 @@ func TestSSHGenerateKey(t *testing.T) {
 		t.Fatalf("generate (plain) = %d", rr.Code)
 	}
 	body = rr.Body.String()
-	if !pageHas(body, "BEGIN PRIVATE KEY") || !pageHas(body, "It has no passphrase") {
+	if !pageHas(body, "BEGIN OPENSSH PRIVATE KEY") || !pageHas(body, "It has no passphrase") {
 		t.Errorf("the unencrypted key page is wrong")
 	}
 }
