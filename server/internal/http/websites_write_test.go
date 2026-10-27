@@ -1682,12 +1682,19 @@ func TestWebsiteDeleteRequiresTypedConfirmation(t *testing.T) {
 	if n, _ := countRows(t, db, `SELECT COUNT(*) FROM websites WHERE id = 10`); n != 0 {
 		t.Fatal("site row still present")
 	}
-	acts := sa.called()
-	if len(acts) != 1 || acts[0] != "sites.delete" {
-		t.Fatalf("agent actions = %v", acts)
+	// The delete also cleans up cron and statistics before the folder goes and
+	// reconciles the limits and quotas afterwards; sites.delete happens once.
+	del, count := -1, 0
+	for i, a := range sa.writes() {
+		if a == "sites.delete" {
+			del, count = i, count+1
+		}
 	}
-	if sa.param(0, "remove_files") != true || sa.param(0, "remove_user") != false {
-		t.Errorf("agent delete params wrong: %v", sa.params[0])
+	if count != 1 {
+		t.Fatalf("agent actions = %v", sa.called())
+	}
+	if sa.param(del, "remove_files") != true || sa.param(del, "remove_user") != false {
+		t.Errorf("agent delete params wrong: %v", sa.params[del])
 	}
 	var result string
 	if err := db.QueryRow(`SELECT result FROM audit_logs WHERE action = 'website.delete'`).Scan(&result); err != nil {

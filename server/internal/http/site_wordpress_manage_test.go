@@ -150,21 +150,23 @@ func TestWordPressManageErrors(t *testing.T) {
 		t.Error("the value-guard flash is missing")
 	}
 
-	// A suspended account cannot change anything (no agent call).
+	// A suspended hosting account cannot be changed (no agent call): an
+	// administrator acting on the customer's website is refused too. (The
+	// suspended customer cannot sign in at all.)
+	admin := loginAsUser(t, h, "admin")
 	if _, err := db.Exec(`UPDATE users SET suspended_at = '2026-01-01T00:00:00Z' WHERE id = 2`); err != nil {
 		t.Fatal(err)
 	}
-	bob = loginAsUser(t, h, "bob")
-	token, bob = siteFormToken(t, h, bob, "/sites/10/wordpress/1")
+	token, admin = siteFormToken(t, h, admin, "/sites/10/wordpress/1")
 	before = len(sa.called())
-	res = postForm(h, "/sites/10/wordpress/1/manage", url.Values{"_token": {token}, "op": {"maintenance_off"}}, bob)
+	res = postForm(h, "/sites/10/wordpress/1/manage", url.Values{"_token": {token}, "op": {"maintenance_off"}}, admin)
 	if res.Code != http.StatusSeeOther {
 		t.Fatalf("manage = %d", res.Code)
 	}
 	if len(sa.called()) != before {
 		t.Error("the suspended account still reached the agent")
 	}
-	rr = get(t, h, "/sites/10/wordpress/1", bob)
+	rr = get(t, h, "/sites/10/wordpress/1", admin)
 	if !pageHas(rr.Body.String(), "The hosting account is suspended; WordPress cannot be changed.") {
 		t.Error("the suspended flash is missing")
 	}

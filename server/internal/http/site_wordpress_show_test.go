@@ -26,6 +26,10 @@ func TestWordPressShow(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO databases (server_id, website_id, owner_id, name, created_at) VALUES (1, 10, 2, 'u_bob_wp', '')`); err != nil {
 		t.Fatal(err)
 	}
+	// The link follows the installation's stored database name.
+	if _, err := db.Exec(`UPDATE wordpress_installs SET db_name = 'u_bob_wp' WHERE website_id = 10`); err != nil {
+		t.Fatal(err)
+	}
 	bob := loginAsUser(t, h, "bob")
 
 	rr := get(t, h, "/sites/10/wordpress/1", bob)
@@ -109,7 +113,12 @@ func TestWordPressCheck(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("forced show = %d", rr.Code)
 	}
-	last := len(sa.called()) - 1
+	last := -1 // sa.param indexes the calls without db.overview
+	for i, a := range sa.writes() {
+		if a == "wordpress.info" {
+			last = i
+		}
+	}
 	if force, _ := sa.param(last, "force").(bool); !force {
 		t.Errorf("the forced check sent force = %v", sa.param(last, "force"))
 	}

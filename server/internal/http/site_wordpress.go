@@ -962,7 +962,7 @@ func (s *Server) wpToolError(w http.ResponseWriter, r *http.Request, err error, 
 // wpVulnsCacheDir is the per-item vulnerability answer cache (next to the
 // panel database; none for the in-memory test database).
 func wpVulnsCacheDir(dbPath string) string {
-	if dbPath == ":memory:" {
+	if dbPath == "" || dbPath == ":memory:" {
 		return ""
 	}
 	return filepath.Join(filepath.Dir(dbPath), "wpvulns")
@@ -1097,6 +1097,10 @@ func (s *Server) wpLogs(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	successMsg, _ := sess.PullFlash("success")
 	errorMsg, _ := sess.PullFlash("error")
+	// The log is read oldest first; the page shows the newest line first.
+	for a, b := 0, len(log.Lines)-1; a < b; a, b = a+1, b-1 {
+		log.Lines[a], log.Lines[b] = log.Lines[b], log.Lines[a]
+	}
 	s.render(w, "wordpress_logs", map[string]any{
 		"User":    userFrom(r.Context()),
 		"CSRF":    session.CSRFToken(sess),

@@ -34,6 +34,10 @@ func TestWordPressIndex(t *testing.T) {
 	wpSeedInstall(t, db, 20, "blog", "6.8", "")
 	// A second, current installation on bob's website.
 	wpSeedInstall(t, db, 10, "docs", "6.8", "")
+	// Carol's installation has nothing to update (the seed gives one plugin update).
+	if _, err := db.Exec(`UPDATE wordpress_installs SET plugin_updates = 0 WHERE website_id = 20`); err != nil {
+		t.Fatal(err)
+	}
 
 	// The admin sees every installation the websites may hold.
 	admin := loginAsUser(t, h, "admin")
@@ -130,8 +134,9 @@ func TestWordPressScanAll(t *testing.T) {
 	if n != 1 {
 		t.Errorf("install rows = %d", n)
 	}
-	if n := mongoAuditCount(t, db, "wordpress.scan"); n != 1 {
-		t.Errorf("audit rows = %d", n)
+	// The scan is audited against the server, not a website.
+	if err := db.QueryRow(`SELECT COUNT(*) FROM audit_logs WHERE action = 'wordpress.scan' AND target_type = 'server'`).Scan(&n); err != nil || n != 1 {
+		t.Errorf("audit rows = %d: %v", n, err)
 	}
 	// The agent got both visible websites.
 	if got := sa.param(0, "sites"); len(got.([]any)) != 2 {

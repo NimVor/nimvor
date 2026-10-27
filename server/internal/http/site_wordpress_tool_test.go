@@ -9,6 +9,7 @@ package http
 import (
 	"database/sql"
 	"fmt"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -266,7 +267,7 @@ func TestWordPressToolDbPassword(t *testing.T) {
 		t.Fatalf("the password alert is missing: %s", body)
 	}
 	rest := body[start+len(marker):]
-	password := rest[:strings.Index(rest, "</code>")]
+	password := html.UnescapeString(rest[:strings.Index(rest, "</code>")])
 	if len(password) != 24 {
 		t.Errorf("the password length = %d (%q)", len(password), password)
 	}
@@ -494,9 +495,9 @@ func TestWordPressToolVulnCheck(t *testing.T) {
 	hosting.WpVulnFetch = func(rawurl string) (string, bool) {
 		switch {
 		case strings.HasSuffix(rawurl, "core/6.7.1/"):
-			return `{"data":{"vulnerability":[{"name":"SQL Injection in <b>core</b>","operator":{"min_operator":"ge","min_version":"6.0","max_operator":"lt","max_version":"6.7.2"},"impact":{"cvss":{"severity":"h","score":"8.1"}},"source":[{"id":"CVE-2026-1234","link":"https://www.wpvulnerability.net/vulnerabilities/1234"}]}]}`, true
+			return `{"data":{"vulnerability":[{"name":"SQL Injection in <b>core</b>","operator":{"min_operator":"ge","min_version":"6.0","max_operator":"lt","max_version":"6.7.2"},"impact":{"cvss":{"severity":"h","score":"8.1"}},"source":[{"id":"CVE-2026-1234","link":"https://www.wpvulnerability.net/vulnerabilities/1234"}]}]}}`, true
 		case strings.HasSuffix(rawurl, "plugin/hello/"):
-			return `{"data":{"vulnerability":[{"name":"XSS in Hello","operator":{"max_operator":"lt","max_version":"1.8"},"impact":{"cvss":{"severity":"m","score":"5.4"}},"source":[{"id":"WPVMA-2026-001","link":"https://www.wpvulnerability.net/vulnerabilities/9999"}]}]}`, true
+			return `{"data":{"vulnerability":[{"name":"XSS in Hello","operator":{"max_operator":"lt","max_version":"1.8"},"impact":{"cvss":{"severity":"m","score":"5.4"}},"source":[{"id":"WPVMA-2026-001","link":"https://www.wpvulnerability.net/vulnerabilities/9999"}]}]}}`, true
 		case strings.HasSuffix(rawurl, "plugin/jetpack/"), strings.HasSuffix(rawurl, "theme/twentytwentyfive/"):
 			return rest, true
 		default:
