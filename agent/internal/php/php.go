@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // Version is one installed PHP version.

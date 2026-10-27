@@ -11,8 +11,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Updating WhaCP from the panel. The installer records where it was run

@@ -16,8 +16,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/selinux"
 )
 
 // ServerComponents are the parts of a server backup that can be restored in

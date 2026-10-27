@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Backend names the active firewall ("ufw", "firewalld" or "").

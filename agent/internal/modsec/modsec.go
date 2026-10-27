@@ -30,8 +30,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/capability"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Modes of a website.

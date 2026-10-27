@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // PHPSettings are per-site PHP-FPM pool settings.

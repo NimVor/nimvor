@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
+	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
 )
 
 // DKIMUnit runs OpenDKIM with WhaCP's configuration.

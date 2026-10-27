@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/spf"
+	"github.com/NimVor/nimvor/agent/internal/spf"
 )
 
 // The checker and the SPF evaluator against real, published DNS.

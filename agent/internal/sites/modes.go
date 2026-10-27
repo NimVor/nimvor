@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // ConfigMode is the mode of WhaCP's Nginx sites and PHP-FPM pools: read by

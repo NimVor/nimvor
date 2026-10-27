@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // A component is installed when it works, not when the package manager

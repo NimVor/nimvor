@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/ftpmgr"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 // fixture: a website account "shop" with the given shell mode.

@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/greylist"
+	"github.com/NimVor/nimvor/agent/internal/greylist"
 )
 
 // Greylisting against a real Postfix: the agent binary runs as the policy

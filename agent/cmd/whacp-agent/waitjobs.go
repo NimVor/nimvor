@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
 )
 
 // Exit codes of -wait-jobs.

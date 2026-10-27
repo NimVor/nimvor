@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // Record is one resource record. Name is relative to the zone ("@" for

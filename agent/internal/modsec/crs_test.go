@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/txn"
+	"github.com/NimVor/nimvor/agent/internal/txn"
 )
 
 // crsArchive builds a release-like archive; extra adds hostile entries.

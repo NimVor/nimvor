@@ -69,7 +69,7 @@ Read more in [docs/architecture](docs/architecture/README.md).
 Requirements: Go ≥ 1.24, PHP ≥ 8.3 with `pdo_sqlite`, `curl`, `mbstring`, Composer, OpenSSL.
 
 ```bash
-git clone https://github.com/mchkhawarshahzad/WhaCP.git && cd WhaCP
+git clone https://github.com/NimVor/nimvor.git && cd nimvor
 scripts/dev.sh
 # open http://127.0.0.1:8090  —  admin / dev-password-change-me
 ```
@@ -87,7 +87,7 @@ Preview (tested, not yet recommended for production): Ubuntu 26.04 LTS and
 AlmaLinux, Rocky Linux and RHEL 10.
 
 ```bash
-git clone https://github.com/mchkhawarshahzad/WhaCP.git && cd WhaCP
+git clone https://github.com/NimVor/nimvor.git && cd nimvor
 sudo ./installer/install.sh --dry-run          # see exactly what will happen
 sudo ./installer/install.sh --admin-user=admin --admin-email=you@example.com
 ssh -L 8090:127.0.0.1:8090 your-server         # then open http://127.0.0.1:8090

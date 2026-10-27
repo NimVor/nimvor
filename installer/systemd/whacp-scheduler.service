@@ -1,6 +1,6 @@
 [Unit]
 Description=WhaCP scheduler (metrics, alerts, scheduled backups and retention)
-Documentation=https://github.com/mchkhawarshahzad/WhaCP/tree/main/docs
+Documentation=https://github.com/NimVor/nimvor/tree/main/docs
 After=whacp-agent.service
 
 [Service]

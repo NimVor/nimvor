@@ -18,10 +18,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/txn"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
+	"github.com/NimVor/nimvor/agent/internal/txn"
 )
 
 // The OWASP Core Rule Set is installed separately from the connector: the

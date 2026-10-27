@@ -18,7 +18,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/spf"
+	"github.com/NimVor/nimvor/agent/internal/spf"
 )
 
 // Server answers Postfix policy requests and control requests.

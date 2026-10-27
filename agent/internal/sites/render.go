@@ -2,7 +2,7 @@ package sites
 
 import (
 	"fmt"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
+	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
 	"html"
 	"path/filepath"
 	"strings"

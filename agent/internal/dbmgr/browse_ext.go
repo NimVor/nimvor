@@ -13,9 +13,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/mysqlwire"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/mysqlwire"
 )
 
 // Structure changes, CSV export and import for the database browser. They

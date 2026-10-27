@@ -17,8 +17,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/limits"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/mailrate"
+	"github.com/NimVor/nimvor/agent/internal/limits"
+	"github.com/NimVor/nimvor/agent/internal/mailrate"
 )
 
 // Outgoing mail limits against a real Postfix: a website account sends

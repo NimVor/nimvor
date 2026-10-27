@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/cron"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/cron"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 // Root's lines only start the launchers; the commands, "%" included (cron

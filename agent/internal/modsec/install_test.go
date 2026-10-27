@@ -15,10 +15,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/txn"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/capability"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/txn"
 )
 
 // machine simulates a server for the installer: Nginx (nginx -V, -T, -t

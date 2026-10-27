@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
 )
 
 func writeCert(t *testing.T, dir string, names []string, notAfter time.Time) string {

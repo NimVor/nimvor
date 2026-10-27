@@ -18,7 +18,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
 )
 
 // ErrNotPermitted is returned for paths outside the write policy.

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/mysqlwire"
+	"github.com/NimVor/nimvor/agent/internal/mysqlwire"
 )
 
 func TestLiteral(t *testing.T) {

@@ -24,7 +24,7 @@ Two components:
 - **`panel/`** — PHP 8.3+ web app (custom MVC, SQLite). Never runs shell
   commands. Talks to the agent over an authenticated channel
   (`POST /v1/actions/<name>`).
-- **`agent/`** — Go service (module `github.com/mchkhawarshahzad/whacp/agent`,
+- **`agent/`** — Go service (module `github.com/NimVor/nimvor/agent`,
   Go 1.24). Runs on the managed server. Exposes **named actions only**; no
   shell, only allowlisted binaries (`execx`). Unix socket (token + peer UID)
   locally, pinned TLS 1.3 for remote servers. A write gate
@@ -36,10 +36,9 @@ VM/real-host), `dist/` (built agent).
 
 ## 2. Repository / branch facts
 
-- Remote: `https://github.com/mchkhawarshahzad/WhaCP`.
-- **There is no `main` branch.** The remote's default branch is
-  `claude/sleepy-ptolemy-bdv6ib`, which is where all development lives. Do not
-  assume `origin/main` exists.
+- Remote: `https://github.com/NimVor/nimvor` (public, MIT). The default branch is `main`;
+  work happens on the designated feature branch (e.g. `claude/sleepy-ptolemy-bdv6ib`) and is merged
+  to `main` only when the user asks.
 - Current version: see `VERSION` (at time of writing `1.0.0-rc1`).
 - Commit on the designated working branch; push with
   `git push -u origin <branch>`. Do **not** open a pull request unless the

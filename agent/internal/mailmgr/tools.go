@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/safewalk"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/safewalk"
+	"github.com/NimVor/nimvor/agent/internal/selinux"
 )
 
 // Email administration tools: the mail troubleshooter (how an address is

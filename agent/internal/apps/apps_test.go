@@ -17,9 +17,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/sites"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/sites"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 // stagedTarGz builds a tar.gz with a single top folder "pkg/" holding the

@@ -23,16 +23,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/changeset"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/fw"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/limits"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/logging"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/changeset"
+	"github.com/NimVor/nimvor/agent/internal/fw"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/limits"
+	"github.com/NimVor/nimvor/agent/internal/logging"
+	"github.com/NimVor/nimvor/agent/internal/selinux"
+	"github.com/NimVor/nimvor/agent/internal/shacrypt"
+	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
 )
 
 var mu sync.Mutex

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // Remi's parallel PHP versions live in /opt/remi/phpNN/root, /etc/opt/remi/

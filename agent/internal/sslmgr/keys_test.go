@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
 )
 
 func call(t *testing.T, r *actions.Registry, name, params string) (map[string]any, error) {

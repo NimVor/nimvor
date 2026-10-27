@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/actions"
 )
 
 // Archive limits protect the server from archive bombs.

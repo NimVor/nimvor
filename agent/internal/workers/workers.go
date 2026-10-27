@@ -17,12 +17,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/runtimemgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/systemd"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/runtimemgr"
+	"github.com/NimVor/nimvor/agent/internal/systemd"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // Spec describes a worker.

@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
+	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
 )
 
 // smtpServer answers like Postfix: STARTTLS either works or is refused

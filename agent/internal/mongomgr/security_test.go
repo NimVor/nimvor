@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/execx"
 )
 
 // TestAdminPasswordAndAuthToggle covers the guarded authentication flow: set an

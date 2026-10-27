@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 const vDebian = `nginx version: nginx/1.24.0 (Ubuntu)

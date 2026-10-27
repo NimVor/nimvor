@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/execx"
 )
 
 func TestKeyExportImport(t *testing.T) {

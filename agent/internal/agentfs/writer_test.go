@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
 )
 
 func newWriter(t *testing.T) (Writer, string) {

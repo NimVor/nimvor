@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/actions"
 )
 
 // The file manager's trash: deleting moves entries into the website's

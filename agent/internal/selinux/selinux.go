@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Enabled reports whether SELinux is enforcing or permissive (labels

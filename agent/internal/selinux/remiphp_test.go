@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 // A Remi PHP-FPM without its SELinux labels is relabelled (once) and

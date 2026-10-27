@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/dbmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/hardening"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
+	"github.com/NimVor/nimvor/agent/internal/dbmgr"
+	"github.com/NimVor/nimvor/agent/internal/hardening"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
 )
 
 // sshVersionCheck: the SSH server has no pending update.

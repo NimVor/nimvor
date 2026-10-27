@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/execx"
 )
 
 // TestBackupListRestoreDelete drives a full round trip: back up a database

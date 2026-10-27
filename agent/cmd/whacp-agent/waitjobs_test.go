@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
 )
 
 // fakeAgent answers jobs.list on a Unix socket: the job runs for the first

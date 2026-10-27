@@ -15,7 +15,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/actions"
 )
 
 // fakeDrive implements the parts of the Drive v3 API the client uses.

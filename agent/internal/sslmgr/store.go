@@ -8,12 +8,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ssl"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/ssl"
+	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // The certificate store (every certificate on the server and where it is

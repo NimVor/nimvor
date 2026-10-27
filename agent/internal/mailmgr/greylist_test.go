@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/greylist"
+	"github.com/NimVor/nimvor/agent/internal/greylist"
 )
 
 func TestWithGreylisting(t *testing.T) {

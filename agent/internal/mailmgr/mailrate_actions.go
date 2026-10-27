@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/limits"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/mailrate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/limits"
+	"github.com/NimVor/nimvor/agent/internal/mailrate"
 )
 
 // Outgoing mail limits: WhaCP's policy service (see package mailrate)

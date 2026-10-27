@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
 )
 
 func TestRepositoryOfUbuntu(t *testing.T) {

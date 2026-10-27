@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/mailrate"
+	"github.com/NimVor/nimvor/agent/internal/mailrate"
 )
 
 func TestWithMailRate(t *testing.T) {

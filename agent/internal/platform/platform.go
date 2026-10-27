@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
 )
 
 // OSInfo describes the detected operating system (from /etc/os-release).

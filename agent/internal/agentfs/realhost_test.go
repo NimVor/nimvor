@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
 )
 
 // A full disk never leaves a half-written configuration: the write fails

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ssl"
+	"github.com/NimVor/nimvor/agent/internal/ssl"
 )
 
 func TestWebmail(t *testing.T) {

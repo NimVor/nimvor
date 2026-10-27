@@ -14,15 +14,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/avmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/dnsmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/mailmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/security"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/systemd"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/avmgr"
+	"github.com/NimVor/nimvor/agent/internal/dnsmgr"
+	"github.com/NimVor/nimvor/agent/internal/ftpmgr"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/mailmgr"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
+	"github.com/NimVor/nimvor/agent/internal/security"
+	"github.com/NimVor/nimvor/agent/internal/systemd"
 )
 
 // Step states.

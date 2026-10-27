@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/execx"
 )
 
 func fullProtection() Protection {

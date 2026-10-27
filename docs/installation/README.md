@@ -94,7 +94,7 @@ needed. Verify before installing:
 
 ```bash
 sha256sum -c SHA256SUMS --ignore-missing
-gh attestation verify whacp-<version>-linux-amd64.tar.gz --repo mchkhawarshahzad/WhaCP
+gh attestation verify whacp-<version>-linux-amd64.tar.gz --repo NimVor/nimvor
 tar -xzf whacp-<version>-linux-amd64.tar.gz && cd whacp-<version>
 ```
 
