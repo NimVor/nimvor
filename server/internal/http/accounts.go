@@ -177,6 +177,7 @@ func (s *Server) accountService(r *http.Request, user *identity.User) *hosting.A
 		hosting.NewDnsRepository(s.db), s.settings, s.websiteAuditHook(r, user),
 		s.currentServerID(r),
 	)
+	s.onWebsiteCreated(ws, r, user)
 	return hosting.NewAccountService(usvc, users, ws, hosting.NewAccountOptionStore(s.db), s.db, s.accountAuditHook(r, user))
 }
 

@@ -290,6 +290,10 @@ install -m 0755 "$AGENT_SRC" "$BIN_AGENT"
 install -m 0755 "$PANEL_SRC" "$BIN_PANEL"
 install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent.service" "$UNIT_DIR/whacp-agent.service"
 install -m 0644 "$SRC_DIR/installer/systemd/whacp-panel.service" "$UNIT_DIR/whacp-panel.service"
+install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.service" "$UNIT_DIR/whacp-scheduler.service"
+install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.timer" "$UNIT_DIR/whacp-scheduler.timer"
+systemctl daemon-reload 2>/dev/null || true
+systemctl enable --now whacp-scheduler.timer 2>/dev/null || warn "could not enable the scheduler timer"
 if command -v semodule >/dev/null && command -v getenforce >/dev/null && [[ $(getenforce) != Disabled && -f $SRC_DIR/installer/selinux/whacp_postfix_sockets.cil ]]; then
     semodule -i "$SRC_DIR/installer/selinux/whacp_postfix_sockets.cil" || warn "could not install SELinux policy module"
 fi

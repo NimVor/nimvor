@@ -1873,3 +1873,33 @@ time and command line.
   uninstalled.
 - The panel and SSH are not affected.
 
+
+## The scheduler
+
+Background work runs from `whacp-scheduler.timer` (every 5 minutes), which starts
+`whacp schedule:run` as the `whacp` user. One pass runs at a time (a lock beside the
+database). Each pass prints what it did, one line each (`journalctl -u whacp-scheduler`),
+and the time of the last pass is shown under **Server health → Scheduled tasks**.
+
+Passes in this panel:
+
+- **Automatic SSL** — new websites wait until their domain points to this server, then get a
+  Let's Encrypt certificate; certificates that are expired, self-signed, not covering the
+  domain or close to expiry are replaced (looked for every 6 hours). The AutoSSL page shows the
+  queue and the log; "Run AutoSSL for all websites" queues everything now.
+
+Not part of this panel yet (the PHP scheduler ran them): monitoring samples and alerts,
+scheduled backups and retention, antivirus, brute-force protection, bandwidth and quota
+reconciliation, trash clean-up and the update check.
+
+Enable the timer on an existing installation with `systemctl enable --now whacp-scheduler.timer`
+(the installer and `upgrade.sh` do it).
+
+## New websites
+
+When a website is created (the form, a new account, or an account restore) the panel sets up
+its DNS when this server hosts DNS and the account does not use its registrar's name servers:
+a zone with the A, www, SPF, DMARC and CAA records the account's options ask for, or an A
+record in the account's own parent zone; with email hosted here, the domain's email with its
+DKIM key and MX record. It then queues the website for automatic SSL. A failure is reported in
+the audit log and never undoes the website.

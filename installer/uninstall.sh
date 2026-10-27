@@ -20,6 +20,8 @@ PURGE=0
 read -r -p "Remove WhaCP from this server$([[ $PURGE -eq 1 ]] && echo ' including its data and configuration')? [y/N] " reply
 [[ $reply =~ ^[Yy]$ ]] || { echo "aborted"; exit 1; }
 
+systemctl disable --now whacp-scheduler.timer 2>/dev/null || true
+rm -f /etc/systemd/system/whacp-scheduler.timer /etc/systemd/system/whacp-scheduler.service
 for svc in whacp-panel whacp-agent; do
     systemctl disable --now "$svc.service" 2>/dev/null || true
     rm -f "/etc/systemd/system/$svc.service"

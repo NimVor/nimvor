@@ -396,7 +396,7 @@ func (s *AccountBackupService) RecreateAccount(ctx context.Context, restoreID in
 			continue
 		}
 		if text := str(z, "zonefile"); strings.TrimSpace(text) != "" {
-			zone, err := d.DnsRepo.Zone(ctx, serverID, zid, nil)
+			zone, err := d.DnsRepo.Zone(ctx, serverID, zid, actor)
 			if err != nil || zone == nil {
 				note("error", "DNS zone "+name+": the zone could not be read back.")
 				continue

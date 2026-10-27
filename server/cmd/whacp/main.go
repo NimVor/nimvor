@@ -88,10 +88,12 @@ func main() {
 		os.Exit(runReset2FA(log))
 	case "doctor":
 		os.Exit(runDoctor(log))
+	case "schedule:run":
+		os.Exit(runSchedule(log))
 	case "serve", "":
 		os.Exit(runServe(log))
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command %q (use: serve | bootstrap-admin | set-admin-password | user:2fa-reset | doctor | has-admin | version)\n", cmd)
+		fmt.Fprintf(os.Stderr, "unknown command %q (use: serve | schedule:run | bootstrap-admin | set-admin-password | user:2fa-reset | doctor | has-admin | version)\n", cmd)
 		os.Exit(2)
 	}
 }
@@ -653,4 +655,38 @@ func hexNibble(c byte) (byte, bool) {
 		return c - 'A' + 10, true
 	}
 	return 0, false
+}
+
+// runSchedule is one scheduler pass (whacp-scheduler.timer, every 5 minutes):
+// background work such as automatic SSL. One pass runs at a time.
+func runSchedule(log *slog.Logger) int {
+	cfg := config.Load()
+	lock, err := os.OpenFile(filepath.Join(filepath.Dir(cfg.DBPath), "schedule.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		log.Error("open the scheduler lock", "error", err)
+		return 1
+	}
+	defer lock.Close()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		fmt.Println("Another scheduler pass is running.")
+		return 0
+	}
+	db, err := database.Open(cfg.DBPath)
+	if err != nil {
+		log.Error("open database", "error", err)
+		return 1
+	}
+	defer db.Close()
+	whttp.PanelVersion = version
+	panel, err := whttp.New(cfg, db, log)
+	if err != nil {
+		log.Error("build server", "error", err)
+		return 1
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 14*time.Minute)
+	defer cancel()
+	for _, line := range panel.RunScheduler(ctx) {
+		fmt.Println(line)
+	}
+	return 0
 }

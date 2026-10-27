@@ -757,7 +757,8 @@ func TestAccountRestoreRecreate(t *testing.T) {
 	cookie := loginAsUser(t, h, "admin")
 	manifest := `{"username":"jane","meta":{"user":{"username":"jane","email":"jane@x.test","role":"customer"},
 	  "websites":[{"domain":"jane.example","type":"main","kind":"php","php_version":"8.3.1","system_user":"jane","aliases":[],"databases":["jane_db"]}],
-	  "databases":[{"name":"jane_db","website":"jane.example"}],"database_users":[],"dns_zones":[],"cron_jobs":[]},
+	  "databases":[{"name":"jane_db","website":"jane.example"}],"database_users":[],"cron_jobs":[],
+	  "dns_zones":[{"name":"jane.example","website":"jane.example","zonefile":"jane.example. 3600 IN TXT \"hello\"\n"}]},
 	  "sites":[]}`
 	res, err := db.Exec(`INSERT INTO account_restores (server_id,path,username,manifest,status,job_id,user_id,created_at,updated_at)
 		VALUES (1,'/var/backups/a.whacp','jane',?,'imported','j1',1,'','')`, manifest)
@@ -784,11 +785,56 @@ func TestAccountRestoreRecreate(t *testing.T) {
 	}
 	var status, report string
 	_ = db.QueryRow(`SELECT status, report FROM account_restores WHERE id=?`, id).Scan(&status, &report)
+	if !strings.Contains(report, "DNS zone jane.example") {
+		t.Errorf("the DNS zone step did not run: %s", report)
+	}
 	if status != "done" || !strings.Contains(report, "Account jane created") {
 		t.Errorf("restore %s: %s", status, report)
 	}
 	shown := get(t, h, page, refreshCookie(cookie, rr))
 	if !strings.Contains(shown.Body.String(), "New passwords") {
 		t.Error("the generated password is not shown once")
+	}
+}
+
+// "Run AutoSSL for all websites" queues the websites without HTTPS, works
+// through the first few, and says what it did.
+func TestAutoSslRunQueuesWebsites(t *testing.T) {
+	s, db, _ := rolesEnvServerAgent(t, true)
+	h := s.Handler()
+	admin := loginAsUser(t, h, "admin")
+	if _, err := db.Exec(`INSERT INTO websites (id,server_id,owner_id,domain,system_user,root,document_root,kind,php_version,status,enabled,https,created_at,updated_at)
+		VALUES (7,1,1,'new.example','u','/r','/r/p','php','8.3','active',1,0,?,'')`, time.Now().UTC().Format(time.RFC3339)); err != nil {
+		t.Fatal(err)
+	}
+	token, admin := siteFormToken(t, h, admin, "/ssl/autossl")
+	rr := postForm(h, "/ssl/autossl/run", url.Values{"_token": {token}}, admin)
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("run = %d", rr.Code)
+	}
+	var state string
+	_ = db.QueryRow(`SELECT auto_ssl FROM websites WHERE id = 7`).Scan(&state)
+	if state != "pending" {
+		t.Fatalf("auto_ssl = %q, want pending", state)
+	}
+	var n int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM autossl_log WHERE website_id = 7 AND result = 'queued'`).Scan(&n)
+	if n != 1 {
+		t.Errorf("queued log lines = %d", n)
+	}
+	page := get(t, h, "/ssl/autossl", refreshCookie(admin, rr))
+	if !strings.Contains(page.Body.String(), "1 website(s) queued") || !strings.Contains(page.Body.String(), "new.example") {
+		t.Error("the page does not show the result and the queue")
+	}
+}
+
+func TestSchedulerPassRecordsItsRun(t *testing.T) {
+	s, _, _ := rolesEnvServerAgent(t, true)
+	if !s.schedulerLastRun(t.Context()).IsZero() {
+		t.Fatal("the scheduler has not run yet")
+	}
+	s.RunScheduler(t.Context())
+	if last := s.schedulerLastRun(t.Context()); time.Since(last) > time.Minute || last.IsZero() {
+		t.Fatalf("last run %v", last)
 	}
 }

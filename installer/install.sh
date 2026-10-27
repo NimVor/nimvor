@@ -452,6 +452,8 @@ log "Installing systemd services"
 run install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent.service" /etc/systemd/system/whacp-agent.service
 if [[ $AGENT_ONLY -eq 0 ]]; then
     run install -m 0644 "$SRC_DIR/installer/systemd/whacp-panel.service" /etc/systemd/system/whacp-panel.service
+    run install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.service" /etc/systemd/system/whacp-scheduler.service
+    run install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.timer" /etc/systemd/system/whacp-scheduler.timer
 fi
 if [[ $ENABLE_WRITES -eq 1 ]]; then
     log "Enabling write mode"
@@ -470,6 +472,7 @@ run systemctl enable --now whacp-agent.service
 if [[ $AGENT_ONLY -eq 0 ]]; then
     log "Starting the panel (auto-migrates the database)"
     run systemctl enable --now whacp-panel.service
+    run systemctl enable --now whacp-scheduler.timer
 fi
 if [[ $REINSTALL -eq 1 || $ENABLE_WRITES -eq 1 || -n $REMOTE_ACCESS ]]; then
     run systemctl restart whacp-agent.service

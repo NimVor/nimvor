@@ -86,7 +86,13 @@ func (s *Server) healthChecks(ctx context.Context, id string) ([]healthCheck, er
 		} else {
 			return nil, err
 		}
-		out = append(out, healthCheck{Status: healthWarn, Label: "Scheduled tasks", Detail: "The background scheduler (backups, renewals, alerts) is not part of this panel yet: scheduled work does not run on its own.", Route: "/backups"})
+		if last := s.schedulerLastRun(ctx); last.IsZero() {
+			out = append(out, healthCheck{Status: healthWarn, Label: "Scheduled tasks", Detail: "The scheduler has never run: enable whacp-scheduler.timer (automatic SSL depends on it).", Route: "/ssl/autossl"})
+		} else if age := time.Since(last); age > 10*time.Minute {
+			out = append(out, healthCheck{Status: healthWarn, Label: "Scheduled tasks", Detail: "The scheduler last ran " + last.UTC().Format("2006-01-02 15:04") + " UTC: check systemctl status whacp-scheduler.timer.", Route: "/ssl/autossl"})
+		} else {
+			out = append(out, healthCheck{Status: healthOK, Label: "Scheduled tasks", Detail: "Last run " + last.UTC().Format("2006-01-02 15:04") + " UTC."})
+		}
 	case "resources":
 		m, err := call("system.metrics", 30*time.Second)
 		if err != nil {

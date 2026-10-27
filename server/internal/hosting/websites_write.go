@@ -92,7 +92,14 @@ type WebsiteService struct {
 	audit    Auditor
 	serverID int64
 	workers  *WorkerService
+	// onCreated runs after a website is created (the PHP panel's
+	// "website.created" event: DNS/mail provisioning and AutoSSL). A failure
+	// there never undoes the website.
+	onCreated func(ctx context.Context, site *Website)
 }
+
+// OnCreated sets the callback run after each website is created.
+func (s *WebsiteService) OnCreated(f func(ctx context.Context, site *Website)) { s.onCreated = f }
 
 // NewWebsiteService builds the service. serverID is the active server
 // (ServerContext::id() in the PHP panel; single-server in Go).
@@ -1143,6 +1150,11 @@ func (s *WebsiteService) Create(ctx context.Context, in map[string]string, actor
 	s.recordAudit(ctx, "website.create", "website", strconv.FormatInt(id, 10), "success", map[string]any{
 		"domain": row.Domain, "kind": row.Kind, "php": row.PhpVersion, "user": row.SystemUser,
 	})
+	if s.onCreated != nil {
+		if created, err := s.sites.FindFull(ctx, s.serverID, id, nil); err == nil && created != nil {
+			s.onCreated(ctx, created)
+		}
+	}
 	return id, nil
 }
 

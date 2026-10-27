@@ -7,6 +7,17 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Changed (Go differential audit, Wave 1: pages and forms)
+- **Automatic SSL works**: new `whacp schedule:run` command and `whacp-scheduler.timer`
+  (every 5 minutes, installed by the installer and `upgrade.sh`). Websites wait until their
+  domain points here, then get a Let's Encrypt certificate (retries back off, giving up after
+  3 days or 6 refusals); expired, self-signed or soon-to-expire certificates are replaced.
+  "Run AutoSSL for all websites" queues and starts them. Server health shows the scheduler's
+  last run. The other scheduler passes (monitoring, scheduled backups, antivirus, …) are not
+  ported yet.
+- **New websites get their DNS and email set up** (PHP's site provisioner): a zone with
+  A/www/SPF/DMARC/CAA following the account's options, or an A record in the account's own
+  parent zone, and email with DKIM when this server hosts email; then AutoSSL is queued. Before,
+  the account form's DNS and mail options had no effect.
 - **Restoring an account from a backup file works**: "Recreate the account" rebuilds the
   account (new generated password), its websites (main first, then subdomains and
   addon domains), databases and users with grants, DNS zones (records not there yet
@@ -63,7 +74,8 @@ All notable changes to WhaCP are documented here. The format follows
   spellings are accepted).
 
 ### Not yet ported (tracked)
-- Setup wizard steps, AutoSSL engine and scheduler, `/admin/plugins`, connecting remote servers (pinned TLS
+- Setup wizard steps, the other scheduler passes (monitoring samples and alerts, scheduled
+  backups, antivirus, brute-force protection, quota reconciliation), `/admin/plugins`, connecting remote servers (pinned TLS
   agent client).
 
 ### Fixed (Go differential audit, Wave 0)

@@ -34,9 +34,14 @@ func (s *Server) websiteAuditHook(r *http.Request, user *identity.User) hosting.
 		if strings.HasPrefix(action, "dns.") {
 			targetType = "dns_zone"
 		}
-		uid := user.ID
+		// The scheduler acts as a system user with no row of its own.
+		var uid *int64
+		if user.ID > 0 {
+			id := user.ID
+			uid = &id
+		}
 		s.audit.Record(ctx, audit.Entry{
-			UserID:     &uid,
+			UserID:     uid,
 			Username:   user.Username,
 			Action:     action,
 			TargetType: targetType,
@@ -52,7 +57,7 @@ func (s *Server) websiteAuditHook(r *http.Request, user *identity.User) hosting.
 // websiteService builds the website write service with the audit hook bound
 // to the current actor and request.
 func (s *Server) websiteService(r *http.Request, user *identity.User) *hosting.WebsiteService {
-	return hosting.NewWebsiteService(
+	ws := hosting.NewWebsiteService(
 		hosting.NewWebsiteRepository(s.db),
 		s.agent,
 		s.features,
@@ -62,6 +67,20 @@ func (s *Server) websiteService(r *http.Request, user *identity.User) *hosting.W
 		s.websiteAuditHook(r, user),
 		s.currentServerID(r),
 	)
+	s.onWebsiteCreated(ws, r, user)
+	return ws
+}
+
+// onWebsiteCreated is the "website.created" listener: DNS (and email) for the
+// new website, then AutoSSL (Application::registerListeners).
+func (s *Server) onWebsiteCreated(ws *hosting.WebsiteService, r *http.Request, user *identity.User) {
+	serverID := s.currentServerID(r)
+	ws.OnCreated(func(ctx context.Context, site *hosting.Website) {
+		prov := hosting.NewSiteProvisioner(s.db, serverID, s.siteDnsService(r, user), hosting.NewDnsRepository(s.db),
+			s.siteMailService(r, user), hosting.NewMailRepository(s.db), hosting.NewAccountOptionStore(s.db), s.settings, s.websiteAuditHook(r, user))
+		prov.Provision(ctx, site)
+		hosting.NewAutoSslService(s.db, serverID, s.settings, s.agent, nil, nil, nil, nil).Mark(ctx, site)
+	})
 }
 
 // postValues is the submitted form (first value per key, as PHP $request->post()).

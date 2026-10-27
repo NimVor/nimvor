@@ -16,7 +16,7 @@
     <div class="card-body d-flex flex-wrap gap-3 align-items-center">
       <div class="me-auto">
         <div class="fw-semibold mb-1">Current provider: Let's Encrypt</div>
-        <div class="small"><span class="wcp-state is-warn">The scheduler is not part of this panel yet</span> — queued websites are not processed automatically; issue certificates from each website's SSL page.</div>
+        <div class="small">{{if .NextCheck}}The next regular AutoSSL check runs at <strong>{{.NextCheck}}</strong> (every 5 minutes for new websites; certificates to replace are looked for every 6 hours).{{else}}<span class="wcp-state is-warn">The scheduler has not run yet</span> — enable whacp-scheduler.timer.{{end}}</div>
         <div class="small mt-1">
           Automatic SSL for new websites: <span class="wcp-state {{if .AutoNew}}is-ok{{end}}">{{if .AutoNew}}on{{else}}off{{end}}</span>
           · Replace expired or invalid certificates: <span class="wcp-state {{if .AutoReplace}}is-ok{{end}}">{{if .AutoReplace}}on{{else}}off{{end}}</span>

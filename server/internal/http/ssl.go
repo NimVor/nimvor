@@ -1,9 +1,11 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -1026,6 +1028,13 @@ func (s *Server) sslAutoSsl(w http.ResponseWriter, r *http.Request) {
 	canSettings, _ := s.authorizer().Can(ctx, userFrom(ctx), "settings.manage")
 	data["Renewal"], data["Queued"], data["Log"], data["RenewLog"] = rs, queued, logs, strings.Join(renewLog, "\n")
 	data["AutoNew"], data["AutoReplace"], data["CanSettings"] = autoNew, autoReplace, canSettings
+	if last := s.schedulerLastRun(ctx); !last.IsZero() {
+		next := last.Add(5 * time.Minute)
+		if next.Before(time.Now()) {
+			next = time.Now()
+		}
+		data["NextCheck"] = next.Local().Format("15:04")
+	}
 	s.render(w, "ssl_autossl", data)
 }
 
@@ -1044,9 +1053,26 @@ func (s *Server) sslAutoSslRun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Page expired", http.StatusBadRequest)
 		return
 	}
-	// The agent has no AutoSSL engine (PHP ran it in the panel's scheduler,
-	// which this panel does not have yet); say so rather than claim a run.
-	sess.Flash("error", "AutoSSL cannot run from this panel yet: its scheduler is not part of it. Issue a certificate from a website's SSL page, or from the host list.")
+	user := userFrom(r.Context())
+	svc := s.autoSslService(r, user)
+	n, err := svc.Queue(r.Context(), true)
+	if err != nil {
+		sess.Flash("error", agentMessage(err))
+		http.Redirect(w, r, "/ssl/autossl", http.StatusSeeOther)
+		return
+	}
+	uid := user.ID
+	s.audit.Record(r.Context(), audit.Entry{Action: "ssl.autossl_run", TargetType: "server", TargetID: "autossl", Result: audit.Success,
+		UserID: &uid, Username: user.Username, Details: map[string]any{"queued": n}})
+	if n == 0 {
+		sess.Flash("success", "Every website already has a valid certificate; nothing to do.")
+		http.Redirect(w, r, "/ssl/autossl", http.StatusSeeOther)
+		return
+	}
+	// The first ones now (each can take up to a minute), the rest with the
+	// scheduler every 5 minutes.
+	done := svc.Process(r.Context(), 3)
+	sess.Flash("success", fmt.Sprintf("%d website(s) queued; %d handled now, the rest within the next scheduler runs (every 5 minutes). See the log below.", n, len(done)))
 	http.Redirect(w, r, "/ssl/autossl", http.StatusSeeOther)
 }
 
@@ -1061,4 +1087,17 @@ func mergeAny(a, b map[string]any) map[string]any {
 		out[k] = v
 	}
 	return out
+}
+
+// schedulerLastRun is when the scheduler last finished a pass (zero: never).
+func (s *Server) schedulerLastRun(ctx context.Context) time.Time {
+	v, err := s.settings.String(ctx, hosting.SchedulerRunKey, "")
+	if err != nil || v == "" {
+		return time.Time{}
+	}
+	t, err := time.Parse(time.RFC3339, strings.Trim(v, `"`))
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
