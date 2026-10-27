@@ -938,3 +938,67 @@ func TestTerminateAccountsRemovesWhatTheServerHolds(t *testing.T) {
 		t.Errorf("termination audit rows = %d", audits)
 	}
 }
+
+// A switch's hidden 0 followed by its checked 1 reads as on through
+// r.FormValue too, not only through postValues.
+func TestTickedSwitchesReadAsOnEverywhere(t *testing.T) {
+	var got string
+	h := formSwitches(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.FormValue("dns_dkim") + "/" + r.PostFormValue("dns_dkim")
+	}))
+	do := func(body string) string {
+		got = ""
+		req := httptest.NewRequest("POST", "/", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		h.ServeHTTP(httptest.NewRecorder(), req)
+		return got
+	}
+	if g := do("dns_dkim=0&dns_dkim=1"); g != "1/1" {
+		t.Errorf("ticked: %s", g)
+	}
+	if g := do("dns_dkim=0"); g != "0/0" {
+		t.Errorf("unticked: %s", g)
+	}
+	if g := do("a=1&dns_dkim=1"); g != "1/1" {
+		t.Errorf("only checked: %s", g)
+	}
+}
+
+// The edit page of a hosting account shows what the PHP page does beside the
+// form: two-factor, suspension, plan limits with overrides, options and usage.
+func TestUserEditPageShowsAccountCards(t *testing.T) {
+	s, db, _ := rolesEnvServerAgent(t, false)
+	h := s.Handler()
+	admin := loginAsUser(t, h, "admin")
+	exec := func(q string, a ...any) {
+		t.Helper()
+		if _, err := db.Exec(q, a...); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	exec(`INSERT INTO plans (id,name,max_websites,max_subdomains,max_addon_domains,max_parked_domains,created_at,updated_at) VALUES (5,'Gold',10,3,0,0,'','')`)
+	exec(`INSERT INTO users (id,username,email,display_name,password_hash,role_id,is_active,password_changed_at,created_at,updated_at,plan_id,limit_overrides)
+		VALUES (10,'jane','j@x','Jane',?,(SELECT id FROM roles WHERE name='customer'),1,'2026-01-01T00:00:00Z','','',5,'{"max_websites":25}')`, loginHash)
+	exec(`INSERT INTO websites (id,server_id,owner_id,domain,system_user,root,document_root,kind,php_version,status,created_at,updated_at)
+		VALUES (7,1,10,'jane.example','u','/r','/r/p','php','8.3','active','','')`)
+	rec := get(t, h, "/users/10/edit", admin)
+	b := rec.Body.String()
+	for _, want := range []string{"Two-factor sign-in", "Account status", "Suspend account", "Plan and limits", "Override limits",
+		`name="limits[max_websites]"`, `value="25"`, "Hosting options", `name="mail_routing"`, "Usage", "Websites"} {
+		if !strings.Contains(b, want) {
+			t.Errorf("edit page lacks %q", want)
+		}
+	}
+	// 25 is the override (bold row), 10 the plan's value, 25 in effect.
+	if !strings.Contains(b, `<tr class="fw-semibold"><td>Websites</td><td class="text-end">10</td><td class="text-end">25</td><td class="text-end">25</td></tr>`) {
+		t.Error("the limits table does not show plan / override / in effect")
+	}
+	if !strings.Contains(b, `selected>Gold`) && !strings.Contains(b, `selected>Gold<`) {
+		t.Error("the user's plan is not selected")
+	}
+	// A staff account has neither limits nor hosting options.
+	staff := get(t, h, "/users/1/edit", admin).Body.String()
+	if strings.Contains(staff, "Override limits") || strings.Contains(staff, "Hosting options") {
+		t.Error("a staff account shows hosting cards")
+	}
+}

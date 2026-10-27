@@ -58,6 +58,13 @@ All notable changes to WhaCP are documented here. The format follows
 - Inline scripts and styles moved to assets (`noinline_test.go` keeps them out).
 
 ### Fixed (Go differential audit, Wave 1)
+- **Ticked switches read as off in about a hundred handlers** (`r.FormValue` returns the
+  hidden 0 that comes first): every POST now keeps the checkbox's 1, as PHP's `$_POST`
+  does. The hosting-options form of an account, among others, saved every switch off.
+- **The user edit page lacked its cards**: two-factor state and reset, account suspension,
+  the plan's limits with per-account overrides and the bandwidth reset, hosting options and
+  usage were reachable only through dead links (`/users/{id}/limits`). The page now has
+  them, and preselects the user's plan.
 - **Terminating an account left its data on the server**: the mailboxes, mail domains, MySQL
   databases and logins and DNS zones were removed from the panel's tables only, so mail kept
   being accepted, zones kept being served and databases stayed. They now go through the same

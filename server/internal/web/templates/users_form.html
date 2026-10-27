@@ -11,76 +11,121 @@
 </head>
 <body class="wcp-body">
 {{template "wcp_open" .}}
-  <h1>{{.Title}}</h1>
-  {{if .Success}}<p class="alert alert-success">{{.Success}}</p>{{end}}
-  {{if .Error}}<p class="alert alert-danger">{{.Error}}</p>{{end}}
-  <form method="post" action="{{if .EditID}}/users/{{.EditID}}{{else}}/users{{end}}" novalidate>
-    <input type="hidden" name="_token" value="{{.CSRF}}">
-    <div class="card mb-3">
-      <div class="card-header">Account</div>
-      <div class="card-body">
-        {{if not .EditID}}<div class="mb-3">
-          <label class="form-label" for="u-username">Username</label>
+  {{if .Success}}<div class="alert alert-success" role="status">{{.Success}}</div>{{end}}
+  {{if .Error}}<div class="alert alert-danger" role="alert">{{.Error}}</div>{{end}}
+  <div class="row">
+    <div class="col-lg-7 col-xl-6"><div class="card"><div class="card-body">
+      <form method="post" action="{{if .EditID}}/users/{{.EditID}}{{else}}/users{{end}}" data-wcp-busy novalidate>
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        {{if not .EditID}}<div class="mb-3"><label class="form-label" for="u-username">Username</label>
           <input class="form-control" id="u-username" name="username" required maxlength="32" autocomplete="off" spellcheck="false">
-        </div>{{end}}
-        <div class="mb-3">
-          <label class="form-label" for="u-email">Email</label>
-          <input class="form-control" id="u-email" type="email" name="email" {{if .EditUser}}value="{{.EditUser.Email}}"{{end}} required maxlength="190">
-        </div>
-        <div class="mb-3">
-          <label class="form-label" for="u-display">Display name</label>
-          <input class="form-control" id="u-display" name="display_name" {{if .EditUser}}value="{{.EditUser.DisplayName}}"{{end}} maxlength="100">
-        </div>
-        <div class="mb-3">
-          <label class="form-label" for="u-role">Role</label>
+          <div class="form-text">3–32 characters: lowercase letters, digits, dot, dash, underscore.</div></div>
+        {{else}}<div class="mb-3"><label class="form-label">Username</label><input class="form-control" value="{{.EditUser.Username}}" disabled></div>{{end}}
+        <div class="mb-3"><label class="form-label" for="u-email">Email</label>
+          <input class="form-control" id="u-email" type="email" name="email" {{if .EditUser}}value="{{.EditUser.Email}}"{{end}} required maxlength="190"></div>
+        <div class="mb-3"><label class="form-label" for="u-display">Display name</label>
+          <input class="form-control" id="u-display" name="display_name" {{if .EditUser}}value="{{.EditUser.DisplayName}}"{{end}} maxlength="100"><div class="form-text">Optional.</div></div>
+        <div class="mb-3"><label class="form-label" for="u-role">Role</label>
           <select class="form-select" id="u-role" name="role_id">
-            {{range .Roles}}<option value="{{.ID}}"{{if and $.EditUser (eq $.EditUser.RoleID .ID)}} selected{{end}}>{{.Label}}</option>{{end}}
-          </select>
-        </div>
-        <div class="form-check mb-2">
-          <input type="hidden" name="is_active" value="0">
-          <input class="form-check-input" type="checkbox" id="u-active" name="is_active" value="1"{{if not .EditUser}} checked{{else if .EditUser.IsActive}} checked{{end}}>
-          <label class="form-check-label" for="u-active">Active</label>
-        </div>
-        <div class="mb-3">
-          <label class="form-label" for="u-plan">Plan (optional)</label>
+            {{range .Roles}}<option value="{{.ID}}"{{if and $.EditUser (eq $.EditUser.RoleID .ID)}} selected{{else if and (not $.EditUser) (eq .Name "viewer")}} selected{{end}}>{{.Label}} — {{.Description}}</option>{{end}}
+          </select></div>
+        <div class="mb-3"><label class="form-label" for="u-plan">Hosting plan</label>
           <select class="form-select" id="u-plan" name="plan_id">
-            <option value="">No plan</option>
-            {{range .Plans}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+            <option value="">No plan (unlimited)</option>
+            {{range .Plans}}<option value="{{.ID}}"{{if and $.EditUser $.EditUser.PlanID.Valid (eq $.EditUser.PlanID.Int64 .ID)}} selected{{end}}>{{.Name}}</option>{{end}}
           </select>
-          <div class="form-text">Assign a hosting plan if this account is a reseller-owned customer. Staff accounts usually have no plan.</div>
-        </div>
+          <div class="form-text">Limits websites, databases, cron jobs, workers and disk space. Plans apply to hosting customers and resellers.</div></div>
+        <div class="form-check form-switch mb-3">
+          <input type="hidden" name="is_active" value="0">
+          <input class="form-check-input" type="checkbox" role="switch" id="u-active" name="is_active" value="1"{{if not .EditUser}} checked{{else if .EditUser.IsActive}} checked{{end}}>
+          <label class="form-check-label" for="u-active">Account enabled</label></div>
+        <hr>
+        <p class="small text-body-secondary">{{if .EditID}}Leave empty to keep the current password.{{else}}Choose a password of at least 12 characters.{{end}}</p>
+        <div class="mb-3"><label class="form-label" for="u-password">{{if .EditID}}New password{{else}}Password{{end}}</label>
+          <input class="form-control font-monospace" type="password" id="u-password" name="password" autocomplete="new-password"{{if not .EditID}} required{{end}}></div>
+        <div class="mb-3"><label class="form-label" for="u-password2">Confirm password</label>
+          <input class="form-control font-monospace" type="password" id="u-password2" name="password_confirmation" autocomplete="new-password"></div>
+        <button class="btn btn-primary" type="submit">{{if .EditID}}Save changes{{else}}Create user{{end}}</button>
+        <a class="btn btn-link" href="/users">Cancel</a>
+      </form>
+    </div></div></div>
+    {{if .EditID}}<div class="col-lg-5 col-xl-4">
+      <div class="card mb-3"><div class="card-header"><i class="bi bi-phone me-1"></i>Two-factor sign-in</div><div class="card-body small">
+        {{if .TwoFactor}}<p>On since {{.TwoFactor.Since}} · {{.TwoFactor.Left}} recovery codes left.</p>
+          <form method="post" action="/users/{{.EditID}}/two-factor/reset" data-wcp-confirm="Turn off two-factor sign-in for {{.EditUser.Username}}? Do this only after confirming their identity, e.g. when they lost their phone and recovery codes."><input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-sm btn-outline-danger">Reset two-factor sign-in</button></form>
+        {{else}}<p class="mb-0 text-body-secondary">Off. Users turn it on from their own profile.</p>{{end}}
+      </div></div>
+      {{with .Suspension}}<div class="card mb-3" id="account-suspension"><div class="card-header"><i class="bi bi-pause-circle me-1"></i>Account status</div><div class="card-body small">
+        {{if .Own}}<p class="mb-2"><span class="badge text-bg-danger">Suspended</span> since {{.Since}} UTC{{if .Reason}} — {{.Reason}}{{end}}</p>
+          <form method="post" action="/users/{{$.EditID}}/unsuspend" data-wcp-busy data-wcp-confirm="Resume {{$.EditUser.Username}}? Its websites, email, databases, FTP/SFTP, cron jobs and workers are turned back on{{if .IsReseller}}, for its customers too (except customers suspended on their own){{end}}."><input type="hidden" name="_token" value="{{$.CSRF}}"><button class="btn btn-sm btn-success"><i class="bi bi-play-circle me-1"></i>Unsuspend</button></form>
+          <form class="mt-2" method="post" action="/users/{{$.EditID}}/suspend" data-wcp-busy><input type="hidden" name="_token" value="{{$.CSRF}}"><input type="hidden" name="reason" value="{{.Reason}}"><button class="btn btn-sm btn-link p-0">Apply the suspension again (retry services that failed)</button></form>
+        {{else if .Reseller}}<p class="mb-0"><span class="badge text-bg-danger">Suspended</span> through its reseller.</p>
+        {{else}}<p class="mb-2"><span class="badge text-bg-success">Active</span></p>
+          <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#suspend-modal"><i class="bi bi-pause-circle me-1"></i>Suspend account</button>{{end}}
+      </div></div>
+      {{if and (not .Own) (not .Reseller)}}<div class="modal fade" id="suspend-modal" tabindex="-1" aria-labelledby="suspend-title" aria-hidden="true"><div class="modal-dialog">
+        <form class="modal-content" method="post" action="/users/{{$.EditID}}/suspend" data-wcp-busy><input type="hidden" name="_token" value="{{$.CSRF}}">
+          <div class="modal-header"><h2 class="modal-title fs-5" id="suspend-title">Suspend {{$.EditUser.Username}}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+          <div class="modal-body small">
+            <p>The account{{if .IsReseller}} and all its customers{{end}} can no longer sign in, and on every server:</p>
+            <ul><li>its websites go offline (their own settings are kept);</li><li>email logins are refused (IMAP, POP3, webmail, sending) — incoming mail is still delivered;</li><li>database users are locked, FTP/SFTP/SSH logins refused;</li><li>cron jobs and workers stop.</li></ul>
+            <p class="mb-2">Nothing is deleted. Unsuspending turns everything back on.</p>
+            <label class="form-label" for="suspend-reason">Reason (shown to administrators)</label>
+            <input class="form-control" id="suspend-reason" name="reason" maxlength="250" placeholder="e.g. unpaid invoice">
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger">Suspend</button></div>
+        </form></div></div>{{end}}{{end}}
+      {{if .LimitRows}}<div class="card mb-3" id="account-limits">
+        <div class="card-header d-flex align-items-center"><span><i class="bi bi-sliders2 me-1"></i>Plan and limits</span><a class="btn btn-sm btn-outline-secondary ms-auto" href="/users/{{.EditID}}/plan">Change plan</a></div>
+        {{if not .HasPlan}}<div class="card-body small text-body-secondary">No plan: the account is unlimited. Assign a plan to set limits and per-account overrides.</div>
+        {{else}}<div class="table-responsive"><table class="table table-sm small align-middle mb-0">
+          <thead><tr><th>Limit</th><th class="text-end">Plan</th><th class="text-end">Override</th><th class="text-end">In effect</th></tr></thead><tbody>
+          {{range .LimitRows}}<tr{{if .HasOverride}} class="fw-semibold"{{end}}><td>{{.Label}}</td><td class="text-end">{{.Plan}}</td><td class="text-end">{{.Override}}</td><td class="text-end">{{.Effective}}</td></tr>{{end}}
+          </tbody></table></div>
+          <div class="card-footer d-flex flex-wrap gap-2">
+            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#limits-modal"><i class="bi bi-pencil me-1"></i>Override limits</button>
+            <form method="post" action="/users/{{.EditID}}/bandwidth/reset" data-wcp-confirm="Reset {{.EditUser.Username}}'s bandwidth for this month to 0? Earlier months are not affected."><input type="hidden" name="_token" value="{{.CSRF}}"><button class="btn btn-sm btn-outline-secondary">Reset this month's bandwidth</button></form>
+          </div>{{end}}
       </div>
-    </div>
-    <div class="card mb-3">
-      <div class="card-header">Password {{if .EditID}}(leave blank to keep current){{end}}</div>
-      <div class="card-body">
-        <div class="mb-3">
-          <label class="form-label" for="u-password">Password</label>
-          <input class="form-control font-monospace" type="password" id="u-password" name="password" autocomplete="new-password"{{if not .EditID}} required{{end}}>
-        </div>
-        <div class="mb-3">
-          <label class="form-label" for="u-password2">Confirm password</label>
-          <input class="form-control font-monospace" type="password" id="u-password2" name="password_confirmation" autocomplete="new-password"{{if not .EditID}} required{{end}}>
-        </div>
-        <div class="form-check mb-2">
-          <input type="hidden" name="generate" value="0">
-          <input class="form-check-input" type="checkbox" id="u-generate" name="generate" value="1"{{if not .EditID}}{{end}}>
-          <label class="form-check-label" for="u-generate">Generate a strong password</label>
-        </div>
-      </div>
-    </div>
-    {{if .EditID}}<div class="card mb-3">
-      <div class="card-header">Package</div>
-      <div class="card-body">
-        <a class="btn btn-outline-secondary" href="/users/{{.EditID}}/plan">Change plan</a>
-        <a class="btn btn-outline-secondary" href="/users/{{.EditID}}/limits">Resource limits</a>
-        <a class="btn btn-outline-secondary" href="/users/{{.EditID}}/hosting-options">Hosting options</a>
-      </div>
+      {{if .HasPlan}}<div class="modal fade" id="limits-modal" tabindex="-1" aria-labelledby="limits-title" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable">
+        <form class="modal-content" method="post" action="/users/{{.EditID}}/limits" data-wcp-busy><input type="hidden" name="_token" value="{{.CSRF}}">
+          <div class="modal-header"><h2 class="modal-title fs-5" id="limits-title">Limits of {{.EditUser.Username}}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+          <div class="modal-body small">
+            <p>Overrides apply to this account only; the plan stays as it is. Leave a field empty to use the plan's value; 0 means unlimited.</p>
+            {{range .LimitRows}}<div class="row g-2 align-items-center mb-2">
+              <label class="col-7 col-form-label col-form-label-sm" for="lim-{{.Column}}">{{.Label}} <span class="text-body-secondary">(plan: {{.Plan}})</span></label>
+              <div class="col-5"><input class="form-control form-control-sm" type="number" min="0" max="{{$.MaxLimit}}" step="1" id="lim-{{.Column}}" name="limits[{{.Column}}]" value="{{.OverrideValue}}" placeholder="plan"></div>
+            </div>{{end}}
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save limits</button></div>
+        </form></div></div>{{end}}{{end}}
+      {{if .HostingOptions}}<div class="card mb-3" id="hosting-options"><div class="card-header"><i class="bi bi-sliders me-1"></i>Hosting options</div><div class="card-body small">
+        <form method="post" action="/users/{{.EditID}}/hosting-options" data-wcp-busy><input type="hidden" name="_token" value="{{.CSRF}}">
+          <div class="fw-semibold mb-1">DNS for new websites</div>
+          <div class="form-check form-switch mb-1"><input type="hidden" name="dns_dkim" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ho-dns_dkim" name="dns_dkim" value="1"{{if .HostingOptions.DNSDKIM}} checked{{end}}><label class="form-check-label" for="ho-dns_dkim">DKIM</label></div>
+          <div class="form-check form-switch mb-1"><input type="hidden" name="dns_spf" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ho-dns_spf" name="dns_spf" value="1"{{if .HostingOptions.DNSSPF}} checked{{end}}><label class="form-check-label" for="ho-dns_spf">SPF</label></div>
+          <div class="form-check form-switch mb-1"><input type="hidden" name="dns_dmarc" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ho-dns_dmarc" name="dns_dmarc" value="1"{{if .HostingOptions.DNSDMARC}} checked{{end}}><label class="form-check-label" for="ho-dns_dmarc">DMARC (needs DKIM and SPF)</label></div>
+          <div class="form-check form-switch mb-1"><input type="hidden" name="dns_registrar_ns" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ho-dns_registrar_ns" name="dns_registrar_ns" value="1"{{if .HostingOptions.DNSRegistrarNS}} checked{{end}}><label class="form-check-label" for="ho-dns_registrar_ns">Use the registrar's name servers (no zone here)</label></div>
+          <div class="form-check form-switch mb-1"><input type="hidden" name="dns_overwrite" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ho-dns_overwrite" name="dns_overwrite" value="1"{{if .HostingOptions.DNSOverwrite}} checked{{end}}><label class="form-check-label" for="ho-dns_overwrite">Overwrite an existing zone</label></div>
+          <div class="fw-semibold mt-2 mb-1">Mail</div>
+          <div class="form-check form-switch mb-1"><input type="hidden" name="spam_filter" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ho-spam_filter" name="spam_filter" value="1"{{if .HostingOptions.SpamFilter}} checked{{end}}><label class="form-check-label" for="ho-spam_filter">Spam filter</label></div>
+          <div class="form-check form-switch mb-1"><input type="hidden" name="spam_box" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ho-spam_box" name="spam_box" value="1"{{if .HostingOptions.SpamBox}} checked{{end}}><label class="form-check-label" for="ho-spam_box">Spam Box (Junk folder)</label></div>
+          <label class="form-label mt-1 mb-1" for="ho-mr">Mail routing</label>
+          <select class="form-select form-select-sm mb-2" id="ho-mr" name="mail_routing">
+            <option value="auto"{{if eq .HostingOptions.MailRouting "auto"}} selected{{end}}>Automatically detect</option>
+            <option value="local"{{if eq .HostingOptions.MailRouting "local"}} selected{{end}}>Local mail exchanger</option>
+            <option value="backup"{{if eq .HostingOptions.MailRouting "backup"}} selected{{end}}>Backup mail exchanger</option>
+            <option value="remote"{{if eq .HostingOptions.MailRouting "remote"}} selected{{end}}>Remote mail exchanger</option>
+          </select>
+          <button class="btn btn-sm btn-primary">Save options</button>
+        </form></div></div>{{end}}
+      {{if .Usage}}<div class="card"><div class="card-header"><i class="bi bi-speedometer me-1"></i>Usage</div>
+        <ul class="list-group list-group-flush small">
+          {{range .Usage}}<li class="list-group-item"><div class="d-flex"><span>{{.Label}}</span><span class="ms-auto">{{.Used}} / {{if .Limit}}{{.Limit}}{{else}}∞{{end}}</span></div>
+            {{if .Limit}}<div class="progress mt-1" role="progressbar" aria-valuenow="{{.Percent}}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar {{.Class}}" data-width="{{.Percent}}"></div></div>{{end}}</li>{{end}}
+        </ul><div class="card-footer small text-body-secondary">Includes the customers of a reseller.</div></div>{{end}}
     </div>{{end}}
-    <button class="btn btn-primary" type="submit">{{if .EditID}}Save changes{{else}}Create user{{end}}</button>
-    <a class="btn btn-link" href="/users">Cancel</a>
-  </form>
+  </div>
 {{template "wcp_close" .}}
 </body>
 </html>{{end}}

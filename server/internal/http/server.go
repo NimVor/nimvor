@@ -12,6 +12,7 @@ import (
 	"github.com/mchkhawarshahzad/whacp/server/internal/clientip"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/agent"
@@ -116,7 +117,27 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 
 // Handler returns the fully wrapped http.Handler (middleware applied).
 func (s *Server) Handler() http.Handler {
-	return s.securityHeaders(s.requestLog(s.mux))
+	return s.securityHeaders(s.requestLog(formSwitches(s.mux)))
+}
+
+// formSwitches makes a ticked switch read as on. A switch posts a hidden 0
+// before its checkbox's 1 (so an unticked one still sends a value); PHP's
+// $_POST keeps the last value, but r.FormValue returns the first, which made
+// every ticked switch look off wherever a handler read it that way.
+func formSwitches(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
+			if strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") && r.ParseForm() == nil {
+				for k, v := range r.PostForm {
+					if len(v) == 2 && v[0] == "0" && v[1] == "1" {
+						r.PostForm[k] = []string{"1"}
+						r.Form[k] = []string{"1"}
+					}
+				}
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) routes() {

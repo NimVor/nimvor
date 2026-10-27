@@ -258,7 +258,66 @@ func (s *Server) usersEdit(w http.ResponseWriter, r *http.Request) {
 		"Success":  flashStr(sess, "success"),
 		"Stub":     false,
 	}
+	s.userEditSideCards(r, data, me, target)
 	s.render(w, "users_form", data)
+}
+
+// limitView is a limits-table line as text (PHP's fmtL: — none, ∞ unlimited).
+type limitView struct {
+	Column, Label, Plan, Override, Effective string
+	OverrideValue                            string
+	HasOverride                              bool
+}
+
+// userEditSideCards adds what the PHP edit page shows beside the form: two-factor
+// state, account suspension, the plan's limits with the account's overrides,
+// the hosting options and the account's usage.
+func (s *Server) userEditSideCards(r *http.Request, data map[string]any, me, target *identity.User) {
+	ctx := r.Context()
+	own := target.RoleScope == "own"
+	if st, err := s.twoFactor.Status(ctx, target.ID); err == nil && st != nil {
+		on := st.EnabledAt
+		if len(on) > 10 {
+			on = on[:10]
+		}
+		data["TwoFactor"] = map[string]any{"Since": on, "Left": st.RecoveryLeft}
+	}
+	data["OwnScope"] = own
+	if own && hosting.IsAll(me) {
+		var at, reason sql.NullString
+		_ = s.db.QueryRowContext(ctx, `SELECT suspended_at, suspend_reason FROM users WHERE id = ?`, target.ID).Scan(&at, &reason)
+		when := strings.Replace(at.String, "T", " ", 1)
+		if len(when) > 16 {
+			when = when[:16]
+		}
+		data["Suspension"] = map[string]any{"Own": at.Valid, "Reseller": !at.Valid && target.Suspended, "Since": when, "Reason": reason.String, "IsReseller": target.RoleName == "reseller"}
+		fmtL := func(v *int) string {
+			switch {
+			case v == nil:
+				return "—"
+			case *v > 0:
+				return commaInt(*v)
+			}
+			return "∞"
+		}
+		var rows []limitView
+		for _, l := range hosting.NewPlanLimits(s.db).LimitsTable(ctx, target.ID, target.PlanID) {
+			v := limitView{Column: l.Column, Label: l.Label, Plan: fmtL(l.Plan), Effective: fmtL(l.Effective), HasOverride: l.Override != nil}
+			if l.Override != nil {
+				v.Override, v.OverrideValue = fmtL(l.Override), strconv.Itoa(*l.Override)
+			}
+			rows = append(rows, v)
+		}
+		data["LimitRows"], data["HasPlan"] = rows, target.PlanID.Valid
+	}
+	if own {
+		id := target.ID
+		if opts, err := hosting.NewAccountOptionStore(s.db).Get(ctx, &id); err == nil {
+			data["HostingOptions"] = opts
+		}
+	}
+	data["Usage"] = hosting.NewPlanLimits(s.db).Usage(ctx, target.ID)
+	data["MaxLimit"] = 1000000000
 }
 
 // usersUpdate POST /users/{id} — updates a panel user's email, display
