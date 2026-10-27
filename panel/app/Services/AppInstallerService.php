@@ -40,6 +40,11 @@ final class AppInstallerService
         'bludit' => ['title' => 'Bludit', 'description' => 'Flat-file blogging CMS — no database. Staged; ready to use after install.', 'staged' => true],
         'dolibarr' => ['title' => 'Dolibarr ERP & CRM', 'description' => 'ERP and CRM for small businesses. Staged with a new database; the website is served from <folder>/htdocs.', 'staged' => true],
         'akaunting' => ['title' => 'Akaunting', 'description' => 'Free online accounting and invoicing. Staged with a new database; finish in its web installer.', 'staged' => true],
+        'flarum' => ['title' => 'Flarum', 'description' => 'Modern, fast forum software, installed with Composer. The website is served from <folder>/public.', 'staged' => true],
+        'typo3' => ['title' => 'TYPO3', 'description' => 'Enterprise content management, installed with Composer. The website is served from <folder>/public.', 'staged' => true],
+        'concrete' => ['title' => 'Concrete CMS', 'description' => 'In-context editing CMS, installed with Composer. The website is served from <folder>/public.', 'staged' => true],
+        'bagisto' => ['title' => 'Bagisto', 'description' => 'Laravel e-commerce platform, installed with Composer. The website is served from <folder>/public.', 'staged' => true],
+        'shopware' => ['title' => 'Shopware Community Edition', 'description' => 'E-commerce platform, installed with Composer. The website is served from <folder>/public.', 'staged' => true],
     ];
 
     /** Staged apps: where their web installer lives and the web root subfolder. */
@@ -61,6 +66,11 @@ final class AppInstallerService
         'bludit' => ['finish' => '/', 'docroot' => ''],
         'dolibarr' => ['finish' => '/install/', 'docroot' => 'htdocs'],
         'akaunting' => ['finish' => '/', 'docroot' => ''],
+        'flarum' => ['finish' => '/', 'docroot' => 'public'],
+        'typo3' => ['finish' => '/typo3/install.php', 'docroot' => 'public'],
+        'concrete' => ['finish' => '/index.php/install', 'docroot' => 'public'],
+        'bagisto' => ['finish' => '/install', 'docroot' => 'public'],
+        'shopware' => ['finish' => '/installer', 'docroot' => 'public'],
     ];
 
     /** @param array<string, mixed> $site */

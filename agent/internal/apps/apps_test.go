@@ -345,3 +345,28 @@ func TestCatalogEntriesAreWellFormed(t *testing.T) {
 		}
 	}
 }
+
+func TestComposerAppInstall(t *testing.T) {
+	h, _ := setup(t)
+	os.MkdirAll(filepath.Join(h.Base, "usr/local/bin"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "usr/local/bin/composer"), []byte("#!/usr/bin/env php"), 0o755)
+	req := request()
+	req.App, req.Path = "typo3", "site"
+	req.Root = "/home/nimvor/shop.test"
+	cred, _, _ := h.Env.Credential("example")
+	res, err := Install(context.Background(), h.Env, Sources{}, req, cred, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res["document_root"] != "site/public" || res["staged"] != true || !strings.HasSuffix(res["finish_url"].(string), "/typo3/install.php") {
+		t.Errorf("res = %+v", res)
+	}
+	var composer, touched bool
+	for _, c := range h.Runner.Calls {
+		composer = composer || strings.Contains(c, "create-project --prefer-dist --no-progress typo3/cms-base-distribution 'site'")
+		touched = touched || strings.Contains(c, ": > 'public/FIRST_INSTALL'")
+	}
+	if !composer || !touched {
+		t.Fatalf("calls: %v", h.Runner.Calls)
+	}
+}

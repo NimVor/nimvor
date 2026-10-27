@@ -30,7 +30,7 @@ final class AppManagerTest extends HttpTestCase
                 self::assertArrayHasKey($slug, \NimVor\Services\AppInstallerService::STAGED, $slug);
             }
         }
-        foreach (['backdrop', 'processwire', 'bludit', 'dolibarr', 'akaunting'] as $slug) {
+        foreach (['backdrop', 'processwire', 'bludit', 'dolibarr', 'akaunting', 'flarum', 'typo3', 'concrete', 'bagisto', 'shopware'] as $slug) {
             self::assertArrayHasKey($slug, \NimVor\Services\AppInstallerService::APPS);
         }
         self::assertSame(0, (int) $db->scalar("SELECT needs_db FROM app_catalog WHERE slug = 'bludit'"));

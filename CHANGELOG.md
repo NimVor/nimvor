@@ -8,7 +8,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 - **More apps in the app installer** — Backdrop CMS, ProcessWire and Bludit (Blogs & CMS), Dolibarr ERP & CRM (new
-  *Business, CRM & ERP* category) and Akaunting (new *Finance & Invoicing* category). They install like the other
+  *Business, CRM & ERP* category) and Akaunting (new *Finance & Invoicing* category), plus Flarum, TYPO3,
+  Concrete CMS, Bagisto and Shopware Community Edition, which are installed with Composer (as the website's account,
+  with the website's PHP version) and served from `<folder>/public`. They install like the other
   staged apps and can be hidden or disabled under Administration → Application Manager.
 
 ### Changed

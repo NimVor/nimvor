@@ -78,6 +78,8 @@ type AppDef struct {
 	Ext     []string // required PHP extensions
 	Finish  string   // path under the site URL that runs the app's installer
 	NoDB    bool     // the app needs no database (flat-file, e.g. Grav)
+	Package string   // Composer package: installed with create-project instead of a download
+	Touch   []string // files created (empty) under the install folder after unpacking, e.g. TYPO3's FIRST_INSTALL
 }
 
 // Catalog of staged applications. URLs are the vendors' official "latest
@@ -103,6 +105,12 @@ var Catalog = map[string]AppDef{
 	// Business, finance
 	"dolibarr":  {Name: "Dolibarr ERP & CRM", URL: "https://sourceforge.net/projects/dolibarr/files/latest/download", Format: "zip", Strip: 1, DocRoot: "htdocs", Ext: []string{"mysqli", "gd", "curl", "intl", "mbstring", "xml", "zip"}, Finish: "/install/"},
 	"akaunting": {Name: "Akaunting", URL: "https://akaunting.com/download.php?version=latest", Format: "zip", Strip: 0, Ext: []string{"pdo_mysql", "mbstring", "xml", "curl", "zip", "gd", "intl", "bcmath", "fileinfo", "dom"}, Finish: "/"},
+	// Composer-distributed
+	"flarum":   {Name: "Flarum", Package: "flarum/flarum", DocRoot: "public", Ext: []string{"pdo_mysql", "mbstring", "gd", "curl", "dom", "fileinfo", "json", "tokenizer", "zip"}, Finish: "/"},
+	"typo3":    {Name: "TYPO3", Package: "typo3/cms-base-distribution", DocRoot: "public", Touch: []string{"public/FIRST_INSTALL"}, Ext: []string{"pdo_mysql", "gd", "intl", "mbstring", "xml", "zip", "curl", "json"}, Finish: "/typo3/install.php"},
+	"concrete": {Name: "Concrete CMS", Package: "concretecms/composer", DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "fileinfo", "intl"}, Finish: "/index.php/install"},
+	"bagisto":  {Name: "Bagisto", Package: "bagisto/bagisto", DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "intl", "mbstring", "xml", "curl", "zip", "bcmath", "fileinfo", "openssl"}, Finish: "/install"},
+	"shopware": {Name: "Shopware Community Edition", Package: "shopware/production", DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "intl", "mbstring", "xml", "curl", "zip", "dom", "fileinfo", "openssl", "sodium"}, Finish: "/installer"},
 }
 
 // Request describes an installation.
@@ -602,27 +610,8 @@ func Install(ctx context.Context, env *host.Env, src Sources, r Request, cred *e
 		if !env.Runner.Available("composer") {
 			return nil, fmt.Errorf("composer is not installed; install it under Packages")
 		}
-		parent, name := filepath.Split(target)
-		// create-project needs a missing or empty target folder.
-		_, _ = env.Runner.RunWith(ctx, "sh", as(root, nil, ""), "-c", "rmdir "+shQuote(target)+" 2>/dev/null; true")
-		cenv := []string{"COMPOSER_NO_INTERACTION=1", "COMPOSER_HOME=" + filepath.Join(root, ".composer"), "COMPOSER_CACHE_DIR=" + filepath.Join(root, "tmp", "composer-cache")}
-		opts := as(parent, cenv, "")
-		opts.Timeout = 30 * time.Minute
-		composer := "/usr/bin/composer"
-		if env.Root.Exists("/usr/local/bin/composer") {
-			composer = "/usr/local/bin/composer"
-		}
-		// Run Composer with the website's PHP version, as the website account
-		// (php8.3 on Debian, Remi's /opt/remi/php83/root/usr/bin/php on RHEL).
-		phpBin := "php" + r.PHPVersion
-		for _, v := range env.Discovery.PHP().Versions {
-			if v.Version == r.PHPVersion && v.CLIBinary != "" {
-				phpBin = v.CLIBinary
-			}
-		}
-		script := fmt.Sprintf("exec %s %s create-project --prefer-dist --no-progress laravel/laravel %s", shQuote(phpBin), composer, shQuote(filepath.Clean(name)))
-		if out, err := env.Runner.RunWith(ctx, "sh", opts, "-c", script); err != nil {
-			return nil, fmt.Errorf("composer create-project failed: %s", host.Output(out))
+		if err := composerCreate(ctx, env, r, cred, root, target, "laravel/laravel", log); err != nil {
+			return nil, err
 		}
 		lenv := []string{"NIMVOR_URL=" + r.URL, "NIMVOR_DB_HOST=" + r.DB.Host, "NIMVOR_DB_NAME=" + r.DB.Name, "NIMVOR_DB_USER=" + r.DB.User, "NIMVOR_DB_PASSWORD=" + r.DB.Password}
 		if out, err := env.Runner.RunWith(ctx, php, as(target, lenv, laravelEnv)); err != nil {
@@ -641,11 +630,46 @@ func Install(ctx context.Context, env *host.Env, src Sources, r Request, cred *e
 	return nil, fmt.Errorf("unknown app")
 }
 
+// composerCreate runs `composer create-project pkg` into target (which must be
+// missing or empty) with the website's PHP version, as the website account.
+// pkg is a constant from the catalog, never user input.
+func composerCreate(ctx context.Context, env *host.Env, r Request, cred *execx.Credential, root, target, pkg string, log io.Writer) error {
+	if !env.Runner.Available("composer") {
+		return fmt.Errorf("composer is not installed; install it under Packages")
+	}
+	parent, name := filepath.Split(target)
+	run := func(dir string, env2 []string) execx.Opts {
+		return execx.Opts{As: cred, Dir: dir, Output: log, Env: env2, Timeout: 30 * time.Minute}
+	}
+	// create-project needs a missing or empty target folder.
+	_, _ = env.Runner.RunWith(ctx, "sh", run(root, nil), "-c", "rmdir "+shQuote(target)+" 2>/dev/null; true")
+	cenv := []string{"COMPOSER_NO_INTERACTION=1", "COMPOSER_HOME=" + filepath.Join(root, ".composer"), "COMPOSER_CACHE_DIR=" + filepath.Join(root, "tmp", "composer-cache")}
+	composer := "/usr/bin/composer"
+	if env.Root.Exists("/usr/local/bin/composer") {
+		composer = "/usr/local/bin/composer"
+	}
+	// php8.3 on Debian, Remi's /opt/remi/php83/root/usr/bin/php on RHEL.
+	phpBin := "php" + r.PHPVersion
+	for _, v := range env.Discovery.PHP().Versions {
+		if v.Version == r.PHPVersion && v.CLIBinary != "" {
+			phpBin = v.CLIBinary
+		}
+	}
+	script := fmt.Sprintf("exec %s %s create-project --prefer-dist --no-progress %s %s", shQuote(phpBin), composer, pkg, shQuote(filepath.Clean(name)))
+	if out, err := env.Runner.RunWith(ctx, "sh", run(parent, cenv), "-c", script); err != nil {
+		return fmt.Errorf("composer create-project failed: %s", host.Output(out))
+	}
+	return nil
+}
+
 // installStaged downloads def's archive (verified against its checksum when
 // the vendor publishes one), unpacks it into target, and hands off to the
 // application's own web installer. The database has already been created by
 // the panel; its credentials are shown to the user, who finishes setup there.
 func installStaged(ctx context.Context, env *host.Env, src Sources, r Request, def AppDef, cred *execx.Credential, target string, log io.Writer) (map[string]any, error) {
+	if def.Package != "" {
+		return installComposer(ctx, env, r, def, cred, target, log)
+	}
 	url := def.URL
 	if src.CatalogBase != "" {
 		// Tests point the whole catalog at a local server.
@@ -685,6 +709,29 @@ func installStaged(ctx context.Context, env *host.Env, src Sources, r Request, d
 		return nil, fmt.Errorf("unpacking %s failed: %v", def.Name, err)
 	}
 	fmt.Fprintf(log, "Unpacked %s.\n", def.Name)
+	docroot := r.Path
+	if def.DocRoot != "" {
+		docroot = filepath.Join(r.Path, def.DocRoot)
+	}
+	return map[string]any{
+		"app": r.App, "path": r.Path, "document_root": docroot,
+		"staged": true, "finish_url": strings.TrimRight(r.URL, "/") + def.Finish,
+	}, nil
+}
+
+// installComposer installs a Composer-distributed application and hands off to
+// its own web installer, like installStaged does for archives.
+func installComposer(ctx context.Context, env *host.Env, r Request, def AppDef, cred *execx.Credential, target string, log io.Writer) (map[string]any, error) {
+	root, _ := env.Root.Path(r.Root)
+	fmt.Fprintf(log, "Installing %s with Composer…\n", def.Name)
+	if err := composerCreate(ctx, env, r, cred, root, target, def.Package, log); err != nil {
+		return nil, err
+	}
+	for _, f := range def.Touch {
+		if _, err := env.Runner.RunWith(ctx, "sh", execx.Opts{As: cred, Dir: target, Timeout: time.Minute}, "-c", "umask 027 && : > "+shQuote(f)); err != nil {
+			return nil, fmt.Errorf("could not prepare %s", def.Name)
+		}
+	}
 	docroot := r.Path
 	if def.DocRoot != "" {
 		docroot = filepath.Join(r.Path, def.DocRoot)
