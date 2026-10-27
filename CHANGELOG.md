@@ -66,6 +66,15 @@ All notable changes to WhaCP are documented here. The format follows
 - Inline scripts and styles moved to assets (`noinline_test.go` keeps them out).
 
 ### Fixed (Go differential audit, Wave 1)
+- **Plans' disk space was never enforced**: the quota reconcile now exists. Once quotas are
+  on, each account's allowance is shared between its system users (re-divided every pass; a
+  reseller's covers its customers) and set as a hard limit; it also runs when websites are
+  created or deleted.
+- **FFmpeg "Apply" sent the agent an empty user list**; access is now derived from the plans
+  (administrators always, accounts whose plan and reseller's plan allow it, never suspended
+  ones, an account shared with a disallowed owner left out) and kept in line by the scheduler,
+  which also removes SSH shell access from accounts whose plan lost it and re-applies the
+  compiler/traceroute hardening hourly.
 - **Brute force protection did nothing**: the page saved settings, but no failed login was
   ever counted and nothing was blocked, and WhaCP sign-ins were never refused. Failed
   panel sign-ins and the failures the agent reads from SSH, Dovecot, Postfix, pure-ftpd and
@@ -121,7 +130,7 @@ All notable changes to WhaCP are documented here. The format follows
   spellings are accepted).
 
 ### Not yet ported (tracked)
-- The other scheduler passes (disk-quota reconciliation, trash clean-up, WordPress checks, hardening re-apply), `/admin/plugins`, connecting remote servers (pinned TLS
+- The other scheduler passes (trash clean-up, WordPress checks, ModSecurity log trim, the update check, greylisting ranges), `/admin/plugins`, connecting remote servers (pinned TLS
   agent client).
 
 ### Fixed (Go differential audit, Wave 0)

@@ -2,8 +2,10 @@ package http
 
 import (
 	"encoding/json"
+	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
@@ -139,31 +141,21 @@ func (s *Server) ffmpegApply(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/ffmpeg", http.StatusSeeOther)
 		return
 	}
-	raw, err := s.agent.Call(r.Context(), "ffmpeg.access", map[string]any{
-		// A simple reconcile that just reports back; a more precise port
-		// would join on the SQL allowedUsers() set, but the agent also
-		// exposes a reconcile path that re-derives from plans itself when
-		// the `reconcile` flag is set. When the agent doesn't support that
-		// yet, fall through to a plain access call with no users so the
-		// page still renders a success message.
-		"reconcile": true,
-	}, 120*time.Second)
+	log, err := s.ffmpegService(r, user).Reconcile(r.Context(), true)
 	if err != nil {
-		sess.Flash("error", err.Error())
+		sess.Flash("error", agentMessage(err))
 		http.Redirect(w, r, "/ffmpeg", http.StatusSeeOther)
 		return
 	}
-	uid := user.ID
-	s.audit.Record(r.Context(), audit.Entry{
-		Action: "ffmpeg.reconcile", TargetType: "server", TargetID: "ffmpeg",
-		Result: audit.Success, UserID: &uid, Username: user.Username,
-	})
 	msg := "FFmpeg access matches the plans."
-	if m := agentObject(raw); m != nil {
-		if added, _ := m["added"].([]any); len(added) > 0 {
-			msg = "FFmpeg access reconciled."
-		}
+	if len(log) > 0 {
+		msg = strings.Join(log, " ")
 	}
 	sess.Flash("success", msg)
 	http.Redirect(w, r, "/ffmpeg", http.StatusSeeOther)
+}
+
+// ffmpegService builds the FFmpeg access service bound to the actor.
+func (s *Server) ffmpegService(r *http.Request, user *identity.User) *hosting.FfmpegService {
+	return hosting.NewFfmpegService(s.db, s.currentServerID(r), s.agent, s.websiteService(r, user), s.websiteAuditHook(r, user))
 }

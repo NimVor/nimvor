@@ -1902,12 +1902,15 @@ Passes in this panel:
   sign-ins count too and are refused once the address or account is blocked.
 - **Malware scans** — finished scans are recorded, and websites not scanned within `av_scan_days` get a
   scan between 01:00 and 06:00 (three per pass).
+- **Disk quotas, FFmpeg access, shell access, hardening** — plans' disk space is set as per-user quotas
+  (once quotas are on), the FFmpeg group and SSH shell access follow the plans, and the compiler and
+  traceroute restrictions are re-applied hourly.
 - **Scheduled backups** — website, server-configuration and all-websites schedules start in
   their slot (a new schedule waits for its first slot; a storage turned off since means "kept on
   this server only"; a failure notifies the owner), all-websites rounds back up two websites at
   a time, and the oldest completed backups beyond each schedule's retention are deleted.
 
-Not part of this panel yet (the PHP scheduler ran them): disk-quota reconciliation, trash clean-up and the update check.
+Not part of this panel yet (the PHP scheduler ran them): trash clean-up, WordPress checks, the ModSecurity log trim, greylisting ranges and the update check.
 
 Enable the timer on an existing installation with `systemctl enable --now whacp-scheduler.timer`
 (the installer and `upgrade.sh` do it).

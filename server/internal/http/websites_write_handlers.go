@@ -82,6 +82,9 @@ func (s *Server) onWebsiteCreated(ws *hosting.WebsiteService, r *http.Request, u
 		if _, err := s.reconcileLimits(r.WithContext(ctx), user); err != nil {
 			s.log.Warn("resource limits not applied", "error", err)
 		}
+		if _, err := s.reconcileQuotas(ctx); err != nil && !quietAgentError(err) {
+			s.log.Warn("disk quotas not applied", "error", err)
+		}
 	}
 	ws.OnCreated(func(ctx context.Context, site *hosting.Website) {
 		prov := hosting.NewSiteProvisioner(s.db, serverID, s.siteDnsService(r, user), hosting.NewDnsRepository(s.db),

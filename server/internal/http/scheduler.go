@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mchkhawarshahzad/whacp/server/internal/audit"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"github.com/mchkhawarshahzad/whacp/server/internal/mail"
@@ -30,6 +31,38 @@ type schedulerPass struct {
 }
 
 var schedulerPasses = []schedulerPass{
+	{"shell access", func(ctx context.Context, s *Server, r *http.Request) []string {
+		lines, err := s.shellReconcile(ctx)
+		if err != nil && !quietAgentError(err) {
+			lines = append(lines, "shell access not checked: "+agentMessage(err))
+		}
+		return lines
+	}},
+	{"hardening", func(ctx context.Context, s *Server, r *http.Request) []string {
+		// Package updates on the RHEL family reset the compiler and traceroute
+		// restrictions' modes: re-applied once an hour (first ten minutes).
+		if time.Now().Minute() >= 10 {
+			return nil
+		}
+		if _, err := s.agent.Call(ctx, "hardening.reapply", map[string]any{}, 120*time.Second); err != nil && !quietAgentError(err) {
+			return []string{"hardening not reapplied: " + agentMessage(err)}
+		}
+		return nil
+	}},
+	{"ffmpeg", func(ctx context.Context, s *Server, r *http.Request) []string {
+		lines, err := s.ffmpegService(r, schedulerUser).Reconcile(ctx, false)
+		if err != nil && !quietAgentError(err) {
+			lines = append(lines, "FFmpeg access not checked: "+agentMessage(err))
+		}
+		return lines
+	}},
+	{"disk quotas", func(ctx context.Context, s *Server, r *http.Request) []string {
+		lines, err := s.reconcileQuotas(ctx)
+		if err != nil && !quietAgentError(err) {
+			lines = append(lines, "disk quotas not checked: "+agentMessage(err))
+		}
+		return lines
+	}},
 	{"brute force protection", func(ctx context.Context, s *Server, r *http.Request) []string {
 		return s.hulkRun(ctx)
 	}},
@@ -196,4 +229,63 @@ func (s *Server) avRun(ctx context.Context, now time.Time) []string {
 		log = append(log, "Malware scan of "+st.domain+" started.")
 	}
 	return log
+}
+
+// reconcileQuotas sets the disk quotas from the plans (DiskQuotaService::reconcile).
+func (s *Server) reconcileQuotas(ctx context.Context) ([]string, error) {
+	return hosting.NewDiskQuotaService(s.db, 1, s.agent, hosting.NewPlanLimits(s.db),
+		func(ctx context.Context, action, targetType, target, result string, details map[string]any) {
+			s.audit.Record(ctx, audit.Entry{Username: "system", Action: action, TargetType: targetType, TargetID: target, Result: result, Details: details})
+		}).Reconcile(ctx)
+}
+
+// quietAgentError: an agent without the action, or in read-only mode, is not
+// worth reporting every five minutes.
+func quietAgentError(err error) bool {
+	m := err.Error()
+	return strings.Contains(m, "unknown_action") || strings.Contains(m, "write_disabled")
+}
+
+// shellReconcile removes SSH shell access from accounts whose plan no longer
+// includes it (ShellService::reconcile).
+func (s *Server) shellReconcile(ctx context.Context) ([]string, error) {
+	raw, err := s.agent.Call(ctx, "shell.status", map[string]any{}, 60*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	var st struct {
+		Accounts []struct {
+			User string `json:"user"`
+			Mode string `json:"mode"`
+		} `json:"accounts"`
+	}
+	_ = json.Unmarshal(raw, &st)
+	users := identity.NewRepository(s.db)
+	var revoke []string
+	for _, a := range st.Accounts {
+		if a.Mode == "" || a.Mode == "disabled" {
+			continue
+		}
+		var owner sql.NullInt64
+		_ = s.db.QueryRowContext(ctx, `SELECT owner_id FROM websites WHERE server_id = 1 AND system_user = ? AND owner_id IS NOT NULL LIMIT 1`, a.User).Scan(&owner)
+		if !owner.Valid {
+			continue
+		}
+		account, err := users.Find(ctx, owner.Int64)
+		if err != nil || account == nil {
+			continue
+		}
+		if off, _ := s.features.DisabledFor(ctx, account); hasString(off, "ssh") {
+			revoke = append(revoke, a.User)
+		}
+	}
+	if len(revoke) == 0 {
+		return nil, nil
+	}
+	if _, err := s.agent.Call(ctx, "shell.set", map[string]any{"users": revoke, "mode": "disabled"}, 120*time.Second); err != nil {
+		return nil, err
+	}
+	s.audit.Record(ctx, audit.Entry{Username: "system", Action: "shell.set", TargetType: "server", TargetID: "1", Result: audit.Success,
+		Details: map[string]any{"mode": "disabled", "users": revoke, "reason": "plan without SSH"}})
+	return []string{"Shell access removed (plan without SSH): " + strings.Join(revoke, ", ") + "."}, nil
 }
