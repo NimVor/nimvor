@@ -152,9 +152,12 @@ command -v getenforce >/dev/null && SELINUX_MODE=$(getenforce 2>/dev/null || ech
 FIREWALL=none
 if command -v firewall-cmd >/dev/null; then FIREWALL=firewalld; elif command -v ufw >/dev/null; then FIREWALL=ufw; fi
 ok "family $([[ $PKG == dnf ]] && echo rhel || echo debian), $ARCH, package manager $PKG, SELinux ${SELINUX_MODE,,}, firewall $FIREWALL"
-command -v openssl >/dev/null || die "openssl is required"
-command -v curl >/dev/null || die "curl is required"
-command -v bwrap >/dev/null || die "bubblewrap is required (for jailed shells)"
+# Tools the installer itself needs: installed below with the other packages
+# (they used to stop a fresh server before anything could install them).
+early_missing=()
+command -v openssl >/dev/null || early_missing+=(openssl)
+command -v curl >/dev/null || early_missing+=(curl)
+command -v bwrap >/dev/null || early_missing+=(bubblewrap)
 APT_WAIT=(-o DPkg::Lock::Timeout=600)
 
 # ---------------------------------------------------- 1b. server profile ----
@@ -194,7 +197,7 @@ fi
 
 # ------------------------------------------------------- 2. requirements ----
 log "Checking requirements"
-missing_pkgs=()
+missing_pkgs=("${early_missing[@]}")
 
 if [[ $PKG == dnf ]]; then
     PANEL_SITE=/etc/nginx/whacp-available/whacp-panel.conf

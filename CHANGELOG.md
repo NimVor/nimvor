@@ -6,6 +6,10 @@ All notable changes to WhaCP are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **The installer stopped on a fresh server** with "bubblewrap is required" (or openssl/curl) before it installed
+  anything. It now installs these tools with the other dependencies.
+
 ### Changed
 - **Customers no longer see the server's pool counts** on the PHP page: the version cards count only the
   PHP-FPM pools of their own websites.
