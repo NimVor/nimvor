@@ -7,6 +7,8 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Frameworks and more apps** — Symfony, CodeIgniter 4, Yii 2, CakePHP and Slim starters (Composer, no database created),
+  Kirby and Craft CMS, Invoice Ninja and FacturaScripts.
 - **More apps in the app installer** — Backdrop CMS, ProcessWire and Bludit (Blogs & CMS), Dolibarr ERP & CRM (new
   *Business, CRM & ERP* category) and Akaunting (new *Finance & Invoicing* category), plus Flarum, TYPO3,
   Concrete CMS, Bagisto and Shopware Community Edition, which are installed with Composer (as the website's account,

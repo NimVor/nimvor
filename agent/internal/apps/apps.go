@@ -111,6 +111,17 @@ var Catalog = map[string]AppDef{
 	"concrete": {Name: "Concrete CMS", Package: "concretecms/composer", DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "fileinfo", "intl"}, Finish: "/index.php/install"},
 	"bagisto":  {Name: "Bagisto", Package: "bagisto/bagisto", DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "intl", "mbstring", "xml", "curl", "zip", "bcmath", "fileinfo", "openssl"}, Finish: "/install"},
 	"shopware": {Name: "Shopware Community Edition", Package: "shopware/production", DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "intl", "mbstring", "xml", "curl", "zip", "dom", "fileinfo", "openssl", "sodium"}, Finish: "/installer"},
+	// Frameworks and starters (Composer; no database is created)
+	"symfony":     {Name: "Symfony", Package: "symfony/skeleton", NoDB: true, DocRoot: "public", Ext: []string{"mbstring", "xml", "intl", "ctype", "iconv"}, Finish: "/"},
+	"codeigniter": {Name: "CodeIgniter 4", Package: "codeigniter4/appstarter", NoDB: true, DocRoot: "public", Ext: []string{"mbstring", "intl", "json", "curl"}, Finish: "/"},
+	"yii":         {Name: "Yii 2", Package: "yiisoft/yii2-app-basic", NoDB: true, DocRoot: "web", Ext: []string{"mbstring", "xml", "intl", "ctype"}, Finish: "/"},
+	"cakephp":     {Name: "CakePHP", Package: "cakephp/app", NoDB: true, DocRoot: "webroot", Ext: []string{"mbstring", "intl", "xml", "json"}, Finish: "/"},
+	"slim":        {Name: "Slim", Package: "slim/slim-skeleton", NoDB: true, DocRoot: "public", Ext: []string{"mbstring", "json"}, Finish: "/"},
+	// More CMS, business, finance
+	"kirby":          {Name: "Kirby", Package: "getkirby/plainkit", NoDB: true, Ext: []string{"mbstring", "gd", "curl", "ctype", "dom", "json", "libxml"}, Finish: "/panel"},
+	"craft":          {Name: "Craft CMS", Package: "craftcms/craft", DocRoot: "web", Ext: []string{"pdo_mysql", "gd", "intl", "mbstring", "xml", "curl", "zip", "bcmath", "dom"}, Finish: "/admin/install"},
+	"invoiceninja":   {Name: "Invoice Ninja", URL: "https://github.com/invoiceninja/invoiceninja/releases/latest/download/invoiceninja.zip", Format: "zip", Strip: 1, DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "bcmath", "intl", "fileinfo"}, Finish: "/setup"},
+	"facturascripts": {Name: "FacturaScripts", URL: "https://facturascripts.com/DownloadBuild/1/stable", Format: "zip", Strip: 1, Ext: []string{"mysqli", "gd", "mbstring", "xml", "curl", "zip", "openssl"}, Finish: "/"},
 }
 
 // Request describes an installation.
