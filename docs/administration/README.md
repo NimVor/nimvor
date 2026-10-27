@@ -1897,13 +1897,17 @@ Passes in this panel:
   alerts shows the charts and the alerts.
 - **Resource limits** — the plans' CPU, memory, task and I/O limits are compared with the server's and
   applied where they differ (also when websites are created or deleted).
+- **Brute force protection** — failed logins of the login services are read through the agent, counted
+  against the rules in Security → Brute Force Protection, and blocks are sent to the firewall. Failed WhaCP
+  sign-ins count too and are refused once the address or account is blocked.
+- **Malware scans** — finished scans are recorded, and websites not scanned within `av_scan_days` get a
+  scan between 01:00 and 06:00 (three per pass).
 - **Scheduled backups** — website, server-configuration and all-websites schedules start in
   their slot (a new schedule waits for its first slot; a storage turned off since means "kept on
   this server only"; a failure notifies the owner), all-websites rounds back up two websites at
   a time, and the oldest completed backups beyond each schedule's retention are deleted.
 
-Not part of this panel yet (the PHP scheduler ran them): antivirus, brute-force protection, bandwidth and quota
-reconciliation, trash clean-up and the update check.
+Not part of this panel yet (the PHP scheduler ran them): disk-quota reconciliation, trash clean-up and the update check.
 
 Enable the timer on an existing installation with `systemctl enable --now whacp-scheduler.timer`
 (the installer and `upgrade.sh` do it).

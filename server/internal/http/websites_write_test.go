@@ -34,6 +34,8 @@ type sitesAgent struct {
 	// failActions fails a specific action (agent error paths), e.g.
 	// "sites.permissions" -> "the agent refused".
 	failActions map[string]string
+	// replies overrides an action's reply data (a JSON object/array text).
+	replies map[string]string
 	// dbDown makes db.server_status report a stopped server.
 	dbDown bool
 	// jobs answers jobs.get by job id (the stored reply is the full
@@ -333,6 +335,13 @@ func startSitesAgent(t *testing.T, failApply bool) (*sitesAgent, string, string)
 				w.WriteHeader(st)
 			}
 			_, _ = w.Write([]byte(`{"success":false,"error":{"code":"boom","message":"` + msg + `","request_id":"t"}}`))
+			return
+		}
+		sa.mu.Lock()
+		reply, hasReply := sa.replies[action]
+		sa.mu.Unlock()
+		if hasReply {
+			_, _ = w.Write([]byte(`{"success":true,"data":` + reply + `}`))
 			return
 		}
 		if sa.failApply && (action == "sites.apply" || action == "sites.delete") {
@@ -1816,4 +1825,14 @@ func TestWebsitesNewFormIsPrefilled(t *testing.T) {
 			t.Errorf("form not prefilled: missing %q", want)
 		}
 	}
+}
+
+// setReply makes the fake agent answer an action with the given JSON data.
+func (sa *sitesAgent) setReply(action, data string) {
+	sa.mu.Lock()
+	defer sa.mu.Unlock()
+	if sa.replies == nil {
+		sa.replies = map[string]string{}
+	}
+	sa.replies[action] = data
 }

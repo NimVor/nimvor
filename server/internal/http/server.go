@@ -112,6 +112,7 @@ func New(cfg config.Config, db *sql.DB, log *slog.Logger) (*Server, error) {
 	}
 	s.routes()
 	s.installNav()
+	s.auth.WithBruteForce(hulkAuth{s})
 	return s, nil
 }
 

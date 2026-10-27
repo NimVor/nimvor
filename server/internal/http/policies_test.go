@@ -3,6 +3,7 @@ package http
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
 	"github.com/mchkhawarshahzad/whacp/server/internal/identity"
 	"net/http"
@@ -1117,4 +1118,91 @@ func TestWebsiteDeleteCleansUpCronAndStats(t *testing.T) {
 	if idx("cron.apply") > idx("sites.delete") || idx("stats.enable") > idx("sites.delete") {
 		t.Errorf("cleanup must come before the teardown: %v", acts)
 	}
+}
+
+func TestScheduledMalwareScansStartAtNightOncePerInterval(t *testing.T) {
+	s, db, sa := rolesEnvServerAgent(t, true)
+	if _, err := db.Exec(`INSERT INTO websites (id,server_id,owner_id,domain,system_user,root,document_root,kind,php_version,status,created_at,updated_at)
+		VALUES (5,1,1,'scan.example','u','/home/u/scan','/home/u/scan/p','php','8.3','active','','')`); err != nil {
+		t.Fatal(err)
+	}
+	ctx := t.Context()
+	_ = s.settings.Set(ctx, "av_scan_days", 7, 0)
+	day := time.Date(2026, 3, 10, 14, 0, 0, 0, time.Local)
+	night := time.Date(2026, 3, 10, 2, 0, 0, 0, time.Local)
+	if log := s.avRun(ctx, day); len(log) != 0 || containsAction(sa.called(), "av.scan") {
+		t.Fatalf("scans start only at night: %v", log)
+	}
+	log := s.avRun(ctx, night)
+	if len(log) != 1 || !strings.Contains(log[0], "scan.example started") || !containsAction(sa.called(), "av.scan") {
+		t.Fatalf("night pass: %v %v", log, sa.called())
+	}
+	if log := s.avRun(ctx, night.Add(10*time.Minute)); len(log) != 0 {
+		t.Fatalf("a scan is running: %v", log)
+	}
+	var src string
+	_ = db.QueryRow(`SELECT source FROM av_scans WHERE website_id = 5`).Scan(&src)
+	if src != "scheduled" {
+		t.Errorf("source %q", src)
+	}
+}
+
+// Brute force protection counts failed WhaCP sign-ins and, once the address
+// has too many, refuses even the correct password until the block ends.
+func TestBruteForceProtectionRefusesAfterTooManyFailures(t *testing.T) {
+	s, db, sa := rolesEnvServerAgent(t, true)
+	h := s.Handler()
+	ctx := t.Context()
+	for k, v := range map[string]any{"hulk_enabled": true, "hulk_ip_enabled": true, "hulk_ip_max": 3, "hulk_ip_period": 10} {
+		if err := s.settings.Set(ctx, k, v, 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 0; i < 3; i++ {
+		cookie, token := getLogin(t, h)
+		postForm(h, "/login", url.Values{"_token": {token}, "username": {"admin"}, "password": {"wrong-password"}}, cookie)
+	}
+	var blocks int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM hulk_blocks WHERE kind = 'ip'`).Scan(&blocks)
+	if blocks != 1 {
+		t.Fatalf("blocks = %d", blocks)
+	}
+	cookie, token := getLogin(t, h)
+	rr := postForm(h, "/login", url.Values{"_token": {token}, "username": {"admin"}, "password": {loginPassword}}, cookie)
+	next := refreshCookie(cookie, rr)
+	if home := get(t, h, "/", next); home.Code != http.StatusSeeOther || !strings.Contains(home.Header().Get("Location"), "login") {
+		t.Fatalf("the correct password signed in while blocked: %d %s", home.Code, home.Header().Get("Location"))
+	}
+	if page := get(t, h, "/login", next); !strings.Contains(page.Body.String(), "blocked by brute force protection") {
+		t.Fatal("the refusal is not shown")
+	}
+	if !containsAction(sa.called(), "hulk.sync") {
+		t.Errorf("the block was not sent to the server: %v", sa.called())
+	}
+	var denied int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM audit_logs WHERE action = 'auth.login' AND result = 'denied' AND details LIKE '%brute_force_protection%'`).Scan(&denied)
+	if denied != 1 {
+		t.Errorf("denied audit rows %d", denied)
+	}
+	// The scheduler pass stores the services' failures and judges them.
+	fails := hulkEventsJSON()
+	sa.setReply("hulk.failures", fails)
+	log := s.hulkRun(ctx)
+	var ev int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM hulk_events WHERE ip = '198.18.0.7'`).Scan(&ev)
+	if len(log) == 0 || !strings.Contains(log[0], "new block") {
+		t.Errorf("hulkRun: %v (events stored %d, calls %v)", log, ev, sa.called())
+	}
+}
+
+func hulkEventsJSON() string {
+	now := time.Now().Unix()
+	ev := ""
+	for i := 0; i < 3; i++ {
+		if i > 0 {
+			ev += ","
+		}
+		ev += fmt.Sprintf(`{"id":"s%d","time":%d,"service":"ssh","authservice":"sshd","user":"u%d","ip":"198.18.0.7","ok":false}`, i, now, i)
+	}
+	return `{"events":[` + ev + `]}`
 }

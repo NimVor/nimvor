@@ -3,7 +3,9 @@ package http
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/mchkhawarshahzad/whacp/server/internal/hosting"
@@ -28,6 +30,12 @@ type schedulerPass struct {
 }
 
 var schedulerPasses = []schedulerPass{
+	{"brute force protection", func(ctx context.Context, s *Server, r *http.Request) []string {
+		return s.hulkRun(ctx)
+	}},
+	{"malware scans", func(ctx context.Context, s *Server, r *http.Request) []string {
+		return s.avRun(ctx, time.Now())
+	}},
 	{"resource limits", func(ctx context.Context, s *Server, r *http.Request) []string {
 		lines, err := s.reconcileLimits(r, schedulerUser)
 		if err != nil {
@@ -120,4 +128,72 @@ func (s *Server) SetupStatus(ctx context.Context) *hosting.SetupState {
 		return nil
 	}
 	return s.serverSetup(r, schedulerUser).Last(ctx)
+}
+
+const (
+	avNightFrom, avNightTo = 1, 6 // scheduled scans start between 01:00 and 06:00
+	avPerPass              = 3
+)
+
+// avRun records the results of finished malware scans, then starts the
+// scheduled scans of websites not scanned within av_scan_days
+// (AvService::run). A subdomain inside its parent's folder is scanned with the
+// parent.
+func (s *Server) avRun(ctx context.Context, now time.Time) []string {
+	sid := int64(1)
+	var log []string
+	if err := s.avRefresh(ctx, sid); err != nil {
+		return []string{"Malware scans not checked: " + agentMessage(err)}
+	}
+	days, _ := s.settings.Int(ctx, "av_scan_days", 0)
+	if hr := now.Hour(); days <= 0 || hr < avNightFrom || hr >= avNightTo {
+		return log
+	}
+	cutoff := now.Add(-time.Duration(days)*24*time.Hour + time.Hour).UTC().Format(time.RFC3339)
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT w.id, w.domain, w.system_user, w.root FROM websites w LEFT JOIN websites p ON p.id = w.parent_id
+		 WHERE w.server_id = ? AND w.status = 'active'
+		   AND (p.id IS NULL OR substr(w.root, 1, length(p.root) + 1) <> p.root || '/')
+		   AND NOT EXISTS (SELECT 1 FROM av_scans s WHERE s.website_id = w.id AND (s.status = 'running' OR s.started_at > ?))
+		 ORDER BY (SELECT MAX(s.id) FROM av_scans s WHERE s.website_id = w.id) IS NOT NULL, w.id LIMIT ?`, sid, cutoff, avPerPass)
+	if err != nil {
+		return append(log, "Malware scans not started: "+err.Error())
+	}
+	type site struct {
+		id                 int64
+		domain, user, root string
+	}
+	var due []site
+	for rows.Next() {
+		var st site
+		if rows.Scan(&st.id, &st.domain, &st.user, &st.root) == nil {
+			due = append(due, st)
+		}
+	}
+	rows.Close()
+	quarantine, _ := s.settings.Bool(ctx, "av_quarantine", false)
+	for _, st := range due {
+		res, err := s.agent.Call(ctx, "av.scan", map[string]any{"domain": st.domain, "user": st.user, "root": st.root, "quarantine": quarantine}, 60*time.Second)
+		if err != nil {
+			msg := agentMessage(err)
+			if strings.Contains(msg, "not installed") {
+				return log
+			}
+			log = append(log, "Malware scan of "+st.domain+" not started: "+msg)
+			continue
+		}
+		var out struct {
+			JobID string `json:"job_id"`
+		}
+		_ = json.Unmarshal(res, &out)
+		if _, err := s.db.ExecContext(ctx,
+			`INSERT INTO av_scans (server_id, website_id, job_id, source, user_id, status, quarantine, paths, started_at)
+			 VALUES (?, ?, ?, 'scheduled', NULL, 'running', ?, '[]', ?)`,
+			sid, st.id, out.JobID, quarantineToBool(quarantine), now.UTC().Format(time.RFC3339)); err != nil {
+			log = append(log, "Malware scan of "+st.domain+" not recorded: "+err.Error())
+			continue
+		}
+		log = append(log, "Malware scan of "+st.domain+" started.")
+	}
+	return log
 }

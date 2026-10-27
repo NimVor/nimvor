@@ -102,6 +102,30 @@ type Service struct {
 	mailSender ipMailSender
 	// policyReader reads settings (policy_verified_ips, panel_name).
 	policyReader ipPolicyReader
+	// brute is brute force protection (nil: off).
+	brute BruteForce
+}
+
+// BruteForce is brute force protection's part in WhaCP sign-ins.
+type BruteForce interface {
+	// Refusal is why a sign-in must be refused now ("" when it may go on).
+	Refusal(ctx context.Context, username, ip string) string
+	// Failure counts a failed sign-in.
+	Failure(ctx context.Context, username, ip string)
+}
+
+// WithBruteForce enables brute force protection on sign-ins.
+func (s *Service) WithBruteForce(b BruteForce) *Service {
+	s.brute = b
+	return s
+}
+
+// bruteFailure tells brute force protection about a failed sign-in (the login
+// throttle counts it regardless).
+func (s *Service) bruteFailure(ctx context.Context, username, ip string) {
+	if s.brute != nil {
+		s.brute.Failure(ctx, username, ip)
+	}
 }
 
 // ipRememberer stores verified IPs (security.LoginIpVerifier shape).
@@ -154,7 +178,8 @@ type pendingSignin struct {
 func (s *Service) Attempt(ctx context.Context, sess *session.Session, username, password, ip string) (string, bool, error) {
 	username = trimSpace(username)
 
-	if msg := s.bruteForceRefusal(username, ip); msg != "" {
+	if msg := s.bruteForceRefusal(ctx, username, ip); msg != "" {
+		s.audit.Record(ctx, audit.Entry{Username: username, Action: "auth.login", TargetType: "user", TargetID: username, Result: audit.Denied, IP: ip, Details: map[string]any{"reason": "brute_force_protection"}})
 		return msg, false, nil
 	}
 	retry, err := s.throttle.RetryAfter(ctx, username, ip)
@@ -190,6 +215,7 @@ func (s *Service) Attempt(ctx context.Context, sess *session.Session, username, 
 		if err := s.throttle.RecordFailure(ctx, username, ip); err != nil {
 			return "", false, err
 		}
+		s.bruteFailure(ctx, username, ip)
 		reason := "unknown_user"
 		if row != nil {
 			if valid {
@@ -269,10 +295,14 @@ func (s *Service) Attempt(ctx context.Context, sess *session.Session, username, 
 	return "", false, nil
 }
 
-// bruteForceRefusal mirrors AuthService::bruteForceRefusal (the HULK
-// brute-force-protection refusal). The Go panel has no HULK port yet, so it
-// never refuses; the login throttle above still applies.
-func (s *Service) bruteForceRefusal(username, ip string) string { return "" }
+// bruteForceRefusal mirrors AuthService::bruteForceRefusal (brute force
+// protection's refusal of a sign-in).
+func (s *Service) bruteForceRefusal(ctx context.Context, username, ip string) string {
+	if s.brute == nil {
+		return ""
+	}
+	return s.brute.Refusal(ctx, username, ip)
+}
 
 // finishOrVerifyIP signs the session in, unless the verified-IP policy is
 // enabled and the address isn't already trusted: then a random six-digit
@@ -409,6 +439,7 @@ func (s *Service) CompleteIpVerification(ctx context.Context, sess *session.Sess
 		if err := s.throttle.RecordFailure(ctx, username, ip); err != nil {
 			return "", err
 		}
+		s.bruteFailure(ctx, username, ip)
 		uid := id
 		s.audit.Record(ctx, audit.Entry{UserID: &uid, Username: username, Action: "auth.login", TargetType: "user", TargetID: strconv.FormatInt(id, 10), Result: audit.Failure, IP: ip, Details: map[string]any{"reason": "bad_ip_code", "ip": ip}})
 		tries++
@@ -654,6 +685,7 @@ func (s *Service) secondFactorFailed(ctx context.Context, sess *session.Session,
 	if err := s.throttle.RecordFailure(ctx, p.username, ip); err != nil {
 		return "", err
 	}
+	s.bruteFailure(ctx, p.username, ip)
 	s.audit.Record(ctx, audit.Entry{UserID: &p.id, Username: p.username, Action: "auth.login", TargetType: "user", TargetID: strconv.FormatInt(p.id, 10), Result: audit.Failure, IP: ip, Details: map[string]any{"reason": "bad_two_factor_code"}})
 	p.tries++
 	if p.tries >= pendingTries {

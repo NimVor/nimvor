@@ -30,7 +30,7 @@ All notable changes to WhaCP are documented here. The format follows
 - **Scheduled backups run**: backup schedules (website, server configuration, every website)
   start in their slot, all-websites rounds move along, and retention deletes the oldest
   completed backups. Server-configuration backups made by a schedule are now linked to it.
-  The other scheduler passes (antivirus, …) are not ported yet.
+  Other scheduler passes (disk quotas, trash clean-up, hardening, …) are not ported yet.
 - **New websites get their DNS and email set up** (PHP's site provisioner): a zone with
   A/www/SPF/DMARC/CAA following the account's options, or an A record in the account's own
   parent zone, and email with DKIM when this server hosts email; then AutoSSL is queued. Before,
@@ -66,6 +66,15 @@ All notable changes to WhaCP are documented here. The format follows
 - Inline scripts and styles moved to assets (`noinline_test.go` keeps them out).
 
 ### Fixed (Go differential audit, Wave 1)
+- **Brute force protection did nothing**: the page saved settings, but no failed login was
+  ever counted and nothing was blocked, and WhaCP sign-ins were never refused. Failed
+  panel sign-ins and the failures the agent reads from SSH, Dovecot, Postfix, pure-ftpd and
+  webmail logs are now stored and judged by the rules (per address, per day, per account;
+  whitelists, local addresses and countries respected, root left alone unless the option is
+  on), blocks are sent to the server, the notification, command (run as the panel's account,
+  15 s, every variable quoted) and root-login notices work, and a blocked address or locked
+  account is refused at sign-in. Scheduled malware scans (nightly, per `av_scan_days`) start
+  from the scheduler, too.
 - **Deleting a website left its cron jobs and statistics set-up on the server**, and
   creating, deleting or moving websites never refreshed the plans' resource limits (only the
   Limits page button did). The website events PHP wires up now exist: deleting removes the
@@ -112,7 +121,7 @@ All notable changes to WhaCP are documented here. The format follows
   spellings are accepted).
 
 ### Not yet ported (tracked)
-- The other scheduler passes (antivirus, brute-force protection, quota reconciliation), `/admin/plugins`, connecting remote servers (pinned TLS
+- The other scheduler passes (disk-quota reconciliation, trash clean-up, WordPress checks, hardening re-apply), `/admin/plugins`, connecting remote servers (pinned TLS
   agent client).
 
 ### Fixed (Go differential audit, Wave 0)
