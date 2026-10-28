@@ -240,7 +240,7 @@ final class SiteStateTest extends HttpTestCase
         $this->post("/websites/new", ["domain" => "nimvor.com", 'kind' => 'static']);
         $first = $this->db->fetch("SELECT id, system_user FROM websites WHERE domain = 'nimvor.com'");
         self::assertNotNull($first, (string) $this->flash("error"));
-        self::assertSame('nimvor2', $first['system_user'], 'a reserved derived name is numbered');
+        self::assertSame('cust', $first['system_user'], 'the account is named after the customer\'s login, not the domain');
         self::assertTrue($this->lastCall('sites.apply')['new_user']);
 
         // Removed with its account kept: the next website reuses it, no second account is created.
@@ -249,20 +249,20 @@ final class SiteStateTest extends HttpTestCase
         $this->post('/websites/new', ['domain' => 'second.example', 'kind' => 'static']);
         $second = $this->db->fetch("SELECT system_user FROM websites WHERE domain = 'second.example'");
         self::assertNotNull($second, (string) $this->flash('error'));
-        self::assertSame('nimvor2', $second['system_user']);
+        self::assertSame('cust', $second['system_user']);
         self::assertArrayNotHasKey('new_user', $this->lastCall('sites.apply'));
     }
 
     public function testADerivedAccountNameThatExistsOnTheServerIsNumbered(): void
     {
         // The agent knows an account the panel does not (left from an earlier website).
-        $this->agent->failOnce('sites.apply', 409, 'conflict', 'The system user nimvor2 already exists on this server. Choose another name.');
+        $this->agent->failOnce('sites.apply', 409, 'conflict', 'The system user cust already exists on this server. Choose another name.');
         $this->switchTo('cust');
         $this->post('/websites/new', ['domain' => 'nimvor.com', 'kind' => 'static']);
         $site = $this->db->fetch("SELECT system_user FROM websites WHERE domain = 'nimvor.com'");
         self::assertNotNull($site, (string) $this->flash('error'));
-        self::assertSame('nimvor3', $site['system_user']);
-        self::assertSame('nimvor3', $this->lastCall('sites.apply')['user']);
+        self::assertSame('cust2', $site['system_user']);
+        self::assertSame('cust2', $this->lastCall('sites.apply')['user']);
         self::assertSame(2, $this->calls('sites.apply'));
     }
 

@@ -185,6 +185,14 @@ final class WebsiteService
             $own = $this->sites->accountOf($serverId, $ownerId);
             if ($own !== null) {
                 $data['row']['system_user'] = $own;
+            } elseif (trim((string) ($input['system_user'] ?? '')) === '' && ($login = self::accountNameFromLogin((string) ($actor['username'] ?? ''))) !== '') {
+                // The first website: the account is named after the customer's
+                // own login (nv100), not after the domain.
+                $user = $login;
+                for ($n = 2; $n < 100 && (in_array($user, self::RESERVED_USERS, true) || $this->sites->usingSystemUser($serverId, $user) !== []); $n++) {
+                    $user = substr($login, 0, 28) . $n;
+                }
+                $data['row']['system_user'] = $user;
             }
         }
         if (!empty($input['new_system_user'])) {
@@ -206,14 +214,15 @@ final class WebsiteService
         // the server without the panel knowing it, e.g. left from an earlier
         // website: try the next numbers before giving up.
         $derived = !Scope::isAll($actor) && $newUser && trim((string) ($input['system_user'] ?? '')) === '';
-        $base = preg_replace('/[0-9]+$/', '', (string) $row['system_user']) ?? (string) $row['system_user'];
+        $base = (string) $row['system_user'];
+        $tried = 1;
         for ($try = 0;; $try++) {
             try {
                 $this->apply($site, $newUser);
                 break;
             } catch (\Throwable $e) {
                 if ($derived && $try < 20 && str_contains($e->getMessage(), 'already exists on this server')) {
-                    $n = max(2, (int) substr((string) $row['system_user'], strlen($base)) + 1);
+                    $n = ++$tried;
                     while ($this->sites->usingSystemUser($serverId, substr($base, 0, 28) . $n) !== []) {
                         $n++;
                     }
@@ -968,6 +977,19 @@ final class WebsiteService
             }
         }
         return true;
+    }
+
+    /** A valid Linux account name from a panel login, or '' when none can be made. */
+    public static function accountNameFromLogin(string $login): string
+    {
+        $name = preg_replace('/[^a-z0-9_-]/', '', strtolower($login)) ?? '';
+        if ($name !== '' && !preg_match('/^[a-z]/', $name)) {
+            $name = 'u' . $name;
+        }
+        if ($name !== '' && strlen($name) < 2) {
+            $name .= 'x';
+        }
+        return substr($name, 0, 24);
     }
 
     public static function suggestUser(string $domain): string
