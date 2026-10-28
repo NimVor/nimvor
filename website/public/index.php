@@ -14,6 +14,13 @@ require dirname(__DIR__) . '/app/bootstrap.php';
 
 use NimVorSite\Core\App;
 use NimVorSite\Core\Request;
+use NimVorSite\Setup\Setup;
+
+// Not configured yet: the only page is the first-run setup (it hides itself once done).
+if (!Setup::isInstalled(dirname(__DIR__))) {
+    (new Setup(dirname(__DIR__)))->handle(Request::fromGlobals())->send();
+    exit;
+}
 
 try {
     $config = require dirname(__DIR__) . '/config/config.php';

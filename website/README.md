@@ -60,6 +60,19 @@ php -S 127.0.0.1:8099 -t public public/index.php
 | `TRUSTED_PROXY` | `127.0.0.1` | The only address whose `X-Forwarded-For` and `X-Forwarded-Proto` are believed |
 | `SITE_CONFIG` | none | A PHP file (outside the web root) returning an array that overrides the settings |
 
+## Deploy without a terminal
+
+You do not need a command line, and you do not need Composer: the site loads its own
+classes, and `composer.json` is only used to run the tests.
+
+1. Upload the site's files (a zip of this folder, without `vendor/` and `tests/`) with your host's file manager and extract them, for example into `/var/www/nimvor-site`. Make **only the `public/` folder** the web root. The folders `config/` and `storage/` must be writable by the web server user.
+2. Create an empty MySQL or MariaDB database and a database user for it.
+3. In the file manager, create the file `storage/setup.key` and put one secret line in it (at least 16 random characters).
+4. Open `https://your-site/` in a browser. It sends you to the setup page: enter the setup key, the database details, the cache (choose "Files" if you have neither Redis nor Memcached), the public address and your administrator account.
+5. When it says "The site is set up", the tables exist, the key file is deleted, your settings are in `config/local.php` (private, mode 0600) and the setup page is gone. Log in at `/login`.
+
+If the site is configured with environment variables or `SITE_CONFIG` instead, the setup page never appears.
+
 ## Deploy
 
 1. A web server user with PHP 8.3 (`pdo_mysql`, `mbstring`, `sodium`, and `redis` or `memcached`), a database and a database user with rights on that database only.

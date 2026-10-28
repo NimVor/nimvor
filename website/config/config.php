@@ -33,4 +33,9 @@ if (($file = $env('SITE_CONFIG')) !== null && is_file($file)) {
     $config = array_replace_recursive($config, (array) require $file);
 }
 
+// Written by the first-run setup page (/setup); outside the web root, mode 0600.
+if (is_file(__DIR__ . '/local.php')) {
+    $config = array_replace_recursive($config, (array) require __DIR__ . '/local.php');
+}
+
 return $config;

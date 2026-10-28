@@ -317,3 +317,12 @@ progress.meter::-moz-progress-bar { background: var(--brand); border-radius: 8px
 .right { text-align: right; }
 .stack { display: grid; gap: 10px; }
 .mt-0 { margin-top: 0; }
+
+/* ---------- first-run setup ---------- */
+.setup-wrap { min-height: 100vh; background: var(--bg-soft); padding: 40px 0; }
+.setup-card { width: min(760px, 100% - 32px); margin: 0 auto; }
+.brand-dark { color: var(--text); margin-bottom: 18px; }
+.brand-dark:hover { color: var(--text); }
+.setup-steps { padding-left: 1.3em; }
+.setup-steps li { margin-bottom: .7em; }
+.setup-steps code, .setup-card .checks code { word-break: break-all; }
