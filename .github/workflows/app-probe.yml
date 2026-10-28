@@ -1,0 +1,90 @@
+name: App upstream probe
+
+# Read-only: asks the upstream sources (GitHub, PyPI, npm, vendor download
+# hosts) about the applications being added to the installer, so versions,
+# licenses, download files and checksum files are taken from the source and
+# not from memory. Prints facts; changes nothing.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/app-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Probe upstream sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.error
+
+          def get(url, headers=None):
+              h = {"User-Agent": "nimvor-probe", "Accept": "application/vnd.github+json"}
+              if "api.github.com" in url and os.environ.get("GH_TOKEN"):
+                  h["Authorization"] = "Bearer " + os.environ["GH_TOKEN"]
+              h.update(headers or {})
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(url, headers=h), timeout=30) as r:
+                      return r.status, r.read()
+              except urllib.error.HTTPError as e:
+                  return e.code, b""
+              except Exception as e:
+                  return 0, str(e).encode()
+
+          def head(url):
+              try:
+                  req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "nimvor-probe"})
+                  with urllib.request.urlopen(req, timeout=30) as r:
+                      return r.status, r.headers.get("Content-Length")
+              except urllib.error.HTTPError as e:
+                  return e.code, None
+              except Exception as e:
+                  return 0, str(e)
+
+          def gh(repo):
+              s, b = get(f"https://api.github.com/repos/{repo}")
+              meta = json.loads(b) if s == 200 else {}
+              lic = (meta.get("license") or {}).get("spdx_id")
+              s2, b2 = get(f"https://api.github.com/repos/{repo}/releases/latest")
+              rel = json.loads(b2) if s2 == 200 else {}
+              assets = [a["name"] for a in rel.get("assets", [])]
+              print(f"GITHUB {repo}: repo={s} license={lic} archived={meta.get('archived')} latest={s2} tag={rel.get('tag_name')} published={rel.get('published_at')}")
+              print(f"  assets: {assets}")
+              return rel
+
+          print("=== BookStack"); gh("BookStack/BookStack")
+          print("=== Gitea")
+          rel = gh("go-gitea/gitea")
+          tag = rel.get("tag_name", "").lstrip("v")
+          if tag:
+              base = f"https://dl.gitea.com/gitea/{tag}/gitea-{tag}-linux-amd64"
+              for suffix in ("", ".sha256", ".asc"):
+                  print(f"  HEAD {base}{suffix}: {head(base + suffix)}")
+              s, b = get(base + ".sha256")
+              print(f"  sha256 file: {b[:200]!r}")
+          print("=== Listmonk"); gh("knadh/listmonk")
+          print("=== Uptime Kuma"); gh("louislam/uptime-kuma")
+          print("=== Directus"); gh("directus/directus")
+          print("=== Ghost"); gh("TryGhost/Ghost")
+          for pkg in ("django", "fastapi", "uvicorn", "gunicorn"):
+              s, b = get(f"https://pypi.org/pypi/{pkg}/json")
+              if s == 200:
+                  i = json.loads(b)["info"]
+                  print(f"PYPI {pkg}: version={i['version']} license={i.get('license_expression') or (i.get('license') or '')[:60]!r} requires_python={i.get('requires_python')}")
+              else:
+                  print(f"PYPI {pkg}: HTTP {s}")
+          for pkg in ("directus", "ghost", "uptime-kuma"):
+              s, b = get(f"https://registry.npmjs.org/{pkg}/latest")
+              if s == 200:
+                  d = json.loads(b)
+                  print(f"NPM {pkg}: version={d.get('version')} license={d.get('license')} engines={d.get('engines')}")
+              else:
+                  print(f"NPM {pkg}: HTTP {s}")
+          PY
