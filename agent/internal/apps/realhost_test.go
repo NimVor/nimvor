@@ -212,7 +212,9 @@ func TestRealHostCatalogDownloads(t *testing.T) {
 				t.Errorf("%s: web root %q missing or empty after unpacking", slug, def.DocRoot)
 				return
 			}
-			if rel := strings.Trim(def.Finish, "/"); rel != "" && !strings.HasPrefix(rel, "index.php/") {
+			// Applications whose installer is a framework route, not a file.
+			routed := slug == "invoiceninja"
+			if rel := strings.Trim(def.Finish, "/"); rel != "" && !routed && !strings.HasPrefix(rel, "index.php/") {
 				if _, err := os.Stat(filepath.Join(docroot, rel)); err != nil {
 					t.Errorf("%s: installer path %s not found in the web root", slug, def.Finish)
 				}
