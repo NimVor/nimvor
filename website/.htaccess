@@ -1,0 +1,14 @@
+# Apache, when the site's own folder is the web root and you cannot point the web root at
+# public/. Everything is routed into public/, and the private folders (settings, database
+# password, source) answer 404 whatever the URL. Prefer a web root of public/ when you can.
+Options -Indexes -MultiViews
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(app|bin|config|database|deploy|resources|storage|tests|vendor)(/|$) - [R=404,L]
+    RewriteRule ^(composer\.json|composer\.lock|phpunit\.xml\.dist|README\.md)$ - [R=404,L]
+    RewriteRule ^\.git - [R=404,L]
+    RewriteRule ^$ public/ [L]
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>

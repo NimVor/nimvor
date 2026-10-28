@@ -1,0 +1,116 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * NimVor website command-line tool.
+ *
+ *   bin/site migrate                          Create or update the database tables
+ *   bin/site seed                             Add the first blog post (once)
+ *   bin/site user:create EMAIL NAME [--role=admin|client]   Create a user (password prompted or read from stdin)
+ *   bin/site user:password EMAIL              Reset a user's password
+ */
+
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+
+require dirname(__DIR__) . '/app/bootstrap.php';
+
+use NimVorSite\Core\App;
+use NimVorSite\Services\Auth;
+use NimVorSite\Support\Validator;
+
+function out(string $m): void
+{
+    fwrite(STDOUT, $m . PHP_EOL);
+}
+
+function fail(string $m): never
+{
+    fwrite(STDERR, 'Error: ' . $m . PHP_EOL);
+    exit(1);
+}
+
+function readSecret(string $prompt): string
+{
+    if (!stream_isatty(STDIN)) {
+        return rtrim((string) fgets(STDIN), "\r\n");
+    }
+    fwrite(STDOUT, $prompt);
+    shell_exec('stty -echo 2>/dev/null');
+    $v = rtrim((string) fgets(STDIN), "\r\n");
+    shell_exec('stty echo 2>/dev/null');
+    fwrite(STDOUT, PHP_EOL);
+    return $v;
+}
+
+$args = array_slice($argv, 1);
+$cmd = array_shift($args) ?? 'help';
+$opts = [];
+$pos = [];
+foreach ($args as $a) {
+    if (preg_match('/^--([a-z-]+)=(.*)$/', $a, $m)) {
+        $opts[$m[1]] = $m[2];
+    } else {
+        $pos[] = $a;
+    }
+}
+
+$root = dirname(__DIR__);
+$config = require $root . '/config/config.php';
+$app = App::boot($config, $root);
+
+switch ($cmd) {
+    case 'migrate':
+        $done = $app->db->migrate($root . '/database/migrations');
+        out($done === [] ? 'The database is up to date.' : 'Applied: ' . implode(', ', $done));
+        break;
+
+    case 'seed':
+        if ($app->posts->all() !== []) {
+            out('There are already posts; nothing added.');
+            break;
+        }
+        $seed = require $root . '/database/seed.php';
+        foreach ($seed['posts'] as $p) {
+            $app->posts->save(null, $p['slug'], $p['title'], $p['excerpt'], $p['body'], 'published', null);
+        }
+        out('Added ' . count($seed['posts']) . ' post(s).');
+        break;
+
+    case 'user:create':
+        [$email, $name] = [$pos[0] ?? '', $pos[1] ?? ''];
+        $role = $opts['role'] ?? 'client';
+        if ($email === '' || $name === '' || !in_array($role, ['client', 'admin'], true)) {
+            fail('usage: bin/site user:create EMAIL NAME [--role=admin|client]');
+        }
+        $pw = readSecret('Password: ');
+        $v = new Validator(['email' => $email, 'name' => $name, 'password' => $pw]);
+        $v->text('name', 1, 120, 'name')->email()->password('password', $email, $name);
+        if ($v->fails()) {
+            fail(implode(' ', $v->errors()));
+        }
+        if ($app->users->byEmail($email) !== null) {
+            fail('a user with this email exists');
+        }
+        $app->users->create($email, $name, Auth::hash($pw), $role);
+        out("Created {$role} {$email}.");
+        break;
+
+    case 'user:password':
+        $user = $app->users->byEmail($pos[0] ?? '') ?? fail('user not found');
+        $pw = readSecret('New password: ');
+        $v = new Validator(['password' => $pw]);
+        $v->password('password', (string) $user['email'], (string) $user['name']);
+        if ($v->fails()) {
+            fail(implode(' ', $v->errors()));
+        }
+        $app->users->setPassword((int) $user['id'], Auth::hash($pw));
+        out('Password updated.');
+        break;
+
+    default:
+        out("Commands: migrate, seed, user:create EMAIL NAME [--role=admin|client], user:password EMAIL");
+}
