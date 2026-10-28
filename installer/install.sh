@@ -513,7 +513,9 @@ install_missing() {
 if [[ -e /opt/whacp || -e /etc/whacp || -e /etc/systemd/system/whacp-agent.service ]]; then
     die "this server runs the former name of NimVor (WhaCP: /opt/whacp, /etc/whacp or whacp-agent.service). Nothing was changed. Follow docs/migration/WHACP-TO-NIMVOR.md to migrate it before installing."
 fi
-if [[ -e $PREFIX || -e $CONF_DIR ]]; then
+# An empty folder (left by a failed run, a test or a cleaned-up install) is not an installation.
+in_use() { [[ -e $1 ]] && ! { [[ -d $1 && ! -L $1 ]] && [[ -z $(ls -A "$1" 2>/dev/null) ]]; }; }
+if in_use "$PREFIX" || in_use "$CONF_DIR"; then
     mapfile -t missing < <(install_missing)
     if [[ $REINSTALL -eq 1 ]]; then
         confirm "NimVor is already installed. Reinstall files (configuration, token and database are kept)?" || die "aborted"
