@@ -87,7 +87,7 @@ jobs:
           echo "roundcube-core roundcube/dbconfig-install boolean false" | sudo debconf-set-selections
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
             nginx mariadb-server mariadb-client redis-server memcached pure-ftpd bind9 bind9utils postfix dovecot-imapd dovecot-lmtpd dovecot-sieve opendkim rspamd ufw fail2ban openssh-server git \
-            roundcube-core roundcube-sqlite3 roundcube-plugins php-fpm awstats clamav ffmpeg bubblewrap \
+            roundcube-core roundcube-sqlite3 roundcube-plugins php-fpm awstats clamav ffmpeg bubblewrap python3-venv \
             php8.3-cli php8.3-fpm php8.3-mysql php8.3-sqlite3 php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip php8.3-intl
           command -v composer || { curl -fsSL https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer; }
           sudo systemctl start mariadb redis-server memcached nginx php8.3-fpm ssh named
