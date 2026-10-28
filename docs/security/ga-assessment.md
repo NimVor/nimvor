@@ -48,15 +48,19 @@ never a 500. Complements `RbacMatrixTest`, `TenantIsolationTest` and
 ## Cross-platform real-host matrix (remaining gate)
 
 The `realhost-vm` CI job boots each OS under KVM and runs the full real-host
-security suite. It has not run — blocked only by GitHub Actions billing, not
-by any code change. All the tests above are written to run in it.
+security suite; the release workflow runs it before publishing and it can be
+started by hand (`ci.yml`, input `vms`). Separately, the project owner reports
+having installed and tested NimVor by hand on the systems below. That is the
+owner's report, not a CI result, and is recorded as such.
 
-| OS | Status |
-|---|---|
-| Ubuntu 22.04 | pending CI |
-| Ubuntu 24.04 | pending CI |
-| AlmaLinux 9 | pending CI |
-| Rocky 9 | pending CI |
+| OS | Owner's manual test | CI VM matrix |
+|---|---|---|
+| Ubuntu 22.04 | reported tested | run before release |
+| Ubuntu 24.04 | reported tested | run before release |
+| AlmaLinux 8 | reported tested | run before release |
+| AlmaLinux 9 | reported tested | run before release |
+| Rocky 8 | reported tested | run before release |
+| Rocky 9 | reported tested | run before release |
 
 ## Remaining before sign-off
 
