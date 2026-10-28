@@ -183,9 +183,10 @@ final class WebsiteService
             // A customer has one system account, reused by every website
             // they add, also after all of them were removed.
             $own = $this->sites->accountOf($serverId, $ownerId);
-            if ($own !== null) {
+            $chosen = trim((string) ($input['system_user'] ?? '')) !== '';
+            if ($own !== null && !$chosen) {
                 $data['row']['system_user'] = $own;
-            } elseif (trim((string) ($input['system_user'] ?? '')) === '' && ($login = self::accountNameFromLogin((string) ($actor['username'] ?? ''))) !== '') {
+            } elseif ($own === null && !$chosen && ($login = self::accountNameFromLogin((string) ($actor['username'] ?? ''))) !== '') {
                 // The first website: the account is named after the customer's
                 // own login (nv100), not after the domain.
                 $user = $login;
