@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,10 +52,34 @@ func pythonManifest(id, name, desc, pkg, health string, min string) Manifest {
 	}
 }
 
+// sqliteOf asks the interpreter which SQLite library it is linked to
+// (read-only, as the website's account). "" when it cannot be told, which is
+// never a reason to refuse.
+func sqliteOf(ctx context.Context, env *host.Env, cred *execx.Credential, dir, interp string) string {
+	out, err := asUser(ctx, env, cred, dir, nil, nil, shQuote(interp)+" -c 'import sqlite3; print(sqlite3.sqlite_version)'")
+	if err != nil {
+		return ""
+	}
+	v := strings.TrimSpace(string(out))
+	if !regexp.MustCompile(`^[0-9]+(\.[0-9]+){1,3}$`).MatchString(v) {
+		return ""
+	}
+	return v
+}
+
+// sqliteProblem returns the sentence to show when the runtime's SQLite is too old.
+func sqliteProblem(app, have, need string) string {
+	if have == "" || need == "" || compareVersion(have, need) >= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s needs SQLite %s or newer, but this server's Python uses SQLite %s. Use a distribution with a newer SQLite (for example Ubuntu 22.04 or later, or AlmaLinux and Rocky Linux 10), or a Python that is built against a newer one.", app, need, have)
+}
+
 func djangoManifest() Manifest {
 	m := pythonManifest("django", "Django", "Python web framework: a production-ready project with the admin site, served by Gunicorn.", "django", "/admin/login/", "3.12")
 	m.License = LicenseSpec{SPDX: "BSD-3-Clause", URL: "https://github.com/django/django/blob/main/LICENSE"}
 	m.Secrets = []string{"DJANGO_SECRET_KEY", "ADMIN_PASSWORD"}
+	m.Compat.MinSQLite = "3.37"
 	m.Verified = "realhost:TestRealHostPythonDjango" // .github/workflows/app-native.yml
 	return m
 }
@@ -354,6 +379,9 @@ func installDjango(ctx context.Context, env *host.Env, src Sources, r Request, c
 	root, target, interp, pins, err := pyPrepare(ctx, env, src, r, log, []string{"django", "gunicorn", "whitenoise"})
 	if err != nil {
 		return nil, err
+	}
+	if msg := sqliteProblem("Django", sqliteOf(ctx, env, cred, root, interp), nativeApps["django"].manifest.Compat.MinSQLite); msg != "" {
+		return nil, errors.New(msg)
 	}
 	fail, err := pyFolder(ctx, env, cred, root, target, r, []string{"venv", "config", "manage.py", "data", "staticfiles", ".env", "requirements.lock"}, log)
 	if err != nil {

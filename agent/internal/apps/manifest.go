@@ -119,6 +119,10 @@ type Compat struct {
 	Arch      []string `json:"arch,omitempty"`
 	MinDiskMB int      `json:"min_disk_mb,omitempty"`
 	MinRAMMB  int      `json:"min_ram_mb,omitempty"`
+	// MinSQLite: the oldest SQLite library the application's runtime may be
+	// linked to ("3.37"). Django 6 refuses older ones, and AlmaLinux and
+	// Rocky Linux 9 ship 3.34.
+	MinSQLite string `json:"min_sqlite,omitempty"`
 }
 
 // Manifest is one application.

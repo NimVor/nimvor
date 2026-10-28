@@ -183,6 +183,11 @@ jobs:
               echo "=== $t"; (cd "$(dirname "$t")" && CI=1 NIMVOR_NETWORK=1 NIMVOR_TEST_PHP=$php timeout 900 ./realhost.test -test.run RealHost -test.count=1 -test.v)
             done > /root/realhost.log 2>&1; cat /root/realhost.log'
           tests/vm.sh ssh '! grep -E -e "--- (SKIP|FAIL)" -e "^(FAIL|panic)" /root/realhost.log'
+      - name: What the real-host tests left behind (diagnostic)
+        if: always()
+        run: |
+          # The installer reads a leftover /etc/nimvor or /opt/nimvor as an unfinished installation.
+          tests/vm.sh ssh 'for d in /etc/nimvor /opt/nimvor /usr/local/bin/nimvor-agent /etc/systemd/system/nimvor-agent.service /etc/systemd/system/nimvor-panel.service; do [ -e "$d" ] && { echo "LEFT BEHIND: $d"; ls -la "$d" 2>&1 | head -12; }; done; echo "leftover check done"'
       - name: Installer and post-install end-to-end
         if: always()
         run: |

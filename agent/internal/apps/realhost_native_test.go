@@ -226,6 +226,21 @@ func httpDo(t *testing.T, method, url, host string, hdr map[string]string, body 
 	return res.StatusCode, res.Header, string(b)
 }
 
+// hostSQLite is the SQLite library the host's Python is linked to.
+func hostSQLite(t *testing.T, minor string) string {
+	t.Helper()
+	out, err := exec.Command("python"+minor, "-c", "import sqlite3; print(sqlite3.sqlite_version)").Output()
+	if err != nil {
+		t.Fatalf("python%s could not report its SQLite version: %v", minor, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func dirNotEmpty(dir string) bool {
+	e, err := os.ReadDir(dir)
+	return err == nil && len(e) > 0
+}
+
 // systemPython returns the newest "3.x" (3.12 or newer) interpreter the host
 // has. Django and FastAPI need Python 3.12 or newer, so a host without one
 // fails here: the test setup installs one where the distribution lacks it.
@@ -261,6 +276,19 @@ func TestRealHostPythonDjango(t *testing.T) {
 		t.Fatalf("apps.install: %v", err)
 	}
 	log := n.jobLog(t, j.ID)
+	// A host whose Python is linked to an old SQLite (AlmaLinux and Rocky
+	// Linux 9 ship 3.34) must be refused up front, with the reason, and
+	// nothing left behind; that is the correct result there.
+	if have := hostSQLite(t, py); sqliteProblem("Django", have, "3.37") != "" {
+		if j.Status == "succeeded" || !strings.Contains(j.Error, "SQLite") {
+			t.Fatalf("SQLite %s is too old for Django: the install must be refused with the reason, got status %s, error %q", have, j.Status, j.Error)
+		}
+		if n.env.Root.Exists(filepath.Join(n.home, "app")) && dirNotEmpty(filepath.Join(n.home, "app")) {
+			t.Error("a refused install left files behind")
+		}
+		t.Logf("Django refused on SQLite %s as designed: %s", have, j.Error)
+		return
+	}
 	if j.Status != "succeeded" {
 		t.Fatalf("the install did not succeed: %s\n%s", j.Error, log)
 	}

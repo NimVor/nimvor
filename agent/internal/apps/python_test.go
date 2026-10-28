@@ -386,3 +386,21 @@ func TestPythonInstallNeverReplacesAnExistingService(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+func TestSQLiteProblem(t *testing.T) {
+	for _, tc := range []struct {
+		have, need string
+		refused    bool
+	}{
+		{"3.34.1", "3.37", true}, {"3.36.9", "3.37", true}, {"3.37.0", "3.37", false}, {"3.45.1", "3.37", false},
+		{"", "3.37", false}, {"3.34.1", "", false},
+	} {
+		got := sqliteProblem("Django", tc.have, tc.need)
+		if (got != "") != tc.refused {
+			t.Errorf("SQLite %q against %q: refused=%v, message %q", tc.have, tc.need, got != "", got)
+		}
+		if tc.refused && !strings.Contains(got, tc.have) {
+			t.Errorf("the message must name the version: %q", got)
+		}
+	}
+}

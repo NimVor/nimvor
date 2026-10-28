@@ -122,6 +122,14 @@ func BuildPlan(ctx context.Context, env *host.Env, r Request, cred *execx.Creden
 		unit := filepath.Join(env.M.UnitDir, workers.Unit(r.ServiceSlug))
 		check("The service name is unused", r.ServiceSlug != "" && !env.Root.Exists(unit), fmt.Sprintf("a service called %s already exists", r.ServiceSlug))
 	}
+	if m.Compat.MinSQLite != "" && m.Runtime.Type == "python" && cred != nil && r.Runtime != "" {
+		if interp, _, err := pythonOf(env, r.Runtime); err == nil {
+			if root, err := env.Root.Path(r.Root); err == nil {
+				msg := sqliteProblem(m.Name, sqliteOf(ctx, env, cred, root, interp), m.Compat.MinSQLite)
+				check("SQLite is new enough", msg == "", msg)
+			}
+		}
+	}
 	if len(m.Compat.Arch) > 0 {
 		check("CPU architecture is supported", contains(m.Compat.Arch, runtime.GOARCH), fmt.Sprintf("%s runs on %s, this server is %s", m.Name, strings.Join(m.Compat.Arch, ", "), runtime.GOARCH))
 	}
