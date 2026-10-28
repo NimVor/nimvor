@@ -266,10 +266,20 @@ func installGitea(ctx context.Context, env *host.Env, src Sources, r Request, cr
 	fmt.Fprintln(log, "Checksum verified against the download server and the GitHub release.")
 
 	// 4. Write the files as the website account.
+	existed := env.Root.Exists(target)
 	created := []string{"bin", "custom", "data", "repositories", "log"}
 	fail := func(err error) (map[string]any, error) {
 		cleanup(context.Background(), env, cred, target, created, log)
+		if !existed {
+			// The folder was made by this install: remove it too (only if empty).
+			if _, rerr := asUser(context.Background(), env, cred, root, nil, nil, "rmdir -- "+shQuote(r.Path)); rerr != nil {
+				fmt.Fprintf(log, "Cleanup: the folder %s could not be removed: %v.\n", r.Path, rerr)
+			}
+		}
 		return nil, err
+	}
+	if _, err := asUser(ctx, env, cred, root, nil, log, "umask 027 && mkdir -p -- "+shQuote(r.Path)); err != nil {
+		return nil, fmt.Errorf("the folder %s could not be created", r.Path)
 	}
 	f, err := os.Open(file)
 	if err != nil {

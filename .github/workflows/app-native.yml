@@ -1,0 +1,41 @@
+name: Native applications
+
+# Real installations of the natively deployed applications on a disposable
+# Ubuntu VM: real downloads, real systemd services, real HTTP checks. A catalog
+# entry stays in "testing" until its test here passes.
+on:
+  pull_request:
+    paths:
+      - 'agent/internal/apps/**'
+      - 'agent/internal/workers/**'
+      - 'agent/internal/runtimemgr/**'
+      - '.github/workflows/app-native.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Real installations (as root)
+        working-directory: agent
+        run: |
+          set +e
+          sudo -E env "PATH=$PATH" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" "HOME=$HOME" NIMVOR_NETWORK=1 \
+            go test -tags realhost -run 'RealHostGitea|RealHostPython' -count=1 -p 1 -v ./internal/apps 2>&1 | tee native.log
+          status=${PIPESTATUS[0]}
+          echo '--- summary'
+          grep -n -- '--- \(PASS\|FAIL\|SKIP\)\|_test.go:[0-9]*:' native.log | cut -c1-400 | head -80
+          if grep -q -- '--- SKIP' native.log; then echo 'a native installation test was skipped'; status=1; fi
+          exit $status
+      - name: Service logs
+        if: failure()
+        run: |
+          sudo journalctl --no-pager -n 80 -u 'nimvor-worker-*' 2>&1 | cut -c1-300 | tail -80 || true

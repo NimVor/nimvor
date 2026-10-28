@@ -106,8 +106,8 @@ func TestGiteaInstallsVerifiesAndSupervises(t *testing.T) {
 			}
 		}
 	}
-	if shCalls != 2 {
-		t.Errorf("%d sh steps, want 2 (program, configuration): %v", shCalls, h.Runner.Calls)
+	if shCalls != 3 {
+		t.Errorf("%d sh steps, want 3 (folder, program, configuration): %v", shCalls, h.Runner.Calls)
 	}
 	// The binary reached sh on stdin, byte for byte; the config has no secret
 	// and keeps Gitea on loopback with the installer left to the customer.
