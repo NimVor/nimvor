@@ -33,7 +33,7 @@ $fpmSettings = (array) ($fpm['settings'] ?? []);
                 <?php foreach ($extensions as $x): ?>
                     <tr data-nim-ext="<?= e($x['name']) ?>">
                         <td><strong><?= e($x['name']) ?></strong><div class="small text-body-secondary"><?= e($x['description']) ?></div></td>
-                        <td class="d-none d-md-table-cell small"><?= $x['package'] !== '' ? '<code>' . e($x['package']) . '</code>' : '<span class="text-body-secondary">part of PHP ' . e($version) . '</span>' ?><?php if (!empty($x['version'])): ?><div class="text-body-secondary"><?= e($x['version']) ?></div><?php endif; ?></td>
+                        <td class="d-none d-md-table-cell small"><?= $x['package'] !== '' ? '<code>' . e($x['package']) . '</code>' : (!empty($x['vendor']) ? '<span class="text-body-secondary">downloaded from ionCube</span>' : '<span class="text-body-secondary">part of PHP ' . e($version) . '</span>') ?><?php if (!empty($x['version'])): ?><div class="text-body-secondary"><?= e($x['version']) ?></div><?php endif; ?></td>
                         <td>
                             <?php if (!$x['installed']): ?><span class="badge text-bg-secondary">Not installed</span>
                             <?php elseif ($x['enabled']): ?><span class="badge text-bg-success"><i class="bi bi-check-circle"></i> On</span>
@@ -41,13 +41,13 @@ $fpmSettings = (array) ($fpm['settings'] ?? []);
                             <?php if (!empty($x['protected'])): ?><i class="bi bi-shield-lock ms-1 text-body-secondary" title="<?= e($x['protected']) ?>"></i><?php endif; ?>
                         </td>
                         <td class="text-end text-nowrap">
-                            <?php if (!$x['installed'] && $x['package'] !== ''): ?>
+                            <?php if (!$x['installed'] && ($x['package'] !== '' || !empty($x['vendor']))): ?>
                                 <form class="d-inline" method="post" action="<?= e($base . '/extensions/install') ?>" data-nim-busy><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($x['name']) ?>"><button class="btn btn-sm btn-outline-primary">Install</button></form>
                             <?php elseif ($x['installed']): ?>
                                 <?php if (empty($x['protected']) || !$x['enabled']): ?>
                                     <form class="d-inline" method="post" action="<?= e($base . '/extensions/toggle') ?>" data-nim-busy><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($x['name']) ?>"><input type="hidden" name="enabled" value="<?= $x['enabled'] ? '0' : '1' ?>"><button class="btn btn-sm btn-outline-<?= $x['enabled'] ? 'warning' : 'success' ?>"><?= $x['enabled'] ? 'Switch off' : 'Switch on' ?></button></form>
                                 <?php endif; ?>
-                                <?php if ($x['package'] !== '' && empty($x['protected'])): ?>
+                                <?php if (($x['package'] !== '' || !empty($x['vendor'])) && empty($x['protected'])): ?>
                                     <form class="d-inline" method="post" action="<?= e($base . '/extensions/remove') ?>" data-nim-busy data-nim-confirm="Remove <?= e($x['name']) ?> from PHP <?= e($version) ?>? Websites using it will fail."><?= $this->csrfField() ?><input type="hidden" name="name" value="<?= e($x['name']) ?>"><button class="btn btn-sm btn-outline-danger">Remove</button></form>
                                 <?php endif; ?>
                             <?php endif; ?>

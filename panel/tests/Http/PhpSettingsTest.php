@@ -52,6 +52,40 @@ final class PhpSettingsTest extends HttpTestCase
         self::assertStringContainsString('<option value="warning" selected>', $fpm);
     }
 
+    public function testIonCubeLoaderUsesItsOwnAgentActions(): void
+    {
+        $this->agent->succeed('php.ioncube_install', ['job_id' => '3333333333333333', 'package' => 'ionCube Loader']);
+        $this->post('/php/8.3/extensions/install', ['name' => 'ioncube']);
+        self::assertSame(['version' => '8.3', 'name' => 'ioncube'], $this->lastCall('php.ioncube_install'));
+        self::assertSame('3333333333333333', $this->flash('job'));
+        self::assertSame(0, $this->calls('php.extension_install'), 'not a package install');
+
+        $this->agent->succeed('php.ioncube_remove', ['job_id' => '4444444444444444']);
+        $this->post('/php/8.3/extensions/remove', ['name' => 'ioncube']);
+        self::assertSame(['version' => '8.3', 'name' => 'ioncube'], $this->lastCall('php.ioncube_remove'));
+
+        // Switching it on or off is the ordinary extension switch.
+        $this->agent->succeed('php.extension_set', ['name' => 'ioncube', 'enabled' => false]);
+        $this->post('/php/8.3/extensions/toggle', ['name' => 'ioncube', 'enabled' => '0']);
+        self::assertSame(['version' => '8.3', 'name' => 'ioncube', 'enabled' => false], $this->lastCall('php.extension_set'));
+    }
+
+    public function testIonCubeShowsInstallAndRemoveButtons(): void
+    {
+        $row = ['name' => 'ioncube', 'description' => 'ionCube Loader (runs ionCube-encoded PHP files)', 'package' => '', 'vendor' => true, 'installed' => false, 'enabled' => false];
+        $this->agent->succeed('php.extensions', [$row]);
+        $this->agent->succeed('php.ini_get', ['file' => '', 'directives' => []]);
+        $this->agent->succeed('php.fpm_get', []);
+        $page = $this->request('GET', '/php/8.3')->body();
+        self::assertStringContainsString('downloaded from ionCube', $page);
+        self::assertStringContainsString('/php/8.3/extensions/install', $page);
+
+        $this->agent->succeed('php.extensions', [array_merge($row, ['installed' => true, 'enabled' => true])]);
+        $page = $this->request('GET', '/php/8.3')->body();
+        self::assertStringContainsString('/php/8.3/extensions/remove', $page);
+        self::assertStringContainsString('Switch off', $page);
+    }
+
     public function testExtensionActions(): void
     {
         $this->agent->succeed('php.extension_install', ['job_id' => '1111111111111111', 'package' => 'php8.3-redis']);
